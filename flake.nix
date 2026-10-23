@@ -45,9 +45,33 @@
           # the repo toolchain. ts/justfile puts it first for its recipes.
           tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+          # The driver links its nightly's rustc libraries, and runs cargo from it too.
+          rust2-ts =
+            (pkgs.makeRustPlatform {
+              cargo = tsToolchain;
+              rustc = tsToolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-ts";
+                version = "0.0.0";
+                src = ./ts;
+                cargoLock.lockFile = ./ts/Cargo.lock;
+                cargoBuildFlags = [
+                  "--package"
+                  "rust2-ts"
+                ];
+                RUSTFLAGS = "-C link-args=-Wl,-rpath,${tsToolchain}/lib";
+                nativeBuildInputs = [ pkgs.makeWrapper ];
+                postInstall = ''
+                  wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo
+                '';
+                # The tests need node, tsc, and wasm builds: `just ts test` runs them.
+                doCheck = false;
+              };
         in
         {
           packages.quest = quest-cli;
+          packages.ts = rust2-ts;
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               toolchain

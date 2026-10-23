@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 
+/** Apply operation `op` to operands taken from `data`. */
 export function u8Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(1);
@@ -91,6 +92,7 @@ export function u8Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function u16Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(2);
@@ -180,6 +182,7 @@ export function u16Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function u32Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -269,6 +272,7 @@ export function u32Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function u64Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(8);
@@ -358,6 +362,7 @@ export function u64Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function u128Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(16);
@@ -447,6 +452,7 @@ export function u128Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function usizeOp(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -536,6 +542,7 @@ export function usizeOp(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function i8Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(1);
@@ -625,6 +632,7 @@ export function i8Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function i16Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(2);
@@ -714,6 +722,7 @@ export function i16Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function i32Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -803,6 +812,7 @@ export function i32Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function i64Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(8);
@@ -892,6 +902,7 @@ export function i64Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function i128Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(16);
@@ -981,6 +992,7 @@ export function i128Op(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Apply operation `op` to operands taken from `data`. */
 export function isizeOp(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -1070,6 +1082,7 @@ export function isizeOp(op: number, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Negate, which overflows at the minimum. */
 export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(1);
@@ -1079,6 +1092,7 @@ export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(BigInt(rt.i8(-a))));
 }
 
+/** Negate, which overflows at the minimum. */
 export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(2);
@@ -1088,6 +1102,7 @@ export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(BigInt(rt.i16(-a))));
 }
 
+/** Negate, which overflows at the minimum. */
 export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -1097,6 +1112,7 @@ export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(BigInt(rt.i32(-a))));
 }
 
+/** Negate, which overflows at the minimum. */
 export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(8);
@@ -1106,6 +1122,7 @@ export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(rt.i64(-a)));
 }
 
+/** Negate, which overflows at the minimum. */
 export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(16);
@@ -1115,6 +1132,7 @@ export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(rt.i128(-a)));
 }
 
+/** Negate, which overflows at the minimum. */
 export function isizeNeg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(4);
@@ -1124,6 +1142,7 @@ export function isizeNeg(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i128.toBeBytes(BigInt(rt.isize(-a))));
 }
 
+/** Cast a value of type `from` to type `to`, both indexes into the twelve types. */
 export function cast(from: number, to: number, data: Uint8Array, out: rt.ByteVec): void {
 	const value = rt.u8.rem(from, 12);
 	if (value === 0) {
@@ -1525,6 +1544,7 @@ export function cast(from: number, to: number, data: Uint8Array, out: rt.ByteVec
 	}
 }
 
+/** Conversions that check, and ones that cannot fail. */
 export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = new Uint8Array(8);

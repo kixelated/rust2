@@ -8,6 +8,12 @@ import { decodeWith$Probe } from "../lite/message.ts";
 import { Version } from "../lite/version.ts";
 import { type Control } from "../stats.ts";
 
+/**
+ * Sent to probe the available bitrate and round-trip time.
+ *
+ * Lite03+. Lite04 adds the `rtt` field.
+ * On the wire, 0 means unknown (None). Some(0) is rounded up to Some(1).
+ */
 export class Probe {
 	bitrate: bigint | undefined;
 	rtt: bigint | undefined;
@@ -17,6 +23,7 @@ export class Probe {
 		this.rtt = fields.rtt;
 	}
 
+	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
 	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Probe, number], DecodeError> {
 		let r: Decoder = Decoder.new(buf, Form.from(version));
 		const decode = Probe.decode(r, version);
@@ -27,6 +34,7 @@ export class Probe {
 		return rt.Ok([value, rt.usize(buf.length - r.remaining())]);
 	}
 
+	/** Encode the value to the given encoder, which may hold partial output on error. */
 	encode(w: Encoder, version: Version): rt.Result<undefined, EncodeError> {
 		const prefix = w.prefixVarint();
 		const encodeMsg = this.encodeMsg(w, version);
@@ -45,12 +53,14 @@ export class Probe {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode the value from the front of the decoder. */
 	static decode(r: Decoder, version: Version): rt.Result<Probe, DecodeError> {
 		return decodeWith$Probe(r, (body: Decoder): rt.Result<Probe, DecodeError> => {
 			return Probe.decodeMsg(body, version);
 		});
 	}
 
+	/** Encode this message body (without size prefix). */
 	encodeMsg(w: Encoder, version: Version): rt.Result<undefined, EncodeError> {
 		if (version === "Lite01" || version === "Lite02") {
 			return rt.Err("Version");
@@ -74,6 +84,7 @@ export class Probe {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode a message body (without size prefix). */
 	static decodeMsg(r: Decoder, version: Version): rt.Result<Probe, DecodeError> {
 		if (version === "Lite01" || version === "Lite02") {
 			return rt.Err({ tag: "Version" });

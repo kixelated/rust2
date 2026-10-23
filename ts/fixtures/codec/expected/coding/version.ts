@@ -6,6 +6,7 @@ import { type Encoder, type EncodeError } from "../coding/encode.ts";
 import { type Form } from "../coding/varint.ts";
 import { type Version as version_Version } from "../lite/version.ts";
 
+/** A version number negotiated during the setup. */
 export class Version {
 	_0: bigint;
 
@@ -13,7 +14,8 @@ export class Version {
 		this._0 = _0;
 	}
 
-	encode(w: Encoder, _: Form): rt.Result<undefined, EncodeError> {
+	/** Encode the value to the given encoder, which may hold partial output on error. */
+	encode$Form(w: Encoder, _: Form): rt.Result<undefined, EncodeError> {
 		const varint = w.varint(this._0);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
@@ -21,6 +23,7 @@ export class Version {
 		return rt.Ok(undefined);
 	}
 
+	/** Encode the value to the given encoder, which may hold partial output on error. */
 	encode$Version(w: Encoder, _: version_Version): rt.Result<undefined, EncodeError> {
 		const varint = w.varint(this._0);
 		if (!varint.ok) {
@@ -29,6 +32,7 @@ export class Version {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode the version number. */
 	static decode(r: Decoder, _: Form): rt.Result<Version, DecodeError> {
 		const varint = r.varint();
 		if (!varint.ok) {
@@ -38,6 +42,7 @@ export class Version {
 	}
 }
 
+/** A list of versions in preferred order. */
 export class Versions {
 	_0: Version[];
 
@@ -45,6 +50,7 @@ export class Versions {
 		this._0 = _0;
 	}
 
+	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
 	static decodeSlice(buf: Uint8Array, version: Form): rt.Result<[Versions, number], DecodeError> {
 		let r: Decoder = Decoder.new(buf, version);
 		const decode = Versions.decode(r, version);
@@ -55,13 +61,14 @@ export class Versions {
 		return rt.Ok([value, rt.usize(buf.length - r.remaining())]);
 	}
 
-	encode(w: Encoder, version: Form): rt.Result<undefined, EncodeError> {
+	/** Encode the version list. */
+	encode$Form(w: Encoder, version: Form): rt.Result<undefined, EncodeError> {
 		const varint = w.varint(BigInt(this._0.length));
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
 		for (const v of this._0) {
-			const encode = v.encode(w, version);
+			const encode = v.encode$Form(w, version);
 			if (!encode.ok) {
 				return rt.Err(encode.error);
 			}
@@ -73,6 +80,7 @@ export class Versions {
 		return new Versions(rt.slice.toVec(vs));
 	}
 
+	/** Encode the version list. */
 	encode$Version(w: Encoder, version: version_Version): rt.Result<undefined, EncodeError> {
 		const varint = w.varint(BigInt(this._0.length));
 		if (!varint.ok) {
@@ -87,6 +95,7 @@ export class Versions {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode the version list. */
 	static decode(r: Decoder, version: Form): rt.Result<Versions, DecodeError> {
 		const varint = r.varint();
 		if (!varint.ok) {

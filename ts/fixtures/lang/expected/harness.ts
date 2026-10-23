@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { copies, loops, patterns, closures, library } from "./shapes.ts";
 
+/** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
 	let out: rt.ByteVec = new rt.ByteVec();
 	if (!(input.length >= 2)) {

@@ -20,6 +20,13 @@ pub fn bump(x: &mut u32) {
 	*x += 1;
 }
 
+/// Each element would be a copy, so the increments would be lost.
+pub fn increment(v: &mut [u32]) {
+	for x in v {
+		*x += 1;
+	}
+}
+
 /// `None` and `Some(None)` would both be `undefined`.
 pub fn nested(x: Option<Option<u8>>) -> bool {
 	x.is_some()

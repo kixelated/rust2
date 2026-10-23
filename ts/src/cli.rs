@@ -9,10 +9,11 @@ use crate::config::{self, Config};
 /// holds exactly, and its `cfg`s are the browser's.
 const TARGET: &str = "wasm32-unknown-unknown";
 
-const USAGE: &str = "usage: rust2-ts --config <ts.toml> --out <dir> [-- <cargo args>]
+const USAGE: &str = "usage: rust2-ts --config <ts.toml> --out <dir> [--manifest-path <Cargo.toml>] [-- <cargo args>]
 
-Translates the library of the package that ts.toml names (its Cargo.toml is beside it)
-to TypeScript in <dir>. Cargo args, such as --features, are passed to `cargo check`.";
+Translates the library of the package that ts.toml names to TypeScript in <dir>. The
+package's Cargo.toml is beside ts.toml unless --manifest-path says where. Cargo args,
+such as --features, are passed to `cargo check`.";
 
 pub fn run(args: &[String]) -> ExitCode {
 	match try_run(args) {
@@ -27,17 +28,22 @@ pub fn run(args: &[String]) -> ExitCode {
 fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	let mut config = None;
 	let mut out = None;
+	let mut manifest = None;
 	let mut cargo_args: &[String] = &[];
 	let mut rest = args;
 	while let [arg, tail @ ..] = rest {
 		rest = tail;
 		match arg.as_str() {
-			"--config" | "--out" => {
+			"--config" | "--out" | "--manifest-path" => {
 				let [value, tail @ ..] = rest else {
 					return Err(format!("{arg} needs a value\n\n{USAGE}"));
 				};
 				rest = tail;
-				let slot = if arg == "--config" { &mut config } else { &mut out };
+				let slot = match arg.as_str() {
+					"--config" => &mut config,
+					"--out" => &mut out,
+					_ => &mut manifest,
+				};
 				*slot = Some(absolute(Path::new(value))?);
 			}
 			"--" => {
@@ -54,10 +60,13 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	let config_path = config.ok_or_else(|| format!("--config is required\n\n{USAGE}"))?;
 	let out = out.ok_or_else(|| format!("--out is required\n\n{USAGE}"))?;
 	let config = Config::load(&config_path)?;
-	let manifest = config_path
-		.parent()
-		.expect("an absolute file path has a parent")
-		.join("Cargo.toml");
+	let manifest = match manifest {
+		Some(manifest) => manifest,
+		None => config_path
+			.parent()
+			.expect("an absolute file path has a parent")
+			.join("Cargo.toml"),
+	};
 	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
 	let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
 		Some(dir) => PathBuf::from(dir),

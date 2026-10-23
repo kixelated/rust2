@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 
+/** A `Copy` struct, which Rust copies where JS would share. */
 export class Point {
 	x: number;
 	y: number;
@@ -19,6 +20,7 @@ export class Point {
 		this.y = rt.i32(this.y + 1);
 	}
 
+	/** Changes `self`, which a caller's copy must not see. */
 	shift(by: number): Point {
 		this.x = rt.i32(this.x + by);
 		return rt.copy(this);
@@ -29,6 +31,7 @@ export class Point {
 	}
 }
 
+/** A tuple struct. */
 export class Meters {
 	_0: bigint;
 
@@ -36,6 +39,7 @@ export class Meters {
 		this._0 = _0;
 	}
 
+	/** A default method, monomorphized for each type. */
 	describe(out: rt.ByteVec): void {
 		out.push(0xaa);
 		out.extendFromSlice(rt.u64.toBeBytes(this._0));
@@ -46,9 +50,14 @@ export class Meters {
 	}
 }
 
-export type Shape = { tag: "Dot" } | { tag: "Line"; _0: Point; _1: Point } | { tag: "Rect"; corner: Point; width: number; height: number };
+/** An enum with data, and one without. */
+export type Shape =
+	| { tag: "Dot" }
+	| { tag: "Line"; _0: Point; _1: Point }
+	| { tag: "Rect"; corner: Point; width: number; height: number };
 
 export const Shape = {
+	/** A default method, monomorphized for each type. */
 	describe(self: Shape, out: rt.ByteVec): void {
 		out.push(4);
 		out.extendFromSlice(rt.u64.toBeBytes(Shape.area(self)));
@@ -78,7 +87,7 @@ export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
 	return sum;
 }
 
-export function total(items: Meters[], out: rt.ByteVec): bigint {
+export function total$Meters(items: Meters[], out: rt.ByteVec): bigint {
 	let sum: bigint = 0n;
 	for (const item of items) {
 		item.describe(out);
@@ -126,6 +135,7 @@ export function shape(data: Uint8Array): Shape {
 	}
 }
 
+/** `Copy` aggregates: a copy changes apart from its original. */
 export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	const p = Point.new(rt.option.unwrapOr(rt.slice.first(data), 0), 7);
 	let q: Point = rt.copy(p);
@@ -169,6 +179,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	})));
 }
 
+/** Loops: labeled, `while let`, ranges, and values out of `break`. */
 export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let stack: rt.ByteVec = rt.slice.toByteVec(data);
 	let popped: number = 0;
@@ -236,6 +247,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(count);
 }
 
+/** Patterns: slices, ranges, guards that bind, `@` bindings, and let chains. */
 export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	arms: {
 		if (data.length === 0) {
@@ -334,10 +346,11 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		area = rt.i64(BigInt(rt.i32(a2.x - b3.x)) * BigInt(rt.i32(a2.y - b3.y)));
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total_ = rt.u64(total$Shape([shape_, { tag: "Dot" } as Shape], out) + total([new Meters(3n), new Meters(18446744073709551615n)], out));
-	out.extendFromSlice(rt.u64.toBeBytes(total_));
+	const total = rt.u64(total$Shape([shape_, { tag: "Dot" } as Shape], out) + total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
+	out.extendFromSlice(rt.u64.toBeBytes(total));
 }
 
+/** Closures capturing by reference and by move, and functions as values. */
 export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	let sum: number = 0;
 	let add: (a0: number) => void = (v: number): void => {
@@ -369,6 +382,7 @@ export function apply(f: (a0: number) => number, v: number): number {
 	return f(v);
 }
 
+/** Options, results, `?`, and strings. */
 export function library(data: Uint8Array, out: rt.ByteVec): void {
 	const checked = (a: number, b: number): number | undefined => {
 		const checkedAdd = rt.u8.checkedAdd(a, b);

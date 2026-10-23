@@ -4,7 +4,7 @@ import * as rt from "../rt.ts";
 import { Decoder, type DecodeError } from "../coding/decode.ts";
 import { type Encoder, type EncodeError } from "../coding/encode.ts";
 import { Form } from "../coding/varint.ts";
-import { decodeWith } from "../lite/message.ts";
+import { decodeWith$Group } from "../lite/message.ts";
 import { Version } from "../lite/version.ts";
 
 export class Group {
@@ -18,6 +18,7 @@ export class Group {
 		this.frameStart = fields.frameStart;
 	}
 
+	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
 	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Group, number], DecodeError> {
 		let r: Decoder = Decoder.new(buf, Form.from(version));
 		const decode = Group.decode(r, version);
@@ -28,6 +29,7 @@ export class Group {
 		return rt.Ok([value, rt.usize(buf.length - r.remaining())]);
 	}
 
+	/** Encode the value to the given encoder, which may hold partial output on error. */
 	encode(w: Encoder, version: Version): rt.Result<undefined, EncodeError> {
 		const prefix = w.prefixVarint();
 		const encodeMsg = this.encodeMsg(w, version);
@@ -46,12 +48,14 @@ export class Group {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode the value from the front of the decoder. */
 	static decode(r: Decoder, version: Version): rt.Result<Group, DecodeError> {
-		return decodeWith(r, (body: Decoder): rt.Result<Group, DecodeError> => {
+		return decodeWith$Group(r, (body: Decoder): rt.Result<Group, DecodeError> => {
 			return Group.decodeMsg(body, version);
 		});
 	}
 
+	/** Encode this message body (without size prefix). */
 	encodeMsg(w: Encoder, version: Version): rt.Result<undefined, EncodeError> {
 		const varint = w.varint(this.subscribe);
 		if (!varint.ok) {
@@ -72,6 +76,7 @@ export class Group {
 		return rt.Ok(undefined);
 	}
 
+	/** Decode a message body (without size prefix). */
 	static decodeMsg(r: Decoder, version: Version): rt.Result<Group, DecodeError> {
 		const varint = r.varint();
 		if (!varint.ok) {

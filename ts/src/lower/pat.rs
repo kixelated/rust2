@@ -180,7 +180,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					true => self.copied(scrut.clone(), ty),
 					false => scrut.clone(),
 				};
-				let name = self.bind_var(*var, *name, mutable);
+				let name = self.bind_var(*var, *name, mutable, ty, pat.span);
 				let annotate = mutable.then(|| self.t.ty(ty, pat.span));
 				out.push(StmtKind::decl(mutable, name, annotate, Some(value)).at(None));
 				if let Some(sub) = subpattern {
@@ -195,7 +195,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			PatKind::Variant {
-				adt_def,
 				variant_index,
 				subpatterns,
 				..
@@ -210,7 +209,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					let field = self.project(scrut.clone(), ty, *variant_index, f.field, pat.span);
 					self.pat_bind(&f.pattern, &field, owned, out);
 				}
-				let _ = adt_def;
 			}
 			PatKind::Slice { prefix, slice, suffix } | PatKind::Array { prefix, slice, suffix } => {
 				for (i, p) in prefix.iter().enumerate() {

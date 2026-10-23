@@ -10,11 +10,11 @@ use super::AdtRepr;
 use super::body::Body;
 use super::library::Std;
 use super::num::Int;
-use crate::ts::{Expr, Key, Stmt};
+use crate::ts::{Expr, Key};
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	/// A literal or constant expression.
-	pub fn constant(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
+	pub fn constant(&mut self, id: ExprId) -> Expr {
 		let tcx = self.t.tcx;
 		let e = &self.thir[id];
 		let span = e.span;
@@ -54,7 +54,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				_ => self.err(span, format!("a literal of type `{ty}`")),
 			},
 			ExprKind::ZstLiteral { .. } => match *ty.kind() {
-				ty::FnDef(def_id, args) => self.fn_value(def_id, args.skip_binder(), span, out),
+				ty::FnDef(def_id, args) => self.fn_value(def_id, args.skip_binder(), span),
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
 				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
 					let info = self.t.adt(adt, span);

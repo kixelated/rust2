@@ -465,8 +465,23 @@ impl Printer<'_> {
 				self.doc(doc);
 				let name = self.program.syms[*sym].name.clone();
 				self.start();
-				let ty = self.ty(ty);
-				self.write(&format!("export type {name}{} = {ty};\n", type_params(params)));
+				let header = format!("export type {name}{} =", type_params(params));
+				let variants: Vec<String> = match ty {
+					Type::Union(variants) => variants.iter().map(|v| self.ty(v)).collect(),
+					ty => vec![self.ty(ty)],
+				};
+				let line = format!("{header} {};", variants.join(" | "));
+				// A variant a line once they don't fit one.
+				if line.len() <= 100 {
+					self.write(&format!("{line}\n"));
+				} else {
+					self.write(&format!("{header}\n"));
+					for (i, variant) in variants.iter().enumerate() {
+						let end = if i + 1 == variants.len() { ";" } else { "" };
+						self.start();
+						self.write(&format!("{INDENT}| {variant}{end}\n"));
+					}
+				}
 				let functions = self.program.methods.get(sym).map_or(&[][..], Vec::as_slice);
 				if !functions.is_empty() {
 					self.newline();

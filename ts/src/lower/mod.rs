@@ -522,7 +522,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						ts::Field {
 							id,
 							ty: self.ty(field.ty(tcx, identity).skip_norm_wip(), span),
-							doc: None,
+							doc: self.doc(field.did),
 						}
 					})
 					.collect();
@@ -531,7 +531,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					params,
 					fields,
 					ctor: ctor.clone(),
-					doc: None,
+					doc: self.doc(did),
 				}
 			}
 			AdtRepr::Tags => Item::Union {
@@ -543,7 +543,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						.map(|v| Type::StrLit(v.name.to_string()))
 						.collect(),
 				),
-				doc: None,
+				doc: self.doc(did),
 			},
 			AdtRepr::Union => {
 				let variants = adt
@@ -563,7 +563,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					sym,
 					params,
 					ty: Type::Union(variants),
-					doc: None,
+					doc: self.doc(did),
 				}
 			}
 		};
@@ -747,12 +747,30 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		};
 		function.sym = sym;
 		function.loc = self.loc(span);
+		// A trait method's impl often leaves its docs to the trait.
+		function.doc = self
+			.doc(def_id)
+			.or_else(|| tcx.trait_item_of(def_id).and_then(|item| self.doc(item)));
 		match owner {
 			Owner::Class(owner) | Owner::Companion(owner) => {
 				self.program.methods.entry(owner).or_default().push(function)
 			}
 			Owner::Module => self.program.items.push(Item::Function(function)),
 		}
+	}
+
+	/// The doc comment on an item, as written.
+	fn doc(&self, def_id: DefId) -> Option<String> {
+		let local = def_id.as_local()?;
+		let lines: Vec<String> = self
+			.tcx
+			.hir_attrs(self.tcx.local_def_id_to_hir_id(local))
+			.iter()
+			.filter_map(|attr| attr.doc_str())
+			.map(|doc| doc.to_string())
+			.collect();
+		let doc = lines.join("\n");
+		(!doc.trim().is_empty()).then_some(doc)
 	}
 
 	/// Whether invocations of the macro that made `span` are left out.

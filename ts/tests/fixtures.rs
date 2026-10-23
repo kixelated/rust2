@@ -114,25 +114,16 @@ fn diff(want: &str, got: &str) -> String {
 
 /// Type-check the output as strict, erasable TypeScript, which Node runs as is.
 fn typecheck(out: &Path) {
-	let mut files: Vec<PathBuf> = sources(out).into_iter().map(|(rel, _)| out.join(rel)).collect();
-	files.push(out.join("rt.ts"));
+	// The runtime's settings: strict, and erasable so Node runs it as is.
+	let runtime = manifest_dir().join("runtime").join("tsconfig.json");
+	let config = format!(
+		"{{ \"extends\": {:?}, \"files\": [], \"include\": [\"**/*.ts\"] }}\n",
+		runtime.display().to_string()
+	);
+	std::fs::write(out.join("tsconfig.json"), config).unwrap();
 	let output = Command::new("tsc")
-		.args([
-			"--noEmit",
-			"--strict",
-			"--noUnusedLocals",
-			"--noUnusedParameters",
-			"--target",
-			"es2022",
-			"--module",
-			"esnext",
-			"--moduleResolution",
-			"bundler",
-			"--allowImportingTsExtensions",
-			"--verbatimModuleSyntax",
-			"--erasableSyntaxOnly",
-		])
-		.args(&files)
+		.arg("-p")
+		.arg(out)
 		.output()
 		.expect("running tsc, which the dev shell provides");
 	assert!(

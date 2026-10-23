@@ -6,6 +6,7 @@ import { type Group } from "../lite/group.ts";
 import { type Probe } from "../lite/probe.ts";
 import { type Control } from "../stats.ts";
 
+/** Read a lite message's varint size prefix, refusing one past `max`. */
 export function decodeSize(r: Decoder, max: number): rt.Result<number, DecodeError> {
 	const varint = r.varint();
 	if (!varint.ok) {
@@ -24,7 +25,11 @@ export function decodeSize(r: Decoder, max: number): rt.Result<number, DecodeErr
 	}
 }
 
-export function decodeWith(r: Decoder, decode: (a0: Decoder) => rt.Result<Group, DecodeError>): rt.Result<Group, DecodeError> {
+/**
+ * Decode a size-prefixed `T`, reading its body with `decode` in place of
+ * [`Message::decode_msg`], for a body whose bounds come from the session.
+ */
+export function decodeWith$Group(r: Decoder, decode: (a0: Decoder) => rt.Result<Group, DecodeError>): rt.Result<Group, DecodeError> {
 	const decodeSize_ = decodeSize(r, 65535);
 	if (!decodeSize_.ok) {
 		return rt.Err(decodeSize_.error);
@@ -48,6 +53,10 @@ export function decodeWith(r: Decoder, decode: (a0: Decoder) => rt.Result<Group,
 	return result;
 }
 
+/**
+ * Decode a size-prefixed `T`, reading its body with `decode` in place of
+ * [`Message::decode_msg`], for a body whose bounds come from the session.
+ */
 export function decodeWith$Probe(r: Decoder, decode: (a0: Decoder) => rt.Result<Probe, DecodeError>): rt.Result<Probe, DecodeError> {
 	const decodeSize_ = decodeSize(r, 65535);
 	if (!decodeSize_.ok) {

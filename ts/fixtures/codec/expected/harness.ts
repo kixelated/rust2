@@ -9,6 +9,7 @@ import { Group } from "./lite/group.ts";
 import { Probe } from "./lite/probe.ts";
 import { type Version as version_Version } from "./lite/version.ts";
 
+/** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
 	let out: rt.ByteVec = new rt.ByteVec();
 	const splitFirst = rt.slice.splitFirst(input);
@@ -29,7 +30,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (value === 4) {
 		roundtrip(data, out);
 	} else if (value === 5) {
-		roundtripLite(data, out);
+		roundtripLite$Group(data, out);
 	} else if (value === 6) {
 		roundtripLite$Probe(data, out);
 	} else {
@@ -76,6 +77,7 @@ export function putUsize(out: rt.ByteVec, value: number): void {
 	putU64(out, BigInt(value));
 }
 
+/** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
 export function takeU64(data: Uint8Array): [bigint, Uint8Array] {
 	let buf: Uint8Array = new Uint8Array(8);
 	const n = rt.min(data.length, 8);
@@ -137,6 +139,10 @@ export function encodeError(out: rt.ByteVec, err: EncodeError): void {
 	out.push(err === "BoundsExceeded" ? 0 : err === "TooLarge" ? 1 : err === "Short" ? 2 : err === "InvalidState" ? 3 : err === "TooMany" ? 4 : err === "Version" ? 5 : 6);
 }
 
+/**
+ * Read primitives as a script says until one fails: the script is the first
+ * `data[1]` bytes after the form selector, and the wire is everything after it.
+ */
 export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
@@ -251,6 +257,7 @@ export function decodeStep(r: Decoder, step: number, out: rt.ByteVec): rt.Result
 	return rt.Ok(undefined);
 }
 
+/** Write primitives as a script says, taking each value from the data that follows. */
 export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
@@ -362,6 +369,7 @@ export function sizes(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Decode a `T` from the wire, then encode what came out. */
 export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
@@ -376,7 +384,7 @@ export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
 		const used = decodeSlice.value[1];
 		putUsize(out, used);
 		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = value.encode(Encoder.new(buf, form_), form_);
+		const encode = value.encode$Form(Encoder.new(buf, form_), form_);
 		if (encode.ok) {
 			out.extendFromSlice(buf.view());
 		} else {
@@ -389,7 +397,8 @@ export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
-export function roundtripLite(data: Uint8Array, out: rt.ByteVec): void {
+/** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
+export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
 		return;
@@ -416,6 +425,7 @@ export function roundtripLite(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
 export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
@@ -443,6 +453,7 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/** Encode messages built from the data, at a lite version. */
 export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
@@ -457,7 +468,7 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	const [bitrate, data6] = takeU64(data5);
 	const [rtt, ] = takeU64(data6);
 	const group = new Group({ subscribe, sequence, frameStart: rt.u64.rem(frameStart, 4n) });
-	encodeMessage(group, version, out);
+	encodeMessage$Group(group, version, out);
 	const probe = new Probe({ bitrate: rt.u64.checkedSub(bitrate, 1n), rtt: rt.thenSome(rt.u64.rem(rtt, 3n) !== 0n, rtt) });
 	encodeMessage$Probe(probe, version, out);
 	const versions = Versions.from([new Version(subscribe), new Version(sequence)]);
@@ -471,7 +482,7 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
-export function encodeMessage(msg: Group, version: version_Version, out: rt.ByteVec): void {
+export function encodeMessage$Group(msg: Group, version: version_Version, out: rt.ByteVec): void {
 	let buf: rt.ByteVec = new rt.ByteVec();
 	let w: Encoder = Encoder.new(buf, Form.from(version));
 	const encode = msg.encode(w, version);

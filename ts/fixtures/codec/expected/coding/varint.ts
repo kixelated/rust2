@@ -4,9 +4,11 @@ import * as rt from "../rt.ts";
 import { type DecodeError } from "../coding/decode.ts";
 import { type Version } from "../lite/version.ts";
 
+/** The number does not fit the target: a varint wire form or a narrower integer. */
 export class BoundsExceeded {
 }
 
+/** How a protocol version lays out a varint on the wire. */
 export type Form = { tag: "Quic" } | { tag: "LeadingOnes"; seven: boolean };
 
 export const Form = {
@@ -19,14 +21,17 @@ export const Form = {
 	},
 };
 
+/** The high and low 32 bits: the only place the codec splits a `u64`. */
 export function toHalves(value: bigint): [number, number] {
 	return [Number(BigInt.asUintN(32, value >> 32n)), Number(BigInt.asUintN(32, value))];
 }
 
+/** The inverse of [`to_halves`]. */
 export function fromHalves(hi: number, lo: number): bigint {
 	return BigInt.asUintN(64, BigInt(hi) << 32n) | BigInt(lo);
 }
 
+/** The bytes `value` takes on the wire in `form`, or [`BoundsExceeded`] if it does not fit. */
 export function size(value: bigint, form: Form): rt.Result<number, BoundsExceeded> {
 	const [hi, lo] = toHalves(value);
 	let value2: number;
@@ -60,6 +65,11 @@ export function size(value: bigint, form: Form): rt.Result<number, BoundsExceede
 	return rt.Ok(value2);
 }
 
+/**
+ * Append the minimal encoding of `value` in `form`.
+ *
+ * Fails past [`MAX_QUIC`] in the QUIC form, writing nothing.
+ */
 export function write(value: bigint, form: Form, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded> {
 	if (form.tag === "Quic") {
 		return writeQuic(value, out);
@@ -111,6 +121,7 @@ export function writeLeadingOnes(value: bigint, out: rt.ByteVec): void {
 	}
 }
 
+/** Decode a varint in `form` from the front of `buf`, returning it and the rest of `buf`. */
 export function read(buf: Uint8Array, form: Form): rt.Result<[bigint, Uint8Array], DecodeError> {
 	if (form.tag === "Quic") {
 		return readQuic(buf);
@@ -249,10 +260,16 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 	return rt.Ok(value);
 }
 
+/**
+ * Map a signed value onto the unsigned range: `(n << 1) ^ (n >> 63)`.
+ *
+ * Small magnitudes stay small (-1 -> 1, 1 -> 2, -2 -> 3, ...), and all of `i64` fits.
+ */
 export function zigzag(signed: bigint): bigint {
 	return BigInt.asUintN(64, BigInt.asIntN(64, signed << 1n) ^ (signed >> 63n));
 }
 
+/** The inverse of [`zigzag`]. */
 export function unzigzag(value: bigint): bigint {
 	return BigInt.asIntN(64, value >> 1n) ^ rt.i64(-BigInt.asIntN(64, value & 1n));
 }

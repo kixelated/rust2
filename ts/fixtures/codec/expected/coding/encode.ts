@@ -4,7 +4,15 @@ import * as rt from "../rt.ts";
 import { type Form, write, type BoundsExceeded } from "../coding/varint.ts";
 import { type Control } from "../stats.ts";
 
-export type EncodeError = "BoundsExceeded" | "TooLarge" | "Short" | "InvalidState" | "TooMany" | "Version" | "Unsupported";
+/** An error that occurs during encoding. */
+export type EncodeError =
+	| "BoundsExceeded"
+	| "TooLarge"
+	| "Short"
+	| "InvalidState"
+	| "TooMany"
+	| "Version"
+	| "Unsupported";
 
 export const EncodeError = {
 	from(_: BoundsExceeded): EncodeError {
@@ -12,6 +20,11 @@ export const EncodeError = {
 	},
 };
 
+/**
+ * Appends wire primitives to a byte buffer.
+ *
+ * The buffer grows as needed, so only a value the wire cannot express fails.
+ */
 export class Encoder {
 	buf: rt.ByteVec;
 	form: Form;
@@ -23,22 +36,27 @@ export class Encoder {
 		this.control = fields.control;
 	}
 
+	/** Append to `buf`, with varints in the given form. */
 	static new(buf: rt.ByteVec, form: Form): Encoder {
 		return new Encoder({ buf, form, control: undefined });
 	}
 
+	/** Write a single byte. */
 	u8(v: number): void {
 		this.buf.push(v);
 	}
 
+	/** Write a big-endian `u16`. */
 	u16(v: number): void {
 		this.buf.extendFromSlice(rt.u16.toBeBytes(v));
 	}
 
+	/** Write a bool as a 0 or 1 byte. */
 	bool(v: boolean): void {
 		this.buf.push(v ? 1 : 0);
 	}
 
+	/** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
 	varint(v: bigint): rt.Result<undefined, EncodeError> {
 		const write_ = write(v, this.form, this.buf);
 		if (!write_.ok) {
@@ -47,6 +65,7 @@ export class Encoder {
 		return rt.Ok(write_.value);
 	}
 
+	/** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
 	varintOpt(v: bigint | undefined): rt.Result<undefined, EncodeError> {
 		let v2: bigint;
 		if (v !== undefined) {
@@ -62,6 +81,7 @@ export class Encoder {
 		return this.varint(v2);
 	}
 
+	/** Write a varint length, then the raw bytes. */
 	bytes(v: Uint8Array): rt.Result<undefined, EncodeError> {
 		const varint = this.varint(BigInt(v.length));
 		if (!varint.ok) {
@@ -71,24 +91,33 @@ export class Encoder {
 		return rt.Ok(undefined);
 	}
 
+	/** Write a varint length, then the UTF-8 bytes. */
 	string(v: string): rt.Result<undefined, EncodeError> {
 		return this.bytes(rt.string.asBytes(v));
 	}
 
+	/**
+	 * Reserve a varint size prefix for the body written next; [`Self::fill`] sizes it.
+	 *
+	 * One byte is reserved, which most bodies fit, so they never move.
+	 */
 	prefixVarint(): Prefix {
 		this.buf.push(0);
 		return new Prefix({ body: this.buf.length, kind: "Varint" });
 	}
 
+	/** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
 	prefixU16(): Prefix {
 		this.buf.extendFromSlice(Uint8Array.of(0, 0));
 		return new Prefix({ body: this.buf.length, kind: "U16" });
 	}
 
+	/** The number of bytes written since `prefix` was reserved. */
 	since(prefix: Prefix): number {
 		return rt.usize(this.buf.length - prefix.body);
 	}
 
+	/** Size a reserved prefix to everything written since. */
 	fill(prefix: Prefix): rt.Result<undefined, EncodeError> {
 		const body = prefix.body;
 		const end = this.buf.length;
@@ -124,17 +153,21 @@ export class Encoder {
 		return rt.Ok(undefined);
 	}
 
+	/** Drop a reserved prefix and everything written since, as if neither was written. */
 	discard(prefix: Prefix): void {
 		const start = prefix.kind === "Varint" ? rt.usize(prefix.body - 1) : rt.usize(prefix.body - 2);
 		this.buf.truncate(start);
 	}
 
+	/** Write raw bytes. */
 	slice(v: Uint8Array): void {
 		this.buf.extendFromSlice(v);
 	}
 }
 
+/** A size prefix reserved ahead of a body, sized by [`Encoder::fill`] once it is written. */
 export class Prefix {
+	/** Where the body starts, just past the reserved bytes. */
 	body: number;
 	kind: PrefixKind;
 

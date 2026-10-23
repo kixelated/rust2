@@ -113,8 +113,26 @@ impl Program {
 				// What a class already defines.
 				Scope::Owner(_) => taken.extend(["constructor".to_string(), "prototype".to_string()]),
 			}
+			// Instances sharing a name are all told apart, so none looks like the only one.
+			let mut shared: HashMap<&str, usize> = HashMap::new();
+			for &id in &ids {
+				*shared.entry(self.syms[id].base.as_str()).or_default() += 1;
+			}
+			let shared: HashSet<String> = shared.into_iter().filter(|(_, n)| *n > 1).map(|(b, _)| b.to_string()).collect();
 			for id in ids {
-				let name = unique(&mut taken, &self.syms[id].base, &self.syms[id].suffix);
+				let sym = &self.syms[id];
+				// A static method can't take a name its class's constructor function has.
+				let in_class = sym.owner.is_some_and(|owner| self.syms[owner].kind == SymKind::Class);
+				let reserved = in_class && matches!(sym.base.as_str(), "name" | "length" | "caller" | "arguments");
+				let base = match sym.kind {
+					SymKind::Method { instance: false } if reserved => format!("{}_", sym.base),
+					_ => sym.base.clone(),
+				};
+				let base = match shared.contains(&sym.base) && !sym.suffix.is_empty() {
+					true => format!("{base}${}", sym.suffix),
+					false => base,
+				};
+				let name = unique(&mut taken, &base, "");
 				self.syms[id].name = name;
 			}
 			if let Scope::Owner(owner) = scope {

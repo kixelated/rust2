@@ -4,6 +4,7 @@ roots = [
     "character",
     "dynamic",
     "bump",
+    "increment",
     "nested",
     "sorted",
     "iterators",

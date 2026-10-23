@@ -60,6 +60,18 @@ impl Std {
 	}
 }
 
+/// Whether `did` is `core::slice::Iter`, which `slice.iter()` makes.
+pub fn is_slice_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
+	let path: Vec<String> = tcx
+		.def_path(did)
+		.data
+		.iter()
+		.filter_map(|d| d.data.get_opt_name())
+		.map(|n| n.to_string())
+		.collect();
+	is_std(tcx, did) && path == ["slice", "iter", "Iter"]
+}
+
 fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
 }
@@ -251,7 +263,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				_ => return None,
 			}
 		}
-		("Default", "default") => default_value(b, targ(gargs, 0), span)?,
+		("Default", "default") => default_value(b, targ(gargs, 0))?,
 
 		// Options.
 		("Option", "map") => rt2(b, args, out, "option", "map"),
@@ -398,14 +410,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = b.args(args, out).pop()?;
-			vec_view(b, v, targ(gargs, 0))
+			vec_view(v, targ(gargs, 0))
 		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => {
 			let ty = targ(gargs, 0);
 			let v = b.args(args, out).pop()?;
 			match ty.kind() {
 				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-					Some(Std::Vec) => vec_view(b, v, ty),
+					Some(Std::Vec) => vec_view(v, ty),
 					Some(Std::String | Std::Box) => v,
 					_ => return None,
 				},
@@ -421,7 +433,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let elem_ty = elem(container)?;
 			let base = b.operand(ids[0], out);
 			let base = match container.kind() {
-				ty::Adt(..) => vec_view(b, base, container),
+				ty::Adt(..) => vec_view(base, container),
 				_ => base,
 			};
 			match Int::of(index_ty) {
@@ -467,7 +479,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			};
 			let ty = targ(gargs, 0);
 			let place = borrowed_place(b, ids[0], out)?;
-			let default = default_value(b, ty, span)?;
+			let default = default_value(b, ty)?;
 			swap_out(b, place, default, "taken", out)
 		}
 		("mem", "replace") => {
@@ -554,12 +566,11 @@ fn primitive(ty: Ty<'_>) -> bool {
 }
 
 /// A `Vec`'s elements as a slice: a view of a byte vector, or the array itself.
-pub fn vec_view<'tcx>(b: &mut Body<'_, '_, 'tcx>, v: Expr, ty: Ty<'tcx>) -> Expr {
+pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
 	let elem = match ty.peel_refs().kind() {
 		ty::Adt(_, args) => args.type_at(0),
 		_ => ty,
 	};
-	let _ = b;
 	match elem.kind() {
 		ty::Uint(ty::UintTy::U8) => v.method("view", vec![]),
 		_ => v,
@@ -641,7 +652,7 @@ fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &s
 }
 
 /// `Default::default()` for a standard type.
-fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
@@ -663,10 +674,7 @@ fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> 
 			Std::String => Expr::Str(String::new()),
 			_ => return None,
 		},
-		_ => {
-			let _ = span;
-			return None;
-		}
+		_ => return None,
 	})
 }
 

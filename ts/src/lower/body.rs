@@ -205,7 +205,24 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// Declare a binding for a Rust variable.
-	pub(super) fn bind_var(&mut self, var: LocalVarId, name: Symbol, mutable: bool) -> String {
+	/// Declare a binding for a Rust variable of type `ty`.
+	pub(super) fn bind_var(
+		&mut self,
+		var: LocalVarId,
+		name: Symbol,
+		mutable: bool,
+		ty: Ty<'tcx>,
+		span: Span,
+	) -> String {
+		// A JS variable holding a number is a copy: writing through it reaches nothing.
+		if let ty::Ref(_, inner, rustc_ast::Mutability::Mut) = self.subst(ty).kind()
+			&& self.t.object_kind(*inner).is_none()
+		{
+			self.t.err(
+				span,
+				format!("a `&mut {inner}` binding: a JS value of `{inner}` is a copy, so it can't change"),
+			);
+		}
 		let name = self.fresh(&camel(name.as_str()));
 		self.locals.insert(
 			var.0,
@@ -228,7 +245,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				..
 			} if mode.0 == rustc_hir::ByRef::No => {
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
-				self.bind_var(*var, *name, mutable)
+				self.bind_var(*var, *name, mutable, pat.ty, pat.span)
 			}
 			PatKind::Wild => self.fresh("_"),
 			_ => {
@@ -421,18 +438,18 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let mutable = mode.1 == rustc_ast::Mutability::Mut;
 			let ty = self.t.ty(pat_ty, pat.span);
 			let Some(init) = init else {
-				let name = self.bind_var(*var, *name, true);
+				let name = self.bind_var(*var, *name, true, pat_ty, pat.span);
 				self.push(out, StmtKind::decl(true, name, Some(ty), None), span);
 				return;
 			};
 			if self.needs_dest(init) {
-				let name = self.bind_var(*var, *name, true);
+				let name = self.bind_var(*var, *name, true, pat_ty, pat.span);
 				self.push(out, StmtKind::decl(true, name.clone(), Some(ty), None), span);
 				self.stmt(init, Dest::Assign(name), out);
 				return;
 			}
 			let value = self.operand(init, out);
-			let name = self.bind_var(*var, *name, mutable);
+			let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span);
 			let annotate = mutable || needs_annotation(&value);
 			self.push(
 				out,
@@ -549,7 +566,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			PatKind::Binding { name, var, mode, .. } => {
 				let is_mut = mode.1 == rustc_ast::Mutability::Mut;
 				*mutable |= is_mut;
-				Target::Name(self.bind_var(*var, *name, is_mut))
+				Target::Name(self.bind_var(*var, *name, is_mut, pat.ty, pat.span))
 			}
 			_ => unreachable!("checked by destructurable"),
 		}
@@ -914,7 +931,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let span = self.span(id);
 		match source {
 			MatchSource::TryDesugar(_) => {
-				let value = self.try_(scrutinee, arms, span, out);
+				let value = self.try_(scrutinee, span, out);
 				self.deliver(value, &dest, span, out);
 				return;
 			}
@@ -1073,7 +1090,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// `expr?`: the value, returning early on `Err` or `None`.
-	fn try_(&mut self, scrutinee: ExprId, arms: &[ArmId], span: Span, out: &mut Vec<Stmt>) -> Expr {
+	fn try_(&mut self, scrutinee: ExprId, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		// The scrutinee is `Try::branch(expr)`.
 		let ExprKind::Call { args, .. } = &self.thir[self.strip(scrutinee)].kind else {
 			return self.err(span, "an unexpected `?` desugaring");
@@ -1135,7 +1152,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					},
 					span,
 				);
-				let _ = arms;
 				t.member("value")
 			}
 			_ => self.err(span, format!("`?` on `{inner_ty}`")),
@@ -1236,7 +1252,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				subpattern: None,
 				..
 			} if mode.1 == rustc_ast::Mutability::Not && !self.needs_copy(self.subst(pat.ty)) => {
-				Some(self.bind_var(*var, *name, false))
+				Some(self.bind_var(*var, *name, false, pat.ty, pat.span))
 			}
 			PatKind::Wild => Some(self.fresh("_")),
 			_ => None,
@@ -1279,10 +1295,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	fn iterable(&mut self, id: ExprId, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Iterable> {
 		let tcx = self.t.tcx;
 		match ty.kind() {
-			ty::Adt(adt, _)
-				if tcx.def_path_str(adt.did()) == "std::ops::Range"
-					|| tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::Range) =>
-			{
+			ty::Adt(adt, _) if tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::Range) => {
 				let ExprKind::Adt(range) = &self.thir[self.strip(id)].kind else {
 					self.t
 						.err(span, "a `for` loop over a range that is not written in place");
@@ -1342,7 +1355,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				ty::Slice(_) | ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
 				ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::Vec) => {
 					let v = self.operand(id, out);
-					Some(Iterable::Of(library::vec_view(self, v, *inner)))
+					Some(Iterable::Of(library::vec_view(v, *inner)))
 				}
 				_ => {
 					self.t.err(span, format!("a `for` loop over `{ty}`"));
@@ -1351,15 +1364,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			},
 			ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::Vec) => {
 				let v = self.operand(id, out);
-				Some(Iterable::Of(library::vec_view(self, v, ty)))
+				Some(Iterable::Of(library::vec_view(v, ty)))
 			}
-			ty::Adt(adt, args) if tcx.def_path_str(adt.did()) == "std::slice::Iter" => {
+			ty::Adt(adt, _) if library::is_slice_iter(tcx, adt.did()) => {
 				// `slice.iter()`: iterate the slice itself.
 				let ExprKind::Call { args: call_args, .. } = &self.thir[self.strip(id)].kind else {
 					self.t.err(span, format!("a `for` loop over `{ty}`"));
 					return None;
 				};
-				let _ = args;
 				Some(Iterable::Of(self.operand(call_args[0], out)))
 			}
 			_ => {
@@ -1575,9 +1587,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			ExprKind::Match {
 				scrutinee,
-				arms,
 				match_source: MatchSource::TryDesugar(_),
-			} => self.try_(*scrutinee, arms, span, out),
+				..
+			} => self.try_(*scrutinee, span, out),
 			ExprKind::Match { .. } if self.ternary_match(id) => self.ternary(id, out),
 			ExprKind::Block { .. } | ExprKind::If { .. } | ExprKind::Match { .. } | ExprKind::Loop { .. } => {
 				self.via_temp(id, ty, span, out)
@@ -1618,7 +1630,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					let ty::FnDef(def_id, args) = *ty.kind() else {
 						unreachable!()
 					};
-					return self.fn_value(def_id, args.skip_binder(), span, out);
+					return self.fn_value(def_id, args.skip_binder(), span);
 				}
 				let value = self.place(id, out);
 				self.copied(value, ty)
@@ -1706,7 +1718,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			| ExprKind::ZstLiteral { .. }
 			| ExprKind::NamedConst { .. }
 			| ExprKind::ConstParam { .. }
-			| ExprKind::ConstBlock { .. } => self.constant(id, out),
+			| ExprKind::ConstBlock { .. } => self.constant(id),
 			ExprKind::Tuple { fields } if fields.is_empty() => Expr::undefined(),
 			ExprKind::Tuple { fields } => {
 				let values = self.operands(fields, out);
@@ -2239,13 +2251,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// A function item as a value.
-	pub fn fn_value(
-		&mut self,
-		def_id: rustc_hir::def_id::DefId,
-		gargs: GenericArgsRef<'tcx>,
-		span: Span,
-		out: &mut Vec<Stmt>,
-	) -> Expr {
+	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let gargs = self.subst(gargs);
 		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
@@ -2273,7 +2279,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Param { name, ty: Some(ty) }
 			})
 			.collect();
-		let _ = out;
 		let ret = self.t.ret_ty(sig.output(), span);
 		Expr::Arrow(params, ret, body)
 	}
