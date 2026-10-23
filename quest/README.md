@@ -30,5 +30,5 @@ Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
 
 - [m0: immediate priorities](/quest/m0/README.md) - urgent fixes
 - [m1: consumers waiting](/quest/m1/README.md) - the UniFFI fork moq switches to
-- [m2: TypeScript](/quest/m2/README.md) - an own rustc driver translates moq-net's codec, and the fork's namespaced types
+- [m2: TypeScript](/quest/m2/README.md) - the TypeScript driver grows from moq-net's codec to its model, and the fork's namespaced types
 - [m3: deferred](/quest/m3/README.md) - the pure-Rust profile and subset compiler, rescoped by the benchmark

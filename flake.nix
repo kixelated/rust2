@@ -47,7 +47,33 @@
           nightly = pkgs.rust-bin.nightly."2026-10-22".minimal.override {
             extensions = [ "rustc-codegen-cranelift-preview" ];
           };
+          # The TypeScript driver's own nightly, kept off PATH so the other projects keep
+          # the repo toolchain. ts/justfile puts it first for its recipes.
+          tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+          # The driver links its nightly's rustc libraries, and runs cargo from it too.
+          rust2-ts =
+            (pkgs.makeRustPlatform {
+              cargo = tsToolchain;
+              rustc = tsToolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-ts";
+                version = "0.0.0";
+                src = ./ts;
+                cargoLock.lockFile = ./ts/Cargo.lock;
+                cargoBuildFlags = [
+                  "--package"
+                  "rust2-ts"
+                ];
+                RUSTFLAGS = "-C link-args=-Wl,-rpath,${tsToolchain}/lib";
+                nativeBuildInputs = [ pkgs.makeWrapper ];
+                postInstall = ''
+                  wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo
+                '';
+                # The tests need node, tsc, and wasm builds: `just ts test` runs them.
+                doCheck = false;
+              };
         in
         {
           packages.quest = quest-cli;
@@ -68,6 +94,7 @@
               ];
             RUST2_BENCH_NIGHTLY = "${nightly}/bin";
           };
+          packages.ts = rust2-ts;
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               toolchain
@@ -85,7 +112,11 @@
               shfmt
               taplo
               nixfmt
+              # The TypeScript driver's tests run and type-check its output.
+              nodejs
+              typescript
             ];
+            RUST2_TS_TOOLCHAIN = tsToolchain;
           };
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''
