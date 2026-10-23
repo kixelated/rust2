@@ -41,7 +41,7 @@ runtime: what std does that JS does not.
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"` |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
 | `Option<T>` | `T \| undefined`; an `Option` of `()` or an `Option` is refused |
-| `Result<T, E>` | `rt.Result<T, E>`, and `?` returns early as written |
+| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
 | closure | an arrow function |
@@ -51,9 +51,23 @@ runtime: what std does that JS does not.
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`.
 
-Functions are monomorphized: each instance is its own function, named with a `$` suffix
-when two share a name. Types are translated once, generically. A `Copy` struct, tuple, or
+Functions and members are camelCase. Functions are monomorphized: each instance is its
+own function, and instances that share a name are suffixed by type, as in
+`roundtripLite$Group`. Types are translated once, generically. A `Copy` struct, tuple, or
 array is copied where Rust copies it, since JS would share the object.
+
+Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
+`rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
+
+## Design
+
+- 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
+  faster but waits until moq's comparison measures `bigint` as the cost.
+- `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
+  `?` and `match` keep Rust's control flow exactly.
+- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
+  not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
+  MIR.
 
 ## Not yet
 
