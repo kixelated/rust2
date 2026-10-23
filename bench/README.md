@@ -36,7 +36,8 @@ Before the timed runs, each variant does one untimed clean build that warms the 
 
 A variant is a toolchain plus rustflags.
 Each is compared against its `base`, run in the same job: the levers on stable against `baseline`, the nightly ones against `nightly`.
-The `control` variants repeat their base and run last, so their change is the run's noise floor: an A/A control.
+The `control` variants repeat their base, so their change is the run's noise floor: an A/A control.
+Timed runs interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
 To measure a new build-speed change, add a variant whose base is the configuration it improves on.
 
 The report shows wall time (mean ± standard deviation, and min), CPU time, retired instructions, and peak RSS, all from hyperfine.

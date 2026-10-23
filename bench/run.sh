@@ -120,17 +120,6 @@ field() { # corpus|variant, name, jq path
     jq -r --arg n "$2" ".$1[] | select(.name == \$n) | $3 // empty" <<<"$config"
 }
 
-# Enters a variant's toolchain and flags for the cargo calls that follow.
-use_variant() {
-    case $(field variant "$1" .toolchain) in
-        stable) PATH=$stable_path ;;
-        nightly) PATH=$nightly_path ;;
-        *) die "variant $1 has no valid toolchain" ;;
-    esac
-    RUSTFLAGS=$(field variant "$1" .rustflags)
-    export PATH RUSTFLAGS
-}
-
 record_host() {
     local cpu
     cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo 2>/dev/null | head -1)
@@ -184,58 +173,106 @@ check_pure() {
     [[ -z $impure ]] || die "corpus $name is marked pure but builds: $(tr '\n' ' ' <<<"$impure")"
 }
 
-# Times one scenario with hyperfine and appends a result record.
-measure() { # corpus variant scenario runs setup prepare command
-    local corpus=$1 variant=$2 scenario=$3 n=$4 setup=$5 prepare=$6 cmd=$7 json
-    local -a flags=(--style basic --runs "$n" --command-name "$variant" --prepare "$prepare")
-    [[ -z $setup ]] || flags+=(--setup "$setup")
-    json=$out/raw/$corpus.$scenario.$variant.json
-    echo "bench: $corpus $scenario $variant ($n runs)"
-    hyperfine "${flags[@]}" --export-json "$json" "$cmd"
-    jq -c --arg corpus "$corpus" --arg scenario "$scenario" --arg variant "$variant" \
-        --arg base "$(field variant "$variant" '.base // .name')" \
-        '.results[0] | .summary as $s | {
-            $corpus, $scenario, $variant, $base,
-            mean: $s.time_wall_clock.mean, stddev: $s.time_wall_clock.stddev, min: $s.time_wall_clock.min,
-            cpu: $s.time_cpu.mean, instructions: $s.instructions.mean, rss: $s.memory_peak_resident.max,
-            times: [.measurements[].time_wall_clock.value]
-        }' \
-        "$json" >>"$out/results.jsonl"
+# Enters a variant's toolchain, flags, and target directory for the cargo calls that follow.
+use_variant() { # corpus variant
+    case $(field variant "$2" .toolchain) in
+        stable) PATH=$stable_path ;;
+        nightly) PATH=$nightly_path ;;
+        *) die "variant $2 has no valid toolchain" ;;
+    esac
+    RUSTFLAGS=$(field variant "$2" .rustflags)
+    CARGO_TARGET_DIR=$work/target/$1/$2
+    export PATH RUSTFLAGS CARGO_TARGET_DIR
 }
 
-run_variant() { # corpus variant dir
-    local corpus=$1 variant=$2 dir=$3 leaf hub clean_runs edit_runs build check
+# Times one run with hyperfine, appending its measurement to the scenario's raw log.
+time_once() { # corpus dir scenario variant prepare command
+    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json
+    json=$out/raw/$corpus.$scenario.$variant.json
+    (
+        use_variant "$corpus" "$variant"
+        cd "$dir"
+        hyperfine --style none --runs 1 --prepare "$prepare" --export-json "$json" "$cmd"
+    )
+    jq -c '.results[0].measurements[0]' "$json" | tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
+        jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
+}
+
+# Folds a scenario's runs of one variant into a result record.
+summarize_runs() { # corpus scenario variant
+    jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
+        --arg base "$(field variant "$3" '.base // .name')" '
+        def mean: add / length;
+        [.[].time_wall_clock.value] as $t
+        | ($t | mean) as $mean
+        | {
+            $corpus, $scenario, $variant, $base, $mean,
+            stddev: (if ($t | length) > 1 then $t | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
+            min: ($t | min),
+            cpu: (map(.time_cpu.value) | mean),
+            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | mean else null end),
+            rss: (map(.memory_peak_resident.value) | max),
+            times: $t
+        }' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
+}
+
+# Times every scenario on one corpus. Runs interleave the variants, rotating
+# which goes first each round, so drift over a long job spreads across all of
+# them instead of favoring whichever ran last.
+bench_corpus() { # corpus dir
+    local corpus=$1 dir=$2 leaf hub build check scenario file prepare cmd n i j variant
     local -a args
+    local count=${#variants[@]}
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
     leaf=$(field corpus "$corpus" .leaf)
     hub=$(field corpus "$corpus" .hub)
-    clean_runs=${runs:-3}
-    edit_runs=${runs:-5}
-    use_variant "$variant"
-    export CARGO_TARGET_DIR=$work/target/$corpus/$variant
-    rm -rf "$CARGO_TARGET_DIR"
     build=$(printf '%q ' cargo build --locked --offline -q "${args[@]}")
     check=$(printf '%q ' cargo check --locked --offline -q "${args[@]}")
 
-    # An untimed clean build warms the disk cache and shows any failure in full.
-    echo "bench: $corpus warm-up $variant"
-    (cd "$dir" && cargo build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1) ||
-        { tail -40 "$out/logs/$corpus.$variant.log" >&2 && die "$corpus failed to build with $variant"; }
+    # An untimed clean build per variant warms the disk cache and shows any failure in full.
+    for variant in "${variants[@]}"; do
+        echo "bench: $corpus warm-up $variant"
+        (
+            use_variant "$corpus" "$variant"
+            rm -rf "$CARGO_TARGET_DIR"
+            cd "$dir"
+            cargo build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1
+        ) || { tail -40 "$out/logs/$corpus.$variant.log" >&2 && die "$corpus failed to build with $variant"; }
+    done
 
-    (
-        cd "$dir"
-        measure "$corpus" "$variant" check "$clean_runs" "" "cargo clean -q" "$check"
-        measure "$corpus" "$variant" build "$clean_runs" "" "cargo clean -q" "$build"
-        for scenario in edit-leaf edit-hub; do
-            [[ $scenario == edit-leaf ]] && file=$leaf || file=$hub
-            [[ -n $file ]] || continue
-            edit=$(printf '%q ' "$bench/run.sh" edit "$file")
-            measure "$corpus" "$variant" "$scenario" "$edit_runs" "$edit && $build" "$edit" "$build"
+    for scenario in check build edit-leaf edit-hub; do
+        case $scenario in
+            check | build)
+                [[ $scenario == check ]] && cmd=$check || cmd=$build
+                prepare="cargo clean -q"
+                n=${runs:-3}
+                ;;
+            edit-*)
+                [[ $scenario == edit-leaf ]] && file=$leaf || file=$hub
+                [[ -n $file ]] || continue
+                cmd=$build
+                prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
+                n=${runs:-5}
+                # Add the marker and build it, so each timed run is a body edit.
+                "$bench/run.sh" edit "$dir/$file"
+                for variant in "${variants[@]}"; do
+                    (use_variant "$corpus" "$variant" && cd "$dir" && cargo build --locked --offline -q "${args[@]}")
+                done
+                ;;
+        esac
+        for ((i = 0; i < n; i++)); do
+            for ((j = 0; j < count; j++)); do
+                variant=${variants[(i + j) % count]}
+                time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "$cmd"
+            done
         done
-    )
+        for variant in "${variants[@]}"; do
+            summarize_runs "$corpus" "$scenario" "$variant"
+        done
+    done
 
     git -C "$dir" checkout -q -- .
-    rm -rf "$CARGO_TARGET_DIR"
+    rm -rf "$work/target/$corpus"
 }
 
 # One nightly clean build and each edit, with cargo's build analysis log and
@@ -305,10 +342,8 @@ for corpus in "${corpora[@]}"; do
     if [[ $(field corpus "$corpus" .pure) == true ]]; then
         (cd "$dir" && PATH=$stable_path check_pure "$corpus" "${args[@]}")
     fi
-    # Subshells keep each variant's toolchain and flags from leaking into the next.
-    for variant in "${variants[@]}"; do
-        (run_variant "$corpus" "$variant" "$dir")
-    done
+    bench_corpus "$corpus" "$dir"
+    # A subshell keeps the nightly toolchain and flags from leaking into the next corpus.
     ((attribute == 0)) || (attribute "$corpus" "$dir")
 done
 

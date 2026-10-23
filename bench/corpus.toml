@@ -55,8 +55,7 @@ base = "baseline"
 toolchain = "stable"
 rustflags = "-C link-arg=-fuse-ld=wild"
 
-# A/A control: identical to its base and run last, so its delta is the noise
-# and drift across the run.
+# A/A control: identical to its base, so its delta is the run's noise.
 [[variant]]
 name = "control"
 base = "baseline"
