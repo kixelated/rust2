@@ -1,0 +1,17 @@
+[package]
+name = "uniffi-bindgen-cpp"
+version = "0.11.0-kixelated.5+v0.32.2"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.75"
+askama = "0.13.0"
+camino = "1.1.6"
+clap = { version = "4.4.2", features = ["derive"] }
+heck = "0.4.1"
+paste = "1"
+serde = "1"
+topological-sort = "0.2.2"
+textwrap = "0.16.0"
+toml = "0.9"
+uniffi_bindgen = { workspace = true }
