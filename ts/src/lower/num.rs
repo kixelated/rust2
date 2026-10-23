@@ -58,6 +58,16 @@ impl Int {
 		}
 	}
 
+	/// `value as Self`: its low bits, read with this type's sign.
+	pub fn fold(self, value: i128) -> i128 {
+		let size = rustc_abi::Size::from_bits(self.bits);
+		let bits = size.truncate(value as u128);
+		match self.signed {
+			true => size.sign_extend(bits),
+			false => bits as i128,
+		}
+	}
+
 	/// The runtime's name for the type: `rt.u32`.
 	pub fn rt(self) -> &'static str {
 		match (self.signed, self.bits, self.pointer) {
@@ -316,13 +326,13 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 		let table = adt
 			.discriminants(tcx)
 			.map(|(index, discr)| {
-				let value = match discr.ty.is_signed() {
-					true => rustc_abi::Size::from_bits(target.bits.max(8)).sign_extend(discr.val),
-					false => discr.val as i128,
+				let value = match Int::of(discr.ty) {
+					Some(repr) if repr.signed => rustc_abi::Size::from_bits(repr.bits).sign_extend(discr.val),
+					_ => discr.val as i128,
 				};
 				(
 					crate::ts::Key::Name(adt.variant(index).name.to_string()),
-					target.lit(value),
+					target.lit(target.fold(value)),
 				)
 			})
 			.collect();
@@ -332,13 +342,7 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 		return b.err(span, format!("a cast from `{from}`"));
 	};
 	if let Some(c) = value.value {
-		let size = rustc_abi::Size::from_bits(target.bits);
-		let bits = size.truncate(c as u128);
-		let folded = match target.signed {
-			true => size.sign_extend(bits),
-			false => bits as i128,
-		};
-		return target.lit(folded);
+		return target.lit(target.fold(c));
 	}
 	let fits = target.min() <= source.min() && source.max() <= target.max();
 	match (source.big(), target.big()) {

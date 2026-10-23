@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
-import { copies, loops, patterns, closures, library } from "./shapes.ts";
+import { copies, loops, patterns, closures, discriminants, library } from "./shapes.ts";
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
@@ -14,7 +14,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const kind = input[1];
 	const data = input.subarray(2, input.length - 0);
 	const [op2, kind2] = [op, kind] as [number, number];
-	const value = rt.u8.rem(op2, 22);
+	const value = rt.u8.rem(op2, 23);
 	if (value === 0) {
 		u8Op(kind2, data, out);
 	} else if (value === 1) {
@@ -73,6 +73,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 		patterns(data, out);
 	} else if (value === 18) {
 		closures(data, out);
+	} else if (value === 19) {
+		discriminants(data, out);
 	} else {
 		library(data, out);
 	}

@@ -79,6 +79,17 @@ pub fn statics() -> u8 {
 	COUNT
 }
 
+/// The path to `*a` is `a`: assigning it would rebind the parameter, not change the caller's.
+pub fn swapped(a: &mut Meters, b: &mut Meters) {
+	std::mem::swap(a, b);
+}
+
+pub fn replaced(a: &mut Meters) -> Meters {
+	std::mem::replace(&mut *a, Meters(0))
+}
+
+pub struct Meters(pub u64);
+
 pub fn generic<T: Copy>(t: T) -> T {
 	t
 }

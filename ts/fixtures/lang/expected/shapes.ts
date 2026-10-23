@@ -76,6 +76,11 @@ export const Shape = {
 	},
 };
 
+/** Discriminants a cast truncates, or reads with another sign. */
+export type Wide = "Low" | "High" | "Top";
+
+export type Signed = "Neg" | "Min" | "Pos";
+
 export type Dir = "North" | "East" | "South" | "West";
 
 export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
@@ -177,6 +182,33 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), 0n, (m: Meters): bigint => {
 		return m._0;
 	})));
+	const res = rt.Ok(rt.copy(p));
+	let first: Point = rt.result.unwrap(rt.copy(res));
+	first.x = 2;
+	const fail = rt.Err(rt.copy(q));
+	let err: Point = rt.result.unwrapErr(rt.copy(fail));
+	err.y = 3;
+	out.extendFromSlice(Uint8Array.of(first.x & 0xff, rt.result.unwrap(rt.copy(res)).x & 0xff, err.y & 0xff, rt.result.unwrapErr(rt.copy(fail)).y & 0xff));
+}
+
+/** Fieldless enums cast to every width, past their discriminant's range and sign. */
+export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
+	for (const item of data) {
+		const b = item;
+		const value = rt.u8.rem(b, 3);
+		const wide = value === 0 ? "Low" as Wide : value === 1 ? "High" as Wide : "Top" as Wide;
+		const value2 = rt.u8.rem(b, 3);
+		const signed = value2 === 0 ? "Neg" as Signed : value2 === 1 ? "Min" as Signed : "Pos" as Signed;
+		out.push({ Low: 1, High: 44, Top: 255 }[wide]);
+		out.push({ Low: 1, High: 44, Top: -1 }[wide] & 0xff);
+		out.extendFromSlice(rt.i16.toBeBytes({ Low: 1, High: 300, Top: -1 }[wide]));
+		out.extendFromSlice(rt.u64.toBeBytes({ Low: 1n, High: 300n, Top: 65535n }[wide]));
+		out.push({ Neg: 255, Min: 128, Pos: 100 }[signed]);
+		out.extendFromSlice(rt.u16.toBeBytes({ Neg: 65535, Min: 65408, Pos: 100 }[signed]));
+		out.extendFromSlice(rt.u32.toBeBytes({ Neg: 4294967295, Min: 4294967168, Pos: 100 }[signed]));
+		out.extendFromSlice(rt.i64.toBeBytes({ Neg: -1n, Min: -128n, Pos: 100n }[signed]));
+		out.extendFromSlice(rt.u128.toBeBytes({ Neg: 340282366920938463463374607431768211455n, Min: 340282366920938463463374607431768211328n, Pos: 100n }[signed]));
+	}
 }
 
 /** Loops: labeled, `while let`, ranges, and values out of `break`. */

@@ -639,6 +639,16 @@ fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<St
 	{
 		arg = place;
 	}
+	// The path to `*r` is `r` itself: assigning it would rebind the reference.
+	if let ExprKind::Deref { arg: pointer } = b.thir[b.strip(arg)].kind
+		&& matches!(b.ty_of(pointer).kind(), ty::Ref(..))
+	{
+		let pointee = b.ty_of(arg);
+		return Some(b.err(
+			b.thir[arg].span,
+			format!("replacing the value behind a reference to `{pointee}`"),
+		));
+	}
 	let place = b.place(arg, out);
 	place.is_path().then_some(place)
 }

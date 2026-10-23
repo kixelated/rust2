@@ -10,7 +10,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 22 {
+	match op % 23 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -40,6 +40,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		16 => shapes::loops(data, &mut out),
 		17 => shapes::patterns(data, &mut out),
 		18 => shapes::closures(data, &mut out),
+		19 => shapes::discriminants(data, &mut out),
 		_ => shapes::library(data, &mut out),
 	}
 	out

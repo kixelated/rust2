@@ -1,4 +1,4 @@
-a root must not be generic at fixtures/reject/src/lib.rs:82:1
+a root must not be generic at fixtures/reject/src/lib.rs:93:1
 no item `missing` in the crate
 unsupported type `f64` at fixtures/reject/src/lib.rs:6:14
 unsupported literal of type `f64` at fixtures/reject/src/lib.rs:7:6
@@ -19,3 +19,6 @@ a panic message that formats values is not supported at fixtures/reject/src/lib.
 a closure that copies a mutable variable at fixtures/reject/src/lib.rs:65:18
 an or-pattern with bindings at fixtures/reject/src/lib.rs:72:3
 unsupported expression: StaticRef at fixtures/reject/src/lib.rs:79:2
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:84:17
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:84:20
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:88:25

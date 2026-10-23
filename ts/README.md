@@ -54,7 +54,8 @@ wraps silently. A panic throws `rt.Panic`.
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
 `roundtripLite$Group`. Types are translated once, generically. A `Copy` struct, tuple, or
-array is copied where Rust copies it, since JS would share the object.
+array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
+would share the object.
 
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
@@ -74,7 +75,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 These fail translation: floats, `char`, trait objects, raw pointers, statics, `async`,
 types that implement `Drop`, iterator adaptors (`for` over ranges, slices, arrays, and
 `Vec` works), or-patterns that bind, panic messages that format values, a `move` closure
-copying a mutable variable, and std functions without a mapping in `src/lower/library.rs`.
+copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
+pointee, and std functions without a mapping in `src/lower/library.rs`.
 
 ## Tests
 

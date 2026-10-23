@@ -1518,7 +1518,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ty::Tuple(tys) => !tys.is_empty(),
 			ty::Array(..) => true,
 			ty::Adt(adt, args) => match library::Std::of(self.t.tcx, adt.did()) {
-				Some(library::Std::Option) => self.mutable_aggregate(args.type_at(0)),
+				// The runtime's methods hand out the payload itself.
+				Some(library::Std::Option | library::Std::Result) => args.types().any(|t| self.mutable_aggregate(t)),
 				Some(_) => false,
 				None => adt.is_struct() && !adt.non_enum_variant().fields.is_empty(),
 			},

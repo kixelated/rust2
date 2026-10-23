@@ -35,6 +35,23 @@ pub enum Shape {
 	Rect { corner: Point, width: u16, height: u16 },
 }
 
+/// Discriminants a cast truncates, or reads with another sign.
+#[derive(Clone, Copy)]
+#[repr(u16)]
+pub enum Wide {
+	Low = 1,
+	High = 300,
+	Top = u16::MAX,
+}
+
+#[derive(Clone, Copy)]
+#[repr(i8)]
+pub enum Signed {
+	Neg = -1,
+	Min = i8::MIN,
+	Pos = 100,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Dir {
 	North = 1,
@@ -155,6 +172,45 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let taken = opt.take();
 	out.push(opt.is_none() as u8);
 	out.extend_from_slice(&taken.map_or(0, |m| m.0).to_be_bytes());
+
+	// A `Copy` payload leaves a `Result` as a copy.
+	let res: Result<Point, u8> = Ok(p);
+	let mut first = res.unwrap();
+	first.x = 2;
+	let fail: Result<u8, Point> = Err(q);
+	let mut err = fail.unwrap_err();
+	err.y = 3;
+	out.extend_from_slice(&[
+		first.x as u8,
+		res.unwrap().x as u8,
+		err.y as u8,
+		fail.unwrap_err().y as u8,
+	]);
+}
+
+/// Fieldless enums cast to every width, past their discriminant's range and sign.
+pub fn discriminants(data: &[u8], out: &mut Vec<u8>) {
+	for &b in data {
+		let wide = match b % 3 {
+			0 => Wide::Low,
+			1 => Wide::High,
+			_ => Wide::Top,
+		};
+		let signed = match b % 3 {
+			0 => Signed::Neg,
+			1 => Signed::Min,
+			_ => Signed::Pos,
+		};
+		out.push(wide as u8);
+		out.push(wide as i8 as u8);
+		out.extend_from_slice(&(wide as i16).to_be_bytes());
+		out.extend_from_slice(&(wide as u64).to_be_bytes());
+		out.push(signed as u8);
+		out.extend_from_slice(&(signed as u16).to_be_bytes());
+		out.extend_from_slice(&(signed as u32).to_be_bytes());
+		out.extend_from_slice(&(signed as i64).to_be_bytes());
+		out.extend_from_slice(&(signed as u128).to_be_bytes());
+	}
 }
 
 /// Loops: labeled, `while let`, ranges, and values out of `break`.
