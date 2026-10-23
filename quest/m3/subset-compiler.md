@@ -4,7 +4,7 @@
 
 A compiler, interpreter, or debug fast path for the pure-Rust subset builds
 moq-scale code measurably faster than rustc on the
-[build-speed benchmark](/bench/README.md), for the scenario the report shows
+[build-speed benchmark](/bench/build/README.md), for the scenario the report shows
 matters most (likely incremental debug rebuilds).
 
 ## Plan

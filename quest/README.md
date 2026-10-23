@@ -8,9 +8,10 @@ grouped into milestones ordered by priority.
 ## Plan
 
 m0 holds urgent fixes. m1 is the work with a consumer waiting on it now:
-the UniFFI fork moq switches to. m2 is the TypeScript translator, a research
-track moq compares against its WASM route. m3 holds the subset tracks, which
-the [build-speed benchmark](/bench/README.md) rescopes before they start, and
+the UniFFI fork moq switches to and its perf work. m2 is research: the
+TypeScript translator, a track moq compares against its WASM route, and the
+fork's gated or speculative work. m3 holds the subset tracks, which the
+[build-speed benchmark](/bench/build/README.md) rescopes before they start, and
 speculative work.
 
 Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
@@ -29,6 +30,6 @@ Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
 ## Required
 
 - [m0: immediate priorities](/quest/m0/README.md) - urgent fixes
-- [m1: consumers waiting](/quest/m1/README.md) - the UniFFI fork moq switches to
-- [m2: TypeScript](/quest/m2/README.md) - the TypeScript driver grows from moq-net's codec to its model, and the fork's namespaced types
+- [m1: consumers waiting](/quest/m1/README.md) - the UniFFI fork moq switches to, its binding benchmark and perf work
+- [m2: research](/quest/m2/README.md) - the TypeScript translator's spikes and features toward moq-net's model, and the fork's gated work
 - [m3: deferred](/quest/m3/README.md) - the pure-Rust profile and subset compiler, rescoped by the benchmark

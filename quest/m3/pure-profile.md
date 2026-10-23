@@ -5,7 +5,7 @@
 A checker proves a crate graph is pure Rust (no build scripts, no `-sys` crates
 or C linking, and proc macros only where the benchmark shows they are safe to
 cache), and builds use that guarantee for a measured speedup on the
-[build-speed benchmark](/bench/README.md), such as hermetic content-addressed
+[build-speed benchmark](/bench/build/README.md), such as hermetic content-addressed
 caching or cached and sandboxed proc macros.
 
 ## Plan

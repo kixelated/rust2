@@ -4,7 +4,7 @@
 set -euo pipefail
 
 bench=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-root=$(dirname "$bench")
+root=$(cd "$bench/../.." && pwd)
 
 # The bench shell carries hyperfine, the alternative linkers, and the pinned nightly.
 if [[ -z ${RUST2_BENCH_NIGHTLY:-} ]]; then

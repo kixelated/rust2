@@ -1,7 +1,7 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../.github/workflows/bench.yml)), and every build-speed change here states its effect with its numbers.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and every build-speed change here states its effect with its numbers.
 
 ```bash
 just bench                                    # everything; takes hours
