@@ -137,9 +137,9 @@ pub struct Body<'b, 'a, 'tcx> {
 }
 
 /// One `&&`-joined part of an `if` condition.
-enum CondPart {
+enum CondPart<'a, 'tcx> {
 	Bool(ExprId),
-	Let(ExprId, &'static Pat<'static>),
+	Let(ExprId, &'a Pat<'tcx>),
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
@@ -427,7 +427,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 
 		let Some(init) = init else {
-			self.t.err(span, "a pattern binding without an initializer");
+			// `let _: T;`, as derives write to assert a bound, binds nothing.
+			if !matches!(pat.kind, PatKind::Wild) {
+				self.t.err(span, "a pattern binding without an initializer");
+			}
 			return;
 		};
 		// `const [a, b] = ...` for a tuple or array of plain bindings.
@@ -698,15 +701,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn cond_parts(&self, id: ExprId, parts: &mut Vec<CondPart>) {
+	fn cond_parts(&self, id: ExprId, parts: &mut Vec<CondPart<'a, 'tcx>>) {
 		let id = self.strip(id);
-		match &self.thir[id].kind {
-			ExprKind::Let { expr, pat } => {
-				// SAFETY of the lifetime: the pattern lives in `self.thir`, which outlives
-				// the parts, which are used within the call that made them.
-				let pat: &'static Pat<'static> = unsafe { std::mem::transmute::<&Pat<'tcx>, &Pat<'static>>(&**pat) };
-				parts.push(CondPart::Let(*expr, pat));
-			}
+		let thir: &'a Thir<'tcx> = self.thir;
+		match &thir[id].kind {
+			ExprKind::Let { expr, pat } => parts.push(CondPart::Let(*expr, pat)),
 			ExprKind::LogicalOp {
 				op: thir::LogicalOp::And,
 				lhs,
@@ -719,33 +718,71 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Lower one part of a condition: its statements to `pre`, the bindings a `let`
+	/// makes once it passed to `binds`, and the test, if it can fail.
+	fn cond_part(&mut self, part: &CondPart<'a, 'tcx>, pre: &mut Vec<Stmt>, binds: &mut Vec<Stmt>) -> Option<Expr> {
+		match part {
+			CondPart::Bool(id) => Some(self.expr(*id, pre)),
+			CondPart::Let(expr, pat) => {
+				let reads = self.test_reads(pat) + bindings(pat);
+				let (scrut, owned) = self.scrutinee(*expr, reads, pre);
+				let test = self.pat_test(pat, &scrut);
+				self.pat_bind(pat, &scrut, owned, binds);
+				test
+			}
+		}
+	}
+
+	/// A match's scrutinee, which its patterns read `reads` times: as a path they can
+	/// read repeatedly, or as is when they read it at most once, first. Also whether it
+	/// is a temporary.
+	fn scrutinee(&mut self, id: ExprId, reads: usize, out: &mut Vec<Stmt>) -> (Expr, bool) {
+		let owned = !self.is_place(id);
+		let value = match owned {
+			true => self.operand(id, out),
+			false => self.place(id, out),
+		};
+		match reads {
+			// Unread, it still runs.
+			0 if !value.is_path() => {
+				out.push(StmtKind::Expr(value).at(None));
+				(Expr::undefined(), owned)
+			}
+			0 | 1 => (value, owned),
+			_ => (self.path(value, id, out), owned),
+		}
+	}
+
+	/// How many times the test of `pat` reads its scrutinee.
+	fn test_reads(&self, pat: &Pat<'tcx>) -> usize {
+		match &pat.kind {
+			PatKind::Wild | PatKind::Missing => 0,
+			PatKind::Binding { subpattern, .. } => subpattern.as_ref().map_or(0, |p| self.test_reads(p)),
+			PatKind::Deref { subpattern, .. } => self.test_reads(subpattern),
+			PatKind::Leaf { subpatterns } => subpatterns.iter().map(|f| self.test_reads(&f.pattern)).sum(),
+			PatKind::Variant { subpatterns, .. } => 1 + subpatterns.iter().map(|f| self.test_reads(&f.pattern)).sum::<usize>(),
+			PatKind::Or { pats } => pats.iter().map(|p| self.test_reads(p)).sum(),
+			PatKind::Array { prefix, suffix, .. } => prefix.iter().chain(suffix.iter()).map(|p| self.test_reads(p)).sum(),
+			PatKind::Constant { .. } => 1,
+			PatKind::Range(range) => usize::from(range.lo.is_finite()) + usize::from(range.hi.is_finite()),
+			// Ranges, slices, and anything else: assume more than once.
+			_ => 2,
+		}
+	}
+
 	fn if_(&mut self, cond: ExprId, then: ExprId, els: Option<ExprId>, dest: Dest, span: Span, out: &mut Vec<Stmt>) {
 		let mut parts = Vec::new();
 		self.cond_parts(cond, &mut parts);
-		let mut else_stmts = Vec::new();
-		if let Some(els) = els {
-			self.stmt(els, dest.clone(), &mut else_stmts);
-		}
 
 		// One condition, as JS writes it.
 		if let [part] = parts.as_slice() {
 			let mut then_stmts = Vec::new();
-			let test = match part {
-				CondPart::Bool(id) => Some(self.expr(*id, out)),
-				CondPart::Let(expr, pat) => {
-					let pat: &Pat<'tcx> = unsafe { std::mem::transmute::<&Pat<'static>, &Pat<'tcx>>(*pat) };
-					let owned = !self.is_place(*expr);
-					let value = match owned {
-						true => self.operand(*expr, out),
-						false => self.place(*expr, out),
-					};
-					let scrut = self.path(value, *expr, out);
-					let test = self.pat_test(pat, &scrut);
-					self.pat_bind(pat, &scrut, owned, &mut then_stmts);
-					test
-				}
-			};
-			self.stmt(then, dest, &mut then_stmts);
+			let test = self.cond_part(part, out, &mut then_stmts);
+			self.stmt(then, dest.clone(), &mut then_stmts);
+			let mut else_stmts = Vec::new();
+			if let Some(els) = els {
+				self.stmt(els, dest, &mut else_stmts);
+			}
 			match test {
 				Some(test) => self.push(
 					out,
@@ -756,58 +793,46 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					},
 					span,
 				),
+				// An irrefutable `let`: the else never runs.
 				None => out.extend(then_stmts),
 			}
 			return;
 		}
 
 		// A let chain: each part nests in the last, and any failing runs the else.
-		let has_else = !else_stmts.is_empty();
 		let label = self.fresh("chain");
+		let mut levels = Vec::new();
+		for part in &parts {
+			let mut pre = Vec::new();
+			let mut binds = Vec::new();
+			let test = self.cond_part(part, &mut pre, &mut binds);
+			levels.push((pre, test, binds));
+		}
 		let mut then_stmts = Vec::new();
-		self.stmt(then, dest, &mut then_stmts);
+		self.stmt(then, dest.clone(), &mut then_stmts);
+		let mut else_stmts = Vec::new();
+		if let Some(els) = els {
+			self.stmt(els, dest, &mut else_stmts);
+		}
+		let has_else = !else_stmts.is_empty();
 		if has_else && !ts::diverges(&then_stmts) {
 			then_stmts.push(StmtKind::Break(Some(label.clone())).at(None));
 		}
-		let mut levels: Vec<(Vec<Stmt>, Option<Expr>)> = Vec::new();
-		let mut pre = Vec::new();
-		for part in &parts {
-			let mut binds = Vec::new();
-			let test = match part {
-				CondPart::Bool(id) => Some(self.expr(*id, &mut pre)),
-				CondPart::Let(expr, pat) => {
-					let pat: &Pat<'tcx> = unsafe { std::mem::transmute::<&Pat<'static>, &Pat<'tcx>>(*pat) };
-					let owned = !self.is_place(*expr);
-					let value = match owned {
-						true => self.operand(*expr, &mut pre),
-						false => self.place(*expr, &mut pre),
-					};
-					let scrut = self.path(value, *expr, &mut pre);
-					let test = self.pat_test(pat, &scrut);
-					self.pat_bind(pat, &scrut, owned, &mut binds);
-					test
-				}
-			};
-			levels.push((std::mem::take(&mut pre), test));
-			levels.last_mut().unwrap().0.extend(Vec::<Stmt>::new());
-			if !binds.is_empty() {
-				// Bindings run once the test passed, before the next part.
-				levels.push((binds, None));
-			}
-		}
 		let mut body = then_stmts;
-		for (pre, test) in levels.into_iter().rev() {
+		for (pre, test, binds) in levels.into_iter().rev() {
+			let mut inner = binds;
+			inner.extend(body);
 			let mut wrapped = pre;
 			match test {
 				Some(test) => wrapped.push(
 					StmtKind::If {
 						cond: test,
-						then: body,
+						then: inner,
 						els: Vec::new(),
 					}
 					.at(None),
 				),
-				None => wrapped.extend(body),
+				None => wrapped.extend(inner),
 			}
 			body = wrapped;
 		}
@@ -843,12 +868,21 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			_ => {}
 		}
 
-		let owned = !self.is_place(scrutinee);
-		let value = match owned {
-			true => self.operand(scrutinee, out),
-			false => self.place(scrutinee, out),
+		let thir: &'a Thir<'tcx> = self.thir;
+		let pats: Vec<&Pat<'tcx>> = arms.iter().map(|&arm| &*thir[arm].pattern).collect();
+		// The last arm is the else, whose test never runs, unless it is guarded.
+		let tested = match arms.last().is_some_and(|&arm| thir[arm].guard.is_none()) {
+			true => pats.len() - 1,
+			false => pats.len(),
 		};
-		let scrut = self.path(value, scrutinee, out);
+		let first_reads = pats.first().map_or(0, |p| self.test_reads(p));
+		let later_reads: usize = pats.iter().take(tested).skip(1).map(|p| self.test_reads(p)).sum();
+		let binds: usize = pats.iter().map(|p| bindings(p)).sum();
+		let reads = match first_reads <= 1 && later_reads == 0 && binds == 0 {
+			true => first_reads,
+			false => 2,
+		};
+		let (scrut, owned) = self.scrutinee(scrutinee, reads, out);
 
 		struct Lowered {
 			test: Option<Expr>,
@@ -1636,12 +1670,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let ExprKind::Match { scrutinee, arms, .. } = &self.thir[self.strip(id)].kind else {
 			unreachable!()
 		};
-		let owned = !self.is_place(*scrutinee);
-		let value = match owned {
-			true => self.operand(*scrutinee, out),
-			false => self.place(*scrutinee, out),
-		};
-		let scrut = self.path(value, *scrutinee, out);
+		let thir: &'a Thir<'tcx> = self.thir;
+		let reads: usize = arms.iter().take(arms.len().saturating_sub(1)).map(|&arm| self.test_reads(&thir[arm].pattern)).sum();
+		let (scrut, _) = self.scrutinee(*scrutinee, reads.min(2), out);
 		let mut chain: Vec<(Option<Expr>, Expr)> = Vec::new();
 		for &arm in arms.iter() {
 			let arm = &self.thir[arm];
@@ -2114,13 +2145,18 @@ fn needs_annotation(value: &Expr) -> bool {
 }
 
 pub fn has_bindings(pat: &Pat<'_>) -> bool {
-	let mut found = false;
+	bindings(pat) > 0
+}
+
+/// How many bindings `pat` makes, each reading the scrutinee once.
+fn bindings(pat: &Pat<'_>) -> usize {
+	let mut count = 0;
 	pat.walk_always(|p| {
 		if let PatKind::Binding { .. } = p.kind {
-			found = true;
+			count += 1;
 		}
 	});
-	found
+	count
 }
 
 fn kind_name(kind: &ExprKind<'_>) -> String {

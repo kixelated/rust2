@@ -90,8 +90,7 @@ export class Probe {
 			bitrate = v;
 		}
 		let rtt: bigint | undefined;
-		const hasProbeRtt = Version.hasProbeRtt(version);
-		if (!hasProbeRtt) {
+		if (!Version.hasProbeRtt(version)) {
 			rtt = undefined;
 		} else {
 			const varint2 = r.varint();

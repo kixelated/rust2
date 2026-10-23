@@ -62,8 +62,11 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		None => workspace_root(&manifest)?.join("target").join("rust2-ts"),
 	};
 
+	let package_dir = manifest.parent().expect("a manifest path has a parent").to_path_buf();
 	let cargo = |subcommand: &str| {
 		let mut cmd = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
+		// Cargo reads its config from where it runs, so run where the package is.
+		cmd.current_dir(&package_dir);
 		cmd.arg(subcommand)
 			.arg("--manifest-path")
 			.arg(&manifest)

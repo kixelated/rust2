@@ -84,8 +84,7 @@ export class Group {
 		}
 		const sequence = varint2.value;
 		let frameStart: bigint;
-		const hasFrameBounds = Version.hasFrameBounds(version);
-		if (hasFrameBounds) {
+		if (Version.hasFrameBounds(version)) {
 			const varint3 = r.varint();
 			if (!varint3.ok) {
 				return rt.Err(varint3.error);

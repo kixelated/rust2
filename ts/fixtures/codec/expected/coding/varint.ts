@@ -103,11 +103,11 @@ export function writeLeadingOnes(value: bigint, out: rt.ByteVec): void {
 	} else if (hi < (1 << 10)) {
 		out.extendFromSlice(Uint8Array.of(0xf8 | ((hi >>> 8) & 0xff), hi & 0xff, a, b, c, d));
 	} else if (hi < (1 << 24)) {
-		const [, f2, g2, h2] = rt.u32.toBeBytes(hi);
-		out.extendFromSlice(Uint8Array.of(0xfe, f2, g2, h2, a, b, c, d));
+		const [, f, g, h] = rt.u32.toBeBytes(hi);
+		out.extendFromSlice(Uint8Array.of(0xfe, f, g, h, a, b, c, d));
 	} else {
-		const [e, f, g, h] = rt.u32.toBeBytes(hi);
-		out.extendFromSlice(Uint8Array.of(0xff, e, f, g, h, a, b, c, d));
+		const [e, f2, g2, h2] = rt.u32.toBeBytes(hi);
+		out.extendFromSlice(Uint8Array.of(0xff, e, f2, g2, h2, a, b, c, d));
 	}
 }
 
@@ -130,31 +130,31 @@ export function readQuic(buf: Uint8Array): rt.Result<[bigint, Uint8Array], Decod
 	if (first < 0x40) {
 		return rt.Ok([BigInt(first), rest]);
 	} else if (first < 0x80) {
-		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 2), { tag: "Short" } as DecodeError);
-		if (!okOr3.ok) {
-			return rt.Err(okOr3.error);
+		const okOr = rt.option.okOr(rt.slice.splitFirstChunk(buf, 2), { tag: "Short" } as DecodeError);
+		if (!okOr.ok) {
+			return rt.Err(okOr.error);
 		}
-		const [[a3, b3], rest4] = okOr3.value;
-		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a3 & 0x3f, b3))), rest4]);
+		const [[a, b], rest2] = okOr.value;
+		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a & 0x3f, b))), rest2]);
 	} else if (first < 0xc0) {
 		const okOr2 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 4), { tag: "Short" } as DecodeError);
 		if (!okOr2.ok) {
 			return rt.Err(okOr2.error);
 		}
-		const [[a2, b2, c2, d2], rest3] = okOr2.value;
-		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(a2 & 0x3f, b2, c2, d2))), rest3]);
+		const [[a2, b2, c, d], rest3] = okOr2.value;
+		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(a2 & 0x3f, b2, c, d))), rest3]);
 	} else {
-		const okOr = rt.option.okOr(rt.slice.splitFirstChunk(buf, 8), { tag: "Short" } as DecodeError);
-		if (!okOr.ok) {
-			return rt.Err(okOr.error);
+		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 8), { tag: "Short" } as DecodeError);
+		if (!okOr3.ok) {
+			return rt.Err(okOr3.error);
 		}
-		const a = okOr.value[0][0];
-		const b = okOr.value[0][1];
-		const c = okOr.value[0][2];
-		const d = okOr.value[0][3];
-		const lo = okOr.value[0].subarray(4, 8);
-		const rest2 = okOr.value[1];
-		return rt.Ok([fromHalves(rt.u32.fromBeBytes(Uint8Array.of(a & 0x3f, b, c, d)), rt.u32.fromBeBytes(rt.copy(lo))), rest2]);
+		const a3 = okOr3.value[0][0];
+		const b3 = okOr3.value[0][1];
+		const c2 = okOr3.value[0][2];
+		const d2 = okOr3.value[0][3];
+		const lo = okOr3.value[0].subarray(4, 8);
+		const rest4 = okOr3.value[1];
+		return rt.Ok([fromHalves(rt.u32.fromBeBytes(Uint8Array.of(a3 & 0x3f, b3, c2, d2)), rt.u32.fromBeBytes(rt.copy(lo))), rest4]);
 	}
 }
 

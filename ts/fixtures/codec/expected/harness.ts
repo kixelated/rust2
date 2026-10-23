@@ -300,9 +300,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				result = w.string("not utf-8");
 			}
 		} else if (value2 === 7) {
-			const arg2 = prefixes;
-			const value4 = rt.u64.rem(value, 2n);
-			arg2.push(value4 === 0n ? w.prefixVarint() : w.prefixU16());
+			prefixes.push(rt.u64.rem(value, 2n) === 0n ? w.prefixVarint() : w.prefixU16());
 			result = rt.Ok(undefined);
 		} else if (value2 === 8) {
 			const pop = prefixes.pop();

@@ -161,11 +161,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				self.adt(adt, span);
 				let self_ty = self.tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+				// Its inherent methods, and its impls of the crate's own traits: another
+				// crate's trait, such as a derived `Debug`, comes along only when called.
 				let mut impls: Vec<DefId> = self.tcx.inherent_impls(def_id).to_vec();
-				for local in self.tcx.all_local_trait_impls(()).values().flatten() {
-					let impl_ty = self.tcx.type_of(local.to_def_id()).instantiate_identity().skip_norm_wip();
-					if impl_ty == self_ty {
-						impls.push(local.to_def_id());
+				for (trait_id, locals) in self.tcx.all_local_trait_impls(()) {
+					if !trait_id.is_local() {
+						continue;
+					}
+					for local in locals {
+						let impl_ty = self.tcx.type_of(local.to_def_id()).instantiate_identity().skip_norm_wip();
+						if impl_ty == self_ty {
+							impls.push(local.to_def_id());
+						}
 					}
 				}
 				for imp in impls {
@@ -178,8 +185,51 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						}
 					}
 				}
+				self.blanket_impls(self_ty);
 			}
 			kind => self.err(self.tcx.def_span(def_id), format!("a root must be a function or a type, not {kind:?}")),
+		}
+	}
+
+	/// The methods of blanket impls of the crate's traits that hold for `self_ty`, such
+	/// as `impl<T: Message> Encode<Version> for T`.
+	fn blanket_impls(&mut self, self_ty: Ty<'tcx>) {
+		let tcx = self.tcx;
+		for (trait_id, locals) in tcx.all_local_trait_impls(()) {
+			if !trait_id.is_local() {
+				continue;
+			}
+			for local in locals {
+				let imp = local.to_def_id();
+				let impl_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+				if !matches!(impl_ty.kind(), ty::Param(_)) {
+					continue;
+				}
+				// Only the self parameter: any other would need choosing.
+				let generics = tcx.generics_of(imp);
+				let counts = generics.own_counts();
+				if counts.types != 1 || counts.consts != 0 || generics.parent.is_some() {
+					continue;
+				}
+				let args = tcx.mk_args_from_iter(generics.own_params.iter().map(|param| -> ty::GenericArg<'tcx> {
+					match param.kind {
+						ty::GenericParamDefKind::Lifetime => tcx.lifetimes.re_erased.into(),
+						_ => self_ty.into(),
+					}
+				}));
+				let trait_ref = tcx.impl_trait_ref(imp).instantiate(tcx, args).skip_norm_wip();
+				for item in tcx.associated_items(imp).in_definition_order() {
+					if !item.is_fn() || tcx.generics_of(item.def_id).own_requires_monomorphization() {
+						continue;
+					}
+					let Some(trait_item) = item.trait_item_def_id() else {
+						continue;
+					};
+					if let Ok(Some(instance)) = Instance::try_resolve(tcx, self.typing_env(), trait_item, trait_ref.args) {
+						self.instance(instance);
+					}
+				}
+			}
 		}
 	}
 

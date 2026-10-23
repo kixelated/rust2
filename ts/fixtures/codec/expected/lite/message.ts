@@ -36,8 +36,7 @@ export function decodeWith(r: Decoder, decode: (a0: Decoder) => rt.Result<Group,
 	}
 	let body: Decoder = sub.value;
 	const result = rt.result.andThen(rt.result.mapErr(decode(body), DecodeError.complete), (msg: Group): rt.Result<Group, DecodeError> => {
-		const isEmpty = body.isEmpty();
-		if (isEmpty) {
+		if (body.isEmpty()) {
 			return rt.Ok(msg);
 		} else {
 			return rt.Err({ tag: "Long" } as DecodeError);
@@ -61,8 +60,7 @@ export function decodeWith$Probe(r: Decoder, decode: (a0: Decoder) => rt.Result<
 	}
 	let body: Decoder = sub.value;
 	const result = rt.result.andThen(rt.result.mapErr(decode(body), DecodeError.complete), (msg: Probe): rt.Result<Probe, DecodeError> => {
-		const isEmpty = body.isEmpty();
-		if (isEmpty) {
+		if (body.isEmpty()) {
 			return rt.Ok(msg);
 		} else {
 			return rt.Err({ tag: "Long" } as DecodeError);
