@@ -1,13 +1,14 @@
 # Input: the events of one cargo build analysis log (`jq -s`), plus $corpus,
-# $step, and $profile (the self-profile summary). Output: where the build's time
-# went, in unit-seconds per kind of unit and per compiler section.
+# $step, $proc_macros (package ids), and $profile (the self-profile summary).
+# Output: where the build's time went, in unit-seconds per kind of unit and per
+# compiler section.
 
 def by_index: map({key: (.index | tostring), value: .}) | from_entries;
 
 def class:
 	if .mode == "run-custom-build" then "build script (run)"
 	elif .target.kind == "build-script" then "build script (compile)"
-	elif .target.kind == "proc-macro" then "proc macro"
+	elif .package_id as $id | any($proc_macros[]; . == $id) then "proc macro"
 	elif .target.kind != "lib" then "binary"
 	elif .package_id | startswith("path+") then "workspace lib"
 	else "dependency"

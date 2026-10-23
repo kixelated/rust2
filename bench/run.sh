@@ -86,7 +86,7 @@ for name in "${variants[@]}"; do
     [[ " ${variants[*]} " == *" $base "* ]] || die "variant $name compares against $base; select it too"
 done
 
-work=${RUST2_BENCH_DIR:-$root/target/bench}
+work=$root/target/bench
 out=${out:-$work/results/$(date -u +%Y%m%dT%H%M%SZ)}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
@@ -218,7 +218,7 @@ run_variant() { # corpus variant dir
 # One nightly clean build and each edit, with cargo's build analysis log and
 # rustc's self-profile, summarized into where the time goes.
 attribute() { # corpus dir
-    local corpus=$1 dir=$2 leaf hub prof stamp step log dest
+    local corpus=$1 dir=$2 leaf hub prof stamp step log dest proc_macros
     local -a args logs steps=(build)
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
     leaf=$(field corpus "$corpus" .leaf)
@@ -226,6 +226,9 @@ attribute() { # corpus dir
     steps+=(edit-leaf)
     [[ -z $hub ]] || steps+=(edit-hub)
     echo "bench: $corpus attribution"
+    # Build analysis logs proc macros as plain libs.
+    proc_macros=$(cd "$dir" && cargo metadata --locked --offline --format-version 1 |
+        jq -c '[.packages[] | select(any(.targets[]; .kind | index("proc-macro"))) | .id]')
 
     PATH=$nightly_path
     export CARGO_TARGET_DIR=$work/target/$corpus/attribution
@@ -245,7 +248,8 @@ attribute() { # corpus dir
         esac
         touch "$stamp"
         (cd "$dir" && cargo -Z build-analysis -Z section-timings build --config build.analysis.enabled=true \
-            --locked --offline -q "${args[@]}")
+            --locked --offline "${args[@]}" >"$out/logs/$corpus.attribution.$step.log" 2>&1) ||
+            { tail -40 "$out/logs/$corpus.attribution.$step.log" >&2 && die "$corpus failed the $step attribution build"; }
         # Cargo names the log by session, so find this build's among any written since.
         mapfile -t logs < <(find "${CARGO_HOME:-$HOME/.cargo}/log" -name '*.jsonl' -newer "$stamp")
         log=
@@ -260,7 +264,7 @@ attribute() { # corpus dir
             xargs -0 -r -n 1 -P "$(getconf _NPROCESSORS_ONLN)" summarize summarize --json >/dev/null
         jq -s -f "$bench/self-profile.jq" "$prof"/*.json >"$dest/self-profile.json"
         rm -f "$prof"/*
-        jq -s -f "$bench/attribute.jq" --arg corpus "$corpus" --arg step "$step" \
+        jq -s -f "$bench/attribute.jq" --arg corpus "$corpus" --arg step "$step" --argjson proc_macros "$proc_macros" \
             --slurpfile profile "$dest/self-profile.json" "$dest/cargo.jsonl" >"$dest/summary.json"
     done
     unset RUSTFLAGS

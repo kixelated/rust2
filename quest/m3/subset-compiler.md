@@ -4,7 +4,7 @@
 
 A compiler, interpreter, or debug fast path for the pure-Rust subset builds
 moq-scale code measurably faster than rustc on the
-[build-speed benchmark](/quest/m1/bench.md), for the scenario the report shows
+[build-speed benchmark](/bench/README.md), for the scenario the report shows
 matters most (likely incremental debug rebuilds).
 
 ## Plan
@@ -21,7 +21,3 @@ language features. The report must show a gap upstream will not close before
 this starts; otherwise delete this quest.
 
 Public API: a new tool.
-
-## Required
-
-- [Build-speed benchmark](/quest/m1/bench.md) - the before/after gate and the attribution that scopes this
