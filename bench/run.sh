@@ -104,7 +104,10 @@ while :; do
     [[ $dir != / ]] || break
     dir=$(dirname "$dir")
 done
-mapfile -t caller_vars < <(compgen -v | grep -E '^(CARGO|RUSTC|RUSTDOC|RUSTUP)|^(RUSTFLAGS|CI|TF_BUILD)$' || true)
+caller_vars=("${!CARGO@}" "${!RUSTC@}" "${!RUSTDOC@}" "${!RUSTUP@}")
+for name in RUSTFLAGS CI TF_BUILD; do
+    [[ -z ${!name+set} ]] || caller_vars+=("$name")
+done
 if ((${#caller_vars[@]})); then
     echo "bench: ignoring ${caller_vars[*]}"
     unset "${caller_vars[@]}"
