@@ -48,6 +48,12 @@ pub struct MyHashSet {
     inner: Mutex<HashSet<String>>,
 }
 
+impl Default for MyHashSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MyHashSet {
     pub fn new() -> Self {
         Self { inner: Mutex::new(HashSet::new()) }

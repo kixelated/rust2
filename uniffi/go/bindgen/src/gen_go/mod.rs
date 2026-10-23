@@ -223,12 +223,12 @@ impl<'a> GoWrapper<'a> {
     pub fn initialization_fns(&self) -> Vec<String> {
         self.ci
             .iter_local_types()
-            .map(|t| GoCodeOracle.find(t, &self.ci))
+            .map(|t| GoCodeOracle.find(t, self.ci))
             .filter_map(|t| t.initialization_fn())
             .chain(
                 self.ci
                     .iter_external_types()
-                    .map(|t| GoCodeOracle.find(t, &self.ci))
+                    .map(|t| GoCodeOracle.find(t, self.ci))
                     .filter_map(|t| t.initialization_fn()),
             )
             .collect()
@@ -366,7 +366,7 @@ impl GoCodeOracle {
             let name = type_.name().unwrap().to_string();
             let module_path = type_.module_path().unwrap();
             let namespace = ci
-                .namespace_for_module_path(&module_path)
+                .namespace_for_module_path(module_path)
                 .unwrap()
                 .to_string();
             let kind = match &type_ {
@@ -639,7 +639,7 @@ impl<'a> TypeRenderer<'a> {
             let go_mod = go_mod.trim_end_matches("/");
             format!("{go_mod}/{mod_name}")
         } else {
-            format!("{mod_name}")
+            mod_name.to_string()
         };
 
         self.imports

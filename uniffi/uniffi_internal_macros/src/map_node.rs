@@ -394,6 +394,10 @@ impl Parse for TypeAttr {
     }
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "parsed once per field at compile time"
+)]
 enum FieldAttr {
     From(Ident),
     Expr(Expr),

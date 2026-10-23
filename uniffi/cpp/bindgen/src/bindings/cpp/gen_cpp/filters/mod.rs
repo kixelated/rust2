@@ -1,4 +1,3 @@
-use askama;
 use heck::{ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use uniffi_bindgen::{
     interface::{Argument, AsType, DefaultValue, FfiType, Literal, Object, Type, Variant},
@@ -298,7 +297,7 @@ pub(crate) fn literal_cpp(
         Literal::Enum(name, _) => Ok(format!(
             "{}::{}",
             as_ct.as_codetype().type_label(ci),
-            CppCodeOracle.enum_variant_name(&name, enum_style),
+            CppCodeOracle.enum_variant_name(name, enum_style),
         )),
         _ => Ok(as_ct.as_codetype().literal(literal, ci)),
     }
@@ -437,7 +436,7 @@ pub(crate) fn is_error_class(ci: &ComponentInterface, name: &str) -> bool {
 /// Whether an enum renders as a struct holding a `std::variant` rather than an `enum class`.
 /// A flat error is a struct under the expected style because each variant carries a message.
 pub(crate) fn is_enum_struct(ci: &ComponentInterface, name: &str) -> bool {
-    let flat = ci.get_enum_definition(name).map_or(false, |e| e.is_flat());
+    let flat = ci.get_enum_definition(name).is_some_and(|e| e.is_flat());
     !flat || (ci.is_name_used_as_error(name) && error_style() == ErrorStyle::Expected)
 }
 

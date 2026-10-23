@@ -24,16 +24,11 @@ use uniffi_bindgen::{interface::*, ComponentInterface};
 
 use crate::bindings::cpp::gen_cpp::filters::callback_interface_name;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub enum EnumStyle {
     Capitalized,
+    #[default]
     Google,
-}
-
-impl Default for EnumStyle {
-    fn default() -> Self {
-        EnumStyle::Google
-    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
@@ -175,7 +170,7 @@ impl<'a> ScaffoldingHeader<'a> {
     pub fn scaffolding_definitions(&self) -> impl Iterator<Item = FfiDefinition> + '_ {
         self.ci
             .callback_interface_definitions()
-            .into_iter()
+            .iter()
             .map(|cb| cb.vtable_definition())
             .chain(
                 self.ci
@@ -290,7 +285,7 @@ impl<'a> CppWrapperHeader<'a> {
                     // External types are defined in their own namespace's header with their own
                     // converters declared, which we `#include`. They must not enter the local
                     // definition ordering, or we'd try to emit a definition we don't have.
-                    Some(type_) if self.ci.is_external(&type_) => {}
+                    Some(type_) if self.ci.is_external(type_) => {}
                     Some(type_) => sorted.push(type_.clone()),
                     None => {
                         panic!("Type {} not found", name)
@@ -304,7 +299,7 @@ impl<'a> CppWrapperHeader<'a> {
         }
 
         let rest = types
-            .filter(|t| type_name(t).map_or(true, |name| !emitted_names.contains(name)))
+            .filter(|t| type_name(t).is_none_or(|name| !emitted_names.contains(name)))
             .cloned()
             .collect::<BTreeSet<_>>();
 

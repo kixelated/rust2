@@ -1167,7 +1167,7 @@ impl ComponentInterface {
             .ok_or_else(|| {
                 anyhow!(
                     "add_object_trait_impl: object {:?} not found",
-                    &trait_impl.ty
+                    trait_impl.ty
                 )
             })?;
         object.trait_impls.push(trait_impl);
@@ -1320,11 +1320,9 @@ impl<'a> RecursiveTypeIterator<'a> {
             }
             | Type::CallbackInterface {
                 module_path, name, ..
-            } => {
-                if !self.seen.contains(&(module_path.as_str(), name.as_str())) {
-                    self.pending.push(type_);
-                    self.seen.insert((module_path.as_str(), name.as_str()));
-                }
+            } if !self.seen.contains(&(module_path.as_str(), name.as_str())) => {
+                self.pending.push(type_);
+                self.seen.insert((module_path.as_str(), name.as_str()));
             }
             _ => (),
         }

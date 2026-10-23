@@ -16,13 +16,19 @@ pub enum ObjectError {
 
 pub struct Object0 {}
 
+impl Default for Object0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Object0 {
     pub fn new() -> Object0 {
-        return Object0 {};
+        Object0 {}
     }
 
     pub fn new_custom() -> Object0 {
-        return Object0 {};
+        Object0 {}
     }
 }
 
@@ -52,11 +58,11 @@ pub struct Object1 {
 
 impl Object1 {
     pub fn new(message: String) -> Object1 {
-        return Object1 { message };
+        Object1 { message }
     }
 
     pub fn new_custom(message: String) -> Object1 {
-        return Object1 { message };
+        Object1 { message }
     }
 
     pub fn get_message(&self) -> String {
@@ -172,7 +178,7 @@ pub fn create_channel() -> Channel {
 }
 
 pub fn create_fallible_object1(message: String) -> Result<Arc<FallibleObject1>, ObjectError> {
-    FallibleObject1::new(message).map(|o| Arc::new(o))
+    FallibleObject1::new(message).map(Arc::new)
 }
 
 pub fn return_object1(object: Arc<Object1>) -> Arc<Object1> {

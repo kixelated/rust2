@@ -26,6 +26,12 @@ pub enum AssociatedERRORTest {
 
 pub struct OBJECTTest {}
 
+impl Default for OBJECTTest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OBJECTTest {
     pub fn new() -> Self {
         OBJECTTest {}

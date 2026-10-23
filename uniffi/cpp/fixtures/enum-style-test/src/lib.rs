@@ -1,3 +1,7 @@
+#[allow(
+    clippy::enum_variant_names,
+    reason = "the shared prefix is what the style test renders"
+)]
 enum SimpleEnum {
     VariantOne,
     VariantTwo,

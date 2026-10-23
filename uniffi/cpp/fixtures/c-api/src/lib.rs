@@ -141,6 +141,10 @@ impl CapiStore {
         self.name.clone()
     }
 
+    #[allow(
+        clippy::len_without_is_empty,
+        reason = "the fixture exports only the C API under test"
+    )]
     pub fn len(&self) -> u64 {
         self.items.lock().unwrap().len() as u64
     }

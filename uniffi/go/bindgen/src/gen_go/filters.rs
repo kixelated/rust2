@@ -7,73 +7,58 @@ pub fn oracle() -> &'static GoCodeOracle {
     &GoCodeOracle
 }
 
-pub fn ffi_converter_name<'a>(
+pub fn ffi_converter_name(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).ffi_converter_name())
 }
 
-pub fn ffi_converter_instance<'a>(
+pub fn ffi_converter_instance(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).ffi_converter_instance())
 }
 
-pub fn ffi_destroyer_name<'a>(
+pub fn ffi_destroyer_name(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).ffi_destroyer_name())
 }
 
-pub fn read_fn<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn read_fn(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).read())
 }
 
-pub fn lift_fn<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn lift_fn(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).lift())
 }
 
-pub fn write_fn<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn write_fn(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).write())
 }
 
-pub fn lower_fn<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn lower_fn(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).lower())
 }
 
-pub fn lower_external_fn<'a>(
+pub fn lower_external_fn(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).lower_external())
 }
 
-pub fn requires_lower_external<'a>(
+pub fn requires_lower_external(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<bool, askama::Error> {
     Ok(oracle().find(type_, ci).requires_lower_external())
 }
 
-pub fn destroy_fn<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn destroy_fn(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).destroy())
 }
 
@@ -118,16 +103,13 @@ pub fn or_pos_field(nm: String, pos: &usize) -> Result<String, askama::Error> {
     }
 }
 
-pub fn type_name<'a>(
-    type_: &impl AsType,
-    ci: &'a ComponentInterface,
-) -> Result<String, askama::Error> {
+pub fn type_name(type_: &impl AsType, ci: &ComponentInterface) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).type_label(ci))
 }
 
-pub fn canonical_name<'a>(
+pub fn canonical_name(
     type_: &impl AsType,
-    ci: &'a ComponentInterface,
+    ci: &ComponentInterface,
 ) -> Result<String, askama::Error> {
     Ok(oracle().find(type_, ci).canonical_name())
 }
