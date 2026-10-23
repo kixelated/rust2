@@ -9,19 +9,19 @@ crate-type = ["cdylib", "lib", "staticlib"]
 [dependencies]
 async-trait = "0.1"
 uniffi = { workspace = true }
-uniffi-example-arithmetic = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-callbacks = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-custom-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-geometry = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-rondpoint = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-sprites = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-todolist = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-example-traits = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-fixture-callbacks = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-fixture-coverall = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-fixture-docstring = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-fixture-time = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
-uniffi-fixture-trait-methods = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.2" }
+uniffi-example-arithmetic = { path = "../../examples/arithmetic" }
+uniffi-example-callbacks = { path = "../../examples/callbacks" }
+uniffi-example-custom-types = { path = "../../examples/custom-types" }
+uniffi-example-geometry = { path = "../../examples/geometry" }
+uniffi-example-rondpoint = { path = "../../examples/rondpoint" }
+uniffi-example-sprites = { path = "../../examples/sprites" }
+uniffi-example-todolist = { path = "../../examples/todolist" }
+uniffi-example-traits = { path = "../../examples/traits" }
+uniffi-fixture-callbacks = { path = "../../fixtures/callbacks" }
+uniffi-fixture-coverall = { path = "../../fixtures/coverall" }
+uniffi-fixture-docstring = { path = "../../fixtures/docstring" }
+uniffi-fixture-time = { path = "../../fixtures/uniffi-fixture-time" }
+uniffi-fixture-trait-methods = { path = "../../fixtures/trait-methods" }
 
 uniffi-async-calls = { path = "async-calls" }
 uniffi-c-api = { path = "c-api" }

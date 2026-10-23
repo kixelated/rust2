@@ -9,5 +9,5 @@ crate-type = ["cdylib"]
 [dependencies]
 camino = "1"
 glob = "0.3"
-uniffi = { path = "../../uniffi", features = ["bindgen"] }
+uniffi = { package = "rust2-uniffi", path = "../../uniffi", features = ["bindgen"] }
 uniffi-bindgen-tests = { path = "../lib" }

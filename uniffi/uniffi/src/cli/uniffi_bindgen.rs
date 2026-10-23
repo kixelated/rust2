@@ -18,7 +18,6 @@ enum TargetLanguageArg {
     Kotlin,
     Swift,
     Python,
-    Ruby,
 }
 
 impl fmt::Display for TargetLanguageArg {
@@ -27,7 +26,6 @@ impl fmt::Display for TargetLanguageArg {
             Self::Kotlin => write!(f, "kotlin"),
             Self::Swift => write!(f, "swift"),
             Self::Python => write!(f, "python"),
-            Self::Ruby => write!(f, "ruby"),
         }
     }
 }
@@ -38,7 +36,6 @@ impl From<TargetLanguageArg> for TargetLanguage {
             TargetLanguageArg::Kotlin => Self::Kotlin,
             TargetLanguageArg::Swift => Self::Swift,
             TargetLanguageArg::Python => Self::Python,
-            TargetLanguageArg::Ruby => Self::Ruby,
         }
     }
 }

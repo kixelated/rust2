@@ -1,5 +1,5 @@
 [package]
-name = "uniffi-fixture-futures"
+name = "uniffi-go-fixture-futures"
 version = "0.21.0"
 authors = ["Ivan Enderlin <ivan@mnt.io>"]
 edition = "2021"

@@ -10,39 +10,39 @@ crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 # Examples
-uniffi-example-arithmetic = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-callbacks = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-custom-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-geometry = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-rondpoint = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-sprites = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-todolist = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-traits = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-example-futures = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
+uniffi-example-arithmetic = { path = "../../examples/arithmetic"}
+uniffi-example-callbacks = { path = "../../examples/callbacks"}
+uniffi-example-custom-types = { path = "../../examples/custom-types"}
+uniffi-example-geometry = { path = "../../examples/geometry"}
+uniffi-example-rondpoint = { path = "../../examples/rondpoint"}
+uniffi-example-sprites = { path = "../../examples/sprites"}
+uniffi-example-todolist = { path = "../../examples/todolist"}
+uniffi-example-traits = { path = "../../examples/traits"}
+uniffi-example-futures = { path = "../../examples/futures"}
 
 # Fixtures
 # NOTE: taken from upstream, due to collision between new_megaphone and Megaphone interface constructor names
 # uniffi-fixture-futures = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-futures = { path = "./futures" }
+uniffi-go-fixture-futures = { path = "./futures" }
 
 
-uniffi-fixture-callbacks = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-coverall = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-docstring = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-enum-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-error-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-ext-types-custom-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-ext-types = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-ext-types-lib-one = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-ext-types-proc-macro = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-large-enum = { package = "large-enum", git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-large-error = { package = "large-error", git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-proc-macro = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-simple-fns = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-simple-iface = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-time = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-trait-methods = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
-uniffi-fixture-type-limits = { git = "https://github.com/mozilla/uniffi-rs.git", tag = "v0.32.0"}
+uniffi-fixture-callbacks = { path = "../../fixtures/callbacks"}
+uniffi-fixture-coverall = { path = "../../fixtures/coverall"}
+uniffi-fixture-docstring = { path = "../../fixtures/docstring"}
+uniffi-fixture-enum-types = { path = "../../fixtures/enum-types"}
+uniffi-fixture-error-types = { path = "../../fixtures/error-types"}
+uniffi-fixture-ext-types-custom-types = { path = "../../fixtures/ext-types/custom-types"}
+uniffi-fixture-ext-types = { path = "../../fixtures/ext-types/lib"}
+uniffi-fixture-ext-types-lib-one = { path = "../../fixtures/ext-types/uniffi-one"}
+uniffi-fixture-ext-types-proc-macro = { path = "../../fixtures/ext-types/proc-macro-lib"}
+uniffi-fixture-large-enum = { package = "large-enum", path = "../../fixtures/large-enum"}
+uniffi-fixture-large-error = { package = "large-error", path = "../../fixtures/large-error"}
+uniffi-fixture-proc-macro = { path = "../../fixtures/proc-macro"}
+uniffi-fixture-simple-fns = { path = "../../fixtures/simple-fns"}
+uniffi-fixture-simple-iface = { path = "../../fixtures/simple-iface"}
+uniffi-fixture-time = { path = "../../fixtures/uniffi-fixture-time"}
+uniffi-fixture-trait-methods = { path = "../../fixtures/trait-methods"}
+uniffi-fixture-type-limits = { path = "../../fixtures/type-limits"}
 
 # Go specific
 uniffi-go-fixture-destroy = { path = "destroy" }

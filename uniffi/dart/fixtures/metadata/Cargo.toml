@@ -14,4 +14,4 @@ uniffi-dart = { path = "../../", features = ["bindgen-tests"] }
 
 [build-dependencies]
 uniffi-dart = { path = "../../", features = ["build"] }
-camino = { workspace = true }
+camino = "1.1"

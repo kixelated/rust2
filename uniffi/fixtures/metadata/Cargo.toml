@@ -11,8 +11,8 @@ name = "uniffi_fixture_metadata"
 [dependencies]
 thiserror = "2"
 uniffi = { workspace = true }
-uniffi_meta = { path = "../../uniffi_meta" }
-uniffi_core = { path = "../../uniffi_core" }
+uniffi_meta = { package = "rust2-uniffi-meta", path = "../../uniffi_meta" }
+uniffi_core = { package = "rust2-uniffi-core", path = "../../uniffi_core" }
 
 [features]
 ffi-trace = ["uniffi/ffi-trace"]

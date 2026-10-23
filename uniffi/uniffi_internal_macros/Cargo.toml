@@ -1,16 +1,16 @@
 [package]
-name = "uniffi_internal_macros"
-version = "0.32.2"
-description = "a multi-language bindings generator for rust (interal macro crate)"
-documentation = "https://mozilla.github.io/uniffi-rs"
-homepage = "https://mozilla.github.io/uniffi-rs"
-repository = "https://github.com/mozilla/uniffi-rs"
+name = "rust2-uniffi-internal-macros"
+version = "0.1.0"
+description = "A hard fork of UniFFI: a multi-language bindings generator for rust (interal macro crate)"
+homepage = "https://github.com/kixelated/rust2/tree/main/uniffi"
+repository = "https://github.com/kixelated/rust2"
 license = "MPL-2.0"
 edition = "2021"
 keywords = ["ffi", "bindgen"]
 readme = "../README.md"
 
 [lib]
+name = "uniffi_internal_macros"
 proc-macro = true
 
 [dependencies]

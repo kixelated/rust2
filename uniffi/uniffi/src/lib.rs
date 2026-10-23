@@ -8,7 +8,7 @@ pub use uniffi_macros::*;
 #[cfg(feature = "cli")]
 mod cli;
 #[cfg(feature = "bindgen-tests")]
-pub use uniffi_bindgen::bindings::{kotlin_test, python_test, ruby_test, swift_test};
+pub use uniffi_bindgen::bindings::{kotlin_test, python_test, swift_test};
 
 #[cfg(all(feature = "cargo-metadata", feature = "bindgen"))]
 pub use uniffi_bindgen::cargo_metadata::CrateConfigSupplier as CargoMetadataConfigSupplier;

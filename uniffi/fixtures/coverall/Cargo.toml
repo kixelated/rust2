@@ -20,7 +20,7 @@ uniffi = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 uniffi = { workspace = true, features = ["bindgen-tests"] }
-uniffi_meta = { path = "../../uniffi_meta/" }
+uniffi_meta = { package = "rust2-uniffi-meta", path = "../../uniffi_meta/" }
 
 [features]
 ffi-trace = ["uniffi/ffi-trace"]

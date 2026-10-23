@@ -1,21 +1,23 @@
 [package]
-name = "uniffi_pipeline"
-version = "0.32.2"
-description = "a multi-language bindings generator for rust (codegen and cli tooling)"
-documentation = "https://mozilla.github.io/uniffi-rs"
-homepage = "https://mozilla.github.io/uniffi-rs"
-repository = "https://github.com/mozilla/uniffi-rs"
+name = "rust2-uniffi-pipeline"
+version = "0.1.0"
+description = "A hard fork of UniFFI: a multi-language bindings generator for rust (codegen and cli tooling)"
+homepage = "https://github.com/kixelated/rust2/tree/main/uniffi"
+repository = "https://github.com/kixelated/rust2"
 license = "MPL-2.0"
 edition = "2021"
 keywords = ["ffi", "bindgen"]
 readme = "../README.md"
+
+[lib]
+name = "uniffi_pipeline"
 
 [dependencies]
 anyhow = "1"
 heck = "0.5"
 indexmap = { version = "2.2" }
 tempfile = "3"
-uniffi_internal_macros = { path = "../uniffi_internal_macros", version = "=0.32.2" }
+uniffi_internal_macros = { package = "rust2-uniffi-internal-macros", path = "../uniffi_internal_macros", version = "=0.1.0" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

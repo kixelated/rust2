@@ -10,7 +10,7 @@ name = "uniffi_uitests"
 
 [dependencies]
 uniffi = { workspace = true }
-uniffi_macros = { path = "../../uniffi_macros", features = ["trybuild"] }
+uniffi_macros = { package = "rust2-uniffi-macros", path = "../../uniffi_macros", features = ["trybuild"] }
 thiserror = "2"
 
 [dev-dependencies]

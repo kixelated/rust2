@@ -15,14 +15,12 @@ use camino::Utf8PathBuf;
 use crate::{BindgenLoader, BindgenPaths, GlobalConfig};
 mod kotlin;
 pub mod python;
-mod ruby;
 mod swift;
 pub use swift::{generate_swift_bindings, SwiftBindingsOptions};
 
 #[cfg(feature = "bindgen-tests")]
 pub use self::{
-    kotlin::test as kotlin_test, python::test as python_test, ruby::test as ruby_test,
-    swift::test as swift_test,
+    kotlin::test as kotlin_test, python::test as python_test, swift::test as swift_test,
 };
 
 #[cfg(feature = "bindgen-tests")]
@@ -80,9 +78,6 @@ pub fn generate_with_bindgen_paths(
             TargetLanguage::Python => {
                 python::generate(&loader, options.clone())?;
             }
-            TargetLanguage::Ruby => {
-                ruby::generate(&loader, options.clone())?;
-            }
         }
     }
     Ok(())
@@ -115,6 +110,5 @@ pub struct GenerateOptions {
 pub enum TargetLanguage {
     Kotlin,
     Python,
-    Ruby,
     Swift,
 }

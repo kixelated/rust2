@@ -38,9 +38,6 @@ pub(crate) fn build_foreign_language_testcases(tokens: TokenStream) -> TokenStre
                 Some("py") => quote! {
                     ::uniffi::python_test::run_test
                 },
-                Some("rb") => quote! {
-                    ::uniffi::ruby_test::run_test
-                },
                 _ => panic!("Unexpected extension for test script: {test_file_name}"),
             };
             let maybe_ignore = if should_skip_path(&test_file_pathbuf) {
