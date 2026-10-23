@@ -97,7 +97,7 @@
 //! The foreign code registers one VTable per callback interface with Rust.
 //!
 //! VTable methods have a similar signature to Rust scaffolding functions.
-//! The one difference is that values are returned via an out pointer to work around a Python bug (https://bugs.python.org/issue5710).
+//! The one difference is that values are returned via an out pointer to work around a Python bug (<https://bugs.python.org/issue5710>).
 //!
 //! The foreign object that implements the interface is represented by an opaque handle.
 //! UniFFI generates a struct that implements the trait by calling VTable methods, passing the handle as the first parameter.

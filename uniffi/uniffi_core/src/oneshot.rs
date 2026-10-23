@@ -5,7 +5,7 @@
 //! Implements a simple oneshot channel.
 //!
 //! We used to use the `oneshot` crate for this, but the dependency was hard to manage
-//! (https://github.com/mozilla/uniffi-rs/issues/1736)
+//! (<https://github.com/mozilla/uniffi-rs/issues/1736>)
 //!
 //! This implementation is less efficient, but the difference is probably negligible for most
 //! use-cases involving UniFFI.

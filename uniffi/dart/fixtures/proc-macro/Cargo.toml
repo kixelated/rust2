@@ -10,6 +10,7 @@ name = "proc_macro_uniffi"
 crate-type = ["lib", "cdylib"]
 
 [features]
+ffi-trace = ["uniffi/ffi-trace"]
 default = ["myfeature"]
 myfeature = []
 

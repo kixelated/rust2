@@ -545,7 +545,7 @@ pub struct CustomTypeMetadata {
     pub docstring: Option<String>,
 }
 
-/// Returns the last 16 bits of the value's hash as computed with [`SipHasher13`].
+/// Returns the last 16 bits of the value's hash as computed with [`siphasher::sip::SipHasher13`].
 ///
 /// This is used as a safeguard against different UniFFI versions being used for scaffolding and
 /// bindings generation.

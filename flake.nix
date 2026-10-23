@@ -42,27 +42,102 @@
           };
           toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+
+          # Every generator binary of the UniFFI fork, built once from the workspace lockfile.
+          uniffi =
+            (pkgs.makeRustPlatform {
+              cargo = toolchain;
+              rustc = toolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-uniffi";
+                version = (builtins.fromTOML (builtins.readFile ./uniffi/uniffi/Cargo.toml)).package.version;
+                src = pkgs.lib.fileset.toSource {
+                  root = ./.;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./Cargo.toml
+                    ./Cargo.lock
+                    ./uniffi
+                  ];
+                };
+                cargoLock.lockFile = ./Cargo.lock;
+                cargoBuildFlags = [
+                  "--package=rust2-uniffi"
+                  "--package=uniffi-bindgen-go"
+                  "--package=uniffi-dart"
+                  "--package=uniffi-bindgen-cpp"
+                  "--bins"
+                ];
+                buildFeatures = [
+                  "rust2-uniffi/cli"
+                  "uniffi-dart/binary"
+                ];
+                # The fixture suite needs every foreign toolchain; `just uniffi fixtures` runs it.
+                doCheck = false;
+              };
+
+          # One generator's binaries, so a consumer can put only that one on PATH.
+          generator =
+            name: bins:
+            pkgs.runCommand name { } ''
+              mkdir -p $out/bin
+              ${pkgs.lib.concatMapStringsSep "\n" (bin: "ln -s ${uniffi}/bin/${bin} $out/bin/") bins}
+            '';
+
+          devPackages = with pkgs; [
+            toolchain
+            quest-cli
+            just
+            jq
+            git
+            gh
+            cargo-nextest
+            cargo-deny
+            cargo-shear
+            cargo-sort
+            release-plz
+            actionlint
+            shellcheck
+            shfmt
+            taplo
+            nixfmt
+          ];
+
+          # Kotlin's generated async code needs coroutines on the classpath; nixpkgs has no jar.
+          kotlinx-coroutines = pkgs.fetchurl {
+            url = "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.10.2/kotlinx-coroutines-core-jvm-1.10.2.jar";
+            hash = "sha256-XKF1s43zMf1kFVs1zYyuElH6nuNpcJs21C4KKIzM4/0=";
+          };
         in
         {
-          packages.quest = quest-cli;
-          devShells.default = pkgs.mkShell {
-            packages = with pkgs; [
-              toolchain
-              quest-cli
-              just
-              jq
-              git
-              gh
-              cargo-nextest
-              cargo-deny
-              cargo-shear
-              cargo-sort
-              actionlint
-              shellcheck
-              shfmt
-              taplo
-              nixfmt
+          packages = {
+            quest = quest-cli;
+            inherit uniffi;
+            default = uniffi;
+            uniffi-bindgen = generator "uniffi-bindgen" [
+              "uniffi-bindgen"
+              "uniffi-bindgen-swift"
             ];
+            uniffi-bindgen-go = generator "uniffi-bindgen-go" [ "uniffi-bindgen-go" ];
+            uniffi-bindgen-dart = generator "uniffi-bindgen-dart" [ "uniffi_bindgen_dart" ];
+            uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
+          };
+          devShells.default = pkgs.mkShell {
+            packages = devPackages;
+          };
+          # Every foreign toolchain the UniFFI fixture suite runs, kept out of the default shell.
+          devShells.uniffi = pkgs.mkShell {
+            packages =
+              devPackages
+              ++ (with pkgs; [
+                python3
+                kotlin
+                swift
+                go
+                dart
+                cmake
+              ]);
+            CLASSPATH = "${pkgs.jna}/share/java/jna.jar:${kotlinx-coroutines}";
           };
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''

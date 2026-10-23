@@ -21,7 +21,7 @@
 //!    where they are part of a compound data structure that is serialized for transfer.
 //!  * How to [read](FfiConverter::try_read) values of the Rust type from buffer, for cases
 //!    where they are received as part of a compound data structure that was serialized for transfer.
-//!  * How to [return](FfiConverter::lower_return) values of the Rust type from scaffolding
+//!  * How to return (`LowerReturn::lower_return`) values of the Rust type from scaffolding
 //!    functions.
 //!
 //! This logic encapsulates the Rust-side handling of data transfer. Each foreign-language binding

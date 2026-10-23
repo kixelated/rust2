@@ -34,7 +34,7 @@ impl Default for FfiBufferElement {
 /// Serialize a FFI value to a buffer
 ///
 /// This trait allows FFI types to be read from/written to FFIBufferElement slices.
-/// It's similar, to the [crate::Lift::read] and [crate::Lower::write] methods, but implemented on the FFI types rather than Rust types.
+/// It's similar, to the [crate::Lift::try_read] and [crate::Lower::write] methods, but implemented on the FFI types rather than Rust types.
 /// It's useful to compare the two:
 ///
 /// - [crate::Lift] and [crate::Lower] are implemented on Rust types like String and user-defined records.

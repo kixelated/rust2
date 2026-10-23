@@ -15,3 +15,6 @@ uniffi-dart = { path = "../../", features = ["bindgen-tests"] }
 [build-dependencies]
 uniffi-dart = { path = "../../", features = ["build"] }
 camino = "1.1"
+
+[features]
+ffi-trace = ["uniffi/ffi-trace"]

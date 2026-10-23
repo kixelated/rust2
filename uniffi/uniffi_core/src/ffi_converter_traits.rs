@@ -63,7 +63,7 @@ use crate::{
 /// Generalized FFI conversions
 ///
 /// This trait is not used directly by the code generation, but implement this and calling
-/// [derive_ffi_traits] is a simple way to implement all the traits that are.
+/// `derive_ffi_traits!` is a simple way to implement all the traits that are.
 ///
 /// ## Safety
 ///
@@ -139,7 +139,7 @@ pub unsafe trait FfiConverter<UT>: Sized {
 ///
 /// This trait gets around the orphan rule limitations, which prevent library crates from
 /// implementing `FfiConverter` on an Arc. When this is implemented for T, we generate an
-/// `FfiConverter` impl for Arc<T>.
+/// `FfiConverter` impl for `Arc<T>`.
 ///
 /// Note: There's no need for `FfiConverterBox`, since Box is a fundamental type.
 ///
@@ -289,7 +289,7 @@ pub unsafe trait LowerReturn<UT>: Sized {
 
     /// Lower the return value from an scaffolding call
     ///
-    /// Returns values that [rust_call] expects:
+    /// Returns values that [crate::rust_call] expects:
     ///
     /// - Ok(v) for `Ok` returns and non-result returns, where v is the lowered return value
     /// - `Err(RustCallError::Error(buf))` for `Err` returns where `buf` is serialized error value.
@@ -298,7 +298,7 @@ pub unsafe trait LowerReturn<UT>: Sized {
     /// Lower the return value for failed argument lifts
     ///
     /// This is called when we fail to make a scaffolding call, because of an error lifting an
-    /// argument.  It should return a value that [rust_call] expects:
+    /// argument.  It should return a value that [crate::rust_call] expects:
     ///
     /// - By default, this is `Err(RustCallError::InternalError(msg))` where `msg` is message
     ///   describing the failed lift.

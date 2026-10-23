@@ -2495,7 +2495,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen-cpp"
-version = "0.11.0-kixelated.5+v0.32.2"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "askama 0.13.1",
@@ -2543,7 +2543,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen-go"
-version = "0.10.0-kixelated.1+v0.32.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "askama 0.13.1",
@@ -2673,7 +2673,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-dart"
-version = "0.3.0+v0.32.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
@@ -3343,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi_dart_macro"
-version = "0.3.0+v0.32.0"
+version = "0.1.0"
 dependencies = [
  "futures",
  "proc-macro2",

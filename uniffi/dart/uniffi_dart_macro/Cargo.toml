@@ -1,6 +1,7 @@
 [package]
 name = "uniffi_dart_macro"
-version = "0.3.0+v0.32.0"
+version = "0.1.0"
+publish = false
 edition = "2021"
 
 [lib]

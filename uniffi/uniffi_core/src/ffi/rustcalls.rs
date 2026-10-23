@@ -93,7 +93,7 @@ pub enum RustCallStatusCode {
     /// be freed.
     ///
     /// This is only returned for async functions and only if the bindings code uses the
-    /// [rust_future_cancel] call.
+    /// `rust_future_cancel` call.
     Cancelled = 3,
 }
 

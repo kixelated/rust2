@@ -1,6 +1,7 @@
 [package]
 name = "uniffi-bindgen-go"
-version = "0.10.0-kixelated.1+v0.32.0"
+version = "0.1.0"
+publish = false
 edition = "2021"
 
 [lib]

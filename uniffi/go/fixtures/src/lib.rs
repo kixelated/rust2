@@ -25,7 +25,7 @@ mod uniffi_fixtures {
     uniffi_one::uniffi_reexport_scaffolding!();
 
     uniffi_fixture_large_enum::uniffi_reexport_scaffolding!();
-    uniffi_futures::uniffi_reexport_scaffolding!();
+    uniffi_go_futures::uniffi_reexport_scaffolding!();
 
     uniffi_proc_macro::uniffi_reexport_scaffolding!();
     uniffi_simple_fns::uniffi_reexport_scaffolding!();

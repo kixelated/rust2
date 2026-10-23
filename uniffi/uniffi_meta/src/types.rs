@@ -119,7 +119,7 @@ pub enum Type {
         module_path: String,
         name: String,
     },
-    /// Used for a Box<T> type.
+    /// Used for a `Box<T>` type.
     /// This only matters for scaffolding generation.
     /// Bindings can ignore this and just use the inner type.
     Box {

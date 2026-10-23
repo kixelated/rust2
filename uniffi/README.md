@@ -1,84 +1,96 @@
-# UniFFI - a multi-language bindings generator for Rust
+# rust2-uniffi
 
-UniFFI is a toolkit for building cross-platform software components in Rust.
+A hard fork of [UniFFI](https://github.com/mozilla/uniffi-rs) 0.32.2 with every generator
+[moq](https://github.com/moq-dev/moq) uses: Kotlin, Swift, Python, Go, Dart, C++, and C.
+It never merges upstream; fixes are cherry-picked by hand.
 
-For the impatient, see [**the UniFFI user guide**](https://mozilla.github.io/uniffi-rs/)
-or [**the UniFFI examples**](https://github.com/mozilla/uniffi-rs/tree/main/examples#example-uniffi-components).
+## Use
 
-By writing your core business logic in Rust and describing its interface in an "object model",
-you can use UniFFI to help you:
+Depend on the runtime under its upstream name, so `#[uniffi::export]` and the generated
+scaffolding resolve unchanged:
 
-* Compile your Rust code into a shared library for use on different target platforms.
-* Generate bindings to load and use the library from different target languages.
+```toml
+[dependencies]
+uniffi = { package = "rust2-uniffi", version = "0.1" }
+```
 
-You can describe your object model in an [interface definition file](https://mozilla.github.io/uniffi-rs/udl_file_spec.html)
-or [by using proc-macros](https://mozilla.github.io/uniffi-rs/proc_macro/index.html).
+Every crate keeps its upstream library name (`uniffi`, `uniffi_core`, `uniffi_bindgen`, ...),
+so code written for UniFFI 0.32 compiles as is. Do not link upstream UniFFI into the same
+library.
 
-UniFFI is currently used extensively by Mozilla in Firefox mobile and desktop browsers;
-written once in Rust, auto-generated bindings allow that functionality to be called
-from both Kotlin (for Android apps) and Swift (for iOS apps).
-It also has a growing community of users shipping various cool things to many users.
+The generators read a cdylib built against this runtime:
 
-UniFFI comes with support for **Kotlin**, **Swift**, **Python** and **Ruby** with 3rd party bindings available for **C#** and **Golang**.
-Additional foreign language bindings can be developed externally and we welcome contributions to list them here.
-See [Third-party foreign language bindings](#third-party-foreign-language-bindings).
+| Binary | Languages | Package |
+| --- | --- | --- |
+| `uniffi-bindgen` | Kotlin, Swift, Python | `rust2-uniffi` with `--features cli` |
+| `uniffi-bindgen-swift` | Swift modules and xcframeworks | `rust2-uniffi` with `--features cli` |
+| `uniffi-bindgen-go` | Go | `uniffi-bindgen-go` |
+| `uniffi_bindgen_dart` | Dart | `uniffi-dart` with `--features binary` |
+| `uniffi-bindgen-cpp` | C++, and C with `--lang c` | `uniffi-bindgen-cpp` |
 
-## User Guide
+The flake builds them all as `packages.uniffi`, and each one alone as `uniffi-bindgen`,
+`uniffi-bindgen-go`, `uniffi-bindgen-dart`, and `uniffi-bindgen-cpp`. Without Nix:
+`cargo install --git https://github.com/kixelated/rust2 --tag <tag> uniffi-bindgen-go`.
 
-You can read more about using the tool in [**the UniFFI user guide**](https://mozilla.github.io/uniffi-rs/).
+Upstream's [user guide](https://mozilla.github.io/uniffi-rs/0.32/) applies, minus Ruby. The
+generators document their options in [go/docs](go/docs/CONFIGURATION.md),
+[cpp/README.md](cpp/README.md), and [cpp/docs](cpp/docs/CONFIGURATION.md).
 
-We consider it ready for production use, but UniFFI is a long way from a 1.0 release with lots of internal work still going on.
-We try hard to avoid breaking simple consumers, but more advanced things might break as you upgrade over time.
+## Contract
 
-### Etymology and Pronunciation
+The FFI contract is still upstream 0.32's (contract version 30), which is what keeps moq's
+generated bindings byte-identical. The first change to the contract gives it its own
+namespace, so a library and bindings from different forks fail at load time instead of
+mixing silently.
 
-ˈjuːnɪfaɪ. Pronounced to rhyme with "unify".
+## Imports
 
-A portmanteau word that also puns with "unify", to signify the joining of one codebase accessed from many languages.
+| Directory | Upstream | Imported revision | License |
+| --- | --- | --- | --- |
+| `uniffi*/`, `examples/`, `fixtures/`, `bindgen-tests/` | [mozilla/uniffi-rs](https://github.com/mozilla/uniffi-rs) | [kixelated/uniffi-rs@88d835d](https://github.com/kixelated/uniffi-rs/commit/88d835d66abc6357b0bcd290b4c2adb35096cd10) (v0.32.2 plus one fix) | [MPL-2.0](LICENSE) |
+| `go/` | [NordSecurity/uniffi-bindgen-go](https://github.com/NordSecurity/uniffi-bindgen-go) | [kixelated/uniffi-bindgen-go@v0.10.0-kixelated.1+v0.32.0](https://github.com/kixelated/uniffi-bindgen-go/tree/v0.10.0-kixelated.1%2Bv0.32.0) | [MPL-2.0](go/LICENSE) |
+| `dart/` | [acterglobal/uniffi-dart](https://github.com/acterglobal/uniffi-dart) | [kixelated/uniffi-dart@v0.3.1-kixelated.6+v0.32.0](https://github.com/kixelated/uniffi-dart/tree/v0.3.1-kixelated.6%2Bv0.32.0) | [MIT](dart/LICENSE) |
+| `cpp/` | [NordSecurity/uniffi-bindgen-cpp](https://github.com/NordSecurity/uniffi-bindgen-cpp) | [kixelated/uniffi-bindgen-cpp@v0.11.0-kixelated.5+v0.32.2](https://github.com/kixelated/uniffi-bindgen-cpp/tree/v0.11.0-kixelated.5%2Bv0.32.2) | [MPL-2.0](cpp/LICENSE) |
 
-uni - [Latin ūni-, from ūnus, one]
-FFI - [Abbreviation, Foreign Function Interface]
+Each directory keeps its upstream layout, so an upstream commit applies with
+`git am --directory=uniffi/<dir>` (no `<dir>` for uniffi-rs). Crates are renamed in their
+manifests only.
 
-## Alternative tools
+Left out: the Ruby generator and its tests, weedle2 (used from crates.io), upstream's docs,
+CI, and Docker setup, the Android, iOS, and fxa-client examples, the Dart fixtures upstream
+does not build, and the C++ scaffolding tests, which need the Go and C# generators as
+submodules.
 
-Other tools we know of which try and solve a similarly shaped problem are:
+## Carried changes
 
-* [Diplomat](https://github.com/rust-diplomat/diplomat/), which is focused more on C/C++ interop.
-* [Interoptopus](https://github.com/ralfbiedert/interoptopus/)
+Offering a change upstream needs maintainer approval each time, so most have no upstream PR.
 
-(Please open a PR if you think other tools should be listed!)
+uniffi-rs:
 
-## Third-party foreign language bindings
+- Kotlin refuses a destroyed object passed as an argument (kixelated/uniffi-rs@88d835d).
+- Ruby is removed.
+- `toml` is pinned to major 1. Upstream's `>=0.9, <2` spans two majors, so a generator that
+  resolved the other one got a second `toml::Value` that no longer matched the trait.
+- Clippy 1.98 fixes, including an allow on the UDL metadata const, which it flags in every UDL
+  consumer.
 
-* [Javascript bindings](https://github.com/jhugman/uniffi-bindgen-react-native): running in a web page, targeting WASM; and React Native targeting Android, iOS. The repository contains tooling to generate bindings for [Hermes](https://github.com/facebook/hermes), [creating Turbo Modules](https://reactnative.dev/blog/2024/10/23/the-new-architecture-is-here#new-native-modules), and for creating a [`wasm-bindgen` bindings crate](https://rustwasm.github.io/wasm-bindgen).
-* [Kotlin Multiplatform support (Gobley)](https://github.com/gobley/gobley). The repository contains Kotlin Multiplatform bindings generation for UniFFI, letting you target both JVM and Native.
-* [Go bindings](https://github.com/NordSecurity/uniffi-bindgen-go)
-* [C# bindings](https://github.com/NordSecurity/uniffi-bindgen-cs)
-* [Dart bindings](https://github.com/NiallBunting/uniffi-rs-dart)
-* [Java bindings](https://github.com/IronCoreLabs/uniffi-bindgen-java)
-* [Node bindings](https://github.com/livekit/uniffi-bindgen-node) (early development)
-* [Node bindings](https://github.com/criccomini/uniffi-bindgen-node-js)
+uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 
-### External resources
+- The UniFFI 0.32 port ([NordSecurity/uniffi-bindgen-go#98](https://github.com/NordSecurity/uniffi-bindgen-go/pull/98)).
+- Generated async calls take a `context.Context` and cancel the Rust future.
+- An exported `Display` on an enum error renders as its `Error()`.
 
-There are a few third-party resources that make it easier to work with UniFFI:
+uniffi-dart, on top of upstream `main` at acterglobal/uniffi-dart@72d26c1:
 
-* [Plugin support for `.udl` files](https://github.com/Lonami/uniffi-dl) for the IDEA platform ([*uniffi-dl* in the JetBrains marketplace](https://plugins.jetbrains.com/plugin/20527-uniffi-dl)). It provides syntax highlighting, code folding, code completion, reference resolution and navigation (among others features) for the [UniFFI Definition Language (UDL)](https://mozilla.github.io/uniffi-rs/).
-* [cargo swift](https://github.com/antoniusnaumann/cargo-swift), a cargo plugin to build a Swift Package from Rust code. It provides an init command for setting up a UniFFI crate and a package command for building a Swift package from Rust code - without the need for additional configuration or build scripts.
-* [Cargo NDK Gradle Plugin](https://github.com/willir/cargo-ndk-android-gradle) allows you to build Rust code using [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk), which generally makes Android library builds less painful.
-* [`uniffi-starter`](https://github.com/ianthetechie/uniffi-starter) is a minimal project demonstrates a wide range of UniFFI in a complete project in a compact manner. It includes a full Android library build process, an XCFramework generation script, and example Swift package structure. 
+- The UniFFI 0.32 port and the library-mode CLI, by Sasha Denisov.
+- RustBuffer and async result leak fixes, `liftAndFree` type arguments, non-null optionals
+  lowered through `toRustBuffer`, an exported `Display` as an enum's `toString()`, and
+  disposed objects refused as arguments.
+- Record errors keep their converter name, and futures cancel per operation (moq's
+  `nix/uniffi-dart-record-error.patch` and `nix/uniffi-dart-cancellation.patch`).
 
-(Please open a PR if you think other resources should be listed!)
+uniffi-bindgen-cpp, on top of upstream `main` at NordSecurity/uniffi-bindgen-cpp@20bef75:
 
-## Contributing
-
-If this tool sounds interesting to you, please help us develop it! You can:
-
-* View the [contributor guidelines](./docs/contributing.md).
-* File or work on [issues](https://github.com/mozilla/uniffi-rs/issues) here in GitHub.
-* Join discussions in the [#uniffi:mozilla.org](https://matrix.to/#/#uniffi:mozilla.org)
-  room on Matrix.
-
-## Code of Conduct
-
-This project is governed by Mozilla's [Community Participation Guidelines](./CODE_OF_CONDUCT.md).
+- LiveKit's async support (livekit/uniffi-bindgen-cpp, by Alan George), ported to UniFFI 0.32.
+- `error_style = "expected"`, `strip_type_prefix`, exported `Display` and `Debug` on enums,
+  newline-terminated files, released async results, and the C backend (`--lang c`).

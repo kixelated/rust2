@@ -8,6 +8,7 @@ name = "proc_macro_no_implicit_prelude"
 crate-type = ["lib", "cdylib"]
 
 [features]
+ffi-trace = ["uniffi/ffi-trace"]
 default = ["myfeature"]
 myfeature = []
 

@@ -27,7 +27,8 @@ enable_testing()
 
 find_package(Threads REQUIRED)
 
-set(BINDINGS_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../target/debug)
+# The fixtures build in the rust2 workspace, whose target directory is at its root.
+set(BINDINGS_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../target/debug CACHE PATH "Cargo output directory")
 set(BINDINGS_SRC_DIR ${BINDINGS_BUILD_DIR}/bindings)
 
 if (WIN32)
@@ -216,7 +217,7 @@ add_dependencies(multilib-test bindings)
 
 add_custom_target(libs ALL
     BYPRODUCTS ${BINDING_FILES}
-    COMMAND cargo build
+    COMMAND cargo build --package uniffi-bindgen-cpp --package uniffi-bindgen-cpp-fixtures
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../
     COMMENT "Generating libs"
 )

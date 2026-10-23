@@ -25,3 +25,6 @@ uniffi = { workspace = true, features = [
   "bindgen-tests",
 ] }
 anyhow = "1"
+
+[features]
+ffi-trace = ["uniffi/ffi-trace"]

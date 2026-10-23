@@ -7,11 +7,11 @@ license = "MPL-2.0"
 publish = false
 
 [lib]
-name = "uniffi_futures"
+name = "uniffi_go_futures"
 crate-type = ["lib", "cdylib"]
 
 [[bin]]
-name = "uniffi-fixtures-futures"
+name = "uniffi-go-fixtures-futures"
 path = "src/bin.rs"
 
 [dependencies]

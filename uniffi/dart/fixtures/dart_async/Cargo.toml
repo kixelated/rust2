@@ -26,3 +26,6 @@ uniffi-dart = { path = "../../", features = ["build"] }
 uniffi = { workspace = true, features = ["bindgen-tests"] }
 uniffi-dart = { path = "../../", features = ["bindgen-tests"] }
 anyhow = "1"
+
+[features]
+ffi-trace = ["uniffi/ffi-trace"]

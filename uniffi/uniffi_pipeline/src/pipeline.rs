@@ -19,7 +19,7 @@ use super::{MapNode, Node};
 /// Input and Output are root nodes of the input/output IR.  This pipeline converts from `Input` to
 /// `Output` using a series of passes.
 ///
-/// See https://mozilla.github.io/uniffi-rs/latest/internals/bindings_ir_pipeline.html for details on
+/// See <https://mozilla.github.io/uniffi-rs/latest/internals/bindings_ir_pipeline.html> for details on
 /// how this works.
 pub struct Pipeline<Input, Output> {
     passes: Vec<Pass>,
@@ -50,7 +50,7 @@ where
 {
     /// Add a pass that mutates nodes in the current IR
     ///
-    /// This uses [Node::visit_mut] to find all nodes of a given type, then passes those nodes to
+    /// This uses `Node::visit_mut` to find all nodes of a given type, then passes those nodes to
     /// the provided closure to mutate them.
     pub fn pass<NewOutput, Context>(self, context: Context) -> Pipeline<Input, NewOutput>
     where
