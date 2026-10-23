@@ -12,7 +12,7 @@ just bench --corpus moq --variant baseline --variant mold
 The script enters the `bench` dev shell itself, which adds hyperfine, mold, wild, measureme, and a pinned nightly to the default shell.
 Results land in `target/bench/results/`, newest at `target/bench/results/latest/report.md`.
 Checkouts and builds live in `/var/tmp/rust2-bench-<user>/` with their own `CARGO_HOME`, since cargo reads every `.cargo/config.toml` above the directory it runs in and a user-level one (such as `build.incremental = false`) would change what is measured.
-The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and `RUSTFLAGS` variables.
+The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and `RUSTFLAGS` variables, and `CI` and `TF_BUILD`, which make newer cargo skip incremental compilation.
 
 ## Corpus
 

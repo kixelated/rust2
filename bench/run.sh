@@ -89,7 +89,8 @@ done
 # Cargo reads every .cargo/config.toml above its working directory, so a user's
 # ~/.cargo/config.toml (say, `build.incremental = false`) would reach checkouts
 # under $HOME. Build outside it, with a private CARGO_HOME and none of the
-# caller's cargo or rustc variables.
+# caller's cargo or rustc variables. Newer cargo also turns incremental off when
+# CI or TF_BUILD is set, and the edit scenarios measure a developer's rebuild.
 work=/var/tmp/rust2-bench-$(id -un)
 results=$root/target/bench/results
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
@@ -103,7 +104,7 @@ while :; do
     [[ $dir != / ]] || break
     dir=$(dirname "$dir")
 done
-mapfile -t caller_vars < <(compgen -v | grep -E '^(CARGO|RUSTC|RUSTDOC|RUSTUP)|^RUSTFLAGS$' || true)
+mapfile -t caller_vars < <(compgen -v | grep -E '^(CARGO|RUSTC|RUSTDOC|RUSTUP)|^(RUSTFLAGS|CI|TF_BUILD)$' || true)
 if ((${#caller_vars[@]})); then
     echo "bench: ignoring ${caller_vars[*]}"
     unset "${caller_vars[@]}"
