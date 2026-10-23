@@ -1,0 +1,16 @@
+# Local
+.DS_Store
+*.local
+*.log*
+*.local.json
+
+# Agent scratch space and worktrees.
+/.claude/cache/
+/.claude/tmp/
+/.claude/worktrees/
+/.scratch/
+
+# Build output.
+target
+result
+.direnv
