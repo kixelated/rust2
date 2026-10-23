@@ -659,13 +659,15 @@ impl Printer<'_> {
 				name,
 				start,
 				end,
+				inclusive,
 				body,
 			} => {
 				self.label(label);
 				let name = self.local(name).to_string();
 				self.write(&format!("for (let {name} = "));
 				self.expr(start, 2);
-				self.write(&format!("; {name} < "));
+				let op = if *inclusive { "<=" } else { "<" };
+				self.write(&format!("; {name} {op} "));
 				self.expr(end, 13);
 				self.write(&format!("; {name}++) {{\n"));
 				self.block_body(body);

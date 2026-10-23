@@ -171,3 +171,11 @@ fn codec() {
 	typecheck(&out);
 	differential("codec-fixture", &out, 20_000);
 }
+
+#[test]
+fn lang() {
+	let out = translated("lang");
+	snapshot("lang", &out);
+	typecheck(&out);
+	differential("lang-fixture", &out, 50_000);
+}

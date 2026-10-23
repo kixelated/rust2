@@ -177,12 +177,13 @@ pub enum StmtKind {
 		cond: Expr,
 		body: Vec<Stmt>,
 	},
-	/// `for (let name = start; name < end; name++)`.
+	/// `for (let name = start; name < end; name++)`, or `<=` if `inclusive`.
 	ForRange {
 		label: Option<String>,
 		name: String,
 		start: Expr,
 		end: Expr,
+		inclusive: bool,
 		body: Vec<Stmt>,
 	},
 	ForOf {

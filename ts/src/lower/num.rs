@@ -43,17 +43,18 @@ impl Int {
 	}
 
 	pub fn min(self) -> i128 {
-		match self.signed {
-			true => -(1i128 << (self.bits - 1)),
-			false => 0,
+		match (self.signed, self.bits) {
+			(true, 128) => i128::MIN,
+			(true, bits) => -(1i128 << (bits - 1)),
+			(false, _) => 0,
 		}
 	}
 
-	pub fn max(self) -> i128 {
+	pub fn max(self) -> u128 {
 		match (self.signed, self.bits) {
-			(true, bits) => (1i128 << (bits - 1)) - 1,
-			(false, 128) => i128::MAX,
-			(false, bits) => (1i128 << bits) - 1,
+			(true, bits) => (1u128 << (bits - 1)) - 1,
+			(false, 128) => u128::MAX,
+			(false, bits) => (1u128 << bits) - 1,
 		}
 	}
 
@@ -75,11 +76,15 @@ impl Int {
 		}
 	}
 
-	/// `value` as a literal of this type.
+	/// `value` as a literal of this type. A `u128` past `i128::MAX` is its bits.
 	pub fn lit(self, value: i128) -> Expr {
+		let text = match self.signed {
+			true => value.to_string(),
+			false => (value as u128).to_string(),
+		};
 		match self.big() {
-			true => Expr::lit(format!("{value}n")),
-			false => Expr::lit(value.to_string()),
+			true => Expr::lit(format!("{text}n")),
+			false => Expr::lit(text),
 		}
 	}
 
@@ -121,6 +126,10 @@ pub struct Operand {
 
 /// Fold a constant operation on `int`s as Rust would, or `None` if it overflows.
 pub fn fold(op: BinOp, a: i128, b: i128, int: Int) -> Option<i128> {
+	// 128-bit values don't all fit the fold's `i128`.
+	if int.bits == 128 {
+		return None;
+	}
 	let value = match op {
 		BinOp::Add => a.checked_add(b)?,
 		BinOp::Sub => a.checked_sub(b)?,
@@ -141,7 +150,7 @@ pub fn fold(op: BinOp, a: i128, b: i128, int: Int) -> Option<i128> {
 		BinOp::Shr if (0..int.bits as i128).contains(&b) => a >> b,
 		_ => return None,
 	};
-	(int.min()..=int.max()).contains(&value).then_some(value)
+	(int.min()..=int.max() as i128).contains(&value).then_some(value)
 }
 
 pub fn binary<'tcx>(

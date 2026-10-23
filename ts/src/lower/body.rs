@@ -951,6 +951,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let mut body = Vec::new();
 		let count = lowered.len();
 		for (i, arm) in lowered.into_iter().enumerate() {
+			let guard_free = arm.guard.is_none();
 			let mut inner = arm.binds;
 			let mut taken = arm.body;
 			if i + 1 < count && !ts::diverges(&taken) {
@@ -970,7 +971,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 				None => inner.extend(taken),
 			}
-			match arm.test {
+			// The last arm without a guard is what Rust proved is left.
+			let test = match i + 1 == count && guard_free {
+				true => None,
+				false => arm.test,
+			};
+			match test {
 				Some(test) => body.push(
 					StmtKind::If {
 						cond: test,
@@ -1173,11 +1179,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let breakable = self.breakables.pop().unwrap();
 		let label = breakable.used.then_some(breakable.label);
 		let kind = match source {
-			Iterable::Range { start, end } => StmtKind::ForRange {
+			Iterable::Range { start, end, inclusive } => StmtKind::ForRange {
 				label,
 				name,
 				start,
 				end,
+				inclusive,
 				body: stmts,
 			},
 			Iterable::Of(iter) => StmtKind::ForOf {
@@ -1215,8 +1222,39 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						self.spill(end, "end", out)
 					}
 				};
-				Some(Iterable::Range { start, end })
+				Some(Iterable::Range {
+					start,
+					end,
+					inclusive: false,
+				})
 			}
+			ty::Adt(adt, _) if tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::RangeInclusiveStruct) => {
+				// `a..=b` is `RangeInclusive::new(a, b)`.
+				let ExprKind::Call { args, .. } = &self.thir[self.strip(id)].kind else {
+					self.t.err(span, "a `for` loop over a range that is not written in place");
+					return None;
+				};
+				let args = args.clone();
+				let mut values = self.operands(&args, out);
+				let end = values.pop().unwrap();
+				let mut start = values.pop().unwrap();
+				let end = match end.is_constant() {
+					true => end,
+					false => {
+						if !start.is_constant() {
+							start = self.spill(start, "start", out);
+						}
+						self.spill(end, "end", out)
+					}
+				};
+				Some(Iterable::Range {
+					start,
+					end,
+					inclusive: true,
+				})
+			}
+			// An array by value iterates its elements, already copied.
+			ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
 			ty::Ref(_, inner, _) => match inner.kind() {
 				ty::Slice(_) | ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
 				ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::Vec) => {
@@ -1400,6 +1438,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				None if adt.is_struct() => Some(ObjectKind::Class),
 				None => None,
 			},
+			// Its captures change through it, as a JS function's do.
+			ty::Closure(..) => Some(ObjectKind::Closure),
 			_ => None,
 		}
 	}
@@ -1579,7 +1619,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			| ExprKind::ConstParam { .. }
 			| ExprKind::ConstBlock { .. } => self.constant(id, out),
 			ExprKind::Tuple { fields } if fields.is_empty() => Expr::undefined(),
-			ExprKind::Tuple { fields } => Expr::Array(self.operands(fields, out)),
+			ExprKind::Tuple { fields } => {
+				let values = self.operands(fields, out);
+				// TypeScript widens an array literal to an array of the union.
+				let ts_ty = self.t.ty(ty, span);
+				Expr::As(Box::new(Expr::Array(values)), ts_ty)
+			}
 			ExprKind::Array { fields } => {
 				let values = self.operands(fields, out);
 				match ty.kind() {
@@ -1704,6 +1749,23 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::UpvarRef { var_hir_id, .. } => self.local(var_hir_id.0, span),
 			ExprKind::Deref { arg } => self.expr(*arg, out),
 			ExprKind::Field { lhs, variant_index, name } => {
+				// A field of a tuple made in place, `(a, b).0`: its other fields still run.
+				if let ExprKind::Tuple { fields } = &self.thir[self.strip(*lhs)].kind {
+					let fields = fields.clone();
+					let mut values = self.operands(&fields, out);
+					let index = name.index();
+					let later_effects = values[index + 1..].iter().any(|v| !v.is_path());
+					let mut field = std::mem::replace(&mut values[index], Expr::undefined());
+					if later_effects && !field.is_constant() {
+						field = self.spill(field, "field", out);
+					}
+					for (i, value) in values.into_iter().enumerate() {
+						if i != index && !value.is_path() {
+							out.push(StmtKind::Expr(value).at(None));
+						}
+					}
+					return field;
+				}
 				let base = self.place(*lhs, out);
 				let lty = self.ty_of(*lhs);
 				self.project(base, lty, *variant_index, *name, span)
@@ -2126,10 +2188,11 @@ enum ObjectKind {
 	Bytes,
 	Array,
 	Vec,
+	Closure,
 }
 
 enum Iterable {
-	Range { start: Expr, end: Expr },
+	Range { start: Expr, end: Expr, inclusive: bool },
 	Of(Expr),
 }
 

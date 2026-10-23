@@ -237,6 +237,9 @@ export const option = {
 	unwrapOr<T>(o: T | undefined, fallback: T): T {
 		return o === undefined ? fallback : o;
 	},
+	mapOr<T, U>(o: T | undefined, fallback: U, f: (value: T) => U): U {
+		return o === undefined ? fallback : f(o);
+	},
 	okOr<T, E>(o: T | undefined, error: E): Result<T, E> {
 		return o === undefined ? Err(error) : Ok(o);
 	},
@@ -291,6 +294,9 @@ export const slice = {
 	first<T>(s: ArrayLike<T>): T | undefined {
 		return s.length === 0 ? undefined : s[0];
 	},
+	get<T>(s: ArrayLike<T>, index: number): T | undefined {
+		return index < s.length ? s[index] : undefined;
+	},
 	copyFromSlice(dst: Uint8Array, src: Uint8Array): void {
 		if (dst.length !== src.length) panic("source slice length does not match destination slice length");
 		dst.set(src);
@@ -344,6 +350,10 @@ export class ByteVec {
 	push(byte: number): void {
 		this.reserve(1);
 		this.data[this.length++] = byte;
+	}
+
+	pop(): number | undefined {
+		return this.length === 0 ? undefined : this.data[--this.length];
 	}
 
 	extendFromSlice(bytes: Uint8Array): void {

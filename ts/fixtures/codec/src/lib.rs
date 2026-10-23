@@ -27,6 +27,7 @@ mod lite {
 }
 mod version;
 #[cfg(target_arch = "wasm32")]
+#[path = "../../wasm.rs"]
 mod wasm;
 
 pub use version::*;

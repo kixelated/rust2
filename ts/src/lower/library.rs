@@ -144,7 +144,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
 		("From", "from") => {
-			let (to, from) = (gargs.type_at(0), gargs.type_at(1));
+			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
 			let mut values = b.args(args, out);
 			let value = values.pop()?;
 			if to == from {
@@ -159,13 +159,13 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 		}
 		("Into", "into") => {
-			let (from, to) = (gargs.type_at(0), gargs.type_at(1));
+			let (from, to) = (targ(gargs, 0), targ(gargs, 1));
 			let mut values = b.args(args, out);
 			let value = values.pop()?;
 			b.convert(value, from, to, span, out)
 		}
 		("TryFrom", "try_from") => {
-			let (to, from) = (gargs.type_at(0), gargs.type_at(1));
+			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
 				return None;
 			};
@@ -175,7 +175,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 
 		// Operators on references to primitives.
 		("Add" | "Sub" | "Mul" | "Div" | "Rem" | "BitAnd" | "BitOr" | "BitXor" | "Shl" | "Shr", _)
-			if primitive(gargs.type_at(0).peel_refs()) =>
+			if primitive(targ(gargs, 0).peel_refs()) =>
 		{
 			let op = match owner.as_str() {
 				"Add" => rustc_middle::mir::BinOp::Add,
@@ -189,7 +189,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				"Shl" => rustc_middle::mir::BinOp::Shl,
 				_ => rustc_middle::mir::BinOp::Shr,
 			};
-			let (lty, rty) = (gargs.type_at(0), gargs.type_at(1));
+			let (lty, rty) = (targ(gargs, 0), targ(gargs, 1));
 			let consts = match &args {
 				Args::Thir(ids) => (b.const_int(ids[0]), b.const_int(ids[1])),
 				Args::Values(_) => (None, None),
@@ -198,7 +198,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
 			num::binary(b, op, Operand { expr: l, value: consts.0 }, Operand { expr: r, value: consts.1 }, lty, rty, span)
 		}
-		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge") if primitive(gargs.type_at(0).peel_refs()) => {
+		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge") if primitive(targ(gargs, 0).peel_refs()) => {
 			let js = match name.as_str() {
 				"eq" => "===",
 				"ne" => "!==",
@@ -211,12 +211,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
 			l.binary(js, r)
 		}
-		("Ord", "max" | "min") if Int::of(gargs.type_at(0)).is_some() => {
+		("Ord", "max" | "min") if Int::of(targ(gargs, 0)).is_some() => {
 			let values = b.args(args, out);
 			Expr::rt(if name == "max" { "max" } else { "min" }, values)
 		}
 		("Clone", "clone") => {
-			let ty = gargs.type_at(0);
+			let ty = targ(gargs, 0);
 			let values = b.args(args, out);
 			let value = values.into_iter().next()?;
 			match ty.kind() {
@@ -228,10 +228,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				_ => return None,
 			}
 		}
-		("Default", "default") => default_value(b, gargs.type_at(0), span)?,
+		("Default", "default") => default_value(b, targ(gargs, 0), span)?,
 
 		// Options.
 		("Option", "map") => rt2(b, args, out, "option", "map"),
+		("Option", "map_or") => rt2(b, args, out, "option", "mapOr"),
 		("Option", "unwrap_or") => rt2(b, args, out, "option", "unwrapOr"),
 		("Option", "ok_or") => rt2(b, args, out, "option", "okOr"),
 		("Option", "unwrap") => rt2(b, args, out, "option", "unwrap"),
@@ -240,7 +241,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("Option", "is_none") => b.args(args, out).pop()?.binary("===", Expr::undefined()),
 		("Option", "as_ref" | "as_mut") => b.args(args, out).pop()?,
 		("Option", "copied" | "cloned") => {
-			let inner = gargs.type_at(0);
+			let inner = targ(gargs, 0);
 			let value = b.args(args, out).pop()?;
 			b.copied(value, inner)
 		}
@@ -278,14 +279,15 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("slice", "split_at") => rt2(b, args, out, "slice", "splitAt"),
 		("slice", "split_at_checked") => rt2(b, args, out, "slice", "splitAtChecked"),
 		("slice", "first") => rt2(b, args, out, "slice", "first"),
+		("slice", "get") if Int::of(targ(gargs, 1)).is_some() => rt2(b, args, out, "slice", "get"),
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = b.args(args, out);
 			values.push(Expr::lit(n.to_string()));
 			Expr::Rt("slice").member("splitFirstChunk").call(values)
 		}
-		("slice", "copy_from_slice") if is_u8(gargs.type_at(0)) => rt2(b, args, out, "slice", "copyFromSlice"),
-		("slice", "copy_within") if is_u8(gargs.type_at(0)) => {
+		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(b, args, out, "slice", "copyFromSlice"),
+		("slice", "copy_within") if is_u8(targ(gargs, 0)) => {
 			let Args::Thir(ids) = args else {
 				return None;
 			};
@@ -296,7 +298,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest])
 		}
 		("slice", "to_vec") => {
-			let elem = gargs.type_at(0);
+			let elem = targ(gargs, 0);
 			let values = b.args(args, out);
 			match is_u8(elem) {
 				true => Expr::Rt("slice").member("toByteVec").call(values),
@@ -306,7 +308,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("slice", "into_vec") => {
 			// `vec![..]`: `<[T]>::into_vec(box_new([..]))`.
-			let elem = gargs.type_at(0);
+			let elem = targ(gargs, 0);
 			let value = b.args(args, out).pop()?;
 			match is_u8(elem) {
 				true => Expr::Rt("ByteVec").member("from").call(vec![value]),
@@ -315,7 +317,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("boxed", "box_new") | ("Box", "new") => b.args(args, out).pop()?,
 		("vec", "from_elem") => {
-			let elem = gargs.type_at(0);
+			let elem = targ(gargs, 0);
 			let values = b.args(args, out);
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
@@ -344,11 +346,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 
 		// Vectors.
-		("Vec", "new") => match is_u8(gargs.type_at(0)) {
+		("Vec", "new") => match is_u8(targ(gargs, 0)) {
 			true => Expr::New(Box::new(Expr::Rt("ByteVec")), Vec::new()),
 			false => Expr::Array(Vec::new()),
 		},
-		("Vec", "with_capacity") => match is_u8(gargs.type_at(0)) {
+		("Vec", "with_capacity") => match is_u8(targ(gargs, 0)) {
 			true => Expr::New(Box::new(Expr::Rt("ByteVec")), b.args(args, out)),
 			false => {
 				b.args(args, out);
@@ -360,26 +362,26 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let v = values.remove(0);
 			v.method("push", values)
 		}
-		("Vec", "pop") if !is_u8(gargs.type_at(0)) => b.args(args, out).pop()?.method("pop", vec![]),
+		("Vec", "pop") => b.args(args, out).pop()?.method("pop", vec![]),
 		("Vec", "len") => b.args(args, out).pop()?.member("length"),
 		("Vec", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
-		("Vec", "truncate") if is_u8(gargs.type_at(0)) => {
+		("Vec", "truncate") if is_u8(targ(gargs, 0)) => {
 			let mut values = b.args(args, out);
 			let v = values.remove(0);
 			v.method("truncate", values)
 		}
-		("Vec", "clear") if is_u8(gargs.type_at(0)) => b.args(args, out).pop()?.method("clear", vec![]),
-		("Vec", "extend_from_slice") if is_u8(gargs.type_at(0)) => {
+		("Vec", "clear") if is_u8(targ(gargs, 0)) => b.args(args, out).pop()?.method("clear", vec![]),
+		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => {
 			let mut values = b.args(args, out);
 			let v = values.remove(0);
 			v.method("extendFromSlice", values)
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = b.args(args, out).pop()?;
-			vec_view(b, v, gargs.type_at(0))
+			vec_view(b, v, targ(gargs, 0))
 		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => {
-			let ty = gargs.type_at(0);
+			let ty = targ(gargs, 0);
 			let v = b.args(args, out).pop()?;
 			match ty.kind() {
 				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
@@ -394,8 +396,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let Args::Thir(ids) = args else {
 				return None;
 			};
-			let container = gargs.type_at(0);
-			let index_ty = gargs.type_at(1);
+			let container = targ(gargs, 0);
+			let index_ty = targ(gargs, 1);
 			let elem_ty = elem(container)?;
 			let base = b.operand(ids[0], out);
 			let base = match container.kind() {
@@ -431,7 +433,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("String", "from_utf8") => Expr::Rt("string").member("fromUtf8").call(b.args(args, out)),
 		("str", "as_bytes") => Expr::Rt("string").member("asBytes").call(b.args(args, out)),
 		("str", "len") => Expr::Rt("string").member("len").call(b.args(args, out)),
-		("String", "as_str" | "len") if name == "as_str" => b.args(args, out).pop()?,
+		("String", "as_str") => b.args(args, out).pop()?,
+		("String", "len") => Expr::Rt("string").member("len").call(b.args(args, out)),
 		("String", "new") => Expr::Str(String::new()),
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
 			b.args(args, out).pop()?
@@ -442,7 +445,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let Args::Thir(ids) = args else {
 				return None;
 			};
-			let ty = gargs.type_at(0);
+			let ty = targ(gargs, 0);
 			let place = borrowed_place(b, ids[0], out)?;
 			let default = default_value(b, ty, span)?;
 			swap_out(b, place, default, "taken", out)
@@ -478,6 +481,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		_ => return None,
 	};
 	Some(e)
+}
+
+/// The `n`th type among a call's generic arguments, skipping lifetimes.
+fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
+	gargs.types().nth(n).expect("a type argument")
 }
 
 /// `rt.<namespace>.<name>(args)`.
