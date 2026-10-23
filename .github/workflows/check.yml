@@ -1,0 +1,37 @@
+name: Check
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+
+# Cancel in-flight runs when a new commit lands on the same ref.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-24.04-arm
+    # Backstop a hang instead of holding the runner for the 6-hour default.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      - name: Check
+        run: nix develop --command just check
+
+      - name: Test
+        run: nix develop --command just test
