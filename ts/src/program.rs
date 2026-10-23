@@ -118,7 +118,11 @@ impl Program {
 			for &id in &ids {
 				*shared.entry(self.syms[id].base.as_str()).or_default() += 1;
 			}
-			let shared: HashSet<String> = shared.into_iter().filter(|(_, n)| *n > 1).map(|(b, _)| b.to_string()).collect();
+			let shared: HashSet<String> = shared
+				.into_iter()
+				.filter(|(_, n)| *n > 1)
+				.map(|(b, _)| b.to_string())
+				.collect();
 			for id in ids {
 				let sym = &self.syms[id];
 				// A static method can't take a name its class's constructor function has.
