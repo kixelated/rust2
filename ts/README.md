@@ -70,9 +70,15 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.
 
+## Never
+
+Outside the subset for good: `unsafe` and raw pointers, and trait objects. A
+boundary that needs one, such as a boxed future, will bind to hand-written TS through
+config ([model](/quest/m2/ts-model.md)).
+
 ## Not yet
 
-These fail translation: floats, `char`, trait objects, raw pointers, statics, `async`,
+These fail translation: floats, `char`, statics, `async`,
 types that implement `Drop`, iterator adaptors (`for` over ranges, slices, arrays, and
 `Vec` works), or-patterns that bind, panic messages that format values, a `move` closure
 copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
