@@ -35,7 +35,7 @@ export class Probe {
 		}
 		if (w.since(prefix) > 65535) {
 			w.discard(prefix);
-			return rt.Err("TooLarge" as EncodeError);
+			return rt.Err("TooLarge");
 		}
 		const fill = w.fill(prefix);
 		if (!fill.ok) {
@@ -53,7 +53,7 @@ export class Probe {
 
 	encodeMsg(w: Encoder, version: Version): rt.Result<undefined, EncodeError> {
 		if (version === "Lite01" || version === "Lite02") {
-			return rt.Err("Version" as EncodeError);
+			return rt.Err("Version");
 		}
 		const wire = rt.option.unwrapOr(rt.option.map(this.bitrate, (v: bigint): bigint => {
 			return rt.max(v, 1n);
@@ -76,7 +76,7 @@ export class Probe {
 
 	static decodeMsg(r: Decoder, version: Version): rt.Result<Probe, DecodeError> {
 		if (version === "Lite01" || version === "Lite02") {
-			return rt.Err({ tag: "Version" } as DecodeError);
+			return rt.Err({ tag: "Version" });
 		}
 		let bitrate: bigint | undefined;
 		const varint = r.varint();

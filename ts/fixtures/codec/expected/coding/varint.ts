@@ -123,7 +123,7 @@ export function read(buf: Uint8Array, form: Form): rt.Result<[bigint, Uint8Array
 export function readQuic(buf: Uint8Array): rt.Result<[bigint, Uint8Array], DecodeError> {
 	const splitFirst = rt.slice.splitFirst(buf);
 	if (splitFirst === undefined) {
-		return rt.Err({ tag: "Short" } as DecodeError);
+		return rt.Err({ tag: "Short" });
 	}
 	const first = splitFirst[0];
 	const rest = splitFirst[1];
@@ -161,7 +161,7 @@ export function readQuic(buf: Uint8Array): rt.Result<[bigint, Uint8Array], Decod
 export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[bigint, Uint8Array], DecodeError> {
 	const splitFirst = rt.slice.splitFirst(buf);
 	if (splitFirst === undefined) {
-		return rt.Err({ tag: "Short" } as DecodeError);
+		return rt.Err({ tag: "Short" });
 	}
 	const first = splitFirst[0];
 	const rest = splitFirst[1];
@@ -210,7 +210,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const rest6 = okOr5.value[1];
 		value = [fromHalves(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a5 & 0x03, b4)), rt.u32.fromBeBytes(rt.copy(lo2))), rest6];
 	} else if (leadingOnes === 6 && !seven) {
-		return rt.Err({ tag: "InvalidValue" } as DecodeError);
+		return rt.Err({ tag: "InvalidValue" });
 	} else if (leadingOnes === 6) {
 		const okOr6 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 7), { tag: "Short" } as DecodeError);
 		if (!okOr6.ok) {

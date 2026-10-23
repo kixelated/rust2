@@ -119,6 +119,10 @@ impl Expr {
 		match self {
 			Self::As(e, _) => *e,
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
+			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
+			Self::Call(f, args) if matches!(*f, Self::Rt("Ok" | "Err")) => {
+				Self::Call(f, args.into_iter().map(Self::typed).collect())
+			}
 			e => e,
 		}
 	}

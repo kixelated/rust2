@@ -136,7 +136,9 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	grid[1].x = 9;
 	let row = grid;
 	grid[2] = q;
-	for v in [p.x, p.y, q.x, q.y, r.x, saved.0.y, pair.0.y, row[1].x, row[2].x, grid[2].x] {
+	for v in [
+		p.x, p.y, q.x, q.y, r.x, saved.0.y, pair.0.y, row[1].x, row[2].x, grid[2].x,
+	] {
 		out.extend_from_slice(&v.to_be_bytes());
 	}
 	out.push(saved.1);
@@ -244,7 +246,11 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	let shape = shape(data);
 	let area = match shape {
 		Shape::Rect { width: 0, .. } | Shape::Dot => 0,
-		Shape::Rect { corner: Point { x, .. }, width, .. } if x > 0 => width as i64 * x as i64,
+		Shape::Rect {
+			corner: Point { x, .. },
+			width,
+			..
+		} if x > 0 => width as i64 * x as i64,
 		Shape::Rect { width, height, .. } => -(width as i64 * height as i64),
 		Shape::Line(a, b) => (a.x - b.x) as i64 * (a.y - b.y) as i64,
 	};

@@ -205,7 +205,9 @@ fn clean(out: &Path) -> Result<(), String> {
 		}
 		let generated = match path.extension().and_then(|e| e.to_str()) {
 			Some("ts") => std::fs::read_to_string(&path).is_ok_and(|text| text.starts_with(HEADER)),
-			Some("map") => path.file_stem().is_some_and(|stem| stem.to_string_lossy().ends_with(".ts")),
+			Some("map") => path
+				.file_stem()
+				.is_some_and(|stem| stem.to_string_lossy().ends_with(".ts")),
 			_ => false,
 		};
 		if generated {

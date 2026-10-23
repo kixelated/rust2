@@ -50,7 +50,8 @@ impl<'tcx> Bodies<'tcx> {
 /// Translate what the config's roots reach, or `None` after reporting why not.
 pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Program> {
 	if tcx.data_layout.pointer_size().bits() != 32 {
-		tcx.dcx().err("rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number");
+		tcx.dcx()
+			.err("rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number");
 		return None;
 	}
 	let mut t = Translator {
@@ -105,6 +106,16 @@ pub enum AdtRepr {
 	Tags,
 	/// An enum: an object per variant, tagged by its name.
 	Union,
+}
+
+/// A JS object that a `&mut` can change in place.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ObjectKind {
+	Class,
+	Bytes,
+	Array,
+	Vec,
+	Closure,
 }
 
 /// Where a translated function lives.
@@ -169,7 +180,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						continue;
 					}
 					for local in locals {
-						let impl_ty = self.tcx.type_of(local.to_def_id()).instantiate_identity().skip_norm_wip();
+						let impl_ty = self
+							.tcx
+							.type_of(local.to_def_id())
+							.instantiate_identity()
+							.skip_norm_wip();
 						if impl_ty == self_ty {
 							impls.push(local.to_def_id());
 						}
@@ -187,7 +202,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				self.blanket_impls(self_ty);
 			}
-			kind => self.err(self.tcx.def_span(def_id), format!("a root must be a function or a type, not {kind:?}")),
+			kind => self.err(
+				self.tcx.def_span(def_id),
+				format!("a root must be a function or a type, not {kind:?}"),
+			),
 		}
 	}
 
@@ -225,7 +243,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let Some(trait_item) = item.trait_item_def_id() else {
 						continue;
 					};
-					if let Ok(Some(instance)) = Instance::try_resolve(tcx, self.typing_env(), trait_item, trait_ref.args) {
+					if let Ok(Some(instance)) =
+						Instance::try_resolve(tcx, self.typing_env(), trait_item, trait_ref.args)
+					{
 						self.instance(instance);
 					}
 				}
@@ -237,7 +257,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let mut module = rustc_hir::def_id::CRATE_DEF_ID;
 		let mut segments = path.split("::").peekable();
 		while let Some(segment) = segments.next() {
-			let child = self.tcx.module_children_local(module).iter().find(|child| child.ident.as_str() == segment)?;
+			let child = self
+				.tcx
+				.module_children_local(module)
+				.iter()
+				.find(|child| child.ident.as_str() == segment)?;
 			let Res::Def(kind, def_id) = child.res else {
 				return None;
 			};
@@ -261,7 +285,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let def_id = instance.def_id();
 		let owner = self.owner(instance);
 		let (owner_sym, kind) = match owner {
-			Owner::Class(sym) => (Some(sym), SymKind::Method { instance: self.has_self(def_id) }),
+			Owner::Class(sym) => (
+				Some(sym),
+				SymKind::Method {
+					instance: self.has_self(def_id),
+				},
+			),
 			Owner::Companion(sym) => (Some(sym), SymKind::Method { instance: false }),
 			Owner::Module => (None, SymKind::Function),
 		};
@@ -285,7 +314,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	fn has_self(&self, def_id: DefId) -> bool {
-		self.tcx.opt_associated_item(def_id).is_some_and(|item| item.is_method())
+		self.tcx
+			.opt_associated_item(def_id)
+			.is_some_and(|item| item.is_method())
 	}
 
 	/// The type an associated function's impl or trait is for.
@@ -399,7 +430,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	pub fn subst<T: ty::TypeFoldable<TyCtxt<'tcx>>>(&self, args: GenericArgsRef<'tcx>, value: T) -> T {
-		self.tcx.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
+		self.tcx
+			.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
 	}
 
 	pub fn is_copy(&self, ty: Ty<'tcx>) -> bool {
@@ -413,6 +445,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let did = adt.did();
+		if adt.destructor(tcx).is_some() {
+			self.err(
+				span,
+				format!(
+					"`{}` implements `Drop`, which is not supported yet",
+					tcx.def_path_str(did)
+				),
+			);
+		}
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
@@ -421,7 +462,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Some(rustc_hir::def::CtorKind::Const) => Ctor::Unit,
 					None => Ctor::Named,
 				};
-				AdtRepr::Class { ctor, fields: Vec::new() }
+				AdtRepr::Class {
+					ctor,
+					fields: Vec::new(),
+				}
 			}
 			_ if adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty()) => AdtRepr::Tags,
 			_ if adt.is_enum() => AdtRepr::Union,
@@ -460,7 +504,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::GenericParamDefKind::Type { .. } => Some(param.name.to_string()),
 				ty::GenericParamDefKind::Lifetime => None,
 				ty::GenericParamDefKind::Const { .. } => {
-					self.err(span, format!("const generic types are not supported: `{}`", tcx.def_path_str(did)));
+					self.err(
+						span,
+						format!("const generic types are not supported: `{}`", tcx.def_path_str(did)),
+					);
 					None
 				}
 			})
@@ -490,7 +537,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Tags => Item::Union {
 				sym,
 				params,
-				ty: Type::Union(adt.variants().iter().map(|v| Type::StrLit(v.name.to_string())).collect()),
+				ty: Type::Union(
+					adt.variants()
+						.iter()
+						.map(|v| Type::StrLit(v.name.to_string()))
+						.collect(),
+				),
 				doc: None,
 			},
 			AdtRepr::Union => {
@@ -519,6 +571,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		info
 	}
 
+	/// What kind of JS object a `&mut` to `ty` can change in place, if any.
+	pub fn object_kind(&self, ty: Ty<'tcx>) -> Option<ObjectKind> {
+		match ty.kind() {
+			ty::Array(elem, _) | ty::Slice(elem) => match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
+				_ => Some(ObjectKind::Array),
+			},
+			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
+				Some(library::Std::Vec) => Some(ObjectKind::Vec),
+				Some(_) => None,
+				None if adt.is_struct() => Some(ObjectKind::Class),
+				None => None,
+			},
+			// Its captures change through it, as a JS function's do.
+			ty::Closure(..) => Some(ObjectKind::Closure),
+			_ => None,
+		}
+	}
+
 	/// The TypeScript type of a Rust type.
 	pub fn ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
 		let tcx = self.tcx;
@@ -532,6 +603,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Never => Type::Builtin("never"),
 			ty::Tuple(tys) if tys.is_empty() => Type::Builtin("undefined"),
 			ty::Tuple(tys) => Type::Tuple(tys.iter().map(|t| self.ty(t, span)).collect()),
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.object_kind(*inner).is_none() => {
+				self.err(
+					span,
+					format!("`{ty}`: a JS value of `{inner}` is a copy, so a reference can't change it"),
+				);
+				Type::Builtin("unknown")
+			}
 			ty::Ref(_, inner, _) => self.ty(*inner, span),
 			ty::Array(elem, _) | ty::Slice(elem) => match elem.kind() {
 				ty::Uint(ty::UintTy::U8) => Type::Builtin("Uint8Array"),
@@ -582,11 +660,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Option => {
 					let inner = args.type_at(0);
 					if !self.option_payload_ok(inner) {
-						self.err(span, format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`"));
+						self.err(
+							span,
+							format!(
+								"`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`"
+							),
+						);
 					}
 					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
 				}
-				library::Std::Result => Type::Rt("Result", vec![self.ty(args.type_at(0), span), self.ty(args.type_at(1), span)]),
+				library::Std::Result => Type::Rt(
+					"Result",
+					vec![self.ty(args.type_at(0), span), self.ty(args.type_at(1), span)],
+				),
 				library::Std::Vec => match args.type_at(0).kind() {
 					ty::Uint(ty::UintTy::U8) => Type::Rt("ByteVec", vec![]),
 					_ => Type::Array(Box::new(self.ty(args.type_at(0), span))),
@@ -598,7 +684,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			};
 		}
 		if !adt.did().is_local() {
-			self.err(span, format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())));
+			self.err(
+				span,
+				format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())),
+			);
 			return Type::Builtin("unknown");
 		}
 		let info = self.adt(adt, span);
@@ -634,9 +723,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return;
 		};
 		let Some((thir, expr)) = self.bodies.map.get(&local) else {
-			self.err(span, format!("no body for `{}`: constant evaluation consumed it", tcx.def_path_str(def_id)));
+			self.err(
+				span,
+				format!(
+					"no body for `{}`: constant evaluation consumed it",
+					tcx.def_path_str(def_id)
+				),
+			);
 			return;
 		};
+		if tcx.asyncness(def_id).is_async() {
+			self.err(
+				span,
+				format!("`{}` is async, which is not supported yet", tcx.def_path_str(def_id)),
+			);
+			return;
+		}
 		let owner = self.owner(instance);
 		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
 		let function = body::function(self, instance, thir, *expr, method);
@@ -646,7 +748,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		function.sym = sym;
 		function.loc = self.loc(span);
 		match owner {
-			Owner::Class(owner) | Owner::Companion(owner) => self.program.methods.entry(owner).or_default().push(function),
+			Owner::Class(owner) | Owner::Companion(owner) => {
+				self.program.methods.entry(owner).or_default().push(function)
+			}
 			Owner::Module => self.program.items.push(Item::Function(function)),
 		}
 	}
@@ -658,7 +762,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let data = span.ctxt().outer_expn_data();
 			if let Some(def_id) = data.macro_def_id {
 				let path = self.tcx.def_path_str(def_id);
-				if self.config.ignore_macros.iter().any(|ignored| *ignored == path) {
+				if self.config.ignore_macros.contains(&path) {
 					return true;
 				}
 			}

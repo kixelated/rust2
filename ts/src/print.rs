@@ -64,7 +64,13 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 				}
 			})
 			.collect();
-		writeln!(header, "import {{ {} }} from \"{}\";", names.join(", "), up(&module_file(target))).unwrap();
+		writeln!(
+			header,
+			"import {{ {} }} from \"{}\";",
+			names.join(", "),
+			up(&module_file(target))
+		)
+		.unwrap();
 	}
 	if p.uses_rt || !bindings.imports.is_empty() {
 		header.push('\n');
@@ -76,8 +82,11 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	let code = format!("{header}{}\n//# sourceMappingURL={map_name}\n", p.out);
 
 	let dir = path.parent().unwrap();
-	let source_names: Vec<String> =
-		program.sources.iter().map(|source| relative(dir, &source.path).to_string_lossy().into_owned()).collect();
+	let source_names: Vec<String> = program
+		.sources
+		.iter()
+		.map(|source| relative(dir, &source.path).to_string_lossy().into_owned())
+		.collect();
 	let mut map = SourceMapBuilder::default();
 	map.set_file(&file_name);
 	let mut ids = HashMap::new();
@@ -135,8 +144,11 @@ impl Bindings {
 		}
 
 		let mut imports: BTreeMap<ModPath, BTreeMap<SymId, (String, bool)>> = BTreeMap::new();
-		let mut foreign: Vec<(SymId, bool)> =
-			refs.used.into_iter().filter(|(id, _)| &program.syms[*id].module != module).collect();
+		let mut foreign: Vec<(SymId, bool)> = refs
+			.used
+			.into_iter()
+			.filter(|(id, _)| &program.syms[*id].module != module)
+			.collect();
 		foreign.sort();
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
@@ -152,7 +164,10 @@ impl Bindings {
 			}
 			taken.insert(binding.clone());
 			names.insert(id, binding.clone());
-			imports.entry(sym.module.clone()).or_default().insert(id, (binding, value));
+			imports
+				.entry(sym.module.clone())
+				.or_default()
+				.insert(id, (binding, value));
 		}
 		Self { names, imports }
 	}
@@ -445,11 +460,7 @@ impl Printer<'_> {
 				self.write("}\n");
 			}
 			Item::Union {
-				sym,
-				params,
-				ty,
-				doc,
-				..
+				sym, params, ty, doc, ..
 			} => {
 				self.doc(doc);
 				let name = self.program.syms[*sym].name.clone();
@@ -591,7 +602,12 @@ impl Printer<'_> {
 				self.expr(e, prec);
 				self.write(";\n");
 			}
-			StmtKind::Decl { mutable, target, ty, init } => {
+			StmtKind::Decl {
+				mutable,
+				target,
+				ty,
+				init,
+			} => {
 				self.write(if *mutable { "let " } else { "const " });
 				self.target(target);
 				if let Some(ty) = ty {
@@ -621,10 +637,12 @@ impl Printer<'_> {
 				loop {
 					match els.as_slice() {
 						[] => break,
-						[Stmt {
-							kind: StmtKind::If { cond, then, els: next },
-							loc,
-						}] => {
+						[
+							Stmt {
+								kind: StmtKind::If { cond, then, els: next },
+								loc,
+							},
+						] => {
 							self.start();
 							self.write("} else ");
 							self.mark(*loc);
@@ -674,7 +692,12 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
-			StmtKind::ForOf { label, name, iter, body } => {
+			StmtKind::ForOf {
+				label,
+				name,
+				iter,
+				body,
+			} => {
 				self.label(label);
 				let name = self.local(name).to_string();
 				self.write(&format!("for (const {name} of "));
@@ -920,12 +943,19 @@ impl Printer<'_> {
 				_ => format!("{}[]", self.ty(t)),
 			},
 			Type::Func(params, ret) => {
-				let parts: Vec<String> = params.iter().enumerate().map(|(i, t)| format!("a{i}: {}", self.ty(t))).collect();
+				let parts: Vec<String> = params
+					.iter()
+					.enumerate()
+					.map(|(i, t)| format!("a{i}: {}", self.ty(t)))
+					.collect();
 				format!("({}) => {}", parts.join(", "), self.ty(ret))
 			}
 			Type::StrLit(s) => quote(s),
 			Type::Object(fields) => {
-				let parts: Vec<String> = fields.iter().map(|(name, t)| format!("{name}: {}", self.ty(t))).collect();
+				let parts: Vec<String> = fields
+					.iter()
+					.map(|(name, t)| format!("{name}: {}", self.ty(t)))
+					.collect();
 				format!("{{ {} }}", parts.join("; "))
 			}
 		}
@@ -1034,7 +1064,9 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_expr_locals(cond, out);
 				collect_locals(body, out);
 			}
-			StmtKind::ForRange { name, start, end, body, .. } => {
+			StmtKind::ForRange {
+				name, start, end, body, ..
+			} => {
 				out.push(name.clone());
 				collect_expr_locals(start, out);
 				collect_expr_locals(end, out);

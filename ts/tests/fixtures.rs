@@ -83,7 +83,11 @@ fn snapshot(name: &str, out: &Path) {
 	}
 	let want = sources(&expected);
 	let names = |files: &[(PathBuf, String)]| files.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>();
-	assert_eq!(names(&got), names(&want), "{name}: the generated files differ; rerun with UPDATE_EXPECT=1");
+	assert_eq!(
+		names(&got),
+		names(&want),
+		"{name}: the generated files differ; rerun with UPDATE_EXPECT=1"
+	);
 	for ((rel, got), (_, want)) in got.iter().zip(&want) {
 		assert!(
 			got == want,
@@ -142,14 +146,25 @@ fn typecheck(out: &Path) {
 fn differential(package: &str, out: &Path, cases: u32) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
-		.args(["build", "--locked", "--package", package, "--target", TARGET, "--target-dir"])
+		.args([
+			"build",
+			"--locked",
+			"--package",
+			package,
+			"--target",
+			TARGET,
+			"--target-dir",
+		])
 		.arg(&target_dir)
 		.arg("--manifest-path")
 		.arg(manifest_dir().join("Cargo.toml"))
 		.status()
 		.expect("running cargo");
 	assert!(status.success(), "building {package} for {TARGET} failed");
-	let wasm = target_dir.join(TARGET).join("debug").join(format!("{}.wasm", package.replace('-', "_")));
+	let wasm = target_dir
+		.join(TARGET)
+		.join("debug")
+		.join(format!("{}.wasm", package.replace('-', "_")));
 	std::fs::write(out.join("package.json"), "{ \"type\": \"module\" }\n").unwrap();
 	let output = Command::new("node")
 		.arg(manifest_dir().join("tests").join("differential.ts"))
@@ -160,7 +175,10 @@ fn differential(package: &str, out: &Path, cases: u32) {
 		.expect("running node, which the dev shell provides");
 	let stdout = String::from_utf8_lossy(&output.stdout);
 	let stderr = String::from_utf8_lossy(&output.stderr);
-	assert!(output.status.success(), "{package} differs from native Rust:\n{stdout}{stderr}");
+	assert!(
+		output.status.success(),
+		"{package} differs from native Rust:\n{stdout}{stderr}"
+	);
 	println!("{stdout}");
 }
 
@@ -178,4 +196,36 @@ fn lang() {
 	snapshot("lang", &out);
 	typecheck(&out);
 	differential("lang-fixture", &out, 50_000);
+}
+
+/// Each construct outside the subset fails with its span, and nothing is written.
+#[test]
+fn reject() {
+	let (out, output) = translate("reject");
+	assert!(!output.status.success(), "translating reject succeeded");
+	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	// Each error and where it points, without rustc's rendering of the source.
+	let mut got = String::new();
+	let mut lines = stderr.lines().peekable();
+	while let Some(line) = lines.next() {
+		if let Some(error) = line.strip_prefix("error: rust2-ts: ") {
+			got.push_str(error);
+			if let Some(at) = lines.peek().and_then(|l| l.trim_start().strip_prefix("--> ")) {
+				got.push_str(&format!(" at {at}"));
+			}
+			got.push('\n');
+		}
+	}
+	let path = manifest_dir().join("fixtures").join("reject").join("expected.txt");
+	if std::env::var_os("UPDATE_EXPECT").is_some() {
+		std::fs::write(&path, &got).unwrap();
+		return;
+	}
+	let want = std::fs::read_to_string(&path).unwrap_or_default();
+	assert!(
+		got == want,
+		"the errors differ; rerun with UPDATE_EXPECT=1\n{}",
+		diff(&want, &got)
+	);
 }

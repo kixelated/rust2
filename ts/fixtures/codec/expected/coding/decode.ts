@@ -82,7 +82,7 @@ export class Decoder {
 		} else if (u8.value === 1) {
 			return rt.Ok(true);
 		} else {
-			return rt.Err({ tag: "InvalidValue" } as DecodeError);
+			return rt.Err({ tag: "InvalidValue" });
 		}
 	}
 

@@ -146,7 +146,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ty::Array(_, len) if let Some(len) = len.try_to_target_usize(self.t.tcx) => {
 				scrut.clone().index(Expr::lit((len as usize - from_end).to_string()))
 			}
-			_ => scrut.clone().index(scrut.clone().member("length").binary("-", Expr::lit(from_end.to_string()))),
+			_ => scrut.clone().index(
+				scrut
+					.clone()
+					.member("length")
+					.binary("-", Expr::lit(from_end.to_string())),
+			),
 		}
 	}
 
@@ -155,7 +160,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	pub fn pat_bind(&mut self, pat: &Pat<'tcx>, scrut: &Expr, owned: bool, out: &mut Vec<Stmt>) {
 		let ty = self.subst(pat.ty);
 		match &pat.kind {
-			PatKind::Wild | PatKind::Missing | PatKind::Constant { .. } | PatKind::Range(_) | PatKind::Or { .. } => {}
+			PatKind::Wild | PatKind::Missing | PatKind::Constant { .. } | PatKind::Range(_) => {}
+			// Bindings in alternatives are refused by `pat_test`; binding the first
+			// alternative's keeps that one error from cascading.
+			PatKind::Or { pats } => self.pat_bind(&pats[0], scrut, owned, out),
 			PatKind::Binding {
 				name,
 				var,
@@ -174,10 +182,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				let name = self.bind_var(*var, *name, mutable);
 				let annotate = mutable.then(|| self.t.ty(ty, pat.span));
-				out.push(
-					StmtKind::decl(mutable, name, annotate, Some(value))
-					.at(None),
-				);
+				out.push(StmtKind::decl(mutable, name, annotate, Some(value)).at(None));
 				if let Some(sub) = subpattern {
 					self.pat_bind(sub, scrut, owned, out);
 				}
@@ -222,7 +227,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						ty::Array(_, len) if let Some(len) = len.try_to_target_usize(self.t.tcx) => {
 							Expr::lit((len as usize - suffix.len()).to_string())
 						}
-						_ => scrut.clone().member("length").binary("-", Expr::lit(suffix.len().to_string())),
+						_ => scrut
+							.clone()
+							.member("length")
+							.binary("-", Expr::lit(suffix.len().to_string())),
 					};
 					let elem = match ty.peel_refs().kind() {
 						ty::Array(elem, _) | ty::Slice(elem) => *elem,

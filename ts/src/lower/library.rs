@@ -98,7 +98,9 @@ fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 		return Some((owner, name));
 	}
 	let parent = tcx.parent(def_id);
-	let owner = tcx.opt_item_name(parent).map_or_else(|| tcx.crate_name(def_id.krate).to_string(), |n| n.to_string());
+	let owner = tcx
+		.opt_item_name(parent)
+		.map_or_else(|| tcx.crate_name(def_id.krate).to_string(), |n| n.to_string());
 	Some((owner, name))
 }
 
@@ -152,7 +154,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 			match (Int::of(to), Int::of(from)) {
 				(Some(_), Some(_)) => {
-					let operand = Operand { expr: value, value: None };
+					let operand = Operand {
+						expr: value,
+						value: None,
+					};
 					num::cast(b, operand, from, to, span)
 				}
 				_ => return None,
@@ -196,9 +201,25 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			};
 			let values = b.args(args, out);
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
-			num::binary(b, op, Operand { expr: l, value: consts.0 }, Operand { expr: r, value: consts.1 }, lty, rty, span)
+			num::binary(
+				b,
+				op,
+				Operand {
+					expr: l,
+					value: consts.0,
+				},
+				Operand {
+					expr: r,
+					value: consts.1,
+				},
+				lty,
+				rty,
+				span,
+			)
 		}
-		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge") if primitive(targ(gargs, 0).peel_refs()) => {
+		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge")
+			if primitive(targ(gargs, 0).peel_refs()) =>
+		{
 			let js = match name.as_str() {
 				"eq" => "===",
 				"ne" => "!==",
@@ -221,7 +242,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let value = values.into_iter().next()?;
 			match ty.kind() {
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) && is_u8(args.type_at(0)) => {
-					Expr::Rt("ByteVec").member("from").call(vec![value.method("view", vec![])])
+					Expr::Rt("ByteVec")
+						.member("from")
+						.call(vec![value.method("view", vec![])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
 				_ if b.t.is_copy(ty) => b.copied(value, ty),
@@ -327,10 +350,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						true => value,
 						false => {
 							let name = b.fresh("item");
-							out.push(
-								StmtKind::decl(false, name.clone(), None, Some(value))
-								.at(None),
-							);
+							out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
 							Expr::ident(name)
 						}
 					};
@@ -469,13 +489,23 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			Expr::undefined()
 		}
 
-		// Panics.
+		// Panics. `assert_eq!`'s values are already evaluated, and are not shown.
+		("panicking", "assert_failed") => {
+			b.args(args, out);
+			Expr::rt("panic", vec![Expr::Str("assertion failed".into())])
+		}
 		("panicking", _) | ("panic", _) | ("rt", "begin_panic") => {
-			let message = match &args {
-				Args::Thir(ids) => ids.iter().find_map(|id| first_str(b, *id)),
-				Args::Values(_) => None,
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			// A message is its literal text: formatting values would need `Display`.
+			if ids.iter().any(|id| reads_variables(b, *id)) {
+				b.t.err(span, "a panic message that formats values is not supported");
 			}
-			.unwrap_or_else(|| default_panic(&name));
+			let message = ids
+				.iter()
+				.find_map(|id| first_str(b, *id))
+				.unwrap_or_else(|| default_panic(&name));
 			Expr::rt("panic", vec![Expr::Str(message)])
 		}
 		_ => return None,
@@ -489,7 +519,13 @@ fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 }
 
 /// `rt.<namespace>.<name>(args)`.
-fn rt2<'tcx>(b: &mut Body<'_, '_, 'tcx>, args: Args<'_>, out: &mut Vec<Stmt>, namespace: &'static str, name: &str) -> Expr {
+fn rt2<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	args: Args<'_>,
+	out: &mut Vec<Stmt>,
+	namespace: &'static str,
+	name: &str,
+) -> Expr {
 	let values = b.args(args, out);
 	Expr::Rt(namespace).member(name).call(values)
 }
@@ -545,10 +581,7 @@ fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec
 		return value;
 	}
 	let name = b.fresh(base);
-	out.push(
-		StmtKind::decl(false, name.clone(), None, Some(value))
-		.at(None),
-	);
+	out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
 	Expr::ident(name)
 }
 
@@ -602,10 +635,7 @@ fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<St
 /// The value at `place`, after setting `place` to `value`.
 fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 	let name = b.fresh(base);
-	out.push(
-		StmtKind::decl(false, name.clone(), None, Some(place.clone()))
-		.at(None),
-	);
+	out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
 	out.push(StmtKind::Expr(place.assign(value)).at(None));
 	Expr::ident(name)
 }
@@ -661,9 +691,34 @@ fn first_str<'tcx>(b: &Body<'_, '_, 'tcx>, id: ExprId) -> Option<String> {
 	}
 }
 
+/// Whether `id` reads a variable anywhere inside it.
+fn reads_variables<'tcx>(b: &Body<'_, '_, 'tcx>, id: ExprId) -> bool {
+	struct Reads<'a, 'tcx> {
+		thir: &'a rustc_middle::thir::Thir<'tcx>,
+		found: bool,
+	}
+	impl<'a, 'tcx> rustc_middle::thir::visit::Visitor<'a, 'tcx> for Reads<'a, 'tcx> {
+		fn thir(&self) -> &'a rustc_middle::thir::Thir<'tcx> {
+			self.thir
+		}
+
+		fn visit_expr(&mut self, expr: &'a rustc_middle::thir::Expr<'tcx>) {
+			match expr.kind {
+				ExprKind::VarRef { .. } | ExprKind::UpvarRef { .. } => self.found = true,
+				_ => rustc_middle::thir::visit::walk_expr(self, expr),
+			}
+		}
+	}
+	let mut reads = Reads {
+		thir: b.thir,
+		found: false,
+	};
+	rustc_middle::thir::visit::Visitor::visit_expr(&mut reads, &b.thir[id]);
+	reads.found
+}
+
 fn default_panic(name: &str) -> String {
 	match name {
-		"assert_failed" => "assertion failed".into(),
 		"unreachable_display" => "internal error: entered unreachable code".into(),
 		_ => "explicit panic".into(),
 	}

@@ -1,0 +1,18 @@
+package = "reject-fixture"
+roots = [
+    "float",
+    "character",
+    "dynamic",
+    "bump",
+    "nested",
+    "sorted",
+    "iterators",
+    "guard",
+    "later",
+    "formatted",
+    "captured",
+    "or_bindings",
+    "statics",
+    "generic",
+    "missing",
+]

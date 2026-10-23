@@ -20,7 +20,7 @@ export function decodeSize(r: Decoder, max: number): rt.Result<number, DecodeErr
 				return rt.Ok(size2);
 			}
 		}
-		return rt.Err({ tag: "MessageTooLarge", size: rt.result.unwrapOr(rt.usize.tryFrom(size), 4294967295), max } as DecodeError);
+		return rt.Err({ tag: "MessageTooLarge", size: rt.result.unwrapOr(rt.usize.tryFrom(size), 4294967295), max });
 	}
 }
 
@@ -39,7 +39,7 @@ export function decodeWith(r: Decoder, decode: (a0: Decoder) => rt.Result<Group,
 		if (body.isEmpty()) {
 			return rt.Ok(msg);
 		} else {
-			return rt.Err({ tag: "Long" } as DecodeError);
+			return rt.Err({ tag: "Long" });
 		}
 	});
 	if (result.ok) {
@@ -63,7 +63,7 @@ export function decodeWith$Probe(r: Decoder, decode: (a0: Decoder) => rt.Result<
 		if (body.isEmpty()) {
 			return rt.Ok(msg);
 		} else {
-			return rt.Err({ tag: "Long" } as DecodeError);
+			return rt.Err({ tag: "Long" });
 		}
 	});
 	if (result.ok) {

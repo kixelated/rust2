@@ -54,7 +54,10 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	let config_path = config.ok_or_else(|| format!("--config is required\n\n{USAGE}"))?;
 	let out = out.ok_or_else(|| format!("--out is required\n\n{USAGE}"))?;
 	let config = Config::load(&config_path)?;
-	let manifest = config_path.parent().expect("an absolute file path has a parent").join("Cargo.toml");
+	let manifest = config_path
+		.parent()
+		.expect("an absolute file path has a parent")
+		.join("Cargo.toml");
 	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
 	let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
 		Some(dir) => PathBuf::from(dir),
@@ -110,7 +113,13 @@ fn absolute(path: &Path) -> Result<PathBuf, String> {
 /// The directory of the workspace `manifest` belongs to.
 fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
 	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
-		.args(["locate-project", "--workspace", "--message-format", "plain", "--manifest-path"])
+		.args([
+			"locate-project",
+			"--workspace",
+			"--message-format",
+			"plain",
+			"--manifest-path",
+		])
 		.arg(manifest)
 		.output()
 		.map_err(|err| format!("running cargo: {err}"))?;
@@ -118,5 +127,8 @@ fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
 		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
 	}
 	let root = String::from_utf8(output.stdout).map_err(|_| "cargo printed a non-UTF-8 path".to_string())?;
-	Ok(Path::new(root.trim()).parent().expect("a manifest path has a parent").to_path_buf())
+	Ok(Path::new(root.trim())
+		.parent()
+		.expect("a manifest path has a parent")
+		.to_path_buf())
 }

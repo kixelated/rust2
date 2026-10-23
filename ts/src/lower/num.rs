@@ -115,7 +115,9 @@ impl Int {
 }
 
 fn big_int(method: &str, bits: u32, value: Expr) -> Expr {
-	Expr::ident("BigInt").member(method).call(vec![Expr::lit(bits.to_string()), value])
+	Expr::ident("BigInt")
+		.member(method)
+		.call(vec![Expr::lit(bits.to_string()), value])
 }
 
 /// An operand, and its value when it is a constant.
@@ -299,7 +301,11 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 			true => ("1n", "0n"),
 			false => ("1", "0"),
 		};
-		return Expr::Cond(Box::new(value.expr), Box::new(Expr::lit(one)), Box::new(Expr::lit(zero)));
+		return Expr::Cond(
+			Box::new(value.expr),
+			Box::new(Expr::lit(one)),
+			Box::new(Expr::lit(zero)),
+		);
 	}
 	if let ty::Adt(adt, _) = from.kind()
 		&& adt.is_enum()
@@ -314,7 +320,10 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 					true => rustc_abi::Size::from_bits(target.bits.max(8)).sign_extend(discr.val),
 					false => discr.val as i128,
 				};
-				(crate::ts::Key::Name(adt.variant(index).name.to_string()), target.lit(value))
+				(
+					crate::ts::Key::Name(adt.variant(index).name.to_string()),
+					target.lit(value),
+				)
 			})
 			.collect();
 		return Expr::Index(Box::new(Expr::Object(table)), Box::new(value.expr));

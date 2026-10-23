@@ -69,7 +69,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					Ok(Some(instance)) => instance,
 					_ => return self.err(span, "a constant that does not resolve"),
 				};
-				let cid = GlobalId { instance, promoted: None };
+				let cid = GlobalId {
+					instance,
+					promoted: None,
+				};
 				match tcx.const_eval_global_id_for_typeck(env, cid, span) {
 					Ok(Ok(valtree)) => self.value(ty, valtree, span),
 					Ok(Err(_)) => self.err(span, format!("a constant of type `{ty}`, which has no value tree")),
@@ -101,7 +104,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			_ => 10,
 		};
 		// Drop a type suffix, which hex digits can't be confused with.
-		let end = digits.find(|c: char| c != '_' && !c.is_digit(radix)).unwrap_or(digits.len());
+		let end = digits
+			.find(|c: char| c != '_' && !c.is_digit(radix))
+			.unwrap_or(digits.len());
 		let digits = &digits[..end];
 		// JS allows `_` only between two digits.
 		let chars: Vec<char> = digits.chars().collect();
@@ -166,7 +171,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					}
 				}
 				ty::Slice(elem) => {
-					let items: Vec<Expr> = children(valtree).into_iter().map(|(t, v)| self.value(t, v, span)).collect();
+					let items: Vec<Expr> = children(valtree)
+						.into_iter()
+						.map(|(t, v)| self.value(t, v, span))
+						.collect();
 					match elem.kind() {
 						ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(items),
 						_ => Expr::Array(items),
@@ -175,14 +183,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				_ => self.value(*inner, valtree, span),
 			},
 			ty::Array(elem, _) => {
-				let items: Vec<Expr> = children(valtree).into_iter().map(|(t, v)| self.value(t, v, span)).collect();
+				let items: Vec<Expr> = children(valtree)
+					.into_iter()
+					.map(|(t, v)| self.value(t, v, span))
+					.collect();
 				match elem.kind() {
 					ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(items),
 					_ => Expr::Array(items),
 				}
 			}
 			ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
-			ty::Tuple(_) => Expr::Array(children(valtree).into_iter().map(|(t, v)| self.value(t, v, span)).collect()),
+			ty::Tuple(_) => Expr::Array(
+				children(valtree)
+					.into_iter()
+					.map(|(t, v)| self.value(t, v, span))
+					.collect(),
+			),
 			ty::Adt(adt, _) => {
 				let fields = children(valtree);
 				let (variant, fields) = match adt.is_enum() {

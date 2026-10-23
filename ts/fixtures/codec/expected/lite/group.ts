@@ -36,7 +36,7 @@ export class Group {
 		}
 		if (w.since(prefix) > 65535) {
 			w.discard(prefix);
-			return rt.Err("TooLarge" as EncodeError);
+			return rt.Err("TooLarge");
 		}
 		const fill = w.fill(prefix);
 		if (!fill.ok) {
@@ -67,7 +67,7 @@ export class Group {
 				return rt.Err(varint3.error);
 			}
 		} else if (this.frameStart !== 0n) {
-			return rt.Err("Version" as EncodeError);
+			return rt.Err("Version");
 		}
 		return rt.Ok(undefined);
 	}
