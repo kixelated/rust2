@@ -1,0 +1,662 @@
+//! Rust's standard library: its types' representations, and its functions as runtime
+//! helpers or JS. A function missing here fails translation with its path.
+//!
+//! Functions are keyed by their owner and name: an inherent method by its type
+//! (`slice::split_first`), a trait method by its trait (`From::from`), and a free
+//! function by its module (`mem::take`).
+
+use rustc_hir::def_id::DefId;
+use rustc_middle::thir::{ExprId, ExprKind};
+use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt};
+use rustc_span::Span;
+
+use super::body::Body;
+use super::num::{self, Int, Operand};
+use crate::ts::{Expr, Stmt, StmtKind};
+
+/// A standard library type with its own representation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Std {
+	/// `T | undefined`.
+	Option,
+	/// `rt.Result<T, E>`.
+	Result,
+	/// `rt.ByteVec` for bytes, an array otherwise.
+	Vec,
+	/// A JS string.
+	String,
+	/// Its contents.
+	Box,
+	FromUtf8Error,
+	TryFromIntError,
+}
+
+impl Std {
+	pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Self> {
+		if !is_std(tcx, did) {
+			return None;
+		}
+		use rustc_span::sym;
+		if tcx.is_diagnostic_item(sym::Option, did) {
+			return Some(Self::Option);
+		}
+		if tcx.is_diagnostic_item(sym::Result, did) {
+			return Some(Self::Result);
+		}
+		if tcx.is_diagnostic_item(sym::Vec, did) {
+			return Some(Self::Vec);
+		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::String) {
+			return Some(Self::String);
+		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
+			return Some(Self::Box);
+		}
+		match tcx.item_name(did).as_str() {
+			"FromUtf8Error" => Some(Self::FromUtf8Error),
+			"TryFromIntError" => Some(Self::TryFromIntError),
+			_ => None,
+		}
+	}
+}
+
+fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
+	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
+}
+
+/// A call's arguments: still THIR, or already lowered.
+pub enum Args<'x> {
+	Thir(&'x [ExprId]),
+	Values(Vec<Expr>),
+}
+
+pub struct Call<'tcx> {
+	/// The function as written, before resolving a trait method to its impl.
+	pub def_id: DefId,
+	/// Its generic arguments: the impl's or trait's, then the function's.
+	pub args: GenericArgsRef<'tcx>,
+	pub span: Span,
+}
+
+/// `owner::name` for a standard library function.
+fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
+	let name = tcx.item_name(def_id).to_string();
+	if let Some(trait_id) = tcx.trait_of_assoc(def_id) {
+		return Some((tcx.item_name(trait_id).to_string(), name));
+	}
+	if let Some(imp) = tcx.inherent_impl_of_assoc(def_id) {
+		let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+		let owner = match self_ty.kind() {
+			ty::Adt(adt, _) => tcx.item_name(adt.did()).to_string(),
+			ty::Slice(_) => "slice".into(),
+			ty::Array(..) => "array".into(),
+			ty::Str => "str".into(),
+			ty::Bool => "bool".into(),
+			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
+			_ => return None,
+		};
+		return Some((owner, name));
+	}
+	let parent = tcx.parent(def_id);
+	let owner = tcx.opt_item_name(parent).map_or_else(|| tcx.crate_name(def_id.krate).to_string(), |n| n.to_string());
+	Some((owner, name))
+}
+
+pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>, out: &mut Vec<Stmt>) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	if !is_std(tcx, call.def_id) {
+		return None;
+	}
+	let (owner, name) = key(tcx, call.def_id)?;
+	let span = call.span;
+	let gargs = call.args;
+
+	// Methods on integers.
+	if let Some(int) = int_named(&owner) {
+		let method = match name.as_str() {
+			"from_be_bytes" => "fromBeBytes",
+			"to_be_bytes" => "toBeBytes",
+			"leading_ones" => "leadingOnes",
+			"leading_zeros" => "leadingZeros",
+			"checked_add" => "checkedAdd",
+			"checked_sub" => "checkedSub",
+			"checked_mul" => "checkedMul",
+			"saturating_add" => "saturatingAdd",
+			"saturating_sub" => "saturatingSub",
+			"wrapping_add" => "wrappingAdd",
+			"wrapping_sub" => "wrappingSub",
+			_ => return None,
+		};
+		let values = b.args(args, out);
+		return Some(int.method(method, values));
+	}
+
+	let self_ty = || gargs.types().next();
+	let elem = |t: Ty<'tcx>| -> Option<Ty<'tcx>> {
+		match t.peel_refs().kind() {
+			ty::Slice(e) | ty::Array(e, _) => Some(*e),
+			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(args.type_at(0)),
+			_ => None,
+		}
+	};
+	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
+
+	let e = match (owner.as_str(), name.as_str()) {
+		// Conversions.
+		("From", "from") => {
+			let (to, from) = (gargs.type_at(0), gargs.type_at(1));
+			let mut values = b.args(args, out);
+			let value = values.pop()?;
+			if to == from {
+				return Some(value);
+			}
+			match (Int::of(to), Int::of(from)) {
+				(Some(_), Some(_)) => {
+					let operand = Operand { expr: value, value: None };
+					num::cast(b, operand, from, to, span)
+				}
+				_ => return None,
+			}
+		}
+		("Into", "into") => {
+			let (from, to) = (gargs.type_at(0), gargs.type_at(1));
+			let mut values = b.args(args, out);
+			let value = values.pop()?;
+			b.convert(value, from, to, span, out)
+		}
+		("TryFrom", "try_from") => {
+			let (to, from) = (gargs.type_at(0), gargs.type_at(1));
+			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
+				return None;
+			};
+			let values = b.args(args, out);
+			int.method("tryFrom", values)
+		}
+
+		// Operators on references to primitives.
+		("Add" | "Sub" | "Mul" | "Div" | "Rem" | "BitAnd" | "BitOr" | "BitXor" | "Shl" | "Shr", _)
+			if primitive(gargs.type_at(0).peel_refs()) =>
+		{
+			let op = match owner.as_str() {
+				"Add" => rustc_middle::mir::BinOp::Add,
+				"Sub" => rustc_middle::mir::BinOp::Sub,
+				"Mul" => rustc_middle::mir::BinOp::Mul,
+				"Div" => rustc_middle::mir::BinOp::Div,
+				"Rem" => rustc_middle::mir::BinOp::Rem,
+				"BitAnd" => rustc_middle::mir::BinOp::BitAnd,
+				"BitOr" => rustc_middle::mir::BinOp::BitOr,
+				"BitXor" => rustc_middle::mir::BinOp::BitXor,
+				"Shl" => rustc_middle::mir::BinOp::Shl,
+				_ => rustc_middle::mir::BinOp::Shr,
+			};
+			let (lty, rty) = (gargs.type_at(0), gargs.type_at(1));
+			let consts = match &args {
+				Args::Thir(ids) => (b.const_int(ids[0]), b.const_int(ids[1])),
+				Args::Values(_) => (None, None),
+			};
+			let values = b.args(args, out);
+			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
+			num::binary(b, op, Operand { expr: l, value: consts.0 }, Operand { expr: r, value: consts.1 }, lty, rty, span)
+		}
+		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge") if primitive(gargs.type_at(0).peel_refs()) => {
+			let js = match name.as_str() {
+				"eq" => "===",
+				"ne" => "!==",
+				"lt" => "<",
+				"le" => "<=",
+				"gt" => ">",
+				_ => ">=",
+			};
+			let values = b.args(args, out);
+			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
+			l.binary(js, r)
+		}
+		("Ord", "max" | "min") if Int::of(gargs.type_at(0)).is_some() => {
+			let values = b.args(args, out);
+			Expr::rt(if name == "max" { "max" } else { "min" }, values)
+		}
+		("Clone", "clone") => {
+			let ty = gargs.type_at(0);
+			let values = b.args(args, out);
+			let value = values.into_iter().next()?;
+			match ty.kind() {
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) && is_u8(args.type_at(0)) => {
+					Expr::Rt("ByteVec").member("from").call(vec![value.method("view", vec![])])
+				}
+				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				_ if b.t.is_copy(ty) => b.copied(value, ty),
+				_ => return None,
+			}
+		}
+		("Default", "default") => default_value(b, gargs.type_at(0), span)?,
+
+		// Options.
+		("Option", "map") => rt2(b, args, out, "option", "map"),
+		("Option", "unwrap_or") => rt2(b, args, out, "option", "unwrapOr"),
+		("Option", "ok_or") => rt2(b, args, out, "option", "okOr"),
+		("Option", "unwrap") => rt2(b, args, out, "option", "unwrap"),
+		("Option", "expect") => rt2(b, args, out, "option", "expect"),
+		("Option", "is_some") => b.args(args, out).pop()?.binary("!==", Expr::undefined()),
+		("Option", "is_none") => b.args(args, out).pop()?.binary("===", Expr::undefined()),
+		("Option", "as_ref" | "as_mut") => b.args(args, out).pop()?,
+		("Option", "copied" | "cloned") => {
+			let inner = gargs.type_at(0);
+			let value = b.args(args, out).pop()?;
+			b.copied(value, inner)
+		}
+		("Option", "take") => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let place = borrowed_place(b, ids[0], out)?;
+			swap_out(b, place, Expr::undefined(), "taken", out)
+		}
+
+		// Results.
+		("Result", "map") => rt2(b, args, out, "result", "map"),
+		("Result", "map_err") => rt2(b, args, out, "result", "mapErr"),
+		("Result", "and_then") => rt2(b, args, out, "result", "andThen"),
+		("Result", "inspect_err") => rt2(b, args, out, "result", "inspectErr"),
+		("Result", "is_ok") => b.args(args, out).pop()?.member("ok"),
+		("Result", "is_err") => b.args(args, out).pop()?.member("ok").not(),
+		("Result", "ok") => rt2(b, args, out, "result", "ok"),
+		("Result", "err") => rt2(b, args, out, "result", "err"),
+		("Result", "unwrap") => rt2(b, args, out, "result", "unwrap"),
+		("Result", "unwrap_err") => rt2(b, args, out, "result", "unwrapErr"),
+		("Result", "expect") => rt2(b, args, out, "result", "expect"),
+		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
+
+		("bool", "then_some") => {
+			let values = b.args(args, out);
+			Expr::rt("thenSome", values)
+		}
+
+		// Slices.
+		("slice", "len") => b.args(args, out).pop()?.member("length"),
+		("slice", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
+		("slice", "split_first") => rt2(b, args, out, "slice", "splitFirst"),
+		("slice", "split_at") => rt2(b, args, out, "slice", "splitAt"),
+		("slice", "split_at_checked") => rt2(b, args, out, "slice", "splitAtChecked"),
+		("slice", "first") => rt2(b, args, out, "slice", "first"),
+		("slice", "split_first_chunk") => {
+			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
+			let mut values = b.args(args, out);
+			values.push(Expr::lit(n.to_string()));
+			Expr::Rt("slice").member("splitFirstChunk").call(values)
+		}
+		("slice", "copy_from_slice") if is_u8(gargs.type_at(0)) => rt2(b, args, out, "slice", "copyFromSlice"),
+		("slice", "copy_within") if is_u8(gargs.type_at(0)) => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let s = b.operand(ids[0], out);
+			let (start, end) = range_bounds(b, ids[1], out)?;
+			let end = end.unwrap_or_else(|| s.clone().member("length"));
+			let dest = b.operand(ids[2], out);
+			Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest])
+		}
+		("slice", "to_vec") => {
+			let elem = gargs.type_at(0);
+			let values = b.args(args, out);
+			match is_u8(elem) {
+				true => Expr::Rt("slice").member("toByteVec").call(values),
+				false if b.t.is_copy(elem) => Expr::Rt("slice").member("toVec").call(values),
+				false => return None,
+			}
+		}
+		("slice", "into_vec") => {
+			// `vec![..]`: `<[T]>::into_vec(box_new([..]))`.
+			let elem = gargs.type_at(0);
+			let value = b.args(args, out).pop()?;
+			match is_u8(elem) {
+				true => Expr::Rt("ByteVec").member("from").call(vec![value]),
+				false => value,
+			}
+		}
+		("boxed", "box_new") | ("Box", "new") => b.args(args, out).pop()?,
+		("vec", "from_elem") => {
+			let elem = gargs.type_at(0);
+			let values = b.args(args, out);
+			match is_u8(elem) {
+				true => Expr::rt("byteVecOf", values),
+				false if b.t.is_copy(elem) => {
+					let [value, n] = <[Expr; 2]>::try_from(values).ok()?;
+					let value = match value.is_path() {
+						true => value,
+						false => {
+							let name = b.fresh("item");
+							out.push(
+								StmtKind::decl(false, name.clone(), None, Some(value))
+								.at(None),
+							);
+							Expr::ident(name)
+						}
+					};
+					let item = b.copied(value, elem);
+					let item_ty = b.t.ty(elem, span);
+					Expr::ident("Array").member("from").call(vec![
+						Expr::Object(vec![(crate::ts::Key::Name("length".into()), n)]),
+						Expr::Arrow(Vec::new(), item_ty, vec![StmtKind::Return(Some(item.typed())).at(None)]),
+					])
+				}
+				false => return None,
+			}
+		}
+
+		// Vectors.
+		("Vec", "new") => match is_u8(gargs.type_at(0)) {
+			true => Expr::New(Box::new(Expr::Rt("ByteVec")), Vec::new()),
+			false => Expr::Array(Vec::new()),
+		},
+		("Vec", "with_capacity") => match is_u8(gargs.type_at(0)) {
+			true => Expr::New(Box::new(Expr::Rt("ByteVec")), b.args(args, out)),
+			false => {
+				b.args(args, out);
+				Expr::Array(Vec::new())
+			}
+		},
+		("Vec", "push") => {
+			let mut values = b.args(args, out);
+			let v = values.remove(0);
+			v.method("push", values)
+		}
+		("Vec", "pop") if !is_u8(gargs.type_at(0)) => b.args(args, out).pop()?.method("pop", vec![]),
+		("Vec", "len") => b.args(args, out).pop()?.member("length"),
+		("Vec", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
+		("Vec", "truncate") if is_u8(gargs.type_at(0)) => {
+			let mut values = b.args(args, out);
+			let v = values.remove(0);
+			v.method("truncate", values)
+		}
+		("Vec", "clear") if is_u8(gargs.type_at(0)) => b.args(args, out).pop()?.method("clear", vec![]),
+		("Vec", "extend_from_slice") if is_u8(gargs.type_at(0)) => {
+			let mut values = b.args(args, out);
+			let v = values.remove(0);
+			v.method("extendFromSlice", values)
+		}
+		("Vec", "as_slice" | "as_mut_slice") => {
+			let v = b.args(args, out).pop()?;
+			vec_view(b, v, gargs.type_at(0))
+		}
+		("Deref", "deref") | ("DerefMut", "deref_mut") => {
+			let ty = gargs.type_at(0);
+			let v = b.args(args, out).pop()?;
+			match ty.kind() {
+				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
+					Some(Std::Vec) => vec_view(b, v, ty),
+					Some(Std::String | Std::Box) => v,
+					_ => return None,
+				},
+				_ => return None,
+			}
+		}
+		("Index", "index") | ("IndexMut", "index_mut") => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let container = gargs.type_at(0);
+			let index_ty = gargs.type_at(1);
+			let elem_ty = elem(container)?;
+			let base = b.operand(ids[0], out);
+			let base = match container.kind() {
+				ty::Adt(..) => vec_view(b, base, container),
+				_ => base,
+			};
+			match Int::of(index_ty) {
+				Some(_) if name == "index" => {
+					let i = b.operand(ids[1], out);
+					Expr::rt("at", vec![base, i])
+				}
+				Some(_) => {
+					let base = path(b, base, "slice", out);
+					let i = b.operand(ids[1], out);
+					let i = path(b, i, "index", out);
+					base.clone().index(Expr::rt("idx", vec![base, i]))
+				}
+				None => {
+					if name == "index_mut" && !is_u8(elem_ty) {
+						// A JS array has no views, so a mutable subslice would be a copy.
+						return None;
+					}
+					let (start, end) = range_bounds(b, ids[1], out)?;
+					let mut values = vec![base, start];
+					values.extend(end);
+					Expr::Rt("slice").member("range").call(values)
+				}
+			}
+		}
+
+		// Strings.
+		("String", "as_bytes") => Expr::Rt("string").member("asBytes").call(b.args(args, out)),
+		("String", "from_utf8") => Expr::Rt("string").member("fromUtf8").call(b.args(args, out)),
+		("str", "as_bytes") => Expr::Rt("string").member("asBytes").call(b.args(args, out)),
+		("str", "len") => Expr::Rt("string").member("len").call(b.args(args, out)),
+		("String", "as_str" | "len") if name == "as_str" => b.args(args, out).pop()?,
+		("String", "new") => Expr::Str(String::new()),
+		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
+			b.args(args, out).pop()?
+		}
+
+		// Moving out of a place.
+		("mem", "take") => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let ty = gargs.type_at(0);
+			let place = borrowed_place(b, ids[0], out)?;
+			let default = default_value(b, ty, span)?;
+			swap_out(b, place, default, "taken", out)
+		}
+		("mem", "replace") => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let place = borrowed_place(b, ids[0], out)?;
+			let value = b.operand(ids[1], out);
+			swap_out(b, place, value, "old", out)
+		}
+		("mem", "swap") => {
+			let Args::Thir(ids) = args else {
+				return None;
+			};
+			let a = borrowed_place(b, ids[0], out)?;
+			let c = borrowed_place(b, ids[1], out)?;
+			let old = swap_out(b, a.clone(), c.clone(), "swapped", out);
+			out.push(StmtKind::Expr(c.assign(old)).at(None));
+			Expr::undefined()
+		}
+
+		// Panics.
+		("panicking", _) | ("panic", _) | ("rt", "begin_panic") => {
+			let message = match &args {
+				Args::Thir(ids) => ids.iter().find_map(|id| first_str(b, *id)),
+				Args::Values(_) => None,
+			}
+			.unwrap_or_else(|| default_panic(&name));
+			Expr::rt("panic", vec![Expr::Str(message)])
+		}
+		_ => return None,
+	};
+	Some(e)
+}
+
+/// `rt.<namespace>.<name>(args)`.
+fn rt2<'tcx>(b: &mut Body<'_, '_, 'tcx>, args: Args<'_>, out: &mut Vec<Stmt>, namespace: &'static str, name: &str) -> Expr {
+	let values = b.args(args, out);
+	Expr::Rt(namespace).member(name).call(values)
+}
+
+fn int_named(name: &str) -> Option<Int> {
+	let (signed, bits, pointer) = match name {
+		"u8" => (false, 8, false),
+		"u16" => (false, 16, false),
+		"u32" => (false, 32, false),
+		"u64" => (false, 64, false),
+		"u128" => (false, 128, false),
+		"usize" => (false, 32, true),
+		"i8" => (true, 8, false),
+		"i16" => (true, 16, false),
+		"i32" => (true, 32, false),
+		"i64" => (true, 64, false),
+		"i128" => (true, 128, false),
+		"isize" => (true, 32, true),
+		_ => return None,
+	};
+	Some(Int { bits, signed, pointer })
+}
+
+fn primitive(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
+}
+
+/// A `Vec`'s elements as a slice: a view of a byte vector, or the array itself.
+pub fn vec_view<'tcx>(b: &mut Body<'_, '_, 'tcx>, v: Expr, ty: Ty<'tcx>) -> Expr {
+	let elem = match ty.peel_refs().kind() {
+		ty::Adt(_, args) => args.type_at(0),
+		_ => ty,
+	};
+	let _ = b;
+	match elem.kind() {
+		ty::Uint(ty::UintTy::U8) => v.method("view", vec![]),
+		_ => v,
+	}
+}
+
+trait MethodCall {
+	fn method(self, name: &str, args: Vec<Expr>) -> Expr;
+}
+
+impl MethodCall for Expr {
+	fn method(self, name: &str, args: Vec<Expr>) -> Expr {
+		self.member(name).call(args)
+	}
+}
+
+fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+	if value.is_path() {
+		return value;
+	}
+	let name = b.fresh(base);
+	out.push(
+		StmtKind::decl(false, name.clone(), None, Some(value))
+		.at(None),
+	);
+	Expr::ident(name)
+}
+
+/// The start and optional end of a range written in place: `a..b`, `..b`, `a..`, `..`.
+fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<(Expr, Option<Expr>)> {
+	let tcx = b.t.tcx;
+	let id = b.strip(id);
+	let ty = b.ty_of(id);
+	let ty::Adt(adt, _) = ty.kind() else {
+		return None;
+	};
+	let name = tcx.item_name(adt.did()).to_string();
+	if name == "RangeFull" {
+		return Some((Expr::lit("0"), None));
+	}
+	let ExprKind::Adt(range) = &b.thir[id].kind else {
+		return None;
+	};
+	let mut fields: Vec<(usize, ExprId)> = range.fields.iter().map(|f| (f.name.index(), f.expr)).collect();
+	fields.sort_by_key(|(i, _)| *i);
+	let ids: Vec<ExprId> = fields.iter().map(|(_, id)| *id).collect();
+	let mut values = b.operands(&ids, out);
+	match name.as_str() {
+		"Range" => {
+			let end = values.pop()?;
+			let start = values.pop()?;
+			Some((start, Some(end)))
+		}
+		"RangeTo" => Some((Expr::lit("0"), values.pop())),
+		"RangeFrom" => Some((values.pop()?, None)),
+		_ => None,
+	}
+}
+
+/// The place behind `&mut place`, as an assignable path.
+fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+	let id = b.strip(id);
+	let ExprKind::Borrow { mut arg, .. } = b.thir[id].kind else {
+		return None;
+	};
+	// A reborrow, `&mut *&mut place`.
+	while let ExprKind::Deref { arg: inner } = b.thir[b.strip(arg)].kind
+		&& let ExprKind::Borrow { arg: place, .. } = b.thir[b.strip(inner)].kind
+	{
+		arg = place;
+	}
+	let place = b.place(arg, out);
+	place.is_path().then_some(place)
+}
+
+/// The value at `place`, after setting `place` to `value`.
+fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+	let name = b.fresh(base);
+	out.push(
+		StmtKind::decl(false, name.clone(), None, Some(place.clone()))
+		.at(None),
+	);
+	out.push(StmtKind::Expr(place.assign(value)).at(None));
+	Expr::ident(name)
+}
+
+/// `Default::default()` for a standard type.
+fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	Some(match ty.kind() {
+		ty::Bool => Expr::lit("false"),
+		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		ty::Ref(_, inner, _) => match inner.kind() {
+			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
+				Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit("0")])
+			}
+			ty::Slice(_) => Expr::Array(Vec::new()),
+			ty::Str => Expr::Str(String::new()),
+			_ => return None,
+		},
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
+			Std::Option => Expr::undefined(),
+			Std::Vec => match args.type_at(0).kind() {
+				ty::Uint(ty::UintTy::U8) => Expr::New(Box::new(Expr::Rt("ByteVec")), Vec::new()),
+				_ => Expr::Array(Vec::new()),
+			},
+			Std::String => Expr::Str(String::new()),
+			_ => return None,
+		},
+		_ => {
+			let _ = span;
+			return None;
+		}
+	})
+}
+
+/// The first string literal in `id`, for a panic's message.
+fn first_str<'tcx>(b: &Body<'_, '_, 'tcx>, id: ExprId) -> Option<String> {
+	let e = &b.thir[id];
+	match &e.kind {
+		ExprKind::Literal { lit, .. } => match lit.node {
+			rustc_ast::LitKind::Str(s, _) => Some(s.to_string()),
+			_ => None,
+		},
+		ExprKind::Scope { value, .. }
+		| ExprKind::Borrow { arg: value, .. }
+		| ExprKind::Deref { arg: value }
+		| ExprKind::PointerCoercion { source: value, .. }
+		| ExprKind::ValueTypeAscription { source: value, .. } => first_str(b, *value),
+		ExprKind::Call { args, .. } => args.iter().find_map(|a| first_str(b, *a)),
+		ExprKind::Array { fields } | ExprKind::Tuple { fields } => fields.iter().find_map(|f| first_str(b, *f)),
+		ExprKind::Block { block } => b.thir[*block].expr.and_then(|e| first_str(b, e)),
+		ExprKind::NamedConst { .. } => None,
+		_ => None,
+	}
+}
+
+fn default_panic(name: &str) -> String {
+	match name {
+		"assert_failed" => "assertion failed".into(),
+		"unreachable_display" => "internal error: entered unreachable code".into(),
+		_ => "explicit panic".into(),
+	}
+}

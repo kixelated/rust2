@@ -1,0 +1,726 @@
+//! Rust, as rustc checked it, to the TypeScript AST.
+//!
+//! Translation starts from the configured roots and follows what they reach. Functions
+//! are monomorphized: each instance becomes its own TypeScript function, so a trait
+//! call is always a direct call. Types are translated once, generically.
+
+mod body;
+mod consts;
+mod library;
+mod num;
+mod pat;
+
+use std::collections::VecDeque;
+
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_middle::thir::{ExprId, Thir};
+use rustc_middle::ty::{self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypingEnv};
+use rustc_span::Span;
+
+use crate::config::Config;
+use crate::program::{Program, Source, SymKind, Symbol};
+use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
+
+/// Each function's THIR, copied before borrow checking steals it.
+pub struct Bodies<'tcx> {
+	map: rustc_data_structures::fx::FxHashMap<LocalDefId, (Thir<'tcx>, ExprId)>,
+}
+
+impl<'tcx> Bodies<'tcx> {
+	pub fn collect(tcx: TyCtxt<'tcx>) -> Self {
+		let mut map = rustc_data_structures::fx::FxHashMap::default();
+		for def_id in tcx.hir_body_owners() {
+			if !matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn | DefKind::Closure) {
+				continue;
+			}
+			let Ok((thir, expr)) = tcx.thir_body(def_id) else {
+				continue;
+			};
+			// Constant evaluation during type checking may have built this body's MIR
+			// already; translating it then fails with a span instead.
+			if !thir.is_stolen() {
+				map.insert(def_id, (thir.borrow().clone(), expr));
+			}
+		}
+		Self { map }
+	}
+}
+
+/// Translate what the config's roots reach, or `None` after reporting why not.
+pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Program> {
+	if tcx.data_layout.pointer_size().bits() != 32 {
+		tcx.dcx().err("rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number");
+		return None;
+	}
+	let mut t = Translator {
+		tcx,
+		bodies,
+		config,
+		program: Program::default(),
+		instances: Default::default(),
+		queue: VecDeque::new(),
+		adts: Default::default(),
+		sources: Default::default(),
+		failed: false,
+	};
+	for root in &config.roots {
+		t.root(root);
+	}
+	while let Some((instance, sym)) = t.queue.pop_front() {
+		t.function(instance, sym);
+	}
+	if t.failed {
+		return None;
+	}
+	t.program.name();
+	Some(t.program)
+}
+
+pub struct Translator<'a, 'tcx> {
+	pub tcx: TyCtxt<'tcx>,
+	bodies: &'a Bodies<'tcx>,
+	config: &'a Config,
+	pub program: Program,
+	instances: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, SymId>,
+	queue: VecDeque<(Instance<'tcx>, SymId)>,
+	adts: rustc_data_structures::fx::FxHashMap<DefId, Adt>,
+	/// Source files by name, as indexes into `program.sources`.
+	sources: rustc_data_structures::fx::FxHashMap<String, Option<u32>>,
+	failed: bool,
+}
+
+/// A local struct or enum, and how it is represented.
+#[derive(Clone)]
+pub struct Adt {
+	pub sym: SymId,
+	pub repr: AdtRepr,
+}
+
+#[derive(Clone)]
+pub enum AdtRepr {
+	/// A struct: a class, whose fields are named at print time.
+	Class { ctor: Ctor, fields: Vec<FieldId> },
+	/// An enum whose variants carry no data: a string per variant.
+	Tags,
+	/// An enum: an object per variant, tagged by its name.
+	Union,
+}
+
+/// Where a translated function lives.
+#[derive(Clone, Copy)]
+pub enum Owner {
+	/// On a class: an instance method if it takes `self`, otherwise static.
+	Class(SymId),
+	/// On an enum's companion object, taking `self` as its first parameter.
+	Companion(SymId),
+	/// A module-level function.
+	Module,
+}
+
+impl<'a, 'tcx> Translator<'a, 'tcx> {
+	pub fn err(&mut self, span: Span, msg: impl Into<String>) {
+		self.failed = true;
+		self.tcx.dcx().span_err(span, format!("rust2-ts: {}", msg.into()));
+	}
+
+	fn typing_env(&self) -> TypingEnv<'tcx> {
+		TypingEnv::fully_monomorphized()
+	}
+
+	pub fn typing_env_pub(&self) -> TypingEnv<'tcx> {
+		self.typing_env()
+	}
+
+	/// A closure's THIR and body expression.
+	pub fn body(&self, def_id: LocalDefId) -> Option<(&'a Thir<'tcx>, ExprId)> {
+		self.bodies.map.get(&def_id).map(|(thir, expr)| (thir, *expr))
+	}
+
+	fn root(&mut self, path: &str) {
+		let span = rustc_span::DUMMY_SP;
+		let Some(def_id) = self.resolve_path(path) else {
+			self.tcx.dcx().err(format!("rust2-ts: no item `{path}` in the crate"));
+			self.failed = true;
+			return;
+		};
+		match self.tcx.def_kind(def_id) {
+			DefKind::Fn => {
+				if self.tcx.generics_of(def_id).requires_monomorphization(self.tcx) {
+					self.err(self.tcx.def_span(def_id), "a root must not be generic");
+					return;
+				}
+				let instance = Instance::mono(self.tcx, def_id);
+				self.instance(instance);
+			}
+			DefKind::Struct | DefKind::Enum => {
+				let adt = self.tcx.adt_def(def_id);
+				if self.tcx.generics_of(def_id).requires_monomorphization(self.tcx) {
+					self.err(self.tcx.def_span(def_id), "a root type must not be generic");
+					return;
+				}
+				self.adt(adt, span);
+				let self_ty = self.tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+				let mut impls: Vec<DefId> = self.tcx.inherent_impls(def_id).to_vec();
+				for local in self.tcx.all_local_trait_impls(()).values().flatten() {
+					let impl_ty = self.tcx.type_of(local.to_def_id()).instantiate_identity().skip_norm_wip();
+					if impl_ty == self_ty {
+						impls.push(local.to_def_id());
+					}
+				}
+				for imp in impls {
+					if self.tcx.generics_of(imp).requires_monomorphization(self.tcx) {
+						continue;
+					}
+					for item in self.tcx.associated_items(imp).in_definition_order() {
+						if item.is_fn() && !self.tcx.generics_of(item.def_id).requires_monomorphization(self.tcx) {
+							self.instance(Instance::mono(self.tcx, item.def_id));
+						}
+					}
+				}
+			}
+			kind => self.err(self.tcx.def_span(def_id), format!("a root must be a function or a type, not {kind:?}")),
+		}
+	}
+
+	fn resolve_path(&self, path: &str) -> Option<DefId> {
+		let mut module = rustc_hir::def_id::CRATE_DEF_ID;
+		let mut segments = path.split("::").peekable();
+		while let Some(segment) = segments.next() {
+			let child = self.tcx.module_children_local(module).iter().find(|child| child.ident.as_str() == segment)?;
+			let Res::Def(kind, def_id) = child.res else {
+				return None;
+			};
+			if segments.peek().is_none() {
+				return Some(def_id);
+			}
+			if kind != DefKind::Mod {
+				return None;
+			}
+			module = def_id.as_local()?;
+		}
+		None
+	}
+
+	/// The symbol of a function instance, queueing its translation the first time.
+	pub fn instance(&mut self, instance: Instance<'tcx>) -> SymId {
+		if let Some(&sym) = self.instances.get(&instance) {
+			return sym;
+		}
+		let tcx = self.tcx;
+		let def_id = instance.def_id();
+		let owner = self.owner(instance);
+		let (owner_sym, kind) = match owner {
+			Owner::Class(sym) => (Some(sym), SymKind::Method { instance: self.has_self(def_id) }),
+			Owner::Companion(sym) => (Some(sym), SymKind::Method { instance: false }),
+			Owner::Module => (None, SymKind::Function),
+		};
+		let base = camel(tcx.item_name(def_id).as_str());
+		let order = self.order(tcx.def_span(def_id));
+		let sym = self.program.sym(Symbol {
+			module: self.module_of(def_id),
+			base: match owner {
+				Owner::Module => escape(&base),
+				_ => base,
+			},
+			suffix: self.suffix(instance),
+			owner: owner_sym,
+			kind,
+			order,
+			name: String::new(),
+		});
+		self.instances.insert(instance, sym);
+		self.queue.push_back((instance, sym));
+		sym
+	}
+
+	fn has_self(&self, def_id: DefId) -> bool {
+		self.tcx.opt_associated_item(def_id).is_some_and(|item| item.is_method())
+	}
+
+	/// The type an associated function's impl or trait is for.
+	pub fn self_ty(&self, instance: Instance<'tcx>) -> Option<Ty<'tcx>> {
+		let def_id = instance.def_id();
+		if let Some(imp) = self.tcx.impl_of_assoc(def_id) {
+			return Some(self.subst(instance.args, self.tcx.type_of(imp).skip_binder()));
+		}
+		self.tcx.trait_of_assoc(def_id).map(|_| instance.args.type_at(0))
+	}
+
+	fn owner(&mut self, instance: Instance<'tcx>) -> Owner {
+		let Some(self_ty) = self.self_ty(instance) else {
+			return Owner::Module;
+		};
+		let self_ty = self_ty.peel_refs();
+		let ty::Adt(adt, _) = self_ty.kind() else {
+			return Owner::Module;
+		};
+		if !adt.did().is_local() {
+			return Owner::Module;
+		}
+		let span = self.tcx.def_span(instance.def_id());
+		let info = self.adt(*adt, span);
+		match info.repr {
+			AdtRepr::Class { .. } => Owner::Class(info.sym),
+			AdtRepr::Tags | AdtRepr::Union => {
+				self.program.syms[info.sym].kind = SymKind::Union { companion: true };
+				Owner::Companion(info.sym)
+			}
+		}
+	}
+
+	/// What tells this instance apart from others of the same name.
+	fn suffix(&self, instance: Instance<'tcx>) -> String {
+		let mut parts = Vec::new();
+		let def_id = instance.def_id();
+		if let Some(imp) = self.tcx.trait_impl_of_assoc(def_id) {
+			let trait_ref = self.tcx.impl_trait_ref(imp).skip_binder();
+			let args = self.subst(instance.args, trait_ref.args);
+			parts.extend(args.types().skip(1).map(|t| short_name(self.tcx, t)));
+		}
+		// A closure or function type follows from the others, and has no name.
+		let named = |t: &Ty<'tcx>| !matches!(t.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
+		parts.extend(instance.args.types().filter(named).map(|t| short_name(self.tcx, t)));
+		parts.dedup();
+		parts.join("_")
+	}
+
+	/// The Rust module `def_id` is in.
+	pub fn module_of(&self, def_id: DefId) -> Vec<String> {
+		let Some(local) = def_id.as_local() else {
+			return Vec::new();
+		};
+		let module = self.tcx.parent_module_from_def_id(local).to_def_id();
+		self.tcx
+			.def_path(module)
+			.data
+			.iter()
+			.filter_map(|part| part.data.get_opt_name().map(|name| name.to_string()))
+			.collect()
+	}
+
+	pub fn order(&mut self, span: Span) -> (u32, u32) {
+		let span = span.source_callsite();
+		let sm = self.tcx.sess.source_map();
+		let file = sm.lookup_source_file(span.lo());
+		let index = self.source(&file).unwrap_or(u32::MAX);
+		(index, (span.lo() - file.start_pos).0)
+	}
+
+	fn source(&mut self, file: &rustc_span::SourceFile) -> Option<u32> {
+		let key = format!("{:?}", file.name);
+		if let Some(&index) = self.sources.get(&key) {
+			return index;
+		}
+		let index = match (file.name.clone().into_local_path(), file.src.as_deref()) {
+			(Some(path), Some(text)) => {
+				let path = std::path::absolute(&path).unwrap_or(path);
+				self.program.sources.push(Source {
+					path,
+					text: text.to_string(),
+				});
+				Some(self.program.sources.len() as u32 - 1)
+			}
+			_ => None,
+		};
+		self.sources.insert(key, index);
+		index
+	}
+
+	/// Where `span` starts, for the source map: the macro call for macro-made code.
+	pub fn loc(&mut self, span: Span) -> Option<Loc> {
+		if span.is_dummy() {
+			return None;
+		}
+		let span = span.source_callsite();
+		let sm = self.tcx.sess.source_map();
+		let pos = sm.lookup_char_pos(span.lo());
+		let file = self.source(&pos.file)?;
+		let text = &self.program.sources[file as usize].text;
+		let line_start = pos.file.lines()[pos.line - 1];
+		let start = (line_start - rustc_span::RelativeBytePos(0)).0 as usize;
+		let offset = (span.lo() - pos.file.start_pos).0 as usize;
+		let col = text.get(start..offset).map_or(0, |s| s.encode_utf16().count()) as u32;
+		Some(Loc {
+			file,
+			line: pos.line as u32 - 1,
+			col,
+		})
+	}
+
+	pub fn subst<T: ty::TypeFoldable<TyCtxt<'tcx>>>(&self, args: GenericArgsRef<'tcx>, value: T) -> T {
+		self.tcx.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
+	}
+
+	pub fn is_copy(&self, ty: Ty<'tcx>) -> bool {
+		self.tcx.type_is_copy_modulo_regions(self.typing_env(), ty)
+	}
+
+	/// A local struct or enum, translating its definition the first time.
+	pub fn adt(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
+		if let Some(info) = self.adts.get(&adt.did()) {
+			return info.clone();
+		}
+		let tcx = self.tcx;
+		let did = adt.did();
+		let repr = match () {
+			_ if adt.is_struct() => {
+				let variant = adt.non_enum_variant();
+				let ctor = match variant.ctor_kind() {
+					Some(rustc_hir::def::CtorKind::Fn) => Ctor::Positional,
+					Some(rustc_hir::def::CtorKind::Const) => Ctor::Unit,
+					None => Ctor::Named,
+				};
+				AdtRepr::Class { ctor, fields: Vec::new() }
+			}
+			_ if adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty()) => AdtRepr::Tags,
+			_ if adt.is_enum() => AdtRepr::Union,
+			_ => {
+				self.err(span, format!("unions are not supported: `{}`", tcx.def_path_str(did)));
+				AdtRepr::Union
+			}
+		};
+		let kind = match repr {
+			AdtRepr::Class { .. } => SymKind::Class,
+			_ => SymKind::Union { companion: false },
+		};
+		let order = self.order(tcx.def_span(did));
+		let sym = self.program.sym(Symbol {
+			module: self.module_of(did),
+			base: tcx.item_name(did).to_string(),
+			suffix: String::new(),
+			owner: None,
+			kind,
+			order,
+			name: String::new(),
+		});
+		let mut info = Adt { sym, repr };
+		if let AdtRepr::Class { fields, .. } = &mut info.repr {
+			for (i, field) in adt.non_enum_variant().fields.iter().enumerate() {
+				fields.push(self.program.field(sym, field_name(field.name.as_str(), i)));
+			}
+		}
+		self.adts.insert(did, info.clone());
+
+		let params: Vec<String> = tcx
+			.generics_of(did)
+			.own_params
+			.iter()
+			.filter_map(|param| match param.kind {
+				ty::GenericParamDefKind::Type { .. } => Some(param.name.to_string()),
+				ty::GenericParamDefKind::Lifetime => None,
+				ty::GenericParamDefKind::Const { .. } => {
+					self.err(span, format!("const generic types are not supported: `{}`", tcx.def_path_str(did)));
+					None
+				}
+			})
+			.collect();
+		let identity = ty::GenericArgs::identity_for_item(tcx, did);
+		let item = match &info.repr {
+			AdtRepr::Class { ctor, fields } => {
+				let variant = adt.non_enum_variant();
+				let fields = (variant.fields.iter().zip(fields))
+					.map(|(field, &id)| {
+						let span = tcx.def_span(field.did);
+						ts::Field {
+							id,
+							ty: self.ty(field.ty(tcx, identity).skip_norm_wip(), span),
+							doc: None,
+						}
+					})
+					.collect();
+				Item::Class {
+					sym,
+					params,
+					fields,
+					ctor: ctor.clone(),
+					doc: None,
+				}
+			}
+			AdtRepr::Tags => Item::Union {
+				sym,
+				params,
+				ty: Type::Union(adt.variants().iter().map(|v| Type::StrLit(v.name.to_string())).collect()),
+				doc: None,
+			},
+			AdtRepr::Union => {
+				let variants = adt
+					.variants()
+					.iter()
+					.map(|v| {
+						let mut fields = vec![("tag".to_string(), Type::StrLit(v.name.to_string()))];
+						for (i, field) in v.fields.iter().enumerate() {
+							let span = tcx.def_span(field.did);
+							let ty = self.ty(field.ty(tcx, identity).skip_norm_wip(), span);
+							fields.push((field_name(field.name.as_str(), i), ty));
+						}
+						Type::Object(fields)
+					})
+					.collect();
+				Item::Union {
+					sym,
+					params,
+					ty: Type::Union(variants),
+					doc: None,
+				}
+			}
+		};
+		self.program.items.push(item);
+		info
+	}
+
+	/// The TypeScript type of a Rust type.
+	pub fn ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
+		let tcx = self.tcx;
+		match ty.kind() {
+			ty::Bool => Type::Builtin("boolean"),
+			ty::Int(_) | ty::Uint(_) => match num::Int::of(ty).is_some_and(|int| int.big()) {
+				true => Type::Builtin("bigint"),
+				false => Type::Builtin("number"),
+			},
+			ty::Str => Type::Builtin("string"),
+			ty::Never => Type::Builtin("never"),
+			ty::Tuple(tys) if tys.is_empty() => Type::Builtin("undefined"),
+			ty::Tuple(tys) => Type::Tuple(tys.iter().map(|t| self.ty(t, span)).collect()),
+			ty::Ref(_, inner, _) => self.ty(*inner, span),
+			ty::Array(elem, _) | ty::Slice(elem) => match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => Type::Builtin("Uint8Array"),
+				_ => Type::Array(Box::new(self.ty(*elem, span))),
+			},
+			ty::Param(param) => Type::Param(param.name.to_string()),
+			ty::FnDef(..) | ty::FnPtr(..) => {
+				let sig = tcx.instantiate_bound_regions_with_erased(ty.fn_sig(tcx));
+				self.fn_ty(sig.inputs(), sig.output(), span)
+			}
+			ty::Closure(_, args) => {
+				let sig = tcx.instantiate_bound_regions_with_erased(args.as_closure().sig());
+				let inputs: Vec<Ty<'tcx>> = match sig.inputs() {
+					[tupled] => tupled.tuple_fields().iter().collect(),
+					other => other.to_vec(),
+				};
+				self.fn_ty(&inputs, sig.output(), span)
+			}
+			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			_ => {
+				self.err(span, format!("unsupported type `{ty}`"));
+				Type::Builtin("unknown")
+			}
+		}
+	}
+
+	fn fn_ty(&mut self, inputs: &[Ty<'tcx>], output: Ty<'tcx>, span: Span) -> Type {
+		let params = inputs.iter().map(|t| self.ty(*t, span)).collect();
+		let ret = match output.is_unit() {
+			true => Type::Builtin("void"),
+			false => self.ty(output, span),
+		};
+		Type::Func(params, Box::new(ret))
+	}
+
+	/// The return type of a function returning `ty`.
+	pub fn ret_ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
+		match ty.is_unit() {
+			true => Type::Builtin("void"),
+			false => self.ty(ty, span),
+		}
+	}
+
+	fn adt_ty(&mut self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>, span: Span) -> Type {
+		let tcx = self.tcx;
+		if let Some(std) = library::Std::of(tcx, adt.did()) {
+			return match std {
+				library::Std::Option => {
+					let inner = args.type_at(0);
+					if !self.option_payload_ok(inner) {
+						self.err(span, format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`"));
+					}
+					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
+				}
+				library::Std::Result => Type::Rt("Result", vec![self.ty(args.type_at(0), span), self.ty(args.type_at(1), span)]),
+				library::Std::Vec => match args.type_at(0).kind() {
+					ty::Uint(ty::UintTy::U8) => Type::Rt("ByteVec", vec![]),
+					_ => Type::Array(Box::new(self.ty(args.type_at(0), span))),
+				},
+				library::Std::String => Type::Builtin("string"),
+				library::Std::Box => self.ty(args.type_at(0), span),
+				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
+				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+			};
+		}
+		if !adt.did().is_local() {
+			self.err(span, format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())));
+			return Type::Builtin("unknown");
+		}
+		let info = self.adt(adt, span);
+		let args = args.types().map(|t| self.ty(t, span)).collect();
+		Type::Sym(info.sym, args)
+	}
+
+	/// Whether `undefined` is free to mean `None` around a `ty`.
+	pub fn option_payload_ok(&self, ty: Ty<'tcx>) -> bool {
+		match ty.kind() {
+			ty::Tuple(tys) => !tys.is_empty(),
+			ty::Ref(_, inner, _) => self.option_payload_ok(*inner),
+			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
+				Some(library::Std::Option) => false,
+				Some(library::Std::Box) => self.option_payload_ok(args.type_at(0)),
+				_ => true,
+			},
+			_ => true,
+		}
+	}
+
+	/// Translate a queued function instance.
+	fn function(&mut self, instance: Instance<'tcx>, sym: SymId) {
+		let tcx = self.tcx;
+		let def_id = instance.def_id();
+		let span = tcx.def_span(def_id);
+		let InstanceKind::Item(_) = instance.def else {
+			self.err(span, format!("unsupported function `{}`", tcx.def_path_str(def_id)));
+			return;
+		};
+		let Some(local) = def_id.as_local() else {
+			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
+			return;
+		};
+		let Some((thir, expr)) = self.bodies.map.get(&local) else {
+			self.err(span, format!("no body for `{}`: constant evaluation consumed it", tcx.def_path_str(def_id)));
+			return;
+		};
+		let owner = self.owner(instance);
+		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
+		let function = body::function(self, instance, thir, *expr, method);
+		let Some(mut function) = function else {
+			return;
+		};
+		function.sym = sym;
+		function.loc = self.loc(span);
+		match owner {
+			Owner::Class(owner) | Owner::Companion(owner) => self.program.methods.entry(owner).or_default().push(function),
+			Owner::Module => self.program.items.push(Item::Function(function)),
+		}
+	}
+
+	/// Whether invocations of the macro that made `span` are left out.
+	pub fn ignored_macro(&self, mut span: Span) -> bool {
+		// Walk out through the macros this one was expanded inside.
+		while span.from_expansion() {
+			let data = span.ctxt().outer_expn_data();
+			if let Some(def_id) = data.macro_def_id {
+				let path = self.tcx.def_path_str(def_id);
+				if self.config.ignore_macros.iter().any(|ignored| *ignored == path) {
+					return true;
+				}
+			}
+			span = data.call_site;
+		}
+		false
+	}
+}
+
+/// A short name for a type, to tell instances apart.
+fn short_name(tcx: TyCtxt<'_>, ty: Ty<'_>) -> String {
+	match ty.kind() {
+		ty::Adt(adt, _) => tcx.item_name(adt.did()).to_string(),
+		ty::Ref(_, inner, _) => short_name(tcx, *inner),
+		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
+		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
+		_ => ty.to_string().replace(|c: char| !c.is_alphanumeric(), ""),
+	}
+}
+
+/// `snake_case` to `camelCase`, keeping leading underscores.
+pub fn camel(name: &str) -> String {
+	let name = name.strip_prefix("r#").unwrap_or(name);
+	let trimmed = name.trim_start_matches('_');
+	let mut out: String = name[..name.len() - trimmed.len()].to_string();
+	let mut upper = false;
+	for ch in trimmed.chars() {
+		match ch {
+			'_' => upper = true,
+			c if upper => {
+				out.extend(c.to_uppercase());
+				upper = false;
+			}
+			c => out.push(c),
+		}
+	}
+	if trimmed.ends_with('_') {
+		out.push('_');
+	}
+	out
+}
+
+/// A field's property name: `camelCase`, or `_0` for a tuple field.
+pub fn field_name(name: &str, index: usize) -> String {
+	match name.parse::<usize>() {
+		Ok(_) => format!("_{index}"),
+		Err(_) => camel(name),
+	}
+}
+
+/// A binding name that is not a JS reserved word.
+pub fn escape(name: &str) -> String {
+	const RESERVED: &[&str] = &[
+		"arguments",
+		"await",
+		"break",
+		"case",
+		"catch",
+		"class",
+		"const",
+		"continue",
+		"debugger",
+		"default",
+		"delete",
+		"do",
+		"else",
+		"enum",
+		"eval",
+		"export",
+		"extends",
+		"false",
+		"finally",
+		"for",
+		"function",
+		"if",
+		"implements",
+		"import",
+		"in",
+		"instanceof",
+		"interface",
+		"let",
+		"new",
+		"null",
+		"package",
+		"private",
+		"protected",
+		"public",
+		"return",
+		"static",
+		"super",
+		"switch",
+		"this",
+		"throw",
+		"true",
+		"try",
+		"typeof",
+		"undefined",
+		"var",
+		"void",
+		"while",
+		"with",
+		"yield",
+		"rt",
+		// Globals the output calls.
+		"Array",
+		"BigInt",
+		"Number",
+		"Object",
+		"Uint8Array",
+	];
+	match RESERVED.contains(&name) {
+		true => format!("{name}_"),
+		false => name.to_string(),
+	}
+}

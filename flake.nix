@@ -41,6 +41,9 @@
             overlays = [ (import rust-overlay) ];
           };
           toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # The TypeScript driver's own nightly, kept off PATH so the other projects keep
+          # the repo toolchain. ts/justfile puts it first for its recipes.
+          tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
         in
         {
@@ -62,7 +65,11 @@
               shfmt
               taplo
               nixfmt
+              # The TypeScript driver's tests run and type-check its output.
+              nodejs
+              typescript
             ];
+            RUST2_TS_TOOLCHAIN = tsToolchain;
           };
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''
