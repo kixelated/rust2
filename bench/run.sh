@@ -86,10 +86,29 @@ for name in "${variants[@]}"; do
     [[ " ${variants[*]} " == *" $base "* ]] || die "variant $name compares against $base; select it too"
 done
 
-work=$root/target/bench
-out=${out:-$work/results/$(date -u +%Y%m%dT%H%M%SZ)}
-mkdir -p "$out"
+# Cargo reads every .cargo/config.toml above its working directory, so a user's
+# ~/.cargo/config.toml (say, `build.incremental = false`) would reach checkouts
+# under $HOME. Build outside it, with a private CARGO_HOME and none of the
+# caller's cargo or rustc variables.
+work=/var/tmp/rust2-bench-$(id -un)
+results=$root/target/bench/results
+out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
+mkdir -p "$work" "$out"
 out=$(cd "$out" && pwd)
+dir=$work
+while :; do
+    for f in "$dir/.cargo/config" "$dir/.cargo/config.toml"; do
+        [[ ! -e $f ]] || die "$f would configure the corpus builds; move it"
+    done
+    [[ $dir != / ]] || break
+    dir=$(dirname "$dir")
+done
+mapfile -t caller_vars < <(compgen -v | grep -E '^(CARGO|RUSTC|RUSTDOC|RUSTUP)|^RUSTFLAGS$' || true)
+if ((${#caller_vars[@]})); then
+    echo "bench: ignoring ${caller_vars[*]}"
+    unset "${caller_vars[@]}"
+fi
+export CARGO_HOME=$work/cargo-home
 stable_path=$PATH
 nightly_path=$RUST2_BENCH_NIGHTLY:$PATH
 
@@ -251,7 +270,7 @@ attribute() { # corpus dir
             --locked --offline "${args[@]}" >"$out/logs/$corpus.attribution.$step.log" 2>&1) ||
             { tail -40 "$out/logs/$corpus.attribution.$step.log" >&2 && die "$corpus failed the $step attribution build"; }
         # Cargo names the log by session, so find this build's among any written since.
-        mapfile -t logs < <(find "${CARGO_HOME:-$HOME/.cargo}/log" -name '*.jsonl' -newer "$stamp")
+        mapfile -t logs < <(find "$CARGO_HOME/log" -name '*.jsonl' -newer "$stamp")
         log=
         for candidate in "${logs[@]}"; do
             [[ $(head -1 "$candidate" | jq -r .target_dir) != "$CARGO_TARGET_DIR" ]] || log=$candidate
@@ -290,6 +309,6 @@ for corpus in "${corpora[@]}"; do
 done
 
 report "$out"
-mkdir -p "$work/results"
-ln -sfn "$out" "$work/results/latest"
+mkdir -p "$results"
+ln -sfn "$out" "$results/latest"
 echo "bench: report at $out/report.md"

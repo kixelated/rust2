@@ -62,7 +62,7 @@
                 measureme
               ]
               # The alternative linkers the stable variants measure are ELF-only.
-              ++ lib.optionals stdenv.isLinux [
+              ++ lib.optionals stdenv.hostPlatform.isLinux [
                 mold
                 wild
               ];
