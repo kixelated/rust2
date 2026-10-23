@@ -141,10 +141,9 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                 .render_type(&field.as_type(), type_helper)
                 .to_string()
                 .expect("Could not stringify type")
-                .replace("Error", "Exception")
         }
         fn field_ffi_converter_name(field: &Field) -> String {
-            field.as_type().as_codetype().ffi_converter_name().replace("Error", "Exception")
+            field.as_type().as_codetype().ffi_converter_name()
         }
         fn is_flat_enum(field: &Field, type_helper: &dyn TypeHelperRenderer) -> bool {
             if let Type::Enum { name, .. } = &field.as_type() {

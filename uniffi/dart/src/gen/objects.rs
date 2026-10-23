@@ -171,13 +171,14 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
 
         if constructor.is_async() {
             async_constructor_factories.push(quote! {
-                static Future<$cls_name> $(DartCodeOracle::fn_name(constructor_name))($dart_params) {
+                static UniffiRustFuture<$cls_name> $(DartCodeOracle::fn_name(constructor_name))($dart_params) {
                     return uniffiRustCallAsync(
                       () => $ffi_func_name(
                         $ffi_call_args
                       ),
                       $(DartCodeOracle::async_poll(constructor, type_helper.get_ci())),
                       $(DartCodeOracle::async_complete(constructor, type_helper.get_ci())),
+                      $(DartCodeOracle::async_cancel(constructor, type_helper.get_ci())),
                       $(DartCodeOracle::async_free(constructor, type_helper.get_ci())),
                       (int handle) => $cls_name._(Pointer<Void>.fromAddress(handle)),
                       $error_handler,
@@ -439,7 +440,7 @@ fn generate_callback_trait_rust_method(
 
         quote! {
             @override
-            Future<$ret> $method_name($(for a in &dart_args => $a,)) {
+            UniffiRustFuture<$ret> $method_name($(for a in &dart_args => $a,)) {
                 return uniffiRustCallAsync(
                     () => $(method.ffi_func().name())(
                         uniffiClonePointer(),
@@ -447,6 +448,7 @@ fn generate_callback_trait_rust_method(
                     ),
                     $(DartCodeOracle::async_poll(method, type_helper.get_ci())),
                     $(DartCodeOracle::async_complete(method, type_helper.get_ci())),
+                    $(DartCodeOracle::async_cancel(method, type_helper.get_ci())),
                     $(DartCodeOracle::async_free(method, type_helper.get_ci())),
                     $async_lifter,
                     $error_handler,
@@ -528,7 +530,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
         };
 
         quote!(
-            Future<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
+            UniffiRustFuture<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
                 return uniffiRustCallAsync(
                   () => $(func.ffi_func().name())(
                     uniffiClonePointer(),
@@ -536,6 +538,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
                   ),
                   $(DartCodeOracle::async_poll(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_complete(func, type_helper.get_ci())),
+                  $(DartCodeOracle::async_cancel(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_free(func, type_helper.get_ci())),
                   $async_lifter,
                   $error_handler,
@@ -860,7 +863,7 @@ fn method_return_type_tokens(
     };
 
     if method.is_async() {
-        quote!(Future<$base>)
+        quote!(UniffiRustFuture<$base>)
     } else {
         base
     }

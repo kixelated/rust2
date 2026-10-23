@@ -51,13 +51,14 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
         };
 
         quote!(
-            Future<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
+            UniffiRustFuture<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
                 return uniffiRustCallAsync(
                   () => $(func.ffi_func().name())(
                     $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
                   ),
                   $(DartCodeOracle::async_poll(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_complete(func, type_helper.get_ci())),
+                  $(DartCodeOracle::async_cancel(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_free(func, type_helper.get_ci())),
                   $async_lifter,
                   $error_handler,

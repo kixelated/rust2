@@ -234,6 +234,12 @@ impl DartCodeOracle {
     }
 
     /// With @Native, async functions are called directly by name
+    pub fn async_cancel(callable: impl Callable, ci: &ComponentInterface) -> dart::Tokens {
+        let ffi_func = callable.ffi_rust_future_cancel(ci);
+        quote!($ffi_func)
+    }
+
+    /// With @Native, async functions are called directly by name
     pub fn async_free(callable: impl Callable, ci: &ComponentInterface) -> dart::Tokens {
         let ffi_func = callable.ffi_rust_future_free(ci);
         quote!($ffi_func)
