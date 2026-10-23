@@ -1,0 +1,2 @@
+package = "lang-fixture"
+roots = ["harness::run"]
