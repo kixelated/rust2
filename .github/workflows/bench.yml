@@ -1,0 +1,65 @@
+name: Bench
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+  # A change to the benchmark or its toolchains reports its numbers before it merges.
+  pull_request:
+    paths:
+      - bench/**
+      - .github/workflows/bench.yml
+      - flake.nix
+      - flake.lock
+      - rust-toolchain.toml
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: Bench (${{ matrix.name }})
+    # x86_64 Linux is where rustc links with LLD by default.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      # Each job holds a base, its levers, and its control, so every comparison stays on one machine.
+      matrix:
+        include:
+          - name: moq stable
+            args: --corpus moq --variant baseline --variant mold --variant wild --variant control --no-attribute
+          - name: moq nightly
+            args: --corpus moq --variant nightly --variant jobs-frontend --variant cranelift --variant cache-proc-macros --variant nightly-control
+          - name: pure
+            args: --corpus regex --corpus wasmparser
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      # Ubuntu hides performance counters from users; hyperfine reads instructions from them.
+      - name: Allow perf counters
+        run: sudo sysctl -w kernel.perf_event_paranoid=2
+
+      - name: Bench
+        run: nix develop .#bench --command just bench ${{ matrix.args }} --out bench-results
+
+      - name: Summary
+        run: cat bench-results/report.md >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-${{ strategy.job-index }}
+          path: bench-results
+          if-no-files-found: ignore

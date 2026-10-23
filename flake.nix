@@ -41,10 +41,33 @@
             overlays = [ (import rust-overlay) ];
           };
           toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # The benchmark's nightly levers (--jobs-frontend, cranelift, self-profile).
+          # Bumping the date is a benchmark corpus change: numbers before and
+          # after it do not compare.
+          nightly = pkgs.rust-bin.nightly."2026-10-22".minimal.override {
+            extensions = [ "rustc-codegen-cranelift-preview" ];
+          };
           quest-cli = quest.packages.${system}.default;
         in
         {
           packages.quest = quest-cli;
+          # `just bench` enters this shell; the nightly toolchain stays off PATH
+          # so stable remains the default.
+          devShells.bench = pkgs.mkShell {
+            inputsFrom = [ self.devShells.${system}.default ];
+            packages =
+              with pkgs;
+              [
+                hyperfine
+                measureme
+              ]
+              # The alternative linkers the stable variants measure are ELF-only.
+              ++ lib.optionals stdenv.isLinux [
+                mold
+                wild
+              ];
+            RUST2_BENCH_NIGHTLY = "${nightly}/bin";
+          };
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               toolchain

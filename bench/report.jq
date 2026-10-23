@@ -1,0 +1,71 @@
+# Renders a run as Markdown. Inputs: $host (host.json), $results (results.jsonl),
+# and $attribution (every attribution summary). Run with `jq -n -r`.
+
+def fixed(p): (. * pow(10; p) | round) / pow(10; p) | tostring;
+def secs: if . < 10 then fixed(2) else fixed(1) end;
+def pct: (. * 100 | fixed(1)) as $p | if . > 0 then "+\($p)%" else "\($p)%" end;
+def share($whole): if $whole > 0 then (. / $whole * 100 | round | tostring) + "%" else "-" end;
+def row: "| " + join(" | ") + " |";
+
+$host[0] as $h
+| [
+	"# Build benchmark",
+	"",
+	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`.",
+	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.hyperfine); \($h.mold); \($h.wild).",
+	"",
+	"Wall time in seconds: mean ± standard deviation over the runs, and the change against the variant's base.",
+	"Each control variant repeats its base, so its change is this run's noise floor.",
+	(
+		$results | group_by(.corpus)[] | . as $runs | .[0].corpus as $corpus
+		| ($runs | map({key: "\(.scenario)/\(.variant)", value: .}) | from_entries) as $by
+		| "",
+		"## \($corpus)",
+		"",
+		(["scenario", "variant", "wall ± σ", "min", "vs base", "CPU", "instructions vs base", "peak RSS"] | row),
+		"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+		(
+			$runs[]
+			| $by["\(.scenario)/\(.base)"] as $base
+			| (.variant == .base) as $is_base
+			| [
+				.scenario,
+				.variant,
+				"\(.mean | secs) ± \(.stddev // 0 | secs)",
+				(.min | secs),
+				(if $is_base then "base" else (.mean / $base.mean - 1 | pct) end),
+				(.cpu | secs),
+				(if .instructions == null then "n/a"
+					elif $is_base then "\(.instructions / 1e9 | fixed(1))G"
+					else (.instructions / $base.instructions - 1 | pct) end),
+				"\(.rss / 1048576 | round) MiB"
+			]
+			| row
+		)
+	),
+	(
+		$attribution | group_by(.corpus)[]
+		| "",
+		"## Where the time goes: \(.[0].corpus)",
+		"",
+		"Nightly, with self-profiling on. Unit-seconds summed over every crate cargo compiled, so parallel work adds up past the wall time.",
+		(
+			.[]
+			| ([.classes[].total] | add) as $all
+			| "",
+			"### \(.step): \(.wall | secs) s wall, \($all | secs) unit-s",
+			"",
+			(["unit", "count", "frontend", "codegen", "link", "other", "total", "share"] | row),
+			"| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+			(
+				.classes[]
+				| [.class, (.units | tostring), (.frontend | secs), (.codegen | secs), (.link | secs), (.other | secs), (.total | secs), (.total | share($all))]
+				| row
+			),
+			"",
+			"Macro expansion \(.profile.macro_expansion | secs) s, running proc macros \(.profile.proc_macros | secs) s, of \(.profile.self_time | secs) s rustc self-time across \(.profile.invocations) invocations.",
+			"Costliest queries: \(.profile.top | map("`\(.label)` \(.self_time | secs) s") | join(", "))."
+		)
+	)
+]
+| .[]
