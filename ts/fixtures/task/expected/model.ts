@@ -53,7 +53,7 @@ export class Channel {
 	}
 
 	/** Send `value` through the first producer, if one is open. */
-	send(value: bigint): boolean {
+	send(value: rt.u64): boolean {
 		const first = rt.slice.first(this.producers);
 		if (first !== undefined) {
 			const producer = first;
@@ -106,10 +106,10 @@ export class Channel {
 
 /** Logs its own drop. */
 export class Guard {
-	id: number;
+	id: rt.u32;
 	log: Log;
 
-	constructor(fields: { id: number; log: Log }) {
+	constructor(fields: { id: rt.u32; log: Log }) {
 		this.id = fields.id;
 		this.log = fields.log;
 	}
@@ -119,7 +119,7 @@ export class Guard {
 		rt.drop(this.log);
 	}
 
-	static new(id: number, log: Log): Guard {
+	static new(id: rt.u32, log: Log): Guard {
 		try {
 			const arg = id;
 			const log2 = log;
@@ -144,11 +144,11 @@ export class Guard {
  * Every value until the channel closes, summed, holding a guard of its own across
  * each await beside the one it was given.
  */
-export function sum(rx: Consumer, guard: Guard): rt.Future<bigint> {
+export function sum(rx: Consumer, guard: Guard): rt.Future<rt.u64> {
 	return rt.future(sumBody, sumDrop, rx, guard);
 }
 
-export function* sumBody(_taskContext: rt.Context, rx: Consumer, guard: Guard): Generator<undefined, bigint, rt.Context> {
+export function* sumBody(_taskContext: rt.Context, rx: Consumer, guard: Guard): Generator<undefined, rt.u64, rt.Context> {
 	let rx2: Consumer = rx;
 	rx = undefined!;
 	try {
@@ -157,10 +157,10 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer, guard: Guard): 
 		try {
 			const inner = Guard.new(rt.u32.add(guard2.id, 100), guard2.log.clone());
 			try {
-				let total: bigint = 0n;
+				let total: rt.u64 = 0;
 				while (true) {
-					let option: bigint | undefined;
-					let __awaitee: rt.Future<bigint | undefined> = rx2.recv();
+					let option: rt.u64 | undefined;
+					let __awaitee: rt.Future<rt.u64 | undefined> = rx2.recv();
 					try {
 						while (true) {
 							const poll = __awaitee.poll(_taskContext);
@@ -206,11 +206,11 @@ export function sumDrop(rx: Consumer, guard: Guard): void {
  * move on one path only; and a move the block only borrows, which drops when the block
  * returns or is cancelled. Between them, a value of two types that hold each other.
  */
-export function blocks(rx: Consumer, guard: Guard, moves: boolean): rt.Future<bigint> {
+export function blocks(rx: Consumer, guard: Guard, moves: boolean): rt.Future<rt.u64> {
 	return rt.future(blocksBody, blocksDrop, rx, guard, moves);
 }
 
-export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard, moves: boolean): Generator<undefined, bigint, rt.Context> {
+export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard, moves: boolean): Generator<undefined, rt.u64, rt.Context> {
 	let rx2: Consumer = rx;
 	rx = undefined!;
 	try {
@@ -230,10 +230,10 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 						tally.n = rt.u32.add(tally.n, 1000);
 						const arg2 = guard2;
 						const arg = tally.n;
-						let value: number;
+						let value: rt.u32;
 						const seen2 = seen;
 						seen = undefined!;
-						let __awaitee: rt.Future<number> = seen2;
+						let __awaitee: rt.Future<rt.u32> = seen2;
 						try {
 							while (true) {
 								const poll = __awaitee.poll(_taskContext);
@@ -249,8 +249,8 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 						}
 						arg2.note(rt.fmt.format(["tally ", (f: rt.Formatter) => rt.u32.display(arg, f), " then ", (f: rt.Formatter) => rt.u32.display(value, f)]));
 						let mark: Mark = new Mark({ n: 1 });
-						let replaced: number;
-						let __awaitee2: rt.Future<number> = rt.future(blocksBody$4, undefined, mark);
+						let replaced: rt.u32;
+						let __awaitee2: rt.Future<rt.u32> = rt.future(blocksBody$4, undefined, mark);
 						try {
 							while (true) {
 								const poll2 = __awaitee2.poll(_taskContext);
@@ -286,7 +286,7 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 								try {
 									const read2 = read_;
 									read_ = undefined!;
-									let __awaitee4: rt.Future<bigint> = read2;
+									let __awaitee4: rt.Future<rt.u64> = read2;
 									try {
 										while (true) {
 											const poll4 = __awaitee4.poll(_taskContext);
@@ -334,11 +334,11 @@ export function* blocksBody$2(_taskContext2: rt.Context, first: Guard): Generato
 	first.note("borrowed");
 }
 
-export function* blocksBody$3(_taskContext3: rt.Context, tally: Tally): Generator<undefined, number, rt.Context> {
+export function* blocksBody$3(_taskContext3: rt.Context, tally: Tally): Generator<undefined, rt.u32, rt.Context> {
 	return read(rt.copy(tally));
 }
 
-export function* blocksBody$4(_taskContext4: rt.Context, mark: Mark): Generator<undefined, number, rt.Context> {
+export function* blocksBody$4(_taskContext4: rt.Context, mark: Mark): Generator<undefined, rt.u32, rt.Context> {
 	Object.assign(mark, new Mark({ n: 2 }));
 	return mark.n;
 }
@@ -355,7 +355,7 @@ export function blocksDrop$2(guard2: Guard): void {
 	rt.drop(guard2);
 }
 
-export function* blocksBody$6(_taskContext6: rt.Context, first: Guard, second: Guard, rx2: Consumer): Generator<undefined, bigint, rt.Context> {
+export function* blocksBody$6(_taskContext6: rt.Context, first: Guard, second: Guard, rx2: Consumer): Generator<undefined, rt.u64, rt.Context> {
 	try {
 		try {
 			try {
@@ -363,8 +363,8 @@ export function* blocksBody$6(_taskContext6: rt.Context, first: Guard, second: G
 				second.note("reads");
 				const _held = Guard.new(rt.u32.add(second.id, 100), second.log.clone());
 				try {
-					let option: bigint | undefined;
-					let __awaitee3: rt.Future<bigint | undefined> = rx2.recv();
+					let option: rt.u64 | undefined;
+					let __awaitee3: rt.Future<rt.u64 | undefined> = rx2.recv();
 					try {
 						while (true) {
 							const poll3 = __awaitee3.poll(_taskContext6);
@@ -382,7 +382,7 @@ export function* blocksBody$6(_taskContext6: rt.Context, first: Guard, second: G
 						const value2 = option;
 						return value2;
 					} else {
-						return 0n;
+						return 0;
 					}
 				} finally {
 					rt.drop(_held);
@@ -405,9 +405,9 @@ export function blocksDrop$3(first: Guard, second: Guard, rx2: Consumer): void {
 }
 
 export class Mark {
-	n: number;
+	n: rt.u32;
 
-	constructor(fields: { n: number }) {
+	constructor(fields: { n: rt.u32 }) {
 		this.n = fields.n;
 	}
 }
@@ -445,19 +445,19 @@ export class Inner {
 
 /** A `Copy` value an `async move` block takes its own copy of. */
 export class Tally {
-	n: number;
+	n: rt.u32;
 
-	constructor(fields: { n: number }) {
+	constructor(fields: { n: rt.u32 }) {
 		this.n = fields.n;
 	}
 }
 
-export function read(t: Tally): number {
+export function read(t: Tally): rt.u32 {
 	return t.n;
 }
 
 /** `i`, noted as picked. */
-export function pick(log: Log, i: number): number {
+export function pick(log: Log, i: rt.usize): rt.usize {
 	log.note(rt.fmt.format(["pick ", (f: rt.Formatter) => rt.usize.display(i, f)]));
 	return i;
 }
@@ -470,7 +470,7 @@ export function pick(log: Log, i: number): number {
  * temporary to the end of the block; a `_` binding of an element, which evaluates its
  * index and moves nothing; and a boxed guard read twice, which a read leaves boxed.
  */
-export function turns(log: Log, count: number): void {
+export function turns(log: Log, count: rt.u32): void {
 	const pair = [Guard.new(rt.u32.add(count, 10), log.clone()), Guard.new(rt.u32.add(count, 20), log.clone())];
 	try {
 		const kept = pair[0];
@@ -487,7 +487,7 @@ export function turns(log: Log, count: number): void {
 					const extended = Guard.new(rt.u32.add(count, 60), log.clone());
 					try {
 						extended.note("extended");
-						let value: number;
+						let value: rt.u32;
 						const inner = Guard.new(rt.u32.add(count, 90), log.clone());
 						try {
 							value = inner.id;
@@ -502,7 +502,7 @@ export function turns(log: Log, count: number): void {
 							log.note(rt.fmt.format(["boxed ", (f: rt.Formatter) => rt.u32.display(once, f), " ", (f: rt.Formatter) => rt.u32.display(boxed.id, f)]));
 							const spares = [Guard.new(rt.u32.add(count, 70), log.clone()), Guard.new(rt.u32.add(count, 80), log.clone())];
 							try {
-								const index = pick(log, rt.usize.rem(count, 2));
+								const index = pick(log, rt.usize.rem(count as rt.usize, 2));
 								spares[rt.idx(spares, index)];
 								arms: {
 									if (count === 0) {
@@ -511,7 +511,7 @@ export function turns(log: Log, count: number): void {
 									}
 									const n = count;
 									if (n < 4) {
-										let left: number = n;
+										let left: rt.u32 = n;
 										while (true) {
 											const turn = Guard.new(left, log.clone());
 											try {
@@ -555,20 +555,20 @@ export function turns(log: Log, count: number): void {
  * Every value until the channel closes, summed, each read `depth` async functions
  * deep: 1, 4, or 16.
  */
-export function drain(rx: Consumer, depth: number): rt.Future<bigint> {
+export function drain(rx: Consumer, depth: rt.u32): rt.Future<rt.u64> {
 	return rt.future(drainBody, drainDrop, rx, depth);
 }
 
-export function* drainBody(_taskContext: rt.Context, rx: Consumer, depth: number): Generator<undefined, bigint, rt.Context> {
+export function* drainBody(_taskContext: rt.Context, rx: Consumer, depth: rt.u32): Generator<undefined, rt.u64, rt.Context> {
 	let rx2: Consumer = rx;
 	rx = undefined!;
 	try {
 		const depth2 = depth;
-		let total: bigint = 0n;
+		let total: rt.u64 = 0;
 		while (true) {
-			let next: bigint | undefined;
+			let next: rt.u64 | undefined;
 			if (depth2 === 1) {
-				let __awaitee: rt.Future<bigint | undefined> = rx2.recv();
+				let __awaitee: rt.Future<rt.u64 | undefined> = rx2.recv();
 				try {
 					while (true) {
 						const poll = __awaitee.poll(_taskContext);
@@ -583,7 +583,7 @@ export function* drainBody(_taskContext: rt.Context, rx: Consumer, depth: number
 					rt.drop(__awaitee);
 				}
 			} else if (depth2 === 4) {
-				let __awaitee2: rt.Future<bigint | undefined> = level3(rx2);
+				let __awaitee2: rt.Future<rt.u64 | undefined> = level3(rx2);
 				try {
 					while (true) {
 						const poll2 = __awaitee2.poll(_taskContext);
@@ -598,7 +598,7 @@ export function* drainBody(_taskContext: rt.Context, rx: Consumer, depth: number
 					rt.drop(__awaitee2);
 				}
 			} else {
-				let __awaitee3: rt.Future<bigint | undefined> = level15(rx2);
+				let __awaitee3: rt.Future<rt.u64 | undefined> = level15(rx2);
 				try {
 					while (true) {
 						const poll3 = __awaitee3.poll(_taskContext);
@@ -626,17 +626,17 @@ export function* drainBody(_taskContext: rt.Context, rx: Consumer, depth: number
 	}
 }
 
-export function drainDrop(rx: Consumer, _depth: number): void {
+export function drainDrop(rx: Consumer, _depth: rt.u32): void {
 	rt.drop(rx);
 }
 
-export function level1(rx: Consumer): rt.Future<bigint | undefined> {
+export function level1(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level1Body, undefined, rx);
 }
 
-export function* level1Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level1Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = rx2.recv();
+	let __awaitee: rt.Future<rt.u64 | undefined> = rx2.recv();
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -651,13 +651,13 @@ export function* level1Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level10(rx: Consumer): rt.Future<bigint | undefined> {
+export function level10(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level10Body, undefined, rx);
 }
 
-export function* level10Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level10Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level9(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level9(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -672,13 +672,13 @@ export function* level10Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level11(rx: Consumer): rt.Future<bigint | undefined> {
+export function level11(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level11Body, undefined, rx);
 }
 
-export function* level11Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level11Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level10(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level10(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -693,13 +693,13 @@ export function* level11Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level12(rx: Consumer): rt.Future<bigint | undefined> {
+export function level12(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level12Body, undefined, rx);
 }
 
-export function* level12Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level12Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level11(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level11(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -714,13 +714,13 @@ export function* level12Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level13(rx: Consumer): rt.Future<bigint | undefined> {
+export function level13(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level13Body, undefined, rx);
 }
 
-export function* level13Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level13Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level12(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level12(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -735,13 +735,13 @@ export function* level13Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level14(rx: Consumer): rt.Future<bigint | undefined> {
+export function level14(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level14Body, undefined, rx);
 }
 
-export function* level14Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level14Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level13(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level13(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -756,13 +756,13 @@ export function* level14Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level15(rx: Consumer): rt.Future<bigint | undefined> {
+export function level15(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level15Body, undefined, rx);
 }
 
-export function* level15Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level15Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level14(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level14(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -777,13 +777,13 @@ export function* level15Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level2(rx: Consumer): rt.Future<bigint | undefined> {
+export function level2(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level2Body, undefined, rx);
 }
 
-export function* level2Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level2Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level1(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level1(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -798,13 +798,13 @@ export function* level2Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level3(rx: Consumer): rt.Future<bigint | undefined> {
+export function level3(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level3Body, undefined, rx);
 }
 
-export function* level3Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level3Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level2(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level2(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -819,13 +819,13 @@ export function* level3Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level4(rx: Consumer): rt.Future<bigint | undefined> {
+export function level4(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level4Body, undefined, rx);
 }
 
-export function* level4Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level4Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level3(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level3(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -840,13 +840,13 @@ export function* level4Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level5(rx: Consumer): rt.Future<bigint | undefined> {
+export function level5(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level5Body, undefined, rx);
 }
 
-export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level4(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level4(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -861,13 +861,13 @@ export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level6(rx: Consumer): rt.Future<bigint | undefined> {
+export function level6(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level6Body, undefined, rx);
 }
 
-export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level5(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level5(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -882,13 +882,13 @@ export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level7(rx: Consumer): rt.Future<bigint | undefined> {
+export function level7(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level7Body, undefined, rx);
 }
 
-export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level6(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level6(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -903,13 +903,13 @@ export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level8(rx: Consumer): rt.Future<bigint | undefined> {
+export function level8(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level8Body, undefined, rx);
 }
 
-export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level7(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level7(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -924,13 +924,13 @@ export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level9(rx: Consumer): rt.Future<bigint | undefined> {
+export function level9(rx: Consumer): rt.Future<rt.u64 | undefined> {
 	return rt.future(level9Body, undefined, rx);
 }
 
-export function* level9Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level9Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level8(rx2);
+	let __awaitee: rt.Future<rt.u64 | undefined> = level8(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);

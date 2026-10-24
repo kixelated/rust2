@@ -45,9 +45,9 @@ export class Waiter {
 export class WaiterList {
 	entries: rt.Weak<rt.Waker>[];
 	/** Where the next registration looks for a dead slot to reuse. */
-	cursor: number;
+	cursor: rt.usize;
 
-	constructor(fields: { entries: rt.Weak<rt.Waker>[]; cursor: number }) {
+	constructor(fields: { entries: rt.Weak<rt.Waker>[]; cursor: rt.usize }) {
 		this.entries = fields.entries;
 		this.cursor = fields.cursor;
 	}
@@ -63,7 +63,7 @@ export class WaiterList {
 				return;
 			}
 		}
-		let probes: number = rt.min(this.entries.length, 2);
+		let probes: rt.usize = rt.min(this.entries.length, 2);
 		while (probes > 0) {
 			if (rt.at(this.entries, this.cursor).arc.strong === 0) {
 				const value = weak;
@@ -153,7 +153,7 @@ export class Park {
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait(poll: (a0: Waiter) => rt.Poll<bigint | undefined>): Pending<(a0: Waiter) => rt.Poll<bigint | undefined>> {
+export function wait(poll: (a0: Waiter) => rt.Poll<rt.u64 | undefined>): Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>> {
 	return new Pending({ _poll: poll, park: Park.default() });
 }
 
@@ -172,7 +172,7 @@ export class Pending<F> {
 		rt.drop(this.park);
 	}
 
-	poll(this: Pending<(a0: Waiter) => rt.Poll<bigint | undefined>>, cx: rt.Context): rt.Poll<bigint | undefined> {
+	poll(this: Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
 		const this_ = this;
 		const waiter = this_.park.hold(cx);
 		return this_._poll(waiter);
@@ -180,12 +180,12 @@ export class Pending<F> {
 }
 
 export class State {
-	queue: bigint[];
+	queue: rt.u64[];
 	closed: boolean;
-	producers: number;
+	producers: rt.usize;
 	waiters: WaiterList;
 
-	constructor(fields: { queue: bigint[]; closed: boolean; producers: number; waiters: WaiterList }) {
+	constructor(fields: { queue: rt.u64[]; closed: boolean; producers: rt.usize; waiters: WaiterList }) {
 		this.queue = fields.queue;
 		this.closed = fields.closed;
 		this.producers = fields.producers;
@@ -212,7 +212,7 @@ export class Producer {
 	}
 
 	/** Queue `value` and wake every consumer, after releasing the lock. */
-	send(value: bigint): void {
+	send(value: rt.u64): void {
 		let state: rt.Mutex<State> = this.state.value;
 		state.value.queue.push(value);
 		let waiters: WaiterList = state.value.waiters.take();
@@ -243,9 +243,9 @@ export class Producer {
 /** The receiving side of a channel: every value sent, in order. */
 export class Consumer {
 	state: rt.Arc<rt.Mutex<State>>;
-	next: number;
+	next: rt.usize;
 
-	constructor(fields: { state: rt.Arc<rt.Mutex<State>>; next: number }) {
+	constructor(fields: { state: rt.Arc<rt.Mutex<State>>; next: rt.usize }) {
 		this.state = fields.state;
 		this.next = fields.next;
 	}
@@ -259,7 +259,7 @@ export class Consumer {
 	}
 
 	/** The next value, or `None` once the channel closed and every value was read. */
-	pollRecv(waiter: Waiter): rt.Poll<bigint | undefined> {
+	pollRecv(waiter: Waiter): rt.Poll<rt.u64 | undefined> {
 		let state: rt.Mutex<State> = this.state.value;
 		if (this.next < state.value.queue.length) {
 			const value = rt.at(state.value.queue, this.next);
@@ -274,14 +274,14 @@ export class Consumer {
 	}
 
 	/** kio's one-line wrapper over a `poll_*` method. */
-	recv(): rt.Future<bigint | undefined> {
+	recv(): rt.Future<rt.u64 | undefined> {
 		return rt.future(recvBody, undefined, this);
 	}
 }
 
-export function* recvBody(_taskContext: rt.Context, self: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* recvBody(_taskContext: rt.Context, self: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const self2 = self;
-	let __awaitee: Pending<(a0: Waiter) => rt.Poll<bigint | undefined>> = wait((waiter: Waiter): rt.Poll<bigint | undefined> => {
+	let __awaitee: Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>> = wait((waiter: Waiter): rt.Poll<rt.u64 | undefined> => {
 		return self2.pollRecv(waiter);
 	});
 	try {
