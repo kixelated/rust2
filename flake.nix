@@ -95,6 +95,15 @@
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };
+          # `just ts bench` adds Bun and Chrome as engines, and wasm-bindgen for moq-wasm's
+          # package, which must match the moq revision's or fails. Apart for their size.
+          devShells.bench = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [
+              pkgs.bun
+              pkgs.chromium
+              pkgs.wasm-bindgen-cli
+            ];
+          });
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''
             quest --root ${self} check

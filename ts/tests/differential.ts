@@ -4,44 +4,22 @@
 // usage: node differential.ts <fixture.wasm> <harness.ts> <cases>
 //
 // A harness exports `run(input: Uint8Array): Vec<u8>`; the wasm build exports `input`,
-// `run`, and `output` around it. A panic traps natively and throws `Panic` in
-// TypeScript, and both count as the same outcome.
+// `run`, and `output` around it, which `wasm.ts` calls. A panic traps natively and
+// throws `Panic` in TypeScript, and both count as the same outcome.
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-type Outcome = Uint8Array | "panic";
+import { Wasm } from "./wasm.ts";
 
-interface Exports {
-	memory: WebAssembly.Memory;
-	input(len: number): number;
-	run(): number;
-	output(): number;
-}
+type Outcome = Uint8Array | "panic";
 
 const [wasmPath, harnessPath, countArg] = process.argv.slice(2);
 if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.wasm> <harness.ts> [cases]");
 const count = Number(countArg ?? "20000");
 
 const harness = await import(pathToFileURL(harnessPath).href);
-const module = await WebAssembly.compile(await readFile(wasmPath));
-let instance = await WebAssembly.instantiate(module, {});
-
-function native(input: Uint8Array): Outcome {
-	const exports = instance.exports as unknown as Exports;
-	try {
-		const ptr = exports.input(input.length);
-		new Uint8Array(exports.memory.buffer, ptr, input.length).set(input);
-		const len = exports.run();
-		const out = exports.output();
-		return new Uint8Array(exports.memory.buffer, out, len).slice();
-	} catch (err) {
-		if (!(err instanceof WebAssembly.RuntimeError)) throw err;
-		// A trap leaves the instance mid-call: start a fresh one.
-		instance = new WebAssembly.Instance(module, {});
-		return "panic";
-	}
-}
+const wasm = new Wasm(await WebAssembly.compile(await readFile(wasmPath)));
 
 function translated(input: Uint8Array): Outcome {
 	try {
@@ -113,7 +91,7 @@ for (let i = 0; i < count; i++) {
 let failures = 0;
 let panics = 0;
 for (const input of cases) {
-	const want = native(input);
+	const want = wasm.call(input);
 	let got: Outcome;
 	try {
 		got = translated(input);
