@@ -2,11 +2,13 @@
 //!
 //! Translation starts from the configured roots and follows what they reach. Functions
 //! are monomorphized: each instance becomes its own TypeScript function, so a trait
-//! call is always a direct call. Types are translated once, generically.
+//! call is always a direct call. Types are translated once, generically: a generic
+//! class's method is one instance's, and declares that instance as its `this`.
 
 mod body;
 mod consts;
 mod fmt;
+mod iter;
 mod library;
 mod num;
 mod pat;
@@ -482,7 +484,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			Owner::Module => (None, SymKind::Function),
 		};
 		let base = camel(tcx.item_name(def_id).as_str());
-		let order = self.order(tcx.def_span(def_id));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(def_id),
 			base: match owner {
@@ -492,7 +493,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: self.suffix(instance),
 			owner: owner_sym,
 			kind,
-			order,
+			order: self.order(def_id),
+			// Without trimmed paths, which rustc computes only for a diagnostic.
+			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
 		});
 		self.instances.insert(instance, sym);
@@ -539,24 +542,36 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// What tells this instance apart from others of the same name.
 	fn suffix(&self, instance: Instance<'tcx>) -> String {
+		let tcx = self.tcx;
 		let mut parts = Vec::new();
 		let def_id = instance.def_id();
-		if let Some(imp) = self.tcx.trait_impl_of_assoc(def_id) {
-			let trait_ref = self.tcx.impl_trait_ref(imp).skip_binder();
+		if let Some(imp) = tcx.trait_impl_of_assoc(def_id) {
+			let trait_ref = tcx.impl_trait_ref(imp).skip_binder();
 			let args = self.subst(instance.args, trait_ref.args);
-			parts.extend(args.types().skip(1).map(|t| short_name(self.tcx, t)));
+			parts.extend(args.types().skip(1).map(|t| short_name(tcx, t)));
 		}
+		// The type whose class or companion this is on goes without saying, but not its
+		// arguments, such as a default method's on `Wrap<Pair>`.
+		let owner = self
+			.self_ty(instance)
+			.map(Ty::peel_refs)
+			.filter(|t| matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local()));
 		// A closure or function type follows from the others, and has no name.
 		let named = |t: &Ty<'tcx>| !matches!(t.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
-		parts.extend(instance.args.types().filter(named).map(|t| short_name(self.tcx, t)));
+		for t in instance.args.types().filter(named) {
+			match (owner == Some(t), t.kind()) {
+				(true, ty::Adt(_, args)) => parts.extend(args.types().map(|t| short_name(tcx, t))),
+				_ => parts.push(short_name(tcx, t)),
+			}
+		}
 		parts.dedup();
 		// Impls of traits without arguments, such as `Display::fmt` and `Debug::fmt`, are
 		// told apart by their trait.
 		if parts.is_empty()
-			&& let Some(imp) = self.tcx.trait_impl_of_assoc(def_id)
+			&& let Some(imp) = tcx.trait_impl_of_assoc(def_id)
 		{
-			let trait_id = self.tcx.impl_trait_ref(imp).skip_binder().def_id;
-			parts.push(self.tcx.item_name(trait_id).to_string());
+			let trait_id = tcx.impl_trait_ref(imp).skip_binder().def_id;
+			parts.push(tcx.item_name(trait_id).to_string());
 		}
 		parts.join("_")
 	}
@@ -575,12 +590,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect()
 	}
 
-	pub fn order(&mut self, span: Span) -> (u32, u32) {
-		let span = span.source_callsite();
-		let sm = self.tcx.sess.source_map();
-		let file = sm.lookup_source_file(span.lo());
-		let index = self.source(&file).unwrap_or(u32::MAX);
-		(index, (span.lo() - file.start_pos).0)
+	/// Where `def_id` is written, for sorting: where its macro is called, for an item a
+	/// macro makes.
+	fn order(&self, def_id: DefId) -> u32 {
+		self.tcx.def_span(def_id).source_callsite().lo().0
 	}
 
 	fn source(&mut self, file: &rustc_span::SourceFile) -> Option<u32> {
@@ -675,14 +688,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Class { .. } => SymKind::Class,
 			_ => SymKind::Union { companion: false },
 		};
-		let order = self.order(tcx.def_span(did));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(did),
 			base: tcx.item_name(did).to_string(),
 			suffix: String::new(),
 			owner: None,
 			kind,
-			order,
+			order: self.order(did),
+			instance: String::new(),
 			name: String::new(),
 		});
 		let mut info = Adt { sym, repr };
@@ -786,7 +799,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					library::Std::Formatter
 					| library::Std::DebugStruct
 					| library::Std::DebugTuple
-					| library::Std::DebugList,
+					| library::Std::DebugList
+					| library::Std::Range
+					| library::Std::RangeInclusive
+					| library::Std::Peekable,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -907,7 +923,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::DebugTuple => Type::Rt("DebugTuple", vec![]),
 				library::Std::DebugList => Type::Rt("DebugList", vec![]),
 				library::Std::AssertKind => Type::Builtin("string"),
+				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
+				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Peekable => {
+					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
+					Type::Rt("Peekable", vec![self.item_ty(item, span)])
+				}
 			};
+		}
+		// Every other iterator std has is an `rt.Iter` of its items.
+		if !adt.did().is_local()
+			&& let Some(item) = self.iter_item(Ty::new_adt(tcx, adt, args))
+		{
+			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
 		if !adt.did().is_local() {
 			self.err(
@@ -919,6 +947,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let info = self.adt(adt, span);
 		let args = args.types().map(|t| self.ty(t, span)).collect();
 		Type::Sym(info.sym, args)
+	}
+
+	/// The type of an iterator's items, which every iterator has.
+	fn item_ty(&mut self, item: Option<Ty<'tcx>>, span: Span) -> Type {
+		match item {
+			Some(item) => self.ty(item, span),
+			None => {
+				self.err(span, "an iterator without an item type");
+				Type::Builtin("unknown")
+			}
+		}
 	}
 
 	/// Whether `undefined` is free to mean `None` around a `ty`.
@@ -1017,9 +1056,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 }
 
 /// A short name for a type, to tell instances apart.
-fn short_name(tcx: TyCtxt<'_>, ty: Ty<'_>) -> String {
+fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 	match ty.kind() {
-		ty::Adt(adt, _) => tcx.item_name(adt.did()).to_string(),
+		// Its arguments, but not defaults such as a `Vec`'s allocator.
+		ty::Adt(adt, args) => {
+			let args = tcx.generics_of(adt.did()).own_args_no_defaults(tcx, args);
+			std::iter::once(tcx.item_name(adt.did()).to_string())
+				.chain(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)))
+				.collect::<Vec<_>>()
+				.join("_")
+		}
 		ty::Ref(_, inner, _) => short_name(tcx, *inner),
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),

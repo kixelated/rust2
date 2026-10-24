@@ -4,6 +4,8 @@
 // a debug build checks it: overflow panics, it never wraps silently. Every panic's
 // message is the one native Rust panics with.
 
+export * from "./rt/iter.ts";
+
 /** A Rust panic. */
 export class Panic extends Error {
 	override name = "Panic";
