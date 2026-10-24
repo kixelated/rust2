@@ -303,7 +303,7 @@ pub struct Field {
 /// How a class is constructed.
 #[derive(Clone, Debug)]
 pub enum Ctor {
-	/// `new C()`.
+	/// `new C()`, for a struct without fields.
 	Unit,
 	/// `new C(a, b)`, for a tuple struct.
 	Positional,

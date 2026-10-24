@@ -307,7 +307,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				..
 			} if mode.0 == rustc_hir::ByRef::No => {
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
-				self.bind_var(*var, *name, mutable, pat.ty, pat.span, true)
+				// A parameter nothing reads, such as `other` in a derived `eq` of two
+				// `struct E {}`, takes a `_` so it passes `noUnusedParameters`.
+				let name = match self.is_read(*var) || name.as_str().starts_with('_') {
+					true => *name,
+					false => Symbol::intern(&format!("_{name}")),
+				};
+				self.bind_var(*var, name, mutable, pat.ty, pat.span, true)
 			}
 			_ if self.t.drops(self.subst(pat.ty)) => {
 				self.t.err(
@@ -393,7 +399,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				scrutinee,
 				arms,
 				match_source,
-			} => self.match_(id, *scrutinee, arms, *match_source, dest, out),
+			} if !arms.is_empty() => self.match_(id, *scrutinee, arms, *match_source, dest, out),
 			ExprKind::Loop { .. } => {
 				self.err(span, "a loop outside a scope");
 			}
@@ -1802,6 +1808,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				match_source: MatchSource::TryDesugar(_),
 				..
 			} => self.try_(*scrutinee, span, out),
+			// A scrutinee that diverges, such as `match return x {}`, has no value to pass.
+			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() && self.ty_of(*scrutinee).is_never() => {
+				self.stmt(*scrutinee, Dest::Discard, out);
+				Expr::undefined()
+			}
+			// A value of a type without values: native code never gets here.
+			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() => {
+				let value = self.operand(*scrutinee, out);
+				Expr::rt("unreachable", vec![value])
+			}
 			ExprKind::Match { .. } if self.ternary_match(id) => self.ternary(id, out),
 			ExprKind::Block { .. } | ExprKind::If { .. } | ExprKind::Match { .. } | ExprKind::Loop { .. } => {
 				self.via_temp(id, ty, span, out)

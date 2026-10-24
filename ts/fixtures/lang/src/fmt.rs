@@ -98,6 +98,12 @@ pub fn strings(data: &[u8], out: &mut Vec<u8>) {
 #[derive(Debug)]
 pub struct Unit;
 
+#[derive(Debug, PartialEq)]
+pub struct Braced {}
+
+#[derive(Debug, PartialEq)]
+pub struct Bare();
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pair(pub u8, pub i64);
 
@@ -118,6 +124,8 @@ pub struct Six(u8, u8, u8, u8, u8, u8);
 #[derive(Debug)]
 pub enum Kind {
 	Empty,
+	Braced {},
+	Bare(),
 	One(u8),
 	Many { count: u32, items: Vec<u8> },
 }
@@ -207,6 +215,8 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 	let kinds = [
 		Kind::Empty,
 		Kind::One(at(4)),
+		Kind::Braced {},
+		Kind::Bare(),
 		Kind::Many {
 			count: 0,
 			items: Vec::new(),
@@ -220,6 +230,11 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 		out,
 		&format!("{bytes:?} {words:?} {:?} {:?}", data.first(), data.get(100)),
 	);
+	put(
+		out,
+		&format!("{:?} {:#?} {:?} {:#?}", Braced {}, Braced {}, Bare(), Bare()),
+	);
+	out.extend_from_slice(&[(Braced {} == Braced {}) as u8, (Bare() == Bare()) as u8]);
 }
 
 /// `Display` written with `write!`, which ignores the outer options, unless `#`.
