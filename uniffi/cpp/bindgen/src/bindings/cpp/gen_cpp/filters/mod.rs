@@ -156,13 +156,7 @@ impl CppCodeOracle {
     pub(crate) fn object_names(&self, obj: &Object) -> (String, String) {
         let class_name = self.class_name(obj.name());
         if obj.has_callback_interface() {
-            let impl_name = format!("{class_name}Impl");
-            let interface_name = if obj.has_async_method() {
-                format!("{class_name}Foreign")
-            } else {
-                class_name
-            };
-            (interface_name, impl_name)
+            (class_name.clone(), format!("{class_name}Impl"))
         } else {
             (format!("I{class_name}"), class_name)
         }

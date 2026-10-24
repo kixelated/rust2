@@ -1,4 +1,4 @@
-{%- if config.expected() %}
+
 namespace detail {
 
 // Reports a bug the expected style has no error value for, such as a Rust panic, and aborts.
@@ -9,17 +9,6 @@ namespace detail {
 }
 
 } // namespace detail
-{%- else %}
-class AsyncCancelledError: public std::runtime_error {
-public:
-    AsyncCancelledError(): std::runtime_error("UniFFI async call cancelled") {}
-};
-
-class AsyncDispatcherError: public std::runtime_error {
-public:
-    AsyncDispatcherError(): std::runtime_error("UniFFI async dispatcher rejected a continuation") {}
-};
-{%- endif %}
 
 using AsyncTask = std::function<void()>;
 using AsyncDispatcher = std::function<bool(AsyncTask)>;
@@ -40,12 +29,8 @@ public:
 
     bool dispatch(AsyncTask task) {
         std::lock_guard<std::mutex> guard(mutex_);
-        {%- if config.expected() %}
         // Unbounded: a rejected poll drops its future, which only shutdown may do.
         if (!accepting_) {
-        {%- else %}
-        if (!accepting_ || tasks_.size() >= MAX_QUEUED_TASKS) {
-        {%- endif %}
             return false;
         }
         tasks_.push_back(std::move(task));
@@ -77,21 +62,10 @@ private:
                 task = std::move(tasks_.front());
                 tasks_.pop_front();
             }
-            {%- if config.expected() %}
             task();
-            {%- else %}
-            try {
-                task();
-            } catch (...) {
-                // Generated continuation tasks are noexcept. Protect the worker from
-                // consumer-provided tasks that violate that contract.
-            }
-            {%- endif %}
         }
     }
-{% if !config.expected() %}
-    static constexpr std::size_t MAX_QUEUED_TASKS = 1024;
-{%- endif %}
+
     std::mutex mutex_;
     std::condition_variable ready_;
     std::deque<AsyncTask> tasks_;
@@ -134,20 +108,10 @@ inline bool dispatch_async(AsyncTask task) noexcept {
         state.started = true;
         dispatch = state.dispatch;
     }
-    {%- if config.expected() %}
     return dispatch(std::move(task));
-    {%- else %}
-    try {
-        return dispatch(std::move(task));
-    } catch (...) {
-        return false;
-    }
-    {%- endif %}
 }
 
 } // namespace detail
-
-{%- if config.expected() %}
 // Installs the process-wide continuation dispatcher. The dispatcher returns true only
 // when it has accepted the task; rejecting a task drops the future it would have polled.
 // shutdown must stop accepting work, drain accepted tasks, and return only when they can
@@ -168,30 +132,6 @@ inline void set_async_dispatcher(
     if (state.started) {
         detail::fatal("UniFFI async dispatcher must be installed before the first async call");
     }
-{%- else %}
-// Installs the process-wide continuation dispatcher. The dispatcher returns true only
-// when it has accepted the task. shutdown must stop accepting work, drain accepted
-// tasks, and return only when they can no longer call generated code.
-inline void set_async_dispatcher(
-    AsyncDispatcher dispatcher,
-    AsyncDispatcherShutdown shutdown
-) {
-    if (!dispatcher || !shutdown) {
-        throw std::invalid_argument(
-            "UniFFI async dispatcher and shutdown function must not be empty"
-        );
-    }
-    auto &state = detail::async_dispatcher_state();
-    std::lock_guard<std::mutex> guard(state.mutex);
-    if (!state.accepting) {
-        throw std::logic_error("UniFFI async dispatcher has already shut down");
-    }
-    if (state.started) {
-        throw std::logic_error(
-            "UniFFI async dispatcher must be installed before the first async call"
-        );
-    }
-{%- endif %}
     state.dispatch = std::move(dispatcher);
     state.shutdown = std::move(shutdown);
 }
@@ -214,136 +154,52 @@ inline void shutdown_async_dispatcher() noexcept {
         state.shutdown = {};
     }
     if (shutdown) {
-        {%- if config.expected() %}
         shutdown();
-        {%- else %}
-        try {
-            shutdown();
-        } catch (...) {
-        }
-        {%- endif %}
     }
     shutdown = {};
     dispatch = {};
 }
-
-{%- if config.expected() %}
-{% include "async_expected.hpp" %}
-{%- else %}
-// A C++17-compatible asynchronous operation returned by foreign implementations of
-// UniFFI async callback interfaces. Implementations arrange their own scheduling. The
-// generated bridge accepts the first success or failure callback and ignores later
-// completions. The returned function requests cancellation of an incomplete operation.
-template <typename T>
-class ForeignFuture {
-public:
-    using Cancel = std::function<void()>;
-    using Success = std::function<void(T)>;
-    using Failure = std::function<void(std::exception_ptr)>;
-    using Start = std::function<Cancel(Success, Failure)>;
-
-    explicit ForeignFuture(Start start): start_(std::move(start)) {}
-
-    ForeignFuture(const ForeignFuture &) = delete;
-    ForeignFuture &operator=(const ForeignFuture &) = delete;
-    ForeignFuture(ForeignFuture &&) noexcept = default;
-    ForeignFuture &operator=(ForeignFuture &&) noexcept = default;
-
-    Cancel start(Success success, Failure failure) && {
-        if (!start_) {
-            throw std::logic_error("UniFFI foreign future has already been started");
-        }
-        auto start = std::move(start_);
-        return start(std::move(success), std::move(failure));
-    }
-
-private:
-    Start start_;
-};
-
-template <>
-class ForeignFuture<void> {
-public:
-    using Cancel = std::function<void()>;
-    using Success = std::function<void()>;
-    using Failure = std::function<void(std::exception_ptr)>;
-    using Start = std::function<Cancel(Success, Failure)>;
-
-    explicit ForeignFuture(Start start): start_(std::move(start)) {}
-
-    ForeignFuture(const ForeignFuture &) = delete;
-    ForeignFuture &operator=(const ForeignFuture &) = delete;
-    ForeignFuture(ForeignFuture &&) noexcept = default;
-    ForeignFuture &operator=(ForeignFuture &&) noexcept = default;
-
-    Cancel start(Success success, Failure failure) && {
-        if (!start_) {
-            throw std::logic_error("UniFFI foreign future has already been started");
-        }
-        auto start = std::move(start_);
-        return start(std::move(success), std::move(failure));
-    }
-
-private:
-    Start start_;
-};
-
-template <typename T>
-class FutureResult {
-public:
-    explicit FutureResult(T value): value_(std::move(value)) {}
-    explicit FutureResult(std::exception_ptr error): error_(std::move(error)) {}
-
-    bool has_value() const noexcept { return !error_; }
-    std::exception_ptr error() const noexcept { return error_; }
-
-    T get() && {
-        if (error_) {
-            std::rethrow_exception(error_);
-        }
-        return std::move(*value_);
-    }
-
-private:
-    std::optional<T> value_;
-    std::exception_ptr error_;
-};
-
-template <>
-class FutureResult<void> {
-public:
-    FutureResult() = default;
-    explicit FutureResult(std::exception_ptr error): error_(std::move(error)) {}
-
-    bool has_value() const noexcept { return !error_; }
-    std::exception_ptr error() const noexcept { return error_; }
-
-    void get() const {
-        if (error_) {
-            std::rethrow_exception(error_);
-        }
-    }
-
-private:
-    std::exception_ptr error_;
-};
-
 namespace detail {
 
+template <typename T, typename E>
+struct FutureOutput {
+    using type = expected<T, E>;
+};
+
 template <typename T>
+struct FutureOutput<T, void> {
+    using type = T;
+};
+
+// `std::function<void(T)>` rejects a dependent `void` parameter.
+template <typename Output>
+struct FutureCallback {
+    using type = std::function<void(Output)>;
+};
+
+template <>
+struct FutureCallback<void> {
+    using type = std::function<void()>;
+};
+
+// Holds one async result until a blocking `get()` or a continuation claims it. A future
+// whose Rust side was cancelled or dropped is abandoned instead: its continuation never
+// runs, and a `get()` on it aborts.
+template <typename Output>
 class FutureCompletionState {
 public:
-    using Result = FutureResult<T>;
-    using Callback = std::function<void(Result)>;
+    using Stored = std::conditional_t<std::is_void_v<Output>, std::monostate, Output>;
+    using Callback = typename detail::FutureCallback<Output>::type;
 
-    void complete(Result result) noexcept {
+    void complete(Stored result) noexcept {
         Callback callback;
         AsyncDispatcher executor;
         {
             std::lock_guard<std::mutex> guard(mutex_);
-            if (result_) {
+            if (status_ != Status::Pending) {
                 return;
             }
+            status_ = Status::Ready;
             result_.emplace(std::move(result));
             callback = std::move(callback_);
             executor = std::move(executor_);
@@ -354,113 +210,112 @@ public:
         }
     }
 
-    T get() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        claim_locked();
-        ready_.wait(lock, [this] { return result_.has_value(); });
-        auto result = std::move(*result_);
-        lock.unlock();
-        return std::move(result).get();
+    void abandon() noexcept {
+        Callback callback;
+        {
+            std::lock_guard<std::mutex> guard(mutex_);
+            if (status_ != Status::Pending) {
+                return;
+            }
+            status_ = Status::Abandoned;
+            // Released outside the lock: the callback's captures may own anything.
+            callback = std::move(callback_);
+            executor_ = nullptr;
+        }
+        ready_.notify_all();
     }
 
-    void wait() const {
+    Output get() noexcept {
         std::unique_lock<std::mutex> lock(mutex_);
-        ready_.wait(lock, [this] { return result_.has_value(); });
+        claim_locked();
+        ready_.wait(lock, [this] { return status_ != Status::Pending; });
+        if (status_ == Status::Abandoned) {
+            fatal("UniFFI future abandoned: its dispatcher shut down or rejected a poll");
+        }
+        auto result = std::move(*result_);
+        result_.reset();
+        lock.unlock();
+        if constexpr (std::is_void_v<Output>) {
+            (void)result;
+        } else {
+            return result;
+        }
+    }
+
+    void wait() const noexcept {
+        std::unique_lock<std::mutex> lock(mutex_);
+        ready_.wait(lock, [this] { return status_ != Status::Pending; });
     }
 
     template <typename Rep, typename Period>
-    std::future_status wait_for(const std::chrono::duration<Rep, Period> &timeout) const {
+    std::future_status wait_for(const std::chrono::duration<Rep, Period> &timeout) const noexcept {
         std::unique_lock<std::mutex> lock(mutex_);
-        return ready_.wait_for(lock, timeout, [this] { return result_.has_value(); })
+        return ready_.wait_for(lock, timeout, [this] { return status_ != Status::Pending; })
             ? std::future_status::ready
             : std::future_status::timeout;
     }
 
-    void then(AsyncDispatcher executor, Callback callback) {
-        bool dispatch_now = false;
+    void then(AsyncDispatcher executor, Callback callback) noexcept {
         {
             std::lock_guard<std::mutex> guard(mutex_);
             claim_locked();
-            executor_ = std::move(executor);
-            callback_ = std::move(callback);
-            dispatch_now = result_.has_value();
-        }
-        if (dispatch_now) {
-            Callback ready_callback;
-            AsyncDispatcher ready_executor;
-            {
-                std::lock_guard<std::mutex> guard(mutex_);
-                ready_callback = std::move(callback_);
-                ready_executor = std::move(executor_);
+            if (status_ == Status::Pending) {
+                executor_ = std::move(executor);
+                callback_ = std::move(callback);
+                return;
             }
-            dispatch_continuation(std::move(ready_executor), std::move(ready_callback));
+            if (status_ == Status::Abandoned) {
+                return;
+            }
         }
+        dispatch_continuation(std::move(executor), std::move(callback));
     }
 
 private:
-    void claim_locked() {
+    enum class Status { Pending, Ready, Abandoned };
+
+    void claim_locked() noexcept {
         if (claimed_) {
-            throw std::logic_error("UniFFI future result has already been consumed");
+            fatal("UniFFI future result has already been consumed");
         }
         claimed_ = true;
     }
 
+    // An executor that rejects the task drops the continuation along with the result.
     void dispatch_continuation(AsyncDispatcher executor, Callback callback) noexcept {
-        Result result = [&] {
+        auto result = [&] {
             std::lock_guard<std::mutex> guard(mutex_);
-            return std::move(*result_);
+            auto result = std::make_shared<Stored>(std::move(*result_));
+            result_.reset();
+            return result;
         }();
-        auto invoked = std::make_shared<std::atomic<bool>>(false);
-        auto shared_callback = std::make_shared<Callback>(std::move(callback));
-        auto shared_result = std::make_shared<std::optional<Result>>(std::move(result));
-        auto task = [invoked, shared_callback, shared_result]() mutable {
-            if (invoked->exchange(true)) {
-                return;
+        executor([callback = std::move(callback), result]() mutable {
+            if constexpr (std::is_void_v<Output>) {
+                callback();
+            } else {
+                callback(std::move(*result));
             }
-            try {
-                (*shared_callback)(std::move(**shared_result));
-            } catch (...) {
-            }
-            shared_result->reset();
-        };
-        auto reject = [invoked, shared_callback]() {
-            if (invoked->exchange(true)) {
-                return;
-            }
-            try {
-                (*shared_callback)(Result(std::make_exception_ptr(AsyncDispatcherError())));
-            } catch (...) {
-            }
-        };
-        try {
-            if (!executor(task)) {
-                reject();
-            }
-        } catch (...) {
-            reject();
-        }
+        });
     }
 
     mutable std::mutex mutex_;
     mutable std::condition_variable ready_;
-    std::optional<Result> result_;
+    Status status_ = Status::Pending;
+    std::optional<Stored> result_;
     bool claimed_ = false;
     AsyncDispatcher executor_;
     Callback callback_;
 };
 
-template <>
-inline void FutureCompletionState<void>::get() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    claim_locked();
-    ready_.wait(lock, [this] { return result_.has_value(); });
-    auto result = std::move(*result_);
-    lock.unlock();
-    result.get();
-}
-
 } // namespace detail
 
+// What an async call delivers: `expected<T, E>` when the Rust function returns a `Result`,
+// otherwise `T`.
+template <typename T, typename E = void>
+using FutureOutput = typename detail::FutureOutput<T, E>::type;
+
+// Owns a continuation attached with `Future::then`. Destroying or cancelling it cancels the
+// Rust future, and the continuation does not run.
 class FutureContinuation {
 public:
     explicit FutureContinuation(std::function<void()> cancel): cancel_(std::move(cancel)) {}
@@ -481,9 +336,11 @@ public:
 
     ~FutureContinuation() { cancel(); }
 
+    // Cancels the Rust future; the continuation will not run.
     void cancel() noexcept {
         if (cancel_) {
             auto cancel = std::move(cancel_);
+            cancel_ = nullptr;
             cancel();
         }
     }
@@ -492,14 +349,16 @@ private:
     std::function<void()> cancel_;
 };
 
-// Discarding one cancels the call before it runs, so the compiler warns.
-template <typename T>
+// A pending Rust async call. Block on it with `get()`, or attach a continuation with
+// `std::move(future).then(executor, callback)`. Destroying or cancelling an incomplete
+// future drops the Rust future, which aborts its work, so discarding one warns.
+template <typename T, typename E = void>
 class [[nodiscard]] Future {
 public:
-    using Result = FutureResult<T>;
-    using Callback = std::function<void(Result)>;
+    using Output = FutureOutput<T, E>;
+    using Callback = typename detail::FutureCallback<Output>::type;
 
-    Future(std::shared_ptr<detail::FutureCompletionState<T>> state, std::function<void()> cancel):
+    Future(std::shared_ptr<detail::FutureCompletionState<Output>> state, std::function<void()> cancel):
         state_(std::move(state)), cancel_(std::move(cancel)) {}
 
     Future(const Future &) = delete;
@@ -524,32 +383,38 @@ public:
         cancel();
     }
 
+    // False once the result was claimed by `get()` or `then()`, or the future was cancelled.
     bool valid() const noexcept {
         return state_ != nullptr;
     }
 
-    decltype(auto) get() {
+    // Blocks until the result is ready and returns it, leaving the future invalid.
+    Output get() noexcept {
         require_state();
         auto state = std::move(state_);
         cancel_ = nullptr;
         return state->get();
     }
 
-    void wait() const {
+    // Blocks until the result is ready.
+    void wait() const noexcept {
         require_state();
         state_->wait();
     }
 
+    // Blocks until the result is ready or the timeout elapses.
     template <typename Rep, typename Period>
-    std::future_status wait_for(const std::chrono::duration<Rep, Period> &timeout) const {
+    std::future_status wait_for(const std::chrono::duration<Rep, Period> &timeout) const noexcept {
         require_state();
         return state_->wait_for(timeout);
     }
 
-    FutureContinuation then(AsyncDispatcher executor, Callback callback) && {
+    // Runs `callback` with the result on `executor`. The returned handle owns the Rust
+    // future: destroying it cancels the call and the callback does not run.
+    [[nodiscard]] FutureContinuation then(AsyncDispatcher executor, Callback callback) && noexcept {
         require_state();
         if (!executor || !callback) {
-            throw std::invalid_argument("UniFFI future continuation must not be empty");
+            detail::fatal("UniFFI future continuation must not be empty");
         }
         state_->then(std::move(executor), std::move(callback));
         auto cancel = std::move(cancel_);
@@ -558,7 +423,9 @@ public:
         return FutureContinuation(std::move(cancel));
     }
 
+    // Drops the Rust future, aborting its work, and leaves this future invalid.
     void cancel() noexcept {
+        state_.reset();
         if (cancel_) {
             auto cancel = std::move(cancel_);
             cancel_ = nullptr;
@@ -567,13 +434,12 @@ public:
     }
 
 private:
-    void require_state() const {
+    void require_state() const noexcept {
         if (!state_) {
-            throw std::future_error(std::future_errc::no_state);
+            detail::fatal("UniFFI future has no state: it was consumed or cancelled");
         }
     }
 
-    std::shared_ptr<detail::FutureCompletionState<T>> state_;
+    std::shared_ptr<detail::FutureCompletionState<Output>> state_;
     std::function<void()> cancel_;
 };
-{%- endif %}
