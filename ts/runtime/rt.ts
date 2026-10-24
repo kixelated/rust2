@@ -49,17 +49,34 @@ export type I128Limbs = { readonly hi: number; readonly w2: number; readonly w1:
 export type Limbs = U64Limbs | I64Limbs | U128Limbs | I128Limbs;
 
 /**
+ * A number of the Rust integer type `T`. Its brand is type-only, so `tsc` refuses one
+ * type's value where another's goes, while a plain number, such as a literal, passes
+ * for any.
+ */
+type Num<T extends string> = number & { readonly [brand]?: T };
+
+export type u8 = Num<"u8">;
+export type u16 = Num<"u16">;
+export type u32 = Num<"u32">;
+/** 32 bits, as on wasm32. */
+export type usize = Num<"usize">;
+export type i8 = Num<"i8">;
+export type i16 = Num<"i16">;
+export type i32 = Num<"i32">;
+/** 32 bits, as on wasm32. */
+export type isize = Num<"isize">;
+/**
  * A `u64`: a number while it is a safe integer, at most 2^53 - 1, and its limbs past
  * that. Each value has one form, so two numbers compare with `===`, and a number never
  * equals limbs.
  */
-export type U64 = number | U64Limbs;
+export type u64 = Num<"u64"> | U64Limbs;
 /** An `i64`: a number while it is a safe integer, and its limbs past that. */
-export type I64 = number | I64Limbs;
+export type i64 = Num<"i64"> | I64Limbs;
 /** A `u128`: a number while it is a safe integer, and its limbs past that. */
-export type U128 = number | U128Limbs;
+export type u128 = Num<"u128"> | U128Limbs;
 /** An `i128`: a number while it is a safe integer, and its limbs past that. */
-export type I128 = number | I128Limbs;
+export type i128 = Num<"i128"> | I128Limbs;
 
 /** The checks and methods of one integer type. */
 export interface Int<T> {
@@ -590,20 +607,20 @@ function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<numb
 	};
 }
 
-export const u8: Int<number> = small(8, false);
-export const u16: Int<number> = small(16, false);
-export const u32: Int<number> = small(32, false);
-export const i8: Int<number> = small(8, true);
-export const i16: Int<number> = small(16, true);
-export const i32: Int<number> = small(32, true);
+export const u8: Int<u8> = small(8, false);
+export const u16: Int<u16> = small(16, false);
+export const u32: Int<u32> = small(32, false);
+export const i8: Int<i8> = small(8, true);
+export const i16: Int<i16> = small(16, true);
+export const i32: Int<i32> = small(32, true);
 /** 32 bits, as on wasm32. */
-export const usize: Int<number> = u32;
+export const usize: Int<usize> = u32 as Int<number>;
 /** 32 bits, as on wasm32. */
-export const isize: Int<number> = i32;
-export const u64: WideInt<U64> = dual(wide64<U64Limbs>(false), false);
-export const i64: WideInt<I64> = dual(wide64<I64Limbs>(true), true);
-export const u128: WideInt<U128> = dual(wide128<U128Limbs>(false), false);
-export const i128: WideInt<I128> = dual(wide128<I128Limbs>(true), true);
+export const isize: Int<isize> = i32 as Int<number>;
+export const u64: WideInt<u64> = dual(wide64<U64Limbs>(false), false);
+export const i64: WideInt<i64> = dual(wide64<I64Limbs>(true), true);
+export const u128: WideInt<u128> = dual(wide128<U128Limbs>(false), false);
+export const i128: WideInt<i128> = dual(wide128<I128Limbs>(true), true);
 
 /** `a < b` of two integers of one type: numbers, or a wide type's limbs. */
 export function lt(a: number | Limbs, b: number | Limbs): boolean {
@@ -700,7 +717,8 @@ export const option = {
 	unwrapOr<T>(o: T | undefined, fallback: T): T {
 		return o === undefined ? fallback : o;
 	},
-	mapOr<T, U>(o: T | undefined, fallback: U, f: (value: T) => U): U {
+	// `f` decides `U`, since a literal fallback would infer a literal type.
+	mapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U): U {
 		return o === undefined ? fallback : f(o);
 	},
 	okOr<T, E>(o: T | undefined, error: E): Result<T, E> {

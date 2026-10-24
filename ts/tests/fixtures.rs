@@ -256,8 +256,11 @@ fn lines(text: &str) -> Vec<String> {
 fn lang() {
 	let out = translated("lang");
 	snapshot("lang", &out);
-	// A hand-written caller, type-checked against the output it calls.
-	std::fs::copy(manifest_dir().join("fixtures/lang/caller.ts"), out.join("caller.ts")).unwrap();
+	// Hand-written callers, type-checked against the output they call: one runs it, and
+	// one mixes integer types, which `tsc` must refuse.
+	for file in ["caller.ts", "brands.ts"] {
+		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
+	}
 	typecheck(&out);
 	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
 }

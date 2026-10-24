@@ -44,15 +44,9 @@ impl Int {
 		self.bits > 32
 	}
 
-	/// The TypeScript type of a value.
+	/// The TypeScript type of a value, named as the runtime's: `rt.u32`.
 	pub fn ty(self) -> Type {
-		match (self.signed, self.bits) {
-			(_, 8..=32) => Type::Builtin("number"),
-			(false, 64) => Type::Rt("U64", Vec::new()),
-			(true, 64) => Type::Rt("I64", Vec::new()),
-			(false, _) => Type::Rt("U128", Vec::new()),
-			(true, _) => Type::Rt("I128", Vec::new()),
-		}
+		Type::Rt(self.rt(), Vec::new())
 	}
 
 	pub fn min(self) -> i128 {
@@ -381,8 +375,13 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 		return target.lit(target.fold(c));
 	}
 	let fits = target.min() <= source.min() && source.max() <= target.max();
+	// A cast that keeps the value still changes the type `tsc` checks it as.
+	let retyped = |value: Expr| match source.rt() == target.rt() {
+		true => value,
+		false => Expr::As(Box::new(value), target.ty()),
+	};
 	match (source.big(), target.big()) {
-		(false, false) if fits => value.expr,
+		(false, false) if fits => retyped(value.expr),
 		(false, false) => target.wrap(value.expr),
 		(true, false) => {
 			let low = source.method("low", vec![value.expr]);
@@ -392,7 +391,7 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 			}
 		}
 		// A narrow integer is already a wide one's number.
-		(false, true) if fits => value.expr,
+		(false, true) if fits => retyped(value.expr),
 		(true, true) if source.rt() == target.rt() => value.expr,
 		_ => target.method("cast", vec![value.expr]),
 	}

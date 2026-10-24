@@ -47,7 +47,8 @@ pub enum Expr {
 	/// An arrow function whose body is one expression, its return type inferred:
 	/// `(f: rt.Formatter) => f.pad(s)`.
 	Lambda(Vec<Param>, Box<Expr>),
-	/// `e as T`, for a literal whose type TypeScript would widen.
+	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
+	/// another integer type with the same value.
 	As(Box<Expr>, Type),
 	Located(Loc, Box<Expr>),
 }
@@ -120,7 +121,7 @@ impl Expr {
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
-			Self::As(e, _) => *e,
+			Self::As(e, _) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) => *e,
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
 			Self::Call(f, args) if matches!(*f, Self::Rt("Ok" | "Err")) => {

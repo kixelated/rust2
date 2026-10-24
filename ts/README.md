@@ -51,8 +51,8 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`.
 | Rust | TypeScript |
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
-| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
-| `u64`, `i64`, `u128`, `i128` | `rt.U64` and so on: a `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
+| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
+| `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
@@ -68,6 +68,11 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`.
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+
+Each integer type is its own type to `tsc`, named as Rust's: `rt.u8` is a `number` with a
+type-only brand, so a `u16` where a `u8` goes fails the type check, while a plain
+number, such as a literal, passes for any. A cast that keeps the value is `x as rt.u16`,
+which costs nothing at run time.
 
 A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
 object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
@@ -127,7 +132,9 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   they lost decode; unboxed halves would lower every value to two. Past 2^53 an
   operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
   than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
-  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped.
+  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
+  `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
+  brand would cast every literal, so a plain number passes for any type.
 - A generic type is one class or union, the type TS callers name, and a method on it is
   one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
   the type for callers, and TS generics with trait dictionaries would undo
@@ -184,6 +191,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 
