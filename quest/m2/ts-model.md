@@ -37,3 +37,4 @@ Public API: the translator's output for moq-net's model.
 - [Iterators](/quest/m2/ts-iter.md) - the model's adaptor chains
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
 - [Formatting](/quest/m2/ts-format.md) - panic and error messages match native
+- [Tail loops](/quest/m2/ts-tail-loop.md) - 62 moq-net sites end a function in a `loop`
