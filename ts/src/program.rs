@@ -83,7 +83,38 @@ pub struct Program {
 	pub items: Vec<Item>,
 	/// The methods of each class or companion, by owner.
 	pub methods: HashMap<SymId, Vec<Function>>,
+	/// A facade's methods, by owner: each method's symbol, and the free function it calls.
+	pub facades: HashMap<SymId, Vec<(SymId, SymId)>>,
+	pub shape: Shape,
+	/// The structs whose values are plain objects, without a class.
+	pub plain: HashSet<SymId>,
 	pub sources: Vec<Source>,
+}
+
+/// How translated types and their functions are shaped: the spike's switch.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Shape {
+	/// A struct is a class and its functions are its methods; an enum's are a companion
+	/// object's.
+	#[default]
+	Classes,
+	/// A struct is a plain object, and every function is a module-level one.
+	Functions,
+	/// As `Functions`, but a root or printable type keeps a class, or a companion object,
+	/// whose methods call the free functions.
+	Facade,
+}
+
+impl Shape {
+	/// The shape `RUST2_TS_SHAPE` picks: `classes`, `functions`, or `facade`.
+	pub fn from_env() -> Self {
+		match std::env::var("RUST2_TS_SHAPE").as_deref() {
+			Ok("functions") => Self::Functions,
+			Ok("facade") => Self::Facade,
+			Ok("classes") | Err(_) => Self::Classes,
+			Ok(other) => panic!("RUST2_TS_SHAPE={other}: expected classes, functions, or facade"),
+		}
+	}
 }
 
 impl Program {
@@ -109,6 +140,9 @@ impl Program {
 			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
 		for methods in self.methods.values_mut() {
 			methods.sort_by(|a, b| syms[a.sym].key().cmp(&syms[b.sym].key()));
+		}
+		for methods in self.facades.values_mut() {
+			methods.sort_by(|a, b| syms[a.0].key().cmp(&syms[b.0].key()));
 		}
 
 		let mut scopes: BTreeMap<Scope, Vec<SymId>> = BTreeMap::new();

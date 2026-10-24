@@ -416,6 +416,20 @@ impl Printer<'_> {
 				self.doc(doc);
 				let name = self.program.syms[*sym].name.clone();
 				self.start();
+				if self.program.plain.contains(sym) {
+					self.write(&format!("export interface {name}{} {{\n", type_params(params)));
+					self.indent += 1;
+					for field in fields {
+						self.doc(&field.doc);
+						self.start();
+						let ty = self.ty(&field.ty);
+						self.write(&format!("{}: {ty};\n", self.program.fields[field.id].name));
+					}
+					self.indent -= 1;
+					self.start();
+					self.write("}\n");
+					return;
+				}
 				self.write(&format!("export class {name}{} {{\n", type_params(params)));
 				self.indent += 1;
 				for field in fields {
@@ -460,6 +474,10 @@ impl Printer<'_> {
 					self.newline();
 					self.function(method, Context::Class);
 				}
+				for &(method, free) in self.program.facades.get(sym).into_iter().flatten() {
+					self.newline();
+					self.facade(method, free);
+				}
 				self.indent -= 1;
 				self.start();
 				self.write("}\n");
@@ -503,9 +521,57 @@ impl Printer<'_> {
 					self.start();
 					self.write("};\n");
 				}
+				let facade = self.program.facades.get(sym).map_or(&[][..], Vec::as_slice);
+				if !facade.is_empty() {
+					self.newline();
+					self.start();
+					self.write(&format!("export const {name} = {{\n"));
+					for &(method, free) in facade {
+						self.start();
+						let line = format!("{INDENT}{}: {},\n", self.program.syms[method].name, self.sym_name(free));
+						self.write(&line);
+					}
+					self.start();
+					self.write("};\n");
+				}
 			}
 			Item::Function(f) => self.function(f, Context::Module),
 		}
+	}
+
+	/// A facade's method, which calls its free function with `this` first if it takes one.
+	fn facade(&mut self, method: SymId, free: SymId) {
+		let f = self
+			.program
+			.items
+			.iter()
+			.find_map(|item| match item {
+				Item::Function(f) if f.sym == free => Some(f),
+				_ => None,
+			})
+			.expect("a facade's free function is translated");
+		let instance = matches!(self.program.syms[method].kind, SymKind::Method { instance: true });
+		self.renames = self.renames_for(f);
+		self.doc(&f.doc);
+		self.start();
+		let name = self.program.syms[method].name.clone();
+		self.write(&format!("{}{name}(", if instance { "" } else { "static " }));
+		let params = match instance {
+			true => &f.params[1..],
+			false => &f.params[..],
+		};
+		self.params(params);
+		let ret = self.ty(&f.ret);
+		self.write(&format!("): {ret} {{\n"));
+		let mut args: Vec<String> = params.iter().map(|p| self.local(&p.name).to_string()).collect();
+		if instance {
+			args.insert(0, "this".into());
+		}
+		self.start();
+		let call = format!("{INDENT}return {}({});\n", self.sym_name(free), args.join(", "));
+		self.write(&call);
+		self.start();
+		self.write("}\n");
 	}
 
 	fn function(&mut self, f: &Function, cx: Context) {

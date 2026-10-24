@@ -277,6 +277,40 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 	})
 }
 
+/// Whether `stmts` name the local `name` anywhere, their closures included.
+pub fn mentions(stmts: &[Stmt], name: &str) -> bool {
+	let expr = |e: &Expr| e.mentions(name);
+	stmts.iter().any(|stmt| match &stmt.kind {
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => expr(e),
+		StmtKind::Decl { init, .. } => init.as_ref().is_some_and(expr),
+		StmtKind::If { cond, then, els } => expr(cond) || mentions(then, name) || mentions(els, name),
+		StmtKind::While { cond, body, .. } => expr(cond) || mentions(body, name),
+		StmtKind::ForRange { start, end, body, .. } => expr(start) || expr(end) || mentions(body, name),
+		StmtKind::ForOf { iter, body, .. } => expr(iter) || mentions(body, name),
+		StmtKind::Block { body, .. } => mentions(body, name),
+		StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => false,
+	})
+}
+
+impl Expr {
+	fn mentions(&self, name: &str) -> bool {
+		match self {
+			Self::Ident(ident) => ident == name,
+			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) => false,
+			Self::Array(es) => es.iter().any(|e| e.mentions(name)),
+			Self::Object(props) => props.iter().any(|(_, e)| e.mentions(name)),
+			Self::Member(e, _) | Self::Unary(_, e) | Self::Located(_, e) | Self::As(e, _) => e.mentions(name),
+			Self::Index(a, b) | Self::Binary(a, _, b) | Self::Assign(a, b) => a.mentions(name) || b.mentions(name),
+			Self::Call(f, args) | Self::New(f, args) | Self::Method(f, _, args) => {
+				f.mentions(name) || args.iter().any(|e| e.mentions(name))
+			}
+			Self::Cond(a, b, c) => a.mentions(name) || b.mentions(name) || c.mentions(name),
+			Self::Arrow(_, _, body) => mentions(body, name),
+			Self::Lambda(_, body) => body.mentions(name),
+		}
+	}
+}
+
 /// Whether control never falls off the end of `stmts`.
 pub fn diverges(stmts: &[Stmt]) -> bool {
 	stmts.last().is_some_and(Stmt::diverges)

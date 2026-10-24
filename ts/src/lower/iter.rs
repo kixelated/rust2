@@ -104,7 +104,10 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 	match own_next(b, ty) {
 		Some(instance) => {
 			let sym = b.t.instance(instance);
-			Expr::Method(Box::new(iter), sym, Vec::new())
+			match b.t.program.syms[sym].kind {
+				SymKind::Method { instance: true } => Expr::Method(Box::new(iter), sym, Vec::new()),
+				_ => Expr::Sym(sym).call(vec![iter]),
+			}
 		}
 		None => iter.member("next").call(Vec::new()),
 	}

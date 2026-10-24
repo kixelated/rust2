@@ -25,7 +25,7 @@ use rustc_span::Span;
 
 use crate::census::{Census, Refusal};
 use crate::config::Config;
-use crate::program::{Program, Source, SymKind, Symbol};
+use crate::program::{Program, Shape, Source, SymKind, Symbol};
 use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 
 /// Each function's THIR, copied before borrow checking steals it.
@@ -160,6 +160,8 @@ pub struct Translator<'a, 'tcx> {
 	env: TypingEnv<'tcx>,
 	/// Refusals collected for a census, rather than reported as errors.
 	refusals: Option<Vec<(Span, String)>>,
+	/// The root and printable types, which keep a class or companion in `Shape::Facade`.
+	facade_types: rustc_data_structures::fx::FxHashSet<DefId>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -198,6 +200,9 @@ pub enum Owner {
 	Companion(SymId),
 	/// A module-level function.
 	Module,
+	/// A module-level function of a type, taking `self` as its first parameter, and
+	/// called through the type's facade too if it has one.
+	Free { ty: SymId, facade: bool },
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
@@ -213,11 +218,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			);
 			return None;
 		}
-		Some(Self {
+		let mut t = Self {
 			tcx,
 			bodies,
 			config,
-			program: Program::default(),
+			program: Program {
+				shape: Shape::from_env(),
+				..Program::default()
+			},
 			instances: Default::default(),
 			queue: VecDeque::new(),
 			adts: Default::default(),
@@ -225,7 +233,32 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			failed: false,
 			env: TypingEnv::fully_monomorphized(),
 			refusals,
-		})
+			facade_types: Default::default(),
+		};
+		if t.program.shape == Shape::Facade {
+			t.facade_types = (config.roots.iter().chain(&config.printable))
+				.filter_map(|path| t.resolve_path(path))
+				.filter(|&def_id| matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum))
+				.collect();
+		}
+		Some(t)
+	}
+
+	/// Whether a struct's values are plain objects rather than its class's.
+	pub fn plain(&self, sym: SymId) -> bool {
+		self.program.plain.contains(&sym)
+	}
+
+	/// A struct's value, from its fields' values in declaration order.
+	pub fn construct(&self, sym: SymId, ctor: &Ctor, fields: &[FieldId], values: Vec<ts::Expr>) -> ts::Expr {
+		let class = Box::new(ts::Expr::Sym(sym));
+		let props = |values: Vec<ts::Expr>| fields.iter().zip(values).map(|(f, v)| (ts::Key::Field(*f), v)).collect();
+		match ctor {
+			_ if self.plain(sym) => ts::Expr::Object(props(values)),
+			Ctor::Unit => ts::Expr::New(class, Vec::new()),
+			Ctor::Positional => ts::Expr::New(class, values),
+			Ctor::Named => ts::Expr::New(class, vec![ts::Expr::Object(props(values))]),
+		}
 	}
 
 	/// Translate every queued function instance, and those they reach.
@@ -481,23 +514,44 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			),
 			Owner::Companion(sym) => (Some(sym), SymKind::Method { instance: false }),
-			Owner::Module => (None, SymKind::Function),
+			Owner::Module | Owner::Free { .. } => (None, SymKind::Function),
 		};
 		let base = camel(tcx.item_name(def_id).as_str());
+		let suffix = self.suffix(instance);
+		let order = self.order(def_id);
+		// Without trimmed paths, which rustc computes only for a diagnostic.
+		let printed = ty::print::with_no_trimmed_paths!(instance.to_string());
 		let sym = self.program.sym(Symbol {
-			module: self.module_of(def_id),
+			module: match owner {
+				Owner::Free { ty, .. } => self.program.syms[ty].module.clone(),
+				_ => self.module_of(def_id),
+			},
 			base: match owner {
 				Owner::Module => escape(&base),
-				_ => base,
+				Owner::Free { ty, .. } => prefixed(&self.program.syms[ty].base, &base),
+				_ => base.clone(),
 			},
-			suffix: self.suffix(instance),
+			suffix: suffix.clone(),
 			owner: owner_sym,
 			kind,
-			order: self.order(def_id),
-			// Without trimmed paths, which rustc computes only for a diagnostic.
-			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
+			order,
+			instance: printed.clone(),
 			name: String::new(),
 		});
+		if let Owner::Free { ty, facade: true } = owner {
+			let instance = self.program.syms[ty].kind == SymKind::Class && self.has_self(def_id);
+			let method = self.program.sym(Symbol {
+				module: self.program.syms[ty].module.clone(),
+				base,
+				suffix,
+				owner: Some(ty),
+				kind: SymKind::Method { instance },
+				order,
+				instance: printed,
+				name: String::new(),
+			});
+			self.program.facades.entry(ty).or_default().push((method, sym));
+		}
 		self.instances.insert(instance, sym);
 		self.queue.push_back((instance, sym));
 		sym
@@ -531,6 +585,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let span = self.tcx.def_span(instance.def_id());
 		let info = self.adt(*adt, span);
+		if self.program.shape != Shape::Classes {
+			let facade = self.facade_types.contains(&adt.did());
+			if facade && !matches!(info.repr, AdtRepr::Class { .. }) {
+				self.program.syms[info.sym].kind = SymKind::Union { companion: true };
+			}
+			return Owner::Free { ty: info.sym, facade };
+		}
 		match info.repr {
 			AdtRepr::Class { .. } => Owner::Class(info.sym),
 			AdtRepr::Tags | AdtRepr::Union => {
@@ -698,6 +759,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			instance: String::new(),
 			name: String::new(),
 		});
+		if matches!(repr, AdtRepr::Class { .. })
+			&& self.program.shape != Shape::Classes
+			&& !self.facade_types.contains(&did)
+		{
+			self.program.plain.insert(sym);
+		}
 		let mut info = Adt { sym, repr };
 		if let AdtRepr::Class { fields, .. } = &mut info.repr {
 			for (i, field) in adt.non_enum_variant().fields.iter().enumerate() {
@@ -1017,7 +1084,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			Owner::Class(owner) | Owner::Companion(owner) => {
 				self.program.methods.entry(owner).or_default().push(function)
 			}
-			Owner::Module => self.program.items.push(Item::Function(function)),
+			Owner::Module | Owner::Free { .. } => self.program.items.push(Item::Function(function)),
 		}
 	}
 
@@ -1050,6 +1117,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		false
 	}
+}
+
+/// A function of a type as a module-level name: `Decoder` and `slice` make `decoderSlice`.
+fn prefixed(ty: &str, method: &str) -> String {
+	let mut out = String::new();
+	let mut chars = ty.chars();
+	out.extend(chars.next().map(|c| c.to_ascii_lowercase()));
+	out.extend(chars);
+	let mut chars = method.chars();
+	out.extend(chars.next().map(|c| c.to_ascii_uppercase()));
+	out.extend(chars);
+	out
 }
 
 /// A short name for a type, to tell instances apart.

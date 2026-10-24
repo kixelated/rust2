@@ -108,6 +108,14 @@ pub fn function<'a, 'tcx>(
 		false => Dest::Return,
 	};
 	b.stmt(expr, dest, &mut body);
+	// A `self` the body never names, such as a unit struct's derived `Display`, takes a `_`
+	// so it passes `noUnusedParameters`.
+	if let Some(param) = params.first_mut()
+		&& param.name == "self"
+		&& !ts::mentions(&body, "self")
+	{
+		param.name = "_self".into();
+	}
 	let ret = match (b.done, ret.kind()) {
 		(true, ty::Adt(_, args)) => Type::Union(vec![b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
 		_ => b.t.ret_ty(ret, span),
@@ -2172,7 +2180,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			AdtRepr::Class { ctor, fields } => {
 				let class = Box::new(Expr::Sym(info.sym));
 				match ctor {
-					ts::Ctor::Unit => Expr::New(class, Vec::new()),
+					ts::Ctor::Unit => self.t.construct(info.sym, &ts::Ctor::Unit, &fields, Vec::new()),
 					ts::Ctor::Positional => {
 						let mut ordered: Vec<Option<Expr>> = vec![None; variant.fields.len()];
 						for (f, value) in adt.fields.iter().zip(values) {
@@ -2194,7 +2202,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 								(None, None) => Expr::undefined(),
 							})
 							.collect();
-						Expr::New(class, args)
+						self.t.construct(info.sym, &ts::Ctor::Positional, &fields, args)
 					}
 					ts::Ctor::Named => {
 						let mut props: Vec<(Key, Expr)> = adt
@@ -2216,7 +2224,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 								props.push((Key::Field(fields[i]), value));
 							}
 						}
-						Expr::New(class, vec![Expr::Object(props)])
+						if !self.t.plain(info.sym) {
+							return Expr::New(class, vec![Expr::Object(props)]);
+						}
+						// A plain object's properties go in declaration order, so every value of
+						// the struct shares one shape; the values are still evaluated as written.
+						let index = |key: &Key| fields.iter().position(|f| matches!(key, Key::Field(k) if k == f));
+						if !props.is_sorted_by_key(|(key, _)| index(key)) {
+							for (_, value) in props.iter_mut() {
+								if !value.is_constant() {
+									let saved = std::mem::replace(value, Expr::undefined());
+									*value = self.spill(saved, "field", out);
+								}
+							}
+							props.sort_by_key(|(key, _)| index(key));
+						}
+						Expr::Object(props)
 					}
 				}
 			}
@@ -2460,12 +2483,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let info = self.t.adt(adt, span);
 		let ty = tcx.type_of(adt_id).instantiate(tcx, gargs).skip_norm_wip();
 		match info.repr {
-			AdtRepr::Class { .. } => Expr::New(
-				Box::new(Expr::Sym(info.sym)),
-				(adt.variant(variant).fields.iter().zip(values))
+			AdtRepr::Class { ctor, fields } => {
+				let args = (adt.variant(variant).fields.iter().zip(values))
 					.map(|(field, value)| field_arg(tcx, field, value))
-					.collect(),
-			),
+					.collect();
+				self.t.construct(info.sym, &ctor, &fields, args)
+			}
 			AdtRepr::Tags => {
 				let ts_ty = self.t.ty(ty, span);
 				Expr::As(Box::new(Expr::Str(adt.variant(variant).name.to_string())), ts_ty)
