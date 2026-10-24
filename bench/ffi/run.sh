@@ -41,7 +41,8 @@ outputs() {
 # Summarizes a results directory's raw samples and renders its report.md. One
 # sample per runner, case, variant, and round, then one record per runner, case,
 # and variant. A wrapper's ratio to rust-ffi is taken within each round and
-# variant, so drift between rounds cancels, then averaged.
+# variant, so drift between rounds cancels. Medians, so one slow round on a busy
+# host does not move a comparison.
 report() {
     local dir=$1 file rel
     for file in "$dir"/raw/*/[0-9]*/*.json; do
@@ -51,6 +52,7 @@ report() {
     done >"$dir/samples.jsonl"
     jq -s -c --slurpfile host "$dir/host.json" '
         def mean: add / length;
+        def median: sort | if length % 2 == 1 then .[length / 2 | floor] else (.[length / 2 - 1] + .[length / 2]) / 2 end;
         def worse($b): if .unit == "MB/s" then $b / .value else .value / $b end;
         (map(select(.runner == "rust-ffi") | {key: "\(.variant)/\(.round)/\(.name)", value: .value}) | from_entries) as $rust
         | map(. + {ratio: (if .runner == "rust-ffi" then null else worse($rust["\(.variant)/\(.round)/\(.name)"]) end)})
@@ -63,11 +65,12 @@ report() {
             runner: .[0].runner,
             name: .[0].name,
             unit: .[0].unit,
+            median: ($v | median),
             $mean,
             stddev: (if ($v | length) > 1 then $v | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
             min: ($v | min),
             max: ($v | max),
-            ratio: (if .[0].ratio == null then null else map(.ratio) | mean end),
+            ratio: (if .[0].ratio == null then null else map(.ratio) | median end),
             values: $v,
             order: (map(.order) | min)
         }' "$dir/samples.jsonl" >"$dir/results.jsonl"

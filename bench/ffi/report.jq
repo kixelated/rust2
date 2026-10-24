@@ -6,12 +6,15 @@ def num: if . >= 100 then round | tostring elif . >= 10 then fixed(1) elif . >= 
 def pct: (. * 100 | fixed(1)) as $p | if . > 0 then "+\($p)%" else "\($p)%" end;
 def row: "| " + join(" | ") + " |";
 # How much more a result costs than another: time and CPU as they are, throughput inverted.
-def cost($other): if .unit == "MB/s" then $other.mean / .mean else .mean / $other.mean end;
+def cost($other): if .unit == "MB/s" then $other.median / .median else .median / $other.median end;
 # Baselines first, then the wrappers in a stable order.
 def runners: ["rust-net", "rust-ffi", "go", "python", "kotlin", "cpp", "dart", "swift", "browser"] as $known
 	| (map(.runner) | unique) as $seen
 	| ($known | map(select(. as $r | $seen | index($r)))) + ($seen - $known);
-def cases: group_by(.name) | map({name: .[0].name, unit: .[0].unit, order: (map(.order) | min)}) | sort_by(.order);
+# In the order rust-ffi reports them; a runner may order its cases differently.
+def cases: group_by(.name)
+	| map({name: .[0].name, unit: .[0].unit, order: ((map(select(.runner == "rust-ffi") | .order) | min) // 1e9)})
+	| sort_by(.order);
 
 # One table of `$variant`, each cell drawn by `cell` from {result, by}.
 def matrix($variant; cell):
@@ -43,17 +46,17 @@ $host[0] as $h
 	"rust2 `\($h.rust2[:12])`\(if $h.base == "" then "" else ", base `\($h.base[:12])`" end); moq `\($h.moq[:12])`\(if ($h.ubrn // "") == "" then "" else ", ubrn `\($h.ubrn[:12])`" end); \($h.rounds) round\(if $h.rounds == 1 then "" else "s" end) of \($h.seconds) s per case.",
 	"\([$h.tools[] | select(. != "missing")] | join("; ")).",
 	"",
-	"Each cell is the mean over the rounds, and its cost against `rust-ffi` in the same rounds: above 1x is slower or costlier.",
+	"Each cell is the median over the rounds, and the median of its cost against `rust-ffi` in the same round: above 1x is slower or costlier.",
 	"`rust-ffi` calls moq-ffi's API from Rust without crossing the FFI; `rust-net` runs the same rounds on moq-net, below moq-ffi's handles and runtime.",
 	"",
 	"## fork",
 	"",
-	($results | matrix("fork"; .result as $r | "\($r.mean | num)" + (if $r.ratio == null then "" else " (\($r.ratio | num)x)" end))),
+	($results | matrix("fork"; .result as $r | "\($r.median | num)" + (if $r.ratio == null then "" else " (\($r.ratio | num)x)" end))),
 	"",
 	"## Noise: control against fork",
 	"",
 	"`control` reruns fork's builds in the same rounds, so its change is this run's noise floor.",
-	"Change in cost (time per call, CPU per MB, or the inverse of throughput): negative is cheaper.",
+	"Change in median cost (time per call, CPU per MB, or the inverse of throughput): negative is cheaper.",
 	"",
 	($results | change("control")),
 	(
