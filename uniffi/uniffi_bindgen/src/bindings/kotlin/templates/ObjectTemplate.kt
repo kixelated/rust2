@@ -100,8 +100,8 @@
 {%- let methods = obj.methods() %}
 {%- let uniffi_trait_methods = obj.uniffi_trait_methods() %}
 {%- let interface_docstring = obj.docstring() %}
-{%- let is_error = ci.is_name_used_as_error(name) %}
-{%- let ffi_converter_name = obj|ffi_converter_name %}
+{%- let is_error = ci.is_used_as_error(obj) %}
+{%- let ffi_converter_name = obj|ffi_converter_name(ci) %}
 
 {%- include "Interface.kt" %}
 

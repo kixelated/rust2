@@ -6,7 +6,7 @@
 // it was given, in the order and as many times as std's does, and stops where std's
 // stops: a `find` or `any` reads no further than its match.
 
-import { ByteVec, Err, Ok, panic, type Result } from "../rt.ts";
+import { ByteVec, Err, type Int, type Limbs, lt as wideLt, Ok, panic, type Result } from "../rt.ts";
 
 /** What `next` returns once an iterator is exhausted, which no item is. */
 export const DONE: unique symbol = Symbol("DONE");
@@ -224,35 +224,35 @@ export abstract class Iter<T> implements Iterable<T> {
 	}
 
 	/** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
-	max<K extends number | bigint | boolean>(this: Iter<K>): K | undefined {
+	max<K extends number | Limbs | boolean>(this: Iter<K>): K | undefined {
 		return this.maxByKey((item) => item);
 	}
 
 	/** `min` of integers or booleans: the first of the least. */
-	min<K extends number | bigint | boolean>(this: Iter<K>): K | undefined {
+	min<K extends number | Limbs | boolean>(this: Iter<K>): K | undefined {
 		return this.minByKey((item) => item);
 	}
 
 	/** `max_by_key` with an integer or boolean key, each item's taken once. */
-	maxByKey<K extends number | bigint | boolean>(f: (item: T) => K): T | undefined {
+	maxByKey<K extends number | Limbs | boolean>(f: (item: T) => K): T | undefined {
 		let best = this.next();
 		if (best === DONE) return undefined;
 		let key = f(best);
 		for (let item = this.next(); item !== DONE; item = this.next()) {
 			const k = f(item);
-			if (k >= key) [best, key] = [item, k];
+			if (!lt(k, key)) [best, key] = [item, k];
 		}
 		return best;
 	}
 
 	/** `min_by_key` with an integer or boolean key, each item's taken once. */
-	minByKey<K extends number | bigint | boolean>(f: (item: T) => K): T | undefined {
+	minByKey<K extends number | Limbs | boolean>(f: (item: T) => K): T | undefined {
 		let best = this.next();
 		if (best === DONE) return undefined;
 		let key = f(best);
 		for (let item = this.next(); item !== DONE; item = this.next()) {
 			const k = f(item);
-			if (k < key) [best, key] = [item, k];
+			if (lt(k, key)) [best, key] = [item, k];
 		}
 		return best;
 	}
@@ -1001,55 +1001,56 @@ class OptionShunt<U> extends Iter<U> {
 	}
 }
 
-/** `a < b` of integers, numbers or bigints alike. */
+/** `a < b` of two integers of one type, or two booleans. */
 function lt<T>(a: T, b: T): boolean {
+	if (typeof a === "object" || typeof b === "object") return wideLt(a as number | Limbs, b as number | Limbs);
 	return (a as number) < (b as number);
 }
 
-/** `n + by`, in `n`'s representation. */
-function step<T>(n: T, by: number): T {
-	return (typeof n === "bigint" ? n + BigInt(by) : (n as number) + by) as T;
+/**
+ * `n + by` in `int`, held within its bounds, which a step past an end only needs to
+ * stay past. A narrow integer's sum is an exact number whatever its type.
+ */
+function step<T>(n: T, by: number, int: Int<T> | undefined): T {
+	if (typeof n === "number" && Number.isSafeInteger(n + by)) return (n + by) as T;
+	if (int === undefined) throw new Error("rust2-ts: stepping a wide range without its type");
+	return by >= 0 ? int.saturatingAdd(n, by as T) : int.saturatingSub(n, -by as T);
 }
 
-/** One past `n`. */
-function succ<T>(n: T): T {
-	return step(n, 1);
-}
-
-/** One before `n`. */
-function pred<T>(n: T): T {
-	return step(n, -1);
-}
-
-/** `ops::Range`: `start..end`, which iterates its integers by moving `start`. */
+/**
+ * `ops::Range`: `start..end`, which iterates its integers by moving `start`. A 64- or
+ * 128-bit range takes its type, `rt.u64`, to step past 2^53.
+ */
 export class Range<T> extends Iter<T> {
 	start: T;
 	end: T;
+	private readonly int: Int<T> | undefined;
 
-	constructor(start: T, end: T) {
+	constructor(start: T, end: T, int?: Int<T>) {
 		super();
 		this.start = start;
 		this.end = end;
+		this.int = int;
 	}
 
 	next(): T | Done {
 		const start = this.start;
 		if (!lt(start, this.end)) return DONE;
-		this.start = succ(start);
+		this.start = step(start, 1, this.int);
 		return start;
 	}
 
 	override nextBack(): T | Done {
 		if (!lt(this.start, this.end)) return DONE;
-		this.end = pred(this.end);
+		this.end = step(this.end, -1, this.int);
 		return this.end;
 	}
 
 	/** std's `nth`, in one step: past the end, the range ends. */
 	override nthItem(n: number): T | Done {
-		const item = step(this.start, n);
+		const item = step(this.start, n, this.int);
 		if (lt(item, this.end)) {
-			this.start = succ(item);
+			this.start = step(item, 1, this.int);
 			return item;
 		}
 		this.start = this.end;
@@ -1058,9 +1059,9 @@ export class Range<T> extends Iter<T> {
 
 	/** std's `nth_back`, in one step. */
 	override nthBackItem(n: number): T | Done {
-		const item = step(this.end, -n);
+		const item = step(this.end, -n, this.int);
 		if (lt(this.start, item)) {
-			this.end = pred(item);
+			this.end = step(item, -1, this.int);
 			return this.end;
 		}
 		this.end = this.start;
@@ -1080,7 +1081,7 @@ export class Range<T> extends Iter<T> {
 	}
 
 	clone(): Range<T> {
-		return new Range(this.start, this.end);
+		return new Range(this.start, this.end, this.int);
 	}
 }
 
@@ -1089,10 +1090,10 @@ export class RangeInclusive<T> extends Iter<T> {
 	private lo: T;
 	private hi: T;
 	private exhausted = false;
-	/** The integer type's bounds, which `nth` wraps within as std's does. */
-	private readonly bounds: Bounds<T> | undefined;
+	/** The integer type, which `nth` wraps within as std's does. */
+	private readonly bounds: Int<T> | undefined;
 
-	constructor(start: T, end: T, bounds?: Bounds<T>) {
+	constructor(start: T, end: T, bounds?: Int<T>) {
 		super();
 		this.lo = start;
 		this.hi = end;
@@ -1125,7 +1126,7 @@ export class RangeInclusive<T> extends Iter<T> {
 	next(): T | Done {
 		if (this.isEmpty()) return DONE;
 		const lo = this.lo;
-		if (lt(lo, this.hi)) this.lo = succ(lo);
+		if (lt(lo, this.hi)) this.lo = step(lo, 1, this.bounds);
 		else this.exhausted = true;
 		return lo;
 	}
@@ -1133,7 +1134,7 @@ export class RangeInclusive<T> extends Iter<T> {
 	override nextBack(): T | Done {
 		if (this.isEmpty()) return DONE;
 		const hi = this.hi;
-		if (lt(this.lo, hi)) this.hi = pred(hi);
+		if (lt(this.lo, hi)) this.hi = step(hi, -1, this.bounds);
 		else this.exhausted = true;
 		return hi;
 	}
@@ -1163,21 +1164,13 @@ export class RangeInclusive<T> extends Iter<T> {
 	}
 }
 
-/** An integer type's least and greatest values. */
-interface Bounds<T> {
-	readonly MIN: T;
-	readonly MAX: T;
-}
-
-/** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `bounds`, and whether it wrapped. */
-function overflowing<T>(n: T, by: number, bounds: Bounds<T> | undefined): [T, boolean] {
-	if (bounds === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
-	const exact = BigInt(n as number | bigint) + BigInt(by);
-	const [min, max] = [BigInt(bounds.MIN as number | bigint), BigInt(bounds.MAX as number | bigint)];
-	if (exact >= min && exact <= max) return [step(n, by), false];
-	const span = max - min + 1n;
-	const wrapped = ((((exact - min) % span) + span) % span) + min;
-	return [(typeof n === "bigint" ? wrapped : Number(wrapped)) as T, true];
+/** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `int`, and whether it wrapped. */
+function overflowing<T>(n: T, by: number, int: Int<T> | undefined): [T, boolean] {
+	if (int === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
+	// `by` may be past a narrow type's range, which its sums take exactly.
+	const sum = by >= 0 ? int.checkedAdd(n, by as T) : int.checkedSub(n, -by as T);
+	if (sum !== undefined) return [sum, false];
+	return [by >= 0 ? int.wrappingAdd(n, by as T) : int.wrappingSub(n, -by as T), true];
 }
 
 /** An iterator as itself: what `into_iter` makes of one. */

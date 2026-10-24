@@ -2,30 +2,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::CodeType;
-use crate::ComponentInterface;
+use super::{CodeType, KotlinCi};
+use crate::interface::Type;
 
 #[derive(Debug)]
 pub struct CallbackInterfaceCodeType {
-    id: String,
+    ty: Type,
 }
 
 impl CallbackInterfaceCodeType {
-    pub fn new(id: String) -> Self {
-        Self { id }
+    pub fn new(ty: Type) -> Self {
+        Self { ty }
     }
 }
 
 impl CodeType for CallbackInterfaceCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
-        super::KotlinCodeOracle.class_name(ci, &self.id)
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_type_label(&self.ty)
     }
 
-    fn canonical_name(&self) -> String {
-        format!("Type{}", self.id)
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_canonical_name(&self.ty)
+    }
+
+    fn ffi_converter_name(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_ffi_converter_name(&self.ty)
     }
 
     fn initialization_fn(&self) -> Option<String> {
-        Some(format!("uniffiCallbackInterface{}.register", self.id))
+        let name = self.ty.name().expect("a named type");
+        Some(format!("uniffiCallbackInterface{name}.register"))
     }
 }

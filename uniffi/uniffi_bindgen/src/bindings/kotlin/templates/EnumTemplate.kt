@@ -46,7 +46,7 @@ enum class {{ type_name }}(val value: {{ variant_discr_type|type_name(ci) }}) {
 /**
  * @suppress
  */
-public object {{ e|ffi_converter_name }}: FfiConverterRustBuffer<{{ type_name }}> {
+public object {{ e|ffi_converter_name(ci) }}: FfiConverterRustBuffer<{{ type_name }}> {
     override fun read(buf: ByteBuffer) = try {
         {% if config.use_enum_entries() %}
         {{ type_name }}.entries[buf.getInt() - 1]
@@ -80,7 +80,7 @@ sealed class {{ type_name }}{% if contains_object_references %}: Disposable {% e
     data class {{ variant|type_name(ci) }}(
         {%- for field in variant.fields() -%}
         {%- call kt::docstring(field, 8) %}{% endcall %}
-        val {% call kt::field_name(field, loop.index) %}{% endcall %}: {{ field|qualified_type_name(ci, config) }}
+        val {% call kt::field_name(field, loop.index) %}{% endcall %}: {{ field|qualified_type_name(ci) }}
         {%- if let Some(default) = field.default_value() %} = {{ default|render_default(field, ci) }} {% endif %}
         {%- if loop.last %}{% else %}, {% endif %}
         {%- endfor -%}
@@ -128,13 +128,13 @@ sealed class {{ type_name }}{% if contains_object_references %}: Disposable {% e
 /**
  * @suppress
  */
-public object {{ e|ffi_converter_name }} : FfiConverterRustBuffer<{{ type_name }}>{
+public object {{ e|ffi_converter_name(ci) }} : FfiConverterRustBuffer<{{ type_name }}>{
     override fun read(buf: ByteBuffer): {{ type_name }} {
         return when(buf.getInt()) {
             {%- for variant in e.variants() %}
             {{ loop.index }} -> {{ type_name }}.{{ variant|type_name(ci) }}{% if variant.has_fields() %}(
                 {% for field in variant.fields() -%}
-                {{ field|read_fn }}(buf),
+                {{ field|read_fn(ci) }}(buf),
                 {% endfor -%}
             ){%- endif -%}
             {%- endfor %}
@@ -149,7 +149,7 @@ public object {{ e|ffi_converter_name }} : FfiConverterRustBuffer<{{ type_name }
             (
                 4UL
                 {%- for field in variant.fields() %}
-                + {{ field|allocation_size_fn }}(value.{%- call kt::field_name(field, loop.index) %}{% endcall -%})
+                + {{ field|allocation_size_fn(ci) }}(value.{%- call kt::field_name(field, loop.index) %}{% endcall -%})
                 {%- endfor %}
             )
         }
@@ -162,7 +162,7 @@ public object {{ e|ffi_converter_name }} : FfiConverterRustBuffer<{{ type_name }
             is {{ type_name }}.{{ variant|type_name(ci) }} -> {
                 buf.putInt({{ loop.index }})
                 {%- for field in variant.fields() %}
-                {{ field|write_fn }}(value.{%- call kt::field_name(field, loop.index) %}{% endcall -%}, buf)
+                {{ field|write_fn(ci) }}(value.{%- call kt::field_name(field, loop.index) %}{% endcall -%}, buf)
                 {%- endfor %}
                 Unit
             }

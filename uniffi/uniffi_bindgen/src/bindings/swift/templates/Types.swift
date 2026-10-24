@@ -76,7 +76,7 @@
 
 {%- when Type::Enum { name, module_path } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if ci.is_name_used_as_error(name) %}
+{%- if ci.is_used_as_error(type_) %}
 {%- include "ErrorTemplate.swift" %}
 {%- else %}
 {%- include "EnumTemplate.swift" %}

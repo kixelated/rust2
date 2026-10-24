@@ -9,6 +9,7 @@ use rustc_middle::ty::{self, Ty};
 use super::AdtRepr;
 use super::body::Body;
 use super::library::Std;
+use super::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
@@ -76,7 +77,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				match (&constant, ty.peel_refs().kind()) {
 					(Expr::Lit(t), ty::Bool) if t == "true" => Some(scrut.clone()),
 					(Expr::Lit(t), ty::Bool) if t == "false" => Some(scrut.clone().not()),
-					(_, ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Str) => Some(scrut.clone().binary("===", constant)),
+					(_, ty::Int(_) | ty::Uint(_)) => {
+						Some(Int::of(ty.peel_refs()).unwrap().compare("===", scrut.clone(), constant))
+					}
+					(_, ty::Bool | ty::Str) => Some(scrut.clone().binary("===", constant)),
 					_ => {
 						self.t.err(pat.span, format!("a constant pattern of type `{ty}`"));
 						None
@@ -85,9 +89,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			PatKind::Range(range) => {
 				let mut tests = Vec::new();
+				let compare = |op: &'static str, l: Expr, r: Expr| match Int::of(range.ty) {
+					Some(int) => int.compare(op, l, r),
+					None => l.binary(op, r),
+				};
 				if let PatRangeBoundary::Finite(lo) = range.lo {
 					let lo = self.value(range.ty, lo, pat.span);
-					tests.push(lo.binary("<=", scrut.clone()));
+					tests.push(compare("<=", lo, scrut.clone()));
 				}
 				if let PatRangeBoundary::Finite(hi) = range.hi {
 					let hi = self.value(range.ty, hi, pat.span);
@@ -95,7 +103,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						rustc_hir::RangeEnd::Included => "<=",
 						rustc_hir::RangeEnd::Excluded => "<",
 					};
-					tests.push(scrut.clone().binary(op, hi));
+					tests.push(compare(op, scrut.clone(), hi));
 				}
 				all(tests)
 			}

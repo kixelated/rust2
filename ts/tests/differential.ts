@@ -1,7 +1,10 @@
 // Runs a fixture's harness both ways on the same inputs and fails on any difference:
 // natively, as the fixture's wasm32 build, and as its TypeScript translation.
 //
-// usage: node differential.ts <fixture.wasm> <harness.ts> <cases>
+// usage: node differential.ts <fixture.wasm> <harness.ts> [cases] [wide]
+//
+// `wide` adds a sweep of the `lang` fixture's 64- and 128-bit cases over operands that
+// random bytes rarely make: every pair of values next to a power of two.
 //
 // A harness, or a hand-written caller wrapping one, exports `run(input: Uint8Array):
 // Vec<u8>`, and may export `cases`, inputs it names, which run with the generated ones.
@@ -16,8 +19,8 @@ import { Wasm } from "./wasm.ts";
 
 type Outcome = Uint8Array | { panic: string };
 
-const [wasmPath, harnessPath, countArg] = process.argv.slice(2);
-if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.wasm> <harness.ts> [cases]");
+const [wasmPath, harnessPath, countArg, wideArg] = process.argv.slice(2);
+if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.wasm> <harness.ts> [cases] [wide]");
 const count = Number(countArg ?? "20000");
 
 const harness = await import(pathToFileURL(harnessPath).href);
@@ -86,6 +89,49 @@ for (let op = 0; op < 8; op++) {
 			new DataView(bytes.buffer).setBigUint64(0, value);
 			for (const selector of [0, 1, 2, 3, 4, 5, 6]) {
 				cases.push(Uint8Array.of(op, selector, ...bytes, ...bytes, ...bytes));
+			}
+		}
+	}
+}
+if (wideArg === "wide") {
+	// 2^k - 1, 2^k, and 2^k + 1 for each k where a limb, a safe number, or a sign ends,
+	// and values without that structure, whose quotients and remainders are not round.
+	const edges = new Set<bigint>([1_000_000n, 0x9e3779b97f4a7c15n, 0x0123456789abcdefn, 0xfedcba9876543210n]);
+	for (const k of [0n, 1n, 16n, 21n, 31n, 32n, 33n, 52n, 53n, 54n, 63n, 64n]) {
+		for (const delta of [-1n, 0n, 1n]) edges.add(((1n << k) + delta) & 0xffffffffffffffffn);
+	}
+	// Small negative numbers, and where negative safe numbers end, as signed values.
+	for (const k of [1n, 53n]) {
+		for (const delta of [-1n, 0n, 1n]) edges.add((-(1n << k) + delta) & 0xffffffffffffffffn);
+	}
+	const values = [...edges];
+	const be = (v: bigint) => {
+		const bytes = new Uint8Array(8);
+		new DataView(bytes.buffer).setBigUint64(0, v);
+		return [...bytes];
+	};
+	// Shift amounts in and past each limb, and past the width, which panics.
+	const shifts = [0, 1, 7, 31, 32, 33, 63, 64, 65, 95, 96, 127, 128, 200];
+	let i = 0;
+	for (const x of values) {
+		for (const y of values) {
+			// A 64-bit case's operands are `x` and `y`. A 128-bit case's are `x:y` and `u:v`,
+			// whose high halves are equal a third of the time, so the low half decides.
+			const u = i % 3 === 0 ? x : values[(i * 7) % values.length];
+			const v = values[(i * 13 + 5) % values.length];
+			const shift = shifts[i++ % shifts.length];
+			for (let kind = 0; kind < 24; kind++) {
+				for (const op of [3, 9]) cases.push(Uint8Array.of(op, kind, ...be(x), ...be(y), shift));
+				for (const op of [4, 10]) cases.push(Uint8Array.of(op, kind, ...be(x), ...be(y), ...be(u), ...be(v), shift));
+			}
+			// Negating an `i64` and an `i128`.
+			cases.push(Uint8Array.of(12, 3, ...be(x)), Uint8Array.of(12, 4, ...be(x), ...be(y)));
+		}
+		for (const y of [0n, 1n, 1n << 32n, 1n << 63n, 0xffffffffffffffffn]) {
+			for (const from of [3, 4, 9, 10]) {
+				// A cast to every type, and every format spec.
+				for (let to = 0; to < 12; to++) cases.push(Uint8Array.of(13, from, to, ...be(x), ...be(y)));
+				cases.push(Uint8Array.of(21, from, ...be(x), ...be(y)));
 			}
 		}
 	}

@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::CodeType;
-use crate::ComponentInterface;
+use super::{CodeType, KotlinCi};
 
 macro_rules! impl_code_type_for_miscellany {
     ($T:ident, $class_name:literal, $canonical_name:literal) => {
@@ -11,11 +10,11 @@ macro_rules! impl_code_type_for_miscellany {
         pub struct $T;
 
         impl CodeType for $T {
-            fn type_label(&self, _ci: &ComponentInterface) -> String {
+            fn type_label(&self, _ci: &KotlinCi<'_>) -> String {
                 $class_name.into()
             }
 
-            fn canonical_name(&self) -> String {
+            fn canonical_name(&self, _ci: &KotlinCi<'_>) -> String {
                 $canonical_name.into()
             }
         }

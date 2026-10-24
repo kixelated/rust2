@@ -4,7 +4,7 @@
 {#- Define the type using typealiases to the builtin #}
 {%- call kt::docstring_value(docstring, 0) %}{% endcall %}
 public typealias {{ type_name }} = {{ builtin|type_name(ci) }}
-public typealias {{ ffi_converter_name }} = {{ builtin|ffi_converter_name }}
+public typealias {{ ffi_converter_name }} = {{ builtin|ffi_converter_name(ci) }}
 
 {%- when Some(config) %}
 
@@ -31,28 +31,28 @@ public typealias {{ type_name }} = {{ concrete_type_name }}
  */
 public object {{ ffi_converter_name }}: FfiConverter<{{ type_name }}, {{ ffi_type_name }}> {
     override fun lift(value: {{ ffi_type_name }}): {{ type_name }} {
-        val builtinValue = {{ builtin|lift_fn }}(value)
+        val builtinValue = {{ builtin|lift_fn(ci) }}(value)
         return {{ config.lift("builtinValue") }}
     }
 
     override fun lower(value: {{ type_name }}): {{ ffi_type_name }} {
         val builtinValue = {{ config.lower("value") }}
-        return {{ builtin|lower_fn }}(builtinValue)
+        return {{ builtin|lower_fn(ci) }}(builtinValue)
     }
 
     override fun read(buf: ByteBuffer): {{ type_name }} {
-        val builtinValue = {{ builtin|read_fn }}(buf)
+        val builtinValue = {{ builtin|read_fn(ci) }}(buf)
         return {{ config.lift("builtinValue") }}
     }
 
     override fun allocationSize(value: {{ type_name }}): ULong {
         val builtinValue = {{ config.lower("value") }}
-        return {{ builtin|allocation_size_fn }}(builtinValue)
+        return {{ builtin|allocation_size_fn(ci) }}(builtinValue)
     }
 
     override fun write(value: {{ type_name }}, buf: ByteBuffer) {
         val builtinValue = {{ config.lower("value") }}
-        {{ builtin|write_fn }}(builtinValue, buf)
+        {{ builtin|write_fn(ci) }}(builtinValue, buf)
     }
 }
 {%- endmatch %}

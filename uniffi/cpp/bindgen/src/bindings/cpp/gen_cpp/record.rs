@@ -1,7 +1,8 @@
 use uniffi_bindgen::{interface::Literal, ComponentInterface};
 
 use crate::bindings::cpp::{
-    gen_cpp::filters::external_namespace_prefix, gen_cpp::filters::CppCodeOracle, CodeType,
+    gen_cpp::filters::{external_canonical_prefix, external_namespace_prefix, CppCodeOracle},
+    CodeType,
 };
 
 #[derive(Debug)]
@@ -25,8 +26,12 @@ impl CodeType for RecordCodeType {
         )
     }
 
-    fn canonical_name(&self) -> String {
-        format!("Type{}", self.id)
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
+        format!(
+            "{}Type{}",
+            external_canonical_prefix(ci, &self.module_path),
+            self.id
+        )
     }
 
     fn literal(&self, _literal: &Literal, _ci: &ComponentInterface) -> String {

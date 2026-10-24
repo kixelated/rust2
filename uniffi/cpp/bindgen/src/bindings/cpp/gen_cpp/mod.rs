@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use topological_sort::{DependencyLink, TopologicalSort};
 use uniffi_bindgen::{interface::*, ComponentInterface};
 
-use crate::bindings::cpp::gen_cpp::filters::callback_interface_name;
+use crate::bindings::cpp::gen_cpp::filters::{callback_interface_name, defining_interface};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub enum EnumStyle {
@@ -67,22 +67,57 @@ thread_local! {
 
     // uniffi's `rename` misses some types, such as a constructor's error, so the oracle renames
     // each type it renders as well.
-    static RENAMES: RefCell<HashMap<String, String>> = RefCell::default();
+    static RENAMES: RefCell<Renames> = RefCell::default();
 }
 
 pub(crate) fn error_style() -> ErrorStyle {
     ERROR_STYLE.with(Cell::get)
 }
 
+/// New type names by crate and old name, since another crate may use the old name for a type
+/// of its own.
+pub(crate) type Renames = HashMap<(String, String), String>;
+
 /// `ty` with every type it names under its new name.
 pub(crate) fn renamed(mut ty: Type) -> Type {
     RENAMES.with(|renames| {
         let renames = renames.borrow();
         if !renames.is_empty() {
-            ty.rename_recursive(&|name| renames.get(name).map_or(name, String::as_str).into());
+            rename_type(&mut ty, &renames);
         }
     });
     ty
+}
+
+fn rename_type(ty: &mut Type, renames: &Renames) {
+    let crate_name = ty.crate_name().map(str::to_string);
+    match ty {
+        Type::Object { name, .. }
+        | Type::Record { name, .. }
+        | Type::Enum { name, .. }
+        | Type::CallbackInterface { name, .. }
+        | Type::Custom { name, .. } => {
+            if let Some(new) = renames.get(&(crate_name.unwrap_or_default(), name.clone())) {
+                *name = new.clone();
+            }
+        }
+        _ => {}
+    }
+    match ty {
+        Type::Optional { inner_type }
+        | Type::Sequence { inner_type }
+        | Type::Set { inner_type }
+        | Type::Box { inner_type } => rename_type(inner_type, renames),
+        Type::Map {
+            key_type,
+            value_type,
+        } => {
+            rename_type(key_type, renames);
+            rename_type(value_type, renames);
+        }
+        Type::Custom { builtin, .. } => rename_type(builtin, renames),
+        _ => {}
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
@@ -95,9 +130,9 @@ pub(crate) struct Config {
     error_style: ErrorStyle,
     #[serde(default)]
     strip_type_prefix: Option<String>,
-    /// Every type renamed by `strip_type_prefix`, across all components, old name to new.
+    /// Every type renamed by `strip_type_prefix`, across all components.
     #[serde(skip)]
-    pub(crate) renames: HashMap<String, String>,
+    pub(crate) renames: Renames,
 }
 
 impl Config {
@@ -253,7 +288,11 @@ impl<'a> CppWrapperHeader<'a> {
                 }
             })
             .flat_map(|(name, types)| {
+                // An external type is defined in its own namespace's header, which we
+                // `#include`, so it never orders a local definition. It may also share its
+                // bare name with a local type.
                 types
+                    .filter(|t| !self.ci.is_external(t))
                     .filter_map(type_name)
                     .map(|field_name| DependencyLink {
                         prec: field_name,
@@ -279,13 +318,8 @@ impl<'a> CppWrapperHeader<'a> {
                 let found = self
                     .ci
                     .iter_local_types()
-                    .chain(self.ci.iter_external_types())
                     .find(|t| type_name(t) == Some(name));
                 match found {
-                    // External types are defined in their own namespace's header with their own
-                    // converters declared, which we `#include`. They must not enter the local
-                    // definition ordering, or we'd try to emit a definition we don't have.
-                    Some(type_) if self.ci.is_external(type_) => {}
                     Some(type_) => sorted.push(type_.clone()),
                     None => {
                         panic!("Type {} not found", name)
@@ -317,23 +351,29 @@ impl<'a> CppWrapperHeader<'a> {
             .collect()
     }
 
-    pub(crate) fn external_ffi_converters(&self) -> Vec<String> {
-        self.ci
-            .iter_external_types()
-            .filter_map(|ty| {
-                let namespace = self.ci.namespace_for_type(ty).ok()?;
-                if namespace == self.ci.namespace() {
-                    return None;
-                }
-                Some(format!(
-                    "{}::uniffi::{}",
-                    namespace,
-                    CppCodeOracle.find(ty).ffi_converter_name()
-                ))
-            })
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect()
+    /// Each external converter as `(local name, its own namespace's name)`. The local name
+    /// carries the namespace, so it never shadows the converter of a local namesake.
+    pub(crate) fn external_ffi_converters(&self) -> Vec<(String, String)> {
+        let mut converters = BTreeSet::new();
+        for ty in self.ci.iter_external_types() {
+            let Ok(namespace) = self.ci.namespace_for_type(ty) else {
+                continue;
+            };
+            if namespace == self.ci.namespace() {
+                continue;
+            }
+            let code = CppCodeOracle.find(ty);
+            let own = code.ffi_converter_name(defining_interface(self.ci, ty));
+            let local = code.ffi_converter_name(self.ci);
+            if matches!(ty, Type::Object { .. }) && self.ci.is_used_as_error(ty) {
+                converters.insert((
+                    format!("{local}__as_error"),
+                    format!("::{namespace}::uniffi::{own}__as_error"),
+                ));
+            }
+            converters.insert((local, format!("::{namespace}::uniffi::{own}")));
+        }
+        converters.into_iter().collect()
     }
 
     pub(crate) fn includes(&self) -> Vec<String> {
@@ -392,7 +432,9 @@ impl<'a> CppWrapper<'a> {
             })
             .filter_map(|t| {
                 let namespace = self.ci.namespace_for_type(t).ok()?;
-                let canonical = CppCodeOracle.find(t).canonical_name();
+                let canonical = CppCodeOracle
+                    .find(t)
+                    .canonical_name(defining_interface(self.ci, t));
                 Some(format!(
                     "{}::uniffi::{}::init",
                     namespace,
@@ -468,4 +510,39 @@ pub(crate) fn generate_cpp_scaffolding(
     Ok(Scaffolding {
         cpp_scaffolding_source,
     })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn renames_only_the_crate_that_stripped() {
+        let record = |module_path: &str, name: &str| Type::Record {
+            module_path: module_path.to_string(),
+            name: name.to_string(),
+        };
+        let renames: Renames = [(("net".into(), "MoqFrame".into()), "Frame".into())].into();
+        let mut ty = Type::Map {
+            key_type: Box::new(Type::String),
+            value_type: Box::new(Type::Optional {
+                inner_type: Box::new(record("net::frame", "MoqFrame")),
+            }),
+        };
+        rename_type(&mut ty, &renames);
+        let Type::Map { value_type, .. } = &ty else {
+            unreachable!()
+        };
+        assert_eq!(
+            **value_type,
+            Type::Optional {
+                inner_type: Box::new(record("net::frame", "Frame"))
+            }
+        );
+
+        // `media` did not strip its prefix, so its own `MoqFrame` keeps the name.
+        let mut ty = record("media", "MoqFrame");
+        rename_type(&mut ty, &renames);
+        assert_eq!(ty, record("media", "MoqFrame"));
+    }
 }

@@ -149,8 +149,9 @@ fn typecheck(out: &Path) {
 }
 
 /// Run the harness natively, as wasm32, and translated, on the same inputs: the
-/// translated side through `entry`, a module in `out`.
-fn differential(package: &str, out: &Path, entry: &str, cases: u32) {
+/// translated side through `entry`, a module in `out`. `extra` are `differential.ts`'s
+/// arguments after the case count.
+fn differential(package: &str, out: &Path, entry: &str, cases: u32, extra: &[&str]) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
 		.args([
@@ -178,6 +179,7 @@ fn differential(package: &str, out: &Path, entry: &str, cases: u32) {
 		.arg(&wasm)
 		.arg(out.join(entry))
 		.arg(cases.to_string())
+		.args(extra)
 		.output()
 		.expect("running node, which the dev shell provides");
 	let stdout = String::from_utf8_lossy(&output.stdout);
@@ -194,7 +196,7 @@ fn codec() {
 	let out = translated("codec");
 	snapshot("codec", &out);
 	typecheck(&out);
-	differential("codec-fixture", &out, "harness.ts", 20_000);
+	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
 }
 
 /// Adding a root changes only the output of what it reaches: everything else keeps its
@@ -254,10 +256,13 @@ fn lines(text: &str) -> Vec<String> {
 fn lang() {
 	let out = translated("lang");
 	snapshot("lang", &out);
-	// A hand-written caller, type-checked against the output it calls.
-	std::fs::copy(manifest_dir().join("fixtures/lang/caller.ts"), out.join("caller.ts")).unwrap();
+	// Hand-written callers, type-checked against the output they call: one runs it, and
+	// one mixes integer types, which `tsc` must refuse.
+	for file in ["caller.ts", "brands.ts"] {
+		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
+	}
 	typecheck(&out);
-	differential("lang-fixture", &out, "caller.ts", 50_000);
+	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
 }
 
 /// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
@@ -279,7 +284,7 @@ export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, dra
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
 	typecheck(&out);
-	differential("task-fixture", &out, "caller.ts", 20_000);
+	differential("task-fixture", &out, "caller.ts", 20_000, &[]);
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.

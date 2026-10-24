@@ -62,7 +62,7 @@ namespace {{ namespace }} {
 {%- match typ %}
 {%- when Type::Enum { module_path, name } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if ci.is_name_used_as_error(name) || !e.is_flat() %}
+{%- if ci.is_used_as_error(typ) || !e.is_flat() %}
 struct {{ name }};
 {%- else %}
 enum class {{ name }};
@@ -93,7 +93,7 @@ typedef {{ type_name }} {{ name }};
 {%- match typ %}
 {%- when Type::Enum { module_path, name } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if name|error_class(ci) %}
+{%- if typ|error_class(ci) %}
 {% include "err.hpp" %}
 {%- else %}
 {% include "enum.hpp" %}
@@ -120,8 +120,8 @@ namespace uniffi {
 using ::uniffi::RustStream;
 using ::uniffi::RustStreamBuffer;
 using ::uniffi::Future;
-{%- for converter in self.external_ffi_converters() %}
-using {{ converter }};
+{%- for (converter, external) in self.external_ffi_converters() %}
+using {{ converter }} = {{ external }};
 {%- endfor %}
 
 RustBuffer rustbuffer_alloc(uint64_t);
@@ -165,7 +165,7 @@ void rustbuffer_free(RustBuffer);
 {% include "duration_conv.hpp" %}
 {%- when Type::Enum { module_path, name } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if name|error_class(ci) %}
+{%- if typ|error_class(ci) %}
 {% include "err_conv.hpp" %}
 {%- else %}
 {% include "enum_conv.hpp" %}

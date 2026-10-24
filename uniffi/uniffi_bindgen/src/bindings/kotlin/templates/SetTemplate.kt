@@ -8,21 +8,21 @@ public object {{ ffi_converter_name }}: FfiConverterRustBuffer<Set<{{ inner_type
         val len = buf.getInt()
         return buildSet<{{ inner_type_name }}>(len) {
             repeat(len) {
-                add({{ inner_type|read_fn }}(buf))
+                add({{ inner_type|read_fn(ci) }}(buf))
             }
         }
     }
 
     override fun allocationSize(value: Set<{{ inner_type_name }}>): ULong {
         val spaceForLength = 4UL
-        val spaceForItems = value.map { {{ inner_type|allocation_size_fn }}(it) }.sum()
+        val spaceForItems = value.map { {{ inner_type|allocation_size_fn(ci) }}(it) }.sum()
         return spaceForLength + spaceForItems
     }
 
     override fun write(value: Set<{{ inner_type_name }}>, buf: ByteBuffer) {
         buf.putInt(value.size)
         value.iterator().forEach {
-            {{ inner_type|write_fn }}(it, buf)
+            {{ inner_type|write_fn(ci) }}(it, buf)
         }
     }
 }

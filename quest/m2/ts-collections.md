@@ -16,15 +16,12 @@ by the translated `Ord`, and `VecDeque` a ring buffer.
 
 - `HashMap` iteration order is unspecified in Rust, so insertion order is a
   valid refinement; differential tests must not compare it.
-- Which keys are primitive depends on the
-  [wide-integer representation](/quest/m2/ts-wide-ints.md): a hi/lo `u64` is
-  not one.
+- A 64- or 128-bit integer is a number while it is a safe integer, and an object
+  of 32-bit limbs past that ([representation](/ts/README.md#design)), so it is a
+  primitive key only while it is a number.
 - Each collection's iterators (`iter`, `values`, `range`, `drain`) are `rt.Iter`s,
   as `rt/iter.ts` makes std's, so the adaptors over them already translate. moq-net's
   `BTreeMap::range` takes `RangeFrom` and `RangeTo`, which are not values yet.
 
 Public API: the translator's output for collections.
 
-## Required
-
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - which keys lower to primitives

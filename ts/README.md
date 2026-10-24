@@ -52,8 +52,8 @@ and async in `rt/task.ts`.
 | Rust | TypeScript |
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
-| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
-| `u64`, `i64`, `u128`, `i128` | `bigint`, checked the same way |
+| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
+| `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
@@ -73,6 +73,18 @@ and async in `rt/task.ts`.
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+
+Each integer type is its own type to `tsc`, named as Rust's: `rt.u8` is a `number` with a
+type-only brand, so a `u16` where a `u8` goes fails the type check, while a plain
+number, such as a literal, passes for any. A cast that keeps the value is `x as rt.u16`,
+which costs nothing at run time.
+
+A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
+object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
+`hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
+makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
+is `rt.u64.low(x)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -127,8 +139,20 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 ## Design
 
-- 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
-  faster but waits until `just ts bench` measures `bigint` as the cost.
+- 64- and 128-bit integers are numbers while they are safe integers, which most values
+  are: lengths, IDs, sequence numbers, and timestamps. `just ts bench` measured it
+  against `bigint`, against limbs for every value, and against unboxed halves, two
+  numbers in locals, fields, and arguments. It ties unboxed halves on the codec and
+  beats `bigint` there in Node, Bun, and Chrome: varint encode 13-65% faster, frame
+  decode 8-32%, and message decode 22-31%, though Chrome's 8-byte varint decode is
+  25-45% slower. A loop of sums and comparisons past 2^32 measured 2-6x faster. Limbs
+  for every value allocate an object each, which costs what a `bigint` does in V8, so
+  they lost decode; unboxed halves would lower every value to two. Past 2^53 an
+  operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
+  than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
+  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
+  `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
+  brand would cast every literal, so a plain number passes for any type.
 - A generic type is one class or union, the type TS callers name, and a method on it is
   one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
   the type for callers, and TS generics with trait dictionaries would undo
@@ -188,7 +212,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a
-  hand-written caller that also prints a `printable` error nothing translated prints.
+  hand-written caller that also prints a `printable` error nothing translated prints,
+  and adds every 64- and 128-bit case over each pair of values next to a power of two,
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the

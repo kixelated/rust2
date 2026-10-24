@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::interface::FfiDefinition;
+use crate::interface::{universe::type_key, AsType, FfiDefinition};
 use crate::{ComponentInterface, VisitMut};
 use std::collections::BTreeSet;
 use uniffi_meta::Type;
@@ -16,9 +16,14 @@ impl ComponentInterface {
     /// Each suppoerted language implements the [`VisitMut`] Trait and is able
     /// to alter the functions, enums etc. to its own naming conventions.
     pub fn visit_mut<V: VisitMut>(&mut self, visitor: &V) {
-        for type_ in self.types.type_definitions.values_mut() {
-            visitor.visit_type(type_);
-        }
+        // A renamed type is found by its new name.
+        self.types.type_definitions = std::mem::take(&mut self.types.type_definitions)
+            .into_values()
+            .map(|mut type_| {
+                visitor.visit_type(&mut type_);
+                (type_key(&type_).expect("a type definition is named"), type_)
+            })
+            .collect();
 
         let mut all_known_types_altered: BTreeSet<Type> = BTreeSet::new();
 
@@ -32,7 +37,8 @@ impl ComponentInterface {
 
         let errors_clone = self.errors.clone();
         for enum_item in self.enums.iter_mut() {
-            let is_error = errors_clone.contains(enum_item.name());
+            let is_error =
+                type_key(&enum_item.as_type()).is_some_and(|k| errors_clone.contains(&k));
 
             visitor.visit_enum(is_error, enum_item);
 
@@ -150,9 +156,9 @@ impl ComponentInterface {
         self.errors = self
             .errors
             .drain()
-            .map(|mut name| {
-                visitor.visit_error_name(&mut name);
-                name
+            .map(|(crate_name, mut name)| {
+                visitor.visit_error_name(&crate_name, &mut name);
+                (crate_name, name)
             })
             .collect()
     }
