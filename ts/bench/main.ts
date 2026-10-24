@@ -60,6 +60,14 @@ async function read(path: string): Promise<Uint8Array> {
 	return new Uint8Array(await Bun.file(path).arrayBuffer());
 }
 
+// Chrome's page reports an entry that fails to load or throws before it can report itself.
+const page = `<!doctype html>
+<script>
+	addEventListener("error", (e) => fetch("/error", { method: "POST", body: e.message ?? \`\${e.target.src} failed to load\` }), true);
+</script>
+<script type="module" src="entry.js"></script>
+`;
+
 const handWritten = join(import.meta.dir, "moq.ts");
 const translated = join(arg("translated"), "bench.ts");
 const wasmBytes = await read(arg("wasm"));
@@ -71,7 +79,7 @@ await Promise.all([
 	Bun.write(join(out, "translated-aa.js"), translation),
 	Bun.write(join(out, "bench.wasm"), wasmBytes),
 	Bun.write(join(out, "package.json"), '{ "type": "module" }\n'),
-	Bun.write(join(out, "index.html"), '<!doctype html><script type="module" src="entry.js"></script>\n'),
+	Bun.write(join(out, "index.html"), page),
 ]);
 
 const moqWasm = arg("moq-wasm");
@@ -174,10 +182,13 @@ console.log(report);
 
 function render(): string {
 	const cpu = cpus();
+	// Node names no Arm CPU on Linux; lscpu decodes its part number.
+	const model =
+		process.platform === "linux" ? (text(["lscpu"]).match(/^Model name:\s*(.+)$/m)?.[1] ?? "unknown") : cpu[0].model;
 	const lines = [
 		"# rust2-ts benchmark",
 		"",
-		`- Host: ${cpu[0].model}, ${cpu.length} threads, ${(totalmem() / 2 ** 30).toFixed(0)} GiB, ${process.platform} ${release()} ${process.arch}`,
+		`- Host: ${model}, ${cpu.length} threads, ${(totalmem() / 2 ** 30).toFixed(0)} GiB, ${process.platform} ${release()} ${process.arch}`,
 		`- Rust: ${text(["rustc", "-V"])}`,
 		`- moq: ${text(["git", "-C", checkout, "rev-parse", "HEAD"])}`,
 		...engines.map((e) => `- ${e.engine}`),
