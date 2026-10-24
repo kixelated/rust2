@@ -135,6 +135,34 @@ pub fn consumers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(mapped.unwrap_or(0));
 			let position = data.iter().position(|&b| b == 0x40);
 			out.push(position.map_or(0xff, |p| p as u8));
+			// A zip of slices reads the longer side's closure only up to the shorter's length.
+			let short = &data[data.len() / 2..];
+			let logged = |b: &u8| *b;
+			let pairs = data
+				.iter()
+				.map(|&b| {
+					log.push(b);
+					b
+				})
+				.zip(short)
+				.count();
+			out.push(pairs as u8);
+			let walked = data.iter().map(|&b| {
+				log.push(!b);
+				b
+			});
+			for (a, b) in walked.zip(short.iter()) {
+				out.push(a ^ b);
+			}
+			for (a, &b) in data.iter().inspect(|&&b| log.push(b)).map(logged).zip(short.iter()) {
+				out.push(a ^ b);
+			}
+			let mut back = data.iter().map(|&b| b.rotate_free()).zip(short.iter().copied());
+			if let Some((a, b)) = back.next_back() {
+				out.push(a);
+				out.push(b);
+			}
+			out.push(back.len() as u8);
 		}
 		2 => {
 			out.push(data.iter().copied().max().unwrap_or(0));

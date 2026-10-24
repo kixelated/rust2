@@ -154,3 +154,9 @@ impl DoubleEndedIterator for Backs {
 pub fn backs() -> usize {
 	Backs.rev().count()
 }
+
+/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
+/// through `next`, which calls the first side's closure once more.
+pub fn zipped(a: &[u8], b: &[u8]) -> usize {
+	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
+}

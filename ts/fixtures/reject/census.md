@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 40
-- Function instances: 26
+- Refusals: 41
+- Function instances: 27
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -20,6 +20,7 @@
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:3 |
 | 1 | `_` implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:43:1 |
 | 1 | `_` is async, which is not supported yet | fixtures/reject/src/lib.rs:53:1 |
+| 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:161:51 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:110:2 |
 | 1 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:80:18 |
@@ -54,6 +55,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Iterator` | fixtures/reject/src/lib.rs:128:2 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `later` | fixtures/reject/src/lib.rs:53:1 |
+| 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:161:51 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:115:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 
@@ -70,6 +72,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 1 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
+| 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:161:51 |
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:110:2 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:75:17 |
@@ -166,6 +169,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` is async, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:53:1: `later` is async, which is not supported yet
+
+</details>
+
+<details><summary>a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` (1)</summary>
+
+- fixtures/reject/src/lib.rs:161:51: a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:161:15: 161:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold`
 
 </details>
 

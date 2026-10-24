@@ -277,9 +277,25 @@ pub fn call<'tcx>(
 			option_ok(b, item, span);
 			method(&super::camel(name), rest)
 		}
-		"chain" | "zip" => {
+		"chain" => {
 			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
 			method(name, vec![other])
+		}
+		"zip" => {
+			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let zip = b.t.subst(
+				ty::List::empty(),
+				tcx.instantiate_bound_regions_with_erased(sig).output(),
+			);
+			let ty::Adt(_, sides) = zip.kind() else {
+				return None;
+			};
+			let mut args = vec![other];
+			if zip_reads_by_index(b, sides.type_at(0), sides.type_at(1), span) {
+				args.push(Expr::lit("true"));
+			}
+			method(name, args)
 		}
 		"flat_map" => {
 			let mut rest = rest;
@@ -321,6 +337,55 @@ pub fn call<'tcx>(
 		"collect" => collect(b, targ(1)?, item, recv, span),
 		_ => None,
 	}
+}
+
+/// Whether std's `Zip` of `a` and `b` reads both by index, never past the shorter: when
+/// both are `TrustedRandomAccess`. Refuse one that `fold` reads that way but `next` does
+/// not, where the first calls a closure that would see the difference.
+fn zip_reads_by_index<'tcx>(b: &mut Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>, span: Span) -> bool {
+	let both = |b: &mut Body<'_, '_, 'tcx>, name: &str| implements(b.t, a, name) && implements(b.t, other, name);
+	if both(b, "TrustedRandomAccess") {
+		return true;
+	}
+	if (both(b, "TrustedRandomAccessNoCoerce") || both(b, "TrustedLen")) && calls_closures(b.t.tcx, a) {
+		b.t.err(
+			span,
+			format!("a `zip` of `{a}`, whose closures std calls one item further through `next` than through `fold`"),
+		);
+	}
+	false
+}
+
+/// Whether `ty`, an iterator, has std's closure-calling adaptors in it, which std counts as
+/// side effects.
+fn calls_closures(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
+	ty.walk().filter_map(|arg| arg.as_type()).any(|t| match t.kind() {
+		ty::Adt(adt, _) => matches!(
+			library::std_path(tcx, adt.did()).last().map(String::as_str),
+			Some("Map" | "Cloned" | "Inspect")
+		),
+		_ => false,
+	})
+}
+
+/// Whether `ty` implements `core`'s trait `name`, one of the iterator markers std
+/// specializes on and names nowhere else.
+fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
+	use rustc_infer::infer::TyCtxtInferExt;
+	use rustc_trait_selection::infer::InferCtxtExt;
+	let tcx = t.tcx;
+	let Some(&core) = tcx
+		.crates(())
+		.iter()
+		.find(|&&c| tcx.crate_name(c) == rustc_span::sym::core)
+	else {
+		return false;
+	};
+	let Some(&tr) = tcx.traits(core).iter().find(|&&tr| tcx.item_name(tr).as_str() == name) else {
+		return false;
+	};
+	let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(t.typing_env_pub());
+	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
 }
 
 /// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.

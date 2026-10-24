@@ -217,16 +217,66 @@ export function consumers(kind: number, data: Uint8Array, out: rt.ByteVec): void
 		out.push(rt.option.mapOr(position, 0xff, (p: number): number => {
 			return p & 0xff;
 		}));
+		const short = rt.slice.range(data, rt.usize.div(data.length, 2));
+		const logged = (b9: number): number => {
+			return b9;
+		};
+		const pairs = rt.iter.slice(data).map((arg9: number): number => {
+			const b10 = arg9;
+			log.push(b10);
+			return b10;
+		}).zip(rt.iter.slice(short), true).count();
+		out.push(pairs & 0xff);
+		const walked = rt.iter.slice(data).map((arg10: number): number => {
+			const b11 = arg10;
+			log.push(~b11 & 0xff);
+			return b11;
+		});
+		const iter = walked.zip(rt.iter.slice(short), true);
+		while (true) {
+			const item = iter.next();
+			if (item === rt.DONE) {
+				break;
+			}
+			const a = item[0];
+			const b12 = item[1];
+			out.push(a ^ b12);
+		}
+		const iter2 = rt.iter.slice(data).inspect((arg11: number): void => {
+			const b13 = arg11;
+			log.push(b13);
+		}).map(logged).zip(rt.iter.slice(short));
+		while (true) {
+			const item2 = iter2.next();
+			if (item2 === rt.DONE) {
+				break;
+			}
+			const a2 = item2[0];
+			const b14 = item2[1];
+			out.push(a2 ^ b14);
+		}
+		let back: rt.Iter<[number, number]> = rt.iter.slice(data).map((arg12: number): number => {
+			const b15 = arg12;
+			return rotateFree(b15);
+		}).zip(rt.iter.slice(short), true);
+		const nextBack = rt.iter.toOption(back.nextBack());
+		if (nextBack !== undefined) {
+			const a3 = nextBack[0];
+			const b16 = nextBack[1];
+			out.push(a3);
+			out.push(b16);
+		}
+		out.push(back.len() & 0xff);
 	} else if (value === 2) {
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).max(), 0));
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).min(), 0xff));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).maxByKey((arg9: number): number => {
-			const b9 = arg9;
-			return rt.u8.rem(b9, 16);
+		out.push(rt.option.unwrapOr(rt.iter.slice(data).maxByKey((arg13: number): number => {
+			const b17 = arg13;
+			return rt.u8.rem(b17, 16);
 		}), 0xee));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).minByKey((arg10: number): number => {
-			const b10 = arg10;
-			return rt.u8.div(b10, 16);
+		out.push(rt.option.unwrapOr(rt.iter.slice(data).minByKey((arg14: number): number => {
+			const b18 = arg14;
+			return rt.u8.div(b18, 16);
 		}), 0xee));
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).last(), 0xdd));
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).nth(3), 0xcc));
@@ -236,35 +286,35 @@ export function consumers(kind: number, data: Uint8Array, out: rt.ByteVec): void
 		out.push(rt.option.unwrapOr(it.take(rt.usize.rem(data.length, 5)).nth(2), 0xbb));
 		out.push(it.len() & 0xff);
 	} else if (value === 3) {
-		const wide = rt.iter.slice(data).map((arg11: number): bigint => {
-			const b11 = arg11;
-			return rt.u64.mul(BigInt(b11), 0x0101_0101_0101n);
+		const wide = rt.iter.slice(data).map((arg15: number): bigint => {
+			const b19 = arg15;
+			return rt.u64.mul(BigInt(b19), 0x0101_0101_0101n);
 		}).sum(rt.u64.add, 0n);
 		out.extendFromSlice(rt.u64.toBeBytes(wide));
-		const folded = rt.iter.slice(data).fold(0, (acc: number, arg12: number): number => {
-			const b12 = arg12;
-			return rt.u32.wrappingAdd((acc << 3) >>> 0, (b12 ^ acc) >>> 0);
+		const folded = rt.iter.slice(data).fold(0, (acc: number, arg16: number): number => {
+			const b20 = arg16;
+			return rt.u32.wrappingAdd((acc << 3) >>> 0, (b20 ^ acc) >>> 0);
 		});
 		out.extendFromSlice(rt.u32.toBeBytes(folded));
-		rt.iter.slice(data).forEach((arg13: number): void => {
-			const b13 = arg13;
-			log.push(rotateFree(b13));
+		rt.iter.slice(data).forEach((arg17: number): void => {
+			const b21 = arg17;
+			log.push(rotateFree(b21));
 		});
 	} else if (value === 4) {
 		const total = rt.iter.slice(data).sum(rt.u8.add, 0);
 		out.push(total);
-		const product = rt.iter.slice(data).map((arg14: number): number => {
-			const b14 = arg14;
-			return rt.u16.add(rt.u16.rem(b14, 4), 1);
+		const product = rt.iter.slice(data).map((arg18: number): number => {
+			const b22 = arg18;
+			return rt.u16.add(rt.u16.rem(b22, 4), 1);
 		}).product(rt.u16.mul, 1);
 		out.extendFromSlice(rt.u16.toBeBytes(product));
 	} else {
-		const parsed = rt.iter.slice(data).map((arg15: number): rt.Result<number, number> => {
-			const b15 = arg15;
-			if (b15 < 0xf0) {
-				return rt.Ok(b15);
+		const parsed = rt.iter.slice(data).map((arg19: number): rt.Result<number, number> => {
+			const b23 = arg19;
+			if (b23 < 0xf0) {
+				return rt.Ok(b23);
 			} else {
-				return rt.Err(b15);
+				return rt.Err(b23);
 			}
 		}).collectResult((values__: rt.Iter<number>) => values__.toByteVec());
 		if (parsed.ok) {
@@ -274,12 +324,12 @@ export function consumers(kind: number, data: Uint8Array, out: rt.ByteVec): void
 			const e = parsed.error;
 			out.push(e);
 		}
-		const some = rt.iter.slice(data).inspect((arg16: number): void => {
-			const b16 = arg16;
-			log.push(b16);
-		}).map((arg17: number): number | undefined => {
-			const b17 = arg17;
-			return rt.thenSome(b17 !== 0x20, b17);
+		const some = rt.iter.slice(data).inspect((arg20: number): void => {
+			const b24 = arg20;
+			log.push(b24);
+		}).map((arg21: number): number | undefined => {
+			const b25 = arg21;
+			return rt.thenSome(b25 !== 0x20, b25);
 		}).collectOption((values__: rt.Iter<number>) => values__.toArray());
 		out.push(rt.option.mapOr(some, 0xff, (v2: number[]): number => {
 			return v2.length & 0xff;

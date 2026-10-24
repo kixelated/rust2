@@ -57,9 +57,13 @@ export abstract class Iter<T> implements Iterable<T> {
 		return new ChainIter(this, other);
 	}
 
-	/** `zip`, with `other` already made an iterator, as std does when it is called. */
-	zip<U>(other: Iter<U>): Iter<[T, U]> {
-		return new ZipIter(this, other);
+	/**
+	 * `zip`, with `other` already made an iterator, as std does when it is called. A
+	 * `trusted` zip is one of two `TrustedRandomAccess` iterators, which std reads by
+	 * index up to the shorter length and never past it.
+	 */
+	zip<U>(other: Iter<U>, trusted = false): Iter<[T, U]> {
+		return trusted ? new TrustedZipIter(this, other) : new ZipIter(this, other);
 	}
 
 	rev(): Iter<T> {
@@ -549,6 +553,33 @@ class ZipIter<A, B> extends Iter<[A, B]> {
 
 	override len(): number {
 		return Math.min(this.a.len(), this.b.len());
+	}
+}
+
+/** std's `Zip` of two `TrustedRandomAccess` iterators, which counts the pairs it reads. */
+class TrustedZipIter<A, B> extends ZipIter<A, B> {
+	private index = 0;
+	private end: number;
+
+	constructor(a: Iter<A>, b: Iter<B>) {
+		super(a, b);
+		this.end = Math.min(a.len(), b.len());
+	}
+
+	override next(): [A, B] | Done {
+		if (this.index >= this.end) return DONE;
+		this.index++;
+		return super.next();
+	}
+
+	override nextBack(): [A, B] | Done {
+		if (this.index >= this.end) return DONE;
+		this.end--;
+		return super.nextBack();
+	}
+
+	override len(): number {
+		return this.end - this.index;
 	}
 }
 
