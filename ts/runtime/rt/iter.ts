@@ -283,12 +283,12 @@ export abstract class Iter<T> implements Iterable<T> {
 }
 
 /** The item `next` returned, as an `Option`. */
-export function toOption<T>(item: T | Done): T | undefined {
+function toOption<T>(item: T | Done): T | undefined {
 	return item === DONE ? undefined : item;
 }
 
 /** An `Option`, as `next` returns it. */
-export function fromOption<T>(option: T | undefined): T | Done {
+function fromOption<T>(option: T | undefined): T | Done {
 	return option === undefined ? DONE : option;
 }
 
@@ -1085,7 +1085,7 @@ export class RangeInclusive<T> extends Iter<T> {
 }
 
 /** An integer type's least and greatest values. */
-export interface Bounds<T> {
+interface Bounds<T> {
 	readonly MIN: T;
 	readonly MAX: T;
 }

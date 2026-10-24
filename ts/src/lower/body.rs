@@ -322,15 +322,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			Dest::Return if self.done => {
-				let ty::Adt(_, args) = self.ret.kind() else {
-					unreachable!("Iterator::next returns an Option")
-				};
-				if !self.t.option_payload_ok(args.type_at(0)) {
-					let ret = self.ret;
-					self.t.err(
-						span,
-						format!("`{ret}` is not supported: its `None` and `Some` would both be `undefined`"),
-					);
+				if let ty::Adt(_, args) = self.ret.kind() {
+					super::iter::option_ok(self, args.type_at(0), span);
 				}
 				let value = Expr::Rt("iter").member("fromOption").call(vec![value]);
 				self.push(out, StmtKind::Return(Some(value)), span);

@@ -20,7 +20,6 @@ deletes the quests that follow it.
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - a `Drop` type's `drop()` runs where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
-- [Iterators](/quest/m2/ts-iter.md) - lazy `rt.ts` adaptors with a `DONE` protocol
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
 - [Methods on generic types](/quest/m2/ts-generic-methods.md) - generic classes' methods type-check, derived `Debug` included
 - [Source order](/quest/m2/ts-source-order.md) - each module's items come out in Rust source order

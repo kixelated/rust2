@@ -158,7 +158,7 @@ fn into_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option
 }
 
 /// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
-fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
+pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 	if !b.t.option_payload_ok(ty) {
 		b.t.err(
 			span,
