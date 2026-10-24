@@ -163,6 +163,9 @@ pub struct Translator<'a, 'tcx> {
 	refusals: Option<Vec<(Span, String)>>,
 	/// Whether each type's drop does something JS can see, as [`Self::drops`] found.
 	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
+	/// The types [`Self::drops`] is still deciding, and whether the query open now read one.
+	drops_open: rustc_data_structures::fx::FxHashSet<Ty<'tcx>>,
+	drops_cycle: bool,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
 }
@@ -239,6 +242,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			env: TypingEnv::fully_monomorphized(),
 			refusals,
 			drops: Default::default(),
+			drops_open: Default::default(),
+			drops_cycle: false,
 			glued: Default::default(),
 		})
 	}

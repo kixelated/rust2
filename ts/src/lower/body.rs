@@ -45,6 +45,7 @@ pub fn function<'a, 'tcx>(
 		visited: FxHashSet::default(),
 		scopes: Vec::new(),
 		moved: FxHashSet::default(),
+		borrowed: FxHashSet::default(),
 		yields: 0,
 	};
 	let span = tcx.def_span(def_id);
@@ -180,6 +181,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	pub(super) scopes: Vec<Vec<Owned<'tcx>>>,
 	/// The variables a move left `undefined`, which are declared `let` for it.
 	pub(super) moved: FxHashSet<String>,
+	/// The variables a generator lowered so far borrows mutably: each is a parameter
+	/// holding the caller's object, so replacing it whole must change that object.
+	borrowed: FxHashSet<HirId>,
 	/// How many `yield`s are lowered so far, so an operand can tell whether it awaits.
 	yields: usize,
 }
@@ -1696,11 +1700,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.push(out, StmtKind::Expr(dropped), span);
 			}
 		}
-		// `*r = v` through a reference replaces what it points to.
-		if let ExprKind::Deref { arg } = self.thir[self.strip(lhs)].kind
-			&& matches!(self.ty_of(arg).kind(), ty::Ref(..))
-			&& self.is_place(arg)
-		{
+		// `*r = v` through a reference replaces what it points to, as does replacing a
+		// variable a generator borrows mutably.
+		let through_ref = match self.thir[self.strip(lhs)].kind {
+			ExprKind::Deref { arg } => matches!(self.ty_of(arg).kind(), ty::Ref(..)) && self.is_place(arg),
+			ExprKind::UpvarRef { var_hir_id, .. } => self.borrowed.contains(&var_hir_id.0),
+			_ => false,
+		};
+		if through_ref {
 			let pointee = self.ty_of(lhs);
 			// Every clone of an `Arc` or waker is one JS object, and a future keeps its state
 			// private: copying fields in would change the other handles, or nothing.
@@ -2525,13 +2532,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			// Its generator takes the value: a change through the borrow would change a copy.
 			if let ty::UpvarCapture::ByRef(kind) = capture.info.capture_kind
 				&& kind != ty::BorrowKind::Immutable
-				&& self.t.object_kind(ty).is_none()
 			{
-				self.t.err(
-					capture.get_path_span(tcx),
-					format!("an async body that borrows `{ty}` mutably, which is no object it can change in place"),
-				);
-				continue;
+				if self.t.object_kind(ty).is_none() {
+					self.t.err(
+						capture.get_path_span(tcx),
+						format!("an async body that borrows `{ty}` mutably, which is no object it can change in place"),
+					);
+					continue;
+				}
+				self.borrowed.insert(var);
 			}
 			let Some(Local::Name { name, .. }) = self.locals.get(&var).cloned() else {
 				self.t

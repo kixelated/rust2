@@ -29,7 +29,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return drops;
 		}
 		// A type that holds itself drops through another field if at all.
-		self.drops.insert(ty, false);
+		if !self.drops_open.insert(ty) {
+			self.drops_cycle = true;
+			return false;
+		}
+		let outer_cycle = std::mem::replace(&mut self.drops_cycle, false);
 		let tcx = self.tcx;
 		let drops = match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
@@ -47,7 +51,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		};
-		self.drops.insert(ty, drops);
+		self.drops_open.remove(&ty);
+		// A `false` that read a type still being decided holds only once the first of
+		// them is decided: if it drops, so does every type it reached that reaches it.
+		let cycle = std::mem::replace(&mut self.drops_cycle, outer_cycle);
+		if drops || !cycle || self.drops_open.is_empty() {
+			self.drops.insert(ty, drops);
+		} else {
+			self.drops_cycle = true;
+		}
 		drops
 	}
 

@@ -94,8 +94,9 @@ pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 
 /// One value read through the captures only an async block makes: a borrow, which
 /// dropping the block must not drop; a copy, which a later change to the original must
-/// not reach; a move on one path only; and a move the block only borrows, which drops
-/// when the block returns or is cancelled.
+/// not reach; a mutable borrow the block replaces whole, which the caller must see; a
+/// move on one path only; and a move the block only borrows, which drops when the block
+/// returns or is cancelled. Between them, a value of two types that hold each other.
 pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let first = Guard::new(guard.id + 200, guard.log.clone());
 	let second = Guard::new(guard.id + 300, guard.log.clone());
@@ -105,6 +106,20 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let seen = async move { read(tally) };
 	tally.n += 1000;
 	guard.note(&format!("tally {} then {}", tally.n, seen.await));
+	let mut mark = Mark { n: 1 };
+	let replaced = async {
+		mark = Mark { n: 2 };
+		mark.n
+	}
+	.await;
+	guard.note(&format!("mark {replaced} {}", mark.n));
+	let cycle = Outer {
+		inner: None,
+		guard: Guard::new(guard.id + 800, guard.log.clone()),
+	};
+	let _nested = Inner {
+		outer: Some(Box::new(cycle)),
+	};
 	if moves {
 		drop(async move { guard.note("moved") });
 	}
@@ -118,6 +133,21 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 		}
 	};
 	read.await
+}
+
+struct Mark {
+	n: u32,
+}
+
+/// Drops through `guard`, and `Inner` through it: deciding `Outer` first must not leave
+/// `Inner` decided as dropping nothing.
+struct Outer {
+	inner: Option<Box<Inner>>,
+	guard: Guard,
+}
+
+struct Inner {
+	outer: Option<Box<Outer>>,
 }
 
 /// A `Copy` value an `async move` block takes its own copy of.
