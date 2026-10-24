@@ -12,12 +12,16 @@ export class Point {
 		this.y = fields.y;
 	}
 
-	static new(x: number, y: number): Point {
-		return new Point({ x, y });
+	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
 	}
 
-	bump(): void {
-		this.y = rt.i32.add(this.y, 1);
+	eq(other: Point): boolean {
+		return this.x === other.x && this.y === other.y;
+	}
+
+	static new(x: number, y: number): Point {
+		return new Point({ x, y });
 	}
 
 	/** Changes `self`, which a caller's copy must not see. */
@@ -26,12 +30,8 @@ export class Point {
 		return rt.copy(this);
 	}
 
-	eq(other: Point): boolean {
-		return this.x === other.x && this.y === other.y;
-	}
-
-	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
+	bump(): void {
+		this.y = rt.i32.add(this.y, 1);
 	}
 }
 
@@ -43,14 +43,14 @@ export class Meters {
 		this._0 = _0;
 	}
 
+	area(): rt.U64 {
+		return this._0;
+	}
+
 	/** A default method, monomorphized for each type. */
 	describe(out: rt.ByteVec): void {
 		out.push(0xaa);
 		out.extendFromSlice(rt.u64.toBeBytes(this._0));
-	}
-
-	area(): rt.U64 {
-		return this._0;
 	}
 }
 
@@ -61,6 +61,21 @@ export type Shape =
 	| { tag: "Rect"; corner: Point; width: number; height: number };
 
 export const Shape = {
+	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Dot") {
+			return f.writeStr("Dot");
+		} else if (self.tag === "Line") {
+			const __self0 = self._0;
+			const __self1 = self._1;
+			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
+		} else {
+			const __self02 = self.corner;
+			const __self12 = self.width;
+			const __self2 = self.height;
+			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
+		}
+	},
+
 	/** A default method, monomorphized for each type. */
 	describe(self: Shape, out: rt.ByteVec): void {
 		out.push(4);
@@ -78,21 +93,6 @@ export const Shape = {
 			return rt.u64.mul(width, height);
 		}
 	},
-
-	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		if (self.tag === "Dot") {
-			return f.writeStr("Dot");
-		} else if (self.tag === "Line") {
-			const __self0 = self._0;
-			const __self1 = self._1;
-			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
-		} else {
-			const __self02 = self.corner;
-			const __self12 = self.width;
-			const __self2 = self.height;
-			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
-		}
-	},
 };
 
 /** Discriminants a cast truncates, or reads with another sign. */
@@ -102,20 +102,20 @@ export type Signed = "Neg" | "Min" | "Pos";
 
 export type Dir = "North" | "East" | "South" | "West";
 
-export function total$Shape(items: Shape[], out: rt.ByteVec): rt.U64 {
-	let sum: rt.U64 = 0;
-	for (const item of items) {
-		Shape.describe(item, out);
-		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
-	}
-	return sum;
-}
-
 export function total$Meters(items: Meters[], out: rt.ByteVec): rt.U64 {
 	let sum: rt.U64 = 0;
 	for (const item of items) {
 		item.describe(out);
 		sum = rt.u64.saturatingAdd(sum, item.area());
+	}
+	return sum;
+}
+
+export function total$Shape(items: Shape[], out: rt.ByteVec): rt.U64 {
+	let sum: rt.U64 = 0;
+	for (const item of items) {
+		Shape.describe(item, out);
+		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
 	}
 	return sum;
 }
@@ -230,7 +230,10 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
-/** Loops: labeled, `while let`, ranges, values out of `break`, and loops that end a function. */
+/**
+ * Loops: labeled, `while let`, ranges, values out of `break`, loops that end a function,
+ * and values of type `!`.
+ */
 export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let stack: rt.ByteVec = rt.slice.toByteVec(data);
 	let popped: number = 0;
@@ -312,6 +315,137 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	drain(data, out);
 	out.push(returnedLoop(data));
 	branchLoops(data, out);
+	diverging(data, out);
+}
+
+/**
+ * Values of type `!` where a value goes, triggered by the first two bytes so most
+ * inputs run every case to its end.
+ */
+export function diverging(data: Uint8Array, out: rt.ByteVec): void {
+	const head = rt.slice.range(data, 0, rt.min(data.length, 2));
+	const b = rt.option.unwrapOr(rt.slice.first(head), 0);
+	out.push(returnedNever(b, data.length));
+	out.push(brokenNever(head));
+	const check = (b2: number): number => {
+		if (b2 === 0xfd) {
+			rt.panic(["closure ", (f: rt.Formatter) => rt.u8.display(b2, f)]);
+		}
+		return rt.u8.div(b2, 3);
+	};
+	out.push(check(b));
+	out.push(guardedReturn(head));
+	const found = boundNever(head, out);
+	out.push(found);
+}
+
+/** A function that never returns. */
+export function bail(b: number): never {
+	rt.panic(["failed on ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(b, f))]);
+}
+
+/** `return`, and `break` out of the function's labeled block, with values that never exist. */
+export function returnedNever(b: number, len: number): number {
+	if (b === 247) {
+		rt.panic(["returned ", (f: rt.Formatter) => rt.u8.display(b, f)]);
+	} else if (b === 248) {
+		if (rt.usize.rem(len, 2) === 0) {
+			rt.panic(["then ", (f: rt.Formatter) => rt.u8.display(b, f)]);
+		} else {
+			bail(b);
+		}
+	}
+	{
+		if (b === 0xfe) {
+			bail(b);
+		}
+		return b ^ 0x11;
+	}
+}
+
+/** A `return` of a `match` that guards, whose arms fall through to the next. */
+export function guardedReturn(data: Uint8Array): number {
+	if (!((data.length === 0))) {
+		arms: {
+			if (data.length === 2) {
+				const a = data[0];
+				const b = data[1];
+				if (a > b) {
+					return rt.u8.sub(a, b);
+				}
+			}
+			if (data.length >= 1) {
+				const a2 = data[0];
+				if (a2 > 0x80) {
+					return 1;
+				}
+			}
+			return 2;
+		}
+	}
+	return 3;
+}
+
+/** A loop ending the function, left by `break` with values that never exist. */
+export function brokenNever(data: Uint8Array): number {
+	let i: number = 0;
+	while (true) {
+		if (i >= data.length) {
+			return 0xcc;
+		}
+		const value = data[rt.idx(data, i)];
+		if (value === 251) {
+			rt.panic(["broken at ", (f: rt.Formatter) => rt.usize.display(i, f)]);
+		} else if (value === 252) {
+			bail(rt.at(data, i));
+		} else if (value === 0) {
+			return i & 0xff;
+		} else {
+			i = rt.usize.add(i, 1);
+		}
+	}
+}
+
+/**
+ * Values that never exist where a value is needed: bound, and passed. A loop that
+ * only `return` leaves gives the function's result.
+ */
+export function boundNever(data: Uint8Array, out: rt.ByteVec): number {
+	let i: number = 0;
+	let found: number;
+	while (true) {
+		if (i >= data.length) {
+			return 0xbb;
+		}
+		const value = data[rt.idx(data, i)];
+		if (value === 239) {
+			let x: number;
+			rt.panic(["bound at ", (f: rt.Formatter) => rt.usize.display(i, f)]);
+			out.push(x);
+		} else if (value === 240) {
+			const arg = out;
+			let value2: number;
+			bail(rt.at(data, i));
+			arg.push(value2);
+		} else if (value === 0) {
+			const arg2 = out;
+			let value3: number;
+			return i & 0xff;
+			arg2.push(value3);
+		} else if (value === 128) {
+			const arg3 = out;
+			let value4: number;
+			while (true) {
+				i = rt.usize.add(i, 1);
+				if (i >= data.length || rt.at(data, i) < 0x80) {
+					return i & 0xff;
+				}
+			}
+			arg3.push(value4);
+		}
+		i = rt.usize.add(i, 1);
+	}
+	return found;
 }
 
 /** Loops that `break` ending a guarded `match` arm and an `if let` chain branch. */

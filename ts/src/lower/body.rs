@@ -389,20 +389,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let label = self.target(*label, true);
 				self.push(out, StmtKind::Continue(label), span);
 			}
-			ExprKind::Return { value } => {
-				match value {
-					Some(value) if !self.ty_of(*value).is_unit() => self.stmt(*value, Dest::Return, out),
-					Some(value) => {
-						self.stmt(*value, Dest::Discard, out);
-						self.push(out, StmtKind::Return(None), span);
-					}
-					None => self.push(out, StmtKind::Return(None), span),
-				}
-				// `stmt` returns from each branch of the value.
-				if value.is_some_and(|v| !self.ty_of(v).is_unit()) && !ts::diverges(out) {
+			ExprKind::Return { value } => match value {
+				// `stmt` returns from every branch that makes a value; a `!` value makes none.
+				Some(value) if !self.ty_of(*value).is_unit() => self.stmt(*value, Dest::Return, out),
+				Some(value) => {
+					self.stmt(*value, Dest::Discard, out);
 					self.push(out, StmtKind::Return(None), span);
 				}
-			}
+				None => self.push(out, StmtKind::Return(None), span),
+			},
 			ExprKind::Assign { lhs, rhs } => self.assign(*lhs, *rhs, span, out),
 			ExprKind::AssignOp { op, lhs, rhs } => self.assign_op(*op, *lhs, *rhs, span, out),
 			_ => {
@@ -684,7 +679,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Whether `id` is control flow that reads best delivering into a variable.
+	/// Whether `id` is control flow that reads best delivering into a variable. One that
+	/// never makes a value leaves the variable unassigned.
 	fn needs_dest(&self, id: ExprId) -> bool {
 		match &self.thir[id].kind {
 			ExprKind::Scope { value, .. } => self.needs_dest(*value),
@@ -694,7 +690,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::Match { match_source, .. } => {
 				!matches!(match_source, MatchSource::TryDesugar(_)) && !self.ternary_match(id)
 			}
-			ExprKind::Loop { .. } => true,
+			ExprKind::Loop { .. } | ExprKind::NeverToAny { .. } => true,
 			_ => false,
 		}
 	}
@@ -743,10 +739,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let dest = self.breakables[index].dest.clone();
 		if let Some(value) = value {
 			self.stmt(value, dest.clone(), out);
-			if matches!(dest, Dest::Return) && !ts::diverges(out) {
-				// The value was unit, and the loop's value is returned.
-				self.push(out, StmtKind::Return(None), span);
-			}
+			// `stmt` returned from every branch that makes a value; a `!` value makes none.
 			if matches!(dest, Dest::Return) {
 				return;
 			}
@@ -1718,15 +1711,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return self.format_args(id, out);
 		}
 		match &e.kind {
-			ExprKind::Scope { value, .. } => match self.thir[*value].kind {
-				ExprKind::Loop { .. } => self.via_temp(id, ty, span, out),
-				_ => self.expr(*value, out),
+			ExprKind::Scope { value, .. } => match self.scoped_loop(*value) {
+				Some(_) => self.via_temp(id, ty, span, out),
+				None => self.expr(*value, out),
 			},
 			ExprKind::ValueTypeAscription { source, .. } | ExprKind::ValueExpr { source } => self.expr(*source, out),
-			ExprKind::NeverToAny { source } => {
-				self.stmt(*source, Dest::Discard, out);
-				Expr::undefined()
-			}
+			// The temp is never assigned: control never gets past the source.
+			ExprKind::NeverToAny { .. } => self.via_temp(id, ty, span, out),
 			ExprKind::Block { block } if !self.thir[*block].targeted_by_break => {
 				let block = &self.thir[*block];
 				for &stmt in &block.stmts {

@@ -5,6 +5,15 @@ export type Version = "Lite01" | "Lite02" | "Lite03" | "Lite04" | "Lite05" | "Li
 
 export const Version = {
 	/**
+	 * Whether the PROBE message carries the RTT field. Added in lite-04; lite-03
+	 * carries the bitrate alone, so a report with only an RTT to give says nothing
+	 * there and must not be sent.
+	 */
+	hasProbeRtt(self: Version): boolean {
+		return !(self === "Lite01" || self === "Lite02" || self === "Lite03");
+	},
+
+	/**
 	 * Whether SUBSCRIBE, SUBSCRIBE_UPDATE, FETCH, and GROUP carry frame indices
 	 * alongside their group sequences, so a subscription or fetch can start and end
 	 * partway through a group. Added in lite-06.
@@ -14,15 +23,6 @@ export const Version = {
 	 */
 	hasFrameBounds(self: Version): boolean {
 		return !(self === "Lite01" || self === "Lite02" || self === "Lite03" || self === "Lite04" || self === "Lite05");
-	},
-
-	/**
-	 * Whether the PROBE message carries the RTT field. Added in lite-04; lite-03
-	 * carries the bitrate alone, so a report with only an RTT to give says nothing
-	 * there and must not be sent.
-	 */
-	hasProbeRtt(self: Version): boolean {
-		return !(self === "Lite01" || self === "Lite02" || self === "Lite03");
 	},
 };
 

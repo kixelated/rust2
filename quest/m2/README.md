@@ -20,7 +20,6 @@ deletes the quests that follow it.
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
-- [Source order](/quest/m2/ts-source-order.md) - each module's items come out in Rust source order
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Namespaced external types](/quest/m2/uniffi-namespaces.md) - two crates linked into one library can each export a same-named type in every generator
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it

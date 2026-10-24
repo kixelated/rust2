@@ -7,12 +7,12 @@ import { type Version } from "../lite/version.ts";
 /** The number does not fit the target: a varint wire form or a narrower integer. */
 export class BoundsExceeded {
 
-	fmt$Display(__formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return __formatter.writeStr("value out of range");
-	}
-
 	fmt$Debug(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.writeStr("BoundsExceeded");
+	}
+
+	fmt$Display(__formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return __formatter.writeStr("value out of range");
 	}
 }
 

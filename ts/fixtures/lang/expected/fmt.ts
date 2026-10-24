@@ -628,20 +628,19 @@ export type Fault =
 	| { tag: "At"; _0: Pair };
 
 export const Fault = {
-	/** The fault `data` picks. */
-	new(data: Uint8Array): Fault {
-		const at = (i: number): number => {
-			return rt.option.unwrapOr(rt.slice.get(data, i), 0);
-		};
-		const value = rt.u8.rem(at(0), 4);
-		if (value === 0) {
-			return { tag: "Short" };
-		} else if (value === 1) {
-			return { tag: "Code", _0: (at(1) << 8) | at(2) };
-		} else if (value === 2) {
-			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
+	fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Short") {
+			return f.writeStr("Short");
+		} else if (self.tag === "Code") {
+			const __self0 = self._0;
+			return f.debugTuple("Code").field((f: rt.Formatter) => rt.u16.display(__self0, f)).finish();
+		} else if (self.tag === "TooLarge") {
+			const __self02 = self.size;
+			const __self1 = self.max;
+			return f.debugStruct("TooLarge").field("size", (f: rt.Formatter) => rt.usize.display(__self02, f)).field("max", (f: rt.Formatter) => rt.usize.display(__self1, f)).finish();
 		} else {
-			return { tag: "At", _0: new Pair(at(1), rt.i64.shl((at(2) << 24) >> 24, 40)) };
+			const __self03 = self._0;
+			return f.debugTuple("At").field((f: rt.Formatter) => __self03.fmt(f)).finish();
 		}
 	},
 
@@ -661,19 +660,20 @@ export const Fault = {
 		}
 	},
 
-	fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		if (self.tag === "Short") {
-			return f.writeStr("Short");
-		} else if (self.tag === "Code") {
-			const __self0 = self._0;
-			return f.debugTuple("Code").field((f: rt.Formatter) => rt.u16.display(__self0, f)).finish();
-		} else if (self.tag === "TooLarge") {
-			const __self02 = self.size;
-			const __self1 = self.max;
-			return f.debugStruct("TooLarge").field("size", (f: rt.Formatter) => rt.usize.display(__self02, f)).field("max", (f: rt.Formatter) => rt.usize.display(__self1, f)).finish();
+	/** The fault `data` picks. */
+	new(data: Uint8Array): Fault {
+		const at = (i: number): number => {
+			return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+		};
+		const value = rt.u8.rem(at(0), 4);
+		if (value === 0) {
+			return { tag: "Short" };
+		} else if (value === 1) {
+			return { tag: "Code", _0: (at(1) << 8) | at(2) };
+		} else if (value === 2) {
+			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
 		} else {
-			const __self03 = self._0;
-			return f.debugTuple("At").field((f: rt.Formatter) => __self03.fmt(f)).finish();
+			return { tag: "At", _0: new Pair(at(1), rt.i64.shl((at(2) << 24) >> 24, 40)) };
 		}
 	},
 };

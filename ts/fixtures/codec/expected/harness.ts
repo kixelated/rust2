@@ -2,10 +2,10 @@
 
 import * as rt from "./rt.ts";
 import { type SessionError } from "./lib.ts";
-import { Decoder, DecodeError } from "./coding/decode.ts";
-import { Encoder, type Prefix, EncodeError } from "./coding/encode.ts";
-import { Form, zigzag as varint_zigzag, unzigzag, size, BoundsExceeded } from "./coding/varint.ts";
-import { Versions, Version } from "./coding/version.ts";
+import { DecodeError, Decoder } from "./coding/decode.ts";
+import { EncodeError, Encoder, type Prefix } from "./coding/encode.ts";
+import { BoundsExceeded, Form, size, zigzag as varint_zigzag, unzigzag } from "./coding/varint.ts";
+import { Version, Versions } from "./coding/version.ts";
 import { Group } from "./lite/group.ts";
 import { Probe } from "./lite/probe.ts";
 import { type Version as version_Version } from "./lite/version.ts";
