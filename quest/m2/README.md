@@ -33,6 +33,7 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
 - [Cheaper async](/quest/m2/ffi-async.md) - `RustFuture` exports cost fewer crossings, if the numbers show they matter
+- [Expected-only C++ bindings](/quest/m2/uniffi-cpp-expected-only.md) - callback interfaces under the expected style, then the exceptions style goes and C++ coverall returns
 - [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - bindings and a cdylib from different UniFFI forks refuse to load together
 - [Drop checksums](/quest/m2/ffi-checksums.md) - bindings load without a checksum call per method
 - [Smaller bindings](/quest/m2/ffi-code-size.md) - generated bindings shrink in every language, measured per template
