@@ -168,6 +168,12 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let old = std::mem::replace(&mut a, Point::new(5, 6));
 	out.extend_from_slice(&[a.x as u8, b.x as u8, old.x as u8]);
 
+	// A tuple keeps the values it was made of, though the variable they came from changes.
+	let mut n = data.len() as u32;
+	let both = (n, n);
+	n = 9;
+	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
+
 	let mut opt = Some(Meters(9));
 	let taken = opt.take();
 	out.push(opt.is_none() as u8);

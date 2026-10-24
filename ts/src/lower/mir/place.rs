@@ -67,9 +67,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
 					&& let Some(part) = parts.get(field.as_usize())
-					&& (matches!(field_ty.kind(), ty::Ref(..))
-						|| part.is_constant()
-						|| matches!(part, Expr::Ident(_))) =>
+					&& (matches!(field_ty.kind(), ty::Ref(..)) || part.is_constant() || self.stable_name(part)) =>
 			{
 				let part = part.clone();
 				let elem = *projection.peek().unwrap();
@@ -248,6 +246,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Operand::Constant(c) => self.constant(c, span),
 			Operand::RuntimeChecks(_) => Expr::lit("false"),
 		}
+	}
+
+	/// Whether `e` names a local nothing assigns again or changes in place, so reading it
+	/// later reads what it held earlier.
+	fn stable_name(&self, e: &Expr) -> bool {
+		let Expr::Ident(name) = e else {
+			return false;
+		};
+		self.local_named(name).is_some_and(|local| {
+			let assigned = self.defs[local] + u32::from(self.is_arg(local));
+			assigned <= 1 && !self.mutated[local]
+		})
 	}
 
 	/// Whether `place` is part of a local's own value that nothing changes in place.

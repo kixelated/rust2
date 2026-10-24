@@ -193,6 +193,10 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	a = Point.new(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
+	let n: rt.u32 = data.length as rt.u32;
+	const both = [n, n] as [rt.u32, rt.u32];
+	n = 9;
+	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(rt.u32.add(both[0], both[1]), n)));
 	let opt: Meters | undefined = new Meters(9);
 	const taken = opt;
 	opt = undefined;
