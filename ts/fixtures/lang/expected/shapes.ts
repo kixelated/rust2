@@ -406,7 +406,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		a3 = v;
 	} else {
 		const e = parsed.error;
-		a3 = absurd(e);
+		a3 = absurd([e, 1]);
 	}
 	let b4: number;
 	if (parsed.ok) {
@@ -432,8 +432,9 @@ export const Void = {
 	},
 };
 
-export function absurd(v: Void): number {
-	rt.unreachable(v);
+/** A value holding a `Void` can't exist either. */
+export function absurd(v: [Void, number]): number {
+	rt.unreachable(rt.copy(v));
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */

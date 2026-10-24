@@ -318,7 +318,7 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	let parsed: Result<u8, Void> = Ok(data.len() as u8);
 	let a = match parsed {
 		Ok(v) => v,
-		Err(e) => absurd(e),
+		Err(e) => absurd((e, 1)),
 	};
 	let b = match parsed {
 		Ok(v) => v,
@@ -335,7 +335,8 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 #[derive(Clone, Copy, Debug)]
 pub enum Void {}
 
-fn absurd(v: Void) -> u8 {
+/// A value holding a `Void` can't exist either.
+fn absurd(v: (Void, u8)) -> u8 {
 	match v {}
 }
 
