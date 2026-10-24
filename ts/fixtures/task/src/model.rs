@@ -99,6 +99,7 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let first = Guard::new(guard.id + 200, guard.log.clone());
 	let second = Guard::new(guard.id + 300, guard.log.clone());
 	drop(async { first.note("borrowed") });
+	turns(&guard.log, guard.id % 5);
 	if moves {
 		drop(async move { guard.note("moved") });
 	}
@@ -112,6 +113,26 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 		}
 	};
 	read.await
+}
+
+/// A guard per turn of a loop that ends a guarded `match` arm, so leaving the loop from
+/// inside a turn's scope must still skip the arms after it.
+fn turns(log: &Log, count: u32) {
+	match count {
+		0 => log.note(format!("no turns")),
+		n if n < 4 => {
+			let mut left = n;
+			loop {
+				let turn = Guard::new(left, log.clone());
+				if left == 1 {
+					break;
+				}
+				turn.note("turn");
+				left -= 1;
+			}
+		}
+		_ => log.note(format!("many turns")),
+	}
 }
 
 /// Every value until the channel closes, summed, each read `depth` async functions

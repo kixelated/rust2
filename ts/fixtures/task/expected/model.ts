@@ -221,6 +221,7 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 				let second = Guard.new(rt.u32.add(guard2.id, 300), guard2.log.clone());
 				try {
 					rt.drop(rt.future(blocksBody$2, undefined, first));
+					turns(guard2.log, rt.u32.rem(guard2.id, 5));
 					if (moves2) {
 						const guard22 = guard2;
 						guard2 = undefined!;
@@ -334,6 +335,37 @@ export function blocksDrop$3(first: Guard, second: Guard, rx2: Consumer): void {
 	rt.drop(first);
 	rt.drop(second);
 	rt.drop(rx2);
+}
+
+/**
+ * A guard per turn of a loop that ends a guarded `match` arm, so leaving the loop from
+ * inside a turn's scope must still skip the arms after it.
+ */
+export function turns(log: Log, count: number): void {
+	arms: {
+		if (count === 0) {
+			log.note("no turns");
+			break arms;
+		}
+		const n = count;
+		if (n < 4) {
+			let left: number = n;
+			while (true) {
+				const turn = Guard.new(left, log.clone());
+				try {
+					if (left === 1) {
+						break;
+					}
+					turn.note("turn");
+					left = rt.u32.sub(left, 1);
+				} finally {
+					rt.drop(turn);
+				}
+			}
+			break arms;
+		}
+		log.note("many turns");
+	}
 }
 
 /**
