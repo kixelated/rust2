@@ -3,7 +3,7 @@
 ## Goal
 
 The translated codec runs measurably faster on the
-[TS benchmark](/quest/m2/ts-bench.md), with every differential test still
+[TS benchmark](/ts/README.md#bench), with every differential test still
 passing and no change to the semantics the subset documents.
 
 ## Plan
@@ -27,7 +27,3 @@ The 64-bit representation is [its own spike](/quest/m2/ts-wide-ints.md); leave
 it alone here.
 
 Public API: the translator's output and `rt.ts`.
-
-## Required
-
-- [TS benchmark](/quest/m2/ts-bench.md) - the before and after numbers
