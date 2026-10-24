@@ -6,7 +6,7 @@ error[E0277]: `(dyn Trait + 'static)` cannot be sent between threads safely
   |
   = help: the trait `Send` is not implemented for `(dyn Trait + 'static)`
 note: required by a bound in `FfiConverterArc`
- --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+ --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
   |
   | pub unsafe trait FfiConverterArc<UT>: Send + Sync {
   |                                       ^^^^ required by this bound in `FfiConverterArc`
@@ -20,7 +20,7 @@ error[E0277]: `(dyn Trait + 'static)` cannot be shared between threads safely
   |
   = help: the trait `Sync` is not implemented for `(dyn Trait + 'static)`
 note: required by a bound in `FfiConverterArc`
- --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+ --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
   |
   | pub unsafe trait FfiConverterArc<UT>: Send + Sync {
   |                                              ^^^^ required by this bound in `FfiConverterArc`
@@ -34,7 +34,7 @@ error[E0277]: `(dyn ProcMacroTrait + 'static)` cannot be sent between threads sa
    |
    = help: the trait `Send` is not implemented for `(dyn ProcMacroTrait + 'static)`
 note: required by a bound in `FfiConverterArc`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    | pub unsafe trait FfiConverterArc<UT>: Send + Sync {
    |                                       ^^^^ required by this bound in `FfiConverterArc`
@@ -48,7 +48,7 @@ error[E0277]: `(dyn ProcMacroTrait + 'static)` cannot be shared between threads 
    |
    = help: the trait `Sync` is not implemented for `(dyn ProcMacroTrait + 'static)`
 note: required by a bound in `FfiConverterArc`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    | pub unsafe trait FfiConverterArc<UT>: Send + Sync {
    |                                              ^^^^ required by this bound in `FfiConverterArc`

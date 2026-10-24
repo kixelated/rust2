@@ -71,6 +71,8 @@ uniffi-rs:
   resolved the other one got a second `toml::Value` that no longer matched the trait.
 - Clippy 1.98 fixes, including an allow on the UDL metadata const, which it flags in every UDL
   consumer.
+- Test expectations that hold a path relative to the workspace root (`file!()` output and
+  trybuild snapshots) gain the `uniffi/` prefix.
 
 uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 
@@ -92,3 +94,4 @@ uniffi-bindgen-cpp, on top of upstream `main` at NordSecurity/uniffi-bindgen-cpp
 - LiveKit's async support (livekit/uniffi-bindgen-cpp, by Alan George), ported to UniFFI 0.32.
 - `error_style = "expected"`, `strip_type_prefix`, exported `Display` and `Debug` on enums,
   newline-terminated files, released async results, and the C backend (`--lang c`).
+- The CMake test suite finds the fixtures in the root workspace's target directory.

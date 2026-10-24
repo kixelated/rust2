@@ -10,12 +10,12 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `Foo`
  8 | pub struct Foo;
    | ^^^^^^^^^^^^^^
 help: the trait `LowerReturn<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    |         unsafe impl $(<$($generic),*>)* $crate::LowerReturn<$ut> for $ty $(where $($where)*)*
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-  ::: $WORKSPACE/uniffi_core/src/ffi_converter_impls.rs
+  ::: $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_impls.rs
    |
    | derive_ffi_traits!(impl<T, UT> LowerReturn<UT> for Arc<T> where Arc<T>: Lower<UT>, T: ?Sized);
    | ---------------------------------------------------------------------------------------------
@@ -39,12 +39,12 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `Foo`
  8 | pub struct Foo;
    | ^^^^^^^^^^^^^^
 help: the trait `uniffi::TypeId<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    |         impl $(<$($generic),*>)* $crate::TypeId<$ut> for $ty $(where $($where)*)*
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-  ::: $WORKSPACE/uniffi_core/src/ffi_converter_impls.rs
+  ::: $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_impls.rs
    |
    | derive_ffi_traits!(impl<T, UT> TypeId<UT> for Arc<T> where Arc<T>: FfiConverter<UT>, T: ?Sized);
    | -----------------------------------------------------------------------------------------------
@@ -67,12 +67,12 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `child::Foo`
 18 |     enum Foo {}
    |     ^^^^^^^^
 help: the trait `Lift<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    |         unsafe impl $(<$($generic),*>)* $crate::Lift<$ut> for $ty $(where $($where)*)*
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-  ::: $WORKSPACE/uniffi_core/src/ffi_converter_impls.rs
+  ::: $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_impls.rs
    |
    | derive_ffi_traits!(impl<T, UT> Lift<UT> for Arc<T> where Arc<T>: FfiConverter<UT>, T: ?Sized);
    | ---------------------------------------------------------------------------------------------
@@ -95,12 +95,12 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `child::Foo`
 18 |     enum Foo {}
    |     ^^^^^^^^
 help: the trait `uniffi::TypeId<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    |         impl $(<$($generic),*>)* $crate::TypeId<$ut> for $ty $(where $($where)*)*
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-  ::: $WORKSPACE/uniffi_core/src/ffi_converter_impls.rs
+  ::: $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_impls.rs
    |
    | derive_ffi_traits!(impl<T, UT> TypeId<UT> for Arc<T> where Arc<T>: FfiConverter<UT>, T: ?Sized);
    | -----------------------------------------------------------------------------------------------
@@ -123,7 +123,7 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `Foo`
  8 | pub struct Foo;
    | ^^^^^^^^^^^^^^
 help: the trait `FfiConverter<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    | / unsafe impl<T, UT> FfiConverter<UT> for Arc<T>
    | | where
@@ -146,7 +146,7 @@ help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `child::Foo`
 18 |     enum Foo {}
    |     ^^^^^^^^
 help: the trait `FfiConverter<UT>` is conditionally implemented for `Arc<T>`
-  --> $WORKSPACE/uniffi_core/src/ffi_converter_traits.rs
+  --> $WORKSPACE/uniffi/uniffi_core/src/ffi_converter_traits.rs
    |
    | / unsafe impl<T, UT> FfiConverter<UT> for Arc<T>
    | | where
