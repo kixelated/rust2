@@ -810,12 +810,11 @@ let slab = new ArrayBuffer(SLAB);
 let slabUsed = 0;
 
 /**
- * `n` zeroed bytes for a `ByteVec`. Up to 1 KiB, they share an `ArrayBuffer`, as Node's
- * `Buffer` pool does: a lone array's own buffer costs V8 about a microsecond, made when
- * the array is past 64 bytes or else the first time something views it. No byte is
- * handed out twice.
+ * `n` zeroed bytes. Up to 1 KiB, they share an `ArrayBuffer`, as Node's `Buffer` pool
+ * does: a lone array's own buffer costs V8 about a microsecond, made when the array is
+ * past 64 bytes or else the first time something views it. No byte is handed out twice.
  */
-function bytes(n: number): Uint8Array {
+export function bytes(n: number): Uint8Array {
 	if (n > SLAB / 8) return new Uint8Array(n);
 	if (slabUsed + n > SLAB) {
 		slab = new ArrayBuffer(SLAB);
