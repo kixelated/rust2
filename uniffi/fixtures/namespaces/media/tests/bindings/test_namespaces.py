@@ -63,6 +63,13 @@ class TestNamespaces(unittest.TestCase):
         self.assertEqual(groups.net, {1: net.Priority.LOW, 2: net.Priority.HIGH})
         self.assertEqual(groups.media, {1: media.Priority.NET(priority=net.Priority.LOW), 2: media.Priority.REALTIME()})
 
+    def test_variants_hold_a_data_enum_and_its_flat_namesake(self):
+        kind = net.Kind.VIDEO(width=640)
+        self.assertEqual(
+            media.tracks(kind),
+            [media.Track.NET(kind=kind), media.Track.MEDIA(kind=media.Kind.VIDEO)],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

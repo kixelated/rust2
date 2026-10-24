@@ -87,4 +87,12 @@ void main() {
     expect((groups.media[1] as media.NetPriority).priority, net.Priority.low);
     expect(groups.media[2], isA<media.RealtimePriority>());
   });
+
+  test('variants hold a data enum and its flat namesake', () {
+    final tracks = media.tracks(kind: net.VideoKind(640));
+    expect(tracks.length, 2);
+    final kind = (tracks[0] as media.NetTrack).kind;
+    expect((kind as net.VideoKind).width, 640);
+    expect((tracks[1] as media.MediaTrack).kind, media.Kind.video);
+  });
 }

@@ -41,7 +41,10 @@ use std::collections::HashMap;
 use std::process::Command;
 
 mod gen_swift;
-use gen_swift::{generate_bindings, generate_header, generate_modulemap, generate_swift, Config};
+use gen_swift::{
+    generate_bindings, generate_header, generate_modulemap, generate_swift, needs_separate_modules,
+    Config,
+};
 
 #[cfg(feature = "bindgen-tests")]
 pub mod test;
@@ -72,7 +75,7 @@ pub fn generate(
     }
     let cis = loader.load_cis(metadata)?;
     let mut components = loader.load_components(cis, parse_config)?;
-    apply_renames(&mut components);
+    apply_renames(&mut components)?;
     for c in components.iter_mut() {
         // Call derive_ffi_functions after `apply_renames`
         c.ci.derive_ffi_funcs()?;
@@ -164,7 +167,7 @@ pub fn generate_swift_bindings(options: SwiftBindingsOptions) -> Result<()> {
     let metadata = loader.load_metadata(&options.source)?;
     let cis = loader.load_cis(metadata)?;
     let mut components = loader.load_components(cis, parse_config)?;
-    apply_renames(&mut components);
+    apply_renames(&mut components)?;
     // Call derive_ffi_funcs after apply_renames()
     for Component { ci, .. } in components.iter_mut() {
         ci.derive_ffi_funcs()?;
@@ -240,7 +243,7 @@ pub struct SwiftBindingsOptions {
 }
 
 // A helper for renaming items.
-fn apply_renames(components: &mut Vec<Component<Config>>) {
+fn apply_renames(components: &mut Vec<Component<Config>>) -> Result<()> {
     // Remove excluded items, this happens before renaming
     for c in components.iter_mut() {
         apply_exclusions(&mut c.ci, &c.config.exclude);
@@ -268,7 +271,16 @@ fn apply_renames(components: &mut Vec<Component<Config>>) {
             .iter()
             .map(|c| (c.ci.crate_name().to_string(), c.config.module_name())),
     );
-    for c in components {
+    for c in &mut *components {
         c.config.external_modules = modules.clone();
     }
+
+    let mut separate_modules = false;
+    for c in components.iter() {
+        separate_modules |= needs_separate_modules(&c.config, &c.ci)?;
+    }
+    for c in components {
+        c.config.separate_modules = separate_modules;
+    }
+    Ok(())
 }

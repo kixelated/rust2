@@ -24,6 +24,8 @@ pub struct ExternalTypes {
     crate_name: String,
     /// By crate name and type name.
     qualified: HashMap<(String, String), Qualifier>,
+    /// The modules the bindings import.
+    imports: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -57,15 +59,34 @@ impl ExternalTypes {
                 );
             }
         }
+        // Once any crate needs its own module, every crate is one, so the bindings import each
+        // crate they use, not only those they name through their module.
+        let imports = if config.separate_modules {
+            ci.iter_external_types()
+                .filter_map(|ty| ty.crate_name())
+                .map(|crate_name| {
+                    let namespace = ci.namespace_for_module_path(crate_name)?;
+                    Ok(config.external_module_name(crate_name, namespace))
+                })
+                .collect::<Result<_>>()?
+        } else {
+            qualified.values().map(|q| q.module.clone()).collect()
+        };
         Ok(Self {
             crate_name: ci.crate_name().to_string(),
             qualified,
+            imports,
         })
     }
 
-    /// The modules the bindings import to name their qualified types.
+    /// Whether some external type is named through its crate's module.
+    pub fn is_empty(&self) -> bool {
+        self.qualified.is_empty()
+    }
+
+    /// The modules the bindings import.
     pub fn modules(&self) -> BTreeSet<String> {
-        self.qualified.values().map(|q| q.module.clone()).collect()
+        self.imports.clone()
     }
 
     /// The module to qualify `ty` with, if it is an ambiguous external type.
@@ -139,5 +160,82 @@ impl CodeType for QualifiedCodeType {
 
     fn initialization_fn(&self) -> Option<String> {
         self.inner.initialization_fn()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::needs_separate_modules;
+    use super::*;
+    use uniffi_meta::{
+        FieldMetadata, FnMetadata, FnParamMetadata, Metadata, MetadataGroup, NamespaceMetadata,
+        RecordMetadata,
+    };
+
+    fn record(module_path: &str, name: &str) -> Type {
+        Type::Record {
+            module_path: module_path.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    fn namespace(name: &str) -> NamespaceMetadata {
+        NamespaceMetadata {
+            crate_name: name.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    // `media` has its own `Frame` and uses `net`'s, plus `extra`'s unambiguous `Other`.
+    #[test]
+    fn separate_modules_import_every_crate() {
+        let frame = RecordMetadata {
+            module_path: "media".to_string(),
+            name: "Frame".to_string(),
+            orig_name: None,
+            remote: false,
+            fields: vec![FieldMetadata {
+                name: "raw".to_string(),
+                orig_name: None,
+                ty: record("net", "Frame"),
+                default: None,
+                docstring: None,
+            }],
+            docstring: None,
+        };
+        let wrap = FnMetadata {
+            module_path: "media".to_string(),
+            name: "wrap".to_string(),
+            orig_name: None,
+            is_async: false,
+            inputs: vec![FnParamMetadata::simple("other", record("extra", "Other"))],
+            return_type: Some(record("media", "Frame")),
+            throws: None,
+            checksum: None,
+            docstring: None,
+        };
+        let mut ci = ComponentInterface::from_metadata(MetadataGroup {
+            namespace: namespace("media"),
+            namespace_docstring: None,
+            items: [Metadata::Record(frame), Metadata::Func(wrap)].into(),
+        })
+        .unwrap();
+        ci.set_crate_to_namespace_map(
+            ["media", "net", "extra"]
+                .into_iter()
+                .map(|name| (name.to_string(), namespace(name)))
+                .collect(),
+        );
+        let mut config = Config::default();
+        // `net`'s `Frame` is ambiguous, so every crate needs its own module.
+        assert!(needs_separate_modules(&config, &ci).unwrap());
+
+        // `Other` is named unqualified, so `extra` is imported along with `net`.
+        config.separate_modules = true;
+        let external = ExternalTypes::new(&config, &ci).unwrap();
+        assert_eq!(
+            external.modules(),
+            BTreeSet::from(["extra".to_string(), "net".to_string()])
+        );
     }
 }

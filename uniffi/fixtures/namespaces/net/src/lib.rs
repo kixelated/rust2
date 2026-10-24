@@ -19,6 +19,12 @@ pub enum Priority {
     High,
 }
 
+#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
+pub enum Kind {
+    Video { width: u32 },
+    Audio,
+}
+
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum GroupError {
     #[error("group closed with code {code}")]

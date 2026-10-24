@@ -191,6 +191,10 @@ pub struct Config {
     /// The Swift module of each crate in the library, by crate name.
     #[serde(skip)]
     pub(super) external_modules: HashMap<String, String>,
+    /// Whether some crate in the library names an external type through its module, which
+    /// puts every crate's bindings in their own module.
+    #[serde(skip)]
+    pub(super) separate_modules: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -560,6 +564,12 @@ pub fn generate_bindings(config: &Config, ci: &ComponentInterface) -> Result<Bin
         header,
         modulemap,
     })
+}
+
+/// Whether a component's bindings name an external type through its crate's module, which means
+/// each crate must be its own module.
+pub fn needs_separate_modules(config: &Config, ci: &ComponentInterface) -> Result<bool> {
+    Ok(!ExternalTypes::new(config, ci)?.is_empty())
 }
 
 /// The Swift modules of other crates that a component's bindings import, which means each crate

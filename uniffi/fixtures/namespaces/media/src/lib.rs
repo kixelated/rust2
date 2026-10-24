@@ -139,3 +139,27 @@ pub struct Groups {
     pub net: HashMap<u64, net::Priority>,
     pub media: HashMap<u64, Priority>,
 }
+
+/// The flat counterpart of `net`'s data-carrying `Kind`.
+#[derive(Clone, Copy, Debug, PartialEq, uniffi::Enum)]
+pub enum Kind {
+    Video,
+    Audio,
+}
+
+#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
+pub enum Track {
+    Net { kind: net::Kind },
+    Media { kind: Kind },
+}
+
+/// A track for each layer's `Kind`, so variants hold both the data-carrying one and its flat
+/// namesake.
+#[uniffi::export]
+pub fn tracks(kind: net::Kind) -> Vec<Track> {
+    let media = match kind {
+        net::Kind::Video { .. } => Kind::Video,
+        net::Kind::Audio => Kind::Audio,
+    };
+    vec![Track::Net { kind }, Track::Media { kind: media }]
+}

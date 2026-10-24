@@ -154,13 +154,19 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
         fn field_ffi_converter_name(field: &Field, ci: &ComponentInterface) -> String {
             field.as_type().as_codetype(ci).ffi_converter_name()
         }
+        // Looked up in the crate that defines the enum: a local enum may share its name.
         fn is_flat_enum(field: &Field, type_helper: &dyn TypeHelperRenderer) -> bool {
-            if let Type::Enum { name, .. } = &field.as_type() {
-                if let Some(enum_def) = type_helper.get_enum(name) {
-                    return enum_def.is_flat();
-                }
-            }
-            false
+            let ty = field.as_type();
+            let Type::Enum { name, module_path } = &ty else {
+                return false;
+            };
+            let ci = type_helper.get_ci();
+            let defining = if ci.is_external(&ty) {
+                ci.find_component_interface(module_path)
+            } else {
+                Some(ci)
+            };
+            defining.and_then(|ci| ci.get_enum_definition(name)).is_some_and(|e| e.is_flat())
         }
 
         // A data-carrying variant's Dart class is named `{Variant}{Enum}`, which
