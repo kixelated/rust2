@@ -39,7 +39,7 @@ Bump a pin in its own change, since numbers on either side of it do not compare.
 
 An untimed warm-up round builds every runner once per checkout.
 The timed rounds interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
-The report shows each case's median over the rounds with its cost against `rust-ffi`, taken within each round so drift between rounds cancels, then each comparison as a change in median cost, so one slow round on a busy host does not move it.
+The report shows each case's trimmed mean over the rounds (without the fastest and slowest) with its cost against `rust-ffi`, taken within each round so drift between rounds cancels, then each comparison as a change in that cost, so one slow round on a busy host does not move it.
 `results.jsonl` keeps every round's value, mean, and standard deviation.
 The host, its load average before and after, and every toolchain's version head the report.
 No threshold is set: the numbers inform a decision, they do not gate one.
