@@ -20,6 +20,8 @@ export interface Options {
 	rounds: number;
 	/** Seeds the order of the bodies in each round. */
 	seed: number;
+	/** Told what runs next, between timed regions. */
+	progress(step: string): void;
 }
 
 export interface Timing {
@@ -30,7 +32,6 @@ export interface Timing {
 	calls: number;
 	/** Nanoseconds per item, one per round. */
 	ns: number[];
-	after?: string[];
 }
 
 interface Body {
@@ -42,7 +43,6 @@ interface Body {
 	async: boolean;
 	calls: number;
 	ns: number[];
-	after: string[];
 }
 
 // Holds the last result, so no engine can drop a call as dead.
@@ -53,12 +53,14 @@ export function hex(bytes: Uint8Array): string {
 }
 
 export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[], options: Options): Promise<Timing[]> {
+	const { progress } = options;
 	const bodies: Body[] = [];
 	for (const workload of workloads) {
 		const { input } = workload;
 		const want = wasm.call(input);
 		if (want === "panic") throw new Error(`${workload.name} ${workload.op} panics in native Rust`);
 		for (const route of routes) {
+			progress(`checking ${route.name} on ${workload.name} ${workload.op}`);
 			const got = hex(await route.output(input));
 			if (got !== hex(want)) {
 				throw new Error(`${route.name} differs from native Rust on ${workload.name} ${workload.op}:\nnative ${hex(want)}\ngot    ${got}`);
@@ -67,7 +69,7 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 
 		let len = 0;
 		const body = (route: string, call: () => unknown, setup?: () => void) =>
-			bodies.push({ workload, route, setup, call, async: false, calls: 1, ns: [], after: [] });
+			bodies.push({ workload, route, setup, call, async: false, calls: 1, ns: [] });
 		body("wasm", () => wasm.run(), () => wasm.input(input));
 		body("wasm copy-in", () => wasm.input(input));
 		body("wasm copy-out", () => wasm.output(len), () => {
@@ -79,6 +81,7 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 
 	// Find each body's calls per sample, which also warms it up.
 	for (const body of bodies) {
+		progress(`warming up ${body.route} on ${body.workload.name} ${body.workload.op}`);
 		body.setup?.();
 		const first = body.call();
 		body.async = first instanceof Promise;
@@ -86,22 +89,23 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 		while ((await sample(body)) < options.sampleMs) body.calls *= 2;
 	}
 
-	// Each round runs every body in a new order. In a fixed order each body would always
-	// follow the same one and pay for what it leaves behind, such as garbage to collect.
+	// Each round runs the bodies in a new random order, so drift spreads over all of them
+	// and no body keeps a slot: a fixed order runs identical code slower in one slot than
+	// in another. Progress is per round: a report per sample slows Chrome's samples by
+	// about 10%.
+	const span = `${workloads[0].name} through ${workloads[workloads.length - 1].name}`;
 	const random = prng(options.seed);
 	const order = [...bodies];
-	let prev = "";
 	for (let round = 0; round < options.rounds; round++) {
+		progress(`timing round ${round + 1} of ${options.rounds} on ${span}`);
 		shuffle(order, random);
 		for (const body of order) {
 			const ms = await sample(body);
 			body.ns.push((ms * 1e6) / (body.calls * body.workload.items));
-			body.after.push(prev);
-			prev = body.route;
 		}
 	}
 
-	return bodies.map(({ workload, route, calls, ns, after }) => ({ workload: workload.name, op: workload.op, route, calls, ns, after }));
+	return bodies.map(({ workload, route, calls, ns }) => ({ workload: workload.name, op: workload.op, route, calls, ns }));
 }
 
 /** Milliseconds for one sample of `body.calls` calls. */
@@ -117,7 +121,7 @@ async function sample(body: Body): Promise<number> {
 	return performance.now() - start;
 }
 
-/** Shuffles `items` in place, Fisher-Yates. */
+/** Shuffles `items` in place: Fisher-Yates. */
 function shuffle<T>(items: T[], random: () => number) {
 	for (let i = items.length - 1; i > 0; i--) {
 		const j = Math.floor(random() * (i + 1));

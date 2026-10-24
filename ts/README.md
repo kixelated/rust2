@@ -69,6 +69,10 @@ and async in `rt/task.ts`.
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 
+`Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
+`Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
+`byteOffset` and `byteLength`, and copy it before transferring it.
+
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
@@ -251,7 +255,8 @@ translation to show the noise. Each round runs the JS routes and workloads in a 
 random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary.
+runs it and posts the report to its summary. Chrome's page reports each step it starts,
+and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
@@ -267,8 +272,7 @@ nix develop .#bench --command just ts bench --route main="$HOME/rust2-main/ts/ta
 
 The route runs both fixtures' translations from that directory's `translated/` and
 `task/`, so a hand-edited translation can be timed by copying the directory and editing it.
-Read its gap from `translated` against A/A's, which is the noise of the same run: no
-route holds a fixed slot, so one forward run measures the change, with no reversed run
-to cancel a slot's bias.
+Read its gap from `translated` against A/A's, the noise of the same run. No route holds a
+fixed slot, so a gap past that noise is the change, and no reversed run is needed.
 
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.

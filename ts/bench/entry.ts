@@ -20,7 +20,12 @@ export interface Config {
 
 const browser = typeof window !== "undefined";
 
+// Tells Chrome's `main.ts`, which fails the run when it stops hearing, what runs next. A
+// beacon leaves no response for the page to handle between samples.
+const progress = browser ? (step: string) => void navigator.sendBeacon("/progress", step) : () => {};
+
 async function load(name: string): Promise<Uint8Array> {
+	progress(`loading ${name}`);
 	const url = new URL(name, import.meta.url);
 	if (url.protocol === "file:") {
 		const fs = await import("node:fs/promises");
@@ -31,6 +36,7 @@ async function load(name: string): Promise<Uint8Array> {
 
 /** A bundled route, whose `run` (or `exported`) returns its output as `view` reads it. */
 async function route<T>(name: string, file: string, view: (out: T) => Uint8Array, exported = "run"): Promise<Route> {
+	progress(`loading ${file}`);
 	const run = (await import(new URL(file, import.meta.url).href))[exported];
 	return { name, run, output: async (input) => view(await run(input)) };
 }
@@ -59,7 +65,7 @@ async function main() {
 		await route("A/A", "translated-aa.js", translated),
 	];
 	if (config.route) routes.push(await route(config.route, "route.js", translated));
-	const timings = await measure(wasm, routes, workloads, config);
+	const timings = await measure(wasm, routes, workloads, { ...config, progress });
 
 	// The async handoff: the translation polled at once by a one-task executor, as the
 	// native and WASM routes are, and on the runtime's microtask executor.
@@ -72,7 +78,7 @@ async function main() {
 	];
 	if (config.route) handoffRoutes.push(await route(config.route, "task-route.js", bytes));
 	const taskWasm = new Wasm(await WebAssembly.compile(await load("task.wasm")));
-	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), config)));
+	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), { ...config, progress })));
 	return { engine: engine(), timings };
 }
 
