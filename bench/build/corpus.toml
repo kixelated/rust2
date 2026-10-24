@@ -14,6 +14,16 @@ args = ["-p", "moq-relay"]
 leaf = "rs/moq-relay/src/lib.rs"
 hub = "rs/moq-net/src/lib.rs"
 
+# The moq corpus's rev plus moq-dev/moq's spike/pure-crypto branch, which moves
+# moq-relay's crypto off aws-lc-rs onto graviola and RustCrypto. Compare it with moq.
+[[corpus]]
+name = "moq-pure-crypto"
+git = "https://github.com/moq-dev/moq"
+rev = "72d218d6e2d8487f02c11c02393931c56b605a45"
+args = ["-p", "moq-relay"]
+leaf = "rs/moq-relay/src/lib.rs"
+hub = "rs/moq-net/src/lib.rs"
+
 [[corpus]]
 name = "regex"
 git = "https://github.com/rust-lang/regex"
