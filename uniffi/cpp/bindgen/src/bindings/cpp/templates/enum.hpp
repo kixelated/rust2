@@ -1,6 +1,6 @@
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let ffi_converter_name = ffi_converter_name|class_name %}
-{%- let as_struct = name|enum_struct(ci) %}
+{%- let as_struct = typ|enum_struct(ci) %}
 {%- let flat_error = e.is_flat() && as_struct %}
 {%- if !as_struct %}
 {% call macros::docstring(e, 0) %}

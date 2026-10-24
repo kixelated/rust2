@@ -6,12 +6,12 @@
     return {% call macros::rust_call_async(func, return_type|type_name(ci)) %};
     {%- else if fallible %}
     return uniffi::lift_expected<{{ return_type|type_name(ci) }}>({% call macros::rust_call(func) %}, [](auto ret) {
-        return uniffi::{{ return_type|lift_fn }}(ret);
+        return uniffi::{{ return_type|lift_fn(ci) }}(ret);
     });
     {%- else %}
     auto ret = {% call macros::rust_call(func) %};
 
-    return uniffi::{{ return_type|lift_fn }}(ret);
+    return uniffi::{{ return_type|lift_fn(ci) }}(ret);
     {%- endif %}
 }
 {%- when None -%}

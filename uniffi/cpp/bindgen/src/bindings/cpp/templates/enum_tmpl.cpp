@@ -1,4 +1,4 @@
-{%- let as_struct = name|enum_struct(ci) %}
+{%- let as_struct = typ|enum_struct(ci) %}
 {%- let flat_error = e.is_flat() && as_struct %}
 {%- if !as_struct %}
 {{ type_name }} {{ ffi_converter_name }}::lift(RustBuffer buf) {
@@ -76,10 +76,10 @@ RustBuffer {{ ffi_converter_name }}::lower(const {{ type_name }} &val) {
     case {{ loop.index }}:
         return {{ type_name }}::{{ variant|variant_name(config.enum_style) }} {
             {%- for field in variant.fields() %}
-            {{ field|read_fn }}(stream),
+            {{ field|read_fn(ci) }}(stream),
             {%- endfor %}
             {%- if flat_error %}
-            {{ Type::String.borrow()|read_fn }}(stream),
+            {{ Type::String.borrow()|read_fn(ci) }}(stream),
             {%- endif %}
         };
         {% endfor %}
@@ -98,10 +98,10 @@ void {{ ffi_converter_name }}::write(RustStream &stream, const {{ type_name }} &
         {%- for variant in e.variants() %}
         {% if !loop.first %}else {% endif %}if constexpr (std::is_same_v<T, {{ type_name }}::{{ variant|variant_name(config.enum_style) }}>) {
             {%- for field in variant.fields() %}
-            {{ field|write_fn }}(stream, {{ field.as_type()|cpp_deref(ci) }}arg.{% call macros::field_name(field, loop.index) %});
+            {{ field|write_fn(ci) }}(stream, {{ field.as_type()|cpp_deref(ci) }}arg.{% call macros::field_name(field, loop.index) %});
             {%- endfor %}
             {%- if flat_error %}
-            {{ Type::String.borrow()|write_fn }}(stream, arg.message);
+            {{ Type::String.borrow()|write_fn(ci) }}(stream, arg.message);
             {%- endif %}
         }
         {%- endfor %}
@@ -123,10 +123,10 @@ uint64_t {{ ffi_converter_name }}::allocation_size(const {{ type_name|class_name
         {% if !loop.first %}else {% endif %}if constexpr (std::is_same_v<T, {{ type_name }}::{{ variant|variant_name(config.enum_style) }}>) {
             uint64_t size = 0;
             {%- for field in variant.fields() %}
-            size += {{ field|allocation_size_fn }}({{ field.as_type()|cpp_deref(ci) }}arg.{% call macros::field_name(field, loop.index) %});
+            size += {{ field|allocation_size_fn(ci) }}({{ field.as_type()|cpp_deref(ci) }}arg.{% call macros::field_name(field, loop.index) %});
             {%- endfor %}
             {%- if flat_error %}
-            size += {{ Type::String.borrow()|allocation_size_fn }}(arg.message);
+            size += {{ Type::String.borrow()|allocation_size_fn(ci) }}(arg.message);
             {%- endif %}
             return size;
         }

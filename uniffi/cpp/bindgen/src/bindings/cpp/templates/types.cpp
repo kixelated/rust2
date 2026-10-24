@@ -2,8 +2,8 @@
 
 {%- for typ in ci.iter_local_types() %}
 {%- let type_name = typ|type_name(ci) %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let contains_object_references = ci.item_contains_object_references(typ) %}
 {%- let namespace = ci.namespace() %}
 
@@ -20,15 +20,15 @@
 namespace uniffi {
 {%- for typ in ci.iter_local_types() %}
 {%- let type_name = typ|type_name(ci) %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let contains_object_references = ci.item_contains_object_references(typ) %}
 {%- let namespace = ci.namespace() %}
 
 {%- match typ %}
 {%- when Type::Enum { name, module_path } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if name|error_class(ci) %}
+{%- if typ|error_class(ci) %}
 {% include "err_tmpl.cpp" %}
 {%- else %}
 {% include "enum_tmpl.cpp" %}

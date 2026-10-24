@@ -29,16 +29,17 @@ pub trait CodeType: Debug {
     /// identifier. e.g. `read_foo()`, or `FooInternals`.
     ///
     /// This is especially useful when creating specialized objects or methods to deal
-    /// with this type only.
-    fn canonical_name(&self) -> String;
+    /// with this type only. Another crate's type is spelled with its namespace in front, so
+    /// the helpers for it never collide with those for a local type of the same name.
+    fn canonical_name(&self, ci: &ComponentInterface) -> String;
 
     fn literal(&self, _literal: &Literal, ci: &ComponentInterface) -> String {
         unimplemented!("Unimplemented for {}", self.type_label(ci))
     }
 
     /// Name of the FfiConverter
-    fn ffi_converter_name(&self) -> String {
-        format!("FfiConverter{}", self.canonical_name())
+    fn ffi_converter_name(&self, ci: &ComponentInterface) -> String {
+        format!("FfiConverter{}", self.canonical_name(ci))
     }
 
     /// A list of imports that are needed if this type is in use.
@@ -80,10 +81,13 @@ impl BindingGenerator for CppBindingGenerator {
             return Ok(());
         }
 
-        let flat: HashMap<String, String> = renames
-            .values()
-            .flatten()
-            .filter_map(|(old, new)| Some((old.clone(), new.as_str()?.to_string())))
+        let flat: HashMap<(String, String), String> = renames
+            .iter()
+            .flat_map(|(crate_name, table)| {
+                table.iter().filter_map(move |(old, new)| {
+                    Some(((crate_name.clone(), old.clone()), new.as_str()?.to_string()))
+                })
+            })
             .collect();
         for component in components.iter_mut() {
             rename(&mut component.ci, &renames);

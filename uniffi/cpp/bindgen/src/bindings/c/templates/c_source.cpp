@@ -97,6 +97,10 @@ struct {{ ns }}_work {
 };
 
 {{ objects }}
+{%- if !externals.is_empty() %}
+
+{{ externals }}
+{%- endif %}
 
 namespace {{ namespace }}::c_detail {
 

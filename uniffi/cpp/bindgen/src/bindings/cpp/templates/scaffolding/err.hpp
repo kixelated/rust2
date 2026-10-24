@@ -1,6 +1,6 @@
 {%- let type_name = e|type_name(ci) %}
 {%- let class_name = type_name|class_name %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let namespace = type_name|to_lower_snake_case %}
 struct {{ ffi_converter_name }}{{ variant.name() }} {
     static {{ namespace }}::{{ variant.name() }} lift(RustBuffer buf, int32_t v);
