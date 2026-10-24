@@ -22,7 +22,6 @@ deletes the quests that follow it.
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Iterators](/quest/m2/ts-iter.md) - lazy `rt.ts` adaptors with a `DONE` protocol
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
-- [Tail loops](/quest/m2/ts-tail-loop.md) - a `loop` ending a function body translates
 - [Formatting impls of root types](/quest/m2/ts-root-fmt.md) - a root type brings its `Display` and `Debug` into the output
 - [Methods on generic types](/quest/m2/ts-generic-methods.md) - generic classes' methods type-check, derived `Debug` included
 - [Empty braced structs](/quest/m2/ts-empty-struct.md) - `struct E {}` passes `tsc`

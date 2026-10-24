@@ -230,7 +230,7 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
-/** Loops: labeled, `while let`, ranges, and values out of `break`. */
+/** Loops: labeled, `while let`, ranges, values out of `break`, and loops that end a function. */
 export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let stack: rt.ByteVec = rt.slice.toByteVec(data);
 	let popped: number = 0;
@@ -296,6 +296,127 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 		count = rt.u8.add(count, 1);
 	}
 	out.push(count);
+	out.push(firstRepeat(data));
+	out.extendFromSlice(rt.u16.toBeBytes(tailBreak(data)));
+	out.push(armLoop(data));
+	out.extendFromSlice(rt.u32.toBeBytes(position(data, 0)));
+	const settle = (x: number): number => {
+		while (true) {
+			if (x < 10) {
+				return x;
+			}
+			x = rt.u8.div(x, 3);
+		}
+	};
+	out.push(settle(rt.u8.mul(data.length & 0xff, 7)));
+	drain(data, out);
+}
+
+/** A loop that ends the function, left only by `return` from nested scopes. */
+export function firstRepeat(data: Uint8Array): number {
+	let i: number = 0;
+	loop: while (true) {
+		if (i >= data.length) {
+			return 0xff;
+		}
+		let j: number = rt.usize.add(i, 1);
+		while (j < data.length) {
+			if (rt.at(data, j) === 0) {
+				i = rt.usize.add(j, 1);
+				continue loop;
+			}
+			if (rt.at(data, i) === rt.at(data, j)) {
+				return rt.at(data, j) ^ (i & 0xff);
+			}
+			j = rt.usize.add(j, 1);
+		}
+		i = rt.usize.add(i, 1);
+	}
+}
+
+/** A loop that ends the function, left by `break` with a value from nested scopes. */
+export function tailBreak(data: Uint8Array): number {
+	let i: number = 0;
+	while (true) {
+		if (i >= data.length) {
+			return 0x100;
+		}
+		const b = rt.at(data, i);
+		i = rt.usize.add(i, 1);
+		const value = rt.u8.rem(b, 4);
+		if (value === 0) {
+			continue;
+		} else if (value === 1) {
+			for (const item of rt.slice.range(data, i)) {
+				const c = item;
+				if (c === b) {
+					return rt.u16.mul(c, 2);
+				}
+			}
+		} else if (value === 2 && b > 100) {
+			return rt.u16.add(b, i & 0xffff);
+		} else {
+			let n: number = b;
+			while (true) {
+				if (n < 10) {
+					break;
+				}
+				n = rt.u8.div(n, 3);
+				if (n === 7) {
+					return 7;
+				}
+			}
+		}
+	}
+}
+
+/** A loop that only `return` leaves, in a `match` arm that needs a value. */
+export function armLoop(data: Uint8Array): number {
+	let k: number = 0;
+	let start: number;
+	const first = rt.slice.first(data);
+	arms: {
+		if (first !== undefined) {
+			const b = first;
+			if (b >= 0x80) {
+				start = b;
+				break arms;
+			}
+		}
+		while (true) {
+			if (k >= data.length) {
+				return 0xee;
+			}
+			if (rt.at(data, k) >= 0x80) {
+				return rt.u8.sub(rt.at(data, k), 0x80);
+			}
+			k = rt.usize.add(k, 1);
+		}
+	}
+	return rt.u8.div(start, 2);
+}
+
+/** A generic function ending in a loop. */
+export function position(items: Uint8Array, want: number): number {
+	let i: number = 0;
+	while (true) {
+		if (i === items.length || items[rt.idx(items, i)] === want) {
+			return i;
+		}
+		i = rt.usize.add(i, 1);
+	}
+}
+
+/** A unit function ending in a loop. */
+export function drain(data: Uint8Array, out: rt.ByteVec): void {
+	let i: number = 0;
+	while (true) {
+		if (i >= data.length) {
+			return;
+		}
+		out.push(rt.at(data, i) ^ 0x5a);
+		i = rt.usize.add(i, 2);
+	}
 }
 
 /** Patterns: slices, ranges, guards that bind, `@` bindings, and let chains. */
