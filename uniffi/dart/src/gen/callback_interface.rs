@@ -2,6 +2,7 @@ use genco::prelude::*;
 use heck::ToUpperCamelCase;
 use uniffi_bindgen::interface::ffi::{FfiStruct, FfiType};
 use uniffi_bindgen::interface::{AsType, Method, Type};
+use uniffi_bindgen::ComponentInterface;
 
 use crate::gen::oracle::{AsCodeType, DartCodeOracle};
 use crate::gen::render::{AsRenderable, Renderable, TypeHelperRenderer};
@@ -11,21 +12,32 @@ use crate::gen::CodeType;
 pub struct CallbackInterfaceCodeType {
     name: String,
     self_type: Type,
+    namespace: Option<String>,
 }
 
 impl CallbackInterfaceCodeType {
-    pub fn new(name: String, self_type: Type) -> Self {
-        Self { name, self_type }
+    pub fn new(name: String, self_type: Type, namespace: Option<String>) -> Self {
+        Self { name, self_type, namespace }
     }
 }
 
 impl CodeType for CallbackInterfaceCodeType {
     fn type_label(&self) -> String {
-        super::DartCodeOracle::class_name(&self.name)
+        DartCodeOracle::qualify(self.namespace.as_deref(), DartCodeOracle::class_name(&self.name))
     }
 
     fn canonical_name(&self) -> String {
-        format!("CallbackInterface{}", self.type_label())
+        DartCodeOracle::qualify_canonical(
+            self.namespace.as_deref(),
+            format!("CallbackInterface{}", DartCodeOracle::class_name(&self.name)),
+        )
+    }
+
+    fn ffi_converter_name(&self) -> String {
+        DartCodeOracle::qualify(
+            self.namespace.as_deref(),
+            format!("FfiConverterCallbackInterface{}", DartCodeOracle::class_name(&self.name)),
+        )
     }
 
     fn initialization_fn(&self) -> Option<String> {
@@ -36,12 +48,16 @@ impl CodeType for CallbackInterfaceCodeType {
 impl Renderable for CallbackInterfaceCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
         type_helper.include_once_check(&self.canonical_name(), &self.self_type);
+        // Another crate's library declares its own helpers.
+        if self.namespace.is_some() {
+            return quote!();
+        }
         let callback = type_helper.get_ci().get_callback_interface_definition(&self.name).unwrap();
 
         // Generate all necessary components for the callback interface
         let interface = generate_callback_interface(
             callback.name(),
-            &callback.as_codetype().ffi_converter_name(),
+            &callback.as_codetype(type_helper.get_ci()).ffi_converter_name(),
             &callback.methods(),
             type_helper,
             None,
@@ -187,7 +203,7 @@ pub fn generate_callback_interface(
         $async_support
 
         // We must define callback signatures
-        $(generate_callback_methods_signatures(cls_name, methods))
+        $(generate_callback_methods_signatures(cls_name, methods, type_helper.get_ci()))
     };
 
     tokens
@@ -202,7 +218,8 @@ fn generate_callback_methods_definitions(
         .arguments()
         .iter()
         .map(|arg| {
-            let arg_type = arg.as_renderable().render_type(&arg.as_type(), type_helper);
+            let arg_type =
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
             let arg_name = DartCodeOracle::var_name(arg.name());
 
             quote!($arg_type $arg_name)
@@ -211,13 +228,13 @@ fn generate_callback_methods_definitions(
 
     let ret_type = if method.is_async() {
         if let Some(ret) = method.return_type() {
-            let rendered = ret.as_renderable().render_type(ret, type_helper);
+            let rendered = ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper);
             quote!(Future<$rendered>)
         } else {
             quote!(Future<void>)
         }
     } else if let Some(ret) = method.return_type() {
-        ret.as_renderable().render_type(ret, type_helper)
+        ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper)
     } else {
         quote!(void)
     };
@@ -227,7 +244,11 @@ fn generate_callback_methods_definitions(
     )
 }
 
-fn generate_callback_methods_signatures(callback_name: &str, methods: &[&Method]) -> dart::Tokens {
+fn generate_callback_methods_signatures(
+    callback_name: &str,
+    methods: &[&Method],
+    ci: &ComponentInterface,
+) -> dart::Tokens {
     let mut tokens = dart::Tokens::new();
     for (method_index, method) in methods.iter().enumerate() {
         //let method_name = DartCodeOracle::fn_name(method.name());
@@ -239,13 +260,13 @@ fn generate_callback_methods_signatures(callback_name: &str, methods: &[&Method]
         let arg_native_types: Vec<dart::Tokens> = method
             .arguments()
             .iter()
-            .map(|arg| DartCodeOracle::native_type_label(Some(&arg.as_type())))
+            .map(|arg| DartCodeOracle::native_type_label(Some(&arg.as_type()), ci))
             .collect();
 
         let arg_dart_types: Vec<dart::Tokens> = method
             .arguments()
             .iter()
-            .map(|arg| DartCodeOracle::native_dart_type_label(Some(&arg.as_type())))
+            .map(|arg| DartCodeOracle::native_dart_type_label(Some(&arg.as_type()), ci))
             .collect();
 
         if method.is_async() {
@@ -263,7 +284,7 @@ fn generate_callback_methods_signatures(callback_name: &str, methods: &[&Method]
             });
         } else {
             let method_return_type = if let Some(ret) = method.return_type() {
-                DartCodeOracle::native_type_label(Some(ret))
+                DartCodeOracle::native_type_label(Some(ret), ci)
             } else {
                 quote!(Void)
             };
@@ -325,7 +346,7 @@ pub fn generate_callback_functions(
             .iter()
             .map(|arg| {
                 let arg_name = DartCodeOracle::var_name(arg.name());
-                DartCodeOracle::callback_param_type(&arg.as_type(), &arg_name)
+                DartCodeOracle::callback_param_type(&arg.as_type(), &arg_name, type_helper.get_ci())
             })
             .collect();
 
@@ -336,7 +357,7 @@ pub fn generate_callback_functions(
             .enumerate()
             .map(|(arg_idx, arg)| {
                 let arg_name = DartCodeOracle::var_name(arg.name());
-                DartCodeOracle::callback_arg_lift_indexed(&arg.as_type(), &arg_name, arg_idx)
+                DartCodeOracle::callback_arg_lift_indexed(&arg.as_type(), &arg_name, arg_idx, type_helper.get_ci())
             })
             .collect();
 
@@ -362,11 +383,11 @@ pub fn generate_callback_functions(
             let struct_tokens_alt = struct_tokens.clone();
 
             if let Some(ret) = m.return_type() {
-                type_helper.include_once_check(&ret.as_codetype().canonical_name(), ret);
+                type_helper.include_once_check(&ret.as_codetype(type_helper.get_ci()).canonical_name(), ret);
             }
 
             let success_return = if let Some(ret) = m.return_type() {
-                let converter = ret.as_codetype().ffi_converter_name();
+                let converter = ret.as_codetype(type_helper.get_ci()).ffi_converter_name();
                 quote!(resultStructPtr.ref.returnValue = $(&converter).lower(result);)
             } else {
                 quote!()
@@ -435,7 +456,7 @@ pub fn generate_callback_functions(
         } else {
             // Handle return value using the oracle
             let call_dart_method = if let Some(ret) = m.return_type() {
-                DartCodeOracle::callback_return_handling(ret, method_name, arg_names)
+                DartCodeOracle::callback_return_handling(ret, method_name, arg_names, type_helper.get_ci())
             } else {
                 // Handle void return types
                 DartCodeOracle::callback_void_handling(method_name, arg_names)
@@ -510,8 +531,9 @@ fn callback_error_handling(
     status: dart::Tokens,
 ) -> dart::Tokens {
     if let Some(error_type) = throws_type {
-        let error_type_label = error_type.as_renderable().render_type(error_type, type_helper);
-        let error_lower = error_type.as_codetype().ffi_converter_name();
+        let error_type_label =
+            error_type.as_renderable(type_helper.get_ci()).render_type(error_type, type_helper);
+        let error_lower = error_type.as_codetype(type_helper.get_ci()).ffi_converter_name();
         quote! {
             if (e is $error_type_label) {
                 $(&status).code = CALL_ERROR;

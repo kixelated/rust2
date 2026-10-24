@@ -1,8 +1,8 @@
 {%- let obj = ci.get_object_definition(name).unwrap() %}
 {%- let (interface_name, impl_class_name) = obj|object_names %}
 {%- let class_name = type_name|class_name %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- if obj.has_callback_interface() %}
 {%- if obj.has_async_method() %}
 struct {{ canonical_type_name }} {
@@ -34,7 +34,7 @@ struct {{ impl_class_name }}
     we don't need to complex branching for multiple inheritance
 #}
 {% if obj.has_callback_interface() %} : public {% if obj.has_async_method() %}{{ canonical_type_name }}{% else %}{{ interface_name }}{% endif %} {% endif %}
-{% if ci.is_name_used_as_error(name) %} : public std::exception {% endif %}
+{% if ci.is_used_as_error(typ) %} : public std::exception {% endif %}
 {
     friend uniffi::{{ ffi_converter_name|class_name }};
 
@@ -98,7 +98,7 @@ struct {{ impl_class_name }}
     {%- endmatch %}
     {%- endfor %}
 
-    {% if ci.is_name_used_as_error(name) && !config.expected() %}
+    {% if ci.is_used_as_error(typ) && !config.expected() %}
     void throw_underlying();
     {%- endif -%}
 private:

@@ -34,6 +34,8 @@ pub(crate) struct Bindings {
 struct Header<'a> {
     ns: &'a str,
     guard: String,
+    /// The namespaces whose headers declare the external types this one uses.
+    includes: Vec<String>,
     body: &'a str,
 }
 
@@ -43,6 +45,7 @@ struct Source<'a> {
     ns: &'a str,
     namespace: &'a str,
     objects: &'a str,
+    externals: &'a str,
     converters: &'a str,
     body: &'a str,
 }
@@ -63,7 +66,7 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
 
     let mut objects = String::new();
     for obj in ci.object_definitions() {
-        let c = c_name(obj.name());
+        let c = prefixed(&gen.ns, obj.name());
         let class = CppCodeOracle.class_name(obj.name());
         writeln!(
             objects,
@@ -73,12 +76,14 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
     }
 
     let mut converters = String::new();
-    gen.render_converters(&mut converters)?;
+    let mut externals = String::new();
+    gen.render_converters(&mut converters, &mut externals)?;
 
     let ns = gen.ns.clone();
     let header = Header {
         ns: &ns,
         guard: format!("UNIFFI_{}_H", ns.to_shouty_snake_case()),
+        includes: gen.external_namespaces(),
         body: header.trim_end(),
     }
     .render()
@@ -87,6 +92,7 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
         ns: &ns,
         namespace: ci.namespace(),
         objects: objects.trim_end(),
+        externals: externals.trim_end(),
         converters: converters.trim_end(),
         body: source.trim_end(),
     }
@@ -129,6 +135,9 @@ struct CType {
     canon: String,
     /// Names the type inside a compound type's C name.
     slug: String,
+    /// For a type from another crate, that crate's namespace and the canonical name its own
+    /// converters use: that crate's C API declares the type, and its C implementation converts it.
+    external: Option<(String, String)>,
 }
 
 impl CType {
@@ -238,9 +247,20 @@ fn decl(ty: &str, name: &str) -> String {
     }
 }
 
-/// The C name of a uniffi type or function: its name in snake case.
+/// A uniffi name in snake case.
 fn c_name(name: &str) -> String {
     name.to_snake_case()
+}
+
+/// The C name of a type or function: its name in snake case, prefixed with the snake-case
+/// namespace unless it already is, since every crate's C API shares one global scope.
+fn prefixed(ns: &str, name: &str) -> String {
+    let c = c_name(name);
+    if c.starts_with(&format!("{ns}_")) {
+        c
+    } else {
+        format!("{ns}_{c}")
+    }
 }
 
 fn c_field_name(field: &Field, index: usize) -> String {
@@ -272,6 +292,8 @@ struct Gen<'a> {
     types: BTreeMap<String, CType>,
     /// Every global C identifier, to refuse a collision instead of emitting one.
     names: BTreeSet<String>,
+    /// The crates whose types this one uses, each checked once for C support.
+    externals: BTreeSet<String>,
 }
 
 impl<'a> Gen<'a> {
@@ -282,7 +304,19 @@ impl<'a> Gen<'a> {
             ns: ci.namespace().to_snake_case(),
             types: BTreeMap::new(),
             names: BTreeSet::new(),
+            externals: BTreeSet::new(),
         }
+    }
+
+    /// The namespaces of the crates whose types this one uses.
+    fn external_namespaces(&self) -> Vec<String> {
+        self.types
+            .values()
+            .filter_map(|ct| ct.external.as_ref())
+            .map(|(namespace, _)| namespace.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
     }
 
     fn claim(&mut self, name: &str) -> Result<()> {
@@ -300,9 +334,6 @@ impl<'a> Gen<'a> {
                 cbi.name()
             );
         }
-        if let Some(ty) = self.ci.iter_external_types().next() {
-            bail!("the C backend does not support external types, but `{ty:?}` is one");
-        }
         for obj in self.ci.object_definitions() {
             if obj.has_callback_interface() {
                 bail!(
@@ -316,7 +347,7 @@ impl<'a> Gen<'a> {
                     obj.name()
                 );
             }
-            if self.ci.is_name_used_as_error(obj.name()) {
+            if self.ci.is_used_as_error(obj) {
                 bail!(
                     "the C backend does not support objects as errors, but `{}` is one",
                     obj.name()
@@ -358,7 +389,7 @@ impl<'a> Gen<'a> {
             }
             let traits = e.uniffi_trait_methods();
             // An error's Display output is its message; nothing else is rendered.
-            let display_ok = self.ci.is_name_used_as_error(e.name());
+            let display_ok = self.ci.is_used_as_error(e);
             if (traits.display_fmt.is_some() && !display_ok)
                 || traits.debug_fmt.is_some()
                 || traits.eq_eq.is_some()
@@ -377,14 +408,17 @@ impl<'a> Gen<'a> {
     /// Maps a uniffi type, registering it and everything it contains for converters.
     fn ctype(&mut self, ty: &Type) -> Result<CType> {
         let code = CppCodeOracle.find(ty);
-        let canon = code.canonical_name();
+        let canon = code.canonical_name(self.ci);
         if let Some(ct) = self.types.get(&canon) {
             return Ok(ct.clone());
         }
         let cpp = code.type_label(self.ci);
+        if self.ci.is_external(ty) {
+            return self.external_ctype(ty, canon, cpp);
+        }
         let ns = self.ns.clone();
         let named = |name: &str| {
-            let c = c_name(name);
+            let c = prefixed(&ns, name);
             let slug = c.strip_prefix(&format!("{ns}_")).unwrap_or(&c).to_string();
             (c, slug)
         };
@@ -413,7 +447,7 @@ impl<'a> Gen<'a> {
                     .ci
                     .get_enum_definition(name)
                     .with_context(|| format!("enum `{name}` not found"))?;
-                let kind = if filters::is_enum_struct(self.ci, name) {
+                let kind = if filters::is_enum_struct(self.ci, ty) {
                     Kind::DataEnum
                 } else {
                     Kind::FlatEnum
@@ -477,6 +511,36 @@ impl<'a> Gen<'a> {
             cpp,
             canon: canon.clone(),
             slug,
+            external: None,
+        };
+        self.types.insert(canon, ct.clone());
+        Ok(ct)
+    }
+
+    /// Maps a type from another crate to the C type that crate's API declares, after checking
+    /// that its C API can be generated at all.
+    fn external_ctype(&mut self, ty: &Type, canon: String, cpp: String) -> Result<CType> {
+        let ext = filters::defining_interface(self.ci, ty);
+        let mut own = Gen::new(ext, self.config);
+        if self.externals.insert(ext.crate_name().to_string()) {
+            own.check_supported().with_context(|| {
+                format!(
+                    "`{}` uses types from `{}`",
+                    self.ci.namespace(),
+                    ext.namespace()
+                )
+            })?;
+        }
+        let own = own.ctype(ty)?;
+        let ct = CType {
+            ty: ty.clone(),
+            kind: own.kind,
+            c: own.c.clone(),
+            cpp,
+            canon: canon.clone(),
+            // The whole C name, so a compound of it never matches one of a local namesake.
+            slug: own.c,
+            external: Some((ext.namespace().to_string(), own.canon)),
         };
         self.types.insert(canon, ct.clone());
         Ok(ct)
@@ -504,6 +568,12 @@ impl<'a> Gen<'a> {
         }
 
         let types: Vec<CType> = self.types.values().cloned().collect();
+
+        // Another crate's header defines its types, and its implementation converts them.
+        let types: Vec<CType> = types
+            .into_iter()
+            .filter(|ct| ct.external.is_none())
+            .collect();
 
         // Flat enums first: C cannot forward-declare an enum.
         for ct in types.iter().filter(|ct| matches!(ct.kind, Kind::FlatEnum)) {
@@ -599,7 +669,7 @@ impl<'a> Gen<'a> {
         }
 
         for func in self.ci.function_definitions() {
-            let name = c_name(func.name());
+            let name = prefixed(&self.ns, func.name());
             let call = format!(
                 "::{}::{}",
                 self.ci.namespace(),
@@ -609,7 +679,8 @@ impl<'a> Gen<'a> {
         }
 
         // The header declared the types known up front; one found later would lack its struct.
-        if self.types.len() != types.len() {
+        let local = self.types.values().filter(|ct| ct.external.is_none());
+        if local.count() != types.len() {
             bail!("the C backend found a type the interface does not list; this is a bug");
         }
         Ok(())
@@ -693,7 +764,7 @@ impl<'a> Gen<'a> {
                 .collect(),
         };
         for field in fields {
-            let dep = CppCodeOracle.find(&field.as_type()).canonical_name();
+            let dep = CppCodeOracle.find(&field.as_type()).canonical_name(self.ci);
             if structs.contains_key(&dep) {
                 self.visit(&dep, structs, done, visiting, sorted)?;
             }
@@ -812,7 +883,7 @@ impl<'a> Gen<'a> {
 
     fn render_data_enum(&mut self, h: &mut String, s: &mut String, ct: &CType) -> Result<()> {
         let e = self.enum_def(&ct.ty)?;
-        let error = self.ci.is_name_used_as_error(e.name());
+        let error = self.ci.is_used_as_error(e);
         let tag = format!("{}_tag", ct.c);
         self.claim(&tag)?;
 
@@ -924,7 +995,7 @@ impl<'a> Gen<'a> {
     }
 
     fn render_object(&mut self, h: &mut String, s: &mut String, obj: &Object) -> Result<()> {
-        let c = c_name(obj.name());
+        let c = prefixed(&self.ns, obj.name());
         let class = CppCodeOracle.class_name(obj.name());
         let namespace = self.ci.namespace();
 
@@ -1197,8 +1268,41 @@ impl<'a> Gen<'a> {
         Ok(())
     }
 
-    /// Declares every converter, then defines them, so their order does not matter.
-    fn render_converters(&self, out: &mut String) -> Result<()> {
+    /// Declares every converter, then defines them, so their order does not matter. An external
+    /// type's converters forward to its own crate's, which `externals` declares.
+    fn render_converters(&self, out: &mut String, externals: &mut String) -> Result<()> {
+        let mut by_namespace: BTreeMap<&str, String> = BTreeMap::new();
+        for ct in self.types.values() {
+            if let Some((namespace, canon)) = &ct.external {
+                let decls = by_namespace.entry(namespace).or_default();
+                let field = ct.field();
+                writeln!(
+                    decls,
+                    "{};",
+                    decl(&field, &format!("to_c_{canon}(const {} &value)", ct.cpp))
+                )?;
+                writeln!(
+                    decls,
+                    "{} from_c_{canon}({});",
+                    ct.cpp,
+                    decl(&ct.view(), "value")
+                )?;
+                writeln!(
+                    decls,
+                    "void free_c_{canon}({});",
+                    decl(&format!("{field} &"), "value")
+                )?;
+            }
+        }
+        for (namespace, decls) in by_namespace {
+            writeln!(
+                externals,
+                "namespace {namespace}::c_detail {{
+{decls}}} // namespace {namespace}::c_detail
+"
+            )?;
+        }
+
         for ct in self.types.values() {
             let field = ct.field();
             writeln!(
@@ -1247,6 +1351,16 @@ impl<'a> Gen<'a> {
             ct.canon,
             decl(&format!("{field} &"), "value")
         );
+        if let Some((namespace, canon)) = &ct.external {
+            let own = format!("::{namespace}::c_detail");
+            writeln!(out, "{to} {{\n    return {own}::to_c_{canon}(value);\n}}\n")?;
+            writeln!(
+                out,
+                "{from} {{\n    return {own}::from_c_{canon}(value);\n}}\n"
+            )?;
+            writeln!(out, "{free} {{\n    {own}::free_c_{canon}(value);\n}}\n")?;
+            return Ok(());
+        }
         match &ct.kind {
             Kind::Scalar => {
                 writeln!(out, "{to} {{\n    return value;\n}}\n")?;
@@ -1311,7 +1425,7 @@ impl<'a> Gen<'a> {
                 let mut from_items = Vec::new();
                 let mut free_body = String::new();
                 for field in rec.fields() {
-                    let fcanon = CppCodeOracle.find(&field.as_type()).canonical_name();
+                    let fcanon = CppCodeOracle.find(&field.as_type()).canonical_name(self.ci);
                     let name = filters::var_name(field.name()).unwrap();
                     writeln!(to_body, "    out.{name} = to_c_{fcanon}(value.{name});")?;
                     from_items.push(format!("        from_c_{fcanon}(value.{name})"));
@@ -1349,6 +1463,18 @@ impl<'a> Gen<'a> {
             Kind::Optional(inner) => {
                 let icanon = &inner.canon;
                 match inner.kind {
+                    // Another crate's object struct is private to its implementation.
+                    Kind::Object if inner.external.is_some() => {
+                        writeln!(
+                            out,
+                            "{to} {{\n    return value ? to_c_{icanon}(value) : nullptr;\n}}\n"
+                        )?;
+                        writeln!(
+                            out,
+                            "{from} {{\n    return value ? from_c_{icanon}(value) : nullptr;\n}}\n"
+                        )?;
+                        writeln!(out, "{free} {{\n    free_c_{icanon}(value);\n}}\n")?;
+                    }
                     // A null shared_ptr is the C++ binding's empty optional object.
                     Kind::Object => {
                         writeln!(
@@ -1448,7 +1574,7 @@ impl<'a> Gen<'a> {
         free: &str,
     ) -> Result<()> {
         let e = self.enum_def(&ct.ty)?;
-        let error = self.ci.is_name_used_as_error(e.name());
+        let error = self.ci.is_used_as_error(e);
         let display = e.uniffi_trait_methods().display_fmt.is_some();
         // Under the expected style each variant of a flat error carries its message.
         let flat_error = error && e.is_flat();
@@ -1479,7 +1605,7 @@ impl<'a> Gen<'a> {
             let mut from_items = Vec::new();
             let mut free_case = String::new();
             for (i, f) in variant.fields().iter().enumerate() {
-                let fcanon = CppCodeOracle.find(&f.as_type()).canonical_name();
+                let fcanon = CppCodeOracle.find(&f.as_type()).canonical_name(self.ci);
                 let name = c_field_name(f, i + 1);
                 writeln!(
                     to_cases,

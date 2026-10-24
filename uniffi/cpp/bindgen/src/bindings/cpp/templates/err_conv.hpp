@@ -1,5 +1,5 @@
-{%- let class_name = typ|canonical_name %}
-struct {{ typ|ffi_converter_name }} {
+{%- let class_name = typ|canonical_name(ci) %}
+struct {{ typ|ffi_converter_name(ci) }} {
     static {{ type_name }} lift(RustBuffer buf);
     static RustBuffer lower(const {{ class_name }} &);
     static {{ type_name }} read(RustStream &stream);

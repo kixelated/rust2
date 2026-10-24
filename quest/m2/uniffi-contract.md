@@ -26,7 +26,3 @@ anyway.
 
 Public API: the generated contract check, and the scaffolding's exported
 contract symbol.
-
-## Related
-
-- [Namespaced external types](/quest/m2/uniffi-namespaces.md) - may change the contract first

@@ -24,6 +24,9 @@ mod uniffi_fixtures {
 
     uniffi_ext_types_export::uniffi_reexport_scaffolding!();
     uniffi_ext_types_import::uniffi_reexport_scaffolding!();
+
+    uniffi_namespaces_net::uniffi_reexport_scaffolding!();
+    uniffi_namespaces_media::uniffi_reexport_scaffolding!();
 }
 use std::sync::{
     atomic::{AtomicU64, Ordering},

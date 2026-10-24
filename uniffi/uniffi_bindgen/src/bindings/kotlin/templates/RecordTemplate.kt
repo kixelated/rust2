@@ -48,12 +48,12 @@ class {{ type_name }} {
 /**
  * @suppress
  */
-public object {{ rec|ffi_converter_name }}: FfiConverterRustBuffer<{{ type_name }}> {
+public object {{ rec|ffi_converter_name(ci) }}: FfiConverterRustBuffer<{{ type_name }}> {
     override fun read(buf: ByteBuffer): {{ type_name }} {
         {%- if rec.has_fields() %}
         return {{ type_name }}(
         {%- for field in rec.fields() %}
-            {{ field|read_fn }}(buf),
+            {{ field|read_fn(ci) }}(buf),
         {%- endfor %}
         )
         {%- else %}
@@ -63,13 +63,13 @@ public object {{ rec|ffi_converter_name }}: FfiConverterRustBuffer<{{ type_name 
 
     override fun allocationSize(value: {{ type_name }}) = {%- if rec.has_fields() %} (
         {%- for field in rec.fields() %}
-            {{ field|allocation_size_fn }}(value.{{ field.name()|var_name }}){% if !loop.last %} +{% endif %}
+            {{ field|allocation_size_fn(ci) }}(value.{{ field.name()|var_name }}){% if !loop.last %} +{% endif %}
         {%- endfor %}
     ) {%- else %} 0UL {%- endif %}
 
     override fun write(value: {{ type_name }}, buf: ByteBuffer) {
         {%- for field in rec.fields() %}
-            {{ field|write_fn }}(value.{{ field.name()|var_name }}, buf)
+            {{ field|write_fn(ci) }}(value.{{ field.name()|var_name }}, buf)
         {%- endfor %}
     }
 }

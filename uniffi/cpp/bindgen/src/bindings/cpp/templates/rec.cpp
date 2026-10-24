@@ -21,14 +21,14 @@ RustBuffer {{ ffi_converter_name }}::lower(const {{ class_name }} &val) {
 {{ class_name }} {{ ffi_converter_name }}::read(RustStream &stream) {
     return {
         {%- for field in rec.fields() %}
-        {{ field|read_fn }}(stream){% if !loop.last %},{% endif %}
+        {{ field|read_fn(ci) }}(stream){% if !loop.last %},{% endif %}
         {%- endfor %}
     };
 }
 
 void {{ ffi_converter_name }}::write(RustStream &stream, const {{ class_name }} &val) {
     {%- for field in rec.fields() %}
-    {{ field|write_fn }}(stream, {{ field.as_type()|cpp_deref(ci) }}val.{{ field.name()|var_name }});
+    {{ field|write_fn(ci) }}(stream, {{ field.as_type()|cpp_deref(ci) }}val.{{ field.name()|var_name }});
     {%- endfor %}
 }
 
@@ -38,7 +38,7 @@ uint64_t {{ ffi_converter_name }}::allocation_size(const {{ class_name }} &val) 
     return 0;
     {% else %}
     return {% for field in rec.fields() %}
-        {{ field|allocation_size_fn}}({{ field.as_type()|cpp_deref(ci) }}val.{{ field.name()|var_name() }}){% if !loop.last %} +{% else -%};{%- endif %}
+        {{ field|allocation_size_fn(ci)}}({{ field.as_type()|cpp_deref(ci) }}val.{{ field.name()|var_name() }}){% if !loop.last %} +{% else -%};{%- endif %}
     {%- endfor %}
     {% endif %}
 }

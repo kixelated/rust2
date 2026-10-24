@@ -37,7 +37,7 @@ impl<'a> TypeHelpersRenderer<'a> {
     }
 
     fn register_type_helper(&self, ty: &Type) {
-        let canonical_name = ty.as_codetype().canonical_name();
+        let canonical_name = ty.as_codetype(self.ci).canonical_name();
         self.include_once_check(&canonical_name, ty);
 
         let exception_safe_name = DartCodeOracle::exception_safe_name(&canonical_name);
@@ -144,7 +144,8 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
             $( for obj in self.ci.object_definitions() => $(objects::generate_object(obj, self)))
         };
 
-        // Render all unique imports, sorted alphabetically
+        // Render all unique imports, sorted alphabetically. Each library is imported under a
+        // prefix, which every reference to its types goes through.
         let modules_to_import = self
             .ci
             .iter_external_types()
@@ -154,7 +155,7 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
             .collect::<BTreeSet<_>>();
         let imports: dart::Tokens = quote!(
             $( for imp in modules_to_import {
-                $(format!("import \"{}.dart\"", imp));
+                $(format!("import \"{imp}.dart\" as {}", DartCodeOracle::import_prefix(imp)));
             })
         );
 
@@ -174,7 +175,7 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
         // would collide with the re-exported one.
         let helpers_definitions = quote! {
             $(for (_, ty) in self.get_include_names().iter().filter(|(_, ty)| !matches!(ty, Type::String)) =>
-                $(ty.as_renderable().render_type_helper(self)) )
+                $(ty.as_renderable(self.ci).render_type_helper(self)) )
         };
 
         let types_helper_code = quote! {
@@ -202,7 +203,7 @@ impl Renderer<(FunctionDefinition, dart::Tokens)> for TypeHelpersRenderer<'_> {
     }
 }
 
-pub fn generate_type(ty: &Type) -> dart::Tokens {
+pub fn generate_type(ty: &Type, ci: &ComponentInterface) -> dart::Tokens {
     match ty {
         Type::UInt8
         | Type::UInt32
@@ -215,17 +216,16 @@ pub fn generate_type(ty: &Type) -> dart::Tokens {
         Type::Float32 | Type::Float64 => quote!(double),
         Type::String => quote!(String),
         Type::Bytes => quote!(Uint8List),
-        Type::Object { name, .. } => quote!($(DartCodeOracle::class_name(name))),
-        Type::Boolean => quote!(bool),
-        Type::Optional { inner_type } => quote!($(generate_type(inner_type))?),
-        Type::Sequence { inner_type } => quote!(List<$(generate_type(inner_type))>),
-        Type::Map { key_type, value_type } => {
-            quote!(Map<$(generate_type(key_type)), $(generate_type(value_type))>)
+        Type::Object { .. } | Type::Enum { .. } | Type::Record { .. } | Type::Custom { .. } => {
+            quote!($(ty.as_codetype(ci).type_label()))
         }
-        Type::Enum { name, .. } => quote!($(DartCodeOracle::class_name(name))),
+        Type::Boolean => quote!(bool),
+        Type::Optional { inner_type } => quote!($(generate_type(inner_type, ci))?),
+        Type::Sequence { inner_type } => quote!(List<$(generate_type(inner_type, ci))>),
+        Type::Map { key_type, value_type } => {
+            quote!(Map<$(generate_type(key_type, ci)), $(generate_type(value_type, ci))>)
+        }
         Type::Duration => quote!(Duration),
-        Type::Record { name, .. } => quote!($(DartCodeOracle::class_name(name))),
-        Type::Custom { name, .. } => quote!($(DartCodeOracle::class_name(name))),
         _ => todo!("Type::{:?}", ty),
     }
 }

@@ -1,6 +1,9 @@
 use uniffi_bindgen::ComponentInterface;
 
-use crate::bindings::cpp::{gen_cpp::filters::external_namespace_prefix, CodeType};
+use crate::bindings::cpp::{
+    gen_cpp::filters::{external_canonical_prefix, external_namespace_prefix},
+    CodeType,
+};
 
 #[derive(Debug)]
 pub struct CustomCodeType {
@@ -23,7 +26,11 @@ impl CodeType for CustomCodeType {
         )
     }
 
-    fn canonical_name(&self) -> String {
-        format!("Type{}", self.name)
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
+        format!(
+            "{}Type{}",
+            external_canonical_prefix(ci, &self.module_path),
+            self.name
+        )
     }
 }

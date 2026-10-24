@@ -54,7 +54,7 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 
 pub mod universe;
 pub use uniffi_meta::{AsType, EnumShape, ObjectImpl, TraitKind, Type};
-use universe::{TypeIterator, TypeUniverse};
+use universe::{type_key, TypeIterator, TypeKey, TypeUniverse};
 
 mod callbacks;
 pub use callbacks::CallbackInterface;
@@ -103,9 +103,9 @@ pub struct ComponentInterface {
     objects: Vec<Object>,
     custom_types: Vec<CustomType>,
     pub(crate) callback_interfaces: Vec<CallbackInterface>,
-    // Type names which were seen used as an error.
-    errors: HashSet<String>,
-    // Type names which participate in a recursive type cycle.
+    // Types which were seen used as an error.
+    errors: HashSet<TypeKey>,
+    // Names of local types which participate in a recursive type cycle.
     recursive_types: HashSet<String>,
     // Types which were seen used as callback interface error.
     callback_interface_throws_types: BTreeSet<Type>,
@@ -347,7 +347,7 @@ impl ComponentInterface {
             )
             .any(|m| m.throws_type() == Some(&e.as_type()));
 
-        self.is_name_used_as_error(&e.name) && (fielded || used_in_foreign_interface)
+        self.is_used_as_error(e) && (fielded || used_in_foreign_interface)
     }
 
     /// Iterate over all known local types in the interface.
@@ -461,10 +461,12 @@ impl ComponentInterface {
         &self.all_component_interfaces
     }
 
+    /// The interface of the crate a module path belongs to.
     pub fn find_component_interface(&self, module_path: &str) -> Option<&ComponentInterface> {
+        let crate_name = module_path.split("::").next().unwrap_or(module_path);
         self.all_component_interfaces
             .iter()
-            .find(|ci| ci.crate_name() == module_path)
+            .find(|ci| ci.crate_name() == crate_name)
     }
 
     // The namespace to use in crate-level FFI function definitions. Not used as the ffi
@@ -928,7 +930,7 @@ impl ComponentInterface {
             );
         }
         if matches!(defn.shape, EnumShape::Error { .. }) {
-            self.errors.insert(defn.name.clone());
+            self.errors.extend(type_key(&defn.as_type()));
         }
         self.types
             .add_known_types(defn.iter_types())
@@ -982,8 +984,7 @@ impl ComponentInterface {
         self.types
             .add_known_types(defn.iter_types())
             .with_context(|| format!("adding function {defn:?}"))?;
-        defn.throws_name()
-            .map(|n| self.errors.insert(n.to_string()));
+        add_error(&mut self.errors, defn.throws_type());
         self.functions.push(defn);
 
         Ok(())
@@ -997,24 +998,21 @@ impl ComponentInterface {
             self.types
                 .add_known_types(defn.iter_types())
                 .with_context(|| format!("adding constructor {defn:?}"))?;
-            defn.throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, defn.throws_type());
             object.constructors.push(defn);
         } else if let Some(record) = self.records.iter_mut().find(|r| &r.name == self_name) {
             let defn: Constructor = meta.into();
             self.types
                 .add_known_types(defn.iter_types())
                 .with_context(|| format!("adding constructor {defn:?}"))?;
-            defn.throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, defn.throws_type());
             record.constructors.push(defn);
         } else if let Some(enum_) = self.enums.iter_mut().find(|e| &e.name == self_name) {
             let defn: Constructor = meta.into();
             self.types
                 .add_known_types(defn.iter_types())
                 .with_context(|| format!("adding constructor {defn:?}"))?;
-            defn.throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, defn.throws_type());
             enum_.constructors.push(defn);
         } else {
             bail!("add_constructor_meta: type {} not found", self_name);
@@ -1031,27 +1029,21 @@ impl ComponentInterface {
             self.types
                 .add_known_types(method.iter_types())
                 .with_context(|| format!("adding method {method:?}"))?;
-            method
-                .throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, method.throws_type());
             object.methods.push(method);
         } else if let Some(record) = self.records.iter_mut().find(|r| &r.name == self_name) {
             let method = Method::from_metadata(meta, record.as_type());
             self.types
                 .add_known_types(method.iter_types())
                 .with_context(|| format!("adding method {method:?}"))?;
-            method
-                .throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, method.throws_type());
             record.methods.push(method);
         } else if let Some(enum_) = self.enums.iter_mut().find(|e| &e.name == self_name) {
             let method = Method::from_metadata(meta, enum_.as_type());
             self.types
                 .add_known_types(method.iter_types())
                 .with_context(|| format!("adding method {method:?}"))?;
-            method
-                .throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, method.throws_type());
             enum_.methods.push(method);
         } else {
             bail!("add_method_meta: type {} not found", self_name);
@@ -1099,12 +1091,16 @@ impl ComponentInterface {
         Ok(())
     }
 
-    pub fn is_name_used_as_error(&self, name: &str) -> bool {
-        self.errors.contains(name)
+    /// Whether a type is used as an error, here or in any other crate's interface.
+    pub fn is_used_as_error(&self, ty: &impl AsType) -> bool {
+        let Some(key) = type_key(&ty.as_type()) else {
+            return false;
+        };
+        self.errors.contains(&key)
             || self
                 .all_component_interfaces
                 .iter()
-                .any(|ci| ci.errors.contains(name))
+                .any(|ci| ci.errors.contains(&key))
     }
 
     /// Called by `APIBuilder` impls to add a newly-parsed callback interface definition to the `ComponentInterface`.
@@ -1142,9 +1138,7 @@ impl ComponentInterface {
             self.types
                 .add_known_types(method.iter_types())
                 .with_context(|| format!("adding trait method {method:?}"))?;
-            method
-                .throws_name()
-                .map(|n| self.errors.insert(n.to_string()));
+            add_error(&mut self.errors, method.throws_type());
             // finally take a mut ref to the cbi, to avoid taking an early mut ref to self. unwrap as we know it exists
             let cbi =
                 get_callback_interface(&mut self.callback_interfaces, &meta.trait_name).unwrap();
@@ -1240,7 +1234,7 @@ impl ComponentInterface {
                 .variants()
                 .iter()
                 .flat_map(|v| v.fields())
-                .flat_map(|f| type_names_in_type(&f.as_type()))
+                .flat_map(|f| type_names_in_type(self.crate_name(), &f.as_type()))
                 .collect();
             (e.name().to_string(), deps)
         });
@@ -1248,7 +1242,7 @@ impl ComponentInterface {
             let deps: HashSet<String> = r
                 .fields()
                 .iter()
-                .flat_map(|f| type_names_in_type(&f.as_type()))
+                .flat_map(|f| type_names_in_type(self.crate_name(), &f.as_type()))
                 .collect();
             (r.name().to_string(), deps)
         });
@@ -1329,10 +1323,15 @@ impl<'a> RecursiveTypeIterator<'a> {
     }
 
     /// Find the component interface with the type definitions for the given module.
-    fn find_ci_for(&self, module_path: &str) -> &'a ComponentInterface {
-        self.ci
-            .find_component_interface(module_path)
-            .unwrap_or(self.ci)
+    ///
+    /// Our own interface stands in only for our own types: an external type may share a name with
+    /// one of them.
+    fn find_ci_for(&self, module_path: &str) -> Option<&'a ComponentInterface> {
+        if module_path.split("::").next() == Some(self.ci.crate_name()) {
+            Some(self.ci)
+        } else {
+            self.ci.find_component_interface(module_path)
+        }
     }
 
     /// Advance the iterator to recurse into the next pending type, if any.
@@ -1352,25 +1351,25 @@ impl<'a> RecursiveTypeIterator<'a> {
                     module_path, name, ..
                 } => self
                     .find_ci_for(module_path)
-                    .get_record_definition(name)
+                    .and_then(|ci| ci.get_record_definition(name))
                     .map(Record::iter_types),
                 Type::Enum {
                     module_path, name, ..
                 } => self
                     .find_ci_for(module_path)
-                    .get_enum_definition(name)
+                    .and_then(|ci| ci.get_enum_definition(name))
                     .map(Enum::iter_types),
                 Type::Object {
                     module_path, name, ..
                 } => self
                     .find_ci_for(module_path)
-                    .get_object_definition(name)
+                    .and_then(|ci| ci.get_object_definition(name))
                     .map(Object::iter_types),
                 Type::CallbackInterface {
                     module_path, name, ..
                 } => self
                     .find_ci_for(module_path)
-                    .get_callback_interface_definition(name)
+                    .and_then(|ci| ci.get_callback_interface_definition(name))
                     .map(CallbackInterface::iter_types),
                 _ => None,
             };
@@ -1399,8 +1398,15 @@ impl<'a> Iterator for RecursiveTypeIterator<'a> {
     }
 }
 
+/// Record a callable's error type, if any, as used as an error.
+fn add_error(errors: &mut HashSet<TypeKey>, throws: Option<&Type>) {
+    if throws_name(throws).is_some() {
+        errors.extend(throws.and_then(type_key));
+    }
+}
+
 // Helpers for functions/methods/constructors which all have the same "throws" semantics.
-fn throws_name(throws: &Option<Type>) -> Option<&str> {
+fn throws_name(throws: Option<&Type>) -> Option<&str> {
     // Type has no `name()` method, just `canonical_name()` which isn't what we want.
     match throws {
         None => None,
@@ -1414,24 +1420,32 @@ fn throws_name(throws: &Option<Type>) -> Option<&str> {
     }
 }
 
-/// Return all enum and record names directly reachable from `ty`.
+/// Return all enum and record names of `crate_name` directly reachable from `ty`.
 ///
 /// Unwraps `Optional`/`Sequence`/`Map` wrappers but does not cross type
 /// definition boundaries — both `Enum` and `Record` references are returned
 /// as-is rather than recursed into, because they are nodes in their own right.
-fn type_names_in_type(ty: &Type) -> Vec<String> {
+/// Another crate's types are left out: they cannot contain this crate's, and may share a name
+/// with one of them.
+fn type_names_in_type(crate_name: &str, ty: &Type) -> Vec<String> {
     match ty {
-        Type::Enum { name, .. } | Type::Record { name, .. } => vec![name.clone()],
+        Type::Enum { name, .. } | Type::Record { name, .. } => {
+            if ty.crate_name() == Some(crate_name) {
+                vec![name.clone()]
+            } else {
+                vec![]
+            }
+        }
         Type::Box { inner_type }
         | Type::Optional { inner_type }
         | Type::Sequence { inner_type }
-        | Type::Set { inner_type } => type_names_in_type(inner_type),
+        | Type::Set { inner_type } => type_names_in_type(crate_name, inner_type),
         Type::Map {
             key_type,
             value_type,
         } => {
-            let mut names = type_names_in_type(key_type);
-            names.extend(type_names_in_type(value_type));
+            let mut names = type_names_in_type(crate_name, key_type);
+            names.extend(type_names_in_type(crate_name, value_type));
             names
         }
         _ => vec![],
@@ -1614,7 +1628,7 @@ new definition: Enum {
         let ci = ComponentInterface::from_webidl(UDL, "crate_name").unwrap();
         assert!(!ci.item_contains_unsigned_types(&Type::Object {
             name: "Testing".into(),
-            module_path: "".into(),
+            module_path: "crate_name".into(),
             imp: ObjectImpl::Struct,
         }));
     }
@@ -1636,7 +1650,7 @@ new definition: Enum {
         let ci = ComponentInterface::from_webidl(UDL, "crate_name").unwrap();
         assert!(ci.item_contains_unsigned_types(&Type::Object {
             name: "TestObj".into(),
-            module_path: "".into(),
+            module_path: "crate_name".into(),
             imp: ObjectImpl::Struct,
         }));
     }
@@ -1664,7 +1678,7 @@ new definition: Enum {
 
     #[test]
     fn test_names() {
-        let mut ci = ComponentInterface::default();
+        let mut ci = ComponentInterface::new("mp");
 
         let ob = Object {
             name: "ob".to_string(),
@@ -1707,6 +1721,149 @@ new definition: Enum {
             })
         );
         assert!(ci.get_callback_interface_definition("cb").is_some());
+    }
+
+    #[test]
+    fn test_same_name_as_external_type() {
+        use uniffi_meta::{
+            EnumMetadata, FieldMetadata, FnMetadata, Metadata, MetadataGroup, RecordMetadata,
+        };
+
+        let record = |module_path: &str| Type::Record {
+            module_path: module_path.to_string(),
+            name: "Frame".to_string(),
+        };
+        let error = |module_path: &str| Type::Enum {
+            module_path: module_path.to_string(),
+            name: "Error".to_string(),
+        };
+        let frame = RecordMetadata {
+            module_path: "media::frame".to_string(),
+            name: "Frame".to_string(),
+            orig_name: None,
+            remote: false,
+            fields: vec![FieldMetadata {
+                name: "raw".to_string(),
+                orig_name: None,
+                ty: record("net::frame"),
+                default: None,
+                docstring: None,
+            }],
+            docstring: None,
+        };
+        // A local `Error` that is never thrown, while `net`'s is.
+        let local_error = EnumMetadata {
+            module_path: "media".to_string(),
+            name: "Error".to_string(),
+            orig_name: None,
+            shape: EnumShape::Enum,
+            remote: false,
+            variants: vec![],
+            discr_type: None,
+            non_exhaustive: false,
+            docstring: None,
+        };
+        let decode = FnMetadata {
+            module_path: "media".to_string(),
+            name: "decode".to_string(),
+            orig_name: None,
+            is_async: false,
+            inputs: vec![],
+            return_type: Some(error("media")),
+            throws: Some(error("net")),
+            checksum: None,
+            docstring: None,
+        };
+        let ci = ComponentInterface::from_metadata(MetadataGroup {
+            namespace: NamespaceMetadata {
+                crate_name: "media".to_string(),
+                name: "media".to_string(),
+            },
+            namespace_docstring: None,
+            items: [
+                Metadata::Record(frame),
+                Metadata::Enum(local_error),
+                Metadata::Func(decode),
+            ]
+            .into(),
+        })
+        .unwrap();
+
+        let local = ci.get_type("Frame").unwrap();
+        assert_eq!(local.crate_name(), Some("media"));
+        assert_eq!(ci.iter_external_types().count(), 2);
+        assert!(ci.is_used_as_error(&error("net")));
+        assert!(!ci.is_used_as_error(&error("media")));
+        // Holding `net`'s `Frame` does not make `media`'s recursive.
+        assert!(!ci.is_recursive("Frame"));
+    }
+
+    #[test]
+    fn test_walks_external_type_in_its_own_interface() {
+        use uniffi_meta::{FieldMetadata, Metadata, MetadataGroup, ObjectMetadata, RecordMetadata};
+
+        let frame = |module_path: &str, field: Type| RecordMetadata {
+            module_path: module_path.to_string(),
+            name: "Frame".to_string(),
+            orig_name: None,
+            remote: false,
+            fields: vec![FieldMetadata {
+                name: "field".to_string(),
+                orig_name: None,
+                ty: field,
+                default: None,
+                docstring: None,
+            }],
+            docstring: None,
+        };
+        let group = |crate_name: &str, items: Vec<Metadata>| {
+            ComponentInterface::from_metadata(MetadataGroup {
+                namespace: NamespaceMetadata {
+                    crate_name: crate_name.to_string(),
+                    name: crate_name.to_string(),
+                },
+                namespace_docstring: None,
+                items: items.into_iter().collect(),
+            })
+            .unwrap()
+        };
+        // `net` defines its `Frame` in a submodule, so its module path is not the crate name.
+        let net_frame = Type::Record {
+            module_path: "net::frame".to_string(),
+            name: "Frame".to_string(),
+        };
+        let net = group(
+            "net",
+            vec![Metadata::Record(frame("net::frame", Type::Bytes))],
+        );
+        let consumer = ObjectMetadata {
+            module_path: "media".to_string(),
+            name: "Consumer".to_string(),
+            orig_name: None,
+            imp: ObjectImpl::Struct,
+            remote: false,
+            docstring: None,
+        };
+        let consumer_type = Type::Object {
+            module_path: "media".to_string(),
+            name: "Consumer".to_string(),
+            imp: ObjectImpl::Struct,
+        };
+        let mut media = group(
+            "media",
+            vec![
+                Metadata::Object(consumer),
+                Metadata::Record(frame("media", consumer_type)),
+            ],
+        );
+        media.set_all_component_interfaces(vec![net, media.clone()]);
+
+        // `net`'s `Frame` is walked through `net`'s definition, not `media`'s namesake.
+        assert!(!media.item_contains_object_references(&net_frame));
+        assert!(media.item_contains_object_references(&Type::Record {
+            module_path: "media".to_string(),
+            name: "Frame".to_string(),
+        }));
     }
 
     #[test]

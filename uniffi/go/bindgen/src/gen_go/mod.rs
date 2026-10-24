@@ -375,7 +375,7 @@ impl GoCodeOracle {
                 Type::CallbackInterface { .. } => ExternalKind::Interface,
                 _ => ExternalKind::Value,
             };
-            let is_error = matches!(type_, Type::Enum { .. }) && ci.is_name_used_as_error(&name);
+            let is_error = matches!(type_, Type::Enum { .. }) && ci.is_used_as_error(&type_);
             let custom_builtin = match &type_ {
                 Type::Custom { builtin, .. }
                     if !matches!(
@@ -433,7 +433,7 @@ impl GoCodeOracle {
             Type::Timestamp => Box::new(miscellany::TimestampCodeType),
             Type::Custom { name, .. } => Box::new(custom::CustomCodeType::new(name)),
 
-            Type::Enum { name, .. } => Box::new(enum_::EnumCodeType::new(name)),
+            Type::Enum { .. } => Box::new(enum_::EnumCodeType::new(type_)),
             Type::CallbackInterface { name, .. } => {
                 Box::new(callback_interface::CallbackInterfaceCodeType::new(name))
             }
@@ -649,10 +649,13 @@ impl<'a> TypeRenderer<'a> {
     }
 
     pub fn field_type_name(&self, field: &Field, ci: &ComponentInterface) -> String {
-        let name = oracle().find(&field.as_type(), ci).type_label(ci);
-        match self.ci.is_name_used_as_error(&name) {
-            true => format!("*{name}"),
-            false => name.to_string(),
+        let type_ = field.as_type();
+        let name = oracle().find(&type_, ci).type_label(ci);
+        // An error enum's label, and an external error's, is already a pointer.
+        if !ci.is_external(&type_) && !name.starts_with('*') && ci.is_used_as_error(&type_) {
+            format!("*{name}")
+        } else {
+            name
         }
     }
 }

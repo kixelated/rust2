@@ -15,6 +15,7 @@ use heck::{ToLowerCamelCase, ToShoutySnakeCase, ToUpperCamelCase};
 use serde::{Deserialize, Serialize};
 
 use super::Bindings;
+use external::ExternalTypes;
 
 use crate::interface::*;
 
@@ -22,6 +23,7 @@ mod callback_interface;
 mod compounds;
 mod custom;
 mod enum_;
+mod external;
 mod miscellany;
 mod object;
 mod primitives;
@@ -186,6 +188,13 @@ pub struct Config {
     pub(super) exclude: Vec<String>,
     #[serde(default)]
     pub(super) rename: toml::Table,
+    /// The Swift module of each crate in the library, by crate name.
+    #[serde(skip)]
+    pub(super) external_modules: HashMap<String, String>,
+    /// Whether some crate in the library names an external type through its module, which
+    /// puts every crate's bindings in their own module.
+    #[serde(skip)]
+    pub(super) separate_modules: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -227,6 +236,14 @@ impl Config {
             .as_ref()
             .expect("module name should have been set in update_component_configs")
             .clone()
+    }
+
+    /// The name of the Swift module with another crate's bindings.
+    fn external_module_name(&self, crate_name: &str, namespace: &str) -> String {
+        match self.external_modules.get(crate_name) {
+            Some(name) => name.clone(),
+            None => namespace.to_string(),
+        }
     }
 
     /// The name of the lower-level C module containing the FFI declarations.
@@ -488,7 +505,11 @@ impl Config {
 // Given a trait, work out what the protocol name we generate for it.
 // This differs based on whether the trait supports foreign impls (ie,
 // whether is has a "callback interface".
-fn trait_protocol_name(ci: &ComponentInterface, trait_ty: &Type) -> Result<String> {
+fn trait_protocol_name(
+    ci: &ComponentInterface,
+    external_types: &ExternalTypes,
+    trait_ty: &Type,
+) -> Result<String> {
     let Some(module_path) = &trait_ty.crate_name() else {
         anyhow::bail!("Invalid trait_type: {trait_ty:?}");
     };
@@ -510,11 +531,15 @@ fn trait_protocol_name(ci: &ComponentInterface, trait_ty: &Type) -> Result<Strin
     };
 
     let class_name = SwiftCodeOracle.class_name(obj_name);
-    if has_callback_interface {
-        Ok(class_name)
+    let protocol_name = if has_callback_interface {
+        class_name
     } else {
-        Ok(format!("{class_name}Protocol"))
-    }
+        format!("{class_name}Protocol")
+    };
+    Ok(match external_types.module(trait_ty) {
+        Some(module) => format!("{module}.{protocol_name}"),
+        None => protocol_name,
+    })
 }
 
 /// Generate UniFFI component bindings for Swift, as strings in memory.
@@ -522,8 +547,8 @@ pub fn generate_bindings(config: &Config, ci: &ComponentInterface) -> Result<Bin
     let header = BridgingHeader::new(config, ci)
         .render()
         .context("failed to render Swift bridging header")?;
-    let library = SwiftWrapper::new(config.clone(), ci)
-        .render()
+    let library = SwiftWrapper::new(config.clone(), ci)?
+        .render_swift()
         .context("failed to render Swift library")?;
     let modulemap = if config.generate_module_map() {
         Some(
@@ -541,6 +566,19 @@ pub fn generate_bindings(config: &Config, ci: &ComponentInterface) -> Result<Bin
     })
 }
 
+/// Whether a component's bindings name an external type through its crate's module, which means
+/// each crate must be its own module.
+pub fn needs_separate_modules(config: &Config, ci: &ComponentInterface) -> Result<bool> {
+    Ok(!ExternalTypes::new(config, ci)?.is_empty())
+}
+
+/// The Swift modules of other crates that a component's bindings import, which means each crate
+/// must be its own module.
+#[cfg(feature = "bindgen-tests")]
+pub fn imported_modules(config: &Config, ci: &ComponentInterface) -> Result<BTreeSet<String>> {
+    Ok(ExternalTypes::new(config, ci)?.modules())
+}
+
 /// Generate the bridging header for a component
 pub fn generate_header(config: &Config, ci: &ComponentInterface) -> Result<String> {
     BridgingHeader::new(config, ci)
@@ -550,8 +588,8 @@ pub fn generate_header(config: &Config, ci: &ComponentInterface) -> Result<Strin
 
 /// Generate the swift source for a component
 pub fn generate_swift(config: &Config, ci: &ComponentInterface) -> Result<String> {
-    SwiftWrapper::new(config.clone(), ci)
-        .render()
+    SwiftWrapper::new(config.clone(), ci)?
+        .render_swift()
         .context("failed to render Swift library")
 }
 
@@ -581,15 +619,21 @@ pub fn generate_modulemap(
 pub struct TypeRenderer<'a> {
     config: &'a Config,
     ci: &'a ComponentInterface,
+    external_types: &'a ExternalTypes,
     // Track imports added with the `add_import()` macro
     imports: RefCell<BTreeSet<String>>,
 }
 
 impl<'a> TypeRenderer<'a> {
-    fn new(config: &'a Config, ci: &'a ComponentInterface) -> Self {
+    fn new(
+        config: &'a Config,
+        ci: &'a ComponentInterface,
+        external_types: &'a ExternalTypes,
+    ) -> Self {
         Self {
             config,
             ci,
+            external_types,
             imports: RefCell::new(BTreeSet::new()),
         }
     }
@@ -660,25 +704,33 @@ impl ModuleMap {
 pub struct SwiftWrapper<'a> {
     config: Config,
     ci: &'a ComponentInterface,
+    external_types: ExternalTypes,
     type_helper_code: String,
     type_imports: BTreeSet<String>,
     ensure_init_fn_name: String,
 }
 impl<'a> SwiftWrapper<'a> {
-    pub fn new(config: Config, ci: &'a ComponentInterface) -> Self {
-        let type_renderer = TypeRenderer::new(&config, ci);
-        let type_helper_code = type_renderer.render().unwrap();
-        let type_imports = type_renderer.imports.into_inner();
-        Self {
+    pub fn new(config: Config, ci: &'a ComponentInterface) -> Result<Self> {
+        let external_types = ExternalTypes::new(&config, ci)?;
+        let type_renderer = TypeRenderer::new(&config, ci, &external_types);
+        let type_helper_code = render_with_external_types(&type_renderer, &external_types)?;
+        let mut type_imports = type_renderer.imports.into_inner();
+        type_imports.extend(external_types.modules());
+        Ok(Self {
             config,
             ci,
+            external_types,
             type_helper_code,
             type_imports,
             ensure_init_fn_name: format!(
                 "uniffiEnsure{}Initialized",
                 ci.crate_name().to_upper_camel_case()
             ),
-        }
+        })
+    }
+
+    fn render_swift(&self) -> askama::Result<String> {
+        render_with_external_types(self, &self.external_types)
     }
 
     pub fn imports(&self) -> Vec<String> {
@@ -689,7 +741,7 @@ impl<'a> SwiftWrapper<'a> {
         let init_fns = self
             .ci
             .iter_local_types()
-            .map(|t| SwiftCodeOracle.find(t))
+            .map(|t| SwiftCodeOracle.find(t, &self.external_types))
             .filter_map(|ct| ct.initialization_fn());
 
         // Also call global initialization function for any external type we use.
@@ -712,6 +764,16 @@ impl<'a> SwiftWrapper<'a> {
     }
 }
 
+/// The key of the [`ExternalTypes`] the filters name types with.
+const EXTERNAL_TYPES: &str = "external_types";
+
+fn render_with_external_types(
+    template: &impl Template,
+    external_types: &ExternalTypes,
+) -> askama::Result<String> {
+    template.render_with_values(&(EXTERNAL_TYPES, external_types as &dyn std::any::Any))
+}
+
 #[derive(Clone)]
 pub struct SwiftCodeOracle;
 
@@ -723,9 +785,8 @@ impl SwiftCodeOracle {
     //
     //   - When adding additional types here, make sure to also add a match arm to the `Types.swift` template.
     //   - To keep things manageable, let's try to limit ourselves to these 2 mega-matches
-    #[allow(clippy::only_used_in_recursion)]
-    fn create_code_type(&self, type_: Type) -> Box<dyn CodeType> {
-        match type_ {
+    fn create_code_type(&self, type_: Type, external_types: &ExternalTypes) -> Box<dyn CodeType> {
+        let code_type: Box<dyn CodeType> = match type_.clone() {
             Type::UInt8 => Box::new(primitives::UInt8CodeType),
             Type::Int8 => Box::new(primitives::Int8CodeType),
             Type::UInt16 => Box::new(primitives::UInt16CodeType),
@@ -749,27 +810,33 @@ impl SwiftCodeOracle {
             Type::CallbackInterface { name, .. } => {
                 Box::new(callback_interface::CallbackInterfaceCodeType::new(name))
             }
-            Type::Optional { inner_type } => {
-                Box::new(compounds::OptionalCodeType::new(*inner_type))
-            }
-            Type::Sequence { inner_type } => {
-                Box::new(compounds::SequenceCodeType::new(*inner_type))
-            }
+            Type::Optional { inner_type } => Box::new(compounds::OptionalCodeType::new(
+                self.create_code_type(*inner_type, external_types),
+            )),
+            Type::Sequence { inner_type } => Box::new(compounds::SequenceCodeType::new(
+                self.create_code_type(*inner_type, external_types),
+            )),
             Type::Map {
                 key_type,
                 value_type,
-            } => Box::new(compounds::MapCodeType::new(*key_type, *value_type)),
-            Type::Set { inner_type } => Box::new(compounds::SetCodeType::new(*inner_type)),
+            } => Box::new(compounds::MapCodeType::new(
+                self.create_code_type(*key_type, external_types),
+                self.create_code_type(*value_type, external_types),
+            )),
+            Type::Set { inner_type } => Box::new(compounds::SetCodeType::new(
+                self.create_code_type(*inner_type, external_types),
+            )),
             Type::Custom { name, builtin, .. } => Box::new(custom::CustomCodeType::new(
                 name,
-                self.create_code_type(*builtin),
+                self.create_code_type(*builtin, external_types),
             )),
-            Type::Box { inner_type } => self.create_code_type(*inner_type),
-        }
+            Type::Box { inner_type } => self.create_code_type(*inner_type, external_types),
+        };
+        external_types.wrap(&type_, code_type)
     }
 
-    fn find(&self, type_: &Type) -> Box<dyn CodeType> {
-        self.create_code_type(type_.clone())
+    fn find(&self, type_: &Type, external_types: &ExternalTypes) -> Box<dyn CodeType> {
+        self.create_code_type(type_.clone(), external_types)
     }
 
     /// Get the idiomatic Swift rendering of a class name (for enums, records, errors, etc).
@@ -889,21 +956,27 @@ pub mod filters {
         &SwiftCodeOracle
     }
 
+    /// The code type of `ty`, named with the external types passed to the render.
+    fn find(ty: &Type, values: &dyn askama::Values) -> Result<Box<dyn CodeType>, askama::Error> {
+        let external_types = askama::get_value::<ExternalTypes>(values, EXTERNAL_TYPES)?;
+        Ok(oracle().find(ty, external_types))
+    }
+
     #[askama::filter_fn]
     pub fn type_name(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
-        Ok(oracle().find(&as_type.as_type()).type_label())
+        Ok(find(&as_type.as_type(), values)?.type_label())
     }
 
     #[askama::filter_fn]
     pub fn return_type_name(
         as_type: Option<&impl AsType>,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
         Ok(match as_type {
-            Some(as_type) => oracle().find(&as_type.as_type()).type_label(),
+            Some(as_type) => find(&as_type.as_type(), values)?.type_label(),
             None => "()".to_owned(),
         })
     }
@@ -911,30 +984,39 @@ pub mod filters {
     #[askama::filter_fn]
     pub fn canonical_name(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
-        Ok(oracle().find(&as_type.as_type()).canonical_name())
+        Ok(find(&as_type.as_type(), values)?.canonical_name())
     }
 
     #[askama::filter_fn]
     pub fn ffi_converter_name(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
-        Ok(oracle().find(&as_type.as_type()).ffi_converter_name())
+        Ok(find(&as_type.as_type(), values)?.ffi_converter_name())
     }
 
+    /// The function that lifts an error, passed as a value to the call that may throw it.
     #[askama::filter_fn]
-    pub fn ffi_error_converter_name(
+    pub fn ffi_error_lift_fn(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
+        let ty = as_type.as_type();
         // special handling for types used as errors.
-        let mut name = oracle().find(&as_type.as_type()).ffi_converter_name();
-        if matches!(&as_type.as_type(), Type::Object { .. }) {
+        let mut name = find(&ty, values)?.ffi_converter_name();
+        if matches!(ty, Type::Object { .. }) {
             name.push_str("__as_error")
         }
-        Ok(name)
+        // A local error's public `_lift` function is an overload of its imported namesake's,
+        // which a function value cannot pick between, so it goes through the converter.
+        let external_types = askama::get_value::<ExternalTypes>(values, EXTERNAL_TYPES)?;
+        Ok(if external_types.is_shadowing(&ty) {
+            format!("{name}.lift")
+        } else {
+            format!("{name}_lift")
+        })
     }
 
     #[askama::filter_fn]
@@ -951,10 +1033,10 @@ pub mod filters {
     #[askama::filter_fn]
     pub fn lower_fn(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
         let ty = &as_type.as_type();
-        let ffi_converter_name = oracle().find(ty).ffi_converter_name();
+        let ffi_converter_name = find(ty, values)?.ffi_converter_name();
         Ok(match ty.name() {
             Some(_) => format!("{}_lower", ffi_converter_name),
             None => format!("{}.lower", ffi_converter_name),
@@ -964,18 +1046,21 @@ pub mod filters {
     #[askama::filter_fn]
     pub fn write_fn(
         as_type: &impl AsType,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
     ) -> Result<String, askama::Error> {
         let ty = &as_type.as_type();
-        let ffi_converter_name = oracle().find(ty).ffi_converter_name();
+        let ffi_converter_name = find(ty, values)?.ffi_converter_name();
         Ok(format!("{}.write", ffi_converter_name))
     }
 
     // See above re lower_fn - we always use the public version for named types.
     #[askama::filter_fn]
-    pub fn lift_fn(as_type: &impl AsType, _: &dyn askama::Values) -> Result<String, askama::Error> {
+    pub fn lift_fn(
+        as_type: &impl AsType,
+        values: &dyn askama::Values,
+    ) -> Result<String, askama::Error> {
         let ty = &as_type.as_type();
-        let ffi_converter_name = oracle().find(ty).ffi_converter_name();
+        let ffi_converter_name = find(ty, values)?.ffi_converter_name();
         Ok(match ty.name() {
             Some(_) => format!("{}_lift", ffi_converter_name),
             None => format!("{}.lift", ffi_converter_name),
@@ -983,20 +1068,22 @@ pub mod filters {
     }
 
     #[askama::filter_fn]
-    pub fn read_fn(as_type: &impl AsType, _: &dyn askama::Values) -> Result<String, askama::Error> {
+    pub fn read_fn(
+        as_type: &impl AsType,
+        values: &dyn askama::Values,
+    ) -> Result<String, askama::Error> {
         let ty = &as_type.as_type();
-        let ffi_converter_name = oracle().find(ty).ffi_converter_name();
+        let ffi_converter_name = find(ty, values)?.ffi_converter_name();
         Ok(format!("{}.read", ffi_converter_name))
     }
 
     #[askama::filter_fn]
     pub fn default_swift<T: AsType>(
         default: &DefaultValue,
-        _: &dyn askama::Values,
+        values: &dyn askama::Values,
         as_type: &T,
     ) -> Result<String, askama::Error> {
-        Ok(oracle()
-            .find(&as_type.as_type())
+        Ok(find(&as_type.as_type(), values)?
             .default(default)
             .expect("invalid default: {default:?}"))
     }
@@ -1112,13 +1199,13 @@ pub mod filters {
     /// scope (see `to_ffi_call`). For every other argument, this is the
     /// standard `{FfiConverter}.lower({name})` expression.
     #[askama::filter_fn]
-    pub fn arg_expr(arg: &Argument, _: &dyn askama::Values) -> Result<String, askama::Error> {
+    pub fn arg_expr(arg: &Argument, values: &dyn askama::Values) -> Result<String, askama::Error> {
         let name = quote_general_keyword(oracle().var_name(arg.name()));
         if arg.is_borrowed_bytes() {
             Ok(format!("{name}Fb"))
         } else {
             let ty = arg.as_type();
-            let ffi_converter_name = oracle().find(&ty).ffi_converter_name();
+            let ffi_converter_name = find(&ty, values)?.ffi_converter_name();
             let lower = match ty.name() {
                 Some(_) => format!("{ffi_converter_name}_lower"),
                 None => format!("{ffi_converter_name}.lower"),
