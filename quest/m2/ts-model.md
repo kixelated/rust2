@@ -36,4 +36,5 @@ Public API: the translator's output for moq-net's model.
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts
 - [Iterators](/quest/m2/ts-iter.md) - the model's adaptor chains
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
+- [Tail loops](/quest/m2/ts-tail-loop.md) - 34 moq-net functions end in a `loop`
 - [Coverage census](/quest/m2/ts-census.md) - ranks what remains

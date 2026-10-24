@@ -24,6 +24,7 @@ deletes the quests that follow it.
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Iterators](/quest/m2/ts-iter.md) - lazy `rt.ts` adaptors with a `DONE` protocol
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
+- [Tail loops](/quest/m2/ts-tail-loop.md) - a `loop` ending a function body translates
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Namespaced external types](/quest/m2/uniffi-namespaces.md) - two crates linked into one library can each export a same-named type in every generator
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
