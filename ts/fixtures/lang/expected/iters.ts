@@ -597,6 +597,35 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
 	const firsts = rt.iter.from(byRef, (it: Evens) => it.next()).take(2).toByteVec();
 	out.extendFromSlice(firsts.view());
 	out.push(rt.iter.from(byRef, (it: Evens) => it.next()).count() & 0xff);
+	const halves = rt.iter.from(new Halving({ value: left }), (it: Halving<number>) => it.next$Iterator()).toByteVec();
+	out.extendFromSlice(halves.view());
+	const total2 = rt.iter.from(new Halving({ value: rt.u64.mul(BigInt(left), 0x1_0000_0001n) }), (it: Halving<bigint>) => it.next$Iterator$2()).sum(rt.u64.add, 0n);
+	out.extendFromSlice(rt.u64.toBeBytes(total2));
+}
+
+/** A value halved until it is zero: generic, with an `impl Iterator` per instance. */
+export class Halving<T> {
+	value: T;
+
+	constructor(fields: { value: T }) {
+		this.value = fields.value;
+	}
+
+	next$Iterator(this: Halving<number>): number | rt.Done {
+		const value = this.value;
+		this.value = rt.u8.div(this.value, 2);
+		return rt.iter.fromOption(rt.thenSome(value !== 0, value));
+	}
+
+	next$Iterator$2(this: Halving<bigint>): bigint | rt.Done {
+		if (this.value === 0n) {
+			return rt.DONE;
+		} else {
+			const value = this.value;
+			this.value = value >> 1n;
+			return value;
+		}
+	}
 }
 
 /**

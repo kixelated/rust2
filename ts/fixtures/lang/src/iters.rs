@@ -409,6 +409,43 @@ pub fn own(data: &[u8], out: &mut Vec<u8>) {
 	let firsts: Vec<u8> = by_ref.by_ref().take(2).collect();
 	out.extend_from_slice(&firsts);
 	out.push(by_ref.count() as u8);
+	// Two instances of one generic iterator, each with its own `next` on one class.
+	let halves: Vec<u8> = Halving { value: left }.collect();
+	out.extend_from_slice(&halves);
+	let total: u64 = Halving {
+		value: left as u64 * 0x1_0000_0001,
+	}
+	.sum();
+	out.extend_from_slice(&total.to_be_bytes());
+}
+
+/// A value halved until it is zero: generic, with an `impl Iterator` per instance.
+struct Halving<T> {
+	value: T,
+}
+
+impl Iterator for Halving<u8> {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		let value = self.value;
+		self.value /= 2;
+		(value != 0).then_some(value)
+	}
+}
+
+impl Iterator for Halving<u64> {
+	type Item = u64;
+
+	fn next(&mut self) -> Option<u64> {
+		match self.value {
+			0 => None,
+			value => {
+				self.value = value >> 1;
+				Some(value)
+			}
+		}
+	}
 }
 
 /// The last two bytes of `data`, as a `slice::Iter` made from the second argument: a
