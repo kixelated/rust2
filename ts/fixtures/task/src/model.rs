@@ -120,6 +120,13 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let _nested = Inner {
 		outer: Some(Box::new(cycle)),
 	};
+	// A move on each arm of a `match` simple enough to be an expression.
+	let third = Guard::new(guard.id + 400, guard.log.clone());
+	let chosen = match moves {
+		true => third,
+		false => third,
+	};
+	chosen.note("chosen");
 	if moves {
 		drop(async move { guard.note("moved") });
 	}

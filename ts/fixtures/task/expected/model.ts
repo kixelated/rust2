@@ -271,36 +271,56 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 							cycle = undefined!;
 							const _nested = new Inner({ outer: cycle2 });
 							try {
-								if (moves2) {
-									const guard22 = guard2;
-									guard2 = undefined!;
-									rt.drop(rt.future(blocksBody$5, blocksDrop$2, guard22));
-								}
-								const first2 = first;
-								first = undefined!;
-								const second2 = second;
-								second = undefined!;
-								const rx22 = rx2;
-								rx2 = undefined!;
-								let read_ = rt.future(blocksBody$6, blocksDrop$3, first2, second2, rx22);
+								let third = Guard.new(rt.u32.add(guard2.id, 400), guard2.log.clone());
 								try {
-									const read2 = read_;
-									read_ = undefined!;
-									let __awaitee4: rt.Future<rt.u64> = read2;
+									let chosen: Guard = undefined!;
 									try {
-										while (true) {
-											const poll4 = __awaitee4.poll(_taskContext);
-											if (poll4 !== rt.Pending) {
-												const result4 = poll4;
-												return result4;
+										if (moves2) {
+											const third2 = third;
+											third = undefined!;
+											chosen = third2;
+										} else {
+											const third3 = third;
+											third = undefined!;
+											chosen = third3;
+										}
+										chosen.note("chosen");
+										if (moves2) {
+											const guard22 = guard2;
+											guard2 = undefined!;
+											rt.drop(rt.future(blocksBody$5, blocksDrop$2, guard22));
+										}
+										const first2 = first;
+										first = undefined!;
+										const second2 = second;
+										second = undefined!;
+										const rx22 = rx2;
+										rx2 = undefined!;
+										let read_ = rt.future(blocksBody$6, blocksDrop$3, first2, second2, rx22);
+										try {
+											const read2 = read_;
+											read_ = undefined!;
+											let __awaitee4: rt.Future<rt.u64> = read2;
+											try {
+												while (true) {
+													const poll4 = __awaitee4.poll(_taskContext);
+													if (poll4 !== rt.Pending) {
+														const result4 = poll4;
+														return result4;
+													}
+													_taskContext = yield;
+												}
+											} finally {
+												rt.drop(__awaitee4);
 											}
-											_taskContext = yield;
+										} finally {
+											rt.drop(read_);
 										}
 									} finally {
-										rt.drop(__awaitee4);
+										rt.drop(chosen);
 									}
 								} finally {
-									rt.drop(read_);
+									rt.drop(third);
 								}
 							} finally {
 								rt.drop(_nested);

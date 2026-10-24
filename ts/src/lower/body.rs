@@ -834,7 +834,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Whether `id` is control flow that reads best delivering into a variable. One that
 	/// never makes a value leaves the variable unassigned.
-	fn needs_dest(&self, id: ExprId) -> bool {
+	fn needs_dest(&mut self, id: ExprId) -> bool {
 		match &self.thir[id].kind {
 			ExprKind::Scope { value, .. } => self.needs_dest(*value),
 			ExprKind::If {
@@ -849,24 +849,32 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// Whether `id` lowers to an expression with no statements before it.
-	fn simple(&self, id: ExprId) -> bool {
+	fn simple(&mut self, id: ExprId) -> bool {
+		self.simple_at(id, false)
+	}
+
+	/// [`Self::simple`], for `id` read as a place, which a move out of would clear.
+	fn simple_at(&mut self, id: ExprId, place: bool) -> bool {
+		// A move leaves `undefined` behind with a statement of its own.
+		if !place && self.moves(id) {
+			return false;
+		}
 		match &self.thir[id].kind {
 			ExprKind::Scope { value, .. }
 			| ExprKind::ValueTypeAscription { source: value, .. }
-			| ExprKind::PlaceTypeAscription { source: value, .. }
-			| ExprKind::Borrow { arg: value, .. }
+			| ExprKind::PlaceTypeAscription { source: value, .. } => self.simple_at(*value, place),
+			ExprKind::Borrow { arg: value, .. }
 			| ExprKind::Deref { arg: value }
-			| ExprKind::Cast { source: value }
+			| ExprKind::Field { lhs: value, .. } => self.simple_at(*value, true),
+			ExprKind::Cast { source: value }
 			| ExprKind::PointerCoercion { source: value, .. }
-			| ExprKind::Field { lhs: value, .. }
 			| ExprKind::Unary { arg: value, .. } => self.simple(*value),
 			ExprKind::Block { block } => {
 				let block = &self.thir[*block];
 				block.stmts.is_empty() && !block.targeted_by_break && block.expr.is_some_and(|e| self.simple(e))
 			}
-			ExprKind::Binary { lhs, rhs, .. } | ExprKind::Index { lhs, index: rhs } => {
-				self.simple(*lhs) && self.simple(*rhs)
-			}
+			ExprKind::Binary { lhs, rhs, .. } => self.simple(*lhs) && self.simple(*rhs),
+			ExprKind::Index { lhs, index } => self.simple_at(*lhs, true) && self.simple(*index),
 			ExprKind::LogicalOp { lhs, rhs, .. } => self.simple(*lhs) && self.simple(*rhs),
 			ExprKind::Call { args, fun, .. } => self.simple(*fun) && args.iter().all(|a| self.simple(*a)),
 			ExprKind::Tuple { fields } | ExprKind::Array { fields } => fields.iter().all(|f| self.simple(*f)),
@@ -1394,7 +1402,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Whether a `match` reads as a ternary chain: no bindings or guards, and arms that
 	/// are each a simple value.
-	fn ternary_match(&self, id: ExprId) -> bool {
+	fn ternary_match(&mut self, id: ExprId) -> bool {
 		let ExprKind::Match { arms, .. } = &self.thir[self.strip(id)].kind else {
 			return false;
 		};
