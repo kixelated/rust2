@@ -14,8 +14,8 @@ default:
 check:
     quest check
     actionlint
-    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
-    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
+    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
+    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
     taplo format --check
     nixfmt --check flake.nix
     cargo fmt --all --check
@@ -33,9 +33,13 @@ test:
 bench *args:
     bench/build/run.sh {{ args }}
 
+# Measure what moq's binding wrappers add over Rust, against the UniFFI fork; see bench/ffi/README.md.
+bench-ffi *args:
+    bench/ffi/run.sh {{ args }}
+
 # Apply formatters without changing program behavior.
 fix:
-    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
+    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
     taplo format
     nixfmt flake.nix
     cargo fmt --all

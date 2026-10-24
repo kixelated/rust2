@@ -4,7 +4,7 @@
 
 A Kotlin call into moq-ffi costs about what the same call costs from Python or
 Go, sync and async alike, proven on the
-[binding benchmark](/quest/m1/ffi-bench.md).
+[binding benchmark](/bench/ffi/README.md).
 
 ## Plan
 
@@ -38,7 +38,3 @@ measured a call at 3.04 us to 7 ns and bytes at 14.7 us to 87 ns
 about even with BoltFFI. List it as a carried change in the fork's README.
 
 Public API: none expected.
-
-## Required
-
-- [Binding benchmark](/quest/m1/ffi-bench.md) - the before and after numbers

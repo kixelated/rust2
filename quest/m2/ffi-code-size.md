@@ -4,7 +4,7 @@
 
 The fork's generators emit measurably smaller bindings for moq-ffi in every
 language, with unchanged behavior, reported raw and gzipped by the
-[binding benchmark](/quest/m1/ffi-bench.md).
+[binding benchmark](/bench/ffi/README.md).
 
 ## Plan
 
@@ -15,7 +15,3 @@ per-method boilerplate) before shrinking, and stop where the remaining gain is
 not worth the template complexity.
 
 Public API: generated code changes shape; wrapper APIs do not.
-
-## Required
-
-- [Binding benchmark](/quest/m1/ffi-bench.md) - the size report
