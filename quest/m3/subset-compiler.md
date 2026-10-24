@@ -9,8 +9,9 @@ matters most (likely incremental debug rebuilds).
 
 ## Plan
 
-Decided with the maintainer on 2026-10-23: plan it now, blocked on the
-benchmark, and rescope it from the report before starting. It may share a
+Decided with the maintainer on 2026-10-23: plan it now, and rescope it
+from [where an edit rebuild goes](/quest/m3/edit-profile.md) before starting;
+delete it unless that report leaves a gap upstream will not close. It may share a
 frontend with [the TypeScript translator](/ts/README.md).
 
 Research (2026-10-23): no "tcc for Rust" exists; mrustc is a bootstrap tool and
@@ -29,3 +30,7 @@ cuts moq's clean build 11.5% and the pure crates' 12-17%, but not moq's edits;
 4 cores, where cargo already fills them.
 
 Public API: a new tool.
+
+## Required
+
+- [Where an edit rebuild goes](/quest/m3/edit-profile.md) - the gap this would close, if any
