@@ -46,7 +46,7 @@ jobs:
         with:
           persist-credentials: false
           # --base needs the PR's base commit.
-          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+          fetch-depth: 0
 
       - uses: ./.github/actions/nix
 
