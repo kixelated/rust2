@@ -20,11 +20,18 @@ fn cargo() -> Command {
 	Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
 }
 
-/// Run the driver on a fixture with `args`, in its own build directory per `build`.
-fn driver(name: &str, args: &[&std::ffi::OsStr], build: &str) -> Output {
+fn fixture(name: &str) -> PathBuf {
+	manifest_dir().join("fixtures").join(name)
+}
+
+/// Run the driver on a fixture with `config` and `args`, in its own build directory per
+/// `build`.
+fn driver(name: &str, config: &Path, args: &[&std::ffi::OsStr], build: &str) -> Output {
 	Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
 		.arg("--config")
-		.arg(manifest_dir().join("fixtures").join(name).join("ts.toml"))
+		.arg(config)
+		.arg("--manifest-path")
+		.arg(fixture(name).join("Cargo.toml"))
 		.args(args)
 		.env("CARGO_TARGET_DIR", scratch().join(build))
 		.output()
@@ -34,7 +41,8 @@ fn driver(name: &str, args: &[&std::ffi::OsStr], build: &str) -> Output {
 /// Run the driver on a fixture, returning its output directory and what it printed.
 fn translate(name: &str) -> (PathBuf, Output) {
 	let out = scratch().join(name).join("out");
-	let output = driver(name, &["--out".as_ref(), out.as_ref()], "build");
+	let config = fixture(name).join("ts.toml");
+	let output = driver(name, &config, &["--out".as_ref(), out.as_ref()], "build");
 	(out, output)
 }
 
@@ -77,7 +85,7 @@ fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
 
 /// Compare the output with the fixture's `expected/` directory.
 fn snapshot(name: &str, out: &Path) {
-	let expected = manifest_dir().join("fixtures").join(name).join("expected");
+	let expected = fixture(name).join("expected");
 	let got = sources(out);
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		let _ = std::fs::remove_dir_all(&expected);
@@ -189,6 +197,59 @@ fn codec() {
 	differential("codec-fixture", &out, "harness.ts", 20_000);
 }
 
+/// Adding a root changes only the output of what it reaches: everything else keeps its
+/// text and order, though translation reaches it in another order.
+#[test]
+fn source_order() {
+	let config = std::fs::read_to_string(fixture("codec").join("ts.toml")).unwrap();
+	let roots = r#"roots = ["harness::run", "bench::run"]"#;
+	assert!(config.contains(roots), "codec's roots changed: update this test");
+	let dir = scratch().join("codec").join("order");
+	std::fs::create_dir_all(&dir).unwrap();
+	let run = |name: &str, with: &str| {
+		let path = dir.join(format!("{name}.toml"));
+		std::fs::write(&path, config.replace(roots, with)).unwrap();
+		let out = dir.join(name);
+		let output = driver("codec", &path, &["--out".as_ref(), out.as_ref()], "order");
+		assert!(
+			output.status.success(),
+			"translating codec with {with} failed:\n{}",
+			String::from_utf8_lossy(&output.stderr)
+		);
+		sources(&out)
+	};
+	let base = run("base", r#"roots = ["harness::run"]"#);
+	// First, so that translation reaches what both share in another order.
+	let added = run("added", r#"roots = ["bench::run", "harness::run"]"#);
+	for (rel, text) in &base {
+		let more = added.iter().find(|(r, _)| r == rel).map(|(_, text)| text);
+		let more = more.unwrap_or_else(|| panic!("{} is gone once bench::run is added", rel.display()));
+		let mut rest = lines(more).into_iter();
+		for line in lines(text) {
+			assert!(
+				rest.any(|l| l == line),
+				"{}: this line changed or moved once bench::run was added:\n{line}",
+				rel.display()
+			);
+		}
+	}
+}
+
+/// A file's lines, with a line per imported name, so that importing one more name
+/// changes no other line.
+fn lines(text: &str) -> Vec<String> {
+	let mut lines = Vec::new();
+	for line in text.lines() {
+		match line.strip_prefix("import { ").and_then(|l| l.split_once(" } from ")) {
+			Some((names, from)) => {
+				lines.extend(names.split(", ").map(|name| format!("import {{ {name} }} from {from}")))
+			}
+			None => lines.push(line.to_string()),
+		}
+	}
+	lines
+}
+
 #[test]
 fn lang() {
 	let out = translated("lang");
@@ -218,7 +279,7 @@ fn reject() {
 			got.push('\n');
 		}
 	}
-	let path = manifest_dir().join("fixtures").join("reject").join("expected.txt");
+	let path = fixture("reject").join("expected.txt");
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;
@@ -236,14 +297,15 @@ fn reject() {
 #[test]
 fn census() {
 	let census = scratch().join("reject").join("census.md");
-	let output = driver("reject", &["--census".as_ref(), census.as_ref()], "census");
+	let config = fixture("reject").join("ts.toml");
+	let output = driver("reject", &config, &["--census".as_ref(), census.as_ref()], "census");
 	assert!(
 		output.status.success(),
 		"the census of reject failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
 	let got = std::fs::read_to_string(&census).unwrap();
-	let path = manifest_dir().join("fixtures").join("reject").join("census.md");
+	let path = fixture("reject").join("census.md");
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;

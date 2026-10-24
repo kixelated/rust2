@@ -12,12 +12,16 @@ export class Point {
 		this.y = fields.y;
 	}
 
-	static new(x: number, y: number): Point {
-		return new Point({ x, y });
+	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
 	}
 
-	bump(): void {
-		this.y = rt.i32.add(this.y, 1);
+	eq(other: Point): boolean {
+		return this.x === other.x && this.y === other.y;
+	}
+
+	static new(x: number, y: number): Point {
+		return new Point({ x, y });
 	}
 
 	/** Changes `self`, which a caller's copy must not see. */
@@ -26,12 +30,8 @@ export class Point {
 		return rt.copy(this);
 	}
 
-	eq(other: Point): boolean {
-		return this.x === other.x && this.y === other.y;
-	}
-
-	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
+	bump(): void {
+		this.y = rt.i32.add(this.y, 1);
 	}
 }
 
@@ -43,14 +43,14 @@ export class Meters {
 		this._0 = _0;
 	}
 
+	area(): bigint {
+		return this._0;
+	}
+
 	/** A default method, monomorphized for each type. */
 	describe(out: rt.ByteVec): void {
 		out.push(0xaa);
 		out.extendFromSlice(rt.u64.toBeBytes(this._0));
-	}
-
-	area(): bigint {
-		return this._0;
 	}
 }
 
@@ -61,6 +61,21 @@ export type Shape =
 	| { tag: "Rect"; corner: Point; width: number; height: number };
 
 export const Shape = {
+	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Dot") {
+			return f.writeStr("Dot");
+		} else if (self.tag === "Line") {
+			const __self0 = self._0;
+			const __self1 = self._1;
+			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
+		} else {
+			const __self02 = self.corner;
+			const __self12 = self.width;
+			const __self2 = self.height;
+			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
+		}
+	},
+
 	/** A default method, monomorphized for each type. */
 	describe(self: Shape, out: rt.ByteVec): void {
 		out.push(4);
@@ -78,21 +93,6 @@ export const Shape = {
 			return rt.u64.mul(BigInt(width), BigInt(height));
 		}
 	},
-
-	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		if (self.tag === "Dot") {
-			return f.writeStr("Dot");
-		} else if (self.tag === "Line") {
-			const __self0 = self._0;
-			const __self1 = self._1;
-			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
-		} else {
-			const __self02 = self.corner;
-			const __self12 = self.width;
-			const __self2 = self.height;
-			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
-		}
-	},
 };
 
 /** Discriminants a cast truncates, or reads with another sign. */
@@ -102,20 +102,20 @@ export type Signed = "Neg" | "Min" | "Pos";
 
 export type Dir = "North" | "East" | "South" | "West";
 
-export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
-	let sum: bigint = 0n;
-	for (const item of items) {
-		Shape.describe(item, out);
-		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
-	}
-	return sum;
-}
-
 export function total$Meters(items: Meters[], out: rt.ByteVec): bigint {
 	let sum: bigint = 0n;
 	for (const item of items) {
 		item.describe(out);
 		sum = rt.u64.saturatingAdd(sum, item.area());
+	}
+	return sum;
+}
+
+export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
+	let sum: bigint = 0n;
+	for (const item of items) {
+		Shape.describe(item, out);
+		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
 	}
 	return sum;
 }

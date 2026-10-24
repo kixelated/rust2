@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { SessionError } from "../lib.ts";
-import { type Form, type BoundsExceeded, read } from "../coding/varint.ts";
+import { type BoundsExceeded, type Form, read } from "../coding/varint.ts";
 import { type Control } from "../stats.ts";
 
 /** A decode error. */
@@ -28,10 +28,6 @@ export type DecodeError =
 	| { tag: "MultipleAuthTokens" };
 
 export const DecodeError = {
-	from$BoundsExceeded(_: BoundsExceeded): DecodeError {
-		return { tag: "BoundsExceeded" };
-	},
-
 	fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Short") {
 			return __formatter.writeStr("short buffer");
@@ -83,6 +79,10 @@ export const DecodeError = {
 		}
 	},
 
+	from$FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
+		return { tag: "InvalidString", _0: source };
+	},
+
 	fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Short") {
 			return f.writeStr("Short");
@@ -130,10 +130,6 @@ export const DecodeError = {
 		}
 	},
 
-	from$FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
-		return { tag: "InvalidString", _0: source };
-	},
-
 	/** A complete frame cannot be extended by reading more stream bytes. */
 	complete(self: DecodeError): DecodeError {
 		if (self.tag === "Short") {
@@ -142,6 +138,10 @@ export const DecodeError = {
 			const other = self;
 			return other;
 		}
+	},
+
+	from$BoundsExceeded(_: BoundsExceeded): DecodeError {
+		return { tag: "BoundsExceeded" };
 	},
 };
 
@@ -189,6 +189,13 @@ export class Decoder {
 		return this._need;
 	}
 
+	/** Record that a read wanted `more` bytes past the current position. */
+	short(more: number): DecodeError {
+		const need = rt.usize.saturatingAdd(rt.usize.sub(this.len, this.buf.length), more);
+		this._need = rt.max(this._need, need);
+		return { tag: "Short" };
+	}
+
 	/** The number of unread bytes. */
 	remaining(): number {
 		return this.buf.length;
@@ -199,20 +206,32 @@ export class Decoder {
 		return this.buf.length === 0;
 	}
 
-	/** Read a varint. */
-	varint(): rt.Result<bigint, DecodeError> {
-		const read_ = read(this.buf, this.form);
-		if (read_.ok) {
-			const value = read_.value[0];
-			const rest = read_.value[1];
-			this.buf = rest;
-			return rt.Ok(value);
-		} else if (!read_.ok && read_.error.tag === "Short") {
-			return rt.Err(this.short(rt.usize.add(this.buf.length, 1)));
-		} else {
-			const err = read_.error;
-			return rt.Err(err);
+	/** Read `len` raw bytes. */
+	slice(len: number): rt.Result<Uint8Array, DecodeError> {
+		const splitAtChecked = rt.slice.splitAtChecked(this.buf, len);
+		if (splitAtChecked === undefined) {
+			return rt.Err(this.short(len));
 		}
+		const head = splitAtChecked[0];
+		const rest = splitAtChecked[1];
+		this.buf = rest;
+		return rt.Ok(head);
+	}
+
+	/** Read every remaining byte. */
+	rest(): Uint8Array {
+		const taken = this.buf;
+		this.buf = new Uint8Array(0);
+		return taken;
+	}
+
+	/** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
+	sub(len: number): rt.Result<Decoder, DecodeError> {
+		const slice = this.slice(len);
+		if (!slice.ok) {
+			return rt.Err(slice.error);
+		}
+		return rt.Ok(Decoder.new(slice.value, this.form));
 	}
 
 	/** Read a single byte. */
@@ -246,6 +265,22 @@ export class Decoder {
 			return rt.Ok(true);
 		} else {
 			return rt.Err({ tag: "InvalidValue" });
+		}
+	}
+
+	/** Read a varint. */
+	varint(): rt.Result<bigint, DecodeError> {
+		const read_ = read(this.buf, this.form);
+		if (read_.ok) {
+			const value = read_.value[0];
+			const rest = read_.value[1];
+			this.buf = rest;
+			return rt.Ok(value);
+		} else if (!read_.ok && read_.error.tag === "Short") {
+			return rt.Err(this.short(rt.usize.add(this.buf.length, 1)));
+		} else {
+			const err = read_.error;
+			return rt.Err(err);
 		}
 	}
 
@@ -288,41 +323,6 @@ export class Decoder {
 			return rt.Err(DecodeError.from$FromUtf8Error(fromUtf8.error));
 		}
 		return rt.Ok(fromUtf8.value);
-	}
-
-	/** Read `len` raw bytes. */
-	slice(len: number): rt.Result<Uint8Array, DecodeError> {
-		const splitAtChecked = rt.slice.splitAtChecked(this.buf, len);
-		if (splitAtChecked === undefined) {
-			return rt.Err(this.short(len));
-		}
-		const head = splitAtChecked[0];
-		const rest = splitAtChecked[1];
-		this.buf = rest;
-		return rt.Ok(head);
-	}
-
-	/** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
-	sub(len: number): rt.Result<Decoder, DecodeError> {
-		const slice = this.slice(len);
-		if (!slice.ok) {
-			return rt.Err(slice.error);
-		}
-		return rt.Ok(Decoder.new(slice.value, this.form));
-	}
-
-	/** Read every remaining byte. */
-	rest(): Uint8Array {
-		const taken = this.buf;
-		this.buf = new Uint8Array(0);
-		return taken;
-	}
-
-	/** Record that a read wanted `more` bytes past the current position. */
-	short(more: number): DecodeError {
-		const need = rt.usize.saturatingAdd(rt.usize.sub(this.len, this.buf.length), more);
-		this._need = rt.max(this._need, need);
-		return { tag: "Short" };
 	}
 }
 
