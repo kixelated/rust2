@@ -193,6 +193,14 @@ pub enum ObjectKind {
 	Closure,
 }
 
+/// The JS values a type's own can be that `Option` and `Poll` erase to: `None` is
+/// `undefined`, and `Pending` is `rt.Pending`.
+#[derive(Clone, Copy, Default)]
+pub struct Erased {
+	pub undefined: bool,
+	pub pending: bool,
+}
+
 /// Where a translated function lives.
 #[derive(Clone, Copy)]
 pub enum Owner {
@@ -895,7 +903,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return match std {
 				library::Std::Option => {
 					let inner = args.type_at(0);
-					if !self.option_payload_ok(inner) {
+					if self.erases_to(inner).undefined {
 						self.err(
 							span,
 							format!(
@@ -940,7 +948,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {
 					let inner = args.type_at(0);
-					if self.std_of(inner) == Some(library::Std::Poll) {
+					if self.erases_to(inner).pending {
 						self.err(
 							span,
 							format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"),
@@ -963,17 +971,28 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Type::Sym(info.sym, args)
 	}
 
-	/// Whether `undefined` is free to mean `None` around a `ty`.
-	pub fn option_payload_ok(&self, ty: Ty<'tcx>) -> bool {
+	/// Which of the values `Option` and `Poll` erase to a `ty`'s JS value can already be,
+	/// seen through the wrappers that erase to their contents.
+	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
-			ty::Tuple(tys) => !tys.is_empty(),
-			ty::Ref(_, inner, _) => self.option_payload_ok(*inner),
-			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Option) => false,
-				Some(library::Std::Box) => self.option_payload_ok(args.type_at(0)),
-				_ => true,
+			ty::Tuple(tys) if tys.is_empty() => Erased {
+				undefined: true,
+				pending: false,
 			},
-			_ => true,
+			ty::Ref(_, inner, _) => self.erases_to(*inner),
+			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
+				Some(library::Std::Box | library::Std::Pin) => self.erases_to(args.type_at(0)),
+				Some(library::Std::Option) => Erased {
+					undefined: true,
+					..self.erases_to(args.type_at(0))
+				},
+				Some(library::Std::Poll) => Erased {
+					pending: true,
+					..self.erases_to(args.type_at(0))
+				},
+				_ => Erased::default(),
+			},
+			_ => Erased::default(),
 		}
 	}
 

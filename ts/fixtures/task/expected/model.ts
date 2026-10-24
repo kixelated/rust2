@@ -413,6 +413,15 @@ export function turns(log: Log, count: number): void {
 					const extended = Guard.new(rt.u32.add(count, 60), log.clone());
 					try {
 						extended.note("extended");
+						let value: number;
+						const inner = Guard.new(rt.u32.add(count, 90), log.clone());
+						try {
+							value = inner.id;
+						} finally {
+							rt.drop(inner);
+						}
+						const scoped = value;
+						log.note(rt.fmt.format(["after ", (f: rt.Formatter) => rt.u32.display(scoped, f)]));
 						const spares = [Guard.new(rt.u32.add(count, 70), log.clone()), Guard.new(rt.u32.add(count, 80), log.clone())];
 						try {
 							const index = pick(log, rt.usize.rem(count, 2));

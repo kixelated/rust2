@@ -1843,7 +1843,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let thir: &'a Thir<'tcx> = self.thir;
 		let mut owns = false;
 		for &stmt in &thir[id].stmts {
-			if let thir::StmtKind::Let { pattern, .. } = &thir[stmt].kind {
+			if let thir::StmtKind::Let {
+				pattern, initializer, ..
+			} = &thir[stmt].kind
+			{
+				// A `ref` binding keeps a temporary alive to the end of the block.
+				if let PatKind::Binding {
+					mode, subpattern: None, ..
+				} = pattern.kind
+					&& mode.0 != rustc_hir::ByRef::No
+					&& let Some(init) = *initializer
+					&& !self.is_place(init)
+				{
+					owns |= self.t.drops(self.ty_of(init));
+				}
 				pattern.walk_always(|p| {
 					if let PatKind::Binding { mode, ty, .. } = p.kind
 						&& mode.0 == rustc_hir::ByRef::No

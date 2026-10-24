@@ -154,6 +154,11 @@ fn turns(log: &Log, count: u32) {
 	borrowed.note("borrowed");
 	let ref extended = Guard::new(count + 60, log.clone());
 	extended.note("extended");
+	let scoped = {
+		let ref inner = Guard::new(count + 90, log.clone());
+		inner.id
+	};
+	log.note(format!("after {scoped}"));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {

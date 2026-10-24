@@ -56,7 +56,7 @@ runtime: what std does that JS does not, with ownership and async in `rt/task.ts
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
-| `Option<T>` | `T \| undefined`; an `Option` of `()` or an `Option` is refused |
+| `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
@@ -65,7 +65,7 @@ runtime: what std does that JS does not, with ownership and async in `rt/task.ts
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
-| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`; `rt.Waker`, which is also the context |
+| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never

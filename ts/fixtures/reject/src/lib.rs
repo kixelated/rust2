@@ -224,3 +224,13 @@ pub fn unnamed() -> u8 {
 pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 	*dst = src;
 }
+
+/// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
+pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
+	matches!(p, std::task::Poll::Pending)
+}
+
+/// `None` and `Some(Ready(()))` would both be `undefined`.
+pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
+	matches!(p, None)
+}
