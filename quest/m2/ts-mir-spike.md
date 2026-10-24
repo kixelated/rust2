@@ -14,7 +14,10 @@ otherwise the port is deleted.
 Decided with the maintainer on 2026-10-24: merge the async spike
 ([#16](https://github.com/kixelated/rust2/pull/16)) on THIR, then run this spike
 over the whole lowering, on those two fixtures. The priorities that decide it are
-correctness first, bundle size second, and readability last.
+the translator's ([design](/ts/README.md#design)): correctness first, speed second,
+and bundle size third, with readable output not a goal. So the state machines'
+1.4-2.6x speed weighs ahead of their roughly 18% larger bundle; measure the size
+as the consumer's final minified JS.
 
 Why, from #16:
 
@@ -25,9 +28,9 @@ Why, from #16:
 
 What #16 found against MIR, to answer rather than assume: its prototype
 re-implemented places, rvalues, constants, closures, and `format_args!` at the MIR
-level; the resume dispatch jumps into the middle of loops, so the output read as
-basic blocks; and under wasm32's `panic=abort` MIR has no cleanup paths, so a JS
-exception would skip drops that THIR's `finally` blocks run.
+level, and under wasm32's `panic=abort` MIR has no cleanup paths, so a JS
+exception would skip drops that THIR's `finally` blocks run. That its output read as
+basic blocks no longer counts against it.
 
 Public API: none unless the translator moves; then its whole output.
 

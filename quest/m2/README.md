@@ -12,6 +12,10 @@ Decided with the maintainer on 2026-10-23: the translator measures before it
 builds. The benchmark and census come first; each spike's report rescopes or
 deletes the quests that follow it.
 
+Decided with the maintainer on 2026-10-24: the translator's output ranks correctness,
+then speed, then the size of the consumer's final tree-shaken, minified JS; readability
+is not a goal, and types must be solid at the API boundary ([design](/ts/README.md#design)).
+
 ## Required
 
 - [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
@@ -27,6 +31,8 @@ deletes the quests that follow it.
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
+- [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - classes, free functions, or free functions behind root facades, measured on speed, shaken size, and caller code
+- [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Delete the C++ generator's dead modes](/quest/m2/uniffi-cpp-dead-modes.md) - scaffolding mode and exception-style async go, with no consumer
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
