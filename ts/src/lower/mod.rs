@@ -11,6 +11,7 @@ mod drop;
 mod fmt;
 mod iter;
 mod library;
+mod mir;
 mod num;
 mod pat;
 mod task;
@@ -33,6 +34,8 @@ use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 /// Each function's THIR, copied before borrow checking steals it.
 pub struct Bodies<'tcx> {
 	map: rustc_data_structures::fx::FxHashMap<LocalDefId, (Thir<'tcx>, ExprId)>,
+	/// No body: what a MIR lowering's library calls see, which pass their arguments lowered.
+	empty: Thir<'tcx>,
 }
 
 impl<'tcx> Bodies<'tcx> {
@@ -51,13 +54,15 @@ impl<'tcx> Bodies<'tcx> {
 				map.insert(def_id, (thir.borrow().clone(), expr));
 			}
 		}
-		Self { map }
+		let empty = Thir::new(rustc_middle::thir::BodyTy::Const(tcx.types.unit));
+		Self { map, empty }
 	}
 }
 
 /// Translate what the config's roots reach, or `None` after reporting why not.
-pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Program> {
+pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Program> {
 	let mut t = Translator::new(tcx, config, bodies, None)?;
+	t.mir = mir;
 	for root in &config.roots {
 		t.root(root);
 	}
@@ -74,8 +79,9 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>
 
 /// Every construct translation refuses in the crate, reached from each of its items
 /// as if each were a root.
-pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Census> {
+pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Census> {
 	let mut t = Translator::new(tcx, config, bodies, Some(Vec::new()))?;
+	t.mir = mir;
 	for def_id in tcx.hir_crate_items(()).definitions() {
 		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) {
 			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
@@ -169,6 +175,10 @@ pub struct Translator<'a, 'tcx> {
 	drops_cycle: bool,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// Whether bodies lower from MIR, the spike's prototype, rather than THIR.
+	pub mir: bool,
+	/// The class of each coroutine instance a MIR lowering made.
+	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -246,6 +256,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			drops_open: Default::default(),
 			drops_cycle: false,
 			glued: Default::default(),
+			mir: false,
+			coroutines: Default::default(),
 		})
 	}
 
@@ -753,6 +765,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							id,
 							ty: self.ty(field.ty(tcx, identity).skip_norm_wip(), span),
 							doc: self.doc(field.did),
+							init: ts::FieldInit::Ctor,
 						}
 					})
 					.collect();
@@ -977,10 +990,29 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Pin => self.ty(args.type_at(0), span),
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
+				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFull => Type::Builtin("undefined"),
+				library::Std::Argument => Type::Rt("Fmt", vec![]),
 				library::Std::Peekable => {
 					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
 					Type::Rt("Peekable", vec![self.item_ty(item, span)])
 				}
+				library::Std::Infallible => Type::Builtin("never"),
+				// The value `?` was applied to, which MIR branches on as this.
+				library::Std::ControlFlow => match (self.std_of(args.type_at(0)), args.type_at(0).kind()) {
+					(Some(library::Std::Result), ty::Adt(_, residual)) => Type::Rt(
+						"Result",
+						vec![self.ty(args.type_at(1), span), self.ty(residual.type_at(1), span)],
+					),
+					(Some(library::Std::Option), _) => {
+						Type::Union(vec![self.ty(args.type_at(1), span), Type::Builtin("undefined")])
+					}
+					_ => {
+						self.err(span, format!("`{}` other than from `?`", Ty::new_adt(tcx, adt, args)));
+						Type::Builtin("unknown")
+					}
+				},
 			};
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1050,19 +1082,24 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
 		};
-		let Some((thir, expr)) = self.bodies.map.get(&local) else {
-			self.err(
-				span,
-				format!(
-					"no body for `{}`: constant evaluation consumed it",
-					tcx.def_path_str(def_id)
-				),
-			);
-			return;
-		};
 		let owner = self.owner(instance);
 		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
-		let function = body::function(self, instance, thir, *expr, method);
+		let function = match self.mir {
+			true => mir::function(self, instance, method),
+			false => {
+				let Some((thir, expr)) = self.bodies.map.get(&local) else {
+					self.err(
+						span,
+						format!(
+							"no body for `{}`: constant evaluation consumed it",
+							tcx.def_path_str(def_id)
+						),
+					);
+					return;
+				};
+				body::function(self, instance, thir, *expr, method)
+			}
+		};
 		let Some(mut function) = function else {
 			return;
 		};

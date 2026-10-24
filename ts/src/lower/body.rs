@@ -205,6 +205,34 @@ enum CondPart<'a, 'tcx> {
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
+	/// A body with no THIR of its own: what a MIR lowering calls the library mappings
+	/// through, passing their arguments already lowered. It names the locals.
+	pub fn detached(t: &'b mut Translator<'a, 'tcx>, args: GenericArgsRef<'tcx>, ret: Ty<'tcx>) -> Self {
+		let bodies: &'a super::Bodies<'tcx> = t.bodies;
+		let thir = &bodies.empty;
+		Body {
+			t,
+			thir,
+			args,
+			locals: FxHashMap::default(),
+			names: FxHashSet::default(),
+			read: FxHashSet::default(),
+			breakables: Vec::new(),
+			ret,
+			visited: FxHashSet::default(),
+			scopes: Vec::new(),
+			moved: FxHashSet::default(),
+			borrowed: FxHashSet::default(),
+			yields: 0,
+			done: false,
+		}
+	}
+
+	/// Reserve `name`, which a caller declares itself, so `fresh` never returns it.
+	pub fn reserve(&mut self, name: &str) {
+		self.names.insert(name.to_string());
+	}
+
 	pub fn subst<T: ty::TypeFoldable<ty::TyCtxt<'tcx>>>(&self, value: T) -> T {
 		self.t.subst(self.args, value)
 	}

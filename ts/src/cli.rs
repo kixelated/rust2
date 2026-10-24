@@ -9,14 +9,17 @@ use crate::config::{self, Config};
 /// holds exactly, and its `cfg`s are the browser's.
 const TARGET: &str = "wasm32-unknown-unknown";
 
-const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]
+const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [--lower thir|mir] [-- <cargo args>]
 
 Translates the library of the package that ts.toml names to TypeScript in <dir>. The
 package's Cargo.toml is beside ts.toml unless --manifest-path says where. Cargo args,
 such as --features, are passed to `cargo check`.
 
 --census writes a Markdown report of every construct translation refuses in the library,
-reached from each of its items as if each were a root, instead of translating it.";
+reached from each of its items as if each were a root, instead of translating it.
+
+--lower picks what function bodies lower from: THIR, the default, or MIR, the spike's
+prototype.";
 
 pub fn run(args: &[String]) -> ExitCode {
 	match try_run(args) {
@@ -33,6 +36,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	let mut out = None;
 	let mut census = None;
 	let mut manifest = None;
+	let mut lower = None;
 	let mut cargo_args: &[String] = &[];
 	let mut rest = args;
 	while let [arg, tail @ ..] = rest {
@@ -50,6 +54,16 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 					_ => &mut manifest,
 				};
 				*slot = Some(absolute(Path::new(value))?);
+			}
+			"--lower" => {
+				let [value, tail @ ..] = rest else {
+					return Err(format!("{arg} needs a value\n\n{USAGE}"));
+				};
+				rest = tail;
+				if !matches!(value.as_str(), "thir" | "mir") {
+					return Err(format!("--lower takes thir or mir, not {value}\n\n{USAGE}"));
+				}
+				lower = Some(value.clone());
 			}
 			"--" => {
 				cargo_args = rest;
@@ -102,7 +116,11 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 
 	// Cargo can't tell the TypeScript is stale, so the package always recompiles.
 	run_cargo(cargo("clean").arg("--quiet"))?;
-	let status = cargo("check")
+	let mut check = cargo("check");
+	if let Some(lower) = &lower {
+		check.env(config::env::LOWER, lower);
+	}
+	let status = check
 		.arg("--lib")
 		.args(cargo_args)
 		.env("RUSTC_WRAPPER", &exe)

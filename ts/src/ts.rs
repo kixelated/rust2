@@ -221,6 +221,27 @@ pub enum StmtKind {
 		body: Vec<Stmt>,
 		finally: Vec<Stmt>,
 	},
+	/// `try { body } catch (name) { handler }`.
+	Catch {
+		body: Vec<Stmt>,
+		name: String,
+		handler: Vec<Stmt>,
+	},
+	/// `switch (disc) { case a: ... default: ... }`, whose cases never fall through.
+	Switch {
+		label: Option<String>,
+		disc: Expr,
+		cases: Vec<(Expr, Vec<Stmt>)>,
+		default: Vec<Stmt>,
+	},
+	/// `let name!: ty;`: a variable every read of which some write precedes, in ways
+	/// `tsc` can't follow.
+	Declare {
+		name: String,
+		ty: Type,
+	},
+	/// `throw value;`
+	Throw(Expr),
 }
 
 impl StmtKind {
@@ -255,7 +276,7 @@ impl Stmt {
 	/// Whether control never reaches the statement after this one.
 	pub fn diverges(&self) -> bool {
 		match &self.kind {
-			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
+			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) | StmtKind::Throw(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
 			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
 			StmtKind::While {
@@ -278,6 +299,11 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
 		StmtKind::Try { body, finally } => breaks_out(body, label, nested) || breaks_out(finally, label, nested),
+		StmtKind::Catch { body, handler, .. } => breaks_out(body, label, nested) || breaks_out(handler, label, nested),
+		// An unlabeled `break` in a case leaves the switch.
+		StmtKind::Switch { cases, default, .. } => {
+			cases.iter().any(|(_, body)| breaks_out(body, label, true)) || breaks_out(default, label, true)
+		}
 		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
 			breaks_out(body, label, true)
 		}
@@ -329,6 +355,18 @@ pub struct Field {
 	pub id: FieldId,
 	pub ty: Type,
 	pub doc: Option<String>,
+	/// What the field starts as, if not a constructor argument.
+	pub init: FieldInit,
+}
+
+#[derive(Clone, Debug)]
+pub enum FieldInit {
+	/// The constructor's argument.
+	Ctor,
+	/// `name: ty = value`.
+	Value(Expr),
+	/// `name!: ty`: set before every read, in ways `tsc` can't follow.
+	Later,
 }
 
 /// How a class is constructed.
