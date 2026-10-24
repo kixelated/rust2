@@ -309,6 +309,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
 				self.bind_var(*var, *name, mutable, pat.ty, pat.span, true)
 			}
+			_ if self.t.drops(self.subst(pat.ty)) => {
+				self.t.err(
+					pat.span,
+					"a parameter that drops bound by a pattern, which is not supported yet",
+				);
+				self.fresh("arg")
+			}
 			PatKind::Wild => self.fresh("_"),
 			_ => {
 				let name = self.fresh("arg");

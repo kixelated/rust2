@@ -55,8 +55,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// if `params`.
 	fn fields_drop(&mut self, adt: AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, params: bool) -> bool {
 		let tcx = self.tcx;
+		let env = self.typing_env_pub();
 		adt.all_fields().any(|field| {
-			let ty = self.subst(args, tcx.type_of(field.did).instantiate_identity().skip_norm_wip());
+			// A projection from a type parameter normalizes only where its bounds are known.
+			let field = ty::EarlyBinder::bind(tcx, tcx.type_of(field.did).instantiate_identity().skip_norm_wip());
+			let ty = tcx
+				.try_instantiate_and_normalize_erasing_regions(args, env, field)
+				.unwrap_or_else(|_| field.instantiate(tcx, args).skip_norm_wip());
 			(params || !ty.has_param()) && self.drops(ty)
 		})
 	}

@@ -1,4 +1,4 @@
-a root must not be generic at fixtures/reject/src/lib.rs:172:1
+a root must not be generic at fixtures/reject/src/lib.rs:177:1
 no item `missing` in the crate
 unsupported type `f64` at fixtures/reject/src/lib.rs:6:14
 unsupported literal of type `f64` at fixtures/reject/src/lib.rs:7:6
@@ -20,27 +20,29 @@ a field of a temporary that drops: bind it to a variable first at fixtures/rejec
 a closure that captures a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:68:23
 dropping `{closure@fixtures/reject/src/lib.rs:68:10: 68:17}`, which is not supported yet at fixtures/reject/src/lib.rs:66:31
 a `for` loop over values that drop, which is not supported yet at fixtures/reject/src/lib.rs:76:6
-dropping `Slot`, which is not supported yet at fixtures/reject/src/lib.rs:88:1
-`Boxed` is generic and implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:100:6
-an async body that borrows `u8` mutably, which is no object it can change in place at fixtures/reject/src/lib.rs:108:3
-unsupported type `{async closure@fixtures/reject/src/lib.rs:116:10: 116:18}` at fixtures/reject/src/lib.rs:116:6
-a closure of type `{async closure@fixtures/reject/src/lib.rs:116:10: 116:18}` at fixtures/reject/src/lib.rs:116:10
-a precision, as in `{:.2}`, is not supported at fixtures/reject/src/lib.rs:124:3
-the `+` flag of a format spec is not supported at fixtures/reject/src/lib.rs:125:3
-the `-` flag of a format spec is not supported at fixtures/reject/src/lib.rs:126:3
-`Binary` formatting, as in `{:b}`, is not supported at fixtures/reject/src/lib.rs:127:3
-`Octal` formatting, as in `{:o}`, is not supported at fixtures/reject/src/lib.rs:128:3
-`LowerExp` formatting, as in `{:e}`, is not supported at fixtures/reject/src/lib.rs:129:3
-hex `Debug`, as in `{:x?}`, is not supported at fixtures/reject/src/lib.rs:130:3
-a width or precision from an argument, as in `{:1$}`, is not supported at fixtures/reject/src/lib.rs:131:3
-`Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:132:3
-a `&mut std::string::String` binding: a JS value of `std::string::String` is a copy, so it can't change at fixtures/reject/src/lib.rs:137:16
-`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:137:16
-a mutable reference to `std::string::String`, which is no object it can change in place at fixtures/reject/src/lib.rs:139:17
-unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:139:10
-a closure that copies a mutable variable at fixtures/reject/src/lib.rs:144:18
-an or-pattern with bindings at fixtures/reject/src/lib.rs:151:3
-unsupported expression: StaticRef at fixtures/reject/src/lib.rs:158:2
-replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:163:17
-replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:163:20
-replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:167:25
+a parameter that drops bound by a pattern, which is not supported yet at fixtures/reject/src/lib.rs:83:21
+a variable from outside the function at fixtures/reject/src/lib.rs:84:2
+dropping `Slot`, which is not supported yet at fixtures/reject/src/lib.rs:93:1
+`Boxed` is generic and implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:105:6
+an async body that borrows `u8` mutably, which is no object it can change in place at fixtures/reject/src/lib.rs:113:3
+unsupported type `{async closure@fixtures/reject/src/lib.rs:121:10: 121:18}` at fixtures/reject/src/lib.rs:121:6
+a closure of type `{async closure@fixtures/reject/src/lib.rs:121:10: 121:18}` at fixtures/reject/src/lib.rs:121:10
+a precision, as in `{:.2}`, is not supported at fixtures/reject/src/lib.rs:129:3
+the `+` flag of a format spec is not supported at fixtures/reject/src/lib.rs:130:3
+the `-` flag of a format spec is not supported at fixtures/reject/src/lib.rs:131:3
+`Binary` formatting, as in `{:b}`, is not supported at fixtures/reject/src/lib.rs:132:3
+`Octal` formatting, as in `{:o}`, is not supported at fixtures/reject/src/lib.rs:133:3
+`LowerExp` formatting, as in `{:e}`, is not supported at fixtures/reject/src/lib.rs:134:3
+hex `Debug`, as in `{:x?}`, is not supported at fixtures/reject/src/lib.rs:135:3
+a width or precision from an argument, as in `{:1$}`, is not supported at fixtures/reject/src/lib.rs:136:3
+`Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:137:3
+a `&mut std::string::String` binding: a JS value of `std::string::String` is a copy, so it can't change at fixtures/reject/src/lib.rs:142:16
+`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:142:16
+a mutable reference to `std::string::String`, which is no object it can change in place at fixtures/reject/src/lib.rs:144:17
+unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:144:10
+a closure that copies a mutable variable at fixtures/reject/src/lib.rs:149:18
+an or-pattern with bindings at fixtures/reject/src/lib.rs:156:3
+unsupported expression: StaticRef at fixtures/reject/src/lib.rs:163:2
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:168:17
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:168:20
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:172:25

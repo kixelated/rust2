@@ -12,6 +12,7 @@ roots = [
     "temporary",
     "owning_closure",
     "each",
+    "destructured",
     "slot",
     "boxed",
     "async_borrow",

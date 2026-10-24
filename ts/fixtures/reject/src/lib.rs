@@ -79,6 +79,11 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 	sum
 }
 
+/// The part the pattern skips drops at the end of the function, which nothing marks.
+pub fn destructured((a, _): (Noisy, Noisy)) -> u8 {
+	a.0
+}
+
 pub enum Slot {
 	Empty,
 	Full(Noisy),

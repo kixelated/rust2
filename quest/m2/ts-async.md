@@ -18,14 +18,17 @@ V8 about 25 times as much), `.await` is a poll loop around `yield`, and `rt.spaw
 a future from a microtask as a promise. The task fixture's trace test covers a
 kio-shaped channel at await depths 1, 4, and 16.
 
-What moq-net and kio still need, by the census:
+What moq-net still needs, by its census at the pinned revision:
 
-- Async blocks and closures. An async closure fails translation; an async block that
-  captures a number by `&mut` must too, since its generator would change a copy.
-- The rest of kio's machinery: atomics, `OnceLock`, the coop budget's thread-local,
-  `Tasks`, and `poll_fn`, `ready`, and `pending`.
-- Boxed futures, which bind to hand-written TS at the boundary
-  ([model](/quest/m2/ts-model.md)).
+- `Poll`'s helpers (about 270 calls: `is_ready`, `is_pending`, `map`, `map_ok`,
+  `map_err`), `pin!` (47), `poll_fn` (51 with its `poll`), and `Box::pin` (17, a boxed
+  future that binds to hand-written TS at the boundary, per the
+  [model](/quest/m2/ts-model.md)).
+- An async block that captures part of a variable (47), or borrows a number mutably
+  (4); async closures.
+- kio's own API, reached across crates (`Pending`, `Consumer::poll`,
+  `Waiter::poll_future`, `Tasks`), with the atomics, `OnceLock`, and coop budget behind
+  it, which the model quest brings along.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 If a profile of moq's client finds await overhead, `yield*` between translated futures
@@ -35,4 +38,4 @@ Public API: the translator's output for async code.
 
 ## Required
 
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - kio's waiters and wakers drop on paths the spike refused
+- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - async bodies hold the values that drop it still refuses
