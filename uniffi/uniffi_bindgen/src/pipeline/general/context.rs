@@ -15,7 +15,8 @@ pub struct Context {
     pub current_type: Option<Type>,
     pub current_variant: Option<initial::Variant>,
     pub current_arg_or_field_type: Option<Type>,
-    pub names_used_as_error: HashSet<String>,
+    /// The namespace and name of each type used as an error.
+    pub names_used_as_error: HashSet<(String, String)>,
     // Maps namespaces to rename tables from the TOML config
     pub rename_tables: HashMap<String, toml::Table>,
     // Maps namespaces to exclude tables from the TOML config
@@ -126,7 +127,8 @@ impl Context {
         // historically worked.
         namespace.visit(|en: &initial::Enum| {
             if matches!(en.shape, EnumShape::Error { .. }) {
-                self.names_used_as_error.insert(en.name.clone());
+                self.names_used_as_error
+                    .insert((namespace.name.clone(), en.name.clone()));
             }
         });
         Ok(())
@@ -134,15 +136,25 @@ impl Context {
 
     fn update_from_throws(&mut self, throws: &Option<Type>) -> Result<()> {
         if let Some(ty) = throws {
-            let type_name = match ty {
-                Type::Interface { name, .. }
-                | Type::Record { name, .. }
-                | Type::Enum { name, .. }
-                | Type::CallbackInterface { name, .. }
-                | Type::Custom { name, .. } => name.to_string(),
+            let key = match ty {
+                Type::Interface {
+                    namespace, name, ..
+                }
+                | Type::Record {
+                    namespace, name, ..
+                }
+                | Type::Enum {
+                    namespace, name, ..
+                }
+                | Type::CallbackInterface {
+                    namespace, name, ..
+                }
+                | Type::Custom {
+                    namespace, name, ..
+                } => (namespace.to_string(), name.to_string()),
                 _ => bail!("Invalid throws type: {ty:?}"),
             };
-            self.names_used_as_error.insert(type_name);
+            self.names_used_as_error.insert(key);
         }
         Ok(())
     }
@@ -198,11 +210,23 @@ impl Context {
 
     pub fn type_is_used_as_error(&self, ty: &Type) -> bool {
         match ty {
-            Type::Interface { name, .. }
-            | Type::Record { name, .. }
-            | Type::Enum { name, .. }
-            | Type::CallbackInterface { name, .. }
-            | Type::Custom { name, .. } => self.names_used_as_error.contains(name),
+            Type::Interface {
+                namespace, name, ..
+            }
+            | Type::Record {
+                namespace, name, ..
+            }
+            | Type::Enum {
+                namespace, name, ..
+            }
+            | Type::CallbackInterface {
+                namespace, name, ..
+            }
+            | Type::Custom {
+                namespace, name, ..
+            } => self
+                .names_used_as_error
+                .contains(&(namespace.clone(), name.clone())),
             _ => false,
         }
     }

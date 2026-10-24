@@ -276,7 +276,7 @@ impl BindingGenerator for DartBindingGenerator {
         }
 
         // The shared runtime goes out once for the whole generation, ahead of the
-        // per-component files that import it. The first component supplies the
+        // per-component files that import it. One component supplies the
         // `rustbuffer_*` symbols and asset id for all of them: only library mode
         // generates more than one component, every component there links into one
         // cdylib, and UniFFI gives each the same cdylib name. If a configuration
@@ -298,7 +298,10 @@ impl BindingGenerator for DartBindingGenerator {
             }
         }
 
-        if let Some(Component { ci, config, .. }) = components.first() {
+        // Components arrive in no particular order; take the runtime from the same one every run.
+        if let Some(Component { ci, config, .. }) =
+            components.iter().min_by_key(|c| c.ci.crate_name())
+        {
             let asset_id = full_asset_id(config);
             let runtime = quote! {
                 $("// ignore_for_file: unused_import")$['\n']

@@ -47,8 +47,11 @@ pub enum Expr {
 	/// An arrow function whose body is one expression, its return type inferred:
 	/// `(f: rt.Formatter) => f.pad(s)`.
 	Lambda(Vec<Param>, Box<Expr>),
-	/// `e as T`, for a literal whose type TypeScript would widen.
+	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
+	/// another integer type with the same value.
 	As(Box<Expr>, Type),
+	/// `yield`, which a generator resumes from with the next `rt.Context`.
+	Yield,
 	Located(Loc, Box<Expr>),
 }
 
@@ -120,7 +123,7 @@ impl Expr {
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
-			Self::As(e, _) => *e,
+			Self::As(e, _) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) => *e,
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
 			Self::Call(f, args) if matches!(*f, Self::Rt("Ok" | "Err")) => {
@@ -136,6 +139,14 @@ impl Expr {
 		match self {
 			Self::Lit(_) | Self::Str(_) | Self::This | Self::Sym(_) | Self::Rt(_) => true,
 			Self::Located(_, e) => e.is_constant(),
+			// A wide integer literal past 2^53, `rt.u64.of(0xffffffffffffffffn)`, which makes
+			// immutable limbs.
+			Self::Call(f, args) => match (&**f, args.as_slice()) {
+				(Self::Member(int, Key::Name(of)), [Self::Lit(_)]) => {
+					matches!(**int, Self::Rt("u64" | "i64" | "u128" | "i128")) && of == "of"
+				}
+				_ => false,
+			},
 			_ => false,
 		}
 	}
@@ -205,6 +216,11 @@ pub enum StmtKind {
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
+	/// `try { body } finally { finally }`: what `finally` drops is dropped on every exit.
+	Try {
+		body: Vec<Stmt>,
+		finally: Vec<Stmt>,
+	},
 }
 
 impl StmtKind {
@@ -241,7 +257,7 @@ impl Stmt {
 		match &self.kind {
 			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
-			StmtKind::Block { label: None, body } => diverges(body),
+			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
 			StmtKind::While {
 				label,
 				cond: Expr::Lit(cond),
@@ -261,6 +277,7 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::Break(Some(target)) => Some(target.as_str()) == label,
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
+		StmtKind::Try { body, finally } => breaks_out(body, label, nested) || breaks_out(finally, label, nested),
 		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
 			breaks_out(body, label, true)
 		}
@@ -302,6 +319,9 @@ pub struct Function {
 	pub body: Vec<Stmt>,
 	pub loc: Option<Loc>,
 	pub doc: Option<String>,
+	/// An async body, run as a generator: `function*`, returning `Generator<undefined,
+	/// ret, rt.Context>`.
+	pub generator: bool,
 }
 
 #[derive(Clone, Debug)]

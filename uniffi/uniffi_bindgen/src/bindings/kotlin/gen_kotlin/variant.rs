@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{AsCodeType, CodeType, KotlinCodeOracle};
-use crate::interface::{ComponentInterface, Variant};
+use super::{AsCodeType, CodeType, KotlinCi, KotlinCodeOracle};
+use crate::interface::Variant;
 
 #[derive(Debug)]
 pub(super) struct VariantCodeType {
@@ -11,11 +11,11 @@ pub(super) struct VariantCodeType {
 }
 
 impl CodeType for VariantCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
         KotlinCodeOracle.class_name(ci, self.v.name())
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, _ci: &KotlinCi<'_>) -> String {
         self.v.name().to_string()
     }
 }

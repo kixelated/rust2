@@ -1,6 +1,6 @@
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let class_name = ffi_converter_name|class_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let trait_impl = canonical_type_name|callback_interface_name %}
 
 {%- for (ffi_callback, method) in vtable_methods.iter() %}
@@ -35,18 +35,18 @@
         }
         {%- match method.throws_type() %}
         {%- when Some(error) %}
-        catch ({{ error|canonical_name }} &e) {
+        catch ({{ error|thrown_class(ci) }} &e) {
             result.call_status.code = 1;
-            result.call_status.error_buf = {{ error|lower_fn }}(e);
+            result.call_status.error_buf = {{ error|lower_fn(ci) }}(e);
         }
         {%- when None %}
         {%- endmatch %}
         catch (std::exception &e) {
             result.call_status.code = 2;
-            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn }}(e.what());
+            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(e.what());
         } catch (...) {
             result.call_status.code = 2;
-            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn }}("Unknown C++ exception");
+            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}("Unknown C++ exception");
         }
         complete(uniffi_callback_data, result);
     };
@@ -60,13 +60,13 @@
 
         Result result{};
         try {
-            result.return_value = {{ t|lower_fn }}(value);
+            result.return_value = {{ t|lower_fn(ci) }}(value);
         } catch (std::exception &e) {
             result.call_status.code = 2;
-            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn }}(e.what());
+            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(e.what());
         } catch (...) {
             result.call_status.code = 2;
-            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn }}("Unknown C++ exception");
+            result.call_status.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}("Unknown C++ exception");
         }
         complete(uniffi_callback_data, result);
     };
@@ -87,7 +87,7 @@
             throw std::runtime_error("UniFFI callback handle has the wrong implementation type");
         }
         {%- for arg in method.arguments() %}
-        auto arg{{ loop.index0 }} = {{- arg|lift_fn }}({{ arg.name()|var_name }});
+        auto arg{{ loop.index0 }} = {{- arg|lift_fn(ci) }}({{ arg.name()|var_name }});
         {%- endfor %}
         auto future = obj->{{ method.name()|var_name }}(
         {%- for arg in method.arguments() %}
@@ -104,7 +104,7 @@
 
     auto make_call = [&]() {% match method.return_type() %}{% when Some(t) %}-> {{ t|type_name(ci) }}{% when None %}{% endmatch %} {
         {%- for arg in method.arguments() %}
-        auto arg{{ loop.index0 }} = {{- arg|lift_fn }}({{ arg.name()|var_name }});
+        auto arg{{ loop.index0 }} = {{- arg|lift_fn(ci) }}({{ arg.name()|var_name }});
         {%- endfor -%}
 
         {%- if method.return_type().is_some() %}return {% endif -%}
@@ -118,7 +118,7 @@
     {% match method.return_type() %}
     {% when Some(t) %}
     auto write_value = [&]({{ t|type_name(ci) }} v) {
-        uniffi_out_return = {{ t|lower_fn }}(v);
+        uniffi_out_return = {{ t|lower_fn(ci) }}(v);
     };
     {% when None %}
     (void)uniffi_out_return;
@@ -127,7 +127,7 @@
 
     {% match method.throws_type() %}
     {% when Some(error) %}
-        rust_call_trait_interface_with_error<{{ error|canonical_name }}>(out_status, make_call, write_value, {{ error|lower_fn }});
+        rust_call_trait_interface_with_error<{{ error|thrown_class(ci) }}>(out_status, make_call, write_value, {{ error|lower_fn(ci) }});
     {% when None %}
         rust_call_trait_interface(out_status, make_call, write_value);
     {% endmatch %}

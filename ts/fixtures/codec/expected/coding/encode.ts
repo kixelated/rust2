@@ -69,12 +69,12 @@ export class Encoder {
 	}
 
 	/** Write a single byte. */
-	u8(v: number): void {
+	u8(v: rt.u8): void {
 		this.buf.push(v);
 	}
 
 	/** Write a big-endian `u16`. */
-	u16(v: number): void {
+	u16(v: rt.u16): void {
 		this.buf.extendFromSlice(rt.u16.toBeBytes(v));
 	}
 
@@ -84,7 +84,7 @@ export class Encoder {
 	}
 
 	/** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
-	varint(v: bigint): rt.Result<undefined, EncodeError> {
+	varint(v: rt.u64): rt.Result<undefined, EncodeError> {
 		const write_ = write(v, this.form, this.buf);
 		if (!write_.ok) {
 			return rt.Err(EncodeError.from(write_.error));
@@ -93,24 +93,24 @@ export class Encoder {
 	}
 
 	/** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
-	varintOpt(v: bigint | undefined): rt.Result<undefined, EncodeError> {
-		let v2: bigint;
+	varintOpt(v: rt.u64 | undefined): rt.Result<undefined, EncodeError> {
+		let v2: rt.u64;
 		if (v !== undefined) {
 			const v3 = v;
-			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1n), "TooLarge" as EncodeError);
+			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1), "TooLarge" as EncodeError);
 			if (!okOr.ok) {
 				return rt.Err(okOr.error);
 			}
 			v2 = okOr.value;
 		} else {
-			v2 = 0n;
+			v2 = 0;
 		}
 		return this.varint(v2);
 	}
 
 	/** Write a varint length, then the raw bytes. */
 	bytes(v: Uint8Array): rt.Result<undefined, EncodeError> {
-		const varint = this.varint(BigInt(v.length));
+		const varint = this.varint(v.length as rt.u64);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -140,7 +140,7 @@ export class Encoder {
 	}
 
 	/** The number of bytes written since `prefix` was reserved. */
-	since(prefix: Prefix): number {
+	since(prefix: Prefix): rt.usize {
 		return rt.usize.sub(this.buf.length, prefix.body);
 	}
 
@@ -164,7 +164,7 @@ export class Encoder {
 			const size = mapErr.value;
 			rt.slice.copyFromSlice(rt.slice.range(this.buf.view(), rt.usize.sub(body, 2), body), rt.u16.toBeBytes(size));
 		} else {
-			const write_ = write(BigInt(rt.usize.sub(end, body)), this.form, this.buf);
+			const write_ = write(rt.usize.sub(end, body) as rt.u64, this.form, this.buf);
 			if (!write_.ok) {
 				return rt.Err(EncodeError.from(write_.error));
 			}
@@ -177,7 +177,7 @@ export class Encoder {
 				this.buf.truncate(end);
 				return rt.Ok(undefined);
 			}
-			let size2: Uint8Array = new Uint8Array(9);
+			let size2: Uint8Array = rt.bytes(9);
 			rt.slice.copyFromSlice(rt.slice.range(size2, 0, len), rt.slice.range(this.buf.view(), end));
 			this.buf.truncate(rt.usize.sub(rt.usize.add(end, len), 1));
 			rt.slice.copyWithin(this.buf.view(), body, end, rt.usize.sub(rt.usize.add(body, len), 1));
@@ -190,10 +190,10 @@ export class Encoder {
 /** A size prefix reserved ahead of a body, sized by [`Encoder::fill`] once it is written. */
 export class Prefix {
 	/** Where the body starts, just past the reserved bytes. */
-	body: number;
+	body: rt.usize;
 	kind: PrefixKind;
 
-	constructor(fields: { body: number; kind: PrefixKind }) {
+	constructor(fields: { body: rt.usize; kind: PrefixKind }) {
 		this.body = fields.body;
 		this.kind = fields.kind;
 	}

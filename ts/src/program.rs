@@ -11,6 +11,7 @@ use crate::ts::{FieldId, Function, Item, SymId};
 pub const RUNTIME: &[(&str, &str)] = &[
 	("rt.ts", include_str!("../runtime/rt.ts")),
 	("rt/iter.ts", include_str!("../runtime/rt/iter.ts")),
+	("rt/task.ts", include_str!("../runtime/rt/task.ts")),
 ];
 
 /// The first line of every generated file, which also marks it as safe to replace.
@@ -32,7 +33,7 @@ pub struct Symbol {
 	/// Its source position in rustc's source map, which numbers files in the order it
 	/// loads them.
 	pub order: u32,
-	/// The function instance it is, printed in full; empty for a type.
+	/// The function instance it is, printed in full; empty for anything else.
 	pub instance: String,
 	/// The final name, set by [`Program::name`].
 	pub name: String,

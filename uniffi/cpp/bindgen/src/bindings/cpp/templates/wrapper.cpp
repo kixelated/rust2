@@ -55,7 +55,7 @@ void check_rust_call(const RustCallStatus &status, F) {
 
     case 2:
         if (status.error_buf.len > 0) {
-            auto message = "Rust panic: " + {{ Type::String.borrow()|lift_fn }}(status.error_buf);
+            auto message = "Rust panic: " + {{ Type::String.borrow()|lift_fn(ci) }}(status.error_buf);
             ::uniffi::detail::fatal(message.c_str());
         }
 
@@ -131,7 +131,7 @@ void check_rust_call(const RustCallStatus &status, F error_cb) {
 
     case 2:
         if (status.error_buf.len > 0) {
-            throw std::runtime_error({{ Type::String.borrow()|lift_fn }}(status.error_buf));
+            throw std::runtime_error({{ Type::String.borrow()|lift_fn(ci) }}(status.error_buf));
         }
 
         throw std::runtime_error("A Rust panic has occurred");
@@ -175,7 +175,7 @@ void rust_call_trait_interface(RustCallStatus* status, F make_call, W write_valu
         }
     } catch (std::exception &e) {
         status->code = 2;
-        status->error_buf = {{ Type::String.borrow()|lower_fn }}(e.what());
+        status->error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(e.what());
     }
 }
 
@@ -198,7 +198,7 @@ void rust_call_trait_interface_with_error(RustCallStatus* status, F make_call, W
         }
     } catch (std::exception &e) {
         status->code = 2;
-        status->error_buf = {{ Type::String.borrow()|lower_fn }}(e.what());
+        status->error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(e.what());
     }
 }
 {%- endif %}

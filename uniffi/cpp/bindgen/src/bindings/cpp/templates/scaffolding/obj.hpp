@@ -1,5 +1,5 @@
 {%- let type_name = typ|type_name(ci) %}
-struct {{ typ|ffi_converter_name }} {
+struct {{ typ|ffi_converter_name(ci) }} {
     static {{ type_name }} lift(uint64_t);
     static uint64_t lower(const {{ type_name }} &);
     static {{ type_name }} read(RustStream &);

@@ -60,8 +60,10 @@ and RTTI may be off) and include only `<namespace>.h` from C.
 uniffi-bindgen-cpp --lang c --library your_rust_library.so --out-dir output_directory
 ```
 
-Names are the uniffi names in snake case: `MyObject.do_thing` is `my_object_do_thing`, and its
-handle is `my_object *`, released with `my_object_free`. The rest follows from a few rules:
+Names are the uniffi names in snake case, prefixed with the namespace unless they already start
+with it, since every crate's C API shares one scope: in namespace `app`, `MyObject.do_thing` is
+`app_my_object_do_thing`, and its handle is `app_my_object *`, released with
+`app_my_object_free`; `AppObject` is `app_object`. The rest follows from a few rules:
 
 * A call that can fail returns an error struct, or NULL on success, and writes its result to a
   trailing `out` pointer. An error is a tagged union with a `message`; free it with `<error>_free`.
@@ -79,9 +81,14 @@ handle is `my_object *`, released with `my_object_free`. The rest follows from a
   or will never run.
 * Callbacks run on the default dispatcher thread unless `<namespace>_set_dispatcher` installs a
   host's own, which receives `<namespace>_work *` items to run with `<namespace>_work_run`.
+* A type from another crate keeps that crate's C name and `_free`, and its header is included.
+  Generate the C API of every crate involved (one `--crate` each, or all at once) and compile
+  each one's `<namespace>.cpp` and `<namespace>_c.cpp`; a crate's implementation converts its
+  own types for the others.
 
-The C backend refuses what it cannot render faithfully, such as callback interfaces, custom and
-external types, timestamps, durations, and exported traits other than `Display` on errors.
+The C backend refuses what it cannot render faithfully, such as callback interfaces, custom
+types, timestamps, durations, and exported traits other than `Display` on errors, including in
+another crate whose types it uses.
 
 # Configuration options
 

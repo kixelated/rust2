@@ -7,11 +7,13 @@
 
 mod body;
 mod consts;
+mod drop;
 mod fmt;
 mod iter;
 mod library;
 mod num;
 mod pat;
+mod task;
 
 use std::collections::VecDeque;
 
@@ -160,6 +162,13 @@ pub struct Translator<'a, 'tcx> {
 	env: TypingEnv<'tcx>,
 	/// Refusals collected for a census, rather than reported as errors.
 	refusals: Option<Vec<(Span, String)>>,
+	/// Whether each type's drop does something JS can see, as [`Self::drops`] found.
+	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
+	/// The types [`Self::drops`] is still deciding, and whether the query open now read one.
+	drops_open: rustc_data_structures::fx::FxHashSet<Ty<'tcx>>,
+	drops_cycle: bool,
+	/// The classes given drop glue.
+	glued: rustc_data_structures::fx::FxHashSet<DefId>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -187,6 +196,14 @@ pub enum ObjectKind {
 	Array,
 	Vec,
 	Closure,
+}
+
+/// The JS values a type's own can be that `Option` and `Poll` erase to: `None` is
+/// `undefined`, and `Pending` is `rt.Pending`.
+#[derive(Clone, Copy, Default)]
+pub struct Erased {
+	pub undefined: bool,
+	pub pending: bool,
 }
 
 /// Where a translated function lives.
@@ -225,6 +242,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			failed: false,
 			env: TypingEnv::fully_monomorphized(),
 			refusals,
+			drops: Default::default(),
+			drops_open: Default::default(),
+			drops_cycle: false,
+			glued: Default::default(),
 		})
 	}
 
@@ -493,7 +514,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: self.suffix(instance),
 			owner: owner_sym,
 			kind,
-			order: self.order(def_id),
+			order: self.order(tcx.def_span(def_id)),
 			// Without trimmed paths, which rustc computes only for a diagnostic.
 			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
@@ -590,10 +611,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect()
 	}
 
-	/// Where `def_id` is written, for sorting: where its macro is called, for an item a
+	/// Where `span` is written, for sorting: where its macro is called, for an item a
 	/// macro makes.
-	fn order(&self, def_id: DefId) -> u32 {
-		self.tcx.def_span(def_id).source_callsite().lo().0
+	pub fn order(&self, span: Span) -> u32 {
+		span.source_callsite().lo().0
 	}
 
 	fn source(&mut self, file: &rustc_span::SourceFile) -> Option<u32> {
@@ -642,6 +663,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
 	}
 
+	/// The standard library type `ty` is, if it is one with its own representation.
+	pub fn std_of(&self, ty: Ty<'tcx>) -> Option<library::Std> {
+		match ty.kind() {
+			ty::Adt(adt, _) => library::Std::of(self.tcx, adt.did()),
+			_ => None,
+		}
+	}
+
 	pub fn is_copy(&self, ty: Ty<'tcx>) -> bool {
 		self.tcx.type_is_copy_modulo_regions(self.typing_env(), ty)
 	}
@@ -653,15 +682,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let did = adt.did();
-		if adt.destructor(tcx).is_some() {
-			self.err(
-				span,
-				format!(
-					"`{}` implements `Drop`, which is not supported yet",
-					tcx.def_path_str(did)
-				),
-			);
-		}
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
@@ -694,7 +714,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: String::new(),
 			owner: None,
 			kind,
-			order: self.order(did),
+			order: self.order(tcx.def_span(did)),
 			instance: String::new(),
 			name: String::new(),
 		});
@@ -783,6 +803,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 		};
 		self.program.items.push(item);
+		self.drop_glue(adt, &info, span);
 		info
 	}
 
@@ -800,6 +821,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::DebugStruct
 					| library::Std::DebugTuple
 					| library::Std::DebugList
+					| library::Std::Arc
+					| library::Std::Weak
+					| library::Std::Mutex
+					| library::Std::MutexGuard
+					| library::Std::Waker
+					| library::Std::Context
+					| library::Std::Pin
 					| library::Std::Range
 					| library::Std::RangeInclusive
 					| library::Std::Peekable,
@@ -810,6 +838,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
+			ty::Coroutine(..) => Some(ObjectKind::Class),
 			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
@@ -820,10 +849,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
-			ty::Int(_) | ty::Uint(_) => match num::Int::of(ty).is_some_and(|int| int.big()) {
-				true => Type::Builtin("bigint"),
-				false => Type::Builtin("number"),
-			},
+			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),
 			ty::Tuple(tys) if tys.is_empty() => Type::Builtin("undefined"),
@@ -854,6 +880,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
 				if preds
@@ -894,7 +921,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return match std {
 				library::Std::Option => {
 					let inner = args.type_at(0);
-					if !self.option_payload_ok(inner) {
+					if self.erases_to(inner).undefined {
 						self.err(
 							span,
 							format!(
@@ -903,6 +930,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						);
 					}
 					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
+				}
+				// A lock's result, which is never an error: its guard.
+				library::Std::Result if self.std_of(args.type_at(1)) == Some(library::Std::PoisonError) => {
+					self.ty(args.type_at(0), span)
 				}
 				library::Std::Result => Type::Rt(
 					"Result",
@@ -923,6 +954,27 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::DebugTuple => Type::Rt("DebugTuple", vec![]),
 				library::Std::DebugList => Type::Rt("DebugList", vec![]),
 				library::Std::AssertKind => Type::Builtin("string"),
+				library::Std::Arc => Type::Rt("Arc", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Weak => Type::Rt("Weak", vec![self.ty(args.type_at(0), span)]),
+				// A guard's first argument is its lifetime.
+				library::Std::Mutex | library::Std::MutexGuard => {
+					let inner = args.types().next().expect("a guarded type");
+					Type::Rt("Mutex", vec![self.ty(inner, span)])
+				}
+				library::Std::PoisonError => Type::Builtin("never"),
+				library::Std::Waker => Type::Rt("Waker", vec![]),
+				library::Std::Context => Type::Rt("Context", vec![]),
+				library::Std::Poll => {
+					let inner = args.type_at(0);
+					if self.erases_to(inner).pending {
+						self.err(
+							span,
+							format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"),
+						);
+					}
+					Type::Rt("Poll", vec![self.ty(inner, span)])
+				}
+				library::Std::Pin => self.ty(args.type_at(0), span),
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Peekable => {
@@ -960,17 +1012,28 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// Whether `undefined` is free to mean `None` around a `ty`.
-	pub fn option_payload_ok(&self, ty: Ty<'tcx>) -> bool {
+	/// Which of the values `Option` and `Poll` erase to a `ty`'s JS value can already be,
+	/// seen through the wrappers that erase to their contents.
+	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
-			ty::Tuple(tys) => !tys.is_empty(),
-			ty::Ref(_, inner, _) => self.option_payload_ok(*inner),
-			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Option) => false,
-				Some(library::Std::Box) => self.option_payload_ok(args.type_at(0)),
-				_ => true,
+			ty::Tuple(tys) if tys.is_empty() => Erased {
+				undefined: true,
+				pending: false,
 			},
-			_ => true,
+			ty::Ref(_, inner, _) => self.erases_to(*inner),
+			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
+				Some(library::Std::Box | library::Std::Pin) => self.erases_to(args.type_at(0)),
+				Some(library::Std::Option) => Erased {
+					undefined: true,
+					..self.erases_to(args.type_at(0))
+				},
+				Some(library::Std::Poll) => Erased {
+					pending: true,
+					..self.erases_to(args.type_at(0))
+				},
+				_ => Erased::default(),
+			},
+			_ => Erased::default(),
 		}
 	}
 
@@ -997,13 +1060,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			);
 			return;
 		};
-		if tcx.asyncness(def_id).is_async() {
-			self.err(
-				span,
-				format!("`{}` is async, which is not supported yet", tcx.def_path_str(def_id)),
-			);
-			return;
-		}
 		let owner = self.owner(instance);
 		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
 		let function = body::function(self, instance, thir, *expr, method);
@@ -1158,8 +1214,6 @@ pub fn escape(name: &str) -> String {
 		"rt",
 		// Globals the output calls.
 		"Array",
-		"BigInt",
-		"Number",
 		"Object",
 		"Uint8Array",
 	];

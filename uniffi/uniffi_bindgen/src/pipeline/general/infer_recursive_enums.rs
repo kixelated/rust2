@@ -29,19 +29,21 @@ fn type_dep_graph(type_defs: &[TypeDefinition]) -> HashMap<String, HashSet<Strin
         .iter()
         .filter_map(|td| match td {
             TypeDefinition::Enum(e) => {
+                let namespace = e.self_type.ty.namespace();
                 let deps: HashSet<String> = e
                     .variants
                     .iter()
                     .flat_map(|v| v.fields.iter())
-                    .flat_map(|f| type_names_in_type(&f.ty.ty))
+                    .flat_map(|f| type_names_in_type(namespace, &f.ty.ty))
                     .collect();
                 Some((e.name.clone(), deps))
             }
             TypeDefinition::Record(r) => {
+                let namespace = r.self_type.ty.namespace();
                 let deps: HashSet<String> = r
                     .fields
                     .iter()
-                    .flat_map(|f| type_names_in_type(&f.ty.ty))
+                    .flat_map(|f| type_names_in_type(namespace, &f.ty.ty))
                     .collect();
                 Some((r.name.clone(), deps))
             }
@@ -121,19 +123,22 @@ fn dfs<T>(
 /// Unwraps `Optional`/`Sequence`/`Map` wrappers but does not cross type
 /// definition boundaries — both `Enum` and `Record` references are returned
 /// as-is rather than recursed into, because they are nodes in their own right.
-fn type_names_in_type(ty: &Type) -> Vec<String> {
+fn type_names_in_type(namespace: Option<&str>, ty: &Type) -> Vec<String> {
     match ty {
-        Type::Enum { name, .. } | Type::Record { name, .. } => vec![name.clone()],
+        // Another namespace's types cannot contain this one's, and may share a name with them.
+        Type::Enum { name, .. } | Type::Record { name, .. } if ty.namespace() == namespace => {
+            vec![name.clone()]
+        }
         Type::Box { inner_type }
         | Type::Optional { inner_type }
         | Type::Sequence { inner_type }
-        | Type::Set { inner_type } => type_names_in_type(inner_type),
+        | Type::Set { inner_type } => type_names_in_type(namespace, inner_type),
         Type::Map {
             key_type,
             value_type,
         } => {
-            let mut names = type_names_in_type(key_type);
-            names.extend(type_names_in_type(value_type));
+            let mut names = type_names_in_type(namespace, key_type);
+            names.extend(type_names_in_type(namespace, value_type));
             names
         }
         _ => vec![],

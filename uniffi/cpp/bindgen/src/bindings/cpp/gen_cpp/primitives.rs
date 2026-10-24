@@ -41,7 +41,7 @@ macro_rules! impl_code_type_for_primitive {
                     $cpp_name.into()
                 }
 
-                fn canonical_name(&self) -> String {
+                fn canonical_name(&self, _ci: &ComponentInterface) -> String {
                     $canonical_name.into()
                 }
 

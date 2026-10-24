@@ -17,6 +17,7 @@ The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and
 ## Corpus
 
 - **moq** builds `moq-relay`, which pulls in moq-net, the QUIC stack, and C code through aws-lc-sys.
+- **moq-pure-crypto** builds the same `moq-relay` with its crypto on graviola and RustCrypto, so it compiles no C.
 - **regex** and **wasmparser** are pure Rust: the run fails if any crate in their build gains a build script or a `links` key.
 
 Each corpus pins a git revision (and a lockfile when the project commits none).
@@ -40,8 +41,8 @@ The `control` variants repeat their base, so their change is the run's noise flo
 Timed runs interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
 To measure a new build-speed change, add a variant whose base is the configuration it improves on.
 
-The report shows wall time (median, and mean ± standard deviation), CPU time, retired instructions, and peak RSS, all from hyperfine.
-A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares medians, as do CPU time and instructions.
+The report shows wall time (trimmed mean, and mean ± standard deviation), CPU time, retired instructions, and peak RSS, all from hyperfine.
+A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares trimmed means, which drop each variant's fastest and slowest run; CPU time and instructions are trimmed means too.
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.
 

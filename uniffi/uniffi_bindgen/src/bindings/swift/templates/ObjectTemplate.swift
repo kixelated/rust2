@@ -3,7 +3,7 @@
 {%- let methods = obj.methods() %}
 {%- let protocol_docstring = obj.docstring() %}
 
-{%- let is_error = ci.is_name_used_as_error(name) %}
+{%- let is_error = ci.is_used_as_error(obj) %}
 
 {% include "Protocol.swift" %}
 
@@ -166,7 +166,7 @@ public struct {{ ffi_converter_name }}: FfiConverter {
 {%- endif %}
 
 {%- for t in obj.trait_impls() %}
-extension {{impl_class_name}}: {{ self::trait_protocol_name(ci, t.trait_ty)? }} {}
+extension {{impl_class_name}}: {{ self::trait_protocol_name(ci, self.external_types, t.trait_ty)? }} {}
 {% endfor %}
 
 {#

@@ -16,7 +16,7 @@ uniffi::deps::static_assertions::assert_impl_all!({{ k|type_rs }}: ::std::cmp::E
 {% endfor %}
 
 {% for e in ci.enum_definitions() %}
-{% if ci.is_name_used_as_error(e.name()) %}
+{% if ci.is_used_as_error(e) %}
 // Error definitions, corresponding to `error` in the UDL.
 {% include "ErrorTemplate.rs" %}
 {% else %}

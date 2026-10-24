@@ -38,6 +38,8 @@ uniffi-fixture-ext-types-lib-one = { path = "../../fixtures/ext-types/uniffi-one
 uniffi-fixture-ext-types-proc-macro = { path = "../../fixtures/ext-types/proc-macro-lib"}
 uniffi-fixture-large-enum = { package = "large-enum", path = "../../fixtures/large-enum"}
 uniffi-fixture-large-error = { package = "large-error", path = "../../fixtures/large-error"}
+uniffi-fixture-namespaces-media = { path = "../../fixtures/namespaces/media"}
+uniffi-fixture-namespaces-net = { path = "../../fixtures/namespaces/net"}
 uniffi-fixture-proc-macro = { path = "../../fixtures/proc-macro"}
 uniffi-fixture-simple-fns = { path = "../../fixtures/simple-fns"}
 uniffi-fixture-simple-iface = { path = "../../fixtures/simple-iface"}

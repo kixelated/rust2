@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::CodeType;
+use super::{CodeType, KotlinCi};
 use crate::{
     bail,
-    interface::{ComponentInterface, DefaultValue, Literal, Radix, Type},
+    interface::{DefaultValue, Literal, Radix, Type},
     Result,
 };
 
-fn render_literal(literal: &Literal, _ci: &ComponentInterface) -> Result<String> {
+fn render_literal(literal: &Literal) -> Result<String> {
     fn typed_number(type_: &Type, num_str: String) -> Result<String> {
         let unwrapped_type = match type_ {
             Type::Optional { inner_type } => inner_type,
@@ -60,18 +60,18 @@ macro_rules! impl_code_type_for_primitive {
         pub struct $T;
 
         impl CodeType for $T {
-            fn type_label(&self, _ci: &ComponentInterface) -> String {
+            fn type_label(&self, _ci: &KotlinCi<'_>) -> String {
                 format!("kotlin.{}", $class_name)
             }
 
-            fn canonical_name(&self) -> String {
+            fn canonical_name(&self, _ci: &KotlinCi<'_>) -> String {
                 $class_name.into()
             }
 
-            fn default(&self, default: &DefaultValue, ci: &ComponentInterface) -> Result<String> {
+            fn default(&self, default: &DefaultValue, _ci: &KotlinCi<'_>) -> Result<String> {
                 match default {
                     DefaultValue::Default => Ok($def.into()),
-                    DefaultValue::Literal(literal) => render_literal(&literal, ci),
+                    DefaultValue::Literal(literal) => render_literal(&literal),
                 }
             }
         }

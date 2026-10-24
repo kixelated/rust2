@@ -1,7 +1,6 @@
 # rust2-ts
 
-A rustc driver that translates a subset of Rust to readable TypeScript with source
-maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
+A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
 rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
@@ -46,17 +45,18 @@ it finds; translation still fails on any refusal.
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
 with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
+and async in `rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
-| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
-| `u64`, `i64`, `u128`, `i128` | `bigint`, checked the same way |
+| `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
+| `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
-| `Option<T>` | `T \| undefined`; an `Option` of `()` or an `Option` is refused |
+| `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
@@ -64,10 +64,30 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`.
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
+| a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
+| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
+| `async fn` | a function returning `rt.Future<T>`, around a generator |
+| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
+
+`Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
+`Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
+`byteOffset` and `byteLength`, and copy it before transferring it.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+
+Each integer type is its own type to `tsc`, named as Rust's: `rt.u8` is a `number` with a
+type-only brand, so a `u16` where a `u8` goes fails the type check, while a plain
+number, such as a literal, passes for any. A cast that keeps the value is `x as rt.u16`,
+which costs nothing at run time.
+
+A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
+object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
+`hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
+makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
+is `rt.u64.low(x)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -98,6 +118,19 @@ generic class holds a method per instance, each declaring the instance it takes 
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
+A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
+impl, an `Arc`'s count, or a waker. A variable drops at the end of its scope through a
+`finally`, so an early return, `?`, a panic, or a cancelled future drops it too, and a
+move leaves `undefined` where it was, which drops as nothing.
+
+An `async fn` returns a future without running anything: `rt.future(body, drop,
+...upvars)`, whose body is a module-level generator of what the function captured. Each
+`.await` polls in a loop around `yield`. A poll after the future returned panics, and
+dropping it cancels it: unpolled, it drops what it captured by value; suspended, its
+generator returns through the `finally` blocks that drop its locals and captures.
+`rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
+microtask and yielding to a macrotask after 128 polls.
+
 A file's items, and a class's or companion's methods, follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
 What a macro makes sits where the macro is called. The instances of one function sit
@@ -109,8 +142,28 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 ## Design
 
-- 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
-  faster but waits until `just ts bench` measures `bigint` as the cost.
+Output is ranked correctness first, speed second, and bundle size third: the
+consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
+constructs such as brand casts and annotations are free. Readable output is not a goal.
+It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
+bundler's job. Types must be solid at the API boundary: the `roots` items and
+`printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
+they need.
+
+- 64- and 128-bit integers are numbers while they are safe integers, which most values
+  are: lengths, IDs, sequence numbers, and timestamps. `just ts bench` measured it
+  against `bigint`, against limbs for every value, and against unboxed halves, two
+  numbers in locals, fields, and arguments. It ties unboxed halves on the codec and
+  beats `bigint` there in Node, Bun, and Chrome: varint encode 13-65% faster, frame
+  decode 8-32%, and message decode 22-31%, though Chrome's 8-byte varint decode is
+  25-45% slower. A loop of sums and comparisons past 2^32 measured 2-6x faster. Limbs
+  for every value allocate an object each, which costs what a `bigint` does in V8, so
+  they lost decode; unboxed halves would lower every value to two. Past 2^53 an
+  operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
+  than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
+  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
+  `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
+  brand would cast every literal, so a plain number passes for any type.
 - A generic type is one class or union, the type TS callers name, and a method on it is
   one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
   the type for callers, and TS generics with trait dictionaries would undo
@@ -123,9 +176,11 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
   nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
-- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
-  not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
-  MIR.
+- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
+  come from its scopes, and async bodies are generators: MIR state machines were about
+  twice as fast per await level, but would need a second lowering
+  ([#16](https://github.com/kixelated/rust2/pull/16) measured both). The
+  [MIR spike](/quest/m2/ts-mir-spike.md) decides whether the whole lowering moves.
 
 ## Never
 
@@ -135,14 +190,19 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 ## Not yet
 
-These fail translation: floats, `char`, statics, `async`,
-types that implement `Drop`, iterators of std's collections and the adaptors without a
-mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
-`impl Iterator` with `next_back`, `len`, or another provided method of its own,
-`while let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
-and widths from arguments), writing to a `String` with `write!`, a `move` closure
-copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
-pointee, and std functions without a mapping in `src/lower/library.rs`.
+These fail translation: floats, `char`, statics, async blocks that borrow a number
+mutably and async closures, values that drop as temporaries not moved whole, in a
+closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, passed to
+a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
+moved ahead of an `.await` in the same call or assignment ([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
+a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
+`impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
+let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
+format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
+`String` with `write!`, a `move` closure copying a mutable variable, `mem::swap`,
+`replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
+`MutexGuard`, a pinned reference, or a future through a reference, and std functions
+without a mapping in `src/lower/library.rs`.
 
 ## Tests
 
@@ -164,9 +224,19 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a
-  hand-written caller that also prints a `printable` error nothing translated prints.
+  hand-written caller that also prints a `printable` error nothing translated prints,
+  and adds every 64- and 128-bit case over each pair of values next to a power of two,
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
+- `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
+  functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
+  fixture's native executor does. The logs must match byte for byte.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
+
+`tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
+rejects when a future panics as it drops.
 
 ## Bench
 
@@ -183,6 +253,22 @@ native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM r
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
 each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary.
+runs it and posts the report to its summary. Chrome's page reports each step it starts,
+and one that runs 30 s fails the run, naming it.
+
+The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
+its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
+once, as natively, and on `rt.spawn`; its hand-written route is the same handoff with
+promises, as moq's TypeScript writes it.
+
+An A/B run times another translator's output as one more route: run `just ts bench` in
+the other checkout, then pass its output directory, absolute or relative to `ts/`.
+
+```bash
+nix develop .#bench --command just ts bench --route main="$HOME/rust2-main/ts/target/bench"
+```
+
+The route runs both fixtures' translations from that directory's `translated/` and
+`task/`, so a hand-edited translation can be timed by copying the directory and editing it.
 
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.

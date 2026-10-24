@@ -16,7 +16,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const op = input[0];
 	const kind = input[1];
 	const data = input.subarray(2, input.length - 0);
-	const [op2, kind2] = [op, kind] as [number, number];
+	const [op2, kind2] = [op, kind] as [rt.u8, rt.u8];
 	const value = rt.u8.rem(op2, 33);
 	if (value === 0) {
 		u8Op(kind2, data, out);
