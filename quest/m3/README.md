@@ -9,5 +9,6 @@ each a measurement that decides whether its follow-up lands.
 
 - [No-C check](/quest/m3/bench-no-c.md) - the benchmark fails if the `moq-pure-crypto` corpus gains C through `links`, `cc`, or `cmake`
 - [Steadier edit numbers](/quest/m3/bench-edit-noise.md) - moq's edit scenarios compare night to night within a few percent
-- [Early cutoff for edit rebuilds](/quest/m3/edit-cutoff.md) - real moq-net edits decide how rust2 skips rebuilding dependents without waiting on cargo
+- [Early cutoff for edit rebuilds](/quest/m3/edit-cutoff.md) - real moq-net edits through rust#156940's public API hash decide whether rust2 carries it, helps upstream, or stops
+- [ra-jit in the build benchmark](/quest/m3/bench-ra-jit.md) - a variant hot-patching changed functions on moq-net's edit, with what it refuses
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly

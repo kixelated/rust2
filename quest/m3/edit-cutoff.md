@@ -2,28 +2,33 @@
 
 ## Goal
 
-A report says what share of real moq-net edits could skip rebuilding their
-dependents, and how many seconds that saves, under each rule below. It then picks
-how rust2 gets early cutoff without waiting on
-[rust-lang/cargo#17439](https://github.com/rust-lang/cargo/issues/17439): a
-hash-patching `RUSTC_WRAPPER`, carrying
-[rust-lang/rust#156940](https://github.com/rust-lang/rust/pull/156940) on a custom
-toolchain, or helping upstream.
+A report says how often real moq-net edits leave
+[rust-lang/rust#156940](https://github.com/rust-lang/rust/pull/156940)'s public API
+hash unchanged, so their dependents could skip rebuilding, and how many seconds that
+saves with incremental on and off. It then picks: carry #156940 on a custom
+toolchain, help upstream, or stop. The other route,
+[rust-lang/cargo#17439](https://github.com/rust-lang/cargo/issues/17439), is a design
+discussion.
 
 ## Plan
 
 Decided with the maintainer on 2026-10-24: measure real edits first, rather than
-build.
+build. Re-scoped the same day after build-speed research: a wrapper that patches the
+SVH and `SourceFile` hashes out of an otherwise identical rmeta is no longer a
+candidate, since tinymold already ran that spike
+([tinyhumansai/tinymold#13](https://github.com/tinyhumansai/tinymold/pull/13), ADR
+0007) with the same result: identical objects, a different rmeta, and E0460
+blocking reuse.
 
-Replay moq-net's recent git history edit by edit. For each edit, check whether
-dependents could be skipped under each rule:
-
-1. The upstream rmeta is identical apart from the SVH and the `SourceFile` hash
-   fields, which is what a wrapper could patch.
-2. #156940's `-Z public-api-hash`, cherry-picked onto a scratch build of the
-   pinned nightly.
-
-Report edits to `async fn` bodies separately.
+- Build #156940's `-Z public-api-hash` on a scratch toolchain from the pinned
+  nightly, and replay moq-net's git history through it edit by edit.
+- Count how often the public hash stays unchanged, how often only span shifts break
+  it, and how often `async fn` bodies do. Report the seconds saved with incremental
+  on and off side by side.
+- Check determinism: with no source change, are moq's rmeta bytes stable across
+  incremental sessions? headstart found def-ids encoded in a different order when
+  loaded from the incremental cache, which would also defeat cargo#17439's output
+  hashing.
 
 Research (2026-10-24, rustc at the pinned nightly 7df81381d):
 
@@ -39,6 +44,10 @@ Research (2026-10-24, rustc at the pinned nightly 7df81381d):
   interface.
 - No build tool (Bazel rules_rust, buck2, sccache) gets early cutoff for Rust
   today.
+- [headstart](https://github.com/PowderworksCode/headstart) emits early
+  interface-only metadata for clean builds; not chosen for now.
+- The cg_clif performance goal speeds up the backend, which is 6% of moq's edit, so
+  it does not apply here.
 - #156940 is a draft, waiting on its author, and absent from the pinned nightly.
 
 Research on [mbx](https://github.com/jdx/mr-boxington) (Mr Boxington, MIT, a cargo
@@ -72,3 +81,4 @@ Public API: none.
 ## Related
 
 - [Relink without rebuilding](/quest/m3/relink.md) - waits for the same lever upstream; this spike may change its plan
+- [ra-jit in the build benchmark](/quest/m3/bench-ra-jit.md) - skips the SVH cascade another way, by patching changed functions into the linked binary

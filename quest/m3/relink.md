@@ -23,10 +23,11 @@ goal will not complete; rust#156940 is a draft, and cargo's early cutoff is a
 design discussion.
 
 The [early cutoff spike](/quest/m3/edit-cutoff.md) may change this plan: it
-picks how rust2 gets early cutoff without waiting on cargo.
+decides whether rust2 carries rust#156940, helps upstream, or stops.
 
 Public API: a benchmark variant.
 
 ## Related
 
 - [Early cutoff for edit rebuilds](/quest/m3/edit-cutoff.md) - measures the same lever on real edits, without waiting on upstream
+- [ra-jit in the build benchmark](/quest/m3/bench-ra-jit.md) - another way past dependent rebuilds and the relink
