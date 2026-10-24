@@ -74,9 +74,68 @@
                 # The tests need node, tsc, and wasm builds: `just ts test` runs them.
                 doCheck = false;
               };
+
+          # Every generator binary of the UniFFI fork, built once from its lockfile.
+          uniffi =
+            (pkgs.makeRustPlatform {
+              cargo = toolchain;
+              rustc = toolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-uniffi";
+                version = (builtins.fromTOML (builtins.readFile ./uniffi/uniffi/Cargo.toml)).package.version;
+                # The root workspace, without the other projects.
+                src = pkgs.lib.fileset.toSource {
+                  root = ./.;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./Cargo.toml
+                    ./Cargo.lock
+                    ./uniffi
+                  ];
+                };
+                cargoLock.lockFile = ./Cargo.lock;
+                cargoBuildFlags = [
+                  "--package=uniffi"
+                  "--package=uniffi-bindgen-go"
+                  "--package=uniffi-dart"
+                  "--package=uniffi-bindgen-cpp"
+                  "--bins"
+                ];
+                buildFeatures = [
+                  "uniffi/cli"
+                  "uniffi-dart/binary"
+                ];
+                # The fixture suite needs every foreign toolchain; `just uniffi fixtures` runs it.
+                doCheck = false;
+              };
+
+          # One generator's binaries, so a consumer can put only that one on PATH.
+          generator =
+            name: bins:
+            pkgs.runCommand name { } ''
+              mkdir -p $out/bin
+              ${pkgs.lib.concatMapStringsSep "\n" (bin: "ln -s ${uniffi}/bin/${bin} $out/bin/") bins}
+            '';
+
+          # Kotlin's generated async code needs coroutines on the classpath; nixpkgs has no jar.
+          kotlinx-coroutines = pkgs.fetchurl {
+            url = "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.10.2/kotlinx-coroutines-core-jvm-1.10.2.jar";
+            hash = "sha256-XKF1s43zMf1kFVs1zYyuElH6nuNpcJs21C4KKIzM4/0=";
+          };
         in
         {
-          packages.quest = quest-cli;
+          packages = {
+            quest = quest-cli;
+            ts = rust2-ts;
+            inherit uniffi;
+            uniffi-bindgen = generator "uniffi-bindgen" [
+              "uniffi-bindgen"
+              "uniffi-bindgen-swift"
+            ];
+            uniffi-bindgen-go = generator "uniffi-bindgen-go" [ "uniffi-bindgen-go" ];
+            uniffi-bindgen-dart = generator "uniffi-bindgen-dart" [ "uniffi_bindgen_dart" ];
+            uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
+          };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
           # so stable remains the default.
           devShells.build-bench = pkgs.mkShell {
@@ -94,7 +153,6 @@
               ];
             RUST2_BENCH_NIGHTLY = "${nightly}/bin";
           };
-          packages.ts = rust2-ts;
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               toolchain
@@ -126,6 +184,18 @@
               pkgs.chromium
               pkgs.wasm-bindgen-cli
             ];
+          });
+          # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
+          devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [
+              pkgs.python3
+              pkgs.kotlin
+              pkgs.swift
+              pkgs.go
+              pkgs.dart
+              pkgs.cmake
+            ];
+            CLASSPATH = "${pkgs.jna}/share/java/jna.jar:${kotlinx-coroutines}";
           });
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''
