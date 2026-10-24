@@ -93,13 +93,18 @@ pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 }
 
 /// One value read through the captures only an async block makes: a borrow, which
-/// dropping the block must not drop; a move on one path only; and a move the block only
-/// borrows, which drops when the block returns or is cancelled.
+/// dropping the block must not drop; a copy, which a later change to the original must
+/// not reach; a move on one path only; and a move the block only borrows, which drops
+/// when the block returns or is cancelled.
 pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let first = Guard::new(guard.id + 200, guard.log.clone());
 	let second = Guard::new(guard.id + 300, guard.log.clone());
 	drop(async { first.note("borrowed") });
 	turns(&guard.log, guard.id % 5);
+	let mut tally = Tally { n: guard.id };
+	let seen = async move { read(tally) };
+	tally.n += 1000;
+	guard.note(&format!("tally {} then {}", tally.n, seen.await));
 	if moves {
 		drop(async move { guard.note("moved") });
 	}
@@ -113,6 +118,16 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 		}
 	};
 	read.await
+}
+
+/// A `Copy` value an `async move` block takes its own copy of.
+#[derive(Clone, Copy)]
+struct Tally {
+	n: u32,
+}
+
+fn read(t: Tally) -> u32 {
+	t.n
 }
 
 /// `i`, noted as picked.

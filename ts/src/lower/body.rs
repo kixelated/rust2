@@ -1706,7 +1706,23 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			&& self.is_place(arg)
 		{
 			let pointee = self.ty_of(lhs);
+			// Every clone of an `Arc` or waker is one JS object, and a future keeps its state
+			// private: copying fields in would change the other handles, or nothing.
+			let shared = match pointee.kind() {
+				ty::Adt(adt, _) => matches!(
+					library::Std::of(self.t.tcx, adt.did()),
+					Some(library::Std::Arc | library::Std::Waker | library::Std::Context)
+				),
+				ty::Coroutine(..) => true,
+				_ => false,
+			};
 			match self.t.object_kind(pointee) {
+				Some(ObjectKind::Class) if shared => {
+					self.t.err(
+						span,
+						format!("replacing the `{pointee}` behind a reference, whose JS object is shared or private"),
+					);
+				}
 				Some(ObjectKind::Class) => {
 					let e = Expr::ident("Object").member("assign").call(vec![target, value]);
 					self.push(out, StmtKind::Expr(e), span);
@@ -2521,6 +2537,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					place
 				}
 				(true, false) => self.move_out(place, capture.get_path_span(tcx), out),
+				// A `Copy` aggregate taken by value is the future's own, as JS would share it.
+				(false, _) if by_value => self.copied(place, ty),
 				(false, _) => place,
 			};
 			let param = match name == "this" {

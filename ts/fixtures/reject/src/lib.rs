@@ -219,3 +219,8 @@ pub fn unnamed() -> u8 {
 		None => 0,
 	}
 }
+
+/// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
+pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
+	*dst = src;
+}

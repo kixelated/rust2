@@ -133,7 +133,8 @@ in an `Arc` or `Mutex`, or moved ahead of an `.await` in the same call or assign
 `Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
 and widths from arguments), writing to a `String` with `write!`, a `move` closure
 copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
-pointee, and std functions without a mapping in `src/lower/library.rs`.
+pointee, assigning an `Arc`, a waker, or a future through a reference, and std functions
+without a mapping in `src/lower/library.rs`.
 
 ## Tests
 

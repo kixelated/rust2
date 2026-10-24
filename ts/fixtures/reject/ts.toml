@@ -30,6 +30,7 @@ roots = [
     "skipped",
     "assigned",
     "unnamed",
+    "replace_shared",
     "missing",
 ]
 printable = ["Meters"]

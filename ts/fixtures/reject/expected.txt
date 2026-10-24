@@ -52,3 +52,4 @@ an `.await` in an operand after one that drops, which is not supported yet: bind
 a `let` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:200:2
 an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first at fixtures/reject/src/lib.rs:207:2
 a `match` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:217:2
+replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private at fixtures/reject/src/lib.rs:225:2

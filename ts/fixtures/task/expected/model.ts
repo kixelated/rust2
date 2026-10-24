@@ -201,8 +201,9 @@ export function sumDrop(rx: Consumer, guard: Guard): void {
 
 /**
  * One value read through the captures only an async block makes: a borrow, which
- * dropping the block must not drop; a move on one path only; and a move the block only
- * borrows, which drops when the block returns or is cancelled.
+ * dropping the block must not drop; a copy, which a later change to the original must
+ * not reach; a move on one path only; and a move the block only borrows, which drops
+ * when the block returns or is cancelled.
  */
 export function blocks(rx: Consumer, guard: Guard, moves: boolean): rt.Future<bigint> {
 	return rt.future(blocksBody, blocksDrop, rx, guard, moves);
@@ -222,36 +223,63 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard
 				try {
 					rt.drop(rt.future(blocksBody$2, undefined, first));
 					turns(guard2.log, rt.u32.rem(guard2.id, 5));
-					if (moves2) {
-						const guard22 = guard2;
-						guard2 = undefined!;
-						rt.drop(rt.future(blocksBody$3, blocksDrop$2, guard22));
-					}
-					const first2 = first;
-					first = undefined!;
-					const second2 = second;
-					second = undefined!;
-					const rx22 = rx2;
-					rx2 = undefined!;
-					let read = rt.future(blocksBody$4, blocksDrop$3, first2, second2, rx22);
+					let tally: Tally = new Tally({ n: guard2.id });
+					let seen = rt.future(blocksBody$3, undefined, rt.copy(tally));
 					try {
-						const read2 = read;
-						read = undefined!;
-						let __awaitee2: rt.Future<bigint> = read2;
+						tally.n = rt.u32.add(tally.n, 1000);
+						const arg2 = guard2;
+						const arg = tally.n;
+						let value: number;
+						const seen2 = seen;
+						seen = undefined!;
+						let __awaitee: rt.Future<number> = seen2;
 						try {
 							while (true) {
-								const poll2 = __awaitee2.poll(_taskContext);
-								if (poll2 !== rt.Pending) {
-									const result2 = poll2;
-									return result2;
+								const poll = __awaitee.poll(_taskContext);
+								if (poll !== rt.Pending) {
+									const result = poll;
+									value = result;
+									break;
 								}
 								_taskContext = yield;
 							}
 						} finally {
-							rt.drop(__awaitee2);
+							rt.drop(__awaitee);
+						}
+						arg2.note(rt.fmt.format(["tally ", (f: rt.Formatter) => rt.u32.display(arg, f), " then ", (f: rt.Formatter) => rt.u32.display(value, f)]));
+						if (moves2) {
+							const guard22 = guard2;
+							guard2 = undefined!;
+							rt.drop(rt.future(blocksBody$4, blocksDrop$2, guard22));
+						}
+						const first2 = first;
+						first = undefined!;
+						const second2 = second;
+						second = undefined!;
+						const rx22 = rx2;
+						rx2 = undefined!;
+						let read_ = rt.future(blocksBody$5, blocksDrop$3, first2, second2, rx22);
+						try {
+							const read2 = read_;
+							read_ = undefined!;
+							let __awaitee3: rt.Future<bigint> = read2;
+							try {
+								while (true) {
+									const poll3 = __awaitee3.poll(_taskContext);
+									if (poll3 !== rt.Pending) {
+										const result3 = poll3;
+										return result3;
+									}
+									_taskContext = yield;
+								}
+							} finally {
+								rt.drop(__awaitee3);
+							}
+						} finally {
+							rt.drop(read_);
 						}
 					} finally {
-						rt.drop(read);
+						rt.drop(seen);
 					}
 				} finally {
 					rt.drop(second);
@@ -276,7 +304,11 @@ export function* blocksBody$2(_taskContext2: rt.Context, first: Guard): Generato
 	first.note("borrowed");
 }
 
-export function* blocksBody$3(_taskContext3: rt.Context, guard2: Guard): Generator<undefined, void, rt.Context> {
+export function* blocksBody$3(_taskContext3: rt.Context, tally: Tally): Generator<undefined, number, rt.Context> {
+	return read(rt.copy(tally));
+}
+
+export function* blocksBody$4(_taskContext4: rt.Context, guard2: Guard): Generator<undefined, void, rt.Context> {
 	try {
 		guard2.note("moved");
 	} finally {
@@ -288,7 +320,7 @@ export function blocksDrop$2(guard2: Guard): void {
 	rt.drop(guard2);
 }
 
-export function* blocksBody$4(_taskContext4: rt.Context, first: Guard, second: Guard, rx2: Consumer): Generator<undefined, bigint, rt.Context> {
+export function* blocksBody$5(_taskContext5: rt.Context, first: Guard, second: Guard, rx2: Consumer): Generator<undefined, bigint, rt.Context> {
 	try {
 		try {
 			try {
@@ -297,23 +329,23 @@ export function* blocksBody$4(_taskContext4: rt.Context, first: Guard, second: G
 				const _held = Guard.new(rt.u32.add(second.id, 100), second.log.clone());
 				try {
 					let option: bigint | undefined;
-					let __awaitee: rt.Future<bigint | undefined> = rx2.recv();
+					let __awaitee2: rt.Future<bigint | undefined> = rx2.recv();
 					try {
 						while (true) {
-							const poll = __awaitee.poll(_taskContext4);
-							if (poll !== rt.Pending) {
-								const result = poll;
-								option = result;
+							const poll2 = __awaitee2.poll(_taskContext5);
+							if (poll2 !== rt.Pending) {
+								const result2 = poll2;
+								option = result2;
 								break;
 							}
-							_taskContext4 = yield;
+							_taskContext5 = yield;
 						}
 					} finally {
-						rt.drop(__awaitee);
+						rt.drop(__awaitee2);
 					}
 					if (option !== undefined) {
-						const value = option;
-						return value;
+						const value2 = option;
+						return value2;
 					} else {
 						return 0n;
 					}
@@ -335,6 +367,19 @@ export function blocksDrop$3(first: Guard, second: Guard, rx2: Consumer): void {
 	rt.drop(first);
 	rt.drop(second);
 	rt.drop(rx2);
+}
+
+/** A `Copy` value an `async move` block takes its own copy of. */
+export class Tally {
+	n: number;
+
+	constructor(fields: { n: number }) {
+		this.n = fields.n;
+	}
+}
+
+export function read(t: Tally): number {
+	return t.n;
 }
 
 /** `i`, noted as picked. */

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 54
-- Function instances: 35
+- Refusals: 55
+- Function instances: 36
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -42,6 +42,7 @@
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:135:3 |
+| 1 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:130:3 |
 | 1 | the `-` flag of a format spec is not supported | fixtures/reject/src/lib.rs:131:3 |
 | 1 | unsupported expression: StaticRef | fixtures/reject/src/lib.rs:163:2 |
@@ -59,6 +60,7 @@ The type or module each refused type or path belongs to.
 | 3 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
+| 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:183:42 |
 | 2 | `{async closure}` | fixtures/reject/src/lib.rs:121:6 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:97:1 |
 | 1 | `Option` | fixtures/reject/src/lib.rs:31:15 |
@@ -66,7 +68,6 @@ The type or module each refused type or path belongs to.
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::iter::Filter` | fixtures/reject/src/lib.rs:40:31 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:40:11 |
-| 1 | `std::sync::Arc` | fixtures/reject/src/lib.rs:183:42 |
 | 1 | `u8` | fixtures/reject/src/lib.rs:113:3 |
 | 1 | `{closure}` | fixtures/reject/src/lib.rs:66:31 |
 
@@ -91,6 +92,7 @@ The type or module each refused type or path belongs to.
 | 1 | dropping `_`, which is not supported yet | `Slot` | fixtures/reject/src/lib.rs:93:1 |
 | 1 | dropping `_`, which is not supported yet | `std::sync::Arc` | fixtures/reject/src/lib.rs:183:42 |
 | 1 | dropping `_`, which is not supported yet | `{closure}` | fixtures/reject/src/lib.rs:66:31 |
+| 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::Arc` | fixtures/reject/src/lib.rs:225:2 |
 | 1 | unsupported call to `_` | `<std::iter::Filter as std::iter::Iterator>::count` | fixtures/reject/src/lib.rs:40:31 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::filter` | fixtures/reject/src/lib.rs:40:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:144:10 |
@@ -320,6 +322,12 @@ The type or module each refused type or path belongs to.
 <details><summary>hex `Debug`, as in `{:x?}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:135:3: hex `Debug`, as in `{:x?}`, is not supported
+
+</details>
+
+<details><summary>replacing the `_` behind a reference, whose JS object is shared or private (1)</summary>
+
+- fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
 
 </details>
 
