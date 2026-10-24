@@ -53,6 +53,8 @@ macro_rules! ops {
 					out.push((a == b) as u8);
 					out.push((a < b) as u8);
 					out.push((a >= b) as u8);
+					// Against a literal, which a wide value equals only in one form.
+					out.push((a.wrapping_sub(b) == 0) as u8);
 				}
 				_ => {
 					// Compound assignment, with constants folded beside variables.
@@ -102,23 +104,32 @@ neg!(i64_neg, i64);
 neg!(i128_neg, i128);
 neg!(isize_neg, isize);
 
+/// A cast's bytes, then its text, which shows the sign the result reads with.
+macro_rules! put_cast {
+	($out:expr, $v:expr) => {{
+		let v = $v;
+		$out.extend_from_slice(&v.to_be_bytes());
+		$out.extend_from_slice(v.to_string().as_bytes());
+	}};
+}
+
 macro_rules! cast_to {
 	($v:expr, $to:expr, $out:expr) => {{
 		let v = $v;
 		let out: &mut Vec<u8> = $out;
 		match $to % 12 {
-			0 => out.extend_from_slice(&(v as u8).to_be_bytes()),
-			1 => out.extend_from_slice(&(v as u16).to_be_bytes()),
-			2 => out.extend_from_slice(&(v as u32).to_be_bytes()),
-			3 => out.extend_from_slice(&(v as u64).to_be_bytes()),
-			4 => out.extend_from_slice(&(v as u128).to_be_bytes()),
-			5 => out.extend_from_slice(&(v as usize).to_be_bytes()),
-			6 => out.extend_from_slice(&(v as i8).to_be_bytes()),
-			7 => out.extend_from_slice(&(v as i16).to_be_bytes()),
-			8 => out.extend_from_slice(&(v as i32).to_be_bytes()),
-			9 => out.extend_from_slice(&(v as i64).to_be_bytes()),
-			10 => out.extend_from_slice(&(v as i128).to_be_bytes()),
-			_ => out.extend_from_slice(&(v as isize).to_be_bytes()),
+			0 => put_cast!(out, v as u8),
+			1 => put_cast!(out, v as u16),
+			2 => put_cast!(out, v as u32),
+			3 => put_cast!(out, v as u64),
+			4 => put_cast!(out, v as u128),
+			5 => put_cast!(out, v as usize),
+			6 => put_cast!(out, v as i8),
+			7 => put_cast!(out, v as i16),
+			8 => put_cast!(out, v as i32),
+			9 => put_cast!(out, v as i64),
+			10 => put_cast!(out, v as i128),
+			_ => put_cast!(out, v as isize),
 		}
 	}};
 }

@@ -63,7 +63,7 @@ export class Versions {
 
 	/** Encode the version list. */
 	encode$Form(w: Encoder, version: Form): rt.Result<undefined, EncodeError> {
-		const varint = w.varint(rt.u64.cast(this._0.length));
+		const varint = w.varint(this._0.length);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -82,7 +82,7 @@ export class Versions {
 
 	/** Encode the version list. */
 	encode$Version(w: Encoder, version: version_Version): rt.Result<undefined, EncodeError> {
-		const varint = w.varint(rt.u64.cast(this._0.length));
+		const varint = w.varint(this._0.length);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -103,9 +103,8 @@ export class Versions {
 		}
 		const count = varint.value;
 		let vs: Version[] = [];
-		const start = rt.u64.of(0);
 		const end = count;
-		for (const _ of rt.u64.range(start, end, false)) {
+		for (const _ of rt.u64.range(0, end, false)) {
 			const decode = Version.decode(r, version);
 			if (!decode.ok) {
 				return rt.Err(decode.error);

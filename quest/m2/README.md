@@ -15,7 +15,6 @@ deletes the quests that follow it.
 ## Required
 
 - [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - `bigint` against boxed and unboxed hi/lo picks the 64- and 128-bit representation
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - a `Drop` type's `drop()` runs where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - async code translates with Rust's lazy futures

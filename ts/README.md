@@ -52,7 +52,7 @@ runtime: what std does that JS does not.
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
-| `u64`, `i64`, `u128`, `i128` | `bigint`, checked the same way |
+| `u64`, `i64`, `u128`, `i128` | `rt.U64`, `rt.I64`, `rt.U128`, `rt.I128`: immutable objects of 32-bit limbs, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
@@ -66,6 +66,11 @@ runtime: what std does that JS does not.
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+
+A wider integer is an object, so its operators and comparisons are runtime calls:
+`rt.u64.add(a, b)`, `rt.u64.lt(a, b)`, `rt.u64.of(5)` for a literal, and
+`rt.u64.cast(x)` for `x as u64`. Its fields are 32-bit limbs from `hi` down to `lo`, with
+`hi` signed in a signed type; a caller builds one with `of`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -132,7 +137,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and writes its errors' `Display` and `Debug`.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, and formatting. Its differential test runs through `caller.ts`, a
-  hand-written caller that also prints a `printable` error nothing translated prints.
+  hand-written caller that also prints a `printable` error nothing translated prints,
+  and adds every 64- and 128-bit case over each pair of values next to a power of two,
+  where the runtime's limbs carry, borrow, and switch paths.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

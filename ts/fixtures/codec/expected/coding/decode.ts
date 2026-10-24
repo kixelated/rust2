@@ -255,7 +255,7 @@ export class Decoder {
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
-		return rt.Ok(rt.u64.checkedSub(varint.value, rt.u64.of(1)));
+		return rt.Ok(rt.u64.checkedSub(varint.value, 1));
 	}
 
 	/** Read a varint length, then that many raw bytes. */

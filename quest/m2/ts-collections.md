@@ -16,13 +16,11 @@ by the translated `Ord`, and `VecDeque` a ring buffer.
 
 - `HashMap` iteration order is unspecified in Rust, so insertion order is a
   valid refinement; differential tests must not compare it.
-- Which keys are primitive depends on the
-  [wide-integer representation](/quest/m2/ts-wide-ints.md): a hi/lo `u64` is
-  not one.
+- A 64- or 128-bit integer is an object of 32-bit limbs
+  ([representation](/ts/README.md#design)), so it is not a primitive key.
 
 Public API: the translator's output for collections.
 
 ## Required
 
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - which keys lower to primitives
 - [Iterators in the TypeScript translator](/quest/m2/ts-iter.md) - collections iterate through the same protocol

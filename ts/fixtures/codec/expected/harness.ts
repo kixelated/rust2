@@ -77,7 +77,7 @@ export function putU64(out: rt.ByteVec, value: rt.U64): void {
 }
 
 export function putUsize(out: rt.ByteVec, value: number): void {
-	putU64(out, rt.u64.cast(value));
+	putU64(out, value);
 }
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
@@ -305,20 +305,20 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		let result: rt.Result<undefined, EncodeError>;
 		const value2 = rt.u8.rem(step, 10);
 		if (value2 === 0) {
-			w.u8(value.lo & 0xff);
+			w.u8(rt.u64.low(value) & 0xff);
 			result = rt.Ok(undefined);
 		} else if (value2 === 1) {
-			w.u16(value.lo & 0xffff);
+			w.u16(rt.u64.low(value) & 0xffff);
 			result = rt.Ok(undefined);
 		} else if (value2 === 2) {
-			w.bool(rt.u64.eq(rt.u64.and(value, rt.u64.of(1)), rt.u64.of(1)));
+			w.bool(rt.u64.and(value, 1) === 1);
 			result = rt.Ok(undefined);
 		} else if (value2 === 3) {
 			result = w.varint(value);
 		} else if (value2 === 4) {
 			const arg = w;
-			const value3 = rt.u64.rem(value, rt.u64.of(3));
-			result = arg.varintOpt(rt.u64.eq(value3, rt.u64.of(0)) ? undefined : rt.u64.eq(value3, rt.u64.of(1)) ? value : rt.u64.of(18446744073709551615n));
+			const value3 = rt.u64.rem(value, 3);
+			result = arg.varintOpt(value3 === 0 ? undefined : value3 === 1 ? value : rt.u64.of(18446744073709551615n));
 		} else if (value2 === 5) {
 			result = w.bytes(rt.slice.range(rt.u64.toBeBytes(value), 0, rt.u8.rem(rt.u8.div(step, 10), 9)));
 		} else if (value2 === 6) {
@@ -330,7 +330,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				result = w.string("not utf-8");
 			}
 		} else if (value2 === 7) {
-			prefixes.push(rt.u64.eq(rt.u64.rem(value, rt.u64.of(2)), rt.u64.of(0)) ? w.prefixVarint() : w.prefixU16());
+			prefixes.push(rt.u64.rem(value, 2) === 0 ? w.prefixVarint() : w.prefixU16());
 			result = rt.Ok(undefined);
 		} else if (value2 === 8) {
 			const pop = prefixes.pop();
@@ -490,9 +490,9 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	const [frameStart, data5] = takeU64(data4);
 	const [bitrate, data6] = takeU64(data5);
 	const [rtt, ] = takeU64(data6);
-	const group = new Group({ subscribe, sequence, frameStart: rt.u64.rem(frameStart, rt.u64.of(4)) });
+	const group = new Group({ subscribe, sequence, frameStart: rt.u64.rem(frameStart, 4) });
 	encodeMessage$Group(group, version, out);
-	const probe = new Probe({ bitrate: rt.u64.checkedSub(bitrate, rt.u64.of(1)), rtt: rt.thenSome(rt.u64.ne(rt.u64.rem(rtt, rt.u64.of(3)), rt.u64.of(0)), rtt) });
+	const probe = new Probe({ bitrate: rt.u64.checkedSub(bitrate, 1), rtt: rt.thenSome(rt.u64.rem(rtt, 3) !== 0, rtt) });
 	encodeMessage$Probe(probe, version, out);
 	const versions = Versions.from([new Version(subscribe), new Version(sequence)]);
 	let buf: rt.ByteVec = new rt.ByteVec();
@@ -547,9 +547,9 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 	if (value2 === 0) {
 		err = { tag: "InvalidMessage", _0: value };
 	} else if (value2 === 1) {
-		err = { tag: "MessageTooLarge", size: value.lo, max: rt.u64.shr(value, 32).lo };
+		err = { tag: "MessageTooLarge", size: rt.u64.low(value), max: rt.u64.low(rt.u64.shr(value, 32)) };
 	} else if (value2 === 2) {
-		err = { tag: "Session", _0: { tag: "App", _0: value.lo & 0xffff } as SessionError };
+		err = { tag: "Session", _0: { tag: "App", _0: rt.u64.low(value) & 0xffff } as SessionError };
 	} else if (value2 === 3) {
 		err = { tag: "Session", _0: { tag: "ProtocolViolation" } as SessionError };
 	} else if (value2 === 4) {

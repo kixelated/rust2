@@ -70,7 +70,7 @@ export class Group {
 			if (!varint3.ok) {
 				return rt.Err(varint3.error);
 			}
-		} else if (rt.u64.ne(this.frameStart, rt.u64.of(0))) {
+		} else if (this.frameStart !== 0) {
 			return rt.Err("Version");
 		}
 		return rt.Ok(undefined);
@@ -96,7 +96,7 @@ export class Group {
 			}
 			frameStart = varint3.value;
 		} else {
-			frameStart = rt.u64.of(0);
+			frameStart = 0;
 		}
 		return rt.Ok(new Group({ subscribe, sequence, frameStart }));
 	}

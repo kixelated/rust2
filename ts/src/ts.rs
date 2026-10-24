@@ -136,6 +136,14 @@ impl Expr {
 		match self {
 			Self::Lit(_) | Self::Str(_) | Self::This | Self::Sym(_) | Self::Rt(_) => true,
 			Self::Located(_, e) => e.is_constant(),
+			// A wide integer literal past 2^53, `rt.u64.of(0xffffffffffffffffn)`, which makes
+			// immutable limbs.
+			Self::Call(f, args) => match (&**f, args.as_slice()) {
+				(Self::Member(int, Key::Name(of)), [Self::Lit(_)]) => {
+					matches!(**int, Self::Rt("u64" | "i64" | "u128" | "i128")) && of == "of"
+				}
+				_ => false,
+			},
 			_ => false,
 		}
 	}

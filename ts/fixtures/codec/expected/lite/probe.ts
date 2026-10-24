@@ -66,16 +66,16 @@ export class Probe {
 			return rt.Err("Version");
 		}
 		const wire = rt.option.unwrapOr(rt.option.map(this.bitrate, (v: rt.U64): rt.U64 => {
-			return rt.u64.max(v, rt.u64.of(1));
-		}), rt.u64.of(0));
+			return rt.u64.max(v, 1);
+		}), 0);
 		const varint = w.varint(wire);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
 		if (Version.hasProbeRtt(version)) {
 			const wire2 = rt.option.unwrapOr(rt.option.map(this.rtt, (v2: rt.U64): rt.U64 => {
-				return rt.u64.max(v2, rt.u64.of(1));
-			}), rt.u64.of(0));
+				return rt.u64.max(v2, 1);
+			}), 0);
 			const varint2 = w.varint(wire2);
 			if (!varint2.ok) {
 				return rt.Err(varint2.error);
@@ -94,7 +94,7 @@ export class Probe {
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
-		if (rt.u64.eq(varint.value, rt.u64.of(0))) {
+		if (varint.value === 0) {
 			bitrate = undefined;
 		} else {
 			const v = varint.value;
@@ -108,7 +108,7 @@ export class Probe {
 			if (!varint2.ok) {
 				return rt.Err(varint2.error);
 			}
-			if (rt.u64.eq(varint2.value, rt.u64.of(0))) {
+			if (varint2.value === 0) {
 				rtt = undefined;
 			} else {
 				const v2 = varint2.value;

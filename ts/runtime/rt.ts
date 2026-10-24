@@ -1,8 +1,8 @@
 // The runtime of rust2-ts output: what Rust's std does that plain JS does not.
 //
-// Integers up to 32 bits are numbers; wider ones are immutable objects of 32-bit limbs.
-// Arithmetic is checked as a debug build checks it: overflow panics, it never wraps
-// silently. Every panic's message is the one native Rust panics with.
+// Integers are numbers, but a 64- or 128-bit one past 2^53 is an immutable object of
+// 32-bit limbs. Arithmetic is checked as a debug build checks it: overflow panics, it
+// never wraps silently. Every panic's message is the one native Rust panics with.
 
 /** A Rust panic. */
 export class Panic extends Error {
@@ -35,19 +35,32 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 
 declare const brand: unique symbol;
 
-/** A `u64`: its high and low 32 bits, each a uint32. Immutable. */
-export type U64 = { readonly hi: number; readonly lo: number; readonly [brand]: "u64" };
-/** An `i64`: its high 32 bits as an int32, and its low 32 bits as a uint32. Immutable. */
-export type I64 = { readonly hi: number; readonly lo: number; readonly [brand]: "i64" };
-/** A `u128`: four 32-bit limbs, `hi`, `w2`, `w1`, and `lo`, each a uint32. Immutable. */
-export type U128 = { readonly hi: number; readonly w2: number; readonly w1: number; readonly lo: number; readonly [brand]: "u128" };
-/** An `i128`: as a `u128`, but `hi` is an int32. Immutable. */
-export type I128 = { readonly hi: number; readonly w2: number; readonly w1: number; readonly lo: number; readonly [brand]: "i128" };
-/** An integer wider than 32 bits. Its value is its limbs', `hi` read with the type's sign. */
-export type Wide = U64 | I64 | U128 | I128;
+/** A `u64` past 2^53: its high and low 32 bits, each a uint32. */
+export type U64Limbs = { readonly hi: number; readonly lo: number; readonly [brand]: "u64" };
+/** An `i64` past 2^53 in magnitude: its high 32 bits as an int32, and its low as a uint32. */
+export type I64Limbs = { readonly hi: number; readonly lo: number; readonly [brand]: "i64" };
+/** A `u128` past 2^53: four 32-bit limbs, `hi`, `w2`, `w1`, and `lo`, each a uint32. */
+export type U128Limbs = { readonly hi: number; readonly w2: number; readonly w1: number; readonly lo: number; readonly [brand]: "u128" };
+/** An `i128` past 2^53 in magnitude: as a `u128`'s, but `hi` is an int32. */
+export type I128Limbs = { readonly hi: number; readonly w2: number; readonly w1: number; readonly lo: number; readonly [brand]: "i128" };
+/** Limbs, whose value is theirs with `hi` read in the type's sign. */
+export type Limbs = U64Limbs | I64Limbs | U128Limbs | I128Limbs;
+
+/**
+ * A `u64`: a number while it is a safe integer, at most 2^53 - 1, and its limbs past
+ * that. Each value has one form, so two numbers compare with `===`, and a number never
+ * equals limbs.
+ */
+export type U64 = number | U64Limbs;
+/** An `i64`: a number while it is a safe integer, and its limbs past that. */
+export type I64 = number | I64Limbs;
+/** A `u128`: a number while it is a safe integer, and its limbs past that. */
+export type U128 = number | U128Limbs;
+/** An `i128`: a number while it is a safe integer, and its limbs past that. */
+export type I128 = number | I128Limbs;
 
 /** The checks and methods of one integer type. */
-export interface Int<T extends number | Wide> {
+export interface Int<T extends number | Limbs> {
 	readonly MIN: T;
 	readonly MAX: T;
 	readonly BITS: number;
@@ -57,8 +70,8 @@ export interface Int<T extends number | Wide> {
 	neg(a: T): T;
 	div(a: T, b: T): T;
 	rem(a: T, b: T): T;
-	shl(a: T, b: number | Wide): T;
-	shr(a: T, b: number | Wide): T;
+	shl(a: T, b: number | Limbs): T;
+	shr(a: T, b: number | Limbs): T;
 	checkedAdd(a: T, b: T): T | undefined;
 	checkedSub(a: T, b: T): T | undefined;
 	checkedMul(a: T, b: T): T | undefined;
@@ -70,19 +83,21 @@ export interface Int<T extends number | Wide> {
 	leadingZeros(a: T): number;
 	fromBeBytes(bytes: Uint8Array): T;
 	toBeBytes(a: T): Uint8Array;
-	tryFrom(value: number | Wide): Result<T, TryFromIntError>;
+	tryFrom(value: number | Limbs): Result<T, TryFromIntError>;
 	/** `Display`, and `Debug`, which writes the same. */
 	display(a: T, f: Formatter): FmtResult;
 	lowerHex(a: T, f: Formatter): FmtResult;
 	upperHex(a: T, f: Formatter): FmtResult;
 }
 
-/** A wide integer type: what JS operators do for numbers, as methods on its objects. */
-export interface WideInt<T extends Wide> extends Int<T> {
-	/** A literal: a number when it is a safe integer, else a bigint. */
+/** A 64- or 128-bit integer type: what JS operators do for numbers, as methods. */
+export interface WideInt<T extends number | Limbs> extends Int<T> {
+	/** A value from a safe integer, or from a bigint of any size, wrapped into range. */
 	of(value: number | bigint): T;
 	/** `value as T`. */
-	cast(value: number | Wide): T;
+	cast(value: number | Limbs): T;
+	/** The low 32 bits, as a uint32. */
+	low(a: T): number;
 	eq(a: T, b: T): boolean;
 	ne(a: T, b: T): boolean;
 	lt(a: T, b: T): boolean;
@@ -102,12 +117,12 @@ export interface WideInt<T extends Wide> extends Int<T> {
 const TWO32 = 4294967296;
 
 /** A wide integer's value as a number: exact up to 2^53 in magnitude, rounded past it. */
-function approx(v: Wide): number {
+function approx(v: Limbs): number {
 	return "w1" in v ? ((v.hi * TWO32 + v.w2) * TWO32 + v.w1) * TWO32 + v.lo : v.hi * TWO32 + v.lo;
 }
 
 /** A wide integer's exact value. */
-function exact(v: Wide): bigint {
+function exact(v: Limbs): bigint {
 	if ("w1" in v) return (((((BigInt(v.hi) << 32n) + BigInt(v.w2)) << 32n) + BigInt(v.w1)) << 32n) + BigInt(v.lo);
 	return (BigInt(v.hi) << 32n) + BigInt(v.lo);
 }
@@ -116,7 +131,7 @@ function safe(n: number): boolean {
 	return n <= Number.MAX_SAFE_INTEGER && n >= -Number.MAX_SAFE_INTEGER;
 }
 
-function shift(b: number | Wide, bits: number, direction: string): number {
+function shift(b: number | Limbs, bits: number, direction: string): number {
 	const n = typeof b === "number" ? b : approx(b);
 	if (n < 0 || n >= bits) panic(`attempt to shift ${direction} with overflow`);
 	return n;
@@ -199,7 +214,7 @@ function small(bits: number, signed: boolean): Int<number> {
  * A wide integer type, exact through bigints: `box` wraps a value into the type's range,
  * and `compare` orders two of its objects.
  */
-function wide<T extends Wide>(bits: number, signed: boolean, box: (v: bigint) => T, compare: (a: T, b: T) => number): WideInt<T> {
+function wide<T extends Limbs>(bits: number, signed: boolean, box: (v: bigint) => T, compare: (a: T, b: T) => number): WideInt<T> {
 	const min = signed ? -(1n << BigInt(bits - 1)) : 0n;
 	const max = signed ? (1n << BigInt(bits - 1)) - 1n : (1n << BigInt(bits)) - 1n;
 	const big = exact as (a: T) => bigint;
@@ -284,6 +299,7 @@ function wide<T extends Wide>(bits: number, signed: boolean, box: (v: bigint) =>
 		upperHex: (a, f) => f.padIntegral(true, "0x", unsigned(a).toString(16).toUpperCase()),
 		of: (value) => box(BigInt(value)),
 		cast: (value) => box(typeof value === "number" ? BigInt(value) : exact(value)),
+		low: (a) => a.lo,
 		eq: (a, b) => compare(a, b) === 0,
 		ne: (a, b) => compare(a, b) !== 0,
 		lt,
@@ -311,14 +327,14 @@ function wide<T extends Wide>(bits: number, signed: boolean, box: (v: bigint) =>
  * `u64` or `i64`: exact through bigints, with the common operations computed on the
  * halves, which is several times faster.
  */
-function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
+function wide64<T extends U64Limbs | I64Limbs>(signed: boolean): WideInt<T> {
 	// The high half's range, and its value from any 32 bits.
 	const hmin = signed ? -0x80000000 : 0;
 	const hmax = signed ? 0x7fffffff : 0xffffffff;
 	const high = signed ? (h: number) => h | 0 : (h: number) => h >>> 0;
 	const make = (hi: number, lo: number) => ({ hi, lo }) as T;
 	const box = (v: bigint) => make(Number(signed ? BigInt.asIntN(32, v >> 32n) : BigInt.asUintN(32, v >> 32n)), Number(BigInt.asUintN(32, v)));
-	// An exact integer of at most 2^53 in magnitude.
+	// A safe integer, wrapped into range.
 	const fromNumber = (n: number) => make(high(Math.floor(n / TWO32)), n >>> 0);
 	const compare = (a: T, b: T) => (a.hi !== b.hi ? (a.hi < b.hi ? -1 : 1) : a.lo === b.lo ? 0 : a.lo < b.lo ? -1 : 1);
 	const lt = (a: T, b: T) => a.hi < b.hi || (a.hi === b.hi && a.lo < b.lo);
@@ -364,8 +380,6 @@ function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
 			return make(high(a.hi - b.hi - (lo < 0 ? 1 : 0)), lo >>> 0);
 		},
 		mul(a, b) {
-			const n = approx(a) * approx(b);
-			if (safe(n)) return fromNumber(n);
 			if (!signed && (a.hi === 0 || b.hi === 0)) {
 				// One factor below 2^32: its product with the other's high half must be too.
 				const cross = a.hi * b.lo + a.lo * b.hi;
@@ -378,10 +392,6 @@ function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
 		},
 		div(a, b) {
 			if (isZero(b)) panic("attempt to divide by zero");
-			const n = approx(a);
-			const d = approx(b);
-			// Below 2^53, a quotient of doubles truncates to the exact one.
-			if (safe(n) && safe(d)) return fromNumber(Math.trunc(n / d));
 			if (!signed && b.hi === 0) {
 				// Long division by a uint32 in 32- and 16-bit digits, every step exact.
 				const d = b.lo;
@@ -394,12 +404,6 @@ function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
 				return make(qh, (q1 * 65536 + q2) >>> 0);
 			}
 			return base.div(a, b);
-		},
-		rem(a, b) {
-			const n = approx(a);
-			const d = approx(b);
-			if (safe(n) && safe(d) && d !== 0) return fromNumber(n % d);
-			return base.rem(a, b);
 		},
 		neg(a) {
 			if (!signed || (a.hi === hmin && a.lo === 0)) return base.neg(a);
@@ -449,14 +453,9 @@ function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
 			out[7] = lo;
 			return out;
 		},
-		display(a, f) {
-			const n = approx(a);
-			if (!safe(n)) return base.display(a, f);
-			return f.padIntegral(n >= 0, "", String(n < 0 ? -n : n));
-		},
 		of: (value) => (typeof value === "number" ? fromNumber(value) : box(value)),
 		cast(value) {
-			if (typeof value === "number") return make(high(value < 0 ? -1 : 0), value >>> 0);
+			if (typeof value === "number") return fromNumber(value);
 			return make(high("w1" in value ? value.w1 : value.hi), value.lo);
 		},
 		eq: (a, b) => a.hi === b.hi && a.lo === b.lo,
@@ -471,7 +470,7 @@ function wide64<T extends U64 | I64>(signed: boolean): WideInt<T> {
 }
 
 /** `u128` or `i128`: four limbs, computed through bigints. */
-function wide128<T extends U128 | I128>(signed: boolean): WideInt<T> {
+function wide128<T extends U128Limbs | I128Limbs>(signed: boolean): WideInt<T> {
 	const limb = (v: bigint, at: bigint) => Number(BigInt.asUintN(32, v >> at));
 	const box = (v: bigint) => {
 		const top = v >> 96n;
@@ -487,6 +486,110 @@ function wide128<T extends U128 | I128>(signed: boolean): WideInt<T> {
 	return wide(128, signed, box, compare);
 }
 
+/**
+ * A wide integer type, its values numbers while they are safe integers: their arithmetic
+ * stays in numbers while its result does, and falls back on `limbs` past that.
+ */
+function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<number | T> {
+	type V = number | T;
+	const most = Number.MAX_SAFE_INTEGER;
+	const least = signed ? -most : 0;
+	const big = (v: V): T => (typeof v === "number" ? limbs.of(v) : v);
+	// The one form of a value: a number if it is a safe integer.
+	const one = (v: T): V => {
+		const n = approx(v);
+		return safe(n) ? n : v;
+	};
+	const fits = (n: number) => n <= most && n >= least;
+	const lt = (a: V, b: V) => (typeof a === "number" && typeof b === "number" ? a < b : limbs.lt(big(a), big(b)));
+	const eq = (a: V, b: V) => a === b || (typeof a !== "number" && typeof b !== "number" && limbs.eq(a, b));
+	// A bitwise operator on two safe integers, a 32-bit half at a time.
+	const halves = (a: number, b: number, op: (x: number, y: number) => number) =>
+		op(Math.floor(a / TWO32), Math.floor(b / TWO32)) * TWO32 + (op(a >>> 0, b >>> 0) >>> 0);
+	const binary = (f: (a: T, b: T) => T) => (a: V, b: V) => one(f(big(a), big(b)));
+	const checked = (f: (a: T, b: T) => T | undefined) => (a: V, b: V) => {
+		const value = f(big(a), big(b));
+		return value === undefined ? undefined : one(value);
+	};
+	return {
+		MIN: one(limbs.MIN),
+		MAX: one(limbs.MAX),
+		BITS: limbs.BITS,
+		add(a, b) {
+			if (typeof a === "number" && typeof b === "number" && fits(a + b)) return a + b;
+			return one(limbs.add(big(a), big(b)));
+		},
+		sub(a, b) {
+			if (typeof a === "number" && typeof b === "number" && fits(a - b)) return a - b;
+			return one(limbs.sub(big(a), big(b)));
+		},
+		mul(a, b) {
+			// `+ 0` turns -0 into 0.
+			if (typeof a === "number" && typeof b === "number" && safe(a * b)) return a * b + 0;
+			return one(limbs.mul(big(a), big(b)));
+		},
+		div(a, b) {
+			// Below 2^53, a quotient of doubles truncates to the exact one.
+			if (typeof a === "number" && typeof b === "number" && b !== 0) return Math.trunc(a / b) + 0;
+			return one(limbs.div(big(a), big(b)));
+		},
+		rem(a, b) {
+			if (typeof a === "number" && typeof b === "number" && b !== 0) return (a % b) + 0;
+			return one(limbs.rem(big(a), big(b)));
+		},
+		neg(a) {
+			if (signed && typeof a === "number") return -a + 0;
+			return one(limbs.neg(big(a)));
+		},
+		shl(a, b) {
+			const n = shift(b, limbs.BITS, "left");
+			if (typeof a === "number" && safe(a * 2 ** n)) return a * 2 ** n;
+			return one(limbs.shl(big(a), n));
+		},
+		shr(a, b) {
+			const n = shift(b, limbs.BITS, "right");
+			if (typeof a === "number") return Math.floor(a / 2 ** n) + 0;
+			return one(limbs.shr(big(a), n));
+		},
+		and: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x & y) : one(limbs.and(big(a), big(b)))),
+		or: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x | y) : one(limbs.or(big(a), big(b)))),
+		xor: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x ^ y) : one(limbs.xor(big(a), big(b)))),
+		not: (a) => (signed && typeof a === "number" ? -a - 1 : one(limbs.not(big(a)))),
+		checkedAdd: checked(limbs.checkedAdd),
+		checkedSub: checked(limbs.checkedSub),
+		checkedMul: checked(limbs.checkedMul),
+		saturatingAdd: binary(limbs.saturatingAdd),
+		saturatingSub: binary(limbs.saturatingSub),
+		wrappingAdd: binary(limbs.wrappingAdd),
+		wrappingSub: binary(limbs.wrappingSub),
+		leadingOnes: (a) => limbs.leadingOnes(big(a)),
+		leadingZeros: (a) => limbs.leadingZeros(big(a)),
+		fromBeBytes: (bytes) => one(limbs.fromBeBytes(bytes)),
+		toBeBytes: (a) => limbs.toBeBytes(big(a)),
+		tryFrom(value) {
+			const result = limbs.tryFrom(value);
+			return result.ok ? Ok(one(result.value)) : result;
+		},
+		display: (a, f) => (typeof a === "number" ? f.padIntegral(a >= 0, "", String(a < 0 ? -a : a)) : limbs.display(a, f)),
+		lowerHex: (a, f) => limbs.lowerHex(big(a), f),
+		upperHex: (a, f) => limbs.upperHex(big(a), f),
+		of: (value) => (typeof value === "number" ? value : one(limbs.of(value))),
+		cast: (value) => (typeof value === "number" && fits(value) ? value : one(limbs.cast(value))),
+		low: (a) => (typeof a === "number" ? a >>> 0 : a.lo),
+		eq,
+		ne: (a, b) => !eq(a, b),
+		lt,
+		le: (a, b) => !lt(b, a),
+		gt: (a, b) => lt(b, a),
+		ge: (a, b) => !lt(a, b),
+		max: (a, b) => (lt(b, a) ? a : b),
+		min: (a, b) => (lt(b, a) ? b : a),
+		*range(start, end, inclusive) {
+			for (const i of limbs.range(big(start), big(end), inclusive)) yield one(i);
+		},
+	};
+}
+
 export const u8: Int<number> = small(8, false);
 export const u16: Int<number> = small(16, false);
 export const u32: Int<number> = small(32, false);
@@ -497,10 +600,10 @@ export const i32: Int<number> = small(32, true);
 export const usize: Int<number> = u32;
 /** 32 bits, as on wasm32. */
 export const isize: Int<number> = i32;
-export const u64: WideInt<U64> = wide64(false);
-export const i64: WideInt<I64> = wide64(true);
-export const u128: WideInt<U128> = wide128(false);
-export const i128: WideInt<I128> = wide128(true);
+export const u64: WideInt<U64> = dual(wide64<U64Limbs>(false), false);
+export const i64: WideInt<I64> = dual(wide64<I64Limbs>(true), true);
+export const u128: WideInt<U128> = dual(wide128<U128Limbs>(false), false);
+export const i128: WideInt<I128> = dual(wide128<I128Limbs>(true), true);
 
 /** The larger of two integers. */
 export function max(a: number, b: number): number {

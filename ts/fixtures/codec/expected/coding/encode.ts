@@ -92,20 +92,20 @@ export class Encoder {
 		let v2: rt.U64;
 		if (v !== undefined) {
 			const v3 = v;
-			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, rt.u64.of(1)), "TooLarge" as EncodeError);
+			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1), "TooLarge" as EncodeError);
 			if (!okOr.ok) {
 				return rt.Err(okOr.error);
 			}
 			v2 = okOr.value;
 		} else {
-			v2 = rt.u64.of(0);
+			v2 = 0;
 		}
 		return this.varint(v2);
 	}
 
 	/** Write a varint length, then the raw bytes. */
 	bytes(v: Uint8Array): rt.Result<undefined, EncodeError> {
-		const varint = this.varint(rt.u64.cast(v.length));
+		const varint = this.varint(v.length);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -153,7 +153,7 @@ export class Encoder {
 			const size = mapErr.value;
 			rt.slice.copyFromSlice(rt.slice.range(this.buf.view(), rt.usize.sub(body, 2), body), rt.u16.toBeBytes(size));
 		} else {
-			const write_ = write(rt.u64.cast(rt.usize.sub(end, body)), this.form, this.buf);
+			const write_ = write(rt.usize.sub(end, body), this.form, this.buf);
 			if (!write_.ok) {
 				return rt.Err(EncodeError.from(write_.error));
 			}

@@ -31,12 +31,12 @@ export const Form = {
 
 /** The high and low 32 bits: the only place the codec splits a `u64`. */
 export function toHalves(value: rt.U64): [number, number] {
-	return [rt.u64.shr(value, 32).lo, value.lo];
+	return [rt.u64.low(rt.u64.shr(value, 32)), rt.u64.low(value)];
 }
 
 /** The inverse of [`to_halves`]. */
 export function fromHalves(hi: number, lo: number): rt.U64 {
-	return rt.u64.or(rt.u64.shl(rt.u64.cast(hi), 32), rt.u64.cast(lo));
+	return rt.u64.or(rt.u64.shl(hi, 32), lo);
 }
 
 /** The bytes `value` takes on the wire in `form`, or [`BoundsExceeded`] if it does not fit. */
@@ -166,7 +166,7 @@ export function readQuic(buf: Uint8Array): rt.Result<[rt.U64, Uint8Array], Decod
 	const first = splitFirst[0];
 	const rest = splitFirst[1];
 	if (first < 0x40) {
-		return rt.Ok([rt.u64.cast(first), rest]);
+		return rt.Ok([first, rest]);
 	} else if (first < 0x80) {
 		const okOr = rt.option.okOr(rt.slice.splitFirstChunk(buf, 2), { tag: "Short" } as DecodeError);
 		if (!okOr.ok) {
@@ -175,7 +175,7 @@ export function readQuic(buf: Uint8Array): rt.Result<[rt.U64, Uint8Array], Decod
 		const a = okOr.value[0][0];
 		const b = okOr.value[0][1];
 		const rest2 = okOr.value[1];
-		return rt.Ok([rt.u64.cast(((a & 0x3f) << 8) | b), rest2]);
+		return rt.Ok([((a & 0x3f) << 8) | b, rest2]);
 	} else if (first < 0xc0) {
 		const okOr2 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 4), { tag: "Short" } as DecodeError);
 		if (!okOr2.ok) {
@@ -186,7 +186,7 @@ export function readQuic(buf: Uint8Array): rt.Result<[rt.U64, Uint8Array], Decod
 		const c = okOr2.value[0][2];
 		const d = okOr2.value[0][3];
 		const rest3 = okOr2.value[1];
-		return rt.Ok([rt.u64.cast((((a2 & 0x3f) << 24) | (b2 << 16) | (c << 8) | d) >>> 0), rest3]);
+		return rt.Ok([(((a2 & 0x3f) << 24) | (b2 << 16) | (c << 8) | d) >>> 0, rest3]);
 	} else {
 		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 8), { tag: "Short" } as DecodeError);
 		if (!okOr3.ok) {
@@ -212,7 +212,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 	let value: [rt.U64, Uint8Array];
 	const leadingOnes = rt.u8.leadingOnes(first);
 	if (leadingOnes === 0) {
-		value = [rt.u64.cast(first), rest];
+		value = [first, rest];
 	} else if (leadingOnes === 1) {
 		const okOr = rt.option.okOr(rt.slice.splitFirstChunk(buf, 2), { tag: "Short" } as DecodeError);
 		if (!okOr.ok) {
@@ -221,7 +221,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 		const a = okOr.value[0][0];
 		const b = okOr.value[0][1];
 		const rest2 = okOr.value[1];
-		value = [rt.u64.cast(((a & 0x3f) << 8) | b), rest2];
+		value = [((a & 0x3f) << 8) | b, rest2];
 	} else if (leadingOnes === 2) {
 		const okOr2 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 3), { tag: "Short" } as DecodeError);
 		if (!okOr2.ok) {
@@ -231,7 +231,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 		const b2 = okOr2.value[0][1];
 		const c = okOr2.value[0][2];
 		const rest3 = okOr2.value[1];
-		value = [rt.u64.cast(((a2 & 0x1f) << 16) | (b2 << 8) | c), rest3];
+		value = [((a2 & 0x1f) << 16) | (b2 << 8) | c, rest3];
 	} else if (leadingOnes === 3) {
 		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 4), { tag: "Short" } as DecodeError);
 		if (!okOr3.ok) {
@@ -242,7 +242,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 		const c2 = okOr3.value[0][2];
 		const d = okOr3.value[0][3];
 		const rest4 = okOr3.value[1];
-		value = [rt.u64.cast((((a3 & 0x0f) << 24) | (b3 << 16) | (c2 << 8) | d) >>> 0), rest4];
+		value = [(((a3 & 0x0f) << 24) | (b3 << 16) | (c2 << 8) | d) >>> 0, rest4];
 	} else if (leadingOnes === 4) {
 		const okOr4 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 5), { tag: "Short" } as DecodeError);
 		if (!okOr4.ok) {
@@ -313,7 +313,7 @@ export function zigzag(signed: rt.I64): rt.U64 {
 
 /** The inverse of [`zigzag`]. */
 export function unzigzag(value: rt.U64): rt.I64 {
-	return rt.i64.xor(rt.i64.cast(rt.u64.shr(value, 1)), rt.i64.neg(rt.i64.cast(rt.u64.and(value, rt.u64.of(1)))));
+	return rt.i64.xor(rt.i64.cast(rt.u64.shr(value, 1)), rt.i64.neg(rt.i64.cast(rt.u64.and(value, 1))));
 }
 
 //# sourceMappingURL=varint.ts.map

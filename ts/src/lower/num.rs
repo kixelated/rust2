@@ -1,10 +1,11 @@
 //! Integers: literals, arithmetic, and casts with Rust's semantics.
 //!
 //! Integers up to 32 bits are JS numbers, in which their sums, differences, and
-//! products are exact or provably out of range, so each is checked as computed. Wider
-//! integers are the runtime's immutable objects of 32-bit limbs, which every operator,
-//! comparison included, goes through the runtime for. Every operation that can overflow
-//! is checked, as a debug build checks it: none wraps silently.
+//! products are exact or provably out of range, so each is checked as computed. A wider
+//! integer is a number too while it is a safe integer, and the runtime's immutable
+//! object of 32-bit limbs past that, so every operator and comparison on one goes
+//! through the runtime. Every operation that can overflow is checked, as a debug build
+//! checks it: none wraps silently.
 
 use rustc_middle::mir::{BinOp, UnOp};
 use rustc_middle::ty::{self, Ty};
@@ -38,7 +39,7 @@ impl Int {
 		Some(Self { bits, signed, pointer })
 	}
 
-	/// Whether values are runtime objects rather than numbers.
+	/// Whether values past 2^53 are runtime objects rather than numbers.
 	pub fn big(self) -> bool {
 		self.bits > 32
 	}
@@ -107,16 +108,14 @@ impl Int {
 		self.spelled(text, value)
 	}
 
-	/// A literal of this type spelled `text`, JS number digits of `value`: `5`, or
-	/// `rt.u64.of(5)` when wide. A wide value past 2^53 is spelled as a bigint,
-	/// `rt.u64.of(0xffffffffffffffffn)`, since a number can't hold it exactly.
+	/// A literal of this type spelled `text`, JS number digits of `value`. A wide value
+	/// past 2^53 is limbs, made from a bigint: `rt.u64.of(0xffffffffffffffffn)`.
 	pub fn spelled(self, text: String, value: i128) -> Expr {
-		if !self.big() {
-			return Expr::lit(text);
-		}
 		let safe = (1 - (1i128 << 53)..(1 << 53)).contains(&value) && (self.signed || value >= 0);
-		let text = if safe { text } else { format!("{text}n") };
-		self.method("of", vec![Expr::lit(text)])
+		match safe {
+			true => Expr::lit(text),
+			false => self.method("of", vec![Expr::lit(format!("{text}n"))]),
+		}
 	}
 
 	/// The runtime method `rt.<type>.<name>`.
@@ -140,7 +139,9 @@ impl Int {
 
 	/// A comparison, `===` or `<` for instance, of two values of this type.
 	pub fn compare(self, js: &'static str, l: Expr, r: Expr) -> Expr {
-		if !self.big() {
+		// A wide value has one form, so it equals a number literal only as that number.
+		let literal = |e: &Expr| matches!(e, Expr::Lit(_));
+		if !self.big() || (matches!(js, "===" | "!==") && (literal(&l) || literal(&r))) {
 			return l.binary(js, r);
 		}
 		let name = match js {
@@ -383,11 +384,15 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 	match (source.big(), target.big()) {
 		(false, false) if fits => value.expr,
 		(false, false) => target.wrap(value.expr),
-		// The low limb holds a narrow target's bits, as a uint32.
-		(true, false) => match (target.signed, target.bits) {
-			(false, 32) => value.expr.member("lo"),
-			_ => target.wrap(value.expr.member("lo")),
-		},
+		(true, false) => {
+			let low = source.method("low", vec![value.expr]);
+			match (target.signed, target.bits) {
+				(false, 32) => low,
+				_ => target.wrap(low),
+			}
+		}
+		// A narrow integer is already a wide one's number.
+		(false, true) if fits => value.expr,
 		(true, true) if source.rt() == target.rt() => value.expr,
 		_ => target.method("cast", vec![value.expr]),
 	}

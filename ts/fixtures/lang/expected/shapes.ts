@@ -69,13 +69,13 @@ export const Shape = {
 
 	area(self: Shape): rt.U64 {
 		if (self.tag === "Dot") {
-			return rt.u64.of(0);
+			return 0;
 		} else if (self.tag === "Line") {
-			return rt.u64.of(0);
+			return 0;
 		} else {
 			const width = self.width;
 			const height = self.height;
-			return rt.u64.mul(rt.u64.cast(width), rt.u64.cast(height));
+			return rt.u64.mul(width, height);
 		}
 	},
 
@@ -103,7 +103,7 @@ export type Signed = "Neg" | "Min" | "Pos";
 export type Dir = "North" | "East" | "South" | "West";
 
 export function total$Shape(items: Shape[], out: rt.ByteVec): rt.U64 {
-	let sum: rt.U64 = rt.u64.of(0);
+	let sum: rt.U64 = 0;
 	for (const item of items) {
 		Shape.describe(item, out);
 		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
@@ -112,7 +112,7 @@ export function total$Shape(items: Shape[], out: rt.ByteVec): rt.U64 {
 }
 
 export function total$Meters(items: Meters[], out: rt.ByteVec): rt.U64 {
-	let sum: rt.U64 = rt.u64.of(0);
+	let sum: rt.U64 = 0;
 	for (const item of items) {
 		item.describe(out);
 		sum = rt.u64.saturatingAdd(sum, item.area());
@@ -193,12 +193,12 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	a = Point.new(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
-	let opt: Meters | undefined = new Meters(rt.u64.of(9));
+	let opt: Meters | undefined = new Meters(9);
 	const taken = opt;
 	opt = undefined;
 	const taken2 = taken;
 	out.push(opt === undefined ? 1 : 0);
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), rt.u64.of(0), (m: Meters): rt.U64 => {
+	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), 0, (m: Meters): rt.U64 => {
 		return m._0;
 	})));
 	const res = rt.Ok(rt.copy(p));
@@ -221,12 +221,12 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 		out.push({ Low: 1, High: 44, Top: 255 }[wide]);
 		out.push({ Low: 1, High: 44, Top: -1 }[wide] & 0xff);
 		out.extendFromSlice(rt.i16.toBeBytes({ Low: 1, High: 300, Top: -1 }[wide]));
-		out.extendFromSlice(rt.u64.toBeBytes({ Low: rt.u64.of(1), High: rt.u64.of(300), Top: rt.u64.of(65535) }[wide]));
+		out.extendFromSlice(rt.u64.toBeBytes({ Low: 1, High: 300, Top: 65535 }[wide]));
 		out.push({ Neg: 255, Min: 128, Pos: 100 }[signed]);
 		out.extendFromSlice(rt.u16.toBeBytes({ Neg: 65535, Min: 65408, Pos: 100 }[signed]));
 		out.extendFromSlice(rt.u32.toBeBytes({ Neg: 4294967295, Min: 4294967168, Pos: 100 }[signed]));
-		out.extendFromSlice(rt.i64.toBeBytes({ Neg: rt.i64.of(-1), Min: rt.i64.of(-128), Pos: rt.i64.of(100) }[signed]));
-		out.extendFromSlice(rt.u128.toBeBytes({ Neg: rt.u128.of(340282366920938463463374607431768211455n), Min: rt.u128.of(340282366920938463463374607431768211328n), Pos: rt.u128.of(100) }[signed]));
+		out.extendFromSlice(rt.i64.toBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed]));
+		out.extendFromSlice(rt.u128.toBeBytes({ Neg: rt.u128.of(340282366920938463463374607431768211455n), Min: rt.u128.of(340282366920938463463374607431768211328n), Pos: 100 }[signed]));
 	}
 }
 
@@ -272,15 +272,15 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	} else {
 		out.push(0xff);
 	}
-	let n: rt.U64 = rt.u64.cast(data.length);
+	let n: rt.U64 = data.length;
 	let steps: number;
 	while (true) {
-		if (rt.u64.le(n, rt.u64.of(1))) {
+		if (rt.u64.le(n, 1)) {
 			steps = 0;
 			break;
 		}
-		n = rt.u64.eq(rt.u64.rem(n, rt.u64.of(2)), rt.u64.of(0)) ? rt.u64.div(n, rt.u64.of(2)) : rt.u64.add(rt.u64.mul(rt.u64.of(3), n), rt.u64.of(1));
-		if (rt.u64.gt(n, rt.u64.of(100))) {
+		n = rt.u64.rem(n, 2) === 0 ? rt.u64.div(n, 2) : rt.u64.add(rt.u64.mul(3, n), 1);
+		if (rt.u64.gt(n, 100)) {
 			steps = 1;
 			break;
 		}
@@ -567,29 +567,29 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	let area: rt.I64;
 	arms3: {
 		if ((shape_.tag === "Rect" && shape_.width === 0) || shape_.tag === "Dot") {
-			area = rt.i64.of(0);
+			area = 0;
 			break arms3;
 		}
 		if (shape_.tag === "Rect") {
 			const x = shape_.corner.x;
 			const width = shape_.width;
 			if (x > 0) {
-				area = rt.i64.mul(rt.i64.cast(width), rt.i64.cast(x));
+				area = rt.i64.mul(width, x);
 				break arms3;
 			}
 		}
 		if (shape_.tag === "Rect") {
 			const width2 = shape_.width;
 			const height = shape_.height;
-			area = rt.i64.neg(rt.i64.mul(rt.i64.cast(width2), rt.i64.cast(height)));
+			area = rt.i64.neg(rt.i64.mul(width2, height));
 			break arms3;
 		}
 		const a2 = rt.copy(shape_._0);
 		const b3 = rt.copy(shape_._1);
-		area = rt.i64.mul(rt.i64.cast(rt.i32.sub(a2.x, b3.x)), rt.i64.cast(rt.i32.sub(a2.y, b3.y)));
+		area = rt.i64.mul(rt.i32.sub(a2.x, b3.x), rt.i32.sub(a2.y, b3.y));
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(rt.u64.of(3)), new Meters(rt.u64.of(18446744073709551615n))], out));
+	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3), new Meters(rt.u64.of(18446744073709551615n))], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);
 	let a3: number;
