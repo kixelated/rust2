@@ -423,17 +423,26 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					Some(field) => self.operand(field.expr, out).typed(),
 				})
 			}
-			ExprKind::Call { ty, args, .. }
-				if let ty::FnDef(def_id, _) = *self.subst(*ty).kind()
-					&& super::iter::is_next(self.t.tcx, def_id) =>
-			{
-				self.visit(id);
-				let recv_ty = self.ty_of(args[0]);
-				let recv = self.operand(args[0], out);
-				Some(super::iter::next(self, recv_ty, recv))
-			}
-			_ => None,
+			_ => self.raw_next(id, out),
 		}
+	}
+
+	/// `id` lowered by the iterator protocol if it is a call to `Iterator::next`: an item
+	/// or `rt.DONE`, rather than an `Option`.
+	fn raw_next(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let ExprKind::Call { ty, args, .. } = &self.thir[self.strip(id)].kind else {
+			return None;
+		};
+		let ty::FnDef(def_id, _) = *self.subst(*ty).kind() else {
+			return None;
+		};
+		if !super::iter::is_next(self.t.tcx, def_id) {
+			return None;
+		}
+		self.visit(id);
+		let recv_ty = self.ty_of(args[0]);
+		let recv = self.operand(args[0], out);
+		Some(super::iter::next(self, recv_ty, recv))
 	}
 
 	fn block(&mut self, id: BlockId, dest: Dest, out: &mut Vec<Stmt>) {
@@ -1193,7 +1202,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		};
 		let inner = args[0];
 		let inner_ty = self.ty_of(inner);
-		let value = self.operand(inner, out);
+		// `it.next()?` tests for the end itself, so its item may be an `Option`.
+		let raw = self.raw_next(inner, out);
+		let none = match raw {
+			Some(_) => Expr::Rt("DONE"),
+			None => Expr::undefined(),
+		};
+		let value = match raw {
+			Some(value) => value,
+			None => self.operand(inner, out),
+		};
 		let name = match value {
 			Expr::Ident(ref name) => name.clone(),
 			value => {
@@ -1218,7 +1236,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.push(
 					out,
 					StmtKind::If {
-						cond: t.clone().binary("===", Expr::undefined()),
+						cond: t.clone().binary("===", none),
 						then: vec![
 							StmtKind::Return(Some(match self.done {
 								true => Expr::Rt("DONE"),

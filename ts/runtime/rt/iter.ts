@@ -1011,11 +1011,14 @@ export class RangeInclusive<T> extends Iter<T> {
 	private lo: T;
 	private hi: T;
 	private exhausted = false;
+	/** The integer type's bounds, which `nth` wraps within as std's does. */
+	private readonly bounds: Bounds<T> | undefined;
 
-	constructor(start: T, end: T) {
+	constructor(start: T, end: T, bounds?: Bounds<T>) {
 		super();
 		this.lo = start;
 		this.hi = end;
+		this.bounds = bounds;
 	}
 
 	start(): T {
@@ -1035,7 +1038,7 @@ export class RangeInclusive<T> extends Iter<T> {
 	}
 
 	clone(): RangeInclusive<T> {
-		const range = new RangeInclusive(this.lo, this.hi);
+		const range = new RangeInclusive(this.lo, this.hi, this.bounds);
 		range.exhausted = this.exhausted;
 		return range;
 	}
@@ -1059,6 +1062,43 @@ export class RangeInclusive<T> extends Iter<T> {
 	override len(): number {
 		return this.isEmpty() ? 0 : Number(this.hi) - Number(this.lo) + 1;
 	}
+
+	/** std's `nth`: `start` moves past the item, wrapping if it overflows, which ends the range. */
+	override nthItem(n: number): T | Done {
+		if (this.isEmpty()) return DONE;
+		const [item, over] = overflowing(this.lo, n, this.bounds);
+		const [after, overAfter] = overflowing(item, 1, this.bounds);
+		this.lo = after;
+		this.exhausted = over || overAfter;
+		return !over && !lt(this.hi, item) ? item : DONE;
+	}
+
+	/** std's `nth_back`, from the end. */
+	override nthBackItem(n: number): T | Done {
+		if (this.isEmpty()) return DONE;
+		const [item, over] = overflowing(this.hi, -n, this.bounds);
+		const [before, overBefore] = overflowing(item, -1, this.bounds);
+		this.hi = before;
+		this.exhausted = over || overBefore;
+		return !over && !lt(item, this.lo) ? item : DONE;
+	}
+}
+
+/** An integer type's least and greatest values. */
+export interface Bounds<T> {
+	readonly MIN: T;
+	readonly MAX: T;
+}
+
+/** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `bounds`, and whether it wrapped. */
+function overflowing<T>(n: T, by: number, bounds: Bounds<T> | undefined): [T, boolean] {
+	if (bounds === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
+	const exact = BigInt(n as number | bigint) + BigInt(by);
+	const [min, max] = [BigInt(bounds.MIN as number | bigint), BigInt(bounds.MAX as number | bigint)];
+	if (exact >= min && exact <= max) return [step(n, by), false];
+	const span = max - min + 1n;
+	const wrapped = ((((exact - min) % span) + span) % span) + min;
+	return [(typeof n === "bigint" ? wrapped : Number(wrapped)) as T, true];
 }
 
 /** An iterator as itself: what `into_iter` makes of one. */

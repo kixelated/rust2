@@ -375,7 +375,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
 
 		// Ranges, which are their own iterators.
-		("RangeInclusive", "new") if range => Expr::New(Box::new(Expr::Rt("RangeInclusive")), b.args(args, out)),
+		// An integer range wraps within its type's bounds where std's `nth` does.
+		("RangeInclusive", "new") if range => {
+			let mut values = b.args(args, out);
+			values.extend(self_ty().and_then(Int::of).map(|int| Expr::Rt(int.rt())));
+			Expr::New(Box::new(Expr::Rt("RangeInclusive")), values)
+		}
 		("Range" | "RangeInclusive", "is_empty" | "contains" | "start" | "end") if range => {
 			let mut values = b.args(args, out);
 			let recv = values.remove(0);

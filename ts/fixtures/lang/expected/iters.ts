@@ -316,12 +316,27 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 		out.push(i2);
 	}
 	out.push(rt.option.unwrapOr(new rt.Range(a, b).nth(5), 0xee));
-	const top = new rt.RangeInclusive(rt.max(a, 250), 255).toByteVec();
+	const top = new rt.RangeInclusive(rt.max(a, 250), 255, rt.u8).toByteVec();
 	out.extendFromSlice(top.view());
-	const inclusive = new rt.RangeInclusive(a, b);
+	const inclusive = new rt.RangeInclusive(a, b, rt.u8);
 	out.push(inclusive.start());
 	out.push(inclusive.end());
 	out.push(inclusive.contains(b) ? 1 : 0);
+	let near: rt.RangeInclusive<number> = new rt.RangeInclusive(rt.max(a, 200), 255, rt.u8);
+	out.push(rt.option.unwrapOr(near.nth(b), 0xee));
+	out.push(near.start());
+	out.push(near.isEmpty() ? 1 : 0);
+	out.push(near.contains(255) ? 1 : 0);
+	let low: rt.RangeInclusive<number> = new rt.RangeInclusive(0, b, rt.u8);
+	out.push(rt.option.unwrapOr(rt.iter.toOption(low.nthBackItem(rt.usize.rem(a, 16))), 0xee));
+	out.push(low.end());
+	let stepped: rt.RangeInclusive<number> = new rt.RangeInclusive(a, b, rt.u8);
+	out.push(stepped.stepBy(3).count() & 0xff);
+	out.push(stepped.start());
+	const signed = new rt.RangeInclusive((a << 24) >> 24, (b << 24) >> 24, rt.i8);
+	rt.iter.extend(out, signed.rev().map((i3: number): number => {
+		return i3 & 0xff;
+	}));
 	let wide: rt.Range<bigint> = new rt.Range(BigInt(a), rt.u64.mul(BigInt(b), 3n));
 	out.push(wide.map((n: bigint): bigint => {
 		return rt.u64.rem(n, 5n);
@@ -368,6 +383,7 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 		return o !== undefined;
 	}).count();
 	out.push(somes & 0xff);
+	out.push(rt.option.unwrapOr(second(rt.iter.slice(data).map(maybe)), 0xcd));
 	const first = rt.slice.first(data);
 	const iter2 = rt.iter.option(first).chain(rt.iter.once(0x99));
 	while (true) {
@@ -394,6 +410,20 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 			return b4;
 		}));
 	}
+}
+
+/** The second item of an iterator of options, through `?`, which tests for its end. */
+export function second(items: rt.Iter<number | undefined>): number | undefined {
+	const next = items.next();
+	if (next === rt.DONE) {
+		return undefined;
+	}
+	const next2 = items.next();
+	if (next2 === rt.DONE) {
+		return undefined;
+	}
+	const item = next2;
+	return rt.option.unwrapOr(item, 0xab);
 }
 
 /** Every byte, or `None` where it is zero. */
@@ -451,17 +481,15 @@ export class Evens {
 
 	next(): number | rt.Done {
 		while (true) {
-			const next = rt.iter.toOption(this.inner.next());
-			if (next !== undefined) {
-				const b = next;
-				if (rt.u8.rem(b, 2) === 0) {
-					return b;
-				}
-			} else {
-				break;
+			const next = this.inner.next();
+			if (next === rt.DONE) {
+				return rt.DONE;
+			}
+			const b = next;
+			if (rt.u8.rem(b, 2) === 0) {
+				return b;
 			}
 		}
-		return rt.DONE;
 	}
 }
 

@@ -3,10 +3,10 @@
 // reads what its encode wrote.
 
 export interface Workload {
-	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`. */
+	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, or iterated. */
 	name: string;
-	op: "encode" | "decode";
-	/** Varints, frame headers, or messages per call, which each time is divided by. */
+	op: "encode" | "decode" | "iterate";
+	/** Varints, frame headers, messages, or items per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -44,6 +44,14 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 		pair(`frames/audio/${version}`, 50, 2, selector, [50n, 20_000n, 160n, 160n, 0n, 0n]);
 		pair(`group/${version}`, 1, 4, selector, [3n, 1_234n]);
 	}
+
+	// Iterator chains over bytes, as `bench.rs`'s op 6 picks them by selector; no byte is
+	// 0xff, so `any` reads them all.
+	const bytes = Uint8Array.from({ length: 1024 }, (_, i) => (i * 167 + 13) % 255);
+	const chains = ["map-filter-count", "any", "filter-collect", "sum", "skip-take-fold", "enumerate-for"];
+	chains.forEach((chain, selector) => {
+		out.push({ name: `iter/${chain}`, op: "iterate", items: bytes.length, input: Uint8Array.of(6, selector, ...bytes) });
+	});
 	return out;
 }
 

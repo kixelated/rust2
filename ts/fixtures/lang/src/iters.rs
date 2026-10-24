@@ -213,6 +213,20 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	out.push(*inclusive.start());
 	out.push(*inclusive.end());
 	out.push(inclusive.contains(&b) as u8);
+	// `nth` past the end, or past the type's last value, leaves the range as std's does.
+	let mut near = a.max(200)..=255;
+	out.push(near.nth(b as usize).unwrap_or(0xee));
+	out.push(*near.start());
+	out.push(near.is_empty() as u8);
+	out.push(near.contains(&255) as u8);
+	let mut low = 0..=b;
+	out.push(low.nth_back(a as usize % 16).unwrap_or(0xee));
+	out.push(*low.end());
+	let mut stepped = a..=b;
+	out.push(stepped.by_ref().step_by(3).count() as u8);
+	out.push(*stepped.start());
+	let signed = (a as i8)..=(b as i8);
+	out.extend(signed.rev().map(|i| i as u8));
 	let mut wide = (a as u64)..(b as u64 * 3);
 	out.push(wide.by_ref().map(|n| n % 5).filter(|&n| n == 0).count() as u8);
 	out.push(wide.is_empty() as u8);
@@ -239,6 +253,7 @@ pub fn options(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&flat);
 	let somes = all.iter().filter(|o| o.is_some()).count();
 	out.push(somes as u8);
+	out.push(second(data.iter().map(maybe)).unwrap_or(0xcd));
 	let first = data.first().copied();
 	for b in first.iter().chain(std::iter::once(&0x99)) {
 		out.push(*b);
@@ -256,6 +271,13 @@ pub fn options(data: &[u8], out: &mut Vec<u8>) {
 	for gap in gaps {
 		out.push(gap.map_or(0xaa, |b| b));
 	}
+}
+
+/// The second item of an iterator of options, through `?`, which tests for its end.
+fn second(mut items: impl Iterator<Item = Option<u8>>) -> Option<u8> {
+	items.next()?;
+	let item = items.next()?;
+	Some(item.unwrap_or(0xab))
 }
 
 /// Every byte, or `None` where it is zero.
@@ -306,12 +328,12 @@ impl Iterator for Evens<'_> {
 	type Item = u8;
 
 	fn next(&mut self) -> Option<u8> {
-		while let Some(b) = self.inner.next() {
+		loop {
+			let b = self.inner.next()?;
 			if b % 2 == 0 {
 				return Some(b);
 			}
 		}
-		None
 	}
 }
 
@@ -368,7 +390,12 @@ pub fn values(data: &[u8], out: &mut Vec<u8>) {
 	let printed = format!("{:?}|{:#?}", Doubled(data), Doubled(&data[..data.len().min(2)]));
 	out.extend_from_slice(printed.as_bytes());
 	// Clones that change leave what they cloned alone.
-	let tags: Vec<Tag> = data.iter().map(|&b| Tag { bytes: [b, !b].to_vec() }).collect();
+	let tags: Vec<Tag> = data
+		.iter()
+		.map(|&b| Tag {
+			bytes: [b, !b].to_vec(),
+		})
+		.collect();
 	let mut cloned: Vec<Tag> = tags.iter().cloned().collect();
 	for tag in cloned.iter_mut() {
 		tag.bytes.push(0x77);

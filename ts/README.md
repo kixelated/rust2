@@ -46,7 +46,7 @@ it finds; translation still fails on any refusal.
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
 with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
-runtime: what std does that JS does not.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -60,6 +60,8 @@ runtime: what std does that JS does not.
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
+| an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
+| `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 
@@ -79,6 +81,15 @@ prints it. A caller prints a `printable` type as `to_string()` and `format!("{er
 would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`.
 
+An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
+iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
+are `rt.Iter` methods, lazy and short-circuiting as std's are, and call their closures in
+the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
+array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
+counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
+std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or iterates
+an `rt.Iter` with `for ... of`.
+
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
 `roundtripLite$Group`. Types are translated once, generically. A `Copy` struct, tuple, or
@@ -94,6 +105,10 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly.
+- Iterators are the runtime's lazy classes rather than generators or ES iterator
+  helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
+  (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
+  nothing per item.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.
@@ -107,8 +122,10 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 ## Not yet
 
 These fail translation: floats, `char`, statics, `async`,
-types that implement `Drop`, iterator adaptors (`for` over ranges, slices, arrays, and
-`Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
+types that implement `Drop`, iterators of std's collections and the adaptors without a
+mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
+`impl Iterator` with `next_back`, `len`, or another provided method of its own,
+`while let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
 and widths from arguments), writing to a `String` with `write!`, a `move` closure
 copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
 pointee, and std functions without a mapping in `src/lower/library.rs`.
@@ -130,7 +147,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, and formatting. Its differential test runs through `caller.ts`, a
+  `Copy` aggregates, formatting, and iterators, with closures that log what each
+  adaptor reads. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.

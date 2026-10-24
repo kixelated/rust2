@@ -245,11 +245,12 @@ pub fn call<'tcx>(
 	let rest: Vec<Expr> = values.collect();
 
 	// `next` by the protocol, as an `Option`.
-	if matches!(name, "next" | "next_back") {
+	if matches!(name, "next" | "next_back" | "nth_back") {
 		option_ok(b, item, span);
 		let item = match name {
 			"next" => next(b, self_ty, recv),
-			_ => recv.member("nextBack").call(Vec::new()),
+			"next_back" => recv.member("nextBack").call(Vec::new()),
+			_ => recv.member("nthBackItem").call(rest),
 		};
 		return Some(rt_iter("toOption").call(vec![item]));
 	}
@@ -296,7 +297,9 @@ pub fn call<'tcx>(
 			match () {
 				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy")]),
 				// A JS string is a value already.
-				_ if b.t.is_copy(*inner) || matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) => {
+				_ if b.t.is_copy(*inner)
+					|| matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) =>
+				{
 					Some(recv)
 				}
 				// Each item through its `Clone`.
