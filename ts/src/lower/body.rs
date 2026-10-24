@@ -383,9 +383,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match &e.kind {
 			ExprKind::Scope {
 				value, region_scope, ..
-			} => match self.thir[*value].kind {
-				ExprKind::Loop { body } => self.lp(*region_scope, body, dest, out),
-				_ => self.stmt(*value, dest, out),
+			} => match self.scoped_loop(*value) {
+				Some(body) => self.lp(*region_scope, body, dest, out),
+				None => self.stmt(*value, dest, out),
 			},
 			ExprKind::ValueTypeAscription { source, .. } | ExprKind::ValueExpr { source } => {
 				self.stmt(*source, dest, out)
@@ -814,6 +814,19 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			},
 			span,
 		);
+	}
+
+	/// The body of the loop a scope holds, if it holds one. A loop that only `return`
+	/// leaves has type `!`, coerced to whatever its place needs.
+	fn scoped_loop(&self, value: ExprId) -> Option<ExprId> {
+		let value = match self.thir[value].kind {
+			ExprKind::NeverToAny { source } => source,
+			_ => value,
+		};
+		match self.thir[value].kind {
+			ExprKind::Loop { body } => Some(body),
+			_ => None,
+		}
 	}
 
 	/// The condition and body of a `while` loop's desugaring.
