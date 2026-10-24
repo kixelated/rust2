@@ -36,4 +36,3 @@ Public API: the translator's output for moq-net's model.
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
-- [Methods on generic types](/quest/m2/ts-generic-methods.md) - the model's generic types
