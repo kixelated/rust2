@@ -14,6 +14,10 @@ export class Log {
 		rt.drop(this._0);
 	}
 
+	clone(): Log {
+		return new Log(this._0.clone());
+	}
+
 	static new(): Log {
 		return new Log(new rt.Arc(new rt.Mutex([])));
 	}
@@ -32,10 +36,6 @@ export class Log {
 			out.push(10);
 		}
 		return out;
-	}
-
-	clone(): Log {
-		return new Log(this._0.clone());
 	}
 }
 

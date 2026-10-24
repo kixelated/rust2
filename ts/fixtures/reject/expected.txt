@@ -13,9 +13,7 @@ a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtu
 a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtures/reject/src/lib.rs:25:6
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:15
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
-unsupported call to `core::slice::<impl [u8]>::iter` at fixtures/reject/src/lib.rs:40:4
-unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@fixtures/reject/src/lib.rs:40:18: 40:21}>` at fixtures/reject/src/lib.rs:40:11
-unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count` at fixtures/reject/src/lib.rs:40:31
+`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:40:42
 a method that takes `self` by value that drops, which is not supported yet at fixtures/reject/src/lib.rs:51:20
 a field of a temporary that drops: bind it to a variable first at fixtures/reject/src/lib.rs:62:2
 a closure that captures a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:68:23
@@ -59,3 +57,14 @@ an `if let` on a temporary that drops, which it doesn't move out of whole at fix
 an async body returning `std::task::Poll<u8>` is not supported: its `Ready` could be pending at fixtures/reject/src/lib.rs:245:54
 a `match` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:252:16
 replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private at fixtures/reject/src/lib.rs:261:2
+unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:266:11
+a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:312:15: 312:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold` at fixtures/reject/src/lib.rs:312:51
+unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:320:8
+an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:361:16
+an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:361:4
+an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:366:20
+a `for` loop over values that drop, which is not supported yet at fixtures/reject/src/lib.rs:382:6
+overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:279:2
+an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:299:1
+overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:333:2
+an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:353:1

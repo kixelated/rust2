@@ -17,11 +17,6 @@ export class Waiter {
 		rt.drop(this.shared);
 	}
 
-	/** Register with `list`, a no-op while the list still holds this waiter. */
-	register(list: WaiterList): void {
-		list.register(this);
-	}
-
 	static new(waker: rt.Waker): Waiter {
 		try {
 			let shared = new rt.Arc(waker.clone());
@@ -39,6 +34,11 @@ export class Waiter {
 			rt.drop(waker);
 		}
 	}
+
+	/** Register with `list`, a no-op while the list still holds this waiter. */
+	register(list: WaiterList): void {
+		list.register(this);
+	}
 }
 
 /** Wakers waiting for one event, held weakly. */
@@ -50,32 +50,6 @@ export class WaiterList {
 	constructor(fields: { entries: rt.Weak<rt.Waker>[]; cursor: number }) {
 		this.entries = fields.entries;
 		this.cursor = fields.cursor;
-	}
-
-	/** Drain every entry into a new list, leaving this one empty. */
-	take(): WaiterList {
-		this.cursor = 0;
-		const taken = this.entries;
-		this.entries = [];
-		return new WaiterList({ entries: taken, cursor: 0 });
-	}
-
-	/** Wake every live waiter, draining the list. */
-	wake(): void {
-		this.cursor = 0;
-		const taken = this.entries;
-		this.entries = [];
-		for (const entry of taken) {
-			const upgrade = entry.upgrade();
-			if (upgrade !== undefined) {
-				const waker = upgrade;
-				try {
-					waker.value.wakeByRef();
-				} finally {
-					rt.drop(waker);
-				}
-			}
-		}
 	}
 
 	static new(): WaiterList {
@@ -112,6 +86,32 @@ export class WaiterList {
 			this.cursor = 0;
 		}
 		this.entries.push(weak);
+	}
+
+	/** Drain every entry into a new list, leaving this one empty. */
+	take(): WaiterList {
+		this.cursor = 0;
+		const taken = this.entries;
+		this.entries = [];
+		return new WaiterList({ entries: taken, cursor: 0 });
+	}
+
+	/** Wake every live waiter, draining the list. */
+	wake(): void {
+		this.cursor = 0;
+		const taken = this.entries;
+		this.entries = [];
+		for (const entry of taken) {
+			const upgrade = entry.upgrade();
+			if (upgrade !== undefined) {
+				const waker = upgrade;
+				try {
+					waker.value.wakeByRef();
+				} finally {
+					rt.drop(waker);
+				}
+			}
+		}
 	}
 }
 
@@ -206,24 +206,9 @@ export class Producer {
 		rt.drop(this.state);
 	}
 
-	drop(): void {
-		let state: rt.Mutex<State> = this.state.value;
-		state.value.producers = rt.usize.sub(state.value.producers, 1);
-		if (state.value.producers > 0) {
-			return;
-		}
-		state.value.closed = true;
-		let waiters: WaiterList = state.value.waiters.take();
-		waiters.wake();
-	}
-
 	static new(): Producer {
 		const state = new State({ queue: [], closed: false, producers: 1, waiters: WaiterList.new() });
 		return new Producer({ state: new rt.Arc(new rt.Mutex(state)) });
-	}
-
-	consume(): Consumer {
-		return new Consumer({ state: this.state.clone(), next: 0 });
 	}
 
 	/** Queue `value` and wake every consumer, after releasing the lock. */
@@ -234,9 +219,24 @@ export class Producer {
 		waiters.wake();
 	}
 
+	consume(): Consumer {
+		return new Consumer({ state: this.state.clone(), next: 0 });
+	}
+
 	clone(): Producer {
 		this.state.value.value.producers = rt.usize.add(this.state.value.value.producers, 1);
 		return new Producer({ state: this.state.clone() });
+	}
+
+	drop(): void {
+		let state: rt.Mutex<State> = this.state.value;
+		state.value.producers = rt.usize.sub(state.value.producers, 1);
+		if (state.value.producers > 0) {
+			return;
+		}
+		state.value.closed = true;
+		let waiters: WaiterList = state.value.waiters.take();
+		waiters.wake();
 	}
 }
 
@@ -258,11 +258,6 @@ export class Consumer {
 		return new Consumer({ state: this.state.clone(), next: this.next });
 	}
 
-	/** kio's one-line wrapper over a `poll_*` method. */
-	recv(): rt.Future<bigint | undefined> {
-		return rt.future(recvBody, undefined, this);
-	}
-
 	/** The next value, or `None` once the channel closed and every value was read. */
 	pollRecv(waiter: Waiter): rt.Poll<bigint | undefined> {
 		let state: rt.Mutex<State> = this.state.value;
@@ -276,6 +271,11 @@ export class Consumer {
 		}
 		waiter.register(state.value.waiters);
 		return rt.Pending;
+	}
+
+	/** kio's one-line wrapper over a `poll_*` method. */
+	recv(): rt.Future<bigint | undefined> {
+		return rt.future(recvBody, undefined, this);
 	}
 }
 

@@ -119,10 +119,6 @@ export class Guard {
 		rt.drop(this.log);
 	}
 
-	drop(): void {
-		this.log.note(rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(this.id, f), " drop"]));
-	}
-
 	static new(id: number, log: Log): Guard {
 		try {
 			const arg = id;
@@ -137,6 +133,10 @@ export class Guard {
 	/** Log `event` as this guard's. */
 	note(event: string): void {
 		this.log.note(rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(this.id, f), " ", (f: rt.Formatter) => f.pad(event)]));
+	}
+
+	drop(): void {
+		this.log.note(rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(this.id, f), " drop"]));
 	}
 }
 
@@ -651,151 +651,8 @@ export function* level1Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function* level3Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level2(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level3(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level3Body, undefined, rx);
-}
-
-export function* level15Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level14(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level15(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level15Body, undefined, rx);
-}
-
-export function* level2Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level1(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level2(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level2Body, undefined, rx);
-}
-
-export function* level14Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level13(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level14(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level14Body, undefined, rx);
-}
-
-export function* level13Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level12(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level13(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level13Body, undefined, rx);
-}
-
-export function* level12Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level11(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level12(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level12Body, undefined, rx);
-}
-
-export function* level11Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level10(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
-		}
-	} finally {
-		rt.drop(__awaitee);
-	}
-}
-
-export function level11(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level11Body, undefined, rx);
+export function level10(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level10Body, undefined, rx);
 }
 
 export function* level10Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
@@ -815,13 +672,13 @@ export function* level10Body(_taskContext: rt.Context, rx: Consumer): Generator<
 	}
 }
 
-export function level10(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level10Body, undefined, rx);
+export function level11(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level11Body, undefined, rx);
 }
 
-export function* level9Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level11Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level8(rx2);
+	let __awaitee: rt.Future<bigint | undefined> = level10(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -836,13 +693,13 @@ export function* level9Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level9(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level9Body, undefined, rx);
+export function level12(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level12Body, undefined, rx);
 }
 
-export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level12Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level7(rx2);
+	let __awaitee: rt.Future<bigint | undefined> = level11(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -857,13 +714,13 @@ export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level8(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level8Body, undefined, rx);
+export function level13(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level13Body, undefined, rx);
 }
 
-export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level13Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level6(rx2);
+	let __awaitee: rt.Future<bigint | undefined> = level12(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -878,13 +735,13 @@ export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level7(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level7Body, undefined, rx);
+export function level14(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level14Body, undefined, rx);
 }
 
-export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level14Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level5(rx2);
+	let __awaitee: rt.Future<bigint | undefined> = level13(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -899,13 +756,13 @@ export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level6(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level6Body, undefined, rx);
+export function level15(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level15Body, undefined, rx);
 }
 
-export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+export function* level15Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
 	const rx2 = rx;
-	let __awaitee: rt.Future<bigint | undefined> = level4(rx2);
+	let __awaitee: rt.Future<bigint | undefined> = level14(rx2);
 	try {
 		while (true) {
 			const poll = __awaitee.poll(_taskContext);
@@ -920,8 +777,50 @@ export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level5(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level5Body, undefined, rx);
+export function level2(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level2Body, undefined, rx);
+}
+
+export function* level2Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level1(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level3(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level3Body, undefined, rx);
+}
+
+export function* level3Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level2(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level4(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level4Body, undefined, rx);
 }
 
 export function* level4Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
@@ -941,8 +840,109 @@ export function* level4Body(_taskContext: rt.Context, rx: Consumer): Generator<u
 	}
 }
 
-export function level4(rx: Consumer): rt.Future<bigint | undefined> {
-	return rt.future(level4Body, undefined, rx);
+export function level5(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level5Body, undefined, rx);
+}
+
+export function* level5Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level4(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level6(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level6Body, undefined, rx);
+}
+
+export function* level6Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level5(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level7(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level7Body, undefined, rx);
+}
+
+export function* level7Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level6(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level8(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level8Body, undefined, rx);
+}
+
+export function* level8Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level7(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
+}
+
+export function level9(rx: Consumer): rt.Future<bigint | undefined> {
+	return rt.future(level9Body, undefined, rx);
+}
+
+export function* level9Body(_taskContext: rt.Context, rx: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const rx2 = rx;
+	let __awaitee: rt.Future<bigint | undefined> = level8(rx2);
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
+	}
 }
 
 //# sourceMappingURL=model.ts.map
