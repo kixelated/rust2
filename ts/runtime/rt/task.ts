@@ -228,15 +228,15 @@ class Task<T> implements Waker {
 		let output: Poll<T>;
 		try {
 			output = future.poll(this);
+			if (output === Pending) return;
+			this.#future = undefined;
+			future[Symbol.dispose]();
 		} catch (err) {
 			this.#future = undefined;
 			this.#reject(err);
 			if (!(err instanceof Panic)) throw err;
 			return;
 		}
-		if (output === Pending) return;
-		this.#future = undefined;
-		future[Symbol.dispose]();
 		this.#resolve(output);
 	}
 

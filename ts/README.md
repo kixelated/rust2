@@ -160,7 +160,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 
-`tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget.
+`tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
+rejects when a future panics as it drops.
 
 ## Bench
 
