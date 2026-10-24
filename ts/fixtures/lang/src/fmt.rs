@@ -32,7 +32,7 @@ macro_rules! specs {
 	}};
 }
 
-fn put(out: &mut Vec<u8>, s: &str) {
+pub fn put(out: &mut Vec<u8>, s: &str) {
 	out.extend_from_slice(s.as_bytes());
 	out.push(0xff);
 }

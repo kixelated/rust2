@@ -7,7 +7,7 @@
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::thir::{ExprId, ExprKind};
-use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::body::Body;
@@ -42,6 +42,12 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
+	/// `rt.Range`, an iterator with `start` and `end` fields.
+	Range,
+	/// `rt.RangeInclusive`.
+	RangeInclusive,
+	/// `rt.Peekable`, an iterator with `peek`.
+	Peekable,
 }
 
 impl Std {
@@ -65,6 +71,12 @@ impl Std {
 		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
 			return Some(Self::Box);
 		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::Range) {
+			return Some(Self::Range);
+		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::RangeInclusiveStruct) {
+			return Some(Self::RangeInclusive);
+		}
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
@@ -83,6 +95,7 @@ impl Std {
 			["fmt", "builders", "DebugTuple"] => Some(Self::DebugTuple),
 			["fmt", "builders", "DebugList"] => Some(Self::DebugList),
 			["panicking", "AssertKind"] => Some(Self::AssertKind),
+			["iter", "adapters", "peekable", "Peekable"] => Some(Self::Peekable),
 			_ => None,
 		}
 	}
@@ -102,13 +115,44 @@ pub fn std_path(tcx: TyCtxt<'_>, did: DefId) -> Vec<String> {
 		.collect()
 }
 
-/// Whether `did` is `core::slice::Iter`, which `slice.iter()` makes.
-pub fn is_slice_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
-	std_path(tcx, did) == ["slice", "iter", "Iter"]
-}
-
 fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
+}
+
+/// Whether `Clone` of `ty`, a `Copy` type, only copies: no `Clone` written by hand runs
+/// for it or anything in it, as a derived or std `Clone` clones each field.
+pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let tcx = t.tcx;
+	match ty.kind() {
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Ref(..) | ty::FnPtr(..) | ty::Never => true,
+		ty::Tuple(fields) => fields.iter().all(|field| clone_copies(t, field)),
+		ty::Array(elem, _) => clone_copies(t, *elem),
+		ty::Adt(adt, args) if !adt.did().is_local() => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) => {
+			let Some(clone) = tcx.lang_items().clone_fn() else {
+				return false;
+			};
+			let derived = Instance::try_resolve(tcx, t.typing_env_pub(), clone, tcx.mk_args(&[ty.into()]))
+				.ok()
+				.flatten()
+				.and_then(|instance| tcx.impl_of_assoc(instance.def_id()))
+				.is_some_and(|imp| tcx.is_automatically_derived(imp));
+			derived
+				&& adt
+					.all_fields()
+					.all(|field| clone_copies(t, t.subst(args, field.ty(tcx, args).skip_norm_wip())))
+		}
+		_ => false,
+	}
+}
+
+/// The standard type an inherent method is of, such as `Range` for `Range::contains`.
+pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
+	let imp = tcx.inherent_impl_of_assoc(def_id)?;
+	match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Adt(adt, _) => Std::of(tcx, adt.did()),
+		_ => None,
+	}
 }
 
 /// A call's arguments: still THIR, or already lowered.
@@ -184,6 +228,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			"wrapping_sub" => "wrappingSub",
 			_ => return None,
 		};
+		if let ("from_be_bytes", Args::Thir([bytes])) = (name.as_str(), &args) {
+			return Some(from_be_bytes(b, int, *bytes, out));
+		}
 		let values = b.args(args, out);
 		return Some(int.method(method, values));
 	}
@@ -197,6 +244,15 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 	};
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
+	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
+	// A range of integers, whose comparisons and clones JS makes as Rust does.
+	let int_range = |t: Ty<'tcx>| match t.peel_refs().kind() {
+		ty::Adt(adt, args) => {
+			matches!(Std::of(tcx, adt.did()), Some(Std::Range | Std::RangeInclusive))
+				&& Int::of(args.type_at(0)).is_some()
+		}
+		_ => false,
+	};
 
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
@@ -302,7 +358,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						.call(vec![value.method("view", vec![])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
-				_ if b.t.is_copy(ty) => b.copied(value, ty),
+				ty::Adt(..) if int_range(ty) => value.method("clone", vec![]),
+				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.copied(value, ty),
 				_ => return None,
 			}
 		}
@@ -352,6 +409,22 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			Expr::Rt("result").member(method).call(values)
 		}
 		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
+
+		// Ranges, which are their own iterators.
+		// An integer range wraps within its type's bounds where std's `nth` does.
+		("RangeInclusive", "new") if range => {
+			let mut values = b.args(args, out);
+			values.extend(self_ty().and_then(Int::of).map(|int| Expr::Rt(int.rt())));
+			Expr::New(Box::new(Expr::Rt("RangeInclusive")), values)
+		}
+		// JS compares integers as Rust does, and other endpoints by identity.
+		("Range" | "RangeInclusive", "start" | "end" | "is_empty" | "contains")
+			if range && (matches!(name.as_str(), "start" | "end") || self_ty().and_then(Int::of).is_some()) =>
+		{
+			let mut values = b.args(args, out);
+			let recv = values.remove(0);
+			recv.method(&super::camel(&name), values)
+		}
 
 		("bool", "then_some") => {
 			let values = b.args(args, out);
@@ -654,9 +727,52 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let debug = b.fmt_fn(fmt::Trait::Debug, targ(gargs, 0), span);
 			list.method("entries", vec![items, debug])
 		}
-		_ => return None,
+		_ => return super::iter::call(b, call, &owner, &name, args, out),
 	};
 	Some(e)
+}
+
+/// `int::from_be_bytes(bytes)`. A number from an array written in place is its bytes
+/// shifted and or-ed, with no array made. Otherwise the runtime reads the array the
+/// argument names, uncopied, since the read neither keeps nor changes it.
+fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out: &mut Vec<Stmt>) -> Expr {
+	let thir = b.thir;
+	let fields = match &thir[b.strip(bytes)].kind {
+		ExprKind::Array { fields } if !int.big() => fields,
+		_ => {
+			let value = b.place(bytes, out);
+			return int.method("fromBeBytes", vec![value]);
+		}
+	};
+	let values = b.operands(fields, out);
+	let last = values.len() - 1;
+	let mut word: Option<Expr> = None;
+	let mut top = false;
+	for (i, value) in values.into_iter().enumerate() {
+		if matches!(&value, Expr::Lit(l) if l == "0") {
+			continue;
+		}
+		top |= i == 0;
+		let shift = 8 * (last - i);
+		let term = match shift {
+			0 => value,
+			_ => value.binary("<<", Expr::lit(shift.to_string())),
+		};
+		word = Some(match word {
+			Some(word) => word.binary("|", term),
+			None => term,
+		});
+	}
+	let Some(word) = word else {
+		return Expr::lit("0");
+	};
+	// JS's `|` and `<<` make an `i32`, so only a `u32` with its top byte set and the
+	// narrower signed types need their bits read again.
+	match (int.signed, int.bits) {
+		(false, 32) if top => int.wrap(word),
+		(true, bits) if bits < 32 => int.wrap(word),
+		_ => word,
+	}
 }
 
 /// The `n`th type among a call's generic arguments, skipping lifetimes.
@@ -840,30 +956,37 @@ fn literal(parts: &Expr) -> Option<String> {
 		.collect()
 }
 
-/// What an `IntoIterator` of a slice's items iterates, as an iterable JS value:
-/// `slice.iter()`, or a slice, array, or `Vec`, by value or by reference.
+/// The slice `id` iterates if it is `<[T]>::iter(slice)`, which iterates as the JS array
+/// or `Uint8Array` itself does.
+pub fn iterated_slice(b: &Body<'_, '_, '_>, id: ExprId) -> Option<ExprId> {
+	let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[b.strip(id)].kind else {
+		return None;
+	};
+	let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
+		return None;
+	};
+	(key(b.t.tcx, iter) == Some(("slice".into(), "iter".into()))).then(|| args[0])
+}
+
+/// What an `IntoIterator` iterates, as an iterable JS value: a slice, array, or `Vec`
+/// itself, by value or by reference, or else an `rt.Iter`.
 fn items<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	if let Some(slice) = iterated_slice(b, id) {
+		b.visit(id);
+		return Some(b.operand(slice, out));
+	}
 	let id = b.strip(id);
 	let ty = b.ty_of(id);
 	match ty.peel_refs().kind() {
-		ty::Adt(adt, _) if is_slice_iter(tcx, adt.did()) && !matches!(ty.kind(), ty::Ref(..)) => {
-			let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[id].kind else {
-				return None;
-			};
-			let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
-				return None;
-			};
-			if key(tcx, iter) != Some(("slice".into(), "iter".into())) {
-				return None;
-			}
-			Some(b.operand(args[0], out))
-		}
 		ty::Slice(_) | ty::Array(..) => Some(b.operand(id, out)),
 		ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
 			let v = b.operand(id, out);
 			Some(vec_view(v, ty))
 		}
-		_ => None,
+		_ => {
+			let value = b.operand(id, out);
+			super::iter::into_iter(b, ty, value, b.span(id))
+		}
 	}
 }

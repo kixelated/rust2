@@ -104,7 +104,7 @@ impl Int {
 	}
 
 	/// `value`, which is exact, wrapped into this type's range.
-	fn wrap(self, value: Expr) -> Expr {
+	pub fn wrap(self, value: Expr) -> Expr {
 		match (self.big(), self.signed, self.bits) {
 			(true, false, bits) => big_int("asUintN", bits, value),
 			(true, true, bits) => big_int("asIntN", bits, value),
