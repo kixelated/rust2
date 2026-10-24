@@ -1,6 +1,7 @@
 use genco::prelude::*;
 use heck::ToLowerCamelCase;
 use uniffi_bindgen::interface::{AsType, Enum, Field, Literal, Type};
+use uniffi_bindgen::ComponentInterface;
 
 use super::oracle::{AsCodeType, DartCodeOracle};
 use super::render::{AsRenderable, Renderable, TypeHelperRenderer};
@@ -9,21 +10,25 @@ use crate::gen::CodeType;
 #[derive(Debug)]
 pub struct EnumCodeType {
     id: String,
+    namespace: Option<String>,
 }
 
 impl EnumCodeType {
-    pub fn new(id: String) -> Self {
-        Self { id }
+    pub fn new(id: String, namespace: Option<String>) -> Self {
+        Self { id, namespace }
     }
 }
 
 impl CodeType for EnumCodeType {
     fn type_label(&self) -> String {
-        DartCodeOracle::class_name(&self.id)
+        DartCodeOracle::qualify(self.namespace.as_deref(), DartCodeOracle::class_name(&self.id))
     }
 
     fn canonical_name(&self) -> String {
-        DartCodeOracle::class_name(&self.id)
+        DartCodeOracle::qualify_canonical(
+            self.namespace.as_deref(),
+            DartCodeOracle::class_name(&self.id),
+        )
     }
 
     fn literal(&self, literal: &Literal) -> String {
@@ -35,14 +40,18 @@ impl CodeType for EnumCodeType {
     }
 
     fn ffi_converter_name(&self) -> String {
-        format!("FfiConverter{}", DartCodeOracle::class_name(&self.id))
+        DartCodeOracle::qualify(
+            self.namespace.as_deref(),
+            format!("FfiConverter{}", DartCodeOracle::class_name(&self.id)),
+        )
     }
 }
 
 impl Renderable for EnumCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
         let canonical = self.canonical_name();
-        if type_helper.check(&canonical) {
+        // Another crate's library declares its own helpers.
+        if self.namespace.is_some() || type_helper.check(&canonical) {
             quote!()
         } else if let Some(enum_) = type_helper.get_enum(&self.id) {
             generate_enum(enum_, type_helper)
@@ -54,9 +63,9 @@ impl Renderable for EnumCodeType {
 
 pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
     let dart_cls_name = &DartCodeOracle::class_name(obj.name());
-    let ffi_converter_name = &obj.as_codetype().ffi_converter_name();
+    let ffi_converter_name = &obj.as_codetype(type_helper.get_ci()).ffi_converter_name();
     if obj.is_flat() {
-        let is_error_enum = type_helper.get_ci().is_name_used_as_error(obj.name());
+        let is_error_enum = type_helper.get_ci().is_used_as_error(obj);
         let implements_exception =
             if is_error_enum { quote!( implements Exception) } else { quote!() };
 
@@ -137,13 +146,13 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
         fn field_type(field: &Field, type_helper: &dyn TypeHelperRenderer) -> String {
             field
                 .as_type()
-                .as_renderable()
+                .as_renderable(type_helper.get_ci())
                 .render_type(&field.as_type(), type_helper)
                 .to_string()
                 .expect("Could not stringify type")
         }
-        fn field_ffi_converter_name(field: &Field) -> String {
-            field.as_type().as_codetype().ffi_converter_name()
+        fn field_ffi_converter_name(field: &Field, ci: &ComponentInterface) -> String {
+            field.as_type().as_codetype(ci).ffi_converter_name()
         }
         fn is_flat_enum(field: &Field, type_helper: &dyn TypeHelperRenderer) -> bool {
             if let Type::Enum { name, .. } = &field.as_type() {
@@ -200,8 +209,8 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
         let display_to_string: Option<dart::Tokens> =
             obj.uniffi_trait_methods().display_fmt.map(|fmt| {
                 let ret = fmt.return_type().expect("Display returns a string");
-                type_helper.include_once_check(&ret.as_codetype().canonical_name(), ret);
-                let lifter = ret.as_codetype().lift();
+                type_helper.include_once_check(&ret.as_codetype(type_helper.get_ci()).canonical_name(), ret);
+                let lifter = ret.as_codetype(type_helper.get_ci()).lift();
                 quote! {
                     @override
                     String toString() {
@@ -213,11 +222,14 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                 }
             });
         let variant_to_string =
-            display_to_string.is_none() && type_helper.get_ci().is_name_used_as_error(obj.name());
+            display_to_string.is_none() && type_helper.get_ci().is_used_as_error(obj);
 
         for (index, variant_obj) in obj.variants().iter().enumerate() {
             for f in variant_obj.fields() {
-                type_helper.include_once_check(&f.as_codetype().canonical_name(), &f.as_type());
+                type_helper.include_once_check(
+                    &f.as_codetype(type_helper.get_ci()).canonical_name(),
+                    &f.as_type(),
+                );
             }
             let variant_dart_cls_name = &variant_class_name(variant_obj.name());
 
@@ -249,12 +261,12 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                     // Handle flat enums specially - they serialize as int32 (4 bytes)
                     quote!(
                         final $(field_name(field, i))_int = buf.buffer.asByteData(new_offset).getInt32(0);
-                        final $(field_name(field, i)) = $(field_ffi_converter_name(field)).lift(toRustBuffer(createUint8ListFromInt($(field_name(field, i))_int)));
+                        final $(field_name(field, i)) = $(field_ffi_converter_name(field, type_helper.get_ci())).lift(toRustBuffer(createUint8ListFromInt($(field_name(field, i))_int)));
                         new_offset += 4;
                     )
                 } else {
                     quote!(
-                        final $(field_name(field, i))_lifted = $(field_ffi_converter_name(field)).read(Uint8List.view(buf.buffer, new_offset));
+                        final $(field_name(field, i))_lifted = $(field_ffi_converter_name(field, type_helper.get_ci())).read(Uint8List.view(buf.buffer, new_offset));
                         final $(field_name(field, i)) = $(field_name(field, i))_lifted.value;
                         new_offset += $(field_name(field, i))_lifted.bytesRead;
                     )
@@ -266,7 +278,7 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                 if is_flat_enum(field, type_helper) {
                     quote!(4 + ) // Flat enums are 4 bytes (int32)
                 } else {
-                    quote!($(field_ffi_converter_name(field)).allocationSize($(field_name(field, i))) + )
+                    quote!($(field_ffi_converter_name(field, type_helper.get_ci())).allocationSize($(field_name(field, i))) + )
                 }
             }).collect();
 
@@ -275,14 +287,14 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
                 if is_flat_enum(field, type_helper) {
                     // Handle flat enums specially - lower to RustBuffer and extract int32
                     quote!(
-                        final $(field_name(field, i))_buffer = $(field_ffi_converter_name(field)).lower($(field_name(field, i)));
+                        final $(field_name(field, i))_buffer = $(field_ffi_converter_name(field, type_helper.get_ci())).lower($(field_name(field, i)));
                         final $(field_name(field, i))_int = $(field_name(field, i))_buffer.asUint8List().buffer.asByteData().getInt32(0);
                         buf.buffer.asByteData(new_offset).setInt32(0, $(field_name(field, i))_int);
                         new_offset += 4;
                     )
                 } else {
                     quote!(
-                        new_offset += $(field_ffi_converter_name(field)).write($(field_name(field, i)), Uint8List.view(buf.buffer, new_offset));
+                        new_offset += $(field_ffi_converter_name(field, type_helper.get_ci())).write($(field_name(field, i)), Uint8List.view(buf.buffer, new_offset));
                     )
                 }
             }).collect();
@@ -364,7 +376,7 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
             });
         }
 
-        let is_error_enum = type_helper.get_ci().is_name_used_as_error(obj.name());
+        let is_error_enum = type_helper.get_ci().is_used_as_error(obj);
         let implements_exception =
             if is_error_enum { quote!( implements Exception) } else { quote!() };
 
