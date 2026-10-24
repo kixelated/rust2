@@ -209,7 +209,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: String::new(),
 			owner: Some(info.sym),
 			kind: SymKind::Method { instance: true },
-			order: (0, 0),
+			order: 0,
+			instance: String::new(),
 			name: String::new(),
 		});
 		self.program.methods.entry(info.sym).or_default().push(ts::Function {

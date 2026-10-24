@@ -37,6 +37,16 @@ roots = [
     "pending_output",
     "tested",
     "replace_pinned",
+    "cycled",
+    "folds",
+    "backs",
+    "zipped",
+    "keyed",
+    "hinted",
+    "fused",
+    "drained",
+    "counted",
+    "looped",
     "missing",
 ]
 printable = ["Meters"]

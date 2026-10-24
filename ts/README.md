@@ -46,7 +46,8 @@ it finds; translation still fails on any refusal.
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
 with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with ownership and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
+and async in `rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -60,6 +61,8 @@ runtime: what std does that JS does not, with ownership and async in `rt/task.ts
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
+| an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
+| `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
@@ -83,6 +86,15 @@ prints it. A caller prints a `printable` type as `to_string()` and `format!("{er
 would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`.
 
+An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
+iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
+are `rt.Iter` methods, lazy and short-circuiting as std's are, and call their closures in
+the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
+array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
+counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
+std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or iterates
+an `rt.Iter` with `for ... of`.
+
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
 `roundtripLite$Group` or `get$Wrap_Pair`. Types are translated once, generically, so a
@@ -104,6 +116,12 @@ generator returns through the `finally` blocks that drop its locals and captures
 `rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
 microtask and yielding to a macrotask after 128 polls.
 
+A file's items, and a class's or companion's methods, follow the Rust source, whatever
+order translation reaches them in, so adding a root moves nothing it does not reach.
+What a macro makes sits where the macro is called. The instances of one function sit
+together, sorted by their suffix (`Pair` in `fmt$Pair`) and then by their full type
+arguments.
+
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
@@ -118,6 +136,11 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
+- Iterators are the runtime's lazy classes rather than generators or ES iterator
+  helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
+  (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
+  nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
+  and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
   come from its scopes, and async bodies are generators: MIR state machines were about
   twice as fast per await level, but read as basic blocks and would need a second
@@ -133,14 +156,17 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, `char`, statics, async blocks that borrow a number
 mutably and async closures, values that drop as temporaries not moved whole, in a
-closure's captures, in a `for` loop, in an enum, tuple, or generic `Drop` type, borrowed
+closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, borrowed
 in an `Arc` or `Mutex`, or moved ahead of an `.await` in the same call or assignment
-([Drop](/quest/m2/ts-drop.md)), iterator adaptors (`for` over ranges, slices, arrays, and
-`Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
-and widths from arguments), writing to a `String` with `write!`, a `move` closure
-copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
-pointee, assigning an `Arc`, a waker, or a future through a reference, and std functions
-without a mapping in `src/lower/library.rs`.
+([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
+a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
+`impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
+let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
+format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
+`String` with `write!`, a `move` closure copying a mutable variable, `mem::swap`,
+`replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, or a
+future through a reference, and std functions without a mapping in
+`src/lower/library.rs`.
 
 ## Tests
 
@@ -157,11 +183,12 @@ built natively for wasm32 and run beside its translation on the same inputs by
 `tests/differential.ts`, which fails on any difference in output or panic messages.
 
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
-  and writes its errors' `Display` and `Debug`.
+  and writes its errors' `Display` and `Debug`. It is also translated without
+  `bench::run` and then with it as the first root, which must keep every line in order.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, formatting, and methods on generic types. Its differential test runs
-  through `caller.ts`, a hand-written caller that also prints a `printable` error nothing
-  translated prints.
+  `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
+  that log what each adaptor reads. Its differential test runs through `caller.ts`, a
+  hand-written caller that also prints a `printable` error nothing translated prints.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
@@ -179,9 +206,10 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 ```
 
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
-(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision. Each runs
-four ways: natively, as wasm32 at moq-wasm's size-optimized profile, as moq's
-hand-written `js/net` (`bench/moq.ts`), and translated; every route's output must match
+(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, and
+iterator chains over bytes. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
+helpers in `bench/iter.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and

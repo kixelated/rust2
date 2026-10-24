@@ -55,7 +55,7 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	for (target, names) in &bindings.imports {
 		let names: Vec<String> = names
 			.iter()
-			.map(|(sym, (binding, value))| {
+			.map(|(sym, binding, value)| {
 				let name = &program.syms[*sym].name;
 				let kind = if *value { "" } else { "type " };
 				match binding == name {
@@ -122,9 +122,9 @@ fn relative(from: &Path, to: &Path) -> PathBuf {
 struct Bindings {
 	/// A local binding for each top-level symbol the module names.
 	names: HashMap<SymId, String>,
-	/// For each module imported from: each symbol, its binding, and whether it is used as
-	/// a value rather than only as a type.
-	imports: BTreeMap<ModPath, BTreeMap<SymId, (String, bool)>>,
+	/// For each module imported from: each symbol, in that module's order, its binding, and
+	/// whether it is used as a value rather than only as a type.
+	imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>>,
 }
 
 impl Bindings {
@@ -143,13 +143,14 @@ impl Bindings {
 			}
 		}
 
-		let mut imports: BTreeMap<ModPath, BTreeMap<SymId, (String, bool)>> = BTreeMap::new();
+		let mut imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>> = BTreeMap::new();
 		let mut foreign: Vec<(SymId, bool)> = refs
 			.used
 			.into_iter()
 			.filter(|(id, _)| &program.syms[*id].module != module)
 			.collect();
-		foreign.sort();
+		let key = |id: SymId| (&program.syms[id].module, program.syms[id].key());
+		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
 			let mut binding = sym.name.clone();
@@ -167,7 +168,7 @@ impl Bindings {
 			imports
 				.entry(sym.module.clone())
 				.or_default()
-				.insert(id, (binding, value));
+				.push((id, binding, value));
 		}
 		Self { names, imports }
 	}

@@ -9,6 +9,7 @@ mod body;
 mod consts;
 mod drop;
 mod fmt;
+mod iter;
 mod library;
 mod num;
 mod pat;
@@ -504,7 +505,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			Owner::Module => (None, SymKind::Function),
 		};
 		let base = camel(tcx.item_name(def_id).as_str());
-		let order = self.order(tcx.def_span(def_id));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(def_id),
 			base: match owner {
@@ -514,7 +514,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: self.suffix(instance),
 			owner: owner_sym,
 			kind,
-			order,
+			order: self.order(tcx.def_span(def_id)),
+			// Without trimmed paths, which rustc computes only for a diagnostic.
+			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
 		});
 		self.instances.insert(instance, sym);
@@ -609,12 +611,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect()
 	}
 
-	pub fn order(&mut self, span: Span) -> (u32, u32) {
-		let span = span.source_callsite();
-		let sm = self.tcx.sess.source_map();
-		let file = sm.lookup_source_file(span.lo());
-		let index = self.source(&file).unwrap_or(u32::MAX);
-		(index, (span.lo() - file.start_pos).0)
+	/// Where `span` is written, for sorting: where its macro is called, for an item a
+	/// macro makes.
+	pub fn order(&self, span: Span) -> u32 {
+		span.source_callsite().lo().0
 	}
 
 	fn source(&mut self, file: &rustc_span::SourceFile) -> Option<u32> {
@@ -708,14 +708,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Class { .. } => SymKind::Class,
 			_ => SymKind::Union { companion: false },
 		};
-		let order = self.order(tcx.def_span(did));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(did),
 			base: tcx.item_name(did).to_string(),
 			suffix: String::new(),
 			owner: None,
 			kind,
-			order,
+			order: self.order(tcx.def_span(did)),
+			instance: String::new(),
 			name: String::new(),
 		});
 		let mut info = Adt { sym, repr };
@@ -827,7 +827,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::MutexGuard
 					| library::Std::Waker
 					| library::Std::Context
-					| library::Std::Pin,
+					| library::Std::Pin
+					| library::Std::Range
+					| library::Std::RangeInclusive
+					| library::Std::Peekable,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -975,7 +978,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Poll", vec![self.ty(inner, span)])
 				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
+				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
+				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Peekable => {
+					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
+					Type::Rt("Peekable", vec![self.item_ty(item, span)])
+				}
 			};
+		}
+		// Every other iterator std has is an `rt.Iter` of its items.
+		if !adt.did().is_local()
+			&& let Some(item) = self.iter_item(Ty::new_adt(tcx, adt, args))
+		{
+			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
 		if !adt.did().is_local() {
 			self.err(
@@ -987,6 +1002,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let info = self.adt(adt, span);
 		let args = args.types().map(|t| self.ty(t, span)).collect();
 		Type::Sym(info.sym, args)
+	}
+
+	/// The type of an iterator's items, which every iterator has.
+	fn item_ty(&mut self, item: Option<Ty<'tcx>>, span: Span) -> Type {
+		match item {
+			Some(item) => self.ty(item, span),
+			None => {
+				self.err(span, "an iterator without an item type");
+				Type::Builtin("unknown")
+			}
+		}
 	}
 
 	/// Which of the values `Option` and `Poll` erase to a `ty`'s JS value can already be,

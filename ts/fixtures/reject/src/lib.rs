@@ -36,8 +36,8 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
-pub fn iterators(v: &[u8]) -> usize {
-	v.iter().filter(|b| **b > 1).count()
+pub fn iterators(v: &[u8]) -> bool {
+	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -259,4 +259,128 @@ pub fn tested() -> u8 {
 /// A `Pin` is its pointer in JS: replacing the `Arc` would reach every clone.
 pub fn replace_pinned(dst: &mut std::pin::Pin<std::sync::Arc<u8>>, src: std::pin::Pin<std::sync::Arc<u8>>) {
 	*dst = src;
+}
+
+/// An adaptor without a mapping.
+pub fn cycled(v: &[u8]) -> usize {
+	v.iter().cycle().take(3).count()
+}
+
+/// An iterator whose `fold` std's adaptors would call in place of its `next`.
+pub struct Folds;
+
+impl Iterator for Folds {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn fold<B, F: FnMut(B, u8) -> B>(self, init: B, _f: F) -> B {
+		init
+	}
+}
+
+pub fn folds() -> usize {
+	Folds.map(|b| b + 1).count()
+}
+
+/// An iterator with a `next_back`, which an adaptor over it would need.
+pub struct Backs;
+
+impl Iterator for Backs {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl DoubleEndedIterator for Backs {
+	fn next_back(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+pub fn backs() -> usize {
+	Backs.rev().count()
+}
+
+/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
+/// through `next`, which calls the first side's closure once more.
+pub fn zipped(a: &[u8], b: &[u8]) -> usize {
+	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
+}
+
+/// JS compares objects by identity, not by `PartialOrd`.
+#[derive(PartialEq, PartialOrd)]
+pub struct Key(pub u8);
+
+pub fn keyed(range: std::ops::Range<Key>) -> bool {
+	range.contains(&Key(2))
+}
+
+/// An iterator whose `size_hint` std's `collect` calls beside its `next`.
+pub struct Hinted;
+
+impl Iterator for Hinted {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, Some(0))
+	}
+}
+
+pub fn hinted() -> Vec<u8> {
+	Hinted.collect()
+}
+
+/// An iterator that `fuse` reads on past its end, since it says it stays ended.
+pub struct Fused;
+
+impl Iterator for Fused {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl std::iter::FusedIterator for Fused {}
+
+pub fn fused() -> usize {
+	Fused.fuse().count()
+}
+
+/// The items `next` leaves drop with the iterator, which an `rt.Iter` never drops.
+pub fn drained(v: Vec<Noisy>) -> Option<Noisy> {
+	v.into_iter().next()
+}
+
+/// `count` drops each item it consumes.
+pub fn counted() -> usize {
+	(0..2).map(Noisy).count()
+}
+
+/// An iterator that drops, after the loop.
+pub struct Countdown(pub Noisy);
+
+impl Iterator for Countdown {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+pub fn looped(c: Countdown) -> u8 {
+	let mut n = 0;
+	for i in c {
+		n += i;
+	}
+	n
 }
