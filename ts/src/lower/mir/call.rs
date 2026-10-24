@@ -15,7 +15,14 @@ use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
-	pub(super) fn call(&mut self, func: &Operand<'tcx>, args: &[Spanned<Operand<'tcx>>], dest: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) {
+	pub(super) fn call(
+		&mut self,
+		func: &Operand<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		dest: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) {
 		let tcx = self.tcx;
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
 		let mut pre = Vec::new();
@@ -63,7 +70,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// Arguments, uncopied: a callee that changes a parameter in place copies it first.
 	fn operands(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Vec<Expr> {
 		let saved = std::mem::replace(&mut self.into_frozen, true);
-		let values = args.iter().map(|arg| self.operand_frozen(&arg.node, span, out)).collect();
+		let values = args
+			.iter()
+			.map(|arg| self.operand_frozen(&arg.node, span, out))
+			.collect();
 		self.into_frozen = saved;
 		values
 	}
@@ -77,7 +87,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// A call of `def_id` with `gargs`: the crate's own function, a closure, or std's.
-	fn call_def(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Expr {
+	fn call_def(
+		&mut self,
+		def_id: rustc_hir::def_id::DefId,
+		gargs: GenericArgsRef<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
 		let tcx = self.tcx;
 		// Calling a closure or function value: `FnOnce::call_once(f, (args,))`.
 		if let Some(trait_id) = tcx.trait_of_assoc(def_id)
@@ -93,11 +110,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let ty::Tuple(tys) = gargs.type_at(1).kind() else {
 						return self.err(span, "a closure call whose arguments are not a tuple");
 					};
-					(0..tys.len()).map(|i| tuple.clone().index(Expr::lit(i.to_string()))).collect()
+					(0..tys.len())
+						.map(|i| tuple.clone().index(Expr::lit(i.to_string())))
+						.collect()
 				}
 			};
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
-				return self.b.call_def(inner, inner_args.skip_binder(), Args::Values(values), span, out);
+				return self
+					.b
+					.call_def(inner, inner_args.skip_binder(), Args::Values(values), span, out);
 			}
 			let f = self.operand(&callee.node, span, out);
 			return f.call(values);
@@ -212,7 +233,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
 				let end = end.unwrap_or_else(|| s.clone().member("length"));
 				let dest = self.operand(&args[2].node, span, out);
-				done(Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest]), true)
+				done(
+					Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest]),
+					true,
+				)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
@@ -253,7 +277,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Arguments", "new") => {
 				let Some(template) = self.const_bytes(&args[0].node) else {
-					self.err(span, format!("an unexpected `format_args!` lowering: {:?}", args[0].node));
+					self.err(
+						span,
+						format!("an unexpected `format_args!` lowering: {:?}", args[0].node),
+					);
 					return done(Expr::undefined(), false);
 				};
 				let values = self.operand(&args[1].node, span, out);
@@ -418,7 +445,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The start and optional end of a range: `a..b`, `..b`, `a..`, or `..`.
-	fn range_bounds(&mut self, op: &Operand<'tcx>, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<(Expr, Option<Expr>)> {
+	fn range_bounds(
+		&mut self,
+		op: &Operand<'tcx>,
+		ty: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<(Expr, Option<Expr>)> {
 		let tcx = self.tcx;
 		let ty::Adt(adt, _) = ty.kind() else {
 			return None;
@@ -504,7 +537,13 @@ fn residual<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Std> {
 }
 
 /// The test that `scrut`, a `ControlFlow`, is `Continue` (variant 0) or `Break`.
-pub fn control_flow_test<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, scrut: &Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
+pub fn control_flow_test<'tcx>(
+	fx: &mut Fx<'_, '_, '_, 'tcx>,
+	scrut: &Expr,
+	ty: Ty<'tcx>,
+	variant: VariantIdx,
+	span: Span,
+) -> Expr {
 	let continues = variant.index() == 0;
 	match residual(fx.tcx, ty) {
 		Some(Std::Result) => match continues {
@@ -521,7 +560,13 @@ pub fn control_flow_test<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, scrut: &Expr, ty: 
 
 /// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s residual, which is the
 /// value `?` was applied to.
-pub fn control_flow_field<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, base: Expr, ty: Ty<'tcx>, variant: Option<VariantIdx>, span: Span) -> Expr {
+pub fn control_flow_field<'tcx>(
+	fx: &mut Fx<'_, '_, '_, 'tcx>,
+	base: Expr,
+	ty: Ty<'tcx>,
+	variant: Option<VariantIdx>,
+	span: Span,
+) -> Expr {
 	let continues = variant.is_none_or(|v| v.index() == 0);
 	match (residual(fx.tcx, ty), continues) {
 		(Some(Std::Result), true) => base.member("value"),
@@ -533,7 +578,13 @@ pub fn control_flow_field<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, base: Expr, ty: T
 }
 
 /// A `ControlFlow` made in place.
-pub fn control_flow<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>, variant: VariantIdx, mut values: Vec<Expr>, span: Span) -> Expr {
+pub fn control_flow<'tcx>(
+	fx: &mut Fx<'_, '_, '_, 'tcx>,
+	ty: Ty<'tcx>,
+	variant: VariantIdx,
+	mut values: Vec<Expr>,
+	span: Span,
+) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
 	match (residual(fx.tcx, ty), variant.index()) {
 		(Some(Std::Result), 0) => Expr::rt("Ok", vec![value]),

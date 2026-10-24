@@ -142,7 +142,7 @@ export class Guard {
 
 /**
  * Every value until the channel closes, summed, holding a guard of its own across
- * each await beside the one it was given.
+ * each await beside the one it was given. It panics on 99.
  */
 export function sum(rx: Consumer, guard: Guard): rt.Future<rt.u64> {
 	return rt.future(sumBody, sumDrop, rx, guard);
@@ -176,6 +176,9 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer, guard: Guard): 
 					}
 					if (option !== undefined) {
 						const value = option;
+						if (value === 99) {
+							rt.panic(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " poisoned"]);
+						}
 						inner.log.note(rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " got ", (f: rt.Formatter) => rt.u64.display(value, f)]));
 						total = rt.u64.add(total, value);
 					} else {

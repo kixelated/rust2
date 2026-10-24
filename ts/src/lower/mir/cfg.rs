@@ -308,7 +308,15 @@ fn dispatch(g: &Graph, shape: &Shape, lower: &mut impl Lower, labels: &mut u32, 
 		d.chain(node, &mut body);
 		cases.push((Expr::lit(node.to_string()), body));
 	}
-	out.push(StmtKind::decl(true, var.clone(), Some(crate::ts::Type::Builtin("number")), Some(Expr::lit("0"))).at(None));
+	out.push(
+		StmtKind::decl(
+			true,
+			var.clone(),
+			Some(crate::ts::Type::Builtin("number")),
+			Some(Expr::lit("0")),
+		)
+		.at(None),
+	);
 	out.push(
 		StmtKind::While {
 			label: Some(label.clone()),
@@ -402,9 +410,10 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 	let mut i = 0;
 	while i < stmts.len() {
 		let unused = match &stmts[i].kind {
-			StmtKind::Block { label: Some(l), body } | StmtKind::While { label: Some(l), body, .. } => {
-				!targets(body, l)
-			}
+			StmtKind::Block { label: Some(l), body }
+			| StmtKind::While {
+				label: Some(l), body, ..
+			} => !targets(body, l),
 			_ => false,
 		};
 		if unused {
@@ -439,7 +448,9 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 			std::mem::swap(then, els);
 		}
 	}
-	stmts.retain(|s| !matches!(&s.kind, StmtKind::If { then, els, cond } if then.is_empty() && els.is_empty() && pure(cond)));
+	stmts.retain(
+		|s| !matches!(&s.kind, StmtKind::If { then, els, cond } if then.is_empty() && els.is_empty() && pure(cond)),
+	);
 }
 
 /// Whether evaluating `e` does nothing but read.

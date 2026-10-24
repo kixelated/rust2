@@ -15,7 +15,13 @@ use crate::ts::{self, Expr, Key, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The value of `rvalue`, assigned to `dest`, or `None` if it has none to assign.
-	pub(super) fn rvalue(&mut self, rvalue: &Rvalue<'tcx>, dest: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+	pub(super) fn rvalue(
+		&mut self,
+		rvalue: &Rvalue<'tcx>,
+		dest: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
 		let tcx = self.tcx;
 		let ty = rvalue.ty(&self.mir.local_decls, tcx);
 		Some(match rvalue {
@@ -95,7 +101,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let Operand::Constant(c) = op else {
 			return None;
 		};
-		let mir::Const::Val(mir::ConstValue::Scalar(rustc_middle::mir::interpret::Scalar::Int(int)), ty) = c.const_ else {
+		let mir::Const::Val(mir::ConstValue::Scalar(rustc_middle::mir::interpret::Scalar::Int(int)), ty) = c.const_
+		else {
 			return None;
 		};
 		let i = Int::of(ty)?;
@@ -113,7 +120,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		let elem_ty = op.ty(&self.mir.local_decls, tcx);
 		if self.b.t.drops(elem_ty) {
-			return self.err(span, "an array repeat of a value that drops, which is not supported yet");
+			return self.err(
+				span,
+				"an array repeat of a value that drops, which is not supported yet",
+			);
 		}
 		let v = self.operand(op, span, out);
 		match elem_ty.kind() {
@@ -357,7 +367,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// A closure that captures nothing, as an arrow function.
-	pub(super) fn bare_closure(&mut self, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>, span: Span) -> Expr {
+	pub(super) fn bare_closure(
+		&mut self,
+		def_id: rustc_hir::def_id::DefId,
+		args: ty::GenericArgsRef<'tcx>,
+		span: Span,
+	) -> Expr {
 		self.closure(def_id, args, &IndexVec::new(), span, &mut Vec::new())
 	}
 
@@ -424,7 +439,15 @@ pub fn effect<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 			Int::of(ty.peel_refs()).is_some()
 				&& !matches!(
 					op,
-					BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor
+					BinOp::Eq
+						| BinOp::Ne
+						| BinOp::Lt
+						| BinOp::Le
+						| BinOp::Gt
+						| BinOp::Ge
+						| BinOp::BitAnd
+						| BinOp::BitOr
+						| BinOp::BitXor
 				)
 		}
 		Rvalue::UnaryOp(UnOp::Neg, _) => true,
@@ -435,7 +458,10 @@ pub fn effect<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 /// Whether evaluating `rvalue` reads memory that something else could change.
 pub fn memory<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 	let place = |p: &Place<'tcx>| {
-		!p.projection.is_empty() || fx.borrowed[p.local] || matches!(fx.slots[p.local], Slot::Alias(_)) || p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain | Env::Shim)
+		!p.projection.is_empty()
+			|| fx.borrowed[p.local]
+			|| matches!(fx.slots[p.local], Slot::Alias(_))
+			|| p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain | Env::Shim)
 	};
 	let operand = |op: &Operand<'tcx>| match op {
 		Operand::Copy(p) | Operand::Move(p) => place(p),

@@ -178,7 +178,11 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	let drop = tcx.optimized_mir(def_id).coroutine_drop().cloned();
 	let body: Vec<Stmt> = match drop {
 		Some(drop) => {
-			let mir = instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, drop));
+			let mir = instance.instantiate_mir_and_normalize_erasing_regions(
+				tcx,
+				t.typing_env_pub(),
+				EarlyBinder::bind(tcx, drop),
+			);
 			let mut b = Body::detached(t, args, tcx.types.unit);
 			let mut fx = Fx::new(&mut b, &mir, Env::Coroutine(info.clone()), span);
 			fx.lower()

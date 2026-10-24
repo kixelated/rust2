@@ -62,10 +62,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// A field of an aggregate made once and never changed is its operand: a
 			// reference, which borrow checking keeps as it was, or a path that stays put.
-			(_, _) if let Some(parts) = self.var_parts.get(&place.local)
-				&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
-				&& let Some(part) = parts.get(field.as_usize())
-				&& (matches!(field_ty.kind(), ty::Ref(..)) || part.is_constant() || matches!(part, Expr::Ident(_))) =>
+			(_, _)
+				if let Some(parts) = self.var_parts.get(&place.local)
+					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
+					&& let Some(part) = parts.get(field.as_usize())
+					&& (matches!(field_ty.kind(), ty::Ref(..))
+						|| part.is_constant()
+						|| matches!(part, Expr::Ident(_))) =>
 			{
 				let part = part.clone();
 				let elem = *projection.peek().unwrap();
@@ -144,7 +147,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					e = base.member(method).call(vec![Expr::lit(from.to_string()), end]);
 				}
-				ProjectionElem::OpaqueCast(_) | ProjectionElem::UnwrapUnsafeBinder(_) | ProjectionElem::PhantomDeref => {}
+				ProjectionElem::OpaqueCast(_)
+				| ProjectionElem::UnwrapUnsafeBinder(_)
+				| ProjectionElem::PhantomDeref => {}
 			}
 			pty = pty.projection_ty(tcx, elem);
 		}
@@ -172,7 +177,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					0 => base.member("value"),
 					_ => base.member("error"),
 				},
-				Some(Std::Range | Std::RangeInclusive) => base.member(adt.non_enum_variant().fields[field].name.as_str()),
+				Some(Std::Range | Std::RangeInclusive) => {
+					base.member(adt.non_enum_variant().fields[field].name.as_str())
+				}
 				Some(Std::Context | Std::NonNull) => base,
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant, span),
 				_ if transparent(self.b.t, ty) => base,
@@ -236,14 +243,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
 			let target = self.local_expr(place.local, span);
 			let e = match self.b.t.object_kind(pointee) {
-				Some(ObjectKind::Class) if !shared(self, pointee) => Expr::ident("Object").member("assign").call(vec![target, value]),
+				Some(ObjectKind::Class) if !shared(self, pointee) => {
+					Expr::ident("Object").member("assign").call(vec![target, value])
+				}
 				Some(ObjectKind::Bytes) => target.member("set").call(vec![value]),
 				_ => {
-					return vec![StmtKind::Expr(self.err(
-						span,
-						format!("an assignment through a reference to `{pointee}`"),
-					))
-					.at(None)];
+					return vec![
+						StmtKind::Expr(self.err(span, format!("an assignment through a reference to `{pointee}`")))
+							.at(None),
+					];
 				}
 			};
 			out.push(StmtKind::Expr(e).at(None));
@@ -273,7 +281,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		match ty.kind() {
 			ty::Coroutine(def_id, args) => {
 				let info = super::coroutine::info(self.b.t, *def_id, args, span);
-				scrut.clone().field(info.state).binary("===", Expr::lit(value.to_string()))
+				scrut
+					.clone()
+					.field(info.state)
+					.binary("===", Expr::lit(value.to_string()))
 			}
 			ty::Adt(adt, _) if adt.is_enum() => {
 				let Some((index, _)) = adt.discriminants(tcx).find(|(_, d)| d.val == value) else {
@@ -357,7 +368,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(values),
 					_ => Expr::Array(values),
 				},
-				ty::Adt(adt, args) => self.adt(adt.did(), d.variant.unwrap_or(rustc_abi::FIRST_VARIANT), args, values, ty, span),
+				ty::Adt(adt, args) => self.adt(
+					adt.did(),
+					d.variant.unwrap_or(rustc_abi::FIRST_VARIANT),
+					args,
+					values,
+					ty,
+					span,
+				),
 				_ => unreachable!(),
 			};
 		}
@@ -469,7 +487,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let (prov, offset) = ptr.prov_and_relative_offset();
 		let alloc = tcx.global_alloc(prov.alloc_id()).unwrap_memory();
 		let start = offset.bytes() as usize;
-		Some(alloc.inner().inspect_with_uninit_and_ptr_outside_interpreter(start..start + len).to_vec())
+		Some(
+			alloc
+				.inner()
+				.inspect_with_uninit_and_ptr_outside_interpreter(start..start + len)
+				.to_vec(),
+		)
 	}
 }
 
@@ -482,7 +505,10 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 	};
 	let path = crate::lower::library::std_path(t.tcx, adt.did());
 	let path: Vec<&str> = path.iter().map(String::as_str).collect();
-	matches!(path.as_slice(), ["future", "ResumeTy"] | ["ptr", "non_null", "NonNull"] | ["future", _, "ResumeTy"])
+	matches!(
+		path.as_slice(),
+		["future", "ResumeTy"] | ["ptr", "non_null", "NonNull"] | ["future", _, "ResumeTy"]
+	)
 }
 
 /// Whether the JS object of a `ty` is shared or private, so that copying fields into it

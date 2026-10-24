@@ -163,7 +163,13 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		self.labels = labels;
 		self.in_cleanup = None;
 		vec![
-			StmtKind::decl(true, unwind.var.clone(), Some(Type::Builtin("number")), Some(Expr::lit("0"))).at(None),
+			StmtKind::decl(
+				true,
+				unwind.var.clone(),
+				Some(Type::Builtin("number")),
+				Some(Expr::lit("0")),
+			)
+			.at(None),
 			StmtKind::Catch {
 				body,
 				name: unwind.caught,

@@ -280,7 +280,9 @@ impl Refs {
 					self.stmts(program, body);
 					self.stmts(program, handler);
 				}
-				StmtKind::Switch { disc, cases, default, .. } => {
+				StmtKind::Switch {
+					disc, cases, default, ..
+				} => {
 					self.expr(program, disc);
 					for (value, body) in cases {
 						self.expr(program, value);
@@ -1211,7 +1213,9 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				out.push(name.clone());
 				collect_locals(handler, out);
 			}
-			StmtKind::Switch { disc, cases, default, .. } => {
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
 				collect_expr_locals(disc, out);
 				for (value, body) in cases {
 					collect_expr_locals(value, out);

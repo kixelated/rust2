@@ -243,8 +243,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn analyze(&mut self) {
 		let mir = self.mir;
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
-			if data.statements.iter().all(|s| matches!(s.kind, StatementKind::StorageDead(_) | StatementKind::StorageLive(_) | StatementKind::Nop))
-				&& matches!(data.terminator().kind, TerminatorKind::Unreachable)
+			if data.statements.iter().all(|s| {
+				matches!(
+					s.kind,
+					StatementKind::StorageDead(_) | StatementKind::StorageLive(_) | StatementKind::Nop
+				)
+			}) && matches!(data.terminator().kind, TerminatorKind::Unreachable)
 			{
 				self.unreachable.insert(bb);
 			}
@@ -277,7 +281,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				TerminatorKind::Return => self.uses[mir::RETURN_PLACE] += 1,
 				TerminatorKind::Drop { place, .. } => self.place_use(*place),
 				TerminatorKind::Call {
-					func, args, destination, ..
+					func,
+					args,
+					destination,
+					..
 				} => {
 					self.operand_use(func);
 					for arg in args.iter() {
@@ -321,7 +328,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(String::new())
 			};
 			if std::env::var_os("RUST2_TS_DEBUG").is_some() {
-				eprintln!("{:?} {local:?}: {slot:?} defs {} uses {} borrowed {} mutated {} def {:?}", mir.source.def_id(), self.defs[local], self.uses[local], self.borrowed[local], self.mutated[local], self.def_rvalue(local));
+				eprintln!(
+					"{:?} {local:?}: {slot:?} defs {} uses {} borrowed {} mutated {} def {:?}",
+					mir.source.def_id(),
+					self.defs[local],
+					self.uses[local],
+					self.borrowed[local],
+					self.mutated[local],
+					self.def_rvalue(local)
+				);
 			}
 			self.slots[local] = slot;
 		}
@@ -447,7 +462,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.
 	fn box_pointer(&self, local: Local) -> bool {
-		matches!(self.def_rvalue(local), Some(Rvalue::Cast(mir::CastKind::BoxDerefTransmute, ..)))
+		matches!(
+			self.def_rvalue(local),
+			Some(Rvalue::Cast(mir::CastKind::BoxDerefTransmute, ..))
+		)
 	}
 
 	/// Whether `local` is a parameter.
@@ -470,15 +488,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// unless the path to it goes through a reference held in a field or element,
 			// which can be replaced while the borrow lives.
 			(ty::Ref(..), Rvalue::Ref(_, _, place)) => {
-				self.stable(*place) && place.projection.iter().skip(1).all(|e| !matches!(e, mir::ProjectionElem::Deref))
+				self.stable(*place)
+					&& place
+						.projection
+						.iter()
+						.skip(1)
+						.all(|e| !matches!(e, mir::ProjectionElem::Deref))
 			}
 			// A copy of a reference, or a box's pointer: the place it is read from must not
 			// change at all.
-			(ty::Ref(..), Rvalue::Use(Operand::Copy(place) | Operand::Move(place), _) | Rvalue::CopyForDeref(place))
-			| (ty::RawPtr(..), Rvalue::Cast(mir::CastKind::BoxDerefTransmute, Operand::Copy(place) | Operand::Move(place), _)) => {
+			(
+				ty::Ref(..),
+				Rvalue::Use(Operand::Copy(place) | Operand::Move(place), _) | Rvalue::CopyForDeref(place),
+			)
+			| (
+				ty::RawPtr(..),
+				Rvalue::Cast(mir::CastKind::BoxDerefTransmute, Operand::Copy(place) | Operand::Move(place), _),
+			) => {
 				self.stable(*place)
 					&& !self.mutated[place.local]
-					&& place.projection.iter().all(|e| !matches!(e, mir::ProjectionElem::Deref))
+					&& place
+						.projection
+						.iter()
+						.all(|e| !matches!(e, mir::ProjectionElem::Deref))
 			}
 			_ => false,
 		}
@@ -559,7 +591,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				&& let Slot::Var(name) = &self.slots[local]
 			{
 				let name = name.clone();
-				entry.push(StmtKind::Expr(Expr::ident(&name).assign(Expr::rt("copy", vec![Expr::ident(&name)]))).at(None));
+				entry.push(
+					StmtKind::Expr(Expr::ident(&name).assign(Expr::rt("copy", vec![Expr::ident(&name)]))).at(None),
+				);
 			}
 		}
 		let n = self.mir.basic_blocks.len();
@@ -572,7 +606,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			succs[bb.as_usize()] = match self.redirect.get(&bb) {
 				Some(&to) => vec![to.as_usize()],
-				None => self.successors(data.terminator()).into_iter().map(BasicBlock::as_usize).collect(),
+				None => self
+					.successors(data.terminator())
+					.into_iter()
+					.map(BasicBlock::as_usize)
+					.collect(),
 			};
 		}
 		let graph = cfg::Graph { succs };
@@ -729,7 +767,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for stmt in &stmts {
 			scan_stmt(stmt, &mut reads, false);
 		}
-		let names: FxHashMap<&str, usize> = self.pending.iter().enumerate().map(|(i, p)| (p.name.as_str(), i)).collect();
+		let names: FxHashMap<&str, usize> = self
+			.pending
+			.iter()
+			.enumerate()
+			.map(|(i, p)| (p.name.as_str(), i))
+			.collect();
 		let mut count = vec![0u32; self.pending.len()];
 		let mut deferred = vec![false; self.pending.len()];
 		for read in &reads {
@@ -768,7 +811,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		// What stays pending past this statement, and what must run before it.
-		let first_folded = (0..self.pending.len()).filter(|&i| fold[i]).map(|i| self.pending[i].order).min();
+		let first_folded = (0..self.pending.len())
+			.filter(|&i| fold[i])
+			.map(|i| self.pending[i].order)
+			.min();
 		let mut flush = Vec::new();
 		for (i, p) in self.pending.iter().enumerate() {
 			if fold[i] {
@@ -832,7 +878,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn materialize(&mut self, e: &Expr, out: &mut Vec<Stmt>) {
 		let mut names = Vec::new();
 		reads_of(e, &mut names);
-		let Some(last) = self.pending.iter().filter(|p| names.contains(&p.name)).map(|p| p.order).max() else {
+		let Some(last) = self
+			.pending
+			.iter()
+			.filter(|p| names.contains(&p.name))
+			.map(|p| p.order)
+			.max()
+		else {
 			return;
 		};
 		let pending = std::mem::take(&mut self.pending);
@@ -904,7 +956,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Assign `value` to the local `local` now, or hold it back.
-	fn set_local(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<Expr>>, out: &mut Vec<Stmt>) {
+	fn set_local(
+		&mut self,
+		local: Local,
+		value: Expr,
+		effect: bool,
+		memory: bool,
+		parts: Option<Vec<Expr>>,
+		out: &mut Vec<Stmt>,
+	) {
 		match self.slots[local].clone() {
 			Slot::Var(name) => {
 				if self.uses[local] == 0 {
@@ -1089,7 +1149,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					true => None,
 					false => {
 						let mut pre = Vec::new();
-						let value = self.operand(&Operand::Move(Place::return_place()), span, &mut pre);
+						// Uncopied: a caller that changes the result in place copies it.
+						let value = self.place_expr(Place::return_place(), span, &mut pre);
 						out.extend(pre);
 						Some(match self.next {
 							true => Expr::Rt("iter").member("fromOption").call(vec![value]),
@@ -1103,7 +1164,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Exit::End
 			}
 			TerminatorKind::Unreachable => {
-				self.emit(vec![StmtKind::Expr(Expr::rt("unreachable", vec![Expr::undefined()])).at(None)], None, false, out);
+				self.emit(
+					vec![StmtKind::Expr(Expr::rt("unreachable", vec![Expr::undefined()])).at(None)],
+					None,
+					false,
+					out,
+				);
 				Exit::End
 			}
 			TerminatorKind::SwitchInt { discr, targets } => self.switch(discr, targets, span, out),
@@ -1192,11 +1258,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => None,
 		};
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
-			Some(Slot::Discr(Some((scrut, ty)))) => {
-				arms.iter()
-					.map(|&(value, target)| (self.variant_test(&scrut, ty, value, span), target))
-					.collect()
-			}
+			Some(Slot::Discr(Some((scrut, ty)))) => arms
+				.iter()
+				.map(|&(value, target)| (self.variant_test(&scrut, ty, value, span), target))
+				.collect(),
 			_ => {
 				let ty = discr.ty(&self.mir.local_decls, self.tcx);
 				let mut pre = Vec::new();
@@ -1254,7 +1319,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	fn assert(&mut self, cond: &Operand<'tcx>, expected: bool, msg: &mir::AssertMessage<'tcx>, span: Span, out: &mut Vec<Stmt>) {
+	fn assert(
+		&mut self,
+		cond: &Operand<'tcx>,
+		expected: bool,
+		msg: &mir::AssertMessage<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) {
 		// Checked arithmetic already panicked with this message as it made its value.
 		if let Operand::Move(p) | Operand::Copy(p) = cond
 			&& p.projection.len() == 1
@@ -1383,7 +1455,10 @@ impl Fx<'_, '_, '_, '_> {
 /// Whether `place` is part of its local's own value, rather than reached through a
 /// reference or pointer.
 fn own(place: Place<'_>) -> bool {
-	place.projection.iter().all(|e| !matches!(e, mir::ProjectionElem::Deref))
+	place
+		.projection
+		.iter()
+		.all(|e| !matches!(e, mir::ProjectionElem::Deref))
 }
 
 /// What an expression reads, in evaluation order.
@@ -1491,7 +1566,9 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Object(props) => props.iter_mut().any(|(_, e)| subst(e, name, value)),
 		Expr::Member(base, _) => subst(base, name, value),
 		Expr::Index(base, index) => subst(base, name, value) || subst(index, name, value),
-		Expr::Call(f, args) | Expr::New(f, args) => subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value)),
+		Expr::Call(f, args) | Expr::New(f, args) => {
+			subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))
+		}
 		Expr::Method(recv, _, args) => subst(recv, name, value) || args.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
@@ -1536,7 +1613,9 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			body.iter().for_each(|s| scan_reads(s, out));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_reads(s, out)),
-		StmtKind::Switch { disc, cases, default, .. } => {
+		StmtKind::Switch {
+			disc, cases, default, ..
+		} => {
 			reads_of(disc, out);
 			for (v, body) in cases {
 				reads_of(v, out);
