@@ -187,16 +187,14 @@ const BUDGET = 128;
 const queue: { run(): void }[] = [];
 let scheduled = false;
 
+// `scheduled` stays set while a batch runs, so a task it wakes joins the batch rather
+// than queueing a microtask that would run ahead of the macrotask.
 function run(): void {
-	scheduled = false;
-	for (let polls = 0; polls < BUDGET; polls++) {
-		const task = queue.shift();
-		if (task === undefined) return;
-		task.run();
-	}
-	if (queue.length > 0) {
-		scheduled = true;
-		setTimeout(run, 0);
+	try {
+		for (let polls = 0; polls < BUDGET && queue.length > 0; polls++) queue.shift()!.run();
+	} finally {
+		if (queue.length > 0) setTimeout(run, 0);
+		else scheduled = false;
 	}
 }
 
