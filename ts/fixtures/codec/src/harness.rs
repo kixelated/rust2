@@ -3,8 +3,10 @@
 //! exercise and the rest is its input; the output records every result and error, so
 //! the two sides agree only if each step does.
 
-use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, Version, Versions, varint};
-use crate::lite;
+use crate::coding::{
+	BoundsExceeded, Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, Version, Versions, varint,
+};
+use crate::{SessionError, lite};
 
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
@@ -13,7 +15,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 
-	match op % 8 {
+	match op % 9 {
 		0 => decode_script(data, &mut out),
 		1 => encode_script(data, &mut out),
 		2 => zigzag(data, &mut out),
@@ -21,7 +23,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		4 => roundtrip::<Versions>(data, &mut out),
 		5 => roundtrip_lite::<lite::Group>(data, &mut out),
 		6 => roundtrip_lite::<lite::Probe>(data, &mut out),
-		_ => encode_messages(data, &mut out),
+		7 => encode_messages(data, &mut out),
+		_ => errors(data, &mut out),
 	}
 	out
 }
@@ -60,6 +63,26 @@ pub(crate) fn take_u64(data: &[u8]) -> (u64, &[u8]) {
 	let n = data.len().min(8);
 	buf[..n].copy_from_slice(&data[..n]);
 	(u64::from_be_bytes(buf), &data[n..])
+}
+
+/// A decode error's code, then its text.
+fn decode_failed(out: &mut Vec<u8>, err: &DecodeError) {
+	decode_error(out, err);
+	put_text(out, err.to_string(), format!("{err:?}"));
+}
+
+/// An encode error's code, then its text.
+fn encode_failed(out: &mut Vec<u8>, err: &EncodeError) {
+	encode_error(out, err);
+	put_text(out, err.to_string(), format!("{err:?}"));
+}
+
+/// An error's thiserror `Display` and derived `Debug`, which callers see.
+fn put_text(out: &mut Vec<u8>, display: String, debug: String) {
+	out.extend_from_slice(display.as_bytes());
+	out.push(0);
+	out.extend_from_slice(debug.as_bytes());
+	out.push(0);
 }
 
 pub(crate) fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
@@ -123,7 +146,7 @@ fn decode_script(data: &[u8], out: &mut Vec<u8>) {
 		match decode_step(&mut r, step, out) {
 			Ok(()) => out.push(0),
 			Err(err) => {
-				decode_error(out, &err);
+				decode_failed(out, &err);
 				put_usize(out, r.need());
 				break;
 			}
@@ -231,12 +254,12 @@ fn encode_script(data: &[u8], out: &mut Vec<u8>) {
 			}
 		};
 		if let Err(err) = result {
-			encode_error(out, &err);
+			encode_failed(out, &err);
 		}
 	}
 	while let Some(prefix) = prefixes.pop() {
 		if let Err(err) = w.fill(prefix) {
-			encode_error(out, &err);
+			encode_failed(out, &err);
 		}
 	}
 
@@ -274,10 +297,10 @@ fn roundtrip<T: Decode<Form> + Encode<Form>>(data: &[u8], out: &mut Vec<u8>) {
 			let mut buf = Vec::new();
 			match value.encode(&mut Encoder::new(&mut buf, form), form) {
 				Ok(()) => out.extend_from_slice(&buf),
-				Err(err) => encode_error(out, &err),
+				Err(err) => encode_failed(out, &err),
 			}
 		}
-		Err(err) => decode_error(out, &err),
+		Err(err) => decode_failed(out, &err),
 	}
 }
 
@@ -293,10 +316,10 @@ fn roundtrip_lite<T: lite::Message>(data: &[u8], out: &mut Vec<u8>) {
 			let mut buf = Vec::new();
 			match value.encode(&mut Encoder::new(&mut buf, version.into()), version) {
 				Ok(()) => out.extend_from_slice(&buf),
-				Err(err) => encode_error(out, &err),
+				Err(err) => encode_failed(out, &err),
 			}
 		}
-		Err(err) => decode_error(out, &err),
+		Err(err) => decode_failed(out, &err),
 	}
 }
 
@@ -329,7 +352,7 @@ fn encode_messages(data: &[u8], out: &mut Vec<u8>) {
 	let mut buf = Vec::new();
 	match versions.encode(&mut Encoder::new(&mut buf, version.into()), version) {
 		Ok(()) => out.extend_from_slice(&buf),
-		Err(err) => encode_error(out, &err),
+		Err(err) => encode_failed(out, &err),
 	}
 }
 
@@ -342,6 +365,36 @@ fn encode_message<T: lite::Message>(msg: &T, version: lite::Version, out: &mut V
 			put_usize(out, buf.len());
 			out.extend_from_slice(&buf);
 		}
-		Err(err) => encode_error(out, &err),
+		Err(err) => encode_failed(out, &err),
 	}
+}
+
+/// Each error the codec can return, built from the data, as callers see it.
+fn errors(data: &[u8], out: &mut Vec<u8>) {
+	let Some((&selector, data)) = data.split_first() else {
+		return;
+	};
+	let (value, _) = take_u64(data);
+	let err = match selector % 8 {
+		0 => DecodeError::InvalidMessage(value),
+		1 => DecodeError::MessageTooLarge {
+			size: value as usize,
+			max: (value >> 32) as usize,
+		},
+		2 => DecodeError::Session(SessionError::App(value as u16)),
+		3 => DecodeError::Session(SessionError::ProtocolViolation),
+		4 => match String::from_utf8(data.to_vec()) {
+			Ok(_) => DecodeError::Missing,
+			Err(e) => DecodeError::InvalidString(e),
+		},
+		5 => DecodeError::from(BoundsExceeded),
+		6 => {
+			let bounds = BoundsExceeded;
+			put_text(out, bounds.to_string(), format!("{bounds:?} {bounds:#?}"));
+			return;
+		}
+		_ => DecodeError::MalformedAuthToken,
+	};
+	put_text(out, format!("{err} {err:>30}|"), format!("{err:#?}"));
+	decode_failed(out, &err);
 }

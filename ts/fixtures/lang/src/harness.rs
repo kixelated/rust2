@@ -1,7 +1,7 @@
 //! The entry point both sides of the differential test run. The first byte picks a
 //! case and the rest is its input.
 
-use crate::{ints, shapes};
+use crate::{fmt, ints, shapes};
 
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
@@ -10,7 +10,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 23 {
+	match op % 26 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -41,7 +41,12 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		17 => shapes::patterns(data, &mut out),
 		18 => shapes::closures(data, &mut out),
 		19 => shapes::discriminants(data, &mut out),
-		_ => shapes::library(data, &mut out),
+		20 => shapes::library(data, &mut out),
+		21 => fmt::ints(kind, data, &mut out),
+		22 => fmt::strings(data, &mut out),
+		23 => fmt::derived(data, &mut out),
+		24 => fmt::written(data, &mut out),
+		_ => fmt::panics(kind, data, &mut out),
 	}
 	out
 }

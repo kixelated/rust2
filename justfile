@@ -14,8 +14,8 @@ default:
 check:
     quest check
     actionlint
-    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh
-    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh
+    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
+    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
     taplo format --check
     nixfmt --check flake.nix
     cargo fmt --all --check
@@ -29,9 +29,13 @@ test:
     just ts test
     just uniffi test
 
+# Measure Rust build time on the pinned corpus; see bench/build/README.md.
+bench *args:
+    bench/build/run.sh {{ args }}
+
 # Apply formatters without changing program behavior.
 fix:
-    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh
+    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh bench/build/*.sh
     taplo format
     nixfmt flake.nix
     cargo fmt --all

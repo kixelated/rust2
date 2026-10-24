@@ -11,6 +11,7 @@ use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::body::Body;
+use super::fmt;
 use super::num::{self, Int, Operand};
 use crate::ts::{Expr, Stmt, StmtKind};
 
@@ -29,6 +30,18 @@ pub enum Std {
 	Box,
 	FromUtf8Error,
 	TryFromIntError,
+	/// `rt.Formatter`.
+	Formatter,
+	/// `rt.Arguments`: what `format_args!` makes.
+	Arguments,
+	/// `rt.FmtError`.
+	FmtError,
+	/// The `Debug` builders: `rt.DebugStruct` and the like.
+	DebugStruct,
+	DebugTuple,
+	DebugList,
+	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
+	AssertKind,
 }
 
 impl Std {
@@ -53,23 +66,45 @@ impl Std {
 			return Some(Self::Box);
 		}
 		match tcx.item_name(did).as_str() {
-			"FromUtf8Error" => Some(Self::FromUtf8Error),
-			"TryFromIntError" => Some(Self::TryFromIntError),
+			"FromUtf8Error" => return Some(Self::FromUtf8Error),
+			"TryFromIntError" => return Some(Self::TryFromIntError),
+			_ => {}
+		}
+		match std_path(tcx, did)
+			.iter()
+			.map(String::as_str)
+			.collect::<Vec<_>>()
+			.as_slice()
+		{
+			["fmt", "Formatter"] => Some(Self::Formatter),
+			["fmt", "Arguments"] => Some(Self::Arguments),
+			["fmt", "Error"] => Some(Self::FmtError),
+			["fmt", "builders", "DebugStruct"] => Some(Self::DebugStruct),
+			["fmt", "builders", "DebugTuple"] => Some(Self::DebugTuple),
+			["fmt", "builders", "DebugList"] => Some(Self::DebugList),
+			["panicking", "AssertKind"] => Some(Self::AssertKind),
 			_ => None,
 		}
 	}
 }
 
-/// Whether `did` is `core::slice::Iter`, which `slice.iter()` makes.
-pub fn is_slice_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
-	let path: Vec<String> = tcx
-		.def_path(did)
+/// The path of a std item within its crate, as `["slice", "iter", "Iter"]`; empty for
+/// any other crate's.
+pub fn std_path(tcx: TyCtxt<'_>, did: DefId) -> Vec<String> {
+	if !is_std(tcx, did) {
+		return Vec::new();
+	}
+	tcx.def_path(did)
 		.data
 		.iter()
 		.filter_map(|d| d.data.get_opt_name())
 		.map(|n| n.to_string())
-		.collect();
-	is_std(tcx, did) && path == ["slice", "iter", "Iter"]
+		.collect()
+}
+
+/// Whether `did` is `core::slice::Iter`, which `slice.iter()` makes.
+pub fn is_slice_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
+	std_path(tcx, did) == ["slice", "iter", "Iter"]
 }
 
 fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
@@ -91,7 +126,7 @@ pub struct Call<'tcx> {
 }
 
 /// `owner::name` for a standard library function.
-fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
+pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 	let name = tcx.item_name(def_id).to_string();
 	if let Some(trait_id) = tcx.trait_of_assoc(def_id) {
 		return Some((tcx.item_name(trait_id).to_string(), name));
@@ -118,6 +153,14 @@ fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 
 pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	// thiserror's `Display` derive reads each field through `AsDisplay`, which is the
+	// field itself for anything but a path.
+	if tcx.crate_name(call.def_id.krate).as_str() == "thiserror"
+		&& tcx.item_name(call.def_id).as_str() == "as_display"
+		&& matches!(targ(call.args, 0).kind(), ty::Ref(..))
+	{
+		return b.args(args, out).pop();
+	}
 	if !is_std(tcx, call.def_id) {
 		return None;
 	}
@@ -297,9 +340,17 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("Result", "is_err") => b.args(args, out).pop()?.member("ok").not(),
 		("Result", "ok") => rt2(b, args, out, "result", "ok"),
 		("Result", "err") => rt2(b, args, out, "result", "err"),
-		("Result", "unwrap") => rt2(b, args, out, "result", "unwrap"),
-		("Result", "unwrap_err") => rt2(b, args, out, "result", "unwrapErr"),
-		("Result", "expect") => rt2(b, args, out, "result", "expect"),
+		// Their panics show the other side with its `Debug`.
+		("Result", "unwrap" | "expect" | "unwrap_err") => {
+			let (method, shown) = match name.as_str() {
+				"unwrap" => ("unwrap", targ(gargs, 1)),
+				"expect" => ("expect", targ(gargs, 1)),
+				_ => ("unwrapErr", targ(gargs, 0)),
+			};
+			let mut values = b.args(args, out);
+			values.push(b.fmt_fn(fmt::Trait::Debug, shown, span));
+			Expr::Rt("result").member(method).call(values)
+		}
 		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
 
 		("bool", "then_some") => {
@@ -501,24 +552,107 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			Expr::undefined()
 		}
 
-		// Panics. `assert_eq!`'s values are already evaluated, and are not shown.
-		("panicking", "assert_failed") => {
-			b.args(args, out);
-			Expr::rt("panic", vec![Expr::Str("assertion failed".into())])
+		// Panics, which format their message as std does.
+		("panicking", "panic_fmt") => {
+			let message = b.args(args, out).pop()?;
+			Expr::rt("panic", vec![literal(&message).map_or(message, Expr::Str)])
 		}
-		("panicking", _) | ("panic", _) | ("rt", "begin_panic") => {
+		("panicking", "panic") | ("rt", "begin_panic") => Expr::rt("panic", b.args(args, out)),
+		("panicking", "panic_explicit") => Expr::rt("panic", vec![Expr::Str("explicit panic".into())]),
+		("panicking", "panic_display" | "unreachable_display") => {
+			let value = b.args(args, out).pop()?;
+			let value = b.fmt_value(fmt::Trait::Display, targ(gargs, 0), value, span, out);
+			let mut message = vec![value];
+			if name == "unreachable_display" {
+				message.insert(0, Expr::Str("internal error: entered unreachable code: ".into()));
+			}
+			Expr::rt("panic", vec![Expr::Array(message)])
+		}
+		// `assert_eq!` and `assert_ne!`: the operator, both sides, and any message.
+		("panicking", "assert_failed") => {
+			let [kind, left, right, message] = <[Expr; 4]>::try_from(b.args(args, out)).ok()?;
+			let left = b.fmt_value(fmt::Trait::Debug, targ(gargs, 0), left, span, out);
+			let right = b.fmt_value(fmt::Trait::Debug, targ(gargs, 1), right, span, out);
+			let mut values = vec![kind, left, right];
+			if !matches!(&message, Expr::Lit(text) if text == "undefined") {
+				values.push(message);
+			}
+			Expr::rt("assertFailed", values)
+		}
+
+		// Formatting.
+		("hint", "must_use") => b.args(args, out).pop()?,
+		("fmt", "format") => {
+			let parts = b.args(args, out).pop()?;
+			match literal(&parts) {
+				Some(s) => Expr::Str(s),
+				None => Expr::Rt("fmt").member("format").call(vec![parts]),
+			}
+		}
+		("Display" | "Debug" | "LowerHex" | "UpperHex", "fmt") => {
+			let tr = fmt::Trait::of(tcx, tcx.trait_of_assoc(call.def_id)?)?;
+			let [value, f] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+			fmt::std_impl(b, tr, targ(gargs, 0), value, f, span, out)?
+		}
+		("ToString", "to_string") => {
+			let ty = targ(gargs, 0);
+			let value = b.args(args, out).pop()?;
+			match ty.kind() {
+				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				_ => {
+					let value = b.fmt_value(fmt::Trait::Display, ty, value, span, out);
+					Expr::Rt("fmt").member("toString").call(vec![value])
+				}
+			}
+		}
+		("Formatter", "write_fmt") => {
+			let [f, parts] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+			match literal(&parts) {
+				Some(s) => f.method("writeStr", vec![Expr::Str(s)]),
+				None => f.method("writeFmt", vec![parts]),
+			}
+		}
+		("Formatter", "write_str" | "pad" | "alternate" | "width" | "debug_struct" | "debug_tuple" | "debug_list")
+		| ("DebugStruct" | "DebugTuple", "field" | "finish" | "finish_non_exhaustive")
+		| ("DebugList", "entry" | "finish" | "finish_non_exhaustive") => {
+			let mut values = b.args(args, out);
+			let recv = values.remove(0);
+			recv.method(&super::camel(&name), values)
+		}
+		// Derived `Debug`: `debug_struct_field2_finish(f, name, "a", &a, "b", &b)`.
+		("Formatter", "debug_struct_fields_finish") => {
+			let mut values = b.args(args, out);
+			let f = values.remove(0);
+			f.method("debugStructFields", values)
+		}
+		("Formatter", "debug_tuple_fields_finish") => {
+			let mut values = b.args(args, out);
+			let f = values.remove(0);
+			f.method("debugTupleFields", values)
+		}
+		("Formatter", n) if n.starts_with("debug_struct_field") || n.starts_with("debug_tuple_field") => {
+			let mut values = b.args(args, out).into_iter();
+			let (f, type_name) = (values.next()?, values.next()?);
+			let structure = n.starts_with("debug_struct");
+			let mut builder = f.method(if structure { "debugStruct" } else { "debugTuple" }, vec![type_name]);
+			let values: Vec<Expr> = values.collect();
+			let fields = match structure {
+				true => values.chunks(2).map(<[Expr]>::to_vec).collect::<Vec<_>>(),
+				false => values.into_iter().map(|v| vec![v]).collect(),
+			};
+			for field in fields {
+				builder = builder.method("field", field);
+			}
+			builder.method("finish", vec![])
+		}
+		("DebugList", "entries") => {
 			let Args::Thir(ids) = args else {
 				return None;
 			};
-			// A message is its literal text: formatting values would need `Display`.
-			if ids.iter().any(|id| reads_variables(b, *id)) {
-				b.t.err(span, "a panic message that formats values is not supported");
-			}
-			let message = ids
-				.iter()
-				.find_map(|id| first_str(b, *id))
-				.unwrap_or_else(|| default_panic(&name));
-			Expr::rt("panic", vec![Expr::Str(message)])
+			let list = b.operand(ids[0], out);
+			let items = items(b, ids[1], out)?;
+			let debug = b.fmt_fn(fmt::Trait::Debug, targ(gargs, 0), span);
+			list.method("entries", vec![items, debug])
 		}
 		_ => return None,
 	};
@@ -692,56 +826,44 @@ fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr>
 	})
 }
 
-/// The first string literal in `id`, for a panic's message.
-fn first_str<'tcx>(b: &Body<'_, '_, 'tcx>, id: ExprId) -> Option<String> {
-	let e = &b.thir[id];
-	match &e.kind {
-		ExprKind::Literal { lit, .. } => match lit.node {
-			rustc_ast::LitKind::Str(s, _) => Some(s.to_string()),
-			_ => None,
-		},
-		ExprKind::Scope { value, .. }
-		| ExprKind::Borrow { arg: value, .. }
-		| ExprKind::Deref { arg: value }
-		| ExprKind::PointerCoercion { source: value, .. }
-		| ExprKind::ValueTypeAscription { source: value, .. } => first_str(b, *value),
-		ExprKind::Call { args, .. } => args.iter().find_map(|a| first_str(b, *a)),
-		ExprKind::Array { fields } | ExprKind::Tuple { fields } => fields.iter().find_map(|f| first_str(b, *f)),
-		ExprKind::Block { block } => b.thir[*block].expr.and_then(|e| first_str(b, e)),
-		ExprKind::NamedConst { .. } => None,
-		_ => None,
-	}
-}
-
-/// Whether `id` reads a variable anywhere inside it.
-fn reads_variables<'tcx>(b: &Body<'_, '_, 'tcx>, id: ExprId) -> bool {
-	struct Reads<'a, 'tcx> {
-		thir: &'a rustc_middle::thir::Thir<'tcx>,
-		found: bool,
-	}
-	impl<'a, 'tcx> rustc_middle::thir::visit::Visitor<'a, 'tcx> for Reads<'a, 'tcx> {
-		fn thir(&self) -> &'a rustc_middle::thir::Thir<'tcx> {
-			self.thir
-		}
-
-		fn visit_expr(&mut self, expr: &'a rustc_middle::thir::Expr<'tcx>) {
-			match expr.kind {
-				ExprKind::VarRef { .. } | ExprKind::UpvarRef { .. } => self.found = true,
-				_ => rustc_middle::thir::visit::walk_expr(self, expr),
-			}
-		}
-	}
-	let mut reads = Reads {
-		thir: b.thir,
-		found: false,
+/// The text of a `fmt::Arguments` with only literal pieces, which writes it as is.
+fn literal(parts: &Expr) -> Option<String> {
+	let Expr::Array(parts) = parts else {
+		return None;
 	};
-	rustc_middle::thir::visit::Visitor::visit_expr(&mut reads, &b.thir[id]);
-	reads.found
+	parts
+		.iter()
+		.map(|part| match part {
+			Expr::Str(s) => Some(s.as_str()),
+			_ => None,
+		})
+		.collect()
 }
 
-fn default_panic(name: &str) -> String {
-	match name {
-		"unreachable_display" => "internal error: entered unreachable code".into(),
-		_ => "explicit panic".into(),
+/// What an `IntoIterator` of a slice's items iterates, as an iterable JS value:
+/// `slice.iter()`, or a slice, array, or `Vec`, by value or by reference.
+fn items<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let id = b.strip(id);
+	let ty = b.ty_of(id);
+	match ty.peel_refs().kind() {
+		ty::Adt(adt, _) if is_slice_iter(tcx, adt.did()) && !matches!(ty.kind(), ty::Ref(..)) => {
+			let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[id].kind else {
+				return None;
+			};
+			let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
+				return None;
+			};
+			if key(tcx, iter) != Some(("slice".into(), "iter".into())) {
+				return None;
+			}
+			Some(b.operand(args[0], out))
+		}
+		ty::Slice(_) | ty::Array(..) => Some(b.operand(id, out)),
+		ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
+			let v = b.operand(id, out);
+			Some(vec_view(v, ty))
+		}
+		_ => None,
 	}
 }

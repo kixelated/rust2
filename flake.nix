@@ -41,6 +41,12 @@
             overlays = [ (import rust-overlay) ];
           };
           toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # The benchmark's nightly levers (--jobs-frontend, cranelift, self-profile).
+          # Bumping the date is a benchmark corpus change: numbers before and
+          # after it do not compare.
+          nightly = pkgs.rust-bin.nightly."2026-10-22".minimal.override {
+            extensions = [ "rustc-codegen-cranelift-preview" ];
+          };
           # The TypeScript driver's own nightly, kept off PATH so the other projects keep
           # the repo toolchain. ts/justfile puts it first for its recipes.
           tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
@@ -129,6 +135,23 @@
             uniffi-bindgen-go = generator "uniffi-bindgen-go" [ "uniffi-bindgen-go" ];
             uniffi-bindgen-dart = generator "uniffi-bindgen-dart" [ "uniffi_bindgen_dart" ];
             uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
+          };
+          # `just bench` enters this shell; the nightly toolchain stays off PATH
+          # so stable remains the default.
+          devShells.build-bench = pkgs.mkShell {
+            inputsFrom = [ self.devShells.${system}.default ];
+            packages =
+              with pkgs;
+              [
+                hyperfine
+                measureme
+              ]
+              # The alternative linkers the stable variants measure are ELF-only.
+              ++ lib.optionals stdenv.hostPlatform.isLinux [
+                mold
+                wild
+              ];
+            RUST2_BENCH_NIGHTLY = "${nightly}/bin";
           };
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [

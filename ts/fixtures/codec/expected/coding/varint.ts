@@ -6,6 +6,14 @@ import { type Version } from "../lite/version.ts";
 
 /** The number does not fit the target: a varint wire form or a narrower integer. */
 export class BoundsExceeded {
+
+	fmt$Display(__formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return __formatter.writeStr("value out of range");
+	}
+
+	fmt$Debug(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.writeStr("BoundsExceeded");
+	}
 }
 
 /** How a protocol version lays out a varint on the wire. */
@@ -271,7 +279,7 @@ export function zigzag(signed: bigint): bigint {
 
 /** The inverse of [`zigzag`]. */
 export function unzigzag(value: bigint): bigint {
-	return BigInt.asIntN(64, value >> 1n) ^ rt.i64(-BigInt.asIntN(64, value & 1n));
+	return BigInt.asIntN(64, value >> 1n) ^ rt.i64.neg(BigInt.asIntN(64, value & 1n));
 }
 
 //# sourceMappingURL=varint.ts.map

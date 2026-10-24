@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import { Decoder, type DecodeError } from "./coding/decode.ts";
 import { Encoder, type EncodeError } from "./coding/encode.ts";
 import { Form, zigzag, unzigzag } from "./coding/varint.ts";
-import { form, liteVersion, decodeError, putUsize, takeU64, encodeError, putU64 } from "./harness.ts";
+import { form, liteVersion, putUsize, takeU64, putU64, encodeError, decodeError } from "./harness.ts";
 import { Group } from "./lite/group.ts";
 import { type Version } from "./lite/version.ts";
 
@@ -79,7 +79,7 @@ export function decodeVarints(wire: Uint8Array, form_: Form, out: rt.ByteVec): r
 			return rt.Err(varint.error);
 		}
 		last = varint.value;
-		count = rt.usize(count + 1);
+		count = rt.usize.add(count, 1);
 	}
 	putUsize(out, count);
 	putU64(out, last);
@@ -144,8 +144,8 @@ export function decodeFrames(wire: Uint8Array, version: Version, out: rt.ByteVec
 		if (!varint2.ok) {
 			return rt.Err(varint2.error);
 		}
-		total = rt.u64(total + varint2.value);
-		count = rt.usize(count + 1);
+		total = rt.u64.add(total, varint2.value);
+		count = rt.usize.add(count, 1);
 	}
 	putUsize(out, count);
 	putU64(out, total);

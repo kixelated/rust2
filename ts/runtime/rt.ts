@@ -1,26 +1,42 @@
 // The runtime of rust2-ts output: what Rust's std does that plain JS does not.
 //
 // Integers up to 32 bits are numbers; wider ones are bigints. Arithmetic is checked as
-// a debug build checks it: overflow panics, it never wraps silently.
+// a debug build checks it: overflow panics, it never wraps silently. Every panic's
+// message is the one native Rust panics with.
 
 /** A Rust panic. */
 export class Panic extends Error {
 	override name = "Panic";
 }
 
-/** Panic with `message`. */
-export function panic(message: string): never {
-	throw new Panic(message);
+/**
+ * Panic with `message`. A formatted message keeps what was written before a value
+ * failed to format, as std's does.
+ */
+export function panic(message: string | Arguments): never {
+	if (typeof message === "string") throw new Panic(message);
+	const out = new StringWriter();
+	write(out, message);
+	throw new Panic(out.s);
+}
+
+/** `assert_eq!` or `assert_ne!` failing: `op` is `==` or `!=`. */
+export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments): never {
+	const failed: Arguments = args === undefined ? [" failed"] : [" failed: ", (f) => f.writeFmt(args)];
+	panic(["assertion `left ", op, " right`", ...failed, "\n  left: ", left, "\n right: ", right]);
 }
 
 // Integers
 
-/** The checks and methods of one integer type, called to check a value fits it. */
+/** The checks and methods of one integer type. */
 export interface Int<T extends number | bigint> {
-	(value: T): T;
 	readonly MIN: T;
 	readonly MAX: T;
 	readonly BITS: number;
+	add(a: T, b: T): T;
+	sub(a: T, b: T): T;
+	mul(a: T, b: T): T;
+	neg(a: T): T;
 	div(a: T, b: T): T;
 	rem(a: T, b: T): T;
 	shl(a: T, b: number | bigint): T;
@@ -37,11 +53,23 @@ export interface Int<T extends number | bigint> {
 	fromBeBytes(bytes: Uint8Array): T;
 	toBeBytes(a: T): Uint8Array;
 	tryFrom(value: number | bigint): Result<T, TryFromIntError>;
+	/** `Display`, and `Debug`, which writes the same. */
+	display(a: T, f: Formatter): FmtResult;
+	lowerHex(a: T, f: Formatter): FmtResult;
+	upperHex(a: T, f: Formatter): FmtResult;
 }
 
-function shift(b: number | bigint, bits: number): number {
+/** The exact arithmetic of a representation, before its result is checked. */
+interface Exact<T> {
+	add(a: T, b: T): T;
+	sub(a: T, b: T): T;
+	mul(a: T, b: T): T;
+	neg(a: T): T;
+}
+
+function shift(b: number | bigint, bits: number, direction: string): number {
 	const n = Number(b);
-	if (n < 0 || n >= bits) panic("attempt to shift with overflow");
+	if (n < 0 || n >= bits) panic(`attempt to shift ${direction} with overflow`);
 	return n;
 }
 
@@ -50,77 +78,82 @@ function int<T extends number | bigint>(
 	signed: boolean,
 	of: (value: number | bigint) => T,
 	wrap: (value: bigint) => T,
+	exact: Exact<T>,
 ): Int<T> {
 	const min = signed ? -(1n << BigInt(bits - 1)) : 0n;
 	const max = signed ? (1n << BigInt(bits - 1)) - 1n : (1n << BigInt(bits)) - 1n;
 	const fits = (value: number | bigint) => value >= min && value <= max;
-	const check = (value: T): T => {
-		if (!fits(value)) panic("attempt to compute with overflow");
+	const checked = (value: T, op: string): T => {
+		if (!fits(value)) panic(`attempt to ${op} with overflow`);
 		return value;
 	};
 	const big = (value: T) => BigInt(value);
 	const unsigned = (value: T) => BigInt.asUintN(bits, big(value));
-	const methods = {
+	return {
 		MIN: of(min),
 		MAX: of(max),
 		BITS: bits,
-		div(a: T, b: T): T {
+		add: (a, b) => checked(exact.add(a, b), "add"),
+		sub: (a, b) => checked(exact.sub(a, b), "subtract"),
+		mul: (a, b) => checked(exact.mul(a, b), "multiply"),
+		neg: (a) => checked(exact.neg(a), "negate"),
+		div(a, b) {
 			if (big(b) === 0n) panic("attempt to divide by zero");
-			return check(of(big(a) / big(b)));
+			return checked(of(big(a) / big(b)), "divide");
 		},
-		rem(a: T, b: T): T {
+		rem(a, b) {
 			if (big(b) === 0n) panic("attempt to calculate the remainder with a divisor of zero");
 			if (signed && big(b) === -1n && big(a) === min) panic("attempt to calculate the remainder with overflow");
 			return of(big(a) % big(b));
 		},
-		shl(a: T, b: number | bigint): T {
-			return wrap(big(a) << BigInt(shift(b, bits)));
+		shl(a, b) {
+			return wrap(big(a) << BigInt(shift(b, bits, "left")));
 		},
-		shr(a: T, b: number | bigint): T {
-			return of(big(a) >> BigInt(shift(b, bits)));
+		shr(a, b) {
+			return of(big(a) >> BigInt(shift(b, bits, "right")));
 		},
-		checkedAdd(a: T, b: T): T | undefined {
+		checkedAdd(a, b) {
 			const sum = big(a) + big(b);
 			return fits(sum) ? of(sum) : undefined;
 		},
-		checkedSub(a: T, b: T): T | undefined {
+		checkedSub(a, b) {
 			const diff = big(a) - big(b);
 			return fits(diff) ? of(diff) : undefined;
 		},
-		checkedMul(a: T, b: T): T | undefined {
+		checkedMul(a, b) {
 			const product = big(a) * big(b);
 			return fits(product) ? of(product) : undefined;
 		},
-		saturatingAdd(a: T, b: T): T {
+		saturatingAdd(a, b) {
 			const sum = big(a) + big(b);
 			return of(sum < min ? min : sum > max ? max : sum);
 		},
-		saturatingSub(a: T, b: T): T {
+		saturatingSub(a, b) {
 			const diff = big(a) - big(b);
 			return of(diff < min ? min : diff > max ? max : diff);
 		},
-		wrappingAdd(a: T, b: T): T {
+		wrappingAdd(a, b) {
 			return wrap(big(a) + big(b));
 		},
-		wrappingSub(a: T, b: T): T {
+		wrappingSub(a, b) {
 			return wrap(big(a) - big(b));
 		},
-		leadingOnes(a: T): number {
+		leadingOnes(a) {
 			let n = 0;
 			for (let bit = BigInt(bits - 1); bit >= 0n && (unsigned(a) >> bit) & 1n; bit--) n++;
 			return n;
 		},
-		leadingZeros(a: T): number {
+		leadingZeros(a) {
 			let n = 0;
 			for (let bit = BigInt(bits - 1); bit >= 0n && !((unsigned(a) >> bit) & 1n); bit--) n++;
 			return n;
 		},
-		fromBeBytes(bytes: Uint8Array): T {
+		fromBeBytes(bytes) {
 			let value = 0n;
 			for (const byte of bytes) value = (value << 8n) | BigInt(byte);
 			return wrap(value);
 		},
-		toBeBytes(a: T): Uint8Array {
+		toBeBytes(a) {
 			const out = new Uint8Array(bits / 8);
 			let value = unsigned(a);
 			for (let i = out.length - 1; i >= 0; i--) {
@@ -129,19 +162,46 @@ function int<T extends number | bigint>(
 			}
 			return out;
 		},
-		tryFrom(value: number | bigint): Result<T, TryFromIntError> {
-			return fits(value) ? Ok(of(value)) : Err(new TryFromIntError());
+		tryFrom(value) {
+			if (fits(value)) return Ok(of(value));
+			return Err(new TryFromIntError(value < min ? "NegOverflow" : "PosOverflow"));
+		},
+		display(a, f) {
+			const value = big(a);
+			return f.padIntegral(value >= 0n, "", (value < 0n ? -value : value).toString());
+		},
+		lowerHex(a, f) {
+			return f.padIntegral(true, "0x", unsigned(a).toString(16));
+		},
+		upperHex(a, f) {
+			return f.padIntegral(true, "0x", unsigned(a).toString(16).toUpperCase());
 		},
 	};
-	return Object.assign(check, methods);
 }
 
+const numbers: Exact<number> = {
+	add: (a, b) => a + b,
+	sub: (a, b) => a - b,
+	// Inexact only past 2^53, far outside every type's range, so the check still fails.
+	mul: (a, b) => a * b,
+	neg: (a) => -a,
+};
+
+const bigints: Exact<bigint> = {
+	add: (a, b) => a + b,
+	sub: (a, b) => a - b,
+	mul: (a, b) => a * b,
+	neg: (a) => -a,
+};
+
 function small(bits: number, signed: boolean): Int<number> {
-	return int(bits, signed, Number, (value) => Number(signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value)));
+	const wrap = (value: bigint) => Number(signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value));
+	return int(bits, signed, Number, wrap, numbers);
 }
 
 function wide(bits: number, signed: boolean): Int<bigint> {
-	return int(bits, signed, BigInt, (value) => (signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value)));
+	const wrap = (value: bigint) => (signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value));
+	return int(bits, signed, BigInt, wrap, bigints);
 }
 
 export const u8: Int<number> = small(8, false);
@@ -169,8 +229,14 @@ export function min<T extends number | bigint>(a: T, b: T): T {
 	return a <= b ? a : b;
 }
 
-/** `core::num::TryFromIntError`. */
-export class TryFromIntError {}
+/** `core::num::TryFromIntError`: which way the value was out of range. */
+export class TryFromIntError {
+	readonly kind: "PosOverflow" | "NegOverflow";
+
+	constructor(kind: "PosOverflow" | "NegOverflow") {
+		this.kind = kind;
+	}
+}
 
 // Results
 
@@ -183,6 +249,10 @@ export function Ok<T, E = never>(value: T): Result<T, E> {
 
 export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
+}
+
+function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
+	panic([message, ": ", (f) => debug(value, f)]);
 }
 
 export const result = {
@@ -214,16 +284,17 @@ export const result = {
 	unwrapOr<T, E>(r: Result<T, E>, fallback: T): T {
 		return r.ok ? r.value : fallback;
 	},
-	unwrap<T, E>(r: Result<T, E>): T {
-		if (!r.ok) panic("called `Result::unwrap()` on an `Err` value");
+	/** `unwrap`, which shows the error with `debug`. */
+	unwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
+		if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug);
 		return r.value;
 	},
-	expect<T, E>(r: Result<T, E>, message: string): T {
-		if (!r.ok) panic(message);
+	expect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
+		if (!r.ok) unwrapFailed(message, r.error, debug);
 		return r.value;
 	},
-	unwrapErr<T, E>(r: Result<T, E>): E {
-		if (r.ok) panic("called `Result::unwrap_err()` on an `Ok` value");
+	unwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
+		if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
 		return r.error;
 	},
 };
@@ -274,8 +345,9 @@ export function at<T>(slice: ArrayLike<T>, index: number): T {
 export const slice = {
 	/** `&s[start..end]`, with `end` defaulting to the length. */
 	range<S extends Uint8Array | unknown[]>(s: S, start: number, end: number = s.length): S {
-		if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);
+		if (start > s.length) panic(`range start index ${start} out of range for slice of length ${s.length}`);
 		if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
+		if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);
 		return (s instanceof Uint8Array ? s.subarray(start, end) : s.slice(start, end)) as S;
 	},
 	splitFirst<S extends Uint8Array | unknown[]>(s: S): [S[number], S] | undefined {
@@ -298,11 +370,17 @@ export const slice = {
 		return index < s.length ? s[index] : undefined;
 	},
 	copyFromSlice(dst: Uint8Array, src: Uint8Array): void {
-		if (dst.length !== src.length) panic("source slice length does not match destination slice length");
+		if (dst.length !== src.length) {
+			panic(
+				`copy_from_slice: source slice length (${src.length}) does not match destination slice length (${dst.length})`,
+			);
+		}
 		dst.set(src);
 	},
 	copyWithin(s: Uint8Array, start: number, end: number, dest: number): void {
-		if (start > end || end > s.length) panic("range out of bounds");
+		// `slice::range` checks the end first, then `range` reports the rest.
+		if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
+		slice.range(s, start, end);
 		if (dest > s.length - (end - start)) panic("dest is out of bounds");
 		s.copyWithin(dest, start, end);
 	},
@@ -385,13 +463,43 @@ const encoder = new TextEncoder();
 // `ignoreBOM` keeps a leading U+FEFF, as Rust does.
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-/** `alloc::string::FromUtf8Error`: the bytes that were not UTF-8. */
+/** `alloc::string::FromUtf8Error`: the bytes that were not UTF-8, and where they stop being. */
 export class FromUtf8Error {
 	readonly bytes: ByteVec;
+	/** `Utf8Error::valid_up_to`. */
+	readonly validUpTo: number;
+	/** `Utf8Error::error_len`: `undefined` if the input ended mid-character. */
+	readonly errorLen: number | undefined;
 
 	constructor(bytes: ByteVec) {
 		this.bytes = bytes;
+		[this.validUpTo, this.errorLen] = utf8Error(bytes.view());
 	}
+}
+
+/** Where `v` stops being UTF-8 and how many bytes are invalid there, as std reports it. */
+function utf8Error(v: Uint8Array): [number, number | undefined] {
+	const tail = (b: number | undefined) => b !== undefined && b >= 0x80 && b <= 0xbf;
+	for (let i = 0; i < v.length; ) {
+		const first = v[i];
+		const width = first < 0x80 ? 1 : first >= 0xc2 && first <= 0xdf ? 2 : first >= 0xe0 && first <= 0xef ? 3 : first >= 0xf0 && first <= 0xf4 ? 4 : 0;
+		if (width === 1) {
+			i++;
+			continue;
+		}
+		if (width === 0) return [i, 1];
+		const second = v[i + 1];
+		if (second === undefined) return [i, undefined];
+		const [lo, hi] =
+			first === 0xe0 ? [0xa0, 0xbf] : first === 0xed ? [0x80, 0x9f] : first === 0xf0 ? [0x90, 0xbf] : first === 0xf4 ? [0x80, 0x8f] : [0x80, 0xbf];
+		if (second < lo || second > hi) return [i, 1];
+		for (let k = 2; k < width; k++) {
+			if (i + k >= v.length) return [i, undefined];
+			if (!tail(v[i + k])) return [i, k];
+		}
+		i += width;
+	}
+	throw new Error("utf8Error: the bytes are valid UTF-8");
 }
 
 export const string = {
@@ -431,3 +539,448 @@ export function replace<T>(get: () => T, set: (value: T) => void, value: T): T {
 	set(value);
 	return old;
 }
+
+// Formatting, as `core::fmt` does it: the same output byte for byte.
+
+/** `core::fmt::Error`. */
+export class FmtError {}
+
+/** `fmt::Result`. */
+export type FmtResult = Result<undefined, FmtError>;
+
+const written: FmtResult = Ok(undefined);
+
+/** A value ready to write: `&dyn Display`, `&dyn Debug`, or one placeholder's argument. */
+export type Fmt = (f: Formatter) => FmtResult;
+
+/** A type's `Debug` or `Display`, as a function of its values. */
+export type Debug<T> = (value: T, f: Formatter) => FmtResult;
+
+/** `fmt::Arguments`: literal pieces, and the values written between them. */
+export type Arguments = readonly (string | Fmt)[];
+
+/** One placeholder's options: `{:*^9}` is `{ fill: "*", align: "^", width: 9 }`. */
+export interface Spec {
+	readonly fill?: string;
+	readonly align?: "<" | "^" | ">";
+	/** The `#` flag: `{:#?}` and `{:#x}`. */
+	readonly alternate?: boolean;
+	/** The `0` flag: zeros between the sign and the digits. */
+	readonly zero?: boolean;
+	readonly width?: number;
+}
+
+/** `dyn fmt::Write`: where a `Formatter` writes. */
+export interface Write {
+	writeStr(s: string): FmtResult;
+}
+
+class StringWriter implements Write {
+	s = "";
+
+	writeStr(s: string): FmtResult {
+		this.s += s;
+		return written;
+	}
+}
+
+/** Indents each line it writes, for `{:#?}`'s nesting. */
+class PadAdapter implements Write {
+	private onNewline = true;
+	private readonly out: Write;
+
+	constructor(out: Write) {
+		this.out = out;
+	}
+
+	writeStr(s: string): FmtResult {
+		for (const line of s.split(/(?<=\n)/)) {
+			if (line === "") continue;
+			if (this.onNewline) {
+				const r = this.out.writeStr("    ");
+				if (!r.ok) return r;
+			}
+			this.onNewline = line.endsWith("\n");
+			const r = this.out.writeStr(line);
+			if (!r.ok) return r;
+		}
+		return written;
+	}
+}
+
+/** `fmt::write`: each placeholder gets a fresh `Formatter` with only its own options. */
+function write(out: Write, args: Arguments): FmtResult {
+	for (const part of args) {
+		const r = typeof part === "string" ? out.writeStr(part) : part(new Formatter(out));
+		if (!r.ok) return r;
+	}
+	return written;
+}
+
+/** The number of chars in `s`, as Rust counts them for padding. */
+function chars(s: string): number {
+	let n = 0;
+	for (const _ of s) n++;
+	return n;
+}
+
+/** `core::fmt::Formatter`. */
+export class Formatter {
+	readonly out: Write;
+	readonly spec: Spec;
+
+	constructor(out: Write, spec: Spec = {}) {
+		this.out = out;
+		this.spec = spec;
+	}
+
+	writeStr(s: string): FmtResult {
+		return this.out.writeStr(s);
+	}
+
+	writeFmt(args: Arguments): FmtResult {
+		return write(this.out, args);
+	}
+
+	alternate(): boolean {
+		return this.spec.alternate === true;
+	}
+
+	width(): number | undefined {
+		return this.spec.width;
+	}
+
+	/** Write `s`, padded to the width. */
+	pad(s: string): FmtResult {
+		const width = this.spec.width;
+		const count = width === undefined ? 0 : chars(s);
+		if (width === undefined || count >= width) return this.out.writeStr(s);
+		return this.padded(width - count, this.spec.align ?? "<", this.spec.fill ?? " ", s);
+	}
+
+	/** Write an integer's sign, `prefix` if alternate, and `digits`, padded to the width. */
+	padIntegral(nonnegative: boolean, prefix: string, digits: string): FmtResult {
+		const head = (nonnegative ? "" : "-") + (this.alternate() ? prefix : "");
+		const length = head.length + digits.length;
+		const width = this.spec.width ?? 0;
+		if (length >= width) return this.out.writeStr(head + digits);
+		if (this.spec.zero) {
+			const r = this.out.writeStr(head);
+			return r.ok ? this.padded(width - length, ">", "0", digits) : r;
+		}
+		return this.padded(width - length, this.spec.align ?? ">", this.spec.fill ?? " ", head + digits);
+	}
+
+	/** Write `s` with `padding` fills around it. */
+	private padded(padding: number, align: "<" | "^" | ">", fill: string, s: string): FmtResult {
+		const left = align === "<" ? 0 : align === ">" ? padding : Math.floor(padding / 2);
+		const r = this.out.writeStr(fill.repeat(left) + s);
+		return r.ok ? this.out.writeStr(fill.repeat(padding - left)) : r;
+	}
+
+	/** This formatter's options, writing to `out`. */
+	wrap(out: Write): Formatter {
+		return new Formatter(out, this.spec);
+	}
+
+	debugStruct(name: string): DebugStruct {
+		return new DebugStruct(this, name);
+	}
+
+	debugTuple(name: string): DebugTuple {
+		return new DebugTuple(this, name);
+	}
+
+	debugList(): DebugList {
+		return new DebugList(this);
+	}
+
+	/** `debug_struct_fields_finish`, which derived `Debug` calls past five fields. */
+	debugStructFields(name: string, names: readonly string[], values: readonly Fmt[]): FmtResult {
+		if (names.length !== values.length) {
+			assertFailed(
+				"==",
+				(f) => usize.display(names.length, f),
+				(f) => usize.display(values.length, f),
+			);
+		}
+		const builder = this.debugStruct(name);
+		names.forEach((field, i) => builder.field(field, values[i]));
+		return builder.finish();
+	}
+
+	/** `debug_tuple_fields_finish`, which derived `Debug` calls past five fields. */
+	debugTupleFields(name: string, values: readonly Fmt[]): FmtResult {
+		const builder = this.debugTuple(name);
+		for (const value of values) builder.field(value);
+		return builder.finish();
+	}
+}
+
+/** `fmt::DebugStruct`. */
+export class DebugStruct {
+	private readonly fmt: Formatter;
+	private result: FmtResult;
+	private hasFields = false;
+
+	constructor(fmt: Formatter, name: string) {
+		this.fmt = fmt;
+		this.result = fmt.writeStr(name);
+	}
+
+	field(name: string, value: Fmt): this {
+		if (this.result.ok) {
+			if (this.fmt.alternate()) {
+				const head = this.hasFields ? written : this.fmt.writeStr(" {\n");
+				this.result = head.ok ? pretty(this.fmt, [name, ": ", value, ",\n"]) : head;
+			} else {
+				this.result = this.fmt.writeStr((this.hasFields ? ", " : " { ") + name + ": ");
+				if (this.result.ok) this.result = value(this.fmt);
+			}
+		}
+		this.hasFields = true;
+		return this;
+	}
+
+	finishNonExhaustive(): FmtResult {
+		if (this.result.ok) {
+			if (!this.hasFields) this.result = this.fmt.writeStr(" { .. }");
+			else if (!this.fmt.alternate()) this.result = this.fmt.writeStr(", .. }");
+			else this.result = closePretty(this.fmt, "}");
+		}
+		return this.result;
+	}
+
+	finish(): FmtResult {
+		if (this.hasFields && this.result.ok) this.result = this.fmt.writeStr(this.fmt.alternate() ? "}" : " }");
+		return this.result;
+	}
+}
+
+/** `fmt::DebugTuple`. */
+export class DebugTuple {
+	private readonly fmt: Formatter;
+	private result: FmtResult;
+	private fields = 0;
+	private readonly emptyName: boolean;
+
+	constructor(fmt: Formatter, name: string) {
+		this.fmt = fmt;
+		this.result = fmt.writeStr(name);
+		this.emptyName = name === "";
+	}
+
+	field(value: Fmt): this {
+		if (this.result.ok) {
+			if (this.fmt.alternate()) {
+				const head = this.fields > 0 ? written : this.fmt.writeStr("(\n");
+				this.result = head.ok ? pretty(this.fmt, [value, ",\n"]) : head;
+			} else {
+				this.result = this.fmt.writeStr(this.fields === 0 ? "(" : ", ");
+				if (this.result.ok) this.result = value(this.fmt);
+			}
+		}
+		this.fields++;
+		return this;
+	}
+
+	finishNonExhaustive(): FmtResult {
+		if (this.result.ok) {
+			if (this.fields === 0) this.result = this.fmt.writeStr("(..)");
+			else if (!this.fmt.alternate()) this.result = this.fmt.writeStr(", ..)");
+			else this.result = closePretty(this.fmt, ")");
+		}
+		return this.result;
+	}
+
+	finish(): FmtResult {
+		if (this.fields > 0 && this.result.ok) {
+			const comma = this.fields === 1 && this.emptyName && !this.fmt.alternate();
+			this.result = this.fmt.writeStr(comma ? ",)" : ")");
+		}
+		return this.result;
+	}
+}
+
+/** `fmt::DebugList`. */
+export class DebugList {
+	private readonly fmt: Formatter;
+	private result: FmtResult;
+	private hasFields = false;
+
+	constructor(fmt: Formatter) {
+		this.fmt = fmt;
+		this.result = fmt.writeStr("[");
+	}
+
+	entry(value: Fmt): this {
+		if (this.result.ok) {
+			if (this.fmt.alternate()) {
+				const head = this.hasFields ? written : this.fmt.writeStr("\n");
+				this.result = head.ok ? pretty(this.fmt, [value, ",\n"]) : head;
+			} else {
+				this.result = this.hasFields ? this.fmt.writeStr(", ") : written;
+				if (this.result.ok) this.result = value(this.fmt);
+			}
+		}
+		this.hasFields = true;
+		return this;
+	}
+
+	entries<T>(items: Iterable<T>, debug: Debug<T>): this {
+		for (const item of items) this.entry((f) => debug(item, f));
+		return this;
+	}
+
+	finishNonExhaustive(): FmtResult {
+		if (!this.result.ok) return this.result;
+		if (!this.hasFields) return this.fmt.writeStr("..]");
+		if (!this.fmt.alternate()) return this.fmt.writeStr(", ..]");
+		return closePretty(this.fmt, "]");
+	}
+
+	finish(): FmtResult {
+		if (this.result.ok) this.result = this.fmt.writeStr("]");
+		return this.result;
+	}
+}
+
+/** Write `parts` indented, as a pretty builder writes one field: values keep `f`'s options. */
+function pretty(f: Formatter, parts: Arguments): FmtResult {
+	const writer = f.wrap(new PadAdapter(f.out));
+	for (const part of parts) {
+		const r = typeof part === "string" ? writer.writeStr(part) : part(writer);
+		if (!r.ok) return r;
+	}
+	return written;
+}
+
+/** A pretty builder's `finish_non_exhaustive`: an indented `..`, then `close`. */
+function closePretty(f: Formatter, close: string): FmtResult {
+	const r = pretty(f, ["..\n"]);
+	return r.ok ? f.writeStr(close) : r;
+}
+
+// `Debug` and `Display` of what std defines them for. A string's `Display` is `f.pad`.
+
+/** Characters `Debug` of a string writes as `\u{..}`, by std's rule. */
+const unprintable = /[\p{Cc}\p{Co}\p{White_Space}\p{Grapheme_Extend}\p{Default_Ignorable_Code_Point}\p{Cf}\P{Assigned}]/u;
+
+/** One char of a string's `Debug`. */
+function escapeDebug(c: string): string {
+	switch (c) {
+		case '"':
+			return '\\"';
+		case "\\":
+			return "\\\\";
+		case "\n":
+			return "\\n";
+		case "\t":
+			return "\\t";
+		case "\r":
+			return "\\r";
+		case "\0":
+			return "\\0";
+	}
+	const point = c.codePointAt(0)!;
+	// Printable ASCII, and two halfwidth katakana marks that extend graphemes but print.
+	if ((point >= 0x20 && point <= 0x7e) || point === 0xff9e || point === 0xff9f) return c;
+	return unprintable.test(c) ? `\\u{${point.toString(16)}}` : c;
+}
+
+/** `core::fmt`'s functions, and `Debug` and `Display` of std's types. */
+export const fmt = {
+	/** `format!`, from `alloc::fmt::format`. */
+	format(args: Arguments): string {
+		const out = new StringWriter();
+		if (!write(out, args).ok) {
+			panic("a formatting trait implementation returned an error when the underlying stream did not: Error");
+		}
+		return out.s;
+	},
+	/** `ToString::to_string` of a `Display` value. */
+	toString(value: Fmt): string {
+		const out = new StringWriter();
+		if (!value(new Formatter(out)).ok) panic("a Display implementation returned an error unexpectedly: Error");
+		return out.s;
+	},
+	/** A placeholder with options, which replace the defaults its value is written with. */
+	spec(spec: Spec, value: Fmt): Fmt {
+		return (f) => value(new Formatter(f.out, spec));
+	},
+	bool(value: boolean, f: Formatter): FmtResult {
+		return f.pad(value ? "true" : "false");
+	},
+	/** `Debug` of a string. */
+	str(s: string, f: Formatter): FmtResult {
+		let out = '"';
+		for (const c of s) out += escapeDebug(c);
+		return f.writeStr(out + '"');
+	},
+	/** `Debug` of `()`. */
+	unit(_: undefined, f: Formatter): FmtResult {
+		return f.pad("()");
+	},
+	option<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult {
+		if (o === undefined) return f.writeStr("None");
+		return f
+			.debugTuple("Some")
+			.field((f) => debug(o, f))
+			.finish();
+	},
+	result<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err: Debug<E>): FmtResult {
+		const field: Fmt = r.ok ? (f) => ok(r.value, f) : (f) => err(r.error, f);
+		return f
+			.debugTuple(r.ok ? "Ok" : "Err")
+			.field(field)
+			.finish();
+	},
+	/** `Debug` of a slice, array, or `Vec`. */
+	list<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
+		return f.debugList().entries(items, debug).finish();
+	},
+	/** `Debug` of a tuple, given each element's. */
+	tuple(fields: readonly Fmt[], f: Formatter): FmtResult {
+		const builder = f.debugTuple("");
+		for (const field of fields) builder.field(field);
+		return builder.finish();
+	},
+	/** `Display` of `fmt::Arguments`, which ignores the formatter's options. */
+	arguments(args: Arguments, f: Formatter): FmtResult {
+		return f.writeFmt(args);
+	},
+	errorDebug(_: FmtError, f: Formatter): FmtResult {
+		return f.writeStr("Error");
+	},
+	errorDisplay(_: FmtError, f: Formatter): FmtResult {
+		return f.pad("an error occurred when formatting an argument");
+	},
+	tryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
+		return f
+			.debugTuple("TryFromIntError")
+			.field((f) => f.writeStr(e.kind))
+			.finish();
+	},
+	tryFromIntErrorDisplay(e: TryFromIntError, f: Formatter): FmtResult {
+		const positive = e.kind === "PosOverflow";
+		return f.pad(`number too ${positive ? "large" : "small"} to fit in target type`);
+	},
+	fromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
+		const error: Fmt = (f) =>
+			f
+				.debugStruct("Utf8Error")
+				.field("valid_up_to", (f) => usize.display(e.validUpTo, f))
+				.field("error_len", (f) => fmt.option(e.errorLen, f, u8.display))
+				.finish();
+		return f
+			.debugStruct("FromUtf8Error")
+			.field("bytes", (f) => fmt.list(e.bytes.view(), f, u8.display))
+			.field("error", error)
+			.finish();
+	},
+	/** `Display` of the error, which `write!`s and so ignores the formatter's options. */
+	fromUtf8ErrorDisplay(e: FromUtf8Error, f: Formatter): FmtResult {
+		if (e.errorLen === undefined) return f.writeStr(`incomplete utf-8 byte sequence from index ${e.validUpTo}`);
+		return f.writeStr(`invalid utf-8 sequence of ${e.errorLen} bytes from index ${e.validUpTo}`);
+	},
+};

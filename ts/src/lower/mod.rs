@@ -6,6 +6,7 @@
 
 mod body;
 mod consts;
+mod fmt;
 mod library;
 mod num;
 mod pat;
@@ -481,6 +482,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let named = |t: &Ty<'tcx>| !matches!(t.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
 		parts.extend(instance.args.types().filter(named).map(|t| short_name(self.tcx, t)));
 		parts.dedup();
+		// Impls of traits without arguments, such as `Display::fmt` and `Debug::fmt`, are
+		// told apart by their trait.
+		if parts.is_empty()
+			&& let Some(imp) = self.tcx.trait_impl_of_assoc(def_id)
+		{
+			let trait_id = self.tcx.impl_trait_ref(imp).skip_binder().def_id;
+			parts.push(self.tcx.item_name(trait_id).to_string());
+		}
 		parts.join("_")
 	}
 
@@ -698,6 +707,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
+				Some(
+					library::Std::Formatter
+					| library::Std::DebugStruct
+					| library::Std::DebugTuple
+					| library::Std::DebugList,
+				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
 				None => None,
@@ -748,6 +763,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			// `&dyn Debug` and `&dyn Display` are values ready to write.
+			ty::Dynamic(preds, ..)
+				if preds
+					.principal_def_id()
+					.and_then(|did| fmt::Trait::of(tcx, did))
+					.is_some() =>
+			{
+				Type::Rt("Fmt", vec![])
+			}
 			_ if self.deferred(ty) => Type::Builtin("unknown"),
 			_ => {
 				self.err(span, format!("unsupported type `{ty}`"));
@@ -801,6 +825,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Box => self.ty(args.type_at(0), span),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::Formatter => Type::Rt("Formatter", vec![]),
+				library::Std::Arguments => Type::Rt("Arguments", vec![]),
+				library::Std::FmtError => Type::Rt("FmtError", vec![]),
+				library::Std::DebugStruct => Type::Rt("DebugStruct", vec![]),
+				library::Std::DebugTuple => Type::Rt("DebugTuple", vec![]),
+				library::Std::DebugList => Type::Rt("DebugList", vec![]),
+				library::Std::AssertKind => Type::Builtin("string"),
 			};
 		}
 		if !adt.did().is_local() {

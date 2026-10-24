@@ -4,7 +4,7 @@ Rust to other places.
 
 - **TypeScript**: an own rustc driver that translates a [documented Rust subset](ts/README.md) to readable TypeScript, without WASM.
 - **Any language**: [a hard fork](uniffi/README.md) of [UniFFI](https://github.com/mozilla/uniffi-rs) with every generator [moq](https://github.com/moq-dev/moq) uses.
-- **Faster builds**: a reproducible build-speed benchmark, then a pure-Rust subset (no build scripts, no C linking) that builds faster.
+- **Faster builds**: a reproducible [build-speed benchmark](bench/build/README.md), then a pure-Rust subset (no build scripts, no C linking) that builds faster.
 
 Everything here is early; the [quest tree](quest/README.md) holds the plan.
 
