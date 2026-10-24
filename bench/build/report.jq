@@ -14,7 +14,8 @@ $host[0] as $h
 	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`.",
 	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.hyperfine); \($h.mold); \($h.wild).",
 	"",
-	"Wall time in seconds: mean ± standard deviation over the runs, and the change against the variant's base.",
+	"Wall time in seconds: the median and mean ± standard deviation over the runs.",
+	"The change against the variant's base compares medians, so one slow run does not move it; CPU time and instructions are medians too.",
 	"Each control variant repeats its base, so its change is this run's noise floor.",
 	(
 		$results | group_by(.corpus)[] | . as $runs | .[0].corpus as $corpus
@@ -22,7 +23,7 @@ $host[0] as $h
 		| "",
 		"## \($corpus)",
 		"",
-		(["scenario", "variant", "wall ± σ", "min", "vs base", "CPU", "instructions vs base", "peak RSS"] | row),
+		(["scenario", "variant", "median", "mean ± σ", "vs base", "CPU", "instructions vs base", "peak RSS"] | row),
 		"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
 		(
 			$runs[]
@@ -31,9 +32,9 @@ $host[0] as $h
 			| [
 				.scenario,
 				.variant,
+				(.median | secs),
 				"\(.mean | secs) ± \(.stddev // 0 | secs)",
-				(.min | secs),
-				(if $is_base then "base" else (.mean / $base.mean - 1 | pct) end),
+				(if $is_base then "base" else (.median / $base.median - 1 | pct) end),
 				(.cpu | secs),
 				(if .instructions == null then "n/a"
 					elif $is_base then "\(.instructions / 1e9 | fixed(1))G"
