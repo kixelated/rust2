@@ -14,7 +14,7 @@ nightly jobs) in a paired PR.
 Decided with the maintainer on 2026-10-23: the custom FFI tooling and its
 benchmarks leave moq, so the fork's perf work lives and measures here.
 moq-ffi and its wrappers and packaging stay in moq; the benchmark drives them
-at a pinned revision, as the [build-speed benchmark](/quest/m1/bench.md) pins
+at a pinned revision, as the [build-speed benchmark](/bench/build/README.md) pins
 moq. A pin bump is its own change, so numbers compare across runs.
 
 - Build the pinned moq-ffi against the fork through a local patch or flake
