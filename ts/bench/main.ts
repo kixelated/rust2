@@ -248,14 +248,15 @@ async function chrome(): Promise<Engine> {
 		},
 	});
 	// No sandbox: the page is our own, and CI runners refuse the user namespaces it needs.
+	// Its stderr goes to a file, which a child left behind cannot hold open as it can a pipe.
+	const log = join(out, "chrome.log");
 	const proc = Bun.spawn(
 		["chromium", "--headless", "--no-sandbox", "--no-first-run", `--user-data-dir=${join(out, "chrome")}`, server.url.href],
-		{ stdout: "ignore", stderr: "pipe" },
+		{ stdout: "ignore", stderr: Bun.file(log) },
 	);
-	const stderr = new Response(proc.stderr).text();
 	const fail = async (why: string) => {
-		proc.kill();
-		reject(new Error(`Chrome ${why}:\n${await stderr}`));
+		proc.kill("SIGKILL");
+		reject(new Error(`Chrome ${why}:\n${await Bun.file(log).text()}`));
 	};
 	proc.exited.then((code) => fail(`exited with ${code}`));
 	progress();
