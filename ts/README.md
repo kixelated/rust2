@@ -69,6 +69,10 @@ and async in `rt/task.ts`.
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 
+`Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
+`Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
+`byteOffset` and `byteLength`, and copy it before transferring it.
+
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
