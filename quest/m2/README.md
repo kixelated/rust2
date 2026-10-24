@@ -20,7 +20,6 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 
 - [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
 - [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
-- [Fail the TS benchmark when Chrome hangs](/quest/m2/ts-bench-chrome-timeout.md) - a hung renderer fails the run loudly
 - [A/B routes in the TS benchmark](/quest/m2/ts-bench-routes.md) - `--route name=dir` loads another translation for reproducible A/B runs
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`

@@ -130,8 +130,17 @@ async function script(command: string): Promise<Engine> {
 	return JSON.parse(result);
 }
 
+// The page reports each step every few milliseconds, so this long a silence is a hang.
+const stallMs = 30_000;
+
 async function chrome(): Promise<Engine> {
 	const { promise, resolve, reject } = Promise.withResolvers<Engine>();
+	let step = "loading the page";
+	let stall: Timer | undefined;
+	const progress = () => {
+		clearTimeout(stall);
+		stall = setTimeout(() => fail(`stalled for ${stallMs / 1000} s while ${step}`), stallMs);
+	};
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
@@ -139,7 +148,10 @@ async function chrome(): Promise<Engine> {
 			const path = new URL(req.url).pathname;
 			if (req.method === "POST") {
 				const body = await req.text();
-				if (path === "/result") resolve(JSON.parse(body));
+				if (path === "/progress") {
+					step = body;
+					progress();
+				} else if (path === "/result") resolve(JSON.parse(body));
 				else reject(new Error(`Chrome: ${body}`));
 				return new Response();
 			}
@@ -155,13 +167,21 @@ async function chrome(): Promise<Engine> {
 		["chromium", "--headless", "--no-sandbox", "--no-first-run", `--user-data-dir=${join(out, "chrome")}`, server.url.href],
 		{ stdout: "ignore", stderr: "pipe" },
 	);
-	proc.exited.then(async (code) => reject(new Error(`Chrome exited with ${code}:\n${await new Response(proc.stderr).text()}`)));
+	const stderr = new Response(proc.stderr).text();
+	const fail = async (why: string) => {
+		proc.kill();
+		reject(new Error(`Chrome ${why}:\n${await stderr}`));
+	};
+	proc.exited.then((code) => fail(`exited with ${code}`));
+	progress();
 	try {
 		// The user agent reduces the version to its major number.
 		return { ...(await promise), engine: text(["chromium", "--version"]) };
 	} finally {
 		proc.kill();
+		// Closing the server first drops any progress still in flight.
 		await server.stop(true);
+		clearTimeout(stall);
 	}
 }
 

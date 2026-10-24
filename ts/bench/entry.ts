@@ -13,7 +13,12 @@ export interface Config {
 
 const browser = typeof window !== "undefined";
 
+// Tells Chrome's `main.ts`, which fails the run when it stops hearing, what runs next. A
+// beacon leaves no response for the page to handle between samples.
+const progress = browser ? (step: string) => void navigator.sendBeacon("/progress", step) : () => {};
+
 async function load(name: string): Promise<Uint8Array> {
+	progress(`loading ${name}`);
 	const url = new URL(name, import.meta.url);
 	if (url.protocol === "file:") {
 		const fs = await import("node:fs/promises");
@@ -24,6 +29,7 @@ async function load(name: string): Promise<Uint8Array> {
 
 /** A bundled route, whose `run` returns its output as `view` reads it. */
 async function route<T>(name: string, file: string, view: (out: T) => Uint8Array): Promise<Route> {
+	progress(`loading ${file}`);
 	const { run } = await import(new URL(file, import.meta.url).href);
 	return { name, run, output: async (input) => view(await run(input)) };
 }
@@ -47,7 +53,7 @@ async function main() {
 		await route("translated", "translated.js", translated),
 		await route("A/A", "translated-aa.js", translated),
 	];
-	const timings = await measure(wasm, routes, workloads, config);
+	const timings = await measure(wasm, routes, workloads, { ...config, progress });
 	return { engine: engine(), timings };
 }
 

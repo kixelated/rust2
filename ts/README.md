@@ -217,6 +217,7 @@ native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM r
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
 each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary.
+runs it and posts the report to its summary. Chrome's page reports each step it starts,
+and one that runs 30 s fails the run, naming it.
 
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.
