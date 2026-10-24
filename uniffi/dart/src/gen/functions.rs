@@ -1,5 +1,4 @@
 use genco::prelude::*;
-use heck::ToLowerCamelCase;
 use uniffi_bindgen::interface::{AsType, Function};
 
 use super::defaults::render_argument_param;
@@ -15,22 +14,24 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
         quote!({$(for arg in &func.arguments() =>
             $(render_argument_param(
                 arg,
-                arg.as_renderable().render_type(&arg.as_type(), type_helper)
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper),
+                type_helper.get_ci()
             )),
         )})
     };
 
     let (ret, lifter) = if let Some(ret) = func.return_type() {
-        (ret.as_renderable().render_type(ret, type_helper), quote!($(ret.as_codetype().lift())))
+        (
+            ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper),
+            quote!($(ret.as_codetype(type_helper.get_ci()).lift())),
+        )
     } else {
         (quote!(void), quote!((_) {}))
     };
 
     // Check if function can throw errors
     let error_handler = if let Some(error_type) = func.throws_type() {
-        let error_name = DartCodeOracle::class_name(error_type.name().unwrap_or("UnknownError"));
-        // Use the consistent Exception naming for error handlers
-        let handler_name = format!("{}ErrorHandler", error_name.to_lower_camel_case());
+        let handler_name = DartCodeOracle::error_handler_name(error_type, type_helper.get_ci());
         quote!($(handler_name))
     } else {
         quote!(null)
@@ -54,7 +55,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
             UniffiRustFuture<$ret> $(DartCodeOracle::fn_name(func.name()))($args) {
                 return uniffiRustCallAsync(
                   () => $(func.ffi_func().name())(
-                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
                   ),
                   $(DartCodeOracle::async_poll(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_complete(func, type_helper.get_ci())),
@@ -70,7 +71,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
                 return rustCall((status) {
                     $(func.ffi_func().name())(
-                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),) status
                     );
                 }, $error_handler);
             }
@@ -80,7 +81,7 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
             $ret $(DartCodeOracle::fn_name(func.name()))($args) {
                 return rustCallWithLifter(
                     (status) => $(func.ffi_func().name())(
-                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),) status
                     ),
                     $lifter,
                     $error_handler

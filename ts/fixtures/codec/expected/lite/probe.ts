@@ -15,16 +15,16 @@ import { type Control } from "../stats.ts";
  * On the wire, 0 means unknown (None). Some(0) is rounded up to Some(1).
  */
 export class Probe {
-	bitrate: bigint | undefined;
-	rtt: bigint | undefined;
+	bitrate: rt.u64 | undefined;
+	rtt: rt.u64 | undefined;
 
-	constructor(fields: { bitrate: bigint | undefined; rtt: bigint | undefined }) {
+	constructor(fields: { bitrate: rt.u64 | undefined; rtt: rt.u64 | undefined }) {
 		this.bitrate = fields.bitrate;
 		this.rtt = fields.rtt;
 	}
 
 	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
-	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Probe, number], DecodeError> {
+	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Probe, rt.usize], DecodeError> {
 		let r: Decoder = Decoder.new(buf, Form.from(version));
 		const decode = Probe.decode(r, version);
 		if (!decode.ok) {
@@ -65,18 +65,18 @@ export class Probe {
 		if (version === "Lite01" || version === "Lite02") {
 			return rt.Err({ tag: "Version" });
 		}
-		let bitrate: bigint | undefined;
+		let bitrate: rt.u64 | undefined;
 		const varint = r.varint();
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
-		if (varint.value === 0n) {
+		if (varint.value === 0) {
 			bitrate = undefined;
 		} else {
 			const v = varint.value;
 			bitrate = v;
 		}
-		let rtt: bigint | undefined;
+		let rtt: rt.u64 | undefined;
 		if (!Version.hasProbeRtt(version)) {
 			rtt = undefined;
 		} else {
@@ -84,7 +84,7 @@ export class Probe {
 			if (!varint2.ok) {
 				return rt.Err(varint2.error);
 			}
-			if (varint2.value === 0n) {
+			if (varint2.value === 0) {
 				rtt = undefined;
 			} else {
 				const v2 = varint2.value;
@@ -99,17 +99,17 @@ export class Probe {
 		if (version === "Lite01" || version === "Lite02") {
 			return rt.Err("Version");
 		}
-		const wire = rt.option.unwrapOr(rt.option.map(this.bitrate, (v: bigint): bigint => {
-			return rt.max(v, 1n);
-		}), 0n);
+		const wire = rt.option.unwrapOr(rt.option.map(this.bitrate, (v: rt.u64): rt.u64 => {
+			return rt.u64.max(v, 1);
+		}), 0);
 		const varint = w.varint(wire);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
 		if (Version.hasProbeRtt(version)) {
-			const wire2 = rt.option.unwrapOr(rt.option.map(this.rtt, (v2: bigint): bigint => {
-				return rt.max(v2, 1n);
-			}), 0n);
+			const wire2 = rt.option.unwrapOr(rt.option.map(this.rtt, (v2: rt.u64): rt.u64 => {
+				return rt.u64.max(v2, 1);
+			}), 0);
 			const varint2 = w.varint(wire2);
 			if (!varint2.ok) {
 				return rt.Err(varint2.error);

@@ -19,7 +19,7 @@ internal object {{ trait_impl }} {
             val makeCall = {% if meth.is_async() %}suspend {% endif %}{ ->
                 uniffiObj.{{ meth.name()|fn_name() }}(
                     {%- for arg in meth.arguments() %}
-                    {{ arg|lift_fn }}({{ arg.name()|var_name }}),
+                    {{ arg|lift_fn(ci) }}({{ arg.name()|var_name }}),
                     {%- endfor %}
                 )
             }
@@ -27,7 +27,7 @@ internal object {{ trait_impl }} {
 
             {%- match meth.return_type() %}
             {%- when Some(return_type) %}
-            val writeReturn = { value: {{ return_type|type_name(ci) }} -> uniffiOutReturn.setValue({{ return_type|lower_fn }}(value)) }
+            val writeReturn = { value: {{ return_type|type_name(ci) }} -> uniffiOutReturn.setValue({{ return_type|lower_fn(ci) }}(value)) }
             {%- when None %}
             val writeReturn = { _: Unit -> Unit }
             {%- endmatch %}
@@ -40,7 +40,7 @@ internal object {{ trait_impl }} {
                 uniffiCallStatus,
                 makeCall,
                 writeReturn,
-                { e: {{error_type|type_name(ci) }} -> {{ error_type|lower_fn }}(e) }
+                { e: {{error_type|type_name(ci) }} -> {{ error_type|lower_fn(ci) }}(e) }
             )
             {%- endmatch %}
 
@@ -48,7 +48,7 @@ internal object {{ trait_impl }} {
             val uniffiHandleSuccess = { {% if meth.return_type().is_some() %}returnValue{% else %}_{% endif %}: {% match meth.return_type() %}{%- when Some(return_type) %}{{ return_type|type_name(ci) }}{%- when None %}Unit{% endmatch %} ->
                 val uniffiResult = {{ meth.foreign_future_ffi_result_struct().name()|ffi_struct_name }}.UniffiByValue(
                     {%- if let Some(return_type) = meth.return_type() %}
-                    {{ return_type|lower_fn }}(returnValue),
+                    {{ return_type|lower_fn(ci) }}(returnValue),
                     {%- endif %}
                     UniffiRustCallStatus.ByValue()
                 )
@@ -80,7 +80,7 @@ internal object {{ trait_impl }} {
                 makeCall,
                 uniffiHandleSuccess,
                 uniffiHandleError,
-                { e: {{error_type|type_name(ci) }} -> {{ error_type|lower_fn }}(e) },
+                { e: {{error_type|type_name(ci) }} -> {{ error_type|lower_fn(ci) }}(e) },
                 uniffiOutDroppedCallback
             )
             {%- endmatch %}

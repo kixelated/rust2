@@ -426,7 +426,7 @@ impl Constructor {
     }
 
     pub fn throws_name(&self) -> Option<&str> {
-        super::throws_name(&self.throws)
+        super::throws_name(self.throws.as_ref())
     }
 
     pub fn throws_type(&self) -> Option<&Type> {
@@ -573,7 +573,7 @@ impl Method {
     }
 
     pub fn throws_name(&self) -> Option<&str> {
-        super::throws_name(&self.throws)
+        super::throws_name(self.throws.as_ref())
     }
 
     pub fn throws_type(&self) -> Option<&Type> {

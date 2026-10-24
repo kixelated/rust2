@@ -42,12 +42,12 @@ fi
 
 # Renders a results directory's report.md.
 report() {
-    local dir=$1 attribution='[]'
+    local dir=$1
     local -a summaries=()
     [[ ! -d $dir/attribution ]] || mapfile -t summaries < <(find "$dir/attribution" -name summary.json | sort)
-    ((${#summaries[@]} == 0)) || attribution=$(jq -s . "${summaries[@]}")
-    jq -n -r -f "$bench/report.jq" --slurpfile host "$dir/host.json" \
-        --slurpfile results "$dir/results.jsonl" --argjson attribution "$attribution" >"$dir/report.md"
+    # A file, not an argument: a clean build's per-unit summary outgrows the argument list.
+    jq -n -r -f "$bench/report.jq" --slurpfile host "$dir/host.json" --slurpfile results "$dir/results.jsonl" \
+        --slurpfile attribution <(((${#summaries[@]} == 0)) || cat "${summaries[@]}") >"$dir/report.md"
 }
 
 if [[ ${1:-} == report ]]; then
@@ -201,21 +201,23 @@ time_once() { # corpus dir scenario variant prepare command
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
 }
 
-# Folds a scenario's runs of one variant into a result record. Medians, since
-# load on the host adds an occasional slow run that would skew a mean.
+# Folds a scenario's runs of one variant into a result record. Load on the host
+# adds an occasional slow run, so the compared numbers are trimmed means: the
+# mean without the fastest and slowest run. Edit times are often bimodal, where
+# averaging the middle runs is steadier than a median picking one.
 summarize_runs() { # corpus scenario variant
     jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
         --arg base "$(field variant "$3" '.base // .name')" '
         def mean: add / length;
-        def median: sort | ((length - 1) / 2) as $m | (.[$m | floor] + .[$m | ceil]) / 2;
+        def trimmed: sort | if length > 2 then .[1:-1] else . end | mean;
         [.[].time_wall_clock.value] as $t
         | ($t | mean) as $mean
         | {
             $corpus, $scenario, $variant, $base, $mean,
             stddev: (if ($t | length) > 1 then $t | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
-            median: ($t | median),
-            cpu: (map(.time_cpu.value) | median),
-            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | median else null end),
+            trimmed: ($t | trimmed),
+            cpu: (map(.time_cpu.value) | trimmed),
+            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | trimmed else null end),
             rss: (map(.memory_peak_resident.value) | max),
             times: $t
         }' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
@@ -327,7 +329,7 @@ attribute() { # corpus dir
         mv "$log" "$dest/cargo.jsonl"
         find "$prof" -name '*.mm_profdata' -print0 |
             xargs -0 -r -n 1 -P "$(getconf _NPROCESSORS_ONLN)" summarize summarize --json >/dev/null
-        jq -s -f "$bench/self-profile.jq" "$prof"/*.json >"$dest/self-profile.json"
+        jq -n -f "$bench/self-profile.jq" "$prof"/*.json >"$dest/self-profile.json"
         rm -f "$prof"/*
         jq -s -f "$bench/attribute.jq" --arg corpus "$corpus" --arg step "$step" --argjson proc_macros "$proc_macros" \
             --slurpfile profile "$dest/self-profile.json" "$dest/cargo.jsonl" >"$dest/summary.json"

@@ -1,8 +1,10 @@
 //! Integers: literals, arithmetic, and casts with Rust's semantics.
 //!
 //! Integers up to 32 bits are JS numbers, in which their sums, differences, and
-//! products are exact or provably out of range, so each is checked as computed. Wider
-//! integers are bigints. Every operation that can overflow is checked, as a debug build
+//! products are exact or provably out of range, so each is checked as computed. A wider
+//! integer is a number too while it is a safe integer, and the runtime's immutable
+//! object of 32-bit limbs past that, so every operator and comparison on one goes
+//! through the runtime. Every operation that can overflow is checked, as a debug build
 //! checks it: none wraps silently.
 
 use rustc_middle::mir::{BinOp, UnOp};
@@ -10,7 +12,7 @@ use rustc_middle::ty::{self, Ty};
 use rustc_span::Span;
 
 use super::body::Body;
-use crate::ts::Expr;
+use crate::ts::{Expr, Type};
 
 /// An integer type, by width and signedness. `usize` and `isize` are 32 bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,9 +39,14 @@ impl Int {
 		Some(Self { bits, signed, pointer })
 	}
 
-	/// Whether values are bigints rather than numbers.
+	/// Whether values past 2^53 are runtime objects rather than numbers.
 	pub fn big(self) -> bool {
 		self.bits > 32
+	}
+
+	/// The TypeScript type of a value, named as the runtime's: `rt.u32`.
+	pub fn ty(self) -> Type {
+		Type::Rt(self.rt(), Vec::new())
 	}
 
 	pub fn min(self) -> i128 {
@@ -92,9 +99,16 @@ impl Int {
 			true => value.to_string(),
 			false => (value as u128).to_string(),
 		};
-		match self.big() {
-			true => Expr::lit(format!("{text}n")),
-			false => Expr::lit(text),
+		self.spelled(text, value)
+	}
+
+	/// A literal of this type spelled `text`, JS number digits of `value`. A wide value
+	/// past 2^53 is limbs, made from a bigint: `rt.u64.of(0xffffffffffffffffn)`.
+	pub fn spelled(self, text: String, value: i128) -> Expr {
+		let safe = (1 - (1i128 << 53)..(1 << 53)).contains(&value) && (self.signed || value >= 0);
+		match safe {
+			true => Expr::lit(text),
+			false => self.method("of", vec![Expr::lit(format!("{text}n"))]),
 		}
 	}
 
@@ -103,26 +117,37 @@ impl Int {
 		Expr::Rt(self.rt()).member(name).call(args)
 	}
 
-	/// `value`, which is exact, wrapped into this type's range.
+	/// `value`, an exact integer of at most 32 bits, wrapped into this narrow type's range.
 	pub fn wrap(self, value: Expr) -> Expr {
-		match (self.big(), self.signed, self.bits) {
-			(true, false, bits) => big_int("asUintN", bits, value),
-			(true, true, bits) => big_int("asIntN", bits, value),
-			(false, false, 32) => value.binary(">>>", Expr::lit("0")),
-			(false, true, 32) => value.binary("|", Expr::lit("0")),
-			(false, false, bits) => value.binary("&", Expr::lit(format!("0x{:x}", (1u64 << bits) - 1))),
-			(false, true, bits) => {
+		debug_assert!(!self.big());
+		match (self.signed, self.bits) {
+			(false, 32) => value.binary(">>>", Expr::lit("0")),
+			(true, 32) => value.binary("|", Expr::lit("0")),
+			(false, bits) => value.binary("&", Expr::lit(format!("0x{:x}", (1u64 << bits) - 1))),
+			(true, bits) => {
 				let shift = Expr::lit((32 - bits).to_string());
 				value.binary("<<", shift.clone()).binary(">>", shift)
 			}
 		}
 	}
-}
 
-fn big_int(method: &str, bits: u32, value: Expr) -> Expr {
-	Expr::ident("BigInt")
-		.member(method)
-		.call(vec![Expr::lit(bits.to_string()), value])
+	/// A comparison, `===` or `<` for instance, of two values of this type.
+	pub fn compare(self, js: &'static str, l: Expr, r: Expr) -> Expr {
+		// A wide value has one form, so it equals a number literal only as that number.
+		let literal = |e: &Expr| matches!(e, Expr::Lit(_));
+		if !self.big() || (matches!(js, "===" | "!==") && (literal(&l) || literal(&r))) {
+			return l.binary(js, r);
+		}
+		let name = match js {
+			"===" => "eq",
+			"!==" => "ne",
+			"<" => "lt",
+			"<=" => "le",
+			">" => "gt",
+			_ => "ge",
+		};
+		self.method(name, vec![l, r])
+	}
 }
 
 /// An operand, and its value when it is a constant.
@@ -181,7 +206,8 @@ pub fn binary<'tcx>(
 	};
 	if let Some(js) = compare {
 		return match lty.kind() {
-			ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char => l.expr.binary(js, r.expr),
+			ty::Int(_) | ty::Uint(_) => Int::of(lty).unwrap().compare(js, l.expr, r.expr),
+			ty::Bool | ty::Char => l.expr.binary(js, r.expr),
 			_ => b.err(span, format!("comparing `{lty}`")),
 		};
 	}
@@ -206,21 +232,15 @@ pub fn binary<'tcx>(
 	if let (Some(a), Some(c)) = (l.value, r.value)
 		&& let Some(value) = fold(op, a, c, int)
 	{
-		let exact = match int.big() {
-			true => true,
-			false => match op {
+		let exact = !int.big()
+			&& match op {
 				BinOp::Add | BinOp::Sub | BinOp::Mul => value.abs() < (1 << 53),
 				// JS bitwise operators compute in 32-bit signed integers.
 				_ => (i32::MIN as i128..=i32::MAX as i128).contains(&value) && a >= 0 && c >= 0,
-			},
-		};
+			};
 		if !exact {
 			return int.lit(value);
 		}
-		let rhs = match (op, int.big()) {
-			(BinOp::Shl | BinOp::Shr, true) => Expr::lit(format!("{c}n")),
-			_ => r.expr,
-		};
 		let js = match op {
 			BinOp::Add => "+",
 			BinOp::Sub => "-",
@@ -233,7 +253,29 @@ pub fn binary<'tcx>(
 			BinOp::Shr => ">>",
 			_ => return int.lit(value),
 		};
-		return l.expr.binary(js, rhs);
+		return l.expr.binary(js, r.expr);
+	}
+
+	if int.big() {
+		let name = match op {
+			BinOp::Add => "add",
+			BinOp::Sub => "sub",
+			BinOp::Mul => "mul",
+			BinOp::Div => "div",
+			BinOp::Rem => "rem",
+			BinOp::BitAnd => "and",
+			BinOp::BitOr => "or",
+			BinOp::BitXor => "xor",
+			BinOp::Shl => "shl",
+			BinOp::Shr => "shr",
+			_ => return b.err(span, format!("unsupported operator `{op:?}`")),
+		};
+		// A constant shift amount is a number, whatever its type.
+		let rhs = match (op, r.value) {
+			(BinOp::Shl | BinOp::Shr, Some(c)) => Expr::lit(c.to_string()),
+			_ => r.expr,
+		};
+		return int.method(name, vec![l.expr, rhs]);
 	}
 
 	match op {
@@ -250,8 +292,8 @@ pub fn binary<'tcx>(
 			};
 			let value = l.expr.binary(js, r.expr);
 			// Only an unsigned 32-bit result can land outside a JS int32.
-			match (int.big(), int.signed, int.bits) {
-				(false, false, 32) => value.binary(">>>", Expr::lit("0")),
+			match (int.signed, int.bits) {
+				(false, 32) => value.binary(">>>", Expr::lit("0")),
 				_ => value,
 			}
 		}
@@ -264,12 +306,10 @@ pub fn binary<'tcx>(
 				let name = if op == BinOp::Shl { "shl" } else { "shr" };
 				return int.method(name, vec![l.expr, r.expr]);
 			};
-			match (op, int.big()) {
-				(BinOp::Shl, false) => int.wrap(l.expr.binary("<<", Expr::lit(c.to_string()))),
-				(BinOp::Shl, true) => int.wrap(l.expr.binary("<<", Expr::lit(format!("{c}n")))),
-				(_, false) if !int.signed && int.bits == 32 => l.expr.binary(">>>", Expr::lit(c.to_string())),
-				(_, false) => l.expr.binary(">>", Expr::lit(c.to_string())),
-				(_, true) => l.expr.binary(">>", Expr::lit(format!("{c}n"))),
+			match op {
+				BinOp::Shl => int.wrap(l.expr.binary("<<", Expr::lit(c.to_string()))),
+				_ if !int.signed && int.bits == 32 => l.expr.binary(">>>", Expr::lit(c.to_string())),
+				_ => l.expr.binary(">>", Expr::lit(c.to_string())),
 			}
 		}
 		_ => b.err(span, format!("unsupported operator `{op:?}`")),
@@ -282,10 +322,13 @@ pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tc
 		(UnOp::Not, ty::Bool) => value.not(),
 		(UnOp::Not, ty::Int(_) | ty::Uint(_)) => {
 			let int = Int::of(ty).unwrap();
+			if int.big() {
+				return int.method("not", vec![value]);
+			}
 			let inverted = Expr::unary("~", value);
-			match (int.signed, int.big()) {
-				(true, _) => inverted,
-				(false, _) => int.wrap(inverted),
+			match int.signed {
+				true => inverted,
+				false => int.wrap(inverted),
 			}
 		}
 		(UnOp::Neg, ty::Int(_)) => {
@@ -302,15 +345,7 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 		return b.err(span, format!("a cast to `{to}`"));
 	};
 	if let ty::Bool = from.kind() {
-		let (one, zero) = match target.big() {
-			true => ("1n", "0n"),
-			false => ("1", "0"),
-		};
-		return Expr::Cond(
-			Box::new(value.expr),
-			Box::new(Expr::lit(one)),
-			Box::new(Expr::lit(zero)),
-		);
+		return Expr::Cond(Box::new(value.expr), Box::new(target.lit(1)), Box::new(target.lit(0)));
 	}
 	if let ty::Adt(adt, _) = from.kind()
 		&& adt.is_enum()
@@ -340,21 +375,24 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 		return target.lit(target.fold(c));
 	}
 	let fits = target.min() <= source.min() && source.max() <= target.max();
+	// A cast that keeps the value still changes the type `tsc` checks it as.
+	let retyped = |value: Expr| match source.rt() == target.rt() {
+		true => value,
+		false => Expr::As(Box::new(value), target.ty()),
+	};
 	match (source.big(), target.big()) {
-		(false, false) if fits => value.expr,
+		(false, false) if fits => retyped(value.expr),
 		(false, false) => target.wrap(value.expr),
-		(false, true) => {
-			let widened = Expr::ident("BigInt").call(vec![value.expr]);
-			match fits {
-				true => widened,
-				false => target.wrap(widened),
+		(true, false) => {
+			let low = source.method("low", vec![value.expr]);
+			match (target.signed, target.bits) {
+				(false, 32) => low,
+				_ => target.wrap(low),
 			}
 		}
-		(true, false) => {
-			let method = if target.signed { "asIntN" } else { "asUintN" };
-			Expr::ident("Number").call(vec![big_int(method, target.bits, value.expr)])
-		}
-		(true, true) if fits => value.expr,
-		(true, true) => target.wrap(value.expr),
+		// A narrow integer is already a wide one's number.
+		(false, true) if fits => retyped(value.expr),
+		(true, true) if source.rt() == target.rt() => value.expr,
+		_ => target.method("cast", vec![value.expr]),
 	}
 }

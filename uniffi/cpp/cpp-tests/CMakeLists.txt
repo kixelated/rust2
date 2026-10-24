@@ -124,6 +124,21 @@ list(APPEND BINDING_FILES
     ${BINDINGS_SRC_DIR}/ext_types_export.cpp
     ${BINDINGS_SRC_DIR}/ext_types_import.cpp)
 
+# Two crates that share their type names, one using the other's.
+add_executable(namespaces-test
+    tests/namespaces/main.cpp
+    ${BINDINGS_SRC_DIR}/net.cpp
+    ${BINDINGS_SRC_DIR}/media.cpp)
+target_include_directories(namespaces-test PRIVATE ${BINDINGS_SRC_DIR} include)
+target_link_directories(namespaces-test PRIVATE ${BINDINGS_BUILD_DIR})
+target_link_libraries(namespaces-test uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
+add_test(NAME namespaces-test COMMAND namespaces-test)
+memcheck_test(namespaces-test)
+add_dependencies(namespaces-test bindings)
+list(APPEND BINDING_FILES
+    ${BINDINGS_SRC_DIR}/net.cpp
+    ${BINDINGS_SRC_DIR}/media.cpp)
+
 # `error_style = "expected"` bindings, built the way Unreal builds: no exceptions, no RTTI.
 set(EXPECTED_BINDINGS_DIR ${BINDINGS_BUILD_DIR}/bindings-expected)
 add_executable(expected-test
@@ -169,11 +184,16 @@ set_tests_properties(strip-type-prefix-collision-test PROPERTIES
 # The C backend: a C11 header over expected-style C++ bindings, built without exceptions.
 set(C_BINDINGS_DIR ${BINDINGS_BUILD_DIR}/bindings-c)
 set(C_BINDING_FILES ${C_BINDINGS_DIR}/capi.cpp ${C_BINDINGS_DIR}/capi_c.cpp)
+# A crate's C API needs the C and C++ files of every crate whose types it uses.
+set(C_NAMESPACES_BINDING_FILES
+    ${C_BINDINGS_DIR}/net.cpp ${C_BINDINGS_DIR}/net_c.cpp
+    ${C_BINDINGS_DIR}/media.cpp ${C_BINDINGS_DIR}/media_c.cpp)
+# The arguments after the test name are the generated files it compiles.
 macro(c_test_case TEST_NAME)
 add_executable(${TEST_NAME}-test
     tests/${TEST_NAME}/main.c
     tests/c_support/support.cpp
-    ${C_BINDING_FILES})
+    ${ARGN})
 target_include_directories(${TEST_NAME}-test PRIVATE ${C_BINDINGS_DIR} include)
 target_link_directories(${TEST_NAME}-test PRIVATE ${BINDINGS_BUILD_DIR})
 target_link_libraries(${TEST_NAME}-test uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
@@ -191,8 +211,9 @@ set_tests_properties(${TEST_NAME}-test PROPERTIES TIMEOUT 30)
 memcheck_test(${TEST_NAME}-test)
 endmacro(c_test_case)
 
-c_test_case(c_api)
-c_test_case(c_dispatcher)
+c_test_case(c_api ${C_BINDING_FILES})
+c_test_case(c_dispatcher ${C_BINDING_FILES})
+c_test_case(c_namespaces ${C_NAMESPACES_BINDING_FILES})
 
 # The C backend refuses what it cannot render instead of emitting half of it.
 add_test(NAME c-refuses-callbacks-test
@@ -231,9 +252,13 @@ add_custom_target(bindings ALL
 
 add_custom_target(bindings-c ALL
     DEPENDS libs
-    BYPRODUCTS ${C_BINDING_FILES}
+    BYPRODUCTS ${C_BINDING_FILES} ${C_NAMESPACES_BINDING_FILES}
     COMMAND ./uniffi-bindgen-cpp --lang c --library ${UNIFFI_FIXTURES_LIB} --crate uniffi_c_api
         --out-dir bindings-c
+    COMMAND ./uniffi-bindgen-cpp --lang c --library ${UNIFFI_FIXTURES_LIB}
+        --crate uniffi_namespaces_net --out-dir bindings-c
+    COMMAND ./uniffi-bindgen-cpp --lang c --library ${UNIFFI_FIXTURES_LIB}
+        --crate uniffi_namespaces_media --out-dir bindings-c
     WORKING_DIRECTORY ${BINDINGS_BUILD_DIR}
     COMMENT "Generating C bindings"
 )

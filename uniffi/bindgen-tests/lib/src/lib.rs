@@ -102,11 +102,19 @@ pub mod test_util {
         format!("{DLL_PREFIX}{lib_name}{DLL_SUFFIX}")
     }
 
+    // Named after the libtest thread asking for it, so each nextest process (one test each) gets
+    // its own directory instead of deleting one another process is using.
     pub fn setup_test_dir(language_name: &str) -> Utf8PathBuf {
+        let thread = std::thread::current();
+        let test_name = match thread.name() {
+            Some(name) if name != "main" => name.rsplit("::").next().unwrap(),
+            _ => panic!("setup_test_dir must run on a libtest test thread"),
+        };
         let path = workspace_dir()
             .join("target")
             .join("uniffi-tests")
-            .join(language_name);
+            .join(language_name)
+            .join(test_name);
         if path.exists() {
             std::fs::remove_dir_all(&path).unwrap();
         }

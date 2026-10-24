@@ -19,7 +19,7 @@ impl OptionalCodeType {
     pub(crate) fn can_dereference(inner_type: &Type, ci: &ComponentInterface) -> bool {
         match inner_type {
             Type::Object { .. } | Type::CallbackInterface { .. } => true,
-            Type::Enum { name, .. } => is_error_class(ci, name),
+            Type::Enum { .. } => is_error_class(ci, inner_type),
             _ => false,
         }
     }
@@ -37,10 +37,10 @@ impl CodeType for OptionalCodeType {
         }
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
         format!(
             "Optional{}",
-            CppCodeOracle.find(&self.inner).canonical_name(),
+            CppCodeOracle.find(&self.inner).canonical_name(ci),
         )
     }
 
@@ -77,10 +77,10 @@ impl CodeType for SequenceCodeType {
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
         format!(
             "Sequence{}",
-            CppCodeOracle.find(&self.inner).canonical_name(),
+            CppCodeOracle.find(&self.inner).canonical_name(ci),
         )
     }
 
@@ -121,11 +121,11 @@ impl CodeType for MapCodeType {
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
         format!(
             "Map{}{}",
-            CppCodeOracle.find(self.key()).canonical_name(),
-            CppCodeOracle.find(self.value()).canonical_name(),
+            CppCodeOracle.find(self.key()).canonical_name(ci),
+            CppCodeOracle.find(self.value()).canonical_name(ci),
         )
     }
 

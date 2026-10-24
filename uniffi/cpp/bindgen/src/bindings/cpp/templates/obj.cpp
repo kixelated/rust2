@@ -2,8 +2,8 @@
 {%- let (interface_name, impl_class_name) = obj|object_names %}
 {%- let foreign_interface_name = interface_name %}
 {%- let class_name = type_name|class_name %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 
 {%- if obj.has_callback_interface() %}
 {%- let vtable = obj.vtable().expect("trait interface should have a vtable") %}
@@ -23,7 +23,7 @@ namespace uniffi {
     }
 }
 
-{% if ci.is_name_used_as_error(name) && !config.expected() %}
+{% if ci.is_used_as_error(typ) && !config.expected() %}
     void {{ impl_class_name }}::throw_underlying() {
         throw *this;
     }
@@ -71,10 +71,10 @@ namespace uniffi {
     return {% call macros::rust_call_async_with_prefix("ptr", method, return_type|type_name(ci)) %};
     {%- else if config.expected() && method.throws_type().is_some() %}
     return uniffi::lift_expected<{{ return_type|type_name(ci) }}>({% call macros::rust_call_with_prefix("ptr", method) %}, [](auto ret) {
-        return uniffi::{{ return_type|lift_fn }}(ret);
+        return uniffi::{{ return_type|lift_fn(ci) }}(ret);
     });
     {%- else %}
-    return uniffi::{{ return_type|lift_fn }}({% call macros::rust_call_with_prefix("ptr", method) %});
+    return uniffi::{{ return_type|lift_fn(ci) }}({% call macros::rust_call_with_prefix("ptr", method) %});
     {%- endif %}
     {%- else %}
     {%- if method.is_async() %}
@@ -108,26 +108,26 @@ uint64_t {{ impl_class_name }}::_uniffi_internal_clone_pointer() const {
 {% match method %}
 {% when UniffiTrait::Display { fmt } %}
 std::string {{ impl_class_name }}::to_string() const {
-    return uniffi::{{ Type::String.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", fmt) %});
+    return uniffi::{{ Type::String.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", fmt) %});
 }
 {% when UniffiTrait::Debug { fmt } %}
 std::string {{ impl_class_name }}::to_debug_string() const {
-    return uniffi::{{ Type::String.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", fmt) %});
+    return uniffi::{{ Type::String.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", fmt) %});
 }
 {% when UniffiTrait::Eq { eq, ne } %}
 bool {{ impl_class_name }}::eq(const {{ type_name }} &other) const {
-    return uniffi::{{ Type::Boolean.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", eq) %});
+    return uniffi::{{ Type::Boolean.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", eq) %});
 }
 bool {{ impl_class_name }}::ne(const {{ type_name }} &other) const {
-    return uniffi::{{ Type::Boolean.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", ne) %});
+    return uniffi::{{ Type::Boolean.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", ne) %});
 }
 {% when UniffiTrait::Hash { hash } %}
 uint64_t {{ impl_class_name }}::hash() const {
-    return uniffi::{{ Type::UInt64.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", hash) %});
+    return uniffi::{{ Type::UInt64.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", hash) %});
 }
 {% when UniffiTrait::Ord { cmp } %}
 int8_t {{ impl_class_name }}::cmp(const {{ type_name }} &other) const {
-    return uniffi::{{ Type::Int8.borrow()|lift_fn }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", cmp) %});
+    return uniffi::{{ Type::Int8.borrow()|lift_fn(ci) }}({% call macros::rust_call_with_prefix("this->_uniffi_internal_clone_pointer()", cmp) %});
 }
 {% endmatch %}
 {%- endfor %}

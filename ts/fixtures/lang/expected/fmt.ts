@@ -9,7 +9,7 @@ export function put(out: rt.ByteVec, s: string): void {
 }
 
 /** Integers of every width, with each spec. */
-export function ints(kind: number, data: Uint8Array, out: rt.ByteVec): void {
+export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const value = rt.u8.rem(kind, 12);
 	if (value === 0) {
 		const data2 = data;
@@ -115,7 +115,7 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	for (const item of rt.slice.range(data, 0, rt.min(data.length, 3))) {
 		const b = item;
 		const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-		const s = rt.at(value, rt.usize.rem(b, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+		const s = rt.at(value, rt.usize.rem(b as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
 		put(out, rt.fmt.format([(f: rt.Formatter) => f.pad(s), "|", rt.fmt.spec({ width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: "^", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ fill: "-", align: "<", width: 3 }, (f: rt.Formatter) => f.pad(s)), "|", (f: rt.Formatter) => rt.fmt.str(s, f), "|", rt.fmt.spec({ width: 12 }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|{", (f: rt.Formatter) => f.pad(s), "}"]));
 	}
 	const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(data));
@@ -180,10 +180,10 @@ export class Bare {
 }
 
 export class Pair {
-	_0: number;
-	_1: bigint;
+	_0: rt.u8;
+	_1: rt.i64;
 
-	constructor(_0: number, _1: bigint) {
+	constructor(_0: rt.u8, _1: rt.i64) {
 		this._0 = _0;
 		this._1 = _1;
 	}
@@ -193,20 +193,20 @@ export class Pair {
 	}
 
 	eq(other: Pair): boolean {
-		return this._0 === other._0 && this._1 === other._1;
+		return this._0 === other._0 && rt.i64.eq(this._1, other._1);
 	}
 }
 
 /** Past five fields, derived `Debug` takes the fields as slices. */
 export class Wide {
-	a: number;
-	b: number;
-	c: number;
-	d: bigint;
-	e: number;
+	a: rt.u8;
+	b: rt.u16;
+	c: rt.u32;
+	d: rt.u64;
+	e: rt.i8;
 	f: boolean;
 
-	constructor(fields: { a: number; b: number; c: number; d: bigint; e: number; f: boolean }) {
+	constructor(fields: { a: rt.u8; b: rt.u16; c: rt.u32; d: rt.u64; e: rt.i8; f: boolean }) {
 		this.a = fields.a;
 		this.b = fields.b;
 		this.c = fields.c;
@@ -223,14 +223,14 @@ export class Wide {
 }
 
 export class Six {
-	_0: number;
-	_1: number;
-	_2: number;
-	_3: number;
-	_4: number;
-	_5: number;
+	_0: rt.u8;
+	_1: rt.u8;
+	_2: rt.u8;
+	_3: rt.u8;
+	_4: rt.u8;
+	_5: rt.u8;
 
-	constructor(_0: number, _1: number, _2: number, _3: number, _4: number, _5: number) {
+	constructor(_0: rt.u8, _1: rt.u8, _2: rt.u8, _3: rt.u8, _4: rt.u8, _5: rt.u8) {
 		this._0 = _0;
 		this._1 = _1;
 		this._2 = _2;
@@ -249,8 +249,8 @@ export type Kind =
 	| { tag: "Empty" }
 	| { tag: "Braced" }
 	| { tag: "Bare" }
-	| { tag: "One"; _0: number }
-	| { tag: "Many"; count: number; items: rt.ByteVec };
+	| { tag: "One"; _0: rt.u8 }
+	| { tag: "Many"; count: rt.u32; items: rt.ByteVec };
 
 export const Kind = {
 	fmt(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
@@ -278,16 +278,16 @@ export class Nested {
 	tags: rt.ByteVec;
 	pairs: Pair[];
 	maybe: Pair | undefined;
-	none: number | undefined;
-	result: rt.Result<number, string>;
-	list: number[];
-	tuple: [number, boolean, string];
-	single: [number];
+	none: rt.u8 | undefined;
+	result: rt.Result<rt.u8, string>;
+	list: rt.i16[];
+	tuple: [rt.u8, boolean, string];
+	single: [rt.u8];
 	empty: rt.ByteVec;
 	unit: undefined;
 	boxed: Kind;
 
-	constructor(fields: { name: string; point: Point; shape: Shape; tags: rt.ByteVec; pairs: Pair[]; maybe: Pair | undefined; none: number | undefined; result: rt.Result<number, string>; list: number[]; tuple: [number, boolean, string]; single: [number]; empty: rt.ByteVec; unit: undefined; boxed: Kind }) {
+	constructor(fields: { name: string; point: Point; shape: Shape; tags: rt.ByteVec; pairs: Pair[]; maybe: Pair | undefined; none: rt.u8 | undefined; result: rt.Result<rt.u8, string>; list: rt.i16[]; tuple: [rt.u8, boolean, string]; single: [rt.u8]; empty: rt.ByteVec; unit: undefined; boxed: Kind }) {
 		this.name = fields.name;
 		this.point = fields.point;
 		this.shape = fields.shape;
@@ -312,23 +312,23 @@ export class Nested {
 }
 
 export function nested(data: Uint8Array): Nested {
-	const at = (i: number): number => {
+	const at = (i: rt.usize): rt.u8 => {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
 	const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-	const arg = rt.at(value, rt.usize.rem(at(0), ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
-	const arg2 = new Point({ x: rt.i32.sub(at(1), 128), y: -7 });
+	const arg = rt.at(value, rt.usize.rem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+	const arg2 = new Point({ x: rt.i32.sub(at(1) as rt.i32, 128), y: -7 });
 	const value2 = rt.u8.rem(at(2), 3);
 	const arg3 = arg;
 	const arg4 = arg2;
-	const arg5 = value2 === 0 ? { tag: "Dot" } as Shape : value2 === 1 ? { tag: "Line", _0: new Point({ x: 1, y: 2 }), _1: new Point({ x: -3, y: 4 }) } as Shape : { tag: "Rect", corner: new Point({ x: 0, y: 0 }), width: at(3), height: 9 } as Shape;
+	const arg5 = value2 === 0 ? { tag: "Dot" } as Shape : value2 === 1 ? { tag: "Line", _0: new Point({ x: 1, y: 2 }), _1: new Point({ x: -3, y: 4 }) } as Shape : { tag: "Rect", corner: new Point({ x: 0, y: 0 }), width: at(3) as rt.u16, height: 9 } as Shape;
 	const arg6 = rt.slice.toByteVec(rt.slice.range(data, 0, rt.min(data.length, 4)));
-	const arg7 = rt.slice.toVec([new Pair(at(4), -1n), new Pair(2, -9223372036854775808n)]);
-	const arg8 = rt.u8.rem(at(5), 2) === 0 ? new Pair(at(5), 5n) : undefined;
+	const arg7 = rt.slice.toVec([new Pair(at(4), -1), new Pair(2, rt.i64.of(-9223372036854775808n))]);
+	const arg8 = rt.u8.rem(at(5), 2) === 0 ? new Pair(at(5), 5) : undefined;
 	const arg9 = rt.u8.rem(at(6), 2) === 0 ? rt.Ok(at(6)) : rt.Err("no");
-	const arg10 = [rt.i16.sub(at(7), 100), 32767];
-	const arg11 = [at(8), true, "t"] as [number, boolean, string];
-	const arg12 = [at(9)] as [number];
+	const arg10 = [rt.i16.sub(at(7) as rt.i16, 100), 32767];
+	const arg11 = [at(8), true, "t"] as [rt.u8, boolean, string];
+	const arg12 = [at(9)] as [rt.u8];
 	const arg13 = new rt.ByteVec();
 	const value3 = rt.u8.rem(at(10), 3);
 	return new Nested({ name: arg3, point: arg4, shape: arg5, tags: arg6, pairs: arg7, maybe: arg8, none: undefined, result: arg9, list: arg10, tuple: arg11, single: arg12, empty: arg13, unit: undefined, boxed: value3 === 0 ? { tag: "Empty" } as Kind : value3 === 1 ? { tag: "One", _0: at(11) } as Kind : { tag: "Many", count: 2, items: rt.slice.toByteVec(Uint8Array.of(at(11), at(12))) } as Kind });
@@ -336,22 +336,22 @@ export function nested(data: Uint8Array): Nested {
 
 /** Derived `Debug` of every shape, compact and pretty, with options passed to fields. */
 export function derived(data: Uint8Array, out: rt.ByteVec): void {
-	const at = (i: number): number => {
+	const at = (i: rt.usize): rt.u8 => {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
 	const value = nested(data);
 	put(out, rt.fmt.format([(f: rt.Formatter) => value.fmt(f)]));
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => value.fmt(f))]));
-	const wide = new Wide({ a: at(0), b: 300, c: 70_000, d: 18446744073709551615n, e: -1, f: at(1) > 10 });
+	const wide = new Wide({ a: at(0), b: 300, c: 70_000, d: rt.u64.of(18446744073709551615n), e: -1, f: at(1) > 10 });
 	const six = new Six(at(0), 1, 2, 3, 4, at(1));
 	const arg3 = out;
 	const arg = new Unit();
 	const arg2 = new Unit();
 	put(arg3, rt.fmt.format([(f: rt.Formatter) => wide.fmt(f), " ", (f: rt.Formatter) => six.fmt(f), " ", (f: rt.Formatter) => arg.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => arg2.fmt(f))]));
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => wide.fmt(f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => six.fmt(f))]));
-	const point = new Point({ x: at(2), y: -1 });
+	const point = new Point({ x: at(2) as rt.i32, y: -1 });
 	const arg5 = out;
-	const arg4 = new Pair(at(3), -9n);
+	const arg4 = new Pair(at(3), -9);
 	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => arg4.fmt(f))]));
 	const kinds = [{ tag: "Empty" } as Kind, { tag: "One", _0: at(4) } as Kind, { tag: "Braced" } as Kind, { tag: "Bare" } as Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind];
 	const arg7 = out;
@@ -359,7 +359,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	put(arg7, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind, f: rt.Formatter) => Kind.fmt(value, f)), " ", (f: rt.Formatter) => Kind.fmt(arg6, f)]));
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind, f: rt.Formatter) => Kind.fmt(value, f)))]));
 	const bytes = data;
-	const words = [at(5), 0xffff];
+	const words = [at(5) as rt.u16, 0xffff];
 	const arg10 = out;
 	const arg8 = rt.slice.first(data);
 	const arg9 = rt.slice.get(data, 100);
@@ -375,9 +375,9 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 
 /** `Display` written with `write!`, which ignores the outer options, unless `#`. */
 export class Hex {
-	_0: number;
+	_0: rt.u32;
 
-	constructor(_0: number) {
+	constructor(_0: rt.u32) {
 		this._0 = _0;
 	}
 
@@ -418,9 +418,9 @@ export class Padded {
 
 /** `Display` that fails after writing, for odd values. */
 export class Fails {
-	_0: number;
+	_0: rt.u8;
 
-	constructor(_0: number) {
+	constructor(_0: rt.u8) {
 		this._0 = _0;
 	}
 
@@ -438,10 +438,10 @@ export class Fails {
 
 /** The builders, written out. */
 export class Manual {
-	id: number;
-	list: number[];
+	id: rt.u8;
+	list: rt.u16[];
 
-	constructor(fields: { id: number; list: number[] }) {
+	constructor(fields: { id: rt.u8; list: rt.u16[] }) {
 		this.id = fields.id;
 		this.list = fields.list;
 	}
@@ -464,10 +464,10 @@ export class Seq {
 }
 
 export class Tup {
-	_0: number;
-	_1: number | undefined;
+	_0: rt.u8;
+	_1: rt.u8 | undefined;
 
-	constructor(_0: number, _1: number | undefined) {
+	constructor(_0: rt.u8, _1: rt.u8 | undefined) {
 		this._0 = _0;
 		this._1 = _1;
 	}
@@ -483,18 +483,18 @@ export class Tup {
 
 /** Written `Display` and `Debug`, and a `Display` that fails inside `format!`. */
 export function written(data: Uint8Array, out: rt.ByteVec): void {
-	const at = (i: number): number => {
+	const at = (i: rt.usize): rt.u8 => {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
-	const hex = new Hex(rt.u32.mul(at(0), 0x1001));
+	const hex = new Hex(rt.u32.mul(at(0) as rt.u32, 0x1001));
 	put(out, rt.fmt.format([(f: rt.Formatter) => hex.fmt$Display(f), "|", rt.fmt.spec({ align: ">", width: 12 }, (f: rt.Formatter) => hex.fmt$Display(f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => hex.fmt$Display(f)), "|", (f: rt.Formatter) => hex.fmt$Debug(f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => hex.fmt$Debug(f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => hex.fmt$Debug(f))]));
 	put(out, rt.fmt.toString((f: rt.Formatter) => hex.fmt$Display(f)));
 	const padded = new Padded("pad");
 	put(out, rt.fmt.format([(f: rt.Formatter) => padded.fmt(f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => padded.fmt(f)), "|", rt.fmt.spec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => padded.fmt(f)), "|", rt.fmt.spec({ width: 30 }, (f: rt.Formatter) => padded.fmt(f)), "|"]));
-	const manual = new Manual({ id: at(1), list: rt.slice.toVec([1, at(2)]) });
+	const manual = new Manual({ id: at(1), list: rt.slice.toVec([1, at(2) as rt.u16]) });
 	const empty = new Manual({ id: 0, list: [] });
 	put(out, rt.fmt.format([(f: rt.Formatter) => manual.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => manual.fmt(f)), " ", (f: rt.Formatter) => empty.fmt(f)]));
-	const seq = new Seq(rt.slice.toVec([new Pair(at(3), 0n), new Pair(1, -1n)]));
+	const seq = new Seq(rt.slice.toVec([new Pair(at(3), 0), new Pair(1, -1)]));
 	const none = new Seq([]);
 	put(out, rt.fmt.format([(f: rt.Formatter) => seq.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => seq.fmt(f)), " ", (f: rt.Formatter) => none.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => none.fmt(f))]));
 	const tup = new Tup(at(4), rt.u8.rem(at(5), 2) === 0 ? at(5) : undefined);
@@ -508,17 +508,17 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** Panics, each with the message native Rust formats. */
-export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
+export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	const n = rt.option.unwrapOr(rt.slice.first(rest), 0);
 	const value = rt.u8.rem(kind, 19);
 	if (value === 0) {
 		rt.panic(["bad ", (f: rt.Formatter) => rt.u8.display(n, f), ": ", (f: rt.Formatter) => rt.fmt.list(rest, f, rt.u8.display)]);
 	} else if (value === 1) {
-		const arg = new Hex(n);
+		const arg = new Hex(n as rt.u32);
 		rt.panic(["internal error: entered unreachable code: never ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(n, f)), " ", (f: rt.Formatter) => arg.fmt$Display(f)]);
 	} else if (value === 2) {
 		if (!(n > 200)) {
-			const arg2 = new Pair(n, 0n);
+			const arg2 = new Pair(n, 0);
 			rt.panic(["small ", (f: rt.Formatter) => rt.u8.display(n, f), " ", (f: rt.Formatter) => arg2.fmt(f)]);
 		}
 	} else if (value === 3) {
@@ -526,7 +526,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 			rt.panic("assertion failed: n > 200");
 		}
 	} else if (value === 4) {
-		const value2 = [n, 7] as [number, number];
+		const value2 = [n, 7] as [rt.u8, rt.u8];
 		const leftVal = value2[0];
 		const rightVal = value2[1];
 		if (leftVal !== rightVal) {
@@ -534,7 +534,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 			rt.assertFailed(kind2, (f: rt.Formatter) => rt.u8.display(leftVal, f), (f: rt.Formatter) => rt.u8.display(rightVal, f));
 		}
 	} else if (value === 5) {
-		const value3 = [new Pair(n, 1n), new Pair(n, 1n)] as [Pair, Pair];
+		const value3 = [new Pair(n, 1), new Pair(n, 1)] as [Pair, Pair];
 		const leftVal2 = value3[0];
 		const rightVal2 = value3[1];
 		if (leftVal2.eq(rightVal2)) {
@@ -542,7 +542,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 			rt.assertFailed(kind3, (f: rt.Formatter) => leftVal2.fmt(f), (f: rt.Formatter) => rightVal2.fmt(f), ["same ", (f: rt.Formatter) => rt.u8.display(n, f)]);
 		}
 	} else if (value === 6) {
-		const value4 = [n, 9] as [number, number];
+		const value4 = [n, 9] as [rt.u8, rt.u8];
 		const leftVal3 = value4[0];
 		const rightVal3 = value4[1];
 		if (leftVal3 !== rightVal3) {
@@ -555,12 +555,12 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		const arg3 = rt.result.unwrap(r, (value: Kind, f: rt.Formatter) => Kind.fmt(value, f));
 		put(arg4, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg3, f)));
 	} else if (value === 8) {
-		const r2 = n > 128 ? rt.Ok(n) : rt.Err(new Pair(n, -2n));
+		const r2 = n > 128 ? rt.Ok(n) : rt.Err(new Pair(n, -2));
 		const arg6 = out;
 		const arg5 = rt.result.expect(rt.copy(r2), "expected a byte", (value: Pair, f: rt.Formatter) => value.fmt(f));
 		put(arg6, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg5, f)));
 	} else if (value === 9) {
-		const r3 = rt.Ok(new Point({ x: n, y: 0 }));
+		const r3 = rt.Ok(new Point({ x: n as rt.i32, y: 0 }));
 		const arg8 = out;
 		const arg7 = rt.result.unwrapErr(rt.copy(r3), (value: Point, f: rt.Formatter) => value.fmt(f));
 		put(arg8, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg7, f)));
@@ -578,11 +578,11 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		const arg13 = new Fails(n);
 		put(arg14, rt.fmt.toString((f: rt.Formatter) => arg13.fmt(f)));
 	} else if (value === 13) {
-		const arg15 = new Hex(n);
+		const arg15 = new Hex(n as rt.u32);
 		const arg16 = new Fails(n);
 		rt.panic([(f: rt.Formatter) => arg15.fmt$Display(f), " then ", (f: rt.Formatter) => arg16.fmt(f)]);
 	} else if (value === 14) {
-		const [start, end] = [rt.u8.rem(n, 8), rt.u8.div(n, 32)] as [number, number];
+		const [start, end] = [rt.u8.rem(n, 8) as rt.usize, rt.u8.div(n, 32) as rt.usize] as [rt.usize, rt.usize];
 		const arg19 = out;
 		const arg17 = rt.slice.range(rest, start);
 		const arg18 = rt.slice.range(rest, start, end);
@@ -592,7 +592,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		rt.slice.copyFromSlice(buf, rt.slice.range(rest, 0, rt.min(rest.length, 4)));
 		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf, f, rt.u8.display)]));
 	} else if (value === 16) {
-		let r4: rt.Result<number, rt.FromUtf8Error>;
+		let r4: rt.Result<rt.u8, rt.FromUtf8Error>;
 		const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(rest));
 		if (fromUtf8.ok) {
 			const s = fromUtf8.value;
@@ -606,8 +606,8 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		put(arg21, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg20, f)));
 	} else if (value === 17) {
 		let buf2: Uint8Array = Uint8Array.of(1, 2, 3, 4);
-		const dest = rt.usize.rem(rt.option.unwrapOr(rt.slice.get(rest, 1), 0), 4);
-		rt.slice.copyWithin(buf2, rt.u8.rem(n, 6), rt.u8.rem(rt.u8.div(n, 6), 6), dest);
+		const dest = rt.usize.rem(rt.option.unwrapOr(rt.slice.get(rest, 1), 0) as rt.usize, 4);
+		rt.slice.copyWithin(buf2, rt.u8.rem(n, 6) as rt.usize, rt.u8.rem(rt.u8.div(n, 6), 6) as rt.usize, dest);
 		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf2, f, rt.u8.display)]));
 	} else {
 		const r5 = rt.u8.rem(n, 2) === 0 ? rt.Err(n) : rt.Ok(n);
@@ -623,8 +623,8 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
  */
 export type Fault =
 	| { tag: "Short" }
-	| { tag: "Code"; _0: number }
-	| { tag: "TooLarge"; size: number; max: number }
+	| { tag: "Code"; _0: rt.u16 }
+	| { tag: "TooLarge"; size: rt.usize; max: rt.usize }
 	| { tag: "At"; _0: Pair };
 
 export const Fault = {
@@ -662,7 +662,7 @@ export const Fault = {
 
 	/** The fault `data` picks. */
 	new(data: Uint8Array): Fault {
-		const at = (i: number): number => {
+		const at = (i: rt.usize): rt.u8 => {
 			return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 		};
 		const value = rt.u8.rem(at(0), 4);
@@ -671,9 +671,9 @@ export const Fault = {
 		} else if (value === 1) {
 			return { tag: "Code", _0: (at(1) << 8) | at(2) };
 		} else if (value === 2) {
-			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
+			return { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize };
 		} else {
-			return { tag: "At", _0: new Pair(at(1), BigInt.asIntN(64, BigInt((at(2) << 24) >> 24) << 40n)) };
+			return { tag: "At", _0: new Pair(at(1), rt.i64.shl((at(2) << 24) >> 24 as rt.i64, 40)) };
 		}
 	},
 };

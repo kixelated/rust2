@@ -32,7 +32,9 @@ fn render_literal(literal: &Literal) -> Result<String> {
             {
                 format!(
                     "{}({num_str})",
-                    super::SwiftCodeOracle.find(type_).type_label()
+                    super::SwiftCodeOracle
+                        .find(type_, &Default::default())
+                        .type_label()
                 )
             }
             _ => bail!("Unexpected literal: {num_str} for type: {type_:?}"),

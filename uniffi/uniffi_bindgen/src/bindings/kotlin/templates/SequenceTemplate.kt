@@ -7,20 +7,20 @@ public object {{ ffi_converter_name }}: FfiConverterRustBuffer<List<{{ inner_typ
     override fun read(buf: ByteBuffer): List<{{ inner_type_name }}> {
         val len = buf.getInt()
         return List<{{ inner_type_name }}>(len) {
-            {{ inner_type|read_fn }}(buf)
+            {{ inner_type|read_fn(ci) }}(buf)
         }
     }
 
     override fun allocationSize(value: List<{{ inner_type_name }}>): ULong {
         val sizeForLength = 4UL
-        val sizeForItems = value.map { {{ inner_type|allocation_size_fn }}(it) }.sum()
+        val sizeForItems = value.map { {{ inner_type|allocation_size_fn(ci) }}(it) }.sum()
         return sizeForLength + sizeForItems
     }
 
     override fun write(value: List<{{ inner_type_name }}>, buf: ByteBuffer) {
         buf.putInt(value.size)
         value.iterator().forEach {
-            {{ inner_type|write_fn }}(it, buf)
+            {{ inner_type|write_fn(ci) }}(it, buf)
         }
     }
 }

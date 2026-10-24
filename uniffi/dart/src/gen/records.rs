@@ -10,24 +10,26 @@ use crate::gen::CodeType;
 #[derive(Debug)]
 pub struct RecordCodeType {
     id: String,
-    // module_path: String,
+    namespace: Option<String>,
 }
 
 impl RecordCodeType {
-    pub fn new(id: String, //module_path: String
-    ) -> Self {
-        Self { id, // module_path 
-            }
+    pub fn new(id: String, namespace: Option<String>) -> Self {
+        Self { id, namespace }
     }
 }
 
 impl CodeType for RecordCodeType {
     fn type_label(&self) -> String {
-        DartCodeOracle::class_name(&self.id)
+        DartCodeOracle::qualify(self.namespace.as_deref(), DartCodeOracle::class_name(&self.id))
     }
 
     fn canonical_name(&self) -> String {
-        self.id.to_string()
+        DartCodeOracle::qualify_canonical(self.namespace.as_deref(), self.id.to_string())
+    }
+
+    fn ffi_converter_name(&self) -> String {
+        DartCodeOracle::qualify(self.namespace.as_deref(), format!("FfiConverter{}", self.id))
     }
 
     fn literal(&self, _literal: &PipelineLiteral) -> String {
@@ -37,7 +39,8 @@ impl CodeType for RecordCodeType {
 
 impl Renderable for RecordCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
-        if type_helper.check(&self.id) {
+        // Another crate's library declares its own helpers.
+        if self.namespace.is_some() || type_helper.check(&self.id) {
             quote!()
         } else if let Some(record_) = type_helper.get_record(&self.id) {
             generate_record(record_, type_helper)
@@ -49,14 +52,16 @@ impl Renderable for RecordCodeType {
 
 pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
     let cls_name = &DartCodeOracle::class_name(obj.name());
-    let ffi_conv_name = &obj.as_codetype().ffi_converter_name();
+    let ffi_conv_name = &obj.as_codetype(type_helper.get_ci()).ffi_converter_name();
     let constructor_params: Vec<dart::Tokens> = obj
         .fields()
         .iter()
         .map(|field| {
             let name = DartCodeOracle::var_name(field.name());
             if let Some(default_value) = field.default_value() {
-                if let Some(default_expr) = render_default_value(default_value, &field.as_type()) {
+                if let Some(default_expr) =
+                    render_default_value(default_value, &field.as_type(), type_helper.get_ci())
+                {
                     quote!(this.$name = $(default_expr))
                 } else {
                     // Fallback to required when a default is present but cannot be rendered safely.
@@ -77,11 +82,14 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
     };
 
     for f in obj.fields() {
-        type_helper.include_once_check(&f.as_codetype().canonical_name(), &f.as_type());
+        type_helper.include_once_check(
+            &f.as_codetype(type_helper.get_ci()).canonical_name(),
+            &f.as_type(),
+        );
     }
     quote! {
         class $cls_name {
-            $(for f in obj.fields() => final $(generate_type(&f.as_type())) $(DartCodeOracle::var_name(f.name()));)
+            $(for f in obj.fields() => final $(generate_type(&f.as_type(), type_helper.get_ci())) $(DartCodeOracle::var_name(f.name()));)
 
             $constructor
         }
@@ -95,7 +103,7 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
                 int new_offset = buf.offsetInBytes;
 
                 $(for f in obj.fields() =>
-                    final $(DartCodeOracle::var_name(f.name()))_lifted = $(f.as_type().as_codetype().ffi_converter_name()).read(Uint8List.view(buf.buffer, new_offset));
+                    final $(DartCodeOracle::var_name(f.name()))_lifted = $(f.as_type().as_codetype(type_helper.get_ci()).ffi_converter_name()).read(Uint8List.view(buf.buffer, new_offset));
                     final $(DartCodeOracle::var_name(f.name())) = $(DartCodeOracle::var_name(f.name()))_lifted.value;
                     new_offset += $(DartCodeOracle::var_name(f.name()))_lifted.bytesRead;
                 )
@@ -105,7 +113,7 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
             }
 
             static RustBuffer lower( $cls_name value) {
-                final total_length = $(for f in obj.fields() => $(f.as_type().as_codetype().ffi_converter_name()).allocationSize(value.$(DartCodeOracle::var_name(f.name()))) + ) 0;
+                final total_length = $(for f in obj.fields() => $(f.as_type().as_codetype(type_helper.get_ci()).ffi_converter_name()).allocationSize(value.$(DartCodeOracle::var_name(f.name()))) + ) 0;
                 final buf = Uint8List(total_length);
                 write(value, buf);
                 return toRustBuffer(buf);
@@ -115,13 +123,13 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
                 int new_offset = buf.offsetInBytes;
 
                 $(for f in obj.fields() =>
-                new_offset += $(f.as_type().as_codetype().ffi_converter_name()).write(value.$(DartCodeOracle::var_name(f.name())), Uint8List.view(buf.buffer, new_offset));
+                new_offset += $(f.as_type().as_codetype(type_helper.get_ci()).ffi_converter_name()).write(value.$(DartCodeOracle::var_name(f.name())), Uint8List.view(buf.buffer, new_offset));
                 )
                 return new_offset - buf.offsetInBytes;
             }
 
             static int allocationSize($cls_name value) {
-                return $(for f in obj.fields() => $(f.as_type().as_codetype().ffi_converter_name()).allocationSize(value.$(DartCodeOracle::var_name(f.name()))) + ) 0;
+                return $(for f in obj.fields() => $(f.as_type().as_codetype(type_helper.get_ci()).ffi_converter_name()).allocationSize(value.$(DartCodeOracle::var_name(f.name()))) + ) 0;
             }
         }
     }

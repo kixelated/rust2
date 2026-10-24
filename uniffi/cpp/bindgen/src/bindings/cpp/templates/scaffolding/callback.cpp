@@ -1,7 +1,7 @@
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let type_name = typ|type_name(ci) %}
 {%- let class_name = type_name|class_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let iface = ci.get_callback_interface_definition(name).unwrap() %}
 namespace {
 class {{ iface.name() }}Proxy: public {{ iface.name() }} {
@@ -39,13 +39,13 @@ class {{ iface.name() }}Proxy: public {{ iface.name() }} {
 
                 int32_t size = 0;
                 {% for arg in m.arguments() %}
-                size += {{ arg|allocation_size_fn }}({{ arg.name() }});
+                size += {{ arg|allocation_size_fn(ci) }}({{ arg.name() }});
                 {% endfor %}
                 RustBuffer in_buf = rustbuffer_alloc(size);
                 RustStream in_stream(&in_buf);
 
                 {% for arg in m.arguments() %}
-                {{ arg|write_fn }}(in_stream, {{ arg.name() }});
+                {{ arg|write_fn(ci) }}(in_stream, {{ arg.name() }});
                 {% endfor %}
 
                 auto ret = callback_stub(this->handle, {{ loop.index }}, in_buf.data, size, &out_buf);
@@ -55,7 +55,7 @@ class {{ iface.name() }}Proxy: public {{ iface.name() }} {
                     {% match m.return_type() %}
                     {% when Some with (return_type) %}
                     RustStream out_stream(&out_buf);
-                    auto result = {{ return_type|read_fn }}(out_stream);
+                    auto result = {{ return_type|read_fn(ci) }}(out_stream);
                     rustbuffer_free(out_buf);
 
                     return result;
@@ -72,7 +72,7 @@ class {{ iface.name() }}Proxy: public {{ iface.name() }} {
                     {%- let err_type = m.throws_type().unwrap()|type_name(ci) %}
                     {%- let err_enum = ci.get_enum_definition(err_type).unwrap() %}
                     {%- for variant in err_enum.variants() %}
-                    {%- let converter_name = err_enum|ffi_converter_name %}
+                    {%- let converter_name = err_enum|ffi_converter_name(ci) %}
                     case {{ loop.index }}:
                     {
                         auto result = {{ converter_name }}{{ variant.name() }}::read(out_stream, v);

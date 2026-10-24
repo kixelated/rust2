@@ -14,8 +14,8 @@ $host[0] as $h
 	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`.",
 	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.hyperfine); \($h.mold); \($h.wild).",
 	"",
-	"Wall time in seconds: the median and mean ± standard deviation over the runs.",
-	"The change against the variant's base compares medians, so one slow run does not move it; CPU time and instructions are medians too.",
+	"Wall time in seconds: the trimmed mean (without the fastest and slowest run), and the mean ± standard deviation of every run.",
+	"The change against the variant's base compares trimmed means, so one slow run does not move it; CPU time and instructions are trimmed means too.",
 	"Each control variant repeats its base, so its change is this run's noise floor.",
 	(
 		$results | group_by(.corpus)[] | . as $runs | .[0].corpus as $corpus
@@ -23,7 +23,7 @@ $host[0] as $h
 		| "",
 		"## \($corpus)",
 		"",
-		(["scenario", "variant", "median", "mean ± σ", "vs base", "CPU", "instructions vs base", "peak RSS"] | row),
+		(["scenario", "variant", "trimmed", "mean ± σ", "vs base", "CPU", "instructions vs base", "peak RSS"] | row),
 		"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
 		(
 			$runs[]
@@ -32,9 +32,9 @@ $host[0] as $h
 			| [
 				.scenario,
 				.variant,
-				(.median | secs),
+				(.trimmed | secs),
 				"\(.mean | secs) ± \(.stddev // 0 | secs)",
-				(if $is_base then "base" else (.median / $base.median - 1 | pct) end),
+				(if $is_base then "base" else (.trimmed / $base.trimmed - 1 | pct) end),
 				(.cpu | secs),
 				(if .instructions == null then "n/a"
 					elif $is_base then "\(.instructions / 1e9 | fixed(1))G"
@@ -65,7 +65,32 @@ $host[0] as $h
 			),
 			"",
 			"Macro expansion \(.profile.macro_expansion | secs) s, running proc macros \(.profile.proc_macros | secs) s, of \(.profile.self_time | secs) s rustc self-time across \(.profile.invocations) invocations.",
-			"Costliest queries: \(.profile.top | map("`\(.label)` \(.self_time | secs) s") | join(", "))."
+			"Costliest queries: \(.profile.top | map("`\(.label)` \(.self_time | secs) s") | join(", ")).",
+			(
+				# A clean build compiles hundreds of units; an edit's few are worth listing.
+				select(.step | startswith("edit-"))
+				| .wall as $wall
+				| ([.units[] | select(.cause == "dependency") | .path] | add // 0) as $carried
+				| "",
+				"Each rebuilt unit: why cargo rebuilt it, the wall seconds it held the critical path, and rustc's self-time by stage.",
+				"",
+				(["unit", "rebuilt for", "critical path", "expand & resolve", "analysis", "metadata", "incremental", "mono", "backend", "link"] | row),
+				"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+				(["cargo", "", (.startup | secs), "", "", "", "", "", "", ""] | row),
+				(
+					.units[]
+					| [
+						"\(.name) (\(.class))",
+						(.cause // "?"),
+						(if .path > 0 then .path | secs else "" end),
+						(.stages as $s | ["expand", "analysis", "metadata", "incremental", "mono", "backend", "link"][]
+							| if $s == null then "?" else $s[.] // 0 | secs end)
+					]
+					| row
+				),
+				"",
+				"Units rebuilt only because a dependency changed hold \($carried | secs) s of the \($wall | secs) s critical path (\($carried | share($wall)))."
+			)
 		)
 	)
 ]

@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+{%- for namespace in includes %}
+#include "{{ namespace }}.h"
+{%- endfor %}
 
 #ifdef __cplusplus
 extern "C" {

@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{AsCodeType, CodeType};
+use super::{AsCodeType, CodeType, KotlinCi};
 use crate::{
     bail,
     interface::{DefaultValue, Literal, Type},
-    ComponentInterface, Result,
+    Result,
 };
 
 #[derive(Debug)]
@@ -24,21 +24,23 @@ impl OptionalCodeType {
 }
 
 impl CodeType for OptionalCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "{}?",
             super::KotlinCodeOracle.find(self.inner()).type_label(ci)
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Optional{}",
-            super::KotlinCodeOracle.find(self.inner()).canonical_name()
+            super::KotlinCodeOracle
+                .find(self.inner())
+                .canonical_name(ci)
         )
     }
 
-    fn default(&self, default: &DefaultValue, ci: &ComponentInterface) -> Result<String> {
+    fn default(&self, default: &DefaultValue, ci: &KotlinCi<'_>) -> Result<String> {
         match default {
             DefaultValue::Default | DefaultValue::Literal(Literal::None) => Ok("null".into()),
             DefaultValue::Literal(Literal::Some { inner }) => {
@@ -64,21 +66,23 @@ impl SequenceCodeType {
 }
 
 impl CodeType for SequenceCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "List<{}>",
             super::KotlinCodeOracle.find(self.inner()).type_label(ci)
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Sequence{}",
-            super::KotlinCodeOracle.find(self.inner()).canonical_name()
+            super::KotlinCodeOracle
+                .find(self.inner())
+                .canonical_name(ci)
         )
     }
 
-    fn default(&self, default: &DefaultValue, _ci: &ComponentInterface) -> Result<String> {
+    fn default(&self, default: &DefaultValue, _ci: &KotlinCi<'_>) -> Result<String> {
         match default {
             DefaultValue::Default | DefaultValue::Literal(Literal::EmptySequence) => {
                 Ok("listOf()".into())
@@ -109,7 +113,7 @@ impl MapCodeType {
 }
 
 impl CodeType for MapCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Map<{}, {}>",
             super::KotlinCodeOracle.find(self.key()).type_label(ci),
@@ -117,15 +121,15 @@ impl CodeType for MapCodeType {
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Map{}{}",
-            self.key().as_codetype().canonical_name(),
-            self.value().as_codetype().canonical_name(),
+            self.key().as_codetype().canonical_name(ci),
+            self.value().as_codetype().canonical_name(ci),
         )
     }
 
-    fn default(&self, default: &DefaultValue, _ci: &ComponentInterface) -> Result<String> {
+    fn default(&self, default: &DefaultValue, _ci: &KotlinCi<'_>) -> Result<String> {
         match default {
             DefaultValue::Default | DefaultValue::Literal(Literal::EmptyMap) => {
                 Ok("mapOf()".into())
@@ -151,21 +155,23 @@ impl SetCodeType {
 }
 
 impl CodeType for SetCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Set<{}>",
             super::KotlinCodeOracle.find(self.inner()).type_label(ci)
         )
     }
 
-    fn canonical_name(&self) -> String {
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
         format!(
             "Set{}",
-            super::KotlinCodeOracle.find(self.inner()).canonical_name()
+            super::KotlinCodeOracle
+                .find(self.inner())
+                .canonical_name(ci)
         )
     }
 
-    fn default(&self, default: &DefaultValue, _ci: &ComponentInterface) -> Result<String> {
+    fn default(&self, default: &DefaultValue, _ci: &KotlinCi<'_>) -> Result<String> {
         match default {
             DefaultValue::Default | DefaultValue::Literal(Literal::EmptySequence) => {
                 Ok("setOf()".into())

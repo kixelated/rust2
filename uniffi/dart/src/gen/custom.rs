@@ -10,17 +10,37 @@ pub struct CustomCodeType {
     name: String,
     module_path: String,
     builtin: Box<Type>,
+    namespace: Option<String>,
 }
 
 impl CustomCodeType {
-    pub fn new(name: String, module_path: String, builtin: Box<Type>) -> Self {
-        CustomCodeType { name, module_path, builtin }
+    pub fn new(
+        name: String,
+        module_path: String,
+        builtin: Box<Type>,
+        namespace: Option<String>,
+    ) -> Self {
+        CustomCodeType { name, module_path, builtin, namespace }
     }
 }
 
 impl CodeType for CustomCodeType {
     fn type_label(&self) -> String {
-        DartCodeOracle::class_name(&self.name)
+        DartCodeOracle::qualify(self.namespace.as_deref(), DartCodeOracle::class_name(&self.name))
+    }
+
+    fn canonical_name(&self) -> String {
+        DartCodeOracle::qualify_canonical(
+            self.namespace.as_deref(),
+            DartCodeOracle::class_name(&self.name),
+        )
+    }
+
+    fn ffi_converter_name(&self) -> String {
+        DartCodeOracle::qualify(
+            self.namespace.as_deref(),
+            format!("FfiConverter{}", DartCodeOracle::class_name(&self.name)),
+        )
     }
 }
 
@@ -37,11 +57,16 @@ impl AsType for CustomCodeType {
 impl Renderable for CustomCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
         type_helper.include_once_check(&self.name, &self.as_type());
+        // Another crate's library declares its own typedefs.
+        if self.namespace.is_some() {
+            return quote!();
+        }
 
         let ffi_converter_name = &self.ffi_converter_name();
         let type_name = &self.type_label();
-        let builtin_ffi_converter_name = &(*self.builtin).as_codetype().ffi_converter_name();
-        let builtin_name = DartCodeOracle::dart_type_label(Some(&*self.builtin));
+        let ci = type_helper.get_ci();
+        let builtin_ffi_converter_name = &(*self.builtin).as_codetype(ci).ffi_converter_name();
+        let builtin_name = DartCodeOracle::dart_type_label(Some(&*self.builtin), ci);
 
         quote! {
             typedef $(type_name) = $(builtin_name);

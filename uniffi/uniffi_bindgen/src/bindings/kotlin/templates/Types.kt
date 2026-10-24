@@ -86,8 +86,8 @@ object NoHandle
 
 {%- for type_ in ci.iter_local_types() %}
 {%- let type_name = type_|type_name(ci) %}
-{%- let ffi_converter_name = type_|ffi_converter_name %}
-{%- let canonical_type_name = type_|canonical_name %}
+{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}
+{%- let canonical_type_name = type_|canonical_name(ci) %}
 {%- let contains_object_references = ci.item_contains_object_references(type_) %}
 
 {#
@@ -142,7 +142,7 @@ object NoHandle
 
 {%- when Type::Enum { name, module_path } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if !ci.is_name_used_as_error(name) %}
+{%- if !ci.is_used_as_error(type_) %}
 {% include "EnumTemplate.kt" %}
 {%- else %}
 {% include "ErrorTemplate.kt" %}
