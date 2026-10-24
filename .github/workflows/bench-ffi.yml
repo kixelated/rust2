@@ -28,7 +28,7 @@ jobs:
   bench:
     name: Bench FFI (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 180
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       # Each job measures its own Rust baselines, so ratios never cross machines.
