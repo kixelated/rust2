@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-target := env("CARGO_TARGET_DIR", justfile_directory() / ".." / "target")
+target := env("CARGO_TARGET_DIR", source_directory() / ".." / "target")
 shared := "--exclude uniffi-bindgen-tests-kotlin --exclude uniffi-bindgen-tests-python --exclude uniffi-bindgen-tests-swift"
 dylib := if os() == "macos" { "dylib" } else { "so" }
 
