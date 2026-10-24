@@ -231,7 +231,7 @@ export class Decoder {
 			return rt.Err(slice.error);
 		}
 		const b = slice.value;
-		return rt.Ok(rt.u16.fromBeBytes(Uint8Array.of(rt.at(b, 0), rt.at(b, 1))));
+		return rt.Ok((rt.at(b, 0) << 8) | rt.at(b, 1));
 	}
 
 	/** Read a byte that must be 0 or 1. */
