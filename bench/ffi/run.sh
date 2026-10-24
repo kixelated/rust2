@@ -124,7 +124,9 @@ measure() {
                     rust | go | py | kt) export CARGO_TARGET_DIR=$checkout/target/bench-$runner ;;
                 esac
                 case $runner in
-                    rust) just rs test -p moq-ffi --cargo-profile release -E 'test(bench::benchmark_ffi)' --run-ignored only ;;
+                    # As `just rs test` runs it, minus its clippy gate: lints are not this run's to judge.
+                    rust) bash sh/rs/nextest.sh cargo nextest run --locked --tests -p moq-ffi --cargo-profile release \
+                        -E 'test(bench::benchmark_ffi)' --run-ignored only ;;
                     go) just go bench -benchtime="${seconds}s" ;;
                     browser) "$bench/browser.sh" "$checkout" "$browser" "$ubrn" ;;
                     *) just "$runner" bench ;;
