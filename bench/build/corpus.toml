@@ -19,7 +19,7 @@ hub = "rs/moq-net/src/lib.rs"
 [[corpus]]
 name = "moq-pure-crypto"
 git = "https://github.com/moq-dev/moq"
-rev = "72d218d6e2d8487f02c11c02393931c56b605a45"
+rev = "fd53b86f6d3fd2b3d40be5e0c8c00f77f464c149"
 args = ["-p", "moq-relay"]
 leaf = "rs/moq-relay/src/lib.rs"
 hub = "rs/moq-net/src/lib.rs"
