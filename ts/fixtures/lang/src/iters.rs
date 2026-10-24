@@ -489,7 +489,13 @@ pub fn values(data: &[u8], out: &mut Vec<u8>) {
 	let bumps: Vec<Bumped> = data.iter().map(|&b| Bumped(b)).collect();
 	out.extend(bumps.iter().cloned().map(|b| b.0));
 	out.extend(bumps.iter().copied().map(|b| b.0));
+	// A derived `Clone` over a type parameter clones the field, by its own `Clone`.
+	let wrapped: Vec<Wrapper<Bumped>> = data.iter().map(|&b| Wrapper(Bumped(b))).collect();
+	out.extend(wrapped.iter().cloned().map(|w| w.0.0));
 }
+
+#[derive(Clone, Copy)]
+struct Wrapper<T>(T);
 
 /// A `Copy` type whose `Clone` does more than copy.
 #[derive(Copy)]

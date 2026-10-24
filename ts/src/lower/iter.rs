@@ -313,10 +313,10 @@ pub fn call<'tcx>(
 			let ty::Ref(_, inner, _) = item.kind() else {
 				return None;
 			};
-			// A `Clone` of the crate's own, unless derived, may do other than copy.
-			let own_clone = name == "cloned" && own_clone(b, *inner);
+			// A `Clone` written by hand may do other than copy, even for a `Copy` type.
+			let clones = name == "cloned" && !library::clone_copies(b.t, *inner);
 			match () {
-				_ if own_clone => {
+				_ if clones => {
 					let clone = tcx.lang_items().clone_fn()?;
 					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
 					method("map", vec![clone])
@@ -396,24 +396,6 @@ fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool 
 	};
 	let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(t.typing_env_pub());
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
-}
-
-/// Whether `ty`'s `Clone` is the crate's own and written by hand, so it need not copy.
-fn own_clone<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
-	let tcx = b.t.tcx;
-	let Some(clone) = tcx.lang_items().clone_fn() else {
-		return false;
-	};
-	let Ok(Some(instance)) = Instance::try_resolve(tcx, b.t.typing_env_pub(), clone, tcx.mk_args(&[ty.into()])) else {
-		return false;
-	};
-	let ty::InstanceKind::Item(did) = instance.def else {
-		return false;
-	};
-	did.is_local()
-		&& tcx
-			.impl_of_assoc(did)
-			.is_some_and(|imp| !tcx.is_automatically_derived(imp))
 }
 
 /// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.

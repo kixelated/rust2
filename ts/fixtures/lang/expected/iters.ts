@@ -703,6 +703,27 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 	rt.iter.extend(out, rt.iter.slice(bumps).map(rt.copy).map((b6: Bumped): number => {
 		return b6._0;
 	}));
+	const wrapped = rt.iter.slice(data).map((arg5: number): Wrapper<Bumped> => {
+		const b7 = arg5;
+		return new Wrapper(new Bumped(b7));
+	}).toArray();
+	rt.iter.extend(out, rt.iter.slice(wrapped).map((a03: Wrapper<Bumped>): Wrapper<Bumped> => {
+		return a03.clone();
+	}).map((w: Wrapper<Bumped>): number => {
+		return w._0._0;
+	}));
+}
+
+export class Wrapper<T> {
+	_0: T;
+
+	constructor(_0: T) {
+		this._0 = _0;
+	}
+
+	clone(this: Wrapper<Bumped>): Wrapper<Bumped> {
+		return new Wrapper(this._0.clone());
+	}
 }
 
 /** A `Copy` type whose `Clone` does more than copy. */

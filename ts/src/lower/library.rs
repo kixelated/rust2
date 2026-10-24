@@ -7,7 +7,7 @@
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::thir::{ExprId, ExprKind};
-use rustc_middle::ty::{self, GenericArgsRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::body::Body;
@@ -117,6 +117,33 @@ pub fn std_path(tcx: TyCtxt<'_>, did: DefId) -> Vec<String> {
 
 fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
+}
+
+/// Whether `Clone` of `ty`, a `Copy` type, only copies: no `Clone` written by hand runs
+/// for it or anything in it, as a derived or std `Clone` clones each field.
+pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let tcx = t.tcx;
+	match ty.kind() {
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Ref(..) | ty::FnPtr(..) | ty::Never => true,
+		ty::Tuple(fields) => fields.iter().all(|field| clone_copies(t, field)),
+		ty::Array(elem, _) => clone_copies(t, *elem),
+		ty::Adt(adt, args) if !adt.did().is_local() => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) => {
+			let Some(clone) = tcx.lang_items().clone_fn() else {
+				return false;
+			};
+			let derived = Instance::try_resolve(tcx, t.typing_env_pub(), clone, tcx.mk_args(&[ty.into()]))
+				.ok()
+				.flatten()
+				.and_then(|instance| tcx.impl_of_assoc(instance.def_id()))
+				.is_some_and(|imp| tcx.is_automatically_derived(imp));
+			derived
+				&& adt
+					.all_fields()
+					.all(|field| clone_copies(t, t.subst(args, field.ty(tcx, args).skip_norm_wip())))
+		}
+		_ => false,
+	}
 }
 
 /// The standard type an inherent method is of, such as `Range` for `Range::contains`.
@@ -332,7 +359,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
 				ty::Adt(..) if int_range(ty) => value.method("clone", vec![]),
-				_ if b.t.is_copy(ty) => b.copied(value, ty),
+				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.copied(value, ty),
 				_ => return None,
 			}
 		}
