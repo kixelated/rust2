@@ -51,6 +51,7 @@ roots = [
     "looped",
     "fallback",
     "rest_moved",
+    "replace_pinned_ref",
     "missing",
 ]
 printable = ["Meters"]

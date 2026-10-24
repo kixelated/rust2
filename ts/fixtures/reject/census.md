@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 74
-- Function instances: 64
+- Refusals: 75
+- Function instances: 65
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -9,12 +9,12 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 6 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
+| 4 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
 | 4 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 3 | a `_` binding: a JS value of `_` is a copy, so it can't change | fixtures/reject/src/lib.rs:19:13 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:371:4 |
 | 3 | dropping `_`, which is not supported yet | fixtures/reject/src/lib.rs:66:31 |
-| 3 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:168:17 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
 | 2 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:76:6 |
@@ -71,6 +71,7 @@ The type or module each refused type or path belongs to.
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:289:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:371:16 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
+| 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:183:42 |
 | 2 | `{async closure}` | fixtures/reject/src/lib.rs:121:6 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:97:1 |
@@ -82,7 +83,6 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:322:51 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:330:8 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:400:4 |
-| 1 | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:276:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:271:2 |
@@ -100,6 +100,7 @@ The type or module each refused type or path belongs to.
 | 3 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 2 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 2 | an iterator that owns `_`, which drops, which is not supported yet | `Noisy` | fixtures/reject/src/lib.rs:371:16 |
+| 2 | replacing the `_` behind a reference, whose JS object is shared or private | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | `Boxed` | fixtures/reject/src/lib.rs:97:1 |
 | 1 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:229:20 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:142:16 |
@@ -122,7 +123,6 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:289:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:343:2 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `std::option::Option`, `Option::unwrap_or` | fixtures/reject/src/lib.rs:400:4 |
-| 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::Arc` | fixtures/reject/src/lib.rs:225:2 |
 | 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:271:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:276:11 |
@@ -144,6 +144,15 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:14:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:121:6: unsupported type `{async closure@fixtures/reject/src/lib.rs:121:10: 121:18}`
 - fixtures/reject/src/lib.rs:177:1: unsupported type `f64`
+
+</details>
+
+<details><summary>replacing the `_` behind a reference, whose JS object is shared or private (4)</summary>
+
+- fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
+- fixtures/reject/src/lib.rs:261:2: replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private
+- fixtures/reject/src/lib.rs:271:2: replacing the `std::sync::MutexGuard<'_, u8>` behind a reference, whose JS object is shared or private
+- fixtures/reject/src/lib.rs:411:2: replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private
 
 </details>
 
@@ -185,14 +194,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:66:31: dropping `{closure@fixtures/reject/src/lib.rs:68:10: 68:17}`, which is not supported yet
 - fixtures/reject/src/lib.rs:93:1: dropping `Slot`, which is not supported yet
 - fixtures/reject/src/lib.rs:183:42: dropping `std::sync::Arc<&Noisy>`, which is not supported yet
-
-</details>
-
-<details><summary>replacing the `_` behind a reference, whose JS object is shared or private (3)</summary>
-
-- fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
-- fixtures/reject/src/lib.rs:261:2: replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private
-- fixtures/reject/src/lib.rs:271:2: replacing the `std::sync::MutexGuard<'_, u8>` behind a reference, whose JS object is shared or private
 
 </details>
 

@@ -405,3 +405,8 @@ pub fn rest_moved(pair: [Noisy; 2]) -> u8 {
 	let [first, rest @ ..] = pair;
 	first.0 + rest[0].0
 }
+
+/// A pinned reference is its referent in JS: replacing it would change what it points at.
+pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
+	*dst = src;
+}

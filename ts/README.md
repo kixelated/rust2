@@ -188,9 +188,9 @@ a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
 `String` with `write!`, a `move` closure copying a mutable variable, `mem::swap`,
-`replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, or a
-future through a reference, and std functions without a mapping in
-`src/lower/library.rs`.
+`replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
+`MutexGuard`, a pinned reference, or a future through a reference, and std functions
+without a mapping in `src/lower/library.rs`.
 
 ## Tests
 
