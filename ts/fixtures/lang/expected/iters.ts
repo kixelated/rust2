@@ -307,6 +307,15 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		out.push(i);
 	}
+	const iter2 = new rt.Range(a, b).skip(1).stepBy(4);
+	while (true) {
+		const i2 = iter2.next();
+		if (i2 === rt.DONE) {
+			break;
+		}
+		out.push(i2);
+	}
+	out.push(rt.option.unwrapOr(new rt.Range(a, b).nth(5), 0xee));
 	const top = new rt.RangeInclusive(rt.max(a, 250), 255).toByteVec();
 	out.extendFromSlice(top.view());
 	const inclusive = new rt.RangeInclusive(a, b);
@@ -533,6 +542,42 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 	const arg2 = new Doubled(rt.slice.range(data, 0, rt.min(data.length, 2)));
 	const printed = rt.fmt.format([(f: rt.Formatter) => arg.fmt(f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => arg2.fmt(f))]);
 	out.extendFromSlice(rt.string.asBytes(printed));
+	const tags = rt.iter.slice(data).map((arg3: number): Tag => {
+		const b3 = arg3;
+		return new Tag({ bytes: rt.slice.toByteVec(Uint8Array.of(b3, ~b3 & 0xff)) });
+	}).toArray();
+	let cloned: Tag[] = rt.iter.slice(tags).map((a0: Tag): Tag => {
+		return a0.clone();
+	}).toArray();
+	const iter3 = rt.iter.slice(cloned);
+	while (true) {
+		const tag = iter3.next();
+		if (tag === rt.DONE) {
+			break;
+		}
+		tag.bytes.push(0x77);
+	}
+	const iter4 = rt.iter.slice(tags).chain(rt.iter.slice(cloned));
+	while (true) {
+		const tag2 = iter4.next();
+		if (tag2 === rt.DONE) {
+			break;
+		}
+		out.extendFromSlice(tag2.bytes.view());
+	}
+}
+
+/** A `Clone` that is not `Copy`, which `cloned` calls for each item. */
+export class Tag {
+	bytes: rt.ByteVec;
+
+	constructor(fields: { bytes: rt.ByteVec }) {
+		this.bytes = fields.bytes;
+	}
+
+	clone(): Tag {
+		return new Tag({ bytes: rt.ByteVec.from(this.bytes.view()) });
+	}
 }
 
 /** An iterator in a field. */

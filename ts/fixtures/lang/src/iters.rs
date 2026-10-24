@@ -202,6 +202,10 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	for i in range.rev().step_by(3) {
 		out.push(i);
 	}
+	for i in (a..b).skip(1).step_by(4) {
+		out.push(i);
+	}
+	out.push((a..b).nth(5).unwrap_or(0xee));
 	// `..=` at the top of `u8`, which ends without overflowing.
 	let top: Vec<u8> = (a.max(250)..=255).collect();
 	out.extend_from_slice(&top);
@@ -363,6 +367,21 @@ pub fn values(data: &[u8], out: &mut Vec<u8>) {
 	}
 	let printed = format!("{:?}|{:#?}", Doubled(data), Doubled(&data[..data.len().min(2)]));
 	out.extend_from_slice(printed.as_bytes());
+	// Clones that change leave what they cloned alone.
+	let tags: Vec<Tag> = data.iter().map(|&b| Tag { bytes: [b, !b].to_vec() }).collect();
+	let mut cloned: Vec<Tag> = tags.iter().cloned().collect();
+	for tag in cloned.iter_mut() {
+		tag.bytes.push(0x77);
+	}
+	for tag in tags.iter().chain(cloned.iter()) {
+		out.extend_from_slice(&tag.bytes);
+	}
+}
+
+/// A `Clone` that is not `Copy`, which `cloned` calls for each item.
+#[derive(Clone)]
+struct Tag {
+	bytes: Vec<u8>,
 }
 
 /// An iterator in a field.

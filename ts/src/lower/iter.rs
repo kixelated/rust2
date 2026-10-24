@@ -4,7 +4,7 @@
 //! `rt.iter.from`.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, Instance, Ty, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::Translator;
@@ -32,14 +32,13 @@ pub fn is_next(tcx: ty::TyCtxt<'_>, def_id: DefId) -> bool {
 }
 
 impl<'tcx> Translator<'_, 'tcx> {
-	/// `Iterator::Item` of `ty`, if `ty` is an iterator.
+	/// `Iterator::Item` of `ty`, if `ty` is an iterator. A type over parameters, which a
+	/// generic type's fields and a census have, may leave it a projection.
 	pub fn iter_item(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
-		let (next, item) = trait_items(tcx)?;
-		let env = self.typing_env_pub();
-		Instance::try_resolve(tcx, env, next, tcx.mk_args(&[ty.into()])).ok()??;
+		let (_, item) = trait_items(tcx)?;
 		let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
-		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+		tcx.try_normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(projection))
 			.ok()
 	}
 }
@@ -49,7 +48,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>> {
 	let tcx = b.t.tcx;
 	let ty = ty.peel_refs();
-	if !matches!(ty.kind(), ty::Adt(adt, _) if adt.did().is_local()) {
+	// Over parameters, only a census's instance, which never runs, would call it.
+	if !matches!(ty.kind(), ty::Adt(adt, _) if adt.did().is_local()) || ty.has_param() || ty.has_aliases() {
 		return None;
 	}
 	let (next, _) = trait_items(tcx)?;
@@ -295,11 +295,16 @@ pub fn call<'tcx>(
 			};
 			match () {
 				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy")]),
-				_ if b.t.is_copy(*inner) => Some(recv),
-				_ if matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) => {
+				// A JS string is a value already.
+				_ if b.t.is_copy(*inner) || matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) => {
 					Some(recv)
 				}
-				_ => None,
+				// Each item through its `Clone`.
+				_ => {
+					let clone = tcx.lang_items().clone_fn()?;
+					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
+					method("map", vec![clone])
+				}
 			}
 		}
 		"sum" | "product" => {

@@ -928,14 +928,19 @@ function lt<T>(a: T, b: T): boolean {
 	return (a as number) < (b as number);
 }
 
-/** One past `n`, in its own representation. */
-function succ<T>(n: T): T {
-	return (typeof n === "bigint" ? n + 1n : (n as number) + 1) as T;
+/** `n + by`, in `n`'s representation. */
+function step<T>(n: T, by: number): T {
+	return (typeof n === "bigint" ? n + BigInt(by) : (n as number) + by) as T;
 }
 
-/** One before `n`, in its own representation. */
+/** One past `n`. */
+function succ<T>(n: T): T {
+	return step(n, 1);
+}
+
+/** One before `n`. */
 function pred<T>(n: T): T {
-	return (typeof n === "bigint" ? n - 1n : (n as number) - 1) as T;
+	return step(n, -1);
 }
 
 /** `ops::Range`: `start..end`, which iterates its integers by moving `start`. */
@@ -960,6 +965,28 @@ export class Range<T> extends Iter<T> {
 		if (!lt(this.start, this.end)) return DONE;
 		this.end = pred(this.end);
 		return this.end;
+	}
+
+	/** std's `nth`, in one step: past the end, the range ends. */
+	override nthItem(n: number): T | Done {
+		const item = step(this.start, n);
+		if (lt(item, this.end)) {
+			this.start = succ(item);
+			return item;
+		}
+		this.start = this.end;
+		return DONE;
+	}
+
+	/** std's `nth_back`, in one step. */
+	override nthBackItem(n: number): T | Done {
+		const item = step(this.end, -n);
+		if (lt(this.start, item)) {
+			this.end = pred(item);
+			return this.end;
+		}
+		this.end = this.start;
+		return DONE;
 	}
 
 	override len(): number {
