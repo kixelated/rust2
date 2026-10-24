@@ -18,7 +18,7 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 
 ## Required
 
-- [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
+- [Lower bodies from MIR](/quest/m2/ts-mir.md) - the MIR spike's prototype becomes the only lowering, and the THIR one goes
 - [Fail the TS benchmark when Chrome hangs](/quest/m2/ts-bench-chrome-timeout.md) - a hung renderer fails the run loudly
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
