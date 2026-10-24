@@ -245,3 +245,18 @@ pub fn unmatched() -> u8 {
 pub async fn pending_output() -> std::task::Poll<u8> {
 	std::task::Poll::Pending
 }
+
+/// The temporary drops after the `match`, which nothing marks.
+#[allow(clippy::match_like_matches_macro, reason = "the `match` is under test")]
+pub fn tested() -> u8 {
+	let matched = match Some(make()) {
+		Some(_) => 1,
+		None => 0,
+	};
+	matched + 1
+}
+
+/// A `Pin` is its pointer in JS: replacing the `Arc` would reach every clone.
+pub fn replace_pinned(dst: &mut std::pin::Pin<std::sync::Arc<u8>>, src: std::pin::Pin<std::sync::Arc<u8>>) {
+	*dst = src;
+}

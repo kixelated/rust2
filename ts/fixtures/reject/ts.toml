@@ -35,6 +35,8 @@ roots = [
     "ready_unit",
     "unmatched",
     "pending_output",
+    "tested",
+    "replace_pinned",
     "missing",
 ]
 printable = ["Meters"]

@@ -170,8 +170,8 @@ fn pick(log: &Log, i: usize) -> usize {
 /// inside a turn's scope must still skip the arms after it. Before them, a pair of
 /// guards destructured in part: the one left in the array drops with it, after the other;
 /// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
-/// temporary to the end of the block; and a `_` binding of an element, which evaluates its
-/// index and moves nothing.
+/// temporary to the end of the block; a `_` binding of an element, which evaluates its
+/// index and moves nothing; and a boxed guard read twice, which a read leaves boxed.
 #[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
@@ -189,6 +189,9 @@ fn turns(log: &Log, count: u32) {
 		inner.id
 	};
 	log.note(format!("after {scoped}"));
+	let boxed = Box::new(Guard::new(count + 100, log.clone()));
+	let once = boxed.id;
+	log.note(format!("boxed {once} {}", boxed.id));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {

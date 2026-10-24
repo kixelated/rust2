@@ -1712,8 +1712,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if through_ref {
 			let pointee = self.ty_of(lhs);
 			// Every clone of an `Arc` or waker is one JS object, and a future keeps its state
-			// private: copying fields in would change the other handles, or nothing.
-			let shared = match pointee.kind() {
+			// private: copying fields in would change the other handles, or nothing. A `Pin`
+			// or `Box` is its pointee in JS.
+			let mut erased = pointee;
+			while let ty::Adt(adt, args) = erased.kind()
+				&& matches!(
+					library::Std::of(self.t.tcx, adt.did()),
+					Some(library::Std::Pin | library::Std::Box)
+				) {
+				erased = args.type_at(0);
+			}
+			let shared = match erased.kind() {
 				ty::Adt(adt, _) => matches!(
 					library::Std::of(self.t.tcx, adt.did()),
 					Some(library::Std::Arc | library::Std::Waker | library::Std::Context)
@@ -2217,6 +2226,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			unreachable!()
 		};
 		let thir: &'a Thir<'tcx> = self.thir;
+		// Its arms bind nothing, so a temporary that drops is left for nothing to drop.
+		if self.temporary_drops(*scrutinee) {
+			return self.err(
+				self.span(id),
+				"a `match` on a temporary that drops, which it doesn't move out of whole",
+			);
+		}
 		let reads: usize = arms
 			.iter()
 			.take(arms.len().saturating_sub(1))
@@ -2255,6 +2271,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			ExprKind::VarRef { id: var } => self.local(var.0, span),
 			ExprKind::UpvarRef { var_hir_id, .. } => self.local(var_hir_id.0, span),
+			// Reading through a `Box` that drops reads its pointee: the box stays where it is.
+			ExprKind::Deref { arg } if self.is_place(*arg) && self.t.drops(self.ty_of(*arg)) => self.place(*arg, out),
 			ExprKind::Deref { arg } => self.expr(*arg, out),
 			ExprKind::Field {
 				lhs,

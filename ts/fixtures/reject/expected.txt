@@ -57,3 +57,5 @@ replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared
 `Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:234:19
 an `if let` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:241:9
 an async body returning `std::task::Poll<u8>` is not supported: its `Ready` could be pending at fixtures/reject/src/lib.rs:245:54
+a `match` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:252:16
+replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private at fixtures/reject/src/lib.rs:261:2

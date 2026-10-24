@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 59
-- Function instances: 40
+- Refusals: 61
+- Function instances: 42
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -15,6 +15,8 @@
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:168:17 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
+| 2 | a `match` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:217:2 |
+| 2 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:132:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:134:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:133:3 |
@@ -23,7 +25,6 @@
 | 1 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:229:20 |
 | 1 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:76:6 |
 | 1 | a `let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:200:2 |
-| 1 | a `match` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:217:2 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | fixtures/reject/src/lib.rs:121:10 |
@@ -45,7 +46,6 @@
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:135:3 |
-| 1 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:130:3 |
 | 1 | the `-` flag of a format spec is not supported | fixtures/reject/src/lib.rs:131:3 |
 | 1 | unsupported expression: StaticRef | fixtures/reject/src/lib.rs:163:2 |
@@ -71,6 +71,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Slot` | fixtures/reject/src/lib.rs:93:1 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::iter::Filter` | fixtures/reject/src/lib.rs:40:31 |
+| 1 | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:40:11 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:245:54 |
 | 1 | `u8` | fixtures/reject/src/lib.rs:113:3 |
@@ -99,6 +100,7 @@ The type or module each refused type or path belongs to.
 | 1 | dropping `_`, which is not supported yet | `Slot` | fixtures/reject/src/lib.rs:93:1 |
 | 1 | dropping `_`, which is not supported yet | `std::sync::Arc` | fixtures/reject/src/lib.rs:183:42 |
 | 1 | dropping `_`, which is not supported yet | `{closure}` | fixtures/reject/src/lib.rs:66:31 |
+| 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::pin::Pin` | fixtures/reject/src/lib.rs:261:2 |
 | 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::Arc` | fixtures/reject/src/lib.rs:225:2 |
 | 1 | unsupported call to `_` | `<std::iter::Filter as std::iter::Iterator>::count` | fixtures/reject/src/lib.rs:40:31 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::filter` | fixtures/reject/src/lib.rs:40:11 |
@@ -171,6 +173,20 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a `match` on a temporary that drops, which it doesn't move out of whole (2)</summary>
+
+- fixtures/reject/src/lib.rs:217:2: a `match` on a temporary that drops, which it doesn't move out of whole
+- fixtures/reject/src/lib.rs:252:16: a `match` on a temporary that drops, which it doesn't move out of whole
+
+</details>
+
+<details><summary>replacing the `_` behind a reference, whose JS object is shared or private (2)</summary>
+
+- fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
+- fixtures/reject/src/lib.rs:261:2: replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private
+
+</details>
+
 <details><summary>`Binary` formatting, as in `{:b}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:132:3: `Binary` formatting, as in `{:b}`, is not supported
@@ -216,12 +232,6 @@ The type or module each refused type or path belongs to.
 <details><summary>a `let` on a temporary that drops, which it doesn't move out of whole (1)</summary>
 
 - fixtures/reject/src/lib.rs:200:2: a `let` on a temporary that drops, which it doesn't move out of whole
-
-</details>
-
-<details><summary>a `match` on a temporary that drops, which it doesn't move out of whole (1)</summary>
-
-- fixtures/reject/src/lib.rs:217:2: a `match` on a temporary that drops, which it doesn't move out of whole
 
 </details>
 
@@ -348,12 +358,6 @@ The type or module each refused type or path belongs to.
 <details><summary>hex `Debug`, as in `{:x?}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:135:3: hex `Debug`, as in `{:x?}`, is not supported
-
-</details>
-
-<details><summary>replacing the `_` behind a reference, whose JS object is shared or private (1)</summary>
-
-- fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
 
 </details>
 
