@@ -1,0 +1,47 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# The fork builds in the root workspace, so its output lands in the root's target directory.
+target := env("CARGO_TARGET_DIR", parent_directory(source_directory()) / "target")
+shared := "--exclude uniffi-bindgen-tests-kotlin --exclude uniffi-bindgen-tests-python --exclude uniffi-bindgen-tests-swift"
+dylib := if os() == "macos" { "dylib" } else { "so" }
+
+# List the UniFFI fork's commands.
+default:
+    @just --list uniffi
+
+# Check the library crates' docs. The root `just check` lints and format-checks the code.
+check:
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --package uniffi --package 'uniffi_*'
+
+# Run the tests that need no foreign toolchain: the crates, the generators, and the compile-fail suite.
+test:
+    cargo nextest run --locked --package uniffi --package 'uniffi_*' --package uniffi-bindgen-go --package uniffi-dart --package uniffi-bindgen-cpp
+
+# Run every generator's fixture suite. Needs the toolchains in `nix develop .#uniffi`.
+fixtures: cargo go cpp
+
+# Run the cargo-hosted fixture tests, which drive Kotlin, Swift, Python, and Dart.
+cargo:
+    cargo nextest run --locked --workspace --no-fail-fast {{ shared }}
+    # These share one generated directory per process, so they need cargo test's single process.
+    cargo test --locked --package uniffi-bindgen-tests-kotlin --package uniffi-bindgen-tests-python --package uniffi-bindgen-tests-swift
+
+# Generate the Go fixtures and run their tests.
+go:
+    cargo build --locked --package uniffi-bindgen-go --package uniffi-bindgen-go-fixtures
+    rm -rf go/binding_tests/generated
+    {{ target }}/debug/uniffi-bindgen-go {{ target }}/debug/libuniffi_fixtures.{{ dylib }} --config go/fixtures/uniffi.toml --out-dir go/binding_tests/generated
+    cd go/binding_tests && LD_LIBRARY_PATH="{{ target }}/debug" CGO_LDFLAGS="-luniffi_fixtures -L{{ target }}/debug -lm -ldl" CGO_ENABLED=1 go test ./...
+
+# Build the C++ and C fixtures with CMake and run their tests.
+cpp:
+    cmake -S cpp/cpp-tests -B {{ target }}/cpp-tests -DCMAKE_BUILD_TYPE=Debug -DBINDINGS_BUILD_DIR={{ target }}/debug
+    cmake --build {{ target }}/cpp-tests --parallel
+    ctest --test-dir {{ target }}/cpp-tests --output-on-failure
+
+# Install every generator without the lockfile, as a consumer's `cargo install` resolves it.
+install:
+    cargo install --debug --force --root {{ target }}/install --path uniffi --features cli
+    cargo install --debug --force --root {{ target }}/install --path go/bindgen
+    cargo install --debug --force --root {{ target }}/install --path dart --features binary
+    cargo install --debug --force --root {{ target }}/install --path cpp/bindgen

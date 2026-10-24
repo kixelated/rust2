@@ -49,5 +49,4 @@ Public API: none unless `&[u8]` lands, which changes Kotlin's parameter type.
 
 ## Required
 
-- [Import UniFFI](/quest/m1/uniffi.md) - the fork the core patch lands in
 - [Binding benchmark](/quest/m1/ffi-bench.md) - the before and after numbers
