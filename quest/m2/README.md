@@ -19,7 +19,6 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 ## Required
 
 - [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
-- [A/B routes in the TS benchmark](/quest/m2/ts-bench-routes.md) - `--route name=dir` loads another translation for reproducible A/B runs
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split

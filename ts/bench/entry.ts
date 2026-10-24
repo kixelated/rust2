@@ -13,6 +13,8 @@ export interface Config {
 	workloads: Workloads;
 	/** The async handoff's, on the task fixture. */
 	handoffs: Workloads;
+	/** The name of `--route`'s translations, bundled as `route.js` and `task-route.js`. */
+	route?: string;
 }
 
 const browser = typeof window !== "undefined";
@@ -61,6 +63,7 @@ async function main() {
 		await route("translated", "translated.js", translated),
 		await route("A/A", "translated-aa.js", translated),
 	];
+	if (config.route) routes.push(await route(config.route, "route.js", translated));
 	const timings = await measure(wasm, routes, workloads, { ...config, progress });
 
 	// The async handoff: the translation polled at once by a one-task executor, as the
@@ -72,6 +75,7 @@ async function main() {
 		await route("spawned", "task-translated.js", bytes, "spawn"),
 		await route("A/A", "task-translated-aa.js", bytes),
 	];
+	if (config.route) handoffRoutes.push(await route(config.route, "task-route.js", bytes));
 	const taskWasm = new Wasm(await WebAssembly.compile(await load("task.wasm")));
 	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), { ...config, progress })));
 	return { engine: engine(), timings };
