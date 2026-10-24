@@ -305,6 +305,10 @@ impl Refs {
 				self.ty(program, ret);
 				self.stmts(program, body);
 			}
+			Expr::Lambda(params, body) => {
+				self.params(program, params);
+				self.expr(program, body);
+			}
 			Expr::As(e, ty) => {
 				self.expr(program, e);
 				self.ty(program, ty);
@@ -870,6 +874,14 @@ impl Printer<'_> {
 					self.write("}");
 				}
 			}
+			Expr::Lambda(params, body) => {
+				self.write("(");
+				self.params(params);
+				self.write(") => ");
+				// A body that is an object literal would read as a block.
+				let min = if matches!(**body, Expr::Object(_)) { 21 } else { 3 };
+				self.expr(body, min);
+			}
 			Expr::As(inner, ty) => {
 				self.expr(inner, 13);
 				let ty = self.ty(ty);
@@ -1026,7 +1038,7 @@ fn binary_prec(op: &str) -> u8 {
 
 fn prec(e: &Expr) -> u8 {
 	match e {
-		Expr::Assign(..) | Expr::Arrow(..) => 3,
+		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) => 3,
 		Expr::Cond(..) => 4,
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
@@ -1110,6 +1122,10 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		Expr::Arrow(params, _, body) => {
 			out.extend(params.iter().map(|p| p.name.clone()));
 			collect_locals(body, out);
+		}
+		Expr::Lambda(params, body) => {
+			out.extend(params.iter().map(|p| p.name.clone()));
+			collect_expr_locals(body, out);
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),

@@ -38,6 +38,7 @@ pub fn function<'a, 'tcx>(
 		args: instance.args,
 		locals: FxHashMap::default(),
 		names: FxHashSet::default(),
+		read: reads(tcx, thir),
 		breakables: Vec::new(),
 		ret: sig.output(),
 	};
@@ -137,6 +138,8 @@ pub struct Body<'b, 'a, 'tcx> {
 	locals: FxHashMap<HirId, Local>,
 	/// Every name in the function, closures included, so none shadows another.
 	names: FxHashSet<String>,
+	/// Every variable the function and its closures read.
+	read: FxHashSet<HirId>,
 	breakables: Vec<Breakable>,
 	/// The return type of the function or closure being lowered.
 	ret: Ty<'tcx>,
@@ -164,6 +167,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	pub fn err(&mut self, span: Span, msg: impl Into<String>) -> Expr {
 		self.t.err(span, msg);
 		Expr::undefined()
+	}
+
+	/// Whether anything reads `var`, so its binding is worth declaring.
+	pub fn is_read(&self, var: LocalVarId) -> bool {
+		self.read.contains(&var.0)
 	}
 
 	/// A name no other binding in the function has.
@@ -1381,7 +1389,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn spill(&mut self, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+	pub fn spill(&mut self, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 		let name = self.fresh(base);
 		out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
 		Expr::ident(name)
@@ -1553,6 +1561,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			return Expr::undefined();
 		}
+		if self.is_format_args(id) {
+			return self.format_args(id, out);
+		}
 		match &e.kind {
 			ExprKind::Scope { value, .. } => match self.thir[*value].kind {
 				ExprKind::Loop { .. } => self.via_temp(id, ty, span, out),
@@ -1709,6 +1720,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				super::num::cast(self, operand, from, ty, span)
 			}
 			ExprKind::PointerCoercion { cast, source, .. } => match cast {
+				// `&T` to `&dyn Debug`: a function writing the value.
+				PointerCoercion::Unsize if let Some(tr) = self.fmt_object(ty) => {
+					let source_ty = self.ty_of(*source);
+					let value = self.operand(*source, out);
+					self.fmt_value(tr, source_ty, value, span, out)
+				}
+				PointerCoercion::Unsize if self.trait_object(ty) => self.err(span, format!("a coercion to `{ty}`")),
 				PointerCoercion::Unsize | PointerCoercion::ReifyFnPointer(_) | PointerCoercion::ClosureFnPointer(_) => {
 					self.expr(*source, out)
 				}
@@ -1946,6 +1964,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Option, _) => values.pop().unwrap(),
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
+				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(library::Std::AssertKind, _) => match variant.name.as_str() {
+					"Eq" => Expr::Str("==".into()),
+					"Ne" => Expr::Str("!=".into()),
+					_ => self.err(span, format!("constructing `{ty}`")),
+				},
 				_ => self.err(span, format!("constructing `{ty}`")),
 			};
 		}
@@ -2062,6 +2086,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 		}
 		let saved_thir = std::mem::replace(&mut self.thir, thir);
+		self.read.extend(reads(tcx, thir));
 		let saved_breakables = std::mem::take(&mut self.breakables);
 		let closure_ty = self.subst(tcx.type_of(local).instantiate_identity().skip_norm_wip());
 		let sig = match closure_ty.kind() {
@@ -2317,6 +2342,30 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 enum Iterable {
 	Range { start: Expr, end: Expr, inclusive: bool },
 	Of(Expr),
+}
+
+/// The variables `thir` reads, those its closures capture included.
+fn reads<'tcx>(tcx: ty::TyCtxt<'tcx>, thir: &Thir<'tcx>) -> FxHashSet<HirId> {
+	let mut read = FxHashSet::default();
+	for expr in thir.exprs.iter() {
+		match &expr.kind {
+			ExprKind::VarRef { id } => {
+				read.insert(id.0);
+			}
+			ExprKind::UpvarRef { var_hir_id, .. } => {
+				read.insert(var_hir_id.0);
+			}
+			ExprKind::Closure(closure) => {
+				read.extend(
+					tcx.closure_captures(closure.closure_id)
+						.iter()
+						.map(|capture| capture.get_root_variable()),
+				);
+			}
+			_ => {}
+		}
+	}
+	read
 }
 
 /// Whether a declaration's initializer is one TypeScript can't type on its own.

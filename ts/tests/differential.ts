@@ -5,18 +5,20 @@
 //
 // A harness exports `run(input: Uint8Array): Vec<u8>`; the wasm build exports `input`,
 // `run`, and `output` around it. A panic traps natively and throws `Panic` in
-// TypeScript, and both count as the same outcome.
+// TypeScript, and the two agree only if their messages do.
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-type Outcome = Uint8Array | "panic";
+type Outcome = Uint8Array | { panic: string };
 
 interface Exports {
 	memory: WebAssembly.Memory;
 	input(len: number): number;
 	run(): number;
 	output(): number;
+	message(): number;
+	message_len(): number;
 }
 
 const [wasmPath, harnessPath, countArg] = process.argv.slice(2);
@@ -37,9 +39,11 @@ function native(input: Uint8Array): Outcome {
 		return new Uint8Array(exports.memory.buffer, out, len).slice();
 	} catch (err) {
 		if (!(err instanceof WebAssembly.RuntimeError)) throw err;
-		// A trap leaves the instance mid-call: start a fresh one.
+		// The hook saved the message before the trap, which leaves the instance mid-call.
+		const bytes = new Uint8Array(exports.memory.buffer, exports.message(), exports.message_len());
+		const panic = new TextDecoder().decode(bytes);
 		instance = new WebAssembly.Instance(module, {});
-		return "panic";
+		return { panic };
 	}
 }
 
@@ -47,7 +51,7 @@ function translated(input: Uint8Array): Outcome {
 	try {
 		return harness.run(input).view().slice();
 	} catch (err) {
-		if (err instanceof Error && err.name === "Panic") return "panic";
+		if (err instanceof Error && err.name === "Panic") return { panic: err.message };
 		throw err;
 	}
 }
@@ -79,8 +83,8 @@ function interesting(): number {
 	}
 }
 
-function hex(outcome: Outcome): string {
-	return outcome === "panic" ? "panic" : Buffer.from(outcome).toString("hex");
+function show(outcome: Outcome): string {
+	return outcome instanceof Uint8Array ? Buffer.from(outcome).toString("hex") : `panic ${JSON.stringify(outcome.panic)}`;
 }
 
 const cases: Uint8Array[] = [new Uint8Array(0)];
@@ -118,15 +122,15 @@ for (const input of cases) {
 	try {
 		got = translated(input);
 	} catch (err) {
-		console.error(`input ${hex(input)}: the translation threw ${err}`);
+		console.error(`input ${show(input)}: the translation threw ${err}`);
 		failures++;
 		continue;
 	}
-	if (want === "panic") panics++;
-	if (hex(want) !== hex(got)) {
+	if (!(want instanceof Uint8Array)) panics++;
+	if (show(want) !== show(got)) {
 		failures++;
 		if (failures <= 20) {
-			console.error(`input  ${hex(input)}\nnative ${hex(want)}\nts     ${hex(got)}\n`);
+			console.error(`input  ${show(input)}\nnative ${show(want)}\nts     ${show(got)}\n`);
 		}
 	}
 }

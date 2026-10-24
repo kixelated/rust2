@@ -103,11 +103,6 @@ impl Int {
 		Expr::Rt(self.rt()).member(name).call(args)
 	}
 
-	/// `value`, panicking if it does not fit this type.
-	pub fn check(self, value: Expr) -> Expr {
-		Expr::Rt(self.rt()).call(vec![value])
-	}
-
 	/// `value`, which is exact, wrapped into this type's range.
 	fn wrap(self, value: Expr) -> Expr {
 		match (self.big(), self.signed, self.bits) {
@@ -242,9 +237,9 @@ pub fn binary<'tcx>(
 	}
 
 	match op {
-		BinOp::Add => int.check(l.expr.binary("+", r.expr)),
-		BinOp::Sub => int.check(l.expr.binary("-", r.expr)),
-		BinOp::Mul => int.check(l.expr.binary("*", r.expr)),
+		BinOp::Add => int.method("add", vec![l.expr, r.expr]),
+		BinOp::Sub => int.method("sub", vec![l.expr, r.expr]),
+		BinOp::Mul => int.method("mul", vec![l.expr, r.expr]),
 		BinOp::Div => int.method("div", vec![l.expr, r.expr]),
 		BinOp::Rem => int.method("rem", vec![l.expr, r.expr]),
 		BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor => {
@@ -295,7 +290,7 @@ pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tc
 		}
 		(UnOp::Neg, ty::Int(_)) => {
 			let int = Int::of(ty).unwrap();
-			int.check(Expr::unary("-", value))
+			int.method("neg", vec![value])
 		}
 		_ => b.err(span, format!("unsupported `{op:?}` on `{ty}`")),
 	}

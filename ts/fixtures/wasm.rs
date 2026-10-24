@@ -1,16 +1,24 @@
 //! The harness as a wasm32 module, for the native side of the differential test.
 //!
 //! The host writes a case into `input`, calls `run`, and reads `output`. A panic traps,
-//! and the host starts a fresh instance.
+//! after its message is saved for `message`, and the host starts a fresh instance.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, Once};
 
 static INPUT: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 static OUTPUT: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+static MESSAGE: Mutex<String> = Mutex::new(String::new());
+static HOOK: Once = Once::new();
 
 /// Size the input buffer to `len` bytes and return where to write them.
 #[unsafe(no_mangle)]
 pub extern "C" fn input(len: usize) -> *mut u8 {
+	// The default hook's message, without its location, which translation can't match.
+	HOOK.call_once(|| {
+		std::panic::set_hook(Box::new(|info| {
+			*MESSAGE.lock().unwrap() = info.payload_as_str().unwrap_or("Box<dyn Any>").to_string();
+		}))
+	});
 	let mut input = INPUT.lock().unwrap();
 	input.clear();
 	input.resize(len, 0);
@@ -30,4 +38,16 @@ pub extern "C" fn run() -> usize {
 #[unsafe(no_mangle)]
 pub extern "C" fn output() -> *const u8 {
 	OUTPUT.lock().unwrap().as_ptr()
+}
+
+/// Where the last panic's message is, as UTF-8; its length is `message_len`.
+#[unsafe(no_mangle)]
+pub extern "C" fn message() -> *const u8 {
+	MESSAGE.lock().unwrap().as_ptr()
+}
+
+/// The length of the last panic's message.
+#[unsafe(no_mangle)]
+pub extern "C" fn message_len() -> usize {
+	MESSAGE.lock().unwrap().len()
 }

@@ -3,8 +3,10 @@
 //! exercise and the rest is its input; the output records every result and error, so
 //! the two sides agree only if each step does.
 
-use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, Version, Versions, varint};
-use crate::lite;
+use crate::coding::{
+	BoundsExceeded, Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, Version, Versions, varint,
+};
+use crate::{SessionError, lite};
 
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
@@ -13,7 +15,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 
-	match op % 8 {
+	match op % 9 {
 		0 => decode_script(data, &mut out),
 		1 => encode_script(data, &mut out),
 		2 => zigzag(data, &mut out),
@@ -21,7 +23,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		4 => roundtrip::<Versions>(data, &mut out),
 		5 => roundtrip_lite::<lite::Group>(data, &mut out),
 		6 => roundtrip_lite::<lite::Probe>(data, &mut out),
-		_ => encode_messages(data, &mut out),
+		7 => encode_messages(data, &mut out),
+		_ => errors(data, &mut out),
 	}
 	out
 }
@@ -62,8 +65,17 @@ fn take_u64(data: &[u8]) -> (u64, &[u8]) {
 	(u64::from_be_bytes(buf), &data[n..])
 }
 
+/// An error's thiserror `Display` and derived `Debug`, which callers see.
+fn put_text(out: &mut Vec<u8>, display: String, debug: String) {
+	out.extend_from_slice(display.as_bytes());
+	out.push(0);
+	out.extend_from_slice(debug.as_bytes());
+	out.push(0);
+}
+
 fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
 	out.push(0xee);
+	put_text(out, err.to_string(), format!("{err:?}"));
 	match err {
 		DecodeError::Short => out.push(0),
 		DecodeError::Long => out.push(1),
@@ -96,6 +108,7 @@ fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
 
 fn encode_error(out: &mut Vec<u8>, err: &EncodeError) {
 	out.push(0xef);
+	put_text(out, err.to_string(), format!("{err:?}"));
 	out.push(match err {
 		EncodeError::BoundsExceeded => 0,
 		EncodeError::TooLarge => 1,
@@ -344,4 +357,34 @@ fn encode_message<T: lite::Message>(msg: &T, version: lite::Version, out: &mut V
 		}
 		Err(err) => encode_error(out, &err),
 	}
+}
+
+/// Each error the codec can return, built from the data, as callers see it.
+fn errors(data: &[u8], out: &mut Vec<u8>) {
+	let Some((&selector, data)) = data.split_first() else {
+		return;
+	};
+	let (value, _) = take_u64(data);
+	let err = match selector % 8 {
+		0 => DecodeError::InvalidMessage(value),
+		1 => DecodeError::MessageTooLarge {
+			size: value as usize,
+			max: (value >> 32) as usize,
+		},
+		2 => DecodeError::Session(SessionError::App(value as u16)),
+		3 => DecodeError::Session(SessionError::ProtocolViolation),
+		4 => match String::from_utf8(data.to_vec()) {
+			Ok(_) => DecodeError::Missing,
+			Err(e) => DecodeError::InvalidString(e),
+		},
+		5 => DecodeError::from(BoundsExceeded),
+		6 => {
+			let bounds = BoundsExceeded;
+			put_text(out, bounds.to_string(), format!("{bounds:?} {bounds:#?}"));
+			return;
+		}
+		_ => DecodeError::MalformedAuthToken,
+	};
+	put_text(out, format!("{err} {err:>30}|"), format!("{err:#?}"));
+	decode_error(out, &err);
 }

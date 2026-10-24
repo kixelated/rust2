@@ -49,7 +49,17 @@ runtime: what std does that JS does not.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
-wraps silently. A panic throws `rt.Panic`.
+wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+
+`format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
+translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
+runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
+becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
+and such functions: `f.writeFmt(["code=", (f) => rt.u16.display(code, f)])`. A `&dyn
+Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
+width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
+Unicode tables, so a character newer than its Unicode version is escaped where Rust
+prints it.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
@@ -72,15 +82,16 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 ## Never
 
-Outside the subset for good: `unsafe` and raw pointers, and trait objects. A
-boundary that needs one, such as a boxed future, will bind to hand-written TS through
+Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
+`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, will bind to hand-written TS through
 config ([model](/quest/m2/ts-model.md)).
 
 ## Not yet
 
 These fail translation: floats, `char`, statics, `async`,
 types that implement `Drop`, iterator adaptors (`for` over ranges, slices, arrays, and
-`Vec` works), or-patterns that bind, panic messages that format values, a `move` closure
+`Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
+and widths from arguments), writing to a `String` with `write!`, a `move` closure
 copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
 pointee, and std functions without a mapping in `src/lower/library.rs`.
 
@@ -95,9 +106,10 @@ just ts moq                   # translate moq-net's codec at a pinned revision
 Each fixture under `fixtures/` is translated and compared with its `expected/` snapshot,
 then type-checked with `tsc`. A fixture with a `harness::run(&[u8]) -> Vec<u8>` is also
 built natively for wasm32 and run beside its translation on the same inputs by
-`tests/differential.ts`, which fails on any difference in output or panics.
+`tests/differential.ts`, which fails on any difference in output or panic messages.
 
-- `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach.
-- `lang` covers every integer width's arithmetic and casts, control flow, patterns, and
-  `Copy` aggregates.
+- `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
+  and writes its errors' `Display` and `Debug`.
+- `lang` covers every integer width's arithmetic and casts, control flow, patterns,
+  `Copy` aggregates, and formatting.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`.

@@ -175,6 +175,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				if !by_value {
 					self.ref_binding(mode.0, ty, pat.span);
 				}
+				// Binding has no effect in JS, and TypeScript refuses an unread local.
+				if subpattern.is_none() && !self.is_read(*var) {
+					return;
+				}
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
 				let value = match by_value && !owned {
 					true => self.copied(scrut.clone(), ty),
