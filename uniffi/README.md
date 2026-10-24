@@ -73,6 +73,14 @@ uniffi-rs:
   consumer.
 - Test expectations that hold a path relative to the workspace root (`file!()` output and
   trybuild snapshots) gain the `uniffi/` prefix.
+- A crate can use another crate's type of the same name
+  ([mozilla/uniffi-rs#3026](https://github.com/mozilla/uniffi-rs/issues/3026)): the type
+  universe, the errors, and the recursion check key types by crate and name, and an external
+  type is walked through its own crate's interface. Kotlin spells external types with their
+  package, Swift qualifies an ambiguous one with its module (so same-named types need one
+  Swift module per crate), and Python keeps both definitions (mozilla/uniffi-rs#2985, from
+  upstream `main`). Container helpers for an external type carry its namespace. The
+  `namespaces` fixture covers it in every generator.
 - Scaffolding is written to a temporary file and renamed into place. Two trybuild cases
   expanding `generate_and_include_scaffolding!` on one UDL write it concurrently, and the
   in-place truncate let one include a partial file.
@@ -82,6 +90,8 @@ uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 - The UniFFI 0.32 port ([NordSecurity/uniffi-bindgen-go#98](https://github.com/NordSecurity/uniffi-bindgen-go/pull/98)).
 - Generated async calls take a `context.Context` and cancel the Rust future.
 - An exported `Display` on an enum error renders as its `Error()`.
+- Container helpers for another crate's type carry its namespace, so they don't collide with
+  a same-named local type's.
 - `Types.go` renders its object, enum, error, record, callback interface, and custom type
   templates in their own functions, with byte-identical output. Inlined into one, the borrow
   checker took about 16 GB to check it, more than a CI runner has.
@@ -94,6 +104,9 @@ uniffi-dart, on top of upstream `main` at acterglobal/uniffi-dart@72d26c1:
   disposed objects refused as arguments.
 - Record errors keep their converter name, and futures cancel per operation (moq's
   `nix/uniffi-dart-record-error.patch` and `nix/uniffi-dart-cancellation.patch`).
+- Another crate's library is imported with a `uniffi_<namespace>` prefix that its types,
+  converters, and container helpers go through, the shared runtime comes from the same crate
+  every run, and the test harness drives library mode.
 
 uniffi-bindgen-cpp, on top of upstream `main` at NordSecurity/uniffi-bindgen-cpp@20bef75:
 
@@ -101,3 +114,7 @@ uniffi-bindgen-cpp, on top of upstream `main` at NordSecurity/uniffi-bindgen-cpp
 - `error_style = "expected"`, `strip_type_prefix`, exported `Display` and `Debug` on enums,
   newline-terminated files, released async results, and the C backend (`--lang c`).
 - The CMake test suite finds the fixtures in the root workspace's target directory.
+- Another crate's types are qualified from the global namespace, with aliased converters and
+  namespaced container helpers, definitions sort per crate, and `strip_type_prefix` renames
+  per crate. The C backend supports external types, and prefixes every C name with its
+  namespace.
