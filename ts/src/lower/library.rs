@@ -201,6 +201,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			"wrapping_sub" => "wrappingSub",
 			_ => return None,
 		};
+		if let ("from_be_bytes", Args::Thir([bytes])) = (name.as_str(), &args) {
+			return Some(from_be_bytes(b, int, *bytes, out));
+		}
 		let values = b.args(args, out);
 		return Some(int.method(method, values));
 	}
@@ -691,6 +694,49 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		_ => return super::iter::call(b, call, &owner, &name, args, out),
 	};
 	Some(e)
+}
+
+/// `int::from_be_bytes(bytes)`. A number from an array written in place is its bytes
+/// shifted and or-ed, with no array made. Otherwise the runtime reads the array the
+/// argument names, uncopied, since the read neither keeps nor changes it.
+fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out: &mut Vec<Stmt>) -> Expr {
+	let thir = b.thir;
+	let fields = match &thir[b.strip(bytes)].kind {
+		ExprKind::Array { fields } if !int.big() => fields,
+		_ => {
+			let value = b.place(bytes, out);
+			return int.method("fromBeBytes", vec![value]);
+		}
+	};
+	let values = b.operands(fields, out);
+	let last = values.len() - 1;
+	let mut word: Option<Expr> = None;
+	let mut top = false;
+	for (i, value) in values.into_iter().enumerate() {
+		if matches!(&value, Expr::Lit(l) if l == "0") {
+			continue;
+		}
+		top |= i == 0;
+		let shift = 8 * (last - i);
+		let term = match shift {
+			0 => value,
+			_ => value.binary("<<", Expr::lit(shift.to_string())),
+		};
+		word = Some(match word {
+			Some(word) => word.binary("|", term),
+			None => term,
+		});
+	}
+	let Some(word) = word else {
+		return Expr::lit("0");
+	};
+	// JS's `|` and `<<` make an `i32`, so only a `u32` with its top byte set and the
+	// narrower signed types need their bits read again.
+	match (int.signed, int.bits) {
+		(false, 32) if top => int.wrap(word),
+		(true, bits) if bits < 32 => int.wrap(word),
+		_ => word,
+	}
 }
 
 /// The `n`th type among a call's generic arguments, skipping lifetimes.

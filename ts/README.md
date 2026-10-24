@@ -104,7 +104,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly.
+  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
+  no faster on `just ts bench`, in V8 or JavaScriptCore.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
