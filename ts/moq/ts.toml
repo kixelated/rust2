@@ -8,4 +8,6 @@ roots = [
     "lite::Group",
     "lite::Probe",
 ]
+# The errors the roots return, which moq's callers print.
+printable = ["coding::DecodeError", "coding::EncodeError", "coding::BoundsExceeded"]
 ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]

@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 48
+- Refusals: 49
 - Function instances: 28
 - Generic functions no instance reached, lowered over their type parameters: 2
 
@@ -31,6 +31,7 @@
 | 1 | a mutable reference to `_`, which is no object it can change in place | fixtures/reject/src/lib.rs:144:17 |
 | 1 | a parameter that drops bound by a pattern, which is not supported yet | fixtures/reject/src/lib.rs:83:21 |
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:129:3 |
+| 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:175:1 |
 | 1 | a variable from outside the function | fixtures/reject/src/lib.rs:84:2 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:136:3 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
@@ -246,6 +247,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a precision, as in `{:.2}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:129:3: a precision, as in `{:.2}`, is not supported
+
+</details>
+
+<details><summary>a printable type must implement `Display` or `Debug` (1)</summary>
+
+- fixtures/reject/src/lib.rs:175:1: a printable type must implement `Display` or `Debug`
 
 </details>
 

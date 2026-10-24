@@ -394,3 +394,46 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 		}
 	}
 }
+
+/// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
+/// translated formats it, so its `Display` and `Debug` come along as `printable`.
+#[derive(Debug)]
+pub enum Fault {
+	Short,
+	Code(u16),
+	TooLarge { size: usize, max: usize },
+	At(Pair),
+}
+
+impl fmt::Display for Fault {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Short => f.pad("short buffer"),
+			Self::Code(code) => write!(f, "code={code:#06x}"),
+			Self::TooLarge { size, max } => write!(f, "{size} bytes exceeds the {max} byte limit"),
+			Self::At(pair) => write!(f, "at {pair:?}"),
+		}
+	}
+}
+
+impl Fault {
+	/// The fault `data` picks.
+	pub fn new(data: &[u8]) -> Self {
+		let at = |i: usize| data.get(i).copied().unwrap_or(0);
+		match at(0) % 4 {
+			0 => Self::Short,
+			1 => Self::Code(u16::from_be_bytes([at(1), at(2)])),
+			2 => Self::TooLarge {
+				size: usize::from(at(1)) << 24 | usize::from(at(2)),
+				max: usize::from(at(3)),
+			},
+			_ => Self::At(Pair(at(1), i64::from(at(2) as i8) << 40)),
+		}
+	}
+}
+
+/// A [`Fault`] as native Rust prints it, which the translated side prints from TypeScript.
+pub fn printed(data: &[u8]) -> Vec<u8> {
+	let fault = Fault::new(data);
+	format!("{fault}|{fault:>16}|{fault:?}|{fault:#?}").into_bytes()
+}

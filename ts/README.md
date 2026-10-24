@@ -19,6 +19,9 @@ package = "moq-net"
 # Paths from the crate root: a function, or a type with its non-generic methods and its
 # impls of the crate's own traits, blanket ones included.
 roots = ["coding::Decoder", "lite::Group"]
+# Types whose `Display` and `Debug` impls come along, whichever they have, so callers can
+# print them. Another crate's trait otherwise comes along only when something calls it.
+printable = ["coding::DecodeError"]
 # Macros whose invocations are left out, such as logging. Each must evaluate to `()`.
 ignore-macros = ["tracing::trace"]
 ```
@@ -29,7 +32,7 @@ moq consumes it as the `ts` package of this repository's flake. In this reposito
 ## Census
 
 `--census file.md` translates nothing. It treats every item in the library as a root,
-except derived impls, which come along only when called, and writes a Markdown report of
+except derived impls, which come along only when called or printable, and writes a Markdown report of
 every construct translation refuses, with counts and spans. Refusals are ranked by
 construct, by the type or module they name, and by each type or path. A generic function
 that no instance reaches is lowered over its own type parameters, refusing nothing that
@@ -76,7 +79,9 @@ and such functions: `f.writeFmt(["code=", (f) => rt.u16.display(code, f)])`. A `
 Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
-prints it.
+prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
+would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
+`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
@@ -145,9 +150,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, and formatting.
+  `Copy` aggregates, and formatting. Its differential test runs through `caller.ts`, a
+  hand-written caller that also prints a `printable` error nothing translated prints.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions. Its harness is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,

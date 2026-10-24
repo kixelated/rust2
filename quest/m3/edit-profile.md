@@ -16,7 +16,3 @@ compiler. A leaf edit takes 3.3 s, 0.7 s of it linking; the moq-net edit takes
 than adding a tool.
 
 Public API: none.
-
-## Required
-
-- [Median for short scenarios](/quest/m3/bench-median.md) - the sub-10 s edit numbers this reads
