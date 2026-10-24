@@ -277,6 +277,18 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	out.push(wide.is_empty() as u8);
 	let total: u64 = (0..a as u64).sum();
 	out.extend_from_slice(&total.to_be_bytes());
+	// Wide ranges stepping past 2^53, where a number becomes limbs, and up to the maximum.
+	let edge = (1u64 << 53) - 2 + a as u64 % 4;
+	let mut past = edge..edge + 4;
+	out.extend_from_slice(&past.nth(b as usize % 3).unwrap_or(0).to_be_bytes());
+	out.extend_from_slice(&past.next_back().unwrap_or(0).to_be_bytes());
+	out.extend_from_slice(&(edge..=edge + 3).nth(b as usize % 5).unwrap_or(0).to_be_bytes());
+	let top: u64 = (u64::MAX - a as u64 % 3..=u64::MAX).map(|n| n % 7).sum();
+	out.extend_from_slice(&top.to_be_bytes());
+	let most = (edge..=edge + 2).rev().max_by_key(|&n| n).unwrap_or(0);
+	out.extend_from_slice(&most.to_be_bytes());
+	let least = (-(1i64 << 53) - 1..-(1i64 << 53) + 1).min().unwrap_or(0);
+	out.extend_from_slice(&least.to_be_bytes());
 	let steps: Vec<u32> = (0..48).step_by(8).rev().collect();
 	for s in steps {
 		out.push(s as u8);

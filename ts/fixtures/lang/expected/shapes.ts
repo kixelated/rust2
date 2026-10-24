@@ -4,10 +4,10 @@ import * as rt from "./rt.ts";
 
 /** A `Copy` struct, which Rust copies where JS would share. */
 export class Point {
-	x: number;
-	y: number;
+	x: rt.i32;
+	y: rt.i32;
 
-	constructor(fields: { x: number; y: number }) {
+	constructor(fields: { x: rt.i32; y: rt.i32 }) {
 		this.x = fields.x;
 		this.y = fields.y;
 	}
@@ -20,12 +20,12 @@ export class Point {
 		return this.x === other.x && this.y === other.y;
 	}
 
-	static new(x: number, y: number): Point {
+	static new(x: rt.i32, y: rt.i32): Point {
 		return new Point({ x, y });
 	}
 
 	/** Changes `self`, which a caller's copy must not see. */
-	shift(by: number): Point {
+	shift(by: rt.i32): Point {
 		this.x = rt.i32.add(this.x, by);
 		return rt.copy(this);
 	}
@@ -37,13 +37,13 @@ export class Point {
 
 /** A tuple struct. */
 export class Meters {
-	_0: bigint;
+	_0: rt.u64;
 
-	constructor(_0: bigint) {
+	constructor(_0: rt.u64) {
 		this._0 = _0;
 	}
 
-	area(): bigint {
+	area(): rt.u64 {
 		return this._0;
 	}
 
@@ -58,7 +58,7 @@ export class Meters {
 export type Shape =
 	| { tag: "Dot" }
 	| { tag: "Line"; _0: Point; _1: Point }
-	| { tag: "Rect"; corner: Point; width: number; height: number };
+	| { tag: "Rect"; corner: Point; width: rt.u16; height: rt.u16 };
 
 export const Shape = {
 	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
@@ -82,15 +82,15 @@ export const Shape = {
 		out.extendFromSlice(rt.u64.toBeBytes(Shape.area(self)));
 	},
 
-	area(self: Shape): bigint {
+	area(self: Shape): rt.u64 {
 		if (self.tag === "Dot") {
-			return 0n;
+			return 0;
 		} else if (self.tag === "Line") {
-			return 0n;
+			return 0;
 		} else {
 			const width = self.width;
 			const height = self.height;
-			return rt.u64.mul(BigInt(width), BigInt(height));
+			return rt.u64.mul(width as rt.u64, height as rt.u64);
 		}
 	},
 };
@@ -102,8 +102,8 @@ export type Signed = "Neg" | "Min" | "Pos";
 
 export type Dir = "North" | "East" | "South" | "West";
 
-export function total$Meters(items: Meters[], out: rt.ByteVec): bigint {
-	let sum: bigint = 0n;
+export function total$Meters(items: Meters[], out: rt.ByteVec): rt.u64 {
+	let sum: rt.u64 = 0;
 	for (const item of items) {
 		item.describe(out);
 		sum = rt.u64.saturatingAdd(sum, item.area());
@@ -111,8 +111,8 @@ export function total$Meters(items: Meters[], out: rt.ByteVec): bigint {
 	return sum;
 }
 
-export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
-	let sum: bigint = 0n;
+export function total$Shape(items: Shape[], out: rt.ByteVec): rt.u64 {
+	let sum: rt.u64 = 0;
 	for (const item of items) {
 		Shape.describe(item, out);
 		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
@@ -120,11 +120,11 @@ export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
 	return sum;
 }
 
-export function from(dir_: Dir): number {
+export function from(dir_: Dir): rt.u8 {
 	return { North: 1, East: 2, South: 4, West: 8 }[dir_];
 }
 
-export function dir(byte: number): Dir | undefined {
+export function dir(byte: rt.u8): Dir | undefined {
 	const value = rt.u8.rem(byte, 5);
 	if (value === 0) {
 		return "North";
@@ -146,8 +146,8 @@ export function shape(data: Uint8Array): Shape {
 	}
 	const kind = splitFirst[0];
 	const rest = splitFirst[1];
-	const at = (i: number): number => {
-		return rt.i32.sub(rt.option.unwrapOr(rt.slice.get(rest, i), 0), 128);
+	const at = (i: rt.usize): rt.i32 => {
+		return rt.i32.sub(rt.option.unwrapOr(rt.slice.get(rest, i), 0) as rt.i32, 128);
 	};
 	const value = rt.u8.rem(kind, 3);
 	if (value === 0) {
@@ -155,18 +155,18 @@ export function shape(data: Uint8Array): Shape {
 	} else if (value === 1) {
 		return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) };
 	} else {
-		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16.mul(rt.option.unwrapOr(rt.slice.get(rest, 2), 0), 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) };
+		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16.mul(rt.option.unwrapOr(rt.slice.get(rest, 2), 0) as rt.u16, 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) as rt.u16 };
 	}
 }
 
 /** `Copy` aggregates: a copy changes apart from its original. */
 export function copies(data: Uint8Array, out: rt.ByteVec): void {
-	const p = Point.new(rt.option.unwrapOr(rt.slice.first(data), 0), 7);
+	const p = Point.new(rt.option.unwrapOr(rt.slice.first(data), 0) as rt.i32, 7);
 	let q: Point = rt.copy(p);
 	q.x = rt.i32.add(q.x, 100);
 	q.bump();
 	const r = rt.copy(p).shift(5);
-	let pair: [Point, number] = [rt.copy(p), 3];
+	let pair: [Point, rt.u8] = [rt.copy(p), 3];
 	const saved = rt.copy(pair);
 	pair[0].y = -1;
 	pair[1] = rt.u8.add(pair[1], 1);
@@ -193,12 +193,12 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	a = Point.new(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
-	let opt: Meters | undefined = new Meters(9n);
+	let opt: Meters | undefined = new Meters(9);
 	const taken = opt;
 	opt = undefined;
 	const taken2 = taken;
 	out.push(opt === undefined ? 1 : 0);
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), 0n, (m: Meters): bigint => {
+	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), 0, (m: Meters): rt.u64 => {
 		return m._0;
 	})));
 	const res = rt.Ok(rt.copy(p));
@@ -221,12 +221,12 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 		out.push({ Low: 1, High: 44, Top: 255 }[wide]);
 		out.push({ Low: 1, High: 44, Top: -1 }[wide] & 0xff);
 		out.extendFromSlice(rt.i16.toBeBytes({ Low: 1, High: 300, Top: -1 }[wide]));
-		out.extendFromSlice(rt.u64.toBeBytes({ Low: 1n, High: 300n, Top: 65535n }[wide]));
+		out.extendFromSlice(rt.u64.toBeBytes({ Low: 1, High: 300, Top: 65535 }[wide]));
 		out.push({ Neg: 255, Min: 128, Pos: 100 }[signed]);
 		out.extendFromSlice(rt.u16.toBeBytes({ Neg: 65535, Min: 65408, Pos: 100 }[signed]));
 		out.extendFromSlice(rt.u32.toBeBytes({ Neg: 4294967295, Min: 4294967168, Pos: 100 }[signed]));
-		out.extendFromSlice(rt.i64.toBeBytes({ Neg: -1n, Min: -128n, Pos: 100n }[signed]));
-		out.extendFromSlice(rt.u128.toBeBytes({ Neg: 340282366920938463463374607431768211455n, Min: 340282366920938463463374607431768211328n, Pos: 100n }[signed]));
+		out.extendFromSlice(rt.i64.toBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed]));
+		out.extendFromSlice(rt.u128.toBeBytes({ Neg: rt.u128.of(340282366920938463463374607431768211455n), Min: rt.u128.of(340282366920938463463374607431768211328n), Pos: 100 }[signed]));
 	}
 }
 
@@ -236,7 +236,7 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
  */
 export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let stack: rt.ByteVec = rt.slice.toByteVec(data);
-	let popped: number = 0;
+	let popped: rt.u32 = 0;
 	while (true) {
 		const pop = stack.pop();
 		if (pop !== undefined) {
@@ -244,7 +244,8 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 			if (top === 0) {
 				continue;
 			}
-			popped = rt.u32.add(popped, top);
+			const value = top as rt.u32;
+			popped = rt.u32.add(popped, value);
 			if (popped > 1000) {
 				break;
 			}
@@ -253,14 +254,14 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 		}
 	}
 	out.extendFromSlice(rt.u32.toBeBytes(popped));
-	let found: [number, number] | undefined = undefined;
+	let found: [rt.usize, rt.usize] | undefined = undefined;
 	const end = data.length;
 	loop2: for (let i = 0; i < end; i++) {
 		const start = rt.usize.add(i, 1);
 		const end2 = data.length;
 		for (let j = start; j < end2; j++) {
 			if (rt.at(data, i) === rt.at(data, j)) {
-				found = [i, j] as [number, number];
+				found = [i, j] as [rt.usize, rt.usize];
 				break loop2;
 			}
 			if (rt.at(data, j) === 0) {
@@ -275,25 +276,25 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	} else {
 		out.push(0xff);
 	}
-	let n: bigint = BigInt(data.length);
-	let steps: number;
+	let n: rt.u64 = data.length as rt.u64;
+	let steps: rt.u8;
 	while (true) {
-		if (n <= 1n) {
+		if (rt.u64.le(n, 1)) {
 			steps = 0;
 			break;
 		}
-		n = rt.u64.rem(n, 2n) === 0n ? rt.u64.div(n, 2n) : rt.u64.add(rt.u64.mul(3n, n), 1n);
-		if (n > 100n) {
+		n = rt.u64.rem(n, 2) === 0 ? rt.u64.div(n, 2) : rt.u64.add(rt.u64.mul(3, n), 1);
+		if (rt.u64.gt(n, 100)) {
 			steps = 1;
 			break;
 		}
 	}
 	out.push(steps);
-	let count: number = 0;
+	let count: rt.u8 = 0;
 	for (let _ = 0; _ <= 3; _++) {
 		count = rt.u8.add(count, 1);
 	}
-	let i3: number = 10;
+	let i3: rt.i8 = 10;
 	while (i3 > -3) {
 		i3 = rt.i8.sub(i3, 4);
 		count = rt.u8.add(count, 1);
@@ -302,8 +303,8 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(firstRepeat(data));
 	out.extendFromSlice(rt.u16.toBeBytes(tailBreak(data)));
 	out.push(armLoop(data));
-	out.extendFromSlice(rt.u32.toBeBytes(position(data, 0)));
-	const settle = (x: number): number => {
+	out.extendFromSlice(rt.u32.toBeBytes(position(data, 0) as rt.u32));
+	const settle = (x: rt.u8): rt.u8 => {
 		while (true) {
 			if (x < 10) {
 				return x;
@@ -327,7 +328,7 @@ export function diverging(data: Uint8Array, out: rt.ByteVec): void {
 	const b = rt.option.unwrapOr(rt.slice.first(head), 0);
 	out.push(returnedNever(b, data.length));
 	out.push(brokenNever(head));
-	const check = (b2: number): number => {
+	const check = (b2: rt.u8): rt.u8 => {
 		if (b2 === 0xfd) {
 			rt.panic(["closure ", (f: rt.Formatter) => rt.u8.display(b2, f)]);
 		}
@@ -340,12 +341,12 @@ export function diverging(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** A function that never returns. */
-export function bail(b: number): never {
+export function bail(b: rt.u8): never {
 	rt.panic(["failed on ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(b, f))]);
 }
 
 /** `return`, and `break` out of the function's labeled block, with values that never exist. */
-export function returnedNever(b: number, len: number): number {
+export function returnedNever(b: rt.u8, len: rt.usize): rt.u8 {
 	if (b === 247) {
 		rt.panic(["returned ", (f: rt.Formatter) => rt.u8.display(b, f)]);
 	} else if (b === 248) {
@@ -364,7 +365,7 @@ export function returnedNever(b: number, len: number): number {
 }
 
 /** A `return` of a `match` that guards, whose arms fall through to the next. */
-export function guardedReturn(data: Uint8Array): number {
+export function guardedReturn(data: Uint8Array): rt.u8 {
 	if (!((data.length === 0))) {
 		arms: {
 			if (data.length === 2) {
@@ -387,8 +388,8 @@ export function guardedReturn(data: Uint8Array): number {
 }
 
 /** A loop ending the function, left by `break` with values that never exist. */
-export function brokenNever(data: Uint8Array): number {
-	let i: number = 0;
+export function brokenNever(data: Uint8Array): rt.u8 {
+	let i: rt.usize = 0;
 	while (true) {
 		if (i >= data.length) {
 			return 0xcc;
@@ -410,31 +411,31 @@ export function brokenNever(data: Uint8Array): number {
  * Values that never exist where a value is needed: bound, and passed. A loop that
  * only `return` leaves gives the function's result.
  */
-export function boundNever(data: Uint8Array, out: rt.ByteVec): number {
-	let i: number = 0;
-	let found: number;
+export function boundNever(data: Uint8Array, out: rt.ByteVec): rt.u8 {
+	let i: rt.usize = 0;
+	let found: rt.u8;
 	while (true) {
 		if (i >= data.length) {
 			return 0xbb;
 		}
 		const value = data[rt.idx(data, i)];
 		if (value === 239) {
-			let x: number;
+			let x: rt.u8;
 			rt.panic(["bound at ", (f: rt.Formatter) => rt.usize.display(i, f)]);
 			out.push(x);
 		} else if (value === 240) {
 			const arg = out;
-			let value2: number;
+			let value2: rt.u8;
 			bail(rt.at(data, i));
 			arg.push(value2);
 		} else if (value === 0) {
 			const arg2 = out;
-			let value3: number;
+			let value3: rt.u8;
 			return i & 0xff;
 			arg2.push(value3);
 		} else if (value === 128) {
 			const arg3 = out;
-			let value4: number;
+			let value4: rt.u8;
 			while (true) {
 				i = rt.usize.add(i, 1);
 				if (i >= data.length || rt.at(data, i) < 0x80) {
@@ -450,7 +451,7 @@ export function boundNever(data: Uint8Array, out: rt.ByteVec): number {
 
 /** Loops that `break` ending a guarded `match` arm and an `if let` chain branch. */
 export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
-	let i: number = 0;
+	let i: rt.usize = 0;
 	while (rt.usize.add(i, 1) < data.length) {
 		const w = rt.slice.range(data, i, rt.usize.add(i, 2));
 		i = rt.usize.add(i, 2);
@@ -459,7 +460,7 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 				const a = w[0];
 				const b = w[1];
 				if (a > b) {
-					let n: number = a;
+					let n: rt.u8 = a;
 					while (true) {
 						if (n <= b) {
 							break;
@@ -481,7 +482,7 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 				const a3 = w[0];
 				const b2 = w[1];
 				if (rt.u8.rem(a3, 3) === rt.u8.rem(b2, 3)) {
-					let n2: number = a3;
+					let n2: rt.u8 = a3;
 					while (true) {
 						n2 = rt.u8.div(n2, 2);
 						out.push(n2);
@@ -498,8 +499,8 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** A loop that only `return` leaves, returned itself, around loops that `break`. */
-export function returnedLoop(data: Uint8Array): number {
-	let i: number = 0;
+export function returnedLoop(data: Uint8Array): rt.u8 {
+	let i: rt.usize = 0;
 	while (true) {
 		if (i >= data.length) {
 			return 0xdd;
@@ -518,13 +519,13 @@ export function returnedLoop(data: Uint8Array): number {
 }
 
 /** A loop that ends the function, left only by `return` from nested scopes. */
-export function firstRepeat(data: Uint8Array): number {
-	let i: number = 0;
+export function firstRepeat(data: Uint8Array): rt.u8 {
+	let i: rt.usize = 0;
 	loop: while (true) {
 		if (i >= data.length) {
 			return 0xff;
 		}
-		let j: number = rt.usize.add(i, 1);
+		let j: rt.usize = rt.usize.add(i, 1);
 		while (j < data.length) {
 			if (rt.at(data, j) === 0) {
 				i = rt.usize.add(j, 1);
@@ -540,8 +541,8 @@ export function firstRepeat(data: Uint8Array): number {
 }
 
 /** A loop that ends the function, left by `break` with a value from nested scopes. */
-export function tailBreak(data: Uint8Array): number {
-	let i: number = 0;
+export function tailBreak(data: Uint8Array): rt.u16 {
+	let i: rt.usize = 0;
 	while (true) {
 		if (i >= data.length) {
 			return 0x100;
@@ -555,13 +556,13 @@ export function tailBreak(data: Uint8Array): number {
 			for (const item of rt.slice.range(data, i)) {
 				const c = item;
 				if (c === b) {
-					return rt.u16.mul(c, 2);
+					return rt.u16.mul(c as rt.u16, 2);
 				}
 			}
 		} else if (value === 2 && b > 100) {
-			return rt.u16.add(b, i & 0xffff);
+			return rt.u16.add(b as rt.u16, i & 0xffff);
 		} else {
-			let n: number = b;
+			let n: rt.u8 = b;
 			while (true) {
 				if (n < 10) {
 					break;
@@ -576,9 +577,9 @@ export function tailBreak(data: Uint8Array): number {
 }
 
 /** A loop that only `return` leaves, in a `match` arm that needs a value. */
-export function armLoop(data: Uint8Array): number {
-	let k: number = 0;
-	let start: number;
+export function armLoop(data: Uint8Array): rt.u8 {
+	let k: rt.usize = 0;
+	let start: rt.u8;
 	const first = rt.slice.first(data);
 	arms: {
 		if (first !== undefined) {
@@ -602,8 +603,8 @@ export function armLoop(data: Uint8Array): number {
 }
 
 /** A generic function ending in a loop. */
-export function position(items: Uint8Array, want: number): number {
-	let i: number = 0;
+export function position(items: Uint8Array, want: rt.u8): rt.usize {
+	let i: rt.usize = 0;
 	while (true) {
 		if (i === items.length || items[rt.idx(items, i)] === want) {
 			return i;
@@ -614,7 +615,7 @@ export function position(items: Uint8Array, want: number): number {
 
 /** A unit function ending in a loop. */
 export function drain(data: Uint8Array, out: rt.ByteVec): void {
-	let i: number = 0;
+	let i: rt.usize = 0;
 	while (true) {
 		if (i >= data.length) {
 			return;
@@ -652,7 +653,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	for (const item of rt.slice.range(data, 0, rt.min(data.length, 4))) {
 		const b = item;
-		let class_: number;
+		let class_: rt.u8;
 		arms2: {
 			if (b === 0) {
 				class_ = 0;
@@ -698,35 +699,35 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		out.push(0xee);
 	}
 	const shape_ = shape(data);
-	let area: bigint;
+	let area: rt.i64;
 	arms3: {
 		if ((shape_.tag === "Rect" && shape_.width === 0) || shape_.tag === "Dot") {
-			area = 0n;
+			area = 0;
 			break arms3;
 		}
 		if (shape_.tag === "Rect") {
 			const x = shape_.corner.x;
 			const width = shape_.width;
 			if (x > 0) {
-				area = rt.i64.mul(BigInt(width), BigInt(x));
+				area = rt.i64.mul(width as rt.i64, x as rt.i64);
 				break arms3;
 			}
 		}
 		if (shape_.tag === "Rect") {
 			const width2 = shape_.width;
 			const height = shape_.height;
-			area = rt.i64.neg(rt.i64.mul(BigInt(width2), BigInt(height)));
+			area = rt.i64.neg(rt.i64.mul(width2 as rt.i64, height as rt.i64));
 			break arms3;
 		}
 		const a2 = rt.copy(shape_._0);
 		const b3 = rt.copy(shape_._1);
-		area = rt.i64.mul(BigInt(rt.i32.sub(a2.x, b3.x)), BigInt(rt.i32.sub(a2.y, b3.y)));
+		area = rt.i64.mul(rt.i32.sub(a2.x, b3.x) as rt.i64, rt.i32.sub(a2.y, b3.y) as rt.i64);
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
+	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3), new Meters(rt.u64.of(18446744073709551615n))], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);
-	let a3: number;
+	let a3: rt.u8;
 	if (parsed.ok) {
 		const v = parsed.value;
 		a3 = v;
@@ -734,7 +735,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		const e = parsed.error;
 		a3 = absurd([e, 1]);
 	}
-	let b4: number;
+	let b4: rt.u8;
 	if (parsed.ok) {
 		const v2 = parsed.value;
 		b4 = v2;
@@ -742,7 +743,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		const e2 = parsed.error;
 		rt.unreachable(e2);
 	}
-	let c: number;
+	let c: rt.u8;
 	const v3 = parsed.value;
 	c = v3;
 	out.extendFromSlice(Uint8Array.of(a3, b4, c, early(a3)));
@@ -759,28 +760,29 @@ export const Void = {
 };
 
 /** A value holding a `Void` can't exist either. */
-export function absurd(v: [Void, number]): number {
+export function absurd(v: [Void, rt.u8]): rt.u8 {
 	rt.unreachable(rt.copy(v));
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */
-export function early(n: number): number {
+export function early(n: rt.u8): rt.u8 {
 	return rt.u8.wrappingAdd(n, 1);
 }
 
 /** Closures capturing by reference and by move, and functions as values. */
 export function closures(data: Uint8Array, out: rt.ByteVec): void {
-	let sum: number = 0;
-	let add: (a0: number) => void = (v: number): void => {
-		sum = rt.u32.add(sum, v);
+	let sum: rt.u32 = 0;
+	let add: (a0: rt.u8) => void = (v: rt.u8): void => {
+		const value = v as rt.u32;
+		sum = rt.u32.add(sum, value);
 	};
 	for (const item of data) {
 		const b = item;
 		add(b);
 	}
 	out.extendFromSlice(rt.u32.toBeBytes(sum));
-	const base = data.length;
-	const scale = (v2: number): number => {
+	const base = data.length as rt.u32;
+	const scale = (v2: rt.u32): rt.u32 => {
 		return rt.u32.add(rt.u32.mul(v2, 3), base);
 	};
 	out.extendFromSlice(rt.u32.toBeBytes(apply(scale, sum)));
@@ -796,13 +798,13 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(tags.view());
 }
 
-export function apply(f: (a0: number) => number, v: number): number {
+export function apply(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {
 	return f(v);
 }
 
 /** Options, results, `?`, and strings. */
 export function library(data: Uint8Array, out: rt.ByteVec): void {
-	const checked = (a: number, b: number): number | undefined => {
+	const checked = (a: rt.u8, b: rt.u8): rt.u8 | undefined => {
 		const checkedAdd = rt.u8.checkedAdd(a, b);
 		if (checkedAdd === undefined) {
 			return undefined;
@@ -818,16 +820,16 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 	const a2 = rt.option.unwrapOr(rt.slice.first(data), 0);
 	const b2 = rt.option.unwrapOr(rt.slice.get(data, 1), 0);
 	out.push(rt.option.unwrapOr(checked(a2, b2), 0xff));
-	let parsed: rt.Result<number, string>;
+	let parsed: rt.Result<rt.u8, string>;
 	if (a2 === 0) {
 		parsed = rt.Err("zero");
 	} else {
 		const n = a2;
 		parsed = rt.Ok(n);
 	}
-	const mapped = rt.result.mapErr(rt.result.map(parsed, (n2: number): number => {
+	const mapped = rt.result.mapErr(rt.result.map(parsed, (n2: rt.u8): rt.u8 => {
 		return rt.u8.div(n2, 2);
-	}), (e: string): number => {
+	}), (e: string): rt.u8 => {
 		return rt.string.len(e) & 0xff;
 	});
 	if (mapped.ok) {
@@ -841,7 +843,7 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 	if (fromUtf8.ok) {
 		const s = fromUtf8.value;
 		out.push(1);
-		out.extendFromSlice(rt.u32.toBeBytes(rt.string.len(s)));
+		out.extendFromSlice(rt.u32.toBeBytes(rt.string.len(s) as rt.u32));
 		out.extendFromSlice(rt.string.asBytes(s));
 	} else {
 		out.push(0);

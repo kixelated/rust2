@@ -1462,11 +1462,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						self.spill(end, "end", out)
 					}
 				};
-				Some(Iterable::Range {
-					start,
-					end,
-					inclusive: false,
-				})
+				Some(range_of(ty, start, end, false))
 			}
 			ty::Adt(adt, _) if tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::RangeInclusiveStruct) => {
 				// `a..=b` is `RangeInclusive::new(a, b)`.
@@ -1488,11 +1484,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						self.spill(end, "end", out)
 					}
 				};
-				Some(Iterable::Range {
-					start,
-					end,
-					inclusive: true,
-				})
+				Some(range_of(ty, start, end, true))
 			}
 			// An array by value iterates its elements, already copied.
 			ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
@@ -2133,10 +2125,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					let mut ordered: Vec<(usize, Expr)> =
 						adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
 					ordered.sort_by_key(|(i, _)| *i);
-					Expr::New(
-						Box::new(Expr::Rt("Range")),
-						ordered.into_iter().map(|(_, v)| v).collect(),
-					)
+					let mut args: Vec<Expr> = ordered.into_iter().map(|(_, v)| v).collect();
+					// A wide range steps past 2^53 through its type.
+					let ty::Adt(_, gargs) = ty.kind() else {
+						unreachable!("a range is a struct")
+					};
+					if let Some(int) = super::num::Int::of(gargs.type_at(0))
+						&& int.big()
+					{
+						args.push(Expr::Rt(int.rt()));
+					}
+					Expr::New(Box::new(Expr::Rt("Range")), args)
 				}
 				(library::Std::AssertKind, _) => match variant.name.as_str() {
 					"Eq" => Expr::Str("==".into()),
@@ -2545,6 +2544,24 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			_ => None,
 		}
+	}
+}
+
+/// A range of `ty` as a `for` loop iterates it: counting in a number, or as the runtime's
+/// range of a wide integer, which steps past 2^53 into limbs.
+fn range_of(ty: Ty<'_>, start: Expr, end: Expr, inclusive: bool) -> Iterable {
+	let ty::Adt(_, args) = ty.kind() else {
+		unreachable!("a range is a struct")
+	};
+	match super::num::Int::of(args.type_at(0)) {
+		Some(int) if int.big() => {
+			let class = if inclusive { "RangeInclusive" } else { "Range" };
+			Iterable::Of(Expr::New(
+				Box::new(Expr::Rt(class)),
+				vec![start, end, Expr::Rt(int.rt())],
+			))
+		}
+		_ => Iterable::Range { start, end, inclusive },
 	}
 }
 

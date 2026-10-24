@@ -26,7 +26,3 @@ faster, and V8 gives a lone small array its own buffer, about a microsecond,
 the first time it is viewed. Measure Node, Bun, and Chrome.
 
 Public API: the translator's output for byte slices.
-
-## Related
-
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - the other half of decode's remaining gap

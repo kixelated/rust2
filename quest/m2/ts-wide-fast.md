@@ -2,7 +2,8 @@
 
 ## Goal
 
-Two fast paths for [rust2-ts](/ts/README.md)'s 64-bit integers, each kept only if
+Two fast paths for [rust2-ts](/ts/README.md)'s 64-bit integers (numbers while
+safe, limbs past 2^53, per its [design](/ts/README.md#design)), each kept only if
 the [TS benchmark](/ts/README.md#bench) measures it faster, with the wide
 differential sweep still passing.
 
@@ -17,10 +18,6 @@ From [#26](https://github.com/kixelated/rust2/pull/26)'s follow-ups:
   `rescale` measures.
 
 Public API: none; the runtime's internals.
-
-## Required
-
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - the number-or-limbs representation these speed up
 
 ## Related
 

@@ -16,7 +16,6 @@ deletes the quests that follow it.
 
 - [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
 - [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
-- [Wide integer spike](/quest/m2/ts-wide-ints.md) - `bigint` against boxed and unboxed hi/lo picks the 64- and 128-bit representation
 - [Fail the TS benchmark when Chrome hangs](/quest/m2/ts-bench-chrome-timeout.md) - a hung renderer fails the run loudly
 - [A/B routes in the TS benchmark](/quest/m2/ts-bench-routes.md) - `--route name=dir` loads another translation for reproducible A/B runs
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift

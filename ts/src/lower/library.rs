@@ -341,11 +341,17 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			};
 			let values = b.args(args, out);
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
-			l.binary(js, r)
+			match Int::of(targ(gargs, 0).peel_refs()) {
+				Some(int) => int.compare(js, l, r),
+				None => l.binary(js, r),
+			}
 		}
-		("Ord", "max" | "min") if Int::of(targ(gargs, 0)).is_some() => {
+		("Ord", "max" | "min") if let Some(int) = Int::of(targ(gargs, 0)) => {
 			let values = b.args(args, out);
-			Expr::rt(if name == "max" { "max" } else { "min" }, values)
+			match int.big() {
+				true => int.method(name.as_str(), values),
+				false => Expr::rt(if name == "max" { "max" } else { "min" }, values),
+			}
 		}
 		("Clone", "clone") => {
 			let ty = targ(gargs, 0);
