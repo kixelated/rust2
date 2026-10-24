@@ -1,6 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-target := env("CARGO_TARGET_DIR", source_directory() / "target")
+# The fork builds in the root workspace, so its output lands in the root's target directory.
+target := env("CARGO_TARGET_DIR", parent_directory(source_directory()) / "target")
 shared := "--exclude uniffi-bindgen-tests-kotlin --exclude uniffi-bindgen-tests-python --exclude uniffi-bindgen-tests-swift"
 dylib := if os() == "macos" { "dylib" } else { "so" }
 
@@ -8,25 +9,13 @@ dylib := if os() == "macos" { "dylib" } else { "so" }
 default:
     @just --list uniffi
 
-# Lint and format-check the fork.
+# Check the library crates' docs. The root `just check` lints and format-checks the code.
 check:
-    cargo fmt --all --check
-    cargo clippy --locked --workspace --all-targets -- -D warnings
-    # Only the published crates have docs anyone reads.
-    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --package 'rust2-uniffi*'
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --package uniffi --package 'uniffi_*'
 
 # Run the tests that need no foreign toolchain: the crates, the generators, and the compile-fail suite.
 test:
-    cargo nextest run --locked --package 'rust2-uniffi*' --package uniffi-bindgen-go --package uniffi-dart --package uniffi-bindgen-cpp --package uniffi_uitests
-
-# Apply formatters without changing program behavior.
-fix:
-    cargo fmt --all
-
-# Open or update the release PR, then publish any crate whose version is new.
-release:
-    release-plz release-pr --git-token "$GITHUB_TOKEN"
-    release-plz release --git-token "$GITHUB_TOKEN"
+    cargo nextest run --locked --package uniffi --package 'uniffi_*' --package uniffi-bindgen-go --package uniffi-dart --package uniffi-bindgen-cpp
 
 # Run every generator's fixture suite. Needs the toolchains in `nix develop .#uniffi`.
 fixtures: cargo go cpp

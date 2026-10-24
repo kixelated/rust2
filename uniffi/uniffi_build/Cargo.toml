@@ -1,6 +1,7 @@
 [package]
-name = "rust2-uniffi-build"
+name = "uniffi_build"
 version = "0.1.0"
+publish = false
 description = "A hard fork of UniFFI: a multi-language bindings generator for rust (build script helpers)"
 homepage = "https://github.com/kixelated/rust2/tree/main/uniffi"
 repository = "https://github.com/kixelated/rust2"
@@ -9,13 +10,10 @@ edition = "2021"
 keywords = ["ffi", "bindgen"]
 readme = "../README.md"
 
-[lib]
-name = "uniffi_build"
-
 [dependencies]
 anyhow = "1"
 camino = "1.0.8"
-uniffi_bindgen = { package = "rust2-uniffi-bindgen", path = "../uniffi_bindgen", default-features = false, version = "=0.1.0" }
+uniffi_bindgen = { path = "../uniffi_bindgen", default-features = false, version = "=0.1.0" }
 
 [features]
 default = []

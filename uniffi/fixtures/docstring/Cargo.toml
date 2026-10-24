@@ -11,17 +11,17 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 thiserror = "2"
-uniffi = { package = "rust2-uniffi", path = "../../uniffi" }
+uniffi = { path = "../../uniffi" }
 
 [build-dependencies]
-uniffi = {package = "rust2-uniffi", path = "../../uniffi", features = ["build"] }
+uniffi = {path = "../../uniffi", features = ["build"] }
 
 [dev-dependencies]
 camino = "1.0.8"
 glob = "0.3"
-uniffi = { package = "rust2-uniffi", path = "../../uniffi", features = ["bindgen-tests"] }
-uniffi_bindgen = { package = "rust2-uniffi-bindgen", path = "../../uniffi_bindgen" }
-uniffi_testing = { package = "rust2-uniffi-testing", path = "../../uniffi_testing" }
+uniffi = { path = "../../uniffi", features = ["bindgen-tests"] }
+uniffi_bindgen = { path = "../../uniffi_bindgen" }
+uniffi_testing = { path = "../../uniffi_testing" }
 
 [features]
 ffi-trace = ["uniffi/ffi-trace"]

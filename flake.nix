@@ -78,17 +78,25 @@
               {
                 pname = "rust2-uniffi";
                 version = (builtins.fromTOML (builtins.readFile ./uniffi/uniffi/Cargo.toml)).package.version;
-                src = ./uniffi;
-                cargoLock.lockFile = ./uniffi/Cargo.lock;
+                # The root workspace, without the other projects.
+                src = pkgs.lib.fileset.toSource {
+                  root = ./.;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./Cargo.toml
+                    ./Cargo.lock
+                    ./uniffi
+                  ];
+                };
+                cargoLock.lockFile = ./Cargo.lock;
                 cargoBuildFlags = [
-                  "--package=rust2-uniffi"
+                  "--package=uniffi"
                   "--package=uniffi-bindgen-go"
                   "--package=uniffi-dart"
                   "--package=uniffi-bindgen-cpp"
                   "--bins"
                 ];
                 buildFeatures = [
-                  "rust2-uniffi/cli"
+                  "uniffi/cli"
                   "uniffi-dart/binary"
                 ];
                 # The fixture suite needs every foreign toolchain; `just uniffi fixtures` runs it.
@@ -134,7 +142,6 @@
               cargo-deny
               cargo-shear
               cargo-sort
-              release-plz
               actionlint
               shellcheck
               shfmt

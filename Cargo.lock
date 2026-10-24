@@ -442,7 +442,7 @@ dependencies = [
  "camino",
  "clap",
  "criterion",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -488,8 +488,8 @@ name = "bytes_types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -498,8 +498,8 @@ name = "callbacks"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -775,7 +775,7 @@ name = "custom_types"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -787,9 +787,9 @@ dependencies = [
  "async-trait",
  "futures",
  "once_cell",
- "rust2-uniffi",
  "thiserror 2.0.21",
  "tokio",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -809,8 +809,8 @@ name = "docstring-proc-macro"
 version = "0.1.0"
 dependencies = [
  "camino",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -819,7 +819,7 @@ name = "duration_type_test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -834,7 +834,7 @@ name = "enum_variant_collision"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1174,7 +1174,7 @@ name = "hello_world"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1439,16 +1439,16 @@ dependencies = [
 name = "large-enum"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "large-error"
 version = "0.26.1"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -1468,7 +1468,7 @@ name = "library_config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1510,7 +1510,7 @@ name = "map_type"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1525,8 +1525,8 @@ name = "metadata"
 version = "0.1.0"
 dependencies = [
  "camino",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1695,8 +1695,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1715,8 +1715,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "lazy_static",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -1789,136 +1789,6 @@ name = "relative-path"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
-
-[[package]]
-name = "rust2-uniffi"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "camino",
- "cargo_metadata 0.23.1",
- "clap",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-build",
- "rust2-uniffi-core",
- "rust2-uniffi-macros",
- "rust2-uniffi-pipeline",
- "trybuild",
-]
-
-[[package]]
-name = "rust2-uniffi-bindgen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "askama 0.16.1",
- "camino",
- "cargo_metadata 0.23.1",
- "fs-err 3.3.2",
- "glob",
- "goblin",
- "heck 0.5.0",
- "indexmap",
- "once_cell",
- "rust2-uniffi-internal-macros",
- "rust2-uniffi-meta",
- "rust2-uniffi-pipeline",
- "rust2-uniffi-testing",
- "rust2-uniffi-udl",
- "serde",
- "tempfile",
- "textwrap",
- "toml",
-]
-
-[[package]]
-name = "rust2-uniffi-build"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "camino",
- "rust2-uniffi-bindgen",
-]
-
-[[package]]
-name = "rust2-uniffi-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-compat",
- "bytes",
- "once_cell",
- "static_assertions",
-]
-
-[[package]]
-name = "rust2-uniffi-internal-macros"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "indexmap",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "rust2-uniffi-macros"
-version = "0.1.0"
-dependencies = [
- "camino",
- "fs-err 3.3.2",
- "once_cell",
- "proc-macro2",
- "quote",
- "rust2-uniffi-build",
- "rust2-uniffi-meta",
- "serde",
- "syn 2.0.119",
- "toml",
-]
-
-[[package]]
-name = "rust2-uniffi-meta"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "rust2-uniffi-internal-macros",
- "rust2-uniffi-pipeline",
- "siphasher",
-]
-
-[[package]]
-name = "rust2-uniffi-pipeline"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "heck 0.5.0",
- "indexmap",
- "rust2-uniffi-internal-macros",
- "tempfile",
-]
-
-[[package]]
-name = "rust2-uniffi-testing"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "camino",
- "cargo_metadata 0.23.1",
- "fs-err 3.3.2",
- "once_cell",
-]
-
-[[package]]
-name = "rust2-uniffi-udl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "rust2-uniffi-meta",
- "textwrap",
- "weedle2",
-]
 
 [[package]]
 name = "rustc-hash"
@@ -2078,8 +1948,8 @@ name = "simple_arithmetic"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2089,7 +1959,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2098,7 +1968,7 @@ name = "simple_iface"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2173,9 +2043,9 @@ dependencies = [
  "async-stream",
  "futures",
  "lazy_static",
- "rust2-uniffi",
  "smol",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
  "uniffi_dart_macro",
 ]
@@ -2203,7 +2073,7 @@ name = "struct_default_values"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2213,8 +2083,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
- "rust2-uniffi",
- "rust2-uniffi-testing",
+ "uniffi",
+ "uniffi_testing",
 ]
 
 [[package]]
@@ -2421,8 +2291,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "once_cell",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2432,8 +2302,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "once_cell",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2458,7 +2328,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-dart",
 ]
 
@@ -2466,8 +2336,8 @@ dependencies = [
 name = "unary-result-alias"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2483,14 +2353,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
+name = "uniffi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "cargo_metadata 0.23.1",
+ "clap",
+ "trybuild",
+ "uniffi_bindgen",
+ "uniffi_build",
+ "uniffi_core",
+ "uniffi_macros",
+ "uniffi_pipeline",
+]
+
+[[package]]
 name = "uniffi-async-calls"
 version = "0.21.0"
 dependencies = [
  "futures-timer",
  "once_cell",
- "rust2-uniffi",
  "thiserror 1.0.69",
  "tokio",
+ "uniffi",
 ]
 
 [[package]]
@@ -2503,11 +2389,11 @@ dependencies = [
  "clap",
  "heck 0.4.1",
  "paste",
- "rust2-uniffi-bindgen",
  "serde",
  "textwrap",
  "toml",
  "topological-sort",
+ "uniffi_bindgen",
 ]
 
 [[package]]
@@ -2515,7 +2401,7 @@ name = "uniffi-bindgen-cpp-fixtures"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-async-calls",
  "uniffi-c-api",
  "uniffi-custom-types-builtin",
@@ -2553,13 +2439,13 @@ dependencies = [
  "fs-err 2.11.0",
  "heck 0.5.0",
  "paste",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-meta",
- "rust2-uniffi-udl",
  "serde",
  "serde_json",
  "textwrap",
  "toml",
+ "uniffi_bindgen",
+ "uniffi_meta",
+ "uniffi_udl",
 ]
 
 [[package]]
@@ -2609,8 +2495,8 @@ dependencies = [
  "async-trait",
  "camino",
  "glob",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
  "uniffi-bindgen-tests-external-types-source",
  "url",
 ]
@@ -2619,8 +2505,8 @@ dependencies = [
 name = "uniffi-bindgen-tests-external-types-source"
 version = "0.31.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2629,7 +2515,7 @@ version = "0.31.0"
 dependencies = [
  "camino",
  "glob",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-bindgen-tests",
 ]
 
@@ -2639,7 +2525,7 @@ version = "0.31.0"
 dependencies = [
  "camino",
  "glob",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-bindgen-tests",
 ]
 
@@ -2649,7 +2535,7 @@ version = "0.31.0"
 dependencies = [
  "camino",
  "glob",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-bindgen-tests",
 ]
 
@@ -2657,8 +2543,8 @@ dependencies = [
 name = "uniffi-c-api"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
 ]
 
 [[package]]
@@ -2667,8 +2553,8 @@ version = "0.1.0"
 dependencies = [
  "once_cell",
  "paste",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
 ]
 
 [[package]]
@@ -2686,28 +2572,28 @@ dependencies = [
  "lazy_static",
  "paste",
  "proc-macro2",
- "rust2-uniffi",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-build",
- "rust2-uniffi-testing",
  "serde",
  "stringcase 0.4.0",
  "toml",
+ "uniffi",
+ "uniffi_bindgen",
+ "uniffi_build",
  "uniffi_dart_macro",
+ "uniffi_testing",
 ]
 
 [[package]]
 name = "uniffi-empty-type"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-enum-style-test"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -2715,24 +2601,24 @@ name = "uniffi-error-types-builtin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
  "thiserror 1.0.69",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-arithmetic"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-arithmetic-procmacro"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2740,18 +2626,18 @@ name = "uniffi-example-async-api-client"
 version = "0.26.1"
 dependencies = [
  "async-trait",
- "rust2-uniffi",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-callbacks"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2760,7 +2646,7 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "bytes",
- "rust2-uniffi",
+ "uniffi",
  "url",
 ]
 
@@ -2769,15 +2655,15 @@ name = "uniffi-example-futures"
 version = "0.22.0"
 dependencies = [
  "async-std",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-geometry"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -2786,21 +2672,21 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "log",
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-rondpoint"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-sprites"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -2808,30 +2694,30 @@ name = "uniffi-example-todolist"
 version = "0.22.0"
 dependencies = [
  "once_cell",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-example-traits"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-ext-types-export"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-ext-types-import"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
  "uniffi-ext-types-export",
 ]
 
@@ -2845,18 +2731,18 @@ dependencies = [
  "criterion",
  "indexmap",
  "regex",
- "rust2-uniffi",
- "rust2-uniffi-bindgen",
  "serde_json",
  "thiserror 2.0.21",
+ "uniffi",
+ "uniffi_bindgen",
 ]
 
 [[package]]
 name = "uniffi-fixture-callbacks"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2864,9 +2750,9 @@ name = "uniffi-fixture-coverall"
 version = "0.22.0"
 dependencies = [
  "once_cell",
- "rust2-uniffi",
- "rust2-uniffi-meta",
  "thiserror 2.0.21",
+ "uniffi",
+ "uniffi_meta",
 ]
 
 [[package]]
@@ -2875,10 +2761,10 @@ version = "0.22.0"
 dependencies = [
  "camino",
  "glob",
- "rust2-uniffi",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-testing",
  "thiserror 2.0.21",
+ "uniffi",
+ "uniffi_bindgen",
+ "uniffi_testing",
 ]
 
 [[package]]
@@ -2887,18 +2773,18 @@ version = "0.22.0"
 dependencies = [
  "cargo_metadata 0.23.1",
  "glob",
- "rust2-uniffi",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-testing",
  "thiserror 2.0.21",
+ "uniffi",
+ "uniffi_bindgen",
+ "uniffi_testing",
 ]
 
 [[package]]
 name = "uniffi-fixture-enum-types"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2906,8 +2792,8 @@ name = "uniffi-fixture-error-types"
 version = "0.22.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2916,7 +2802,7 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "bytes",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-example-custom-types",
  "uniffi-fixture-ext-types-custom-types",
  "uniffi-fixture-ext-types-external-crate",
@@ -2931,8 +2817,8 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "bytes",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2946,8 +2832,8 @@ dependencies = [
  "anyhow",
  "bytes",
  "http",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2956,8 +2842,8 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "bytes",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -2966,7 +2852,7 @@ version = "0.22.0"
 dependencies = [
  "anyhow",
  "bytes",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-example-custom-types",
  "uniffi-fixture-ext-types-custom-types",
  "uniffi-fixture-ext-types-lib-one",
@@ -2978,7 +2864,7 @@ name = "uniffi-fixture-ext-types-sub-lib"
 version = "0.22.0"
 dependencies = [
  "anyhow",
- "rust2-uniffi",
+ "uniffi",
  "uniffi-fixture-ext-types-lib-one",
 ]
 
@@ -2989,40 +2875,40 @@ dependencies = [
  "async-trait",
  "futures",
  "once_cell",
- "rust2-uniffi",
  "thiserror 2.0.21",
  "tokio",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-gh-2600"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-keywords-kotlin"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-keywords-rust"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-keywords-swift"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -3030,25 +2916,25 @@ name = "uniffi-fixture-logging-callback-interface"
 version = "0.22.0"
 dependencies = [
  "log",
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-metadata"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-core",
- "rust2-uniffi-meta",
  "thiserror 2.0.21",
+ "uniffi",
+ "uniffi_core",
+ "uniffi_meta",
 ]
 
 [[package]]
 name = "uniffi-fixture-multi-arch-extract"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi-bindgen",
  "tempfile",
+ "uniffi_bindgen",
  "xshell",
 ]
 
@@ -3056,7 +2942,7 @@ dependencies = [
 name = "uniffi-fixture-mutable-records"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3064,22 +2950,22 @@ name = "uniffi-fixture-proc-macro"
 version = "0.22.0"
 dependencies = [
  "lazy_static",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-proc-macro-no-implicit-prelude"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-callbacks-omit-labels"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3090,7 +2976,7 @@ version = "0.22.0"
 name = "uniffi-fixture-regression-cdylib-dependency-ffi-crate"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
  "uniffi-fixture-regression-cdylib-dependency",
 ]
 
@@ -3098,57 +2984,57 @@ dependencies = [
 name = "uniffi-fixture-regression-i1015-fully-qualified-types"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-i356-enum-without-int-helpers"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-kotlin-enum-payload-clash"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-kotlin-experimental-unsigned-types"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-missing-newline"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-swift-dictionary-nesting"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-regression-wrong-lower-check"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-rename"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
  "url",
 ]
 
@@ -3156,7 +3042,7 @@ dependencies = [
 name = "uniffi-fixture-simple-fns"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3164,43 +3050,43 @@ name = "uniffi-fixture-simple-iface"
 version = "0.22.0"
 dependencies = [
  "lazy_static",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-struct-default-values"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-swift-codable"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-swift-link-frameworks"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-swift-mock-objects"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-swift-omit-argument-labels"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3208,8 +3094,8 @@ name = "uniffi-fixture-time"
 version = "0.22.0"
 dependencies = [
  "chrono",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
@@ -3217,22 +3103,22 @@ name = "uniffi-fixture-trait-methods"
 version = "0.22.0"
 dependencies = [
  "once_cell",
- "rust2-uniffi",
  "thiserror 2.0.21",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-type-limits"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-fixture-version-mismatch"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3240,7 +3126,7 @@ name = "uniffi-fixtures-wasm-unstable-single-threaded"
 version = "0.29.0"
 dependencies = [
  "async-trait",
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
@@ -3248,29 +3134,29 @@ name = "uniffi-go-fixture-destroy"
 version = "1.0.0"
 dependencies = [
  "once_cell",
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
  "thiserror 1.0.69",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
 name = "uniffi-go-fixture-empty-string-and-bytes"
 version = "1.0.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
 name = "uniffi-go-fixture-errors"
 version = "1.0.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
  "thiserror 1.0.69",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
@@ -3280,28 +3166,28 @@ dependencies = [
  "async-trait",
  "futures",
  "once_cell",
- "rust2-uniffi",
  "thiserror 1.0.69",
  "tokio",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-go-fixture-issue43"
 version = "1.0.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
+ "uniffi",
  "uniffi-go-fixture-issue45",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
 name = "uniffi-go-fixture-issue45"
 version = "1.0.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
@@ -3309,10 +3195,10 @@ name = "uniffi-go-fixture-name-case"
 version = "0.22.0"
 dependencies = [
  "glob",
- "rust2-uniffi",
- "rust2-uniffi-bindgen",
- "rust2-uniffi-testing",
  "thiserror 1.0.69",
+ "uniffi",
+ "uniffi_bindgen",
+ "uniffi_testing",
 ]
 
 [[package]]
@@ -3321,24 +3207,69 @@ version = "1.0.0"
 dependencies = [
  "crossbeam",
  "once_cell",
- "rust2-uniffi",
- "rust2-uniffi-build",
- "rust2-uniffi-macros",
  "thiserror 1.0.69",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
 name = "uniffi-reserved-field-name"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
 ]
 
 [[package]]
 name = "uniffi-type-flattening"
 version = "0.1.0"
 dependencies = [
- "rust2-uniffi",
+ "uniffi",
+]
+
+[[package]]
+name = "uniffi_bindgen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama 0.16.1",
+ "camino",
+ "cargo_metadata 0.23.1",
+ "fs-err 3.3.2",
+ "glob",
+ "goblin",
+ "heck 0.5.0",
+ "indexmap",
+ "once_cell",
+ "serde",
+ "tempfile",
+ "textwrap",
+ "toml",
+ "uniffi_internal_macros",
+ "uniffi_meta",
+ "uniffi_pipeline",
+ "uniffi_testing",
+ "uniffi_udl",
+]
+
+[[package]]
+name = "uniffi_build"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "uniffi_bindgen",
+]
+
+[[package]]
+name = "uniffi_core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-compat",
+ "bytes",
+ "once_cell",
+ "static_assertions",
 ]
 
 [[package]]
@@ -3348,19 +3279,88 @@ dependencies = [
  "futures",
  "proc-macro2",
  "quote",
- "rust2-uniffi",
  "stringcase 0.3.0",
  "syn 1.0.109",
+ "uniffi",
+]
+
+[[package]]
+name = "uniffi_internal_macros"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "indexmap",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "uniffi_macros"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "fs-err 3.3.2",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.119",
+ "toml",
+ "uniffi_build",
+ "uniffi_meta",
+]
+
+[[package]]
+name = "uniffi_meta"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "siphasher",
+ "uniffi_internal_macros",
+ "uniffi_pipeline",
+]
+
+[[package]]
+name = "uniffi_pipeline"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "heck 0.5.0",
+ "indexmap",
+ "tempfile",
+ "uniffi_internal_macros",
+]
+
+[[package]]
+name = "uniffi_testing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "cargo_metadata 0.23.1",
+ "fs-err 3.3.2",
+ "once_cell",
+]
+
+[[package]]
+name = "uniffi_udl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "textwrap",
+ "uniffi_meta",
+ "weedle2",
 ]
 
 [[package]]
 name = "uniffi_uitests"
 version = "0.22.0"
 dependencies = [
- "rust2-uniffi",
- "rust2-uniffi-macros",
  "thiserror 2.0.21",
  "trybuild",
+ "uniffi",
+ "uniffi_macros",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 [package]
 name = "uniffi-bindgen-tests-external-types-source"
 version = "0.31.0"
+publish = false
 edition = "2021"
 
 [lib]
@@ -8,4 +9,4 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 thiserror = "2"
-uniffi = { package = "rust2-uniffi", path = "../../uniffi", default-features = false }
+uniffi = { path = "../../uniffi", default-features = false }

@@ -1,4 +1,4 @@
-# rust2-uniffi
+# UniFFI fork
 
 A hard fork of [UniFFI](https://github.com/mozilla/uniffi-rs) 0.32.2 with every generator
 [moq](https://github.com/moq-dev/moq) uses: Kotlin, Swift, Python, Go, Dart, C++, and C.
@@ -6,31 +6,29 @@ It never merges upstream; fixes are cherry-picked by hand.
 
 ## Use
 
-Depend on the runtime under its upstream name, so `#[uniffi::export]` and the generated
-scaffolding resolve unchanged:
+Nothing is published to crates.io yet, so depend on a revision of this repository:
 
 ```toml
 [dependencies]
-uniffi = { package = "rust2-uniffi", version = "0.1" }
+uniffi = { git = "https://github.com/kixelated/rust2", rev = "<rev>" }
 ```
 
-Every crate keeps its upstream library name (`uniffi`, `uniffi_core`, `uniffi_bindgen`, ...),
-so code written for UniFFI 0.32 compiles as is. Do not link upstream UniFFI into the same
-library.
+Every crate keeps its upstream name (`uniffi`, `uniffi_core`, `uniffi_bindgen`, ...), so code
+written for UniFFI 0.32 compiles as is. Do not link upstream UniFFI into the same library.
 
 The generators read a cdylib built against this runtime:
 
 | Binary | Languages | Package |
 | --- | --- | --- |
-| `uniffi-bindgen` | Kotlin, Swift, Python | `rust2-uniffi` with `--features cli` |
-| `uniffi-bindgen-swift` | Swift modules and xcframeworks | `rust2-uniffi` with `--features cli` |
+| `uniffi-bindgen` | Kotlin, Swift, Python | `uniffi` with `--features cli` |
+| `uniffi-bindgen-swift` | Swift modules and xcframeworks | `uniffi` with `--features cli` |
 | `uniffi-bindgen-go` | Go | `uniffi-bindgen-go` |
 | `uniffi_bindgen_dart` | Dart | `uniffi-dart` with `--features binary` |
 | `uniffi-bindgen-cpp` | C++, and C with `--lang c` | `uniffi-bindgen-cpp` |
 
 The flake builds them all as `packages.uniffi`, and each one alone as `uniffi-bindgen`,
 `uniffi-bindgen-go`, `uniffi-bindgen-dart`, and `uniffi-bindgen-cpp`. Without Nix:
-`cargo install --git https://github.com/kixelated/rust2 --tag <tag> uniffi-bindgen-go`.
+`cargo install --git https://github.com/kixelated/rust2 --rev <rev> uniffi-bindgen-go`.
 
 Upstream's [user guide](https://mozilla.github.io/uniffi-rs/0.32/) applies, minus Ruby. The
 generators document their options in [go/docs](go/docs/CONFIGURATION.md),
@@ -53,8 +51,8 @@ mixing silently.
 | `cpp/` | [NordSecurity/uniffi-bindgen-cpp](https://github.com/NordSecurity/uniffi-bindgen-cpp) | [kixelated/uniffi-bindgen-cpp@v0.11.0-kixelated.5+v0.32.2](https://github.com/kixelated/uniffi-bindgen-cpp/tree/v0.11.0-kixelated.5%2Bv0.32.2) | [MPL-2.0](cpp/LICENSE) |
 
 Each directory keeps its upstream layout, so an upstream commit applies with
-`git am --directory=uniffi/<dir>` (no `<dir>` for uniffi-rs). Crates are renamed in their
-manifests only.
+`git am --directory=uniffi/<dir>` (no `<dir>` for uniffi-rs). Their crates build in the
+repository's root workspace, in place of each upstream's own.
 
 Left out: the Ruby generator and its tests, weedle2 (used from crates.io), upstream's docs,
 CI, and Docker setup, the Android, iOS, and fxa-client examples, the Dart fixtures upstream

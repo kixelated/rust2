@@ -1,6 +1,7 @@
 [package]
 name = "uniffi-bindgen-cpp-fixtures"
 version = "1.0.0"
+publish = false
 edition = "2021"
 
 [lib]

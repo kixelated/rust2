@@ -1,16 +1,16 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# The TypeScript driver, on its own nightly: `just ts <recipe>`.
+# The TypeScript driver, its own workspace on its own nightly: `just ts <recipe>`.
 mod ts
 
-# The UniFFI fork, its own workspace: `just uniffi <recipe>`.
+# The UniFFI fork, in the root workspace: `just uniffi <recipe>`.
 mod uniffi
 
 # List the available development commands.
 default:
     @just --list
 
-# Lint the repository tooling, the quest tree, and every project.
+# Lint the repository tooling, the quest tree, the root workspace, and every project.
 check:
     quest check
     actionlint
@@ -18,6 +18,8 @@ check:
     shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh
     taplo format --check
     nixfmt --check flake.nix
+    cargo fmt --all --check
+    cargo clippy --locked --workspace --all-targets -- -D warnings
     just ts check
     just uniffi check
 
@@ -32,5 +34,5 @@ fix:
     shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh
     taplo format
     nixfmt flake.nix
+    cargo fmt --all
     just ts fix
-    just uniffi fix
