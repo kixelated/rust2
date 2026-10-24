@@ -11,7 +11,7 @@ use rustc_session::EarlyDiagCtxt;
 use rustc_session::config::ErrorOutputType;
 
 use crate::config::{self, Config};
-use crate::lower;
+use crate::{lower, program};
 
 const BUG_REPORT_URL: &str = "https://github.com/kixelated/rust2/issues/new";
 
@@ -39,7 +39,15 @@ impl Callbacks for Plain {}
 /// Compiles the configured crate, translating it after analysis.
 struct Translate {
 	config: Config,
-	out: PathBuf,
+	output: Output,
+}
+
+/// What the job writes.
+enum Output {
+	/// The translation, into this directory.
+	Dir(PathBuf),
+	/// A census of the crate, to this file, instead of a translation.
+	Census(PathBuf),
 }
 
 impl Translate {
@@ -54,11 +62,21 @@ impl Translate {
 		if crate_name != Some(config.crate_name().as_str()) || !lib || args.iter().any(|a| a == "--test") {
 			return Ok(None);
 		}
-		let out = std::env::var_os(config::env::OUT).ok_or_else(|| format!("{} is not set", config::env::OUT))?;
-		Ok(Some(Self {
-			config,
-			out: out.into(),
-		}))
+		let output = match (
+			std::env::var_os(config::env::OUT),
+			std::env::var_os(config::env::CENSUS),
+		) {
+			(Some(out), None) => Output::Dir(out.into()),
+			(None, Some(census)) => Output::Census(census.into()),
+			_ => {
+				return Err(format!(
+					"exactly one of {} and {} must be set",
+					config::env::OUT,
+					config::env::CENSUS
+				));
+			}
+		};
+		Ok(Some(Self { config, output }))
 	}
 }
 
@@ -71,10 +89,17 @@ impl Callbacks for Translate {
 			return Compilation::Stop;
 		}
 		// Only a program rustc accepts is translated.
-		if let Some(program) = lower::translate(tcx, &self.config, &bodies)
-			&& tcx.dcx().has_errors().is_none()
-			&& let Err(err) = program.write(&self.out)
-		{
+		let written = match &self.output {
+			Output::Dir(out) => match lower::translate(tcx, &self.config, &bodies) {
+				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out),
+				_ => Ok(()),
+			},
+			Output::Census(path) => match lower::census(tcx, &self.config, &bodies) {
+				Some(census) => program::write_file(path, &census.render(&self.config.package)),
+				None => Ok(()),
+			},
+		};
+		if let Err(err) = written {
 			tcx.dcx().err(format!("rust2-ts: {err}"));
 		}
 		match tcx.dcx().has_errors() {

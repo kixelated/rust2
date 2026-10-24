@@ -4,7 +4,7 @@ A rustc driver that translates a subset of Rust to readable TypeScript with sour
 maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
-rust2-ts --config ts.toml --out dir [--manifest-path Cargo.toml] [-- cargo args]
+rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
@@ -25,6 +25,19 @@ ignore-macros = ["tracing::trace"]
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
 `just ts run ...` runs it from source on the pinned nightly.
+
+## Census
+
+`--census file.md` translates nothing. It treats every item in the library as a root,
+except derived impls, which come along only when called, and writes a Markdown report of
+every construct translation refuses, with counts and spans. Refusals are ranked by
+construct, by the type or module they name, and by each type or path. A generic function
+that no instance reaches is lowered over its own type parameters, refusing nothing that
+hinges on what they are, since each instance decides that. A census succeeds whatever
+it finds; translation still fails on any refusal.
+
+`just ts census` runs it on moq-net and kio at the pinned moq revision, into
+`target/census`, and the nightly job publishes their tables.
 
 ## Output
 
@@ -90,6 +103,7 @@ pointee, and std functions without a mapping in `src/lower/library.rs`.
 just ts test                  # translate each fixture, compare, type-check, and diff
 UPDATE_EXPECT=1 just ts test  # rewrite the snapshots in fixtures/*/expected
 just ts moq                   # translate moq-net's codec at a pinned revision
+just ts census                # census moq-net and kio at the same revision
 ```
 
 Each fixture under `fixtures/` is translated and compared with its `expected/` snapshot,
@@ -100,7 +114,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns, and
   `Copy` aggregates.
-- `reject` holds constructs outside the subset; its expected errors are `expected.txt`.
+- `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
+  and its expected census is `census.md`.
 
 ## Bench
 

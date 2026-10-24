@@ -1,0 +1,3 @@
+# kio, which moq-net builds on, for the census: it translates no roots.
+package = "kio"
+roots = []

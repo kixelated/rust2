@@ -239,7 +239,8 @@ fn clean(out: &Path) -> Result<(), String> {
 	Ok(())
 }
 
-fn write_file(path: &Path, text: &str) -> Result<(), String> {
+/// Write `text` to `path`, creating its directory.
+pub fn write_file(path: &Path, text: &str) -> Result<(), String> {
 	if let Some(dir) = path.parent() {
 		std::fs::create_dir_all(dir).map_err(|err| format!("creating {}: {err}", dir.display()))?;
 	}

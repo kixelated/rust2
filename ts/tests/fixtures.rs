@@ -20,17 +20,21 @@ fn cargo() -> Command {
 	Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
 }
 
+/// Run the driver on a fixture with `args`, in its own build directory per `build`.
+fn driver(name: &str, args: &[&std::ffi::OsStr], build: &str) -> Output {
+	Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
+		.arg("--config")
+		.arg(manifest_dir().join("fixtures").join(name).join("ts.toml"))
+		.args(args)
+		.env("CARGO_TARGET_DIR", scratch().join(build))
+		.output()
+		.expect("running rust2-ts")
+}
+
 /// Run the driver on a fixture, returning its output directory and what it printed.
 fn translate(name: &str) -> (PathBuf, Output) {
 	let out = scratch().join(name).join("out");
-	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
-		.arg("--config")
-		.arg(manifest_dir().join("fixtures").join(name).join("ts.toml"))
-		.arg("--out")
-		.arg(&out)
-		.env("CARGO_TARGET_DIR", scratch().join("build"))
-		.output()
-		.expect("running rust2-ts");
+	let output = driver(name, &["--out".as_ref(), out.as_ref()], "build");
 	(out, output)
 }
 
@@ -217,6 +221,31 @@ fn reject() {
 	assert!(
 		got == want,
 		"the errors differ; rerun with UPDATE_EXPECT=1\n{}",
+		diff(&want, &got)
+	);
+}
+
+/// A census ranks every refusal in the crate, reached from each of its items, and
+/// succeeds where translation fails.
+#[test]
+fn census() {
+	let census = scratch().join("reject").join("census.md");
+	let output = driver("reject", &["--census".as_ref(), census.as_ref()], "census");
+	assert!(
+		output.status.success(),
+		"the census of reject failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	let got = std::fs::read_to_string(&census).unwrap();
+	let path = manifest_dir().join("fixtures").join("reject").join("census.md");
+	if std::env::var_os("UPDATE_EXPECT").is_some() {
+		std::fs::write(&path, &got).unwrap();
+		return;
+	}
+	let want = std::fs::read_to_string(&path).unwrap_or_default();
+	assert!(
+		got == want,
+		"the census differs; rerun with UPDATE_EXPECT=1\n{}",
 		diff(&want, &got)
 	);
 }

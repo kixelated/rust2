@@ -45,11 +45,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					}),
-					Some(_) => {
-						self.t.err(pat.span, format!("a pattern on `{ty}`"));
-						return None;
-					}
-					None => {
+					None if adt_def.did().is_local() => {
 						let info = self.t.adt(*adt_def, pat.span);
 						let name = Expr::Str(adt_def.variant(*variant_index).name.to_string());
 						match info.repr {
@@ -57,6 +53,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							AdtRepr::Union => tests.push(scrut.clone().member("tag").binary("===", name)),
 							AdtRepr::Class { .. } => {}
 						}
+					}
+					_ => {
+						self.t.err(pat.span, format!("a pattern on `{ty}`"));
+						return None;
 					}
 				}
 				for f in subpatterns {
