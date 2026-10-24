@@ -66,21 +66,46 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		})
 	}
 
-	/// Whether a `ty` that drops does so through its own `[Symbol.dispose]`, so whatever
-	/// holds one can drop it without knowing its type.
+	/// Whether whatever holds a `ty` can drop it without knowing its type, through the
+	/// `[Symbol.dispose]` its JS value has, as an `Arc` and a generic class's glue do.
 	fn disposable(&mut self, ty: Ty<'tcx>) -> bool {
 		if !self.drops(ty) {
-			return true;
+			return self.inert(ty);
 		}
 		match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Arc | Std::Waker | Std::Mutex) => true,
-				Some(Std::Option | Std::Box) => self.disposable(args.type_at(0)),
+				Some(Std::Waker) => true,
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box) => self.disposable(args.type_at(0)),
 				Some(_) => false,
-				None => adt.is_struct(),
+				None => adt.is_struct() && args.types().all(|t| self.disposable(t)),
 			},
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
+		}
+	}
+
+	/// Whether dropping a `ty` through its JS value's `[Symbol.dispose]` does nothing. A
+	/// reference is its referent in JS, so dropping a borrow of a value that drops would
+	/// drop the value.
+	fn inert(&mut self, ty: Ty<'tcx>) -> bool {
+		if self.drops(ty) {
+			return false;
+		}
+		match ty.kind() {
+			ty::Ref(_, inner, _) => self.inert(*inner),
+			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
+				// Each is its contents in JS.
+				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin) => {
+					args.types().all(|t| self.inert(t))
+				}
+				// Its waker.
+				Some(Std::Context) => false,
+				Some(_) => true,
+				// Its glue, if an instance that drops gave it one, drops its type parameters' fields.
+				None if adt.is_struct() => args.types().all(|t| self.inert(t)),
+				None => true,
+			},
+			_ => true,
 		}
 	}
 

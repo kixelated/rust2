@@ -47,3 +47,4 @@ unsupported expression: StaticRef at fixtures/reject/src/lib.rs:163:2
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:168:17
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:168:20
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:172:25
+dropping `std::sync::Arc<&Noisy>`, which is not supported yet at fixtures/reject/src/lib.rs:183:42

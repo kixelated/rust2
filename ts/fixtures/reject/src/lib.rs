@@ -178,3 +178,9 @@ pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f64
 }
+
+/// An `Arc` of a borrow is the borrowed value in JS: dropping the last one would drop it.
+pub fn shared_borrow(n: &Noisy) -> usize {
+	let a = std::sync::Arc::new(n);
+	std::sync::Arc::strong_count(&a)
+}

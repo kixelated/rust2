@@ -25,6 +25,7 @@ roots = [
     "swapped",
     "replaced",
     "generic",
+    "shared_borrow",
     "missing",
 ]
 printable = ["Meters"]
