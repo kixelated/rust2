@@ -40,7 +40,7 @@ pub fn function<'a, 'tcx>(
 		names: FxHashSet::default(),
 		breakables: Vec::new(),
 		ret: sig.output(),
-		lowered: 0,
+		visited: FxHashSet::default(),
 	};
 	let span = tcx.def_span(def_id);
 	let mut body = Vec::new();
@@ -141,9 +141,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	breakables: Vec<Breakable>,
 	/// The return type of the function or closure being lowered.
 	ret: Ty<'tcx>,
-	/// Expressions lowered so far, to tell whether a refused call's mapping lowered its
-	/// arguments already.
-	lowered: usize,
+	/// Expressions lowered so far, by THIR and id, so a refused call lowers only the
+	/// arguments its mapping did not.
+	visited: FxHashSet<(*const Thir<'tcx>, ExprId)>,
 }
 
 /// One `&&`-joined part of an `if` condition.
@@ -159,6 +159,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	pub fn ty_of(&self, id: ExprId) -> Ty<'tcx> {
 		self.subst(self.thir[id].ty)
+	}
+
+	/// Record that `id` is lowered, or is being.
+	pub fn visit(&mut self, id: ExprId) {
+		self.visited.insert((std::ptr::from_ref(self.thir), id));
+	}
+
+	fn visited(&self, id: ExprId) -> bool {
+		self.visited.contains(&(std::ptr::from_ref(self.thir), id))
 	}
 
 	pub fn span(&self, id: ExprId) -> Span {
@@ -295,7 +304,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` so its value goes to `dest`.
 	pub fn stmt(&mut self, id: ExprId, dest: Dest, out: &mut Vec<Stmt>) {
-		self.lowered += 1;
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		let ty = self.ty_of(id);
@@ -1550,7 +1559,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` for its value.
 	pub fn expr(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
-		self.lowered += 1;
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		let ty = self.ty_of(id);
@@ -1851,7 +1860,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` as a place: no copy is made of what it names.
 	pub fn place(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
-		self.lowered += 1;
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		match &e.kind {
@@ -2199,16 +2208,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			Args::Thir(ids) => *ids,
 			Args::Values(_) => &[],
 		};
-		let lowered = self.lowered;
 		match library::call(self, &call, args, out) {
 			Some(e) => e,
 			None => {
-				// Refused, but what the arguments refuse is reported too, unless the
-				// mapping lowered them before refusing: lowering them twice would double
-				// the work at each level of a nested call.
-				if self.lowered == lowered {
-					self.operands(ids, out);
-				}
+				// Refused, but what the arguments refuse is reported too. The mapping may
+				// have lowered some already: lowering them twice would double the work at
+				// each level of a nested call.
+				let unvisited: Vec<ExprId> = ids.iter().copied().filter(|&id| !self.visited(id)).collect();
+				self.operands(&unvisited, out);
 				self.err(
 					span,
 					format!("unsupported call to `{}`", tcx.def_path_str_with_args(def_id, gargs)),
