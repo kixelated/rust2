@@ -157,6 +157,28 @@ export class Unit {
 	}
 }
 
+export class Braced {
+
+	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.writeStr("Braced");
+	}
+
+	eq(_other: Braced): boolean {
+		return true;
+	}
+}
+
+export class Bare {
+
+	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.writeStr("Bare");
+	}
+
+	eq(_other: Bare): boolean {
+		return true;
+	}
+}
+
 export class Pair {
 	_0: number;
 	_1: bigint;
@@ -225,6 +247,8 @@ export class Six {
 
 export type Kind =
 	| { tag: "Empty" }
+	| { tag: "Braced" }
+	| { tag: "Bare" }
 	| { tag: "One"; _0: number }
 	| { tag: "Many"; count: number; items: rt.ByteVec };
 
@@ -232,6 +256,10 @@ export const Kind = {
 	fmt(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Empty") {
 			return f.writeStr("Empty");
+		} else if (self.tag === "Braced") {
+			return f.writeStr("Braced");
+		} else if (self.tag === "Bare") {
+			return f.writeStr("Bare");
 		} else if (self.tag === "One") {
 			const __self0 = self._0;
 			return f.debugTuple("One").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
@@ -325,7 +353,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const arg5 = out;
 	const arg4 = new Pair(at(3), -9n);
 	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => arg4.fmt(f))]));
-	const kinds = [{ tag: "Empty" } as Kind, { tag: "One", _0: at(4) } as Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind];
+	const kinds = [{ tag: "Empty" } as Kind, { tag: "One", _0: at(4) } as Kind, { tag: "Braced" } as Kind, { tag: "Bare" } as Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind];
 	const arg7 = out;
 	const arg6 = kinds[1];
 	put(arg7, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind, f: rt.Formatter) => Kind.fmt(value, f)), " ", (f: rt.Formatter) => Kind.fmt(arg6, f)]));
@@ -336,6 +364,13 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const arg8 = rt.slice.first(data);
 	const arg9 = rt.slice.get(data, 100);
 	put(arg10, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(bytes, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.list(words, f, rt.u16.display), " ", (f: rt.Formatter) => rt.fmt.option(arg8, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.option(arg9, f, rt.u8.display)]));
+	const arg15 = out;
+	const arg11 = new Braced();
+	const arg12 = new Braced();
+	const arg13 = new Bare();
+	const arg14 = new Bare();
+	put(arg15, rt.fmt.format([(f: rt.Formatter) => arg11.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => arg12.fmt(f)), " ", (f: rt.Formatter) => arg13.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => arg14.fmt(f))]));
+	out.extendFromSlice(Uint8Array.of(new Braced().eq(new Braced()) ? 1 : 0, new Bare().eq(new Bare()) ? 1 : 0));
 }
 
 /** `Display` written with `write!`, which ignores the outer options, unless `#`. */
