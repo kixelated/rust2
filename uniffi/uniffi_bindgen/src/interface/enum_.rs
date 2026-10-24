@@ -109,7 +109,7 @@
 //! assert_eq!(err.variants()[0].name(), "one");
 //! assert_eq!(err.variants()[1].name(), "two");
 //! assert_eq!(err.is_flat(), true);
-//! assert!(ci.is_name_used_as_error(&err.name()));
+//! assert!(ci.is_used_as_error(err));
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 //!
@@ -155,7 +155,7 @@
 //! assert_eq!(err.variants()[2].fields()[0].name(), "x");
 //! assert_eq!(err.variants()[2].fields()[1].name(), "y");
 //! assert_eq!(err.is_flat(), false);
-//! assert!(ci.is_name_used_as_error(err.name()));
+//! assert!(ci.is_used_as_error(err));
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
@@ -557,7 +557,7 @@ mod test {
         ));
         let fret = ci.get_function_definition("returns_an_enum").unwrap();
         assert!(
-            matches!(fret.return_type(), Some(Type::Enum { name, .. }) if name == "TestEnum" && !ci.is_name_used_as_error(name))
+            matches!(fret.return_type(), Some(ty @ Type::Enum { name, .. }) if name == "TestEnum" && !ci.is_used_as_error(ty))
         );
         assert!(matches!(
             fret.ffi_func().return_type(),
@@ -583,7 +583,7 @@ mod test {
             .get_function_definition("returns_an_enum_with_data")
             .unwrap();
         assert!(
-            matches!(fret.return_type(), Some(Type::Enum { name, .. }) if name == "TestEnumWithData" && !ci.is_name_used_as_error(name))
+            matches!(fret.return_type(), Some(ty @ Type::Enum { name, .. }) if name == "TestEnumWithData" && !ci.is_used_as_error(ty))
         );
         assert!(matches!(
             fret.ffi_func().return_type(),
@@ -614,7 +614,7 @@ mod test {
             vec!("one", "two", "three")
         );
         assert!(error.is_flat());
-        assert!(ci.is_name_used_as_error(&error.name));
+        assert!(ci.is_used_as_error(error));
     }
 
     #[test]
@@ -660,7 +660,7 @@ mod test {
             vec!("One", "Two")
         );
         assert!(!error.is_flat());
-        assert!(ci.is_name_used_as_error(&error.name));
+        assert!(ci.is_used_as_error(error));
     }
 
     #[test]

@@ -86,6 +86,8 @@ members = [
     "uniffi/fixtures/metadata",
     "uniffi/fixtures/multi-arch-extract",
     "uniffi/fixtures/mutable-records",
+    "uniffi/fixtures/namespaces/media",
+    "uniffi/fixtures/namespaces/net",
     "uniffi/fixtures/proc-macro",
     "uniffi/fixtures/proc-macro-no-implicit-prelude",
     "uniffi/fixtures/regressions/cdylib-crate-type-dependency/cdylib-dependency",

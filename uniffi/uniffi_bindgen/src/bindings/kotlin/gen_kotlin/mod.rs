@@ -231,7 +231,7 @@ pub fn generate_bindings(config: &Config, ci: &ComponentInterface) -> Result<Str
 
 fn ensure_flat_enum_trait_methods_supported(ci: &ComponentInterface) -> Result<()> {
     for enum_def in ci.enum_definitions() {
-        if ci.is_name_used_as_error(enum_def.name()) || !enum_def.is_flat() {
+        if ci.is_used_as_error(enum_def) || !enum_def.is_flat() {
             continue;
         }
 
@@ -452,7 +452,7 @@ impl KotlinCodeOracle {
     fn class_name(&self, ci: &ComponentInterface, nm: &str) -> String {
         let name = nm.to_string().to_upper_camel_case();
         // fixup errors.
-        if ci.is_name_used_as_error(nm) {
+        if ci.get_type(nm).is_some_and(|ty| ci.is_used_as_error(&ty)) {
             self.convert_error_suffix(&name)
         } else {
             name

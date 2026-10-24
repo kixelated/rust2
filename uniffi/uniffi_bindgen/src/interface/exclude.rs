@@ -6,7 +6,9 @@
 
 use std::collections::HashSet;
 
-use crate::interface::{AsType, ComponentInterface, Constructor, Function, Method, TypeUniverse};
+use crate::interface::{
+    universe::type_key, AsType, ComponentInterface, Constructor, Function, Method, TypeUniverse,
+};
 
 pub fn apply_exclusions(ci: &mut ComponentInterface, exclusions: &[String]) {
     let exclusions: HashSet<&str> = exclusions.iter().map(String::as_str).collect();
@@ -43,7 +45,7 @@ fn remove_type_definitions<T: AsType>(
     items: &mut Vec<T>,
     types: &mut TypeUniverse,
 ) {
-    let mut removed_type_names = HashSet::new();
+    let mut removed_types = HashSet::new();
     items.retain(|ty| {
         let ty = ty.as_type();
         let Some(name) = ty.name() else {
@@ -51,7 +53,7 @@ fn remove_type_definitions<T: AsType>(
         };
 
         if excludes.contains(name) {
-            removed_type_names.insert(name.to_string());
+            removed_types.extend(type_key(&ty));
             false
         } else {
             true
@@ -59,10 +61,10 @@ fn remove_type_definitions<T: AsType>(
     });
     types
         .type_definitions
-        .retain(|name, _| !removed_type_names.contains(name.as_str()));
-    types.all_known_types.retain(|ty| match ty.name() {
+        .retain(|key, _| !removed_types.contains(key));
+    types.all_known_types.retain(|ty| match type_key(ty) {
         None => true,
-        Some(name) => !removed_type_names.contains(name),
+        Some(key) => !removed_types.contains(&key),
     });
 }
 

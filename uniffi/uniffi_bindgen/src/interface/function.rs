@@ -112,7 +112,7 @@ impl Function {
     }
 
     pub fn throws_name(&self) -> Option<&str> {
-        super::throws_name(&self.throws)
+        super::throws_name(self.throws.as_ref())
     }
 
     pub fn throws_type(&self) -> Option<&Type> {
@@ -412,7 +412,7 @@ mod test {
             }
         );
         assert!(
-            matches!(func2.throws_type(), Some(Type::Enum { name, .. }) if name == "TestError" && ci.is_name_used_as_error(name))
+            matches!(func2.throws_type(), Some(ty @ Type::Enum { name, .. }) if name == "TestError" && ci.is_used_as_error(ty))
         );
         assert_eq!(func2.arguments().len(), 2);
         assert_eq!(func2.arguments()[0].name(), "arg1");

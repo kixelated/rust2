@@ -9,7 +9,7 @@
 {{- self.add_import(fully_qualified_ffi_converter_name) }}
 {{ self.add_import_as(fully_qualified_rustbuffer_name, local_rustbuffer_name) }}
 
-{%- if ci.is_name_used_as_error(name) %}
+{%- if ci.is_used_as_error(type_) %}
 {%- let class_name = name|class_name(ci) %}
 
 object {{ class_name }}ExternalErrorHandler : UniffiRustCallStatusErrorHandler<{{ class_name }}> {

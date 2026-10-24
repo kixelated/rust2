@@ -2946,6 +2946,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "uniffi-fixture-namespaces-media"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "uniffi",
+ "uniffi-fixture-namespaces-net",
+]
+
+[[package]]
+name = "uniffi-fixture-namespaces-net"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "uniffi",
+]
+
+[[package]]
 name = "uniffi-fixture-proc-macro"
 version = "0.22.0"
 dependencies = [

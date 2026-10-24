@@ -3,7 +3,7 @@
 {%- let methods = obj.methods() %}
 {%- let protocol_docstring = obj.docstring() %}
 
-{%- let is_error = ci.is_name_used_as_error(name) %}
+{%- let is_error = ci.is_used_as_error(obj) %}
 
 {% include "Protocol.swift" %}
 

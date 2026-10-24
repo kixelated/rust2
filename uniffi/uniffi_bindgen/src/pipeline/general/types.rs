@@ -3,18 +3,24 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::*;
+use heck::ToUpperCamelCase;
 
 pub fn map_type_node(ty: Type, context: &Context) -> Result<TypeNode> {
     Ok(TypeNode {
         id: context.get_type_id(&ty)?,
-        canonical_name: canonical_name(&ty),
+        canonical_name: canonical_name(&ty, context.current_namespace_name.as_deref()),
         is_used_as_error: context.type_is_used_as_error(&ty),
         ffi_type: ffi_types::ffi_type(&ty, context)?,
         ty: ty.map_node(context)?,
     })
 }
 
-pub fn canonical_name(ty: &Type) -> String {
+/// A unique name for a type within `namespace`, or among the builtin types when `None`.
+///
+/// A named type from another namespace is spelled with that namespace inside compound types,
+/// whose helpers `namespace` defines itself, so they do not collide with the helpers for a
+/// local type of the same name.
+pub fn canonical_name(ty: &Type, namespace: Option<&str>) -> String {
     match ty {
         Type::UInt8 => "UInt8".to_string(),
         Type::Int8 => "Int8".to_string(),
@@ -37,10 +43,10 @@ pub fn canonical_name(ty: &Type) -> String {
         | Type::Enum { name, .. }
         | Type::Custom { name, .. } => format!("Type{name}"),
         Type::Optional { inner_type } => {
-            format!("Optional{}", canonical_name(inner_type))
+            format!("Optional{}", inner_canonical_name(inner_type, namespace))
         }
         Type::Sequence { inner_type } => {
-            format!("Sequence{}", canonical_name(inner_type))
+            format!("Sequence{}", inner_canonical_name(inner_type, namespace))
         }
         // Note: this is currently guaranteed to be unique because keys can only be primitive
         // types.  If we allowed user-defined types, there would be potential collisions.  For
@@ -50,13 +56,26 @@ pub fn canonical_name(ty: &Type) -> String {
             value_type,
         } => format!(
             "Map{}{}",
-            canonical_name(key_type),
-            canonical_name(value_type),
+            inner_canonical_name(key_type, namespace),
+            inner_canonical_name(value_type, namespace),
         ),
-        Type::Box { inner_type } => format!("Box{}", canonical_name(inner_type)),
+        Type::Box { inner_type } => format!("Box{}", inner_canonical_name(inner_type, namespace)),
         Type::Set { inner_type } => {
-            format!("Set{}", canonical_name(inner_type))
+            format!("Set{}", inner_canonical_name(inner_type, namespace))
         }
+    }
+}
+
+fn inner_canonical_name(ty: &Type, namespace: Option<&str>) -> String {
+    match ty.namespace() {
+        Some(other) if namespace.is_some_and(|namespace| namespace != other) => {
+            format!(
+                "{}{}",
+                other.to_upper_camel_case(),
+                canonical_name(ty, namespace)
+            )
+        }
+        _ => canonical_name(ty, namespace),
     }
 }
 
