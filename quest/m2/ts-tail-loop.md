@@ -9,7 +9,7 @@ proven by differential tests against native Rust.
 ## Plan
 
 Decided with the maintainer on 2026-10-23: its own quest rather than part of the
-model quest, since it lands alone. The census counts 34 such sites in moq-net.
+model quest, since it lands alone. The census counts 62 such sites in moq-net, generic functions included.
 The async spike's THIR or MIR choice does not block it: the fix is small either
 way.
 

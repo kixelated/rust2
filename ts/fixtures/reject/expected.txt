@@ -12,6 +12,8 @@ a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtu
 a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtures/reject/src/lib.rs:25:6
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:15
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
+unsupported call to `core::slice::<impl [u8]>::iter` at fixtures/reject/src/lib.rs:40:4
+unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@fixtures/reject/src/lib.rs:40:18: 40:21}>` at fixtures/reject/src/lib.rs:40:11
 unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count` at fixtures/reject/src/lib.rs:40:31
 `Guard` implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:50:2
 `later` is async, which is not supported yet at fixtures/reject/src/lib.rs:53:1

@@ -18,6 +18,6 @@ iterator through it.
 - Measure against ES iterator helpers on the [TS benchmark](/ts/README.md#bench)
   and record the numbers, but keep the `DONE` protocol unless they show it loses.
 - Cover what moq-net uses (about 1,100 adaptor sites); the
-  [census](/quest/m2/ts-census.md) names them.
+  census (`just ts census`) names them.
 
 Public API: the translator's output for iterators.

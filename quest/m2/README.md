@@ -14,7 +14,6 @@ deletes the quests that follow it.
 
 ## Required
 
-- [Coverage census](/quest/m2/ts-census.md) - the driver ranks every construct it refuses in moq-net and kio
 - [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
 - [Faster translator runtime](/quest/m2/ts-runtime-perf.md) - fewer allocations (`Result` included), direct byte reads, and number-only checked ops, kept where measured
 - [Wide integer spike](/quest/m2/ts-wide-ints.md) - `bigint` against boxed and unboxed hi/lo picks the 64- and 128-bit representation

@@ -43,16 +43,33 @@ moq checkout="":
     set -euo pipefail
     src="{{ checkout }}"
     if [ -z "$src" ]; then
+        just moq-pin
         src=target/moq
-        [ -d "$src/.git" ] || git clone --quiet --filter=blob:none https://github.com/moq-dev/moq "$src"
-        git -C "$src" fetch --quiet --depth 1 origin {{ moq_rev }}
-        git -C "$src" checkout --quiet --detach {{ moq_rev }}
     fi
     out=target/moq-ts
     # moq-wasm comes along to select getrandom's wasm backend for moq-net.
     cargo run --locked --quiet -- --config moq/ts.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --out "$out" -- --package moq-wasm
     printf '{ "extends": "%s/runtime/tsconfig.json", "files": [], "include": ["**/*.ts"] }\n' "$PWD" > "$out/tsconfig.json"
     tsc -p "$out"
+
+# Census what translation refuses in moq-net and kio into target/census, from the pinned moq revision or a checkout.
+census checkout="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="{{ checkout }}"
+    if [ -z "$src" ]; then
+        just moq-pin
+        src=target/moq
+    fi
+    cargo run --locked --quiet -- --config moq/ts.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md -- --package moq-wasm
+    cargo run --locked --quiet -- --config moq/kio.toml --manifest-path "$src/rs/kio/Cargo.toml" --census target/census/kio.md
+
+# Check out the pinned moq revision in target/moq.
+[private]
+moq-pin:
+    [ -d target/moq/.git ] || git clone --quiet --filter=blob:none https://github.com/moq-dev/moq target/moq
+    git -C target/moq fetch --quiet --depth 1 origin {{ moq_rev }}
+    git -C target/moq checkout --quiet --detach {{ moq_rev }}
 
 # Time the codec natively, as moq's WASM, as moq's hand-written TS, and translated, in Node, Bun, and Chrome.
 bench checkout="": (moq checkout)
