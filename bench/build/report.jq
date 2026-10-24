@@ -65,7 +65,32 @@ $host[0] as $h
 			),
 			"",
 			"Macro expansion \(.profile.macro_expansion | secs) s, running proc macros \(.profile.proc_macros | secs) s, of \(.profile.self_time | secs) s rustc self-time across \(.profile.invocations) invocations.",
-			"Costliest queries: \(.profile.top | map("`\(.label)` \(.self_time | secs) s") | join(", "))."
+			"Costliest queries: \(.profile.top | map("`\(.label)` \(.self_time | secs) s") | join(", ")).",
+			(
+				# A clean build compiles hundreds of units; an edit's few are worth listing.
+				select(.step | startswith("edit-"))
+				| .wall as $wall
+				| ([.units[] | select(.cause == "dependency") | .path] | add // 0) as $carried
+				| "",
+				"Each rebuilt unit: why cargo rebuilt it, the wall seconds it held the critical path, and rustc's self-time by stage.",
+				"",
+				(["unit", "rebuilt for", "critical path", "expand & resolve", "analysis", "metadata", "incremental", "mono", "backend", "link"] | row),
+				"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+				(["cargo", "", (.startup | secs), "", "", "", "", "", "", ""] | row),
+				(
+					.units[]
+					| [
+						"\(.name) (\(.class))",
+						(.cause // "?"),
+						(if .path > 0 then .path | secs else "" end),
+						(.stages as $s | ["expand", "analysis", "metadata", "incremental", "mono", "backend", "link"][]
+							| if $s == null then "?" else $s[.] // 0 | secs end)
+					]
+					| row
+				),
+				"",
+				"Units rebuilt only because a dependency changed hold \($carried | secs) s of the \($wall | secs) s critical path (\($carried | share($wall)))."
+			)
 		)
 	)
 ]

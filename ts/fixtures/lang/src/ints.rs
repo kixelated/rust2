@@ -163,4 +163,16 @@ pub fn convert(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&widened.to_be_bytes());
 	out.extend_from_slice(&into.to_be_bytes());
 	out.push(true as u8 + false as u8);
+	// Arrays written in place, with constant and sign bytes, and one behind a reference.
+	let [a, b, c, d] = (signed as u32).to_be_bytes();
+	out.extend_from_slice(&i8::from_be_bytes([a]).to_be_bytes());
+	out.extend_from_slice(&u16::from_be_bytes([a, b]).to_be_bytes());
+	out.extend_from_slice(&i16::from_be_bytes([a, b]).to_be_bytes());
+	out.extend_from_slice(&u32::from_be_bytes([a, b, c, d]).to_be_bytes());
+	out.extend_from_slice(&u32::from_be_bytes([0, b & 0x3f, c, d]).to_be_bytes());
+	out.extend_from_slice(&i32::from_be_bytes([a, 0, c, d]).to_be_bytes());
+	out.extend_from_slice(&u32::from_be_bytes([0, 0, 0, 0]).to_be_bytes());
+	out.extend_from_slice(&u64::from_be_bytes([d, c, b, a, a, b, c, d]).to_be_bytes());
+	let bytes = &[d, c, b, a];
+	out.extend_from_slice(&i32::from_be_bytes(*bytes).to_be_bytes());
 }

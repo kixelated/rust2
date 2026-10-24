@@ -50,4 +50,15 @@ No threshold is set: the numbers inform a decision, they do not gate one.
 
 After the timed variants, one nightly build per corpus (clean, then each edit) records cargo's build analysis log with section timings and rustc's self-profile.
 The report splits the unit-seconds of each step by kind of unit (build script compile and run, proc macro, dependency, workspace lib, binary) and by compiler section (frontend, codegen, link), and adds macro and proc-macro expansion time and the costliest queries.
+Each edit step also lists its rebuilt units: whether a source file changed or only a dependency, the wall seconds each held the critical path, and rustc's self-time by stage.
 Self-profiling slows the build a little, so read this section for shares, not absolute times.
+
+The stages map onto upstream's levers:
+
+- **expand & resolve**: parsing, macro expansion, name resolution, and HIR lowering, which rerun in full for every rebuilt crate.
+- **analysis**: every other query, chiefly type and borrow checking and MIR; the parallel frontend spreads it across threads.
+- **metadata** and **incremental**: writing the crate's metadata, and loading and saving the incremental cache.
+- **mono** and **backend**: monomorphization and partitioning into codegen units, then building and running LLVM; a faster backend (Cranelift, TPDE) shrinks only the backend.
+- **link**: the rlib archive or the final link, where mold and wild apply.
+
+Units rebuilt only for a dependency are what relinking without rebuilding would skip, so their critical-path seconds, less the final link, bound that saving.
