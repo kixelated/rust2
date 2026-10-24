@@ -247,8 +247,10 @@ size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES i
 helpers in `bench/iter.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
-translation to show the noise. The report records the host and engine versions, and
-each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
+translation to show the noise. Each round runs the JS routes and workloads in a new
+random order, so no route keeps a slot that runs it faster or slower than identical code
+in another; the report records the seed. It also records the host and engine versions,
+and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
 runs it and posts the report to its summary.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
@@ -265,5 +267,8 @@ nix develop .#bench --command just ts bench --route main="$HOME/rust2-main/ts/ta
 
 The route runs both fixtures' translations from that directory's `translated/` and
 `task/`, so a hand-edited translation can be timed by copying the directory and editing it.
+Read its gap from `translated` against A/A's, which is the noise of the same run: no
+route holds a fixed slot, so one forward run measures the change, with no reversed run
+to cancel a slot's bias.
 
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.
