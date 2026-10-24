@@ -23,7 +23,7 @@ ranked by the census of moq-net at the pinned revision (kio's has 26 in all):
   `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
   glue of its own, switching on the variant.
 - A method taking `self` by value that drops (155), which can't leave `this` undefined.
-- A temporary that drops, unless a call or binding takes it whole (283): borrowed, a
+- A temporary that drops, unless a call or binding takes it whole (286): borrowed, a
   field or index of one, a `match`, `if let`, `let`, or let chain that moves only part
   of it, and a guarded arm that binds one. Rust drops it at the end of its statement, or
   of the `match`.
@@ -32,9 +32,10 @@ ranked by the census of moq-net at the pinned revision (kio's has 26 in all):
 - Struct update syntax from a value that drops (16), a closure capturing one (13), a
   generic type that implements `Drop` (11), and a parameter that drops bound by a
   pattern.
-- An operand that drops ahead of an `.await` in the same call (3), which a cancel
-  would leave in a temporary no scope drops, and an `Arc` or `Mutex` holding a borrow
-  of a value that drops, which JS would drop as the value itself.
+- A value that drops, moved ahead of an `.await` in the same call (3) or in the place
+  an assignment writes it to, which a cancel would leave in a temporary no scope drops,
+  and an `Arc` or `Mutex` holding a borrow of a value that drops, which JS would drop
+  as the value itself.
 
 Watch the cost: each move of a value that drops writes `undefined` to where it was, and
 each scope holding one becomes a `try`/`finally`. A pass that proves a variable moved on

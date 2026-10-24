@@ -34,7 +34,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Arc | Std::Waker) => true,
-				Some(Std::Option | Std::Result | Std::Box | Std::Vec | Std::Mutex | Std::Poll) => {
+				Some(Std::Option | Std::Result | Std::Box | Std::Vec | Std::Mutex | Std::Poll | Std::Pin) => {
 					args.types().any(|t| self.drops(t))
 				}
 				Some(_) => false,
@@ -75,7 +75,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box) => self.disposable(args.type_at(0)),
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
 				Some(_) => false,
 				None => adt.is_struct() && args.types().all(|t| self.disposable(t)),
 			},
@@ -119,7 +119,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Vec) if self.disposable(args.type_at(0)) => {
 					return Some(Expr::rt("dropAll", vec![value]));
 				}
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box) => self.disposable(args.type_at(0)),
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
 				Some(Std::Waker) => true,
 				Some(_) => false,
 				None if adt.is_struct() => {

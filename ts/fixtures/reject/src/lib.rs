@@ -200,3 +200,22 @@ pub fn skipped() -> u8 {
 	let [kept, _] = [make(), make()];
 	kept.0
 }
+
+/// `n` would wait out the `.await` in the index where no scope drops it on a cancel.
+pub async fn assigned(n: Noisy) -> u8 {
+	let mut slots = [make(), make()];
+	slots[index().await] = n;
+	slots[0].0
+}
+
+async fn index() -> usize {
+	1
+}
+
+/// `Some(..)` leaves the payload in the temporary, which drops after the `match`.
+pub fn unnamed() -> u8 {
+	match Some(make()) {
+		Some(..) => 1,
+		None => 0,
+	}
+}

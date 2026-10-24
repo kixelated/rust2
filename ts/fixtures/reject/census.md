@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 52
-- Function instances: 32
+- Refusals: 54
+- Function instances: 35
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -22,6 +22,7 @@
 | 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:76:6 |
 | 1 | a `let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:200:2 |
+| 1 | a `match` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:217:2 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | fixtures/reject/src/lib.rs:121:10 |
@@ -36,6 +37,7 @@
 | 1 | a variable from outside the function | fixtures/reject/src/lib.rs:84:2 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:136:3 |
 | 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
+| 1 | an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:207:2 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
@@ -201,6 +203,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a `match` on a temporary that drops, which it doesn't move out of whole (1)</summary>
+
+- fixtures/reject/src/lib.rs:217:2: a `match` on a temporary that drops, which it doesn't move out of whole
+
+</details>
+
 <details><summary>a cast from `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:11:2: a cast from `char`
@@ -282,6 +290,12 @@ The type or module each refused type or path belongs to.
 <details><summary>an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first (1)</summary>
 
 - fixtures/reject/src/lib.rs:190:13: an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first
+
+</details>
+
+<details><summary>an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first (1)</summary>
+
+- fixtures/reject/src/lib.rs:207:2: an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first
 
 </details>
 

@@ -1650,7 +1650,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	fn assign(&mut self, lhs: ExprId, rhs: ExprId, span: Span, out: &mut Vec<Stmt>) {
 		let mut value = self.operand(rhs, out);
 		let mut pre = Vec::new();
+		let yields = self.yields;
 		let target = self.place(lhs, &mut pre);
+		// The value waits out the `.await` where no scope drops it if the future is cancelled.
+		if self.yields != yields && self.t.drops(self.ty_of(rhs)) {
+			self.t.err(
+				self.span(lhs),
+				"an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first",
+			);
+		}
 		if (!pre.is_empty() || !target.is_path()) && !value.is_constant() {
 			value = self.spill(value, "value", out);
 		}
@@ -2931,7 +2939,16 @@ fn takes_all(pat: &Pat<'_>) -> bool {
 		PatKind::Binding {
 			mode, subpattern: None, ..
 		} => mode.0 == rustc_hir::ByRef::No,
-		PatKind::Variant { subpatterns, .. } => subpatterns.iter().all(|f| takes_all(&f.pattern)),
+		// `Some(..)` names no field, which then stays in the temporary.
+		PatKind::Variant {
+			adt_def,
+			variant_index,
+			subpatterns,
+			..
+		} => {
+			subpatterns.len() == adt_def.variant(*variant_index).fields.len()
+				&& subpatterns.iter().all(|f| takes_all(&f.pattern))
+		}
 		_ => false,
 	}
 }

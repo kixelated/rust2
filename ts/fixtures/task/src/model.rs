@@ -117,11 +117,14 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 
 /// A guard per turn of a loop that ends a guarded `match` arm, so leaving the loop from
 /// inside a turn's scope must still skip the arms after it. Before them, a pair of
-/// guards destructured in part: the one left in the array drops with it, after the other.
+/// guards destructured in part: the one left in the array drops with it, after the other;
+/// and a pinned box of one, which drops it.
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
 	let [kept, _] = pair;
 	kept.note("kept");
+	let pinned = std::pin::Pin::new(Box::new(Guard::new(count + 40, log.clone())));
+	pinned.note("pinned");
 	match count {
 		0 => log.note(format!("no turns")),
 		n if n < 4 => {
