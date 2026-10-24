@@ -24,6 +24,7 @@ roots = [
     "zipped",
     "keyed",
     "hinted",
+    "fused",
     "missing",
 ]
 printable = ["Meters"]

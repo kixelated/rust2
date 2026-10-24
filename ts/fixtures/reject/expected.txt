@@ -41,3 +41,4 @@ unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:128:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:148:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:182:2
+an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:202:1

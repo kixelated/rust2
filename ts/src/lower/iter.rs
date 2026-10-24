@@ -58,8 +58,8 @@ fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>
 
 /// Refuse an `impl Iterator` of the crate, whose `next` is `next_fn`, that std's adaptors
 /// would read other than through `next`: one that overrides `fold`, `nth`, or `size_hint`,
-/// which they call in its place or beside it, or that has a `next_back` or `len`, which
-/// this protocol lacks.
+/// which they call in its place or beside it, that has a `next_back` or `len`, which this
+/// protocol lacks, or that is a `FusedIterator`, which `fuse` reads on past its end.
 pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	let tcx = t.tcx;
 	let Some(imp) = tcx.impl_of_assoc(next_fn) else {
@@ -79,10 +79,12 @@ pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	};
 	for (&tr, impls) in tcx.all_local_trait_impls(()) {
 		let path = library::std_path(tcx, tr);
-		let Some(name) = path
-			.last()
-			.filter(|n| matches!(n.as_str(), "DoubleEndedIterator" | "ExactSizeIterator"))
-		else {
+		let Some(name) = path.last().filter(|n| {
+			matches!(
+				n.as_str(),
+				"DoubleEndedIterator" | "ExactSizeIterator" | "FusedIterator"
+			)
+		}) else {
 			continue;
 		};
 		for other in impls {

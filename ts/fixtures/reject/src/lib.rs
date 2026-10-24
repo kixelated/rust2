@@ -187,3 +187,20 @@ impl Iterator for Hinted {
 pub fn hinted() -> Vec<u8> {
 	Hinted.collect()
 }
+
+/// An iterator that `fuse` reads on past its end, since it says it stays ended.
+pub struct Fused;
+
+impl Iterator for Fused {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl std::iter::FusedIterator for Fused {}
+
+pub fn fused() -> usize {
+	Fused.fuse().count()
+}

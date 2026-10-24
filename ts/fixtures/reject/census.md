@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 43
-- Function instances: 31
+- Refusals: 44
+- Function instances: 33
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -14,6 +14,7 @@
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:99:17 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
+| 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:148:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:128:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:63:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:65:3 |
@@ -29,7 +30,6 @@
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:60:3 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:106:1 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:67:3 |
-| 1 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:148:1 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:87:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:66:3 |
@@ -52,6 +52,7 @@ The type or module each refused type or path belongs to.
 | 2 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
+| 1 | `FusedIterator` | fixtures/reject/src/lib.rs:202:1 |
 | 1 | `Guard` | fixtures/reject/src/lib.rs:43:1 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `later` | fixtures/reject/src/lib.rs:53:1 |
@@ -78,6 +79,7 @@ The type or module each refused type or path belongs to.
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:110:2 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:75:17 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
+| 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:202:1 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:128:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:182:2 |
@@ -137,6 +139,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:73:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
+
+</details>
+
+<details><summary>an iterator of the crate implementing `_`, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:148:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
+- fixtures/reject/src/lib.rs:202:1: an iterator of the crate implementing `FusedIterator`, which is not supported yet
 
 </details>
 
@@ -228,12 +237,6 @@ The type or module each refused type or path belongs to.
 <details><summary>a width or precision from an argument, as in `{:1$}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:67:3: a width or precision from an argument, as in `{:1$}`, is not supported
-
-</details>
-
-<details><summary>an iterator of the crate implementing `_`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:148:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
 
 </details>
 
