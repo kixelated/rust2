@@ -15,13 +15,9 @@ lazy classes, since the driver only has THIR for the local crate. Their
 `impl Iterator` translates to the same protocol, and `for` loops drive any
 iterator through it.
 
-- Measure against ES iterator helpers on the [TS benchmark](/quest/m2/ts-bench.md)
+- Measure against ES iterator helpers on the [TS benchmark](/ts/README.md#bench)
   and record the numbers, but keep the `DONE` protocol unless they show it loses.
 - Cover what moq-net uses (about 1,100 adaptor sites); the
   census (`just ts census`) names them.
 
 Public API: the translator's output for iterators.
-
-## Required
-
-- [TS benchmark](/quest/m2/ts-bench.md) - the comparison with ES iterator helpers

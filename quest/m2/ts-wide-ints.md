@@ -2,7 +2,7 @@
 
 ## Goal
 
-A report, from the [TS benchmark](/quest/m2/ts-bench.md), picks how
+A report, from the [TS benchmark](/ts/README.md#bench), picks how
 [rust2-ts](/ts/README.md) represents `u64`, `i64`, `u128`, and `i128`, and the
 translator emits the winner for all four, exact at full width and checked on
 overflow, proven by the existing differential tests.
@@ -34,4 +34,4 @@ Public API: the translator's output for 64- and 128-bit integers.
 
 ## Required
 
-- [TS benchmark](/quest/m2/ts-bench.md) - the numbers that pick the representation
+- [Faster translator runtime](/quest/m2/ts-runtime-perf.md) - removes the costs at every width first, so the spike measures only the representation

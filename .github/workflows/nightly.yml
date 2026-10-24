@@ -30,6 +30,27 @@ jobs:
       - name: Build
         run: nix build .#ts
 
+  bench:
+    name: Benchmark
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      # Every route in Node, Bun, and Chrome. The numbers go in the run's summary: no
+      # threshold fails the job.
+      - name: Bench
+        run: nix develop .#bench --command just ts bench
+
+      - name: Summary
+        run: cat ts/target/bench/report.md >> "$GITHUB_STEP_SUMMARY"
+
   census:
     name: Census moq-net and kio
     runs-on: ubuntu-24.04-arm

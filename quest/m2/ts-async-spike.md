@@ -49,14 +49,10 @@ Prototype shape:
   panics.
 - Executor integration: woken tasks run in a batch from one `queueMicrotask`;
   the coop budget yields to a macrotask; promises appear only at the edge.
-- Measure on the [TS benchmark](/quest/m2/ts-bench.md) against hand-written TS
+- Measure on the [TS benchmark](/ts/README.md#bench) against hand-written TS
   and moq's WASM: handoff cost at await depths 1, 4, and 16, plus output size.
 
 Land the harness and the winning prototype's tests; record the loser's numbers
 in the report and delete its code.
 
 Public API: none until Drop and Async land.
-
-## Required
-
-- [TS benchmark](/quest/m2/ts-bench.md) - the numbers that pick the design
