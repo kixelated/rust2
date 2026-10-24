@@ -1624,6 +1624,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				match_source: MatchSource::TryDesugar(_),
 				..
 			} => self.try_(*scrutinee, span, out),
+			// A scrutinee that diverges, such as `match return x {}`, has no value to pass.
+			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() && self.ty_of(*scrutinee).is_never() => {
+				self.stmt(*scrutinee, Dest::Discard, out);
+				Expr::undefined()
+			}
 			// A value of a type without values: native code never gets here.
 			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() => {
 				let value = self.operand(*scrutinee, out);

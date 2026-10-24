@@ -327,7 +327,7 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	let c = match parsed {
 		Ok(v) => v,
 	};
-	out.extend_from_slice(&[a, b, c]);
+	out.extend_from_slice(&[a, b, c, early(a)]);
 	out.extend_from_slice(format!("{parsed:?}").as_bytes());
 }
 
@@ -337,6 +337,12 @@ pub enum Void {}
 
 fn absurd(v: Void) -> u8 {
 	match v {}
+}
+
+/// A `match` without arms on a scrutinee that diverges, not on an empty type.
+#[allow(unreachable_code)]
+fn early(n: u8) -> u8 {
+	match return n.wrapping_add(1) {}
 }
 
 /// Closures capturing by reference and by move, and functions as values.

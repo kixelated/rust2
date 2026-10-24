@@ -419,7 +419,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	let c: number;
 	const v3 = parsed.value;
 	c = v3;
-	out.extendFromSlice(Uint8Array.of(a3, b4, c));
+	out.extendFromSlice(Uint8Array.of(a3, b4, c, early(a3)));
 	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void, f: rt.Formatter) => Void.fmt(value, f))])));
 }
 
@@ -434,6 +434,11 @@ export const Void = {
 
 export function absurd(v: Void): number {
 	rt.unreachable(v);
+}
+
+/** A `match` without arms on a scrutinee that diverges, not on an empty type. */
+export function early(n: number): number {
+	return rt.u8.wrappingAdd(n, 1);
 }
 
 /** Closures capturing by reference and by move, and functions as values. */
