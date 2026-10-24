@@ -45,9 +45,21 @@ ranked by the census of moq-net at the pinned revision (kio's has 28 in all):
   and an `Arc` or `Mutex` holding a borrow of a value that drops, which JS would drop
   as the value itself.
 
+Decided with the maintainer on 2026-10-24: the async spike
+([#16](https://github.com/kixelated/rust2/pull/16)) merges with drop points from
+THIR's scopes, and the [MIR lowering spike](/quest/m2/ts-mir-spike.md) then
+decides whether drops move to MIR's elaboration; rewrite this plan to its report
+too. Also in scope, found since: a temporary that drops and is held across an
+`.await` is owned instead of refused (3 refusal sites), which needs declarations
+at scope level.
+
 Watch the cost: each move of a value that drops writes `undefined` to where it was, and
 each scope holding one becomes a `try`/`finally`. A pass that proves a variable moved on
 every path, or on none, would drop most of both; measure it on the
 [TS benchmark](/ts/README.md#bench) before adding it.
 
 Public API: the translator's output for values that drop.
+
+## Required
+
+- [MIR lowering spike](/quest/m2/ts-mir-spike.md) - rewrite to the spike's report before starting

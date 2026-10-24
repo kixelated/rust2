@@ -34,8 +34,20 @@ What moq-net still needs, by its census at the pinned revision:
 If a profile of moq's client finds await overhead, `yield*` between translated futures
 would skip each level's `poll`; measure it on the [TS benchmark](/ts/README.md#bench).
 
+Decided with the maintainer on 2026-10-24: the async spike
+([#16](https://github.com/kixelated/rust2/pull/16)) merges with generators from
+THIR, and the [MIR lowering spike](/quest/m2/ts-mir-spike.md) then decides
+whether the whole lowering moves to MIR; rewrite this plan to its report too.
+Also in scope, found since:
+
+- `?` inside a function that returns `Poll`, as `ready!(..)?` writes it: about
+  224 sites in moq-net.
+- A `()` future awaited as a statement fails `tsc`: `Future<void>` against
+  `Future<undefined>`.
+
 Public API: the translator's output for async code.
 
 ## Required
 
+- [MIR lowering spike](/quest/m2/ts-mir-spike.md) - rewrite to the spike's report before starting
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - async bodies hold the values that drop it still refuses

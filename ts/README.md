@@ -1,7 +1,6 @@
 # rust2-ts
 
-A rustc driver that translates a subset of Rust to readable TypeScript with source
-maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
+A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
 rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
@@ -139,6 +138,14 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 ## Design
 
+Output is ranked correctness first, speed second, and bundle size third: the
+consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
+constructs such as brand casts and annotations are free. Readable output is not a goal.
+It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
+bundler's job. Types must be solid at the API boundary: the `roots` items and
+`printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
+they need.
+
 - 64- and 128-bit integers are numbers while they are safe integers, which most values
   are: lengths, IDs, sequence numbers, and timestamps. `just ts bench` measured it
   against `bigint`, against limbs for every value, and against unboxed halves, two
@@ -167,8 +174,9 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
   come from its scopes, and async bodies are generators: MIR state machines were about
-  twice as fast per await level, but read as basic blocks and would need a second
-  lowering ([#16](https://github.com/kixelated/rust2/pull/16) measured both).
+  twice as fast per await level, but would need a second lowering
+  ([#16](https://github.com/kixelated/rust2/pull/16) measured both). The
+  [MIR spike](/quest/m2/ts-mir-spike.md) decides whether the whole lowering moves.
 
 ## Never
 
