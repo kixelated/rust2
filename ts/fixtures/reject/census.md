@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 38
+- Refusals: 39
 - Function instances: 19
 - Generic functions no instance reached, lowered over their type parameters: 1
 
@@ -25,6 +25,7 @@
 | 1 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:80:18 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | fixtures/reject/src/lib.rs:75:17 |
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:60:3 |
+| 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:106:1 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:67:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:87:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
@@ -193,6 +194,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a precision, as in `{:.2}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:60:3: a precision, as in `{:.2}`, is not supported
+
+</details>
+
+<details><summary>a printable type must implement `Display` or `Debug` (1)</summary>
+
+- fixtures/reject/src/lib.rs:106:1: a printable type must implement `Display` or `Debug`
 
 </details>
 
