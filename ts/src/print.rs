@@ -272,6 +272,10 @@ impl Refs {
 					self.stmts(program, body);
 				}
 				StmtKind::Block { body, .. } => self.stmts(program, body),
+				StmtKind::Try { body, finally } => {
+					self.stmts(program, body);
+					self.stmts(program, finally);
+				}
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -279,7 +283,7 @@ impl Refs {
 
 	fn expr(&mut self, program: &Program, e: &Expr) {
 		match e {
-			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
@@ -514,14 +518,19 @@ impl Printer<'_> {
 		self.start();
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
+		let star = if f.generator { "*" } else { "" };
 		match cx {
-			Context::Module => self.write(&format!("export function {name}(")),
+			Context::Module => self.write(&format!("export function{star} {name}(")),
 			Context::Class if f.method => self.write(&format!("{name}(")),
 			Context::Class => self.write(&format!("static {name}(")),
 			Context::Companion => self.write(&format!("{name}(")),
 		}
 		self.params(&f.params);
-		let ret = self.ty(&f.ret);
+		let mut ret = self.ty(&f.ret);
+		if f.generator {
+			self.uses_rt = true;
+			ret = format!("Generator<undefined, {ret}, rt.Context>");
+		}
 		self.write(&format!("): {ret} {{\n"));
 		self.block_body(&f.body);
 		self.start();
@@ -734,6 +743,15 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::Try { body, finally } => {
+				self.write("try {\n");
+				self.block_body(body);
+				self.start();
+				self.write("} finally {\n");
+				self.block_body(finally);
+				self.start();
+				self.write("}\n");
+			}
 			StmtKind::Break(label) => match label {
 				Some(label) => self.write(&format!("break {label};\n")),
 				None => self.write("break;\n"),
@@ -875,6 +893,7 @@ impl Printer<'_> {
 					self.write("}");
 				}
 			}
+			Expr::Yield => self.write("yield"),
 			Expr::Lambda(params, body) => {
 				self.write("(");
 				self.params(params);
@@ -1039,7 +1058,7 @@ fn binary_prec(op: &str) -> u8 {
 
 fn prec(e: &Expr) -> u8 {
 	match e {
-		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) => 3,
+		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) | Expr::Yield => 3,
 		Expr::Cond(..) => 4,
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
@@ -1106,6 +1125,10 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(body, out);
 			}
 			StmtKind::Block { body, .. } => collect_locals(body, out),
+			StmtKind::Try { body, finally } => {
+				collect_locals(body, out);
+				collect_locals(finally, out);
+			}
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
 	}
@@ -1144,6 +1167,6 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(b, out);
 			collect_expr_locals(c, out);
 		}
-		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
 	}
 }

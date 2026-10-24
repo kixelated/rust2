@@ -17,8 +17,6 @@ From [#26](https://github.com/kixelated/rust2/pull/26)'s follow-ups:
   multiplying; multiplying their halves directly would cut the allocations
   `rescale` measures.
 
+`just ts bench --route` times each against main's translation in one run.
+
 Public API: none; the runtime's internals.
-
-## Related
-
-- [A/B routes in the TS benchmark](/quest/m2/ts-bench-routes.md) - compares each path against the current one

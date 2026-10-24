@@ -18,17 +18,15 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 
 ## Required
 
-- [Async and drop spike](/quest/m2/ts-async-spike.md) - generators from THIR against MIR state machines, deciding async, drop points, and the lowering
 - [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
 - [Fail the TS benchmark when Chrome hangs](/quest/m2/ts-bench-chrome-timeout.md) - a hung renderer fails the run loudly
-- [A/B routes in the TS benchmark](/quest/m2/ts-bench-routes.md) - `--route name=dir` loads another translation for reproducible A/B runs
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Wide-integer fast paths](/quest/m2/ts-wide-fast.md) - a fused `from_halves` and an unboxed limb product, kept only if measured faster
 - [Error-path workload](/quest/m2/ts-bench-error-path.md) - the benchmark prices `?` on a frame split across reads
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - a `Drop` type's `drop()` runs where Rust drops it
-- [Async in the TypeScript translator](/quest/m2/ts-async.md) - async code translates with Rust's lazy futures
+- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
+- [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
 - [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - classes, free functions, or free functions behind root facades, measured on speed, shaken size, and caller code

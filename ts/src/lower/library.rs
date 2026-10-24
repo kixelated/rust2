@@ -42,6 +42,23 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
+	/// `rt.Arc`, counted.
+	Arc,
+	/// `rt.Weak`.
+	Weak,
+	/// `rt.Mutex`, which is also its own guard.
+	Mutex,
+	MutexGuard,
+	/// What a `Mutex` can't be locked with on one thread: never.
+	PoisonError,
+	/// `rt.Waker`.
+	Waker,
+	/// `rt.Context`: its waker.
+	Context,
+	/// `rt.Poll<T>`: `T` itself, or `rt.Pending`.
+	Poll,
+	/// Its pointer.
+	Pin,
 	/// `rt.Range`, an iterator with `start` and `end` fields.
 	Range,
 	/// `rt.RangeInclusive`.
@@ -71,15 +88,33 @@ impl Std {
 		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
 			return Some(Self::Box);
 		}
-		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::Range) {
-			return Some(Self::Range);
+		for (item, std) in [
+			(sym::Arc, Self::Arc),
+			(sym::ArcWeak, Self::Weak),
+			(sym::Mutex, Self::Mutex),
+			(sym::MutexGuard, Self::MutexGuard),
+			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+		] {
+			if tcx.is_diagnostic_item(item, did) {
+				return Some(std);
+			}
 		}
-		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::RangeInclusiveStruct) {
-			return Some(Self::RangeInclusive);
+		for (item, std) in [
+			(rustc_attr_ir::LangItem::Context, Self::Context),
+			(rustc_attr_ir::LangItem::ResumeTy, Self::Context),
+			(rustc_attr_ir::LangItem::Poll, Self::Poll),
+			(rustc_attr_ir::LangItem::Pin, Self::Pin),
+			(rustc_attr_ir::LangItem::Range, Self::Range),
+			(rustc_attr_ir::LangItem::RangeInclusiveStruct, Self::RangeInclusive),
+		] {
+			if tcx.is_lang_item(did, item) {
+				return Some(std);
+			}
 		}
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"PoisonError" => return Some(Self::PoisonError),
 			_ => {}
 		}
 		match std_path(tcx, did)
@@ -169,6 +204,45 @@ pub struct Call<'tcx> {
 	pub span: Span,
 }
 
+/// Whether the mapping of `owner::name` moves each operand it takes by value into its
+/// result or a closure, and so drops nothing JS would leave undropped. Any other mapping
+/// may discard one, as `unwrap_or` does its fallback. Iterators refuse their own.
+fn keeps_operands(owner: &str, name: &str) -> bool {
+	matches!(
+		(owner, name),
+		("Option", "map" | "unwrap" | "expect")
+			| (
+				"Result",
+				"map" | "map_err" | "and_then" | "inspect_err" | "unwrap" | "expect" | "unwrap_err"
+			)
+			| ("Vec", "push")
+			| ("Box", "new")
+			| ("boxed", "box_new")
+			| ("mem", "replace" | "take" | "swap")
+			| ("hint", "must_use")
+			| ("From", "from")
+			| ("Into", "into")
+	)
+}
+
+/// The first type `call` takes by value that drops.
+fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
+	let tcx = b.t.tcx;
+	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
+	let env = b.t.typing_env_pub();
+	// A census's call over type parameters may leave a projection unnormalized.
+	let inputs: Vec<Ty<'tcx>> = tcx
+		.instantiate_bound_regions_with_erased(sig)
+		.inputs()
+		.iter()
+		.map(|&ty| {
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
+				.unwrap_or(ty)
+		})
+		.collect();
+	inputs.into_iter().find(|&ty| b.t.drops(ty))
+}
+
 /// `owner::name` for a standard library function.
 pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 	let name = tcx.item_name(def_id).to_string();
@@ -211,6 +285,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 	let (owner, name) = key(tcx, call.def_id)?;
 	let span = call.span;
 	let gargs = call.args;
+	let args = match super::task::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let dropping = match keeps_operands(&owner, &name) {
+		true => None,
+		false => dropping_operand(b, call),
+	};
 
 	// Methods on integers.
 	if let Some(int) = int_named(&owner) {
@@ -735,6 +817,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		_ => return super::iter::call(b, call, &owner, &name, args, out),
 	};
+	if let Some(ty) = dropping {
+		return Some(b.err(
+			span,
+			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+		));
+	}
 	Some(e)
 }
 

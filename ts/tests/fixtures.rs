@@ -265,6 +265,28 @@ fn lang() {
 	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
 }
 
+/// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
+/// executor logs every poll, wake, and drop as the fixture's native one does.
+#[test]
+fn task() {
+	let out = translated("task");
+	snapshot("task", &out);
+	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
+	let text = format!(
+		r#"import * as rt from "./rt.ts";
+import {{ Log }} from "./log.ts";
+import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
+import {{ harness }} from {harness:?};
+
+export {{ cases }} from {harness:?};
+export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
+"#
+	);
+	std::fs::write(out.join("caller.ts"), text).unwrap();
+	typecheck(&out);
+	differential("task-fixture", &out, "caller.ts", 20_000, &[]);
+}
+
 /// Each construct outside the subset fails with its span, and nothing is written.
 #[test]
 fn reject() {
