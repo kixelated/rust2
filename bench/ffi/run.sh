@@ -119,9 +119,10 @@ measure() {
                 export PATH=$generators:$PATH MOQ_BENCH_DIR=$dest MOQ_BENCH_SECONDS=$seconds
                 # Each runner builds moq-ffi with its own features and environment; in a
                 # shared target directory they rebuild each other every round. Dart's
-                # script hardcodes the default one, which the others then leave to it.
+                # script hardcodes the default one, and its host build scripts land in
+                # target/release, so the others leave that directory to it.
                 case $runner in
-                    rust | go | py | kt) export CARGO_TARGET_DIR=$checkout/target/bench-$runner ;;
+                    rust | go | py | kt | cpp) export CARGO_TARGET_DIR=$checkout/target/bench-$runner ;;
                 esac
                 case $runner in
                     # As `just rs test` runs it, minus its clippy gate: lints are not this run's to judge.
