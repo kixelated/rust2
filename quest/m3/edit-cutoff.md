@@ -41,6 +41,28 @@ Research (2026-10-24, rustc at the pinned nightly 7df81381d):
   today.
 - #156940 is a draft, waiting on its author, and absent from the pinned nightly.
 
+Research on [mbx](https://github.com/jdx/mr-boxington) (Mr Boxington, MIT, a cargo
+and rustc wrapper cache), 2026-10-24:
+
+- mbx doesn't cut off dependents. Its keys hash each `--extern` artifact's bytes,
+  and for edited crates it relies on private rustc incremental state. Its
+  maintainers reproduced E0460 and rejected SVH patching as unsound in
+  [jdx/mr-boxington#645](https://github.com/jdx/mr-boxington/pull/645) (closed
+  unmerged): rustc's metadata format is unstable, and telling interface edits from
+  body edits needs span-aware normalization.
+- Their numbers: with incremental on, dependents cost about 1.1 s of a 1.7 s edit,
+  and rustc incremental already cut one dependent from about 2.4 s to about 0.8 s.
+- So the spike measures with incremental on, as the build benchmark does, and
+  counts only what incremental leaves. Report incremental on and off side by side.
+- Classify each edit against mbx's list of interface-relevant bodies: generic,
+  `#[inline]`, and `const fn` bodies; `impl Trait` hidden types; new impls; plus
+  `async fn` bodies, whose coroutine MIR is always encoded.
+- A cheap first data point: `mbx analyze` charges each dependent's rebuild to the
+  crate where the edit started. Run it on a few real moq-net edits before building
+  anything.
+- rust2's edge: its own rustc driver could define an interface hash for the
+  pure-Rust path, which a wrapper cache can't.
+
 The upper bound on the benchmark's moq-net edit is 3.9 s of 6.95 s. Its appended
 non-generic function overstates the benefit, which is why the report replays real
 edits.
