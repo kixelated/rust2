@@ -64,12 +64,26 @@ pub fn function<'a, 'tcx>(
 						mutable: false,
 					},
 				);
-				if !method {
-					let ty = b.t.ty(ty, pat.span);
-					params.push(Param {
-						name: name.to_string(),
-						ty: Some(ty),
-					});
+				match method {
+					// A generic class's method is one instance's, so `this` is that
+					// instance's type, under which its fields have their types.
+					true => {
+						let self_ty = b.t.self_ty(instance).expect("a method has a self type").peel_refs();
+						let ty = b.t.ty(self_ty, pat.span);
+						if matches!(&ty, Type::Sym(_, args) if !args.is_empty()) {
+							params.push(Param {
+								name: name.to_string(),
+								ty: Some(ty),
+							});
+						}
+					}
+					false => {
+						let ty = b.t.ty(ty, pat.span);
+						params.push(Param {
+							name: name.to_string(),
+							ty: Some(ty),
+						});
+					}
 				}
 			}
 			(Some(pat), false) => {
@@ -2021,7 +2035,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					ts::Ctor::Positional => {
 						let mut ordered: Vec<Option<Expr>> = vec![None; variant.fields.len()];
 						for (f, value) in adt.fields.iter().zip(values) {
-							ordered[f.name.index()] = Some(value.typed());
+							ordered[f.name.index()] = Some(field_arg(tcx, &variant.fields[f.name], value));
 						}
 						let args = ordered
 							.into_iter()
@@ -2046,7 +2060,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							.fields
 							.iter()
 							.zip(values)
-							.map(|(f, value)| (Key::Field(fields[f.name.index()]), value.typed()))
+							.map(|(f, value)| {
+								let value = field_arg(tcx, &variant.fields[f.name], value);
+								(Key::Field(fields[f.name.index()]), value)
+							})
 							.collect();
 						if let Some(base) = &base {
 							for (i, field) in variant.fields.iter().enumerate() {
@@ -2295,7 +2312,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match info.repr {
 			AdtRepr::Class { .. } => Expr::New(
 				Box::new(Expr::Sym(info.sym)),
-				values.into_iter().map(Expr::typed).collect(),
+				(adt.variant(variant).fields.iter().zip(values))
+					.map(|(field, value)| field_arg(tcx, field, value))
+					.collect(),
 			),
 			AdtRepr::Tags => {
 				let ts_ty = self.t.ty(ty, span);
@@ -2436,4 +2455,14 @@ fn bindings(pat: &Pat<'_>) -> usize {
 fn kind_name(kind: &ExprKind<'_>) -> String {
 	let debug = format!("{kind:?}");
 	debug.split([' ', '(', '{']).next().unwrap_or("?").to_string()
+}
+
+/// A field's value as a class's constructor takes it: without an outer `as` where the
+/// field's type gives the value its type, but not where TypeScript infers a class
+/// parameter from it, which would widen a literal.
+fn field_arg<'tcx>(tcx: ty::TyCtxt<'tcx>, field: &ty::FieldDef, value: Expr) -> Expr {
+	match tcx.type_of(field.did).instantiate_identity().skip_norm_wip().has_param() {
+		true => value,
+		false => value.typed(),
+	}
 }

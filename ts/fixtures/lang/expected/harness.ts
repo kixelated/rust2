@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { ints, strings, derived, written, panics } from "./fmt.ts";
+import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { copies, loops, patterns, closures, discriminants, library } from "./shapes.ts";
 
@@ -15,7 +16,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const kind = input[1];
 	const data = input.subarray(2, input.length - 0);
 	const [op2, kind2] = [op, kind] as [number, number];
-	const value = rt.u8.rem(op2, 26);
+	const value = rt.u8.rem(op2, 27);
 	if (value === 0) {
 		u8Op(kind2, data, out);
 	} else if (value === 1) {
@@ -86,8 +87,10 @@ export function run(input: Uint8Array): rt.ByteVec {
 		derived(data, out);
 	} else if (value === 24) {
 		written(data, out);
-	} else {
+	} else if (value === 25) {
 		panics(kind2, data, out);
+	} else {
+		methods(data, out);
 	}
 	return out;
 }

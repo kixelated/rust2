@@ -5,6 +5,7 @@
 //! `harness::run` is the entry point both sides of the differential test run.
 
 mod fmt;
+mod generics;
 pub mod harness;
 mod ints;
 mod shapes;
