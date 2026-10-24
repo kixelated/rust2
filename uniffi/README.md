@@ -79,6 +79,9 @@ uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 - The UniFFI 0.32 port ([NordSecurity/uniffi-bindgen-go#98](https://github.com/NordSecurity/uniffi-bindgen-go/pull/98)).
 - Generated async calls take a `context.Context` and cancel the Rust future.
 - An exported `Display` on an enum error renders as its `Error()`.
+- `Types.go` renders its object, enum, error, record, callback interface, and custom type
+  templates in their own functions, with byte-identical output. Inlined into one, the borrow
+  checker took about 16 GB to check it, more than a CI runner has.
 
 uniffi-dart, on top of upstream `main` at acterglobal/uniffi-dart@72d26c1:
 

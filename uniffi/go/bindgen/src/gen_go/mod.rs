@@ -656,3 +656,151 @@ impl<'a> TypeRenderer<'a> {
         }
     }
 }
+
+// Types.go renders its larger type templates through these, each in its own render function.
+// Inlined into one, they made the borrow checker take about 16 GB. Each source binds the names
+// Types.go binds and trims the same whitespace (all but the enum's trailing newline), so the
+// templates render byte for byte as when included.
+impl<'a> TypeRenderer<'a> {
+    fn object(&'a self, type_: &'a Type) -> askama::Result<String> {
+        ObjectTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+
+    fn enum_(&'a self, type_: &'a Type) -> askama::Result<String> {
+        EnumTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+
+    fn error(&'a self, type_: &'a Type) -> askama::Result<String> {
+        ErrorTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+
+    fn record(&'a self, type_: &'a Type) -> askama::Result<String> {
+        RecordTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+
+    fn callback_interface(&'a self, type_: &'a Type) -> askama::Result<String> {
+        CallbackInterfaceTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+
+    fn custom(&'a self, type_: &'a Type) -> askama::Result<String> {
+        CustomTypeTemplate {
+            renderer: self,
+            type_,
+        }
+        .render()
+    }
+}
+
+/// Lets a type template call the renderer's helpers and read its `ci` and `config`.
+macro_rules! type_template {
+    ($($name:ident),*) => {$(
+        impl<'a> std::ops::Deref for $name<'a> {
+            type Target = TypeRenderer<'a>;
+
+            fn deref(&self) -> &Self::Target {
+                self.renderer
+            }
+        }
+    )*};
+}
+
+type_template!(
+    ObjectTemplate,
+    EnumTemplate,
+    ErrorTemplate,
+    RecordTemplate,
+    CallbackInterfaceTemplate,
+    CustomTypeTemplate
+);
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::Object { name, module_path, imp } %}{%- include "ObjectTemplate.go" %}{%- else %}{%- endmatch %}"#
+)]
+struct ObjectTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::Enum { name, module_path } %}{%- let e = ci.get_enum_definition(name).expect("missing enum") %}{%- include "EnumTemplate.go" %}{% else %}{% endmatch %}"#
+)]
+struct EnumTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::Enum { name, module_path } %}{%- let e = ci.get_enum_definition(name).expect("missing enum") %}{%- include "ErrorTemplate.go" %}{%- else %}{%- endmatch %}"#
+)]
+struct ErrorTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::Record { name, module_path } %}{%- include "RecordTemplate.go" %}{%- else %}{%- endmatch %}"#
+)]
+struct RecordTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::CallbackInterface { name, module_path } %}{%- include "CallbackInterfaceTemplate.go" %}{%- else %}{%- endmatch %}"#
+)]
+struct CallbackInterfaceTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}
+
+#[derive(Template)]
+#[template(
+    syntax = "go",
+    escape = "none",
+    ext = "go",
+    source = r#"{%- import "macros.go" as go %}{%- let type_name = type_|type_name(ci) %}{%- let ffi_converter_name = type_|ffi_converter_name(ci) %}{%- let ffi_converter_instance = type_|ffi_converter_instance(ci) %}{%- let ffi_destroyer_name = type_|ffi_destroyer_name(ci) %}{%- let canonical_type_name = type_|canonical_name(ci) %}{%- match type_ %}{%- when Type::Custom { name, builtin, module_path } %}{%- include "CustomTypeTemplate.go" %}{%- else %}{%- endmatch %}"#
+)]
+struct CustomTypeTemplate<'a> {
+    renderer: &'a TypeRenderer<'a>,
+    type_: &'a Type,
+}

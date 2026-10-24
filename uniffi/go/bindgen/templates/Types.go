@@ -59,21 +59,20 @@
 {% include "DurationHelper.go" %}
 
 {%- when Type::Enum { name, module_path } %}
-{%- let e = ci.get_enum_definition(name).expect("missing enum") %}
 {%- if ci.is_name_used_as_error(name) %}
-{%- include "ErrorTemplate.go" %}
+{{- self.error(type_)? }}
 {%- else %}
-{%- include "EnumTemplate.go" %}
+{{- self.enum_(type_)? }}
 {% endif %}
 
 {%- when Type::Optional { inner_type } %}
 {% include "OptionalTemplate.go" %}
 
 {%- when Type::Object { name, module_path, imp } %}
-{% include "ObjectTemplate.go" %}
+{{ self.object(type_)? }}
 
 {%- when Type::Record { name, module_path } %}
-{% include "RecordTemplate.go" %}
+{{ self.record(type_)? }}
 
 {%- when Type::Sequence { inner_type }  %}
 {% include "SequenceTemplate.go" %}
@@ -85,10 +84,10 @@
 {% include "MapTemplate.go" %}
 
 {%- when Type::CallbackInterface { name, module_path } %}
-{% include "CallbackInterfaceTemplate.go" %}
+{{ self.callback_interface(type_)? }}
 
 {%- when Type::Custom { name, builtin, module_path } %}
-{% include "CustomTypeTemplate.go" %}
+{{ self.custom(type_)? }}
 
 {%- else %}
 {%- endmatch %}
