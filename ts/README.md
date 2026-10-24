@@ -108,7 +108,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
-  nothing per item.
+  nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
+  and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.
@@ -160,9 +161,10 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 ```
 
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
-(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision. Each runs
-four ways: natively, as wasm32 at moq-wasm's size-optimized profile, as moq's
-hand-written `js/net` (`bench/moq.ts`), and translated; every route's output must match
+(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, and
+iterator chains over bytes. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
+helpers in `bench/iter.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
