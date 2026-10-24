@@ -42,12 +42,12 @@ fi
 
 # Renders a results directory's report.md.
 report() {
-    local dir=$1 attribution='[]'
+    local dir=$1
     local -a summaries=()
     [[ ! -d $dir/attribution ]] || mapfile -t summaries < <(find "$dir/attribution" -name summary.json | sort)
-    ((${#summaries[@]} == 0)) || attribution=$(jq -s . "${summaries[@]}")
-    jq -n -r -f "$bench/report.jq" --slurpfile host "$dir/host.json" \
-        --slurpfile results "$dir/results.jsonl" --argjson attribution "$attribution" >"$dir/report.md"
+    # A file, not an argument: a clean build's per-unit summary outgrows the argument list.
+    jq -n -r -f "$bench/report.jq" --slurpfile host "$dir/host.json" --slurpfile results "$dir/results.jsonl" \
+        --slurpfile attribution <(((${#summaries[@]} == 0)) || cat "${summaries[@]}") >"$dir/report.md"
 }
 
 if [[ ${1:-} == report ]]; then
@@ -327,7 +327,7 @@ attribute() { # corpus dir
         mv "$log" "$dest/cargo.jsonl"
         find "$prof" -name '*.mm_profdata' -print0 |
             xargs -0 -r -n 1 -P "$(getconf _NPROCESSORS_ONLN)" summarize summarize --json >/dev/null
-        jq -s -f "$bench/self-profile.jq" "$prof"/*.json >"$dest/self-profile.json"
+        jq -n -f "$bench/self-profile.jq" "$prof"/*.json >"$dest/self-profile.json"
         rm -f "$prof"/*
         jq -s -f "$bench/attribute.jq" --arg corpus "$corpus" --arg step "$step" --argjson proc_macros "$proc_macros" \
             --slurpfile profile "$dest/self-profile.json" "$dest/cargo.jsonl" >"$dest/summary.json"
