@@ -22,8 +22,8 @@ Options to measure, not a decision:
   destructured into bytes, or whose rest is unused on the path taken.
 
 Engines differ: JavaScriptCore makes views slower than V8 but small copies
-faster, and V8 gives a lone small array its own buffer the first time it is
-viewed (`rt.bytes` exists for that). Measure Node, Bun, and Chrome.
+faster, and V8 gives a lone small array its own buffer, about a microsecond,
+the first time it is viewed. Measure Node, Bun, and Chrome.
 
 Public API: the translator's output for byte slices.
 
