@@ -59,7 +59,7 @@
 {% include "DurationHelper.go" %}
 
 {%- when Type::Enum { name, module_path } %}
-{%- if ci.is_name_used_as_error(name) %}
+{%- if ci.is_used_as_error(type_) %}
 {{- self.error(type_)? }}
 {%- else %}
 {{- self.enum_(type_)? }}

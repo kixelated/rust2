@@ -7,6 +7,8 @@ use uniffi_bindgen::{
     ComponentInterface,
 };
 
+use heck::ToUpperCamelCase;
+
 use super::{filters::oracle, CodeType};
 
 #[derive(Debug)]
@@ -49,8 +51,12 @@ impl ExternalCodeType {
         }
     }
 
+    fn class_name(&self) -> String {
+        oracle().class_name(&self.name)
+    }
+
     fn rendered_type_label(&self) -> String {
-        let label = format!("{}.{}", self.namespace, self.canonical_name());
+        let label = format!("{}.{}", self.namespace, self.class_name());
         match self.kind {
             ExternalKind::Value | ExternalKind::Interface if self.is_error => format!("*{}", label),
             ExternalKind::Value | ExternalKind::Interface => label,
@@ -58,11 +64,12 @@ impl ExternalCodeType {
         }
     }
 
+    /// The stem of the helpers the defining package names after this type.
     fn helper_stem(&self) -> String {
         if self.custom_builtin.is_some() {
-            format!("Type{}", self.canonical_name())
+            format!("Type{}", self.class_name())
         } else {
-            self.canonical_name()
+            self.class_name()
         }
     }
 
@@ -134,8 +141,14 @@ impl CodeType for ExternalCodeType {
         self.rendered_type_label()
     }
 
+    // Compound helpers are generated in the referencing package, which may define a type of the
+    // same name; the namespace keeps their helpers apart.
     fn canonical_name(&self) -> String {
-        oracle().class_name(&self.name)
+        format!(
+            "{}{}",
+            self.namespace.to_upper_camel_case(),
+            self.helper_stem()
+        )
     }
 
     fn ffi_converter_name(&self) -> String {

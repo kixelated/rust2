@@ -125,7 +125,7 @@ var {{ ffi_converter_instance }} = {{ ffi_converter_name }}{
 }
 
 
-{% if ci.is_name_used_as_error(name) %}
+{% if ci.is_used_as_error(type_) %}
 func (_self {{impl_name}}) Error() string {
 	{%- let has_display = obj|has_display %}
 	{%- if has_display %}
