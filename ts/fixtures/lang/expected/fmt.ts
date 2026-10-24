@@ -602,7 +602,7 @@ export const Fault = {
 		if (value === 0) {
 			return { tag: "Short" };
 		} else if (value === 1) {
-			return { tag: "Code", _0: rt.u16.fromBeBytes(Uint8Array.of(at(1), at(2))) };
+			return { tag: "Code", _0: (at(1) << 8) | at(2) };
 		} else if (value === 2) {
 			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
 		} else {
