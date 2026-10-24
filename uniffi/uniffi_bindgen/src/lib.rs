@@ -94,7 +94,7 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use fs_err::{self as fs, File};
+use fs_err as fs;
 use serde::Deserialize;
 use std::fmt;
 use std::io::prelude::*;
@@ -406,13 +406,21 @@ fn generate_component_scaffolding_inner(
 ) -> Result<()> {
     let file_stem = udl_file.file_stem().context("not a file")?;
     let filename = format!("{file_stem}.uniffi.rs");
-    let out_path = get_out_dir(udl_file, out_dir_override)?.join(filename);
-    let mut f = File::create(&out_path)?;
+    let out_dir = get_out_dir(udl_file, out_dir_override)?;
+    // `generate_and_include_scaffolding!` runs in every rustc that expands it, so two crates
+    // built from the same UDL write this file concurrently. Truncating it in place lets one of
+    // them `include!` a partial file; write a sibling and rename it over the target instead.
+    let mut builder = tempfile::Builder::new();
+    // `File::create`'s mode, which the umask narrows, rather than tempfile's owner-only 0o600.
+    #[cfg(unix)]
+    builder.permissions(std::os::unix::fs::PermissionsExt::from_mode(0o666));
+    let mut f = builder.suffix(".rs").tempfile_in(&out_dir)?;
     write!(f, "{}", RustScaffolding::new(&component, file_stem))
         .context("Failed to write output file")?;
     if format_code {
-        format_code_with_rustfmt(&out_path).context("formatting generated Rust code")?;
+        format_code_with_rustfmt(f.path()).context("formatting generated Rust code")?;
     }
+    f.persist(out_dir.join(filename))?;
     Ok(())
 }
 
@@ -521,7 +529,7 @@ fn parse_udl(udl_file: &Utf8Path, crate_name: &str) -> Result<ComponentInterface
     ComponentInterface::from_metadata(group)
 }
 
-fn format_code_with_rustfmt(path: &Utf8Path) -> Result<()> {
+fn format_code_with_rustfmt(path: &std::path::Path) -> Result<()> {
     let status = Command::new("rustfmt").arg(path).status().map_err(|e| {
         let ctx = match e.kind() {
             ErrorKind::NotFound => "formatting was requested, but rustfmt was not found",

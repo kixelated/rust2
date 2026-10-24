@@ -213,7 +213,7 @@ pub fn discriminants(data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
-/// Loops: labeled, `while let`, ranges, and values out of `break`.
+/// Loops: labeled, `while let`, ranges, values out of `break`, and loops that end a function.
 pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 	let mut stack: Vec<u8> = data.to_vec();
 	let mut popped = 0u32;
@@ -267,6 +267,179 @@ pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 		count += 1;
 	}
 	out.push(count);
+
+	out.push(first_repeat(data));
+	out.extend_from_slice(&tail_break(data).to_be_bytes());
+	out.push(arm_loop(data));
+	out.extend_from_slice(&(position(data, &0) as u32).to_be_bytes());
+	let settle = |mut x: u8| -> u8 {
+		loop {
+			if x < 10 {
+				return x;
+			}
+			x /= 3;
+		}
+	};
+	out.push(settle(data.len() as u8 * 7));
+	drain(data, out);
+	out.push(returned_loop(data));
+	branch_loops(data, out);
+}
+
+/// Loops that `break` ending a guarded `match` arm and an `if let` chain branch.
+fn branch_loops(data: &[u8], out: &mut Vec<u8>) {
+	let mut i = 0;
+	while i + 1 < data.len() {
+		let w = &data[i..i + 2];
+		i += 2;
+		match w {
+			[a, b] if a > b => {
+				let mut n = *a;
+				loop {
+					if n <= *b {
+						break;
+					}
+					n -= 1;
+					out.push(n);
+				}
+			}
+			[a, ..] => out.push(*a),
+			_ => {}
+		}
+		if let [a, b] = w
+			&& a % 3 == b % 3
+		{
+			let mut n = *a;
+			loop {
+				n /= 2;
+				out.push(n);
+				if n < 4 {
+					break;
+				}
+			}
+		} else {
+			out.push(0xaa);
+		}
+	}
+}
+
+/// A loop that only `return` leaves, returned itself, around loops that `break`.
+#[allow(unreachable_code, clippy::needless_return)]
+fn returned_loop(data: &[u8]) -> u8 {
+	let mut i = 0;
+	return loop {
+		if i >= data.len() {
+			return 0xdd;
+		}
+		for &b in &data[i..] {
+			if b == 0 {
+				break;
+			}
+			if b > 0xf0 {
+				return b ^ i as u8;
+			}
+		}
+		i += 1;
+	};
+}
+
+/// A loop that ends the function, left only by `return` from nested scopes.
+fn first_repeat(data: &[u8]) -> u8 {
+	let mut i = 0;
+	'scan: loop {
+		if i >= data.len() {
+			return 0xff;
+		}
+		let mut j = i + 1;
+		while j < data.len() {
+			if data[j] == 0 {
+				i = j + 1;
+				continue 'scan;
+			}
+			match data[i] == data[j] {
+				true => return data[j] ^ i as u8,
+				false => {}
+			}
+			j += 1;
+		}
+		i += 1;
+	}
+}
+
+/// A loop that ends the function, left by `break` with a value from nested scopes.
+fn tail_break(data: &[u8]) -> u16 {
+	let mut i = 0;
+	'outer: loop {
+		if i >= data.len() {
+			break 0x100;
+		}
+		let b = data[i];
+		i += 1;
+		match b % 4 {
+			0 => continue,
+			1 => {
+				for &c in &data[i..] {
+					if c == b {
+						break 'outer c as u16 * 2;
+					}
+				}
+			}
+			2 if b > 100 => break b as u16 + i as u16,
+			_ => {
+				let mut n = b;
+				loop {
+					if n < 10 {
+						break;
+					}
+					n /= 3;
+					if n == 7 {
+						break 'outer 7;
+					}
+				}
+			}
+		}
+	}
+}
+
+/// A loop that only `return` leaves, in a `match` arm that needs a value.
+fn arm_loop(data: &[u8]) -> u8 {
+	let mut k = 0;
+	let start = match data.first() {
+		Some(&b) if b >= 0x80 => b,
+		_ => loop {
+			if k >= data.len() {
+				return 0xee;
+			}
+			if data[k] >= 0x80 {
+				return data[k] - 0x80;
+			}
+			k += 1;
+		},
+	};
+	start / 2
+}
+
+/// A generic function ending in a loop.
+fn position<T: PartialEq>(items: &[T], want: &T) -> usize {
+	let mut i = 0;
+	loop {
+		if i == items.len() || items[i] == *want {
+			return i;
+		}
+		i += 1;
+	}
+}
+
+/// A unit function ending in a loop.
+fn drain(data: &[u8], out: &mut Vec<u8>) {
+	let mut i = 0;
+	loop {
+		if i >= data.len() {
+			return;
+		}
+		out.push(data[i] ^ 0x5a);
+		i += 2;
+	}
 }
 
 /// Patterns: slices, ranges, guards that bind, `@` bindings, and let chains.
@@ -313,6 +486,37 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&area.to_be_bytes());
 	let total = total(&[shape, Shape::Dot], out) + total(&[Meters(3), Meters(u64::MAX)], out);
 	out.extend_from_slice(&total.to_be_bytes());
+
+	// An `Err` of `Void` never exists, so its arm matches nothing, or is left out.
+	let parsed: Result<u8, Void> = Ok(data.len() as u8);
+	let a = match parsed {
+		Ok(v) => v,
+		Err(e) => absurd((e, 1)),
+	};
+	let b = match parsed {
+		Ok(v) => v,
+		Err(e) => match e {},
+	};
+	let c = match parsed {
+		Ok(v) => v,
+	};
+	out.extend_from_slice(&[a, b, c, early(a)]);
+	out.extend_from_slice(format!("{parsed:?}").as_bytes());
+}
+
+/// An enum without variants: no value of it exists.
+#[derive(Clone, Copy, Debug)]
+pub enum Void {}
+
+/// A value holding a `Void` can't exist either.
+fn absurd(v: (Void, u8)) -> u8 {
+	match v {}
+}
+
+/// A `match` without arms on a scrutinee that diverges, not on an empty type.
+#[allow(unreachable_code)]
+fn early(n: u8) -> u8 {
+	match return n.wrapping_add(1) {}
 }
 
 /// Closures capturing by reference and by move, and functions as values.

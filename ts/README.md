@@ -54,7 +54,7 @@ runtime: what std does that JS does not.
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `bigint`, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
-| `enum` without data | a union of strings: `"Lite01" \| "Lite02"` |
+| `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
 | `Option<T>` | `T \| undefined`; an `Option` of `()` or an `Option` is refused |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
@@ -93,7 +93,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly.
+  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
+  no faster on `just ts bench`, in V8 or JavaScriptCore.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.
