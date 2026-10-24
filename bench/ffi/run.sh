@@ -325,9 +325,18 @@ jq -n \
     --args '{$rounds, $seconds, $ubrn, runners: $ARGS.positional}' "${runners[@]}" |
     jq -c --slurpfile variants <(printf '%s\n' "${variants[@]}") '. + {$variants}' >"$out/plan.json"
 
-cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo 2>/dev/null | head -1)
-[[ -n $cpu ]] || cpu=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)
-load=$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || uptime | sed 's/.*load averages*: //')
+# Linux reads /proc; macOS has none and answers through sysctl.
+if [[ -r /proc/cpuinfo ]]; then
+    cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo | head -1)
+    memory=$(awk '/MemTotal/ { printf "%.0f GiB", $2 / 1048576 }' /proc/meminfo)
+else
+    cpu=$(sysctl -n machdep.cpu.brand_string)
+    memory="$(($(sysctl -n hw.memsize) / 1073741824)) GiB"
+fi
+load() {
+    if [[ -r /proc/loadavg ]]; then cut -d' ' -f1-3 /proc/loadavg; else sysctl -n vm.loadavg | tr -d '{}' | xargs; fi
+}
+load_start=$(load)
 
 # The dev shell of the pinned moq carries every wrapper's toolchain.
 nix develop "github:moq-dev/moq/$moq_rev" --command "$bench/run.sh" measure "$out"
@@ -337,10 +346,10 @@ jq -n \
     --arg os "$(uname -srm)" \
     --arg cpu "$cpu" \
     --arg cpus "$(getconf _NPROCESSORS_ONLN)" \
-    --arg memory "$(awk '/MemTotal/ { printf "%.0f GiB", $2 / 1048576 }' /proc/meminfo 2>/dev/null)" \
+    --arg memory "$memory" \
     --arg runner "${RUNNER_NAME:-local}" \
-    --arg load_start "$load" \
-    --arg load_end "$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || uptime | sed 's/.*load averages*: //')" \
+    --arg load_start "$load_start" \
+    --arg load_end "$(load)" \
     --arg rust2 "$fork_rev" \
     --arg base "$base_rev" \
     --arg moq "$moq_rev" \
