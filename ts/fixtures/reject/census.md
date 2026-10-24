@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 75
-- Function instances: 65
+- Refusals: 76
+- Function instances: 66
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -46,6 +46,7 @@
 | 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
 | 1 | an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:207:2 |
 | 1 | an `if let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:241:9 |
+| 1 | an array repeat of a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:416:14 |
 | 1 | an async body returning `_` is not supported: its `Ready` could be pending | fixtures/reject/src/lib.rs:245:54 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
@@ -388,6 +389,12 @@ The type or module each refused type or path belongs to.
 <details><summary>an `if let` on a temporary that drops, which it doesn't move out of whole (1)</summary>
 
 - fixtures/reject/src/lib.rs:241:9: an `if let` on a temporary that drops, which it doesn't move out of whole
+
+</details>
+
+<details><summary>an array repeat of a value that drops, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:416:14: an array repeat of a value that drops, which is not supported yet
 
 </details>
 

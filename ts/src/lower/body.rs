@@ -2240,6 +2240,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					None => return self.err(span, "an array length that is not a constant"),
 				};
 				let elem_ty = self.ty_of(*value);
+				// `[v; 0]` drops `v` at once, which no element of the array would.
+				if self.t.drops(elem_ty) {
+					return self.err(
+						span,
+						"an array repeat of a value that drops, which is not supported yet",
+					);
+				}
 				let v = self.operand(*value, out);
 				match elem_ty.kind() {
 					ty::Uint(ty::UintTy::U8) => {

@@ -410,3 +410,9 @@ pub fn rest_moved(pair: [Noisy; 2]) -> u8 {
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
 }
+
+/// `[n; 0]` drops `n` at once, which no element of the array would.
+pub fn repeated(n: Noisy) -> usize {
+	let empty = [n; 0];
+	empty.len()
+}

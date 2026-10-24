@@ -52,6 +52,7 @@ roots = [
     "fallback",
     "rest_moved",
     "replace_pinned_ref",
+    "repeated",
     "missing",
 ]
 printable = ["Meters"]
