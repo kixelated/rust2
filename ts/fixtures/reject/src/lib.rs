@@ -261,6 +261,16 @@ pub fn replace_pinned(dst: &mut std::pin::Pin<std::sync::Arc<u8>>, src: std::pin
 	*dst = src;
 }
 
+/// The box drops its `Noisy` at the end of the statement, which nothing marks.
+pub fn boxed_field() -> u8 {
+	Box::new(make()).0
+}
+
+/// A guard is its mutex in JS: replacing it would copy the other mutex's value in.
+pub fn replace_guard<'a>(dst: &mut std::sync::MutexGuard<'a, u8>, src: std::sync::MutexGuard<'a, u8>) {
+	*dst = src;
+}
+
 /// An adaptor without a mapping.
 pub fn cycled(v: &[u8]) -> usize {
 	v.iter().cycle().take(3).count()
@@ -383,4 +393,9 @@ pub fn looped(c: Countdown) -> u8 {
 		n += i;
 	}
 	n
+}
+
+/// `unwrap_or` drops its fallback when the option holds a value.
+pub fn fallback(a: Option<Noisy>, b: Noisy) -> Noisy {
+	a.unwrap_or(b)
 }

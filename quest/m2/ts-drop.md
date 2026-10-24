@@ -17,7 +17,7 @@ each field); a variable drops in a `finally` at the end of its scope; a move lea
 fixture's trace test proves it on kio's waiters, wakers, and channels.
 
 What still fails translation, each with its span (the reject fixture has one of each),
-ranked by the census of moq-net at the pinned revision (kio's has 27 in all):
+ranked by the census of moq-net at the pinned revision (kio's has 28 in all):
 
 - Dropping a value whose drop no `[Symbol.dispose]` carries (657): a `Result`, an
   `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
@@ -32,6 +32,9 @@ ranked by the census of moq-net at the pinned revision (kio's has 27 in all):
 - An iterator that owns a value that drops (55): a `Vec` of one moved into it, or an
   adaptor over items that drop. An `rt.Iter` drops nothing it skips, consumes, or still
   holds when it is dropped.
+- A std mapping that may discard an operand that drops (19): `bool::then_some`,
+  `Option::ok_or`, `map_or`, and `unwrap_or`, and `Result::ok`. Each refuses any operand
+  that drops today, even one it always keeps, such as `ok_or`'s option.
 - Struct update syntax from a value that drops (16), a closure capturing one (13), a
   generic type that implements `Drop` (11), and a parameter that drops bound by a
   pattern.

@@ -180,9 +180,9 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, `char`, statics, async blocks that borrow a number
 mutably and async closures, values that drop as temporaries not moved whole, in a
-closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, borrowed
-in an `Arc` or `Mutex`, or moved ahead of an `.await` in the same call or assignment
-([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
+closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, passed to
+a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
+moved ahead of an `.await` in the same call or assignment ([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
 a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
 `impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
 let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other

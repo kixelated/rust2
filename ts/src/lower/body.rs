@@ -1803,9 +1803,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		};
 		if through_ref {
 			let pointee = self.ty_of(lhs);
-			// Every clone of an `Arc` or waker is one JS object, and a future keeps its state
-			// private: copying fields in would change the other handles, or nothing. A `Pin`
-			// or `Box` is its pointee in JS.
+			// Every clone of an `Arc` or waker is one JS object, a guard is its mutex, and a
+			// future keeps its state private: copying fields in would change the other
+			// handles, or nothing. A `Pin` or `Box` is its pointee in JS.
 			let mut erased = pointee;
 			while let ty::Adt(adt, args) = erased.kind()
 				&& matches!(
@@ -1817,7 +1817,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let shared = match erased.kind() {
 				ty::Adt(adt, _) => matches!(
 					library::Std::of(self.t.tcx, adt.did()),
-					Some(library::Std::Arc | library::Std::Waker | library::Std::Context)
+					Some(library::Std::Arc | library::Std::Waker | library::Std::Context | library::Std::MutexGuard)
 				),
 				ty::Coroutine(..) => true,
 				_ => false,
@@ -1928,7 +1928,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::VarRef { .. } | ExprKind::UpvarRef { .. } | ExprKind::Field { .. } | ExprKind::Index { .. } => {
 				true
 			}
-			ExprKind::Deref { .. } => true,
+			// What a `Box` made in place points at is part of that temporary.
+			ExprKind::Deref { arg } => matches!(self.ty_of(*arg).kind(), ty::Ref(..)) || self.is_place(*arg),
 			_ => false,
 		}
 	}
