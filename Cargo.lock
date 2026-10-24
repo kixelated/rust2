@@ -2472,6 +2472,8 @@ dependencies = [
  "uniffi-fixture-ext-types-custom-types",
  "uniffi-fixture-ext-types-lib-one",
  "uniffi-fixture-ext-types-proc-macro",
+ "uniffi-fixture-namespaces-media",
+ "uniffi-fixture-namespaces-net",
  "uniffi-fixture-proc-macro",
  "uniffi-fixture-simple-fns",
  "uniffi-fixture-simple-iface",
