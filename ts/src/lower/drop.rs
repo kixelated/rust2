@@ -65,7 +65,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// Whether any field of `adt` with `args` drops, counting one of a type parameter only
 	/// if `params`.
-	fn fields_drop(&mut self, adt: AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, params: bool) -> bool {
+	pub fn fields_drop(&mut self, adt: AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, params: bool) -> bool {
 		let tcx = self.tcx;
 		let env = self.typing_env_pub();
 		adt.all_fields().any(|field| {
@@ -168,6 +168,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.glued.insert(adt.did()) {
 			return;
 		}
+		if self.plain(info.sym) {
+			let path = tcx.def_path_str(adt.did());
+			self.err(span, format!("`{path}` drops only through a type parameter, which a plain object cannot"));
+			return;
+		}
 		// An enum that drops is refused where it drops: its glue would switch on its variant.
 		let AdtRepr::Class { fields, .. } = &info.repr else {
 			if adt.has_dtor(tcx) {
@@ -193,7 +198,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				),
 				false => {
 					let sym = self.instance(Instance::mono(tcx, dtor.did));
-					body.push(StmtKind::Expr(Expr::Method(Box::new(Expr::This), sym, Vec::new())).at(None));
+					body.push(StmtKind::Expr(self.call(sym, Expr::This, Vec::new())).at(None));
 				}
 			}
 		}

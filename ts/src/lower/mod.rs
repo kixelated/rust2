@@ -270,6 +270,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.program.plain.contains(&sym)
 	}
 
+	/// A call of the translated function `sym` with `recv` as its first argument: a
+	/// method of `recv` if it is one.
+	pub fn call(&self, sym: SymId, recv: ts::Expr, mut args: Vec<ts::Expr>) -> ts::Expr {
+		match self.program.syms[sym].kind {
+			SymKind::Method { instance: true } => ts::Expr::Method(Box::new(recv), sym, args),
+			_ => {
+				args.insert(0, recv);
+				ts::Expr::Sym(sym).call(args)
+			}
+		}
+	}
+
 	/// A struct's value, from its fields' values in declaration order.
 	pub fn construct(&self, sym: SymId, ctor: &Ctor, fields: &[FieldId], values: Vec<ts::Expr>) -> ts::Expr {
 		let class = Box::new(ts::Expr::Sym(sym));
@@ -779,9 +791,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			instance: String::new(),
 			name: String::new(),
 		});
+		// A struct that drops keeps a class, whose `[Symbol.dispose]` whatever holds it calls.
 		if matches!(repr, AdtRepr::Class { .. })
 			&& self.program.shape != Shape::Classes
 			&& !self.facade_types.contains(&did)
+			&& !adt.has_dtor(tcx)
+			&& !self.fields_drop(adt, ty::GenericArgs::identity_for_item(tcx, did), false)
 		{
 			self.program.plain.insert(sym);
 		}
