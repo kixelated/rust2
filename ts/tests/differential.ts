@@ -62,6 +62,14 @@ function show(outcome: Outcome): string {
 	return outcome instanceof Uint8Array ? Buffer.from(outcome).toString("hex") : `panic ${JSON.stringify(outcome.panic)}`;
 }
 
+/** An outcome to read: as text if it is lines of printable ASCII, as a log is. */
+function display(outcome: Outcome): string {
+	if (outcome instanceof Uint8Array && outcome.every((b) => b === 0x0a || (b >= 0x20 && b < 0x7f))) {
+		return `\n${Buffer.from(outcome).toString()}`;
+	}
+	return show(outcome);
+}
+
 const cases: Uint8Array[] = [new Uint8Array(0)];
 // Every op with every short tail, so each path's edges are covered exhaustively.
 for (let op = 0; op < 256; op++) {
@@ -108,7 +116,7 @@ for (const input of cases) {
 	if (show(want) !== show(got)) {
 		failures++;
 		if (failures <= 20) {
-			console.error(`input  ${show(input)}\nnative ${show(want)}\nts     ${show(got)}\n`);
+			console.error(`input  ${show(input)}\nnative ${display(want)}\nts     ${display(got)}\n`);
 		}
 	}
 }

@@ -1981,7 +1981,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			ExprKind::Adt(adt) => self.adt_expr(adt, ty, span, out),
-			ExprKind::Closure(closure) => self.closure(closure, span),
+			ExprKind::Closure(closure) => self.closure(closure.closure_id, span),
 			ExprKind::Assign { .. }
 			| ExprKind::AssignOp { .. }
 			| ExprKind::Break { .. }
@@ -2288,16 +2288,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span) -> Expr {
-		self.lower_closure(closure.closure_id, span)
-	}
-
 	/// A closure as an arrow function, or an `async` body as a future around a generator.
 	///
 	/// The generator is a function of its own, taking its upvars as parameters: a
 	/// generator function made per call costs V8 a prototype object and a new shape for
 	/// each generator, about 25 times what one made once does.
-	fn lower_closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
+	fn closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");

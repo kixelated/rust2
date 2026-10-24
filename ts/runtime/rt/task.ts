@@ -4,7 +4,7 @@
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. A moved-out place holds `undefined`, which drops as nothing.
 
-import { Ok, Panic, panic, type Result } from "../rt.ts";
+import { Panic, panic } from "../rt.ts";
 
 // Drops
 
@@ -18,24 +18,6 @@ export function drop(value: unknown): void {
 export function dropAll(values: readonly unknown[] | undefined): void {
 	if (values === undefined) return;
 	for (const value of values) drop(value);
-}
-
-/** `Vec::into_iter` of elements that drop: dropping it drops those not yet reached. */
-export class IntoIter<T> implements Iterable<T>, Disposable {
-	#items: T[];
-	#next = 0;
-
-	constructor(items: T[]) {
-		this.#items = items;
-	}
-
-	*[Symbol.iterator](): Iterator<T> {
-		while (this.#next < this.#items.length) yield this.#items[this.#next++];
-	}
-
-	[Symbol.dispose](): void {
-		while (this.#next < this.#items.length) drop(this.#items[this.#next++]);
-	}
 }
 
 // Shared ownership
@@ -77,20 +59,14 @@ export class Weak<T> {
 }
 
 /**
- * `Mutex<T>`, which a single thread never contends, and its guard: locking hands out
- * the mutex itself, and unlocking is nothing.
+ * `Mutex<T>`, which a single thread never contends, and its guard: a lock is the mutex
+ * itself, and an unlock is nothing.
  */
 export class Mutex<T> implements Disposable {
 	value: T;
-	readonly #locked: Result<Mutex<T>, never>;
 
 	constructor(value: T) {
 		this.value = value;
-		this.#locked = Ok(this);
-	}
-
-	lock(): Result<Mutex<T>, never> {
-		return this.#locked;
 	}
 
 	[Symbol.dispose](): void {
