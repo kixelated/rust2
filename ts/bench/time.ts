@@ -18,6 +18,8 @@ export interface Options {
 	sampleMs: number;
 	/** Samples per timed body, interleaved with every other body's. */
 	rounds: number;
+	/** Told what runs next, between timed regions. */
+	progress(step: string): void;
 }
 
 export interface Timing {
@@ -49,12 +51,14 @@ export function hex(bytes: Uint8Array): string {
 }
 
 export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[], options: Options): Promise<Timing[]> {
+	const { progress } = options;
 	const bodies: Body[] = [];
 	for (const workload of workloads) {
 		const { input } = workload;
 		const want = wasm.call(input);
 		if (want === "panic") throw new Error(`${workload.name} ${workload.op} panics in native Rust`);
 		for (const route of routes) {
+			progress(`checking ${route.name} on ${workload.name} ${workload.op}`);
 			const got = hex(await route.output(input));
 			if (got !== hex(want)) {
 				throw new Error(`${route.name} differs from native Rust on ${workload.name} ${workload.op}:\nnative ${hex(want)}\ngot    ${got}`);
@@ -75,6 +79,7 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 
 	// Find each body's calls per sample, which also warms it up.
 	for (const body of bodies) {
+		progress(`warming up ${body.route} on ${body.workload.name} ${body.workload.op}`);
 		body.setup?.();
 		const first = body.call();
 		body.async = first instanceof Promise;
@@ -83,8 +88,11 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 	}
 
 	// Interleave the bodies in each round, starting each round one later, so drift and
-	// position spread over all of them.
+	// position spread over all of them. Progress is per round: a report per sample slows
+	// Chrome's samples by about 10%.
+	const span = `${workloads[0].name} through ${workloads[workloads.length - 1].name}`;
 	for (let round = 0; round < options.rounds; round++) {
+		progress(`timing round ${round + 1} of ${options.rounds} on ${span}`);
 		for (let i = 0; i < bodies.length; i++) {
 			const body = bodies[(i + round) % bodies.length];
 			const ms = await sample(body);

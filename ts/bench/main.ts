@@ -3,9 +3,10 @@
 //
 // usage: bun main.ts --translated <dir> --wasm <file> --native <bin> --moq <checkout>
 //                    --moq-wasm <dir> --task <dir> --task-wasm <file> --task-native <bin>
-//                    --out <dir> [--sample-ms 10] [--rounds 15]
+//                    --out <dir> [--sample-ms 10] [--rounds 15] [--route <name>=<dir>]
 //
 // The task fixture's async handoff runs beside the codec, against moq's way with promises.
+// `--route` times the translations in another run's `--out` as one more route, for A/B runs.
 
 import { cpus, release, totalmem } from "node:os";
 import { join, resolve } from "node:path";
@@ -35,6 +36,7 @@ const { values: args } = parseArgs({
 		out: { type: "string" },
 		"sample-ms": { type: "string", default: "10" },
 		rounds: { type: "string", default: "15" },
+		route: { type: "string" },
 	},
 	strict: true,
 });
@@ -47,6 +49,25 @@ const checkout = arg("moq");
 const out = arg("out");
 const sampleMs = Number(args["sample-ms"]);
 const rounds = Number(args.rounds);
+
+const codecRoutes = ["native", "wasm", "wasm copy-in", "wasm copy-out", "hand-written", "translated", "A/A"];
+const handoffRoutes = ["native", "wasm", "hand-written", "translated", "spawned", "A/A"];
+const extra = args.route === undefined ? undefined : await extraRoute(args.route);
+
+/** `--route`'s name, and the entries of the translations in its directory, which must both be there. */
+async function extraRoute(arg: string): Promise<{ name: string; codec: string; task: string }> {
+	const at = arg.indexOf("=");
+	const name = arg.slice(0, at);
+	if (at < 1 || at === arg.length - 1) throw new Error(`--route takes name=dir, not ${arg}`);
+	if ([...codecRoutes, ...handoffRoutes].includes(name)) throw new Error(`--route ${name} is already a route`);
+	const dir = resolve(arg.slice(at + 1));
+	const codec = join(dir, "translated", "bench.ts");
+	const task = join(dir, "task");
+	for (const file of [codec, join(task, "model.ts")]) {
+		if (!(await Bun.file(file).exists())) throw new Error(`--route ${name}: ${file} is missing`);
+	}
+	return { name, codec, task: await taskEntry(task) };
+}
 
 // `moq/` is the checkout, whose own imports resolve through its install.
 const moq: BunPlugin = {
@@ -111,6 +132,8 @@ await Promise.all([
 	Bun.write(join(out, "task.wasm"), taskWasmBytes),
 	Bun.write(join(out, "package.json"), '{ "type": "module" }\n'),
 	Bun.write(join(out, "index.html"), page),
+	extra && Bun.write(join(out, "route.js"), await bundle(extra.codec)),
+	extra && Bun.write(join(out, "task-route.js"), await bundle(extra.task)),
 ]);
 
 const moqWasm = arg("moq-wasm");
@@ -118,6 +141,7 @@ const sizes = [
 	{ route: "wasm", files: [wasmBytes] },
 	{ route: "hand-written", files: [await bundle(handWritten, { minify: true, plugins: [moq] })] },
 	{ route: "translated", files: [await bundle(translated, { minify: true })] },
+	...(extra ? [{ route: extra.name, files: [await bundle(extra.codec, { minify: true })] }] : []),
 	{ route: "moq-wasm package", files: [await read(join(moqWasm, "moq_bg.wasm")), await read(join(moqWasm, "moq.js"))] },
 ].map(measureSize);
 
@@ -126,6 +150,7 @@ const taskSizes = [
 	{ route: "wasm", files: [taskWasmBytes] },
 	{ route: "hand-written", files: [await bundle(taskHand, { minify: true })] },
 	{ route: "translated", files: [await bundle(taskTranslated, { minify: true })] },
+	...(extra ? [{ route: extra.name, files: [await bundle(extra.task, { minify: true })] }] : []),
 ].map(measureSize);
 
 function measureSize({ route, files }: { route: string; files: Uint8Array[] }) {
@@ -147,6 +172,7 @@ const config: Config = {
 	rounds,
 	workloads: list.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
 	handoffs: handoffList.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
+	route: extra?.name,
 };
 await Bun.write(join(out, "workloads.json"), JSON.stringify(config));
 
@@ -188,8 +214,18 @@ async function script(command: string): Promise<Engine> {
 	return JSON.parse(result);
 }
 
+// The page's longest step is a timing round, one or two samples of each of a few hundred
+// bodies: a few seconds at the default 10 ms, so this long a silence is a hang.
+const stallMs = Math.max(30_000, 1000 * sampleMs);
+
 async function chrome(): Promise<Engine> {
 	const { promise, resolve, reject } = Promise.withResolvers<Engine>();
+	let step = "loading the page";
+	let stall: Timer | undefined;
+	const progress = () => {
+		clearTimeout(stall);
+		stall = setTimeout(() => fail(`stalled for ${stallMs / 1000} s while ${step}`), stallMs);
+	};
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
@@ -197,7 +233,10 @@ async function chrome(): Promise<Engine> {
 			const path = new URL(req.url).pathname;
 			if (req.method === "POST") {
 				const body = await req.text();
-				if (path === "/result") resolve(JSON.parse(body));
+				if (path === "/progress") {
+					step = body;
+					progress();
+				} else if (path === "/result") resolve(JSON.parse(body));
 				else reject(new Error(`Chrome: ${body}`));
 				return new Response();
 			}
@@ -209,17 +248,26 @@ async function chrome(): Promise<Engine> {
 		},
 	});
 	// No sandbox: the page is our own, and CI runners refuse the user namespaces it needs.
+	// Its stderr goes to a file, which a child left behind cannot hold open as it can a pipe.
+	const log = join(out, "chrome.log");
 	const proc = Bun.spawn(
 		["chromium", "--headless", "--no-sandbox", "--no-first-run", `--user-data-dir=${join(out, "chrome")}`, server.url.href],
-		{ stdout: "ignore", stderr: "pipe" },
+		{ stdout: "ignore", stderr: Bun.file(log) },
 	);
-	proc.exited.then(async (code) => reject(new Error(`Chrome exited with ${code}:\n${await new Response(proc.stderr).text()}`)));
+	const fail = async (why: string) => {
+		proc.kill("SIGKILL");
+		reject(new Error(`Chrome ${why}:\n${await Bun.file(log).text()}`));
+	};
+	proc.exited.then((code) => fail(`exited with ${code}`));
+	progress();
 	try {
 		// The user agent reduces the version to its major number.
 		return { ...(await promise), engine: text(["chromium", "--version"]) };
 	} finally {
 		proc.kill();
+		// Closing the server first drops any progress still in flight.
 		await server.stop(true);
+		clearTimeout(stall);
 	}
 }
 
@@ -259,6 +307,7 @@ function render(): string {
 		"`js/net`, called as its own benchmarks call it, and for `iter/` the same chain with ES",
 		"iterator helpers (`bench/iter.ts`). `A/A` is the translation loaded a second time: its",
 		"gap from `translated` is the noise.",
+		...(extra ? [`\`${extra.name}\` is the translation in another run's output, given by \`--route\`.`] : []),
 		"",
 		"## Bundle size",
 		"",
@@ -270,7 +319,7 @@ function render(): string {
 		...sizes.map((s) => `| ${s.route} | ${s.raw} | ${s.gzip} |`),
 	];
 
-	const routes = ["native", "wasm", "wasm copy-in", "wasm copy-out", "hand-written", "translated", "A/A"];
+	const routes = [...codecRoutes, ...(extra ? [extra.name] : [])];
 	for (const engine of engines) {
 		const all = [...host.timings, ...engine.timings];
 		const median = (w: Workload, route: string) => stats(find(all, w, route).ns).median;
@@ -296,7 +345,7 @@ function render(): string {
 
 /** The async handoff on every route, and each route's size. */
 function renderHandoffs(): string[] {
-	const routes = ["native", "wasm", "hand-written", "translated", "spawned", "A/A"];
+	const routes = [...handoffRoutes, ...(extra ? [extra.name] : [])];
 	const lines = [
 		"",
 		"## Async handoff",
