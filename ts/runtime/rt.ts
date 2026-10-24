@@ -564,7 +564,13 @@ function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<numb
 		display: (a, f) => (typeof a === "number" ? f.padIntegral(a >= 0, "", String(a < 0 ? -a : a)) : limbs.display(a, f)),
 		lowerHex: (a, f) => limbs.lowerHex(big(a), f),
 		upperHex: (a, f) => limbs.upperHex(big(a), f),
-		of: (value) => (typeof value === "number" ? value : one(limbs.of(value))),
+		of(value) {
+			if (typeof value === "number") {
+				if (!Number.isSafeInteger(value)) throw new RangeError(`rust2-ts: ${value} is not a safe integer`);
+				if (fits(value)) return value;
+			}
+			return one(limbs.of(value));
+		},
 		cast: (value) => (typeof value === "number" && fits(value) ? value : one(limbs.cast(value))),
 		low: (a) => (typeof a === "number" ? a >>> 0 : a.lo),
 		eq,
