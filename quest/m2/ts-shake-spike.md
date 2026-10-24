@@ -9,9 +9,10 @@ types, from three built and measured:
 2. Free functions everywhere: plain objects plus exported functions.
 3. Free functions inside, with a thin class facade only on root types.
 
-Each is measured on `just ts bench` speed, on the consumer's final JS bundle after
-esbuild and rollup tree-shake and minify a consumer that uses part of the API, and
-on what caller code looks like. The winner lands with a CI tree-shake test: a
+Each is measured on `just ts bench` speed, on bundle size, and on what caller code
+looks like. Bundle size is a Bun production build (`bun build --minify`, which
+tree-shakes) of a small consumer that imports part of the API, raw and gzipped,
+using the benchmark's existing Bun setup. The winner lands with a CI tree-shake test: a
 consumer importing one function, asserting nothing unused survives.
 
 ## Plan

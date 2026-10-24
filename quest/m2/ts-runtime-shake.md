@@ -14,7 +14,8 @@ minified JS.
 Decided with the maintainer on 2026-10-24: the runtime is always free functions,
 whatever the [tree-shaking spike](/quest/m2/ts-shake-spike.md) picks for types,
 because callers never touch `rt` directly. Bundle size counts the consumer's final
-JS after their bundler tree-shakes and minifies it.
+JS: a Bun production build (`bun build --minify`, which tree-shakes) of a small
+consumer, raw and gzipped, using the benchmark's existing Bun setup.
 
 Public API: the runtime's exports, which translated code calls.
 
