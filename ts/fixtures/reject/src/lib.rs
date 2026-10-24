@@ -54,10 +54,25 @@ pub async fn later() -> u8 {
 	1
 }
 
-pub fn formatted(n: u8) {
-	if n > 3 {
-		panic!("too many: {n}");
-	}
+/// Format specs outside what moq uses.
+pub fn specs(n: u8, w: usize) -> [String; 9] {
+	[
+		format!("{n:.2}"),
+		format!("{n:+}"),
+		format!("{n:-}"),
+		format!("{n:b}"),
+		format!("{n:o}"),
+		format!("{n:e}"),
+		format!("{n:x?}"),
+		format!("{n:w$}"),
+		format!("{:p}", &n),
+	]
+}
+
+/// `fmt::Write` for a `String`, which a JS string can't be changed through.
+pub fn written(s: &mut String, n: u8) {
+	use std::fmt::Write;
+	let _ = write!(s, "{n}");
 }
 
 pub fn captured() -> u8 {

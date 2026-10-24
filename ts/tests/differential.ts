@@ -5,14 +5,14 @@
 //
 // A harness exports `run(input: Uint8Array): Vec<u8>`; the wasm build exports `input`,
 // `run`, and `output` around it, which `wasm.ts` calls. A panic traps natively and
-// throws `Panic` in TypeScript, and both count as the same outcome.
+// throws `Panic` in TypeScript, and the two agree only if their messages do.
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 import { Wasm } from "./wasm.ts";
 
-type Outcome = Uint8Array | "panic";
+type Outcome = Uint8Array | { panic: string };
 
 const [wasmPath, harnessPath, countArg] = process.argv.slice(2);
 if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.wasm> <harness.ts> [cases]");
@@ -25,7 +25,7 @@ function translated(input: Uint8Array): Outcome {
 	try {
 		return harness.run(input).view().slice();
 	} catch (err) {
-		if (err instanceof Error && err.name === "Panic") return "panic";
+		if (err instanceof Error && err.name === "Panic") return { panic: err.message };
 		throw err;
 	}
 }
@@ -57,8 +57,8 @@ function interesting(): number {
 	}
 }
 
-function hex(outcome: Outcome): string {
-	return outcome === "panic" ? "panic" : Buffer.from(outcome).toString("hex");
+function show(outcome: Outcome): string {
+	return outcome instanceof Uint8Array ? Buffer.from(outcome).toString("hex") : `panic ${JSON.stringify(outcome.panic)}`;
 }
 
 const cases: Uint8Array[] = [new Uint8Array(0)];
@@ -91,20 +91,21 @@ for (let i = 0; i < count; i++) {
 let failures = 0;
 let panics = 0;
 for (const input of cases) {
-	const want = wasm.call(input);
+	const called = wasm.call(input);
+	const want: Outcome = called === "panic" ? { panic: wasm.panicMessage } : called;
 	let got: Outcome;
 	try {
 		got = translated(input);
 	} catch (err) {
-		console.error(`input ${hex(input)}: the translation threw ${err}`);
+		console.error(`input ${show(input)}: the translation threw ${err}`);
 		failures++;
 		continue;
 	}
-	if (want === "panic") panics++;
-	if (hex(want) !== hex(got)) {
+	if (called === "panic") panics++;
+	if (show(want) !== show(got)) {
 		failures++;
 		if (failures <= 20) {
-			console.error(`input  ${hex(input)}\nnative ${hex(want)}\nts     ${hex(got)}\n`);
+			console.error(`input  ${show(input)}\nnative ${show(want)}\nts     ${show(got)}\n`);
 		}
 	}
 }

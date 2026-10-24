@@ -7,11 +7,15 @@ interface Exports {
 	input(len: number): number;
 	run(): number;
 	output(): number;
+	message(): number;
+	message_len(): number;
 }
 
 export class Wasm {
 	#module: WebAssembly.Module;
 	#exports: Exports;
+	/** The message of the last panic, which the module saved before it trapped. */
+	panicMessage = "";
 
 	constructor(module: WebAssembly.Module) {
 		this.#module = module;
@@ -34,13 +38,15 @@ export class Wasm {
 		return new Uint8Array(this.#exports.memory.buffer, this.#exports.output(), len).slice();
 	}
 
-	/** All three, or "panic" if the entry trapped. */
+	/** All three, or "panic" if the entry trapped, with its message in `panicMessage`. */
 	call(input: Uint8Array): Uint8Array | "panic" {
 		try {
 			this.input(input);
 			return this.output(this.run());
 		} catch (err) {
 			if (!(err instanceof WebAssembly.RuntimeError)) throw err;
+			const message = new Uint8Array(this.#exports.memory.buffer, this.#exports.message(), this.#exports.message_len());
+			this.panicMessage = new TextDecoder().decode(message);
 			// A trap leaves the instance mid-call: start a fresh one.
 			this.#exports = new WebAssembly.Instance(this.#module, {}).exports as unknown as Exports;
 			return "panic";

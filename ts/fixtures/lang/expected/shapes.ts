@@ -17,17 +17,21 @@ export class Point {
 	}
 
 	bump(): void {
-		this.y = rt.i32(this.y + 1);
+		this.y = rt.i32.add(this.y, 1);
 	}
 
 	/** Changes `self`, which a caller's copy must not see. */
 	shift(by: number): Point {
-		this.x = rt.i32(this.x + by);
+		this.x = rt.i32.add(this.x, by);
 		return rt.copy(this);
 	}
 
 	eq(other: Point): boolean {
 		return this.x === other.x && this.y === other.y;
+	}
+
+	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
 	}
 }
 
@@ -71,7 +75,22 @@ export const Shape = {
 		} else {
 			const width = self.width;
 			const height = self.height;
-			return rt.u64(BigInt(width) * BigInt(height));
+			return rt.u64.mul(BigInt(width), BigInt(height));
+		}
+	},
+
+	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Dot") {
+			return f.writeStr("Dot");
+		} else if (self.tag === "Line") {
+			const __self0 = self._0;
+			const __self1 = self._1;
+			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
+		} else {
+			const __self02 = self.corner;
+			const __self12 = self.width;
+			const __self2 = self.height;
+			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
 		}
 	},
 };
@@ -128,7 +147,7 @@ export function shape(data: Uint8Array): Shape {
 	const kind = splitFirst[0];
 	const rest = splitFirst[1];
 	const at = (i: number): number => {
-		return rt.i32(rt.option.unwrapOr(rt.slice.get(rest, i), 0) - 128);
+		return rt.i32.sub(rt.option.unwrapOr(rt.slice.get(rest, i), 0), 128);
 	};
 	const value = rt.u8.rem(kind, 3);
 	if (value === 0) {
@@ -136,7 +155,7 @@ export function shape(data: Uint8Array): Shape {
 	} else if (value === 1) {
 		return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) };
 	} else {
-		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16(rt.option.unwrapOr(rt.slice.get(rest, 2), 0) * 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) };
+		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16.mul(rt.option.unwrapOr(rt.slice.get(rest, 2), 0), 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) };
 	}
 }
 
@@ -144,13 +163,13 @@ export function shape(data: Uint8Array): Shape {
 export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	const p = Point.new(rt.option.unwrapOr(rt.slice.first(data), 0), 7);
 	let q: Point = rt.copy(p);
-	q.x = rt.i32(q.x + 100);
+	q.x = rt.i32.add(q.x, 100);
 	q.bump();
 	const r = rt.copy(p).shift(5);
 	let pair: [Point, number] = [rt.copy(p), 3];
 	const saved = rt.copy(pair);
 	pair[0].y = -1;
-	pair[1] = rt.u8(pair[1] + 1);
+	pair[1] = rt.u8.add(pair[1], 1);
 	const point = rt.copy(p);
 	let grid: Point[] = Array.from({ length: 3 }, (): Point => {
 		return rt.copy(point);
@@ -183,12 +202,12 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 		return m._0;
 	})));
 	const res = rt.Ok(rt.copy(p));
-	let first: Point = rt.result.unwrap(rt.copy(res));
+	let first: Point = rt.result.unwrap(rt.copy(res), rt.u8.display);
 	first.x = 2;
 	const fail = rt.Err(rt.copy(q));
-	let err: Point = rt.result.unwrapErr(rt.copy(fail));
+	let err: Point = rt.result.unwrapErr(rt.copy(fail), rt.u8.display);
 	err.y = 3;
-	out.extendFromSlice(Uint8Array.of(first.x & 0xff, rt.result.unwrap(rt.copy(res)).x & 0xff, err.y & 0xff, rt.result.unwrapErr(rt.copy(fail)).y & 0xff));
+	out.extendFromSlice(Uint8Array.of(first.x & 0xff, rt.result.unwrap(rt.copy(res), rt.u8.display).x & 0xff, err.y & 0xff, rt.result.unwrapErr(rt.copy(fail), rt.u8.display).y & 0xff));
 }
 
 /** Fieldless enums cast to every width, past their discriminant's range and sign. */
@@ -222,7 +241,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 			if (top === 0) {
 				continue;
 			}
-			popped = rt.u32(popped + top);
+			popped = rt.u32.add(popped, top);
 			if (popped > 1000) {
 				break;
 			}
@@ -234,7 +253,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let found: [number, number] | undefined = undefined;
 	const end = data.length;
 	loop2: for (let i = 0; i < end; i++) {
-		const start = rt.usize(i + 1);
+		const start = rt.usize.add(i, 1);
 		const end2 = data.length;
 		for (let j = start; j < end2; j++) {
 			if (rt.at(data, i) === rt.at(data, j)) {
@@ -260,7 +279,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 			steps = 0;
 			break;
 		}
-		n = rt.u64.rem(n, 2n) === 0n ? rt.u64.div(n, 2n) : rt.u64(rt.u64(3n * n) + 1n);
+		n = rt.u64.rem(n, 2n) === 0n ? rt.u64.div(n, 2n) : rt.u64.add(rt.u64.mul(3n, n), 1n);
 		if (n > 100n) {
 			steps = 1;
 			break;
@@ -269,12 +288,12 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(steps);
 	let count: number = 0;
 	for (let _ = 0; _ <= 3; _++) {
-		count = rt.u8(count + 1);
+		count = rt.u8.add(count, 1);
 	}
 	let i3: number = 10;
 	while (i3 > -3) {
-		i3 = rt.i8(i3 - 4);
-		count = rt.u8(count + 1);
+		i3 = rt.i8.sub(i3, 4);
+		count = rt.u8.add(count, 1);
 	}
 	out.push(count);
 }
@@ -363,22 +382,22 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			const x = shape_.corner.x;
 			const width = shape_.width;
 			if (x > 0) {
-				area = rt.i64(BigInt(width) * BigInt(x));
+				area = rt.i64.mul(BigInt(width), BigInt(x));
 				break arms3;
 			}
 		}
 		if (shape_.tag === "Rect") {
 			const width2 = shape_.width;
 			const height = shape_.height;
-			area = rt.i64(-rt.i64(BigInt(width2) * BigInt(height)));
+			area = rt.i64.neg(rt.i64.mul(BigInt(width2), BigInt(height)));
 			break arms3;
 		}
 		const a2 = rt.copy(shape_._0);
 		const b3 = rt.copy(shape_._1);
-		area = rt.i64(BigInt(rt.i32(a2.x - b3.x)) * BigInt(rt.i32(a2.y - b3.y)));
+		area = rt.i64.mul(BigInt(rt.i32.sub(a2.x, b3.x)), BigInt(rt.i32.sub(a2.y, b3.y)));
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total = rt.u64(total$Shape([shape_, { tag: "Dot" } as Shape], out) + total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
+	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 }
 
@@ -386,7 +405,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	let sum: number = 0;
 	let add: (a0: number) => void = (v: number): void => {
-		sum = rt.u32(sum + v);
+		sum = rt.u32.add(sum, v);
 	};
 	for (const item of data) {
 		const b = item;
@@ -395,7 +414,7 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.u32.toBeBytes(sum));
 	const base = data.length;
 	const scale = (v2: number): number => {
-		return rt.u32(rt.u32(v2 * 3) + base);
+		return rt.u32.add(rt.u32.mul(v2, 3), base);
 	};
 	out.extendFromSlice(rt.u32.toBeBytes(apply(scale, sum)));
 	let parsed: Array<Dir | undefined> = [];
@@ -427,7 +446,7 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 			return undefined;
 		}
 		const doubled = checkedMul;
-		return rt.u8(doubled - 1);
+		return rt.u8.sub(doubled, 1);
 	};
 	const a2 = rt.option.unwrapOr(rt.slice.first(data), 0);
 	const b2 = rt.option.unwrapOr(rt.slice.get(data, 1), 0);

@@ -58,7 +58,7 @@ export class Versions {
 			return rt.Err(decode.error);
 		}
 		const value = decode.value;
-		return rt.Ok([value, rt.usize(buf.length - r.remaining())]);
+		return rt.Ok([value, rt.usize.sub(buf.length, r.remaining())]);
 	}
 
 	/** Encode the version list. */

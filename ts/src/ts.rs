@@ -44,6 +44,9 @@ pub enum Expr {
 	Cond(Box<Expr>, Box<Expr>, Box<Expr>),
 	Assign(Box<Expr>, Box<Expr>),
 	Arrow(Vec<Param>, Type, Vec<Stmt>),
+	/// An arrow function whose body is one expression, its return type inferred:
+	/// `(f: rt.Formatter) => f.pad(s)`.
+	Lambda(Vec<Param>, Box<Expr>),
 	/// `e as T`, for a literal whose type TypeScript would widen.
 	As(Box<Expr>, Type),
 	Located(Loc, Box<Expr>),
