@@ -42,7 +42,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	return out;
 }
 
-export function form(selector: number): Form {
+export function form(selector: rt.u8): Form {
 	const value = rt.u8.rem(selector, 3);
 	if (value === 0) {
 		return { tag: "Quic" };
@@ -53,7 +53,7 @@ export function form(selector: number): Form {
 	}
 }
 
-export function liteVersion(selector: number): version_Version {
+export function liteVersion(selector: rt.u8): version_Version {
 	const value = rt.u8.rem(selector, 7);
 	if (value === 0) {
 		return "Lite01";
@@ -72,16 +72,16 @@ export function liteVersion(selector: number): version_Version {
 	}
 }
 
-export function putU64(out: rt.ByteVec, value: rt.U64): void {
+export function putU64(out: rt.ByteVec, value: rt.u64): void {
 	out.extendFromSlice(rt.u64.toBeBytes(value));
 }
 
-export function putUsize(out: rt.ByteVec, value: number): void {
-	putU64(out, value);
+export function putUsize(out: rt.ByteVec, value: rt.usize): void {
+	putU64(out, value as rt.u64);
 }
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
-export function takeU64(data: Uint8Array): [rt.U64, Uint8Array] {
+export function takeU64(data: Uint8Array): [rt.u64, Uint8Array] {
 	let buf: Uint8Array = new Uint8Array(8);
 	const n = rt.min(data.length, 8);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data, 0, n));
@@ -179,7 +179,7 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	const len = splitFirst2[0];
 	const data3 = splitFirst2[1];
-	const [script, wire] = rt.slice.splitAt(data3, rt.min(data3.length, len));
+	const [script, wire] = rt.slice.splitAt(data3, rt.min(data3.length, len as rt.usize));
 	let r: Decoder = Decoder.new(wire, form(selector));
 	for (const item of script) {
 		const step = item;
@@ -197,7 +197,7 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(r.isEmpty() ? 1 : 0);
 }
 
-export function decodeStep(r: Decoder, step: number, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
+export function decodeStep(r: Decoder, step: rt.u8, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
 	const value = rt.u8.rem(step, 10);
 	if (value === 0) {
 		const arg = out;
@@ -255,14 +255,14 @@ export function decodeStep(r: Decoder, step: number, out: rt.ByteVec): rt.Result
 		const s = string.value;
 		out.extendFromSlice(rt.string.asBytes(s));
 	} else if (value === 7) {
-		const slice = r.slice(rt.u8.div(step, 10));
+		const slice = r.slice(rt.u8.div(step, 10) as rt.usize);
 		if (!slice.ok) {
 			return rt.Err(slice.error);
 		}
 		const slice2 = slice.value;
 		out.extendFromSlice(slice2);
 	} else if (value === 8) {
-		const sub = r.sub(rt.u8.div(step, 10));
+		const sub = r.sub(rt.u8.div(step, 10) as rt.usize);
 		if (!sub.ok) {
 			return rt.Err(sub.error);
 		}
@@ -294,7 +294,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	const len = splitFirst2[0];
 	const data3 = splitFirst2[1];
-	let [script, values] = rt.slice.splitAt(data3, rt.min(data3.length, len));
+	let [script, values] = rt.slice.splitAt(data3, rt.min(data3.length, len as rt.usize));
 	let buf: rt.ByteVec = new rt.ByteVec();
 	let w: Encoder = Encoder.new(buf, form(selector));
 	let prefixes: Prefix[] = [];
@@ -320,7 +320,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			const value3 = rt.u64.rem(value, 3);
 			result = arg.varintOpt(value3 === 0 ? undefined : value3 === 1 ? value : rt.u64.of(18446744073709551615n));
 		} else if (value2 === 5) {
-			result = w.bytes(rt.slice.range(rt.u64.toBeBytes(value), 0, rt.u8.rem(rt.u8.div(step, 10), 9)));
+			result = w.bytes(rt.slice.range(rt.u64.toBeBytes(value), 0, rt.u8.rem(rt.u8.div(step, 10), 9) as rt.usize));
 		} else if (value2 === 6) {
 			const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(rt.u64.toBeBytes(value)));
 			if (fromUtf8.ok) {

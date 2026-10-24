@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 /** moq-net's session error, trimmed to a few variants: the codec only carries it. */
-export type SessionError = { tag: "ProtocolViolation" } | { tag: "App"; _0: number };
+export type SessionError = { tag: "ProtocolViolation" } | { tag: "App"; _0: rt.u16 };
 
 export const SessionError = {
 	fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
@@ -11,7 +11,7 @@ export const SessionError = {
 			return __formatter.writeStr("protocol violation");
 		} else {
 			const _0 = self._0;
-			const value = [_0] as [number];
+			const value = [_0] as [rt.u16];
 			const __display0 = value[0];
 			return __formatter.writeFmt(["app code=", (f: rt.Formatter) => rt.u16.display(__display0, f)]);
 		}

@@ -10,13 +10,13 @@ export type DecodeError =
 	| { tag: "Short" }
 	| { tag: "Long" }
 	| { tag: "InvalidString"; _0: rt.FromUtf8Error }
-	| { tag: "InvalidMessage"; _0: rt.U64 }
+	| { tag: "InvalidMessage"; _0: rt.u64 }
 	| { tag: "InvalidSubscribeLocation" }
 	| { tag: "InvalidValue" }
 	| { tag: "TooMany" }
 	| { tag: "BoundsExceeded" }
 	| { tag: "ExpectedEnd" }
-	| { tag: "MessageTooLarge"; size: number; max: number }
+	| { tag: "MessageTooLarge"; size: rt.usize; max: rt.usize }
 	| { tag: "ExpectedData" }
 	| { tag: "Duplicate" }
 	| { tag: "Missing" }
@@ -37,7 +37,7 @@ export const DecodeError = {
 			return __formatter.writeStr("invalid string");
 		} else if (self.tag === "InvalidMessage") {
 			const _0 = self._0;
-			const value = [_0] as [rt.U64];
+			const value = [_0] as [rt.u64];
 			const __field0 = value[0];
 			return __formatter.writeFmt(["invalid message: ", (f: rt.Formatter) => rt.u64.display(__field0, f)]);
 		} else if (self.tag === "InvalidSubscribeLocation") {
@@ -53,7 +53,7 @@ export const DecodeError = {
 		} else if (self.tag === "MessageTooLarge") {
 			const size = self.size;
 			const max = self.max;
-			const value2 = [size, max] as [number, number];
+			const value2 = [size, max] as [rt.usize, rt.usize];
 			const __displaySize = value2[0];
 			const __displayMax = value2[1];
 			return __formatter.writeFmt(["message too large: ", (f: rt.Formatter) => rt.usize.display(__displaySize, f), " bytes exceeds ", (f: rt.Formatter) => rt.usize.display(__displayMax, f), " byte limit"]);
@@ -155,18 +155,18 @@ export class Decoder {
 	buf: Uint8Array;
 	form: Form;
 	/** The length of the buffer this decoder started with. */
-	len: number;
+	len: rt.usize;
 	/** See [`Self::need`]. */
-	_need: number;
+	_need: rt.usize;
 	/** The control message read, counted once the read is consumed. */
 	control: Control | undefined;
 	/**
 	 * Leading bytes left out of the `control` count: a type selector the sender writes
 	 * apart from the message, and so never counts.
 	 */
-	uncounted: number;
+	uncounted: rt.usize;
 
-	constructor(fields: { buf: Uint8Array; form: Form; len: number; _need: number; control: Control | undefined; uncounted: number }) {
+	constructor(fields: { buf: Uint8Array; form: Form; len: rt.usize; _need: rt.usize; control: Control | undefined; uncounted: rt.usize }) {
 		this.buf = fields.buf;
 		this.form = fields.form;
 		this.len = fields.len;
@@ -185,19 +185,19 @@ export class Decoder {
 	 * needed: at least one more than the buffer when it can't tell, and 0 if no read of
 	 * this decoder ran short.
 	 */
-	need(): number {
+	need(): rt.usize {
 		return this._need;
 	}
 
 	/** Record that a read wanted `more` bytes past the current position. */
-	short(more: number): DecodeError {
+	short(more: rt.usize): DecodeError {
 		const need = rt.usize.saturatingAdd(rt.usize.sub(this.len, this.buf.length), more);
 		this._need = rt.max(this._need, need);
 		return { tag: "Short" };
 	}
 
 	/** The number of unread bytes. */
-	remaining(): number {
+	remaining(): rt.usize {
 		return this.buf.length;
 	}
 
@@ -207,7 +207,7 @@ export class Decoder {
 	}
 
 	/** Read `len` raw bytes. */
-	slice(len: number): rt.Result<Uint8Array, DecodeError> {
+	slice(len: rt.usize): rt.Result<Uint8Array, DecodeError> {
 		const splitAtChecked = rt.slice.splitAtChecked(this.buf, len);
 		if (splitAtChecked === undefined) {
 			return rt.Err(this.short(len));
@@ -226,7 +226,7 @@ export class Decoder {
 	}
 
 	/** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
-	sub(len: number): rt.Result<Decoder, DecodeError> {
+	sub(len: rt.usize): rt.Result<Decoder, DecodeError> {
 		const slice = this.slice(len);
 		if (!slice.ok) {
 			return rt.Err(slice.error);
@@ -235,7 +235,7 @@ export class Decoder {
 	}
 
 	/** Read a single byte. */
-	u8(): rt.Result<number, DecodeError> {
+	u8(): rt.Result<rt.u8, DecodeError> {
 		const slice = this.slice(1);
 		if (!slice.ok) {
 			return rt.Err(slice.error);
@@ -244,7 +244,7 @@ export class Decoder {
 	}
 
 	/** Read a big-endian `u16`. */
-	u16(): rt.Result<number, DecodeError> {
+	u16(): rt.Result<rt.u16, DecodeError> {
 		const slice = this.slice(2);
 		if (!slice.ok) {
 			return rt.Err(slice.error);
@@ -269,7 +269,7 @@ export class Decoder {
 	}
 
 	/** Read a varint. */
-	varint(): rt.Result<rt.U64, DecodeError> {
+	varint(): rt.Result<rt.u64, DecodeError> {
 		const read_ = read(this.buf, this.form);
 		if (read_.ok) {
 			const value = read_.value[0];
@@ -285,7 +285,7 @@ export class Decoder {
 	}
 
 	/** Read an optional varint: 0 is `None`, and `n + 1` is `Some(n)`. */
-	varintOpt(): rt.Result<rt.U64 | undefined, DecodeError> {
+	varintOpt(): rt.Result<rt.u64 | undefined, DecodeError> {
 		const varint = this.varint();
 		if (!varint.ok) {
 			return rt.Err(varint.error);

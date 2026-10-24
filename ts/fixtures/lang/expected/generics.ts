@@ -7,14 +7,14 @@ import { Point, Meters, Shape } from "./shapes.ts";
 /** A generic struct, with methods on every instance, on some, and on one. */
 export class Wrap<T> {
 	value: T;
-	count: number;
+	count: rt.u8;
 
-	constructor(fields: { value: T; count: number }) {
+	constructor(fields: { value: T; count: rt.u8 }) {
 		this.value = fields.value;
 		this.count = fields.count;
 	}
 
-	fmt$Option_u8(this: Wrap<number | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$Option_u8(this: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.option(this.value, f, rt.u8.display)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
@@ -26,7 +26,7 @@ export class Wrap<T> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => this.value.fmt(f)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
-	fmt$Result_u8_Shape(this: Wrap<rt.Result<number, Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$Result_u8_Shape(this: Wrap<rt.Result<rt.u8, Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.result(this.value, f, rt.u8.display, (value: Shape, f: rt.Formatter) => Shape.fmt(value, f))).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
@@ -34,7 +34,7 @@ export class Wrap<T> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Shape.fmt(this.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
-	fmt$Vec_u16(this: Wrap<number[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$Vec_u16(this: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.list(this.value, f, rt.u16.display)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
@@ -42,11 +42,11 @@ export class Wrap<T> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => this.value.fmt$Pair(f)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
-	fmt$i16(this: Wrap<number>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$i16(this: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.i16.display(this.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
-	fmt$u8(this: Wrap<number>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$u8(this: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.u8.display(this.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(this.count, f)).finish();
 	}
 
@@ -54,7 +54,7 @@ export class Wrap<T> {
 		return this.count === other.count && this.value.eq(other.value);
 	}
 
-	static new$Option_u8(value: number | undefined): Wrap<number | undefined> {
+	static new$Option_u8(value: rt.u8 | undefined): Wrap<rt.u8 | undefined> {
 		return new Wrap({ value, count: 0 });
 	}
 
@@ -74,15 +74,15 @@ export class Wrap<T> {
 		return new Wrap({ value: rt.copy(value), count: 0 });
 	}
 
-	static new$i16(value: number): Wrap<number> {
+	static new$i16(value: rt.i16): Wrap<rt.i16> {
 		return new Wrap({ value, count: 0 });
 	}
 
-	static new$u8(value: number): Wrap<number> {
+	static new$u8(value: rt.u8): Wrap<rt.u8> {
 		return new Wrap({ value, count: 0 });
 	}
 
-	get$Option_u8(this: Wrap<number | undefined>): number | undefined {
+	get$Option_u8(this: Wrap<rt.u8 | undefined>): rt.u8 | undefined {
 		return this.value;
 	}
 
@@ -94,21 +94,21 @@ export class Wrap<T> {
 		return this.value;
 	}
 
-	get$u8(this: Wrap<number>): number {
+	get$u8(this: Wrap<rt.u8>): rt.u8 {
 		return this.value;
 	}
 
-	bump$Point(this: Wrap<Point>): number {
+	bump$Point(this: Wrap<Point>): rt.u8 {
 		this.count = rt.u8.wrappingAdd(this.count, 1);
 		return this.count;
 	}
 
-	bump$Vec_u16(this: Wrap<number[]>): number {
+	bump$Vec_u16(this: Wrap<rt.u16[]>): rt.u8 {
 		this.count = rt.u8.wrappingAdd(this.count, 1);
 		return this.count;
 	}
 
-	bump$u8(this: Wrap<number>): number {
+	bump$u8(this: Wrap<rt.u8>): rt.u8 {
 		this.count = rt.u8.wrappingAdd(this.count, 1);
 		return this.count;
 	}
@@ -118,27 +118,27 @@ export class Wrap<T> {
 	}
 
 	/** A method with its own type parameter. */
-	map(this: Wrap<number>, f: (a0: number) => Pair): Wrap<Pair> {
+	map(this: Wrap<rt.u8>, f: (a0: rt.u8) => Pair): Wrap<Pair> {
 		return new Wrap({ value: f(this.value), count: this.count });
 	}
 
-	scaled$Meters(this: Wrap<Meters>): rt.U64 {
-		return rt.u64.saturatingAdd(this.value.area(), this.count);
+	scaled$Meters(this: Wrap<Meters>): rt.u64 {
+		return rt.u64.saturatingAdd(this.value.area(), this.count as rt.u64);
 	}
 
-	scaled$Shape(this: Wrap<Shape>): rt.U64 {
-		return rt.u64.saturatingAdd(Shape.area(this.value), this.count);
+	scaled$Shape(this: Wrap<Shape>): rt.u64 {
+		return rt.u64.saturatingAdd(Shape.area(this.value), this.count as rt.u64);
 	}
 
-	double(this: Wrap<number>): number {
-		return rt.u16.mul(this.value, 2);
+	double(this: Wrap<rt.u8>): rt.u16 {
+		return rt.u16.mul(this.value as rt.u16, 2);
 	}
 
-	area$Meters(this: Wrap<Meters>): rt.U64 {
+	area$Meters(this: Wrap<Meters>): rt.u64 {
 		return this.value.area();
 	}
 
-	area$Shape(this: Wrap<Shape>): rt.U64 {
+	area$Shape(this: Wrap<Shape>): rt.u64 {
 		return Shape.area(this.value);
 	}
 
@@ -159,7 +159,7 @@ export class Wrap<T> {
 export type Either<L, R> = { tag: "Left"; _0: L } | { tag: "Right"; value: R } | { tag: "Neither" };
 
 export const Either = {
-	fmt$Point_u8(self: Either<Point, number>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$Point_u8(self: Either<Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Left") {
 			const __self0 = self._0;
 			return f.debugTuple("Left").field((f: rt.Formatter) => __self0.fmt(f)).finish();
@@ -171,7 +171,7 @@ export const Either = {
 		}
 	},
 
-	fmt$u8_Point(self: Either<number, Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$u8_Point(self: Either<rt.u8, Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Left") {
 			const __self0 = self._0;
 			return f.debugTuple("Left").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
@@ -183,7 +183,7 @@ export const Either = {
 		}
 	},
 
-	fmt$u8_u16(self: Either<number, number>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	fmt$u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 		if (self.tag === "Left") {
 			const __self0 = self._0;
 			return f.debugTuple("Left").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
@@ -195,7 +195,7 @@ export const Either = {
 		}
 	},
 
-	left$Point_u8(self: Either<Point, number>): Point | undefined {
+	left$Point_u8(self: Either<Point, rt.u8>): Point | undefined {
 		if (self.tag === "Left") {
 			const l = rt.copy(self._0);
 			return rt.copy(l);
@@ -204,7 +204,7 @@ export const Either = {
 		}
 	},
 
-	left$u8_Point(self: Either<number, Point>): number | undefined {
+	left$u8_Point(self: Either<rt.u8, Point>): rt.u8 | undefined {
 		if (self.tag === "Left") {
 			const l = self._0;
 			return l;
@@ -213,7 +213,7 @@ export const Either = {
 		}
 	},
 
-	left$u8_u16(self: Either<number, number>): number | undefined {
+	left$u8_u16(self: Either<rt.u8, rt.u16>): rt.u8 | undefined {
 		if (self.tag === "Left") {
 			const l = self._0;
 			return l;
@@ -222,7 +222,7 @@ export const Either = {
 		}
 	},
 
-	flip(self: Either<number, Point>): Either<Point, number> {
+	flip(self: Either<rt.u8, Point>): Either<Point, rt.u8> {
 		if (self.tag === "Left") {
 			const l = self._0;
 			return { tag: "Right", value: l };
@@ -247,28 +247,28 @@ export class Tagged<K, V> {
 		this.all = fields.all;
 	}
 
-	fmt(this: Tagged<Either<number, number>, number>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.debugStruct("Tagged").field("key", (f: rt.Formatter) => Either.fmt$u8_u16(this.key, f)).field("inner", (f: rt.Formatter) => this.inner.fmt$i16(f)).field("all", (f: rt.Formatter) => rt.fmt.list(this.all, f, (value: Wrap<number>, f: rt.Formatter) => value.fmt$i16(f))).finish();
+	fmt(this: Tagged<Either<rt.u8, rt.u16>, rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		return f.debugStruct("Tagged").field("key", (f: rt.Formatter) => Either.fmt$u8_u16(this.key, f)).field("inner", (f: rt.Formatter) => this.inner.fmt$i16(f)).field("all", (f: rt.Formatter) => rt.fmt.list(this.all, f, (value: Wrap<rt.i16>, f: rt.Formatter) => value.fmt$i16(f))).finish();
 	}
 
-	first(this: Tagged<Either<number, number>, number>): Wrap<number> | undefined {
+	first(this: Tagged<Either<rt.u8, rt.u16>, rt.i16>): Wrap<rt.i16> | undefined {
 		return rt.copy(rt.slice.first(this.all));
 	}
 }
 
 /** Each method once per instance: `Wrap` of a struct, an enum, a number, and itself. */
 export function methods(data: Uint8Array, out: rt.ByteVec): void {
-	const at = (i: number): number => {
+	const at = (i: rt.usize): rt.u8 => {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
-	let point: Wrap<Point> = Wrap.new$Point(new Point({ x: at(0), y: -2 }));
+	let point: Wrap<Point> = Wrap.new$Point(new Point({ x: at(0) as rt.i32, y: -2 }));
 	point.bump$Point();
-	let byte: Wrap<number> = Wrap.new$u8(at(1));
+	let byte: Wrap<rt.u8> = Wrap.new$u8(at(1));
 	byte.bump$u8();
 	byte.bump$u8();
 	const nested = Wrap.new$Wrap_Pair(Wrap.new$Pair(new Pair(at(2), -3)));
-	const meters = new Wrap({ value: new Meters(at(3)), count: at(4) });
-	const shape = Wrap.new$Shape({ tag: "Rect", corner: rt.copy(point).intoInner(), width: at(5), height: 3 });
+	const meters = new Wrap({ value: new Meters(at(3) as rt.u64), count: at(4) });
+	const shape = Wrap.new$Shape({ tag: "Rect", corner: rt.copy(point).intoInner(), width: at(5) as rt.u16, height: 3 });
 	put(out, rt.fmt.format([(f: rt.Formatter) => point.fmt$Point(f), " ", (f: rt.Formatter) => byte.fmt$u8(f), " ", (f: rt.Formatter) => nested.fmt$Wrap_Pair(f), " ", (f: rt.Formatter) => shape.fmt$Shape(f)]));
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => nested.fmt$Wrap_Pair(f))]));
 	out.extendFromSlice(rt.u16.toBeBytes(byte.double()));
@@ -278,13 +278,13 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.u64.toBeBytes(shape.scaled$Shape()));
 	meters.describe$Meters(out);
 	shape.describe$Shape(out);
-	const mapped = rt.copy(byte).map((b: number): Pair => {
-		return new Pair(b, at(6));
+	const mapped = rt.copy(byte).map((b: rt.u8): Pair => {
+		return new Pair(b, at(6) as rt.i64);
 	});
 	const arg2 = out;
 	const arg = mapped.eq(Wrap.new$Pair(new Pair(at(1), 0)));
 	put(arg2, rt.fmt.format([(f: rt.Formatter) => mapped.fmt$Pair(f), " ", (f: rt.Formatter) => rt.fmt.bool(arg, f)]));
-	const eithers = [{ tag: "Left", _0: at(7) } as Either<number, Point>, { tag: "Right", value: Point.new(1, -1) } as Either<number, Point>, { tag: "Neither" } as Either<number, Point>];
+	const eithers = [{ tag: "Left", _0: at(7) } as Either<rt.u8, Point>, { tag: "Right", value: Point.new(1, -1) } as Either<rt.u8, Point>, { tag: "Neither" } as Either<rt.u8, Point>];
 	for (const either of rt.copy(eithers)) {
 		const flipped = Either.flip(either);
 		const arg5 = out;
@@ -292,8 +292,8 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 		const arg4 = Either.left$Point_u8(flipped);
 		put(arg5, rt.fmt.format([(f: rt.Formatter) => Either.fmt$u8_Point(either, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Either.fmt$Point_u8(flipped, f)), " ", (f: rt.Formatter) => rt.fmt.option(arg3, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.option(arg4, f, (value: Point, f: rt.Formatter) => value.fmt(f))]));
 	}
-	let list: Wrap<number[]> = new Wrap({ value: [], count: 1 });
-	list.value.push(at(10));
+	let list: Wrap<rt.u16[]> = new Wrap({ value: [], count: 1 });
+	list.value.push(at(10) as rt.u16);
 	list.bump$Vec_u16();
 	const none = new Wrap({ value: undefined, count: 0 });
 	const some = Wrap.new$Option_u8(rt.slice.get(data, 11));
@@ -301,10 +301,10 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const arg7 = out;
 	const arg6 = rt.option.unwrapOr(none.get$Option_u8(), some.count);
 	put(arg7, rt.fmt.format([(f: rt.Formatter) => list.fmt$Vec_u16(f), " ", (f: rt.Formatter) => none.fmt$Option_u8(f), " ", (f: rt.Formatter) => some.fmt$Option_u8(f), " ", (f: rt.Formatter) => err.fmt$Result_u8_Shape(f), " ", (f: rt.Formatter) => rt.u8.display(arg6, f)]));
-	const tagged = new Tagged({ key: { tag: "Right", value: 500 } as Either<number, number>, inner: Wrap.new$i16(rt.i16.sub(at(8), 100)), all: rt.slice.toVec([Wrap.new$i16(-1), Wrap.new$i16(at(9))]) });
+	const tagged = new Tagged({ key: { tag: "Right", value: 500 } as Either<rt.u8, rt.u16>, inner: Wrap.new$i16(rt.i16.sub(at(8) as rt.i16, 100)), all: rt.slice.toVec([Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)]) });
 	const arg9 = out;
 	const arg8 = tagged.first();
-	put(arg9, rt.fmt.format([(f: rt.Formatter) => tagged.fmt(f), " ", (f: rt.Formatter) => rt.fmt.option(arg8, f, (value: Wrap<number>, f: rt.Formatter) => value.fmt$i16(f))]));
+	put(arg9, rt.fmt.format([(f: rt.Formatter) => tagged.fmt(f), " ", (f: rt.Formatter) => rt.fmt.option(arg8, f, (value: Wrap<rt.i16>, f: rt.Formatter) => value.fmt$i16(f))]));
 	out.extendFromSlice(rt.i16.toBeBytes(tagged.inner.value));
 	out.push(rt.option.unwrapOr(Either.left$u8_u16(tagged.key), 0));
 }

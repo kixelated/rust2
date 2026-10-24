@@ -8,9 +8,9 @@ import { type Version as version_Version } from "../lite/version.ts";
 
 /** A version number negotiated during the setup. */
 export class Version {
-	_0: rt.U64;
+	_0: rt.u64;
 
-	constructor(_0: rt.U64) {
+	constructor(_0: rt.u64) {
 		this._0 = _0;
 	}
 
@@ -51,7 +51,7 @@ export class Versions {
 	}
 
 	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
-	static decodeSlice(buf: Uint8Array, version: Form): rt.Result<[Versions, number], DecodeError> {
+	static decodeSlice(buf: Uint8Array, version: Form): rt.Result<[Versions, rt.usize], DecodeError> {
 		let r: Decoder = Decoder.new(buf, version);
 		const decode = Versions.decode(r, version);
 		if (!decode.ok) {
@@ -83,7 +83,7 @@ export class Versions {
 
 	/** Encode the version list. */
 	encode$Form(w: Encoder, version: Form): rt.Result<undefined, EncodeError> {
-		const varint = w.varint(this._0.length);
+		const varint = w.varint(this._0.length as rt.u64);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -98,7 +98,7 @@ export class Versions {
 
 	/** Encode the version list. */
 	encode$Version(w: Encoder, version: version_Version): rt.Result<undefined, EncodeError> {
-		const varint = w.varint(this._0.length);
+		const varint = w.varint(this._0.length as rt.u64);
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}

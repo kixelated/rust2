@@ -8,18 +8,18 @@ import { decodeWith$Group } from "../lite/message.ts";
 import { Version } from "../lite/version.ts";
 
 export class Group {
-	subscribe: rt.U64;
-	sequence: rt.U64;
-	frameStart: rt.U64;
+	subscribe: rt.u64;
+	sequence: rt.u64;
+	frameStart: rt.u64;
 
-	constructor(fields: { subscribe: rt.U64; sequence: rt.U64; frameStart: rt.U64 }) {
+	constructor(fields: { subscribe: rt.u64; sequence: rt.u64; frameStart: rt.u64 }) {
 		this.subscribe = fields.subscribe;
 		this.sequence = fields.sequence;
 		this.frameStart = fields.frameStart;
 	}
 
 	/** Decode the value from the front of `buf`, returning it and the bytes it took. */
-	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Group, number], DecodeError> {
+	static decodeSlice(buf: Uint8Array, version: Version): rt.Result<[Group, rt.usize], DecodeError> {
 		let r: Decoder = Decoder.new(buf, Form.from(version));
 		const decode = Group.decode(r, version);
 		if (!decode.ok) {
@@ -41,7 +41,7 @@ export class Group {
 			return rt.Err(varint2.error);
 		}
 		const sequence = varint2.value;
-		let frameStart: rt.U64;
+		let frameStart: rt.u64;
 		if (Version.hasFrameBounds(version)) {
 			const varint3 = r.varint();
 			if (!varint3.ok) {

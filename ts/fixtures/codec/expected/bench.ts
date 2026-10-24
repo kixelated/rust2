@@ -73,8 +73,8 @@ export function encodeVarints(data: Uint8Array, form_: Form, out: rt.ByteVec): r
 /** Every varint on the wire: how many, and the last. */
 export function decodeVarints(wire: Uint8Array, form_: Form, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
 	let r: Decoder = Decoder.new(wire, form_);
-	let count: number = 0;
-	let last: rt.U64 = 0;
+	let count: rt.usize = 0;
+	let last: rt.u64 = 0;
 	while (!r.isEmpty()) {
 		const varint = r.varint();
 		if (!varint.ok) {
@@ -100,11 +100,11 @@ export function encodeFrames(data: Uint8Array, version: Version, out: rt.ByteVec
 	const [size, data5] = takeU64(data4);
 	const [keyEvery, data6] = takeU64(data5);
 	const [keySize, ] = takeU64(data6);
-	const [delta2, keyEvery2] = [rt.i64.cast(delta), rt.u64.low(keyEvery)] as [rt.I64, number];
+	const [delta2, keyEvery2] = [rt.i64.cast(delta), rt.u64.low(keyEvery)] as [rt.i64, rt.usize];
 	let w: Encoder = Encoder.new(out, Form.from(version));
 	const end = rt.u64.low(count);
 	for (let n = 0; n < end; n++) {
-		let value: [rt.I64, rt.U64];
+		let value: [rt.i64, rt.u64];
 		arms: {
 			if (n === 0) {
 				value = [0, first];
@@ -133,9 +133,9 @@ export function encodeFrames(data: Uint8Array, version: Version, out: rt.ByteVec
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
 export function decodeFrames(wire: Uint8Array, version: Version, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
 	let r: Decoder = Decoder.new(wire, Form.from(version));
-	let count: number = 0;
-	let total: rt.U64 = 0;
-	let last: rt.I64 = 0;
+	let count: rt.usize = 0;
+	let total: rt.u64 = 0;
+	let last: rt.i64 = 0;
 	while (!r.isEmpty()) {
 		const varint = r.varint();
 		if (!varint.ok) {
@@ -167,38 +167,38 @@ export function encodeGroup(data: Uint8Array, version: Version, out: rt.ByteVec)
  * One iterator chain over every byte, picked by `chain`, with closures that cost little
  * next to the iterator protocol they run through.
  */
-export function iterate(chain: number, data: Uint8Array, out: rt.ByteVec): void {
+export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	if (chain === 0) {
-		putUsize(out, rt.iter.slice(data).map((arg: number): number => {
+		putUsize(out, rt.iter.slice(data).map((arg: rt.u8): rt.u8 => {
 			const b = arg;
 			return b >> 1;
-		}).filter((arg2: number): boolean => {
+		}).filter((arg2: rt.u8): boolean => {
 			const b2 = arg2;
 			return (b2 & 1) === 0;
 		}).count());
 	} else if (chain === 1) {
-		out.push(rt.iter.slice(data).any((arg3: number): boolean => {
+		out.push(rt.iter.slice(data).any((arg3: rt.u8): boolean => {
 			const b3 = arg3;
 			return b3 === 0xff;
 		}) ? 1 : 0);
 	} else if (chain === 2) {
-		const odd = rt.iter.slice(data).filter((arg4: number): boolean => {
+		const odd = rt.iter.slice(data).filter((arg4: rt.u8): boolean => {
 			const b4 = arg4;
 			return (b4 & 1) === 1;
 		}).toByteVec();
 		putUsize(out, odd.length);
 	} else if (chain === 3) {
-		putU64(out, rt.iter.slice(data).map((arg5: number): number => {
+		putU64(out, rt.iter.slice(data).map((arg5: rt.u8): rt.u32 => {
 			const b5 = arg5;
-			return b5;
-		}).sum(rt.u32.add, 0));
+			return b5 as rt.u32;
+		}).sum(rt.u32.add, 0) as rt.u64);
 	} else if (chain === 4) {
-		putU64(out, rt.iter.slice(data).skip(16).take(512).fold(0, (acc: number, arg6: number): number => {
+		putU64(out, rt.iter.slice(data).skip(16).take(512).fold(0, (acc: rt.u32, arg6: rt.u8): rt.u32 => {
 			const b6 = arg6;
-			return (acc ^ b6) >>> 0;
-		}));
+			return (acc ^ b6 as rt.u32) >>> 0;
+		}) as rt.u64);
 	} else {
-		let last: number = 0;
+		let last: rt.usize = 0;
 		const iter = rt.iter.slice(data).enumerate();
 		while (true) {
 			const item = iter.next();
