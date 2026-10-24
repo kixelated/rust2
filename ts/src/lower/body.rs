@@ -228,11 +228,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Reserve `name`, which a caller declares itself, so `fresh` never returns it.
-	pub fn reserve(&mut self, name: &str) {
-		self.names.insert(name.to_string());
-	}
-
 	pub fn subst<T: ty::TypeFoldable<ty::TyCtxt<'tcx>>>(&self, value: T) -> T {
 		self.t.subst(self.args, value)
 	}

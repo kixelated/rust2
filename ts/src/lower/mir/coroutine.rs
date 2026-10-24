@@ -148,7 +148,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	if let Some(mir) = super::instance_mir(t, instance, span) {
 		let ret = mir.return_ty();
 		let mut b = Body::detached(t, args, ret);
-		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine(info.clone()), span);
+		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 		let params = fx.params();
 		let body = fx.lower();
 		let ret = b.t.ret_ty(ret, span);
@@ -184,7 +184,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 				EarlyBinder::bind(tcx, drop),
 			);
 			let mut b = Body::detached(t, args, tcx.types.unit);
-			let mut fx = Fx::new(&mut b, &mir, Env::Coroutine(info.clone()), span);
+			let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 			fx.lower()
 		}
 		None => Vec::new(),

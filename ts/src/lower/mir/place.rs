@@ -21,7 +21,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn local_expr(&mut self, local: Local, span: Span) -> Expr {
 		if local.as_u32() == 1 {
 			match &self.env {
-				Env::Method | Env::Coroutine(_) => return Expr::This,
+				Env::Method | Env::Coroutine => return Expr::This,
 				Env::Closure(_) => return self.err(span, "a closure's environment read whole"),
 				Env::Plain | Env::Shim => {}
 			}

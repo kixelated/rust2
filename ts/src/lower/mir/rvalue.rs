@@ -231,7 +231,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Option<Expr> {
-		let tcx = self.tcx;
 		match kind {
 			AggregateKind::Closure(def_id, args) => return Some(self.closure(*def_id, args, ops, span, out)),
 			AggregateKind::Coroutine(def_id, args) => {

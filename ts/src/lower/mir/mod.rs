@@ -27,7 +27,7 @@ use rustc_span::Span;
 use self::cfg::Exit;
 use super::Translator;
 use super::body::Body;
-use super::library::Std;
+
 use crate::ts::{self, Expr, Param, Stmt, StmtKind, Type};
 
 /// Translate one function instance's body from its MIR.
@@ -96,7 +96,7 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 
 /// What `_1` is.
 #[derive(Clone)]
-pub enum Env<'tcx> {
+pub enum Env {
 	/// A parameter like any other.
 	Plain,
 	/// `this`: the method's receiver.
@@ -104,7 +104,7 @@ pub enum Env<'tcx> {
 	/// A closure's environment, whose fields are the expressions it captured.
 	Closure(Vec<Expr>),
 	/// A coroutine's state, behind `Pin<&mut Self>` or `&mut Self`: `this` of its class.
-	Coroutine(coroutine::Info<'tcx>),
+	Coroutine,
 	/// Drop glue, whose `_1` is a pointer to the value: the value in JS.
 	Shim,
 }
@@ -146,7 +146,7 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	pub b: &'m mut Body<'b, 'a, 'tcx>,
 	pub mir: &'m mir::Body<'tcx>,
 	pub tcx: TyCtxt<'tcx>,
-	env: Env<'tcx>,
+	env: Env,
 	slots: IndexVec<Local, Slot<'tcx>>,
 	/// Where each local assigned once is assigned, by a statement.
 	def_at: IndexVec<Local, Option<(BasicBlock, usize)>>,
@@ -196,7 +196,7 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
-	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env<'tcx>, span: Span) -> Self {
+	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
 		let mut fx = Fx {
@@ -301,7 +301,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The assert after checked arithmetic reads `.1`, which lowering folds away.
 					let folded = matches!(cond, Operand::Move(p) | Operand::Copy(p)
 						if p.projection.len() == 1 && self.checked.contains(&p.local));
-					if !folded {
+					if !folded && !redundant(msg) {
 						self.operand_use(cond);
 						// Only a bounds check's message shows its operands.
 						if let mir::AssertKind::BoundsCheck { len, index } = &**msg {
@@ -327,17 +327,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			} else {
 				Slot::Var(String::new())
 			};
-			if std::env::var_os("RUST2_TS_DEBUG").is_some() {
-				eprintln!(
-					"{:?} {local:?}: {slot:?} defs {} uses {} borrowed {} mutated {} def {:?}",
-					mir.source.def_id(),
-					self.defs[local],
-					self.uses[local],
-					self.borrowed[local],
-					self.mutated[local],
-					self.def_rvalue(local)
-				);
-			}
 			self.slots[local] = slot;
 		}
 		// Names: what debug info calls a local, else its number.
@@ -1268,17 +1257,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.operand(discr, span, &mut pre);
 				let value = match arms.len() {
 					0 | 1 => value,
-					_ => {
-						let path = match value.is_path() {
-							true => value,
-							false => {
-								let name = self.b.fresh("value");
-								pre.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
-								Expr::ident(name)
-							}
-						};
-						path
-					}
+					_ => match value.is_path() {
+						true => value,
+						false => {
+							let name = self.b.fresh("value");
+							pre.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
+							Expr::ident(name)
+						}
+					},
 				};
 				let mut tests = Vec::new();
 				for &(v, target) in &arms {
@@ -1332,6 +1318,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& p.projection.len() == 1
 			&& self.checked.contains(&p.local)
 		{
+			return;
+		}
+		if redundant(msg) {
 			return;
 		}
 		let mut pre = Vec::new();
@@ -1804,6 +1793,19 @@ pub fn fold(e: Expr) -> Expr {
 	}
 }
 
+/// Whether an assert checks what the runtime's division, remainder, negation, or shift
+/// checks as the operation it guards runs next, which panics with the same message.
+fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
+	use mir::{AssertKind, BinOp};
+	matches!(
+		msg,
+		AssertKind::OverflowNeg(_)
+			| AssertKind::DivisionByZero(_)
+			| AssertKind::RemainderByZero(_)
+			| AssertKind::Overflow(BinOp::Div | BinOp::Rem | BinOp::Shl | BinOp::Shr, ..)
+	)
+}
+
 /// Whether `term` is an assert of a constant that fails.
 fn fails(term: &mir::Terminator<'_>) -> bool {
 	let TerminatorKind::Assert {
@@ -1854,9 +1856,4 @@ fn inert(e: &Expr) -> bool {
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
 	}
-}
-
-/// Whether `ty` is the standard type `std`.
-pub fn is_std(tcx: TyCtxt<'_>, ty: Ty<'_>, std: Std) -> bool {
-	matches!(ty.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(std))
 }

@@ -520,11 +520,6 @@ fn int_named(name: &str) -> Option<Int> {
 	Some(Int { bits, signed, pointer })
 }
 
-/// Whether `ty` is `?`'s `ControlFlow`.
-pub fn is_control_flow<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
-	matches!(ty.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::ControlFlow))
-}
-
 /// The residual a `ControlFlow` breaks with: what `?` was applied to.
 fn residual<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Std> {
 	let ty::Adt(_, args) = ty.kind() else {
