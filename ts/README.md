@@ -183,7 +183,7 @@ they need.
   a class each. The MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)) ported
   the whole lowering and measured it against THIR's: every fixture's differential test
   passes either way, but MIR closes about 1,100 of the 1,400 drop refusals in moq-net's
-  census, runs an async handoff 1.5-5.9x faster at depths 1 to 16 in Node, Bun, and
+  census, runs an async handoff 1.5-5.4x faster at depths 1 to 16 in Node, Bun, and
   Chrome, and runs the codec at parity, for 9% more gzip on the codec's bundle and 36%
   on the async fixture's. Blocks become nested blocks, loops, and `if`s by Ramsey's
   "Beyond Relooper", except a coroutine's resume function, which enters loops in the
