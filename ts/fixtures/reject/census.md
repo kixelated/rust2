@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 38
+- Refusals: 36
 - Function instances: 19
 - Generic functions no instance reached, lowered over their type parameters: 1
 
@@ -17,8 +17,6 @@
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:65:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:64:3 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:3 |
-| 1 | `_` implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:43:1 |
-| 1 | `_` is async, which is not supported yet | fixtures/reject/src/lib.rs:53:1 |
 | 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:110:2 |
@@ -46,10 +44,8 @@ The type or module each refused type or path belongs to.
 | 3 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
-| 1 | `Guard` | fixtures/reject/src/lib.rs:43:1 |
 | 1 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
-| 1 | `later` | fixtures/reject/src/lib.rs:53:1 |
 | 1 | `std::iter::Filter` | fixtures/reject/src/lib.rs:40:31 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:40:11 |
 
@@ -60,8 +56,6 @@ The type or module each refused type or path belongs to.
 | 3 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:99:17 |
 | 3 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 2 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
-| 1 | `_` implements `Drop`, which is not supported yet | `Guard` | fixtures/reject/src/lib.rs:43:1 |
-| 1 | `_` is async, which is not supported yet | `later` | fixtures/reject/src/lib.rs:53:1 |
 | 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
@@ -145,18 +139,6 @@ The type or module each refused type or path belongs to.
 <details><summary>`Pointer` formatting, as in `{:p}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:68:3: `Pointer` formatting, as in `{:p}`, is not supported
-
-</details>
-
-<details><summary>`_` implements `Drop`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:43:1: `Guard` implements `Drop`, which is not supported yet
-
-</details>
-
-<details><summary>`_` is async, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:53:1: `later` is async, which is not supported yet
 
 </details>
 

@@ -62,7 +62,7 @@ fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
 				stack.push(path);
 			} else if path.extension().is_some_and(|e| e == "ts") {
 				let rel = path.strip_prefix(dir).unwrap().to_path_buf();
-				if rel != Path::new("rt.ts") {
+				if rel != Path::new("rt.ts") && !rel.starts_with("rt") {
 					files.push((rel, std::fs::read_to_string(&path).unwrap()));
 				}
 			}
@@ -191,6 +191,31 @@ fn lang() {
 	snapshot("lang", &out);
 	typecheck(&out);
 	differential("lang-fixture", &out, 50_000);
+}
+
+/// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
+/// executor logs every poll, wake, and drop as the fixture's native one does.
+#[test]
+fn task() {
+	let out = scratch().join("task").join("out");
+	let glue = out.join("harness.ts");
+	let _ = std::fs::remove_file(&glue);
+	let out = translated("task");
+	snapshot("task", &out);
+	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
+	let text = format!(
+		r#"import * as rt from "./rt.ts";
+import {{ Log }} from "./log.ts";
+import {{ Channel, Guard, drain, sum }} from "./model.ts";
+import {{ harness }} from {harness:?};
+
+export {{ cases }} from {harness:?};
+export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, drain }});
+"#
+	);
+	std::fs::write(&glue, text).unwrap();
+	typecheck(&out);
+	differential("task-fixture", &out, 20_000);
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.

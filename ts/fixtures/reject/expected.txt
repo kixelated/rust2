@@ -15,8 +15,6 @@ unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.r
 unsupported call to `core::slice::<impl [u8]>::iter` at fixtures/reject/src/lib.rs:40:4
 unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@fixtures/reject/src/lib.rs:40:18: 40:21}>` at fixtures/reject/src/lib.rs:40:11
 unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count` at fixtures/reject/src/lib.rs:40:31
-`Guard` implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:50:2
-`later` is async, which is not supported yet at fixtures/reject/src/lib.rs:53:1
 a precision, as in `{:.2}`, is not supported at fixtures/reject/src/lib.rs:60:3
 the `+` flag of a format spec is not supported at fixtures/reject/src/lib.rs:61:3
 the `-` flag of a format spec is not supported at fixtures/reject/src/lib.rs:62:3

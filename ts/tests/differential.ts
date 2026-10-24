@@ -80,6 +80,8 @@ for (let op = 0; op < 8; op++) {
 		}
 	}
 }
+// A harness's own cases, which name what they cover.
+if (Array.isArray(harness.cases)) cases.push(...harness.cases);
 for (let i = 0; i < count; i++) {
 	const len = Number(next() % 48n);
 	const input = new Uint8Array(len + 1);

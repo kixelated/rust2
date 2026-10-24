@@ -42,6 +42,23 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
+	/// `rt.Arc`, counted.
+	Arc,
+	/// `rt.Weak`.
+	Weak,
+	/// `rt.Mutex`, which is also its own guard.
+	Mutex,
+	MutexGuard,
+	/// What a `Mutex` can't be locked with on one thread: never.
+	PoisonError,
+	/// `rt.Waker`.
+	Waker,
+	/// `rt.Context`: its waker.
+	Context,
+	/// `rt.Poll<T>`: `T` itself, or `rt.Pending`.
+	Poll,
+	/// Its pointer.
+	Pin,
 }
 
 impl Std {
@@ -65,9 +82,31 @@ impl Std {
 		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
 			return Some(Self::Box);
 		}
+		for (item, std) in [
+			(sym::Arc, Self::Arc),
+			(sym::ArcWeak, Self::Weak),
+			(sym::Mutex, Self::Mutex),
+			(sym::MutexGuard, Self::MutexGuard),
+			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+		] {
+			if tcx.is_diagnostic_item(item, did) {
+				return Some(std);
+			}
+		}
+		for (item, std) in [
+			(rustc_attr_ir::LangItem::Context, Self::Context),
+			(rustc_attr_ir::LangItem::ResumeTy, Self::Context),
+			(rustc_attr_ir::LangItem::Poll, Self::Poll),
+			(rustc_attr_ir::LangItem::Pin, Self::Pin),
+		] {
+			if tcx.is_lang_item(did, item) {
+				return Some(std);
+			}
+		}
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"PoisonError" => return Some(Self::PoisonError),
 			_ => {}
 		}
 		match std_path(tcx, did)
@@ -167,6 +206,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 	let (owner, name) = key(tcx, call.def_id)?;
 	let span = call.span;
 	let gargs = call.args;
+	let args = match super::task::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
 
 	// Methods on integers.
 	if let Some(int) = int_named(&owner) {

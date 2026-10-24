@@ -6,10 +6,12 @@
 
 mod body;
 mod consts;
+mod drop;
 mod fmt;
 mod library;
 mod num;
 mod pat;
+mod task;
 
 use std::collections::VecDeque;
 
@@ -152,6 +154,10 @@ pub struct Translator<'a, 'tcx> {
 	env: TypingEnv<'tcx>,
 	/// Refusals collected for a census, rather than reported as errors.
 	refusals: Option<Vec<(Span, String)>>,
+	/// Whether each type's drop does something JS can see, as [`Self::drops`] found.
+	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
+	/// The classes given drop glue.
+	glued: rustc_data_structures::fx::FxHashSet<DefId>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -217,6 +223,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			failed: false,
 			env: TypingEnv::fully_monomorphized(),
 			refusals,
+			drops: Default::default(),
+			glued: Default::default(),
 		})
 	}
 
@@ -561,6 +569,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
 	}
 
+	/// The standard library type `ty` is, if it is one with its own representation.
+	pub fn std_of(&self, ty: Ty<'tcx>) -> Option<library::Std> {
+		match ty.kind() {
+			ty::Adt(adt, _) => library::Std::of(self.tcx, adt.did()),
+			_ => None,
+		}
+	}
+
 	pub fn is_copy(&self, ty: Ty<'tcx>) -> bool {
 		self.tcx.type_is_copy_modulo_regions(self.typing_env(), ty)
 	}
@@ -572,15 +588,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let did = adt.did();
-		if adt.destructor(tcx).is_some() {
-			self.err(
-				span,
-				format!(
-					"`{}` implements `Drop`, which is not supported yet",
-					tcx.def_path_str(did)
-				),
-			);
-		}
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
@@ -695,6 +702,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 		};
 		self.program.items.push(item);
+		self.drop_glue(adt, &info, span);
 		info
 	}
 
@@ -711,7 +719,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					library::Std::Formatter
 					| library::Std::DebugStruct
 					| library::Std::DebugTuple
-					| library::Std::DebugList,
+					| library::Std::DebugList
+					| library::Std::Arc
+					| library::Std::Weak
+					| library::Std::Mutex
+					| library::Std::MutexGuard
+					| library::Std::Waker
+					| library::Std::Context
+					| library::Std::Pin,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -719,6 +734,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
+			ty::Coroutine(..) => Some(ObjectKind::Class),
 			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
@@ -763,6 +779,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
 				if preds
@@ -813,6 +830,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					}
 					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
 				}
+				// A lock's result, which is never an error: its guard.
+				library::Std::Result if self.std_of(args.type_at(1)) == Some(library::Std::PoisonError) => {
+					self.ty(args.type_at(0), span)
+				}
 				library::Std::Result => Type::Rt(
 					"Result",
 					vec![self.ty(args.type_at(0), span), self.ty(args.type_at(1), span)],
@@ -832,6 +853,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::DebugTuple => Type::Rt("DebugTuple", vec![]),
 				library::Std::DebugList => Type::Rt("DebugList", vec![]),
 				library::Std::AssertKind => Type::Builtin("string"),
+				library::Std::Arc => Type::Rt("Arc", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Weak => Type::Rt("Weak", vec![self.ty(args.type_at(0), span)]),
+				// A guard's first argument is its lifetime.
+				library::Std::Mutex | library::Std::MutexGuard => {
+					let inner = args.types().next().expect("a guarded type");
+					Type::Rt("Mutex", vec![self.ty(inner, span)])
+				}
+				library::Std::PoisonError => Type::Builtin("never"),
+				library::Std::Waker => Type::Rt("Waker", vec![]),
+				library::Std::Context => Type::Rt("Context", vec![]),
+				library::Std::Poll => Type::Rt("Poll", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Pin => self.ty(args.type_at(0), span),
 			};
 		}
 		if !adt.did().is_local() {
@@ -883,13 +916,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			);
 			return;
 		};
-		if tcx.asyncness(def_id).is_async() {
-			self.err(
-				span,
-				format!("`{}` is async, which is not supported yet", tcx.def_path_str(def_id)),
-			);
-			return;
-		}
 		let owner = self.owner(instance);
 		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
 		let function = body::function(self, instance, thir, *expr, method);

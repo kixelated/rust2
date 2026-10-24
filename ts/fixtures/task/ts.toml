@@ -1,0 +1,4 @@
+package = "task-fixture"
+# What the hand-written harness, tests/task.ts, calls: the futures it spawns, and the
+# channels and log it drives them with.
+roots = ["log::Log", "model::Channel", "model::Guard", "model::sum", "model::drain"]

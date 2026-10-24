@@ -271,6 +271,10 @@ impl Refs {
 					self.stmts(program, body);
 				}
 				StmtKind::Block { body, .. } => self.stmts(program, body),
+				StmtKind::Try { body, finally } => {
+					self.stmts(program, body);
+					self.stmts(program, finally);
+				}
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -278,7 +282,7 @@ impl Refs {
 
 	fn expr(&mut self, program: &Program, e: &Expr) {
 		match e {
-			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
@@ -300,7 +304,7 @@ impl Refs {
 				self.expr(program, b);
 				self.expr(program, c);
 			}
-			Expr::Arrow(params, ret, body) => {
+			Expr::Arrow(params, ret, body) | Expr::Generator(params, ret, body) => {
 				self.params(program, params);
 				self.ty(program, ret);
 				self.stmts(program, body);
@@ -733,6 +737,15 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::Try { body, finally } => {
+				self.write("try {\n");
+				self.block_body(body);
+				self.start();
+				self.write("} finally {\n");
+				self.block_body(finally);
+				self.start();
+				self.write("}\n");
+			}
 			StmtKind::Break(label) => match label {
 				Some(label) => self.write(&format!("break {label};\n")),
 				None => self.write("break;\n"),
@@ -874,6 +887,17 @@ impl Printer<'_> {
 					self.write("}");
 				}
 			}
+			Expr::Generator(params, ret, body) => {
+				self.write("function* (");
+				self.params(params);
+				let ret = self.ty(ret);
+				self.uses_rt = true;
+				self.write(&format!("): Generator<undefined, {ret}, rt.Context> {{\n"));
+				self.block_body(body);
+				self.start();
+				self.write("}");
+			}
+			Expr::Yield => self.write("yield"),
 			Expr::Lambda(params, body) => {
 				self.write("(");
 				self.params(params);
@@ -1038,7 +1062,7 @@ fn binary_prec(op: &str) -> u8 {
 
 fn prec(e: &Expr) -> u8 {
 	match e {
-		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) => 3,
+		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) | Expr::Generator(..) | Expr::Yield => 3,
 		Expr::Cond(..) => 4,
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
@@ -1105,6 +1129,10 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(body, out);
 			}
 			StmtKind::Block { body, .. } => collect_locals(body, out),
+			StmtKind::Try { body, finally } => {
+				collect_locals(body, out);
+				collect_locals(finally, out);
+			}
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
 	}
@@ -1119,7 +1147,7 @@ fn collect_target(target: &Target, out: &mut Vec<String>) {
 
 fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 	match e {
-		Expr::Arrow(params, _, body) => {
+		Expr::Arrow(params, _, body) | Expr::Generator(params, _, body) => {
 			out.extend(params.iter().map(|p| p.name.clone()));
 			collect_locals(body, out);
 		}
@@ -1143,6 +1171,6 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(b, out);
 			collect_expr_locals(c, out);
 		}
-		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
 	}
 }

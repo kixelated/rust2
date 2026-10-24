@@ -49,6 +49,10 @@ pub enum Expr {
 	Lambda(Vec<Param>, Box<Expr>),
 	/// `e as T`, for a literal whose type TypeScript would widen.
 	As(Box<Expr>, Type),
+	/// `function* (params): Generator<undefined, T, rt.Context> { body }`, an async body.
+	Generator(Vec<Param>, Type, Vec<Stmt>),
+	/// `yield`, which a generator resumes from with the next `rt.Context`.
+	Yield,
 	Located(Loc, Box<Expr>),
 }
 
@@ -205,6 +209,11 @@ pub enum StmtKind {
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
+	/// `try { body } finally { finally }`: what `finally` drops is dropped on every exit.
+	Try {
+		body: Vec<Stmt>,
+		finally: Vec<Stmt>,
+	},
 }
 
 impl StmtKind {
@@ -241,7 +250,7 @@ impl Stmt {
 		match &self.kind {
 			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
-			StmtKind::Block { label: None, body } => diverges(body),
+			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
 			_ => false,
 		}
 	}

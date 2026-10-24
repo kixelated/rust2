@@ -15,6 +15,7 @@ use rustc_middle::ty::adjustment::PointerCoercion;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TypeVisitableExt};
 use rustc_span::{Span, Symbol};
 
+use super::drop::Owned;
 use super::library::{self, Args};
 use super::{AdtRepr, ObjectKind, Translator, camel, escape};
 use crate::program::SymKind;
@@ -42,13 +43,17 @@ pub fn function<'a, 'tcx>(
 		breakables: Vec::new(),
 		ret: sig.output(),
 		visited: FxHashSet::default(),
+		scopes: Vec::new(),
+		moved: FxHashSet::default(),
 	};
 	let span = tcx.def_span(def_id);
 	let mut body = Vec::new();
 	let mut params = Vec::new();
+	b.open_scope();
 	for (i, param) in thir.params.iter().enumerate() {
 		let ty = b.subst(param.ty);
-		let this = i == 0 && param.self_kind.is_some();
+		// An explicit `self: Pin<&mut Self>` has no implicit self kind.
+		let this = i == 0 && (param.self_kind.is_some() || method);
 		match (&param.pat, this) {
 			(Some(pat), true) => {
 				let PatKind::Binding { var, .. } = pat.kind else {
@@ -66,6 +71,31 @@ pub fn function<'a, 'tcx>(
 				);
 				if !method {
 					let ty = b.t.ty(ty, pat.span);
+					params.push(Param {
+						name: name.to_string(),
+						ty: Some(ty),
+					});
+					continue;
+				}
+				// `this` can't be left `undefined`, as a move out of it would.
+				if !matches!(ty.kind(), ty::Ref(..)) && b.t.drops(ty) {
+					b.t.err(
+						pat.span,
+						"a method that takes `self` by value that drops, which is not supported yet",
+					);
+				}
+				// An instance of a generic class: TypeScript reads its fields as the instance's.
+				let receiver = match ty.kind() {
+					ty::Adt(adt, args) if library::Std::of(tcx, adt.did()) == Some(library::Std::Pin) => {
+						args.type_at(0)
+					}
+					_ => ty,
+				}
+				.peel_refs();
+				if let ty::Adt(_, args) = receiver.kind()
+					&& args.types().next().is_some()
+				{
+					let ty = b.t.ty(receiver, pat.span);
 					params.push(Param {
 						name: name.to_string(),
 						ty: Some(ty),
@@ -90,6 +120,7 @@ pub fn function<'a, 'tcx>(
 		false => Dest::Return,
 	};
 	b.stmt(expr, dest, &mut body);
+	b.close_scope(&mut body, 0, span);
 	let ret = b.t.ret_ty(ret, span);
 	Some(ts::Function {
 		sym: 0,
@@ -147,6 +178,10 @@ pub struct Body<'b, 'a, 'tcx> {
 	/// Expressions lowered so far, by THIR and id, so a refused call lowers only the
 	/// arguments its mapping did not.
 	visited: FxHashSet<(*const Thir<'tcx>, ExprId)>,
+	/// The variables each open scope drops when it closes, innermost last.
+	pub(super) scopes: Vec<Vec<Owned<'tcx>>>,
+	/// The variables a move left `undefined`, which are declared `let` for it.
+	pub(super) moved: FxHashSet<String>,
 }
 
 /// One `&&`-joined part of an `if` condition.
@@ -225,8 +260,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Declare a binding for a Rust variable.
-	/// Declare a binding for a Rust variable of type `ty`.
+	/// Declare a binding for a Rust variable of type `ty`, which its scope drops if it
+	/// `owns` the value rather than borrowing it.
 	pub(super) fn bind_var(
 		&mut self,
 		var: LocalVarId,
@@ -234,6 +269,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		mutable: bool,
 		ty: Ty<'tcx>,
 		span: Span,
+		owns: bool,
 	) -> String {
 		// A JS variable holding a number is a copy: writing through it reaches nothing.
 		if let ty::Ref(_, inner, rustc_ast::Mutability::Mut) = self.subst(ty).kind()
@@ -252,6 +288,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				mutable,
 			},
 		);
+		if owns {
+			let ty = self.subst(ty);
+			self.own(&name, ty);
+		}
 		name
 	}
 
@@ -266,7 +306,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				..
 			} if mode.0 == rustc_hir::ByRef::No => {
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
-				self.bind_var(*var, *name, mutable, pat.ty, pat.span)
+				self.bind_var(*var, *name, mutable, pat.ty, pat.span, true)
 			}
 			PatKind::Wild => self.fresh("_"),
 			_ => {
@@ -333,7 +373,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				ExprKind::Loop { body } => self.lp(*region_scope, body, dest, out),
 				_ => self.stmt(*value, dest, out),
 			},
-			ExprKind::ValueTypeAscription { source, .. } => self.stmt(*source, dest, out),
+			ExprKind::ValueTypeAscription { source, .. } | ExprKind::ValueExpr { source } => {
+				self.stmt(*source, dest, out)
+			}
 			ExprKind::NeverToAny { source } => self.stmt(*source, Dest::Discard, out),
 			ExprKind::Block { block } => self.block(*block, dest, out),
 			ExprKind::If {
@@ -370,6 +412,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::AssignOp { op, lhs, rhs } => self.assign_op(*op, *lhs, *rhs, span, out),
 			_ => {
 				let value = self.expr(id, out);
+				// A value that goes nowhere drops here.
+				if let Dest::Discard = dest
+					&& let Some(dropped) = self.t.drop_value(value.clone(), ty, span)
+				{
+					self.push(out, StmtKind::Expr(dropped), span);
+					return;
+				}
 				self.deliver(value, &dest, span, out);
 			}
 		}
@@ -399,12 +448,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	fn block_body(&mut self, id: BlockId, dest: Dest, out: &mut Vec<Stmt>) {
 		let block = &self.thir[id];
+		let start = out.len();
+		self.open_scope();
 		for &stmt in &block.stmts {
 			self.stmt_item(stmt, out);
 		}
 		if let Some(expr) = block.expr {
 			self.stmt(expr, dest, out);
 		}
+		self.close_scope(out, start, block.span);
 	}
 
 	fn stmt_item(&mut self, id: StmtId, out: &mut Vec<Stmt>) {
@@ -458,20 +510,30 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.ref_binding(mode.0, pat_ty, pat.span);
 			}
 			let mutable = mode.1 == rustc_ast::Mutability::Mut;
+			let owns = mode.0 == rustc_hir::ByRef::No;
 			let ty = self.t.ty(pat_ty, pat.span);
 			let Some(init) = init else {
-				let name = self.bind_var(*var, *name, true, pat_ty, pat.span);
+				let name = self.bind_var(*var, *name, true, pat_ty, pat.span, owns);
 				self.push(out, StmtKind::decl(true, name, Some(ty), None), span);
 				return;
 			};
 			if self.needs_dest(init) {
-				let name = self.bind_var(*var, *name, true, pat_ty, pat.span);
+				let name = self.bind_var(*var, *name, true, pat_ty, pat.span, owns);
 				self.push(out, StmtKind::decl(true, name.clone(), Some(ty), None), span);
 				self.stmt(init, Dest::Assign(name), out);
 				return;
 			}
+			// A move from another variable or field: it is left `undefined`.
+			if self.moves(init) {
+				let place = self.place(init, out);
+				let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
+				let annotate = mutable.then_some(ty);
+				self.push(out, StmtKind::decl(mutable, name, annotate, Some(place.clone())), span);
+				self.clear(place, out);
+				return;
+			}
 			let value = self.operand(init, out);
-			let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span);
+			let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
 			let annotate = mutable || needs_annotation(&value);
 			self.push(
 				out,
@@ -488,6 +550,19 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			return;
 		};
+		// `let _ = value;` drops a value at once, and leaves a place alone.
+		if let PatKind::Wild = pat.kind
+			&& els.is_none()
+			&& self.t.drops(pat_ty)
+		{
+			if !self.is_place(init) {
+				let value = self.operand(init, out);
+				if let Some(dropped) = self.t.drop_value(value, pat_ty, span) {
+					self.push(out, StmtKind::Expr(dropped), span);
+				}
+			}
+			return;
+		}
 		// `const [a, b] = ...` for a tuple or array of plain bindings.
 		if els.is_none() && self.destructurable(pat, true) {
 			let value = self.operand(init, out);
@@ -588,7 +663,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			PatKind::Binding { name, var, mode, .. } => {
 				let is_mut = mode.1 == rustc_ast::Mutability::Mut;
 				*mutable |= is_mut;
-				Target::Name(self.bind_var(*var, *name, is_mut, pat.ty, pat.span))
+				Target::Name(self.bind_var(*var, *name, is_mut, pat.ty, pat.span, mode.0 == rustc_hir::ByRef::No))
 			}
 			_ => unreachable!("checked by destructurable"),
 		}
@@ -809,6 +884,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match part {
 			CondPart::Bool(id) => Some(self.expr(*id, pre)),
 			CondPart::Let(expr, pat) => {
+				if !self.is_place(*expr) && self.t.drops(self.ty_of(*expr)) && !takes_all(pat) {
+					self.t.err(
+						pat.span,
+						"an `if let` on a temporary that drops, which it doesn't move out of whole",
+					);
+				}
 				let reads = self.test_reads(pat) + bindings(pat);
 				let (scrut, owned) = self.scrutinee(*expr, reads, pre);
 				let test = self.pat_test(pat, &scrut);
@@ -866,8 +947,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		// One condition, as JS writes it.
 		if let [part] = parts.as_slice() {
 			let mut then_stmts = Vec::new();
+			self.open_scope();
 			let test = self.cond_part(part, out, &mut then_stmts);
 			self.stmt(then, dest.clone(), &mut then_stmts);
+			self.close_scope(&mut then_stmts, 0, span);
 			let mut else_stmts = Vec::new();
 			if let Some(els) = els {
 				self.stmt(els, dest, &mut else_stmts);
@@ -891,12 +974,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		// A let chain: each part nests in the last, and any failing runs the else.
 		let label = self.fresh("chain");
 		let mut levels = Vec::new();
+		self.open_scope();
 		for part in &parts {
 			let mut pre = Vec::new();
 			let mut binds = Vec::new();
 			let test = self.cond_part(part, &mut pre, &mut binds);
 			levels.push((pre, test, binds));
 		}
+		if self.scope_owns() {
+			self.t.err(span, "a let chain that binds a value that drops");
+		}
+		self.scopes.pop();
 		let mut then_stmts = Vec::new();
 		self.stmt(then, dest.clone(), &mut then_stmts);
 		let mut else_stmts = Vec::new();
@@ -965,6 +1053,32 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 
 		let thir: &'a Thir<'tcx> = self.thir;
+		// One arm binding the whole value, as `.await` desugars to, is a `let` scoped to it.
+		if let [arm] = arms
+			&& thir[*arm].guard.is_none()
+			&& let PatKind::Binding {
+				mode, subpattern: None, ..
+			} = thir[*arm].pattern.kind
+			&& mode.0 == rustc_hir::ByRef::No
+		{
+			let start = out.len();
+			self.open_scope();
+			self.let_(&thir[*arm].pattern, Some(scrutinee), None, span, out);
+			self.stmt(thir[*arm].body, dest, out);
+			self.close_scope(out, start, span);
+			return;
+		}
+		if !self.is_place(scrutinee)
+			&& self.t.drops(self.ty_of(scrutinee))
+			&& !arms
+				.iter()
+				.all(|&arm| thir[arm].guard.is_none() && takes_all(&thir[arm].pattern))
+		{
+			self.t.err(
+				span,
+				"a `match` on a temporary that drops, which it doesn't move out of whole",
+			);
+		}
 		let pats: Vec<&Pat<'tcx>> = arms.iter().map(|&arm| &*thir[arm].pattern).collect();
 		// The last arm is the else, whose test never runs, unless it is guarded.
 		let tested = match arms.last().is_some_and(|&arm| thir[arm].guard.is_none()) {
@@ -991,6 +1105,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let arm = &self.thir[arm];
 			let test = self.pat_test(&arm.pattern, &scrut);
 			let mut binds = Vec::new();
+			self.open_scope();
 			self.pat_bind(&arm.pattern, &scrut, owned, &mut binds);
 			let guard = arm.guard.map(|g| {
 				let mut pre = Vec::new();
@@ -999,6 +1114,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			});
 			let mut body = Vec::new();
 			self.stmt(arm.body, dest.clone(), &mut body);
+			// What the arm binds that drops is dropped around its bindings and body.
+			if self.scope_owns() {
+				if guard.is_some() {
+					self.t.err(arm.span, "a guarded arm that binds a value that drops");
+				}
+				binds.append(&mut body);
+				body = std::mem::take(&mut binds);
+			}
+			self.close_scope(&mut body, 0, arm.span);
 			lowered.push(Lowered {
 				test,
 				binds,
@@ -1267,6 +1391,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			is_loop: true,
 		});
 		let mut stmts = Vec::new();
+		if self.t.drops(self.subst(pat.ty)) {
+			self.t.err(
+				pat.span,
+				"a `for` loop over values that drop, which is not supported yet",
+			);
+		}
+		self.open_scope();
 		let simple_name = match &pat.kind {
 			PatKind::Binding {
 				name,
@@ -1275,7 +1406,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				subpattern: None,
 				..
 			} if mode.1 == rustc_ast::Mutability::Not && !self.needs_copy(self.subst(pat.ty)) => {
-				Some(self.bind_var(*var, *name, false, pat.ty, pat.span))
+				Some(self.bind_var(*var, *name, false, pat.ty, pat.span, mode.0 == rustc_hir::ByRef::No))
 			}
 			PatKind::Wild => Some(self.fresh("_")),
 			_ => None,
@@ -1293,6 +1424,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 		};
 		self.stmt(loop_body, Dest::Discard, &mut stmts);
+		self.close_scope(&mut stmts, 0, span);
 		let breakable = self.breakables.pop().unwrap();
 		let label = breakable.used.then_some(breakable.label);
 		let kind = match source {
@@ -1428,6 +1560,21 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			value = self.spill(value, "value", out);
 		}
 		out.extend(pre);
+		// The old value drops once the new one is made.
+		let lty = self.ty_of(lhs);
+		if self.t.drops(lty) {
+			if !target.is_path() && !matches!(target, Expr::Index(..)) {
+				self.t
+					.err(span, "an assignment that drops the old value of a computed place");
+				return;
+			}
+			if !value.is_path() && !value.is_constant() {
+				value = self.spill(value, "value", out);
+			}
+			if let Some(dropped) = self.t.drop_value(target.clone(), lty, span) {
+				self.push(out, StmtKind::Expr(dropped), span);
+			}
+		}
 		// `*r = v` through a reference replaces what it points to.
 		if let ExprKind::Deref { arg } = self.thir[self.strip(lhs)].kind
 			&& matches!(self.ty_of(arg).kind(), ty::Ref(..))
@@ -1528,6 +1675,30 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Whether lowering `id` for its value moves it out of a place that drops it.
+	pub fn moves(&mut self, id: ExprId) -> bool {
+		let ty = self.ty_of(id);
+		self.is_place(id) && !self.t.is_copy(ty) && self.t.drops(ty)
+	}
+
+	/// Whether a block binds a variable that drops, so its value can't outlive it.
+	fn block_owns(&mut self, id: BlockId) -> bool {
+		let thir: &'a Thir<'tcx> = self.thir;
+		let mut owns = false;
+		for &stmt in &thir[id].stmts {
+			if let thir::StmtKind::Let { pattern, .. } = &thir[stmt].kind {
+				pattern.walk_always(|p| {
+					if let PatKind::Binding { mode, ty, .. } = p.kind
+						&& mode.0 == rustc_hir::ByRef::No
+					{
+						owns |= self.t.drops(self.t.subst(self.args, ty));
+					}
+				});
+			}
+		}
+		owns
+	}
+
 	pub fn needs_copy(&self, ty: Ty<'tcx>) -> bool {
 		if !self.t.is_copy(ty) {
 			return false;
@@ -1590,7 +1761,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.stmt(*source, Dest::Discard, out);
 				Expr::undefined()
 			}
-			ExprKind::Block { block } if !self.thir[*block].targeted_by_break => {
+			ExprKind::Block { block } if !self.thir[*block].targeted_by_break && !self.block_owns(*block) => {
 				let block = &self.thir[*block];
 				for &stmt in &block.stmts {
 					self.stmt_item(stmt, out);
@@ -1660,10 +1831,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					};
 					return self.fn_value(def_id, args.skip_binder(), span);
 				}
+				if self.moves(id) {
+					let place = self.place(id, out);
+					return self.move_out(place, span, out);
+				}
 				let value = self.place(id, out);
 				self.copied(value, ty)
 			}
 			ExprKind::Borrow { borrow_kind, arg } => {
+				if !self.is_place(*arg) && self.t.drops(self.ty_of(*arg)) {
+					return self.err(span, "a borrow of a temporary that drops: bind it to a variable first");
+				}
 				if let BorrowKind::Mut { .. } = borrow_kind {
 					let pointee = self.ty_of(*arg);
 					if self.t.object_kind(pointee).is_none()
@@ -1797,7 +1975,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			ExprKind::Adt(adt) => self.adt_expr(adt, ty, span, out),
-			ExprKind::Closure(closure) => self.closure(closure, span),
+			ExprKind::Closure(closure) => self.closure(closure, span, out),
 			ExprKind::Assign { .. }
 			| ExprKind::AssignOp { .. }
 			| ExprKind::Break { .. }
@@ -1807,6 +1985,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Expr::undefined()
 			}
 			ExprKind::Let { .. } => self.err(span, "a `let` outside an `if` condition"),
+			ExprKind::Yield { value } => {
+				self.stmt(*value, Dest::Discard, out);
+				Expr::Yield
+			}
 			kind => self.err(span, format!("unsupported expression: {}", kind_name(kind))),
 		}
 	}
@@ -1947,7 +2129,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match ty.kind() {
 			ty::Tuple(_) => base.index(Expr::lit(field.index().to_string())),
 			ty::Adt(adt, _) => match library::Std::of(self.t.tcx, adt.did()) {
-				Some(library::Std::Option) => base,
+				Some(library::Std::Option | library::Std::Poll) => base,
 				Some(library::Std::Result) => match variant.index() {
 					0 => base.member("value"),
 					_ => base.member("error"),
@@ -1977,8 +2159,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let mut values = self.operands(&ids, out);
 		if let Some(std) = library::Std::of(tcx, def.did()) {
 			return match (std, adt.variant_index.index()) {
-				(library::Std::Option, 0) => Expr::undefined(),
-				(library::Std::Option, _) => values.pop().unwrap(),
+				(library::Std::Option, 0) | (library::Std::Poll, 1) => match std {
+					library::Std::Poll => Expr::Rt("Pending"),
+					_ => Expr::undefined(),
+				},
+				(library::Std::Option | library::Std::Poll, _) => values.pop().unwrap(),
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
@@ -2085,39 +2270,76 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span) -> Expr {
+	/// A closure as an arrow function, or an `async` body as a future around a generator.
+	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.t.tcx;
 		let local = closure.closure_id;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");
 		};
-		// A copy captured by `move` would be shared in JS: refuse one that can change.
+		let closure_ty = self.subst(tcx.type_of(local).instantiate_identity().skip_norm_wip());
+		let (ret, coroutine) = match closure_ty.kind() {
+			ty::Closure(_, args) => (
+				tcx.instantiate_bound_regions_with_erased(args.as_closure().sig())
+					.output(),
+				false,
+			),
+			ty::Coroutine(_, args) if tcx.coroutine_is_async(local.to_def_id()) => {
+				(args.as_coroutine().return_ty(), true)
+			}
+			_ => return self.err(span, format!("a closure of type `{closure_ty}`")),
+		};
+		// What a future captures that drops, which it drops itself if never polled.
+		let mut captured = Vec::new();
+		// A method's receiver, which a generator can't read as `this`.
+		let mut receiver = None;
 		for capture in tcx.closure_captures(local) {
-			if let ty::UpvarCapture::ByValue = capture.info.capture_kind {
-				let var = capture.get_root_variable();
-				let mutable = matches!(self.locals.get(&var), Some(Local::Name { mutable: true, .. }));
-				if mutable && self.t.is_copy(self.subst(capture.place.ty())) {
-					self.t
-						.err(capture.get_path_span(tcx), "a closure that copies a mutable variable");
+			let var = capture.get_root_variable();
+			let ty = self.subst(capture.place.ty());
+			if coroutine && matches!(self.locals.get(&var), Some(Local::Name { name, .. }) if name == "this") {
+				let alias = self.fresh("self");
+				out.push(StmtKind::decl(false, alias.clone(), None, Some(Expr::This)).at(None));
+				let saved = self.locals.insert(
+					var,
+					Local::Name {
+						name: alias,
+						mutable: false,
+					},
+				);
+				receiver = Some((var, saved));
+			}
+			let ty::UpvarCapture::ByValue = capture.info.capture_kind else {
+				continue;
+			};
+			let mutable = matches!(self.locals.get(&var), Some(Local::Name { mutable: true, .. }));
+			// A copy captured by `move` would be shared in JS: refuse one that can change.
+			if !coroutine && mutable && self.t.is_copy(ty) {
+				self.t
+					.err(capture.get_path_span(tcx), "a closure that copies a mutable variable");
+			}
+			if self.t.drops(ty) {
+				match (coroutine, &self.locals.get(&var)) {
+					(true, Some(Local::Name { name, .. })) if capture.place.projections.is_empty() => {
+						let name = name.clone();
+						self.disown(&name);
+						captured.push((name, ty));
+					}
+					_ => self.t.err(
+						capture.get_path_span(tcx),
+						"a closure that captures a value that drops, which is not supported yet",
+					),
 				}
 			}
 		}
 		let saved_thir = std::mem::replace(&mut self.thir, thir);
 		self.read.extend(reads(tcx, thir));
 		let saved_breakables = std::mem::take(&mut self.breakables);
-		let closure_ty = self.subst(tcx.type_of(local).instantiate_identity().skip_norm_wip());
-		let sig = match closure_ty.kind() {
-			ty::Closure(_, args) => tcx.instantiate_bound_regions_with_erased(args.as_closure().sig()),
-			_ => {
-				self.thir = saved_thir;
-				self.breakables = saved_breakables;
-				return self.err(span, format!("a closure of type `{closure_ty}`"));
-			}
-		};
-		let saved_ret = std::mem::replace(&mut self.ret, sig.output());
+		let saved_ret = std::mem::replace(&mut self.ret, ret);
 		let mut body_stmts = Vec::new();
 		let mut params = Vec::new();
-		// The first parameter is the closure's environment.
+		self.open_scope();
+		// The first parameter is the closure's environment; a coroutine's second is the
+		// context each poll resumes it with.
 		for param in thir.params.iter().skip(1) {
 			let name = match &param.pat {
 				Some(pat) => self.param(pat, &mut body_stmts),
@@ -2127,17 +2349,36 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let ty = self.t.ty(ty, span);
 			params.push(Param { name, ty: Some(ty) });
 		}
-		let ret = self.ret;
 		let dest = match ret.is_unit() || ret.is_never() {
 			true => Dest::Discard,
 			false => Dest::Return,
 		};
 		self.stmt(body, dest, &mut body_stmts);
+		self.close_scope(&mut body_stmts, 0, span);
 		let ret_ty = self.t.ret_ty(ret, span);
 		self.thir = saved_thir;
 		self.breakables = saved_breakables;
 		self.ret = saved_ret;
-		Expr::Arrow(params, ret_ty, body_stmts)
+		if let Some((var, saved)) = receiver {
+			match saved {
+				Some(saved) => self.locals.insert(var, saved),
+				None => self.locals.remove(&var),
+			};
+		}
+		if !coroutine {
+			return Expr::Arrow(params, ret_ty, body_stmts);
+		}
+		let mut drops = Vec::new();
+		for (name, ty) in captured {
+			if let Some(dropped) = self.t.drop_value(Expr::ident(name), ty, span) {
+				drops.push(StmtKind::Expr(dropped).at(None));
+			}
+		}
+		let generator = Expr::Generator(params, ret_ty, body_stmts);
+		Expr::rt(
+			"future",
+			vec![generator, Expr::Arrow(Vec::new(), Type::Builtin("void"), drops)],
+		)
 	}
 
 	// Calls
@@ -2210,6 +2451,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			_ => return self.err(span, format!("`{}` does not resolve", tcx.def_path_str(def_id))),
 		};
+		// An `async` body's `Future::poll`, which its future has itself.
+		if let ty::InstanceKind::Item(did) = instance.def
+			&& tcx.is_coroutine(did)
+		{
+			let mut values = self.args(args, out);
+			let future = values.remove(0);
+			return future.member("poll").call(values);
+		}
 		if let ty::InstanceKind::Item(did) = instance.def
 			&& did.is_local()
 		{
@@ -2278,7 +2527,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(std) = library::Std::of(tcx, adt_id) {
 			let mut values = values;
 			return match (std, variant.index()) {
-				(library::Std::Option, 1) => values.pop().unwrap(),
+				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
@@ -2414,6 +2663,18 @@ fn needs_annotation(value: &Expr) -> bool {
 		Expr::Lit(text) => text == "undefined",
 		Expr::Arrow(..) => false,
 		Expr::Located(_, e) => needs_annotation(e),
+		_ => false,
+	}
+}
+
+/// Whether matching `pat` moves its whole value into a binding, or matches only a variant
+/// with nothing in it: either way nothing is left to drop.
+fn takes_all(pat: &Pat<'_>) -> bool {
+	match &pat.kind {
+		PatKind::Binding {
+			mode, subpattern: None, ..
+		} => mode.0 == rustc_hir::ByRef::No,
+		PatKind::Variant { subpatterns, .. } => subpatterns.iter().all(|f| takes_all(&f.pattern)),
 		_ => false,
 	}
 }
