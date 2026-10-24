@@ -256,4 +256,14 @@ its channel, read through 1, 4, or 16 async functions. Its translation runs poll
 once, as natively, and on `rt.spawn`; its hand-written route is the same handoff with
 promises, as moq's TypeScript writes it.
 
+An A/B run times another translator's output as one more route: run `just ts bench` in
+the other checkout, then pass its output directory, absolute or relative to `ts/`.
+
+```bash
+nix develop .#bench --command just ts bench --route main="$HOME/rust2-main/ts/target/bench"
+```
+
+The route runs both fixtures' translations from that directory's `translated/` and
+`task/`, so a hand-edited translation can be timed by copying the directory and editing it.
+
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.
