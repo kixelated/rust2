@@ -170,7 +170,7 @@ export function encoderFill(self: Encoder, prefix: Prefix): rt.Result<undefined,
 			self.buf.truncate(end);
 			return rt.Ok(undefined);
 		}
-		let size2: Uint8Array = new Uint8Array(9);
+		let size2: Uint8Array = rt.bytes(9);
 		rt.slice.copyFromSlice(rt.slice.range(size2, 0, len), rt.slice.range(self.buf.view(), end));
 		self.buf.truncate(rt.usize.sub(rt.usize.add(end, len), 1));
 		rt.slice.copyWithin(self.buf.view(), body, end, rt.usize.sub(rt.usize.add(body, len), 1));

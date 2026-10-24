@@ -13,7 +13,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const value = rt.u8.rem(kind, 12);
 	if (value === 0) {
 		const data2 = data;
-		let buf: Uint8Array = new Uint8Array(1);
+		let buf: Uint8Array = rt.bytes(1);
 		const n = rt.min(data2.length, buf.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 		const v = rt.u8.fromBeBytes(buf);
@@ -21,7 +21,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v, f)));
 	} else if (value === 1) {
 		const data3 = data;
-		let buf2: Uint8Array = new Uint8Array(2);
+		let buf2: Uint8Array = rt.bytes(2);
 		const n2 = rt.min(data3.length, buf2.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data3, 0, n2));
 		const v2 = rt.u16.fromBeBytes(buf2);
@@ -29,7 +29,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v2, f)));
 	} else if (value === 2) {
 		const data4 = data;
-		let buf3: Uint8Array = new Uint8Array(4);
+		let buf3: Uint8Array = rt.bytes(4);
 		const n3 = rt.min(data4.length, buf3.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf3, 0, n3), rt.slice.range(data4, 0, n3));
 		const v3 = rt.u32.fromBeBytes(buf3);
@@ -37,7 +37,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v3, f)));
 	} else if (value === 3) {
 		const data5 = data;
-		let buf4: Uint8Array = new Uint8Array(8);
+		let buf4: Uint8Array = rt.bytes(8);
 		const n4 = rt.min(data5.length, buf4.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf4, 0, n4), rt.slice.range(data5, 0, n4));
 		const v4 = rt.u64.fromBeBytes(buf4);
@@ -45,7 +45,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v4, f)));
 	} else if (value === 4) {
 		const data6 = data;
-		let buf5: Uint8Array = new Uint8Array(16);
+		let buf5: Uint8Array = rt.bytes(16);
 		const n5 = rt.min(data6.length, buf5.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf5, 0, n5), rt.slice.range(data6, 0, n5));
 		const v5 = rt.u128.fromBeBytes(buf5);
@@ -53,7 +53,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v5, f)));
 	} else if (value === 5) {
 		const data7 = data;
-		let buf6: Uint8Array = new Uint8Array(4);
+		let buf6: Uint8Array = rt.bytes(4);
 		const n6 = rt.min(data7.length, buf6.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf6, 0, n6), rt.slice.range(data7, 0, n6));
 		const v6 = rt.usize.fromBeBytes(buf6);
@@ -61,7 +61,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v6, f)));
 	} else if (value === 6) {
 		const data8 = data;
-		let buf7: Uint8Array = new Uint8Array(1);
+		let buf7: Uint8Array = rt.bytes(1);
 		const n7 = rt.min(data8.length, buf7.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf7, 0, n7), rt.slice.range(data8, 0, n7));
 		const v7 = rt.i8.fromBeBytes(buf7);
@@ -69,7 +69,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v7, f)));
 	} else if (value === 7) {
 		const data9 = data;
-		let buf8: Uint8Array = new Uint8Array(2);
+		let buf8: Uint8Array = rt.bytes(2);
 		const n8 = rt.min(data9.length, buf8.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf8, 0, n8), rt.slice.range(data9, 0, n8));
 		const v8 = rt.i16.fromBeBytes(buf8);
@@ -77,7 +77,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v8, f)));
 	} else if (value === 8) {
 		const data10 = data;
-		let buf9: Uint8Array = new Uint8Array(4);
+		let buf9: Uint8Array = rt.bytes(4);
 		const n9 = rt.min(data10.length, buf9.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf9, 0, n9), rt.slice.range(data10, 0, n9));
 		const v9 = rt.i32.fromBeBytes(buf9);
@@ -85,7 +85,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v9, f)));
 	} else if (value === 9) {
 		const data11 = data;
-		let buf10: Uint8Array = new Uint8Array(8);
+		let buf10: Uint8Array = rt.bytes(8);
 		const n10 = rt.min(data11.length, buf10.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf10, 0, n10), rt.slice.range(data11, 0, n10));
 		const v10 = rt.i64.fromBeBytes(buf10);
@@ -93,7 +93,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v10, f)));
 	} else if (value === 10) {
 		const data12 = data;
-		let buf11: Uint8Array = new Uint8Array(16);
+		let buf11: Uint8Array = rt.bytes(16);
 		const n11 = rt.min(data12.length, buf11.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf11, 0, n11), rt.slice.range(data12, 0, n11));
 		const v11 = rt.i128.fromBeBytes(buf11);
@@ -101,7 +101,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v11, f)));
 	} else {
 		const data13 = data;
-		let buf12: Uint8Array = new Uint8Array(4);
+		let buf12: Uint8Array = rt.bytes(4);
 		const n12 = rt.min(data13.length, buf12.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf12, 0, n12), rt.slice.range(data13, 0, n12));
 		const v12 = rt.isize.fromBeBytes(buf12);
@@ -520,7 +520,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const arg18 = rt.slice.range(rest, start, end);
 		put(arg19, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(arg17, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.list(arg18, f, rt.u8.display)]));
 	} else if (value === 15) {
-		let buf: Uint8Array = new Uint8Array(3);
+		let buf: Uint8Array = rt.bytes(3);
 		rt.slice.copyFromSlice(buf, rt.slice.range(rest, 0, rt.min(rest.length, 4)));
 		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf, f, rt.u8.display)]));
 	} else if (value === 16) {

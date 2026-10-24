@@ -70,6 +70,10 @@ and async in `rt/task.ts`.
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 
+`Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
+`Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
+`byteOffset` and `byteLength`, and copy it before transferring it.
+
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
@@ -263,11 +267,22 @@ native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM r
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
 each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary.
+runs it and posts the report to its summary. Chrome's page reports each step it starts,
+and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
 once, as natively, and on `rt.spawn`; its hand-written route is the same handoff with
 promises, as moq's TypeScript writes it.
+
+An A/B run times another translator's output as one more route: run `just ts bench` in
+the other checkout, then pass its output directory, absolute or relative to `ts/`.
+
+```bash
+nix develop .#bench --command just ts bench --route main="$HOME/rust2-main/ts/target/bench"
+```
+
+The route runs both fixtures' translations from that directory's `translated/` and
+`task/`, so a hand-edited translation can be timed by copying the directory and editing it.
 
 The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.

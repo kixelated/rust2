@@ -5,12 +5,12 @@ import * as rt from "./rt.ts";
 /** Apply operation `op` to operands taken from `data`. */
 export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(1);
+	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.u8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u8, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(1);
+	let buf2: Uint8Array = rt.bytes(1);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.u8.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u8, Uint8Array];
@@ -97,12 +97,12 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(2);
+	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.u16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u16, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(2);
+	let buf2: Uint8Array = rt.bytes(2);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.u16.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u16, Uint8Array];
@@ -189,12 +189,12 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.u32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u32, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(4);
+	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.u32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u32, Uint8Array];
@@ -281,12 +281,12 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(8);
+	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.u64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u64, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(8);
+	let buf2: Uint8Array = rt.bytes(8);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.u64.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u64, Uint8Array];
@@ -372,12 +372,12 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(16);
+	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.u128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u128, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(16);
+	let buf2: Uint8Array = rt.bytes(16);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.u128.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u128, Uint8Array];
@@ -464,12 +464,12 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.usize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.usize, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(4);
+	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.usize.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.usize, Uint8Array];
@@ -556,12 +556,12 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(1);
+	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.i8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i8, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(1);
+	let buf2: Uint8Array = rt.bytes(1);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.i8.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i8, Uint8Array];
@@ -648,12 +648,12 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(2);
+	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.i16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i16, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(2);
+	let buf2: Uint8Array = rt.bytes(2);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.i16.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i16, Uint8Array];
@@ -740,12 +740,12 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.i32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i32, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(4);
+	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.i32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i32, Uint8Array];
@@ -832,12 +832,12 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(8);
+	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.i64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i64, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(8);
+	let buf2: Uint8Array = rt.bytes(8);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.i64.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i64, Uint8Array];
@@ -923,12 +923,12 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(16);
+	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.i128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i128, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(16);
+	let buf2: Uint8Array = rt.bytes(16);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.i128.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i128, Uint8Array];
@@ -1015,12 +1015,12 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Apply operation `op` to operands taken from `data`. */
 export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, data3] = [rt.isize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.isize, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(4);
+	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [b, data5] = [rt.isize.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.isize, Uint8Array];
@@ -1107,7 +1107,7 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(1);
+	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.i8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i8, Uint8Array];
@@ -1117,7 +1117,7 @@ export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(2);
+	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.i16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i16, Uint8Array];
@@ -1127,7 +1127,7 @@ export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.i32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i32, Uint8Array];
@@ -1137,7 +1137,7 @@ export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(8);
+	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.i64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i64, Uint8Array];
@@ -1147,7 +1147,7 @@ export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(16);
+	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.i128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i128, Uint8Array];
@@ -1157,7 +1157,7 @@ export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 /** Negate, which overflows at the minimum. */
 export function isizeNeg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(4);
+	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [a, ] = [rt.isize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.isize, Uint8Array];
@@ -1169,7 +1169,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 	const value = rt.u8.rem(from, 12);
 	if (value === 0) {
 		const data2 = data;
-		let buf: Uint8Array = new Uint8Array(1);
+		let buf: Uint8Array = rt.bytes(1);
 		const n = rt.min(data2.length, buf.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 		const v = ([rt.u8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u8, Uint8Array])[0];
@@ -1226,7 +1226,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 1) {
 		const data3 = data;
-		let buf2: Uint8Array = new Uint8Array(2);
+		let buf2: Uint8Array = rt.bytes(2);
 		const n2 = rt.min(data3.length, buf2.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data3, 0, n2));
 		const v14 = ([rt.u16.fromBeBytes(buf2), rt.slice.range(data3, n2)] as [rt.u16, Uint8Array])[0];
@@ -1283,7 +1283,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 2) {
 		const data4 = data;
-		let buf3: Uint8Array = new Uint8Array(4);
+		let buf3: Uint8Array = rt.bytes(4);
 		const n3 = rt.min(data4.length, buf3.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf3, 0, n3), rt.slice.range(data4, 0, n3));
 		const v27 = ([rt.u32.fromBeBytes(buf3), rt.slice.range(data4, n3)] as [rt.u32, Uint8Array])[0];
@@ -1340,7 +1340,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 3) {
 		const data5 = data;
-		let buf4: Uint8Array = new Uint8Array(8);
+		let buf4: Uint8Array = rt.bytes(8);
 		const n4 = rt.min(data5.length, buf4.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf4, 0, n4), rt.slice.range(data5, 0, n4));
 		const v40 = ([rt.u64.fromBeBytes(buf4), rt.slice.range(data5, n4)] as [rt.u64, Uint8Array])[0];
@@ -1397,7 +1397,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 4) {
 		const data6 = data;
-		let buf5: Uint8Array = new Uint8Array(16);
+		let buf5: Uint8Array = rt.bytes(16);
 		const n5 = rt.min(data6.length, buf5.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf5, 0, n5), rt.slice.range(data6, 0, n5));
 		const v53 = ([rt.u128.fromBeBytes(buf5), rt.slice.range(data6, n5)] as [rt.u128, Uint8Array])[0];
@@ -1454,7 +1454,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 5) {
 		const data7 = data;
-		let buf6: Uint8Array = new Uint8Array(4);
+		let buf6: Uint8Array = rt.bytes(4);
 		const n6 = rt.min(data7.length, buf6.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf6, 0, n6), rt.slice.range(data7, 0, n6));
 		const v66 = ([rt.usize.fromBeBytes(buf6), rt.slice.range(data7, n6)] as [rt.usize, Uint8Array])[0];
@@ -1511,7 +1511,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 6) {
 		const data8 = data;
-		let buf7: Uint8Array = new Uint8Array(1);
+		let buf7: Uint8Array = rt.bytes(1);
 		const n7 = rt.min(data8.length, buf7.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf7, 0, n7), rt.slice.range(data8, 0, n7));
 		const v79 = ([rt.i8.fromBeBytes(buf7), rt.slice.range(data8, n7)] as [rt.i8, Uint8Array])[0];
@@ -1568,7 +1568,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 7) {
 		const data9 = data;
-		let buf8: Uint8Array = new Uint8Array(2);
+		let buf8: Uint8Array = rt.bytes(2);
 		const n8 = rt.min(data9.length, buf8.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf8, 0, n8), rt.slice.range(data9, 0, n8));
 		const v92 = ([rt.i16.fromBeBytes(buf8), rt.slice.range(data9, n8)] as [rt.i16, Uint8Array])[0];
@@ -1625,7 +1625,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 8) {
 		const data10 = data;
-		let buf9: Uint8Array = new Uint8Array(4);
+		let buf9: Uint8Array = rt.bytes(4);
 		const n9 = rt.min(data10.length, buf9.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf9, 0, n9), rt.slice.range(data10, 0, n9));
 		const v105 = ([rt.i32.fromBeBytes(buf9), rt.slice.range(data10, n9)] as [rt.i32, Uint8Array])[0];
@@ -1682,7 +1682,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 9) {
 		const data11 = data;
-		let buf10: Uint8Array = new Uint8Array(8);
+		let buf10: Uint8Array = rt.bytes(8);
 		const n10 = rt.min(data11.length, buf10.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf10, 0, n10), rt.slice.range(data11, 0, n10));
 		const v118 = ([rt.i64.fromBeBytes(buf10), rt.slice.range(data11, n10)] as [rt.i64, Uint8Array])[0];
@@ -1739,7 +1739,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else if (value === 10) {
 		const data12 = data;
-		let buf11: Uint8Array = new Uint8Array(16);
+		let buf11: Uint8Array = rt.bytes(16);
 		const n11 = rt.min(data12.length, buf11.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf11, 0, n11), rt.slice.range(data12, 0, n11));
 		const v131 = ([rt.i128.fromBeBytes(buf11), rt.slice.range(data12, n11)] as [rt.i128, Uint8Array])[0];
@@ -1796,7 +1796,7 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		}
 	} else {
 		const data13 = data;
-		let buf12: Uint8Array = new Uint8Array(4);
+		let buf12: Uint8Array = rt.bytes(4);
 		const n12 = rt.min(data13.length, buf12.length);
 		rt.slice.copyFromSlice(rt.slice.range(buf12, 0, n12), rt.slice.range(data13, 0, n12));
 		const v144 = ([rt.isize.fromBeBytes(buf12), rt.slice.range(data13, n12)] as [rt.isize, Uint8Array])[0];
@@ -1857,12 +1857,12 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 /** Conversions that check, and ones that cannot fail. */
 export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
-	let buf: Uint8Array = new Uint8Array(8);
+	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
 	const [wide, data3] = [rt.u64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u64, Uint8Array];
 	const data4 = data3;
-	let buf2: Uint8Array = new Uint8Array(4);
+	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
 	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
 	const [signed, ] = [rt.i32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i32, Uint8Array];
