@@ -20,6 +20,11 @@ export function panic(message: string | Arguments): never {
 	throw new Panic(out.s);
 }
 
+/** A `match` without arms, on a value Rust proved can't exist, such as a `(Void, u8)`. */
+export function unreachable(_value: unknown): never {
+	throw new Panic("internal error: entered unreachable code");
+}
+
 /** `assert_eq!` or `assert_ne!` failing: `op` is `==` or `!=`. */
 export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments): never {
 	const failed: Arguments = args === undefined ? [" failed"] : [" failed: ", (f) => f.writeFmt(args)];
