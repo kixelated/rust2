@@ -87,6 +87,12 @@ generic class holds a method per instance, each declaring the instance it takes 
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
+A file's items, and a class's or companion's methods, follow the Rust source, whatever
+order translation reaches them in, so adding a root moves nothing it does not reach.
+What a macro makes sits where the macro is called. The instances of one function sit
+together, sorted by their suffix (`Pair` in `fmt$Pair`) and then by their full type
+arguments.
+
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
@@ -135,7 +141,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 `tests/differential.ts`, which fails on any difference in output or panic messages.
 
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
-  and writes its errors' `Display` and `Debug`.
+  and writes its errors' `Display` and `Debug`. It is also translated without
+  `bench::run` and then with it as the first root, which must keep every line in order.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, and methods on generic types. Its differential test runs
   through `caller.ts`, a hand-written caller that also prints a `printable` error nothing

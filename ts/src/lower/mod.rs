@@ -483,7 +483,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			Owner::Module => (None, SymKind::Function),
 		};
 		let base = camel(tcx.item_name(def_id).as_str());
-		let order = self.order(tcx.def_span(def_id));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(def_id),
 			base: match owner {
@@ -493,7 +492,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			suffix: self.suffix(instance),
 			owner: owner_sym,
 			kind,
-			order,
+			order: self.order(def_id),
+			// Without trimmed paths, which rustc computes only for a diagnostic.
+			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
 		});
 		self.instances.insert(instance, sym);
@@ -588,12 +589,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect()
 	}
 
-	pub fn order(&mut self, span: Span) -> (u32, u32) {
-		let span = span.source_callsite();
-		let sm = self.tcx.sess.source_map();
-		let file = sm.lookup_source_file(span.lo());
-		let index = self.source(&file).unwrap_or(u32::MAX);
-		(index, (span.lo() - file.start_pos).0)
+	/// Where `def_id` is written, for sorting: where its macro is called, for an item a
+	/// macro makes.
+	fn order(&self, def_id: DefId) -> u32 {
+		self.tcx.def_span(def_id).source_callsite().lo().0
 	}
 
 	fn source(&mut self, file: &rustc_span::SourceFile) -> Option<u32> {
@@ -688,14 +687,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Class { .. } => SymKind::Class,
 			_ => SymKind::Union { companion: false },
 		};
-		let order = self.order(tcx.def_span(did));
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(did),
 			base: tcx.item_name(did).to_string(),
 			suffix: String::new(),
 			owner: None,
 			kind,
-			order,
+			order: self.order(did),
+			instance: String::new(),
 			name: String::new(),
 		});
 		let mut info = Adt { sym, repr };

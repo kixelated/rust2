@@ -25,10 +25,22 @@ pub struct Symbol {
 	/// The class or companion a method or field belongs to.
 	pub owner: Option<SymId>,
 	pub kind: SymKind,
-	/// Where it sorts within its module: its source position.
-	pub order: (u32, u32),
+	/// Its source position in rustc's source map, which numbers files in the order it
+	/// loads them.
+	pub order: u32,
+	/// The function instance it is, printed in full; empty for a type.
+	pub instance: String,
 	/// The final name, set by [`Program::name`].
 	pub name: String,
+}
+
+impl Symbol {
+	/// Where it sorts among its module's items or its owner's methods: in source order,
+	/// and the instances of one generic item by their suffix, then in full. None of it
+	/// depends on the order translation reaches them in.
+	pub fn key(&self) -> (u32, &str, &str, &str) {
+		(self.order, &self.base, &self.suffix, &self.instance)
+	}
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,8 +97,16 @@ impl Program {
 		self.fields.len() - 1
 	}
 
-	/// Name every symbol and field, resolving collisions within each scope.
+	/// Put every item and method in order, and name every symbol and field, resolving
+	/// collisions within each scope in that order.
 	pub fn name(&mut self) {
+		let syms = &self.syms;
+		self.items
+			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
+		for methods in self.methods.values_mut() {
+			methods.sort_by(|a, b| syms[a.sym].key().cmp(&syms[b.sym].key()));
+		}
+
 		let mut scopes: BTreeMap<Scope, Vec<SymId>> = BTreeMap::new();
 		for (id, sym) in self.syms.iter().enumerate() {
 			let scope = match sym.owner {
@@ -100,10 +120,7 @@ impl Program {
 		}
 
 		for (scope, mut ids) in scopes {
-			ids.sort_by(|&a, &b| {
-				let (a, b) = (&self.syms[a], &self.syms[b]);
-				(a.order, &a.base, &a.suffix).cmp(&(b.order, &b.base, &b.suffix))
-			});
+			ids.sort_by(|&a, &b| self.syms[a].key().cmp(&self.syms[b].key()));
 			let mut taken = HashSet::new();
 			match &scope {
 				// The runtime's import binding.
@@ -161,9 +178,6 @@ impl Program {
 		}
 		if modules.keys().any(|module| module.as_slice() == ["rt"]) {
 			return Err("a top-level module named `rt` would replace the runtime, rt.ts".into());
-		}
-		for items in modules.values_mut() {
-			items.sort_by_key(|item| self.syms[item_sym(item)].order);
 		}
 
 		write_file(&out.join("rt.ts"), &format!("{HEADER}\n{RUNTIME}"))?;
