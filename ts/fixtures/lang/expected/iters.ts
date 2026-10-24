@@ -485,9 +485,9 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.thenSome(n < 4, n);
 	}).toByteVec();
 	out.extendFromSlice(counted.view());
-	const gaps = new Gaps({ data, at: 0 });
+	const gaps = { data, at: 0 };
 	while (true) {
-		const gap = gaps.next();
+		const gap = gapsNext(gaps);
 		if (gap === rt.DONE) {
 			break;
 		}
@@ -512,68 +512,54 @@ export function second(items: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined {
 }
 
 /** Every byte, or `None` where it is zero. */
-export class Gaps {
+export interface Gaps {
 	data: Uint8Array;
 	at: rt.usize;
+}
 
-	constructor(fields: { data: Uint8Array; at: rt.usize }) {
-		this.data = fields.data;
-		this.at = fields.at;
+export function gapsNext(self: Gaps): rt.u8 | undefined | rt.Done {
+	const get = rt.slice.get(self.data, self.at);
+	if (get === undefined) {
+		return rt.DONE;
 	}
-
-	next(): rt.u8 | undefined | rt.Done {
-		const get = rt.slice.get(this.data, this.at);
-		if (get === undefined) {
-			return rt.DONE;
-		}
-		const b = get;
-		this.at = rt.usize.add(this.at, 1);
-		if (b === 0) {
-			return undefined;
-		}
-		return b;
+	const b = get;
+	self.at = rt.usize.add(self.at, 1);
+	if (b === 0) {
+		return undefined;
 	}
+	return b;
 }
 
 /** A countdown: the crate's own iterator. */
-export class Countdown {
+export interface Countdown {
 	left: rt.u8;
 	step: rt.u8;
+}
 
-	constructor(fields: { left: rt.u8; step: rt.u8 }) {
-		this.left = fields.left;
-		this.step = fields.step;
-	}
-
-	next(): rt.u8 | rt.Done {
-		if (this.left === 0) {
-			return rt.DONE;
-		} else {
-			const left = this.left;
-			this.left = rt.u8.saturatingSub(left, this.step);
-			return left;
-		}
+export function countdownNext(self: Countdown): rt.u8 | rt.Done {
+	if (self.left === 0) {
+		return rt.DONE;
+	} else {
+		const left = self.left;
+		self.left = rt.u8.saturatingSub(left, self.step);
+		return left;
 	}
 }
 
 /** The even bytes, read through another iterator, whose `None` ends this one. */
-export class Evens {
+export interface Evens {
 	inner: rt.Iter<rt.u8>;
+}
 
-	constructor(fields: { inner: rt.Iter<rt.u8> }) {
-		this.inner = fields.inner;
-	}
-
-	next(): rt.u8 | rt.Done {
-		while (true) {
-			const next = this.inner.next();
-			if (next === rt.DONE) {
-				return rt.DONE;
-			}
-			const b = next;
-			if (rt.u8.rem(b, 2) === 0) {
-				return b;
-			}
+export function evensNext(self: Evens): rt.u8 | rt.Done {
+	while (true) {
+		const next = self.inner.next();
+		if (next === rt.DONE) {
+			return rt.DONE;
+		}
+		const b = next;
+		if (rt.u8.rem(b, 2) === 0) {
+			return b;
 		}
 	}
 }
@@ -582,21 +568,21 @@ export class Evens {
 export function own(data: Uint8Array, out: rt.ByteVec): void {
 	const left = rt.option.unwrapOr(rt.slice.first(data), 0);
 	const step = rt.max(rt.option.unwrapOr(rt.slice.get(data, 1), 1), 1);
-	const iter = new Countdown({ left, step });
+	const iter = { left, step };
 	while (true) {
-		const n = iter.next();
+		const n = countdownNext(iter);
 		if (n === rt.DONE) {
 			break;
 		}
 		out.push(n);
 	}
-	const total = rt.iter.from(new Countdown({ left, step }), (it: Countdown) => it.next()).map((n2: rt.u8): rt.u64 => {
+	const total = rt.iter.from({ left, step }, (it: Countdown) => countdownNext(it)).map((n2: rt.u8): rt.u64 => {
 		return rt.u64.div(rt.u64.mul(n2 as rt.u64, 1000), 7);
 	}).sum(rt.u64.add, 0);
 	out.extendFromSlice(rt.u64.toBeBytes(total));
-	let down: Countdown = new Countdown({ left, step });
+	let down: Countdown = { left, step };
 	while (true) {
-		const next = rt.iter.toOption(down.next());
+		const next = rt.iter.toOption(countdownNext(down));
 		if (next !== undefined) {
 			const n3 = next;
 			if (rt.u8.rem(n3, 5) === 0) {
@@ -607,15 +593,15 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
 		}
 	}
 	out.push(down.left);
-	const evens = rt.iter.from(new Evens({ inner: rt.iter.slice(data) }), (it: Evens) => it.next()).toByteVec();
+	const evens = rt.iter.from({ inner: rt.iter.slice(data) }, (it: Evens) => evensNext(it)).toByteVec();
 	out.extendFromSlice(evens.view());
-	let byRef: Evens = new Evens({ inner: rt.iter.slice(rt.slice.range(data, rt.min(data.length, 1))) });
-	const firsts = rt.iter.from(byRef, (it: Evens) => it.next()).take(2).toByteVec();
+	let byRef: Evens = { inner: rt.iter.slice(rt.slice.range(data, rt.min(data.length, 1))) };
+	const firsts = rt.iter.from(byRef, (it: Evens) => evensNext(it)).take(2).toByteVec();
 	out.extendFromSlice(firsts.view());
-	out.push(rt.iter.from(byRef, (it: Evens) => it.next()).count() & 0xff);
-	const halves = rt.iter.from(new Halving({ value: left }), (it: Halving<rt.u8>) => it.next$Iterator()).toByteVec();
+	out.push(rt.iter.from(byRef, (it: Evens) => evensNext(it)).count() & 0xff);
+	const halves = rt.iter.from(new Halving({ value: left }), (it: Halving<rt.u8>) => halvingNext$Iterator(it)).toByteVec();
 	out.extendFromSlice(halves.view());
-	const total2 = rt.iter.from(new Halving({ value: rt.u64.mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving<rt.u64>) => it.next$Iterator$2()).sum(rt.u64.add, 0);
+	const total2 = rt.iter.from(new Halving({ value: rt.u64.mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving<rt.u64>) => halvingNext$Iterator$2(it)).sum(rt.u64.add, 0);
 	out.extendFromSlice(rt.u64.toBeBytes(total2));
 }
 
@@ -626,21 +612,21 @@ export class Halving<T> {
 	constructor(fields: { value: T }) {
 		this.value = fields.value;
 	}
+}
 
-	next$Iterator(this: Halving<rt.u8>): rt.u8 | rt.Done {
-		const value = this.value;
-		this.value = rt.u8.div(this.value, 2);
-		return rt.iter.fromOption(rt.thenSome(value !== 0, value));
-	}
+export function halvingNext$Iterator(self: Halving<rt.u8>): rt.u8 | rt.Done {
+	const value = self.value;
+	self.value = rt.u8.div(self.value, 2);
+	return rt.iter.fromOption(rt.thenSome(value !== 0, value));
+}
 
-	next$Iterator$2(this: Halving<rt.u64>): rt.u64 | rt.Done {
-		if (this.value === 0) {
-			return rt.DONE;
-		} else {
-			const value = this.value;
-			this.value = rt.u64.shr(value, 1);
-			return value;
-		}
+export function halvingNext$Iterator$2(self: Halving<rt.u64>): rt.u64 | rt.Done {
+	if (self.value === 0) {
+		return rt.DONE;
+	} else {
+		const value = self.value;
+		self.value = rt.u64.shr(value, 1);
+		return value;
 	}
 }
 
@@ -670,8 +656,8 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		const b = item;
 		out.push(b);
 	}
-	let held: Held = new Held({ it: rt.iter.slice(data) });
-	out.push(held.skipOne());
+	let held: Held = { it: rt.iter.slice(data) };
+	out.push(heldSkipOne(held));
 	const iter2 = odds(data);
 	while (true) {
 		const b2 = iter2.next();
@@ -680,17 +666,15 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		out.push(b2);
 	}
-	const arg = new Doubled(data);
-	const arg2 = new Doubled(rt.slice.range(data, 0, rt.min(data.length, 2)));
-	const printed = rt.fmt.format([(f: rt.Formatter) => arg.fmt(f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => arg2.fmt(f))]);
+	const arg = { _0: data };
+	const arg2 = { _0: rt.slice.range(data, 0, rt.min(data.length, 2)) };
+	const printed = rt.fmt.format([(f: rt.Formatter) => doubledFmt(arg, f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => doubledFmt(arg2, f))]);
 	out.extendFromSlice(rt.string.asBytes(printed));
 	const tags = rt.iter.slice(data).map((arg3: rt.u8): Tag => {
 		const b3 = arg3;
-		return new Tag({ bytes: rt.slice.toByteVec(Uint8Array.of(b3, ~b3 & 0xff)) });
+		return { bytes: rt.slice.toByteVec(Uint8Array.of(b3, ~b3 & 0xff)) };
 	}).toArray();
-	let cloned: Tag[] = rt.iter.slice(tags).map((a0: Tag): Tag => {
-		return a0.clone();
-	}).toArray();
+	let cloned: Tag[] = rt.iter.slice(tags).map(tagClone).toArray();
 	const iter3 = rt.iter.slice(cloned);
 	while (true) {
 		const tag = iter3.next();
@@ -709,11 +693,9 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	const bumps = rt.iter.slice(data).map((arg4: rt.u8): Bumped => {
 		const b4 = arg4;
-		return new Bumped(b4);
+		return { _0: b4 };
 	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(bumps).map((a02: Bumped): Bumped => {
-		return a02.clone();
-	}).map((b5: Bumped): rt.u8 => {
+	rt.iter.extend(out, rt.iter.slice(bumps).map(bumpedClone).map((b5: Bumped): rt.u8 => {
 		return b5._0;
 	}));
 	rt.iter.extend(out, rt.iter.slice(bumps).map(rt.copy).map((b6: Bumped): rt.u8 => {
@@ -721,13 +703,15 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 	}));
 	const wrapped = rt.iter.slice(data).map((arg5: rt.u8): Wrapper<Bumped> => {
 		const b7 = arg5;
-		return new Wrapper(new Bumped(b7));
+		return new Wrapper({ _0: b7 });
 	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(wrapped).map((a03: Wrapper<Bumped>): Wrapper<Bumped> => {
-		return a03.clone();
-	}).map((w: Wrapper<Bumped>): rt.u8 => {
+	rt.iter.extend(out, rt.iter.slice(wrapped).map(wrapperClone).map((w: Wrapper<Bumped>): rt.u8 => {
 		return w._0._0;
 	}));
+}
+
+export function wrapperClone(self: Wrapper<Bumped>): Wrapper<Bumped> {
+	return new Wrapper(bumpedClone(self._0));
 }
 
 export class Wrapper<T> {
@@ -736,66 +720,46 @@ export class Wrapper<T> {
 	constructor(_0: T) {
 		this._0 = _0;
 	}
-
-	clone(this: Wrapper<Bumped>): Wrapper<Bumped> {
-		return new Wrapper(this._0.clone());
-	}
 }
 
 /** A `Copy` type whose `Clone` does more than copy. */
-export class Bumped {
+export interface Bumped {
 	_0: rt.u8;
+}
 
-	constructor(_0: rt.u8) {
-		this._0 = _0;
-	}
+export function bumpedClone(self: Bumped): Bumped {
+	return { _0: rt.u8.wrappingAdd(self._0, 1) };
+}
 
-	clone(): Bumped {
-		return new Bumped(rt.u8.wrappingAdd(this._0, 1));
-	}
+export function tagClone(self: Tag): Tag {
+	return { bytes: rt.ByteVec.from(self.bytes.view()) };
 }
 
 /** A `Clone` that is not `Copy`, which `cloned` calls for each item. */
-export class Tag {
+export interface Tag {
 	bytes: rt.ByteVec;
-
-	constructor(fields: { bytes: rt.ByteVec }) {
-		this.bytes = fields.bytes;
-	}
-
-	clone(): Tag {
-		return new Tag({ bytes: rt.ByteVec.from(this.bytes.view()) });
-	}
 }
 
 /** An iterator in a field. */
-export class Held {
+export interface Held {
 	it: rt.Iter<rt.u8>;
+}
 
-	constructor(fields: { it: rt.Iter<rt.u8> }) {
-		this.it = fields.it;
-	}
-
-	skipOne(): rt.u8 {
-		rt.iter.toOption(this.it.next());
-		return rt.option.unwrapOr(rt.iter.toOption(this.it.next()), 0xbb);
-	}
+export function heldSkipOne(self: Held): rt.u8 {
+	rt.iter.toOption(self.it.next());
+	return rt.option.unwrapOr(rt.iter.toOption(self.it.next()), 0xbb);
 }
 
 /** Each byte doubled, as a `Debug` list built from an iterator. */
-export class Doubled {
+export interface Doubled {
 	_0: Uint8Array;
+}
 
-	constructor(_0: Uint8Array) {
-		this._0 = _0;
-	}
-
-	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.debugList().entries(rt.iter.slice(this._0).map((arg: rt.u8): rt.u16 => {
-			const b = arg;
-			return rt.u16.mul(b as rt.u16, 2);
-		}), rt.u16.display).finish();
-	}
+export function doubledFmt(self: Doubled, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugList().entries(rt.iter.slice(self._0).map((arg: rt.u8): rt.u16 => {
+		const b = arg;
+		return rt.u16.mul(b as rt.u16, 2);
+	}), rt.u16.display).finish();
 }
 
 //# sourceMappingURL=iters.ts.map

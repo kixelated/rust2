@@ -11,7 +11,6 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Args, Call, Std};
 use super::num::Int;
-use crate::program::SymKind;
 use crate::ts::{Expr, Param, Stmt, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
@@ -104,10 +103,7 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 	match own_next(b, ty) {
 		Some(instance) => {
 			let sym = b.t.instance(instance);
-			match b.t.program.syms[sym].kind {
-				SymKind::Method { instance: true } => Expr::Method(Box::new(iter), sym, Vec::new()),
-				_ => Expr::Sym(sym).call(vec![iter]),
-			}
+			Expr::Sym(sym).call(vec![iter])
 		}
 		None => iter.member("next").call(Vec::new()),
 	}
@@ -124,10 +120,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 				let sym = b.t.instance(instance);
 				let param_ty = b.t.ty(ty.peel_refs(), span);
 				let it = "it".to_string();
-				let next = match b.t.program.syms[sym].kind {
-					SymKind::Method { instance: true } => Expr::Method(Box::new(Expr::ident(&it)), sym, Vec::new()),
-					_ => Expr::Sym(sym).call(vec![Expr::ident(&it)]),
-				};
+				let next = Expr::Sym(sym).call(vec![Expr::ident(&it)]);
 				let param = Param {
 					name: it,
 					ty: Some(param_ty),

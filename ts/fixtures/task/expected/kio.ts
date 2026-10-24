@@ -16,103 +16,102 @@ export class Waiter {
 		rt.drop(this.waker);
 		rt.drop(this.shared);
 	}
+}
 
-	static new(waker: rt.Waker): Waiter {
+export function waiterNew(waker: rt.Waker): Waiter {
+	try {
+		let shared = new rt.Arc(waker.clone());
 		try {
-			let shared = new rt.Arc(waker.clone());
-			try {
-				const waker2 = waker;
-				waker = undefined!;
-				const arg = waker2;
-				const shared2 = shared;
-				shared = undefined!;
-				return new Waiter({ waker: arg, shared: shared2 });
-			} finally {
-				rt.drop(shared);
-			}
+			const waker2 = waker;
+			waker = undefined!;
+			const arg = waker2;
+			const shared2 = shared;
+			shared = undefined!;
+			return new Waiter({ waker: arg, shared: shared2 });
 		} finally {
-			rt.drop(waker);
+			rt.drop(shared);
 		}
-	}
-
-	/** Register with `list`, a no-op while the list still holds this waiter. */
-	register(list: WaiterList): void {
-		list.register(this);
+	} finally {
+		rt.drop(waker);
 	}
 }
 
+/** Register with `list`, a no-op while the list still holds this waiter. */
+export function waiterRegister(self: Waiter, list: WaiterList): void {
+	waiterListRegister(list, self);
+}
+
 /** Wakers waiting for one event, held weakly. */
-export class WaiterList {
+export interface WaiterList {
 	entries: rt.Weak<rt.Waker>[];
 	/** Where the next registration looks for a dead slot to reuse. */
 	cursor: rt.usize;
+}
 
-	constructor(fields: { entries: rt.Weak<rt.Waker>[]; cursor: rt.usize }) {
-		this.entries = fields.entries;
-		this.cursor = fields.cursor;
+export function waiterListNew(): WaiterList {
+	return { entries: [], cursor: 0 };
+}
+
+export function waiterListRegister(self: WaiterList, waiter: Waiter): void {
+	const weak = new rt.Weak(waiter.shared);
+	for (const entry of self.entries) {
+		if (entry.arc === weak.arc) {
+			return;
+		}
 	}
-
-	static new(): WaiterList {
-		return new WaiterList({ entries: [], cursor: 0 });
+	let probes: rt.usize = rt.min(self.entries.length, 2);
+	while (probes > 0) {
+		if (rt.at(self.entries, self.cursor).arc.strong === 0) {
+			const value = weak;
+			self.entries[rt.idx(self.entries, self.cursor)] = value;
+			return;
+		}
+		self.cursor = rt.usize.rem(rt.usize.add(self.cursor, 1), self.entries.length);
+		probes = rt.usize.sub(probes, 1);
 	}
-
-	register(waiter: Waiter): void {
-		const weak = new rt.Weak(waiter.shared);
-		for (const entry of this.entries) {
-			if (entry.arc === weak.arc) {
-				return;
+	if (self.entries.length >= 4) {
+		let live: rt.Weak<rt.Waker>[] = [];
+		const taken = self.entries;
+		self.entries = [];
+		for (const entry2 of taken) {
+			if (entry2.arc.strong > 0) {
+				live.push(entry2);
 			}
 		}
-		let probes: rt.usize = rt.min(this.entries.length, 2);
-		while (probes > 0) {
-			if (rt.at(this.entries, this.cursor).arc.strong === 0) {
-				const value = weak;
-				this.entries[rt.idx(this.entries, this.cursor)] = value;
-				return;
-			}
-			this.cursor = rt.usize.rem(rt.usize.add(this.cursor, 1), this.entries.length);
-			probes = rt.usize.sub(probes, 1);
-		}
-		if (this.entries.length >= 4) {
-			let live: rt.Weak<rt.Waker>[] = [];
-			const taken = this.entries;
-			this.entries = [];
-			for (const entry2 of taken) {
-				if (entry2.arc.strong > 0) {
-					live.push(entry2);
-				}
-			}
-			this.entries = live;
-			this.cursor = 0;
-		}
-		this.entries.push(weak);
+		self.entries = live;
+		self.cursor = 0;
 	}
+	self.entries.push(weak);
+}
 
-	/** Drain every entry into a new list, leaving this one empty. */
-	take(): WaiterList {
-		this.cursor = 0;
-		const taken = this.entries;
-		this.entries = [];
-		return new WaiterList({ entries: taken, cursor: 0 });
-	}
+/** Drain every entry into a new list, leaving this one empty. */
+export function waiterListTake(self: WaiterList): WaiterList {
+	self.cursor = 0;
+	const taken = self.entries;
+	self.entries = [];
+	return { entries: taken, cursor: 0 };
+}
 
-	/** Wake every live waiter, draining the list. */
-	wake(): void {
-		this.cursor = 0;
-		const taken = this.entries;
-		this.entries = [];
-		for (const entry of taken) {
-			const upgrade = entry.upgrade();
-			if (upgrade !== undefined) {
-				const waker = upgrade;
-				try {
-					waker.value.wakeByRef();
-				} finally {
-					rt.drop(waker);
-				}
+/** Wake every live waiter, draining the list. */
+export function waiterListWake(self: WaiterList): void {
+	self.cursor = 0;
+	const taken = self.entries;
+	self.entries = [];
+	for (const entry of taken) {
+		const upgrade = entry.upgrade();
+		if (upgrade !== undefined) {
+			const waker = upgrade;
+			try {
+				waker.value.wakeByRef();
+			} finally {
+				rt.drop(waker);
 			}
 		}
 	}
+}
+
+export function parkDefault(): Park {
+	return new Park(undefined);
 }
 
 /** Holds a parked waiter between polls, so its registrations outlive the poll. */
@@ -126,71 +125,60 @@ export class Park {
 	[Symbol.dispose](): void {
 		rt.drop(this._0);
 	}
+}
 
-	static default(): Park {
-		return new Park(undefined);
+/**
+ * The waiter for this poll: the one held if it wakes the same task, else a new one,
+ * dropping the old and so its registrations.
+ */
+export function parkHold(self: Park, cx: rt.Context): Waiter {
+	let reuse: boolean;
+	if (self._0 !== undefined) {
+		const waiter = self._0;
+		reuse = cx.willWake(waiter.waker);
+	} else {
+		reuse = false;
 	}
-
-	/**
-	 * The waiter for this poll: the one held if it wakes the same task, else a new one,
-	 * dropping the old and so its registrations.
-	 */
-	hold(cx: rt.Context): Waiter {
-		let reuse: boolean;
-		if (this._0 !== undefined) {
-			const waiter = this._0;
-			reuse = cx.willWake(waiter.waker);
-		} else {
-			reuse = false;
-		}
-		if (!reuse) {
-			const value = Waiter.new(cx.clone());
-			rt.drop(this._0);
-			this._0 = value;
-		}
-		return rt.option.unwrap(this._0);
+	if (!reuse) {
+		const value = waiterNew(cx.clone());
+		rt.drop(self._0);
+		self._0 = value;
 	}
+	return rt.option.unwrap(self._0);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait(poll: (a0: Waiter) => rt.Poll<rt.u64 | undefined>): Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending({ _poll: poll, park: Park.default() });
+	return new Pending({ poll, park: parkDefault() });
 }
 
 /** What [`wait`] returns. */
 export class Pending<F> {
-	_poll: F;
+	poll: F;
 	park: Park;
 
-	constructor(fields: { _poll: F; park: Park }) {
-		this._poll = fields._poll;
+	constructor(fields: { poll: F; park: Park }) {
+		this.poll = fields.poll;
 		this.park = fields.park;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this._poll);
+		rt.drop(this.poll);
 		rt.drop(this.park);
-	}
-
-	poll(this: Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
-		const this_ = this;
-		const waiter = this_.park.hold(cx);
-		return this_._poll(waiter);
 	}
 }
 
-export class State {
+export function pendingPoll(self: Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
+	const this_ = self;
+	const waiter = parkHold(this_.park, cx);
+	return this_.poll(waiter);
+}
+
+export interface State {
 	queue: rt.u64[];
 	closed: boolean;
 	producers: rt.usize;
 	waiters: WaiterList;
-
-	constructor(fields: { queue: rt.u64[]; closed: boolean; producers: rt.usize; waiters: WaiterList }) {
-		this.queue = fields.queue;
-		this.closed = fields.closed;
-		this.producers = fields.producers;
-		this.waiters = fields.waiters;
-	}
 }
 
 /** The sending side of a channel, which closes when the last one drops. */
@@ -202,42 +190,46 @@ export class Producer {
 	}
 
 	[Symbol.dispose](): void {
-		this.drop();
+		producerDrop(this);
 		rt.drop(this.state);
 	}
+}
 
-	static new(): Producer {
-		const state = new State({ queue: [], closed: false, producers: 1, waiters: WaiterList.new() });
-		return new Producer({ state: new rt.Arc(new rt.Mutex(state)) });
-	}
+export function producerNew(): Producer {
+	const state = { queue: [], closed: false, producers: 1, waiters: waiterListNew() };
+	return new Producer({ state: new rt.Arc(new rt.Mutex(state)) });
+}
 
-	/** Queue `value` and wake every consumer, after releasing the lock. */
-	send(value: rt.u64): void {
-		let state: rt.Mutex<State> = this.state.value;
-		state.value.queue.push(value);
-		let waiters: WaiterList = state.value.waiters.take();
-		waiters.wake();
-	}
+/** Queue `value` and wake every consumer, after releasing the lock. */
+export function producerSend(self: Producer, value: rt.u64): void {
+	let state: rt.Mutex<State> = self.state.value;
+	state.value.queue.push(value);
+	let waiters: WaiterList = waiterListTake(state.value.waiters);
+	waiterListWake(waiters);
+}
 
-	consume(): Consumer {
-		return new Consumer({ state: this.state.clone(), next: 0 });
-	}
+export function producerConsume(self: Producer): Consumer {
+	return new Consumer({ state: self.state.clone(), next: 0 });
+}
 
-	clone(): Producer {
-		this.state.value.value.producers = rt.usize.add(this.state.value.value.producers, 1);
-		return new Producer({ state: this.state.clone() });
-	}
+export function producerClone(self: Producer): Producer {
+	self.state.value.value.producers = rt.usize.add(self.state.value.value.producers, 1);
+	return new Producer({ state: self.state.clone() });
+}
 
-	drop(): void {
-		let state: rt.Mutex<State> = this.state.value;
-		state.value.producers = rt.usize.sub(state.value.producers, 1);
-		if (state.value.producers > 0) {
-			return;
-		}
-		state.value.closed = true;
-		let waiters: WaiterList = state.value.waiters.take();
-		waiters.wake();
+export function producerDrop(self: Producer): void {
+	let state: rt.Mutex<State> = self.state.value;
+	state.value.producers = rt.usize.sub(state.value.producers, 1);
+	if (state.value.producers > 0) {
+		return;
 	}
+	state.value.closed = true;
+	let waiters: WaiterList = waiterListTake(state.value.waiters);
+	waiterListWake(waiters);
+}
+
+export function consumerClone(self: Consumer): Consumer {
+	return new Consumer({ state: self.state.clone(), next: self.next });
 }
 
 /** The receiving side of a channel: every value sent, in order. */
@@ -253,40 +245,36 @@ export class Consumer {
 	[Symbol.dispose](): void {
 		rt.drop(this.state);
 	}
+}
 
-	clone(): Consumer {
-		return new Consumer({ state: this.state.clone(), next: this.next });
+/** The next value, or `None` once the channel closed and every value was read. */
+export function consumerPollRecv(self: Consumer, waiter: Waiter): rt.Poll<rt.u64 | undefined> {
+	let state: rt.Mutex<State> = self.state.value;
+	if (self.next < state.value.queue.length) {
+		const value = rt.at(state.value.queue, self.next);
+		self.next = rt.usize.add(self.next, 1);
+		return value;
 	}
+	if (state.value.closed) {
+		return undefined;
+	}
+	waiterRegister(waiter, state.value.waiters);
+	return rt.Pending;
+}
 
-	/** The next value, or `None` once the channel closed and every value was read. */
-	pollRecv(waiter: Waiter): rt.Poll<rt.u64 | undefined> {
-		let state: rt.Mutex<State> = this.state.value;
-		if (this.next < state.value.queue.length) {
-			const value = rt.at(state.value.queue, this.next);
-			this.next = rt.usize.add(this.next, 1);
-			return value;
-		}
-		if (state.value.closed) {
-			return undefined;
-		}
-		waiter.register(state.value.waiters);
-		return rt.Pending;
-	}
-
-	/** kio's one-line wrapper over a `poll_*` method. */
-	recv(): rt.Future<rt.u64 | undefined> {
-		return rt.future(recvBody, undefined, this);
-	}
+/** kio's one-line wrapper over a `poll_*` method. */
+export function consumerRecv(self: Consumer): rt.Future<rt.u64 | undefined> {
+	return rt.future(recvBody, undefined, self);
 }
 
 export function* recvBody(_taskContext: rt.Context, self: Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const self2 = self;
 	let __awaitee: Pending<(a0: Waiter) => rt.Poll<rt.u64 | undefined>> = wait((waiter: Waiter): rt.Poll<rt.u64 | undefined> => {
-		return self2.pollRecv(waiter);
+		return consumerPollRecv(self2, waiter);
 	});
 	try {
 		while (true) {
-			const poll = __awaitee.poll(_taskContext);
+			const poll = pendingPoll(__awaitee, _taskContext);
 			if (poll !== rt.Pending) {
 				const result = poll;
 				return result;

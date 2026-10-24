@@ -4,30 +4,28 @@ import * as rt from "../rt.ts";
 import { type DecodeError } from "../coding/decode.ts";
 import { type Version } from "../lite/version.ts";
 
+export function boundsExceededFmt$Debug(_self: BoundsExceeded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.writeStr("BoundsExceeded");
+}
+
+export function boundsExceededFmt$Display(_self: BoundsExceeded, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return __formatter.writeStr("value out of range");
+}
+
 /** The number does not fit the target: a varint wire form or a narrower integer. */
-export class BoundsExceeded {
-
-	fmt$Debug(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.writeStr("BoundsExceeded");
-	}
-
-	fmt$Display(__formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return __formatter.writeStr("value out of range");
-	}
+export interface BoundsExceeded {
 }
 
 /** How a protocol version lays out a varint on the wire. */
 export type Form = { tag: "Quic" } | { tag: "LeadingOnes"; seven: boolean };
 
-export const Form = {
-	from(version: Version): Form {
-		if (version === "Lite01" || version === "Lite02" || version === "Lite03" || version === "Lite04" || version === "Lite05" || version === "Lite06") {
-			return { tag: "Quic" };
-		} else {
-			return { tag: "LeadingOnes", seven: true };
-		}
-	},
-};
+export function formFrom(version: Version): Form {
+	if (version === "Lite01" || version === "Lite02" || version === "Lite03" || version === "Lite04" || version === "Lite05" || version === "Lite06") {
+		return { tag: "Quic" };
+	} else {
+		return { tag: "LeadingOnes", seven: true };
+	}
+}
 
 /** The high and low 32 bits: the only place the codec splits a `u64`. */
 export function toHalves(value: rt.u64): [rt.u32, rt.u32] {
@@ -52,7 +50,7 @@ export function size(value: rt.u64, form: Form): rt.Result<rt.usize, BoundsExcee
 	} else if (form.tag === "Quic" && hi < (1 << 30)) {
 		value2 = 8;
 	} else if (form.tag === "Quic") {
-		return rt.Err(new BoundsExceeded());
+		return rt.Err({});
 	} else if (form.tag === "LeadingOnes" && hi === 0 && lo < (1 << 7)) {
 		value2 = 1;
 	} else if (form.tag === "LeadingOnes" && hi === 0 && lo < (1 << 14)) {
@@ -108,7 +106,7 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 		const h = toBeBytes2[3];
 		out.extendFromSlice(Uint8Array.of(a, b, c, d, e, f, g, h));
 	} else {
-		return rt.Err(new BoundsExceeded());
+		return rt.Err({});
 	}
 	return rt.Ok(undefined);
 }

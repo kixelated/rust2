@@ -183,15 +183,15 @@ struct Refs {
 impl Refs {
 	fn use_sym(&mut self, program: &Program, id: SymId, value: bool) {
 		let top = program.syms[id].owner.unwrap_or(id);
-		// A union without a companion has no value to import.
-		let value = value && !matches!(program.syms[top].kind, SymKind::Union { companion: false });
+		// A union has no value to import.
+		let value = value && program.syms[top].kind != SymKind::Union;
 		let used = self.used.entry(top).or_insert(false);
 		*used |= value;
 	}
 
 	fn item(&mut self, program: &Program, item: &Item) {
 		match item {
-			Item::Class { sym, fields, .. } => {
+			Item::Struct { sym, fields, .. } => {
 				for field in fields {
 					self.ty(program, &field.ty);
 				}
@@ -294,10 +294,6 @@ impl Refs {
 			}
 			Expr::Call(f, args) | Expr::New(f, args) => {
 				self.expr(program, f);
-				args.iter().for_each(|e| self.expr(program, e));
-			}
-			Expr::Method(recv, _, args) => {
-				self.expr(program, recv);
 				args.iter().for_each(|e| self.expr(program, e));
 			}
 			Expr::Cond(a, b, c) => {
@@ -409,7 +405,7 @@ impl Printer<'_> {
 
 	fn item(&mut self, item: &Item) {
 		match item {
-			Item::Class {
+			Item::Struct {
 				sym,
 				params,
 				fields,
@@ -476,11 +472,7 @@ impl Printer<'_> {
 				}
 				for method in self.program.methods.get(sym).into_iter().flatten() {
 					self.newline();
-					self.function(method, Context::Class);
-				}
-				for &(method, free) in self.program.facades.get(sym).into_iter().flatten() {
-					self.newline();
-					self.facade(method, free);
+					self.function(method, false);
 				}
 				self.indent -= 1;
 				self.start();
@@ -509,87 +501,22 @@ impl Printer<'_> {
 						self.write(&format!("{INDENT}| {variant}{end}\n"));
 					}
 				}
-				let functions = self.program.methods.get(sym).map_or(&[][..], Vec::as_slice);
-				if !functions.is_empty() {
-					self.newline();
-					self.start();
-					self.write(&format!("export const {name} = {{\n"));
-					self.indent += 1;
-					for (i, f) in functions.iter().enumerate() {
-						if i > 0 {
-							self.newline();
-						}
-						self.function(f, Context::Companion);
-					}
-					self.indent -= 1;
-					self.start();
-					self.write("};\n");
-				}
-				let facade = self.program.facades.get(sym).map_or(&[][..], Vec::as_slice);
-				if !facade.is_empty() {
-					self.newline();
-					self.start();
-					self.write(&format!("export const {name} = {{\n"));
-					for &(method, free) in facade {
-						self.start();
-						let line = format!("{INDENT}{}: {},\n", self.program.syms[method].name, self.sym_name(free));
-						self.write(&line);
-					}
-					self.start();
-					self.write("};\n");
-				}
 			}
-			Item::Function(f) => self.function(f, Context::Module),
+			Item::Function(f) => self.function(f, true),
 		}
 	}
 
-	/// A facade's method, which calls its free function with `this` first if it takes one.
-	fn facade(&mut self, method: SymId, free: SymId) {
-		let f = self
-			.program
-			.items
-			.iter()
-			.find_map(|item| match item {
-				Item::Function(f) if f.sym == free => Some(f),
-				_ => None,
-			})
-			.expect("a facade's free function is translated");
-		let instance = matches!(self.program.syms[method].kind, SymKind::Method { instance: true });
-		self.renames = self.renames_for(f);
-		self.doc(&f.doc);
-		self.start();
-		let name = self.program.syms[method].name.clone();
-		self.write(&format!("{}{name}(", if instance { "" } else { "static " }));
-		let params = match instance {
-			true => &f.params[1..],
-			false => &f.params[..],
-		};
-		self.params(params);
-		let ret = self.ty(&f.ret);
-		self.write(&format!("): {ret} {{\n"));
-		let mut args: Vec<String> = params.iter().map(|p| self.local(&p.name).to_string()).collect();
-		if instance {
-			args.insert(0, "this".into());
-		}
-		self.start();
-		let call = format!("{INDENT}return {}({});\n", self.sym_name(free), args.join(", "));
-		self.write(&call);
-		self.start();
-		self.write("}\n");
-	}
-
-	fn function(&mut self, f: &Function, cx: Context) {
+	/// Print `f`, a module's function, or else a class's method.
+	fn function(&mut self, f: &Function, module: bool) {
 		self.renames = self.renames_for(f);
 		self.doc(&f.doc);
 		self.start();
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
 		let star = if f.generator { "*" } else { "" };
-		match cx {
-			Context::Module => self.write(&format!("export function{star} {name}(")),
-			Context::Class if f.method => self.write(&format!("{name}(")),
-			Context::Class => self.write(&format!("static {name}(")),
-			Context::Companion => self.write(&format!("{name}(")),
+		match module {
+			true => self.write(&format!("export function{star} {name}(")),
+			false => self.write(&format!("{star}{name}(")),
 		}
 		self.params(&f.params);
 		let mut ret = self.ty(&f.ret);
@@ -600,10 +527,7 @@ impl Printer<'_> {
 		self.write(&format!("): {ret} {{\n"));
 		self.block_body(&f.body);
 		self.start();
-		match cx {
-			Context::Companion => self.write("},\n"),
-			_ => self.write("}\n"),
-		}
+		self.write("}\n");
 	}
 
 	/// Renames for the locals of `f` that a module binding would shadow.
@@ -895,13 +819,6 @@ impl Printer<'_> {
 				self.list(args);
 				self.write(")");
 			}
-			Expr::Method(recv, sym, args) => {
-				self.base(recv);
-				let name = self.program.syms[*sym].name.clone();
-				self.write(&format!(".{name}("));
-				self.list(args);
-				self.write(")");
-			}
 			Expr::New(f, args) => {
 				self.write("new ");
 				self.base(f);
@@ -1083,13 +1000,6 @@ impl Printer<'_> {
 	}
 }
 
-#[derive(Clone, Copy)]
-enum Context {
-	Module,
-	Class,
-	Companion,
-}
-
 fn type_params(params: &[String]) -> String {
 	match params.is_empty() {
 		true => String::new(),
@@ -1130,7 +1040,7 @@ fn prec(e: &Expr) -> u8 {
 		Expr::As(..) => 12,
 		Expr::Unary(..) => 17,
 		Expr::Lit(text) if text.starts_with('-') => 17,
-		Expr::New(..) | Expr::Call(..) | Expr::Method(..) | Expr::Member(..) | Expr::Index(..) => 19,
+		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) => 19,
 		Expr::Located(_, e) => prec(e),
 		_ => 20,
 	}
@@ -1224,7 +1134,7 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);
 		}
-		Expr::Call(f, args) | Expr::New(f, args) | Expr::Method(f, _, args) => {
+		Expr::Call(f, args) | Expr::New(f, args) => {
 			collect_expr_locals(f, out);
 			args.iter().for_each(|e| collect_expr_locals(e, out));
 		}

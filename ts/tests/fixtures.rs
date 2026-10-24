@@ -195,8 +195,43 @@ fn differential(package: &str, out: &Path, entry: &str, cases: u32, extra: &[&st
 fn codec() {
 	let out = translated("codec");
 	snapshot("codec", &out);
+	std::fs::write(out.join("shake.ts"), SHAKE).unwrap();
 	typecheck(&out);
 	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
+	shake(&out);
+}
+
+/// A caller importing one function of a type, as moq's TypeScript calls the codec.
+const SHAKE: &str = r#"import { decoderNew, decoderU8 } from "./coding/decode.ts";
+
+export const run = (buf: Uint8Array) => decoderU8(decoderNew(buf, { tag: "Quic" }));
+"#;
+
+/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it imports and what they
+/// call, and nothing else the translation holds: no other function of the type, and no
+/// class. The runtime stays out, whose own shaking is another matter.
+fn shake(out: &Path) {
+	let output = Command::new("bun")
+		.args(["build", "--target=browser", "--external=*rt.ts"])
+		.arg(out.join("shake.ts"))
+		.output()
+		.expect("running bun, which the dev shell provides");
+	let bundle = String::from_utf8_lossy(&output.stdout);
+	assert!(
+		output.status.success(),
+		"bundling shake.ts failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	let kept: Vec<&str> = bundle
+		.lines()
+		.filter_map(|line| line.strip_prefix("function ").or_else(|| line.strip_prefix("class ")))
+		.map(|decl| decl.split(['(', ' ', '{']).next().unwrap())
+		.collect();
+	assert_eq!(
+		kept,
+		["decoderNew", "decoderShort", "decoderSlice", "decoderU8"],
+		"the bundle keeps more than the caller reaches:\n{bundle}"
+	);
 }
 
 /// Adding a root changes only the output of what it reaches: everything else keeps its
@@ -274,12 +309,28 @@ fn task() {
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
-import {{ Log }} from "./log.ts";
-import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
+import {{ logClone, logNew, logNote, logText }} from "./log.ts";
+import {{ blocks, channelCloneProducer, channelClose, channelConsumer, channelOpen, channelSend, drain, guardNew, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
+export const run = harness({{
+	Pending: rt.Pending,
+	u64: rt.u64,
+	logNew,
+	logNote,
+	logText,
+	logClone,
+	channelOpen,
+	channelConsumer,
+	channelSend,
+	channelClose,
+	channelCloneProducer,
+	guardNew,
+	sum,
+	drain,
+	blocks,
+}});
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();

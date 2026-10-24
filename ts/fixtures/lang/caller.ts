@@ -3,15 +3,15 @@
 // which nothing translated calls. `differential.ts` runs it beside native Rust's
 // `harness::entry`, from the output directory.
 
-import { Fault } from "./fmt.ts";
+import { faultFmt$Debug, faultFmt$Display, faultNew } from "./fmt.ts";
 import { run as harness } from "./harness.ts";
 import * as rt from "./rt.ts";
 
 export function run(input: Uint8Array): rt.ByteVec {
 	if (input[0] !== 0xff) return harness(input);
-	const fault = Fault.new(input.subarray(1));
-	const display: rt.Fmt = (f) => Fault.fmt$Display(fault, f);
-	const debug: rt.Fmt = (f) => Fault.fmt$Debug(fault, f);
+	const fault = faultNew(input.subarray(1));
+	const display: rt.Fmt = (f) => faultFmt$Display(fault, f);
+	const debug: rt.Fmt = (f) => faultFmt$Debug(fault, f);
 	const text = rt.fmt.format([
 		display,
 		"|",

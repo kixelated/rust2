@@ -2,55 +2,51 @@
 
 import * as rt from "./rt.ts";
 
+export function pointFmt(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(self.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(self.y, f)).finish();
+}
+
+export function pointEq(self: Point, other: Point): boolean {
+	return self.x === other.x && self.y === other.y;
+}
+
 /** A `Copy` struct, which Rust copies where JS would share. */
-export class Point {
+export interface Point {
 	x: rt.i32;
 	y: rt.i32;
+}
 
-	constructor(fields: { x: rt.i32; y: rt.i32 }) {
-		this.x = fields.x;
-		this.y = fields.y;
-	}
+export function pointNew(x: rt.i32, y: rt.i32): Point {
+	return { x, y };
+}
 
-	fmt(f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(this.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(this.y, f)).finish();
-	}
+/** Changes `self`, which a caller's copy must not see. */
+export function pointShift(self: Point, by: rt.i32): Point {
+	self.x = rt.i32.add(self.x, by);
+	return rt.copy(self);
+}
 
-	eq(other: Point): boolean {
-		return this.x === other.x && this.y === other.y;
-	}
-
-	static new(x: rt.i32, y: rt.i32): Point {
-		return new Point({ x, y });
-	}
-
-	/** Changes `self`, which a caller's copy must not see. */
-	shift(by: rt.i32): Point {
-		this.x = rt.i32.add(this.x, by);
-		return rt.copy(this);
-	}
-
-	bump(): void {
-		this.y = rt.i32.add(this.y, 1);
-	}
+export function pointBump(self: Point): void {
+	self.y = rt.i32.add(self.y, 1);
 }
 
 /** A tuple struct. */
-export class Meters {
+export interface Meters {
 	_0: rt.u64;
+}
 
-	constructor(_0: rt.u64) {
-		this._0 = _0;
-	}
-
-	area(): rt.u64 {
-		return this._0;
-	}
-
-	/** A default method, monomorphized for each type. */
-	describe(out: rt.ByteVec): void {
-		out.push(0xaa);
-		out.extendFromSlice(rt.u64.toBeBytes(this._0));
+export function shapeFmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	if (self.tag === "Dot") {
+		return f.writeStr("Dot");
+	} else if (self.tag === "Line") {
+		const __self0 = self._0;
+		const __self1 = self._1;
+		return f.debugTuple("Line").field((f: rt.Formatter) => pointFmt(__self0, f)).field((f: rt.Formatter) => pointFmt(__self1, f)).finish();
+	} else {
+		const __self02 = self.corner;
+		const __self12 = self.width;
+		const __self2 = self.height;
+		return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => pointFmt(__self02, f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
 	}
 }
 
@@ -60,41 +56,6 @@ export type Shape =
 	| { tag: "Line"; _0: Point; _1: Point }
 	| { tag: "Rect"; corner: Point; width: rt.u16; height: rt.u16 };
 
-export const Shape = {
-	fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		if (self.tag === "Dot") {
-			return f.writeStr("Dot");
-		} else if (self.tag === "Line") {
-			const __self0 = self._0;
-			const __self1 = self._1;
-			return f.debugTuple("Line").field((f: rt.Formatter) => __self0.fmt(f)).field((f: rt.Formatter) => __self1.fmt(f)).finish();
-		} else {
-			const __self02 = self.corner;
-			const __self12 = self.width;
-			const __self2 = self.height;
-			return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => __self02.fmt(f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
-		}
-	},
-
-	/** A default method, monomorphized for each type. */
-	describe(self: Shape, out: rt.ByteVec): void {
-		out.push(4);
-		out.extendFromSlice(rt.u64.toBeBytes(Shape.area(self)));
-	},
-
-	area(self: Shape): rt.u64 {
-		if (self.tag === "Dot") {
-			return 0;
-		} else if (self.tag === "Line") {
-			return 0;
-		} else {
-			const width = self.width;
-			const height = self.height;
-			return rt.u64.mul(width as rt.u64, height as rt.u64);
-		}
-	},
-};
-
 /** Discriminants a cast truncates, or reads with another sign. */
 export type Wide = "Low" | "High" | "Top";
 
@@ -102,11 +63,39 @@ export type Signed = "Neg" | "Min" | "Pos";
 
 export type Dir = "North" | "East" | "South" | "West";
 
+/** A default method, monomorphized for each type. */
+export function shapeDescribe(self: Shape, out: rt.ByteVec): void {
+	out.push(4);
+	out.extendFromSlice(rt.u64.toBeBytes(shapeArea(self)));
+}
+
+export function shapeArea(self: Shape): rt.u64 {
+	if (self.tag === "Dot") {
+		return 0;
+	} else if (self.tag === "Line") {
+		return 0;
+	} else {
+		const width = self.width;
+		const height = self.height;
+		return rt.u64.mul(width as rt.u64, height as rt.u64);
+	}
+}
+
+export function metersArea(self: Meters): rt.u64 {
+	return self._0;
+}
+
+/** A default method, monomorphized for each type. */
+export function metersDescribe(self: Meters, out: rt.ByteVec): void {
+	out.push(0xaa);
+	out.extendFromSlice(rt.u64.toBeBytes(self._0));
+}
+
 export function total$Meters(items: Meters[], out: rt.ByteVec): rt.u64 {
 	let sum: rt.u64 = 0;
 	for (const item of items) {
-		item.describe(out);
-		sum = rt.u64.saturatingAdd(sum, item.area());
+		metersDescribe(item, out);
+		sum = rt.u64.saturatingAdd(sum, metersArea(item));
 	}
 	return sum;
 }
@@ -114,8 +103,8 @@ export function total$Meters(items: Meters[], out: rt.ByteVec): rt.u64 {
 export function total$Shape(items: Shape[], out: rt.ByteVec): rt.u64 {
 	let sum: rt.u64 = 0;
 	for (const item of items) {
-		Shape.describe(item, out);
-		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
+		shapeDescribe(item, out);
+		sum = rt.u64.saturatingAdd(sum, shapeArea(item));
 	}
 	return sum;
 }
@@ -153,19 +142,19 @@ export function shape(data: Uint8Array): Shape {
 	if (value === 0) {
 		return { tag: "Dot" };
 	} else if (value === 1) {
-		return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) };
+		return { tag: "Line", _0: pointNew(at(0), at(1)), _1: pointNew(at(2), at(3)) };
 	} else {
-		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16.mul(rt.option.unwrapOr(rt.slice.get(rest, 2), 0) as rt.u16, 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) as rt.u16 };
+		return { tag: "Rect", corner: pointNew(at(0), at(1)), width: rt.u16.mul(rt.option.unwrapOr(rt.slice.get(rest, 2), 0) as rt.u16, 300), height: rt.option.unwrapOr(rt.slice.get(rest, 3), 0) as rt.u16 };
 	}
 }
 
 /** `Copy` aggregates: a copy changes apart from its original. */
 export function copies(data: Uint8Array, out: rt.ByteVec): void {
-	const p = Point.new(rt.option.unwrapOr(rt.slice.first(data), 0) as rt.i32, 7);
+	const p = pointNew(rt.option.unwrapOr(rt.slice.first(data), 0) as rt.i32, 7);
 	let q: Point = rt.copy(p);
 	q.x = rt.i32.add(q.x, 100);
-	q.bump();
-	const r = rt.copy(p).shift(5);
+	pointBump(q);
+	const r = pointShift(rt.copy(p), 5);
 	let pair: [Point, rt.u8] = [rt.copy(p), 3];
 	const saved = rt.copy(pair);
 	pair[0].y = -1;
@@ -183,17 +172,17 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	out.push(saved[1]);
 	out.push(pair[1]);
-	out.push(p.eq(saved[0]) ? 1 : 0);
-	let a: Point = Point.new(1, 2);
-	let b: Point = Point.new(3, 4);
+	out.push(pointEq(p, saved[0]) ? 1 : 0);
+	let a: Point = pointNew(1, 2);
+	let b: Point = pointNew(3, 4);
 	const swapped = a;
 	a = b;
 	b = swapped;
 	const old = a;
-	a = Point.new(5, 6);
+	a = pointNew(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
-	let opt: Meters | undefined = new Meters(9);
+	let opt: Meters | undefined = { _0: 9 };
 	const taken = opt;
 	opt = undefined;
 	const taken2 = taken;
@@ -724,7 +713,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		area = rt.i64.mul(rt.i32.sub(a2.x, b3.x) as rt.i64, rt.i32.sub(a2.y, b3.y) as rt.i64);
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3), new Meters(rt.u64.of(18446744073709551615n))], out));
+	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([{ _0: 3 }, { _0: rt.u64.of(18446744073709551615n) }], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);
 	let a3: rt.u8;
@@ -747,17 +736,15 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	const v3 = parsed.value;
 	c = v3;
 	out.extendFromSlice(Uint8Array.of(a3, b4, c, early(a3)));
-	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void, f: rt.Formatter) => Void.fmt(value, f))])));
+	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void, f: rt.Formatter) => voidFmt(value, f))])));
+}
+
+export function voidFmt(self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	rt.unreachable(self);
 }
 
 /** An enum without variants: no value of it exists. */
 export type Void = never;
-
-export const Void = {
-	fmt(self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		rt.unreachable(self);
-	},
-};
 
 /** A value holding a `Void` can't exist either. */
 export function absurd(v: [Void, rt.u8]): rt.u8 {

@@ -53,9 +53,9 @@ and async in `rt/task.ts`.
 | `bool`, `str`, `String` | `boolean`, `string` |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
-| `struct` | a class; methods take `this`, trait methods included |
+| `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
-| `enum` | a union of objects tagged by variant, with a companion object of functions |
+| `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
@@ -65,6 +65,7 @@ and async in `rt/task.ts`.
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
+| a type's function | a module-level function named after both, taking `self` first: `decoderSlice(dec, 4)` |
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
@@ -94,8 +95,8 @@ Debug` or `&dyn Display` is such a function too. Format specs take fill, alignme
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`.
+would: `rt.fmt.toString((f) => decodeErrorFmt$Display(err, f))` and
+`rt.fmt.format([(f) => decodeErrorFmt$Debug(err, f)])`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
@@ -108,9 +109,9 @@ an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
-`roundtripLite$Group` or `get$Wrap_Pair`. Types are translated once, generically, so a
-generic class holds a method per instance, each declaring the instance it takes as
-`this`: `fmt$Pair(this: Wrap<Pair>, f: rt.Formatter)`. A `Copy` struct, tuple, or
+`roundtripLite$Group` or `wrapGet$Wrap_Pair`. Types are translated once, generically, so
+a function of a generic type is one instance's, declaring the instance it takes as
+`self`: `wrapFmt$Pair(self: Wrap<Pair>, f: rt.Formatter)`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
@@ -127,7 +128,7 @@ generator returns through the `finally` blocks that drop its locals and captures
 `rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
 microtask and yielding to a macrotask after 128 polls.
 
-A file's items, and a class's or companion's methods, follow the Rust source, whatever
+A file's items follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
 What a macro makes sits where the macro is called. The instances of one function sit
 together, sorted by their suffix (`Pair` in `fmt$Pair`) and then by their full type
@@ -160,10 +161,22 @@ they need.
   The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
   `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
   brand would cast every literal, so a plain number passes for any type.
-- A generic type is one class or union, the type TS callers name, and a method on it is
-  one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
-  the type for callers, and TS generics with trait dictionaries would undo
-  monomorphization.
+- A struct is a plain object, and each function of a type, trait impls included, is its
+  own module-level function, so a caller's bundler drops every one it never calls: no
+  bundler drops a class's unused methods or an object's unused properties. A struct that
+  may drop, or holds a type parameter that may, keeps a class for its `[Symbol.dispose]`.
+  `just ts bench` measured it against classes everywhere and against a class facade on
+  the root types over free functions: all three within noise in Node, Bun, and Chrome.
+  A caller of moq-net's translation that decodes a group header bundles to 26.5 KB
+  minified and 8.3 KB gzipped, against 32.3 and 9.5 KB as classes; one that encodes
+  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB. Without the runtime, which does not
+  shake yet, gzip is 30% and 56% smaller. The facade was the largest,
+  since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
+  and date-fns made the same move for the same reason.
+- A generic type is one interface, class, or union, the type TS callers name, and a
+  function of it is one instance's, typed by its `self`. A type per instance
+  (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
+  dictionaries would undo monomorphization.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -217,6 +230,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`. It is also translated without
   `bench::run` and then with it as the first root, which must keep every line in order.
+  Bun bundles a caller of `decoderU8` alone, which must keep only it and what it calls.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a
@@ -256,4 +270,4 @@ its channel, read through 1, 4, or 16 async functions. Its translation runs poll
 once, as natively, and on `rt.spawn`; its hand-written route is the same handoff with
 promises, as moq's TypeScript writes it.
 
-The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.
+The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.

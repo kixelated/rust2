@@ -27,7 +27,7 @@ pub struct Symbol {
 	pub base: String,
 	/// Appended, after a `$`, when the base collides; empty for a numbered suffix.
 	pub suffix: String,
-	/// The class or companion a method or field belongs to.
+	/// The class a method belongs to.
 	pub owner: Option<SymId>,
 	pub kind: SymKind,
 	/// Its source position in rustc's source map, which numbers files in the order it
@@ -50,16 +50,12 @@ impl Symbol {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymKind {
-	Class,
-	/// A type alias, with a companion object of the same name if it has functions.
-	Union {
-		companion: bool,
-	},
+	Struct,
+	/// A type alias, which has no value.
+	Union,
 	Function,
-	/// A function of a class or companion; `instance` is called on its receiver.
-	Method {
-		instance: bool,
-	},
+	/// A class's method, called on its receiver: only drop glue's `[Symbol.dispose]`.
+	Method,
 }
 
 #[derive(Debug)]
@@ -82,40 +78,11 @@ pub struct Program {
 	pub fields: Vec<FieldInfo>,
 	/// Module-level items, by the symbol each defines.
 	pub items: Vec<Item>,
-	/// The methods of each class or companion, by owner.
+	/// The methods of each class, by owner.
 	pub methods: HashMap<SymId, Vec<Function>>,
-	/// A facade's methods, by owner: each method's symbol, and the free function it calls.
-	pub facades: HashMap<SymId, Vec<(SymId, SymId)>>,
-	pub shape: Shape,
-	/// The structs whose values are plain objects, without a class.
+	/// The structs whose values are plain objects; the others are classes.
 	pub plain: HashSet<SymId>,
 	pub sources: Vec<Source>,
-}
-
-/// How translated types and their functions are shaped: the spike's switch.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Shape {
-	/// A struct is a class and its functions are its methods; an enum's are a companion
-	/// object's.
-	#[default]
-	Classes,
-	/// A struct is a plain object, and every function is a module-level one.
-	Functions,
-	/// As `Functions`, but a root or printable type keeps a class, or a companion object,
-	/// whose methods call the free functions.
-	Facade,
-}
-
-impl Shape {
-	/// The shape `RUST2_TS_SHAPE` picks: `classes`, `functions`, or `facade`.
-	pub fn from_env() -> Self {
-		match std::env::var("RUST2_TS_SHAPE").as_deref() {
-			Ok("functions") => Self::Functions,
-			Ok("facade") => Self::Facade,
-			Ok("classes") | Err(_) => Self::Classes,
-			Ok(other) => panic!("RUST2_TS_SHAPE={other}: expected classes, functions, or facade"),
-		}
-	}
 }
 
 impl Program {
@@ -141,9 +108,6 @@ impl Program {
 			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
 		for methods in self.methods.values_mut() {
 			methods.sort_by(|a, b| syms[a.sym].key().cmp(&syms[b.sym].key()));
-		}
-		for methods in self.facades.values_mut() {
-			methods.sort_by(|a, b| syms[a.0].key().cmp(&syms[b.0].key()));
 		}
 
 		let mut scopes: BTreeMap<Scope, Vec<SymId>> = BTreeMap::new();
@@ -181,16 +145,9 @@ impl Program {
 				.collect();
 			for id in ids {
 				let sym = &self.syms[id];
-				// A static method can't take a name its class's constructor function has.
-				let in_class = sym.owner.is_some_and(|owner| self.syms[owner].kind == SymKind::Class);
-				let reserved = in_class && matches!(sym.base.as_str(), "name" | "length" | "caller" | "arguments");
-				let base = match sym.kind {
-					SymKind::Method { instance: false } if reserved => format!("{}_", sym.base),
-					_ => sym.base.clone(),
-				};
 				let base = match shared.contains(&sym.base) && !sym.suffix.is_empty() {
-					true => format!("{base}${}", sym.suffix),
-					false => base,
+					true => format!("{}${}", sym.base, sym.suffix),
+					false => sym.base.clone(),
 				};
 				let name = unique(&mut taken, &base, "");
 				self.syms[id].name = name;
@@ -198,7 +155,7 @@ impl Program {
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
 					let base = match taken.contains(&field.base) {
-						// A getter and its field: the field gives way.
+						// A name a class already defines: the field gives way.
 						true => format!("_{}", field.base),
 						false => field.base.clone(),
 					};
@@ -257,7 +214,7 @@ fn unique(taken: &mut HashSet<String>, base: &str, suffix: &str) -> String {
 
 pub fn item_sym(item: &Item) -> SymId {
 	match item {
-		Item::Class { sym, .. } | Item::Union { sym, .. } => *sym,
+		Item::Struct { sym, .. } | Item::Union { sym, .. } => *sym,
 		Item::Function(f) => f.sym,
 	}
 }

@@ -2,6 +2,10 @@
 
 import * as rt from "./rt.ts";
 
+export function logClone(self: Log): Log {
+	return new Log(self._0.clone());
+}
+
 /** A shared, append-only list of events. */
 export class Log {
 	_0: rt.Arc<rt.Mutex<string[]>>;
@@ -13,30 +17,26 @@ export class Log {
 	[Symbol.dispose](): void {
 		rt.drop(this._0);
 	}
+}
 
-	clone(): Log {
-		return new Log(this._0.clone());
-	}
+export function logNew(): Log {
+	return new Log(new rt.Arc(new rt.Mutex([])));
+}
 
-	static new(): Log {
-		return new Log(new rt.Arc(new rt.Mutex([])));
-	}
+/** Append one event. */
+export function logNote(self: Log, event: string): void {
+	self._0.value.value.push(event);
+}
 
-	/** Append one event. */
-	note(event: string): void {
-		this._0.value.value.push(event);
+/** Every event so far, one per line. */
+export function logText(self: Log): rt.ByteVec {
+	const events = self._0.value;
+	let out: rt.ByteVec = new rt.ByteVec();
+	for (const event of events.value) {
+		out.extendFromSlice(rt.string.asBytes(event));
+		out.push(10);
 	}
-
-	/** Every event so far, one per line. */
-	text(): rt.ByteVec {
-		const events = this._0.value;
-		let out: rt.ByteVec = new rt.ByteVec();
-		for (const event of events.value) {
-			out.extendFromSlice(rt.string.asBytes(event));
-			out.push(10);
-		}
-		return out;
-	}
+	return out;
 }
 
 //# sourceMappingURL=log.ts.map

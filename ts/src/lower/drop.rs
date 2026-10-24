@@ -168,13 +168,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.glued.insert(adt.did()) {
 			return;
 		}
-		if self.plain(info.sym) {
-			let path = tcx.def_path_str(adt.did());
-			self.err(span, format!("`{path}` drops only through a type parameter, which a plain object cannot"));
-			return;
-		}
 		// An enum that drops is refused where it drops: its glue would switch on its variant.
-		let AdtRepr::Class { fields, .. } = &info.repr else {
+		let AdtRepr::Struct { fields, .. } = &info.repr else {
 			if adt.has_dtor(tcx) {
 				self.err(
 					span,
@@ -198,7 +193,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				),
 				false => {
 					let sym = self.instance(Instance::mono(tcx, dtor.did));
-					body.push(StmtKind::Expr(self.call(sym, Expr::This, Vec::new())).at(None));
+					body.push(StmtKind::Expr(Expr::Sym(sym).call(vec![Expr::This])).at(None));
 				}
 			}
 		}
@@ -213,14 +208,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			base: "[Symbol.dispose]".into(),
 			suffix: String::new(),
 			owner: Some(info.sym),
-			kind: SymKind::Method { instance: true },
+			kind: SymKind::Method,
 			order: 0,
 			instance: String::new(),
 			name: String::new(),
 		});
 		self.program.methods.entry(info.sym).or_default().push(ts::Function {
 			sym,
-			method: true,
 			params: Vec::new(),
 			ret: Type::Builtin("void"),
 			body,

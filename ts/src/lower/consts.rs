@@ -226,7 +226,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let info = self.t.adt(*adt, span);
 				let def = adt.variant(variant);
 				match info.repr {
-					AdtRepr::Class { ctor, fields } => self.t.construct(info.sym, &ctor, &fields, values),
+					AdtRepr::Struct { ctor, fields } => self.t.construct(info.sym, &ctor, &fields, values),
 					AdtRepr::Tags => {
 						let ts_ty = self.t.ty(ty, span);
 						Expr::As(Box::new(Expr::Str(def.name.to_string())), ts_ty)

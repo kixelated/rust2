@@ -4,6 +4,28 @@ import * as rt from "../rt.ts";
 import { type BoundsExceeded, type Form, write } from "../coding/varint.ts";
 import { type Control } from "../stats.ts";
 
+export function encodeErrorFmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	if (self === "BoundsExceeded") {
+		return __formatter.writeStr("bounds exceeded");
+	} else if (self === "TooLarge") {
+		return __formatter.writeStr("too large");
+	} else if (self === "Short") {
+		return __formatter.writeStr("short buffer");
+	} else if (self === "InvalidState") {
+		return __formatter.writeStr("invalid state");
+	} else if (self === "TooMany") {
+		return __formatter.writeStr("too many");
+	} else if (self === "Version") {
+		return __formatter.writeStr("unsupported version");
+	} else {
+		return __formatter.writeStr("unsupported");
+	}
+}
+
+export function encodeErrorFmt$Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.writeStr(self === "BoundsExceeded" ? "BoundsExceeded" : self === "TooLarge" ? "TooLarge" : self === "Short" ? "Short" : self === "InvalidState" ? "InvalidState" : self === "TooMany" ? "TooMany" : self === "Version" ? "Version" : "Unsupported");
+}
+
 /** An error that occurs during encoding. */
 export type EncodeError =
 	| "BoundsExceeded"
@@ -14,189 +36,154 @@ export type EncodeError =
 	| "Version"
 	| "Unsupported";
 
-export const EncodeError = {
-	fmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		if (self === "BoundsExceeded") {
-			return __formatter.writeStr("bounds exceeded");
-		} else if (self === "TooLarge") {
-			return __formatter.writeStr("too large");
-		} else if (self === "Short") {
-			return __formatter.writeStr("short buffer");
-		} else if (self === "InvalidState") {
-			return __formatter.writeStr("invalid state");
-		} else if (self === "TooMany") {
-			return __formatter.writeStr("too many");
-		} else if (self === "Version") {
-			return __formatter.writeStr("unsupported version");
-		} else {
-			return __formatter.writeStr("unsupported");
-		}
-	},
-
-	fmt$Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-		return f.writeStr(self === "BoundsExceeded" ? "BoundsExceeded" : self === "TooLarge" ? "TooLarge" : self === "Short" ? "Short" : self === "InvalidState" ? "InvalidState" : self === "TooMany" ? "TooMany" : self === "Version" ? "Version" : "Unsupported");
-	},
-
-	from(_: BoundsExceeded): EncodeError {
-		return "BoundsExceeded";
-	},
-};
+export function encodeErrorFrom(_: BoundsExceeded): EncodeError {
+	return "BoundsExceeded";
+}
 
 /**
  * Appends wire primitives to a byte buffer.
  *
  * The buffer grows as needed, so only a value the wire cannot express fails.
  */
-export class Encoder {
+export interface Encoder {
 	buf: rt.ByteVec;
 	form: Form;
 	control: Control | undefined;
+}
 
-	constructor(fields: { buf: rt.ByteVec; form: Form; control: Control | undefined }) {
-		this.buf = fields.buf;
-		this.form = fields.form;
-		this.control = fields.control;
+/** Append to `buf`, with varints in the given form. */
+export function encoderNew(buf: rt.ByteVec, form: Form): Encoder {
+	return { buf, form, control: undefined };
+}
+
+/** Write raw bytes. */
+export function encoderSlice(self: Encoder, v: Uint8Array): void {
+	self.buf.extendFromSlice(v);
+}
+
+/** Write a single byte. */
+export function encoderU8(self: Encoder, v: rt.u8): void {
+	self.buf.push(v);
+}
+
+/** Write a big-endian `u16`. */
+export function encoderU16(self: Encoder, v: rt.u16): void {
+	self.buf.extendFromSlice(rt.u16.toBeBytes(v));
+}
+
+/** Write a bool as a 0 or 1 byte. */
+export function encoderBool(self: Encoder, v: boolean): void {
+	self.buf.push(v ? 1 : 0);
+}
+
+/** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
+export function encoderVarint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError> {
+	const write_ = write(v, self.form, self.buf);
+	if (!write_.ok) {
+		return rt.Err(encodeErrorFrom(write_.error));
 	}
+	return rt.Ok(write_.value);
+}
 
-	/** Append to `buf`, with varints in the given form. */
-	static new(buf: rt.ByteVec, form: Form): Encoder {
-		return new Encoder({ buf, form, control: undefined });
+/** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
+export function encoderVarintOpt(self: Encoder, v: rt.u64 | undefined): rt.Result<undefined, EncodeError> {
+	let v2: rt.u64;
+	if (v !== undefined) {
+		const v3 = v;
+		const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1), "TooLarge" as EncodeError);
+		if (!okOr.ok) {
+			return rt.Err(okOr.error);
+		}
+		v2 = okOr.value;
+	} else {
+		v2 = 0;
 	}
+	return encoderVarint(self, v2);
+}
 
-	/** Write raw bytes. */
-	slice(v: Uint8Array): void {
-		this.buf.extendFromSlice(v);
+/** Write a varint length, then the raw bytes. */
+export function encoderBytes(self: Encoder, v: Uint8Array): rt.Result<undefined, EncodeError> {
+	const varint = encoderVarint(self, v.length as rt.u64);
+	if (!varint.ok) {
+		return rt.Err(varint.error);
 	}
+	encoderSlice(self, v);
+	return rt.Ok(undefined);
+}
 
-	/** Write a single byte. */
-	u8(v: rt.u8): void {
-		this.buf.push(v);
-	}
+/** Write a varint length, then the UTF-8 bytes. */
+export function encoderString(self: Encoder, v: string): rt.Result<undefined, EncodeError> {
+	return encoderBytes(self, rt.string.asBytes(v));
+}
 
-	/** Write a big-endian `u16`. */
-	u16(v: rt.u16): void {
-		this.buf.extendFromSlice(rt.u16.toBeBytes(v));
-	}
+/**
+ * Reserve a varint size prefix for the body written next; [`Self::fill`] sizes it.
+ *
+ * One byte is reserved, which most bodies fit, so they never move.
+ */
+export function encoderPrefixVarint(self: Encoder): Prefix {
+	self.buf.push(0);
+	return { body: self.buf.length, kind: "Varint" };
+}
 
-	/** Write a bool as a 0 or 1 byte. */
-	bool(v: boolean): void {
-		this.buf.push(v ? 1 : 0);
-	}
+/** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
+export function encoderPrefixU16(self: Encoder): Prefix {
+	self.buf.extendFromSlice(Uint8Array.of(0, 0));
+	return { body: self.buf.length, kind: "U16" };
+}
 
-	/** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
-	varint(v: rt.u64): rt.Result<undefined, EncodeError> {
-		const write_ = write(v, this.form, this.buf);
+/** The number of bytes written since `prefix` was reserved. */
+export function encoderSince(self: Encoder, prefix: Prefix): rt.usize {
+	return rt.usize.sub(self.buf.length, prefix.body);
+}
+
+/** Drop a reserved prefix and everything written since, as if neither was written. */
+export function encoderDiscard(self: Encoder, prefix: Prefix): void {
+	const start = prefix.kind === "Varint" ? rt.usize.sub(prefix.body, 1) : rt.usize.sub(prefix.body, 2);
+	self.buf.truncate(start);
+}
+
+/** Size a reserved prefix to everything written since. */
+export function encoderFill(self: Encoder, prefix: Prefix): rt.Result<undefined, EncodeError> {
+	const body = prefix.body;
+	const end = self.buf.length;
+	if (prefix.kind === "U16") {
+		const mapErr = rt.result.mapErr(rt.u16.tryFrom(rt.usize.sub(end, body)), (_: rt.TryFromIntError): EncodeError => {
+			return "TooLarge";
+		});
+		if (!mapErr.ok) {
+			return rt.Err(mapErr.error);
+		}
+		const size = mapErr.value;
+		rt.slice.copyFromSlice(rt.slice.range(self.buf.view(), rt.usize.sub(body, 2), body), rt.u16.toBeBytes(size));
+	} else {
+		const write_ = write(rt.usize.sub(end, body) as rt.u64, self.form, self.buf);
 		if (!write_.ok) {
-			return rt.Err(EncodeError.from(write_.error));
+			return rt.Err(encodeErrorFrom(write_.error));
 		}
-		return rt.Ok(write_.value);
-	}
-
-	/** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
-	varintOpt(v: rt.u64 | undefined): rt.Result<undefined, EncodeError> {
-		let v2: rt.u64;
-		if (v !== undefined) {
-			const v3 = v;
-			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1), "TooLarge" as EncodeError);
-			if (!okOr.ok) {
-				return rt.Err(okOr.error);
-			}
-			v2 = okOr.value;
-		} else {
-			v2 = 0;
+		const len = rt.usize.sub(self.buf.length, end);
+		if (len === 1) {
+			const value = rt.at(self.buf.view(), end);
+			const slice = self.buf.view();
+			const index = rt.usize.sub(body, 1);
+			slice[rt.idx(slice, index)] = value;
+			self.buf.truncate(end);
+			return rt.Ok(undefined);
 		}
-		return this.varint(v2);
+		let size2: Uint8Array = new Uint8Array(9);
+		rt.slice.copyFromSlice(rt.slice.range(size2, 0, len), rt.slice.range(self.buf.view(), end));
+		self.buf.truncate(rt.usize.sub(rt.usize.add(end, len), 1));
+		rt.slice.copyWithin(self.buf.view(), body, end, rt.usize.sub(rt.usize.add(body, len), 1));
+		rt.slice.copyFromSlice(rt.slice.range(self.buf.view(), rt.usize.sub(body, 1), rt.usize.add(rt.usize.sub(body, 1), len)), rt.slice.range(size2, 0, len));
 	}
-
-	/** Write a varint length, then the raw bytes. */
-	bytes(v: Uint8Array): rt.Result<undefined, EncodeError> {
-		const varint = this.varint(v.length as rt.u64);
-		if (!varint.ok) {
-			return rt.Err(varint.error);
-		}
-		this.slice(v);
-		return rt.Ok(undefined);
-	}
-
-	/** Write a varint length, then the UTF-8 bytes. */
-	string(v: string): rt.Result<undefined, EncodeError> {
-		return this.bytes(rt.string.asBytes(v));
-	}
-
-	/**
-	 * Reserve a varint size prefix for the body written next; [`Self::fill`] sizes it.
-	 *
-	 * One byte is reserved, which most bodies fit, so they never move.
-	 */
-	prefixVarint(): Prefix {
-		this.buf.push(0);
-		return new Prefix({ body: this.buf.length, kind: "Varint" });
-	}
-
-	/** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
-	prefixU16(): Prefix {
-		this.buf.extendFromSlice(Uint8Array.of(0, 0));
-		return new Prefix({ body: this.buf.length, kind: "U16" });
-	}
-
-	/** The number of bytes written since `prefix` was reserved. */
-	since(prefix: Prefix): rt.usize {
-		return rt.usize.sub(this.buf.length, prefix.body);
-	}
-
-	/** Drop a reserved prefix and everything written since, as if neither was written. */
-	discard(prefix: Prefix): void {
-		const start = prefix.kind === "Varint" ? rt.usize.sub(prefix.body, 1) : rt.usize.sub(prefix.body, 2);
-		this.buf.truncate(start);
-	}
-
-	/** Size a reserved prefix to everything written since. */
-	fill(prefix: Prefix): rt.Result<undefined, EncodeError> {
-		const body = prefix.body;
-		const end = this.buf.length;
-		if (prefix.kind === "U16") {
-			const mapErr = rt.result.mapErr(rt.u16.tryFrom(rt.usize.sub(end, body)), (_: rt.TryFromIntError): EncodeError => {
-				return "TooLarge";
-			});
-			if (!mapErr.ok) {
-				return rt.Err(mapErr.error);
-			}
-			const size = mapErr.value;
-			rt.slice.copyFromSlice(rt.slice.range(this.buf.view(), rt.usize.sub(body, 2), body), rt.u16.toBeBytes(size));
-		} else {
-			const write_ = write(rt.usize.sub(end, body) as rt.u64, this.form, this.buf);
-			if (!write_.ok) {
-				return rt.Err(EncodeError.from(write_.error));
-			}
-			const len = rt.usize.sub(this.buf.length, end);
-			if (len === 1) {
-				const value = rt.at(this.buf.view(), end);
-				const slice = this.buf.view();
-				const index = rt.usize.sub(body, 1);
-				slice[rt.idx(slice, index)] = value;
-				this.buf.truncate(end);
-				return rt.Ok(undefined);
-			}
-			let size2: Uint8Array = new Uint8Array(9);
-			rt.slice.copyFromSlice(rt.slice.range(size2, 0, len), rt.slice.range(this.buf.view(), end));
-			this.buf.truncate(rt.usize.sub(rt.usize.add(end, len), 1));
-			rt.slice.copyWithin(this.buf.view(), body, end, rt.usize.sub(rt.usize.add(body, len), 1));
-			rt.slice.copyFromSlice(rt.slice.range(this.buf.view(), rt.usize.sub(body, 1), rt.usize.add(rt.usize.sub(body, 1), len)), rt.slice.range(size2, 0, len));
-		}
-		return rt.Ok(undefined);
-	}
+	return rt.Ok(undefined);
 }
 
 /** A size prefix reserved ahead of a body, sized by [`Encoder::fill`] once it is written. */
-export class Prefix {
+export interface Prefix {
 	/** Where the body starts, just past the reserved bytes. */
 	body: rt.usize;
 	kind: PrefixKind;
-
-	constructor(fields: { body: rt.usize; kind: PrefixKind }) {
-		this.body = fields.body;
-		this.kind = fields.kind;
-	}
 }
 
 export type PrefixKind = "Varint" | "U16";
