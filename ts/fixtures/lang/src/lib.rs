@@ -11,3 +11,5 @@ mod shapes;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;
+#[cfg(target_arch = "wasm32")]
+use harness::run as entry;

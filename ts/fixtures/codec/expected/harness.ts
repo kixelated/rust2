@@ -88,6 +88,18 @@ export function takeU64(data: Uint8Array): [bigint, Uint8Array] {
 	return [rt.u64.fromBeBytes(rt.copy(buf)), rt.slice.range(data, n)];
 }
 
+/** A decode error's code, then its text. */
+export function decodeFailed(out: rt.ByteVec, err: DecodeError): void {
+	decodeError(out, err);
+	putText(out, rt.fmt.toString((f: rt.Formatter) => DecodeError.fmt$Display(err, f)), rt.fmt.format([(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)]));
+}
+
+/** An encode error's code, then its text. */
+export function encodeFailed(out: rt.ByteVec, err: EncodeError): void {
+	encodeError(out, err);
+	putText(out, rt.fmt.toString((f: rt.Formatter) => EncodeError.fmt$Display(err, f)), rt.fmt.format([(f: rt.Formatter) => EncodeError.fmt$Debug(err, f)]));
+}
+
 /** An error's thiserror `Display` and derived `Debug`, which callers see. */
 export function putText(out: rt.ByteVec, display: string, debug: string): void {
 	out.extendFromSlice(rt.string.asBytes(display));
@@ -98,7 +110,6 @@ export function putText(out: rt.ByteVec, display: string, debug: string): void {
 
 export function decodeError(out: rt.ByteVec, err: DecodeError): void {
 	out.push(0xee);
-	putText(out, rt.fmt.toString((f: rt.Formatter) => DecodeError.fmt$Display(err, f)), rt.fmt.format([(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)]));
 	if (err.tag === "Short") {
 		out.push(0);
 	} else if (err.tag === "Long") {
@@ -148,7 +159,6 @@ export function decodeError(out: rt.ByteVec, err: DecodeError): void {
 
 export function encodeError(out: rt.ByteVec, err: EncodeError): void {
 	out.push(0xef);
-	putText(out, rt.fmt.toString((f: rt.Formatter) => EncodeError.fmt$Display(err, f)), rt.fmt.format([(f: rt.Formatter) => EncodeError.fmt$Debug(err, f)]));
 	out.push(err === "BoundsExceeded" ? 0 : err === "TooLarge" ? 1 : err === "Short" ? 2 : err === "InvalidState" ? 3 : err === "TooMany" ? 4 : err === "Version" ? 5 : 6);
 }
 
@@ -178,7 +188,7 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			out.push(0);
 		} else {
 			const err = decodeStep_.error;
-			decodeError(out, err);
+			decodeFailed(out, err);
 			putUsize(out, r.need());
 			break;
 		}
@@ -341,7 +351,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		if (!result.ok) {
 			const err = result.error;
-			encodeError(out, err);
+			encodeFailed(out, err);
 		}
 	}
 	while (true) {
@@ -351,7 +361,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			const fill = w.fill(prefix3);
 			if (!fill.ok) {
 				const err2 = fill.error;
-				encodeError(out, err2);
+				encodeFailed(out, err2);
 			}
 		} else {
 			break;
@@ -402,11 +412,11 @@ export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
 			out.extendFromSlice(buf.view());
 		} else {
 			const err = encode.error;
-			encodeError(out, err);
+			encodeFailed(out, err);
 		}
 	} else {
 		const err2 = decodeSlice.error;
-		decodeError(out, err2);
+		decodeFailed(out, err2);
 	}
 }
 
@@ -430,11 +440,11 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 			out.extendFromSlice(buf.view());
 		} else {
 			const err = encode.error;
-			encodeError(out, err);
+			encodeFailed(out, err);
 		}
 	} else {
 		const err2 = decodeSlice.error;
-		decodeError(out, err2);
+		decodeFailed(out, err2);
 	}
 }
 
@@ -458,11 +468,11 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 			out.extendFromSlice(buf.view());
 		} else {
 			const err = encode.error;
-			encodeError(out, err);
+			encodeFailed(out, err);
 		}
 	} else {
 		const err2 = decodeSlice.error;
-		decodeError(out, err2);
+		decodeFailed(out, err2);
 	}
 }
 
@@ -491,7 +501,7 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 		out.extendFromSlice(buf.view());
 	} else {
 		const err = encode.error;
-		encodeError(out, err);
+		encodeFailed(out, err);
 	}
 }
 
@@ -505,7 +515,7 @@ export function encodeMessage$Group(msg: Group, version: version_Version, out: r
 		out.extendFromSlice(buf.view());
 	} else {
 		const err = encode.error;
-		encodeError(out, err);
+		encodeFailed(out, err);
 	}
 }
 
@@ -519,7 +529,7 @@ export function encodeMessage$Probe(msg: Probe, version: version_Version, out: r
 		out.extendFromSlice(buf.view());
 	} else {
 		const err = encode.error;
-		encodeError(out, err);
+		encodeFailed(out, err);
 	}
 }
 
@@ -560,7 +570,7 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 		err = { tag: "MalformedAuthToken" };
 	}
 	putText(out, rt.fmt.format([(f: rt.Formatter) => DecodeError.fmt$Display(err, f), " ", rt.fmt.spec({ align: ">", width: 30 }, (f: rt.Formatter) => DecodeError.fmt$Display(err, f)), "|"]), rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => DecodeError.fmt$Debug(err, f))]));
-	decodeError(out, err);
+	decodeFailed(out, err);
 }
 
 //# sourceMappingURL=harness.ts.map

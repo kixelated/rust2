@@ -4,48 +4,22 @@
 // usage: node differential.ts <fixture.wasm> <harness.ts> <cases>
 //
 // A harness exports `run(input: Uint8Array): Vec<u8>`; the wasm build exports `input`,
-// `run`, and `output` around it. A panic traps natively and throws `Panic` in
-// TypeScript, and the two agree only if their messages do.
+// `run`, and `output` around it, which `wasm.ts` calls. A panic traps natively and
+// throws `Panic` in TypeScript, and the two agree only if their messages do.
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-type Outcome = Uint8Array | { panic: string };
+import { Wasm } from "./wasm.ts";
 
-interface Exports {
-	memory: WebAssembly.Memory;
-	input(len: number): number;
-	run(): number;
-	output(): number;
-	message(): number;
-	message_len(): number;
-}
+type Outcome = Uint8Array | { panic: string };
 
 const [wasmPath, harnessPath, countArg] = process.argv.slice(2);
 if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.wasm> <harness.ts> [cases]");
 const count = Number(countArg ?? "20000");
 
 const harness = await import(pathToFileURL(harnessPath).href);
-const module = await WebAssembly.compile(await readFile(wasmPath));
-let instance = await WebAssembly.instantiate(module, {});
-
-function native(input: Uint8Array): Outcome {
-	const exports = instance.exports as unknown as Exports;
-	try {
-		const ptr = exports.input(input.length);
-		new Uint8Array(exports.memory.buffer, ptr, input.length).set(input);
-		const len = exports.run();
-		const out = exports.output();
-		return new Uint8Array(exports.memory.buffer, out, len).slice();
-	} catch (err) {
-		if (!(err instanceof WebAssembly.RuntimeError)) throw err;
-		// The hook saved the message before the trap, which leaves the instance mid-call.
-		const bytes = new Uint8Array(exports.memory.buffer, exports.message(), exports.message_len());
-		const panic = new TextDecoder().decode(bytes);
-		instance = new WebAssembly.Instance(module, {});
-		return { panic };
-	}
-}
+const wasm = new Wasm(await WebAssembly.compile(await readFile(wasmPath)));
 
 function translated(input: Uint8Array): Outcome {
 	try {
@@ -117,7 +91,8 @@ for (let i = 0; i < count; i++) {
 let failures = 0;
 let panics = 0;
 for (const input of cases) {
-	const want = native(input);
+	const called = wasm.call(input);
+	const want: Outcome = called === "panic" ? { panic: wasm.panicMessage } : called;
 	let got: Outcome;
 	try {
 		got = translated(input);
@@ -126,7 +101,7 @@ for (const input of cases) {
 		failures++;
 		continue;
 	}
-	if (!(want instanceof Uint8Array)) panics++;
+	if (called === "panic") panics++;
 	if (show(want) !== show(got)) {
 		failures++;
 		if (failures <= 20) {

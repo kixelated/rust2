@@ -29,7 +29,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	out
 }
 
-fn form(selector: u8) -> Form {
+pub(crate) fn form(selector: u8) -> Form {
 	match selector % 3 {
 		0 => Form::Quic,
 		1 => Form::LeadingOnes { seven: false },
@@ -37,7 +37,7 @@ fn form(selector: u8) -> Form {
 	}
 }
 
-fn lite_version(selector: u8) -> lite::Version {
+pub(crate) fn lite_version(selector: u8) -> lite::Version {
 	match selector % 7 {
 		0 => lite::Version::Lite01,
 		1 => lite::Version::Lite02,
@@ -49,20 +49,32 @@ fn lite_version(selector: u8) -> lite::Version {
 	}
 }
 
-fn put_u64(out: &mut Vec<u8>, value: u64) {
+pub(crate) fn put_u64(out: &mut Vec<u8>, value: u64) {
 	out.extend_from_slice(&value.to_be_bytes());
 }
 
-fn put_usize(out: &mut Vec<u8>, value: usize) {
+pub(crate) fn put_usize(out: &mut Vec<u8>, value: usize) {
 	put_u64(out, value as u64);
 }
 
 /// Take up to 8 big-endian bytes as a `u64`, zero-padded on the right.
-fn take_u64(data: &[u8]) -> (u64, &[u8]) {
+pub(crate) fn take_u64(data: &[u8]) -> (u64, &[u8]) {
 	let mut buf = [0u8; 8];
 	let n = data.len().min(8);
 	buf[..n].copy_from_slice(&data[..n]);
 	(u64::from_be_bytes(buf), &data[n..])
+}
+
+/// A decode error's code, then its text.
+fn decode_failed(out: &mut Vec<u8>, err: &DecodeError) {
+	decode_error(out, err);
+	put_text(out, err.to_string(), format!("{err:?}"));
+}
+
+/// An encode error's code, then its text.
+fn encode_failed(out: &mut Vec<u8>, err: &EncodeError) {
+	encode_error(out, err);
+	put_text(out, err.to_string(), format!("{err:?}"));
 }
 
 /// An error's thiserror `Display` and derived `Debug`, which callers see.
@@ -73,9 +85,8 @@ fn put_text(out: &mut Vec<u8>, display: String, debug: String) {
 	out.push(0);
 }
 
-fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
+pub(crate) fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
 	out.push(0xee);
-	put_text(out, err.to_string(), format!("{err:?}"));
 	match err {
 		DecodeError::Short => out.push(0),
 		DecodeError::Long => out.push(1),
@@ -106,9 +117,8 @@ fn decode_error(out: &mut Vec<u8>, err: &DecodeError) {
 	}
 }
 
-fn encode_error(out: &mut Vec<u8>, err: &EncodeError) {
+pub(crate) fn encode_error(out: &mut Vec<u8>, err: &EncodeError) {
 	out.push(0xef);
-	put_text(out, err.to_string(), format!("{err:?}"));
 	out.push(match err {
 		EncodeError::BoundsExceeded => 0,
 		EncodeError::TooLarge => 1,
@@ -136,7 +146,7 @@ fn decode_script(data: &[u8], out: &mut Vec<u8>) {
 		match decode_step(&mut r, step, out) {
 			Ok(()) => out.push(0),
 			Err(err) => {
-				decode_error(out, &err);
+				decode_failed(out, &err);
 				put_usize(out, r.need());
 				break;
 			}
@@ -244,12 +254,12 @@ fn encode_script(data: &[u8], out: &mut Vec<u8>) {
 			}
 		};
 		if let Err(err) = result {
-			encode_error(out, &err);
+			encode_failed(out, &err);
 		}
 	}
 	while let Some(prefix) = prefixes.pop() {
 		if let Err(err) = w.fill(prefix) {
-			encode_error(out, &err);
+			encode_failed(out, &err);
 		}
 	}
 
@@ -287,10 +297,10 @@ fn roundtrip<T: Decode<Form> + Encode<Form>>(data: &[u8], out: &mut Vec<u8>) {
 			let mut buf = Vec::new();
 			match value.encode(&mut Encoder::new(&mut buf, form), form) {
 				Ok(()) => out.extend_from_slice(&buf),
-				Err(err) => encode_error(out, &err),
+				Err(err) => encode_failed(out, &err),
 			}
 		}
-		Err(err) => decode_error(out, &err),
+		Err(err) => decode_failed(out, &err),
 	}
 }
 
@@ -306,10 +316,10 @@ fn roundtrip_lite<T: lite::Message>(data: &[u8], out: &mut Vec<u8>) {
 			let mut buf = Vec::new();
 			match value.encode(&mut Encoder::new(&mut buf, version.into()), version) {
 				Ok(()) => out.extend_from_slice(&buf),
-				Err(err) => encode_error(out, &err),
+				Err(err) => encode_failed(out, &err),
 			}
 		}
-		Err(err) => decode_error(out, &err),
+		Err(err) => decode_failed(out, &err),
 	}
 }
 
@@ -342,7 +352,7 @@ fn encode_messages(data: &[u8], out: &mut Vec<u8>) {
 	let mut buf = Vec::new();
 	match versions.encode(&mut Encoder::new(&mut buf, version.into()), version) {
 		Ok(()) => out.extend_from_slice(&buf),
-		Err(err) => encode_error(out, &err),
+		Err(err) => encode_failed(out, &err),
 	}
 }
 
@@ -355,7 +365,7 @@ fn encode_message<T: lite::Message>(msg: &T, version: lite::Version, out: &mut V
 			put_usize(out, buf.len());
 			out.extend_from_slice(&buf);
 		}
-		Err(err) => encode_error(out, &err),
+		Err(err) => encode_failed(out, &err),
 	}
 }
 
@@ -386,5 +396,5 @@ fn errors(data: &[u8], out: &mut Vec<u8>) {
 		_ => DecodeError::MalformedAuthToken,
 	};
 	put_text(out, format!("{err} {err:>30}|"), format!("{err:#?}"));
-	decode_error(out, &err);
+	decode_failed(out, &err);
 }

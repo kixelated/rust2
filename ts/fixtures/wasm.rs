@@ -1,4 +1,5 @@
-//! The harness as a wasm32 module, for the native side of the differential test.
+//! The crate's `entry` as a wasm32 module: its harness for the native side of the
+//! differential test, or the benchmark's workloads for its WASM route.
 //!
 //! The host writes a case into `input`, calls `run`, and reads `output`. A panic traps,
 //! after its message is saved for `message`, and the host starts a fresh instance.
@@ -25,10 +26,10 @@ pub extern "C" fn input(len: usize) -> *mut u8 {
 	input.as_mut_ptr()
 }
 
-/// Run the harness on the input, returning the output's length.
+/// Run the entry on the input, returning the output's length.
 #[unsafe(no_mangle)]
 pub extern "C" fn run() -> usize {
-	let output = crate::harness::run(&INPUT.lock().unwrap());
+	let output = crate::entry(&INPUT.lock().unwrap());
 	let len = output.len();
 	*OUTPUT.lock().unwrap() = output;
 	len

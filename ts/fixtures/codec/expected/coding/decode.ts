@@ -199,6 +199,22 @@ export class Decoder {
 		return this.buf.length === 0;
 	}
 
+	/** Read a varint. */
+	varint(): rt.Result<bigint, DecodeError> {
+		const read_ = read(this.buf, this.form);
+		if (read_.ok) {
+			const value = read_.value[0];
+			const rest = read_.value[1];
+			this.buf = rest;
+			return rt.Ok(value);
+		} else if (!read_.ok && read_.error.tag === "Short") {
+			return rt.Err(this.short(rt.usize.add(this.buf.length, 1)));
+		} else {
+			const err = read_.error;
+			return rt.Err(err);
+		}
+	}
+
 	/** Read a single byte. */
 	u8(): rt.Result<number, DecodeError> {
 		const slice = this.slice(1);
@@ -230,22 +246,6 @@ export class Decoder {
 			return rt.Ok(true);
 		} else {
 			return rt.Err({ tag: "InvalidValue" });
-		}
-	}
-
-	/** Read a varint. */
-	varint(): rt.Result<bigint, DecodeError> {
-		const read_ = read(this.buf, this.form);
-		if (read_.ok) {
-			const value = read_.value[0];
-			const rest = read_.value[1];
-			this.buf = rest;
-			return rt.Ok(value);
-		} else if (!read_.ok && read_.error.tag === "Short") {
-			return rt.Err(this.short(rt.usize.add(this.buf.length, 1)));
-		} else {
-			const err = read_.error;
-			return rt.Err(err);
 		}
 	}
 
