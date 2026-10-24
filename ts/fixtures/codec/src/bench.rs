@@ -1,7 +1,8 @@
 //! The workloads `just ts bench` times on every route, shaped like moq's own TypeScript
 //! benchmarks: `js/net/bench/varint.ts` and `lite-varint.ts`. The first input byte picks
 //! the workload and the second its wire format; an encode's output is the matching
-//! decode's input.
+//! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
+//! writes them.
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
 use crate::harness::{decode_error, encode_error, form, lite_version, put_u64, put_usize, take_u64};
@@ -23,6 +24,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		2 => encoded(encode_frames(data, lite_version(selector), &mut out), &mut out),
 		3 => decoded(decode_frames(data, lite_version(selector), &mut out), &mut out),
 		4 => encoded(encode_group(data, lite_version(selector), &mut out), &mut out),
+		6 => iterate(selector, data, &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -118,6 +120,33 @@ fn encode_group(data: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Resul
 		frame_start: 0,
 	};
 	group.encode(&mut Encoder::new(out, version.into()), version)
+}
+
+/// One iterator chain over every byte, picked by `chain`, with closures that cost little
+/// next to the iterator protocol they run through.
+fn iterate(chain: u8, data: &[u8], out: &mut Vec<u8>) {
+	match chain {
+		0 => put_usize(out, data.iter().map(|&b| b >> 1).filter(|&b| b & 1 == 0).count()),
+		1 => out.push(data.iter().any(|&b| b == 0xff) as u8),
+		2 => {
+			let odd: Vec<u8> = data.iter().copied().filter(|&b| b & 1 == 1).collect();
+			put_usize(out, odd.len());
+		}
+		3 => put_u64(out, data.iter().map(|&b| b as u32).sum::<u32>() as u64),
+		4 => put_u64(
+			out,
+			data.iter().skip(16).take(512).fold(0u32, |acc, &b| acc ^ b as u32) as u64,
+		),
+		_ => {
+			let mut last = 0;
+			for (i, &b) in data.iter().enumerate() {
+				if b == 0x80 {
+					last = i;
+				}
+			}
+			put_usize(out, last);
+		}
+	}
 }
 
 fn decode_group(wire: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Result<(), DecodeError> {
