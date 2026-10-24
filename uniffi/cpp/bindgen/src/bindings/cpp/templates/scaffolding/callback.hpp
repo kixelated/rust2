@@ -1,7 +1,7 @@
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let type_name = typ|type_name(ci) %}
 {%- let class_name = type_name|class_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 struct {{ ffi_converter_name|class_name }} {
     static {{ type_name }} lift(uint64_t);
     static uint64_t lower(const {{ type_name }} &);

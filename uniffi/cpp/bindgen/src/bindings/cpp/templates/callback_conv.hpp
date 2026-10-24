@@ -1,7 +1,7 @@
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 
-struct {{ typ|ffi_converter_name }} {
+struct {{ typ|ffi_converter_name(ci) }} {
     static {{ type_name }} lift(uint64_t);
     static uint64_t lower(const {{ type_name }} &);
     static {{ type_name }} read(RustStream &);

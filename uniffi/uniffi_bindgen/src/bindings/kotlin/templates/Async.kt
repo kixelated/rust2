@@ -67,7 +67,7 @@ internal inline fun<T> uniffiTraitInterfaceCallAsync(
             handleError(
                 UniffiRustCallStatus.create(
                     UNIFFI_CALL_UNEXPECTED_ERROR,
-                    {{ Type::String.borrow()|lower_fn }}(e.toString()),
+                    {{ Type::String.borrow()|lower_fn(ci) }}(e.toString()),
                 )
             )
             return@coroutineBlock
@@ -104,7 +104,7 @@ internal inline fun<T, reified E: Throwable> uniffiTraitInterfaceCallAsyncWithEr
                 handleError(
                     UniffiRustCallStatus.create(
                         UNIFFI_CALL_UNEXPECTED_ERROR,
-                        {{ Type::String.borrow()|lower_fn }}(e.toString()),
+                        {{ Type::String.borrow()|lower_fn(ci) }}(e.toString()),
                     )
                 )
             }

@@ -25,8 +25,6 @@ pub trait TypeHelperRenderer {
 
 pub trait Renderable {
     fn render_type(&self, ty: &Type, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
-        use super::oracle::DartCodeOracle;
-
         let type_name = match ty {
             Type::UInt8
             | Type::Int8
@@ -40,7 +38,13 @@ pub trait Renderable {
             Type::String => quote!(String),
             Type::Boolean => quote!(bool),
             Type::Bytes => quote!(Uint8List),
-            Type::Object { name, .. } => quote!($(DartCodeOracle::class_name(name))),
+            Type::Object { .. }
+            | Type::Enum { .. }
+            | Type::Record { .. }
+            | Type::Custom { .. }
+            | Type::CallbackInterface { .. } => {
+                quote!($(ty.as_codetype(type_helper.get_ci()).type_label()))
+            }
             Type::Optional { inner_type } => quote!($(&self.render_type(inner_type, type_helper))?),
             Type::Sequence { inner_type } => {
                 quote!(List<$(&self.render_type(inner_type, type_helper))>)
@@ -48,15 +52,11 @@ pub trait Renderable {
             Type::Map { key_type, value_type } => {
                 quote!(Map<$(&self.render_type(key_type, type_helper)), $(&self.render_type(value_type, type_helper))>)
             }
-            Type::Enum { name, .. } => quote!($(DartCodeOracle::class_name(name))),
-            Type::Record { name, .. } => quote!($(DartCodeOracle::class_name(name))),
-            Type::Custom { name, .. } => quote!($(DartCodeOracle::class_name(name))),
             Type::Duration => quote!(Duration),
-            Type::CallbackInterface { name, .. } => quote!($(DartCodeOracle::class_name(name))),
             _ => todo!("Type::{:?}", ty),
         };
 
-        type_helper.include_once_check(&ty.as_codetype().canonical_name(), ty);
+        type_helper.include_once_check(&ty.as_codetype(type_helper.get_ci()).canonical_name(), ty);
 
         type_name
     }
@@ -65,11 +65,13 @@ pub trait Renderable {
 }
 
 pub trait AsRenderable {
-    fn as_renderable(&self) -> Box<dyn Renderable>;
+    /// The renderer of this type as `ci`'s library sees it.
+    fn as_renderable(&self, ci: &ComponentInterface) -> Box<dyn Renderable>;
 }
 
 impl<T: AsType> AsRenderable for T {
-    fn as_renderable(&self) -> Box<dyn Renderable> {
+    fn as_renderable(&self, ci: &ComponentInterface) -> Box<dyn Renderable> {
+        let namespace = super::oracle::DartCodeOracle::external_namespace(&self.as_type(), ci);
         match self.as_type() {
             Type::UInt8 => Box::new(primitives::UInt8CodeType),
             Type::Int8 => Box::new(primitives::Int8CodeType),
@@ -85,24 +87,26 @@ impl<T: AsType> AsRenderable for T {
             Type::String => Box::new(primitives::StringCodeType),
             Type::Duration => Box::new(primitives::DurationCodeType),
             Type::Bytes => Box::new(primitives::BytesCodeType),
-            Type::Object { name, imp, .. } => Box::new(objects::ObjectCodeType::new(name, imp)),
+            Type::Object { name, imp, .. } => {
+                Box::new(objects::ObjectCodeType::new(name, imp, namespace))
+            }
             Type::Optional { inner_type } => {
-                Box::new(compounds::OptionalCodeType::new(self.as_type(), *inner_type))
+                Box::new(compounds::OptionalCodeType::new(self.as_type(), *inner_type, ci))
             }
             Type::Sequence { inner_type } => {
-                Box::new(compounds::SequenceCodeType::new(self.as_type(), *inner_type))
+                Box::new(compounds::SequenceCodeType::new(self.as_type(), *inner_type, ci))
             }
             Type::Map { key_type, value_type } => {
-                Box::new(compounds::MapCodeType::new(self.as_type(), *key_type, *value_type))
+                Box::new(compounds::MapCodeType::new(self.as_type(), *key_type, *value_type, ci))
             }
-            Type::Enum { name, .. } => Box::new(enums::EnumCodeType::new(name)),
-            Type::Record { name, .. } => Box::new(records::RecordCodeType::new(name)),
+            Type::Enum { name, .. } => Box::new(enums::EnumCodeType::new(name, namespace)),
+            Type::Record { name, .. } => Box::new(records::RecordCodeType::new(name, namespace)),
             Type::Custom { name, module_path, builtin } => {
-                Box::new(custom::CustomCodeType::new(name, module_path, builtin))
+                Box::new(custom::CustomCodeType::new(name, module_path, builtin, namespace))
             }
-            Type::CallbackInterface { name, .. } => {
-                Box::new(callback_interface::CallbackInterfaceCodeType::new(name, self.as_type()))
-            }
+            Type::CallbackInterface { name, .. } => Box::new(
+                callback_interface::CallbackInterfaceCodeType::new(name, self.as_type(), namespace),
+            ),
             _ => todo!("Renderable for Type::{:?}", self.as_type()),
         }
     }

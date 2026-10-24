@@ -1,6 +1,6 @@
 {%- let type_name = e|type_name(ci) %}
 {%- let class_name = type_name|class_name %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
 {%- let namespace = type_name|to_lower_snake_case %}
 
 {{ namespace }}::{{ variant.name() }} {{ ffi_converter_name }}{{ variant.name() }}::lift(RustBuffer buf, int32_t v) {
@@ -31,7 +31,7 @@ RustBuffer {{ ffi_converter_name }}{{ variant.name() }}::lower(const {{ namespac
     {%- else %}
     {{ namespace }}::{{ variant.name() }} var;
     {%- for field in variant.fields() %}
-    var.{{ field.name()|var_name }} = {{ field|read_fn }}(stream);
+    var.{{ field.name()|var_name }} = {{ field|read_fn(ci) }}(stream);
     {%- endfor %}
     return var;
     {%- endif %}
@@ -41,10 +41,10 @@ void {{ ffi_converter_name }}{{ variant.name() }}::write(RustStream &stream, con
     stream << int32_t({{ loop.index }});
 
     {%- if e.is_flat() %}
-    {{ Type::String.borrow()|write_fn }}(stream, val.what());
+    {{ Type::String.borrow()|write_fn(ci) }}(stream, val.what());
     {%- else %}
     {%- for field in variant.fields() %}
-    {{ field|write_fn }}(stream, val.{{ field.name()|var_name }});
+    {{ field|write_fn(ci) }}(stream, val.{{ field.name()|var_name }});
     {%- endfor %}
     {%- endif %}
 }
@@ -52,10 +52,10 @@ void {{ ffi_converter_name }}{{ variant.name() }}::write(RustStream &stream, con
 int32_t {{ ffi_converter_name }}{{ variant.name() }}::allocation_size(const {{ namespace }}::{{ variant.name() }} &val) {
     int32_t size = sizeof(int32_t);
     {%- if e.is_flat() %}
-    size += {{ Type::String.borrow()|allocation_size_fn }}(val.what());
+    size += {{ Type::String.borrow()|allocation_size_fn(ci) }}(val.what());
     {%- else %}
     {%- for field in variant.fields() %}
-    size += {{ field|allocation_size_fn }}(val.{{ field.name()|var_name }});
+    size += {{ field|allocation_size_fn(ci) }}(val.{{ field.name()|var_name }});
     {%- endfor %}
     {%- endif %}
 

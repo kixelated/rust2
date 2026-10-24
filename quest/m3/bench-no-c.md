@@ -3,7 +3,7 @@
 ## Goal
 
 The [build-speed benchmark](/bench/build/README.md) fails if the `moq-pure-crypto`
-corpus gains a `links` key or a `cc` or `cmake` build dependency, so C cannot creep
+corpus ([corpus.toml](/bench/build/corpus.toml)) gains a `links` key or a `cc` or `cmake` build dependency, so C cannot creep
 back into moq-relay once moq adopts pure-Rust crypto.
 
 ## Plan
@@ -14,7 +14,3 @@ the `pure` check, which forbids every build script: moq's graph keeps pure-Rust
 ones (serde, proc-macro2, libc, rustls). It pairs with moq's crypto adoption.
 
 Public API: none; a benchmark check.
-
-## Required
-
-- [Pure-Rust crypto](/quest/m3/pure-crypto.md) - adds the `moq-pure-crypto` corpus

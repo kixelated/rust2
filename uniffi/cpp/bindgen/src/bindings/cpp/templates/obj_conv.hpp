@@ -1,15 +1,15 @@
 {%- let obj = ci.get_object_definition(name).unwrap() %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let trait_impl = canonical_type_name|callback_interface_name %}
 
-{%- let is_error = ci.is_name_used_as_error(name) %}
+{%- let is_error = ci.is_used_as_error(typ) %}
 {%- if is_error %}
-struct {{ typ|ffi_error_converter_name}} {
+struct {{ typ|ffi_error_converter_name(ci)}} {
     static {{ type_name }} lift(RustBuffer);
 };
 {% endif %}
 
-struct {{ typ|ffi_converter_name }} {
+struct {{ typ|ffi_converter_name(ci) }} {
     static {{ type_name }} lift(uint64_t);
     static uint64_t lower(const {{ type_name }} &);
     static {{ type_name }} read(RustStream &);

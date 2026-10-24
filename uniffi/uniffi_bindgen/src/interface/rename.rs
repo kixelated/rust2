@@ -143,8 +143,8 @@ impl VisitMut for TomlRenamer<'_> {
         }
     }
 
-    fn visit_error_name(&self, name: &mut String) {
-        if let Some(new_name) = self.new_name(&self.this_module_path, name) {
+    fn visit_error_name(&self, module_path: &str, name: &mut String) {
+        if let Some(new_name) = self.new_name(module_path, name) {
             *name = new_name;
         }
     }

@@ -5,39 +5,34 @@
 use super::CodeType;
 use crate::{
     bail,
-    interface::{DefaultValue, Literal, Type},
+    interface::{DefaultValue, Literal},
     Result,
 };
 
 #[derive(Debug)]
 pub struct OptionalCodeType {
-    inner: Type,
+    inner: Box<dyn CodeType>,
 }
 
 impl OptionalCodeType {
-    pub fn new(inner: Type) -> Self {
+    pub fn new(inner: Box<dyn CodeType>) -> Self {
         Self { inner }
     }
 }
 
 impl CodeType for OptionalCodeType {
     fn type_label(&self) -> String {
-        format!("{}?", super::SwiftCodeOracle.find(&self.inner).type_label())
+        format!("{}?", self.inner.type_label())
     }
 
     fn canonical_name(&self) -> String {
-        format!(
-            "Option{}",
-            super::SwiftCodeOracle.find(&self.inner).canonical_name()
-        )
+        format!("Option{}", self.inner.canonical_name())
     }
 
     fn default(&self, default: &DefaultValue) -> Result<String> {
         match default {
             DefaultValue::Default | DefaultValue::Literal(Literal::None) => Ok("nil".into()),
-            DefaultValue::Literal(Literal::Some { inner }) => {
-                super::SwiftCodeOracle.find(&self.inner).default(inner)
-            }
+            DefaultValue::Literal(Literal::Some { inner }) => self.inner.default(inner),
             _ => bail!("Invalid literal for Optional type: {default:?}"),
         }
     }
@@ -45,28 +40,22 @@ impl CodeType for OptionalCodeType {
 
 #[derive(Debug)]
 pub struct SequenceCodeType {
-    inner: Type,
+    inner: Box<dyn CodeType>,
 }
 
 impl SequenceCodeType {
-    pub fn new(inner: Type) -> Self {
+    pub fn new(inner: Box<dyn CodeType>) -> Self {
         Self { inner }
     }
 }
 
 impl CodeType for SequenceCodeType {
     fn type_label(&self) -> String {
-        format!(
-            "[{}]",
-            super::SwiftCodeOracle.find(&self.inner).type_label()
-        )
+        format!("[{}]", self.inner.type_label())
     }
 
     fn canonical_name(&self) -> String {
-        format!(
-            "Sequence{}",
-            super::SwiftCodeOracle.find(&self.inner).canonical_name()
-        )
+        format!("Sequence{}", self.inner.canonical_name())
     }
 
     fn default(&self, default: &DefaultValue) -> Result<String> {
@@ -81,30 +70,26 @@ impl CodeType for SequenceCodeType {
 
 #[derive(Debug)]
 pub struct MapCodeType {
-    key: Type,
-    value: Type,
+    key: Box<dyn CodeType>,
+    value: Box<dyn CodeType>,
 }
 
 impl MapCodeType {
-    pub fn new(key: Type, value: Type) -> Self {
+    pub fn new(key: Box<dyn CodeType>, value: Box<dyn CodeType>) -> Self {
         Self { key, value }
     }
 }
 
 impl CodeType for MapCodeType {
     fn type_label(&self) -> String {
-        format!(
-            "[{}: {}]",
-            super::SwiftCodeOracle.find(&self.key).type_label(),
-            super::SwiftCodeOracle.find(&self.value).type_label()
-        )
+        format!("[{}: {}]", self.key.type_label(), self.value.type_label())
     }
 
     fn canonical_name(&self) -> String {
         format!(
             "Dictionary{}{}",
-            super::SwiftCodeOracle.find(&self.key).canonical_name(),
-            super::SwiftCodeOracle.find(&self.value).canonical_name()
+            self.key.canonical_name(),
+            self.value.canonical_name()
         )
     }
 
@@ -118,28 +103,22 @@ impl CodeType for MapCodeType {
 
 #[derive(Debug)]
 pub struct SetCodeType {
-    inner: Type,
+    inner: Box<dyn CodeType>,
 }
 
 impl SetCodeType {
-    pub fn new(inner: Type) -> Self {
+    pub fn new(inner: Box<dyn CodeType>) -> Self {
         Self { inner }
     }
 }
 
 impl CodeType for SetCodeType {
     fn type_label(&self) -> String {
-        format!(
-            "Set<{}>",
-            super::SwiftCodeOracle.find(&self.inner).type_label()
-        )
+        format!("Set<{}>", self.inner.type_label())
     }
 
     fn canonical_name(&self) -> String {
-        format!(
-            "Set{}",
-            super::SwiftCodeOracle.find(&self.inner).canonical_name()
-        )
+        format!("Set{}", self.inner.canonical_name())
     }
 
     fn default(&self, default: &DefaultValue) -> Result<String> {

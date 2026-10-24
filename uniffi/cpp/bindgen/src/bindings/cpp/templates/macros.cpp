@@ -3,7 +3,7 @@
         {{ func.ffi_func().name() }},
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift
 {%- else %}
         nullptr
 {%- endmatch %}
@@ -16,7 +16,7 @@
         {{ func.ffi_func().name() }},
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift,
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift,
 {%- else %}
         nullptr,
 {%- endmatch %}
@@ -36,10 +36,10 @@
         {{ func.ffi_rust_future_cancel(ci) }},
         {{ func.ffi_rust_future_complete(ci) }},
         {{ func.ffi_rust_future_free(ci) }},
-        [](auto value) { return uniffi::{{ func.return_type().unwrap()|lift_fn }}(value); },
+        [](auto value) { return uniffi::{{ func.return_type().unwrap()|lift_fn(ci) }}(value); },
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift
 {%- else %}
         nullptr
 {%- endmatch %}
@@ -60,7 +60,7 @@
         nullptr,
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift
 {%- else %}
         nullptr
 {%- endmatch %}
@@ -79,10 +79,10 @@
         {{ func.ffi_rust_future_cancel(ci) }},
         {{ func.ffi_rust_future_complete(ci) }},
         {{ func.ffi_rust_future_free(ci) }},
-        [](auto value) { return uniffi::{{ func.return_type().unwrap()|lift_fn }}(value); },
+        [](auto value) { return uniffi::{{ func.return_type().unwrap()|lift_fn(ci) }}(value); },
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift
 {%- else %}
         nullptr
 {%- endmatch %}
@@ -104,7 +104,7 @@
         nullptr,
 {%- match func.throws_type() %}
 {% when Some with (e) %}
-        uniffi::{{ e|ffi_error_converter_name }}::lift
+        uniffi::{{ e|ffi_error_converter_name(ci) }}::lift
 {%- else %}
         nullptr
 {%- endmatch %}
@@ -128,7 +128,7 @@ v{{- field_num -}}
 
 {% macro arg_list_lowered(func) %}
 {%- for arg in func.arguments() -%}
-uniffi::{{ arg|lower_fn }}({{ arg.name()|var_name }})
+uniffi::{{ arg|lower_fn(ci) }}({{ arg.name()|var_name }})
 {%- if !loop.last -%}, {% endif -%}
 {% endfor -%}
 {% endmacro %}

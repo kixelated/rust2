@@ -99,7 +99,7 @@ typedef int ForeignCallback(uint64_t handle, uint32_t method, uint8_t *args_data
 {% include "map_conv.hpp" %}
 {%- when Type::Enum { module_path, name } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if ci.is_name_used_as_error(name) %}
+{%- if ci.is_used_as_error(typ) %}
 {% for variant in e.variants() %}
 {% include "scaffolding/err.hpp" %}
 {% endfor %}
@@ -108,7 +108,7 @@ typedef int ForeignCallback(uint64_t handle, uint32_t method, uint8_t *args_data
 {%- endif %}
 {%- when Type::Object { module_path, name, imp } %}
 {% include "scaffolding/obj.hpp" %}
-ObjectMap<{{ typ|canonical_name }}> {{ name }}_map;
+ObjectMap<{{ typ|canonical_name(ci) }}> {{ name }}_map;
 {%- when Type::CallbackInterface { module_path, name } %}
 {% include "scaffolding/callback.hpp" %}
 {%- when Type::Custom { module_path, name, builtin } %}
@@ -176,7 +176,7 @@ UNIFFI_EXPORT {%- call macros::fn_definition(ffi_func) %} {
 UNIFFI_EXPORT void {{ ffi_func.name() }}(ForeignCallback callback_stub, RustCallStatus *out_status) {
     out_status->code = UNIFFI_CALL_STATUS_OK;
 
-    {{ func|ffi_converter_name }}::fn_handle.store(reinterpret_cast<uint64_t>(callback_stub));
+    {{ func|ffi_converter_name(ci) }}::fn_handle.store(reinterpret_cast<uint64_t>(callback_stub));
 }
 {% endfor %}
 
@@ -191,7 +191,7 @@ UNIFFI_EXPORT {%- call macros::fn_definition(ffi_ctor) %} {
 
     std::shared_ptr<{{ obj.name() }}> obj = std::make_shared<{{ obj.name() }}>(
     {%- for arg in ctor.arguments() %}
-    {{- arg|lift_fn }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
+    {{- arg|lift_fn(ci) }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
     {% endfor %});
     return (void*){{ obj.name() }}_map.insert(obj);
 }
@@ -257,8 +257,8 @@ void rustbuffer_free(RustBuffer& buf) {
 
 {%- for typ in ci.iter_local_types() %}
 {%- let type_name = typ|type_name(ci) %}
-{%- let ffi_converter_name = typ|ffi_converter_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let ffi_converter_name = typ|ffi_converter_name(ci) %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let contains_object_references = ci.item_contains_object_references(typ) %}
 
 {%- match typ %}
@@ -302,7 +302,7 @@ void rustbuffer_free(RustBuffer& buf) {
 {% include "map_tmpl.cpp" %}
 {%- when Type::Enum { module_path, name } %}
 {%- let e = ci.get_enum_definition(name).unwrap() %}
-{%- if ci.is_name_used_as_error(name) %}
+{%- if ci.is_used_as_error(typ) %}
 {% for variant in e.variants() %}
 {% include "scaffolding/err.cpp" %}
 {% endfor %}

@@ -1,9 +1,9 @@
 {%- let obj = ci.get_object_definition(name).unwrap() %}
 {%- let (interface_name, impl_class_name) = obj|object_names %}
 
-{%- let is_error = ci.is_name_used_as_error(name) %}
+{%- let is_error = ci.is_used_as_error(typ) %}
 {%- if is_error %}
-{{ type_name }} {{ typ|ffi_error_converter_name}}::lift(RustBuffer buf) {
+{{ type_name }} {{ typ|ffi_error_converter_name(ci)}}::lift(RustBuffer buf) {
     auto stream = RustStream(&buf);
     auto val = {{ ffi_converter_name }}::read(stream);
     rustbuffer_free(buf);

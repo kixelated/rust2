@@ -1,6 +1,6 @@
 use heck::{ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use uniffi_bindgen::{
-    interface::{Argument, AsType, DefaultValue, FfiType, Literal, Object, Type, Variant},
+    interface::{Argument, AsType, DefaultValue, Enum, FfiType, Literal, Object, Type, Variant},
     ComponentInterface,
 };
 
@@ -233,20 +233,58 @@ pub(crate) fn type_name(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Res
     Ok(as_ct.as_codetype().type_label(ci))
 }
 
+/// The class an error is thrown as, qualified when another crate defines it.
+pub(crate) fn thrown_class(as_type: &impl AsType, ci: &ComponentInterface) -> Result<String> {
+    let ty = renamed(as_type.as_type());
+    match (ty.name(), ty.module_path()) {
+        (Some(name), Some(module_path)) => Ok(format!(
+            "{}{}",
+            external_namespace_prefix(ci, module_path),
+            CppCodeOracle.class_name(name)
+        )),
+        _ => Err(askama::Error::Custom(
+            format!("{ty:?} cannot be thrown").into(),
+        )),
+    }
+}
+
+/// How a type from another crate is qualified. From the global namespace, since a member or
+/// variant of a local type may share the other crate's namespace name.
 pub(crate) fn external_namespace_prefix(ci: &ComponentInterface, module_path: &str) -> String {
+    match external_namespace(ci, module_path) {
+        Some(namespace) => format!("::{namespace}::"),
+        None => String::new(),
+    }
+}
+
+/// What an external type's canonical name starts with: its namespace in UpperCamelCase.
+pub(crate) fn external_canonical_prefix(ci: &ComponentInterface, module_path: &str) -> String {
+    external_namespace(ci, module_path)
+        .map(|namespace| namespace.to_upper_camel_case())
+        .unwrap_or_default()
+}
+
+/// The namespace of a type from another crate, or `None` for a local one.
+fn external_namespace<'a>(ci: &'a ComponentInterface, module_path: &str) -> Option<&'a str> {
     match ci.namespace_for_module_path(module_path) {
-        Ok(namespace) if namespace != ci.namespace() => format!("{namespace}::"),
-        Ok(_) => String::new(),
+        Ok(namespace) if namespace != ci.namespace() => Some(namespace),
+        Ok(_) => None,
         Err(e) => std::panic!("could not resolve external namespace: {e}"),
     }
 }
 
-pub(crate) fn ffi_converter_name(as_ct: &impl AsCodeType) -> Result<String> {
-    Ok(as_ct.as_codetype().ffi_converter_name())
+pub(crate) fn ffi_converter_name(
+    as_ct: &impl AsCodeType,
+    ci: &ComponentInterface,
+) -> Result<String> {
+    Ok(as_ct.as_codetype().ffi_converter_name(ci))
 }
 
-pub(crate) fn ffi_error_converter_name(as_type: &impl AsType) -> Result<String> {
-    let mut name = ffi_converter_name(as_type)?;
+pub(crate) fn ffi_error_converter_name(
+    as_type: &impl AsType,
+    ci: &ComponentInterface,
+) -> Result<String> {
+    let mut name = ffi_converter_name(as_type, ci)?;
 
     if matches!(&as_type.as_type(), Type::Object { .. }) {
         name.push_str("__as_error");
@@ -263,8 +301,8 @@ pub(crate) fn callback_interface_name(nm: &str) -> Result<String> {
     Ok(format!("UniffiCallbackInterface{}", nm))
 }
 
-pub(crate) fn canonical_name(as_ct: &impl AsCodeType) -> Result<String> {
-    Ok(as_ct.as_codetype().canonical_name())
+pub(crate) fn canonical_name(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Result<String> {
+    Ok(as_ct.as_codetype().canonical_name(ci))
 }
 
 pub(crate) fn fn_name(nm: &str) -> Result<String> {
@@ -303,38 +341,41 @@ pub(crate) fn literal_cpp(
     }
 }
 
-pub(crate) fn lift_fn(as_ct: &impl AsCodeType) -> Result<String> {
+pub(crate) fn lift_fn(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Result<String> {
     Ok(format!(
         "{}::lift",
-        as_ct.as_codetype().ffi_converter_name()
+        as_ct.as_codetype().ffi_converter_name(ci)
     ))
 }
 
-pub(crate) fn lower_fn(as_ct: &impl AsCodeType) -> Result<String> {
+pub(crate) fn lower_fn(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Result<String> {
     Ok(format!(
         "{}::lower",
-        as_ct.as_codetype().ffi_converter_name()
+        as_ct.as_codetype().ffi_converter_name(ci)
     ))
 }
 
-pub(crate) fn read_fn(as_ct: &impl AsCodeType) -> Result<String> {
+pub(crate) fn read_fn(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Result<String> {
     Ok(format!(
         "{}::read",
-        as_ct.as_codetype().ffi_converter_name()
+        as_ct.as_codetype().ffi_converter_name(ci)
     ))
 }
 
-pub(crate) fn write_fn(as_ct: &impl AsCodeType) -> Result<String> {
+pub(crate) fn write_fn(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Result<String> {
     Ok(format!(
         "{}::write",
-        as_ct.as_codetype().ffi_converter_name()
+        as_ct.as_codetype().ffi_converter_name(ci)
     ))
 }
 
-pub(crate) fn allocation_size_fn(as_ct: &impl AsCodeType) -> Result<String> {
+pub(crate) fn allocation_size_fn(
+    as_ct: &impl AsCodeType,
+    ci: &ComponentInterface,
+) -> Result<String> {
     Ok(format!(
         "{}::allocation_size",
-        as_ct.as_codetype().ffi_converter_name()
+        as_ct.as_codetype().ffi_converter_name(ci)
     ))
 }
 
@@ -392,13 +433,7 @@ pub(crate) fn by_ref(ci: &ComponentInterface, arg: &Argument) -> bool {
         | Type::Float64
         | Type::Boolean
         | Type::Optional { .. } => false,
-        Type::Enum {
-            module_path: _,
-            name,
-        } => match ci.get_enum_definition(&name) {
-            Some(_) => !is_enum_struct(ci, &name),
-            None => false,
-        },
+        ty @ Type::Enum { .. } => !is_enum_struct(ci, &ty),
         _ => true,
     }
 }
@@ -429,30 +464,49 @@ pub(crate) fn can_dereference_optional(type_: &Type, ci: &ComponentInterface) ->
 
 /// Whether an error enum renders as an exception class held by `std::shared_ptr`. Under the
 /// expected style it is a plain value type like any other enum.
-pub(crate) fn is_error_class(ci: &ComponentInterface, name: &str) -> bool {
-    ci.is_name_used_as_error(name) && error_style() == ErrorStyle::Exceptions
+pub(crate) fn is_error_class(ci: &ComponentInterface, ty: &Type) -> bool {
+    ci.is_used_as_error(ty) && error_style() == ErrorStyle::Exceptions
 }
 
 /// Whether an enum renders as a struct holding a `std::variant` rather than an `enum class`.
 /// A flat error is a struct under the expected style because each variant carries a message.
-pub(crate) fn is_enum_struct(ci: &ComponentInterface, name: &str) -> bool {
-    let flat = ci.get_enum_definition(name).is_some_and(|e| e.is_flat());
-    !flat || (ci.is_name_used_as_error(name) && error_style() == ErrorStyle::Expected)
+pub(crate) fn is_enum_struct(ci: &ComponentInterface, ty: &Type) -> bool {
+    let flat = enum_definition(ci, ty).is_some_and(|e| e.is_flat());
+    !flat || (ci.is_used_as_error(ty) && error_style() == ErrorStyle::Expected)
 }
 
-pub(crate) fn error_class(name: &str, ci: &ComponentInterface) -> Result<bool> {
-    Ok(is_error_class(ci, name))
+/// The definition of an enum, from whichever crate defines it.
+pub(crate) fn enum_definition<'a>(ci: &'a ComponentInterface, ty: &Type) -> Option<&'a Enum> {
+    let Type::Enum { name, .. } = ty else {
+        return None;
+    };
+    defining_interface(ci, ty).get_enum_definition(name)
 }
 
-pub(crate) fn enum_struct(name: &str, ci: &ComponentInterface) -> Result<bool> {
-    Ok(is_enum_struct(ci, name))
+/// The interface of the crate that defines a named type.
+pub(crate) fn defining_interface<'a>(
+    ci: &'a ComponentInterface,
+    ty: &Type,
+) -> &'a ComponentInterface {
+    match ty.crate_name() {
+        Some(crate_name) if crate_name != ci.crate_name() => ci
+            .find_component_interface(crate_name)
+            .unwrap_or_else(|| panic!("no interface for crate {crate_name}")),
+        _ => ci,
+    }
+}
+
+pub(crate) fn error_class(ty: &Type, ci: &ComponentInterface) -> Result<bool> {
+    Ok(is_error_class(ci, ty))
+}
+
+pub(crate) fn enum_struct(ty: &Type, ci: &ComponentInterface) -> Result<bool> {
+    Ok(is_enum_struct(ci, ty))
 }
 
 pub(crate) fn cpp_deref(type_: Type, ci: &ComponentInterface) -> Result<String> {
-    if let Type::Enum { name, .. } = type_ {
-        if is_error_class(ci, &name) {
-            return Ok("*".to_string());
-        }
+    if matches!(type_, Type::Enum { .. }) && is_error_class(ci, &type_) {
+        return Ok("*".to_string());
     }
     Ok("".to_string())
 }

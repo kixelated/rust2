@@ -27,8 +27,9 @@ pub(crate) struct TypeUniverse {
     pub namespace: NamespaceMetadata,
     pub namespace_docstring: Option<String>,
 
-    // Named type definitions (including aliases).
-    pub(super) type_definitions: HashMap<String, Type>,
+    // Named type definitions (including aliases), by crate name and type name, so a local type
+    // and an external one may share a name.
+    pub(super) type_definitions: HashMap<TypeKey, Type>,
     // All the types in the universe, by canonical type name, in a well-defined order.
     pub(super) all_known_types: BTreeSet<Type>,
 }
@@ -42,8 +43,8 @@ impl TypeUniverse {
     }
 
     /// Add the definition of a named [Type].
-    fn add_type_definition(&mut self, name: &str, type_: &Type) -> Result<()> {
-        match self.type_definitions.entry(name.to_string()) {
+    fn add_type_definition(&mut self, key: TypeKey, type_: &Type) -> Result<()> {
+        match self.type_definitions.entry(key) {
             Entry::Occupied(o) => {
                 // mismatched types are bad.
                 let cur = o.get();
@@ -60,9 +61,11 @@ impl TypeUniverse {
         }
     }
 
-    /// Get the [Type] corresponding to a given name, if any.
+    /// Get the local [Type] corresponding to a given name, if any.
     pub(super) fn get_type_definition(&self, name: &str) -> Option<Type> {
-        self.type_definitions.get(name).cloned()
+        self.type_definitions
+            .get(&(self.namespace.crate_name.clone(), name.to_string()))
+            .cloned()
     }
 
     /// Add a [Type] to the set of all types seen in the component interface.
@@ -76,8 +79,9 @@ impl TypeUniverse {
         for sub in type_.iter_nested_types() {
             self.add_known_type(sub)?;
         }
-        if let Some(name) = type_.name() {
-            self.add_type_definition(name, type_)
+        if let Some(key) = type_key(type_) {
+            let name = key.1.clone();
+            self.add_type_definition(key, type_)
                 .with_context(|| format!("adding named type {name}"))?;
         }
         Ok(())
@@ -119,6 +123,14 @@ impl TypeUniverse {
     ) -> impl Iterator<Item = &'a Type> {
         types.filter(|t| !self.is_external(t))
     }
+}
+
+/// A named type's crate name and name, which identify it across crates.
+pub(super) type TypeKey = (String, String);
+
+/// The [TypeKey] of a named type, or `None` for a builtin one.
+pub(super) fn type_key(ty: &Type) -> Option<TypeKey> {
+    Some((ty.crate_name()?.to_string(), ty.name()?.to_string()))
 }
 
 /// Normalize the `module_path` field for a type

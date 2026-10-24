@@ -1,5 +1,5 @@
 {%- let class_name = type_name|class_name %}
-{%- let canonical_type_name = typ|canonical_name %}
+{%- let canonical_type_name = typ|canonical_name(ci) %}
 {%- let trait_impl = canonical_type_name|callback_interface_name %}
 
 {% call macros::docstring_value(interface_docstring, 0) %}

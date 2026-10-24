@@ -2,34 +2,38 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::CodeType;
+use super::{CodeType, KotlinCi};
 use crate::{
     bail,
-    interface::{DefaultValue, Literal},
-    ComponentInterface, Result,
+    interface::{DefaultValue, Literal, Type},
+    Result,
 };
 
 #[derive(Debug)]
 pub struct EnumCodeType {
-    id: String,
+    ty: Type,
 }
 
 impl EnumCodeType {
-    pub fn new(id: String) -> Self {
-        Self { id }
+    pub fn new(ty: Type) -> Self {
+        Self { ty }
     }
 }
 
 impl CodeType for EnumCodeType {
-    fn type_label(&self, ci: &ComponentInterface) -> String {
-        super::KotlinCodeOracle.class_name(ci, &self.id)
+    fn type_label(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_type_label(&self.ty)
     }
 
-    fn canonical_name(&self) -> String {
-        format!("Type{}", self.id)
+    fn canonical_name(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_canonical_name(&self.ty)
     }
 
-    fn default(&self, default: &DefaultValue, ci: &ComponentInterface) -> Result<String> {
+    fn ffi_converter_name(&self, ci: &KotlinCi<'_>) -> String {
+        ci.named_ffi_converter_name(&self.ty)
+    }
+
+    fn default(&self, default: &DefaultValue, ci: &KotlinCi<'_>) -> Result<String> {
         if let DefaultValue::Literal(Literal::Enum(v, _)) = default {
             Ok(format!(
                 "{}.{}",
