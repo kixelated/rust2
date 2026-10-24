@@ -33,7 +33,3 @@ exception would skip drops that THIR's `finally` blocks run. That its output rea
 basic blocks no longer counts against it.
 
 Public API: none unless the translator moves; then its whole output.
-
-## Required
-
-- [Async and drop spike](/quest/m2/ts-async-spike.md) - the task fixture, its trace test, and the THIR lowering this compares against

@@ -2,7 +2,10 @@
 // and Chrome, and reports the numbers with each route's bundle size.
 //
 // usage: bun main.ts --translated <dir> --wasm <file> --native <bin> --moq <checkout>
-//                    --moq-wasm <dir> --out <dir> [--sample-ms 10] [--rounds 15]
+//                    --moq-wasm <dir> --task <dir> --task-wasm <file> --task-native <bin>
+//                    --out <dir> [--sample-ms 10] [--rounds 15]
+//
+// The task fixture's async handoff runs beside the codec, against moq's way with promises.
 
 import { cpus, release, totalmem } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,7 +15,7 @@ import type { BunPlugin } from "bun";
 import { Wasm } from "../tests/wasm.ts";
 import type { Config } from "./entry.ts";
 import { hex, type Timing } from "./time.ts";
-import { type Workload, workloads } from "./workloads.ts";
+import { handoffs, type Workload, workloads } from "./workloads.ts";
 
 interface Engine {
 	engine: string;
@@ -26,6 +29,9 @@ const { values: args } = parseArgs({
 		native: { type: "string" },
 		moq: { type: "string" },
 		"moq-wasm": { type: "string" },
+		task: { type: "string" },
+		"task-wasm": { type: "string" },
+		"task-native": { type: "string" },
 		out: { type: "string" },
 		"sample-ms": { type: "string", default: "10" },
 		rounds: { type: "string", default: "15" },
@@ -72,12 +78,37 @@ const handWritten = join(import.meta.dir, "moq.ts");
 const translated = join(arg("translated"), "bench.ts");
 const wasmBytes = await read(arg("wasm"));
 const translation = await bundle(translated);
+
+// The task fixture's translation, as `bench/task.ts` drives it.
+async function taskEntry(dir: string): Promise<string> {
+	const entry = join(dir, "bench-entry.ts");
+	await Bun.write(
+		entry,
+		`import * as rt from "./rt.ts";
+import { Channel, drain } from "./model.ts";
+import { polled, spawned } from ${JSON.stringify(join(import.meta.dir, "task.ts"))};
+
+const fixture = { Pending: rt.Pending, spawn: rt.spawn, u64: rt.u64, Channel, drain };
+export const run = polled(fixture);
+export const spawn = spawned(fixture);
+`,
+	);
+	return entry;
+}
+const taskHand = join(import.meta.dir, "task.ts");
+const taskTranslated = await taskEntry(arg("task"));
+const taskWasmBytes = await read(arg("task-wasm"));
+const taskTranslation = await bundle(taskTranslated);
 await Promise.all([
 	Bun.write(join(out, "entry.js"), await bundle(join(import.meta.dir, "entry.ts"))),
 	Bun.write(join(out, "moq.js"), await bundle(handWritten, { plugins: [moq] })),
 	Bun.write(join(out, "translated.js"), translation),
 	Bun.write(join(out, "translated-aa.js"), translation),
 	Bun.write(join(out, "bench.wasm"), wasmBytes),
+	Bun.write(join(out, "task-hand.js"), await bundle(taskHand)),
+	Bun.write(join(out, "task-translated.js"), taskTranslation),
+	Bun.write(join(out, "task-translated-aa.js"), taskTranslation),
+	Bun.write(join(out, "task.wasm"), taskWasmBytes),
 	Bun.write(join(out, "package.json"), '{ "type": "module" }\n'),
 	Bun.write(join(out, "index.html"), page),
 ]);
@@ -88,10 +119,19 @@ const sizes = [
 	{ route: "hand-written", files: [await bundle(handWritten, { minify: true, plugins: [moq] })] },
 	{ route: "translated", files: [await bundle(translated, { minify: true })] },
 	{ route: "moq-wasm package", files: [await read(join(moqWasm, "moq_bg.wasm")), await read(join(moqWasm, "moq.js"))] },
-].map(({ route, files }) => {
+].map(measureSize);
+
+// The task fixture: its channel, its async functions, and their runtime, as each route ships them.
+const taskSizes = [
+	{ route: "wasm", files: [taskWasmBytes] },
+	{ route: "hand-written", files: [await bundle(taskHand, { minify: true })] },
+	{ route: "translated", files: [await bundle(taskTranslated, { minify: true })] },
+].map(measureSize);
+
+function measureSize({ route, files }: { route: string; files: Uint8Array[] }) {
 	const sum = (f: (b: Uint8Array) => number) => files.reduce((n, b) => n + f(b), 0);
 	return { route, raw: sum((b) => b.byteLength), gzip: sum((b) => Bun.gzipSync(b, { level: 9 }).byteLength) };
-});
+}
 
 // The workloads, made by the wasm32 build, which also gives each its expected output.
 const wasm = new Wasm(await WebAssembly.compile(wasmBytes));
@@ -101,25 +141,43 @@ function expected(input: Uint8Array): Uint8Array {
 	return output;
 }
 const list = workloads(expected);
+const handoffList = handoffs();
 const config: Config = {
 	sampleMs,
 	rounds,
 	workloads: list.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
+	handoffs: handoffList.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
 };
 await Bun.write(join(out, "workloads.json"), JSON.stringify(config));
 
-async function native(): Promise<Engine> {
-	const stdin = Buffer.from(list.map((w) => `${w.name}/${w.op} ${hex(w.input)}\n`).join(""));
-	const proc = Bun.spawn([arg("native"), String(sampleMs), String(rounds)], { stdin, stderr: "inherit" });
+/** The native route of `list`: `bin` times each on the host, which must match `expected`. */
+async function nativeRoute(bin: string, list: Workload[], expected: (input: Uint8Array) => Uint8Array): Promise<Timing[]> {
+	// Names are one word on the binary's lines.
+	const key = (w: Workload) => `${w.name}/${w.op}`.replaceAll(" ", "-");
+	const stdin = Buffer.from(list.map((w) => `${key(w)} ${hex(w.input)}\n`).join(""));
+	const proc = Bun.spawn([bin, String(sampleMs), String(rounds)], { stdin, stderr: "inherit" });
 	const lines = (await new Response(proc.stdout).text()).trim().split("\n");
-	if ((await proc.exited) !== 0) throw new Error("the native benchmark failed");
-	const timings = lines.map((line, i): Timing => {
+	if ((await proc.exited) !== 0) throw new Error(`the native benchmark ${bin} failed`);
+	return lines.map((line, i): Timing => {
 		const [name, calls, ns, output] = line.split(" ");
 		const w = list[i];
-		if (name !== `${w.name}/${w.op}`) throw new Error(`the native benchmark printed ${name} for ${w.name}/${w.op}`);
+		if (name !== key(w)) throw new Error(`the native benchmark printed ${name} for ${key(w)}`);
 		if (output !== hex(expected(w.input))) throw new Error(`native Rust on the host differs from wasm32 on ${name}`);
 		return { workload: w.name, op: w.op, route: "native", calls: Number(calls), ns: ns.split(",").map((n) => Number(n) / w.items) };
 	});
+}
+
+async function native(): Promise<Engine> {
+	const taskWasm = new Wasm(await WebAssembly.compile(taskWasmBytes));
+	const handoff = (input: Uint8Array) => {
+		const output = taskWasm.call(input);
+		if (output === "panic") throw new Error(`native Rust panics on ${hex(input)}`);
+		return output;
+	};
+	const timings = [
+		...(await nativeRoute(arg("native"), list, expected)),
+		...(await nativeRoute(arg("task-native"), handoffList, handoff)),
+	];
 	return { engine: "native", timings };
 }
 
@@ -177,7 +235,7 @@ for (const run of [() => script("node"), () => script(process.execPath), chrome]
 
 const report = render();
 await Bun.write(join(out, "report.md"), report);
-await Bun.write(join(out, "report.json"), JSON.stringify({ native: host, engines, sizes }, null, "\t"));
+await Bun.write(join(out, "report.json"), JSON.stringify({ native: host, engines, sizes, taskSizes }, null, "\t"));
 console.log(report);
 
 function render(): string {
@@ -232,7 +290,47 @@ function render(): string {
 			}),
 		);
 	}
+	lines.push(...renderHandoffs());
 	return `${lines.join("\n")}\n`;
+}
+
+/** The async handoff on every route, and each route's size. */
+function renderHandoffs(): string[] {
+	const routes = ["native", "wasm", "hand-written", "translated", "spawned", "A/A"];
+	const lines = [
+		"",
+		"## Async handoff",
+		"",
+		"Nanoseconds per handoff: a value sent to a task parked on a kio-shaped channel, which",
+		"wakes it, polls it through `depth` async functions to the channel, and parks it again.",
+		"`native` and `wasm` run the task fixture's `bench.rs`, which polls the task at once on",
+		"each wake, and `translated` its translation polled the same way. `spawned` runs the",
+		"translation on the runtime's `spawn`, which polls woken tasks from a microtask.",
+		"`hand-written` is the handoff with promises and `async` functions, as moq's TypeScript",
+		"writes it, where each handoff waits for the reader to park again. Bundle sizes are of",
+		"the channel, the async functions, and their runtime.",
+		"",
+		"| route | raw | gzip |",
+		"| --- | ---: | ---: |",
+		...taskSizes.map((s) => `| ${s.route} | ${s.raw} | ${s.gzip} |`),
+	];
+	for (const engine of engines) {
+		const all = [...host.timings, ...engine.timings];
+		lines.push(
+			"",
+			`### ${engine.engine}`,
+			"",
+			`| depth | ${routes.join(" | ")} | translated ÷ hand-written |`,
+			`| --- |${" ---: |".repeat(routes.length + 1)}`,
+			...handoffList.map((w) => {
+				const cells = routes.map((r) => cell(find(all, w, r).ns));
+				const median = (route: string) => stats(find(all, w, route).ns).median;
+				const ratio = (median("translated") / median("hand-written")).toFixed(2);
+				return `| ${w.name.replace("depth ", "")} | ${cells.join(" | ")} | ${ratio} |`;
+			}),
+		);
+	}
+	return lines;
 }
 
 function find(timings: Timing[], w: Workload, route: string): Timing {
