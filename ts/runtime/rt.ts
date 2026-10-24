@@ -494,9 +494,15 @@ function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<numb
 	const fits = (n: number) => n <= most && n >= least;
 	const lt = (a: V, b: V) => (typeof a === "number" && typeof b === "number" ? a < b : limbs.lt(big(a), big(b)));
 	const eq = (a: V, b: V) => a === b || (typeof a !== "number" && typeof b !== "number" && limbs.eq(a, b));
-	// A bitwise operator on two safe integers, a 32-bit half at a time.
-	const halves = (a: number, b: number, op: (x: number, y: number) => number) =>
-		op(Math.floor(a / TWO32), Math.floor(b / TWO32)) * TWO32 + (op(a >>> 0, b >>> 0) >>> 0);
+	// A bitwise operator, on two safe integers a 32-bit half at a time. Signed ones can
+	// make -2^53, the one result past the safe integers, which takes limbs.
+	const bitwise = (f: (a: T, b: T) => T, op: (x: number, y: number) => number) => (a: V, b: V) => {
+		if (typeof a === "number" && typeof b === "number") {
+			const n = op(Math.floor(a / TWO32), Math.floor(b / TWO32)) * TWO32 + (op(a >>> 0, b >>> 0) >>> 0);
+			if (fits(n)) return n;
+		}
+		return one(f(big(a), big(b)));
+	};
 	const binary = (f: (a: T, b: T) => T) => (a: V, b: V) => one(f(big(a), big(b)));
 	const checked = (f: (a: T, b: T) => T | undefined) => (a: V, b: V) => {
 		const value = f(big(a), big(b));
@@ -542,10 +548,10 @@ function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<numb
 			if (typeof a === "number") return Math.floor(a / 2 ** n) + 0;
 			return one(limbs.shr(big(a), n));
 		},
-		and: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x & y) : one(limbs.and(big(a), big(b)))),
-		or: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x | y) : one(limbs.or(big(a), big(b)))),
-		xor: (a, b) => (typeof a === "number" && typeof b === "number" ? halves(a, b, (x, y) => x ^ y) : one(limbs.xor(big(a), big(b)))),
-		not: (a) => (signed && typeof a === "number" ? -a - 1 : one(limbs.not(big(a)))),
+		and: bitwise(limbs.and, (x, y) => x & y),
+		or: bitwise(limbs.or, (x, y) => x | y),
+		xor: bitwise(limbs.xor, (x, y) => x ^ y),
+		not: (a) => (signed && typeof a === "number" && a !== most ? -a - 1 : one(limbs.not(big(a)))),
 		checkedAdd: checked(limbs.checkedAdd),
 		checkedSub: checked(limbs.checkedSub),
 		checkedMul: checked(limbs.checkedMul),

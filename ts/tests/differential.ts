@@ -91,6 +91,10 @@ if (wideArg === "wide") {
 	for (const k of [0n, 1n, 16n, 21n, 31n, 32n, 33n, 52n, 53n, 54n, 63n, 64n]) {
 		for (const delta of [-1n, 0n, 1n]) edges.add(((1n << k) + delta) & 0xffffffffffffffffn);
 	}
+	// Small negative numbers, and where negative safe numbers end, as signed values.
+	for (const k of [1n, 53n]) {
+		for (const delta of [-1n, 0n, 1n]) edges.add((-(1n << k) + delta) & 0xffffffffffffffffn);
+	}
 	const values = [...edges];
 	const be = (v: bigint) => {
 		const bytes = new Uint8Array(8);

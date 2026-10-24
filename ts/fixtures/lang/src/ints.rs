@@ -18,7 +18,11 @@ macro_rules! ops {
 			let (a, data) = take!($t, data);
 			let (b, data) = take!($t, data);
 			let shift = data.first().copied().unwrap_or(0) as u32 % (2 * <$t>::BITS);
-			let put = |out: &mut Vec<u8>, v: $t| out.extend_from_slice(&(v as $wide).to_be_bytes());
+			let put = |out: &mut Vec<u8>, v: $t| {
+				out.extend_from_slice(&(v as $wide).to_be_bytes());
+				// A wide value equals its bytes read back only in its one form.
+				out.push((<$t>::from_be_bytes(v.to_be_bytes()) == v) as u8);
+			};
 			let put_opt = |out: &mut Vec<u8>, v: Option<$t>| match v {
 				Some(v) => {
 					out.push(1);
