@@ -1785,7 +1785,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let v = self.operand(*value, out);
 				match elem_ty.kind() {
 					ty::Uint(ty::UintTy::U8) => {
-						let array = Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit(n.to_string())]);
+						let array = Expr::rt("bytes", vec![Expr::lit(n.to_string())]);
 						match &v {
 							Expr::Lit(text) if text == "0" => array,
 							_ => array.member("fill").call(vec![v]),

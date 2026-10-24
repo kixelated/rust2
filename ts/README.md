@@ -60,6 +60,10 @@ runtime: what std does that JS does not.
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 
+`Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
+`Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
+`byteOffset` and `byteLength`, and copy it before transferring it.
+
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
@@ -88,7 +92,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly.
+  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
+  no faster on `just ts bench`, in V8 or JavaScriptCore.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.

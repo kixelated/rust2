@@ -407,6 +407,27 @@ export const slice = {
 	},
 };
 
+const SLAB = 8192;
+let slab = new ArrayBuffer(SLAB);
+let slabUsed = 0;
+
+/**
+ * `n` zeroed bytes. Up to 1 KiB, they share an `ArrayBuffer`, as Node's `Buffer` pool
+ * does: a lone array's own buffer costs V8 about a microsecond, made when the array is
+ * past 64 bytes or else the first time something views it. No byte is handed out twice.
+ */
+export function bytes(n: number): Uint8Array {
+	if (n > SLAB / 8) return new Uint8Array(n);
+	if (slabUsed + n > SLAB) {
+		slab = new ArrayBuffer(SLAB);
+		slabUsed = 0;
+	}
+	const out = new Uint8Array(slab, slabUsed, n);
+	// Aligned, as Node aligns its pool.
+	slabUsed += (n + 7) & ~7;
+	return out;
+}
+
 /** `Vec<u8>`: a growable byte buffer. */
 export class ByteVec {
 	/** The storage; only the first `length` bytes are the vector. */
@@ -414,7 +435,7 @@ export class ByteVec {
 	length = 0;
 
 	constructor(capacity = 0) {
-		this.data = new Uint8Array(capacity);
+		this.data = bytes(capacity);
 	}
 
 	static from(bytes: Uint8Array): ByteVec {
@@ -428,9 +449,8 @@ export class ByteVec {
 	reserve(additional: number): void {
 		const needed = this.length + additional;
 		if (needed <= this.data.length) return;
-		const grown = new Uint8Array(Math.max(needed, this.data.length * 2, 8));
-		// All of `data`, not a view of it: a view of a small array makes V8 move it off its
-		// heap, which costs more than copying the few bytes past `length`.
+		const grown = bytes(Math.max(needed, this.data.length * 2, 8));
+		// All of `data`, which costs less than making a view of its first `length` bytes.
 		grown.set(this.data);
 		this.data = grown;
 	}
