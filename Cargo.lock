@@ -794,6 +794,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dart_namespaces"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "uniffi",
+ "uniffi-dart",
+ "uniffi-fixture-namespaces-media",
+ "uniffi-fixture-namespaces-net",
+]
+
+[[package]]
 name = "displaydoc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

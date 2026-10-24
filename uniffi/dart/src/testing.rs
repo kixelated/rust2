@@ -78,6 +78,13 @@ pub fn run_test(fixture: &str, udl_path: &str, config_path: Option<&str>) -> Res
     run_test_with_config(fixture, udl_path, config_path, &TestConfig::from_env())
 }
 
+/// Run a test in library mode, over every crate whose scaffolding `fixture`'s cdylib holds
+///
+/// Env overrides are the same as `run_test`'s.
+pub fn run_library_test(fixture: &str) -> Result<()> {
+    run_test_impl(fixture, None, None, &TestConfig::from_env())
+}
+
 /// Run a test with explicit configuration
 pub fn run_test_with_config(
     fixture: &str,
@@ -85,7 +92,7 @@ pub fn run_test_with_config(
     config_path: Option<&str>,
     test_config: &TestConfig,
 ) -> Result<()> {
-    run_test_impl(fixture, udl_path, config_path, test_config)
+    run_test_impl(fixture, Some(udl_path), config_path, test_config)
 }
 
 /// Run a test with an explicit output directory (convenience wrapper)
@@ -99,13 +106,13 @@ pub fn run_test_with_output_dir(
         custom_output_dir: custom_output_dir.map(|p| p.to_owned()),
         ..Default::default()
     };
-    run_test_impl(fixture, udl_path, config_path, &config)
+    run_test_impl(fixture, Some(udl_path), config_path, &config)
 }
 
-/// Test execution (core implementation)
+/// Test execution (core implementation), in library mode without a UDL file
 fn run_test_impl(
     fixture: &str,
-    udl_path: &str,
+    udl_path: Option<&str>,
     config_path: Option<&str>,
     test_config: &TestConfig,
 ) -> Result<()> {
@@ -139,7 +146,10 @@ fn run_test_impl(
         out_dir
     };
 
-    let udl_path = Utf8Path::new(".").canonicalize_utf8()?.join(udl_path);
+    let udl_path = match udl_path {
+        Some(udl_path) => Some(Utf8Path::new(".").canonicalize_utf8()?.join(udl_path)),
+        None => None,
+    };
     let config_path = if let Some(path) = config_path {
         Some(Utf8Path::new(".").canonicalize_utf8()?.join(path))
     } else {
@@ -250,11 +260,12 @@ void main(List<String> args) async {{
     )?;
     build_hook.flush()?;
     gen::generate_dart_bindings(
-        &udl_path,
+        // Library mode reads no UDL file.
+        udl_path.as_deref().unwrap_or(Utf8Path::new("")),
         config_path.as_deref(),
         Some(&out_dir),
         &test_helper.cdylib_path()?,
-        false, // library_mode
+        udl_path.is_none(), // library_mode
         None,  // crate_name filter (library mode only)
         true,  // try_format
     )?;

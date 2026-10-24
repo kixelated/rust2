@@ -20,21 +20,25 @@ use crate::gen::CodeType;
 pub struct ObjectCodeType {
     id: String,
     imp: ObjectImpl,
+    namespace: Option<String>,
 }
 
 impl ObjectCodeType {
-    pub fn new(id: String, imp: ObjectImpl) -> Self {
-        Self { id, imp }
+    pub fn new(id: String, imp: ObjectImpl, namespace: Option<String>) -> Self {
+        Self { id, imp, namespace }
     }
 }
 
 impl CodeType for ObjectCodeType {
     fn type_label(&self) -> String {
-        DartCodeOracle::class_name(&self.id)
+        DartCodeOracle::qualify(self.namespace.as_deref(), DartCodeOracle::class_name(&self.id))
     }
 
     fn canonical_name(&self) -> String {
-        self.type_label()
+        DartCodeOracle::qualify_canonical(
+            self.namespace.as_deref(),
+            DartCodeOracle::class_name(&self.id),
+        )
     }
 
     fn literal(&self, _literal: &Literal) -> String {
@@ -42,12 +46,13 @@ impl CodeType for ObjectCodeType {
     }
 
     fn ffi_converter_name(&self) -> String {
-        match self.imp {
+        let class_name = DartCodeOracle::class_name(&self.id);
+        let name = match self.imp {
             // The converter lives in its own class rather than on the object itself, so
             // that a Rust method named `read`/`write`/`lower` cannot collide with the
             // converter's statics (Dart rejects a static and an instance member sharing
             // a name). Matches how records, enums and callback interfaces are emitted.
-            ObjectImpl::Struct => format!("FfiConverter{}", self.canonical_name()),
+            ObjectImpl::Struct => format!("FfiConverter{class_name}"),
             // Foreign-implementable traits (with_foreign / callback_interface) are
             // lowered through a callback-interface FfiConverter. Mirrors
             // uniffi's `ObjectImpl::has_callback_interface()` (Both | ForeignOnly).
@@ -55,16 +60,16 @@ impl CodeType for ObjectCodeType {
                 format!("FfiConverterCallbackInterface{}", self.id)
             }
             // A pure Rust-only trait object uses its own sibling FfiConverter class.
-            ObjectImpl::Trait(TraitKind::RustOnly) => {
-                format!("FfiConverter{}", self.canonical_name())
-            }
-        }
+            ObjectImpl::Trait(TraitKind::RustOnly) => format!("FfiConverter{class_name}"),
+        };
+        DartCodeOracle::qualify(self.namespace.as_deref(), name)
     }
 }
 
 impl Renderable for ObjectCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
-        if type_helper.check(&self.id) {
+        // Another crate's library declares its own helpers.
+        if self.namespace.is_some() || type_helper.check(&self.id) {
             quote!()
         } else if let Some(obj) = type_helper.get_object(&self.id) {
             generate_object(obj, type_helper)
@@ -79,7 +84,7 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
     if obj.has_callback_interface() {
         let interface = generate_callback_interface(
             obj.name(),
-            &obj.as_codetype().ffi_converter_name(),
+            &obj.as_codetype(type_helper.get_ci()).ffi_converter_name(),
             &obj.methods(),
             type_helper,
             Some(&format!("_{}Impl", DartCodeOracle::class_name(obj.name()))),
@@ -113,7 +118,7 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
     }
 
     let cls_name = &DartCodeOracle::class_name(obj.name());
-    let ffi_converter_name = &obj.as_codetype().ffi_converter_name();
+    let ffi_converter_name = &obj.as_codetype(type_helper.get_ci()).ffi_converter_name();
     let interface_name = DartCodeOracle::object_interface_name(type_helper.get_ci(), obj);
     let interface_definition = generate_object_interface(obj, &interface_name, type_helper);
     let finalizer_cls_name = &format!("{cls_name}Finalizer");
@@ -140,10 +145,7 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
 
         // Check if function can throw errors
         let error_handler = if let Some(error_type) = constructor.throws_type() {
-            let error_name =
-                DartCodeOracle::class_name(error_type.name().unwrap_or("UnknownError"));
-            // Use the consistent Exception naming for error handlers
-            let handler_name = format!("{}ErrorHandler", error_name.to_lower_camel_case());
+            let handler_name = DartCodeOracle::error_handler_name(error_type, type_helper.get_ci());
             quote!($(handler_name))
         } else {
             quote!(null)
@@ -155,18 +157,19 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
             quote!({$(for arg in constructor.arguments() =>
                 $(render_argument_param(
                     arg,
-                    quote!($(DartCodeOracle::dart_type_label(Some(&arg.as_type()))))
+                    quote!($(DartCodeOracle::dart_type_label(Some(&arg.as_type()), type_helper.get_ci()))),
+                    type_helper.get_ci()
                 )),
             )})
         };
 
         let ffi_call_args = quote!($(for arg in constructor.arguments() =>
-            $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+            $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
         );
 
         // Ensure argument types are included
         for arg in constructor.arguments() {
-            type_helper.include_once_check(&arg.as_codetype().canonical_name(), &arg.as_type());
+            type_helper.include_once_check(&arg.as_codetype(type_helper.get_ci()).canonical_name(), &arg.as_type());
         }
 
         if constructor.is_async() {
@@ -201,7 +204,7 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
     }
 
     // For interface objects that are used as error types, generate error handlers
-    let is_error_interface = type_helper.get_ci().is_name_used_as_error(obj.name());
+    let is_error_interface = type_helper.get_ci().is_used_as_error(obj);
 
     let error_handler_class = if is_error_interface {
         // Generate error handlers for specific error interfaces
@@ -406,21 +409,20 @@ fn generate_callback_trait_rust_method(
         .arguments()
         .iter()
         .map(|arg| {
-            let arg_type = arg.as_renderable().render_type(&arg.as_type(), type_helper);
+            let arg_type = arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
             let arg_name = DartCodeOracle::var_name(arg.name());
             quote!($arg_type $arg_name)
         })
         .collect::<Vec<_>>();
 
     let (ret, lifter) = if let Some(ret) = method.return_type() {
-        (ret.as_renderable().render_type(ret, type_helper), quote!($(ret.as_codetype().lift())))
+        (ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper), quote!($(ret.as_codetype(type_helper.get_ci()).lift())))
     } else {
         (quote!(void), quote!((_) {}))
     };
 
     let error_handler = if let Some(error_type) = method.throws_type() {
-        let error_name = DartCodeOracle::class_name(error_type.name().unwrap_or("UnknownError"));
-        let handler_name = format!("{}ErrorHandler", error_name.to_lower_camel_case());
+        let handler_name = DartCodeOracle::error_handler_name(error_type, type_helper.get_ci());
         quote!($(handler_name))
     } else {
         quote!(null)
@@ -444,7 +446,7 @@ fn generate_callback_trait_rust_method(
                 return uniffiRustCallAsync(
                     () => $(method.ffi_func().name())(
                         uniffiClonePointer(),
-                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
                     ),
                     $(DartCodeOracle::async_poll(method, type_helper.get_ci())),
                     $(DartCodeOracle::async_complete(method, type_helper.get_ci())),
@@ -462,7 +464,7 @@ fn generate_callback_trait_rust_method(
                 return rustCall((status) {
                     $(method.ffi_func().name())(
                         uniffiClonePointer(),
-                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
                         status
                     );
                 }, $error_handler);
@@ -475,7 +477,7 @@ fn generate_callback_trait_rust_method(
                 return rustCallWithLifter(
                     (status) => $(method.ffi_func().name())(
                         uniffiClonePointer(),
-                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+                        $(for arg in &method.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
                         status
                     ),
                     $lifter,
@@ -495,22 +497,21 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
         quote!({$(for arg in &func.arguments() =>
             $(render_argument_param(
                 arg,
-                arg.as_renderable().render_type(&arg.as_type(), type_helper)
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper),
+                type_helper.get_ci()
             )),
         )})
     };
 
     let (ret, lifter) = if let Some(ret) = func.return_type() {
-        (ret.as_renderable().render_type(ret, type_helper), quote!($(ret.as_codetype().lift())))
+        (ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper), quote!($(ret.as_codetype(type_helper.get_ci()).lift())))
     } else {
         (quote!(void), quote!((_) {}))
     };
 
     // Check if function can throw errors
     let error_handler = if let Some(error_type) = func.throws_type() {
-        let error_name = DartCodeOracle::class_name(error_type.name().unwrap_or("UnknownError"));
-        // Use the consistent Exception naming for error handlers
-        let handler_name = format!("{}ErrorHandler", error_name.to_lower_camel_case());
+        let handler_name = DartCodeOracle::error_handler_name(error_type, type_helper.get_ci());
         quote!($(handler_name))
     } else {
         quote!(null)
@@ -534,7 +535,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
                 return uniffiRustCallAsync(
                   () => $(func.ffi_func().name())(
                     uniffiClonePointer(),
-                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),)
+                    $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),)
                   ),
                   $(DartCodeOracle::async_poll(func, type_helper.get_ci())),
                   $(DartCodeOracle::async_complete(func, type_helper.get_ci())),
@@ -552,7 +553,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
                 return rustCall((status) {
                     $(func.ffi_func().name())(
                         uniffiClonePointer(),
-                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),) status
                     );
                 }, $error_handler);
             }
@@ -563,7 +564,7 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
                 return rustCallWithLifter(
                     (status) => $(func.ffi_func().name())(
                         uniffiClonePointer(),
-                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg)),) status
+                        $(for arg in &func.arguments() => $(DartCodeOracle::lower_arg_with_callback_handling(arg, type_helper.get_ci())),) status
                     ),
                     $lifter,
                     $error_handler
@@ -659,8 +660,7 @@ fn trait_method_call(
     let ffi_name = method.ffi_func().name();
 
     let error_handler = if let Some(error_type) = method.throws_type() {
-        let error_name = DartCodeOracle::class_name(error_type.name().unwrap_or("UnknownError"));
-        let handler_name = format!("{}ErrorHandler", error_name.to_lower_camel_case());
+        let handler_name = DartCodeOracle::error_handler_name(error_type, type_helper.get_ci());
         quote!($(handler_name))
     } else {
         quote!(null)
@@ -668,13 +668,13 @@ fn trait_method_call(
 
     let mut lowered_args = Vec::new();
     for (arg, expr) in method.arguments().into_iter().zip(arg_exprs.iter()) {
-        type_helper.include_once_check(&arg.as_codetype().canonical_name(), &arg.as_type());
-        lowered_args.push(DartCodeOracle::type_lower_fn(&arg.as_type(), expr.clone()));
+        type_helper.include_once_check(&arg.as_codetype(type_helper.get_ci()).canonical_name(), &arg.as_type());
+        lowered_args.push(DartCodeOracle::type_lower_fn(&arg.as_type(), expr.clone(), type_helper.get_ci()));
     }
 
     if let Some(ret) = method.return_type() {
-        type_helper.include_once_check(&ret.as_codetype().canonical_name(), ret);
-        let lifter = quote!($(ret.as_codetype().lift()));
+        type_helper.include_once_check(&ret.as_codetype(type_helper.get_ci()).canonical_name(), ret);
+        let lifter = quote!($(ret.as_codetype(type_helper.get_ci()).lift()));
         quote!(
             rustCallWithLifter(
                 (status) => $ffi_name(
@@ -703,7 +703,7 @@ fn generate_trait_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> 
     type_helper.include_once_check(obj.name(), &obj.as_type());
 
     let cls_name = &DartCodeOracle::class_name(obj.name());
-    let ffi_converter_name = &obj.as_codetype().ffi_converter_name();
+    let ffi_converter_name = &obj.as_codetype(type_helper.get_ci()).ffi_converter_name();
     let impl_name = format!("_{cls_name}Impl");
     let finalizer_field = format!("_{cls_name}ImplFinalizer");
 
@@ -840,7 +840,8 @@ fn generate_interface_method(
         quote!({$(for arg in method.arguments() =>
             $(render_argument_param(
                 arg,
-                arg.as_renderable().render_type(&arg.as_type(), type_helper)
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper),
+                type_helper.get_ci()
             )),
         )})
     };
@@ -857,7 +858,7 @@ fn method_return_type_tokens(
     type_helper: &dyn TypeHelperRenderer,
 ) -> dart::Tokens {
     let base = if let Some(ret) = method.return_type() {
-        ret.as_renderable().render_type(ret, type_helper)
+        ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper)
     } else {
         quote!(void)
     };

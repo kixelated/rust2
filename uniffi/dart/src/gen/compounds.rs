@@ -2,6 +2,7 @@ use genco::lang::dart;
 use genco::prelude::*;
 use paste::paste;
 use uniffi_bindgen::interface::Type;
+use uniffi_bindgen::ComponentInterface;
 
 use super::oracle::{AsCodeType, DartCodeOracle};
 use crate::gen::render::{AsRenderable, Renderable, TypeHelperRenderer};
@@ -14,11 +15,13 @@ macro_rules! impl_code_type_for_compound {
             pub struct $T {
                 self_type: Type,
                 inner: Type,
+                inner_code: Box<dyn CodeType>,
             }
 
             impl $T {
-                pub fn new(self_type: Type, inner: Type) -> Self {
-                    Self { self_type, inner }
+                pub fn new(self_type: Type, inner: Type, ci: &ComponentInterface) -> Self {
+                    let inner_code = inner.as_codetype(ci);
+                    Self { self_type, inner, inner_code }
                 }
                 fn inner(&self) -> &Type {
                     &self.inner
@@ -27,11 +30,11 @@ macro_rules! impl_code_type_for_compound {
 
             impl CodeType for $T  {
                 fn type_label(&self) -> String {
-                    format!($type_label_pattern, DartCodeOracle::find(self.inner()).type_label())
+                    format!($type_label_pattern, self.inner_code.type_label())
                 }
 
                 fn canonical_name(&self) -> String {
-                    format!($canonical_name_pattern, DartCodeOracle::find(self.inner()).canonical_name())
+                    format!($canonical_name_pattern, self.inner_code.canonical_name())
                 }
             }
         }
@@ -44,7 +47,7 @@ macro_rules! impl_renderable_for_compound {
             impl Renderable for $T {
                 fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
                     type_helper.include_once_check(&self.ffi_converter_name(), &self.self_type);
-                    let inner_codetype = DartCodeOracle::find(self.inner());
+                    let inner_codetype = &self.inner_code;
 
                     let original_canonical = inner_codetype.canonical_name();
                     let canonical_with_exception =
@@ -87,7 +90,7 @@ macro_rules! impl_renderable_for_compound {
                             | Type::Int8 | Type::Int16 | Type::Int32 | Type::Int64
                             | Type::UInt8 | Type::UInt16 | Type::UInt32 | Type::UInt64
                             | Type::Float32 | Type::Float64 => {
-                                self.inner().as_renderable().render_type_helper(type_helper)
+                                self.inner().as_renderable(type_helper.get_ci()).render_type_helper(type_helper)
                             }
                             _ => quote!()
                         }
@@ -155,7 +158,7 @@ macro_rules! impl_renderable_for_compound {
                     if type_helper.include_once_check(&converter_name, &self.self_type) {
                         return quote!();
                     }
-                    let inner_codetype = self.inner().as_codetype();
+                    let inner_codetype = &self.inner_code;
 
                     let original_canonical = inner_codetype.canonical_name();
                     let canonical_with_exception =
@@ -242,11 +245,15 @@ pub struct MapCodeType {
     self_type: Type,
     key: Type,
     value: Type,
+    key_code: Box<dyn CodeType>,
+    value_code: Box<dyn CodeType>,
 }
 
 impl MapCodeType {
-    pub fn new(self_type: Type, key: Type, value: Type) -> Self {
-        Self { self_type, key, value }
+    pub fn new(self_type: Type, key: Type, value: Type, ci: &ComponentInterface) -> Self {
+        let key_code = key.as_codetype(ci);
+        let value_code = value.as_codetype(ci);
+        Self { self_type, key, value, key_code, value_code }
     }
 
     fn key(&self) -> &Type {
@@ -262,14 +269,14 @@ impl CodeType for MapCodeType {
     fn type_label(&self) -> String {
         format!(
             "Map<{}, {}>",
-            DartCodeOracle::find(self.key()).type_label(),
-            DartCodeOracle::find(self.value()).type_label()
+            self.key_code.type_label(),
+            self.value_code.type_label()
         )
     }
 
     fn canonical_name(&self) -> String {
-        let key = DartCodeOracle::find(self.key()).canonical_name();
-        let val = DartCodeOracle::find(self.value()).canonical_name();
+        let key = self.key_code.canonical_name();
+        let val = self.value_code.canonical_name();
         format!("Map{}To{}", key, val)
     }
 }
@@ -278,8 +285,8 @@ impl Renderable for MapCodeType {
     fn render_type_helper(&self, type_helper: &dyn TypeHelperRenderer) -> dart::Tokens {
         type_helper.include_once_check(&self.ffi_converter_name(), &self.self_type);
 
-        let key_codetype = DartCodeOracle::find(self.key());
-        let val_codetype = DartCodeOracle::find(self.value());
+        let key_codetype = &self.key_code;
+        let val_codetype = &self.value_code;
 
         type_helper.include_once_check(&key_codetype.canonical_name(), self.key());
         type_helper.include_once_check(&val_codetype.canonical_name(), self.value());

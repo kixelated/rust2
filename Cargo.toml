@@ -42,6 +42,7 @@ members = [
     "uniffi/dart/fixtures/library_config",
     "uniffi/dart/fixtures/map_type",
     "uniffi/dart/fixtures/metadata",
+    "uniffi/dart/fixtures/namespaces",
     "uniffi/dart/fixtures/proc-macro",
     "uniffi/dart/fixtures/proc-macro-no-implicit-prelude",
     "uniffi/dart/fixtures/simple-fns",
