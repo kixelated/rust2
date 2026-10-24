@@ -27,6 +27,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
+			// `next` into a local that holds the protocol's item or `rt.DONE`, unconverted.
+			ty::FnDef(def_id, gargs)
+				if crate::lower::iter::is_next(tcx, def_id)
+					&& dest.as_local().is_some_and(|l| self.next_results.contains(&l)) =>
+			{
+				let iter_ty = gargs.skip_binder().type_at(0);
+				let recv = self.operand_frozen(&args[0].node, span, &mut pre);
+				if let Some(name) = self.var(dest.local) {
+					let name = name.to_string();
+					self.next_names.insert(name);
+				}
+				(crate::lower::iter::next(self.b, iter_ty, recv), true)
+			}
 			ty::FnDef(def_id, gargs) => match self.intercept(def_id, gargs.skip_binder(), args, dest, span, &mut pre) {
 				Some(Some(done)) => done,
 				// Done: the destination is set.
@@ -50,6 +63,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !pre.is_empty() {
 			self.emit(pre, None, false, out);
 		}
+		// What an `Iterator::next` returns, by the protocol, unless a `next` made it already.
+		let value = match dest.as_local() {
+			Some(rustc_middle::mir::RETURN_PLACE)
+				if self.next && !matches!(*fn_ty.kind(), ty::FnDef(d, _) if crate::lower::iter::is_next(tcx, d)) =>
+			{
+				super::done_of(value)
+			}
+			_ => value,
+		};
 		// A result into a local changed in place is its own copy: it may share the callee's.
 		let value = match dest.as_local() {
 			Some(local) if self.mutated[local] => {
@@ -240,9 +262,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
-				let value = match self.take_parts(&args[0].node) {
-					Some(parts) if !int.big() => library::be_word(int, parts),
-					_ => {
+				let parts = match int.big() {
+					true => None,
+					false => self.take_parts(&args[0].node),
+				};
+				let value = match parts {
+					Some(parts) => library::be_word(int, parts),
+					None => {
 						let bytes = self.operand_frozen(&args[0].node, span, out);
 						int.method("fromBeBytes", vec![bytes])
 					}
@@ -316,8 +342,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::Array(parts), false)
 			}
 			// `?`: the value it was applied to is the `ControlFlow` MIR branches on.
+			// The crate's own iterator is its own `IntoIterator`; std's adaptors convert it
+			// where they take it.
+			("IntoIterator", "into_iter")
+				if matches!(targ(0)?.kind(), ty::Adt(adt, _) if adt.did().is_local())
+					&& self.b.t.iter_item(targ(0)?).is_some() =>
+			{
+				let value = self.operand(&args[0].node, span, out);
+				done(value, false)
+			}
 			("Try", "branch") => {
 				let value = self.operand(&args[0].node, span, out);
+				// A `next`'s item or `rt.DONE` branches as itself.
+				if let Some(local) = dest.as_local()
+					&& self.next_results.contains(&local)
+					&& let Some(name) = self.var(local)
+				{
+					let name = name.to_string();
+					self.next_names.insert(name);
+				}
 				done(value, false)
 			}
 			("FromResidual", "from_residual") => {
@@ -540,6 +583,12 @@ pub fn control_flow_test<'tcx>(
 	span: Span,
 ) -> Expr {
 	let continues = variant.index() == 0;
+	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
+		return match continues {
+			true => scrut.clone().binary("!==", Expr::Rt("DONE")),
+			false => scrut.clone().binary("===", Expr::Rt("DONE")),
+		};
+	}
 	match residual(fx.tcx, ty) {
 		Some(Std::Result) => match continues {
 			true => scrut.clone().member("ok"),

@@ -21,6 +21,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn local_expr(&mut self, local: Local, span: Span) -> Expr {
 		if local.as_u32() == 1 {
 			match &self.env {
+				Env::Method if self.self_var => {}
 				Env::Method | Env::Coroutine => return Expr::This,
 				Env::Closure(_) => return self.err(span, "a closure's environment read whole"),
 				Env::Plain | Env::Shim => {}
@@ -173,10 +174,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 				Some(Std::Option | Std::Poll | Std::Box | Std::Pin) => base,
-				Some(Std::Result) => match variant.map_or(0, VariantIdx::index) {
-					0 => base.member("value"),
-					_ => base.member("error"),
-				},
+				// A variant MIR reads without a test, since the other can't be, is cast to it.
+				Some(Std::Result) => {
+					let ok = variant.map_or(0, VariantIdx::index) == 0;
+					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+					let (this, other) = match ok {
+						true => (args.type_at(0), args.type_at(1)),
+						false => (args.type_at(1), args.type_at(0)),
+					};
+					let uninhabited = other.is_never()
+						|| matches!(other.kind(), ty::Adt(adt, _) if adt.is_enum() && adt.variants().is_empty());
+					let (flag, name) = match ok {
+						true => ("true", "value"),
+						false => ("false", "error"),
+					};
+					let base = match uninhabited {
+						true => {
+							let variant = crate::ts::Type::Object(vec![
+								("ok".into(), crate::ts::Type::Builtin(flag)),
+								(name.into(), self.b.t.ty(this, span)),
+							]);
+							Expr::As(Box::new(base), variant)
+						}
+						false => base,
+					};
+					base.member(name)
+				}
 				Some(Std::Range | Std::RangeInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
@@ -291,6 +314,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return self.err(span, format!("no variant of `{ty}` has discriminant {value}"));
 				};
 				match Std::of(tcx, adt.did()) {
+					Some(Std::Option) if matches!(scrut, Expr::Ident(n) if self.next_names.contains(n)) => {
+						match index.index() {
+							0 => scrut.clone().binary("===", Expr::Rt("DONE")),
+							_ => scrut.clone().binary("!==", Expr::Rt("DONE")),
+						}
+					}
 					Some(Std::Option) => match index.index() {
 						0 => scrut.clone().binary("===", Expr::undefined()),
 						_ => scrut.clone().binary("!==", Expr::undefined()),

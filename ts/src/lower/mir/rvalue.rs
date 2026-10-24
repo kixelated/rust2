@@ -188,11 +188,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ty::Adt(adt, _) if adt.is_enum() => {
 				let tcx = self.tcx;
 				let discrs: Vec<(VariantIdx, u128)> = adt.discriminants(tcx).map(|(i, d)| (i, d.val)).collect();
-				let int = Int {
-					bits: 32,
-					signed: true,
-					pointer: true,
-				};
+				// Each discriminant in the enum's own discriminant type, as `as` reads it.
+				let int = Int::of(ty.discriminant_ty(tcx)).expect("an enum's discriminant is an integer");
+				let discrs: Vec<(VariantIdx, u128)> = discrs
+					.into_iter()
+					.map(|(i, d)| (i, int.fold(d as i128) as u128))
+					.collect();
 				match Std::of(tcx, adt.did()) {
 					Some(Std::Option | Std::Poll | Std::Result) => {
 						let scrut = self.path(scrut, "scrutinee", out);
@@ -314,6 +315,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		if super::place::transparent(self.b.t, ty) {
 			return values.pop().unwrap_or_else(Expr::undefined);
+		}
+		match crate::lower::library::std_path(tcx, def_id)
+			.iter()
+			.map(String::as_str)
+			.collect::<Vec<_>>()
+			.as_slice()
+		{
+			["marker", "PhantomData"] => return Expr::undefined(),
+			["iter", "sources", "empty", "Empty"] => return Expr::Rt("iter").member("empty").call(Vec::new()),
+			_ => {}
 		}
 		if !def_id.is_local() {
 			return self.err(span, format!("constructing `{ty}` from another crate"));

@@ -51,7 +51,6 @@ pub fn function<'a, 'tcx>(
 		false => Env::Plain,
 	};
 	let mut fx = Fx::new(&mut b, &mir, env, span);
-	fx.next = next;
 	let mut params = Vec::new();
 	if method {
 		// A generic class's method is one instance's, so `this` is that instance's type.
@@ -193,6 +192,13 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	ignored_sites: Vec<Span>,
 	/// The operands of aggregates assigned once to locals nothing changes.
 	var_parts: FxHashMap<Local, Vec<Expr>>,
+	/// Whether a method's receiver is assigned or changed in place, so it is a variable
+	/// rather than `this`.
+	pub(super) self_var: bool,
+	/// Locals holding what `Iterator::next` returns by the protocol: an item or `rt.DONE`.
+	next_results: FxHashSet<Local>,
+	/// Their names, which a switch on their variant tests against `rt.DONE`.
+	next_names: FxHashSet<String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -217,7 +223,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			assigned: IndexVec::from_elem_n(false, n),
 			span,
 			labels: 0,
-			next: false,
+			next: crate::lower::iter::is_next(tcx, mir.source.def_id()),
 			unreachable: FxHashSet::default(),
 			parts: None,
 			redirect: FxHashMap::default(),
@@ -229,8 +235,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			in_cleanup: None,
 			ignored_sites: Vec::new(),
 			var_parts: FxHashMap::default(),
+			next_results: FxHashSet::default(),
+			next_names: FxHashSet::default(),
+			self_var: false,
 		};
 		fx.analyze();
+		if matches!(fx.env, Env::Method) && fx.mir.arg_count >= 1 {
+			let receiver = Local::from_u32(1);
+			let ty = fx.mir.local_decls[receiver].ty;
+			fx.self_var = fx.defs[receiver] > 0 || (fx.mutated[receiver] && fx.b.needs_copy(ty));
+		}
 		fx
 	}
 
@@ -313,7 +327,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => {}
 			}
 		}
-		// The checked pairs whose `.1` something other than its assert reads stay pairs.
+		self.find_next_results();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -493,6 +507,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			| (
 				ty::RawPtr(..),
 				Rvalue::Cast(mir::CastKind::BoxDerefTransmute, Operand::Copy(place) | Operand::Move(place), _),
+			) if self.env_field(*place) => true,
+			(
+				ty::Ref(..),
+				Rvalue::Use(Operand::Copy(place) | Operand::Move(place), _) | Rvalue::CopyForDeref(place),
+			)
+			| (
+				ty::RawPtr(..),
+				Rvalue::Cast(mir::CastKind::BoxDerefTransmute, Operand::Copy(place) | Operand::Move(place), _),
 			) => {
 				self.stable(*place)
 					&& !self.mutated[place.local]
@@ -502,6 +524,125 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.all(|e| !matches!(e, mir::ProjectionElem::Deref))
 			}
 			_ => false,
+		}
+	}
+
+	/// Whether `place` is a field of a closure's environment, which stays put for the call.
+	fn env_field(&self, place: Place<'tcx>) -> bool {
+		matches!(self.env, Env::Closure(_))
+			&& place.local.as_u32() == 1
+			&& matches!(
+				place.projection.as_slice(),
+				[mir::ProjectionElem::Field(..)] | [mir::ProjectionElem::Deref, mir::ProjectionElem::Field(..)]
+			)
+	}
+
+	/// Locals an `Iterator::next` assigns that only a switch on their variant and a read
+	/// of `Some`'s value read: each holds the item or `rt.DONE`, as the protocol returns
+	/// it, so an iterator of `Option` keeps each `None` apart from its end.
+	fn find_next_results(&mut self) {
+		use rustc_middle::mir::visit::{MutatingUseContext, NonMutatingUseContext, PlaceContext, Visitor};
+		struct Uses<'tcx> {
+			local: Local,
+			/// The variants whose value may be read.
+			variants: &'static [u32],
+			/// Where a move of the whole into `?`'s branch may be.
+			branch: Option<mir::Location>,
+			ok: bool,
+			_tcx: std::marker::PhantomData<Ty<'tcx>>,
+		}
+		impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
+			fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, at: mir::Location) {
+				if place.local != self.local {
+					return;
+				}
+				self.ok &= match place.projection.as_slice() {
+					[] => {
+						matches!(
+							cx,
+							PlaceContext::NonMutatingUse(NonMutatingUseContext::Inspect)
+								| PlaceContext::MutatingUse(MutatingUseContext::Call)
+						) || (matches!(cx, PlaceContext::NonMutatingUse(NonMutatingUseContext::Move))
+							&& Some(at) == self.branch)
+					}
+					[
+						mir::ProjectionElem::Downcast(_, v),
+						mir::ProjectionElem::Field(f, _),
+						..,
+					] => self.variants.contains(&v.as_u32()) && f.as_u32() == 0,
+					_ => false,
+				};
+			}
+		}
+		let mir = self.mir;
+		let tcx = self.tcx;
+		// `?` on a local: where, and what it branches to.
+		let mut branches: FxHashMap<Local, (mir::Location, Local)> = FxHashMap::default();
+		let mut nexts = Vec::new();
+		for (bb, data) in mir.basic_blocks.iter_enumerated() {
+			let TerminatorKind::Call {
+				func,
+				args,
+				destination,
+				..
+			} = &data.terminator().kind
+			else {
+				continue;
+			};
+			let ty::FnDef(def_id, _) = *func.ty(&mir.local_decls, tcx).kind() else {
+				continue;
+			};
+			let Some(local) = destination.as_local() else {
+				continue;
+			};
+			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 {
+				nexts.push(local);
+			}
+			if crate::lower::library::key(tcx, def_id).is_some_and(|(o, n)| o == "Try" && n == "branch")
+				&& let [arg] = &**args
+				&& let Operand::Move(p) = &arg.node
+				&& let Some(from) = p.as_local()
+			{
+				let at = mir::Location {
+					block: bb,
+					statement_index: data.statements.len(),
+				};
+				branches.insert(from, (at, local));
+			}
+		}
+		for local in nexts {
+			let branch = branches.get(&local).copied();
+			let mut uses = Uses {
+				local,
+				variants: &[1],
+				branch: branch.map(|(at, _)| at),
+				ok: true,
+				_tcx: std::marker::PhantomData,
+			};
+			uses.visit_body(mir);
+			if !uses.ok {
+				continue;
+			}
+			// What `?` branches to holds the same: the item, or `rt.DONE` to return early.
+			if let Some((_, to)) = branch {
+				let mut uses = Uses {
+					local: to,
+					variants: &[0, 1],
+					branch: None,
+					ok: self.defs[to] == 1,
+					_tcx: std::marker::PhantomData,
+				};
+				uses.visit_body(mir);
+				if !uses.ok {
+					continue;
+				}
+				self.next_results.insert(to);
+			}
+			self.next_results.insert(local);
+		}
+		// An `Iterator::next` returns the item or `rt.DONE` too.
+		if self.next {
+			self.next_results.insert(mir::RETURN_PLACE);
 		}
 	}
 
@@ -573,8 +714,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn lower(&mut self) -> Vec<Stmt> {
 		// A parameter changed in place gets its own copy, since the caller's may be shared.
 		let mut entry = Vec::new();
+		// `this` can't be assigned: a receiver that is gets a variable of its own.
+		if self.self_var
+			&& let Slot::Var(name) = self.slots[Local::from_u32(1)].clone()
+		{
+			let ty = self.mir.local_decls[Local::from_u32(1)].ty;
+			let value = match self.mutated[Local::from_u32(1)] {
+				true => self.b.copied(Expr::This, ty),
+				false => Expr::This,
+			};
+			self.assigned[Local::from_u32(1)] = true;
+			entry.push(StmtKind::Expr(Expr::ident(&name).assign(value)).at(None));
+		}
 		for local in self.mir.args_iter() {
 			let ty = self.mir.local_decls[local].ty;
+			if self.self_var && local.as_u32() == 1 {
+				continue;
+			}
 			if self.mutated[local]
 				&& self.b.needs_copy(ty)
 				&& let Slot::Var(name) = &self.slots[local]
@@ -583,6 +739,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				entry.push(
 					StmtKind::Expr(Expr::ident(&name).assign(Expr::rt("copy", vec![Expr::ident(&name)]))).at(None),
 				);
+			}
+		}
+		// A closure that captures nothing holds nothing, so MIR never assigns it: JS needs
+		// its function.
+		for local in self.mir.local_decls.indices() {
+			if let ty::Closure(def_id, args) = *self.mir.local_decls[local].ty.kind()
+				&& self.defs[local] == 0
+				&& !self.is_arg(local)
+				&& self.uses[local] > 0
+				&& let Slot::Var(name) = self.slots[local].clone()
+			{
+				let f = self.bare_closure(def_id, args, self.span);
+				self.assigned[local] = true;
+				entry.push(StmtKind::Expr(Expr::ident(&name).assign(f)).at(None));
 			}
 		}
 		let n = self.mir.basic_blocks.len();
@@ -609,8 +779,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let body = self.catch(body);
 		let mut out = Vec::new();
 		for local in self.mir.local_decls.indices() {
-			// Parameters are declared by the signature.
-			if self.is_arg(local) || !self.assigned[local] {
+			// Parameters are declared by the signature, but a receiver held in a variable.
+			let receiver = self.self_var && local.as_u32() == 1;
+			if (self.is_arg(local) && !receiver) || !self.assigned[local] {
 				continue;
 			}
 			if let Slot::Var(name) = self.slots[local].clone() {
@@ -689,6 +860,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local's declared type: the value's, for a checked pair.
 	fn decl_ty(&mut self, local: Local) -> Type {
 		let ty = self.mir.local_decls[local].ty;
+		if self.next_results.contains(&local)
+			&& let ty::Adt(adt, args) = ty.kind()
+		{
+			// `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
+			let item = match crate::lower::library::Std::of(self.tcx, adt.did()) {
+				Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
+				_ => args.type_at(0),
+			};
+			let item = self.b.t.ty(item, self.span);
+			return Type::Union(vec![item, Type::Rt("Done", Vec::new())]);
+		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
 			_ => ty,
@@ -1092,6 +1274,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			out.extend(pre);
 			return;
 		};
+		// What an `Iterator::next` returns, by the protocol.
+		let value = match (
+			self.next && place.local == mir::RETURN_PLACE && place.projection.is_empty(),
+			rvalue,
+		) {
+			(false, _) => value,
+			(true, Rvalue::Aggregate(kind, _)) if matches!(**kind, mir::AggregateKind::Adt(_, v, ..) if v.as_u32() == 0) => {
+				Expr::Rt("DONE")
+			}
+			(true, Rvalue::Aggregate(..)) => value,
+			(true, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _))
+				if p.as_local().is_some_and(|l| self.next_results.contains(&l)) =>
+			{
+				value
+			}
+			(true, _) => done_of(value),
+		};
 		let effect = rvalue::effect(rvalue, self);
 		let memory = rvalue::memory(rvalue, self);
 		let parts = self.parts.take();
@@ -1141,10 +1340,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						// Uncopied: a caller that changes the result in place copies it.
 						let value = self.place_expr(Place::return_place(), span, &mut pre);
 						out.extend(pre);
-						Some(match self.next {
-							true => Expr::Rt("iter").member("fromOption").call(vec![value]),
-							false => value,
-						})
+						Some(value)
 					}
 				};
 				let loc = self.b.t.loc(span);
@@ -1804,6 +2000,14 @@ fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
 			| AssertKind::RemainderByZero(_)
 			| AssertKind::Overflow(BinOp::Div | BinOp::Rem | BinOp::Shl | BinOp::Shr, ..)
 	)
+}
+
+/// An `Option` as `Iterator::next` returns it: the item, or `rt.DONE` for `None`.
+pub fn done_of(option: Expr) -> Expr {
+	match option {
+		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE"),
+		option => Expr::Rt("iter").member("fromOption").call(vec![option]),
+	}
 }
 
 /// Whether `term` is an assert of a constant that fails.

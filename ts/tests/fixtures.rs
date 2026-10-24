@@ -278,13 +278,24 @@ fn lines(text: &str) -> Vec<String> {
 fn lang() {
 	let out = translated("lang");
 	snapshot("lang", &out);
+	lang_differential(&out);
+}
+
+/// The language fixture with bodies lowered from MIR.
+#[test]
+fn lang_mir() {
+	let out = translated_mir("lang");
+	lang_differential(&out);
+}
+
+fn lang_differential(out: &Path) {
 	// Hand-written callers, type-checked against the output they call: one runs it, and
 	// one mixes integer types, which `tsc` must refuse.
 	for file in ["caller.ts", "brands.ts"] {
 		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
 	}
-	typecheck(&out);
-	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
+	typecheck(out);
+	differential("lang-fixture", out, "caller.ts", 50_000, &["wide"]);
 }
 
 /// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
