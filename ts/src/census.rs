@@ -138,6 +138,7 @@ const VERBATIM: &[&str] = &[
 	"Binary",
 	"Copy",
 	"Debug",
+	"Display",
 	"Drop",
 	"From",
 	"From::from",
