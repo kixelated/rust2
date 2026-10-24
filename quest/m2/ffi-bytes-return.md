@@ -4,7 +4,7 @@
 
 A frame payload returned to a binding (`read_frame`, `recv_datagram`, decoded
 media) reaches the host without a copy, through a Rust-owned buffer the host
-releases, in every generator of [the fork](/quest/m1/uniffi.md). Proven on the
+releases, in every generator of [the fork](/uniffi/README.md). Proven on the
 [binding benchmark](/quest/m1/ffi-bench.md).
 
 ## Plan

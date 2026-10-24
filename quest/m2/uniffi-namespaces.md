@@ -5,7 +5,7 @@
 Two crates linked into one library can each export a type with the same
 name, and a type in one can take the other's: `media.GroupConsumer(group:
 GroupConsumer)` generates and runs in Kotlin, Swift, Python, Go, Dart, C++,
-and C from [the fork](/quest/m1/uniffi.md).
+and C from [the fork](/uniffi/README.md).
 
 ## Plan
 
@@ -32,6 +32,6 @@ auto-closed it; it remains unfixed upstream.
 
 Public API: the fork's generated code for cross-crate types.
 
-## Required
+## Related
 
-- [Import UniFFI](/quest/m1/uniffi.md) - the fork the fix lands in
+- [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - lands first if this changes the FFI contract
