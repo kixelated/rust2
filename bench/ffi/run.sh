@@ -4,8 +4,8 @@
 # Usage and output are described in README.md.
 set -euo pipefail
 
-bench=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-root=$(cd "$bench/../.." && pwd)
+bench=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+root=$(cd "$bench/../.." && pwd -P)
 
 die() {
     echo "bench-ffi: $*" >&2
@@ -199,6 +199,9 @@ results=$root/target/bench/ffi
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
 [[ -z $(find "$out" -mindepth 1 -print -quit 2>/dev/null) ]] || die "$out is not empty; pass a new --out"
 mkdir -p "$work" "$out/logs"
+# Physical paths: on macOS /var is a symlink, and askama resolves its templates
+# by a relative path that breaks across one.
+work=$(cd "$work" && pwd -P)
 out=$(cd "$out" && pwd)
 dir=$work
 while :; do
