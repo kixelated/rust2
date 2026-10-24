@@ -63,7 +63,7 @@ Things to carry over and check:
   `recv_*`, and `read_frame` moves to the ordered reader returning the group
   and frame position like JS. Python's `__aiter__` stops committing silently.
 - Measure every generated wrapper (Go, Python, Kotlin, Swift, Dart, C++) on the
-  [binding benchmark](/quest/m1/ffi-bench.md); the spike covered only Go and
+  [binding benchmark](/bench/ffi/README.md); the spike covered only Go and
   Python. Sweep publishers as well as subscribers, since the generator's
   callback-handle map is shared process-wide.
 
@@ -73,7 +73,6 @@ terminal to per-read.
 
 ## Required
 
-- [Binding benchmark](/quest/m1/ffi-bench.md) - the numbers every wrapper is measured on
 - [moq's poll-native async](/quest/m1/moq-poll-migrate.md) - the kio poll each export wraps, with `ffi::Task` gone
 
 ## Related

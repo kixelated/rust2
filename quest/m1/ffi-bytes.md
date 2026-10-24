@@ -4,7 +4,7 @@
 
 A binding moves a frame payload across the FFI with no per-byte loop: every
 copy on the path is a bulk copy, and the report counts them per direction.
-Proven on the [binding benchmark](/quest/m1/ffi-bench.md) in every wrapper
+Proven on the [binding benchmark](/bench/ffi/README.md) in every wrapper
 (Python, Go, Kotlin, Swift, Dart, C++, and the browser).
 
 ## Plan
@@ -46,7 +46,3 @@ with the binding benchmark:
   skip it.
 
 Public API: none unless `&[u8]` lands, which changes Kotlin's parameter type.
-
-## Required
-
-- [Binding benchmark](/quest/m1/ffi-bench.md) - the before and after numbers

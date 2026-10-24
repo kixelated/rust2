@@ -5,7 +5,7 @@
 An async export that stays on UniFFI's `RustFuture` (connect, accept, session
 status, and the other exports [foreign poll](/quest/m1/ffi-poll-protocol.md)
 leaves alone) costs fewer FFI crossings per call in every generator, proven on
-the [binding benchmark](/quest/m1/ffi-bench.md), with no change to the
+the [binding benchmark](/bench/ffi/README.md), with no change to the
 bindings' async signatures.
 
 ## Plan
