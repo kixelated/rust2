@@ -53,10 +53,10 @@ class TestNamespaces(unittest.TestCase):
 
         frames = media.decode_all([net.Frame(payload=b"\x00a"), net.Frame(payload=b""), net.Frame(payload=b"\x01b")])
         self.assertEqual([f.keyframe for f in frames], [False, True])
-        bounds = media.bounds(frames)
+        bounds = media.find_bounds(frames)
         self.assertEqual(bounds.keyframe, frames[1])
         self.assertEqual(bounds.last, net.Frame(payload=b"\x01b"))
-        self.assertEqual(media.bounds([]), media.Bounds(keyframe=None, last=None))
+        self.assertEqual(media.find_bounds([]), media.Bounds(keyframe=None, last=None))
 
         groups = media.wrap_all([net_group(1, net.Priority.LOW), net_group(2, net.Priority.HIGH)])
         self.assertEqual([g.group().sequence() for g in groups.groups], [1, 2])
