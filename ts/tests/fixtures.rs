@@ -279,7 +279,7 @@ import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, drain, blocks }});
+export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();

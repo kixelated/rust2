@@ -20,17 +20,18 @@ interface Future<T> extends Disposable {
 	poll(cx: Waker): T | symbol;
 }
 
-/** What a route drives: the translation's channel and task, and its runtime. */
-export interface Fixture {
+/** What a route drives: the translation's channel and task, and its runtime, whose `u64` values are `V`. */
+export interface Fixture<V> {
 	Pending: symbol;
 	spawn<T>(future: Future<T>): Promise<T>;
-	Channel: { open(): Channel };
-	drain(rx: Disposable, depth: number): Future<bigint>;
+	u64: { of(value: number): V; toBeBytes(a: V): Uint8Array };
+	Channel: { open(): Channel<V> };
+	drain(rx: Disposable, depth: number): Future<V>;
 }
 
-interface Channel extends Disposable {
+interface Channel<V> extends Disposable {
 	consumer(): Disposable;
-	send(value: bigint): boolean;
+	send(value: V): boolean;
 }
 
 function parse(input: Uint8Array): [depth: number, count: number] {
@@ -67,35 +68,35 @@ class Woken implements Waker {
 }
 
 /** The translation, polled right away whenever it is woken, as `bench.rs` polls it. */
-export function polled(f: Fixture): (input: Uint8Array) => Uint8Array {
+export function polled<V>(f: Fixture<V>): (input: Uint8Array) => Uint8Array {
 	return (input) => {
 		const [depth, count] = parse(input);
 		const channel = f.Channel.open();
 		const task = f.drain(channel.consumer(), depth);
 		const waker = new Woken();
-		const run = (): bigint | undefined => {
+		const run = (): V | undefined => {
 			while (waker.woken) {
 				waker.woken = false;
 				const out = task.poll(waker);
-				if (out !== f.Pending) return out as bigint;
+				if (out !== f.Pending) return out as V;
 			}
 			return undefined;
 		};
 		run();
 		for (let value = 0; value < count; value++) {
-			channel.send(BigInt(value));
+			channel.send(f.u64.of(value));
 			run();
 		}
 		channel[Symbol.dispose]();
 		const total = run();
 		task[Symbol.dispose]();
 		if (total === undefined) throw new Error("the task did not finish once its channel closed");
-		return output(total);
+		return f.u64.toBeBytes(total);
 	};
 }
 
 /** The translation on the runtime's executor, which polls woken tasks from a microtask. */
-export function spawned(f: Fixture): (input: Uint8Array) => Promise<Uint8Array> {
+export function spawned<V>(f: Fixture<V>): (input: Uint8Array) => Promise<Uint8Array> {
 	return async (input) => {
 		const [depth, count] = parse(input);
 		const channel = f.Channel.open();
@@ -103,11 +104,11 @@ export function spawned(f: Fixture): (input: Uint8Array) => Promise<Uint8Array> 
 		for (let value = 0; value < count; value++) {
 			// The task's poll is queued first, so it parks before the next send.
 			await undefined;
-			channel.send(BigInt(value));
+			channel.send(f.u64.of(value));
 		}
 		await undefined;
 		channel[Symbol.dispose]();
-		return output(await done);
+		return f.u64.toBeBytes(await done);
 	};
 }
 

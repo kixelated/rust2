@@ -24,22 +24,26 @@ interface Log {
 type Consumer = Disposable;
 type Guard = Disposable;
 
-interface Channel extends Disposable {
+interface Channel<V> extends Disposable {
 	consumer(): Consumer;
-	send(value: bigint): boolean;
+	send(value: V): boolean;
 	close(): boolean;
 	cloneProducer(): boolean;
 }
 
-/** What the harness drives: the translation's roots, and the runtime's `Pending`. */
-export interface Fixture {
+/**
+ * What the harness drives: the translation's roots, and the runtime's `Pending` and
+ * `u64`, whose values are `V`.
+ */
+export interface Fixture<V> {
 	Pending: symbol;
+	u64: { of(value: number): V };
 	Log: { "new"(): Log };
-	Channel: { open(): Channel };
+	Channel: { open(): Channel<V> };
 	Guard: { "new"(id: number, log: Log): Guard };
-	sum(rx: Consumer, guard: Guard): Future<bigint>;
-	drain(rx: Consumer, depth: number): Future<bigint>;
-	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<bigint>;
+	sum(rx: Consumer, guard: Guard): Future<V>;
+	drain(rx: Consumer, depth: number): Future<V>;
+	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
 }
 
 /** What every waker of one task points at. */
@@ -93,7 +97,7 @@ class TaskWaker implements Waker {
 }
 
 interface Task {
-	future: Future<bigint>;
+	future: Future<unknown>;
 	waker: Waker;
 	wake: Wake;
 	done: boolean;
@@ -112,7 +116,7 @@ class Executor {
 		this.pending = pending;
 	}
 
-	spawn(future: Future<bigint>): void {
+	spawn(future: Future<unknown>): void {
 		const task = this.tasks.length;
 		this.log.note(`t${task} spawn`);
 		const wake = new Wake(task, this.log, this.queue);
@@ -157,11 +161,11 @@ class Executor {
 }
 
 /** The script runner, as `harness.rs` runs it natively. */
-export function harness(f: Fixture): (input: Uint8Array) => { view(): Uint8Array } {
+export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint8Array } {
 	return (input) => {
 		const log = f.Log.new();
 		const exec = new Executor(log, f.Pending);
-		const channels: Channel[] = [];
+		const channels: Channel<V>[] = [];
 		for (let i = 0; i < input.length; i += 2) {
 			const op = input[i];
 			const arg = input[i + 1] ?? 0;
@@ -181,7 +185,7 @@ export function harness(f: Fixture): (input: Uint8Array) => { view(): Uint8Array
 				case 3:
 					if (c !== undefined) {
 						log.note(`c${c} send ${arg}`);
-						if (!channels[c].send(BigInt(arg))) log.note(`c${c} closed`);
+						if (!channels[c].send(f.u64.of(arg))) log.note(`c${c} closed`);
 					}
 					break;
 				case 4:

@@ -88,7 +88,7 @@ async function taskEntry(dir: string): Promise<string> {
 import { Channel, drain } from "./model.ts";
 import { polled, spawned } from ${JSON.stringify(join(import.meta.dir, "task.ts"))};
 
-const fixture = { Pending: rt.Pending, spawn: rt.spawn, Channel, drain };
+const fixture = { Pending: rt.Pending, spawn: rt.spawn, u64: rt.u64, Channel, drain };
 export const run = polled(fixture);
 export const spawn = spawned(fixture);
 `,
