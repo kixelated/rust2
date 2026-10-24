@@ -73,7 +73,6 @@ terminal to per-read.
 
 ## Required
 
-- [Import UniFFI](/quest/m1/uniffi.md) - the generators that emit the protocol
 - [Binding benchmark](/quest/m1/ffi-bench.md) - the numbers every wrapper is measured on
 - [moq's poll-native async](/quest/m1/moq-poll-migrate.md) - the kio poll each export wraps, with `ffi::Task` gone
 

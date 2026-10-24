@@ -1,4 +1,5 @@
-exclude = ["**/target/**", "**/.direnv/**", ".claude/shared/**"]
+# The UniFFI fork keeps its upstream formatting, like uniffi/rustfmt.toml.
+exclude = ["**/target/**", "**/.direnv/**", ".claude/shared/**", ".scratch/**", "uniffi/**"]
 
 [formatting]
 indent_string = "    "
