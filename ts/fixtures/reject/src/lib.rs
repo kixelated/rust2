@@ -399,3 +399,9 @@ pub fn looped(c: Countdown) -> u8 {
 pub fn fallback(a: Option<Noisy>, b: Noisy) -> Noisy {
 	a.unwrap_or(b)
 }
+
+/// `rest` moves the tail out of `pair`, which would still drop it.
+pub fn rest_moved(pair: [Noisy; 2]) -> u8 {
+	let [first, rest @ ..] = pair;
+	first.0 + rest[0].0
+}

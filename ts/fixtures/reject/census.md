@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 73
-- Function instances: 63
+- Refusals: 74
+- Function instances: 64
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -40,6 +40,7 @@
 | 1 | a parameter that drops bound by a pattern, which is not supported yet | fixtures/reject/src/lib.rs:83:21 |
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:129:3 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:175:1 |
+| 1 | a rest pattern that moves values that drop out of a place, which is not supported yet | fixtures/reject/src/lib.rs:405:14 |
 | 1 | a variable from outside the function | fixtures/reject/src/lib.rs:84:2 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:136:3 |
 | 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
@@ -350,6 +351,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a printable type must implement `Display` or `Debug` (1)</summary>
 
 - fixtures/reject/src/lib.rs:175:1: a printable type must implement `Display` or `Debug`
+
+</details>
+
+<details><summary>a rest pattern that moves values that drop out of a place, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:405:14: a rest pattern that moves values that drop out of a place, which is not supported yet
 
 </details>
 

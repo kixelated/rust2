@@ -36,8 +36,8 @@ ranked by the census of moq-net at the pinned revision (kio's has 28 in all):
   `Option::ok_or`, `map_or`, and `unwrap_or`, and `Result::ok`. Each refuses any operand
   that drops today, even one it always keeps, such as `ok_or`'s option.
 - Struct update syntax from a value that drops (16), a closure capturing one (13), a
-  generic type that implements `Drop` (11), and a parameter that drops bound by a
-  pattern.
+  generic type that implements `Drop` (11), a parameter that drops bound by a pattern,
+  and a rest pattern that moves values that drop out of a place.
 - A value that drops, moved ahead of an `.await` in the same call (3) or in the place
   an assignment writes it to, which a cancel would leave in a temporary no scope drops,
   and an `Arc` or `Mutex` holding a borrow of a value that drops, which JS would drop

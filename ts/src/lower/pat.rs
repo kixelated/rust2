@@ -263,6 +263,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						ty::Uint(ty::UintTy::U8) => "subarray",
 						_ => "slice",
 					};
+					// Its copy of the elements would drop them, and so would the place they stay in.
+					let rest_ty = self.subst(p.ty);
+					if !owned && !matches!(rest_ty.kind(), ty::Ref(..)) && self.t.drops(rest_ty) {
+						self.t.err(
+							p.span,
+							"a rest pattern that moves values that drop out of a place, which is not supported yet",
+						);
+					}
 					let rest = scrut.clone().member(method).call(vec![start, end]);
 					self.pat_bind(p, &rest, true, out);
 				}

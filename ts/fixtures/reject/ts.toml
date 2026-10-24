@@ -50,6 +50,7 @@ roots = [
     "counted",
     "looped",
     "fallback",
+    "rest_moved",
     "missing",
 ]
 printable = ["Meters"]
