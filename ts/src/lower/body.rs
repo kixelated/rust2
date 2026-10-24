@@ -322,8 +322,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				arms,
 				match_source,
 			} => self.match_(id, *scrutinee, arms, *match_source, dest, out),
-			ExprKind::Loop { body } => {
-				self.err(span, format!("a loop outside a scope: {body:?}"));
+			ExprKind::Loop { .. } => {
+				self.err(span, "a loop outside a scope");
 			}
 			ExprKind::Break { label, value } => self.break_(*label, *value, span, out),
 			ExprKind::Continue { label } => {
@@ -1230,9 +1230,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let loop_body = some_arm.body;
 
 		let iter_ty = self.ty_of(iterable);
-		let source = self.iterable(iterable, iter_ty, span, out);
-		let Some(source) = source else {
-			return;
+		let source = match self.iterable(iterable, iter_ty, span, out) {
+			Some(source) => source,
+			// Refused, but what the iterable and the body refuse is reported too.
+			None => Iterable::Of(self.operand(iterable, out)),
 		};
 
 		let label = self.fresh("loop");
@@ -1918,8 +1919,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					_ => base.member("error"),
 				},
 				Some(library::Std::Box) => base,
-				Some(_) => self.err(span, format!("a field of `{ty}`")),
-				None => {
+				None if adt.did().is_local() => {
 					let info = self.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Class { fields, .. } => base.field(fields[field.index()]),
@@ -1929,6 +1929,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						}
 					}
 				}
+				_ => self.err(span, format!("a field of `{ty}`")),
 			},
 			_ => self.err(span, format!("a field of `{ty}`")),
 		}
@@ -2182,12 +2183,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			args: gargs,
 			span,
 		};
+		let ids = match &args {
+			Args::Thir(ids) => *ids,
+			Args::Values(_) => &[],
+		};
 		match library::call(self, &call, args, out) {
 			Some(e) => e,
-			None => self.err(
-				span,
-				format!("unsupported call to `{}`", tcx.def_path_str_with_args(def_id, gargs)),
-			),
+			None => {
+				// Refused, but what the arguments refuse is reported too.
+				self.operands(ids, out);
+				self.err(
+					span,
+					format!("unsupported call to `{}`", tcx.def_path_str_with_args(def_id, gargs)),
+				)
+			}
 		}
 	}
 
@@ -2225,6 +2234,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
+		}
+		if !adt_id.is_local() {
+			return self.err(
+				span,
+				format!("constructing `{}` from another crate", tcx.def_path_str(adt_id)),
+			);
 		}
 		let info = self.t.adt(adt, span);
 		let ty = tcx.type_of(adt_id).instantiate(tcx, gargs).skip_norm_wip();

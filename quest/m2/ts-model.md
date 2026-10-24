@@ -23,7 +23,7 @@ Decided with the maintainer on 2026-10-23, for the subset:
   and trait objects except at boundaries (`Box<dyn Future>`, transport erasure).
   Those bind to hand-written TS through config instead of translating.
 - `u128` stays, on the [wide-integer](/quest/m2/ts-wide-ints.md) representation.
-- What the [census](/quest/m2/ts-census.md) still ranks after the required quests
+- What the census (`just ts census`, nightly) still ranks after the required quests
   (`Bytes`, `Duration`/`Instant`, cross-crate generics) lands here or splits into
   its own quest.
 
@@ -37,4 +37,3 @@ Public API: the translator's output for moq-net's model.
 - [Iterators](/quest/m2/ts-iter.md) - the model's adaptor chains
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
 - [Formatting](/quest/m2/ts-format.md) - panic and error messages match native
-- [Coverage census](/quest/m2/ts-census.md) - ranks what remains

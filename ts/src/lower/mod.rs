@@ -18,6 +18,7 @@ use rustc_middle::thir::{ExprId, Thir};
 use rustc_middle::ty::{self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypingEnv};
 use rustc_span::Span;
 
+use crate::census::{Census, Refusal};
 use crate::config::Config;
 use crate::program::{Program, Source, SymKind, Symbol};
 use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
@@ -49,33 +50,72 @@ impl<'tcx> Bodies<'tcx> {
 
 /// Translate what the config's roots reach, or `None` after reporting why not.
 pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Program> {
-	if tcx.data_layout.pointer_size().bits() != 32 {
-		tcx.dcx()
-			.err("rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number");
-		return None;
-	}
-	let mut t = Translator {
-		tcx,
-		bodies,
-		config,
-		program: Program::default(),
-		instances: Default::default(),
-		queue: VecDeque::new(),
-		adts: Default::default(),
-		sources: Default::default(),
-		failed: false,
-	};
+	let mut t = Translator::new(tcx, config, bodies, None)?;
 	for root in &config.roots {
 		t.root(root);
 	}
-	while let Some((instance, sym)) = t.queue.pop_front() {
-		t.function(instance, sym);
-	}
+	t.drain();
 	if t.failed {
 		return None;
 	}
 	t.program.name();
 	Some(t.program)
+}
+
+/// Every construct translation refuses in the crate, reached from each of its items
+/// as if each were a root.
+pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Census> {
+	let mut t = Translator::new(tcx, config, bodies, Some(Vec::new()))?;
+	for def_id in tcx.hir_crate_items(()).definitions() {
+		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) {
+			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
+		}
+	}
+	let functions = |tcx: TyCtxt<'tcx>| {
+		tcx.hir_body_owners()
+			.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
+	};
+	for def_id in functions(tcx) {
+		// A derived impl comes along only when called, as in translation.
+		let derived = tcx
+			.impl_of_assoc(def_id.to_def_id())
+			.is_some_and(|imp| tcx.is_automatically_derived(imp));
+		if !derived && !tcx.generics_of(def_id).requires_monomorphization(tcx) {
+			t.instance(Instance::mono(tcx, def_id.to_def_id()));
+		}
+	}
+	t.drain();
+	let reached: rustc_data_structures::fx::FxHashSet<DefId> = t.instances.keys().map(|i| i.def_id()).collect();
+	let unreached = functions(tcx)
+		.filter(|&def_id| tcx.generics_of(def_id).requires_monomorphization(tcx))
+		.filter(|def_id| !reached.contains(&def_id.to_def_id()))
+		.count();
+	let sm = tcx.sess.source_map();
+	let mut seen = rustc_data_structures::fx::FxHashSet::default();
+	let mut refusals = Vec::new();
+	for (span, message) in t.refusals.take().unwrap_or_default() {
+		let (file, line, col, ..) = sm.span_to_location_info(span.source_callsite());
+		let file = file.map_or_else(String::new, |file| {
+			file.name
+				.display(rustc_span::RemapPathScopeComponents::DIAGNOSTICS)
+				.to_string()
+		});
+		let refusal = Refusal {
+			file,
+			line,
+			col,
+			message,
+		};
+		// Each instance of a generic function refuses the same spans.
+		if seen.insert(refusal.clone()) {
+			refusals.push(refusal);
+		}
+	}
+	Some(Census {
+		functions: t.instances.len(),
+		unreached,
+		refusals,
+	})
 }
 
 pub struct Translator<'a, 'tcx> {
@@ -89,6 +129,8 @@ pub struct Translator<'a, 'tcx> {
 	/// Source files by name, as indexes into `program.sources`.
 	sources: rustc_data_structures::fx::FxHashMap<String, Option<u32>>,
 	failed: bool,
+	/// Refusals collected for a census, rather than reported as errors.
+	refusals: Option<Vec<(Span, String)>>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -130,9 +172,46 @@ pub enum Owner {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
+	fn new(
+		tcx: TyCtxt<'tcx>,
+		config: &'a Config,
+		bodies: &'a Bodies<'tcx>,
+		refusals: Option<Vec<(Span, String)>>,
+	) -> Option<Self> {
+		if tcx.data_layout.pointer_size().bits() != 32 {
+			tcx.dcx().err(
+				"rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number",
+			);
+			return None;
+		}
+		Some(Self {
+			tcx,
+			bodies,
+			config,
+			program: Program::default(),
+			instances: Default::default(),
+			queue: VecDeque::new(),
+			adts: Default::default(),
+			sources: Default::default(),
+			failed: false,
+			refusals,
+		})
+	}
+
+	/// Translate every queued function instance, and those they reach.
+	fn drain(&mut self) {
+		while let Some((instance, sym)) = self.queue.pop_front() {
+			self.function(instance, sym);
+		}
+	}
+
+	/// Refuse a construct outside the subset.
 	pub fn err(&mut self, span: Span, msg: impl Into<String>) {
 		self.failed = true;
-		self.tcx.dcx().span_err(span, format!("rust2-ts: {}", msg.into()));
+		match &mut self.refusals {
+			Some(refusals) => refusals.push((span, msg.into())),
+			None => _ = self.tcx.dcx().span_err(span, format!("rust2-ts: {}", msg.into())),
+		}
 	}
 
 	fn typing_env(&self) -> TypingEnv<'tcx> {
