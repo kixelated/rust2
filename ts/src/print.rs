@@ -312,7 +312,7 @@ impl Refs {
 				self.expr(program, b);
 				self.expr(program, c);
 			}
-			Expr::Arrow(params, ret, body) | Expr::Generator(params, ret, body) => {
+			Expr::Arrow(params, ret, body) => {
 				self.params(program, params);
 				self.ty(program, ret);
 				self.stmts(program, body);
@@ -525,14 +525,19 @@ impl Printer<'_> {
 		self.start();
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
+		let star = if f.generator { "*" } else { "" };
 		match cx {
-			Context::Module => self.write(&format!("export function {name}(")),
+			Context::Module => self.write(&format!("export function{star} {name}(")),
 			Context::Class if f.method => self.write(&format!("{name}(")),
 			Context::Class => self.write(&format!("static {name}(")),
 			Context::Companion => self.write(&format!("{name}(")),
 		}
 		self.params(&f.params);
-		let ret = self.ty(&f.ret);
+		let mut ret = self.ty(&f.ret);
+		if f.generator {
+			self.uses_rt = true;
+			ret = format!("Generator<undefined, {ret}, rt.Context>");
+		}
 		self.write(&format!("): {ret} {{\n"));
 		self.block_body(&f.body);
 		self.start();
@@ -920,16 +925,6 @@ impl Printer<'_> {
 					self.write("}");
 				}
 			}
-			Expr::Generator(params, ret, body) => {
-				self.write("function* (");
-				self.params(params);
-				let ret = self.ty(ret);
-				self.uses_rt = true;
-				self.write(&format!("): Generator<undefined, {ret}, rt.Context> {{\n"));
-				self.block_body(body);
-				self.start();
-				self.write("}");
-			}
 			Expr::Yield => self.write("yield"),
 			Expr::Lambda(params, body) => {
 				self.write("(");
@@ -1095,7 +1090,7 @@ fn binary_prec(op: &str) -> u8 {
 
 fn prec(e: &Expr) -> u8 {
 	match e {
-		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) | Expr::Generator(..) | Expr::Yield => 3,
+		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) | Expr::Yield => 3,
 		Expr::Cond(..) => 4,
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
@@ -1187,7 +1182,7 @@ fn collect_target(target: &Target, out: &mut Vec<String>) {
 
 fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 	match e {
-		Expr::Arrow(params, _, body) | Expr::Generator(params, _, body) => {
+		Expr::Arrow(params, _, body) => {
 			out.extend(params.iter().map(|p| p.name.clone()));
 			collect_locals(body, out);
 		}

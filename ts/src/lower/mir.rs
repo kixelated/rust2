@@ -146,6 +146,7 @@ pub fn coroutine<'tcx>(
 			body,
 			loc: None,
 			doc: None,
+			generator: false,
 		});
 	}
 
@@ -797,7 +798,7 @@ impl<'m, 'b, 'a, 'tcx> Lowering<'m, 'b, 'a, 'tcx> {
 					out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
 					self.b.bind_upvar(capture.get_root_variable(), name);
 				}
-				self.b.lower_closure(local, span, out)
+				self.b.lower_closure(local, span)
 			}
 			_ => self.err(format!("unsupported aggregate {kind:?}")),
 		}

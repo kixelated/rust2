@@ -122,8 +122,11 @@ export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
 
-/** The body of an `async fn` or block: it yields at each `.await` that is pending. */
-export type Body<T> = (cx: Context) => Generator<undefined, T, Context>;
+/**
+ * The body of an `async fn` or block, a generator of what it captured: it yields at
+ * each `.await` that is pending.
+ */
+export type Body<T, A extends unknown[]> = (cx: Context, ...upvars: A) => Generator<undefined, T, Context>;
 
 const Unresumed = 0;
 const Suspended = 1;
@@ -135,32 +138,36 @@ const Panicked = 3;
  * poll. Dropping it unresumed drops what it captured, and suspended runs the `finally`
  * blocks that drop its live locals.
  */
-class Async<T> implements Future<T> {
+class Async<T, A extends unknown[]> implements Future<T> {
 	#state = Unresumed;
-	#body: Body<T>;
+	#body: Body<T, A>;
+	#drop: ((...upvars: A) => void) | undefined;
+	#upvars: A | undefined;
 	#gen: Generator<undefined, T, Context> | undefined;
-	#drop: () => void;
 
-	constructor(body: Body<T>, drop: () => void) {
+	constructor(body: Body<T, A>, drop: ((...upvars: A) => void) | undefined, upvars: A) {
 		this.#body = body;
 		this.#drop = drop;
+		this.#upvars = upvars;
 	}
 
 	poll(cx: Context): Poll<T> {
-		if (this.#state === Returned) panic("`async fn` resumed after completion");
-		if (this.#state === Panicked) panic("`async fn` resumed after panicking");
 		const state = this.#state;
+		if (state === Returned) panic("`async fn` resumed after completion");
+		if (state === Panicked) panic("`async fn` resumed after panicking");
 		this.#state = Panicked;
-		let gen = this.#gen;
 		let next: IteratorResult<undefined, T>;
 		if (state === Unresumed) {
-			gen = this.#gen = this.#body(cx);
+			const gen = this.#body(cx, ...this.#upvars!);
+			this.#upvars = undefined;
+			this.#gen = gen;
 			next = gen.next();
 		} else {
-			next = gen!.next(cx);
+			next = this.#gen!.next(cx);
 		}
 		if (next.done) {
 			this.#state = Returned;
+			this.#gen = undefined;
 			return next.value;
 		}
 		this.#state = Suspended;
@@ -170,14 +177,21 @@ class Async<T> implements Future<T> {
 	[Symbol.dispose](): void {
 		const state = this.#state;
 		this.#state = Returned;
-		if (state === Unresumed) this.#drop();
+		if (state === Unresumed) this.#drop?.(...this.#upvars!);
 		else if (state === Suspended) this.#gen!.return(undefined as T);
 	}
 }
 
-/** An `async fn`'s future: `body` runs at the first poll, and `drop` drops what it captured if it never does. */
-export function future<T>(body: Body<T>, drop: () => void): Future<T> {
-	return new Async(body, drop);
+/**
+ * An `async fn`'s future: `body` runs on what it captured at the first poll, and `drop`
+ * drops that if it never does.
+ */
+export function future<T, A extends unknown[]>(
+	body: Body<T, A>,
+	drop: ((...upvars: A) => void) | undefined,
+	...upvars: A
+): Future<T> {
+	return new Async(body, drop, upvars);
 }
 
 // Executor

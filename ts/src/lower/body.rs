@@ -130,6 +130,7 @@ pub fn function<'a, 'tcx>(
 		body,
 		loc: None,
 		doc: None,
+		generator: false,
 	})
 }
 
@@ -2270,7 +2271,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A closure as an arrow function, or an `async` body as a future around a generator.
 	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.t.tcx;
 		let local = closure.closure_id;
@@ -2286,7 +2286,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let upvars = self.operands(&closure.upvars, out);
 			return super::mir::coroutine(self, local, ty, upvars, span);
 		}
-		self.lower_closure(local, span, out)
+		self.lower_closure(local, span)
 	}
 
 	/// Bind the variable `var`, which a closure body reads as an upvar, to `name`.
@@ -2297,12 +2297,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// A closure as an arrow function, or an `async` body as a future around a generator,
 	/// reading its upvars as the variables they were bound to.
-	pub(super) fn lower_closure(
-		&mut self,
-		local: rustc_hir::def_id::LocalDefId,
-		span: Span,
-		out: &mut Vec<Stmt>,
-	) -> Expr {
+	///
+	/// The generator is a function of its own, taking its upvars as parameters: a
+	/// generator function made per call costs V8 a prototype object and a new shape for
+	/// each generator, about 25 times what one made once does.
+	pub(super) fn lower_closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");
@@ -2319,47 +2318,59 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			_ => return self.err(span, format!("a closure of type `{closure_ty}`")),
 		};
-		// What a future captures that drops, which it drops itself if never polled.
-		let mut captured = Vec::new();
-		// A method's receiver, which a generator can't read as `this`.
-		let mut receiver = None;
+		// A generator's upvars, each a parameter: its name, its value here, and its type.
+		let mut upvars: Vec<(String, Expr, Ty<'tcx>)> = Vec::new();
+		// What the generator renames, to put back once it is lowered.
+		let mut renamed = Vec::new();
 		for capture in tcx.closure_captures(local) {
 			let var = capture.get_root_variable();
 			let ty = self.subst(capture.place.ty());
-			if coroutine && matches!(self.locals.get(&var), Some(Local::Name { name, .. }) if name == "this") {
-				let alias = self.fresh("self");
-				out.push(StmtKind::decl(false, alias.clone(), None, Some(Expr::This)).at(None));
-				let saved = self.locals.insert(
-					var,
-					Local::Name {
-						name: alias,
-						mutable: false,
-					},
-				);
-				receiver = Some((var, saved));
-			}
-			let ty::UpvarCapture::ByValue = capture.info.capture_kind else {
-				continue;
-			};
+			let by_value = matches!(capture.info.capture_kind, ty::UpvarCapture::ByValue);
 			let mutable = matches!(self.locals.get(&var), Some(Local::Name { mutable: true, .. }));
 			// A copy captured by `move` would be shared in JS: refuse one that can change.
-			if !coroutine && mutable && self.t.is_copy(ty) {
+			if !coroutine && by_value && mutable && self.t.is_copy(ty) {
 				self.t
 					.err(capture.get_path_span(tcx), "a closure that copies a mutable variable");
 			}
-			if self.t.drops(ty) {
-				match (coroutine, &self.locals.get(&var)) {
-					(true, Some(Local::Name { name, .. })) if capture.place.projections.is_empty() => {
-						let name = name.clone();
-						self.disown(&name);
-						captured.push((name, ty));
-					}
-					_ => self.t.err(
+			if !coroutine {
+				if by_value && self.t.drops(ty) {
+					self.t.err(
 						capture.get_path_span(tcx),
 						"a closure that captures a value that drops, which is not supported yet",
-					),
+					);
 				}
+				continue;
 			}
+			if !capture.place.projections.is_empty() {
+				self.t.err(
+					capture.get_path_span(tcx),
+					"an async body that captures part of a variable",
+				);
+				continue;
+			}
+			let Some(Local::Name { name, .. }) = self.locals.get(&var).cloned() else {
+				self.t
+					.err(capture.get_path_span(tcx), "an async body capturing a function item");
+				continue;
+			};
+			// The future owns what it captures, so here drops none of it.
+			self.disown(&name);
+			let (param, value) = match name == "this" {
+				true => {
+					let alias = self.fresh("self");
+					let saved = self.locals.insert(
+						var,
+						Local::Name {
+							name: alias.clone(),
+							mutable: false,
+						},
+					);
+					renamed.push((var, saved));
+					(alias, Expr::This)
+				}
+				false => (name.clone(), Expr::ident(name)),
+			};
+			upvars.push((param, value, ty));
 		}
 		let saved_thir = std::mem::replace(&mut self.thir, thir);
 		self.read.extend(reads(tcx, thir));
@@ -2389,7 +2400,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		self.thir = saved_thir;
 		self.breakables = saved_breakables;
 		self.ret = saved_ret;
-		if let Some((var, saved)) = receiver {
+		for (var, saved) in renamed {
 			match saved {
 				Some(saved) => self.locals.insert(var, saved),
 				None => self.locals.remove(&var),
@@ -2398,17 +2409,89 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if !coroutine {
 			return Expr::Arrow(params, ret_ty, body_stmts);
 		}
+
+		// `rt.future(body, drop, ...upvars)`: the body and what drops the upvars if it
+		// never runs, each a function of the upvars.
+		let parent = tcx.typeck_root_def_id(local.to_def_id());
+		let base = camel(tcx.item_name(parent).as_str());
 		let mut drops = Vec::new();
-		for (name, ty) in captured {
-			if let Some(dropped) = self.t.drop_value(Expr::ident(name), ty, span) {
+		for (name, _, ty) in &upvars {
+			if let Some(dropped) = self.t.drop_value(Expr::ident(name), *ty, span) {
 				drops.push(StmtKind::Expr(dropped).at(None));
 			}
 		}
-		let generator = Expr::Generator(params, ret_ty, body_stmts);
-		Expr::rt(
-			"future",
-			vec![generator, Expr::Arrow(Vec::new(), Type::Builtin("void"), drops)],
-		)
+		let upvar_params: Vec<Param> = upvars
+			.iter()
+			.map(|(name, _, ty)| Param {
+				name: name.clone(),
+				ty: Some(self.t.ty(*ty, span)),
+			})
+			.collect();
+		params.extend(upvar_params.iter().cloned());
+		let body_fn = self.hoist(parent, format!("{base}Body"), params, ret_ty, body_stmts, true, span);
+		// The drop reads only the upvars that drop: TypeScript lets the rest go unread as `_`s.
+		let drop_params = upvars
+			.iter()
+			.zip(upvar_params)
+			.map(|((_, _, ty), param)| match self.t.drops(*ty) {
+				true => param,
+				false => Param {
+					name: format!("_{}", param.name),
+					..param
+				},
+			})
+			.collect();
+		let drop_fn = match drops.is_empty() {
+			true => Expr::undefined(),
+			false => self.hoist(
+				parent,
+				format!("{base}Drop"),
+				drop_params,
+				Type::Builtin("void"),
+				drops,
+				false,
+				span,
+			),
+		};
+		let mut args = vec![body_fn, drop_fn];
+		args.extend(upvars.into_iter().map(|(_, value, _)| value));
+		Expr::rt("future", args)
+	}
+
+	/// A module-level function in `parent`'s module, by the name `base`.
+	#[expect(clippy::too_many_arguments, reason = "a function's parts")]
+	fn hoist(
+		&mut self,
+		parent: rustc_hir::def_id::DefId,
+		base: String,
+		params: Vec<Param>,
+		ret: Type,
+		body: Vec<Stmt>,
+		generator: bool,
+		span: Span,
+	) -> Expr {
+		let order = self.t.order(span);
+		let sym = self.t.program.sym(crate::program::Symbol {
+			module: self.t.module_of(parent),
+			base,
+			suffix: String::new(),
+			owner: None,
+			kind: SymKind::Function,
+			order,
+			name: String::new(),
+		});
+		let loc = self.t.loc(span);
+		self.t.program.items.push(ts::Item::Function(ts::Function {
+			sym,
+			method: false,
+			params,
+			ret,
+			body,
+			loc,
+			doc: None,
+			generator,
+		}));
+		Expr::Sym(sym)
 	}
 
 	// Calls

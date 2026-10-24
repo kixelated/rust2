@@ -49,8 +49,6 @@ pub enum Expr {
 	Lambda(Vec<Param>, Box<Expr>),
 	/// `e as T`, for a literal whose type TypeScript would widen.
 	As(Box<Expr>, Type),
-	/// `function* (params): Generator<undefined, T, rt.Context> { body }`, an async body.
-	Generator(Vec<Param>, Type, Vec<Stmt>),
 	/// `yield`, which a generator resumes from with the next `rt.Context`.
 	Yield,
 	Located(Loc, Box<Expr>),
@@ -296,6 +294,9 @@ pub struct Function {
 	pub body: Vec<Stmt>,
 	pub loc: Option<Loc>,
 	pub doc: Option<String>,
+	/// An async body, run as a generator: `function*`, returning `Generator<undefined,
+	/// ret, rt.Context>`.
+	pub generator: bool,
 }
 
 #[derive(Clone, Debug)]

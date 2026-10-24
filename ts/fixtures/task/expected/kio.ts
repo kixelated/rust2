@@ -260,25 +260,7 @@ export class Consumer {
 
 	/** kio's one-line wrapper over a `poll_*` method. */
 	recv(): rt.Future<bigint | undefined> {
-		const self = this;
-		return rt.future(function* (_taskContext: rt.Context): Generator<undefined, bigint | undefined, rt.Context> {
-			const self2 = self;
-			let __awaitee: Pending<(a0: Waiter) => rt.Poll<bigint | undefined>> = wait((waiter: Waiter): rt.Poll<bigint | undefined> => {
-				return self2.pollRecv(waiter);
-			});
-			try {
-				while (true) {
-					const poll = __awaitee.poll(_taskContext);
-					if (poll !== rt.Pending) {
-						const result = poll;
-						return result;
-					}
-					_taskContext = yield;
-				}
-			} finally {
-				rt.drop(__awaitee);
-			}
-		}, (): void => {});
+		return rt.future(recvBody, undefined, this);
 	}
 
 	/** The next value, or `None` once the channel closed and every value was read. */
@@ -294,6 +276,25 @@ export class Consumer {
 		}
 		waiter.register(state.value.waiters);
 		return rt.Pending;
+	}
+}
+
+export function* recvBody(_taskContext: rt.Context, self: Consumer): Generator<undefined, bigint | undefined, rt.Context> {
+	const self2 = self;
+	let __awaitee: Pending<(a0: Waiter) => rt.Poll<bigint | undefined>> = wait((waiter: Waiter): rt.Poll<bigint | undefined> => {
+		return self2.pollRecv(waiter);
+	});
+	try {
+		while (true) {
+			const poll = __awaitee.poll(_taskContext);
+			if (poll !== rt.Pending) {
+				const result = poll;
+				return result;
+			}
+			_taskContext = yield;
+		}
+	} finally {
+		rt.drop(__awaitee);
 	}
 }
 

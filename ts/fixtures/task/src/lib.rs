@@ -6,8 +6,10 @@
 //! last producer closes it on drop. `model` holds the async functions. `exec` is a
 //! deterministic FIFO executor that logs every poll, wake, and waker clone and drop, and
 //! `harness` runs a script of executor steps through it; `tests/task.ts` runs the same
-//! script on the translation with its own executor. Neither is translated.
+//! script on the translation with its own executor. `bench` holds the handoff `just ts
+//! bench` times. None of `exec`, `harness`, and `bench` is translated.
 
+pub mod bench;
 pub mod exec;
 pub mod harness;
 pub mod kio;
@@ -16,5 +18,8 @@ pub mod model;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;
-#[cfg(target_arch = "wasm32")]
+/// What the wasm32 build exports: the benchmark's handoff with `bench`, else the harness.
+#[cfg(all(target_arch = "wasm32", feature = "bench"))]
+use bench::run as entry;
+#[cfg(all(target_arch = "wasm32", not(feature = "bench")))]
 use harness::run as entry;

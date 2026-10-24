@@ -175,6 +175,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			body,
 			loc: None,
 			doc: None,
+			generator: false,
 		});
 	}
 }
