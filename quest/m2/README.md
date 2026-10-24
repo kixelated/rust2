@@ -38,3 +38,4 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 - [Drop checksums](/quest/m2/ffi-checksums.md) - bindings load without a checksum call per method
 - [Smaller bindings](/quest/m2/ffi-code-size.md) - generated bindings shrink in every language, measured per template
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR
+- [Symlinked paths](/quest/m2/uniffi-symlink-path.md) - the fork builds when a consumer reaches it through a symlink, as on macOS's `/var`
