@@ -42,6 +42,12 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
+	/// `rt.Range`, an iterator with `start` and `end` fields.
+	Range,
+	/// `rt.RangeInclusive`.
+	RangeInclusive,
+	/// `rt.Peekable`, an iterator with `peek`.
+	Peekable,
 }
 
 impl Std {
@@ -65,6 +71,12 @@ impl Std {
 		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
 			return Some(Self::Box);
 		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::Range) {
+			return Some(Self::Range);
+		}
+		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::RangeInclusiveStruct) {
+			return Some(Self::RangeInclusive);
+		}
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
@@ -83,6 +95,7 @@ impl Std {
 			["fmt", "builders", "DebugTuple"] => Some(Self::DebugTuple),
 			["fmt", "builders", "DebugList"] => Some(Self::DebugList),
 			["panicking", "AssertKind"] => Some(Self::AssertKind),
+			["iter", "adapters", "peekable", "Peekable"] => Some(Self::Peekable),
 			_ => None,
 		}
 	}
@@ -102,13 +115,17 @@ pub fn std_path(tcx: TyCtxt<'_>, did: DefId) -> Vec<String> {
 		.collect()
 }
 
-/// Whether `did` is `core::slice::Iter`, which `slice.iter()` makes.
-pub fn is_slice_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
-	std_path(tcx, did) == ["slice", "iter", "Iter"]
-}
-
 fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
+}
+
+/// The standard type an inherent method is of, such as `Range` for `Range::contains`.
+pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
+	let imp = tcx.inherent_impl_of_assoc(def_id)?;
+	match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Adt(adt, _) => Std::of(tcx, adt.did()),
+		_ => None,
+	}
 }
 
 /// A call's arguments: still THIR, or already lowered.
@@ -197,6 +214,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 	};
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
+	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
 
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
@@ -302,6 +320,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						.call(vec![value.method("view", vec![])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				ty::Adt(adt, _) if matches!(Std::of(tcx, adt.did()), Some(Std::Range | Std::RangeInclusive)) => {
+					value.method("clone", vec![])
+				}
 				_ if b.t.is_copy(ty) => b.copied(value, ty),
 				_ => return None,
 			}
@@ -352,6 +373,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			Expr::Rt("result").member(method).call(values)
 		}
 		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
+
+		// Ranges, which are their own iterators.
+		("RangeInclusive", "new") if range => Expr::New(Box::new(Expr::Rt("RangeInclusive")), b.args(args, out)),
+		("Range" | "RangeInclusive", "is_empty" | "contains" | "start" | "end") if range => {
+			let mut values = b.args(args, out);
+			let recv = values.remove(0);
+			recv.method(&super::camel(&name), values)
+		}
 
 		("bool", "then_some") => {
 			let values = b.args(args, out);
@@ -654,7 +683,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let debug = b.fmt_fn(fmt::Trait::Debug, targ(gargs, 0), span);
 			list.method("entries", vec![items, debug])
 		}
-		_ => return None,
+		_ => return super::iter::call(b, call, &owner, &name, args, out),
 	};
 	Some(e)
 }
@@ -840,30 +869,37 @@ fn literal(parts: &Expr) -> Option<String> {
 		.collect()
 }
 
-/// What an `IntoIterator` of a slice's items iterates, as an iterable JS value:
-/// `slice.iter()`, or a slice, array, or `Vec`, by value or by reference.
+/// The slice `id` iterates if it is `<[T]>::iter(slice)`, which iterates as the JS array
+/// or `Uint8Array` itself does.
+pub fn iterated_slice(b: &Body<'_, '_, '_>, id: ExprId) -> Option<ExprId> {
+	let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[b.strip(id)].kind else {
+		return None;
+	};
+	let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
+		return None;
+	};
+	(key(b.t.tcx, iter) == Some(("slice".into(), "iter".into()))).then(|| args[0])
+}
+
+/// What an `IntoIterator` iterates, as an iterable JS value: a slice, array, or `Vec`
+/// itself, by value or by reference, or else an `rt.Iter`.
 fn items<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	if let Some(slice) = iterated_slice(b, id) {
+		b.visit(id);
+		return Some(b.operand(slice, out));
+	}
 	let id = b.strip(id);
 	let ty = b.ty_of(id);
 	match ty.peel_refs().kind() {
-		ty::Adt(adt, _) if is_slice_iter(tcx, adt.did()) && !matches!(ty.kind(), ty::Ref(..)) => {
-			let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[id].kind else {
-				return None;
-			};
-			let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
-				return None;
-			};
-			if key(tcx, iter) != Some(("slice".into(), "iter".into())) {
-				return None;
-			}
-			Some(b.operand(args[0], out))
-		}
 		ty::Slice(_) | ty::Array(..) => Some(b.operand(id, out)),
 		ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
 			let v = b.operand(id, out);
 			Some(vec_view(v, ty))
 		}
-		_ => None,
+		_ => {
+			let value = b.operand(id, out);
+			super::iter::into_iter(b, ty, value, b.span(id))
+		}
 	}
 }

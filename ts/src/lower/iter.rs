@@ -1,0 +1,360 @@
+//! Iterators, as `rt/iter.ts` gives them: std's iterators are `rt.Iter` objects whose
+//! adaptors are its methods, and whose `next` returns an item or `rt.DONE`. The crate's
+//! own `impl Iterator` keeps that protocol in its `next`, and joins std's adaptors through
+//! `rt.iter.from`.
+
+use rustc_hir::def_id::DefId;
+use rustc_middle::ty::{self, Instance, Ty};
+use rustc_span::Span;
+
+use super::Translator;
+use super::body::Body;
+use super::library::{self, Args, Call, Std};
+use super::num::Int;
+use crate::program::SymKind;
+use crate::ts::{Expr, Param, Stmt, Type};
+
+/// `Iterator::next`, and the trait's `Item`.
+fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
+	let iterator = tcx.get_diagnostic_item(rustc_span::sym::Iterator)?;
+	let items = tcx.associated_items(iterator);
+	let next = items.filter_by_name_unhygienic(rustc_span::sym::next).next()?.def_id;
+	let item = items.filter_by_name_unhygienic(rustc_span::sym::Item).next()?.def_id;
+	Some((next, item))
+}
+
+/// Whether `def_id` is `Iterator::next`, or an impl's.
+pub fn is_next(tcx: ty::TyCtxt<'_>, def_id: DefId) -> bool {
+	let Some((next, _)) = trait_items(tcx) else {
+		return false;
+	};
+	def_id == next || tcx.trait_item_of(def_id) == Some(next)
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// `Iterator::Item` of `ty`, if `ty` is an iterator.
+	pub fn iter_item(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let (next, item) = trait_items(tcx)?;
+		let env = self.typing_env_pub();
+		Instance::try_resolve(tcx, env, next, tcx.mk_args(&[ty.into()])).ok()??;
+		let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
+		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+			.ok()
+	}
+}
+
+/// The crate's own iterator a `ty` is, through any references: its `next`, whose
+/// instance the translation names.
+fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>> {
+	let tcx = b.t.tcx;
+	let ty = ty.peel_refs();
+	if !matches!(ty.kind(), ty::Adt(adt, _) if adt.did().is_local()) {
+		return None;
+	}
+	let (next, _) = trait_items(tcx)?;
+	Instance::try_resolve(tcx, b.t.typing_env_pub(), next, tcx.mk_args(&[ty.into()])).ok()?
+}
+
+/// Refuse an `impl Iterator` of the crate, whose `next` is `next_fn`, that std's adaptors
+/// would read other than through `next`: one that overrides `fold` or `nth`, which they
+/// call in its place, or that has a `next_back` or `len`, which this protocol lacks.
+pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
+	let tcx = t.tcx;
+	let Some(imp) = tcx.impl_of_assoc(next_fn) else {
+		return;
+	};
+	for item in tcx.associated_items(imp).in_definition_order() {
+		let name = item.name();
+		if item.is_fn() && name != rustc_span::sym::next && name.as_str() != "size_hint" {
+			t.err(
+				tcx.def_span(item.def_id),
+				format!("overriding `Iterator::{name}`, which std's adaptors call in place of `next`"),
+			);
+		}
+	}
+	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
+		return;
+	};
+	for (&tr, impls) in tcx.all_local_trait_impls(()) {
+		let path = library::std_path(tcx, tr);
+		let Some(name) = path
+			.last()
+			.filter(|n| matches!(n.as_str(), "DoubleEndedIterator" | "ExactSizeIterator"))
+		else {
+			continue;
+		};
+		for other in impls {
+			let self_ty = tcx.type_of(other.to_def_id()).instantiate_identity().skip_norm_wip();
+			if matches!(self_ty.kind(), ty::Adt(other, _) if other.did() == adt.did()) {
+				t.err(
+					tcx.def_span(other.to_def_id()),
+					format!("an iterator of the crate implementing `{name}`, which is not supported yet"),
+				);
+			}
+		}
+	}
+}
+
+/// `iter.next()` by the protocol, for an iterator of type `ty`: an item or `rt.DONE`.
+pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr {
+	match own_next(b, ty) {
+		Some(instance) => {
+			let sym = b.t.instance(instance);
+			Expr::Method(Box::new(iter), sym, Vec::new())
+		}
+		None => iter.member("next").call(Vec::new()),
+	}
+}
+
+/// What `IntoIterator::into_iter` makes of `value`, a `ty`: an `rt.Iter`, or `None` for a
+/// type without a mapping.
+pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	if b.t.iter_item(ty).is_some() {
+		return Some(match own_next(b, ty) {
+			Some(instance) => {
+				let sym = b.t.instance(instance);
+				let param_ty = b.t.ty(ty.peel_refs(), span);
+				let it = "it".to_string();
+				let next = match b.t.program.syms[sym].kind {
+					SymKind::Method { instance: true } => Expr::Method(Box::new(Expr::ident(&it)), sym, Vec::new()),
+					_ => Expr::Sym(sym).call(vec![Expr::ident(&it)]),
+				};
+				let param = Param {
+					name: it,
+					ty: Some(param_ty),
+				};
+				rt_iter("from").call(vec![value, Expr::Lambda(vec![param], Box::new(next))])
+			}
+			None => value,
+		});
+	}
+	match ty.peel_refs().kind() {
+		ty::Slice(_) | ty::Array(..) => Some(rt_iter("slice").call(vec![value])),
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
+			Std::Vec => Some(rt_iter("slice").call(vec![library::vec_view(value, ty)])),
+			Std::Option => {
+				option_ok(b, args.type_at(0), span);
+				Some(rt_iter("option").call(vec![value]))
+			}
+			_ => None,
+		},
+		_ => None,
+	}
+}
+
+/// A function doing `into_iter` on each `ty`, or `None` where it is the value itself.
+fn into_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<Option<Expr>> {
+	if b.t.iter_item(ty).is_some() && own_next(b, ty).is_none() {
+		return Some(None);
+	}
+	let param = Param {
+		name: "value".into(),
+		ty: Some(b.t.ty(ty, span)),
+	};
+	let body = into_iter(b, ty, Expr::ident("value"), span)?;
+	Some(Some(Expr::Lambda(vec![param], Box::new(body))))
+}
+
+/// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
+fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
+	if !b.t.option_payload_ok(ty) {
+		b.t.err(
+			span,
+			format!("`Option<{ty}>` is not supported: its `None` and `Some` would both be `undefined`"),
+		);
+	}
+}
+
+/// `rt.iter.<name>`.
+fn rt_iter(name: &str) -> Expr {
+	Expr::Rt("iter").member(name)
+}
+
+/// The mapping of a call on or to an iterator, if it is one.
+pub fn call<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	owner: &str,
+	name: &str,
+	args: Args<'_>,
+	out: &mut Vec<Stmt>,
+) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let span = call.span;
+	let gargs = call.args;
+	let targ = |n: usize| gargs.types().nth(n);
+	let path = library::std_path(tcx, call.def_id);
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+
+	// Where iterators come from.
+	match (owner, name) {
+		("slice", "iter" | "iter_mut") => {
+			let values = b.args(args, out);
+			return Some(rt_iter("slice").call(values));
+		}
+		("Option", "iter" | "iter_mut") => {
+			option_ok(b, targ(0)?, span);
+			let values = b.args(args, out);
+			return Some(rt_iter("option").call(values));
+		}
+		("IntoIterator", "into_iter") => {
+			let value = b.args(args, out).pop()?;
+			return into_iter(b, targ(0)?, value, span);
+		}
+		_ => {}
+	}
+	match path.as_slice() {
+		["iter", "sources", "once", "once"] => return Some(rt_iter("once").call(b.args(args, out))),
+		["iter", "sources", "empty", "empty"] => return Some(rt_iter("empty").call(Vec::new())),
+		["iter", "sources", "from_fn", "from_fn"] => return Some(rt_iter("fromFn").call(b.args(args, out))),
+		_ => {}
+	}
+
+	// `Vec::extend` with an iterator.
+	if (owner, name) == ("Extend", "extend") {
+		let (vec, item, source) = (targ(0)?, targ(1)?, targ(2)?);
+		let ty::Adt(adt, vec_args) = vec.kind() else {
+			return None;
+		};
+		if Std::of(tcx, adt.did()) != Some(Std::Vec) {
+			return None;
+		}
+		let [v, items] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+		let mut items = into_iter(b, source, items, span)?;
+		// `Extend<&T>` copies each element.
+		if item != vec_args.type_at(0) && b.needs_copy(vec_args.type_at(0)) {
+			items = items.member("map").call(vec![Expr::Rt("copy")]);
+		}
+		return Some(rt_iter("extend").call(vec![v, items]));
+	}
+
+	let self_ty = match (owner, name) {
+		("Iterator" | "DoubleEndedIterator" | "ExactSizeIterator", _) => targ(0)?,
+		("Peekable", "peek" | "next_if") if library::inherent_std(tcx, call.def_id) == Some(Std::Peekable) => {
+			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
+			let generics = tcx.generics_of(imp).count();
+			tcx.type_of(imp).instantiate(tcx, &gargs[..generics]).skip_norm_wip()
+		}
+		_ => return None,
+	};
+	let item = b.t.iter_item(self_ty.peel_refs())?;
+	let mut values = b.args(args, out).into_iter();
+	let recv = values.next()?;
+	let rest: Vec<Expr> = values.collect();
+
+	// `next` by the protocol, as an `Option`.
+	if matches!(name, "next" | "next_back") {
+		option_ok(b, item, span);
+		let item = match name {
+			"next" => next(b, self_ty, recv),
+			_ => recv.member("nextBack").call(Vec::new()),
+		};
+		return Some(rt_iter("toOption").call(vec![item]));
+	}
+	// The same object, borrowed.
+	if name == "by_ref" {
+		return Some(recv);
+	}
+
+	let recv = into_iter(b, self_ty, recv, span)?;
+	let method = |name: &str, args: Vec<Expr>| Some(recv.clone().member(name).call(args));
+	match name {
+		"map" | "filter" | "filter_map" | "enumerate" | "rev" | "skip" | "take" | "skip_while" | "take_while"
+		| "map_while" | "step_by" | "inspect" | "fuse" | "peekable" | "count" | "any" | "all" | "find_map"
+		| "position" | "fold" | "for_each" | "len" => method(&super::camel(name), rest),
+		"last" | "nth" | "find" | "peek" | "next_if" => {
+			option_ok(b, item, span);
+			method(&super::camel(name), rest)
+		}
+		"max" | "min" if primitive(item.peel_refs()) => {
+			option_ok(b, item, span);
+			method(name, rest)
+		}
+		"max_by_key" | "min_by_key" if primitive(targ(1)?) => {
+			option_ok(b, item, span);
+			method(&super::camel(name), rest)
+		}
+		"chain" | "zip" => {
+			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
+			method(name, vec![other])
+		}
+		"flat_map" => {
+			let mut rest = rest;
+			rest.extend(into_fn(b, targ(1)?, span)?);
+			method("flatMap", rest)
+		}
+		"flatten" => {
+			let into = into_fn(b, item, span)?;
+			method("flatten", into.into_iter().collect())
+		}
+		"copied" | "cloned" => {
+			let ty::Ref(_, inner, _) = item.kind() else {
+				return None;
+			};
+			match () {
+				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy")]),
+				_ if b.t.is_copy(*inner) => Some(recv),
+				_ if matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) => {
+					Some(recv)
+				}
+				_ => None,
+			}
+		}
+		"sum" | "product" => {
+			let int = Int::of(targ(1)?)?;
+			let (op, unit) = match name {
+				"sum" => ("add", 0),
+				_ => ("mul", 1),
+			};
+			method(name, vec![Expr::Rt(int.rt()).member(op), int.lit(unit)])
+		}
+		"collect" => collect(b, targ(1)?, item, recv, span),
+		_ => None,
+	}
+}
+
+/// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.
+fn primitive(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+}
+
+/// `iter.collect::<ty>()` of `item`s.
+fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, item: Ty<'tcx>, iter: Expr, span: Span) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let ty::Adt(adt, args) = ty.kind() else {
+		return None;
+	};
+	match Std::of(tcx, adt.did())? {
+		Std::Vec => Some(match args.type_at(0).kind() {
+			ty::Uint(ty::UintTy::U8) => iter.member("toByteVec").call(Vec::new()),
+			_ => iter.member("toArray").call(Vec::new()),
+		}),
+		// The values, collected as the `Ok` or `Some` type is, until the first `Err` or `None`.
+		std @ (Std::Result | Std::Option) => {
+			let ty::Adt(_, item_args) = item.kind() else {
+				return None;
+			};
+			let value = item_args.type_at(0);
+			if std == Std::Option {
+				option_ok(b, args.type_at(0), span);
+			}
+			let value_ty = b.t.ty(value, span);
+			let values = collect(b, args.type_at(0), value, Expr::ident("values"), span)?;
+			let param = Param {
+				name: "values".into(),
+				ty: Some(Type::Rt("Iter", vec![value_ty])),
+			};
+			let method = match std {
+				Std::Result => "collectResult",
+				_ => "collectOption",
+			};
+			Some(
+				iter.member(method)
+					.call(vec![Expr::Lambda(vec![param], Box::new(values))]),
+			)
+		}
+		_ => None,
+	}
+}

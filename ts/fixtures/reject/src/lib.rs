@@ -36,8 +36,8 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
-pub fn iterators(v: &[u8]) -> usize {
-	v.iter().filter(|b| **b > 1).count()
+pub fn iterators(v: &[u8]) -> bool {
+	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
 }
 
 pub struct Guard;
@@ -108,4 +108,49 @@ pub struct Meters(pub u64);
 pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f64
+}
+
+/// An adaptor without a mapping.
+pub fn cycled(v: &[u8]) -> usize {
+	v.iter().cycle().take(3).count()
+}
+
+/// An iterator whose `fold` std's adaptors would call in place of its `next`.
+pub struct Folds;
+
+impl Iterator for Folds {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn fold<B, F: FnMut(B, u8) -> B>(self, init: B, _f: F) -> B {
+		init
+	}
+}
+
+pub fn folds() -> usize {
+	Folds.map(|b| b + 1).count()
+}
+
+/// An iterator with a `next_back`, which an adaptor over it would need.
+pub struct Backs;
+
+impl Iterator for Backs {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl DoubleEndedIterator for Backs {
+	fn next_back(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+pub fn backs() -> usize {
+	Backs.rev().count()
 }

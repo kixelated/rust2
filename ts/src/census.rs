@@ -157,6 +157,7 @@ const VERBATIM: &[&str] = &[
 	"if",
 	"let",
 	"let ... else",
+	"next",
 	"ref mut",
 	"self",
 	"undefined",

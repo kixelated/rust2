@@ -18,6 +18,9 @@ roots = [
     "swapped",
     "replaced",
     "generic",
+    "cycled",
+    "folds",
+    "backs",
     "missing",
 ]
 printable = ["Meters"]
