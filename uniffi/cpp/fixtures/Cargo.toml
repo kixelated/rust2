@@ -8,7 +8,6 @@ edition = "2021"
 crate-type = ["cdylib", "lib", "staticlib"]
 
 [dependencies]
-async-trait = "0.1"
 uniffi = { workspace = true }
 uniffi-example-arithmetic = { path = "../../examples/arithmetic" }
 uniffi-example-callbacks = { path = "../../examples/callbacks" }

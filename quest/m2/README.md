@@ -34,7 +34,6 @@ is not a goal, and types must be solid at the API boundary ([design](/ts/README.
 - [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - classes, free functions, or free functions behind root facades, measured on speed, shaken size, and caller code
 - [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
-- [Delete the C++ generator's dead modes](/quest/m2/uniffi-cpp-dead-modes.md) - scaffolding mode and exception-style async go, with no consumer
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
 - [Cheaper async](/quest/m2/ffi-async.md) - `RustFuture` exports cost fewer crossings, if the numbers show they matter
 - [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - bindings and a cdylib from different UniFFI forks refuse to load together

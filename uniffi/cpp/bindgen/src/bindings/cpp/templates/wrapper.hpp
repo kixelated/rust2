@@ -45,7 +45,6 @@ namespace uniffi {
 #include <cstdio>
 #include <cstdlib>
 #include "uniffi_expected.hpp"
-{%- endif %}
 
 #ifndef UNIFFI_CPP_ASYNC_FUTURE
 #define UNIFFI_CPP_ASYNC_FUTURE
@@ -53,6 +52,7 @@ namespace uniffi {
 {% include "async.hpp" %}
 }
 #endif
+{%- endif %}
 
 {%- import "macros.cpp" as macros %}
 {% call macros::docstring_value(ci.namespace_docstring(), 0) %}
@@ -108,7 +108,6 @@ typedef {{ type_name }} {{ name }};
 {%- let vtable = cbi.vtable() %}
 {%- let vtable_methods = cbi.vtable_methods() %}
 {%- let interface_docstring = cbi.docstring() %}
-{%- let interface_base_name = "" %}
 {% include "callback.hpp" %}
 {%- when Type::Object { module_path, name, imp } %}
 {% include "obj.hpp" %}
@@ -119,7 +118,9 @@ typedef {{ type_name }} {{ name }};
 namespace uniffi {
 using ::uniffi::RustStream;
 using ::uniffi::RustStreamBuffer;
+{%- if config.expected() %}
 using ::uniffi::Future;
+{%- endif %}
 {%- for (converter, external) in self.external_ffi_converters() %}
 using {{ converter }} = {{ external }};
 {%- endfor %}

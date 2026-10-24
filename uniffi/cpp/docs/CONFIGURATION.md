@@ -35,10 +35,9 @@ uniffi-bindgen-cpp path/to/definitions.udl --config path/to/uniffi.toml
   - `"Capitalized"` - producing enum variants named `ENUM_VARIANT`
   - `"Google"` - producing enum variants name `kEnumVariant` (default)
 
-NOTE: the `enum_style` option is separate for bindings and scaffolding generators, to apply this to the scaffolding generator, use the section `[scaffolding.cpp]` instead.
-
 - `error_style` - how a Rust `Result` error reaches C++, possible options are:
-  - `"exceptions"` - throw the error (default)
+  - `"exceptions"` - throw the error (default). Generation fails if the component has an async
+    function, constructor, or method.
   - `"expected"` - return it, and never throw, so the bindings build with `-fno-exceptions`
 
 - `strip_type_prefix` - a prefix to drop from type names, for crates that prefix their exported
