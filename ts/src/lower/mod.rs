@@ -8,6 +8,7 @@
 mod body;
 mod consts;
 mod fmt;
+mod iter;
 mod library;
 mod num;
 mod pat;
@@ -798,7 +799,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					library::Std::Formatter
 					| library::Std::DebugStruct
 					| library::Std::DebugTuple
-					| library::Std::DebugList,
+					| library::Std::DebugList
+					| library::Std::Range
+					| library::Std::RangeInclusive
+					| library::Std::Peekable,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -919,7 +923,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::DebugTuple => Type::Rt("DebugTuple", vec![]),
 				library::Std::DebugList => Type::Rt("DebugList", vec![]),
 				library::Std::AssertKind => Type::Builtin("string"),
+				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
+				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Peekable => {
+					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
+					Type::Rt("Peekable", vec![self.item_ty(item, span)])
+				}
 			};
+		}
+		// Every other iterator std has is an `rt.Iter` of its items.
+		if !adt.did().is_local()
+			&& let Some(item) = self.iter_item(Ty::new_adt(tcx, adt, args))
+		{
+			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
 		if !adt.did().is_local() {
 			self.err(
@@ -931,6 +947,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let info = self.adt(adt, span);
 		let args = args.types().map(|t| self.ty(t, span)).collect();
 		Type::Sym(info.sym, args)
+	}
+
+	/// The type of an iterator's items, which every iterator has.
+	fn item_ty(&mut self, item: Option<Ty<'tcx>>, span: Span) -> Type {
+		match item {
+			Some(item) => self.ty(item, span),
+			None => {
+				self.err(span, "an iterator without an item type");
+				Type::Builtin("unknown")
+			}
+		}
 	}
 
 	/// Whether `undefined` is free to mean `None` around a `ty`.
