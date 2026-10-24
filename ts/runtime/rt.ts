@@ -5,6 +5,7 @@
 // never wraps silently. Every panic's message is the one native Rust panics with.
 
 export * from "./rt/iter.ts";
+export * from "./rt/task.ts";
 
 /** A Rust panic. */
 export class Panic extends Error {
