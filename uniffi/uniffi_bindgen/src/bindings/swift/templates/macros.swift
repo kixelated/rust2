@@ -7,7 +7,7 @@
 {%- macro to_ffi_call(func) -%}
     {%- call is_try(func) %}{% endcall -%}
     {%- if let(Some(e)) = func.throws_type() -%}
-        rustCallWithError({{ e|ffi_error_converter_name }}_lift) {
+        rustCallWithError({{ e|ffi_error_lift_fn }}) {
     {%- else -%}
         rustCall() {
     {%- endif %}
@@ -117,7 +117,7 @@ public convenience init(
             {%- endmatch %}
             {%- match callable.throws_type() %}
             {%- when Some with (e) %}
-            errorHandler: {{ e|ffi_error_converter_name }}_lift
+            errorHandler: {{ e|ffi_error_lift_fn }}
             {%- else %}
             errorHandler: nil
             {% endmatch %}

@@ -166,7 +166,7 @@ public struct {{ ffi_converter_name }}: FfiConverter {
 {%- endif %}
 
 {%- for t in obj.trait_impls() %}
-extension {{impl_class_name}}: {{ self::trait_protocol_name(ci, t.trait_ty)? }} {}
+extension {{impl_class_name}}: {{ self::trait_protocol_name(ci, self.external_types, t.trait_ty)? }} {}
 {% endfor %}
 
 {#

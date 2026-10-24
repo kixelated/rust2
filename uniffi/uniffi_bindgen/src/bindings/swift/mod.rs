@@ -261,4 +261,14 @@ fn apply_renames(components: &mut Vec<Component<Config>>) {
             rename(&mut c.ci, &module_renames);
         }
     }
+
+    // A crate names an external type that shares its name through its crate's module.
+    let modules = HashMap::<String, String>::from_iter(
+        components
+            .iter()
+            .map(|c| (c.ci.crate_name().to_string(), c.config.module_name())),
+    );
+    for c in components {
+        c.config.external_modules = modules.clone();
+    }
 }
