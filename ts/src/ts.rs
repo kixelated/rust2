@@ -242,9 +242,30 @@ impl Stmt {
 			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
 			StmtKind::Block { label: None, body } => diverges(body),
+			StmtKind::While {
+				label,
+				cond: Expr::Lit(cond),
+				body,
+			} => cond == "true" && !breaks_out(body, label.as_deref(), false),
 			_ => false,
 		}
 	}
+}
+
+/// Whether a `break` in `stmts` targets the loop that holds them, labeled `label`.
+/// Inside a `nested` loop, only a labeled `break` can. A `break` to any other label
+/// skips the loop's next statement too.
+fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
+	stmts.iter().any(|stmt| match &stmt.kind {
+		StmtKind::Break(None) => !nested,
+		StmtKind::Break(Some(target)) => Some(target.as_str()) == label,
+		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
+		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
+		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
+			breaks_out(body, label, true)
+		}
+		_ => false,
+	})
 }
 
 /// Whether control never falls off the end of `stmts`.
@@ -293,7 +314,7 @@ pub struct Field {
 /// How a class is constructed.
 #[derive(Clone, Debug)]
 pub enum Ctor {
-	/// `new C()`.
+	/// `new C()`, for a struct without fields.
 	Unit,
 	/// `new C(a, b)`, for a tuple struct.
 	Positional,

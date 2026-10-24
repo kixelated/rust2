@@ -266,7 +266,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				..
 			} if mode.0 == rustc_hir::ByRef::No => {
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
-				self.bind_var(*var, *name, mutable, pat.ty, pat.span)
+				// A parameter nothing reads, such as `other` in a derived `eq` of two
+				// `struct E {}`, takes a `_` so it passes `noUnusedParameters`.
+				let name = match self.is_read(*var) || name.as_str().starts_with('_') {
+					true => *name,
+					false => Symbol::intern(&format!("_{name}")),
+				};
+				self.bind_var(*var, name, mutable, pat.ty, pat.span)
 			}
 			PatKind::Wild => self.fresh("_"),
 			_ => {
@@ -329,9 +335,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match &e.kind {
 			ExprKind::Scope {
 				value, region_scope, ..
-			} => match self.thir[*value].kind {
-				ExprKind::Loop { body } => self.lp(*region_scope, body, dest, out),
-				_ => self.stmt(*value, dest, out),
+			} => match self.scoped_loop(*value) {
+				Some(body) => self.lp(*region_scope, body, dest, out),
+				None => self.stmt(*value, dest, out),
 			},
 			ExprKind::ValueTypeAscription { source, .. } => self.stmt(*source, dest, out),
 			ExprKind::NeverToAny { source } => self.stmt(*source, Dest::Discard, out),
@@ -343,7 +349,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				scrutinee,
 				arms,
 				match_source,
-			} => self.match_(id, *scrutinee, arms, *match_source, dest, out),
+			} if !arms.is_empty() => self.match_(id, *scrutinee, arms, *match_source, dest, out),
 			ExprKind::Loop { .. } => {
 				self.err(span, "a loop outside a scope");
 			}
@@ -552,11 +558,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						.enumerate()
 						.all(|(i, f)| f.field.index() == i && self.destructurable(&f.pattern, false))
 			}
+			// Bytes are a `Uint8Array`, which JS destructures through its iterator: indexing
+			// reads them faster.
 			PatKind::Array {
 				prefix,
 				slice: None,
 				suffix,
-			} => suffix.is_empty() && prefix.iter().all(|p| self.destructurable(p, false)),
+			} => {
+				!matches!(ty.kind(), ty::Array(elem, _) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+					&& suffix.is_empty()
+					&& prefix.iter().all(|p| self.destructurable(p, false))
+			}
 			PatKind::Binding {
 				mode, subpattern: None, ..
 			} if !top => match mode.0 {
@@ -725,6 +737,19 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			},
 			span,
 		);
+	}
+
+	/// The body of the loop a scope holds, if it holds one. A loop that only `return`
+	/// leaves has type `!`, coerced to whatever its place needs.
+	fn scoped_loop(&self, value: ExprId) -> Option<ExprId> {
+		let value = match self.thir[value].kind {
+			ExprKind::NeverToAny { source } => source,
+			_ => value,
+		};
+		match self.thir[value].kind {
+			ExprKind::Loop { body } => Some(body),
+			_ => None,
+		}
 	}
 
 	/// The condition and body of a `while` loop's desugaring.
@@ -1618,6 +1643,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				match_source: MatchSource::TryDesugar(_),
 				..
 			} => self.try_(*scrutinee, span, out),
+			// A scrutinee that diverges, such as `match return x {}`, has no value to pass.
+			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() && self.ty_of(*scrutinee).is_never() => {
+				self.stmt(*scrutinee, Dest::Discard, out);
+				Expr::undefined()
+			}
+			// A value of a type without values: native code never gets here.
+			ExprKind::Match { scrutinee, arms, .. } if arms.is_empty() => {
+				let value = self.operand(*scrutinee, out);
+				Expr::rt("unreachable", vec![value])
+			}
 			ExprKind::Match { .. } if self.ternary_match(id) => self.ternary(id, out),
 			ExprKind::Block { .. } | ExprKind::If { .. } | ExprKind::Match { .. } | ExprKind::Loop { .. } => {
 				self.via_temp(id, ty, span, out)

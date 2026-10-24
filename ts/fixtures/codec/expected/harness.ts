@@ -85,7 +85,7 @@ export function takeU64(data: Uint8Array): [bigint, Uint8Array] {
 	let buf: Uint8Array = new Uint8Array(8);
 	const n = rt.min(data.length, 8);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data, 0, n));
-	return [rt.u64.fromBeBytes(rt.copy(buf)), rt.slice.range(data, n)];
+	return [rt.u64.fromBeBytes(buf), rt.slice.range(data, n)];
 }
 
 /** A decode error's code, then its text. */

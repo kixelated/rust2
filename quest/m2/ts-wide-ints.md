@@ -31,7 +31,3 @@ case, plus output size and readability. Record the result in `ts/README.md`'s
 Design section, replacing the `bigint` note.
 
 Public API: the translator's output for 64- and 128-bit integers.
-
-## Required
-
-- [Faster translator runtime](/quest/m2/ts-runtime-perf.md) - removes the costs at every width first, so the spike measures only the representation
