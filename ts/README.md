@@ -54,7 +54,7 @@ runtime: what std does that JS does not.
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `bigint`, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
-| `enum` without data | a union of strings: `"Lite01" \| "Lite02"` |
+| `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
 | `Option<T>` | `T \| undefined`; an `Option` of `()` or an `Option` is refused |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |

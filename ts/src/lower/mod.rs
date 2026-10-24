@@ -665,10 +665,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
+				// `struct E {}` and `struct E()` construct as `struct E;` does, since a
+				// constructor taking an empty `fields` fails `noUnusedParameters`.
 				let ctor = match variant.ctor_kind() {
+					_ if variant.fields.is_empty() => Ctor::Unit,
 					Some(rustc_hir::def::CtorKind::Fn) => Ctor::Positional,
-					Some(rustc_hir::def::CtorKind::Const) => Ctor::Unit,
-					None => Ctor::Named,
+					_ => Ctor::Named,
 				};
 				AdtRepr::Class {
 					ctor,
@@ -745,12 +747,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Tags => Item::Union {
 				sym,
 				params,
-				ty: Type::Union(
-					adt.variants()
-						.iter()
-						.map(|v| Type::StrLit(v.name.to_string()))
-						.collect(),
-				),
+				// An enum without variants has no values, and a union of no strings would
+				// print as no type at all.
+				ty: match adt.variants().is_empty() {
+					true => Type::Builtin("never"),
+					false => Type::Union(
+						adt.variants()
+							.iter()
+							.map(|v| Type::StrLit(v.name.to_string()))
+							.collect(),
+					),
+				},
 				doc: self.doc(did),
 			},
 			AdtRepr::Union => {
