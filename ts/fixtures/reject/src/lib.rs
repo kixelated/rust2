@@ -234,3 +234,14 @@ pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
 pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
 	matches!(p, None)
 }
+
+/// The payload of the `Some` that fails the test drops after the `if let`.
+#[allow(clippy::redundant_pattern_matching, reason = "the `if let` is under test")]
+pub fn unmatched() -> u8 {
+	if let None = Some(make()) { 1 } else { 0 }
+}
+
+/// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
+pub async fn pending_output() -> std::task::Poll<u8> {
+	std::task::Poll::Pending
+}

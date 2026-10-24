@@ -23,7 +23,7 @@ ranked by the census of moq-net at the pinned revision (kio's has 26 in all):
   `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
   glue of its own, switching on the variant.
 - A method taking `self` by value that drops (155), which can't leave `this` undefined.
-- A temporary that drops, unless a call or binding takes it whole (286): borrowed, a
+- A temporary that drops, unless a call or binding takes it whole (280): borrowed, a
   field or index of one, a `match`, `if let`, `let`, or let chain that moves only part
   of it, and a guarded arm that binds one. Rust drops it at the end of its statement, or
   of the `match`.

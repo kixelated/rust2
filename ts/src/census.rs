@@ -148,6 +148,7 @@ const VERBATIM: &[&str] = &[
 	"Octal",
 	"Option",
 	"Pointer",
+	"Ready",
 	"Result",
 	"Some",
 	"UpperExp",

@@ -33,6 +33,8 @@ roots = [
     "replace_shared",
     "nested_poll",
     "ready_unit",
+    "unmatched",
+    "pending_output",
     "missing",
 ]
 printable = ["Meters"]

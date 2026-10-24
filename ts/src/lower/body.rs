@@ -1001,7 +1001,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match part {
 			CondPart::Bool(id) => Some(self.expr(*id, pre)),
 			CondPart::Let(expr, pat) => {
-				if !self.is_place(*expr) && self.t.drops(self.ty_of(*expr)) && !takes_all(pat) {
+				// A failed test leaves the value whole, so the pattern must take all of it
+				// from every variant: a `let` with no other arm to take the rest.
+				if !self.is_place(*expr) && self.leaves_drop(pat) {
 					self.t.err(
 						pat.span,
 						"an `if let` on a temporary that drops, which it doesn't move out of whole",
@@ -2491,6 +2493,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			_ => return self.err(span, format!("a closure of type `{closure_ty}`")),
 		};
+		if coroutine && self.t.erases_to(ret).pending {
+			self.t.err(
+				span,
+				format!("an async body returning `{ret}` is not supported: its `Ready` could be pending"),
+			);
+		}
 		// An async fn's body is this block alone, which rustc starts by moving each argument
 		// into a local: the function gives its arguments up whole, and those locals drop
 		// them. A block moves what it owns out of its place, as any move does, and drops it.

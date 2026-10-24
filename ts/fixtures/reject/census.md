@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 57
-- Function instances: 38
+- Refusals: 59
+- Function instances: 40
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -39,6 +39,8 @@
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:136:3 |
 | 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
 | 1 | an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:207:2 |
+| 1 | an `if let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:241:9 |
+| 1 | an async body returning `_` is not supported: its `Ready` could be pending | fixtures/reject/src/lib.rs:245:54 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
@@ -70,6 +72,7 @@ The type or module each refused type or path belongs to.
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::iter::Filter` | fixtures/reject/src/lib.rs:40:31 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:40:11 |
+| 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:245:54 |
 | 1 | `u8` | fixtures/reject/src/lib.rs:113:3 |
 | 1 | `{closure}` | fixtures/reject/src/lib.rs:66:31 |
 
@@ -90,6 +93,7 @@ The type or module each refused type or path belongs to.
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:121:10 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:144:17 |
+| 1 | an async body returning `_` is not supported: its `Ready` could be pending | `std::task::Poll` | fixtures/reject/src/lib.rs:245:54 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | `u8` | fixtures/reject/src/lib.rs:113:3 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | dropping `_`, which is not supported yet | `Slot` | fixtures/reject/src/lib.rs:93:1 |
@@ -308,6 +312,18 @@ The type or module each refused type or path belongs to.
 <details><summary>an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first (1)</summary>
 
 - fixtures/reject/src/lib.rs:207:2: an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first
+
+</details>
+
+<details><summary>an `if let` on a temporary that drops, which it doesn't move out of whole (1)</summary>
+
+- fixtures/reject/src/lib.rs:241:9: an `if let` on a temporary that drops, which it doesn't move out of whole
+
+</details>
+
+<details><summary>an async body returning `_` is not supported: its `Ready` could be pending (1)</summary>
+
+- fixtures/reject/src/lib.rs:245:54: an async body returning `std::task::Poll<u8>` is not supported: its `Ready` could be pending
 
 </details>
 
