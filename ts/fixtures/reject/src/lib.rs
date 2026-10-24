@@ -40,18 +40,82 @@ pub fn iterators(v: &[u8]) -> usize {
 	v.iter().filter(|b| **b > 1).count()
 }
 
-pub struct Guard;
+pub struct Noisy(pub u8);
 
-impl Drop for Guard {
+impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-pub fn guard() -> Guard {
-	Guard
+impl Noisy {
+	/// A move out of `self` would leave `this` undefined, which JS can't.
+	pub fn into_inner(self) -> u8 {
+		self.0
+	}
 }
 
-pub async fn later() -> u8 {
-	1
+pub fn make() -> Noisy {
+	Noisy(1)
+}
+
+/// The temporary drops at the end of the statement, which nothing in JS marks.
+pub fn temporary() -> u8 {
+	make().0
+}
+
+/// Dropping the closure would drop what it captured.
+pub fn owning_closure() -> u8 {
+	let n = make();
+	let f = move || drop(n);
+	f();
+	0
+}
+
+/// Each element drops at the end of its iteration, and the rest on a `break`.
+pub fn each(v: Vec<Noisy>) -> u8 {
+	let mut sum = 0;
+	for n in v {
+		sum += n.0;
+	}
+	sum
+}
+
+pub enum Slot {
+	Empty,
+	Full(Noisy),
+}
+
+/// An enum's drop glue would switch on its variant.
+pub fn slot(s: Slot) -> bool {
+	matches!(s, Slot::Empty)
+}
+
+pub struct Boxed<T>(pub T);
+
+impl<T> Drop for Boxed<T> {
+	fn drop(&mut self) {}
+}
+
+/// A generic `Drop` impl has an instance per type.
+pub fn boxed() -> u8 {
+	let b = Boxed(1u8);
+	b.0
+}
+
+/// The async block's generator would change its own copy of `n`.
+pub fn async_borrow() -> u8 {
+	let mut n = 1u8;
+	let f = async {
+		n += 1;
+	};
+	drop(f);
+	n
+}
+
+/// An async closure is a coroutine closure, not an async body.
+pub fn async_closure() -> u8 {
+	let f = async || 1u8;
+	drop(f);
+	0
 }
 
 /// Format specs outside what moq uses.

@@ -421,7 +421,7 @@ pub fn std_impl<'tcx>(
 }
 
 /// One part of a `format_args!` template.
-pub(super) enum Piece {
+enum Piece {
 	Lit(String),
 	/// A placeholder writing the `index`th argument.
 	Arg {
@@ -431,7 +431,7 @@ pub(super) enum Piece {
 }
 
 /// A placeholder's options, from `FormattingOptions`' flags.
-pub(super) struct Spec {
+struct Spec {
 	fill: char,
 	align: Option<char>,
 	alternate: bool,
@@ -441,7 +441,7 @@ pub(super) struct Spec {
 
 impl Spec {
 	/// The runtime's `Spec` object, or `None` for the defaults.
-	pub(super) fn object(&self) -> Option<Expr> {
+	fn object(&self) -> Option<Expr> {
 		let mut props = Vec::new();
 		if self.fill != ' ' {
 			props.push(("fill", Expr::Str(self.fill.to_string())));
@@ -476,7 +476,7 @@ const DEFAULT_FLAGS: u32 = ' ' as u32 | 3 << 29;
 
 /// Decode a template as `core::fmt::write` reads it: literal pieces, and placeholders
 /// with their argument and options. An option outside the subset is an error naming it.
-pub(super) fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
+fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
 	const TRUNCATED: &str = "a truncated template";
 	let byte = |i: usize| template.get(i).copied().ok_or(TRUNCATED);
 	let u16_at = |i: usize| Ok::<_, &str>(u16::from_le_bytes([byte(i)?, byte(i + 1)?]));

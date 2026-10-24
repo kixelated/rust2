@@ -126,14 +126,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.glued.insert(adt.did()) {
 			return;
 		}
+		// An enum that drops is refused where it drops: its glue would switch on its variant.
 		let AdtRepr::Class { fields, .. } = &info.repr else {
-			self.err(
-				span,
-				format!(
-					"dropping the enum `{}`, which is not supported yet",
-					tcx.def_path_str(adt.did())
-				),
-			);
+			if adt.has_dtor(tcx) {
+				self.err(
+					span,
+					format!(
+						"`{}` is an enum that implements `Drop`, which is not supported yet",
+						tcx.def_path_str(adt.did())
+					),
+				);
+			}
 			return;
 		};
 		let mut body: Vec<Stmt> = Vec::new();

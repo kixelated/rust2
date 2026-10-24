@@ -5,8 +5,9 @@
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`. */
 	name: string;
-	op: "encode" | "decode";
-	/** Varints, frame headers, or messages per call, which each time is divided by. */
+	/** `encode` or `decode`, or `handoff` for the async benchmark. */
+	op: string;
+	/** Varints, frame headers, messages, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -45,6 +46,24 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 		pair(`group/${version}`, 1, 4, selector, [3n, 1_234n]);
 	}
 	return out;
+}
+
+/** The async handoff at each await depth: `bench::run` of the task fixture. */
+export function handoffs(): Workload[] {
+	// One call hands this many values over.
+	const count = 1000;
+	return [1, 4, 16].map((depth) => ({
+		name: `depth ${depth}`,
+		op: "handoff",
+		items: count,
+		input: Uint8Array.of(depth, ...u32(count)),
+	}));
+}
+
+function u32(v: number): number[] {
+	const bytes = new Uint8Array(4);
+	new DataView(bytes.buffer).setUint32(0, v);
+	return [...bytes];
 }
 
 function u64(v: bigint): number[] {

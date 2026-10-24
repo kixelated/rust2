@@ -9,7 +9,6 @@ mod consts;
 mod drop;
 mod fmt;
 mod library;
-mod mir;
 mod num;
 mod pat;
 mod task;
@@ -159,9 +158,6 @@ pub struct Translator<'a, 'tcx> {
 	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
-	/// The async spike's prototype switch: lower `async` bodies from MIR as state
-	/// machines rather than from THIR as generators.
-	pub async_mir: bool,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -229,7 +225,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			refusals,
 			drops: Default::default(),
 			glued: Default::default(),
-			async_mir: std::env::var_os("RUST2_TS_ASYNC").is_some_and(|mode| mode == "mir"),
 		})
 	}
 
@@ -868,7 +863,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::PoisonError => Type::Builtin("never"),
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
-				library::Std::Poll => Type::Rt("Poll", vec![self.ty(args.type_at(0), span)]),
+				library::Std::Poll => {
+					let inner = args.type_at(0);
+					if self.std_of(inner) == Some(library::Std::Poll) {
+						self.err(
+							span,
+							format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"),
+						);
+					}
+					Type::Rt("Poll", vec![self.ty(inner, span)])
+				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
 			};
 		}

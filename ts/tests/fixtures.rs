@@ -205,28 +205,6 @@ fn task() {
 	task_harness(&out);
 }
 
-/// The async spike's state machine prototype, on the same harness.
-#[test]
-fn task_mir() {
-	let out = scratch().join("task-mir").join("out");
-	let _ = std::fs::remove_file(out.join("harness.ts"));
-	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
-		.arg("--config")
-		.arg(manifest_dir().join("fixtures").join("task").join("ts.toml"))
-		.arg("--out")
-		.arg(&out)
-		.env("CARGO_TARGET_DIR", scratch().join("build-mir"))
-		.env("RUST2_TS_ASYNC", "mir")
-		.output()
-		.expect("running rust2-ts");
-	assert!(
-		output.status.success(),
-		"translating task as state machines failed:\n{}",
-		String::from_utf8_lossy(&output.stderr)
-	);
-	task_harness(&out);
-}
-
 /// Run the task harness on a translation of the task fixture.
 fn task_harness(out: &Path) {
 	let glue = out.join("harness.ts");

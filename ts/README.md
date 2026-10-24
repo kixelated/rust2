@@ -43,7 +43,7 @@ it finds; translation still fails on any refusal.
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
 with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
-runtime: what std does that JS does not.
+runtime: what std does that JS does not, with ownership and async in `rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -59,6 +59,10 @@ runtime: what std does that JS does not.
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
+| a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
+| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
+| `async fn` | a function returning `rt.Future<T>`, around a generator |
+| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`; `rt.Waker`, which is also the context |
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
@@ -80,6 +84,19 @@ own function, and instances that share a name are suffixed by type, as in
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
+A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
+impl, an `Arc`'s count, or a waker. A variable drops at the end of its scope through a
+`finally`, so an early return, `?`, a panic, or a cancelled future drops it too, and a
+move leaves `undefined` where it was, which drops as nothing.
+
+An `async fn` returns a future without running anything: `rt.future(body, drop,
+...upvars)`, whose body is a module-level generator of what the function captured. Each
+`.await` polls in a loop around `yield`. A poll after the future returned panics, and
+dropping it cancels it: unpolled, it drops what it captured; suspended, its generator
+returns through the `finally` blocks that drop its locals. `rt.spawn(future)` runs one as
+a promise, polling woken tasks in a batch from a microtask and yielding to a macrotask
+after 128 polls.
+
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
@@ -89,9 +106,10 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly.
-- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
-  not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
-  MIR.
+- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
+  come from its scopes, and async bodies are generators: MIR state machines were about
+  twice as fast per await level, but read as basic blocks and would need a second
+  lowering ([#16](https://github.com/kixelated/rust2/pull/16) measured both).
 
 ## Never
 
@@ -101,8 +119,10 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 ## Not yet
 
-These fail translation: floats, `char`, statics, `async`,
-types that implement `Drop`, iterator adaptors (`for` over ranges, slices, arrays, and
+These fail translation: floats, `char`, statics, async blocks that borrow a number
+mutably and async closures, values that drop as temporaries not moved whole, in a
+closure's captures, in a `for` loop, or in an enum, tuple, or generic `Drop` type
+([Drop](/quest/m2/ts-drop.md)), iterator adaptors (`for` over ranges, slices, arrays, and
 `Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
 and widths from arguments), writing to a `String` with `write!`, a `move` closure
 copying a mutable variable, `mem::swap`, `replace`, or `take` of a reference's whole
@@ -126,6 +146,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and writes its errors' `Display` and `Debug`.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, and formatting.
+- `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
+  functions. Its harness is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
+  fixture's native executor does. The logs must match byte for byte.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 
@@ -144,5 +168,10 @@ copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
 each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
 runs it and posts the report to its summary.
+
+The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
+its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
+once, as natively, and on `rt.spawn`; its hand-written route is the same handoff with
+promises, as moq's TypeScript writes it.
 
 The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.

@@ -1676,6 +1676,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Whether `id` makes a temporary that drops, which only a statement could drop.
+	fn temporary_drops(&mut self, id: ExprId) -> bool {
+		!self.is_place(id) && self.t.drops(self.ty_of(id))
+	}
+
 	/// Whether lowering `id` for its value moves it out of a place that drops it.
 	pub fn moves(&mut self, id: ExprId) -> bool {
 		let ty = self.ty_of(id);
@@ -1840,7 +1845,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.copied(value, ty)
 			}
 			ExprKind::Borrow { borrow_kind, arg } => {
-				if !self.is_place(*arg) && self.t.drops(self.ty_of(*arg)) {
+				if self.temporary_drops(*arg) {
 					return self.err(span, "a borrow of a temporary that drops: bind it to a variable first");
 				}
 				if let BorrowKind::Mut { .. } = borrow_kind {
@@ -1976,7 +1981,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			ExprKind::Adt(adt) => self.adt_expr(adt, ty, span, out),
-			ExprKind::Closure(closure) => self.closure(closure, span, out),
+			ExprKind::Closure(closure) => self.closure(closure, span),
 			ExprKind::Assign { .. }
 			| ExprKind::AssignOp { .. }
 			| ExprKind::Break { .. }
@@ -2076,6 +2081,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				variant_index,
 				name,
 			} => {
+				if self.temporary_drops(*lhs) {
+					return self.err(span, "a field of a temporary that drops: bind it to a variable first");
+				}
 				// A field of a tuple made in place, `(a, b).0`: its other fields still run.
 				if let ExprKind::Tuple { fields } = &self.thir[self.strip(*lhs)].kind {
 					let fields = fields.clone();
@@ -2098,6 +2106,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.project(base, lty, *variant_index, *name, span)
 			}
 			ExprKind::Index { lhs, index } => {
+				if self.temporary_drops(*lhs) {
+					return self.err(
+						span,
+						"an index into a temporary that drops: bind it to a variable first",
+					);
+				}
 				let base = self.place(*lhs, out);
 				let base = self.path(base, *lhs, out);
 				let lty = self.ty_of(*lhs);
@@ -2182,6 +2196,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let info = self.t.adt(def, span);
 		let base = match &adt.base {
 			thir::AdtExprBase::None => None,
+			thir::AdtExprBase::Base(fru) if self.t.drops(self.ty_of(fru.base)) => {
+				return self.err(span, "struct update syntax from a value that drops");
+			}
 			thir::AdtExprBase::Base(fru) => {
 				// The base is read after the fields, so earlier fields are saved first.
 				let mut pre = Vec::new();
@@ -2271,37 +2288,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
-		let tcx = self.t.tcx;
-		let local = closure.closure_id;
-		// The async spike's state machine prototype: the body from MIR.
-		if self.t.async_mir && tcx.coroutine_is_async(local.to_def_id()) {
-			let ty = self.subst(tcx.type_of(local).instantiate_identity().skip_norm_wip());
-			for capture in tcx.closure_captures(local) {
-				if let Some(Local::Name { name, .. }) = self.locals.get(&capture.get_root_variable()) {
-					let name = name.clone();
-					self.disown(&name);
-				}
-			}
-			let upvars = self.operands(&closure.upvars, out);
-			return super::mir::coroutine(self, local, ty, upvars, span);
-		}
-		self.lower_closure(local, span)
+	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span) -> Expr {
+		self.lower_closure(closure.closure_id, span)
 	}
 
-	/// Bind the variable `var`, which a closure body reads as an upvar, to `name`.
-	pub(super) fn bind_upvar(&mut self, var: HirId, name: String) {
-		self.names.insert(name.clone());
-		self.locals.insert(var, Local::Name { name, mutable: false });
-	}
-
-	/// A closure as an arrow function, or an `async` body as a future around a generator,
-	/// reading its upvars as the variables they were bound to.
+	/// A closure as an arrow function, or an `async` body as a future around a generator.
 	///
 	/// The generator is a function of its own, taking its upvars as parameters: a
 	/// generator function made per call costs V8 a prototype object and a new shape for
 	/// each generator, about 25 times what one made once does.
-	pub(super) fn lower_closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
+	fn lower_closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");
@@ -2345,6 +2341,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.t.err(
 					capture.get_path_span(tcx),
 					"an async body that captures part of a variable",
+				);
+				continue;
+			}
+			// Its generator takes the value: a change through the borrow would change a copy.
+			if let ty::UpvarCapture::ByRef(kind) = capture.info.capture_kind
+				&& kind != ty::BorrowKind::Immutable
+				&& self.t.object_kind(ty).is_none()
+			{
+				self.t.err(
+					capture.get_path_span(tcx),
+					format!("an async body that borrows `{ty}` mutably, which is no object it can change in place"),
 				);
 				continue;
 			}
