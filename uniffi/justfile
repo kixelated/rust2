@@ -2,7 +2,6 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # The fork builds in the root workspace, so its output lands in the root's target directory.
 target := env("CARGO_TARGET_DIR", parent_directory(source_directory()) / "target")
-shared := "--exclude uniffi-bindgen-tests-kotlin --exclude uniffi-bindgen-tests-python --exclude uniffi-bindgen-tests-swift"
 dylib := if os() == "macos" { "dylib" } else { "so" }
 
 # List the UniFFI fork's commands.
@@ -22,9 +21,7 @@ fixtures: cargo go cpp
 
 # Run the cargo-hosted fixture tests, which drive Kotlin, Swift, Python, and Dart.
 cargo:
-    cargo nextest run --locked --workspace --no-fail-fast {{ shared }}
-    # These share one generated directory per process, so they need cargo test's single process.
-    cargo test --locked --package uniffi-bindgen-tests-kotlin --package uniffi-bindgen-tests-python --package uniffi-bindgen-tests-swift
+    cargo nextest run --locked --workspace --no-fail-fast
 
 # Generate the Go fixtures and run their tests.
 go:
