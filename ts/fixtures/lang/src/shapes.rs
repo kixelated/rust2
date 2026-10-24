@@ -282,6 +282,65 @@ pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 	};
 	out.push(settle(data.len() as u8 * 7));
 	drain(data, out);
+	out.push(returned_loop(data));
+	branch_loops(data, out);
+}
+
+/// Loops that `break` ending a guarded `match` arm and an `if let` chain branch.
+fn branch_loops(data: &[u8], out: &mut Vec<u8>) {
+	let mut i = 0;
+	while i + 1 < data.len() {
+		let w = &data[i..i + 2];
+		i += 2;
+		match w {
+			[a, b] if a > b => {
+				let mut n = *a;
+				loop {
+					if n <= *b {
+						break;
+					}
+					n -= 1;
+					out.push(n);
+				}
+			}
+			[a, ..] => out.push(*a),
+			_ => {}
+		}
+		if let [a, b] = w
+			&& a % 3 == b % 3
+		{
+			let mut n = *a;
+			loop {
+				n /= 2;
+				out.push(n);
+				if n < 4 {
+					break;
+				}
+			}
+		} else {
+			out.push(0xaa);
+		}
+	}
+}
+
+/// A loop that only `return` leaves, returned itself, around loops that `break`.
+#[allow(unreachable_code, clippy::needless_return)]
+fn returned_loop(data: &[u8]) -> u8 {
+	let mut i = 0;
+	return loop {
+		if i >= data.len() {
+			return 0xdd;
+		}
+		for &b in &data[i..] {
+			if b == 0 {
+				break;
+			}
+			if b > 0xf0 {
+				return b ^ i as u8;
+			}
+		}
+		i += 1;
+	};
 }
 
 /// A loop that ends the function, left only by `return` from nested scopes.

@@ -310,6 +310,77 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	};
 	out.push(settle(rt.u8.mul(data.length & 0xff, 7)));
 	drain(data, out);
+	out.push(returnedLoop(data));
+	branchLoops(data, out);
+}
+
+/** Loops that `break` ending a guarded `match` arm and an `if let` chain branch. */
+export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
+	let i: number = 0;
+	while (rt.usize.add(i, 1) < data.length) {
+		const w = rt.slice.range(data, i, rt.usize.add(i, 2));
+		i = rt.usize.add(i, 2);
+		arms: {
+			if (w.length === 2) {
+				const a = w[0];
+				const b = w[1];
+				if (a > b) {
+					let n: number = a;
+					while (true) {
+						if (n <= b) {
+							break;
+						}
+						n = rt.u8.sub(n, 1);
+						out.push(n);
+					}
+					break arms;
+				}
+			}
+			if (w.length >= 1) {
+				const a2 = w[0];
+				out.push(a2);
+				break arms;
+			}
+		}
+		chain: {
+			if (w.length === 2) {
+				const a3 = w[0];
+				const b2 = w[1];
+				if (rt.u8.rem(a3, 3) === rt.u8.rem(b2, 3)) {
+					let n2: number = a3;
+					while (true) {
+						n2 = rt.u8.div(n2, 2);
+						out.push(n2);
+						if (n2 < 4) {
+							break;
+						}
+					}
+					break chain;
+				}
+			}
+			out.push(0xaa);
+		}
+	}
+}
+
+/** A loop that only `return` leaves, returned itself, around loops that `break`. */
+export function returnedLoop(data: Uint8Array): number {
+	let i: number = 0;
+	while (true) {
+		if (i >= data.length) {
+			return 0xdd;
+		}
+		for (const item of rt.slice.range(data, i)) {
+			const b = item;
+			if (b === 0) {
+				break;
+			}
+			if (b > 0xf0) {
+				return b ^ (i & 0xff);
+			}
+		}
+		i = rt.usize.add(i, 1);
+	}
 }
 
 /** A loop that ends the function, left only by `return` from nested scopes. */
