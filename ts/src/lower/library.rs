@@ -74,6 +74,8 @@ pub enum Std {
 	RangeFull,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
+	/// Its pointee: what an async body passes its context in.
+	NonNull,
 	/// No value: `never`.
 	Infallible,
 }
@@ -147,6 +149,7 @@ impl Std {
 			["iter", "adapters", "peekable", "Peekable"] => Some(Self::Peekable),
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
+			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			_ => None,
 		}

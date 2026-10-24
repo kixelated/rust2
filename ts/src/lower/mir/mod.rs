@@ -322,10 +322,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn def(&mut self, place: Place<'tcx>) {
 		match place.as_local() {
 			Some(local) => self.defs[local] += 1,
-			// Assigning a projection reads the local it starts from, and changes it in place.
+			// Assigning a projection reads the local it starts from, and changes it in place
+			// unless it goes through a reference.
 			None => {
 				self.place_use(place);
-				self.mutated[place.local] = true;
+				if own(place) {
+					self.mutated[place.local] = true;
+				}
 			}
 		}
 	}
@@ -354,17 +357,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.operand_use(&ops.0);
 				self.operand_use(&ops.1);
 			}
+			// A borrow through a reference borrows what it points at, not the local.
 			Rvalue::Ref(_, kind, place) => {
 				self.place_use(*place);
-				self.borrowed[place.local] = true;
-				if let mir::BorrowKind::Mut { .. } = kind {
-					self.mutated[place.local] = true;
+				if own(*place) {
+					self.borrowed[place.local] = true;
+					if let mir::BorrowKind::Mut { .. } = kind {
+						self.mutated[place.local] = true;
+					}
 				}
 			}
 			Rvalue::RawPtr(_, place) => {
 				self.place_use(*place);
-				self.borrowed[place.local] = true;
-				self.mutated[place.local] = true;
+				if own(*place) {
+					self.borrowed[place.local] = true;
+					self.mutated[place.local] = true;
+				}
 			}
 			Rvalue::Discriminant(place) | Rvalue::CopyForDeref(place) => self.place_use(*place),
 			Rvalue::Reborrow(_, _, place) => {
@@ -1201,6 +1209,12 @@ impl Fx<'_, '_, '_, '_> {
 	fn flush(&mut self, out: &mut Vec<Stmt>) {
 		self.flush_pending(out);
 	}
+}
+
+/// Whether `place` is part of its local's own value, rather than reached through a
+/// reference or pointer.
+fn own(place: Place<'_>) -> bool {
+	place.projection.iter().all(|e| !matches!(e, mir::ProjectionElem::Deref))
 }
 
 /// What an expression reads, in evaluation order.

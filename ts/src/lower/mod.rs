@@ -994,6 +994,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
+				library::Std::NonNull => self.ty(args.type_at(0), span),
 				library::Std::Peekable => {
 					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
 					Type::Rt("Peekable", vec![self.item_ty(item, span)])

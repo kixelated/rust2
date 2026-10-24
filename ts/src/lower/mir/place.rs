@@ -84,7 +84,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					if let ty::RawPtr(..) = ty.kind()
 						&& !matches!(self.slots[place.local], Slot::Alias(_))
 					{
-						return self.err(span, "a raw pointer dereferenced");
+						return self.err(span, format!("a raw pointer dereferenced: {place:?} {:?} defs {} mutated {} borrowed {}", self.slots[place.local], self.defs[place.local], self.mutated[place.local], self.borrowed[place.local]));
 					}
 				}
 				ProjectionElem::Field(field, _) => {
@@ -157,7 +157,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					_ => base.member("error"),
 				},
 				Some(Std::Range | Std::RangeInclusive) => base.member(adt.non_enum_variant().fields[field].name.as_str()),
-				Some(Std::Context) => base,
+				Some(Std::Context | Std::NonNull) => base,
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant, span),
 				_ if transparent(self.b.t, ty) => base,
 				None if adt.did().is_local() => {

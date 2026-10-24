@@ -278,6 +278,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Result, 0) => Expr::rt("Ok", values),
 				(Std::Result, _) => Expr::rt("Err", values),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				// `ResumeTy`, an async body's context.
+				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
 				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
