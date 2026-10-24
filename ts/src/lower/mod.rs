@@ -9,6 +9,7 @@ mod consts;
 mod drop;
 mod fmt;
 mod library;
+mod mir;
 mod num;
 mod pat;
 mod task;
@@ -158,6 +159,9 @@ pub struct Translator<'a, 'tcx> {
 	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// The async spike's prototype switch: lower `async` bodies from MIR as state
+	/// machines rather than from THIR as generators.
+	pub async_mir: bool,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -225,6 +229,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			refusals,
 			drops: Default::default(),
 			glued: Default::default(),
+			async_mir: std::env::var_os("RUST2_TS_ASYNC").is_some_and(|mode| mode == "mir"),
 		})
 	}
 

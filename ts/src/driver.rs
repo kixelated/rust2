@@ -81,6 +81,12 @@ impl Translate {
 }
 
 impl Callbacks for Translate {
+	fn config(&mut self, config: &mut rustc_interface::interface::Config) {
+		// The async spike's state machines read MIR as the coroutine transform leaves it,
+		// before any optimization inlines std into it.
+		config.opts.unstable_opts.mir_opt_level = Some(0);
+	}
+
 	fn after_expansion<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
 		// Copy each body's THIR before borrow checking steals it.
 		let bodies = lower::Bodies::collect(tcx);

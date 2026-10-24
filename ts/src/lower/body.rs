@@ -2274,6 +2274,36 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	fn closure(&mut self, closure: &thir::ClosureExpr<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.t.tcx;
 		let local = closure.closure_id;
+		// The async spike's state machine prototype: the body from MIR.
+		if self.t.async_mir && tcx.coroutine_is_async(local.to_def_id()) {
+			let ty = self.subst(tcx.type_of(local).instantiate_identity().skip_norm_wip());
+			for capture in tcx.closure_captures(local) {
+				if let Some(Local::Name { name, .. }) = self.locals.get(&capture.get_root_variable()) {
+					let name = name.clone();
+					self.disown(&name);
+				}
+			}
+			let upvars = self.operands(&closure.upvars, out);
+			return super::mir::coroutine(self, local, ty, upvars, span);
+		}
+		self.lower_closure(local, span, out)
+	}
+
+	/// Bind the variable `var`, which a closure body reads as an upvar, to `name`.
+	pub(super) fn bind_upvar(&mut self, var: HirId, name: String) {
+		self.names.insert(name.clone());
+		self.locals.insert(var, Local::Name { name, mutable: false });
+	}
+
+	/// A closure as an arrow function, or an `async` body as a future around a generator,
+	/// reading its upvars as the variables they were bound to.
+	pub(super) fn lower_closure(
+		&mut self,
+		local: rustc_hir::def_id::LocalDefId,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
+		let tcx = self.t.tcx;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");
 		};

@@ -202,6 +202,34 @@ fn task() {
 	let _ = std::fs::remove_file(&glue);
 	let out = translated("task");
 	snapshot("task", &out);
+	task_harness(&out);
+}
+
+/// The async spike's state machine prototype, on the same harness.
+#[test]
+fn task_mir() {
+	let out = scratch().join("task-mir").join("out");
+	let _ = std::fs::remove_file(out.join("harness.ts"));
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
+		.arg("--config")
+		.arg(manifest_dir().join("fixtures").join("task").join("ts.toml"))
+		.arg("--out")
+		.arg(&out)
+		.env("CARGO_TARGET_DIR", scratch().join("build-mir"))
+		.env("RUST2_TS_ASYNC", "mir")
+		.output()
+		.expect("running rust2-ts");
+	assert!(
+		output.status.success(),
+		"translating task as state machines failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	task_harness(&out);
+}
+
+/// Run the task harness on a translation of the task fixture.
+fn task_harness(out: &Path) {
+	let glue = out.join("harness.ts");
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
@@ -214,8 +242,8 @@ export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, dra
 "#
 	);
 	std::fs::write(&glue, text).unwrap();
-	typecheck(&out);
-	differential("task-fixture", &out, 20_000);
+	typecheck(out);
+	differential("task-fixture", out, 20_000);
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.

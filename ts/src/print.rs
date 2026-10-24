@@ -275,6 +275,14 @@ impl Refs {
 					self.stmts(program, body);
 					self.stmts(program, finally);
 				}
+				StmtKind::Switch { value, cases, default } => {
+					self.expr(program, value);
+					for (case, body) in cases {
+						self.expr(program, case);
+						self.stmts(program, body);
+					}
+					self.stmts(program, default);
+				}
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -737,6 +745,31 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::Switch { value, cases, default } => {
+				self.write("switch (");
+				self.expr(value, 0);
+				self.write(") {\n");
+				self.indent += 1;
+				for (case, body) in cases {
+					self.start();
+					self.write("case ");
+					self.expr(case, 0);
+					self.write(": {\n");
+					self.block_body(body);
+					self.start();
+					self.write("}\n");
+				}
+				if !default.is_empty() {
+					self.start();
+					self.write("default: {\n");
+					self.block_body(default);
+					self.start();
+					self.write("}\n");
+				}
+				self.indent -= 1;
+				self.start();
+				self.write("}\n");
+			}
 			StmtKind::Try { body, finally } => {
 				self.write("try {\n");
 				self.block_body(body);
@@ -1132,6 +1165,13 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 			StmtKind::Try { body, finally } => {
 				collect_locals(body, out);
 				collect_locals(finally, out);
+			}
+			StmtKind::Switch { value, cases, default } => {
+				collect_expr_locals(value, out);
+				for (_, body) in cases {
+					collect_locals(body, out);
+				}
+				collect_locals(default, out);
 			}
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}

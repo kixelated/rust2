@@ -209,6 +209,12 @@ pub enum StmtKind {
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
+	/// `switch (value) { case a: { .. } default: { .. } }`, whose cases never fall through.
+	Switch {
+		value: Expr,
+		cases: Vec<(Expr, Vec<Stmt>)>,
+		default: Vec<Stmt>,
+	},
 	/// `try { body } finally { finally }`: what `finally` drops is dropped on every exit.
 	Try {
 		body: Vec<Stmt>,
