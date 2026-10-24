@@ -1,4 +1,0 @@
-# The moq revision `just bench-ffi` measures. Changing it is a pin bump: land it
-# on its own so numbers on either side of it are not compared.
-git = "https://github.com/moq-dev/moq"
-rev = "0f986d9fdb7c074b0bd4b34739f7199c3bf2d9e5"

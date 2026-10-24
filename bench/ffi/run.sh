@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measures what each of moq's binding wrappers adds over Rust, with moq-ffi at
-# the revision in moq.toml built against this tree's UniFFI fork.
+# the revision in pins.toml built against this tree's UniFFI fork.
 # Usage and output are described in README.md.
 set -euo pipefail
 
@@ -18,7 +18,7 @@ Usage: just bench-ffi [OPTIONS]
 
 Options:
   --runner NAME   Measure only this wrapper (repeatable): go, py, kt, cpp, dart,
-                  or swift (macOS). Default: every one this host runs.
+                  browser, or swift (macOS). Default: every one this host runs.
                   The Rust baselines always run.
   --rounds N      Timed rounds per variant (default: 3)
   --seconds S     Time budget per case and round (default: 1)
@@ -38,9 +38,39 @@ outputs() {
     esac
 }
 
-# Renders a results directory's report.md.
+# Summarizes a results directory's raw samples and renders its report.md. One
+# sample per runner, case, variant, and round, then one record per runner, case,
+# and variant. A wrapper's ratio to rust-ffi is taken within each round and
+# variant, so drift between rounds cancels, then averaged.
 report() {
-    local dir=$1
+    local dir=$1 file rel
+    for file in "$dir"/raw/*/[0-9]*/*.json; do
+        rel=${file#"$dir/raw/"}
+        jq -c --arg variant "${rel%%/*}" --argjson round "$(cut -d/ -f2 <<<"$rel")" --arg runner "$(basename "$file" .json)" \
+            'to_entries[] | .value + {$variant, $round, $runner, order: .key} | {variant, round, runner, name, unit, value, order}' "$file"
+    done >"$dir/samples.jsonl"
+    jq -s -c --slurpfile host "$dir/host.json" '
+        def mean: add / length;
+        def worse($b): if .unit == "MB/s" then $b / .value else .value / $b end;
+        (map(select(.runner == "rust-ffi") | {key: "\(.variant)/\(.round)/\(.name)", value: .value}) | from_entries) as $rust
+        | map(. + {ratio: (if .runner == "rust-ffi" then null else worse($rust["\(.variant)/\(.round)/\(.name)"]) end)})
+        | group_by([.variant, .runner, .name])[]
+        | map(.value) as $v
+        | ($v | mean) as $mean
+        | {
+            variant: .[0].variant,
+            base: ({control: "fork", fork: (if $host[0].base == "" then null else "base" end)}[.[0].variant]),
+            runner: .[0].runner,
+            name: .[0].name,
+            unit: .[0].unit,
+            $mean,
+            stddev: (if ($v | length) > 1 then $v | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
+            min: ($v | min),
+            max: ($v | max),
+            ratio: (if .[0].ratio == null then null else map(.ratio) | mean end),
+            values: $v,
+            order: (map(.order) | min)
+        }' "$dir/samples.jsonl" >"$dir/results.jsonl"
     jq -n -r -f "$bench/report.jq" --slurpfile host "$dir/host.json" \
         --slurpfile results "$dir/results.jsonl" >"$dir/report.md"
 }
@@ -48,11 +78,12 @@ report() {
 # Inside moq's dev shell: one untimed round per checkout, then the timed rounds,
 # interleaving the variants and rotating which goes first each round.
 measure() {
-    local out=$1 plan seconds rounds count i j variant checkout generators round
+    local out=$1 plan seconds rounds ubrn count i j variant checkout
     local -a runners variants
     plan=$out/plan.json
     seconds=$(jq -r .seconds "$plan")
     rounds=$(jq -r .rounds "$plan")
+    ubrn=$(jq -r .ubrn "$plan")
     mapfile -t runners < <(jq -r '.runners[]' "$plan")
     mapfile -t variants < <(jq -r '.variants[].name' "$plan")
     count=${#variants[@]}
@@ -66,13 +97,15 @@ measure() {
         --arg cmake "$(cmake --version 2>/dev/null | head -1 || echo missing)" \
         --arg cxx "$(c++ --version 2>/dev/null | head -1 || echo missing)" \
         --arg swift "$(swift --version 2>/dev/null | head -1 || echo missing)" \
+        --arg playwright "Playwright ${PLAYWRIGHT_VERSION:-missing}" \
         '$ARGS.named' >"$out/tools.json"
 
     # One round, timed or not, of every runner on one variant.
     run_round() { # variant round
-        local variant=$1 round=$2 checkout generators dest runner log file
+        local variant=$1 round=$2 checkout generators browser dest runner log file
         checkout=$(jq -r --arg n "$variant" '.variants[] | select(.name == $n) | .checkout' "$plan")
         generators=$(jq -r --arg n "$variant" '.variants[] | select(.name == $n) | .generators' "$plan")
+        browser=$(jq -r --arg n "$variant" '.variants[] | select(.name == $n) | .browser' "$plan")
         dest=$out/raw/$variant/$round
         mkdir -p "$dest"
         for runner in rust "${runners[@]}"; do
@@ -84,6 +117,7 @@ measure() {
                 case $runner in
                     rust) just rs test -p moq-ffi --cargo-profile release -E 'test(bench::benchmark_ffi)' --run-ignored only ;;
                     go) just go bench -benchtime="${seconds}s" ;;
+                    browser) "$bench/browser.sh" "$checkout" "$browser" "$ubrn" ;;
                     *) just "$runner" bench ;;
                 esac
             ) >"$log" 2>&1 || { tail -40 "$log" >&2 && die "$runner failed on $variant; see $log"; }
@@ -119,7 +153,7 @@ case ${1:-} in
         ;;
 esac
 
-all_runners=(go py kt cpp dart)
+all_runners=(go py kt cpp dart browser)
 [[ $(uname -s) != Darwin ]] || all_runners+=(swift)
 runners=()
 rounds=3
@@ -169,8 +203,10 @@ if ((${#caller_vars[@]})); then
 fi
 export CARGO_HOME=$work/cargo-home
 
-moq_git=$(taplo get -f "$bench/moq.toml" git)
-moq_rev=$(taplo get -f "$bench/moq.toml" rev)
+moq_git=$(taplo get -f "$bench/pins.toml" moq.git)
+moq_rev=$(taplo get -f "$bench/pins.toml" moq.rev)
+ubrn_git=$(taplo get -f "$bench/pins.toml" ubrn.git)
+ubrn_rev=$(taplo get -f "$bench/pins.toml" ubrn.rev)
 fork_rev=$(git -C "$root" rev-parse HEAD)
 [[ -z $(git -C "$root" status --porcelain -- uniffi Cargo.toml Cargo.lock) ]] || fork_rev+="-dirty"
 base_rev=
@@ -191,20 +227,42 @@ generators() { # tree dest
     done
 }
 
-# Clones moq at the pin, undoing anything an earlier run left in its tracked
-# files, and points every `uniffi` dependency at the fork in `tree`.
-checkout() { # tree dir
-    local tree=$1 dir=$2 strays
+# Clones a repository at a pinned revision, undoing anything an earlier run left
+# in its tracked files.
+clone() { # git rev dir
+    local url=$1 rev=$2 dir=$3
     if [[ ! -d $dir/.git ]]; then
         git init -q "$dir"
-        git -C "$dir" remote add origin "$moq_git"
+        git -C "$dir" remote add origin "$url"
     fi
-    if [[ $(git -C "$dir" rev-parse -q --verify HEAD || true) != "$moq_rev" ]]; then
-        git -C "$dir" fetch -q --depth 1 origin "$moq_rev"
+    if [[ $(git -C "$dir" rev-parse -q --verify HEAD || true) != "$rev" ]]; then
+        git -C "$dir" fetch -q --depth 1 origin "$rev"
         git -C "$dir" checkout -q --detach FETCH_HEAD
     fi
-    git -C "$dir" reset -q --hard "$moq_rev"
+    git -C "$dir" reset -q --hard "$rev"
     git -C "$dir" clean -qfd
+}
+
+# Builds ubrn's CLI and packs its two TypeScript runtimes, @ubjs/core and @ubjs/wasm.
+ubrn() { # dir
+    local dir=$1
+    clone "$ubrn_git" "$ubrn_rev" "$dir/src"
+    [[ $(cat "$dir/stamp" 2>/dev/null) == "$ubrn_rev" ]] && return
+    rm -rf "${dir:?}/bin" "${dir:?}/pkgs"
+    cargo install --locked -q --root "$dir" --path "$dir/src/crates/ubrn_cli"
+    mkdir -p "$dir/pkgs"
+    (cd "$dir/src/typescript" && npm ci -s --no-audit --no-fund && npm run -s build &&
+        npm pack -s --pack-destination "$dir/pkgs" >/dev/null)
+    (cd "$dir/src/runtimes/wasm" && npm ci -s --no-audit --no-fund && npm pack -s --pack-destination "$dir/pkgs" >/dev/null)
+    mv "$dir"/pkgs/ubjs-core-*.tgz "$dir/pkgs/ubjs-core.tgz"
+    mv "$dir"/pkgs/ubjs-wasm-*.tgz "$dir/pkgs/ubjs-wasm.tgz"
+    echo "$ubrn_rev" >"$dir/stamp"
+}
+
+# Clones moq at the pin and points every `uniffi` dependency at the fork in `tree`.
+checkout() { # tree dir
+    local tree=$1 dir=$2 strays
+    clone "$moq_git" "$moq_rev" "$dir"
     # A crate keeps its upstream name but not its version, so `[patch]` cannot
     # redirect it: rewrite each `uniffi` dependency's source to the fork's path.
     git -C "$dir" ls-files -z '*Cargo.toml' | (cd "$dir" && xargs -0 sed -i -E \
@@ -218,19 +276,37 @@ checkout() { # tree dir
         | select(.manifest_path | startswith($fork) | not)
         | "\(.name) \(.version) from \(.source // .manifest_path)"')
     [[ -z $strays ]] || die "moq still builds upstream UniFFI: $(tr '\n' ' ' <<<"$strays")"
+    # ubrn's player calls an allocator and panic hook its helper crate exports on wasm32.
+    if [[ -n $browser ]]; then
+        sed -i "/^uniffi = { workspace = true, features = \[\"wasm-unstable-single-threaded\"\] }\$/a uniffi-runtime-wasm = { path = \"$work/ubrn/src/runtimes/wasm/helper-crate\" }" \
+            "$dir/rs/moq-ffi/Cargo.toml"
+        sed -i 's/^uniffi::setup_scaffolding!/#[cfg(target_arch = "wasm32")]\nextern crate uniffi_runtime_wasm as _;\n\n&/' "$dir/rs/moq-ffi/src/lib.rs"
+        if ! grep -q '^uniffi-runtime-wasm = ' "$dir/rs/moq-ffi/Cargo.toml" ||
+            ! grep -q '^extern crate uniffi_runtime_wasm' "$dir/rs/moq-ffi/src/lib.rs"; then
+            die "could not link ubrn's runtime into moq-ffi; its manifest or crate root moved"
+        fi
+        cargo metadata --format-version 1 --manifest-path "$dir/Cargo.toml" >/dev/null
+    fi
 }
+
+browser=
+if [[ " ${runners[*]} " == *" browser "* ]]; then
+    browser=1
+    echo "bench-ffi: preparing ubrn"
+    ubrn "$work/ubrn"
+fi
 
 variants=()
 add_variant() { # name tree
-    variants+=("$(jq -n -c --arg name "$1" --arg checkout "$work/moq/$1" --arg generators "$work/generators/$1/bin" '$ARGS.named')")
+    variants+=("$(jq -n -c --arg name "$1" --arg checkout "$work/moq/$1" --arg generators "$work/generators/$1/bin" \
+        --arg browser "$work/browser/$1" '$ARGS.named')")
     echo "bench-ffi: preparing $1"
     generators "$2" "$work/generators/$1"
     checkout "$2" "$work/moq/$1"
 }
 add_variant fork "$root"
 # The A/A control reruns fork's builds, so its change is the run's noise floor.
-variants+=("$(jq -n -c --arg checkout "$work/moq/fork" --arg generators "$work/generators/fork/bin" \
-    '{name: "control", $checkout, $generators}')")
+variants+=("$(jq -c '.name = "control"' <<<"${variants[0]}")")
 if [[ -n $base_rev ]]; then
     tree=$work/rust2-base
     git -C "$root" worktree remove --force "$tree" 2>/dev/null || rm -rf "$tree"
@@ -242,7 +318,8 @@ fi
 jq -n \
     --argjson rounds "$rounds" \
     --arg seconds "$seconds" \
-    --args '{$rounds, $seconds, runners: $ARGS.positional}' "${runners[@]}" |
+    --arg ubrn "$work/ubrn" \
+    --args '{$rounds, $seconds, $ubrn, runners: $ARGS.positional}' "${runners[@]}" |
     jq -c --slurpfile variants <(printf '%s\n' "${variants[@]}") '. + {$variants}' >"$out/plan.json"
 
 cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo 2>/dev/null | head -1)
@@ -264,41 +341,11 @@ jq -n \
     --arg rust2 "$fork_rev" \
     --arg base "$base_rev" \
     --arg moq "$moq_rev" \
+    --arg ubrn "${browser:+$ubrn_rev}" \
     --argjson rounds "$rounds" \
     --arg seconds "$seconds" \
     --slurpfile tools "$out/tools.json" \
     '$ARGS.named + {tools: $tools[0]}' >"$out/host.json"
-
-# One sample per runner, case, variant, and round, then one record per runner,
-# case, and variant. A wrapper's ratio to rust-ffi is taken within each round
-# and variant, so drift between rounds cancels, then averaged.
-for file in "$out"/raw/*/[0-9]*/*.json; do
-    rel=${file#"$out/raw/"}
-    jq -c --arg variant "${rel%%/*}" --argjson round "$(cut -d/ -f2 <<<"$rel")" --arg runner "$(basename "$file" .json)" \
-        'to_entries[] | .value + {$variant, $round, $runner, order: .key} | {variant, round, runner, name, unit, value, order}' "$file"
-done >"$out/samples.jsonl"
-jq -s -c --arg base "${base_rev:+base}" '
-    def mean: add / length;
-    def worse($b): if .unit == "MB/s" then $b / .value else .value / $b end;
-    (map(select(.runner == "rust-ffi") | {key: "\(.variant)/\(.round)/\(.name)", value: .value}) | from_entries) as $rust
-    | map(. + {ratio: (if .runner == "rust-ffi" then null else worse($rust["\(.variant)/\(.round)/\(.name)"]) end)})
-    | group_by([.variant, .runner, .name])[]
-    | map(.value) as $v
-    | ($v | mean) as $mean
-    | {
-        variant: .[0].variant,
-        base: ({control: "fork", fork: (if $base == "" then null else $base end)}[.[0].variant]),
-        runner: .[0].runner,
-        name: .[0].name,
-        unit: .[0].unit,
-        $mean,
-        stddev: (if ($v | length) > 1 then $v | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
-        min: ($v | min),
-        max: ($v | max),
-        ratio: (if .[0].ratio == null then null else map(.ratio) | mean end),
-        values: $v,
-        order: (map(.order) | min)
-    }' "$out/samples.jsonl" >"$out/results.jsonl"
 
 report "$out"
 mkdir -p "$results"

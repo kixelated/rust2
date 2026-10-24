@@ -1,6 +1,6 @@
 # Binding benchmark
 
-`just bench-ffi` measures what each of moq's binding wrappers adds over Rust, with moq-ffi at the revision pinned in [moq.toml](moq.toml) built against [the UniFFI fork](../../uniffi/README.md) in this tree.
+`just bench-ffi` measures what each of moq's binding wrappers adds over Rust, with moq-ffi at the revision pinned in [pins.toml](pins.toml) built against [the UniFFI fork](../../uniffi/README.md) in this tree.
 It runs nightly in CI ([bench-ffi.yml](../../.github/workflows/bench-ffi.yml)), and every fork perf change states its effect with its numbers.
 
 ```bash
@@ -14,19 +14,22 @@ Checkouts and builds live in `/var/tmp/rust2-bench-<user>/ffi/`, with their own 
 
 ## What runs
 
-The runners, their recipes, and the Rust baselines stay in moq beside the wrappers they measure (see moq's [bench/README.md](https://github.com/moq-dev/moq/blob/main/bench/README.md)); this harness drives them.
+The native runners, their recipes, and the Rust baselines stay in moq beside the wrappers they measure (see moq's [bench/README.md](https://github.com/moq-dev/moq/blob/main/bench/README.md)); this harness drives them.
+The browser runner lives here, since moq has no browser wrapper over moq-ffi yet.
 Every runner runs the same in-process rounds with no network: each publisher writes one group while every subscriber reads it on its own task.
 They sweep frame sizes from 100 B to 1 MiB at one publisher and subscriber, then 1 and 4 publishers by 1 and 4 subscribers at 1 KiB, and time two sync calls (`sequence`, `info`).
 Each case reports delivered MB/s and process CPU per MB, and checks every received frame byte for byte.
 
 - `rust-ffi` calls moq-ffi's API from Rust without crossing the FFI, so a wrapper's ratio to it is what its boundary and wrapper cost.
 - `rust-net` runs the same rounds on moq-net, so its ratio is what moq-ffi's handles and runtime cost.
-- `go`, `py`, `kt`, `cpp`, and `dart` run on Linux and macOS; `swift` runs on macOS only.
+- `go`, `py`, `kt`, `cpp`, `dart`, and `browser` run on Linux and macOS; `swift` runs on macOS only.
+- `browser` builds moq-ffi for wasm32, generates its TypeScript with ubrn's `wasm2` player, and runs [browser-page.ts](browser-page.ts) in headless Chromium through [browser.ts](browser.ts). Its CPU is every thread of the renderer, read over CDP. No ubrn release reads UniFFI 0.32 yet, so [pins.toml](pins.toml) pins the head of [jhugman/uniffi-bindgen-react-native#468](https://github.com/jhugman/uniffi-bindgen-react-native/pull/468), and the run builds its CLI and packs its `@ubjs/core` and `@ubjs/wasm` runtimes from that source.
 
 The run enters the pinned moq's own dev shell, so every wrapper builds with the toolchains moq ships with.
 moq's Go, Dart, and C++ scripts find their generators on `PATH`, where the run puts the fork's.
 Its Kotlin, Python, and Swift generator and moq-ffi's runtime are the `uniffi` crate, which the run points at the fork's path in every manifest; the run fails if any UniFFI crate still resolves elsewhere.
-Bump the pin in its own change, since numbers on either side of it do not compare.
+For the browser, the run also links ubrn's `uniffi-runtime-wasm` helper crate into moq-ffi on wasm32, as ubrn's player requires.
+Bump a pin in its own change, since numbers on either side of it do not compare.
 
 ## Variants
 

@@ -8,7 +8,7 @@ def row: "| " + join(" | ") + " |";
 # How much more a result costs than another: time and CPU as they are, throughput inverted.
 def cost($other): if .unit == "MB/s" then $other.mean / .mean else .mean / $other.mean end;
 # Baselines first, then the wrappers in a stable order.
-def runners: ["rust-net", "rust-ffi", "go", "python", "kotlin", "cpp", "dart", "swift"] as $known
+def runners: ["rust-net", "rust-ffi", "go", "python", "kotlin", "cpp", "dart", "swift", "browser"] as $known
 	| (map(.runner) | unique) as $seen
 	| ($known | map(select(. as $r | $seen | index($r)))) + ($seen - $known);
 def cases: group_by(.name) | map({name: .[0].name, unit: .[0].unit, order: (map(.order) | min)}) | sort_by(.order);
@@ -40,7 +40,7 @@ $host[0] as $h
 	"# Binding benchmark",
 	"",
 	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`; load average \($h.load_start) before, \($h.load_end) after.",
-	"rust2 `\($h.rust2[:12])`\(if $h.base == "" then "" else ", base `\($h.base[:12])`" end); moq `\($h.moq[:12])`; \($h.rounds) rounds of \($h.seconds) s per case.",
+	"rust2 `\($h.rust2[:12])`\(if $h.base == "" then "" else ", base `\($h.base[:12])`" end); moq `\($h.moq[:12])`\(if ($h.ubrn // "") == "" then "" else ", ubrn `\($h.ubrn[:12])`" end); \($h.rounds) round\(if $h.rounds == 1 then "" else "s" end) of \($h.seconds) s per case.",
 	"\([$h.tools[] | select(. != "missing")] | join("; ")).",
 	"",
 	"Each cell is the mean over the rounds, and its cost against `rust-ffi` in the same rounds: above 1x is slower or costlier.",
@@ -48,7 +48,7 @@ $host[0] as $h
 	"",
 	"## fork",
 	"",
-	($results | matrix("fork"; .result as $r | "\($r.mean | num)" + (if $r.ratio == null then "" else " (\($r.ratio | fixed(2))x)" end))),
+	($results | matrix("fork"; .result as $r | "\($r.mean | num)" + (if $r.ratio == null then "" else " (\($r.ratio | num)x)" end))),
 	"",
 	"## Noise: control against fork",
 	"",

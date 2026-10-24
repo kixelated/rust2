@@ -34,3 +34,4 @@ deletes the quests that follow it.
 - [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - bindings and a cdylib from different UniFFI forks refuse to load together
 - [Drop checksums](/quest/m2/ffi-checksums.md) - bindings load without a checksum call per method
 - [Smaller bindings](/quest/m2/ffi-code-size.md) - generated bindings shrink in every language, measured per template
+- [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR
