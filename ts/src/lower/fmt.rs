@@ -76,16 +76,23 @@ fn formatter() -> Type {
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	/// Whether `id` is what `format_args!` lowers to: `Arguments::from_str(s)`, or a block
-	/// ending in `Arguments::new(template, &args)`.
+	/// of two `super let`s ending in `unsafe { Arguments::new(template, &args) }`.
 	pub fn is_format_args(&self, id: ExprId) -> bool {
-		let id = self.strip(id);
-		match &self.thir[id].kind {
-			ExprKind::Call { ty, .. } => self.callee(*ty).is_some_and(|(owner, name)| {
-				owner == "Arguments" && matches!(name.as_str(), "new" | "from_str" | "from_str_nonconst")
-			}),
-			ExprKind::Block { block } => self.thir[*block].expr.is_some_and(|e| self.is_format_args(e)),
+		let calls = |id: ExprId, names: &[&str]| match &self.thir[self.strip(id)].kind {
+			ExprKind::Call { ty, .. } => self
+				.callee(*ty)
+				.is_some_and(|(owner, name)| owner == "Arguments" && names.contains(&name.as_str())),
 			_ => false,
-		}
+		};
+		let tail = |id: ExprId| match &self.thir[self.strip(id)].kind {
+			ExprKind::Block { block } => self.thir[*block].expr,
+			_ => None,
+		};
+		let block = match &self.thir[self.strip(id)].kind {
+			ExprKind::Block { block } => &self.thir[*block],
+			_ => return calls(id, &["from_str", "from_str_nonconst"]),
+		};
+		block.stmts.len() == 2 && block.expr.and_then(tail).is_some_and(|call| calls(call, &["new"]))
 	}
 
 	/// The formatting trait of a `&dyn Debug` or the like.
@@ -190,10 +197,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			placeholders.push((tr, field, ty));
 		}
 		// `unsafe { Arguments::new(template, &args) }`
-		let call = block.expr.ok_or(UNEXPECTED)?;
-		let call = match &thir[self.strip(call)].kind {
+		let call = match &thir[self.strip(block.expr.ok_or(UNEXPECTED)?)].kind {
 			ExprKind::Block { block } => thir[*block].expr.ok_or(UNEXPECTED)?,
-			_ => call,
+			_ => return Err(UNEXPECTED.into()),
 		};
 		let ExprKind::Call { args, .. } = &thir[self.strip(call)].kind else {
 			return Err(UNEXPECTED.into());
