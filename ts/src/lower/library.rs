@@ -218,6 +218,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 	};
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
 	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
+	// A range of integers, whose comparisons and clones JS makes as Rust does.
+	let int_range = |t: Ty<'tcx>| match t.peel_refs().kind() {
+		ty::Adt(adt, args) => {
+			matches!(Std::of(tcx, adt.did()), Some(Std::Range | Std::RangeInclusive))
+				&& Int::of(args.type_at(0)).is_some()
+		}
+		_ => false,
+	};
 
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
@@ -323,9 +331,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						.call(vec![value.method("view", vec![])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
-				ty::Adt(adt, _) if matches!(Std::of(tcx, adt.did()), Some(Std::Range | Std::RangeInclusive)) => {
-					value.method("clone", vec![])
-				}
+				ty::Adt(..) if int_range(ty) => value.method("clone", vec![]),
 				_ if b.t.is_copy(ty) => b.copied(value, ty),
 				_ => return None,
 			}
@@ -384,7 +390,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			values.extend(self_ty().and_then(Int::of).map(|int| Expr::Rt(int.rt())));
 			Expr::New(Box::new(Expr::Rt("RangeInclusive")), values)
 		}
-		("Range" | "RangeInclusive", "is_empty" | "contains" | "start" | "end") if range => {
+		// JS compares integers as Rust does, and other endpoints by identity.
+		("Range" | "RangeInclusive", "start" | "end" | "is_empty" | "contains")
+			if range && (matches!(name.as_str(), "start" | "end") || self_ty().and_then(Int::of).is_some()) =>
+		{
 			let mut values = b.args(args, out);
 			let recv = values.remove(0);
 			recv.method(&super::camel(&name), values)

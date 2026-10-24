@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 41
-- Function instances: 27
+- Refusals: 43
+- Function instances: 31
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -9,11 +9,12 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 5 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
+| 4 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 3 | a `_` binding: a JS value of `_` is a copy, so it can't change | fixtures/reject/src/lib.rs:19:13 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:99:17 |
-| 3 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
+| 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:128:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:63:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:65:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:64:3 |
@@ -32,7 +33,6 @@
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:87:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:66:3 |
-| 1 | overriding `_`, which std's adaptors call in place of `next` | fixtures/reject/src/lib.rs:128:2 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:61:3 |
 | 1 | the `-` flag of a format spec is not supported | fixtures/reject/src/lib.rs:62:3 |
 | 1 | unsupported expression: StaticRef | fixtures/reject/src/lib.rs:94:2 |
@@ -48,14 +48,15 @@ The type or module each refused type or path belongs to.
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
 | 3 | `Meters` | fixtures/reject/src/lib.rs:99:17 |
 | 3 | `u32` | fixtures/reject/src/lib.rs:19:13 |
+| 2 | `Iterator` | fixtures/reject/src/lib.rs:128:2 |
 | 2 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
 | 1 | `Guard` | fixtures/reject/src/lib.rs:43:1 |
-| 1 | `Iterator` | fixtures/reject/src/lib.rs:128:2 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `later` | fixtures/reject/src/lib.rs:53:1 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:161:51 |
+| 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:169:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:115:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 
@@ -78,9 +79,11 @@ The type or module each refused type or path belongs to.
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:75:17 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
-| 1 | overriding `_`, which std's adaptors call in place of `next` | `Iterator::fold` | fixtures/reject/src/lib.rs:128:2 |
+| 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:128:2 |
+| 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:182:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:115:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:75:10 |
+| 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:169:8 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | unsupported literal of type `_` | `f64` | fixtures/reject/src/lib.rs:7:6 |
 | 1 | unsupported type `_` | `char` | fixtures/reject/src/lib.rs:10:18 |
@@ -95,6 +98,15 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:10:18: unsupported type `char`
 - fixtures/reject/src/lib.rs:14:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:108:1: unsupported type `f64`
+
+</details>
+
+<details><summary>unsupported call to `_` (4)</summary>
+
+- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
+- fixtures/reject/src/lib.rs:75:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
+- fixtures/reject/src/lib.rs:115:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
+- fixtures/reject/src/lib.rs:169:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 
 </details>
 
@@ -114,14 +126,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>unsupported call to `_` (3)</summary>
-
-- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
-- fixtures/reject/src/lib.rs:75:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
-- fixtures/reject/src/lib.rs:115:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
-
-</details>
-
 <details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (2)</summary>
 
 - fixtures/reject/src/lib.rs:31:15: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
@@ -133,6 +137,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:73:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
+
+</details>
+
+<details><summary>overriding `_`, which std's adaptors call in place of `next` or beside it (2)</summary>
+
+- fixtures/reject/src/lib.rs:128:2: overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it
+- fixtures/reject/src/lib.rs:182:2: overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it
 
 </details>
 
@@ -241,12 +252,6 @@ The type or module each refused type or path belongs to.
 <details><summary>hex `Debug`, as in `{:x?}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:66:3: hex `Debug`, as in `{:x?}`, is not supported
-
-</details>
-
-<details><summary>overriding `_`, which std's adaptors call in place of `next` (1)</summary>
-
-- fixtures/reject/src/lib.rs:128:2: overriding `Iterator::fold`, which std's adaptors call in place of `next`
 
 </details>
 

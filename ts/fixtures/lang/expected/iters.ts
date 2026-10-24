@@ -691,6 +691,31 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		out.extendFromSlice(tag2.bytes.view());
 	}
+	const bumps = rt.iter.slice(data).map((arg4: number): Bumped => {
+		const b4 = arg4;
+		return new Bumped(b4);
+	}).toArray();
+	rt.iter.extend(out, rt.iter.slice(bumps).map((a02: Bumped): Bumped => {
+		return a02.clone();
+	}).map((b5: Bumped): number => {
+		return b5._0;
+	}));
+	rt.iter.extend(out, rt.iter.slice(bumps).map(rt.copy).map((b6: Bumped): number => {
+		return b6._0;
+	}));
+}
+
+/** A `Copy` type whose `Clone` does more than copy. */
+export class Bumped {
+	_0: number;
+
+	constructor(_0: number) {
+		this._0 = _0;
+	}
+
+	clone(): Bumped {
+		return new Bumped(rt.u8.wrappingAdd(this._0, 1));
+	}
 }
 
 /** A `Clone` that is not `Copy`, which `cloned` calls for each item. */

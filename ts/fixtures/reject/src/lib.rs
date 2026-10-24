@@ -160,3 +160,30 @@ pub fn backs() -> usize {
 pub fn zipped(a: &[u8], b: &[u8]) -> usize {
 	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
 }
+
+/// JS compares objects by identity, not by `PartialOrd`.
+#[derive(PartialEq, PartialOrd)]
+pub struct Key(pub u8);
+
+pub fn keyed(range: std::ops::Range<Key>) -> bool {
+	range.contains(&Key(2))
+}
+
+/// An iterator whose `size_hint` std's `collect` calls beside its `next`.
+pub struct Hinted;
+
+impl Iterator for Hinted {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, Some(0))
+	}
+}
+
+pub fn hinted() -> Vec<u8> {
+	Hinted.collect()
+}

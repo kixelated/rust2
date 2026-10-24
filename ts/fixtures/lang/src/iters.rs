@@ -485,6 +485,20 @@ pub fn values(data: &[u8], out: &mut Vec<u8>) {
 	for tag in tags.iter().chain(cloned.iter()) {
 		out.extend_from_slice(&tag.bytes);
 	}
+	// A `Copy` type's own `Clone`, which `cloned` calls and `copied` does not.
+	let bumps: Vec<Bumped> = data.iter().map(|&b| Bumped(b)).collect();
+	out.extend(bumps.iter().cloned().map(|b| b.0));
+	out.extend(bumps.iter().copied().map(|b| b.0));
+}
+
+/// A `Copy` type whose `Clone` does more than copy.
+#[derive(Copy)]
+struct Bumped(u8);
+
+impl Clone for Bumped {
+	fn clone(&self) -> Self {
+		Bumped(self.0.wrapping_add(1))
+	}
 }
 
 /// A `Clone` that is not `Copy`, which `cloned` calls for each item.

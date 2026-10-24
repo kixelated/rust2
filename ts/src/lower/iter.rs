@@ -57,8 +57,9 @@ fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>
 }
 
 /// Refuse an `impl Iterator` of the crate, whose `next` is `next_fn`, that std's adaptors
-/// would read other than through `next`: one that overrides `fold` or `nth`, which they
-/// call in its place, or that has a `next_back` or `len`, which this protocol lacks.
+/// would read other than through `next`: one that overrides `fold`, `nth`, or `size_hint`,
+/// which they call in its place or beside it, or that has a `next_back` or `len`, which
+/// this protocol lacks.
 pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	let tcx = t.tcx;
 	let Some(imp) = tcx.impl_of_assoc(next_fn) else {
@@ -66,10 +67,10 @@ pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	};
 	for item in tcx.associated_items(imp).in_definition_order() {
 		let name = item.name();
-		if item.is_fn() && name != rustc_span::sym::next && name.as_str() != "size_hint" {
+		if item.is_fn() && name != rustc_span::sym::next {
 			t.err(
 				tcx.def_span(item.def_id),
-				format!("overriding `Iterator::{name}`, which std's adaptors call in place of `next`"),
+				format!("overriding `Iterator::{name}`, which std's adaptors call in place of `next` or beside it"),
 			);
 		}
 	}
@@ -310,7 +311,14 @@ pub fn call<'tcx>(
 			let ty::Ref(_, inner, _) = item.kind() else {
 				return None;
 			};
+			// A `Clone` of the crate's own, unless derived, may do other than copy.
+			let own_clone = name == "cloned" && own_clone(b, *inner);
 			match () {
+				_ if own_clone => {
+					let clone = tcx.lang_items().clone_fn()?;
+					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
+					method("map", vec![clone])
+				}
 				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy")]),
 				// A JS string is a value already.
 				_ if b.t.is_copy(*inner)
@@ -386,6 +394,24 @@ fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool 
 	};
 	let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(t.typing_env_pub());
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
+}
+
+/// Whether `ty`'s `Clone` is the crate's own and written by hand, so it need not copy.
+fn own_clone<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	let Some(clone) = tcx.lang_items().clone_fn() else {
+		return false;
+	};
+	let Ok(Some(instance)) = Instance::try_resolve(tcx, b.t.typing_env_pub(), clone, tcx.mk_args(&[ty.into()])) else {
+		return false;
+	};
+	let ty::InstanceKind::Item(did) = instance.def else {
+		return false;
+	};
+	did.is_local()
+		&& tcx
+			.impl_of_assoc(did)
+			.is_some_and(|imp| !tcx.is_automatically_derived(imp))
 }
 
 /// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.
