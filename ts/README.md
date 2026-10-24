@@ -81,7 +81,9 @@ would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
-`roundtripLite$Group`. Types are translated once, generically. A `Copy` struct, tuple, or
+`roundtripLite$Group` or `get$Wrap_Pair`. Types are translated once, generically, so a
+generic class holds a method per instance, each declaring the instance it takes as
+`this`: `fmt$Pair(this: Wrap<Pair>, f: rt.Formatter)`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
@@ -92,6 +94,10 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
   faster but waits until `just ts bench` measures `bigint` as the cost.
+- A generic type is one class or union, the type TS callers name, and a method on it is
+  one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
+  the type for callers, and TS generics with trait dictionaries would undo
+  monomorphization.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -131,8 +137,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, and formatting. Its differential test runs through `caller.ts`, a
-  hand-written caller that also prints a `printable` error nothing translated prints.
+  `Copy` aggregates, formatting, and methods on generic types. Its differential test runs
+  through `caller.ts`, a hand-written caller that also prints a `printable` error nothing
+  translated prints.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

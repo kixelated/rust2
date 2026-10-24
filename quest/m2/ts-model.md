@@ -37,4 +37,3 @@ Public API: the translator's output for moq-net's model.
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts
 - [Iterators](/quest/m2/ts-iter.md) - the model's adaptor chains
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
-- [Methods on generic types](/quest/m2/ts-generic-methods.md) - the model's generic types
