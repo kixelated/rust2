@@ -486,6 +486,20 @@ class EnumerateIter<T> extends Iter<[number, T]> {
 		return item === DONE ? DONE : [this.index + this.inner.len(), item];
 	}
 
+	/** std's `nth`, which counts only when it finds an item. */
+	override nthItem(n: number): [number, T] | Done {
+		const item = this.inner.nthItem(n);
+		if (item === DONE) return DONE;
+		const i = this.index + n;
+		this.index = i + 1;
+		return [i, item];
+	}
+
+	override nthBackItem(n: number): [number, T] | Done {
+		const item = this.inner.nthBackItem(n);
+		return item === DONE ? DONE : [this.index + this.inner.len(), item];
+	}
+
 	override len(): number {
 		return this.inner.len();
 	}
@@ -597,6 +611,14 @@ class RevIter<T> extends Iter<T> {
 
 	override nextBack(): T | Done {
 		return this.inner.next();
+	}
+
+	override nthItem(n: number): T | Done {
+		return this.inner.nthBackItem(n);
+	}
+
+	override nthBackItem(n: number): T | Done {
+		return this.inner.nthItem(n);
 	}
 
 	override len(): number {

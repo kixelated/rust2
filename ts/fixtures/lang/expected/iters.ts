@@ -387,19 +387,31 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(rt.option.unwrapOr(rt.iter.toOption(low.nthBackItem(rt.usize.rem(a, 16))), 0xee));
 	out.push(low.end());
 	out.push(low.contains(rt.u8.div(b, 2)) ? 1 : 0);
+	let reversed: rt.RangeInclusive<number> = new rt.RangeInclusive(a, b, rt.u8);
+	out.push(rt.option.unwrapOr(reversed.rev().nth(a), 0xee));
+	out.push(reversed.end());
+	out.push(reversed.contains(a) ? 1 : 0);
+	let counted: rt.Iter<[number, number]> = new rt.RangeInclusive(a, b, rt.u8).enumerate();
+	const [i3, n] = rt.option.unwrapOr(counted.nth(rt.usize.div(b, 4)), [0xdd, 0xdd] as [number, number]);
+	out.push(i3 & 0xff);
+	out.push(n);
+	out.push(rt.option.mapOr(rt.iter.toOption(counted.next()), 0xcc, (arg: [number, number]): number => {
+		const i4 = arg[0];
+		return i4 & 0xff;
+	}));
 	let stepped: rt.RangeInclusive<number> = new rt.RangeInclusive(a, b, rt.u8);
 	out.push(stepped.stepBy(3).count() & 0xff);
 	out.push(stepped.start());
 	const signed = new rt.RangeInclusive((a << 24) >> 24, (b << 24) >> 24, rt.i8);
-	rt.iter.extend(out, signed.rev().map((i3: number): number => {
-		return i3 & 0xff;
+	rt.iter.extend(out, signed.rev().map((i5: number): number => {
+		return i5 & 0xff;
 	}));
 	let wide: rt.Range<bigint> = new rt.Range(BigInt(a), rt.u64.mul(BigInt(b), 3n));
-	out.push(wide.map((n: bigint): bigint => {
-		return rt.u64.rem(n, 5n);
-	}).filter((arg: bigint): boolean => {
-		const n2 = arg;
-		return n2 === 0n;
+	out.push(wide.map((n2: bigint): bigint => {
+		return rt.u64.rem(n2, 5n);
+	}).filter((arg2: bigint): boolean => {
+		const n3 = arg2;
+		return n3 === 0n;
 	}).count() & 0xff);
 	out.push(wide.isEmpty() ? 1 : 0);
 	const total = new rt.Range(0n, BigInt(a)).sum(rt.u64.add, 0n);

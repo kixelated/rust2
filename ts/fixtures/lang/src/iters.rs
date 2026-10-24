@@ -258,6 +258,15 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	out.push(low.nth_back(a as usize % 16).unwrap_or(0xee));
 	out.push(*low.end());
 	out.push(low.contains(&(b / 2)) as u8);
+	let mut reversed = a..=b;
+	out.push(reversed.by_ref().rev().nth(a as usize).unwrap_or(0xee));
+	out.push(*reversed.end());
+	out.push(reversed.contains(&a) as u8);
+	let mut counted = (a..=b).enumerate();
+	let (i, n) = counted.nth(b as usize / 4).unwrap_or((0xdd, 0xdd));
+	out.push(i as u8);
+	out.push(n);
+	out.push(counted.next().map_or(0xcc, |(i, _)| i as u8));
 	let mut stepped = a..=b;
 	out.push(stepped.by_ref().step_by(3).count() as u8);
 	out.push(*stepped.start());
