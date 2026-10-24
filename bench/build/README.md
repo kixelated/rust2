@@ -41,7 +41,8 @@ The `control` variants repeat their base, so their change is the run's noise flo
 Timed runs interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
 To measure a new build-speed change, add a variant whose base is the configuration it improves on.
 
-The report shows wall time (mean ± standard deviation, and min), CPU time, retired instructions, and peak RSS, all from hyperfine.
+The report shows wall time (median, and mean ± standard deviation), CPU time, retired instructions, and peak RSS, all from hyperfine.
+A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares medians, as do CPU time and instructions.
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.
 

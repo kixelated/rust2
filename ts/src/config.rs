@@ -13,6 +13,10 @@ pub struct Config {
 	/// Paths from the crate root to the items to translate: a function, or a type with
 	/// its non-generic methods. Everything they reach comes along.
 	pub roots: Vec<String>,
+	/// Paths from the crate root to types whose `Display` and `Debug` impls come along,
+	/// so callers can print them as Rust does.
+	#[serde(default)]
+	pub printable: Vec<String>,
 	/// Macros, by path, whose invocations are left out, such as logging. Each must
 	/// evaluate to `()`.
 	#[serde(default)]

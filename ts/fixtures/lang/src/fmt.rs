@@ -98,6 +98,12 @@ pub fn strings(data: &[u8], out: &mut Vec<u8>) {
 #[derive(Debug)]
 pub struct Unit;
 
+#[derive(Debug, PartialEq)]
+pub struct Braced {}
+
+#[derive(Debug, PartialEq)]
+pub struct Bare();
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pair(pub u8, pub i64);
 
@@ -118,6 +124,8 @@ pub struct Six(u8, u8, u8, u8, u8, u8);
 #[derive(Debug)]
 pub enum Kind {
 	Empty,
+	Braced {},
+	Bare(),
 	One(u8),
 	Many { count: u32, items: Vec<u8> },
 }
@@ -207,6 +215,8 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 	let kinds = [
 		Kind::Empty,
 		Kind::One(at(4)),
+		Kind::Braced {},
+		Kind::Bare(),
 		Kind::Many {
 			count: 0,
 			items: Vec::new(),
@@ -220,6 +230,11 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 		out,
 		&format!("{bytes:?} {words:?} {:?} {:?}", data.first(), data.get(100)),
 	);
+	put(
+		out,
+		&format!("{:?} {:#?} {:?} {:#?}", Braced {}, Braced {}, Bare(), Bare()),
+	);
+	out.extend_from_slice(&[(Braced {} == Braced {}) as u8, (Bare() == Bare()) as u8]);
 }
 
 /// `Display` written with `write!`, which ignores the outer options, unless `#`.
@@ -393,4 +408,47 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 			put(out, &format!("{}", r.unwrap_err()));
 		}
 	}
+}
+
+/// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
+/// translated formats it, so its `Display` and `Debug` come along as `printable`.
+#[derive(Debug)]
+pub enum Fault {
+	Short,
+	Code(u16),
+	TooLarge { size: usize, max: usize },
+	At(Pair),
+}
+
+impl fmt::Display for Fault {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Short => f.pad("short buffer"),
+			Self::Code(code) => write!(f, "code={code:#06x}"),
+			Self::TooLarge { size, max } => write!(f, "{size} bytes exceeds the {max} byte limit"),
+			Self::At(pair) => write!(f, "at {pair:?}"),
+		}
+	}
+}
+
+impl Fault {
+	/// The fault `data` picks.
+	pub fn new(data: &[u8]) -> Self {
+		let at = |i: usize| data.get(i).copied().unwrap_or(0);
+		match at(0) % 4 {
+			0 => Self::Short,
+			1 => Self::Code(u16::from_be_bytes([at(1), at(2)])),
+			2 => Self::TooLarge {
+				size: usize::from(at(1)) << 24 | usize::from(at(2)),
+				max: usize::from(at(3)),
+			},
+			_ => Self::At(Pair(at(1), i64::from(at(2) as i8) << 40)),
+		}
+	}
+}
+
+/// A [`Fault`] as native Rust prints it, which the translated side prints from TypeScript.
+pub fn printed(data: &[u8]) -> Vec<u8> {
+	let fault = Fault::new(data);
+	format!("{fault}|{fault:>16}|{fault:?}|{fault:#?}").into_bytes()
 }
