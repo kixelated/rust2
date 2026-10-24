@@ -25,7 +25,8 @@ Options:
   --variant NAME   Measure only this variant (repeatable; default: all)
   --runs N         Timed runs per scenario (default: 3 clean, 5 incremental)
   --no-attribute   Skip the nightly build that attributes where the time goes
-  --out DIR        Write results here (default: target/bench/results/<UTC time>)
+  --out DIR        Write results to this new or empty directory
+                   (default: target/bench/results/<UTC time>)
 EOF
 }
 
@@ -94,6 +95,8 @@ done
 work=/var/tmp/rust2-bench-$(id -un)
 results=$root/target/bench/results
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
+# Runs append their samples, so an earlier run's would mix into this one's means.
+[[ -z $(find "$out" -mindepth 1 -print -quit 2>/dev/null) ]] || die "$out is not empty; pass a new --out"
 mkdir -p "$work" "$out"
 out=$(cd "$out" && pwd)
 dir=$work
