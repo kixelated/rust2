@@ -97,10 +97,10 @@ move leaves `undefined` where it was, which drops as nothing.
 An `async fn` returns a future without running anything: `rt.future(body, drop,
 ...upvars)`, whose body is a module-level generator of what the function captured. Each
 `.await` polls in a loop around `yield`. A poll after the future returned panics, and
-dropping it cancels it: unpolled, it drops what it captured; suspended, its generator
-returns through the `finally` blocks that drop its locals. `rt.spawn(future)` runs one as
-a promise, polling woken tasks in a batch from a microtask and yielding to a macrotask
-after 128 polls.
+dropping it cancels it: unpolled, it drops what it captured by value; suspended, its
+generator returns through the `finally` blocks that drop its locals and captures.
+`rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
+microtask and yielding to a macrotask after 128 polls.
 
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.

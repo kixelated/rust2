@@ -209,11 +209,11 @@ fn task() {
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
 import {{ Log }} from "./log.ts";
-import {{ Channel, Guard, drain, sum }} from "./model.ts";
+import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, drain }});
+export const run = harness({{ Pending: rt.Pending, Log, Channel, Guard, sum, drain, blocks }});
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();

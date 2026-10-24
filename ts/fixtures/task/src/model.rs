@@ -67,6 +67,11 @@ impl Guard {
 	pub fn new(id: u32, log: Log) -> Self {
 		Self { id, log }
 	}
+
+	/// Log `event` as this guard's.
+	fn note(&self, event: &str) {
+		self.log.note(format!("g{} {event}", self.id));
+	}
 }
 
 impl Drop for Guard {
@@ -85,6 +90,28 @@ pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 		total += value;
 	}
 	total
+}
+
+/// One value read through the captures only an async block makes: a borrow, which
+/// dropping the block must not drop; a move on one path only; and a move the block only
+/// borrows, which drops when the block returns or is cancelled.
+pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
+	let first = Guard::new(guard.id + 200, guard.log.clone());
+	let second = Guard::new(guard.id + 300, guard.log.clone());
+	drop(async { first.note("borrowed") });
+	if moves {
+		drop(async move { guard.note("moved") });
+	}
+	let read = async move {
+		first.note("reads");
+		second.note("reads");
+		let _held = Guard::new(second.id + 100, second.log.clone());
+		match rx.recv().await {
+			Some(value) => value,
+			None => 0,
+		}
+	};
+	read.await
 }
 
 /// Every value until the channel closes, summed, each read `depth` async functions

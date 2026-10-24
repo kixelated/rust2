@@ -1988,7 +1988,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 			}
 			ExprKind::Adt(adt) => self.adt_expr(adt, ty, span, out),
-			ExprKind::Closure(closure) => self.closure(closure.closure_id, span),
+			ExprKind::Closure(closure) => self.closure(closure.closure_id, span, out),
 			ExprKind::Assign { .. }
 			| ExprKind::AssignOp { .. }
 			| ExprKind::Break { .. }
@@ -2300,7 +2300,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	/// The generator is a function of its own, taking its upvars as parameters: a
 	/// generator function made per call costs V8 a prototype object and a new shape for
 	/// each generator, about 25 times what one made once does.
-	fn closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span) -> Expr {
+	fn closure(&mut self, local: rustc_hir::def_id::LocalDefId, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.t.tcx;
 		let Some((thir, body)) = self.t.body(local) else {
 			return self.err(span, "no body for a closure");
@@ -2317,8 +2317,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			_ => return self.err(span, format!("a closure of type `{closure_ty}`")),
 		};
-		// A generator's upvars, each a parameter: its name, its value here, and its type.
-		let mut upvars: Vec<(String, Expr, Ty<'tcx>)> = Vec::new();
+		// An async fn's body is this block alone, which rustc starts by moving each argument
+		// into a local: the function gives its arguments up whole, and those locals drop
+		// them. A block moves what it owns out of its place, as any move does, and drops it.
+		let fn_body = matches!(
+			tcx.coroutine_kind(local),
+			Some(rustc_hir::CoroutineKind::Desugared(_, rustc_hir::CoroutineSource::Fn))
+		);
+		// A generator's upvars, each a parameter: its name, its value here, its type, and
+		// whether the future owns it and so drops it.
+		let mut upvars: Vec<(String, Expr, Ty<'tcx>, bool)> = Vec::new();
 		// What the generator renames, to put back once it is lowered.
 		let mut renamed = Vec::new();
 		for capture in tcx.closure_captures(local) {
@@ -2363,9 +2371,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					.err(capture.get_path_span(tcx), "an async body capturing a function item");
 				continue;
 			};
-			// The future owns what it captures, so here drops none of it.
-			self.disown(&name);
-			let (param, value) = match name == "this" {
+			let owns = by_value && self.t.drops(ty);
+			let place = match name == "this" {
+				true => Expr::This,
+				false => Expr::ident(&name),
+			};
+			let value = match (owns, fn_body) {
+				(true, true) => {
+					self.disown(&name);
+					place
+				}
+				(true, false) => self.move_out(place, capture.get_path_span(tcx), out),
+				(false, _) => place,
+			};
+			let param = match name == "this" {
 				true => {
 					let alias = self.fresh("self");
 					let saved = self.locals.insert(
@@ -2376,11 +2395,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						},
 					);
 					renamed.push((var, saved));
-					(alias, Expr::This)
+					alias
 				}
-				false => (name.clone(), Expr::ident(name)),
+				false => name,
 			};
-			upvars.push((param, value, ty));
+			upvars.push((param, value, ty, owns));
 		}
 		let saved_thir = std::mem::replace(&mut self.thir, thir);
 		self.read.extend(reads(tcx, thir));
@@ -2389,6 +2408,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let mut body_stmts = Vec::new();
 		let mut params = Vec::new();
 		self.open_scope();
+		// Upvars drop in capture order, after the locals: the first is the innermost.
+		for (name, _, ty, owns) in upvars.iter().rev() {
+			if *owns && !fn_body {
+				self.own(name, *ty);
+			}
+		}
 		// The first parameter is the closure's environment; a coroutine's second is the
 		// context each poll resumes it with.
 		for param in thir.params.iter().skip(1) {
@@ -2425,25 +2450,25 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let parent = tcx.typeck_root_def_id(local.to_def_id());
 		let base = camel(tcx.item_name(parent).as_str());
 		let mut drops = Vec::new();
-		for (name, _, ty) in &upvars {
-			if let Some(dropped) = self.t.drop_value(Expr::ident(name), *ty, span) {
+		for (name, _, ty, owns) in &upvars {
+			if *owns && let Some(dropped) = self.t.drop_value(Expr::ident(name), *ty, span) {
 				drops.push(StmtKind::Expr(dropped).at(None));
 			}
 		}
 		let upvar_params: Vec<Param> = upvars
 			.iter()
-			.map(|(name, _, ty)| Param {
+			.map(|(name, _, ty, _)| Param {
 				name: name.clone(),
 				ty: Some(self.t.ty(*ty, span)),
 			})
 			.collect();
 		params.extend(upvar_params.iter().cloned());
 		let body_fn = self.hoist(parent, format!("{base}Body"), params, ret_ty, body_stmts, true, span);
-		// The drop reads only the upvars that drop: TypeScript lets the rest go unread as `_`s.
+		// The drop reads only the upvars it drops: TypeScript lets the rest go unread as `_`s.
 		let drop_params = upvars
 			.iter()
 			.zip(upvar_params)
-			.map(|((_, _, ty), param)| match self.t.drops(*ty) {
+			.map(|((_, _, _, owns), param)| match owns {
 				true => param,
 				false => Param {
 					name: format!("_{}", param.name),
@@ -2464,7 +2489,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			),
 		};
 		let mut args = vec![body_fn, drop_fn];
-		args.extend(upvars.into_iter().map(|(_, value, _)| value));
+		args.extend(upvars.into_iter().map(|(_, value, _, _)| value));
 		Expr::rt("future", args)
 	}
 

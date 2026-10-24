@@ -39,6 +39,7 @@ export interface Fixture {
 	Guard: { "new"(id: number, log: Log): Guard };
 	sum(rx: Consumer, guard: Guard): Future<bigint>;
 	drain(rx: Consumer, depth: number): Future<bigint>;
+	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<bigint>;
 }
 
 /** What every waker of one task points at. */
@@ -166,7 +167,7 @@ export function harness(f: Fixture): (input: Uint8Array) => { view(): Uint8Array
 			const arg = input[i + 1] ?? 0;
 			const pick = (len: number) => (len > 0 ? arg % len : undefined);
 			const c = pick(channels.length);
-			switch (op % 10) {
+			switch (op % 11) {
 				case 0:
 					log.note(`c${channels.length} open`);
 					channels.push(f.Channel.open());
@@ -206,10 +207,15 @@ export function harness(f: Fixture): (input: Uint8Array) => { view(): Uint8Array
 					if (t !== undefined) exec.poll(t);
 					break;
 				}
-				default: {
+				case 9: {
 					const t = pick(exec.tasks.length);
 					if (t !== undefined) exec.drop(t);
+					break;
 				}
+				default:
+					if (c !== undefined) {
+						exec.spawn(f.blocks(channels[c].consumer(), f.Guard.new(exec.tasks.length, log.clone()), arg >= 128));
+					}
 			}
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
@@ -235,4 +241,7 @@ export const cases: Uint8Array[] = [
 	[0, 0, 1, 0, 5, 0, 4, 0, 6, 0, 3, 2, 4, 0, 6, 0],
 	// A task woken twice before its poll is queued once.
 	[0, 0, 0, 1, 1, 0, 1, 1, 6, 0, 3, 1, 5, 0, 3, 2, 6, 0],
+	// An async block's captures: one borrowed, one moved on one path only, and one moved
+	// but only borrowed, dropped when its block returns or is cancelled mid-await.
+	[0, 0, 10, 0, 10, 128, 10, 0, 6, 0, 3, 5, 7, 0, 7, 0, 9, 2, 6, 0],
 ].map((script) => Uint8Array.from(script));

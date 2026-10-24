@@ -17,7 +17,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	for step in input.chunks(2) {
 		let (op, arg) = (step[0], step.get(1).copied().unwrap_or(0));
 		let pick = |len: usize| (len > 0).then(|| usize::from(arg) % len);
-		match op % 10 {
+		match op % 11 {
 			0 => {
 				log.note(format!("c{} open", channels.len()));
 				channels.push(Channel::open());
@@ -61,9 +61,15 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 					exec.poll(t);
 				}
 			}
-			_ => {
+			9 => {
 				if let Some(t) = pick(exec.len()) {
 					exec.drop(t);
+				}
+			}
+			_ => {
+				if let Some(c) = pick(channels.len()) {
+					let guard = Guard::new(exec.len() as u32, log.clone());
+					exec.spawn(model::blocks(channels[c].consumer(), guard, arg >= 128));
 				}
 			}
 		}

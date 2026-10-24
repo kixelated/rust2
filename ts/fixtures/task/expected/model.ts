@@ -133,6 +133,11 @@ export class Guard {
 			rt.drop(log);
 		}
 	}
+
+	/** Log `event` as this guard's. */
+	note(event: string): void {
+		this.log.note(rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(this.id, f), " ", (f: rt.Formatter) => f.pad(event)]));
+	}
 }
 
 /**
@@ -192,6 +197,143 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer, guard: Guard): 
 export function sumDrop(rx: Consumer, guard: Guard): void {
 	rt.drop(rx);
 	rt.drop(guard);
+}
+
+/**
+ * One value read through the captures only an async block makes: a borrow, which
+ * dropping the block must not drop; a move on one path only; and a move the block only
+ * borrows, which drops when the block returns or is cancelled.
+ */
+export function blocks(rx: Consumer, guard: Guard, moves: boolean): rt.Future<bigint> {
+	return rt.future(blocksBody, blocksDrop, rx, guard, moves);
+}
+
+export function* blocksBody(_taskContext: rt.Context, rx: Consumer, guard: Guard, moves: boolean): Generator<undefined, bigint, rt.Context> {
+	let rx2: Consumer = rx;
+	rx = undefined!;
+	try {
+		let guard2 = guard;
+		guard = undefined!;
+		try {
+			const moves2 = moves;
+			let first = Guard.new(rt.u32.add(guard2.id, 200), guard2.log.clone());
+			try {
+				let second = Guard.new(rt.u32.add(guard2.id, 300), guard2.log.clone());
+				try {
+					rt.drop(rt.future(blocksBody$2, undefined, first));
+					if (moves2) {
+						const guard22 = guard2;
+						guard2 = undefined!;
+						rt.drop(rt.future(blocksBody$3, blocksDrop$2, guard22));
+					}
+					const first2 = first;
+					first = undefined!;
+					const second2 = second;
+					second = undefined!;
+					const rx22 = rx2;
+					rx2 = undefined!;
+					let read = rt.future(blocksBody$4, blocksDrop$3, first2, second2, rx22);
+					try {
+						const read2 = read;
+						read = undefined!;
+						let __awaitee2: rt.Future<bigint> = read2;
+						try {
+							while (true) {
+								const poll2 = __awaitee2.poll(_taskContext);
+								if (poll2 !== rt.Pending) {
+									const result2 = poll2;
+									return result2;
+								}
+								_taskContext = yield;
+							}
+						} finally {
+							rt.drop(__awaitee2);
+						}
+					} finally {
+						rt.drop(read);
+					}
+				} finally {
+					rt.drop(second);
+				}
+			} finally {
+				rt.drop(first);
+			}
+		} finally {
+			rt.drop(guard2);
+		}
+	} finally {
+		rt.drop(rx2);
+	}
+}
+
+export function blocksDrop(rx: Consumer, guard: Guard, _moves: boolean): void {
+	rt.drop(rx);
+	rt.drop(guard);
+}
+
+export function* blocksBody$2(_taskContext2: rt.Context, first: Guard): Generator<undefined, void, rt.Context> {
+	first.note("borrowed");
+}
+
+export function* blocksBody$3(_taskContext3: rt.Context, guard2: Guard): Generator<undefined, void, rt.Context> {
+	try {
+		guard2.note("moved");
+	} finally {
+		rt.drop(guard2);
+	}
+}
+
+export function blocksDrop$2(guard2: Guard): void {
+	rt.drop(guard2);
+}
+
+export function* blocksBody$4(_taskContext4: rt.Context, first: Guard, second: Guard, rx2: Consumer): Generator<undefined, bigint, rt.Context> {
+	try {
+		try {
+			try {
+				first.note("reads");
+				second.note("reads");
+				const _held = Guard.new(rt.u32.add(second.id, 100), second.log.clone());
+				try {
+					let option: bigint | undefined;
+					let __awaitee: rt.Future<bigint | undefined> = rx2.recv();
+					try {
+						while (true) {
+							const poll = __awaitee.poll(_taskContext4);
+							if (poll !== rt.Pending) {
+								const result = poll;
+								option = result;
+								break;
+							}
+							_taskContext4 = yield;
+						}
+					} finally {
+						rt.drop(__awaitee);
+					}
+					if (option !== undefined) {
+						const value = option;
+						return value;
+					} else {
+						return 0n;
+					}
+				} finally {
+					rt.drop(_held);
+				}
+			} finally {
+				rt.drop(first);
+			}
+		} finally {
+			rt.drop(second);
+		}
+	} finally {
+		rt.drop(rx2);
+	}
+}
+
+export function blocksDrop$3(first: Guard, second: Guard, rx2: Consumer): void {
+	rt.drop(first);
+	rt.drop(second);
+	rt.drop(rx2);
 }
 
 /**
