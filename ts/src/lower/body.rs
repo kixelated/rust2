@@ -2461,7 +2461,12 @@ fn kind_name(kind: &ExprKind<'_>) -> String {
 /// field's type gives the value its type, but not where TypeScript infers a class
 /// parameter from it, which would widen a literal.
 fn field_arg<'tcx>(tcx: ty::TyCtxt<'tcx>, field: &ty::FieldDef, value: Expr) -> Expr {
-	match tcx.type_of(field.did).instantiate_identity().skip_norm_wip().has_param() {
+	match tcx
+		.type_of(field.did)
+		.instantiate_identity()
+		.skip_norm_wip()
+		.has_param()
+	{
 		true => value,
 		false => value.typed(),
 	}

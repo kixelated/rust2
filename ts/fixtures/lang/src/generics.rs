@@ -99,10 +99,7 @@ impl<K: Copy, V: Copy> Tagged<K, V> {
 /// Each method once per instance: `Wrap` of a struct, an enum, a number, and itself.
 pub fn methods(data: &[u8], out: &mut Vec<u8>) {
 	let at = |i: usize| data.get(i).copied().unwrap_or(0);
-	let mut point = Wrap::new(Point {
-		x: at(0) as i32,
-		y: -2,
-	});
+	let mut point = Wrap::new(Point { x: at(0) as i32, y: -2 });
 	point.bump();
 	let mut byte = Wrap::new(at(1));
 	byte.bump();
@@ -131,7 +128,9 @@ pub fn methods(data: &[u8], out: &mut Vec<u8>) {
 
 	let eithers: [Either<u8, Point>; 3] = [
 		Either::Left(at(7)),
-		Either::Right { value: Point::new(1, -1) },
+		Either::Right {
+			value: Point::new(1, -1),
+		},
 		Either::Neither,
 	];
 	for either in eithers {
@@ -159,7 +158,10 @@ pub fn methods(data: &[u8], out: &mut Vec<u8>) {
 	};
 	put(
 		out,
-		&format!("{list:?} {none:?} {some:?} {err:?} {:?}", none.get().unwrap_or(some.count)),
+		&format!(
+			"{list:?} {none:?} {some:?} {err:?} {:?}",
+			none.get().unwrap_or(some.count)
+		),
 	);
 
 	let tagged = Tagged {

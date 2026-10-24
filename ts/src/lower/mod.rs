@@ -2,7 +2,8 @@
 //!
 //! Translation starts from the configured roots and follows what they reach. Functions
 //! are monomorphized: each instance becomes its own TypeScript function, so a trait
-//! call is always a direct call. Types are translated once, generically.
+//! call is always a direct call. Types are translated once, generically: a generic
+//! class's method is one instance's, and declares that instance as its `this`.
 
 mod body;
 mod consts;
