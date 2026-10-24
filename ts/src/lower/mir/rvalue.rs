@@ -435,7 +435,7 @@ pub fn effect<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 /// Whether evaluating `rvalue` reads memory that something else could change.
 pub fn memory<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 	let place = |p: &Place<'tcx>| {
-		!p.projection.is_empty() || fx.borrowed[p.local] || matches!(fx.slots[p.local], Slot::Alias(_)) || p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain)
+		!p.projection.is_empty() || fx.borrowed[p.local] || matches!(fx.slots[p.local], Slot::Alias(_)) || p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain | Env::Shim)
 	};
 	let operand = |op: &Operand<'tcx>| match op {
 		Operand::Copy(p) | Operand::Move(p) => place(p),

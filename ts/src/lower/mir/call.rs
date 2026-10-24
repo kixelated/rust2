@@ -257,6 +257,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return done(Expr::undefined(), false);
 				};
 				let values = self.operand(&args[1].node, span, out);
+				// The arguments array made once in place: each piece its function.
+				let made: Option<Vec<Expr>> = match &values {
+					Expr::Ident(name) => self.local_named(name).and_then(|l| self.var_parts.get(&l).cloned()),
+					_ => None,
+				};
 				let values = self.path(values, "args", out);
 				let pieces = match fmt::decode(&template) {
 					Ok(pieces) => pieces,
@@ -270,7 +275,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					match piece {
 						Piece::Lit(s) => parts.push(Expr::Str(s)),
 						Piece::Arg { index, spec } => {
-							let value = values.clone().index(Expr::lit(index.to_string()));
+							let value = match made.as_ref().and_then(|p| p.get(index)) {
+								Some(part) => part.clone(),
+								None => values.clone().index(Expr::lit(index.to_string())),
+							};
 							parts.push(match spec.object() {
 								Some(spec) => Expr::Rt("fmt").member("spec").call(vec![spec, value]),
 								None => value,

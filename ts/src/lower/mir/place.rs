@@ -23,7 +23,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match &self.env {
 				Env::Method | Env::Coroutine(_) => return Expr::This,
 				Env::Closure(_) => return self.err(span, "a closure's environment read whole"),
-				Env::Plain => {}
+				Env::Plain | Env::Shim => {}
 			}
 		}
 		match &self.slots[local] {
@@ -60,6 +60,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					_ => return self.err(span, "a closure's environment read whole"),
 				}
 			}
+			// A field of an aggregate made once and never changed is its operand: a
+			// reference, which borrow checking keeps as it was, or a path that stays put.
+			(_, _) if let Some(parts) = self.var_parts.get(&place.local)
+				&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
+				&& let Some(part) = parts.get(field.as_usize())
+				&& (matches!(field_ty.kind(), ty::Ref(..)) || part.is_constant() || matches!(part, Expr::Ident(_))) =>
+			{
+				let part = part.clone();
+				let elem = *projection.peek().unwrap();
+				pty = pty.projection_ty(tcx, elem);
+				projection.next();
+				part
+			}
 			_ => self.local_expr(place.local, span),
 		};
 		// Checked arithmetic's pair is its value, and `.1` is whether it overflowed, which
@@ -81,10 +94,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let ty = pty.ty;
 			match elem {
 				ProjectionElem::Deref => {
-					if let ty::RawPtr(..) = ty.kind()
+					// A box's pointer is the box in JS: one to an object shares it.
+					if let ty::RawPtr(pointee, _) = ty.kind()
 						&& !matches!(self.slots[place.local], Slot::Alias(_))
+						&& !(matches!(self.env, Env::Shim) && place.local.as_u32() == 1)
+						&& !(self.box_pointer(place.local) && self.b.t.object_kind(*pointee).is_some())
 					{
-						return self.err(span, format!("a raw pointer dereferenced: {place:?} {:?} defs {} mutated {} borrowed {}", self.slots[place.local], self.defs[place.local], self.mutated[place.local], self.borrowed[place.local]));
+						return self.err(span, "a raw pointer dereferenced");
 					}
 				}
 				ProjectionElem::Field(field, _) => {

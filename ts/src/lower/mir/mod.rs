@@ -13,6 +13,7 @@
 mod call;
 mod cfg;
 pub mod coroutine;
+pub mod glue;
 mod place;
 mod rvalue;
 mod unwind;
@@ -104,6 +105,8 @@ pub enum Env<'tcx> {
 	Closure(Vec<Expr>),
 	/// A coroutine's state, behind `Pin<&mut Self>` or `&mut Self`: `this` of its class.
 	Coroutine(coroutine::Info<'tcx>),
+	/// Drop glue, whose `_1` is a pointer to the value: the value in JS.
+	Shim,
 }
 
 /// How a MIR local lowers.
@@ -186,6 +189,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	unwind: Option<unwind::Unwind>,
 	/// While the cleanups are lowered, the caught exception's name.
 	in_cleanup: Option<String>,
+	/// Where each left-out macro invocation in the body is written.
+	ignored_sites: Vec<Span>,
+	/// The operands of aggregates assigned once to locals nothing changes.
+	var_parts: FxHashMap<Local, Vec<Expr>>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -220,6 +227,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			arg_use: IndexVec::from_elem_n(false, n),
 			unwind: None,
 			in_cleanup: None,
+			ignored_sites: Vec::new(),
+			var_parts: FxHashMap::default(),
 		};
 		fx.analyze();
 		fx
@@ -436,6 +445,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		Some(Expr::New(Box::new(Expr::Sym(info.sym)), Vec::new()))
 	}
 
+	/// Whether `local` is a box's pointer, as a box's dereference reads it.
+	fn box_pointer(&self, local: Local) -> bool {
+		matches!(self.def_rvalue(local), Some(Rvalue::Cast(mir::CastKind::BoxDerefTransmute, ..)))
+	}
+
 	/// Whether `local` is a parameter.
 	fn is_arg(&self, local: Local) -> bool {
 		(1..=self.mir.arg_count).contains(&local.as_usize())
@@ -516,11 +530,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn params(&mut self) -> Vec<Param> {
 		let mut params = Vec::new();
 		let skip = match self.env {
-			Env::Plain => 0,
+			Env::Plain | Env::Shim => 0,
 			_ => 1,
 		};
 		for local in self.mir.args_iter().skip(skip) {
-			let ty = self.mir.local_decls[local].ty;
+			let ty = match (&self.env, self.mir.local_decls[local].ty.kind()) {
+				(Env::Shim, ty::RawPtr(pointee, _)) => *pointee,
+				(_, _) => self.mir.local_decls[local].ty,
+			};
 			let name = match &self.slots[local] {
 				Slot::Var(name) => name.clone(),
 				_ => self.b.fresh("_"),
@@ -585,10 +602,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
 	fn skip_ignored_macros(&mut self) {
 		let mir = self.mir;
+		// Every left-out invocation's span, which its arguments' code is within too.
+		let mut sites = Vec::new();
+		for data in mir.basic_blocks.iter() {
+			let spans = data.statements.iter().map(|s| s.source_info.span);
+			for span in spans.chain([data.terminator().source_info.span]) {
+				if let Some(site) = self.b.t.ignored_site(span)
+					&& !sites.contains(&site)
+				{
+					sites.push(site);
+				}
+			}
+		}
+		self.ignored_sites = sites;
 		let flags: IndexVec<BasicBlock, bool> = mir
 			.basic_blocks
 			.iter()
-			.map(|data| !data.is_cleanup && self.b.t.ignored_macro(data.terminator().source_info.span))
+			.map(|data| !data.is_cleanup && self.in_ignored(data.terminator().source_info.span))
 			.collect();
 		let ignored = |bb: BasicBlock| flags[bb];
 		for bb in mir.basic_blocks.indices() {
@@ -621,6 +651,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 		}
+	}
+
+	/// Whether `span` is within a left-out macro's invocation.
+	fn in_ignored(&self, span: Span) -> bool {
+		let span = span.source_callsite();
+		self.ignored_sites.iter().any(|site| site.contains(span))
 	}
 
 	/// A local's declared type: the value's, for a checked pair.
@@ -890,6 +926,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.assigned[local] = true;
 				let stmt = StmtKind::Expr(Expr::ident(&name).assign(value)).at(None);
 				self.emit(vec![stmt], Some(&name), false, out);
+				// An aggregate assigned once and never changed: its operands, as emitted,
+				// read in place of its fields.
+				if parts.is_some()
+					&& self.defs[local] == 1
+					&& !self.mutated[local]
+					&& let Some(Stmt {
+						kind: StmtKind::Expr(Expr::Assign(_, value)),
+						..
+					}) = out.last()
+					&& let Some(parts) = parts_of(value)
+				{
+					self.var_parts.insert(local, parts);
+				}
 			}
 			Slot::Unit => {
 				if effect {
@@ -907,7 +956,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let data = &mir.basic_blocks[bb];
 		self.set_unwind(data.terminator(), out);
 		for stmt in &data.statements {
-			if !self.b.t.ignored_macro(stmt.source_info.span) {
+			if !self.in_ignored(stmt.source_info.span) {
 				self.statement(stmt, out);
 			}
 		}
@@ -1585,7 +1634,7 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 		}
 	}
 	// What is left of an assignment and does nothing.
-	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(e) if e.is_path()));
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(e) if inert(e)));
 }
 
 /// The operands of an aggregate, from its expression.
@@ -1714,6 +1763,17 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 			}
 			_ => {}
 		}
+	}
+}
+
+/// Whether evaluating `e` does nothing at all: a path, or a literal made of them.
+fn inert(e: &Expr) -> bool {
+	match e {
+		Expr::Array(items) => items.iter().all(inert),
+		Expr::Object(props) => props.iter().all(|(_, v)| inert(v)),
+		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
+		Expr::Lambda(..) | Expr::Arrow(..) => true,
+		e => e.is_path(),
 	}
 }
 

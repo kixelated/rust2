@@ -177,6 +177,8 @@ pub struct Translator<'a, 'tcx> {
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// Whether bodies lower from MIR, the spike's prototype, rather than THIR.
 	pub mir: bool,
+	/// The drop glue made from each type's drop shim, by a MIR lowering.
+	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The class of each coroutine instance a MIR lowering made.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 }
@@ -258,6 +260,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			glued: Default::default(),
 			mir: false,
 			coroutines: Default::default(),
+			drop_shims: Default::default(),
 		})
 	}
 
@@ -1132,6 +1135,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		(!doc.trim().is_empty()).then_some(doc)
 	}
 
+	/// Where the invocation of a left-out macro that made `span` is written, if one did.
+	pub fn ignored_site(&self, mut span: Span) -> Option<Span> {
+		while span.from_expansion() {
+			let data = span.ctxt().outer_expn_data();
+			if let Some(def_id) = data.macro_def_id
+				&& self.config.ignore_macros.contains(&self.tcx.def_path_str(def_id))
+			{
+				return Some(data.call_site);
+			}
+			span = data.call_site;
+		}
+		None
+	}
+
 	/// Whether invocations of the macro that made `span` are left out.
 	pub fn ignored_macro(&self, mut span: Span) -> bool {
 		// Walk out through the macros this one was expanded inside.
@@ -1150,7 +1167,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 }
 
 /// A short name for a type, to tell instances apart.
-fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
+pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 	match ty.kind() {
 		// Its arguments, but not defaults such as a `Vec`'s allocator.
 		ty::Adt(adt, args) => {
