@@ -580,8 +580,18 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			return;
 		}
+		// What the pattern leaves unbound drops with its place, or at the end of the
+		// statement from a temporary, which nothing marks. The shortcut below would move a
+		// place out whole, so a place binds part by part instead.
+		let leaves = self.leaves_drop(pat);
+		if leaves && !self.is_place(init) {
+			self.t.err(
+				span,
+				"a `let` on a temporary that drops, which it doesn't move out of whole",
+			);
+		}
 		// `const [a, b] = ...` for a tuple or array of plain bindings.
-		if els.is_none() && self.destructurable(pat, true) {
+		if els.is_none() && !leaves && self.destructurable(pat, true) {
 			let value = self.operand(init, out);
 			let mut mutable = false;
 			let target = self.destructure(pat, &mut mutable);
@@ -625,6 +635,61 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			self.t.err(span, "a refutable pattern in `let`");
 		}
 		self.pat_bind(pat, &scrut, owned, out);
+	}
+
+	/// Whether binding `pat` by value leaves part of a value that drops unbound: under a
+	/// `_` or a `..`, in a field it doesn't name, or in another variant than the one it
+	/// matches.
+	fn leaves_drop(&mut self, pat: &Pat<'tcx>) -> bool {
+		let ty = self.subst(pat.ty);
+		if !self.t.drops(ty) {
+			return false;
+		}
+		let tcx = self.t.tcx;
+		match &pat.kind {
+			PatKind::Binding {
+				mode, subpattern: None, ..
+			} => mode.0 != rustc_hir::ByRef::No,
+			PatKind::Leaf { subpatterns } | PatKind::Variant { subpatterns, .. } => {
+				let (variant, others) = match (ty.kind(), &pat.kind) {
+					(ty::Tuple(tys), _) => (tys.to_vec(), Vec::new()),
+					(ty::Adt(adt, args), PatKind::Variant { variant_index, .. }) => {
+						let fields = |v: &ty::VariantDef| -> Vec<Ty<'tcx>> {
+							v.fields.iter().map(|f| f.ty(tcx, args).skip_norm_wip()).collect()
+						};
+						let others = adt
+							.variants()
+							.iter_enumerated()
+							.filter(|(i, _)| i != variant_index)
+							.flat_map(|(_, v)| fields(v))
+							.collect();
+						(fields(adt.variant(*variant_index)), others)
+					}
+					(ty::Adt(adt, args), _) => (
+						adt.non_enum_variant()
+							.fields
+							.iter()
+							.map(|f| f.ty(tcx, args).skip_norm_wip())
+							.collect(),
+						Vec::new(),
+					),
+					_ => return true,
+				};
+				others.into_iter().any(|t| self.t.drops(t))
+					|| variant.into_iter().enumerate().any(|(i, field)| {
+						match subpatterns.iter().find(|f| f.field.index() == i) {
+							Some(f) => self.leaves_drop(&f.pattern),
+							None => self.t.drops(field),
+						}
+					})
+			}
+			PatKind::Array {
+				prefix,
+				slice: None,
+				suffix,
+			} => prefix.iter().chain(suffix.iter()).any(|p| self.leaves_drop(p)),
+			_ => true,
+		}
 	}
 
 	/// Whether `pat` is a tuple or array of plain bindings, which JS destructures.

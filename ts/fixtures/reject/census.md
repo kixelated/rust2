@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 51
-- Function instances: 31
+- Refusals: 52
+- Function instances: 32
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -21,6 +21,7 @@
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:97:1 |
 | 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:76:6 |
+| 1 | a `let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:200:2 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | fixtures/reject/src/lib.rs:121:10 |
@@ -191,6 +192,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a `for` loop over values that drop, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:76:6: a `for` loop over values that drop, which is not supported yet
+
+</details>
+
+<details><summary>a `let` on a temporary that drops, which it doesn't move out of whole (1)</summary>
+
+- fixtures/reject/src/lib.rs:200:2: a `let` on a temporary that drops, which it doesn't move out of whole
 
 </details>
 

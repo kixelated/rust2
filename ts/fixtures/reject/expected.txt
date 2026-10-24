@@ -49,3 +49,4 @@ replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:172:25
 dropping `std::sync::Arc<&Noisy>`, which is not supported yet at fixtures/reject/src/lib.rs:183:42
 an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first at fixtures/reject/src/lib.rs:190:13
+a `let` on a temporary that drops, which it doesn't move out of whole at fixtures/reject/src/lib.rs:200:2

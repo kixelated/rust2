@@ -23,10 +23,10 @@ ranked by the census of moq-net at the pinned revision (kio's has 26 in all):
   `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
   glue of its own, switching on the variant.
 - A method taking `self` by value that drops (155), which can't leave `this` undefined.
-- A temporary that drops, unless a call or binding takes it whole (256): borrowed, a
-  field or index of one, a `match`, `if let`, or let chain that moves only part of it,
-  and a guarded arm that binds one. Rust drops it at the end of its statement, or of
-  the `match`.
+- A temporary that drops, unless a call or binding takes it whole (283): borrowed, a
+  field or index of one, a `match`, `if let`, `let`, or let chain that moves only part
+  of it, and a guarded arm that binds one. Rust drops it at the end of its statement, or
+  of the `match`.
 - A `for` loop over values that drop (60): each at the end of its iteration, and the
   rest on a `break`.
 - Struct update syntax from a value that drops (16), a closure capturing one (13), a

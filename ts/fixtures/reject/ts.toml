@@ -27,6 +27,7 @@ roots = [
     "generic",
     "shared_borrow",
     "held_across",
+    "skipped",
     "missing",
 ]
 printable = ["Meters"]

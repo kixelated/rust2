@@ -194,3 +194,9 @@ fn consume(n: Noisy, v: u8) -> u8 {
 	drop(n);
 	v
 }
+
+/// The skipped element drops at the end of the statement, which nothing marks.
+pub fn skipped() -> u8 {
+	let [kept, _] = [make(), make()];
+	kept.0
+}
