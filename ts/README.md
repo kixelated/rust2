@@ -93,7 +93,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
   faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly.
+  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
+  no faster on `just ts bench`, in V8 or JavaScriptCore.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
   not say where values drop; [Drop](/quest/m2/ts-drop.md) decides how to get that from
   MIR.

@@ -558,11 +558,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						.enumerate()
 						.all(|(i, f)| f.field.index() == i && self.destructurable(&f.pattern, false))
 			}
+			// Bytes are a `Uint8Array`, which JS destructures through its iterator: indexing
+			// reads them faster.
 			PatKind::Array {
 				prefix,
 				slice: None,
 				suffix,
-			} => suffix.is_empty() && prefix.iter().all(|p| self.destructurable(p, false)),
+			} => {
+				!matches!(ty.kind(), ty::Array(elem, _) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+					&& suffix.is_empty()
+					&& prefix.iter().all(|p| self.destructurable(p, false))
+			}
 			PatKind::Binding {
 				mode, subpattern: None, ..
 			} if !top => match mode.0 {
