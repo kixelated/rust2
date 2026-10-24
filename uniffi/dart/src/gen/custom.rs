@@ -14,7 +14,12 @@ pub struct CustomCodeType {
 }
 
 impl CustomCodeType {
-    pub fn new(name: String, module_path: String, builtin: Box<Type>, namespace: Option<String>) -> Self {
+    pub fn new(
+        name: String,
+        module_path: String,
+        builtin: Box<Type>,
+        namespace: Option<String>,
+    ) -> Self {
         CustomCodeType { name, module_path, builtin, namespace }
     }
 }

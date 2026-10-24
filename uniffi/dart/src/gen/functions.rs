@@ -21,7 +21,10 @@ pub fn generate_function(func: &Function, type_helper: &dyn TypeHelperRenderer) 
     };
 
     let (ret, lifter) = if let Some(ret) = func.return_type() {
-        (ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper), quote!($(ret.as_codetype(type_helper.get_ci()).lift())))
+        (
+            ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper),
+            quote!($(ret.as_codetype(type_helper.get_ci()).lift())),
+        )
     } else {
         (quote!(void), quote!((_) {}))
     };

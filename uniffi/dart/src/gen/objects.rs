@@ -169,7 +169,10 @@ pub fn generate_object(obj: &Object, type_helper: &dyn TypeHelperRenderer) -> da
 
         // Ensure argument types are included
         for arg in constructor.arguments() {
-            type_helper.include_once_check(&arg.as_codetype(type_helper.get_ci()).canonical_name(), &arg.as_type());
+            type_helper.include_once_check(
+                &arg.as_codetype(type_helper.get_ci()).canonical_name(),
+                &arg.as_type(),
+            );
         }
 
         if constructor.is_async() {
@@ -409,14 +412,18 @@ fn generate_callback_trait_rust_method(
         .arguments()
         .iter()
         .map(|arg| {
-            let arg_type = arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
+            let arg_type =
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
             let arg_name = DartCodeOracle::var_name(arg.name());
             quote!($arg_type $arg_name)
         })
         .collect::<Vec<_>>();
 
     let (ret, lifter) = if let Some(ret) = method.return_type() {
-        (ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper), quote!($(ret.as_codetype(type_helper.get_ci()).lift())))
+        (
+            ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper),
+            quote!($(ret.as_codetype(type_helper.get_ci()).lift())),
+        )
     } else {
         (quote!(void), quote!((_) {}))
     };
@@ -504,7 +511,10 @@ pub fn generate_method(func: &Method, type_helper: &dyn TypeHelperRenderer) -> d
     };
 
     let (ret, lifter) = if let Some(ret) = func.return_type() {
-        (ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper), quote!($(ret.as_codetype(type_helper.get_ci()).lift())))
+        (
+            ret.as_renderable(type_helper.get_ci()).render_type(ret, type_helper),
+            quote!($(ret.as_codetype(type_helper.get_ci()).lift())),
+        )
     } else {
         (quote!(void), quote!((_) {}))
     };
@@ -668,12 +678,20 @@ fn trait_method_call(
 
     let mut lowered_args = Vec::new();
     for (arg, expr) in method.arguments().into_iter().zip(arg_exprs.iter()) {
-        type_helper.include_once_check(&arg.as_codetype(type_helper.get_ci()).canonical_name(), &arg.as_type());
-        lowered_args.push(DartCodeOracle::type_lower_fn(&arg.as_type(), expr.clone(), type_helper.get_ci()));
+        type_helper.include_once_check(
+            &arg.as_codetype(type_helper.get_ci()).canonical_name(),
+            &arg.as_type(),
+        );
+        lowered_args.push(DartCodeOracle::type_lower_fn(
+            &arg.as_type(),
+            expr.clone(),
+            type_helper.get_ci(),
+        ));
     }
 
     if let Some(ret) = method.return_type() {
-        type_helper.include_once_check(&ret.as_codetype(type_helper.get_ci()).canonical_name(), ret);
+        type_helper
+            .include_once_check(&ret.as_codetype(type_helper.get_ci()).canonical_name(), ret);
         let lifter = quote!($(ret.as_codetype(type_helper.get_ci()).lift()));
         quote!(
             rustCallWithLifter(

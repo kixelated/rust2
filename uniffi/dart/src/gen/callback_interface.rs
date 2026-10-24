@@ -218,7 +218,8 @@ fn generate_callback_methods_definitions(
         .arguments()
         .iter()
         .map(|arg| {
-            let arg_type = arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
+            let arg_type =
+                arg.as_renderable(type_helper.get_ci()).render_type(&arg.as_type(), type_helper);
             let arg_name = DartCodeOracle::var_name(arg.name());
 
             quote!($arg_type $arg_name)
@@ -530,7 +531,8 @@ fn callback_error_handling(
     status: dart::Tokens,
 ) -> dart::Tokens {
     if let Some(error_type) = throws_type {
-        let error_type_label = error_type.as_renderable(type_helper.get_ci()).render_type(error_type, type_helper);
+        let error_type_label =
+            error_type.as_renderable(type_helper.get_ci()).render_type(error_type, type_helper);
         let error_lower = error_type.as_codetype(type_helper.get_ci()).ffi_converter_name();
         quote! {
             if (e is $error_type_label) {

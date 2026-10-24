@@ -226,7 +226,10 @@ pub fn generate_enum(obj: &Enum, type_helper: &dyn TypeHelperRenderer) -> dart::
 
         for (index, variant_obj) in obj.variants().iter().enumerate() {
             for f in variant_obj.fields() {
-                type_helper.include_once_check(&f.as_codetype(type_helper.get_ci()).canonical_name(), &f.as_type());
+                type_helper.include_once_check(
+                    &f.as_codetype(type_helper.get_ci()).canonical_name(),
+                    &f.as_type(),
+                );
             }
             let variant_dart_cls_name = &variant_class_name(variant_obj.name());
 

@@ -9,7 +9,7 @@ use crate::gen::render::{AsRenderable, Renderable, TypeHelperRenderer};
 use crate::gen::CodeType;
 
 macro_rules! impl_code_type_for_compound {
-     ($T:ty, $type_label_pattern:literal, $canonical_name_pattern: literal) => {
+    ($T:ty, $type_label_pattern:literal, $canonical_name_pattern: literal) => {
         paste! {
             #[derive(Debug)]
             pub struct $T {
@@ -38,8 +38,8 @@ macro_rules! impl_code_type_for_compound {
                 }
             }
         }
-    }
- }
+    };
+}
 
 macro_rules! impl_renderable_for_compound {
     ($T:ty, $type_label_pattern:literal, $canonical_name_pattern: literal) => {
@@ -267,11 +267,7 @@ impl MapCodeType {
 
 impl CodeType for MapCodeType {
     fn type_label(&self) -> String {
-        format!(
-            "Map<{}, {}>",
-            self.key_code.type_label(),
-            self.value_code.type_label()
-        )
+        format!("Map<{}, {}>", self.key_code.type_label(), self.value_code.type_label())
     }
 
     fn canonical_name(&self) -> String {

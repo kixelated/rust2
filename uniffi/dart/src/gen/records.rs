@@ -59,7 +59,9 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
         .map(|field| {
             let name = DartCodeOracle::var_name(field.name());
             if let Some(default_value) = field.default_value() {
-                if let Some(default_expr) = render_default_value(default_value, &field.as_type(), type_helper.get_ci()) {
+                if let Some(default_expr) =
+                    render_default_value(default_value, &field.as_type(), type_helper.get_ci())
+                {
                     quote!(this.$name = $(default_expr))
                 } else {
                     // Fallback to required when a default is present but cannot be rendered safely.
@@ -80,7 +82,10 @@ pub fn generate_record(obj: &Record, type_helper: &dyn TypeHelperRenderer) -> da
     };
 
     for f in obj.fields() {
-        type_helper.include_once_check(&f.as_codetype(type_helper.get_ci()).canonical_name(), &f.as_type());
+        type_helper.include_once_check(
+            &f.as_codetype(type_helper.get_ci()).canonical_name(),
+            &f.as_type(),
+        );
     }
     quote! {
         class $cls_name {

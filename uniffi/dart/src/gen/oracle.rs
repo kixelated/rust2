@@ -16,9 +16,7 @@ impl DartCodeOracle {
     /// The namespace of the crate that defines `ty`, if it is not `ci`'s crate.
     pub fn external_namespace(ty: &Type, ci: &ComponentInterface) -> Option<String> {
         ci.is_external(ty).then(|| {
-            ci.namespace_for_type(ty)
-                .expect("external type should have a namespace")
-                .to_string()
+            ci.namespace_for_type(ty).expect("external type should have a namespace").to_string()
         })
     }
 
@@ -304,7 +302,10 @@ impl DartCodeOracle {
                 Type::Timestamp => quote!(DateTime),
                 Type::Duration => quote!(Duration),
                 // Reference types
-                Type::Object { .. } | Type::Enum { .. } | Type::Record { .. } | Type::Custom { .. } => {
+                Type::Object { .. }
+                | Type::Enum { .. }
+                | Type::Record { .. }
+                | Type::Custom { .. } => {
                     quote!($(ret_type.as_codetype(ci).type_label()))
                 }
                 Type::Optional { inner_type } => {
@@ -328,7 +329,10 @@ impl DartCodeOracle {
     }
 
     /// Get the native Dart FFI type rendering based on `Type`.
-    pub fn native_type_label(native_ret_type: Option<&Type>, ci: &ComponentInterface) -> dart::Tokens {
+    pub fn native_type_label(
+        native_ret_type: Option<&Type>,
+        ci: &ComponentInterface,
+    ) -> dart::Tokens {
         if let Some(ret_type) = native_ret_type {
             match ret_type {
                 Type::UInt8 => quote!(Uint8),
@@ -364,7 +368,10 @@ impl DartCodeOracle {
     }
 
     /// Get the native Dart FFI type rendering based on `Type`.
-    pub fn native_dart_type_label(native_ret_type: Option<&Type>, ci: &ComponentInterface) -> dart::Tokens {
+    pub fn native_dart_type_label(
+        native_ret_type: Option<&Type>,
+        ci: &ComponentInterface,
+    ) -> dart::Tokens {
         if let Some(ret_type) = native_ret_type {
             match ret_type {
                 Type::UInt8
@@ -580,7 +587,10 @@ impl DartCodeOracle {
     }
 
     /// Lower argument with special handling for callback traits
-    pub fn lower_arg_with_callback_handling(arg: &Argument, ci: &ComponentInterface) -> dart::Tokens {
+    pub fn lower_arg_with_callback_handling(
+        arg: &Argument,
+        ci: &ComponentInterface,
+    ) -> dart::Tokens {
         // Borrowed `&[u8]` / `[ByRef] bytes` arguments take the `ForeignBytes`
         // FFI path, not the owned `RustBuffer` path. uniffi 0.32 selects
         // `FfiType::ForeignBytes` for these (see `Argument::is_borrowed_bytes`),
@@ -593,7 +603,8 @@ impl DartCodeOracle {
         if arg.is_borrowed_bytes() {
             return quote!(lowerForeignBytes($(Self::var_name(arg.name()))));
         }
-        let base_lower = Self::type_lower_fn(&arg.as_type(), quote!($(Self::var_name(arg.name()))), ci);
+        let base_lower =
+            Self::type_lower_fn(&arg.as_type(), quote!($(Self::var_name(arg.name()))), ci);
         match arg.as_type() {
             Type::Object {
                 imp: ObjectImpl::Trait(TraitKind::Both | TraitKind::ForeignOnly),
