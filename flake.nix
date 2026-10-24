@@ -79,7 +79,7 @@
           packages.quest = quest-cli;
           # `just bench` enters this shell; the nightly toolchain stays off PATH
           # so stable remains the default.
-          devShells.bench = pkgs.mkShell {
+          devShells.build-bench = pkgs.mkShell {
             inputsFrom = [ self.devShells.${system}.default ];
             packages =
               with pkgs;

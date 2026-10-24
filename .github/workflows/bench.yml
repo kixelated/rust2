@@ -51,7 +51,7 @@ jobs:
         run: sudo sysctl -w kernel.perf_event_paranoid=2
 
       - name: Bench
-        run: nix develop .#bench --command just bench ${{ matrix.args }} --out bench-results
+        run: nix develop .#build-bench --command just bench ${{ matrix.args }} --out bench-results
 
       - name: Summary
         run: cat bench-results/report.md >>"$GITHUB_STEP_SUMMARY"

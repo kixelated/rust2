@@ -6,9 +6,9 @@ set -euo pipefail
 bench=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd "$bench/../.." && pwd)
 
-# The bench shell carries hyperfine, the alternative linkers, and the pinned nightly.
+# The build-bench shell carries hyperfine, the alternative linkers, and the pinned nightly.
 if [[ -z ${RUST2_BENCH_NIGHTLY:-} ]]; then
-    exec nix develop "$root#bench" --command "$bench/run.sh" "$@"
+    exec nix develop "$root#build-bench" --command "$bench/run.sh" "$@"
 fi
 
 die() {
