@@ -27,8 +27,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					};
 					let value = n.get() as i128;
 					let value = if *neg { -value } else { value };
-					match self.literal_text(span, int, *neg) {
-						Some(text) => Expr::lit(text),
+					match self.literal_text(span, *neg) {
+						Some(text) => int.spelled(text, value),
 						None => int.lit(value),
 					}
 				}
@@ -87,7 +87,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// A literal as the source spells it, when that is also valid JS.
-	fn literal_text(&self, span: Span, int: Int, neg: bool) -> Option<String> {
+	fn literal_text(&self, span: Span, neg: bool) -> Option<String> {
 		if span.from_expansion() {
 			return None;
 		}
@@ -125,8 +125,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return None;
 		}
 		let sign = if neg { "-" } else { "" };
-		let suffix = if int.big() { "n" } else { "" };
-		Some(format!("{sign}{prefix}{cleaned}{suffix}"))
+		Some(format!("{sign}{prefix}{cleaned}"))
 	}
 
 	/// A constant's value tree as a JS value of type `ty`.

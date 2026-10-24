@@ -7,7 +7,7 @@ import { type Probe } from "../lite/probe.ts";
 import { type Control } from "../stats.ts";
 
 /** Read a lite message's varint size prefix, refusing one past `max`. */
-export function decodeSize(r: Decoder, max: number): rt.Result<number, DecodeError> {
+export function decodeSize(r: Decoder, max: rt.usize): rt.Result<rt.usize, DecodeError> {
 	const varint = r.varint();
 	if (!varint.ok) {
 		return rt.Err(varint.error);
