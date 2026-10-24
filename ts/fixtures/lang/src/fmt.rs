@@ -333,7 +333,7 @@ pub fn written(data: &[u8], out: &mut Vec<u8>) {
 /// Panics, each with the message native Rust formats.
 pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 	let n = rest.first().copied().unwrap_or(0);
-	match kind % 18 {
+	match kind % 19 {
 		0 => panic!("bad {n}: {:?}", rest),
 		1 => unreachable!("never {n:#x} {}", Hex(n.into())),
 		2 => assert!(n > 200, "small {} {:?}", n, Pair(n, 0)),
@@ -368,7 +368,7 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 		13 => panic!("{} then {}", Hex(n.into()), Fails(n)),
 		14 => {
 			let (start, end) = ((n % 8) as usize, (n / 32) as usize);
-			put(out, &format!("{:?}", &rest[start..end]));
+			put(out, &format!("{:?} {:?}", &rest[start..], &rest[start..end]));
 		}
 		15 => {
 			let mut buf = [0u8; 3];
@@ -381,6 +381,12 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 				Err(e) => Err(e),
 			};
 			put(out, &r.unwrap().to_string());
+		}
+		17 => {
+			let mut buf = [1u8, 2, 3, 4];
+			let dest = rest.get(1).copied().unwrap_or(0) as usize % 4;
+			buf.copy_within((n % 6) as usize..(n / 6 % 6) as usize, dest);
+			put(out, &format!("{buf:?}"));
 		}
 		_ => {
 			let r: Result<u8, u8> = if n % 2 == 0 { Err(n) } else { Ok(n) };

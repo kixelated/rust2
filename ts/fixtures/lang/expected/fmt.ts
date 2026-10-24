@@ -475,7 +475,7 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 /** Panics, each with the message native Rust formats. */
 export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 	const n = rt.option.unwrapOr(rt.slice.first(rest), 0);
-	const value = rt.u8.rem(kind, 18);
+	const value = rt.u8.rem(kind, 19);
 	if (value === 0) {
 		rt.panic(["bad ", (f: rt.Formatter) => rt.u8.display(n, f), ": ", (f: rt.Formatter) => rt.fmt.list(rest, f, rt.u8.display)]);
 	} else if (value === 1) {
@@ -548,9 +548,10 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		rt.panic([(f: rt.Formatter) => arg15.fmt$Display(f), " then ", (f: rt.Formatter) => arg16.fmt(f)]);
 	} else if (value === 14) {
 		const [start, end] = [rt.u8.rem(n, 8), rt.u8.div(n, 32)] as [number, number];
-		const arg18 = out;
-		const arg17 = rt.slice.range(rest, start, end);
-		put(arg18, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(arg17, f, rt.u8.display)]));
+		const arg19 = out;
+		const arg17 = rt.slice.range(rest, start);
+		const arg18 = rt.slice.range(rest, start, end);
+		put(arg19, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(arg17, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.list(arg18, f, rt.u8.display)]));
 	} else if (value === 15) {
 		let buf: Uint8Array = new Uint8Array(3);
 		rt.slice.copyFromSlice(buf, rt.slice.range(rest, 0, rt.min(rest.length, 4)));
@@ -565,14 +566,19 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 			const e = fromUtf8.error;
 			r4 = rt.Err(e);
 		}
-		const arg20 = out;
-		const arg19 = rt.result.unwrap(r4, rt.fmt.fromUtf8ErrorDebug);
-		put(arg20, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg19, f)));
+		const arg21 = out;
+		const arg20 = rt.result.unwrap(r4, rt.fmt.fromUtf8ErrorDebug);
+		put(arg21, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg20, f)));
+	} else if (value === 17) {
+		let buf2: Uint8Array = Uint8Array.of(1, 2, 3, 4);
+		const dest = rt.usize.rem(rt.option.unwrapOr(rt.slice.get(rest, 1), 0), 4);
+		rt.slice.copyWithin(buf2, rt.u8.rem(n, 6), rt.u8.rem(rt.u8.div(n, 6), 6), dest);
+		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf2, f, rt.u8.display)]));
 	} else {
 		const r5 = rt.u8.rem(n, 2) === 0 ? rt.Err(n) : rt.Ok(n);
-		const arg22 = out;
-		const arg21 = rt.result.unwrapErr(r5, rt.u8.display);
-		put(arg22, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(arg21, f)]));
+		const arg23 = out;
+		const arg22 = rt.result.unwrapErr(r5, rt.u8.display);
+		put(arg23, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(arg22, f)]));
 	}
 }
 
