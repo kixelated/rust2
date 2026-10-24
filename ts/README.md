@@ -63,7 +63,7 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 ## Design
 
 - 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
-  faster but waits until moq's comparison measures `bigint` as the cost.
+  faster but waits until `just ts bench` measures `bigint` as the cost.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly.
 - Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. It does
@@ -101,3 +101,21 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns, and
   `Copy` aggregates.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`.
+
+## Bench
+
+```bash
+nix develop .#bench --command just ts bench  # report to target/bench/report.md
+```
+
+The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
+(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision. Each runs
+four ways: natively, as wasm32 at moq-wasm's size-optimized profile, as moq's
+hand-written `js/net` (`bench/moq.ts`), and translated; every route's output must match
+native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
+copies across the boundary timed apart from its compute, and an A/A copy of the
+translation to show the noise. The report records the host and engine versions, and
+each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
+runs it and posts the report to its summary.
+
+The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.

@@ -5,10 +5,11 @@
 //! (`rs/moq-net/src`) with their test modules removed; `coding/mod.rs` and
 //! `version.rs` are trimmed to the sync codec, and this file stubs the rest of the
 //! crate the codec names. `harness` is the entry point both sides of the differential
-//! test run.
+//! test run, and `bench` holds the workloads `just ts bench` times.
 
 #![allow(dead_code, reason = "a vendored subset of moq-net, which uses the rest")]
 
+pub mod bench;
 mod coding;
 pub mod harness;
 mod ietf {
@@ -29,6 +30,11 @@ mod version;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;
+/// What the wasm32 build exports: the benchmark's workloads with `bench`, else the harness.
+#[cfg(all(target_arch = "wasm32", feature = "bench"))]
+use bench::run as entry;
+#[cfg(all(target_arch = "wasm32", not(feature = "bench")))]
+use harness::run as entry;
 
 pub use version::*;
 
