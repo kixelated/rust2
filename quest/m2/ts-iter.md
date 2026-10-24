@@ -15,6 +15,11 @@ lazy classes, since the driver only has THIR for the local crate. Their
 `impl Iterator` translates to the same protocol, and `for` loops drive any
 iterator through it.
 
+- `for` accepts only a real iterator. Today it treats the first argument of
+  whatever call built the iterator as a slice when the type is `slice::Iter`;
+  the formatting PR (#8) fixed the same bug in `DebugList::entries`. Cover it
+  with a differential case.
+
 - Measure against ES iterator helpers on the [TS benchmark](/ts/README.md#bench)
   and record the numbers, but keep the `DONE` protocol unless they show it loses.
 - Cover what moq-net uses (about 1,100 adaptor sites); the
