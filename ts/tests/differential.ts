@@ -3,9 +3,10 @@
 //
 // usage: node differential.ts <fixture.wasm> <harness.ts> <cases>
 //
-// A harness exports `run(input: Uint8Array): Vec<u8>`; the wasm build exports `input`,
-// `run`, and `output` around it, which `wasm.ts` calls. A panic traps natively and
-// throws `Panic` in TypeScript, and the two agree only if their messages do.
+// A harness, or a hand-written caller wrapping one, exports `run(input: Uint8Array):
+// Vec<u8>`; the wasm build exports `input`, `run`, and `output` around the crate's
+// entry, which `wasm.ts` calls. A panic traps natively and throws `Panic` in
+// TypeScript, and the two agree only if their messages do.
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";

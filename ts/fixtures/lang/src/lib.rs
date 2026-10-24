@@ -2,7 +2,8 @@
 //! width's arithmetic and casts, control flow, patterns, `Copy` aggregates, closures,
 //! traits, formatting, and the standard library calls it maps.
 //!
-//! `harness::run` is the entry point both sides of the differential test run.
+//! `harness::run` is the entry point both sides of the differential test run, and
+//! `fmt::Fault` an error only `caller.ts` prints.
 
 mod fmt;
 pub mod harness;
@@ -12,4 +13,4 @@ mod shapes;
 #[path = "../../wasm.rs"]
 mod wasm;
 #[cfg(target_arch = "wasm32")]
-use harness::run as entry;
+use harness::entry;
