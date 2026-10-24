@@ -32,8 +32,9 @@ moq consumes it as the `ts` package of this repository's flake. In this reposito
 except derived impls, which come along only when called, and writes a Markdown report of
 every construct translation refuses, with counts and spans. Refusals are ranked by
 construct, by the type or module they name, and by each type or path. A generic function
-that no instance reaches is not counted, and the report says how many there were. A
-census succeeds whatever it finds; translation still fails on any refusal.
+that no instance reaches is lowered over its own type parameters, refusing nothing that
+hinges on what they are, since each instance decides that. A census succeeds whatever
+it finds; translation still fails on any refusal.
 
 `just ts census` runs it on moq-net and kio at the pinned moq revision, into
 `target/census`, and the nightly job publishes their tables.

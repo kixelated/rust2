@@ -12,7 +12,7 @@ use rustc_middle::middle::region;
 use rustc_middle::mir::BorrowKind;
 use rustc_middle::thir::{self, ArmId, BlockId, ExprId, ExprKind, LocalVarId, Pat, PatKind, StmtId, Thir};
 use rustc_middle::ty::adjustment::PointerCoercion;
-use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TypeVisitableExt};
 use rustc_span::{Span, Symbol};
 
 use super::library::{self, Args};
@@ -2162,6 +2162,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 		let instance = match Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs) {
 			Ok(Some(instance)) => instance,
+			// A trait method of a type parameter: each instance resolves it.
+			Ok(None) if self.t.polymorphic() && gargs.has_param() => {
+				self.args(args, out);
+				return Expr::undefined();
+			}
 			_ => return self.err(span, format!("`{}` does not resolve", tcx.def_path_str(def_id))),
 		};
 		if let ty::InstanceKind::Item(did) = instance.def

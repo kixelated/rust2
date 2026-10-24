@@ -15,7 +15,9 @@ use std::collections::VecDeque;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::thir::{ExprId, Thir};
-use rustc_middle::ty::{self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypingEnv};
+use rustc_middle::ty::{
+	self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv,
+};
 use rustc_span::Span;
 
 use crate::census::{Census, Refusal};
@@ -75,21 +77,35 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -
 		tcx.hir_body_owners()
 			.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
 	};
-	for def_id in functions(tcx) {
-		// A derived impl comes along only when called, as in translation.
-		let derived = tcx
-			.impl_of_assoc(def_id.to_def_id())
-			.is_some_and(|imp| tcx.is_automatically_derived(imp));
-		if !derived && !tcx.generics_of(def_id).requires_monomorphization(tcx) {
-			t.instance(Instance::mono(tcx, def_id.to_def_id()));
-		}
+	// A derived impl comes along only when called, as in translation.
+	let roots: Vec<DefId> = functions(tcx)
+		.map(LocalDefId::to_def_id)
+		.filter(|&def_id| {
+			!tcx.impl_of_assoc(def_id)
+				.is_some_and(|imp| tcx.is_automatically_derived(imp))
+		})
+		.collect();
+	let generic = |def_id: DefId| tcx.generics_of(def_id).requires_monomorphization(tcx);
+	for &def_id in roots.iter().filter(|&&def_id| !generic(def_id)) {
+		t.instance(Instance::mono(tcx, def_id));
 	}
 	t.drain();
-	let reached: rustc_data_structures::fx::FxHashSet<DefId> = t.instances.keys().map(|i| i.def_id()).collect();
-	let unreached = functions(tcx)
-		.filter(|&def_id| tcx.generics_of(def_id).requires_monomorphization(tcx))
-		.filter(|def_id| !reached.contains(&def_id.to_def_id()))
-		.count();
+	// A generic function no instance reached is lowered over its own type parameters, so
+	// what it refuses whatever they are is counted too.
+	let mut polymorphic = 0;
+	for &def_id in roots.iter().filter(|&&def_id| generic(def_id)) {
+		let lowered = |instance: &Instance<'tcx>| instance.def_id() == def_id && !instance.args.has_param();
+		if t.instances.keys().any(lowered) {
+			continue;
+		}
+		polymorphic += 1;
+		t.env = TypingEnv::post_analysis(tcx, def_id);
+		let instance = Instance::new_raw(def_id, ty::GenericArgs::identity_for_item(tcx, def_id));
+		let sym = t.instance(instance);
+		t.queue.retain(|&(queued, _)| queued != instance);
+		t.function(instance, sym);
+		t.drain();
+	}
 	let sm = tcx.sess.source_map();
 	let mut seen = rustc_data_structures::fx::FxHashSet::default();
 	let mut refusals = Vec::new();
@@ -112,8 +128,9 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -
 		}
 	}
 	Some(Census {
-		functions: t.instances.len(),
-		unreached,
+		// Those over type parameters, other than the roots, were named but never lowered.
+		functions: t.instances.keys().filter(|instance| !instance.args.has_param()).count() + polymorphic,
+		polymorphic,
 		refusals,
 	})
 }
@@ -129,6 +146,9 @@ pub struct Translator<'a, 'tcx> {
 	/// Source files by name, as indexes into `program.sources`.
 	sources: rustc_data_structures::fx::FxHashMap<String, Option<u32>>,
 	failed: bool,
+	/// Where trait bounds come from: none outside a census, which lowers some functions
+	/// over their own type parameters.
+	env: TypingEnv<'tcx>,
 	/// Refusals collected for a census, rather than reported as errors.
 	refusals: Option<Vec<(Span, String)>>,
 }
@@ -194,14 +214,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			adts: Default::default(),
 			sources: Default::default(),
 			failed: false,
+			env: TypingEnv::fully_monomorphized(),
 			refusals,
 		})
 	}
 
 	/// Translate every queued function instance, and those they reach.
+	///
+	/// A census leaves an instance over type parameters to its own function's turn, since
+	/// its bounds are that function's, not the caller's. Translation never reaches one.
 	fn drain(&mut self) {
 		while let Some((instance, sym)) = self.queue.pop_front() {
-			self.function(instance, sym);
+			if self.refusals.is_none() || !instance.args.has_param() {
+				self.function(instance, sym);
+			}
 		}
 	}
 
@@ -215,7 +241,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	fn typing_env(&self) -> TypingEnv<'tcx> {
-		TypingEnv::fully_monomorphized()
+		self.env
+	}
+
+	/// Whether a census is lowering a function over its own type parameters. Only an
+	/// instance decides what a parameter is, so nothing that hinges on one is refused
+	/// then: each instance translation reaches is lowered, and refused, on its own.
+	pub fn polymorphic(&self) -> bool {
+		self.env != TypingEnv::fully_monomorphized()
+	}
+
+	/// Whether `ty` is a type parameter, or a projection from one, that only an instance
+	/// decides.
+	pub fn deferred(&self, ty: Ty<'tcx>) -> bool {
+		self.polymorphic() && matches!(ty.kind(), ty::Param(_) | ty::Alias(..))
 	}
 
 	pub fn typing_env_pub(&self) -> TypingEnv<'tcx> {
@@ -665,6 +704,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
+			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
 	}
@@ -708,6 +748,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			_ if self.deferred(ty) => Type::Builtin("unknown"),
 			_ => {
 				self.err(span, format!("unsupported type `{ty}`"));
 				Type::Builtin("unknown")

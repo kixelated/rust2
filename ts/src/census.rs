@@ -13,8 +13,8 @@ use std::path::Path;
 pub struct Census {
 	/// Function instances translated or refused.
 	pub functions: usize,
-	/// Generic functions no instance reached, so nothing in them was counted.
-	pub unreached: usize,
+	/// Generic functions no instance reached, lowered over their own type parameters.
+	pub polymorphic: usize,
 	/// Each refusal once.
 	pub refusals: Vec<Refusal>,
 }
@@ -70,10 +70,10 @@ impl Census {
 		let _ = writeln!(out, "# Census of `{krate}`\n");
 		let _ = writeln!(
 			out,
-			"- Refusals: {}\n- Function instances: {}\n- Generic functions never instantiated, so uncounted: {}",
+			"- Refusals: {}\n- Function instances: {}\n- Generic functions no instance reached, lowered over their type parameters: {}",
 			refusals.len(),
 			self.functions,
-			self.unreached,
+			self.polymorphic,
 		);
 
 		let _ = writeln!(out, "\n## By construct\n");
