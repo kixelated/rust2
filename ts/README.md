@@ -249,7 +249,8 @@ native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM r
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. The report records the host and engine versions, and
 each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary.
+runs it and posts the report to its summary. Chrome's page reports each step it starts,
+and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
