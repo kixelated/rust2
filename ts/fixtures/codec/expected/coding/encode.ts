@@ -177,7 +177,7 @@ export class Encoder {
 				this.buf.truncate(end);
 				return rt.Ok(undefined);
 			}
-			let size2: Uint8Array = rt.bytes(9);
+			let size2: Uint8Array = new Uint8Array(9);
 			rt.slice.copyFromSlice(rt.slice.range(size2, 0, len), rt.slice.range(this.buf.view(), end));
 			this.buf.truncate(rt.usize.sub(rt.usize.add(end, len), 1));
 			rt.slice.copyWithin(this.buf.view(), body, end, rt.usize.sub(rt.usize.add(body, len), 1));
