@@ -115,16 +115,32 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	read.await
 }
 
+/// `i`, noted as picked.
+fn pick(log: &Log, i: usize) -> usize {
+	log.note(format!("pick {i}"));
+	i
+}
+
 /// A guard per turn of a loop that ends a guarded `match` arm, so leaving the loop from
 /// inside a turn's scope must still skip the arms after it. Before them, a pair of
 /// guards destructured in part: the one left in the array drops with it, after the other;
-/// and a pinned box of one, which drops it.
+/// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
+/// temporary to the end of the block; and a `_` binding of an element, which evaluates its
+/// index and moves nothing.
+#[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
 	let [kept, _] = pair;
 	kept.note("kept");
 	let pinned = std::pin::Pin::new(Box::new(Guard::new(count + 40, log.clone())));
 	pinned.note("pinned");
+	let held = Guard::new(count + 50, log.clone());
+	let ref borrowed = held;
+	borrowed.note("borrowed");
+	let ref extended = Guard::new(count + 60, log.clone());
+	extended.note("extended");
+	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
+	let _ = spares[pick(log, count as usize % 2)];
 	match count {
 		0 => log.note(format!("no turns")),
 		n if n < 4 => {

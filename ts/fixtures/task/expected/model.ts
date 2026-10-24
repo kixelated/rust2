@@ -337,11 +337,19 @@ export function blocksDrop$3(first: Guard, second: Guard, rx2: Consumer): void {
 	rt.drop(rx2);
 }
 
+/** `i`, noted as picked. */
+export function pick(log: Log, i: number): number {
+	log.note(rt.fmt.format(["pick ", (f: rt.Formatter) => rt.usize.display(i, f)]));
+	return i;
+}
+
 /**
  * A guard per turn of a loop that ends a guarded `match` arm, so leaving the loop from
  * inside a turn's scope must still skip the arms after it. Before them, a pair of
  * guards destructured in part: the one left in the array drops with it, after the other;
- * and a pinned box of one, which drops it.
+ * a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
+ * temporary to the end of the block; and a `_` binding of an element, which evaluates its
+ * index and moves nothing.
  */
 export function turns(log: Log, count: number): void {
 	const pair = [Guard.new(rt.u32.add(count, 10), log.clone()), Guard.new(rt.u32.add(count, 20), log.clone())];
@@ -353,29 +361,49 @@ export function turns(log: Log, count: number): void {
 			const pinned = Guard.new(rt.u32.add(count, 40), log.clone());
 			try {
 				pinned.note("pinned");
-				arms: {
-					if (count === 0) {
-						log.note("no turns");
-						break arms;
-					}
-					const n = count;
-					if (n < 4) {
-						let left: number = n;
-						while (true) {
-							const turn = Guard.new(left, log.clone());
-							try {
-								if (left === 1) {
-									break;
+				const held = Guard.new(rt.u32.add(count, 50), log.clone());
+				try {
+					const borrowed = held;
+					borrowed.note("borrowed");
+					const extended = Guard.new(rt.u32.add(count, 60), log.clone());
+					try {
+						extended.note("extended");
+						const spares = [Guard.new(rt.u32.add(count, 70), log.clone()), Guard.new(rt.u32.add(count, 80), log.clone())];
+						try {
+							const index = pick(log, rt.usize.rem(count, 2));
+							spares[rt.idx(spares, index)];
+							arms: {
+								if (count === 0) {
+									log.note("no turns");
+									break arms;
 								}
-								turn.note("turn");
-								left = rt.u32.sub(left, 1);
-							} finally {
-								rt.drop(turn);
+								const n = count;
+								if (n < 4) {
+									let left: number = n;
+									while (true) {
+										const turn = Guard.new(left, log.clone());
+										try {
+											if (left === 1) {
+												break;
+											}
+											turn.note("turn");
+											left = rt.u32.sub(left, 1);
+										} finally {
+											rt.drop(turn);
+										}
+									}
+									break arms;
+								}
+								log.note("many turns");
 							}
+						} finally {
+							rt.dropAll(spares);
 						}
-						break arms;
+					} finally {
+						rt.drop(extended);
 					}
-					log.note("many turns");
+				} finally {
+					rt.drop(held);
 				}
 			} finally {
 				rt.drop(pinned);

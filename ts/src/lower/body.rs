@@ -527,13 +527,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.ref_binding(mode.0, pat_ty, pat.span);
 			}
 			let mutable = mode.1 == rustc_ast::Mutability::Mut;
-			let owns = mode.0 == rustc_hir::ByRef::No;
+			let by_value = mode.0 == rustc_hir::ByRef::No;
 			let ty = self.t.ty(pat_ty, pat.span);
 			let Some(init) = init else {
-				let name = self.bind_var(*var, *name, true, pat_ty, pat.span, owns);
+				let name = self.bind_var(*var, *name, true, pat_ty, pat.span, by_value);
 				self.push(out, StmtKind::decl(true, name, Some(ty), None), span);
 				return;
 			};
+			// A `ref` binding borrows a place where it is, and keeps a temporary alive to the
+			// end of the block, which then drops it as it would a variable.
+			let borrows = !by_value && self.is_place(init);
+			let owns = !borrows;
 			if self.needs_dest(init) {
 				let name = self.bind_var(*var, *name, true, pat_ty, pat.span, owns);
 				self.push(out, StmtKind::decl(true, name.clone(), Some(ty), None), span);
@@ -541,7 +545,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				return;
 			}
 			// A move from another variable or field: it is left `undefined`.
-			if self.moves(init) {
+			if by_value && self.moves(init) {
 				let place = self.place(init, out);
 				let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
 				let annotate = mutable.then_some(ty);
@@ -549,7 +553,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.clear(place, out);
 				return;
 			}
-			let value = self.operand(init, out);
+			let value = match borrows {
+				true => self.place(init, out),
+				false => self.operand(init, out),
+			};
 			let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
 			let annotate = mutable || needs_annotation(&value);
 			self.push(
@@ -567,15 +574,24 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			return;
 		};
-		// `let _ = value;` drops a value at once, and leaves a place alone.
+		// `let _ = value;` drops a value at once, and evaluates a place without moving it:
+		// an index still runs, and checks its bounds.
 		if let PatKind::Wild = pat.kind
 			&& els.is_none()
 			&& self.t.drops(pat_ty)
 		{
-			if !self.is_place(init) {
-				let value = self.operand(init, out);
-				if let Some(dropped) = self.t.drop_value(value, pat_ty, span) {
-					self.push(out, StmtKind::Expr(dropped), span);
+			match self.is_place(init) {
+				true => {
+					let place = self.place(init, out);
+					if !place.is_path() {
+						self.push(out, StmtKind::Expr(place), span);
+					}
+				}
+				false => {
+					let value = self.operand(init, out);
+					if let Some(dropped) = self.t.drop_value(value, pat_ty, span) {
+						self.push(out, StmtKind::Expr(dropped), span);
+					}
 				}
 			}
 			return;
