@@ -591,6 +591,47 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.i64.toBeBytes(area));
 	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
+	const parsed = rt.Ok(data.length & 0xff);
+	let a3: number;
+	if (parsed.ok) {
+		const v = parsed.value;
+		a3 = v;
+	} else {
+		const e = parsed.error;
+		a3 = absurd([e, 1]);
+	}
+	let b4: number;
+	if (parsed.ok) {
+		const v2 = parsed.value;
+		b4 = v2;
+	} else {
+		const e2 = parsed.error;
+		rt.unreachable(e2);
+	}
+	let c: number;
+	const v3 = parsed.value;
+	c = v3;
+	out.extendFromSlice(Uint8Array.of(a3, b4, c, early(a3)));
+	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void, f: rt.Formatter) => Void.fmt(value, f))])));
+}
+
+/** An enum without variants: no value of it exists. */
+export type Void = never;
+
+export const Void = {
+	fmt(self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		rt.unreachable(self);
+	},
+};
+
+/** A value holding a `Void` can't exist either. */
+export function absurd(v: [Void, number]): number {
+	rt.unreachable(rt.copy(v));
+}
+
+/** A `match` without arms on a scrutinee that diverges, not on an empty type. */
+export function early(n: number): number {
+	return rt.u8.wrappingAdd(n, 1);
 }
 
 /** Closures capturing by reference and by move, and functions as values. */
