@@ -10,7 +10,7 @@ export type DecodeError =
 	| { tag: "Short" }
 	| { tag: "Long" }
 	| { tag: "InvalidString"; _0: rt.FromUtf8Error }
-	| { tag: "InvalidMessage"; _0: bigint }
+	| { tag: "InvalidMessage"; _0: rt.U64 }
 	| { tag: "InvalidSubscribeLocation" }
 	| { tag: "InvalidValue" }
 	| { tag: "TooMany" }
@@ -41,7 +41,7 @@ export const DecodeError = {
 			return __formatter.writeStr("invalid string");
 		} else if (self.tag === "InvalidMessage") {
 			const _0 = self._0;
-			const value = [_0] as [bigint];
+			const value = [_0] as [rt.U64];
 			const __field0 = value[0];
 			return __formatter.writeFmt(["invalid message: ", (f: rt.Formatter) => rt.u64.display(__field0, f)]);
 		} else if (self.tag === "InvalidSubscribeLocation") {
@@ -200,7 +200,7 @@ export class Decoder {
 	}
 
 	/** Read a varint. */
-	varint(): rt.Result<bigint, DecodeError> {
+	varint(): rt.Result<rt.U64, DecodeError> {
 		const read_ = read(this.buf, this.form);
 		if (read_.ok) {
 			const value = read_.value[0];
@@ -250,12 +250,12 @@ export class Decoder {
 	}
 
 	/** Read an optional varint: 0 is `None`, and `n + 1` is `Some(n)`. */
-	varintOpt(): rt.Result<bigint | undefined, DecodeError> {
+	varintOpt(): rt.Result<rt.U64 | undefined, DecodeError> {
 		const varint = this.varint();
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
-		return rt.Ok(rt.u64.checkedSub(varint.value, 1n));
+		return rt.Ok(rt.u64.checkedSub(varint.value, rt.u64.of(1)));
 	}
 
 	/** Read a varint length, then that many raw bytes. */

@@ -58,7 +58,7 @@ export function encodeVarints(data: Uint8Array, form_: Form, out: rt.ByteVec): r
 	const [count, data2] = takeU64(data);
 	const [value, ] = takeU64(data2);
 	let w: Encoder = Encoder.new(out, form_);
-	const end = Number(BigInt.asUintN(32, count));
+	const end = count.lo;
 	for (let _ = 0; _ < end; _++) {
 		const varint = w.varint(value);
 		if (!varint.ok) {
@@ -72,7 +72,7 @@ export function encodeVarints(data: Uint8Array, form_: Form, out: rt.ByteVec): r
 export function decodeVarints(wire: Uint8Array, form_: Form, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
 	let r: Decoder = Decoder.new(wire, form_);
 	let count: number = 0;
-	let last: bigint = 0n;
+	let last: rt.U64 = rt.u64.of(0);
 	while (!r.isEmpty()) {
 		const varint = r.varint();
 		if (!varint.ok) {
@@ -98,14 +98,14 @@ export function encodeFrames(data: Uint8Array, version: Version, out: rt.ByteVec
 	const [size, data5] = takeU64(data4);
 	const [keyEvery, data6] = takeU64(data5);
 	const [keySize, ] = takeU64(data6);
-	const [delta2, keyEvery2] = [BigInt.asIntN(64, delta), Number(BigInt.asUintN(32, keyEvery))] as [bigint, number];
+	const [delta2, keyEvery2] = [rt.i64.cast(delta), keyEvery.lo] as [rt.I64, number];
 	let w: Encoder = Encoder.new(out, Form.from(version));
-	const end = Number(BigInt.asUintN(32, count));
+	const end = count.lo;
 	for (let n = 0; n < end; n++) {
-		let value: [bigint, bigint];
+		let value: [rt.I64, rt.U64];
 		arms: {
 			if (n === 0) {
-				value = [0n, first];
+				value = [rt.i64.of(0), first];
 				break arms;
 			}
 			const n2 = n;
@@ -132,8 +132,8 @@ export function encodeFrames(data: Uint8Array, version: Version, out: rt.ByteVec
 export function decodeFrames(wire: Uint8Array, version: Version, out: rt.ByteVec): rt.Result<undefined, DecodeError> {
 	let r: Decoder = Decoder.new(wire, Form.from(version));
 	let count: number = 0;
-	let total: bigint = 0n;
-	let last: bigint = 0n;
+	let total: rt.U64 = rt.u64.of(0);
+	let last: rt.I64 = rt.i64.of(0);
 	while (!r.isEmpty()) {
 		const varint = r.varint();
 		if (!varint.ok) {
@@ -149,7 +149,7 @@ export function decodeFrames(wire: Uint8Array, version: Version, out: rt.ByteVec
 	}
 	putUsize(out, count);
 	putU64(out, total);
-	putU64(out, BigInt.asUintN(64, last));
+	putU64(out, rt.u64.cast(last));
 	return rt.Ok(undefined);
 }
 
@@ -157,7 +157,7 @@ export function decodeFrames(wire: Uint8Array, version: Version, out: rt.ByteVec
 export function encodeGroup(data: Uint8Array, version: Version, out: rt.ByteVec): rt.Result<undefined, EncodeError> {
 	const [subscribe, data2] = takeU64(data);
 	const [sequence, ] = takeU64(data2);
-	const group = new Group({ subscribe, sequence, frameStart: 0n });
+	const group = new Group({ subscribe, sequence, frameStart: rt.u64.of(0) });
 	return group.encode(Encoder.new(out, Form.from(version)), version);
 }
 

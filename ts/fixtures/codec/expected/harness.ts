@@ -72,16 +72,16 @@ export function liteVersion(selector: number): version_Version {
 	}
 }
 
-export function putU64(out: rt.ByteVec, value: bigint): void {
+export function putU64(out: rt.ByteVec, value: rt.U64): void {
 	out.extendFromSlice(rt.u64.toBeBytes(value));
 }
 
 export function putUsize(out: rt.ByteVec, value: number): void {
-	putU64(out, BigInt(value));
+	putU64(out, rt.u64.cast(value));
 }
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
-export function takeU64(data: Uint8Array): [bigint, Uint8Array] {
+export function takeU64(data: Uint8Array): [rt.U64, Uint8Array] {
 	let buf: Uint8Array = new Uint8Array(8);
 	const n = rt.min(data.length, 8);
 	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data, 0, n));
@@ -305,20 +305,20 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		let result: rt.Result<undefined, EncodeError>;
 		const value2 = rt.u8.rem(step, 10);
 		if (value2 === 0) {
-			w.u8(Number(BigInt.asUintN(8, value)));
+			w.u8(value.lo & 0xff);
 			result = rt.Ok(undefined);
 		} else if (value2 === 1) {
-			w.u16(Number(BigInt.asUintN(16, value)));
+			w.u16(value.lo & 0xffff);
 			result = rt.Ok(undefined);
 		} else if (value2 === 2) {
-			w.bool((value & 1n) === 1n);
+			w.bool(rt.u64.eq(rt.u64.and(value, rt.u64.of(1)), rt.u64.of(1)));
 			result = rt.Ok(undefined);
 		} else if (value2 === 3) {
 			result = w.varint(value);
 		} else if (value2 === 4) {
 			const arg = w;
-			const value3 = rt.u64.rem(value, 3n);
-			result = arg.varintOpt(value3 === 0n ? undefined : value3 === 1n ? value : 18446744073709551615n);
+			const value3 = rt.u64.rem(value, rt.u64.of(3));
+			result = arg.varintOpt(rt.u64.eq(value3, rt.u64.of(0)) ? undefined : rt.u64.eq(value3, rt.u64.of(1)) ? value : rt.u64.of(18446744073709551615n));
 		} else if (value2 === 5) {
 			result = w.bytes(rt.slice.range(rt.u64.toBeBytes(value), 0, rt.u8.rem(rt.u8.div(step, 10), 9)));
 		} else if (value2 === 6) {
@@ -330,7 +330,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				result = w.string("not utf-8");
 			}
 		} else if (value2 === 7) {
-			prefixes.push(rt.u64.rem(value, 2n) === 0n ? w.prefixVarint() : w.prefixU16());
+			prefixes.push(rt.u64.eq(rt.u64.rem(value, rt.u64.of(2)), rt.u64.of(0)) ? w.prefixVarint() : w.prefixU16());
 			result = rt.Ok(undefined);
 		} else if (value2 === 8) {
 			const pop = prefixes.pop();
@@ -373,10 +373,10 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 
 export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
 	const [value, ] = takeU64(data);
-	const signed = BigInt.asIntN(64, value);
+	const signed = rt.i64.cast(value);
 	putU64(out, varint_zigzag(signed));
-	putU64(out, BigInt.asUintN(64, unzigzag(value)));
-	putU64(out, BigInt.asUintN(64, unzigzag(varint_zigzag(signed))));
+	putU64(out, rt.u64.cast(unzigzag(value)));
+	putU64(out, rt.u64.cast(unzigzag(varint_zigzag(signed))));
 }
 
 export function sizes(data: Uint8Array, out: rt.ByteVec): void {
@@ -490,9 +490,9 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	const [frameStart, data5] = takeU64(data4);
 	const [bitrate, data6] = takeU64(data5);
 	const [rtt, ] = takeU64(data6);
-	const group = new Group({ subscribe, sequence, frameStart: rt.u64.rem(frameStart, 4n) });
+	const group = new Group({ subscribe, sequence, frameStart: rt.u64.rem(frameStart, rt.u64.of(4)) });
 	encodeMessage$Group(group, version, out);
-	const probe = new Probe({ bitrate: rt.u64.checkedSub(bitrate, 1n), rtt: rt.thenSome(rt.u64.rem(rtt, 3n) !== 0n, rtt) });
+	const probe = new Probe({ bitrate: rt.u64.checkedSub(bitrate, rt.u64.of(1)), rtt: rt.thenSome(rt.u64.ne(rt.u64.rem(rtt, rt.u64.of(3)), rt.u64.of(0)), rtt) });
 	encodeMessage$Probe(probe, version, out);
 	const versions = Versions.from([new Version(subscribe), new Version(sequence)]);
 	let buf: rt.ByteVec = new rt.ByteVec();
@@ -547,9 +547,9 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 	if (value2 === 0) {
 		err = { tag: "InvalidMessage", _0: value };
 	} else if (value2 === 1) {
-		err = { tag: "MessageTooLarge", size: Number(BigInt.asUintN(32, value)), max: Number(BigInt.asUintN(32, value >> 32n)) };
+		err = { tag: "MessageTooLarge", size: value.lo, max: rt.u64.shr(value, 32).lo };
 	} else if (value2 === 2) {
-		err = { tag: "Session", _0: { tag: "App", _0: Number(BigInt.asUintN(16, value)) } as SessionError };
+		err = { tag: "Session", _0: { tag: "App", _0: value.lo & 0xffff } as SessionError };
 	} else if (value2 === 3) {
 		err = { tag: "Session", _0: { tag: "ProtocolViolation" } as SessionError };
 	} else if (value2 === 4) {

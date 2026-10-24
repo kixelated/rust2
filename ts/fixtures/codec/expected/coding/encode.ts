@@ -79,7 +79,7 @@ export class Encoder {
 	}
 
 	/** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
-	varint(v: bigint): rt.Result<undefined, EncodeError> {
+	varint(v: rt.U64): rt.Result<undefined, EncodeError> {
 		const write_ = write(v, this.form, this.buf);
 		if (!write_.ok) {
 			return rt.Err(EncodeError.from(write_.error));
@@ -88,24 +88,24 @@ export class Encoder {
 	}
 
 	/** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
-	varintOpt(v: bigint | undefined): rt.Result<undefined, EncodeError> {
-		let v2: bigint;
+	varintOpt(v: rt.U64 | undefined): rt.Result<undefined, EncodeError> {
+		let v2: rt.U64;
 		if (v !== undefined) {
 			const v3 = v;
-			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, 1n), "TooLarge" as EncodeError);
+			const okOr = rt.option.okOr(rt.u64.checkedAdd(v3, rt.u64.of(1)), "TooLarge" as EncodeError);
 			if (!okOr.ok) {
 				return rt.Err(okOr.error);
 			}
 			v2 = okOr.value;
 		} else {
-			v2 = 0n;
+			v2 = rt.u64.of(0);
 		}
 		return this.varint(v2);
 	}
 
 	/** Write a varint length, then the raw bytes. */
 	bytes(v: Uint8Array): rt.Result<undefined, EncodeError> {
-		const varint = this.varint(BigInt(v.length));
+		const varint = this.varint(rt.u64.cast(v.length));
 		if (!varint.ok) {
 			return rt.Err(varint.error);
 		}
@@ -153,7 +153,7 @@ export class Encoder {
 			const size = mapErr.value;
 			rt.slice.copyFromSlice(rt.slice.range(this.buf.view(), rt.usize.sub(body, 2), body), rt.u16.toBeBytes(size));
 		} else {
-			const write_ = write(BigInt(rt.usize.sub(end, body)), this.form, this.buf);
+			const write_ = write(rt.u64.cast(rt.usize.sub(end, body)), this.form, this.buf);
 			if (!write_.ok) {
 				return rt.Err(EncodeError.from(write_.error));
 			}

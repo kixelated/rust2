@@ -37,9 +37,9 @@ export class Point {
 
 /** A tuple struct. */
 export class Meters {
-	_0: bigint;
+	_0: rt.U64;
 
-	constructor(_0: bigint) {
+	constructor(_0: rt.U64) {
 		this._0 = _0;
 	}
 
@@ -49,7 +49,7 @@ export class Meters {
 		out.extendFromSlice(rt.u64.toBeBytes(this._0));
 	}
 
-	area(): bigint {
+	area(): rt.U64 {
 		return this._0;
 	}
 }
@@ -67,15 +67,15 @@ export const Shape = {
 		out.extendFromSlice(rt.u64.toBeBytes(Shape.area(self)));
 	},
 
-	area(self: Shape): bigint {
+	area(self: Shape): rt.U64 {
 		if (self.tag === "Dot") {
-			return 0n;
+			return rt.u64.of(0);
 		} else if (self.tag === "Line") {
-			return 0n;
+			return rt.u64.of(0);
 		} else {
 			const width = self.width;
 			const height = self.height;
-			return rt.u64.mul(BigInt(width), BigInt(height));
+			return rt.u64.mul(rt.u64.cast(width), rt.u64.cast(height));
 		}
 	},
 
@@ -102,8 +102,8 @@ export type Signed = "Neg" | "Min" | "Pos";
 
 export type Dir = "North" | "East" | "South" | "West";
 
-export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
-	let sum: bigint = 0n;
+export function total$Shape(items: Shape[], out: rt.ByteVec): rt.U64 {
+	let sum: rt.U64 = rt.u64.of(0);
 	for (const item of items) {
 		Shape.describe(item, out);
 		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
@@ -111,8 +111,8 @@ export function total$Shape(items: Shape[], out: rt.ByteVec): bigint {
 	return sum;
 }
 
-export function total$Meters(items: Meters[], out: rt.ByteVec): bigint {
-	let sum: bigint = 0n;
+export function total$Meters(items: Meters[], out: rt.ByteVec): rt.U64 {
+	let sum: rt.U64 = rt.u64.of(0);
 	for (const item of items) {
 		item.describe(out);
 		sum = rt.u64.saturatingAdd(sum, item.area());
@@ -193,12 +193,12 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	a = Point.new(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
-	let opt: Meters | undefined = new Meters(9n);
+	let opt: Meters | undefined = new Meters(rt.u64.of(9));
 	const taken = opt;
 	opt = undefined;
 	const taken2 = taken;
 	out.push(opt === undefined ? 1 : 0);
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), 0n, (m: Meters): bigint => {
+	out.extendFromSlice(rt.u64.toBeBytes(rt.option.mapOr(rt.copy(taken2), rt.u64.of(0), (m: Meters): rt.U64 => {
 		return m._0;
 	})));
 	const res = rt.Ok(rt.copy(p));
@@ -221,12 +221,12 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 		out.push({ Low: 1, High: 44, Top: 255 }[wide]);
 		out.push({ Low: 1, High: 44, Top: -1 }[wide] & 0xff);
 		out.extendFromSlice(rt.i16.toBeBytes({ Low: 1, High: 300, Top: -1 }[wide]));
-		out.extendFromSlice(rt.u64.toBeBytes({ Low: 1n, High: 300n, Top: 65535n }[wide]));
+		out.extendFromSlice(rt.u64.toBeBytes({ Low: rt.u64.of(1), High: rt.u64.of(300), Top: rt.u64.of(65535) }[wide]));
 		out.push({ Neg: 255, Min: 128, Pos: 100 }[signed]);
 		out.extendFromSlice(rt.u16.toBeBytes({ Neg: 65535, Min: 65408, Pos: 100 }[signed]));
 		out.extendFromSlice(rt.u32.toBeBytes({ Neg: 4294967295, Min: 4294967168, Pos: 100 }[signed]));
-		out.extendFromSlice(rt.i64.toBeBytes({ Neg: -1n, Min: -128n, Pos: 100n }[signed]));
-		out.extendFromSlice(rt.u128.toBeBytes({ Neg: 340282366920938463463374607431768211455n, Min: 340282366920938463463374607431768211328n, Pos: 100n }[signed]));
+		out.extendFromSlice(rt.i64.toBeBytes({ Neg: rt.i64.of(-1), Min: rt.i64.of(-128), Pos: rt.i64.of(100) }[signed]));
+		out.extendFromSlice(rt.u128.toBeBytes({ Neg: rt.u128.of(340282366920938463463374607431768211455n), Min: rt.u128.of(340282366920938463463374607431768211328n), Pos: rt.u128.of(100) }[signed]));
 	}
 }
 
@@ -272,15 +272,15 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	} else {
 		out.push(0xff);
 	}
-	let n: bigint = BigInt(data.length);
+	let n: rt.U64 = rt.u64.cast(data.length);
 	let steps: number;
 	while (true) {
-		if (n <= 1n) {
+		if (rt.u64.le(n, rt.u64.of(1))) {
 			steps = 0;
 			break;
 		}
-		n = rt.u64.rem(n, 2n) === 0n ? rt.u64.div(n, 2n) : rt.u64.add(rt.u64.mul(3n, n), 1n);
-		if (n > 100n) {
+		n = rt.u64.eq(rt.u64.rem(n, rt.u64.of(2)), rt.u64.of(0)) ? rt.u64.div(n, rt.u64.of(2)) : rt.u64.add(rt.u64.mul(rt.u64.of(3), n), rt.u64.of(1));
+		if (rt.u64.gt(n, rt.u64.of(100))) {
 			steps = 1;
 			break;
 		}
@@ -564,32 +564,32 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		out.push(0xee);
 	}
 	const shape_ = shape(data);
-	let area: bigint;
+	let area: rt.I64;
 	arms3: {
 		if ((shape_.tag === "Rect" && shape_.width === 0) || shape_.tag === "Dot") {
-			area = 0n;
+			area = rt.i64.of(0);
 			break arms3;
 		}
 		if (shape_.tag === "Rect") {
 			const x = shape_.corner.x;
 			const width = shape_.width;
 			if (x > 0) {
-				area = rt.i64.mul(BigInt(width), BigInt(x));
+				area = rt.i64.mul(rt.i64.cast(width), rt.i64.cast(x));
 				break arms3;
 			}
 		}
 		if (shape_.tag === "Rect") {
 			const width2 = shape_.width;
 			const height = shape_.height;
-			area = rt.i64.neg(rt.i64.mul(BigInt(width2), BigInt(height)));
+			area = rt.i64.neg(rt.i64.mul(rt.i64.cast(width2), rt.i64.cast(height)));
 			break arms3;
 		}
 		const a2 = rt.copy(shape_._0);
 		const b3 = rt.copy(shape_._1);
-		area = rt.i64.mul(BigInt(rt.i32.sub(a2.x, b3.x)), BigInt(rt.i32.sub(a2.y, b3.y)));
+		area = rt.i64.mul(rt.i64.cast(rt.i32.sub(a2.x, b3.x)), rt.i64.cast(rt.i32.sub(a2.y, b3.y)));
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
-	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3n), new Meters(18446744073709551615n)], out));
+	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(rt.u64.of(3)), new Meters(rt.u64.of(18446744073709551615n))], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);
 	let a3: number;

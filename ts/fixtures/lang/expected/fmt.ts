@@ -181,9 +181,9 @@ export class Bare {
 
 export class Pair {
 	_0: number;
-	_1: bigint;
+	_1: rt.I64;
 
-	constructor(_0: number, _1: bigint) {
+	constructor(_0: number, _1: rt.I64) {
 		this._0 = _0;
 		this._1 = _1;
 	}
@@ -193,7 +193,7 @@ export class Pair {
 	}
 
 	eq(other: Pair): boolean {
-		return this._0 === other._0 && this._1 === other._1;
+		return this._0 === other._0 && rt.i64.eq(this._1, other._1);
 	}
 }
 
@@ -202,11 +202,11 @@ export class Wide {
 	a: number;
 	b: number;
 	c: number;
-	d: bigint;
+	d: rt.U64;
 	e: number;
 	f: boolean;
 
-	constructor(fields: { a: number; b: number; c: number; d: bigint; e: number; f: boolean }) {
+	constructor(fields: { a: number; b: number; c: number; d: rt.U64; e: number; f: boolean }) {
 		this.a = fields.a;
 		this.b = fields.b;
 		this.c = fields.c;
@@ -323,8 +323,8 @@ export function nested(data: Uint8Array): Nested {
 	const arg4 = arg2;
 	const arg5 = value2 === 0 ? { tag: "Dot" } as Shape : value2 === 1 ? { tag: "Line", _0: new Point({ x: 1, y: 2 }), _1: new Point({ x: -3, y: 4 }) } as Shape : { tag: "Rect", corner: new Point({ x: 0, y: 0 }), width: at(3), height: 9 } as Shape;
 	const arg6 = rt.slice.toByteVec(rt.slice.range(data, 0, rt.min(data.length, 4)));
-	const arg7 = rt.slice.toVec([new Pair(at(4), -1n), new Pair(2, -9223372036854775808n)]);
-	const arg8 = rt.u8.rem(at(5), 2) === 0 ? new Pair(at(5), 5n) : undefined;
+	const arg7 = rt.slice.toVec([new Pair(at(4), rt.i64.of(-1)), new Pair(2, rt.i64.of(-9223372036854775808n))]);
+	const arg8 = rt.u8.rem(at(5), 2) === 0 ? new Pair(at(5), rt.i64.of(5)) : undefined;
 	const arg9 = rt.u8.rem(at(6), 2) === 0 ? rt.Ok(at(6)) : rt.Err("no");
 	const arg10 = [rt.i16.sub(at(7), 100), 32767];
 	const arg11 = [at(8), true, "t"] as [number, boolean, string];
@@ -342,7 +342,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const value = nested(data);
 	put(out, rt.fmt.format([(f: rt.Formatter) => value.fmt(f)]));
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => value.fmt(f))]));
-	const wide = new Wide({ a: at(0), b: 300, c: 70_000, d: 18446744073709551615n, e: -1, f: at(1) > 10 });
+	const wide = new Wide({ a: at(0), b: 300, c: 70_000, d: rt.u64.of(18446744073709551615n), e: -1, f: at(1) > 10 });
 	const six = new Six(at(0), 1, 2, 3, 4, at(1));
 	const arg3 = out;
 	const arg = new Unit();
@@ -351,7 +351,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => wide.fmt(f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => six.fmt(f))]));
 	const point = new Point({ x: at(2), y: -1 });
 	const arg5 = out;
-	const arg4 = new Pair(at(3), -9n);
+	const arg4 = new Pair(at(3), rt.i64.of(-9));
 	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => point.fmt(f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => arg4.fmt(f))]));
 	const kinds = [{ tag: "Empty" } as Kind, { tag: "One", _0: at(4) } as Kind, { tag: "Braced" } as Kind, { tag: "Bare" } as Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind];
 	const arg7 = out;
@@ -494,7 +494,7 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	const manual = new Manual({ id: at(1), list: rt.slice.toVec([1, at(2)]) });
 	const empty = new Manual({ id: 0, list: [] });
 	put(out, rt.fmt.format([(f: rt.Formatter) => manual.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => manual.fmt(f)), " ", (f: rt.Formatter) => empty.fmt(f)]));
-	const seq = new Seq(rt.slice.toVec([new Pair(at(3), 0n), new Pair(1, -1n)]));
+	const seq = new Seq(rt.slice.toVec([new Pair(at(3), rt.i64.of(0)), new Pair(1, rt.i64.of(-1))]));
 	const none = new Seq([]);
 	put(out, rt.fmt.format([(f: rt.Formatter) => seq.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => seq.fmt(f)), " ", (f: rt.Formatter) => none.fmt(f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => none.fmt(f))]));
 	const tup = new Tup(at(4), rt.u8.rem(at(5), 2) === 0 ? at(5) : undefined);
@@ -518,7 +518,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		rt.panic(["internal error: entered unreachable code: never ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(n, f)), " ", (f: rt.Formatter) => arg.fmt$Display(f)]);
 	} else if (value === 2) {
 		if (!(n > 200)) {
-			const arg2 = new Pair(n, 0n);
+			const arg2 = new Pair(n, rt.i64.of(0));
 			rt.panic(["small ", (f: rt.Formatter) => rt.u8.display(n, f), " ", (f: rt.Formatter) => arg2.fmt(f)]);
 		}
 	} else if (value === 3) {
@@ -534,7 +534,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 			rt.assertFailed(kind2, (f: rt.Formatter) => rt.u8.display(leftVal, f), (f: rt.Formatter) => rt.u8.display(rightVal, f));
 		}
 	} else if (value === 5) {
-		const value3 = [new Pair(n, 1n), new Pair(n, 1n)] as [Pair, Pair];
+		const value3 = [new Pair(n, rt.i64.of(1)), new Pair(n, rt.i64.of(1))] as [Pair, Pair];
 		const leftVal2 = value3[0];
 		const rightVal2 = value3[1];
 		if (leftVal2.eq(rightVal2)) {
@@ -555,7 +555,7 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 		const arg3 = rt.result.unwrap(r, (value: Kind, f: rt.Formatter) => Kind.fmt(value, f));
 		put(arg4, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg3, f)));
 	} else if (value === 8) {
-		const r2 = n > 128 ? rt.Ok(n) : rt.Err(new Pair(n, -2n));
+		const r2 = n > 128 ? rt.Ok(n) : rt.Err(new Pair(n, rt.i64.of(-2)));
 		const arg6 = out;
 		const arg5 = rt.result.expect(rt.copy(r2), "expected a byte", (value: Pair, f: rt.Formatter) => value.fmt(f));
 		put(arg6, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg5, f)));
@@ -641,7 +641,7 @@ export const Fault = {
 		} else if (value === 2) {
 			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
 		} else {
-			return { tag: "At", _0: new Pair(at(1), BigInt.asIntN(64, BigInt((at(2) << 24) >> 24) << 40n)) };
+			return { tag: "At", _0: new Pair(at(1), rt.i64.shl(rt.i64.cast((at(2) << 24) >> 24), 40)) };
 		}
 	},
 

@@ -140,8 +140,9 @@ fn typecheck(out: &Path) {
 }
 
 /// Run the harness natively, as wasm32, and translated, on the same inputs: the
-/// translated side through `entry`, a module in `out`.
-fn differential(package: &str, out: &Path, entry: &str, cases: u32) {
+/// translated side through `entry`, a module in `out`. `extra` are `differential.ts`'s
+/// arguments after the case count.
+fn differential(package: &str, out: &Path, entry: &str, cases: u32, extra: &[&str]) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
 		.args([
@@ -169,6 +170,7 @@ fn differential(package: &str, out: &Path, entry: &str, cases: u32) {
 		.arg(&wasm)
 		.arg(out.join(entry))
 		.arg(cases.to_string())
+		.args(extra)
 		.output()
 		.expect("running node, which the dev shell provides");
 	let stdout = String::from_utf8_lossy(&output.stdout);
@@ -185,7 +187,7 @@ fn codec() {
 	let out = translated("codec");
 	snapshot("codec", &out);
 	typecheck(&out);
-	differential("codec-fixture", &out, "harness.ts", 20_000);
+	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
 }
 
 #[test]
@@ -195,7 +197,7 @@ fn lang() {
 	// A hand-written caller, type-checked against the output it calls.
 	std::fs::copy(manifest_dir().join("fixtures/lang/caller.ts"), out.join("caller.ts")).unwrap();
 	typecheck(&out);
-	differential("lang-fixture", &out, "caller.ts", 50_000);
+	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.

@@ -804,10 +804,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
-			ty::Int(_) | ty::Uint(_) => match num::Int::of(ty).is_some_and(|int| int.big()) {
-				true => Type::Builtin("bigint"),
-				false => Type::Builtin("number"),
-			},
+			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),
 			ty::Tuple(tys) if tys.is_empty() => Type::Builtin("undefined"),
@@ -1112,8 +1109,6 @@ pub fn escape(name: &str) -> String {
 		"rt",
 		// Globals the output calls.
 		"Array",
-		"BigInt",
-		"Number",
 		"Object",
 		"Uint8Array",
 	];
