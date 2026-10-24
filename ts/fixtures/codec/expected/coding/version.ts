@@ -104,7 +104,7 @@ export class Versions {
 		const count = varint.value;
 		let vs: Version[] = [];
 		const end = count;
-		for (const _ of rt.u64.range(0, end, false)) {
+		for (const _ of new rt.Range(0, end, rt.u64)) {
 			const decode = Version.decode(r, version);
 			if (!decode.ok) {
 				return rt.Err(decode.error);

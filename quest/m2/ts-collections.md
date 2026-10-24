@@ -16,11 +16,12 @@ by the translated `Ord`, and `VecDeque` a ring buffer.
 
 - `HashMap` iteration order is unspecified in Rust, so insertion order is a
   valid refinement; differential tests must not compare it.
-- A 64- or 128-bit integer is an object of 32-bit limbs
-  ([representation](/ts/README.md#design)), so it is not a primitive key.
+- A 64- or 128-bit integer is a number while it is a safe integer, and an object
+  of 32-bit limbs past that ([representation](/ts/README.md#design)), so it is a
+  primitive key only while it is a number.
+- Each collection's iterators (`iter`, `values`, `range`, `drain`) are `rt.Iter`s,
+  as `rt/iter.ts` makes std's, so the adaptors over them already translate. moq-net's
+  `BTreeMap::range` takes `RangeFrom` and `RangeTo`, which are not values yet.
 
 Public API: the translator's output for collections.
 
-## Required
-
-- [Iterators in the TypeScript translator](/quest/m2/ts-iter.md) - collections iterate through the same protocol

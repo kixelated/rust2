@@ -36,8 +36,8 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
-pub fn iterators(v: &[u8]) -> usize {
-	v.iter().filter(|b| **b > 1).count()
+pub fn iterators(v: &[u8]) -> bool {
+	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
 }
 
 pub struct Guard;
@@ -108,4 +108,99 @@ pub struct Meters(pub u64);
 pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f64
+}
+
+/// An adaptor without a mapping.
+pub fn cycled(v: &[u8]) -> usize {
+	v.iter().cycle().take(3).count()
+}
+
+/// An iterator whose `fold` std's adaptors would call in place of its `next`.
+pub struct Folds;
+
+impl Iterator for Folds {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn fold<B, F: FnMut(B, u8) -> B>(self, init: B, _f: F) -> B {
+		init
+	}
+}
+
+pub fn folds() -> usize {
+	Folds.map(|b| b + 1).count()
+}
+
+/// An iterator with a `next_back`, which an adaptor over it would need.
+pub struct Backs;
+
+impl Iterator for Backs {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl DoubleEndedIterator for Backs {
+	fn next_back(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+pub fn backs() -> usize {
+	Backs.rev().count()
+}
+
+/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
+/// through `next`, which calls the first side's closure once more.
+pub fn zipped(a: &[u8], b: &[u8]) -> usize {
+	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
+}
+
+/// JS compares objects by identity, not by `PartialOrd`.
+#[derive(PartialEq, PartialOrd)]
+pub struct Key(pub u8);
+
+pub fn keyed(range: std::ops::Range<Key>) -> bool {
+	range.contains(&Key(2))
+}
+
+/// An iterator whose `size_hint` std's `collect` calls beside its `next`.
+pub struct Hinted;
+
+impl Iterator for Hinted {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		(0, Some(0))
+	}
+}
+
+pub fn hinted() -> Vec<u8> {
+	Hinted.collect()
+}
+
+/// An iterator that `fuse` reads on past its end, since it says it stays ended.
+pub struct Fused;
+
+impl Iterator for Fused {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		None
+	}
+}
+
+impl std::iter::FusedIterator for Fused {}
+
+pub fn fused() -> usize {
+	Fused.fuse().count()
 }

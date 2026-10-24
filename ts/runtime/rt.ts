@@ -4,6 +4,8 @@
 // 32-bit limbs. Arithmetic is checked as a debug build checks it: overflow panics, it
 // never wraps silently. Every panic's message is the one native Rust panics with.
 
+export * from "./rt/iter.ts";
+
 /** A Rust panic. */
 export class Panic extends Error {
 	override name = "Panic";
@@ -60,7 +62,7 @@ export type U128 = number | U128Limbs;
 export type I128 = number | I128Limbs;
 
 /** The checks and methods of one integer type. */
-export interface Int<T extends number | Limbs> {
+export interface Int<T> {
 	readonly MIN: T;
 	readonly MAX: T;
 	readonly BITS: number;
@@ -110,8 +112,6 @@ export interface WideInt<T extends number | Limbs> extends Int<T> {
 	and(a: T, b: T): T;
 	or(a: T, b: T): T;
 	xor(a: T, b: T): T;
-	/** `start..end`, or `start..=end`. */
-	range(start: T, end: T, inclusive: boolean): Iterable<T>;
 }
 
 const TWO32 = 4294967296;
@@ -232,8 +232,7 @@ function wide<T extends Limbs>(bits: number, signed: boolean, box: (v: bigint) =
 		return n;
 	};
 	const lt = (a: T, b: T) => compare(a, b) < 0;
-	const one = box(1n);
-	const int: WideInt<T> = {
+	return {
 		MIN: box(min),
 		MAX: box(max),
 		BITS: bits,
@@ -312,15 +311,7 @@ function wide<T extends Limbs>(bits: number, signed: boolean, box: (v: bigint) =
 		and: (a, b) => box(big(a) & big(b)),
 		or: (a, b) => box(big(a) | big(b)),
 		xor: (a, b) => box(big(a) ^ big(b)),
-		*range(start, end, inclusive) {
-			for (let i = start; inclusive ? !lt(end, i) : lt(i, end); i = int.add(i, one)) {
-				yield i;
-				// Stepping past `end` could overflow at the type's maximum.
-				if (compare(i, end) === 0) return;
-			}
-		},
 	};
-	return int;
 }
 
 /**
@@ -584,9 +575,6 @@ function dual<T extends Limbs>(limbs: WideInt<T>, signed: boolean): WideInt<numb
 		ge: (a, b) => !lt(a, b),
 		max: (a, b) => (lt(b, a) ? a : b),
 		min: (a, b) => (lt(b, a) ? b : a),
-		*range(start, end, inclusive) {
-			for (const i of limbs.range(big(start), big(end), inclusive)) yield one(i);
-		},
 	};
 }
 
@@ -604,6 +592,12 @@ export const u64: WideInt<U64> = dual(wide64<U64Limbs>(false), false);
 export const i64: WideInt<I64> = dual(wide64<I64Limbs>(true), true);
 export const u128: WideInt<U128> = dual(wide128<U128Limbs>(false), false);
 export const i128: WideInt<I128> = dual(wide128<I128Limbs>(true), true);
+
+/** `a < b` of two integers of one type: numbers, or a wide type's limbs. */
+export function lt(a: number | Limbs, b: number | Limbs): boolean {
+	if (typeof a === "number" && typeof b === "number") return a < b;
+	return (typeof a === "number" ? BigInt(a) : exact(a)) < (typeof b === "number" ? BigInt(b) : exact(b));
+}
 
 /** The larger of two integers. */
 export function max(a: number, b: number): number {

@@ -12,6 +12,8 @@ import { Version as Lite } from "moq/js/net/src/lite/version.ts";
 import { Cursor, Reader, Writer } from "moq/js/net/src/stream.ts";
 import * as Varint from "moq/js/net/src/varint.ts";
 
+import { iterate } from "./iter.ts";
+
 type Version = (typeof Lite)[keyof typeof Lite];
 
 // bench.rs reads a selector through the harness's `form` and `lite_version`; these are the
@@ -41,6 +43,8 @@ export function run(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
 			return encodeGroup(data, lite(selector));
 		case 5:
 			return decodeGroup(data, lite(selector));
+		case 6:
+			return iterate(selector, data);
 		default:
 			throw new Error(`unknown workload ${op}`);
 	}

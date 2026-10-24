@@ -42,8 +42,12 @@ pub fn function<'a, 'tcx>(
 		breakables: Vec::new(),
 		ret: sig.output(),
 		visited: FxHashSet::default(),
+		done: super::iter::is_next(tcx, def_id),
 	};
 	let span = tcx.def_span(def_id);
+	if b.done {
+		super::iter::check_impl(b.t, def_id);
+	}
 	let mut body = Vec::new();
 	let mut params = Vec::new();
 	for (i, param) in thir.params.iter().enumerate() {
@@ -64,12 +68,26 @@ pub fn function<'a, 'tcx>(
 						mutable: false,
 					},
 				);
-				if !method {
-					let ty = b.t.ty(ty, pat.span);
-					params.push(Param {
-						name: name.to_string(),
-						ty: Some(ty),
-					});
+				match method {
+					// A generic class's method is one instance's, so `this` is that
+					// instance's type, under which its fields have their types.
+					true => {
+						let self_ty = b.t.self_ty(instance).expect("a method has a self type").peel_refs();
+						let ty = b.t.ty(self_ty, pat.span);
+						if matches!(&ty, Type::Sym(_, args) if !args.is_empty()) {
+							params.push(Param {
+								name: name.to_string(),
+								ty: Some(ty),
+							});
+						}
+					}
+					false => {
+						let ty = b.t.ty(ty, pat.span);
+						params.push(Param {
+							name: name.to_string(),
+							ty: Some(ty),
+						});
+					}
 				}
 			}
 			(Some(pat), false) => {
@@ -90,7 +108,10 @@ pub fn function<'a, 'tcx>(
 		false => Dest::Return,
 	};
 	b.stmt(expr, dest, &mut body);
-	let ret = b.t.ret_ty(ret, span);
+	let ret = match (b.done, ret.kind()) {
+		(true, ty::Adt(_, args)) => Type::Union(vec![b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
+		_ => b.t.ret_ty(ret, span),
+	};
 	Some(ts::Function {
 		sym: 0,
 		method,
@@ -147,6 +168,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	/// Expressions lowered so far, by THIR and id, so a refused call lowers only the
 	/// arguments its mapping did not.
 	visited: FxHashSet<(*const Thir<'tcx>, ExprId)>,
+	/// Whether this is an `Iterator::next`, which returns an item or `rt.DONE` rather
+	/// than an `Option`: its closures are not.
+	done: bool,
 }
 
 /// One `&&`-joined part of an `if` condition.
@@ -311,6 +335,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					self.push(out, StmtKind::Expr(value), span);
 				}
 			}
+			Dest::Return if self.done => {
+				if let ty::Adt(_, args) = self.ret.kind() {
+					super::iter::option_ok(self, args.type_at(0), span);
+				}
+				let value = Expr::Rt("iter").member("fromOption").call(vec![value]);
+				self.push(out, StmtKind::Return(Some(value)), span);
+			}
 			Dest::Return => self.push(out, StmtKind::Return(Some(value.typed())), span),
 			Dest::Assign(name) => self.push(out, StmtKind::Expr(Expr::ident(name).assign(value.typed())), span),
 		}
@@ -375,10 +406,50 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::Assign { lhs, rhs } => self.assign(*lhs, *rhs, span, out),
 			ExprKind::AssignOp { op, lhs, rhs } => self.assign_op(*op, *lhs, *rhs, span, out),
 			_ => {
+				if self.done
+					&& let Dest::Return = dest
+					&& let Some(value) = self.done_value(id, out)
+				{
+					self.push(out, StmtKind::Return(Some(value)), span);
+					return;
+				}
 				let value = self.expr(id, out);
 				self.deliver(value, &dest, span, out);
 			}
 		}
+	}
+
+	/// What an `Iterator::next` returns for `id` without an `Option` between: `rt.DONE`
+	/// for `None`, the item for `Some(item)`, and another iterator's `next` as is.
+	fn done_value(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+		match &self.thir[id].kind {
+			ExprKind::Adt(adt) if library::Std::of(self.t.tcx, adt.adt_def.did()) == Some(library::Std::Option) => {
+				self.visit(id);
+				Some(match adt.fields.first() {
+					None => Expr::Rt("DONE"),
+					Some(field) => self.operand(field.expr, out).typed(),
+				})
+			}
+			_ => self.raw_next(id, out),
+		}
+	}
+
+	/// `id` lowered by the iterator protocol if it is a call to `Iterator::next`: an item
+	/// or `rt.DONE`, rather than an `Option`.
+	fn raw_next(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let ExprKind::Call { ty, args, .. } = &self.thir[self.strip(id)].kind else {
+			return None;
+		};
+		let ty::FnDef(def_id, _) = *self.subst(*ty).kind() else {
+			return None;
+		};
+		if !super::iter::is_next(self.t.tcx, def_id) {
+			return None;
+		}
+		self.visit(id);
+		let recv_ty = self.ty_of(args[0]);
+		let recv = self.operand(args[0], out);
+		Some(super::iter::next(self, recv_ty, recv))
 	}
 
 	fn block(&mut self, id: BlockId, dest: Dest, out: &mut Vec<Stmt>) {
@@ -1144,7 +1215,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		};
 		let inner = args[0];
 		let inner_ty = self.ty_of(inner);
-		let value = self.operand(inner, out);
+		// `it.next()?` tests for the end itself, so its item may be an `Option`.
+		let raw = self.raw_next(inner, out);
+		let none = match raw {
+			Some(_) => Expr::Rt("DONE"),
+			None => Expr::undefined(),
+		};
+		let value = match raw {
+			Some(value) => value,
+			None => self.operand(inner, out),
+		};
 		let name = match value {
 			Expr::Ident(ref name) => name.clone(),
 			value => {
@@ -1169,8 +1249,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.push(
 					out,
 					StmtKind::If {
-						cond: t.clone().binary("===", Expr::undefined()),
-						then: vec![StmtKind::Return(Some(Expr::undefined())).at(None)],
+						cond: t.clone().binary("===", none),
+						then: vec![
+							StmtKind::Return(Some(match self.done {
+								true => Expr::Rt("DONE"),
+								false => Expr::undefined(),
+							}))
+							.at(None),
+						],
 						els: Vec::new(),
 					},
 					span,
@@ -1335,6 +1421,24 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				iter,
 				body: stmts,
 			},
+			// `while (true) { const x = iter.next(); if (x === rt.DONE) break; ... }`
+			Iterable::Next(next) => {
+				let mut body = vec![
+					StmtKind::decl(false, name.clone(), None, Some(next)).at(None),
+					StmtKind::If {
+						cond: Expr::ident(&name).binary("===", Expr::Rt("DONE")),
+						then: vec![StmtKind::Break(None).at(None)],
+						els: Vec::new(),
+					}
+					.at(None),
+				];
+				body.extend(stmts);
+				StmtKind::While {
+					label,
+					cond: Expr::lit("true"),
+					body,
+				}
+			}
 		};
 		self.push(out, kind, span);
 	}
@@ -1391,34 +1495,50 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			// An array by value iterates its elements, already copied.
 			ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
-			ty::Ref(_, inner, _) => match inner.kind() {
-				ty::Slice(_) | ty::Array(..) => Some(Iterable::Of(self.operand(id, out))),
-				ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::Vec) => {
-					let v = self.operand(id, out);
-					Some(Iterable::Of(library::vec_view(v, *inner)))
-				}
-				_ => {
-					self.t.err(span, format!("a `for` loop over `{ty}`"));
-					None
-				}
-			},
-			ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::Vec) => {
+			ty::Ref(_, inner, _) if matches!(inner.kind(), ty::Slice(_) | ty::Array(..)) => {
+				Some(Iterable::Of(self.operand(id, out)))
+			}
+			ty::Ref(_, inner, _) if self.is_vec(*inner) => {
+				let v = self.operand(id, out);
+				Some(Iterable::Of(library::vec_view(v, *inner)))
+			}
+			ty::Adt(..) if self.is_vec(ty) => {
 				let v = self.operand(id, out);
 				Some(Iterable::Of(library::vec_view(v, ty)))
 			}
-			ty::Adt(adt, _) if library::is_slice_iter(tcx, adt.did()) => {
-				// `slice.iter()`: iterate the slice itself.
-				let ExprKind::Call { args: call_args, .. } = &self.thir[self.strip(id)].kind else {
-					self.t.err(span, format!("a `for` loop over `{ty}`"));
-					return None;
-				};
-				Some(Iterable::Of(self.operand(call_args[0], out)))
+			// `slice.iter()` iterates as the slice itself does.
+			_ if let Some(slice) = library::iterated_slice(self, id) => {
+				self.visit(id);
+				Some(Iterable::Of(self.operand(slice, out)))
 			}
+			// Any other iterator, by the protocol.
 			_ => {
-				self.t.err(span, format!("a `for` loop over `{ty}`"));
-				None
+				let value = self.operand(id, out);
+				let iterator = self.t.iter_item(ty).is_some();
+				let value = match iterator {
+					true => value,
+					false => match super::iter::into_iter(self, ty, value, span) {
+						Some(value) => value,
+						None => {
+							self.t.err(span, format!("a `for` loop over `{ty}`"));
+							return None;
+						}
+					},
+				};
+				let iter = match value.is_path() {
+					true => value,
+					false => self.spill(value, "iter", out),
+				};
+				Some(Iterable::Next(match iterator {
+					true => super::iter::next(self, ty, iter),
+					false => iter.member("next").call(Vec::new()),
+				}))
 			}
 		}
+	}
+
+	fn is_vec(&self, ty: Ty<'tcx>) -> bool {
+		matches!(ty.kind(), ty::Adt(adt, _) if library::Std::of(self.t.tcx, adt.did()) == Some(library::Std::Vec))
 	}
 
 	pub fn spill(&mut self, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
@@ -1980,6 +2100,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					_ => base.member("error"),
 				},
 				Some(library::Std::Box) => base,
+				Some(library::Std::Range) => base.member(adt.non_enum_variant().fields[field].name.as_str()),
 				None if adt.did().is_local() => {
 					let info = self.t.adt(*adt, span);
 					match info.repr {
@@ -2009,6 +2130,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(library::Std::Range, _) => {
+					let mut ordered: Vec<(usize, Expr)> =
+						adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
+					ordered.sort_by_key(|(i, _)| *i);
+					let mut args: Vec<Expr> = ordered.into_iter().map(|(_, v)| v).collect();
+					// A wide range steps past 2^53 through its type.
+					let ty::Adt(_, gargs) = ty.kind() else {
+						unreachable!("a range is a struct")
+					};
+					if let Some(int) = super::num::Int::of(gargs.type_at(0))
+						&& int.big()
+					{
+						args.push(Expr::Rt(int.rt()));
+					}
+					Expr::New(Box::new(Expr::Rt("Range")), args)
+				}
 				(library::Std::AssertKind, _) => match variant.name.as_str() {
 					"Eq" => Expr::Str("==".into()),
 					"Ne" => Expr::Str("!=".into()),
@@ -2048,7 +2185,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					ts::Ctor::Positional => {
 						let mut ordered: Vec<Option<Expr>> = vec![None; variant.fields.len()];
 						for (f, value) in adt.fields.iter().zip(values) {
-							ordered[f.name.index()] = Some(value.typed());
+							ordered[f.name.index()] = Some(field_arg(tcx, &variant.fields[f.name], value));
 						}
 						let args = ordered
 							.into_iter()
@@ -2073,7 +2210,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							.fields
 							.iter()
 							.zip(values)
-							.map(|(f, value)| (Key::Field(fields[f.name.index()]), value.typed()))
+							.map(|(f, value)| {
+								let value = field_arg(tcx, &variant.fields[f.name], value);
+								(Key::Field(fields[f.name.index()]), value)
+							})
 							.collect();
 						if let Some(base) = &base {
 							for (i, field) in variant.fields.iter().enumerate() {
@@ -2142,6 +2282,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 		};
 		let saved_ret = std::mem::replace(&mut self.ret, sig.output());
+		let saved_done = std::mem::replace(&mut self.done, false);
 		let mut body_stmts = Vec::new();
 		let mut params = Vec::new();
 		// The first parameter is the closure's environment.
@@ -2164,6 +2305,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		self.thir = saved_thir;
 		self.breakables = saved_breakables;
 		self.ret = saved_ret;
+		self.done = saved_done;
 		Expr::Arrow(params, ret_ty, body_stmts)
 	}
 
@@ -2242,7 +2384,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		{
 			let sym = self.t.instance(instance);
 			let values: Vec<Expr> = self.args(args, out).into_iter().map(Expr::typed).collect();
-			return match self.t.program.syms[sym].kind {
+			let call = match self.t.program.syms[sym].kind {
 				SymKind::Method { instance: true } => {
 					let mut values = values;
 					let recv = values.remove(0);
@@ -2250,6 +2392,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				}
 				_ => Expr::Sym(sym).call(values),
 			};
+			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
+			if super::iter::is_next(tcx, did) {
+				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
+				self.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
+				return Expr::Rt("iter").member("toOption").call(vec![call]);
+			}
+			return call;
 		}
 		let call = library::Call {
 			def_id,
@@ -2322,7 +2471,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		match info.repr {
 			AdtRepr::Class { .. } => Expr::New(
 				Box::new(Expr::Sym(info.sym)),
-				values.into_iter().map(Expr::typed).collect(),
+				(adt.variant(variant).fields.iter().zip(values))
+					.map(|(field, value)| field_arg(tcx, field, value))
+					.collect(),
 			),
 			AdtRepr::Tags => {
 				let ts_ty = self.t.ty(ty, span);
@@ -2405,21 +2556,34 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 }
 
-/// A range of `ty` as a `for` loop iterates it: counting in a number, or through the
-/// runtime for a wide integer, which is an object.
+/// A range of `ty` as a `for` loop iterates it: counting in a number, or as the runtime's
+/// range of a wide integer, which steps past 2^53 into limbs.
 fn range_of(ty: Ty<'_>, start: Expr, end: Expr, inclusive: bool) -> Iterable {
 	let ty::Adt(_, args) = ty.kind() else {
 		unreachable!("a range is a struct")
 	};
 	match super::num::Int::of(args.type_at(0)) {
-		Some(int) if int.big() => Iterable::Of(int.method("range", vec![start, end, Expr::lit(inclusive.to_string())])),
+		Some(int) if int.big() => {
+			let class = if inclusive { "RangeInclusive" } else { "Range" };
+			Iterable::Of(Expr::New(
+				Box::new(Expr::Rt(class)),
+				vec![start, end, Expr::Rt(int.rt())],
+			))
+		}
 		_ => Iterable::Range { start, end, inclusive },
 	}
 }
 
 enum Iterable {
-	Range { start: Expr, end: Expr, inclusive: bool },
+	Range {
+		start: Expr,
+		end: Expr,
+		inclusive: bool,
+	},
+	/// A JS array or `Uint8Array`, which `for ... of` iterates.
 	Of(Expr),
+	/// An iterator, by its `next`: an item or `rt.DONE`.
+	Next(Expr),
 }
 
 /// The variables `thir` reads, those its closures capture included.
@@ -2475,4 +2639,19 @@ fn bindings(pat: &Pat<'_>) -> usize {
 fn kind_name(kind: &ExprKind<'_>) -> String {
 	let debug = format!("{kind:?}");
 	debug.split([' ', '(', '{']).next().unwrap_or("?").to_string()
+}
+
+/// A field's value as a class's constructor takes it: without an outer `as` where the
+/// field's type gives the value its type, but not where TypeScript infers a class
+/// parameter from it, which would widen a literal.
+fn field_arg<'tcx>(tcx: ty::TyCtxt<'tcx>, field: &ty::FieldDef, value: Expr) -> Expr {
+	match tcx
+		.type_of(field.did)
+		.instantiate_identity()
+		.skip_norm_wip()
+		.has_param()
+	{
+		true => value,
+		false => value.typed(),
+	}
 }
