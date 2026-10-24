@@ -1,25 +1,28 @@
 # Census of `reject-fixture`
 
-- Refusals: 39
-- Function instances: 19
-- Generic functions no instance reached, lowered over their type parameters: 1
+- Refusals: 44
+- Function instances: 33
+- Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 5 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
+| 4 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 3 | a `_` binding: a JS value of `_` is a copy, so it can't change | fixtures/reject/src/lib.rs:19:13 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:99:17 |
+| 2 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
+| 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:148:1 |
+| 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:128:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:63:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:65:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:64:3 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:3 |
 | 1 | `_` implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:43:1 |
 | 1 | `_` is async, which is not supported yet | fixtures/reject/src/lib.rs:53:1 |
-| 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
+| 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:161:51 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:110:2 |
 | 1 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:80:18 |
@@ -45,14 +48,18 @@ The type or module each refused type or path belongs to.
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
 | 3 | `Meters` | fixtures/reject/src/lib.rs:99:17 |
 | 3 | `u32` | fixtures/reject/src/lib.rs:19:13 |
+| 2 | `Iterator` | fixtures/reject/src/lib.rs:128:2 |
+| 2 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
-| 2 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
+| 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
+| 1 | `FusedIterator` | fixtures/reject/src/lib.rs:202:1 |
 | 1 | `Guard` | fixtures/reject/src/lib.rs:43:1 |
-| 1 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `later` | fixtures/reject/src/lib.rs:53:1 |
-| 1 | `std::iter::Filter` | fixtures/reject/src/lib.rs:40:31 |
-| 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:40:11 |
+| 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:161:51 |
+| 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:169:8 |
+| 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:115:11 |
+| 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 
 ## By type or path
 
@@ -60,37 +67,31 @@ The type or module each refused type or path belongs to.
 | ---: | --- | --- | --- |
 | 3 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:99:17 |
 | 3 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
+| 2 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 2 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 1 | `_` implements `Drop`, which is not supported yet | `Guard` | fixtures/reject/src/lib.rs:43:1 |
 | 1 | `_` is async, which is not supported yet | `later` | fixtures/reject/src/lib.rs:53:1 |
-| 1 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 1 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:73:16 |
+| 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:161:51 |
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:110:2 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:75:17 |
+| 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:148:1 |
+| 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:202:1 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
-| 1 | unsupported call to `_` | `<std::iter::Filter as std::iter::Iterator>::count` | fixtures/reject/src/lib.rs:40:31 |
-| 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::filter` | fixtures/reject/src/lib.rs:40:11 |
+| 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:128:2 |
+| 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:182:2 |
+| 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:115:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:75:10 |
-| 1 | unsupported call to `_` | `std::slice::iter` | fixtures/reject/src/lib.rs:40:4 |
+| 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:169:8 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | unsupported literal of type `_` | `f64` | fixtures/reject/src/lib.rs:7:6 |
 | 1 | unsupported type `_` | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 
 ## Spans
-
-<details><summary>unsupported call to `_` (5)</summary>
-
-- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
-- fixtures/reject/src/lib.rs:40:4: unsupported call to `core::slice::<impl [u8]>::iter`
-- fixtures/reject/src/lib.rs:40:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@fixtures/reject/src/lib.rs:40:18: 40:21}>`
-- fixtures/reject/src/lib.rs:40:31: unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count`
-- fixtures/reject/src/lib.rs:75:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
-
-</details>
 
 <details><summary>unsupported type `_` (5)</summary>
 
@@ -99,6 +100,15 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:10:18: unsupported type `char`
 - fixtures/reject/src/lib.rs:14:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:108:1: unsupported type `f64`
+
+</details>
+
+<details><summary>unsupported call to `_` (4)</summary>
+
+- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
+- fixtures/reject/src/lib.rs:75:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
+- fixtures/reject/src/lib.rs:115:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
+- fixtures/reject/src/lib.rs:169:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 
 </details>
 
@@ -118,10 +128,31 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (2)</summary>
+
+- fixtures/reject/src/lib.rs:31:15: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:40:42: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+
+</details>
+
 <details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (2)</summary>
 
 - fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:73:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
+
+</details>
+
+<details><summary>an iterator of the crate implementing `_`, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:148:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
+- fixtures/reject/src/lib.rs:202:1: an iterator of the crate implementing `FusedIterator`, which is not supported yet
+
+</details>
+
+<details><summary>overriding `_`, which std's adaptors call in place of `next` or beside it (2)</summary>
+
+- fixtures/reject/src/lib.rs:128:2: overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it
+- fixtures/reject/src/lib.rs:182:2: overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it
 
 </details>
 
@@ -161,9 +192,9 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (1)</summary>
+<details><summary>a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` (1)</summary>
 
-- fixtures/reject/src/lib.rs:31:15: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:161:51: a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:161:15: 161:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold`
 
 </details>
 
