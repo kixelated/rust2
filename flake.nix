@@ -41,9 +41,35 @@
             overlays = [ (import rust-overlay) ];
           };
           toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+          # The TypeScript driver's own nightly, kept off PATH so the other projects keep
+          # the repo toolchain. ts/justfile puts it first for its recipes.
+          tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+          # The driver links its nightly's rustc libraries, and runs cargo from it too.
+          rust2-ts =
+            (pkgs.makeRustPlatform {
+              cargo = tsToolchain;
+              rustc = tsToolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-ts";
+                version = "0.0.0";
+                src = ./ts;
+                cargoLock.lockFile = ./ts/Cargo.lock;
+                cargoBuildFlags = [
+                  "--package"
+                  "rust2-ts"
+                ];
+                RUSTFLAGS = "-C link-args=-Wl,-rpath,${tsToolchain}/lib";
+                nativeBuildInputs = [ pkgs.makeWrapper ];
+                postInstall = ''
+                  wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo
+                '';
+                # The tests need node, tsc, and wasm builds: `just ts test` runs them.
+                doCheck = false;
+              };
 
-          # Every generator binary of the UniFFI fork, built once from the workspace lockfile.
+          # Every generator binary of the UniFFI fork, built once from its lockfile.
           uniffi =
             (pkgs.makeRustPlatform {
               cargo = toolchain;
@@ -52,15 +78,8 @@
               {
                 pname = "rust2-uniffi";
                 version = (builtins.fromTOML (builtins.readFile ./uniffi/uniffi/Cargo.toml)).package.version;
-                src = pkgs.lib.fileset.toSource {
-                  root = ./.;
-                  fileset = pkgs.lib.fileset.unions [
-                    ./Cargo.toml
-                    ./Cargo.lock
-                    ./uniffi
-                  ];
-                };
-                cargoLock.lockFile = ./Cargo.lock;
+                src = ./uniffi;
+                cargoLock.lockFile = ./uniffi/Cargo.lock;
                 cargoBuildFlags = [
                   "--package=rust2-uniffi"
                   "--package=uniffi-bindgen-go"
@@ -101,6 +120,9 @@
             shfmt
             taplo
             nixfmt
+            # The TypeScript driver's tests run and type-check its output.
+            nodejs
+            typescript
           ];
 
           # Kotlin's generated async code needs coroutines on the classpath; nixpkgs has no jar.
@@ -112,8 +134,8 @@
         {
           packages = {
             quest = quest-cli;
+            ts = rust2-ts;
             inherit uniffi;
-            default = uniffi;
             uniffi-bindgen = generator "uniffi-bindgen" [
               "uniffi-bindgen"
               "uniffi-bindgen-swift"
@@ -124,6 +146,7 @@
           };
           devShells.default = pkgs.mkShell {
             packages = devPackages;
+            RUST2_TS_TOOLCHAIN = tsToolchain;
           };
           # Every foreign toolchain the UniFFI fixture suite runs, kept out of the default shell.
           devShells.uniffi = pkgs.mkShell {
@@ -137,6 +160,7 @@
                 dart
                 cmake
               ]);
+            RUST2_TS_TOOLCHAIN = tsToolchain;
             CLASSPATH = "${pkgs.jna}/share/java/jna.jar:${kotlinx-coroutines}";
           };
           formatter = pkgs.nixfmt;

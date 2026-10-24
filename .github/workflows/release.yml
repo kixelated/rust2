@@ -16,9 +16,6 @@ on:
     # Only a crate change can bump a version.
     paths:
       - "uniffi/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - ".release-plz.toml"
       - ".github/workflows/release.yml"
   workflow_dispatch:
 
@@ -46,7 +43,7 @@ jobs:
       - uses: ./.github/actions/nix
 
       - name: Release
-        run: nix develop --command just release
+        run: nix develop --command just uniffi release
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

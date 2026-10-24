@@ -8,15 +8,36 @@ permissions:
   contents: read
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "17 6 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: nightly-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  moq:
+    name: Translate moq-net
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      # moq-net's codec at the pinned moq revision, translated and type-checked.
+      - name: Translate
+        run: nix develop --command just ts moq
+
+      # The package moq consumes as a flake input.
+      - name: Build
+        run: nix build .#ts
+
   uniffi-fixtures:
     name: UniFFI fixtures
     runs-on: ubuntu-24.04-arm
@@ -52,5 +73,5 @@ jobs:
         run: nix develop --command just uniffi install
 
       # The flake packages moq pins.
-      - name: Nix build
+      - name: Build
         run: nix build .#uniffi

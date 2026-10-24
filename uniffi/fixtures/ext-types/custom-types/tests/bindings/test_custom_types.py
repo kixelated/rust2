@@ -12,7 +12,7 @@ class TestCallback(GuidCallback):
 
 def get_value_arg_issue(value):
     return f"""Failed to convert arg 'value':
-Lifting custom type `ext_types_custom::Guid` from FFI type `alloc::string::String` failed at uniffi/fixtures/ext-types/custom-types/src/lib.rs:101
+Lifting custom type `ext_types_custom::Guid` from FFI type `alloc::string::String` failed at fixtures/ext-types/custom-types/src/lib.rs:101
 
 Caused by:
     {value}"""

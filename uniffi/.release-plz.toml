@@ -15,7 +15,6 @@ version_group = "uniffi"
 git_tag_enable = true
 git_tag_name = "uniffi-v{{ version }}"
 changelog_update = true
-changelog_path = "uniffi/CHANGELOG.md"
 changelog_include = [
     "rust2-uniffi-bindgen",
     "rust2-uniffi-build",

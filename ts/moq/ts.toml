@@ -1,0 +1,11 @@
+package = "moq-net"
+roots = [
+    "coding::Decoder",
+    "coding::Encoder",
+    "coding::varint::size",
+    "coding::varint::zigzag",
+    "coding::varint::unzigzag",
+    "lite::Group",
+    "lite::Probe",
+]
+ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]

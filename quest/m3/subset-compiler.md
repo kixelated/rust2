@@ -11,7 +11,7 @@ matters most (likely incremental debug rebuilds).
 
 Decided with the maintainer on 2026-10-23: plan it now, blocked on the
 benchmark, and rescope it from the report before starting. It may share a
-frontend with [the TypeScript translator](/quest/m2/ts.md).
+frontend with [the TypeScript translator](/ts/README.md).
 
 Research (2026-10-23): no "tcc for Rust" exists; mrustc is a bootstrap tool and
 gccrs cannot compile `core`. Upstream is attacking the same costs for every

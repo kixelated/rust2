@@ -1,5 +1,5 @@
 // Unfortunately, path is relative to a temporary build directory :-/
-uniffi_macros::generate_and_include_scaffolding!("../../../../uniffi/fixtures/trait-methods/src/trait_methods.udl");
+uniffi_macros::generate_and_include_scaffolding!("../../../../fixtures/trait-methods/src/trait_methods.udl");
 
 fn main() { /* empty main required by `trybuild` */}
 

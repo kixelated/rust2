@@ -27,8 +27,8 @@ enable_testing()
 
 find_package(Threads REQUIRED)
 
-# The fixtures build in the rust2 workspace, whose target directory is at its root.
-set(BINDINGS_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../target/debug CACHE PATH "Cargo output directory")
+# The fixtures build in the fork's workspace, one level up from the import.
+set(BINDINGS_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../target/debug CACHE PATH "Cargo output directory")
 set(BINDINGS_SRC_DIR ${BINDINGS_BUILD_DIR}/bindings)
 
 if (WIN32)

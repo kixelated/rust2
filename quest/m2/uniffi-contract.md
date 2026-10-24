@@ -20,12 +20,13 @@ anyway.
   Python, Go, Dart, C++, and C) must check it.
 - Prove it with a fixture: each generator's bindings refuse a cdylib built
   with upstream UniFFI.
-- moq's next fork change after its switch, such as payload bytes, is the
-  likely first consumer.
+- [Drop checksums](/quest/m2/ffi-checksums.md) is the first consumer: the
+  namespace is what refuses a mismatched library once the per-method
+  checksums are gone.
 
 Public API: the generated contract check, and the scaffolding's exported
 contract symbol.
 
 ## Related
 
-- [Namespaced external types](/quest/m2/uniffi-namespaces.md) - may be the first contract change
+- [Namespaced external types](/quest/m2/uniffi-namespaces.md) - may change the contract first

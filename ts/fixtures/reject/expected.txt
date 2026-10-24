@@ -1,0 +1,24 @@
+a root must not be generic at fixtures/reject/src/lib.rs:93:1
+no item `missing` in the crate
+unsupported type `f64` at fixtures/reject/src/lib.rs:6:14
+unsupported literal of type `f64` at fixtures/reject/src/lib.rs:7:6
+arithmetic on `f64` at fixtures/reject/src/lib.rs:7:2
+unsupported type `f64` at fixtures/reject/src/lib.rs:6:1
+unsupported type `char` at fixtures/reject/src/lib.rs:10:18
+a cast from `char` at fixtures/reject/src/lib.rs:11:2
+unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:14:16
+a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtures/reject/src/lib.rs:19:13
+`&mut u32`: a JS value of `u32` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:19:13
+a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtures/reject/src/lib.rs:25:6
+`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:15
+unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
+unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count` at fixtures/reject/src/lib.rs:40:31
+`Guard` implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:50:2
+`later` is async, which is not supported yet at fixtures/reject/src/lib.rs:53:1
+a panic message that formats values is not supported at fixtures/reject/src/lib.rs:59:3
+a closure that copies a mutable variable at fixtures/reject/src/lib.rs:65:18
+an or-pattern with bindings at fixtures/reject/src/lib.rs:72:3
+unsupported expression: StaticRef at fixtures/reject/src/lib.rs:79:2
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:84:17
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:84:20
+replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:88:25
