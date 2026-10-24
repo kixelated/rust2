@@ -58,6 +58,9 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>
 	for root in &config.roots {
 		t.root(root);
 	}
+	for path in &config.printable {
+		t.printable(path);
+	}
 	t.drain();
 	if t.failed {
 		return None;
@@ -79,7 +82,10 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -
 		tcx.hir_body_owners()
 			.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
 	};
-	// A derived impl comes along only when called, as in translation.
+	// A derived impl comes along only when called or printable, as in translation.
+	for path in &config.printable {
+		t.printable(path);
+	}
 	let roots: Vec<DefId> = functions(tcx)
 		.map(LocalDefId::to_def_id)
 		.filter(|&def_id| {
@@ -269,10 +275,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	fn root(&mut self, path: &str) {
-		let span = rustc_span::DUMMY_SP;
-		let Some(def_id) = self.resolve_path(path) else {
-			self.tcx.dcx().err(format!("rust2-ts: no item `{path}` in the crate"));
-			self.failed = true;
+		let Some(def_id) = self.config_item(path) else {
 			return;
 		};
 		match self.tcx.def_kind(def_id) {
@@ -285,15 +288,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.instance(instance);
 			}
 			DefKind::Struct | DefKind::Enum => {
-				let adt = self.tcx.adt_def(def_id);
-				if self.tcx.generics_of(def_id).requires_monomorphization(self.tcx) {
-					self.err(self.tcx.def_span(def_id), "a root type must not be generic");
+				if !self.config_type(def_id) {
 					return;
 				}
-				self.adt(adt, span);
 				let self_ty = self.tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
 				// Its inherent methods, and its impls of the crate's own traits: another
-				// crate's trait, such as a derived `Debug`, comes along only when called.
+				// crate's trait, such as a derived `Debug`, comes along only when called or
+				// printable.
 				let mut impls: Vec<DefId> = self.tcx.inherent_impls(def_id).to_vec();
 				for (trait_id, locals) in self.tcx.all_local_trait_impls(()) {
 					if !trait_id.is_local() {
@@ -327,6 +328,73 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				format!("a root must be a function or a type, not {kind:?}"),
 			),
 		}
+	}
+
+	/// A type whose `Display` and `Debug` impls come along, whichever it has, so callers
+	/// can print it.
+	fn printable(&mut self, path: &str) {
+		let tcx = self.tcx;
+		let Some(def_id) = self.config_item(path) else {
+			return;
+		};
+		let kind = tcx.def_kind(def_id);
+		if !matches!(kind, DefKind::Struct | DefKind::Enum) {
+			self.err(
+				tcx.def_span(def_id),
+				format!("a printable item must be a type, not {kind:?}"),
+			);
+			return;
+		}
+		if !self.config_type(def_id) {
+			return;
+		}
+		let args = ty::GenericArgs::for_item(tcx, def_id, |_, _| tcx.lifetimes.re_erased.into());
+		let self_ty = Ty::new_adt(tcx, tcx.adt_def(def_id), args);
+		let mut found = false;
+		for name in [rustc_span::sym::Display, rustc_span::sym::Debug] {
+			let Some(fmt) = tcx.get_diagnostic_item(name).and_then(|trait_id| {
+				tcx.associated_items(trait_id)
+					.in_definition_order()
+					.find(|item| item.is_fn())
+			}) else {
+				continue;
+			};
+			if let Ok(Some(instance)) =
+				Instance::try_resolve(tcx, self.typing_env(), fmt.def_id, tcx.mk_args(&[self_ty.into()]))
+			{
+				self.instance(instance);
+				found = true;
+			}
+		}
+		if !found {
+			self.err(
+				tcx.def_span(def_id),
+				"a printable type must implement `Display` or `Debug`",
+			);
+		}
+	}
+
+	/// The item a config path names, or `None` after reporting that it names none.
+	fn config_item(&mut self, path: &str) -> Option<DefId> {
+		let def_id = self.resolve_path(path);
+		if def_id.is_none() {
+			self.tcx.dcx().err(format!("rust2-ts: no item `{path}` in the crate"));
+			self.failed = true;
+		}
+		def_id
+	}
+
+	/// Translate a type the config names, which must not be generic.
+	fn config_type(&mut self, def_id: DefId) -> bool {
+		if self.tcx.generics_of(def_id).requires_monomorphization(self.tcx) {
+			self.err(
+				self.tcx.def_span(def_id),
+				"a root or printable type must not be generic",
+			);
+			return false;
+		}
+		self.adt(self.tcx.adt_def(def_id), rustc_span::DUMMY_SP);
+		true
 	}
 
 	/// The methods of blanket impls of the crate's traits that hold for `self_ty`, such

@@ -95,7 +95,7 @@ done
 work=/var/tmp/rust2-bench-$(id -un)
 results=$root/target/bench/results
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
-# Runs append their samples, so an earlier run's would mix into this one's means.
+# Runs append their samples, so an earlier run's would mix into this one's numbers.
 [[ -z $(find "$out" -mindepth 1 -print -quit 2>/dev/null) ]] || die "$out is not empty; pass a new --out"
 mkdir -p "$work" "$out"
 out=$(cd "$out" && pwd)
@@ -201,19 +201,21 @@ time_once() { # corpus dir scenario variant prepare command
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
 }
 
-# Folds a scenario's runs of one variant into a result record.
+# Folds a scenario's runs of one variant into a result record. Medians, since
+# load on the host adds an occasional slow run that would skew a mean.
 summarize_runs() { # corpus scenario variant
     jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
         --arg base "$(field variant "$3" '.base // .name')" '
         def mean: add / length;
+        def median: sort | ((length - 1) / 2) as $m | (.[$m | floor] + .[$m | ceil]) / 2;
         [.[].time_wall_clock.value] as $t
         | ($t | mean) as $mean
         | {
             $corpus, $scenario, $variant, $base, $mean,
             stddev: (if ($t | length) > 1 then $t | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
-            min: ($t | min),
-            cpu: (map(.time_cpu.value) | mean),
-            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | mean else null end),
+            median: ($t | median),
+            cpu: (map(.time_cpu.value) | median),
+            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | median else null end),
             rss: (map(.memory_peak_resident.value) | max),
             times: $t
         }' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"

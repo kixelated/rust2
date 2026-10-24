@@ -23,7 +23,6 @@ deletes the quests that follow it.
 - [Iterators](/quest/m2/ts-iter.md) - lazy `rt.ts` adaptors with a `DONE` protocol
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
 - [Tail loops](/quest/m2/ts-tail-loop.md) - a `loop` ending a function body translates
-- [Formatting impls of root types](/quest/m2/ts-root-fmt.md) - a root type brings its `Display` and `Debug` into the output
 - [Empty braced structs](/quest/m2/ts-empty-struct.md) - `struct E {}` passes `tsc`
 - [Source order](/quest/m2/ts-source-order.md) - each module's items come out in Rust source order
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM

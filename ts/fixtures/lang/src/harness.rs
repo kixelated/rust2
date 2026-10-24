@@ -3,6 +3,15 @@
 
 use crate::{fmt, generics, ints, shapes};
 
+/// The native side's entry: [`run`], except that a case starting with 0xff prints a
+/// [`fmt::Fault`], which the translated side prints from TypeScript in `caller.ts`.
+pub fn entry(input: &[u8]) -> Vec<u8> {
+	match input.split_first() {
+		Some((0xff, data)) => fmt::printed(data),
+		_ => run(input),
+	}
+}
+
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();

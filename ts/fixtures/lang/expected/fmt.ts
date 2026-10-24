@@ -582,4 +582,65 @@ export function panics(kind: number, rest: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
+/**
+ * An error only a TypeScript caller prints, as moq's callers print its errors: nothing
+ * translated formats it, so its `Display` and `Debug` come along as `printable`.
+ */
+export type Fault =
+	| { tag: "Short" }
+	| { tag: "Code"; _0: number }
+	| { tag: "TooLarge"; size: number; max: number }
+	| { tag: "At"; _0: Pair };
+
+export const Fault = {
+	/** The fault `data` picks. */
+	new(data: Uint8Array): Fault {
+		const at = (i: number): number => {
+			return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+		};
+		const value = rt.u8.rem(at(0), 4);
+		if (value === 0) {
+			return { tag: "Short" };
+		} else if (value === 1) {
+			return { tag: "Code", _0: rt.u16.fromBeBytes(Uint8Array.of(at(1), at(2))) };
+		} else if (value === 2) {
+			return { tag: "TooLarge", size: (((at(1) << 24) >>> 0) | at(2)) >>> 0, max: at(3) };
+		} else {
+			return { tag: "At", _0: new Pair(at(1), BigInt.asIntN(64, BigInt((at(2) << 24) >> 24) << 40n)) };
+		}
+	},
+
+	fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Short") {
+			return f.pad("short buffer");
+		} else if (self.tag === "Code") {
+			const code = self._0;
+			return f.writeFmt(["code=", rt.fmt.spec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16.lowerHex(code, f))]);
+		} else if (self.tag === "TooLarge") {
+			const size = self.size;
+			const max = self.max;
+			return f.writeFmt([(f: rt.Formatter) => rt.usize.display(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usize.display(max, f), " byte limit"]);
+		} else {
+			const pair = self._0;
+			return f.writeFmt(["at ", (f: rt.Formatter) => pair.fmt(f)]);
+		}
+	},
+
+	fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+		if (self.tag === "Short") {
+			return f.writeStr("Short");
+		} else if (self.tag === "Code") {
+			const __self0 = self._0;
+			return f.debugTuple("Code").field((f: rt.Formatter) => rt.u16.display(__self0, f)).finish();
+		} else if (self.tag === "TooLarge") {
+			const __self02 = self.size;
+			const __self1 = self.max;
+			return f.debugStruct("TooLarge").field("size", (f: rt.Formatter) => rt.usize.display(__self02, f)).field("max", (f: rt.Formatter) => rt.usize.display(__self1, f)).finish();
+		} else {
+			const __self03 = self._0;
+			return f.debugTuple("At").field((f: rt.Formatter) => __self03.fmt(f)).finish();
+		}
+	},
+};
+
 //# sourceMappingURL=fmt.ts.map
