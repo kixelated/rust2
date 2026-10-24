@@ -12,6 +12,8 @@ a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtu
 a `&mut u32` binding: a JS value of `u32` is a copy, so it can't change at fixtures/reject/src/lib.rs:25:6
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:15
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
+unsupported call to `core::slice::<impl [u8]>::iter` at fixtures/reject/src/lib.rs:40:4
+unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::filter::<{closure@fixtures/reject/src/lib.rs:40:18: 40:21}>` at fixtures/reject/src/lib.rs:40:11
 unsupported call to `<std::iter::Filter<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:40:18: 40:21}> as std::iter::Iterator>::count` at fixtures/reject/src/lib.rs:40:31
 `Guard` implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:50:2
 `later` is async, which is not supported yet at fixtures/reject/src/lib.rs:53:1
@@ -26,6 +28,7 @@ a width or precision from an argument, as in `{:1$}`, is not supported at fixtur
 `Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:68:3
 a `&mut std::string::String` binding: a JS value of `std::string::String` is a copy, so it can't change at fixtures/reject/src/lib.rs:73:16
 `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:73:16
+a mutable reference to `std::string::String`, which is no object it can change in place at fixtures/reject/src/lib.rs:75:17
 unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:75:10
 a closure that copies a mutable variable at fixtures/reject/src/lib.rs:80:18
 an or-pattern with bindings at fixtures/reject/src/lib.rs:87:3

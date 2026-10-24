@@ -9,11 +9,14 @@ use crate::config::{self, Config};
 /// holds exactly, and its `cfg`s are the browser's.
 const TARGET: &str = "wasm32-unknown-unknown";
 
-const USAGE: &str = "usage: rust2-ts --config <ts.toml> --out <dir> [--manifest-path <Cargo.toml>] [-- <cargo args>]
+const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]
 
 Translates the library of the package that ts.toml names to TypeScript in <dir>. The
 package's Cargo.toml is beside ts.toml unless --manifest-path says where. Cargo args,
-such as --features, are passed to `cargo check`.";
+such as --features, are passed to `cargo check`.
+
+--census writes a Markdown report of every construct translation refuses in the library,
+reached from each of its items as if each were a root, instead of translating it.";
 
 pub fn run(args: &[String]) -> ExitCode {
 	match try_run(args) {
@@ -28,13 +31,14 @@ pub fn run(args: &[String]) -> ExitCode {
 fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	let mut config = None;
 	let mut out = None;
+	let mut census = None;
 	let mut manifest = None;
 	let mut cargo_args: &[String] = &[];
 	let mut rest = args;
 	while let [arg, tail @ ..] = rest {
 		rest = tail;
 		match arg.as_str() {
-			"--config" | "--out" | "--manifest-path" => {
+			"--config" | "--out" | "--census" | "--manifest-path" => {
 				let [value, tail @ ..] = rest else {
 					return Err(format!("{arg} needs a value\n\n{USAGE}"));
 				};
@@ -42,6 +46,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 				let slot = match arg.as_str() {
 					"--config" => &mut config,
 					"--out" => &mut out,
+					"--census" => &mut census,
 					_ => &mut manifest,
 				};
 				*slot = Some(absolute(Path::new(value))?);
@@ -58,7 +63,11 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		}
 	}
 	let config_path = config.ok_or_else(|| format!("--config is required\n\n{USAGE}"))?;
-	let out = out.ok_or_else(|| format!("--out is required\n\n{USAGE}"))?;
+	let (output_env, output) = match (out, census) {
+		(Some(out), None) => (config::env::OUT, out),
+		(None, Some(census)) => (config::env::CENSUS, census),
+		_ => return Err(format!("one of --out and --census is required\n\n{USAGE}")),
+	};
 	let config = Config::load(&config_path)?;
 	let manifest = match manifest {
 		Some(manifest) => manifest,
@@ -98,7 +107,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		.args(cargo_args)
 		.env("RUSTC_WRAPPER", &exe)
 		.env(config::env::CONFIG, &config_path)
-		.env(config::env::OUT, &out)
+		.env(output_env, &output)
 		.status()
 		.map_err(|err| format!("running cargo: {err}"))?;
 	Ok(match status.success() {

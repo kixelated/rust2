@@ -37,4 +37,6 @@ pub mod env {
 	pub const CONFIG: &str = "RUST2_TS_CONFIG";
 	/// The output directory, absolute.
 	pub const OUT: &str = "RUST2_TS_OUT";
+	/// Where to write a census instead of translating, absolute.
+	pub const CENSUS: &str = "RUST2_TS_CENSUS";
 }

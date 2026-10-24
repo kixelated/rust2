@@ -12,7 +12,7 @@ use rustc_middle::middle::region;
 use rustc_middle::mir::BorrowKind;
 use rustc_middle::thir::{self, ArmId, BlockId, ExprId, ExprKind, LocalVarId, Pat, PatKind, StmtId, Thir};
 use rustc_middle::ty::adjustment::PointerCoercion;
-use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TypeVisitableExt};
 use rustc_span::{Span, Symbol};
 
 use super::library::{self, Args};
@@ -41,6 +41,7 @@ pub fn function<'a, 'tcx>(
 		read: reads(tcx, thir),
 		breakables: Vec::new(),
 		ret: sig.output(),
+		visited: FxHashSet::default(),
 	};
 	let span = tcx.def_span(def_id);
 	let mut body = Vec::new();
@@ -143,6 +144,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	breakables: Vec<Breakable>,
 	/// The return type of the function or closure being lowered.
 	ret: Ty<'tcx>,
+	/// Expressions lowered so far, by THIR and id, so a refused call lowers only the
+	/// arguments its mapping did not.
+	visited: FxHashSet<(*const Thir<'tcx>, ExprId)>,
 }
 
 /// One `&&`-joined part of an `if` condition.
@@ -158,6 +162,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	pub fn ty_of(&self, id: ExprId) -> Ty<'tcx> {
 		self.subst(self.thir[id].ty)
+	}
+
+	/// Record that `id` is lowered, or is being.
+	pub fn visit(&mut self, id: ExprId) {
+		self.visited.insert((std::ptr::from_ref(self.thir), id));
+	}
+
+	fn visited(&self, id: ExprId) -> bool {
+		self.visited.contains(&(std::ptr::from_ref(self.thir), id))
 	}
 
 	pub fn span(&self, id: ExprId) -> Span {
@@ -299,6 +312,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` so its value goes to `dest`.
 	pub fn stmt(&mut self, id: ExprId, dest: Dest, out: &mut Vec<Stmt>) {
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		let ty = self.ty_of(id);
@@ -330,8 +344,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				arms,
 				match_source,
 			} => self.match_(id, *scrutinee, arms, *match_source, dest, out),
-			ExprKind::Loop { body } => {
-				self.err(span, format!("a loop outside a scope: {body:?}"));
+			ExprKind::Loop { .. } => {
+				self.err(span, "a loop outside a scope");
 			}
 			ExprKind::Break { label, value } => self.break_(*label, *value, span, out),
 			ExprKind::Continue { label } => {
@@ -1238,9 +1252,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let loop_body = some_arm.body;
 
 		let iter_ty = self.ty_of(iterable);
-		let source = self.iterable(iterable, iter_ty, span, out);
-		let Some(source) = source else {
-			return;
+		let source = match self.iterable(iterable, iter_ty, span, out) {
+			Some(source) => source,
+			// Refused, but what the iterable and the body refuse is reported too.
+			None => Iterable::Of(self.operand(iterable, out)),
 		};
 
 		let label = self.fresh("loop");
@@ -1552,6 +1567,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` for its value.
 	pub fn expr(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		let ty = self.ty_of(id);
@@ -1862,6 +1878,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	/// Lower `id` as a place: no copy is made of what it names.
 	pub fn place(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
+		self.visit(id);
 		let e = &self.thir[id];
 		let span = e.span;
 		match &e.kind {
@@ -1936,8 +1953,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					_ => base.member("error"),
 				},
 				Some(library::Std::Box) => base,
-				Some(_) => self.err(span, format!("a field of `{ty}`")),
-				None => {
+				None if adt.did().is_local() => {
 					let info = self.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Class { fields, .. } => base.field(fields[field.index()]),
@@ -1947,6 +1963,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						}
 					}
 				}
+				_ => self.err(span, format!("a field of `{ty}`")),
 			},
 			_ => self.err(span, format!("a field of `{ty}`")),
 		}
@@ -2186,6 +2203,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 		let instance = match Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs) {
 			Ok(Some(instance)) => instance,
+			// A trait method of a type parameter: each instance resolves it.
+			Ok(None) if self.t.polymorphic() && gargs.has_param() => {
+				self.args(args, out);
+				return Expr::undefined();
+			}
 			_ => return self.err(span, format!("`{}` does not resolve", tcx.def_path_str(def_id))),
 		};
 		if let ty::InstanceKind::Item(did) = instance.def
@@ -2207,12 +2229,23 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			args: gargs,
 			span,
 		};
+		let ids = match &args {
+			Args::Thir(ids) => *ids,
+			Args::Values(_) => &[],
+		};
 		match library::call(self, &call, args, out) {
 			Some(e) => e,
-			None => self.err(
-				span,
-				format!("unsupported call to `{}`", tcx.def_path_str_with_args(def_id, gargs)),
-			),
+			None => {
+				// Refused, but what the arguments refuse is reported too. The mapping may
+				// have lowered some already: lowering them twice would double the work at
+				// each level of a nested call.
+				let unvisited: Vec<ExprId> = ids.iter().copied().filter(|&id| !self.visited(id)).collect();
+				self.operands(&unvisited, out);
+				self.err(
+					span,
+					format!("unsupported call to `{}`", tcx.def_path_str_with_args(def_id, gargs)),
+				)
+			}
 		}
 	}
 
@@ -2250,6 +2283,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
+		}
+		if !adt_id.is_local() {
+			return self.err(
+				span,
+				format!("constructing `{}` from another crate", tcx.def_path_str(adt_id)),
+			);
 		}
 		let info = self.t.adt(adt, span);
 		let ty = tcx.type_of(adt_id).instantiate(tcx, gargs).skip_norm_wip();

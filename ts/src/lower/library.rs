@@ -733,6 +733,7 @@ fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec
 /// The start and optional end of a range written in place: `a..b`, `..b`, `a..`, `..`.
 fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<(Expr, Option<Expr>)> {
 	let tcx = b.t.tcx;
+	let written = id;
 	let id = b.strip(id);
 	let ty = b.ty_of(id);
 	let ty::Adt(adt, _) = ty.kind() else {
@@ -748,6 +749,7 @@ fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt
 	let mut fields: Vec<(usize, ExprId)> = range.fields.iter().map(|f| (f.name.index(), f.expr)).collect();
 	fields.sort_by_key(|(i, _)| *i);
 	let ids: Vec<ExprId> = fields.iter().map(|(_, id)| *id).collect();
+	b.visit(written);
 	let mut values = b.operands(&ids, out);
 	match name.as_str() {
 		"Range" => {
@@ -763,6 +765,7 @@ fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt
 
 /// The place behind `&mut place`, as an assignable path.
 fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
+	let written = id;
 	let id = b.strip(id);
 	let ExprKind::Borrow { mut arg, .. } = b.thir[id].kind else {
 		return None;
@@ -783,6 +786,7 @@ fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<St
 			format!("replacing the value behind a reference to `{pointee}`"),
 		));
 	}
+	b.visit(written);
 	let place = b.place(arg, out);
 	place.is_path().then_some(place)
 }
