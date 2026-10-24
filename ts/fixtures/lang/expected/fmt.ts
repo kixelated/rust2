@@ -114,8 +114,8 @@ export function ints(kind: number, data: Uint8Array, out: rt.ByteVec): void {
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	for (const item of rt.slice.range(data, 0, rt.min(data.length, 3))) {
 		const b = item;
-		const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-		const s = rt.at(value, rt.usize.rem(b, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+		const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
+		const s = rt.at(value, rt.usize.rem(b, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
 		put(out, rt.fmt.format([(f: rt.Formatter) => f.pad(s), "|", rt.fmt.spec({ width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: "^", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ fill: "-", align: "<", width: 3 }, (f: rt.Formatter) => f.pad(s)), "|", (f: rt.Formatter) => rt.fmt.str(s, f), "|", rt.fmt.spec({ width: 12 }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|{", (f: rt.Formatter) => f.pad(s), "}"]));
 	}
 	const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(data));
@@ -287,8 +287,8 @@ export function nested(data: Uint8Array): Nested {
 	const at = (i: number): number => {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
-	const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-	const arg = rt.at(value, rt.usize.rem(at(0), ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+	const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
+	const arg = rt.at(value, rt.usize.rem(at(0), ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
 	const arg2 = new Point({ x: rt.i32.sub(at(1), 128), y: -7 });
 	const value2 = rt.u8.rem(at(2), 3);
 	const arg3 = arg;

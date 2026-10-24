@@ -66,7 +66,7 @@ const STRINGS: [&str; 14] = [
 	"\0\x01\x1f\x7f",
 	"\u{80}\u{9f}\u{a0}\u{ad}",
 	"e\u{301}",
-	"\u{200d}\u{feff}\u{2028}\u{3000}",
+	"\u{200d}\u{feff}\u{115f}\u{2028}\u{3000}",
 	"\u{e000}\u{378}\u{10fffd}",
 	"😀 \u{1f1e6}",
 	"\u{ff9e}\u{ff9f}\u{ff9d}",
