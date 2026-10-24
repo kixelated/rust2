@@ -10,7 +10,7 @@ on:
   # A change to the benchmark or its toolchains reports its numbers before it merges.
   pull_request:
     paths:
-      - bench/**
+      - bench/build/**
       - .github/workflows/bench.yml
       - flake.nix
       - flake.lock
