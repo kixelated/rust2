@@ -1,0 +1,2 @@
+# MyHashSet hashes by identity, so its Mutex never changes its hash.
+ignore-interior-mutability = ["simple_fns::MyHashSet"]

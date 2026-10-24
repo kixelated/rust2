@@ -3,7 +3,7 @@
 ## Goal
 
 `just bench-ffi` runs here, nightly in CI: it builds moq-ffi at a pinned moq
-revision against [the fork](/quest/m1/uniffi.md) and measures every wrapper
+revision against [the fork](/uniffi/README.md) and measures every wrapper
 (Python, Go, Kotlin, Swift, Dart, C++, and the browser over ubrn) as moq's
 `bench/` does today. Every fork perf quest states its effect with these
 numbers. moq deletes its copy (`just bench-ffi`, `bench/ffi-gen`, and their
@@ -26,7 +26,3 @@ moq. A pin bump is its own change, so numbers compare across runs.
   benchmark does.
 
 Public API: none.
-
-## Required
-
-- [Import UniFFI](/quest/m1/uniffi.md) - the fork and generators the benchmark builds

@@ -41,5 +41,4 @@ Public API: none expected.
 
 ## Required
 
-- [Import UniFFI](/quest/m1/uniffi.md) - the fork whose generator this patches
 - [Binding benchmark](/quest/m1/ffi-bench.md) - the before and after numbers

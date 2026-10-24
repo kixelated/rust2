@@ -31,5 +31,6 @@ deletes the quests that follow it.
 - [Namespaced external types](/quest/m2/uniffi-namespaces.md) - two crates linked into one library can each export a same-named type in every generator
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
 - [Cheaper async](/quest/m2/ffi-async.md) - `RustFuture` exports cost fewer crossings, if the numbers show they matter
+- [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - bindings and a cdylib from different UniFFI forks refuse to load together
 - [Drop checksums](/quest/m2/ffi-checksums.md) - bindings load without a checksum call per method
 - [Smaller bindings](/quest/m2/ffi-code-size.md) - generated bindings shrink in every language, measured per template
