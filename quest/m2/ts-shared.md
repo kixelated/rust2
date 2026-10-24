@@ -18,7 +18,7 @@ Decided with the maintainer on 2026-10-23: deterministic reference counts in
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow
   panics. A re-entrant `Mutex` lock on one thread is unspecified in Rust; pick
   a loud failure (panic) and document it.
-- Measure the counter overhead on the [TS benchmark](/quest/m2/ts-bench.md).
+- Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for shared and interior-mutable types.
 

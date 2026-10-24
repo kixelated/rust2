@@ -10,8 +10,9 @@ source-translator route against its WASM build on the code a browser session run
 
 Decided with the maintainer on 2026-10-23: moq still ships WASM first; this is the
 research track. Once the model translates, moq compares it on the
-[TS benchmark](/quest/m2/ts-bench.md), consuming the driver as the `ts` package of
-this flake.
+[TS benchmark](/ts/README.md#bench), consuming the driver as the `ts` package of
+this flake. That comparison adds moq's `js/net/bench/frames.ts`, a group stream read
+into a group, to the benchmark's workloads, which hold only its sync frame headers.
 
 The codec's differential harness is the pattern to repeat. The shared npm runtime
 (for checked integer ops and the rest of `rt.ts`) is published only once two
@@ -37,4 +38,5 @@ Public API: the translator's output for moq-net's model.
 - [Iterators](/quest/m2/ts-iter.md) - the model's adaptor chains
 - [Collections](/quest/m2/ts-collections.md) - the model's maps and queues
 - [Formatting](/quest/m2/ts-format.md) - panic and error messages match native
+- [Tail loops](/quest/m2/ts-tail-loop.md) - 34 moq-net functions end in a `loop`
 - [Coverage census](/quest/m2/ts-census.md) - ranks what remains

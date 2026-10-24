@@ -103,28 +103,6 @@
               ${pkgs.lib.concatMapStringsSep "\n" (bin: "ln -s ${uniffi}/bin/${bin} $out/bin/") bins}
             '';
 
-          devPackages = with pkgs; [
-            toolchain
-            quest-cli
-            just
-            jq
-            git
-            gh
-            cargo-nextest
-            cargo-deny
-            cargo-shear
-            cargo-sort
-            release-plz
-            actionlint
-            shellcheck
-            shfmt
-            taplo
-            nixfmt
-            # The TypeScript driver's tests run and type-check its output.
-            nodejs
-            typescript
-          ];
-
           # Kotlin's generated async code needs coroutines on the classpath; nixpkgs has no jar.
           kotlinx-coroutines = pkgs.fetchurl {
             url = "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.10.2/kotlinx-coroutines-core-jvm-1.10.2.jar";
@@ -145,24 +123,50 @@
             uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
           };
           devShells.default = pkgs.mkShell {
-            packages = devPackages;
+            packages = with pkgs; [
+              toolchain
+              quest-cli
+              just
+              jq
+              git
+              gh
+              cargo-nextest
+              cargo-deny
+              cargo-shear
+              cargo-sort
+              release-plz
+              actionlint
+              shellcheck
+              shfmt
+              taplo
+              nixfmt
+              # The TypeScript driver's tests run and type-check its output.
+              nodejs
+              typescript
+            ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };
-          # Every foreign toolchain the UniFFI fixture suite runs, kept out of the default shell.
-          devShells.uniffi = pkgs.mkShell {
-            packages =
-              devPackages
-              ++ (with pkgs; [
-                python3
-                kotlin
-                swift
-                go
-                dart
-                cmake
-              ]);
-            RUST2_TS_TOOLCHAIN = tsToolchain;
+          # `just ts bench` adds Bun and Chrome as engines, and wasm-bindgen for moq-wasm's
+          # package, which must match the moq revision's or fails. Apart for their size.
+          devShells.bench = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [
+              pkgs.bun
+              pkgs.chromium
+              pkgs.wasm-bindgen-cli
+            ];
+          });
+          # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
+          devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [
+              pkgs.python3
+              pkgs.kotlin
+              pkgs.swift
+              pkgs.go
+              pkgs.dart
+              pkgs.cmake
+            ];
             CLASSPATH = "${pkgs.jna}/share/java/jna.jar:${kotlinx-coroutines}";
-          };
+          });
           formatter = pkgs.nixfmt;
           checks.quest-tree = pkgs.runCommand "quest-tree" { nativeBuildInputs = [ quest-cli ]; } ''
             quest --root ${self} check

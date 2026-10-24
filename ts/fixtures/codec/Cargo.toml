@@ -13,6 +13,8 @@ crate-type = ["lib", "cdylib"]
 [features]
 # moq-net gates its async codec on this; the vendored subset leaves it off.
 async = []
+# The wasm32 build exports the benchmark's workloads in place of the harness.
+bench = []
 
 [dependencies]
 bytes = "1.11.1"

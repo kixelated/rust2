@@ -54,6 +54,27 @@ moq checkout="":
     printf '{ "extends": "%s/runtime/tsconfig.json", "files": [], "include": ["**/*.ts"] }\n' "$PWD" > "$out/tsconfig.json"
     tsc -p "$out"
 
+# Time the codec natively, as moq's WASM, as moq's hand-written TS, and translated, in Node, Bun, and Chrome.
+bench checkout="": (moq checkout)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for tool in bun chromium wasm-bindgen; do
+        command -v "$tool" > /dev/null || { echo "$tool is missing: run this in the bench shell, nix develop .#bench" >&2; exit 1; }
+    done
+    src="{{ checkout }}"
+    [ -n "$src" ] || src=target/moq
+    out=target/bench
+    cargo run --locked --quiet -- --config fixtures/codec/ts.toml --out "$out/translated"
+    cargo build --locked --quiet --package codec-fixture --features bench --target wasm32-unknown-unknown --profile wasm-release
+    cargo build --locked --quiet --package codec-fixture --example bench --release
+    # moq's hand-written TS imports its npm dependencies; its postinstall builds libav.
+    (cd "$src" && bun install --frozen-lockfile --ignore-scripts --filter @moq/net)
+    # moq-wasm's package, as moq's `just js wasm` builds it.
+    (cd "$src" && cargo build --locked --quiet --package moq-wasm --target wasm32-unknown-unknown --profile wasm-release)
+    wasm-bindgen --target web --out-name moq --out-dir "$out/moq-wasm" "$src/target/wasm32-unknown-unknown/wasm-release/moq_wasm.wasm"
+    bun bench/main.ts --translated "$out/translated" --moq "$src" --moq-wasm "$out/moq-wasm" --out "$out" \
+        --wasm target/wasm32-unknown-unknown/wasm-release/codec_fixture.wasm --native target/release/examples/bench
+
 # Run cargo on the pinned nightly.
 cargo *args:
     cargo {{ args }}
