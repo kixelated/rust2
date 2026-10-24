@@ -1,7 +1,6 @@
 # rust2-ts
 
-A rustc driver that translates a subset of Rust to readable TypeScript with source
-maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
+A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
 rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
@@ -120,6 +119,14 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
 ## Design
+
+Output is ranked correctness first, speed second, and bundle size third: the
+consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
+constructs such as brand casts and annotations are free. Readable output is not a goal.
+It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
+bundler's job. Types must be solid at the API boundary: the `roots` items and
+`printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
+they need.
 
 - 64- and 128-bit integers are numbers while they are safe integers, which most values
   are: lengths, IDs, sequence numbers, and timestamps. `just ts bench` measured it
