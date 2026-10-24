@@ -313,6 +313,30 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&area.to_be_bytes());
 	let total = total(&[shape, Shape::Dot], out) + total(&[Meters(3), Meters(u64::MAX)], out);
 	out.extend_from_slice(&total.to_be_bytes());
+
+	// An `Err` of `Void` never exists, so its arm matches nothing, or is left out.
+	let parsed: Result<u8, Void> = Ok(data.len() as u8);
+	let a = match parsed {
+		Ok(v) => v,
+		Err(e) => absurd(e),
+	};
+	let b = match parsed {
+		Ok(v) => v,
+		Err(e) => match e {},
+	};
+	let c = match parsed {
+		Ok(v) => v,
+	};
+	out.extend_from_slice(&[a, b, c]);
+	out.extend_from_slice(format!("{parsed:?}").as_bytes());
+}
+
+/// An enum without variants: no value of it exists.
+#[derive(Clone, Copy, Debug)]
+pub enum Void {}
+
+fn absurd(v: Void) -> u8 {
+	match v {}
 }
 
 /// Closures capturing by reference and by move, and functions as values.
