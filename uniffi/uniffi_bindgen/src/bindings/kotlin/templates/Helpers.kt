@@ -68,7 +68,7 @@ private fun<E: kotlin.Exception> uniffiCheckCallStatus(errorHandler: UniffiRustC
         // with the message.  but if that code panics, then it just sends back
         // an empty buffer.
         if (status.error_buf.len > 0) {
-            throw InternalException({{ Type::String.borrow()|lift_fn }}(status.error_buf))
+            throw InternalException({{ Type::String.borrow()|lift_fn(ci) }}(status.error_buf))
         } else {
             throw InternalException("Rust panic")
         }
@@ -104,7 +104,7 @@ internal inline fun<T> uniffiTraitInterfaceCall(
     } catch(e: kotlin.Exception) {
         val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
         callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-        callStatus.error_buf = {{ Type::String.borrow()|lower_fn }}(err)
+        callStatus.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(err)
     }
 }
 
@@ -123,7 +123,7 @@ internal inline fun<T, reified E: Throwable> uniffiTraitInterfaceCallWithError(
         } else {
             val err = try { e.stackTraceToString() } catch(_: Throwable) { "" }
             callStatus.code = UNIFFI_CALL_UNEXPECTED_ERROR
-            callStatus.error_buf = {{ Type::String.borrow()|lower_fn }}(err)
+            callStatus.error_buf = {{ Type::String.borrow()|lower_fn(ci) }}(err)
         }
     }
 }
