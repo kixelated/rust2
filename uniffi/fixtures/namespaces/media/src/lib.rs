@@ -102,7 +102,7 @@ pub fn decode_all(raw: Vec<net::Frame>) -> Vec<Frame> {
 
 /// The first keyframe, and the `net` frame of the last frame.
 #[uniffi::export]
-pub fn bounds(frames: Vec<Frame>) -> Bounds {
+pub fn find_bounds(frames: Vec<Frame>) -> Bounds {
     Bounds {
         keyframe: frames.iter().find(|frame| frame.keyframe).cloned(),
         last: frames.last().map(|frame| frame.raw.clone()),
