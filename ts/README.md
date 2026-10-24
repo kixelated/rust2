@@ -52,7 +52,7 @@ runtime: what std does that JS does not.
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `number`, checked: overflow panics |
-| `u64`, `i64`, `u128`, `i128` | `rt.U64`, `rt.I64`, `rt.U128`, `rt.I128`: immutable objects of 32-bit limbs, checked the same way |
+| `u64`, `i64`, `u128`, `i128` | `rt.U64` and so on: a `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `struct` | a class; methods take `this`, trait methods included |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant, with a companion object of functions |
@@ -67,10 +67,12 @@ runtime: what std does that JS does not.
 a debug build checks it, so translated code panics where native code would: it never
 wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
 
-A wider integer is an object, so its operators and comparisons are runtime calls:
-`rt.u64.add(a, b)`, `rt.u64.lt(a, b)`, `rt.u64.of(5)` for a literal, and
-`rt.u64.cast(x)` for `x as u64`. Its fields are 32-bit limbs from `hi` down to `lo`, with
-`hi` signed in a signed type; a caller builds one with `of`.
+A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
+object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
+`hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
+makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
+is `rt.u64.low(x)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -95,8 +97,18 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 
 ## Design
 
-- 64-bit integers are native `bigint`: lossless and readable. A pair of `u32` halves is
-  faster but waits until `just ts bench` measures `bigint` as the cost.
+- 64- and 128-bit integers are numbers while they are safe integers, which most values
+  are: lengths, IDs, sequence numbers, and timestamps. `just ts bench` measured it
+  against `bigint`, against limbs for every value, and against unboxed halves, two
+  numbers in locals, fields, and arguments. It ties unboxed halves on the codec and
+  beats `bigint` there in Node, Bun, and Chrome: varint encode 13-65% faster, frame
+  decode 8-32%, and message decode 22-31%, though Chrome's 8-byte varint decode is
+  25-45% slower. A loop of sums and comparisons past 2^32 measured 2-6x faster. Limbs
+  for every value allocate an object each, which costs what a `bigint` does in V8, so
+  they lost decode; unboxed halves would lower every value to two. Past 2^53 an
+  operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
+  than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
+  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -139,7 +151,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `Copy` aggregates, and formatting. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
-  where the runtime's limbs carry, borrow, and switch paths.
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 
