@@ -844,11 +844,16 @@ fn items<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> O
 	let ty = b.ty_of(id);
 	match ty.peel_refs().kind() {
 		ty::Adt(adt, _) if is_slice_iter(tcx, adt.did()) && !matches!(ty.kind(), ty::Ref(..)) => {
-			let ExprKind::Call { args, .. } = &b.thir[id].kind else {
+			let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[id].kind else {
 				return None;
 			};
-			let slice = args[0];
-			Some(b.operand(slice, out))
+			let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
+				return None;
+			};
+			if key(tcx, iter) != Some(("slice".into(), "iter".into())) {
+				return None;
+			}
+			Some(b.operand(args[0], out))
 		}
 		ty::Slice(_) | ty::Array(..) => Some(b.operand(id, out)),
 		ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
