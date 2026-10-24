@@ -15,6 +15,7 @@ mod cfg;
 pub mod coroutine;
 mod place;
 mod rvalue;
+mod unwind;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
@@ -181,6 +182,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	force_share: bool,
 	/// Locals whose one read is as a call's argument, which may share what it copies.
 	arg_use: IndexVec<Local, bool>,
+	/// The cleanups a panic runs, if any does something JS can see.
+	unwind: Option<unwind::Unwind>,
+	/// While the cleanups are lowered, the caught exception's name.
+	in_cleanup: Option<String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -213,6 +218,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			copy_on_flush: false,
 			force_share: false,
 			arg_use: IndexVec::from_elem_n(false, n),
+			unwind: None,
+			in_cleanup: None,
 		};
 		fx.analyze();
 		fx
@@ -227,9 +234,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn analyze(&mut self) {
 		let mir = self.mir;
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
-			if data.is_cleanup {
-				continue;
-			}
 			if data.statements.iter().all(|s| matches!(s.kind, StatementKind::StorageDead(_) | StatementKind::StorageLive(_) | StatementKind::Nop))
 				&& matches!(data.terminator().kind, TerminatorKind::Unreachable)
 			{
@@ -543,6 +547,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let n = self.mir.basic_blocks.len();
 		self.skip_ignored_macros();
+		self.plan_unwind();
 		let mut succs = vec![Vec::new(); n];
 		for (bb, data) in self.mir.basic_blocks.iter_enumerated() {
 			if data.is_cleanup {
@@ -557,6 +562,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut labels = self.labels;
 		let body = cfg::structure(&graph, self, &mut labels);
 		self.labels = labels;
+		let body = self.catch(body);
 		let mut out = Vec::new();
 		for local in self.mir.local_decls.indices() {
 			// Parameters are declared by the signature.
@@ -570,6 +576,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		out.extend(entry);
 		out.extend(body);
+		drop_self_assignments(&mut out);
 		prune_unread(&mut out);
 		out
 	}
@@ -630,7 +637,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn successors(&self, term: &mir::Terminator<'tcx>) -> Vec<BasicBlock> {
 		match &term.kind {
 			TerminatorKind::Goto { target, .. } => vec![*target],
-			TerminatorKind::SwitchInt { targets, .. } => targets.all_targets().to_vec(),
+			// An unreachable default is no edge: the last value takes its place.
+			TerminatorKind::SwitchInt { targets, .. } => {
+				let mut all = targets.all_targets().to_vec();
+				if self.unreachable.contains(&targets.otherwise()) && all.len() > 1 {
+					all.pop();
+				}
+				all
+			}
+			TerminatorKind::Assert { .. } if fails(term) => Vec::new(),
 			TerminatorKind::Drop { target, .. } | TerminatorKind::Assert { target, .. } => vec![*target],
 			TerminatorKind::Call { target, .. } => target.iter().copied().collect(),
 			TerminatorKind::FalseEdge { real_target, .. } | TerminatorKind::FalseUnwind { real_target, .. } => {
@@ -890,6 +905,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn block(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
 		let mir = self.mir;
 		let data = &mir.basic_blocks[bb];
+		self.set_unwind(data.terminator(), out);
 		for stmt in &data.statements {
 			if !self.b.t.ignored_macro(stmt.source_info.span) {
 				self.statement(stmt, out);
@@ -1079,7 +1095,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				..
 			} => {
 				self.assert(cond, *expected, msg, span, out);
-				Exit::Goto(target.as_usize())
+				match fails(term) {
+					true => {
+						self.flush(out);
+						Exit::End
+					}
+					false => Exit::Goto(target.as_usize()),
+				}
 			}
 			TerminatorKind::TailCall { .. } => {
 				self.err(span, "`become` is not supported");
@@ -1093,10 +1115,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.err(span, "a coroutine before its state transform");
 				Exit::End
 			}
-			TerminatorKind::UnwindResume | TerminatorKind::UnwindTerminate(_) => {
-				self.err(span, "unwinding outside cleanup");
-				Exit::End
-			}
+			TerminatorKind::UnwindResume | TerminatorKind::UnwindTerminate(_) => match self.in_cleanup.clone() {
+				Some(caught) => {
+					self.flush(out);
+					out.push(StmtKind::Throw(Expr::ident(caught)).at(None));
+					Exit::End
+				}
+				None => {
+					self.err(span, "unwinding outside cleanup");
+					Exit::End
+				}
+			},
 		}
 	}
 
@@ -1207,6 +1236,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(message) => message,
 			None => return,
 		};
+		// An assert that always fails, such as a coroutine's after it returned.
+		if matches!(&failed, Expr::Lit(t) if t == "true") {
+			pre.push(StmtKind::Expr(Expr::rt("panic", vec![message])).at(self.b.t.loc(span)));
+			self.emit(pre, None, false, out);
+			return;
+		}
 		pre.push(
 			StmtKind::If {
 				cond: failed,
@@ -1273,12 +1308,26 @@ impl cfg::Lower for Fx<'_, '_, '_, '_> {
 
 	fn flush(&mut self, out: &mut Vec<Stmt>) {
 		self.flush_pending(out);
+		// Control goes elsewhere, which other code may reach with another cleanup.
+		if let Some(unwind) = &mut self.unwind {
+			unwind.known = None;
+		}
 	}
 }
 
 impl Fx<'_, '_, '_, '_> {
 	fn flush(&mut self, out: &mut Vec<Stmt>) {
-		self.flush_pending(out);
+		cfg::Lower::flush(self, out);
+	}
+
+	/// A block's statements and how it leaves, for the cleanups' lowering.
+	fn block_mapped(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
+		self.block(bb, out)
+	}
+
+	/// Emit a statement every held-back value that can do anything runs before.
+	fn emit_barrier(&mut self, stmt: Stmt, out: &mut Vec<Stmt>) {
+		self.emit(vec![stmt], None, false, out);
 	}
 }
 
@@ -1348,6 +1397,10 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 			reads.push(Read::Effect);
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
+		Expr::Postfix(e, _) => {
+			scan(e, reads, lazy);
+			reads.push(Read::Effect);
+		}
 		Expr::Binary(l, op, r) => {
 			scan(l, reads, lazy);
 			let lazy_r = lazy || matches!(*op, "&&" | "||" | "??");
@@ -1391,7 +1444,7 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Index(base, index) => subst(base, name, value) || subst(index, name, value),
 		Expr::Call(f, args) | Expr::New(f, args) => subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Method(recv, _, args) => subst(recv, name, value) || args.iter_mut().any(|e| subst(e, name, value)),
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => subst(e, name, value),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
 		Expr::Cond(c, a, b) => subst(c, name, value) || subst(a, name, value) || subst(b, name, value),
 		Expr::Arrow(..) | Expr::Lambda(..) => false,
@@ -1476,7 +1529,9 @@ fn reads_of(e: &Expr, out: &mut Vec<String>) {
 			reads_of(recv, out);
 			args.iter().for_each(|e| reads_of(e, out));
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Lambda(_, e) => reads_of(e, out),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Lambda(_, e) | Expr::Postfix(e, _) => {
+			reads_of(e, out)
+		}
 		Expr::Binary(l, _, r) => {
 			reads_of(l, out);
 			reads_of(r, out);
@@ -1618,6 +1673,47 @@ pub fn fold(e: Expr) -> Expr {
 			inner => Expr::Unary("!", Box::new(inner)),
 		},
 		e => e,
+	}
+}
+
+/// Whether `term` is an assert of a constant that fails.
+fn fails(term: &mir::Terminator<'_>) -> bool {
+	let TerminatorKind::Assert {
+		cond: Operand::Constant(c),
+		expected,
+		..
+	} = &term.kind
+	else {
+		return false;
+	};
+	c.const_.try_to_bool().is_some_and(|b| b != *expected)
+}
+
+/// Drop the assignments of a variable to itself, which ferrying a value through
+/// temporaries leaves.
+fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if matches!((&**t, &**v), (Expr::Ident(a), Expr::Ident(b)) if a == b)));
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				drop_self_assignments(then);
+				drop_self_assignments(els);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => drop_self_assignments(body),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
+				drop_self_assignments(default);
+			}
+			StmtKind::Try { body, finally } => {
+				drop_self_assignments(body);
+				drop_self_assignments(finally);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				drop_self_assignments(body);
+				drop_self_assignments(handler);
+			}
+			_ => {}
+		}
 	}
 }
 

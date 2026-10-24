@@ -40,6 +40,8 @@ pub enum Expr {
 	Method(Box<Expr>, SymId, Vec<Expr>),
 	New(Box<Expr>, Vec<Expr>),
 	Unary(&'static str, Box<Expr>),
+	/// `x++` and the like: the operand's value, before the operator changes it.
+	Postfix(Box<Expr>, &'static str),
 	Binary(Box<Expr>, &'static str, Box<Expr>),
 	Cond(Box<Expr>, Box<Expr>, Box<Expr>),
 	Assign(Box<Expr>, Box<Expr>),

@@ -174,6 +174,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				out.push(StmtKind::Expr(c.assign(old)).at(None));
 				done(Expr::undefined(), true)
 			}
+			// A range of numbers steps in place, with nothing between it and the loop.
+			("Iterator", "next")
+				if let ty::Adt(adt, range_args) = targ(0)?.kind()
+					&& Std::of(tcx, adt.did()) == Some(Std::Range)
+					&& Int::of(range_args.type_at(0)).is_some_and(|i| !i.big()) =>
+			{
+				let range = self.alias_place(&args[0].node)?;
+				let start = range.clone().member("start");
+				let next = Expr::Cond(
+					Box::new(start.clone().binary("<", range.member("end"))),
+					Box::new(Expr::Postfix(Box::new(start), "++")),
+					Box::new(Expr::undefined()),
+				);
+				done(next, true)
+			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				done(self.swap_out(place, Expr::undefined(), "taken", out), true)
@@ -323,6 +338,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let pointee = self.mir.local_decls[place.local].ty.peel_refs();
 				Some(self.err(span, format!("replacing the value behind a reference to `{pointee}`")))
 			}
+		}
+	}
+
+	/// The place a reference operand reads in place, if it is one.
+	fn alias_place(&self, op: &Operand<'tcx>) -> Option<Expr> {
+		let (Operand::Copy(place) | Operand::Move(place)) = op else {
+			return None;
+		};
+		match (&self.slots[place.as_local()?], place.projection.is_empty()) {
+			(Slot::Alias(Some(target)), true) if target.is_path() => Some(target.clone()),
+			_ => None,
 		}
 	}
 

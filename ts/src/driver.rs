@@ -26,9 +26,14 @@ pub fn run(mut args: Vec<String>) -> ExitCode {
 		Err(err) => early_dcx.early_fatal(format!("rust2-ts: {err}")),
 	};
 	// MIR without the checks of undefined behavior that debug builds add around raw
-	// pointers, such as a box's: JS has no pointers to check.
+	// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
+	// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
+	// can catch a panic and go on.
 	if job.as_ref().is_some_and(|job| job.mir) {
 		args.push("-Zub-checks=no".into());
+		if std::env::var_os("RUST2_TS_ABORT").is_none() {
+			args.push("-Cpanic=unwind".into());
+		}
 	}
 	rustc_driver::catch_with_exit_code(|| match job {
 		Some(mut job) => rustc_driver::compiler_entrypoint(&args, &mut job),

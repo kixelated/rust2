@@ -301,7 +301,7 @@ impl Refs {
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
-			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) => self.expr(program, e),
+			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::Postfix(e, _) => self.expr(program, e),
 			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 				self.expr(program, a);
 				self.expr(program, b);
@@ -928,6 +928,10 @@ impl Printer<'_> {
 					false => self.expr(arg, 17),
 				}
 			}
+			Expr::Postfix(arg, op) => {
+				self.expr(arg, 19);
+				self.write(op);
+			}
 			Expr::Binary(l, op, r) => {
 				let p = binary_prec(op);
 				self.operand(l, op, p);
@@ -1135,6 +1139,7 @@ fn prec(e: &Expr) -> u8 {
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
 		Expr::Unary(..) => 17,
+		Expr::Postfix(..) => 18,
 		Expr::Lit(text) if text.starts_with('-') => 17,
 		Expr::New(..) | Expr::Call(..) | Expr::Method(..) | Expr::Member(..) | Expr::Index(..) => 19,
 		Expr::Located(_, e) => prec(e),
@@ -1240,7 +1245,9 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),
-		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => collect_expr_locals(e, out),
+		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => {
+			collect_expr_locals(e, out)
+		}
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);
