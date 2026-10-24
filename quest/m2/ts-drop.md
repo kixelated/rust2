@@ -19,19 +19,22 @@ fixture's trace test proves it on kio's waiters, wakers, and channels.
 What still fails translation, each with its span (the reject fixture has one of each),
 ranked by the census of moq-net at the pinned revision (kio's has 26 in all):
 
-- Dropping a value whose drop no `[Symbol.dispose]` carries (480): a `Result`, an
+- Dropping a value whose drop no `[Symbol.dispose]` carries (657): a `Result`, an
   `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
   glue of its own, switching on the variant.
 - A method taking `self` by value that drops (155), which can't leave `this` undefined.
-- A temporary that drops, unless a call or binding takes it whole (247): borrowed, a
+- A temporary that drops, unless a call or binding takes it whole (256): borrowed, a
   field or index of one, a `match`, `if let`, or let chain that moves only part of it,
   and a guarded arm that binds one. Rust drops it at the end of its statement, or of
   the `match`.
-- A `for` loop over values that drop (53): each at the end of its iteration, and the
+- A `for` loop over values that drop (60): each at the end of its iteration, and the
   rest on a `break`.
-- Struct update syntax from a value that drops (15), a closure capturing one (13), a
+- Struct update syntax from a value that drops (16), a closure capturing one (13), a
   generic type that implements `Drop` (11), and a parameter that drops bound by a
   pattern.
+- An operand that drops ahead of an `.await` in the same call (3), which a cancel
+  would leave in a temporary no scope drops, and an `Arc` or `Mutex` holding a borrow
+  of a value that drops, which JS would drop as the value itself.
 
 Watch the cost: each move of a value that drops writes `undefined` to where it was, and
 each scope holding one becomes a `try`/`finally`. A pass that proves a variable moved on

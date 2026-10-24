@@ -134,6 +134,7 @@ const VERBATIM: &[&str] = &[
 	"()",
 	"+",
 	"-",
+	".await",
 	"?",
 	"Binary",
 	"Copy",

@@ -184,3 +184,13 @@ pub fn shared_borrow(n: &Noisy) -> usize {
 	let a = std::sync::Arc::new(n);
 	std::sync::Arc::strong_count(&a)
 }
+
+/// `n` would wait out the `.await` where no scope drops it if the future is cancelled.
+pub async fn held_across(n: Noisy) -> u8 {
+	consume(n, async { 1u8 }.await)
+}
+
+fn consume(n: Noisy, v: u8) -> u8 {
+	drop(n);
+	v
+}

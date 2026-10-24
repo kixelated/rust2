@@ -126,7 +126,8 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, `char`, statics, async blocks that borrow a number
 mutably and async closures, values that drop as temporaries not moved whole, in a
-closure's captures, in a `for` loop, or in an enum, tuple, or generic `Drop` type
+closure's captures, in a `for` loop, in an enum, tuple, or generic `Drop` type, borrowed
+in an `Arc` or `Mutex`, or passed ahead of an `.await` in the same call
 ([Drop](/quest/m2/ts-drop.md)), iterator adaptors (`for` over ranges, slices, arrays, and
 `Vec` works), or-patterns that bind, other format specs (a precision, `+`, `{:b}`, `{:x?}`,
 and widths from arguments), writing to a `String` with `write!`, a `move` closure

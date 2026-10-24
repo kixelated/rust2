@@ -45,6 +45,7 @@ pub fn function<'a, 'tcx>(
 		visited: FxHashSet::default(),
 		scopes: Vec::new(),
 		moved: FxHashSet::default(),
+		yields: 0,
 	};
 	let span = tcx.def_span(def_id);
 	let mut body = Vec::new();
@@ -183,6 +184,8 @@ pub struct Body<'b, 'a, 'tcx> {
 	pub(super) scopes: Vec<Vec<Owned<'tcx>>>,
 	/// The variables a move left `undefined`, which are declared `let` for it.
 	pub(super) moved: FxHashSet<String>,
+	/// How many `yield`s are lowered so far, so an operand can tell whether it awaits.
+	yields: usize,
 }
 
 /// One `&&`-joined part of an `if` condition.
@@ -1671,9 +1674,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	/// could change.
 	pub fn operands(&mut self, ids: &[ExprId], out: &mut Vec<Stmt>) -> Vec<Expr> {
 		let mut values: Vec<Expr> = Vec::with_capacity(ids.len());
+		// Whether an earlier operand is a value that drops, which a later `.await` would
+		// hold where no scope drops it if the future is cancelled.
+		let mut holds = false;
 		for &id in ids {
 			let mut pre = Vec::new();
+			let yields = self.yields;
 			let value = self.operand(id, &mut pre);
+			if holds && self.yields != yields {
+				self.t.err(
+					self.span(id),
+					"an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first",
+				);
+			}
+			holds |= self.t.drops(self.ty_of(id));
 			if !pre.is_empty() {
 				for earlier in values.iter_mut() {
 					if !earlier.is_constant() {
@@ -2029,6 +2043,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::Let { .. } => self.err(span, "a `let` outside an `if` condition"),
 			ExprKind::Yield { value } => {
 				self.stmt(*value, Dest::Discard, out);
+				self.yields += 1;
 				Expr::Yield
 			}
 			kind => self.err(span, format!("unsupported expression: {}", kind_name(kind))),

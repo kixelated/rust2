@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 50
-- Function instances: 29
+- Refusals: 51
+- Function instances: 31
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -34,6 +34,7 @@
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:175:1 |
 | 1 | a variable from outside the function | fixtures/reject/src/lib.rs:84:2 |
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:136:3 |
+| 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
@@ -268,6 +269,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a width or precision from an argument, as in `{:1$}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:136:3: a width or precision from an argument, as in `{:1$}`, is not supported
+
+</details>
+
+<details><summary>an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first (1)</summary>
+
+- fixtures/reject/src/lib.rs:190:13: an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first
 
 </details>
 
