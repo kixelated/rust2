@@ -1,7 +1,10 @@
 use uniffi_bindgen::{interface::Literal, ComponentInterface};
 
 use crate::bindings::cpp::{
-    gen_cpp::filters::{callback_interface_name, external_namespace_prefix, CppCodeOracle},
+    gen_cpp::filters::{
+        callback_interface_name, external_canonical_prefix, external_namespace_prefix,
+        CppCodeOracle,
+    },
     CodeType,
 };
 
@@ -22,12 +25,16 @@ impl CodeType for CallbackInterfaceCodeType {
         format!(
             "std::shared_ptr<{}{}>",
             external_namespace_prefix(ci, &self.module_path),
-            self.canonical_name()
+            CppCodeOracle.class_name(&self.id)
         )
     }
 
-    fn canonical_name(&self) -> String {
-        CppCodeOracle.class_name(&self.id)
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
+        format!(
+            "{}{}",
+            external_canonical_prefix(ci, &self.module_path),
+            CppCodeOracle.class_name(&self.id)
+        )
     }
 
     fn literal(&self, _literal: &Literal, _ci: &ComponentInterface) -> String {

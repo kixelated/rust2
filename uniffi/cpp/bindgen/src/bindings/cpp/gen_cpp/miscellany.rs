@@ -13,7 +13,7 @@ macro_rules! impl_code_type_for_miscellany {
                     format!("{}", $label)
                 }
 
-                fn canonical_name(&self) -> String {
+                fn canonical_name(&self, _ci: &ComponentInterface) -> String {
                     format!("{}", $canonical_name)
                 }
 

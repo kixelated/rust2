@@ -1,4 +1,4 @@
-{%- let class_name = typ|canonical_name %}
+{%- let class_name = typ|canonical_name(ci) %}
 {{ type_name }} {{ ffi_converter_name }}::lift(RustBuffer buf) {
     auto stream = RustStream(&buf);
     auto ret = {{ ffi_converter_name }}::read(stream);
@@ -25,13 +25,13 @@ RustBuffer {{ ffi_converter_name }}::lower(const {{ class_name }} &val) {
     {%- for variant in e.variants() %}
     {%- if e.is_flat() %}
     case {{ loop.index }}:
-        return std::make_shared<{{ class_name|to_lower_snake_case }}::{{ variant.name()|class_name }}>({{ Type::String.borrow()|read_fn }}(stream));
+        return std::make_shared<{{ class_name|to_lower_snake_case }}::{{ variant.name()|class_name }}>({{ Type::String.borrow()|read_fn(ci) }}(stream));
     {% else %}
     case {{ loop.index }}:
     {
         {{ class_name|to_lower_snake_case }}::{{ variant.name() }} var;
         {%- for field in variant.fields() %}
-        var.{% call macros::field_name(field, loop.index) %} = {{ field|read_fn }}(stream);
+        var.{% call macros::field_name(field, loop.index) %} = {{ field|read_fn(ci) }}(stream);
         {%- endfor %}
         return std::make_shared<{{ class_name|to_lower_snake_case }}::{{ variant.name() }}>(var);
     }
@@ -46,7 +46,7 @@ void {{ ffi_converter_name }}::write(RustStream &stream, const {{ class_name }} 
     stream << val.get_variant_idx();
 
     {%- if e.is_flat() %}
-    {{ Type::String.borrow()|write_fn }}(stream, val.what());
+    {{ Type::String.borrow()|write_fn(ci) }}(stream, val.what());
     {%- else %}
     switch (val.get_variant_idx()) {
     {%- for variant in e.variants() %}
@@ -54,7 +54,7 @@ void {{ ffi_converter_name }}::write(RustStream &stream, const {{ class_name }} 
     {
         auto var = static_cast<const {{ class_name|to_lower_snake_case }}::{{ variant.name() }}&>(val);
         {%- for field in variant.fields() %}
-        {{ field|write_fn }}(stream, {{ field.as_type()|cpp_deref(ci) }}var.{% call macros::field_name(field, loop.index) %});
+        {{ field|write_fn(ci) }}(stream, {{ field.as_type()|cpp_deref(ci) }}var.{% call macros::field_name(field, loop.index) %});
         {%- endfor %}
         break;
     }
@@ -75,7 +75,7 @@ uint64_t {{ ffi_converter_name }}::allocation_size(const {{ class_name }} &val) 
         auto var = static_cast<const {{ class_name|to_lower_snake_case }}::{{ variant.name() }}&>(val);
         return static_cast<uint64_t>(sizeof(int32_t)
         {%- for field in variant.fields() %}
-            + {{ field|allocation_size_fn }}({{ field.as_type()|cpp_deref(ci) }}var.{% call macros::field_name(field, loop.index) %})
+            + {{ field|allocation_size_fn(ci) }}({{ field.as_type()|cpp_deref(ci) }}var.{% call macros::field_name(field, loop.index) %})
         {%- endfor %});
     }
     {%- endfor %}

@@ -4,8 +4,11 @@ use uniffi_bindgen::{
 };
 
 use crate::bindings::cpp::{
-    gen_cpp::filters::callback_interface_name, gen_cpp::filters::external_namespace_prefix,
-    gen_cpp::filters::CppCodeOracle, CodeType,
+    gen_cpp::filters::{
+        callback_interface_name, external_canonical_prefix, external_namespace_prefix,
+        CppCodeOracle,
+    },
+    CodeType,
 };
 
 #[derive(Debug)]
@@ -30,12 +33,16 @@ impl CodeType for ObjectCodeType {
         format!(
             "std::shared_ptr<{}{}>",
             external_namespace_prefix(ci, &self.module_path),
-            self.canonical_name()
+            CppCodeOracle.class_name(&self.id)
         )
     }
 
-    fn canonical_name(&self) -> String {
-        CppCodeOracle.class_name(&self.id)
+    fn canonical_name(&self, ci: &ComponentInterface) -> String {
+        format!(
+            "{}{}",
+            external_canonical_prefix(ci, &self.module_path),
+            CppCodeOracle.class_name(&self.id)
+        )
     }
 
     fn literal(&self, _literal: &Literal, _ci: &ComponentInterface) -> String {
@@ -46,7 +53,7 @@ impl CodeType for ObjectCodeType {
         self.imp.has_callback_interface().then(|| {
             format!(
                 "uniffi::{}::init",
-                callback_interface_name(&self.canonical_name()).unwrap()
+                callback_interface_name(&CppCodeOracle.class_name(&self.id)).unwrap()
             )
         })
     }

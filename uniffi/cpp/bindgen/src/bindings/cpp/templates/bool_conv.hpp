@@ -1,4 +1,4 @@
-struct {{ typ|ffi_converter_name }} {
+struct {{ typ|ffi_converter_name(ci) }} {
     static {{ type_name }} lift(uint8_t);
     static uint8_t lower({{ type_name }});
     static {{ type_name }} read(RustStream &);

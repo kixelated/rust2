@@ -11,7 +11,7 @@
 {%- let err_type = func.throws_type().unwrap()|type_name(ci) %}
 {%- let err_enum = ci.get_enum_definition(err_type).unwrap() %}
 {%- for variant in err_enum.variants() %}
-{%- let converter_name = err_enum|ffi_converter_name %}
+{%- let converter_name = err_enum|ffi_converter_name(ci) %}
     } catch (const {{ err_type|to_lower_snake_case }}::{{ variant.name() }} &e) {
         out_status->code = UNIFFI_CALL_STATUS_ERROR;
         out_status->error_buf = {{ converter_name }}{{ variant.name() }}::lower(e);
@@ -19,7 +19,7 @@
 {%- endif %}
     } catch (const std::exception &e) {
         out_status->code = UNIFFI_CALL_STATUS_PANIC;
-        out_status->error_buf = {{ Type::String.borrow()|ffi_converter_name }}::lower(e.what());
+        out_status->error_buf = {{ Type::String.borrow()|ffi_converter_name(ci) }}::lower(e.what());
     } catch (...) {
         out_status->code = UNIFFI_CALL_STATUS_PANIC;
     }
@@ -36,13 +36,13 @@
 {% when Some with (return_type) %}
 auto ret = {{ namespace }}::{{ scaffolding_fn.name() }}(
 {%- for arg in scaffolding_fn.arguments() %}
-{{- arg|lift_fn }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
+{{- arg|lift_fn(ci) }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
 {% endfor %});
-return {{ return_type|lower_fn }}(ret);
+return {{ return_type|lower_fn(ci) }}(ret);
 {% when None %}
 {{ namespace }}::{{ scaffolding_fn.name() }}(
 {%- for arg in scaffolding_fn.arguments() %}
-{{- arg|lift_fn }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
+{{- arg|lift_fn(ci) }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
 {% endfor %});
 {% endmatch %}
 {% endmacro %}
@@ -53,14 +53,14 @@ return {{ return_type|lower_fn }}(ret);
 auto ret = obj->{{ scaffolding_fn.name() }}(
 {% if scaffolding_fn.takes_self_by_arc() %}obj{% if !scaffolding_fn.arguments().is_empty() %},{% endif %}{% endif %}
 {%- for arg in scaffolding_fn.arguments() %}
-{{- arg|lift_fn }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
+{{- arg|lift_fn(ci) }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
 {% endfor %});
-return {{ return_type|lower_fn }}(ret);
+return {{ return_type|lower_fn(ci) }}(ret);
 {% when None %}
 obj->{{ scaffolding_fn.name() }}(
 {% if scaffolding_fn.takes_self_by_arc() %}obj{% if !scaffolding_fn.arguments().is_empty() %},{% endif %}{% endif %}
 {%- for arg in scaffolding_fn.arguments() %}
-{{- arg|lift_fn }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
+{{- arg|lift_fn(ci) }}({{ arg.name()|var_name }}){% if !loop.last %}, {% endif -%}
 {% endfor %});
 {% endmatch %}
 {% endmacro %}
