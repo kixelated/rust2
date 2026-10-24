@@ -50,6 +50,8 @@ pub enum Expr {
 	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
 	/// another integer type with the same value.
 	As(Box<Expr>, Type),
+	/// `yield`, which a generator resumes from with the next `rt.Context`.
+	Yield,
 	Located(Loc, Box<Expr>),
 }
 
@@ -214,6 +216,11 @@ pub enum StmtKind {
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
+	/// `try { body } finally { finally }`: what `finally` drops is dropped on every exit.
+	Try {
+		body: Vec<Stmt>,
+		finally: Vec<Stmt>,
+	},
 }
 
 impl StmtKind {
@@ -250,7 +257,7 @@ impl Stmt {
 		match &self.kind {
 			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
-			StmtKind::Block { label: None, body } => diverges(body),
+			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
 			StmtKind::While {
 				label,
 				cond: Expr::Lit(cond),
@@ -270,6 +277,7 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::Break(Some(target)) => Some(target.as_str()) == label,
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
+		StmtKind::Try { body, finally } => breaks_out(body, label, nested) || breaks_out(finally, label, nested),
 		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
 			breaks_out(body, label, true)
 		}
@@ -288,6 +296,7 @@ pub fn mentions(stmts: &[Stmt], name: &str) -> bool {
 		StmtKind::ForRange { start, end, body, .. } => expr(start) || expr(end) || mentions(body, name),
 		StmtKind::ForOf { iter, body, .. } => expr(iter) || mentions(body, name),
 		StmtKind::Block { body, .. } => mentions(body, name),
+		StmtKind::Try { body, finally } => mentions(body, name) || mentions(finally, name),
 		StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => false,
 	})
 }
@@ -296,7 +305,7 @@ impl Expr {
 	fn mentions(&self, name: &str) -> bool {
 		match self {
 			Self::Ident(ident) => ident == name,
-			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) => false,
+			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) | Self::Yield => false,
 			Self::Array(es) => es.iter().any(|e| e.mentions(name)),
 			Self::Object(props) => props.iter().any(|(_, e)| e.mentions(name)),
 			Self::Member(e, _) | Self::Unary(_, e) | Self::Located(_, e) | Self::As(e, _) => e.mentions(name),
@@ -345,6 +354,9 @@ pub struct Function {
 	pub body: Vec<Stmt>,
 	pub loc: Option<Loc>,
 	pub doc: Option<String>,
+	/// An async body, run as a generator: `function*`, returning `Generator<undefined,
+	/// ret, rt.Context>`.
+	pub generator: bool,
 }
 
 #[derive(Clone, Debug)]

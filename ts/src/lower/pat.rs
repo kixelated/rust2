@@ -42,6 +42,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						0 => scrut.clone().binary("===", Expr::undefined()),
 						_ => scrut.clone().binary("!==", Expr::undefined()),
 					}),
+					Some(Std::Poll) => tests.push(match variant_index.index() {
+						0 => scrut.clone().binary("!==", Expr::Rt("Pending")),
+						_ => scrut.clone().binary("===", Expr::Rt("Pending")),
+					}),
 					Some(Std::Result) => tests.push(match variant_index.index() {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
@@ -183,8 +187,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				if !by_value {
 					self.ref_binding(mode.0, ty, pat.span);
 				}
+				// A value that drops moves into its binding, read or not.
+				let moves = by_value && !self.t.is_copy(ty) && self.t.drops(ty);
 				// Binding has no effect in JS, and TypeScript refuses an unread local.
-				if subpattern.is_none() && !self.is_read(*var) {
+				if subpattern.is_none() && !self.is_read(*var) && !moves {
 					return;
 				}
 				let mutable = mode.1 == rustc_ast::Mutability::Mut;
@@ -192,9 +198,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					true => self.copied(scrut.clone(), ty),
 					false => scrut.clone(),
 				};
-				let name = self.bind_var(*var, *name, mutable, ty, pat.span);
+				let name = self.bind_var(*var, *name, mutable, ty, pat.span, by_value);
 				let annotate = mutable.then(|| self.t.ty(ty, pat.span));
 				out.push(StmtKind::decl(mutable, name, annotate, Some(value)).at(None));
+				// Out of a place, which is left `undefined`.
+				if moves && !owned {
+					self.clear(scrut.clone(), out);
+				}
 				if let Some(sub) = subpattern {
 					self.pat_bind(sub, scrut, owned, out);
 				}
@@ -253,6 +263,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						ty::Uint(ty::UintTy::U8) => "subarray",
 						_ => "slice",
 					};
+					// Its copy of the elements would drop them, and so would the place they stay in.
+					let rest_ty = self.subst(p.ty);
+					if !owned && !matches!(rest_ty.kind(), ty::Ref(..)) && self.t.drops(rest_ty) {
+						self.t.err(
+							p.span,
+							"a rest pattern that moves values that drop out of a place, which is not supported yet",
+						);
+					}
 					let rest = scrut.clone().member(method).call(vec![start, end]);
 					self.pat_bind(p, &rest, true, out);
 				}
