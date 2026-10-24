@@ -73,6 +73,9 @@ uniffi-rs:
   consumer.
 - Test expectations that hold a path relative to the workspace root (`file!()` output and
   trybuild snapshots) gain the `uniffi/` prefix.
+- Scaffolding is written to a temporary file and renamed into place. Two trybuild cases
+  expanding `generate_and_include_scaffolding!` on one UDL write it concurrently, and the
+  in-place truncate let one include a partial file.
 
 uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 
