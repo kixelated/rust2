@@ -96,8 +96,16 @@ export function writeQuic(value: bigint, out: rt.ByteVec): rt.Result<undefined, 
 	} else if (hi === 0 && lo < (1 << 30)) {
 		out.extendFromSlice(rt.u32.toBeBytes((0x8000_0000 | lo) >>> 0));
 	} else if (hi < (1 << 30)) {
-		const [a, b, c, d] = rt.u32.toBeBytes((0xc000_0000 | hi) >>> 0);
-		const [e, f, g, h] = rt.u32.toBeBytes(lo);
+		const toBeBytes = rt.u32.toBeBytes((0xc000_0000 | hi) >>> 0);
+		const a = toBeBytes[0];
+		const b = toBeBytes[1];
+		const c = toBeBytes[2];
+		const d = toBeBytes[3];
+		const toBeBytes2 = rt.u32.toBeBytes(lo);
+		const e = toBeBytes2[0];
+		const f = toBeBytes2[1];
+		const g = toBeBytes2[2];
+		const h = toBeBytes2[3];
 		out.extendFromSlice(Uint8Array.of(a, b, c, d, e, f, g, h));
 	} else {
 		return rt.Err(new BoundsExceeded());
@@ -107,7 +115,11 @@ export function writeQuic(value: bigint, out: rt.ByteVec): rt.Result<undefined, 
 
 export function writeLeadingOnes(value: bigint, out: rt.ByteVec): void {
 	const [hi, lo] = toHalves(value);
-	const [a, b, c, d] = rt.u32.toBeBytes(lo);
+	const toBeBytes = rt.u32.toBeBytes(lo);
+	const a = toBeBytes[0];
+	const b = toBeBytes[1];
+	const c = toBeBytes[2];
+	const d = toBeBytes[3];
 	if (hi === 0 && lo < (1 << 7)) {
 		out.push(d);
 	} else if (hi === 0 && lo < (1 << 14)) {
@@ -121,10 +133,17 @@ export function writeLeadingOnes(value: bigint, out: rt.ByteVec): void {
 	} else if (hi < (1 << 10)) {
 		out.extendFromSlice(Uint8Array.of(0xf8 | ((hi >>> 8) & 0xff), hi & 0xff, a, b, c, d));
 	} else if (hi < (1 << 24)) {
-		const [, f, g, h] = rt.u32.toBeBytes(hi);
+		const toBeBytes2 = rt.u32.toBeBytes(hi);
+		const f = toBeBytes2[1];
+		const g = toBeBytes2[2];
+		const h = toBeBytes2[3];
 		out.extendFromSlice(Uint8Array.of(0xfe, f, g, h, a, b, c, d));
 	} else {
-		const [e, f2, g2, h2] = rt.u32.toBeBytes(hi);
+		const toBeBytes3 = rt.u32.toBeBytes(hi);
+		const e = toBeBytes3[0];
+		const f2 = toBeBytes3[1];
+		const g2 = toBeBytes3[2];
+		const h2 = toBeBytes3[3];
 		out.extendFromSlice(Uint8Array.of(0xff, e, f2, g2, h2, a, b, c, d));
 	}
 }
@@ -153,15 +172,21 @@ export function readQuic(buf: Uint8Array): rt.Result<[bigint, Uint8Array], Decod
 		if (!okOr.ok) {
 			return rt.Err(okOr.error);
 		}
-		const [[a, b], rest2] = okOr.value;
-		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a & 0x3f, b))), rest2]);
+		const a = okOr.value[0][0];
+		const b = okOr.value[0][1];
+		const rest2 = okOr.value[1];
+		return rt.Ok([BigInt(((a & 0x3f) << 8) | b), rest2]);
 	} else if (first < 0xc0) {
 		const okOr2 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 4), { tag: "Short" } as DecodeError);
 		if (!okOr2.ok) {
 			return rt.Err(okOr2.error);
 		}
-		const [[a2, b2, c, d], rest3] = okOr2.value;
-		return rt.Ok([BigInt(rt.u32.fromBeBytes(Uint8Array.of(a2 & 0x3f, b2, c, d))), rest3]);
+		const a2 = okOr2.value[0][0];
+		const b2 = okOr2.value[0][1];
+		const c = okOr2.value[0][2];
+		const d = okOr2.value[0][3];
+		const rest3 = okOr2.value[1];
+		return rt.Ok([BigInt((((a2 & 0x3f) << 24) | (b2 << 16) | (c << 8) | d) >>> 0), rest3]);
 	} else {
 		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 8), { tag: "Short" } as DecodeError);
 		if (!okOr3.ok) {
@@ -173,7 +198,7 @@ export function readQuic(buf: Uint8Array): rt.Result<[bigint, Uint8Array], Decod
 		const d2 = okOr3.value[0][3];
 		const lo = okOr3.value[0].subarray(4, 8);
 		const rest4 = okOr3.value[1];
-		return rt.Ok([fromHalves(rt.u32.fromBeBytes(Uint8Array.of(a3 & 0x3f, b3, c2, d2)), rt.u32.fromBeBytes(rt.copy(lo))), rest4]);
+		return rt.Ok([fromHalves((((a3 & 0x3f) << 24) | (b3 << 16) | (c2 << 8) | d2) >>> 0, rt.u32.fromBeBytes(lo)), rest4]);
 	}
 }
 
@@ -193,22 +218,31 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		if (!okOr.ok) {
 			return rt.Err(okOr.error);
 		}
-		const [[a, b], rest2] = okOr.value;
-		value = [BigInt(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a & 0x3f, b))), rest2];
+		const a = okOr.value[0][0];
+		const b = okOr.value[0][1];
+		const rest2 = okOr.value[1];
+		value = [BigInt(((a & 0x3f) << 8) | b), rest2];
 	} else if (leadingOnes === 2) {
 		const okOr2 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 3), { tag: "Short" } as DecodeError);
 		if (!okOr2.ok) {
 			return rt.Err(okOr2.error);
 		}
-		const [[a2, b2, c], rest3] = okOr2.value;
-		value = [BigInt(rt.u32.fromBeBytes(Uint8Array.of(0, a2 & 0x1f, b2, c))), rest3];
+		const a2 = okOr2.value[0][0];
+		const b2 = okOr2.value[0][1];
+		const c = okOr2.value[0][2];
+		const rest3 = okOr2.value[1];
+		value = [BigInt(((a2 & 0x1f) << 16) | (b2 << 8) | c), rest3];
 	} else if (leadingOnes === 3) {
 		const okOr3 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 4), { tag: "Short" } as DecodeError);
 		if (!okOr3.ok) {
 			return rt.Err(okOr3.error);
 		}
-		const [[a3, b3, c2, d], rest4] = okOr3.value;
-		value = [BigInt(rt.u32.fromBeBytes(Uint8Array.of(a3 & 0x0f, b3, c2, d))), rest4];
+		const a3 = okOr3.value[0][0];
+		const b3 = okOr3.value[0][1];
+		const c2 = okOr3.value[0][2];
+		const d = okOr3.value[0][3];
+		const rest4 = okOr3.value[1];
+		value = [BigInt((((a3 & 0x0f) << 24) | (b3 << 16) | (c2 << 8) | d) >>> 0), rest4];
 	} else if (leadingOnes === 4) {
 		const okOr4 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 5), { tag: "Short" } as DecodeError);
 		if (!okOr4.ok) {
@@ -217,7 +251,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const a4 = okOr4.value[0][0];
 		const lo = okOr4.value[0].subarray(1, 5);
 		const rest5 = okOr4.value[1];
-		value = [fromHalves(a4 & 0x07, rt.u32.fromBeBytes(rt.copy(lo))), rest5];
+		value = [fromHalves(a4 & 0x07, rt.u32.fromBeBytes(lo)), rest5];
 	} else if (leadingOnes === 5) {
 		const okOr5 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 6), { tag: "Short" } as DecodeError);
 		if (!okOr5.ok) {
@@ -227,7 +261,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const b4 = okOr5.value[0][1];
 		const lo2 = okOr5.value[0].subarray(2, 6);
 		const rest6 = okOr5.value[1];
-		value = [fromHalves(rt.u32.fromBeBytes(Uint8Array.of(0, 0, a5 & 0x03, b4)), rt.u32.fromBeBytes(rt.copy(lo2))), rest6];
+		value = [fromHalves(((a5 & 0x03) << 8) | b4, rt.u32.fromBeBytes(lo2)), rest6];
 	} else if (leadingOnes === 6 && !seven) {
 		return rt.Err({ tag: "InvalidValue" });
 	} else if (leadingOnes === 6) {
@@ -240,7 +274,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const c3 = okOr6.value[0][2];
 		const lo3 = okOr6.value[0].subarray(3, 7);
 		const rest7 = okOr6.value[1];
-		value = [fromHalves(rt.u32.fromBeBytes(Uint8Array.of(0, a6 & 0x01, b5, c3)), rt.u32.fromBeBytes(rt.copy(lo3))), rest7];
+		value = [fromHalves(((a6 & 0x01) << 16) | (b5 << 8) | c3, rt.u32.fromBeBytes(lo3)), rest7];
 	} else if (leadingOnes === 7) {
 		const okOr7 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 8), { tag: "Short" } as DecodeError);
 		if (!okOr7.ok) {
@@ -251,7 +285,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const d2 = okOr7.value[0][3];
 		const lo4 = okOr7.value[0].subarray(4, 8);
 		const rest8 = okOr7.value[1];
-		value = [fromHalves(rt.u32.fromBeBytes(Uint8Array.of(0, b6, c4, d2)), rt.u32.fromBeBytes(rt.copy(lo4))), rest8];
+		value = [fromHalves((b6 << 16) | (c4 << 8) | d2, rt.u32.fromBeBytes(lo4)), rest8];
 	} else {
 		const okOr8 = rt.option.okOr(rt.slice.splitFirstChunk(buf, 9), { tag: "Short" } as DecodeError);
 		if (!okOr8.ok) {
@@ -263,7 +297,7 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[big
 		const h = okOr8.value[0][8];
 		const hi = okOr8.value[0].subarray(1, 5);
 		const rest9 = okOr8.value[1];
-		value = [fromHalves(rt.u32.fromBeBytes(rt.copy(hi)), rt.u32.fromBeBytes(Uint8Array.of(e, f, g, h))), rest9];
+		value = [fromHalves(rt.u32.fromBeBytes(hi), ((e << 24) | (f << 16) | (g << 8) | h) >>> 0), rest9];
 	}
 	return rt.Ok(value);
 }

@@ -66,85 +66,122 @@ export interface Int<T extends number | bigint> {
 	upperHex(a: T, f: Formatter): FmtResult;
 }
 
-/** The exact arithmetic of a representation, before its result is checked. */
-interface Exact<T> {
-	add(a: T, b: T): T;
-	sub(a: T, b: T): T;
-	mul(a: T, b: T): T;
-	neg(a: T): T;
-}
-
 function shift(b: number | bigint, bits: number, direction: string): number {
 	const n = Number(b);
 	if (n < 0 || n >= bits) panic(`attempt to shift ${direction} with overflow`);
 	return n;
 }
 
-function int<T extends number | bigint>(
-	bits: number,
-	signed: boolean,
-	of: (value: number | bigint) => T,
-	wrap: (value: bigint) => T,
-	exact: Exact<T>,
-): Int<T> {
+/**
+ * An integer of 32 bits or less, in a number. Sums, differences, and quotients are
+ * exact; a product is inexact only past 2^53, far outside every type's range, so its
+ * check still fails. JS's 32-bit operators do the rest.
+ */
+function small(bits: number, signed: boolean): Int<number> {
+	const min = signed ? -(2 ** (bits - 1)) : 0;
+	const max = signed ? 2 ** (bits - 1) - 1 : 2 ** bits - 1;
+	const mask = 2 ** bits - 1;
+	// What the low `bits` bits read as.
+	const wrap: (value: number) => number =
+		bits === 32 ? (signed ? (v) => v | 0 : (v) => v >>> 0) : signed ? (v) => (v << (32 - bits)) >> (32 - bits) : (v) => v & mask;
+	// The bits as unsigned, for leading zeros and hex.
+	const unsigned = bits === 32 ? (v: number) => v >>> 0 : (v: number) => v & mask;
+	const checked = (value: number, op: string): number => {
+		if (value < min || value > max) panic(`attempt to ${op} with overflow`);
+		return value;
+	};
+	const clamp = (value: number) => (value < min ? min : value > max ? max : value);
+	const inRange = (value: number) => (value >= min && value <= max ? value : undefined);
+	return {
+		MIN: min,
+		MAX: max,
+		BITS: bits,
+		add: (a, b) => checked(a + b, "add"),
+		sub: (a, b) => checked(a - b, "subtract"),
+		mul: (a, b) => checked(a * b, "multiply"),
+		neg: (a) => checked(-a, "negate"),
+		div(a, b) {
+			if (b === 0) panic("attempt to divide by zero");
+			return checked(Math.trunc(a / b), "divide");
+		},
+		rem(a, b) {
+			if (b === 0) panic("attempt to calculate the remainder with a divisor of zero");
+			if (signed && b === -1 && a === min) panic("attempt to calculate the remainder with overflow");
+			return a % b;
+		},
+		shl: (a, b) => wrap(a << shift(b, bits, "left")),
+		shr: (a, b) => (signed ? a >> shift(b, bits, "right") : a >>> shift(b, bits, "right")),
+		checkedAdd: (a, b) => inRange(a + b),
+		checkedSub: (a, b) => inRange(a - b),
+		checkedMul: (a, b) => inRange(a * b),
+		saturatingAdd: (a, b) => clamp(a + b),
+		saturatingSub: (a, b) => clamp(a - b),
+		wrappingAdd: (a, b) => wrap(a + b),
+		wrappingSub: (a, b) => wrap(a - b),
+		leadingOnes: (a) => Math.clz32(~(a << (32 - bits))),
+		leadingZeros: (a) => Math.clz32(unsigned(a)) - (32 - bits),
+		fromBeBytes(bytes) {
+			let value = 0;
+			for (let i = 0; i < bytes.length; i++) value = (value << 8) | bytes[i];
+			return wrap(value);
+		},
+		toBeBytes(a) {
+			const out = new Uint8Array(bits / 8);
+			for (let i = out.length - 1; i >= 0; i--) {
+				out[i] = a;
+				a >>= 8;
+			}
+			return out;
+		},
+		tryFrom(value) {
+			if (value >= min && value <= max) return Ok(Number(value));
+			return Err(new TryFromIntError(value < min ? "NegOverflow" : "PosOverflow"));
+		},
+		display: (a, f) => f.padIntegral(a >= 0, "", String(a < 0 ? -a : a)),
+		lowerHex: (a, f) => f.padIntegral(true, "0x", unsigned(a).toString(16)),
+		upperHex: (a, f) => f.padIntegral(true, "0x", unsigned(a).toString(16).toUpperCase()),
+	};
+}
+
+/** An integer wider than 32 bits, in a bigint. */
+function wide(bits: number, signed: boolean): Int<bigint> {
 	const min = signed ? -(1n << BigInt(bits - 1)) : 0n;
 	const max = signed ? (1n << BigInt(bits - 1)) - 1n : (1n << BigInt(bits)) - 1n;
+	const wrap = (value: bigint) => (signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value));
+	const unsigned = (value: bigint) => BigInt.asUintN(bits, value);
 	const fits = (value: number | bigint) => value >= min && value <= max;
-	const checked = (value: T, op: string): T => {
+	const checked = (value: bigint, op: string): bigint => {
 		if (!fits(value)) panic(`attempt to ${op} with overflow`);
 		return value;
 	};
-	const big = (value: T) => BigInt(value);
-	const unsigned = (value: T) => BigInt.asUintN(bits, big(value));
+	const clamp = (value: bigint) => (value < min ? min : value > max ? max : value);
+	const inRange = (value: bigint) => (fits(value) ? value : undefined);
 	return {
-		MIN: of(min),
-		MAX: of(max),
+		MIN: min,
+		MAX: max,
 		BITS: bits,
-		add: (a, b) => checked(exact.add(a, b), "add"),
-		sub: (a, b) => checked(exact.sub(a, b), "subtract"),
-		mul: (a, b) => checked(exact.mul(a, b), "multiply"),
-		neg: (a) => checked(exact.neg(a), "negate"),
+		add: (a, b) => checked(a + b, "add"),
+		sub: (a, b) => checked(a - b, "subtract"),
+		mul: (a, b) => checked(a * b, "multiply"),
+		neg: (a) => checked(-a, "negate"),
 		div(a, b) {
-			if (big(b) === 0n) panic("attempt to divide by zero");
-			return checked(of(big(a) / big(b)), "divide");
+			if (b === 0n) panic("attempt to divide by zero");
+			return checked(a / b, "divide");
 		},
 		rem(a, b) {
-			if (big(b) === 0n) panic("attempt to calculate the remainder with a divisor of zero");
-			if (signed && big(b) === -1n && big(a) === min) panic("attempt to calculate the remainder with overflow");
-			return of(big(a) % big(b));
+			if (b === 0n) panic("attempt to calculate the remainder with a divisor of zero");
+			if (signed && b === -1n && a === min) panic("attempt to calculate the remainder with overflow");
+			return a % b;
 		},
-		shl(a, b) {
-			return wrap(big(a) << BigInt(shift(b, bits, "left")));
-		},
-		shr(a, b) {
-			return of(big(a) >> BigInt(shift(b, bits, "right")));
-		},
-		checkedAdd(a, b) {
-			const sum = big(a) + big(b);
-			return fits(sum) ? of(sum) : undefined;
-		},
-		checkedSub(a, b) {
-			const diff = big(a) - big(b);
-			return fits(diff) ? of(diff) : undefined;
-		},
-		checkedMul(a, b) {
-			const product = big(a) * big(b);
-			return fits(product) ? of(product) : undefined;
-		},
-		saturatingAdd(a, b) {
-			const sum = big(a) + big(b);
-			return of(sum < min ? min : sum > max ? max : sum);
-		},
-		saturatingSub(a, b) {
-			const diff = big(a) - big(b);
-			return of(diff < min ? min : diff > max ? max : diff);
-		},
-		wrappingAdd(a, b) {
-			return wrap(big(a) + big(b));
-		},
-		wrappingSub(a, b) {
-			return wrap(big(a) - big(b));
-		},
+		shl: (a, b) => wrap(a << BigInt(shift(b, bits, "left"))),
+		shr: (a, b) => a >> BigInt(shift(b, bits, "right")),
+		checkedAdd: (a, b) => inRange(a + b),
+		checkedSub: (a, b) => inRange(a - b),
+		checkedMul: (a, b) => inRange(a * b),
+		saturatingAdd: (a, b) => clamp(a + b),
+		saturatingSub: (a, b) => clamp(a - b),
+		wrappingAdd: (a, b) => wrap(a + b),
+		wrappingSub: (a, b) => wrap(a - b),
 		leadingOnes(a) {
 			let n = 0;
 			for (let bit = BigInt(bits - 1); bit >= 0n && (unsigned(a) >> bit) & 1n; bit--) n++;
@@ -155,60 +192,36 @@ function int<T extends number | bigint>(
 			for (let bit = BigInt(bits - 1); bit >= 0n && !((unsigned(a) >> bit) & 1n); bit--) n++;
 			return n;
 		},
+		// A 32-bit word at a time: one bigint step per word, not per byte.
 		fromBeBytes(bytes) {
 			let value = 0n;
-			for (const byte of bytes) value = (value << 8n) | BigInt(byte);
+			for (let i = 0; i < bytes.length; i += 4) {
+				const word = ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
+				value = (value << 32n) | BigInt(word);
+			}
 			return wrap(value);
 		},
 		toBeBytes(a) {
 			const out = new Uint8Array(bits / 8);
 			let value = unsigned(a);
-			for (let i = out.length - 1; i >= 0; i--) {
-				out[i] = Number(value & 0xffn);
-				value >>= 8n;
+			for (let i = out.length - 4; i >= 0; i -= 4) {
+				const word = Number(BigInt.asUintN(32, value));
+				out[i] = word >>> 24;
+				out[i + 1] = word >>> 16;
+				out[i + 2] = word >>> 8;
+				out[i + 3] = word;
+				value >>= 32n;
 			}
 			return out;
 		},
 		tryFrom(value) {
-			if (fits(value)) return Ok(of(value));
+			if (fits(value)) return Ok(BigInt(value));
 			return Err(new TryFromIntError(value < min ? "NegOverflow" : "PosOverflow"));
 		},
-		display(a, f) {
-			const value = big(a);
-			return f.padIntegral(value >= 0n, "", (value < 0n ? -value : value).toString());
-		},
-		lowerHex(a, f) {
-			return f.padIntegral(true, "0x", unsigned(a).toString(16));
-		},
-		upperHex(a, f) {
-			return f.padIntegral(true, "0x", unsigned(a).toString(16).toUpperCase());
-		},
+		display: (a, f) => f.padIntegral(a >= 0n, "", (a < 0n ? -a : a).toString()),
+		lowerHex: (a, f) => f.padIntegral(true, "0x", unsigned(a).toString(16)),
+		upperHex: (a, f) => f.padIntegral(true, "0x", unsigned(a).toString(16).toUpperCase()),
 	};
-}
-
-const numbers: Exact<number> = {
-	add: (a, b) => a + b,
-	sub: (a, b) => a - b,
-	// Inexact only past 2^53, far outside every type's range, so the check still fails.
-	mul: (a, b) => a * b,
-	neg: (a) => -a,
-};
-
-const bigints: Exact<bigint> = {
-	add: (a, b) => a + b,
-	sub: (a, b) => a - b,
-	mul: (a, b) => a * b,
-	neg: (a) => -a,
-};
-
-function small(bits: number, signed: boolean): Int<number> {
-	const wrap = (value: bigint) => Number(signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value));
-	return int(bits, signed, Number, wrap, numbers);
-}
-
-function wide(bits: number, signed: boolean): Int<bigint> {
-	const wrap = (value: bigint) => (signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value));
-	return int(bits, signed, BigInt, wrap, bigints);
 }
 
 export const u8: Int<number> = small(8, false);
@@ -423,7 +436,9 @@ export class ByteVec {
 		const needed = this.length + additional;
 		if (needed <= this.data.length) return;
 		const grown = new Uint8Array(Math.max(needed, this.data.length * 2, 8));
-		grown.set(this.view());
+		// All of `data`, not a view of it: a view of a small array makes V8 move it off its
+		// heap, which costs more than copying the few bytes past `length`.
+		grown.set(this.data);
 		this.data = grown;
 	}
 
