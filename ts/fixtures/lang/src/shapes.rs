@@ -213,7 +213,8 @@ pub fn discriminants(data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
-/// Loops: labeled, `while let`, ranges, values out of `break`, and loops that end a function.
+/// Loops: labeled, `while let`, ranges, values out of `break`, loops that end a function,
+/// and values of type `!`.
 pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 	let mut stack: Vec<u8> = data.to_vec();
 	let mut popped = 0u32;
@@ -284,6 +285,107 @@ pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 	drain(data, out);
 	out.push(returned_loop(data));
 	branch_loops(data, out);
+	diverging(data, out);
+}
+
+/// Values of type `!` where a value goes, triggered by the first two bytes so most
+/// inputs run every case to its end.
+fn diverging(data: &[u8], out: &mut Vec<u8>) {
+	let head = &data[..data.len().min(2)];
+	let b = head.first().copied().unwrap_or(0);
+	out.push(returned_never(b, data.len()));
+	out.push(broken_never(head));
+	let check = |b: u8| -> u8 {
+		if b == 0xfd {
+			#[allow(unreachable_code, clippy::needless_return, reason = "a `return` of a `!` value")]
+			return panic!("closure {b}");
+		}
+		b / 3
+	};
+	out.push(check(b));
+	out.push(guarded_return(head));
+	let found = bound_never(head, out);
+	out.push(found);
+}
+
+/// A function that never returns.
+fn bail(b: u8) -> ! {
+	panic!("failed on {b:#x}")
+}
+
+/// `return`, and `break` out of the function's labeled block, with values that never exist.
+#[allow(unreachable_code, clippy::needless_return, reason = "`return` of `!` values")]
+fn returned_never(b: u8, len: usize) -> u8 {
+	match b {
+		0xf7 => return panic!("returned {b}"),
+		0xf8 => return if len % 2 == 0 { panic!("then {b}") } else { bail(b) },
+		_ => {}
+	}
+	'value: {
+		if b == 0xfe {
+			break 'value bail(b);
+		}
+		b ^ 0x11
+	}
+}
+
+/// A `return` of a `match` that guards, whose arms fall through to the next.
+#[allow(clippy::needless_return, reason = "the `return` is not the function's tail")]
+fn guarded_return(data: &[u8]) -> u8 {
+	if !data.is_empty() {
+		return match data {
+			[a, b] if a > b => a - b,
+			[a, ..] if *a > 0x80 => 1,
+			_ => 2,
+		};
+	}
+	3
+}
+
+/// A loop ending the function, left by `break` with values that never exist.
+#[allow(unreachable_code, reason = "`break` with `!` values")]
+fn broken_never(data: &[u8]) -> u8 {
+	let mut i = 0;
+	loop {
+		if i >= data.len() {
+			return 0xcc;
+		}
+		match data[i] {
+			0xfb => break panic!("broken at {i}"),
+			0xfc => break bail(data[i]),
+			0 => return i as u8,
+			_ => i += 1,
+		}
+	}
+}
+
+/// Values that never exist where a value is needed: bound, and passed. A loop that
+/// only `return` leaves gives the function's result.
+#[allow(unreachable_code, clippy::diverging_sub_expression, reason = "`!` values")]
+fn bound_never(data: &[u8], out: &mut Vec<u8>) -> u8 {
+	let mut i = 0;
+	let found: u8 = loop {
+		if i >= data.len() {
+			return 0xbb;
+		}
+		match data[i] {
+			0xef => {
+				let x: u8 = panic!("bound at {i}");
+				out.push(x);
+			}
+			0xf0 => out.push(bail(data[i])),
+			0 => out.push(return i as u8),
+			0x80 => out.push(loop {
+				i += 1;
+				if i >= data.len() || data[i] < 0x80 {
+					return i as u8;
+				}
+			}),
+			_ => {}
+		}
+		i += 1;
+	};
+	found
 }
 
 /// Loops that `break` ending a guarded `match` arm and an `if let` chain branch.
