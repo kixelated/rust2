@@ -133,6 +133,9 @@ struct Pending {
 	parts: Option<Vec<Expr>>,
 	/// The names it reads, which an assignment to must not pass it.
 	reads: Vec<String>,
+	/// Whether it is a `Copy` aggregate read from where it could change, which only an
+	/// argument may share: emitted on its own, it is copied.
+	copy: bool,
 }
 
 pub struct Fx<'m, 'b, 'a, 'tcx> {
@@ -170,6 +173,14 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	parts: Option<Vec<Expr>>,
 	/// Blocks that start an ignored macro's code, and the block after it.
 	redirect: FxHashMap<BasicBlock, BasicBlock>,
+	/// Whether the operands lowered now go to a local nothing changes in place.
+	into_frozen: bool,
+	/// Whether the value held back next is copied unless it folds into an argument.
+	copy_on_flush: bool,
+	/// Whether a copy lowered now shares what it copies, whatever it reads from.
+	force_share: bool,
+	/// Locals whose one read is as a call's argument, which may share what it copies.
+	arg_use: IndexVec<Local, bool>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -198,6 +209,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			unreachable: FxHashSet::default(),
 			parts: None,
 			redirect: FxHashMap::default(),
+			into_frozen: false,
+			copy_on_flush: false,
+			force_share: false,
+			arg_use: IndexVec::from_elem_n(false, n),
 		};
 		fx.analyze();
 		fx
@@ -254,6 +269,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.operand_use(func);
 					for arg in args.iter() {
 						self.operand_use(&arg.node);
+						if let Operand::Copy(p) | Operand::Move(p) = &arg.node
+							&& let Some(local) = p.as_local()
+						{
+							self.arg_use[local] = true;
+						}
 					}
 					self.def(*destination);
 				}
@@ -287,6 +307,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			} else {
 				Slot::Var(String::new())
 			};
+			if std::env::var_os("RUST2_TS_DEBUG").is_some() {
+				eprintln!("{:?} {local:?}: {slot:?} defs {} uses {} borrowed {} mutated {} def {:?}", mir.source.def_id(), self.defs[local], self.uses[local], self.borrowed[local], self.mutated[local], self.def_rvalue(local));
+			}
 			self.slots[local] = slot;
 		}
 		// Names: what debug info calls a local, else its number.
@@ -506,6 +529,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// The body: its locals' declarations, then its blocks as structured statements.
 	pub fn lower(&mut self) -> Vec<Stmt> {
+		// A parameter changed in place gets its own copy, since the caller's may be shared.
+		let mut entry = Vec::new();
+		for local in self.mir.args_iter() {
+			let ty = self.mir.local_decls[local].ty;
+			if self.mutated[local]
+				&& self.b.needs_copy(ty)
+				&& let Slot::Var(name) = &self.slots[local]
+			{
+				let name = name.clone();
+				entry.push(StmtKind::Expr(Expr::ident(&name).assign(Expr::rt("copy", vec![Expr::ident(&name)]))).at(None));
+			}
+		}
 		let n = self.mir.basic_blocks.len();
 		self.skip_ignored_macros();
 		let mut succs = vec![Vec::new(); n];
@@ -533,6 +568,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				out.push(StmtKind::Declare { name, ty }.at(None));
 			}
 		}
+		out.extend(entry);
 		out.extend(body);
 		prune_unread(&mut out);
 		out
@@ -672,8 +708,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							ok = false;
 						}
 						last = Some(p.order);
-						seen_effect |= p.effect;
-						seen_memory |= p.memory;
 					}
 					Some(_) => {}
 					None => seen_memory |= self.shared.contains(name.as_str()),
@@ -735,7 +769,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if let Some(local) = self.local_named(&p.name) {
 			self.assigned[local] = true;
 		}
-		out.push(StmtKind::Expr(Expr::ident(&p.name).assign(p.value)).at(None));
+		let value = match p.copy {
+			true => Expr::rt("copy", vec![p.value]),
+			false => p.value,
+		};
+		out.push(StmtKind::Expr(Expr::ident(&p.name).assign(value)).at(None));
+	}
+
+	/// Emit the pending temporaries `e` reads, and those held back before them, so that
+	/// `e` can be read more than once, or later.
+	pub(super) fn materialize(&mut self, e: &Expr, out: &mut Vec<Stmt>) {
+		let mut names = Vec::new();
+		reads_of(e, &mut names);
+		let Some(last) = self.pending.iter().filter(|p| names.contains(&p.name)).map(|p| p.order).max() else {
+			return;
+		};
+		let pending = std::mem::take(&mut self.pending);
+		let (flush, keep): (Vec<Pending>, Vec<Pending>) = pending.into_iter().partition(|p| p.order <= last);
+		self.pending = keep;
+		for p in flush {
+			self.flush_one(p, out);
+		}
 	}
 
 	fn local_named(&self, name: &str) -> Option<Local> {
@@ -770,6 +824,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.order += 1;
 		let mut reads = Vec::new();
 		reads_of(&value, &mut reads);
+		let copy = std::mem::take(&mut self.copy_on_flush);
 		self.pending.push(Pending {
 			name,
 			value,
@@ -778,6 +833,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			memory,
 			parts,
 			reads,
+			copy,
 		});
 	}
 
@@ -886,6 +942,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						_ => unreachable!("an alias is a borrow or a copy of one"),
 					};
+					self.materialize(&target, out);
 					self.slots[local] = Slot::Alias(Some(target));
 					return;
 				}
@@ -903,7 +960,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		let mut pre = Vec::new();
+		// A copy into a local nothing changes in place can share what it copies, if that
+		// doesn't change either. One into a temporary only an argument reads shares it as
+		// long as it folds into the argument, before anything could change it.
+		self.into_frozen = place.as_local().is_some_and(|l| !self.mutated[l]);
+		let shares = place.as_local().is_some_and(|l| self.arg_use[l] && self.foldable(l))
+			&& matches!(rvalue, Rvalue::Use(Operand::Copy(p), _) if !self.frozen(*p) && self.b.needs_copy(p.ty(&self.mir.local_decls, self.tcx).ty));
+		if shares {
+			self.into_frozen = true;
+			self.force_share = true;
+		}
 		let value = self.rvalue(rvalue, place, span, &mut pre);
+		self.into_frozen = false;
+		self.force_share = false;
+		self.copy_on_flush = shares;
 		let Some(value) = value else {
 			out.extend(pre);
 			return;
@@ -932,6 +1002,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// Hold `value` in a path that reads it again for free.
 	pub fn path(&mut self, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 		if value.is_path() {
+			self.materialize(&value, out);
 			return value;
 		}
 		let name = self.b.fresh(base);

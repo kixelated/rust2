@@ -180,15 +180,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// An operand's value, copied if it is a `Copy` aggregate read from a place that keeps it.
 	pub fn operand(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		match op {
+			// JS shares objects where Rust copies, so a `Copy` aggregate is copied where
+			// either side could change in place: into a local changed in place, or out of a
+			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 				let value = self.place_expr(*place, span, out);
-				self.b.copied(value, ty)
+				match self.force_share || self.into_frozen && self.frozen(*place) {
+					true => value,
+					false => self.b.copied(value, ty),
+				}
 			}
-			Operand::Move(place) => self.place_expr(*place, span, out),
+			Operand::Move(place) => {
+				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+				let value = self.place_expr(*place, span, out);
+				match self.into_frozen {
+					true => value,
+					false => self.b.copied(value, ty),
+				}
+			}
 			Operand::Constant(c) => self.constant(c, span),
 			Operand::RuntimeChecks(_) => Expr::lit("false"),
 		}
+	}
+
+	/// Whether `place` is part of a local's own value that nothing changes in place.
+	pub(super) fn frozen(&self, place: Place<'tcx>) -> bool {
+		!self.mutated[place.local] && place.projection.iter().all(|e| !matches!(e, ProjectionElem::Deref))
 	}
 
 	/// The statements that assign `value` to `place`, which has projections.

@@ -43,6 +43,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !pre.is_empty() {
 			self.emit(pre, None, false, out);
 		}
+		// A result into a local changed in place is its own copy: it may share the callee's.
+		let value = match dest.as_local() {
+			Some(local) if self.mutated[local] => {
+				let ty = self.mir.local_decls[local].ty;
+				self.b.copied(value, ty)
+			}
+			_ => value,
+		};
 		match dest.as_local() {
 			Some(local) => self.set_local(local, value, effect, effect, None, out),
 			None => {
@@ -52,8 +60,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Arguments, uncopied: a callee that changes a parameter in place copies it first.
 	fn operands(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Vec<Expr> {
-		args.iter().map(|arg| self.operand(&arg.node, span, out)).collect()
+		let saved = std::mem::replace(&mut self.into_frozen, true);
+		let values = args.iter().map(|arg| self.operand_frozen(&arg.node, span, out)).collect();
+		self.into_frozen = saved;
+		values
+	}
+
+	/// An argument, which the callee copies if it changes it in place.
+	fn operand_frozen(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		match op {
+			Operand::Copy(place) | Operand::Move(place) => self.place_expr(*place, span, out),
+			_ => self.operand(op, span, out),
+		}
 	}
 
 	/// A call of `def_id` with `gargs`: the crate's own function, a closure, or std's.
@@ -184,7 +204,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = match self.take_parts(&args[0].node) {
 					Some(parts) if !int.big() => library::be_word(int, parts),
 					_ => {
-						let bytes = self.operand(&args[0].node, span, out);
+						let bytes = self.operand_frozen(&args[0].node, span, out);
 						int.method("fromBeBytes", vec![bytes])
 					}
 				};
