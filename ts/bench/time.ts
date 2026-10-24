@@ -88,11 +88,13 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 	}
 
 	// Interleave the bodies in each round, starting each round one later, so drift and
-	// position spread over all of them.
+	// position spread over all of them. Progress is per round: a report per sample slows
+	// Chrome's samples by about 10%.
+	const span = `${workloads[0].name} through ${workloads[workloads.length - 1].name}`;
 	for (let round = 0; round < options.rounds; round++) {
+		progress(`timing round ${round + 1} of ${options.rounds} on ${span}`);
 		for (let i = 0; i < bodies.length; i++) {
 			const body = bodies[(i + round) % bodies.length];
-			progress(`timing ${body.route} on ${body.workload.name} ${body.workload.op}, round ${round + 1} of ${options.rounds}`);
 			const ms = await sample(body);
 			body.ns.push((ms * 1e6) / (body.calls * body.workload.items));
 		}

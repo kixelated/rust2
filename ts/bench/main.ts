@@ -188,8 +188,9 @@ async function script(command: string): Promise<Engine> {
 	return JSON.parse(result);
 }
 
-// The page reports each step every few milliseconds, so this long a silence is a hang.
-const stallMs = 30_000;
+// The page's longest step is a timing round, one or two samples of each of a few hundred
+// bodies: a few seconds at the default 10 ms, so this long a silence is a hang.
+const stallMs = Math.max(30_000, 1000 * sampleMs);
 
 async function chrome(): Promise<Engine> {
 	const { promise, resolve, reject } = Promise.withResolvers<Engine>();
