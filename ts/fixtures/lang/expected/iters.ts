@@ -230,6 +230,11 @@ export function consumers(kind: number, data: Uint8Array, out: rt.ByteVec): void
 		}), 0xee));
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).last(), 0xdd));
 		out.push(rt.option.unwrapOr(rt.iter.slice(data).nth(3), 0xcc));
+		let it: rt.Iter<number> = rt.iter.slice(data);
+		out.push(rt.option.unwrapOr(rt.iter.toOption(it.take(rt.usize.rem(data.length, 3)).nthBackItem(1)), 0xbb));
+		out.push(it.len() & 0xff);
+		out.push(rt.option.unwrapOr(it.take(rt.usize.rem(data.length, 5)).nth(2), 0xbb));
+		out.push(it.len() & 0xff);
 	} else if (value === 3) {
 		const wide = rt.iter.slice(data).map((arg11: number): bigint => {
 			const b11 = arg11;
@@ -327,9 +332,11 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(near.start());
 	out.push(near.isEmpty() ? 1 : 0);
 	out.push(near.contains(255) ? 1 : 0);
+	out.push(near.contains(100) ? 1 : 0);
 	let low: rt.RangeInclusive<number> = new rt.RangeInclusive(0, b, rt.u8);
 	out.push(rt.option.unwrapOr(rt.iter.toOption(low.nthBackItem(rt.usize.rem(a, 16))), 0xee));
 	out.push(low.end());
+	out.push(low.contains(rt.u8.div(b, 2)) ? 1 : 0);
 	let stepped: rt.RangeInclusive<number> = new rt.RangeInclusive(a, b, rt.u8);
 	out.push(stepped.stepBy(3).count() & 0xff);
 	out.push(stepped.start());

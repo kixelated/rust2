@@ -143,6 +143,12 @@ pub fn consumers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(*data.iter().min_by_key(|&&b| b / 16).unwrap_or(&0xee));
 			out.push(data.iter().last().copied().unwrap_or(0xdd));
 			out.push(data.iter().nth(3).copied().unwrap_or(0xcc));
+			// `take`'s `nth` and `nth_back` read on past its limit as std's do.
+			let mut it = data.iter();
+			out.push(it.by_ref().take(data.len() % 3).nth_back(1).copied().unwrap_or(0xbb));
+			out.push(it.len() as u8);
+			out.push(it.by_ref().take(data.len() % 5).nth(2).copied().unwrap_or(0xbb));
+			out.push(it.len() as u8);
 		}
 		3 => {
 			let wide: u64 = data.iter().map(|&b| b as u64 * 0x0101_0101_0101).sum();
@@ -219,9 +225,11 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	out.push(*near.start());
 	out.push(near.is_empty() as u8);
 	out.push(near.contains(&255) as u8);
+	out.push(near.contains(&100) as u8);
 	let mut low = 0..=b;
 	out.push(low.nth_back(a as usize % 16).unwrap_or(0xee));
 	out.push(*low.end());
+	out.push(low.contains(&(b / 2)) as u8);
 	let mut stepped = a..=b;
 	out.push(stepped.by_ref().step_by(3).count() as u8);
 	out.push(*stepped.start());

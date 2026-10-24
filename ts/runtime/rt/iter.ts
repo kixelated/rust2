@@ -621,6 +621,31 @@ class TakeIter<T> extends Iter<T> {
 		return this.inner.nthBackItem(Math.max(this.inner.len() - n, 0));
 	}
 
+	/** std's `nth`: past the limit, it reads the rest of the limit through and ends. */
+	override nthItem(n: number): T | Done {
+		if (this.n > n) {
+			this.n -= n + 1;
+			return this.inner.nthItem(n);
+		}
+		if (this.n > 0) {
+			this.inner.nthItem(this.n - 1);
+			this.n = 0;
+		}
+		return DONE;
+	}
+
+	/** std's `nth_back`: past the limit, it reads the whole rest from the back, even at a limit of 0. */
+	override nthBackItem(n: number): T | Done {
+		const len = this.inner.len();
+		if (this.n > n) {
+			const m = Math.max(len - this.n, 0) + n;
+			this.n -= n + 1;
+			return this.inner.nthBackItem(m);
+		}
+		if (len > 0) this.inner.nthBackItem(len - 1);
+		return DONE;
+	}
+
 	override len(): number {
 		return Math.min(this.inner.len(), this.n);
 	}
@@ -1034,7 +1059,8 @@ export class RangeInclusive<T> extends Iter<T> {
 	}
 
 	contains(item: T): boolean {
-		return !lt(item, this.lo) && (this.exhausted ? lt(item, this.hi) : !lt(this.hi, item));
+		// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
+		return !this.exhausted && !lt(item, this.lo) && !lt(this.hi, item);
 	}
 
 	clone(): RangeInclusive<T> {
