@@ -5,10 +5,14 @@ import { Wasm } from "../tests/wasm.ts";
 import { measure, type Route } from "./time.ts";
 import type { Workload } from "./workloads.ts";
 
+type Workloads = { name: string; op: Workload["op"]; items: number; input: string }[];
+
 export interface Config {
 	sampleMs: number;
 	rounds: number;
-	workloads: { name: string; op: Workload["op"]; items: number; input: string }[];
+	workloads: Workloads;
+	/** The async handoff's, on the task fixture. */
+	handoffs: Workloads;
 }
 
 const browser = typeof window !== "undefined";
@@ -27,10 +31,10 @@ async function load(name: string): Promise<Uint8Array> {
 	return new Uint8Array(await (await fetch(url)).arrayBuffer());
 }
 
-/** A bundled route, whose `run` returns its output as `view` reads it. */
-async function route<T>(name: string, file: string, view: (out: T) => Uint8Array): Promise<Route> {
+/** A bundled route, whose `run` (or `exported`) returns its output as `view` reads it. */
+async function route<T>(name: string, file: string, view: (out: T) => Uint8Array, exported = "run"): Promise<Route> {
 	progress(`loading ${file}`);
-	const { run } = await import(new URL(file, import.meta.url).href);
+	const run = (await import(new URL(file, import.meta.url).href))[exported];
 	return { name, run, output: async (input) => view(await run(input)) };
 }
 
@@ -41,9 +45,13 @@ function engine(): string {
 	return `Node ${process.version} (V8 ${process.versions.v8})`;
 }
 
+function parse(workloads: Workloads): Workload[] {
+	return workloads.map((w) => ({ ...w, input: Uint8Array.from(w.input.match(/../g) ?? [], (b) => parseInt(b, 16)) }));
+}
+
 async function main() {
 	const config: Config = JSON.parse(new TextDecoder().decode(await load("workloads.json")));
-	const workloads = config.workloads.map((w) => ({ ...w, input: Uint8Array.from(w.input.match(/../g) ?? [], (b) => parseInt(b, 16)) }));
+	const workloads = parse(config.workloads);
 	const wasm = new Wasm(await WebAssembly.compile(await load("bench.wasm")));
 	// The A/A route is the translation again, loaded as its own module: its spread from the
 	// first is the measurement's noise.
@@ -54,6 +62,18 @@ async function main() {
 		await route("A/A", "translated-aa.js", translated),
 	];
 	const timings = await measure(wasm, routes, workloads, { ...config, progress });
+
+	// The async handoff: the translation polled at once by a one-task executor, as the
+	// native and WASM routes are, and on the runtime's microtask executor.
+	const bytes = (out: Uint8Array) => out;
+	const handoffRoutes = [
+		await route("hand-written", "task-hand.js", bytes, "handWritten"),
+		await route("translated", "task-translated.js", bytes),
+		await route("spawned", "task-translated.js", bytes, "spawn"),
+		await route("A/A", "task-translated-aa.js", bytes),
+	];
+	const taskWasm = new Wasm(await WebAssembly.compile(await load("task.wasm")));
+	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), { ...config, progress })));
 	return { engine: engine(), timings };
 }
 

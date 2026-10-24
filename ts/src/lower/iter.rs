@@ -114,6 +114,7 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 /// type without a mapping.
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	no_drops(b, ty, span);
 	if b.t.iter_item(ty).is_some() {
 		return Some(match own_next(b, ty) {
 			Some(instance) => {
@@ -160,9 +161,20 @@ fn into_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option
 	Some(Some(Expr::Lambda(vec![param], Box::new(body))))
 }
 
+/// Refuse an iterator that owns a `ty` that drops: an `rt.Iter` drops nothing it skips,
+/// consumes, or holds when it is dropped.
+fn no_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
+	if b.t.drops(ty) {
+		b.t.err(
+			span,
+			format!("an iterator that owns `{ty}`, which drops, which is not supported yet"),
+		);
+	}
+}
+
 /// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
 pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
-	if !b.t.option_payload_ok(ty) {
+	if b.t.erases_to(ty).undefined {
 		b.t.err(
 			span,
 			format!("`Option<{ty}>` is not supported: its `None` and `Some` would both be `undefined`"),
@@ -209,7 +221,10 @@ pub fn call<'tcx>(
 		_ => {}
 	}
 	match path.as_slice() {
-		["iter", "sources", "once", "once"] => return Some(rt_iter("once").call(b.args(args, out))),
+		["iter", "sources", "once", "once"] => {
+			no_drops(b, targ(0)?, span);
+			return Some(rt_iter("once").call(b.args(args, out)));
+		}
 		["iter", "sources", "empty", "empty"] => return Some(rt_iter("empty").call(Vec::new())),
 		["iter", "sources", "from_fn", "from_fn"] => return Some(rt_iter("fromFn").call(b.args(args, out))),
 		_ => {}
@@ -243,6 +258,10 @@ pub fn call<'tcx>(
 		_ => return None,
 	};
 	let item = b.t.iter_item(self_ty.peel_refs())?;
+	// The crate's own `next` hands its item over; every other call may leave items behind.
+	if name != "by_ref" && !(name == "next" && own_next(b, self_ty).is_some()) {
+		no_drops(b, item, span);
+	}
 	let mut values = b.args(args, out).into_iter();
 	let recv = values.next()?;
 	let rest: Vec<Expr> = values.collect();
