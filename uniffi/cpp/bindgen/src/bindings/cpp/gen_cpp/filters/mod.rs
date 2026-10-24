@@ -233,6 +233,21 @@ pub(crate) fn type_name(as_ct: &impl AsCodeType, ci: &ComponentInterface) -> Res
     Ok(as_ct.as_codetype().type_label(ci))
 }
 
+/// The class an error is thrown as, qualified when another crate defines it.
+pub(crate) fn thrown_class(as_type: &impl AsType, ci: &ComponentInterface) -> Result<String> {
+    let ty = renamed(as_type.as_type());
+    match (ty.name(), ty.module_path()) {
+        (Some(name), Some(module_path)) => Ok(format!(
+            "{}{}",
+            external_namespace_prefix(ci, module_path),
+            CppCodeOracle.class_name(name)
+        )),
+        _ => Err(askama::Error::Custom(
+            format!("{ty:?} cannot be thrown").into(),
+        )),
+    }
+}
+
 /// How a type from another crate is qualified. From the global namespace, since a member or
 /// variant of a local type may share the other crate's namespace name.
 pub(crate) fn external_namespace_prefix(ci: &ComponentInterface, module_path: &str) -> String {

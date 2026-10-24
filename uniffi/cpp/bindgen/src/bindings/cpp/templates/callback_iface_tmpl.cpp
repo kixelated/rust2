@@ -35,7 +35,7 @@
         }
         {%- match method.throws_type() %}
         {%- when Some(error) %}
-        catch ({{ error|canonical_name(ci) }} &e) {
+        catch ({{ error|thrown_class(ci) }} &e) {
             result.call_status.code = 1;
             result.call_status.error_buf = {{ error|lower_fn(ci) }}(e);
         }
@@ -127,7 +127,7 @@
 
     {% match method.throws_type() %}
     {% when Some(error) %}
-        rust_call_trait_interface_with_error<{{ error|canonical_name(ci) }}>(out_status, make_call, write_value, {{ error|lower_fn(ci) }});
+        rust_call_trait_interface_with_error<{{ error|thrown_class(ci) }}>(out_status, make_call, write_value, {{ error|lower_fn(ci) }});
     {% when None %}
         rust_call_trait_interface(out_status, make_call, write_value);
     {% endmatch %}
