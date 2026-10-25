@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 76
-- Function instances: 66
+- Refusals: 77
+- Function instances: 67
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -36,6 +36,7 @@
 | 1 | a closure that captures a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:68:23 |
 | 1 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:149:18 |
 | 1 | a method that takes `self` by value that drops, which is not supported yet | fixtures/reject/src/lib.rs:51:20 |
+| 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:411:13 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | fixtures/reject/src/lib.rs:144:17 |
 | 1 | a parameter that drops bound by a pattern, which is not supported yet | fixtures/reject/src/lib.rs:83:21 |
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:129:3 |
@@ -46,7 +47,7 @@
 | 1 | an `.await` in an operand after one that drops, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:190:13 |
 | 1 | an `.await` in the place an assignment of a value that drops writes to, which is not supported yet: bind the awaited value first | fixtures/reject/src/lib.rs:207:2 |
 | 1 | an `if let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:241:9 |
-| 1 | an array repeat of a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:416:14 |
+| 1 | an array repeat of a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:424:14 |
 | 1 | an async body returning `_` is not supported: its `Ready` could be pending | fixtures/reject/src/lib.rs:245:54 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | fixtures/reject/src/lib.rs:113:3 |
 | 1 | an or-pattern with bindings | fixtures/reject/src/lib.rs:156:3 |
@@ -67,8 +68,8 @@ The type or module each refused type or path belongs to.
 | 6 | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 4 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:142:16 |
+| 4 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 3 | `Meters` | fixtures/reject/src/lib.rs:168:17 |
-| 3 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:289:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:371:16 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
@@ -111,6 +112,7 @@ The type or module each refused type or path belongs to.
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:121:10 |
+| 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:411:13 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:144:17 |
 | 1 | an async body returning `_` is not supported: its `Ready` could be pending | `std::task::Poll` | fixtures/reject/src/lib.rs:245:54 |
 | 1 | an async body that borrows `_` mutably, which is no object it can change in place | `u8` | fixtures/reject/src/lib.rs:113:3 |
@@ -153,7 +155,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:225:2: replacing the `std::sync::Arc<u8>` behind a reference, whose JS object is shared or private
 - fixtures/reject/src/lib.rs:261:2: replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private
 - fixtures/reject/src/lib.rs:271:2: replacing the `std::sync::MutexGuard<'_, u8>` behind a reference, whose JS object is shared or private
-- fixtures/reject/src/lib.rs:411:2: replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private
+- fixtures/reject/src/lib.rs:419:2: replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private
 
 </details>
 
@@ -332,6 +334,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a mutable borrow of a subslice of `_`, which JS would copy, having no views (1)</summary>
+
+- fixtures/reject/src/lib.rs:411:13: a mutable borrow of a subslice of `u32`, which JS would copy, having no views
+
+</details>
+
 <details><summary>a mutable reference to `_`, which is no object it can change in place (1)</summary>
 
 - fixtures/reject/src/lib.rs:144:17: a mutable reference to `std::string::String`, which is no object it can change in place
@@ -394,7 +402,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>an array repeat of a value that drops, which is not supported yet (1)</summary>
 
-- fixtures/reject/src/lib.rs:416:14: an array repeat of a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:424:14: an array repeat of a value that drops, which is not supported yet
 
 </details>
 

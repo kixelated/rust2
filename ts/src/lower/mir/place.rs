@@ -155,6 +155,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		e
 	}
 
+	/// An error if `kind` borrows a subslice of other than bytes mutably: a JS array has
+	/// no views, so it would change a copy.
+	pub(super) fn mut_subslice(&mut self, kind: mir::BorrowKind, place: Place<'tcx>, span: Span) -> Option<Expr> {
+		if !matches!(kind, mir::BorrowKind::Mut { .. }) {
+			return None;
+		}
+		let elem = place.iter_projections().find_map(|(base, elem)| match elem {
+			ProjectionElem::Subslice { .. } => match base.ty(&self.mir.local_decls, self.tcx).ty.kind() {
+				ty::Array(elem, _) | ty::Slice(elem) if !matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Some(*elem),
+				_ => None,
+			},
+			_ => None,
+		})?;
+		Some(self.err(
+			span,
+			format!("a mutable borrow of a subslice of `{elem}`, which JS would copy, having no views"),
+		))
+	}
+
 	/// A field of `base`, a `ty`, in `variant` if it was downcast to one.
 	fn field(&mut self, base: Expr, ty: Ty<'tcx>, variant: Option<VariantIdx>, field: FieldIdx, span: Span) -> Expr {
 		let tcx = self.tcx;

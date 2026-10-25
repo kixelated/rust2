@@ -139,6 +139,8 @@ struct Pending {
 	/// Whether it is a `Copy` aggregate read from where it could change, which only an
 	/// argument may share: emitted on its own, it is copied.
 	copy: bool,
+	/// Whether it is an aggregate's part, with no variable of its own until emitted.
+	decl: bool,
 }
 
 pub struct Fx<'m, 'b, 'a, 'tcx> {
@@ -1041,7 +1043,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			true => Expr::rt("copy", vec![p.value]),
 			false => p.value,
 		};
-		out.push(StmtKind::Expr(Expr::ident(&p.name).assign(value)).at(None));
+		out.push(match p.decl {
+			true => StmtKind::decl(false, p.name, None, Some(value)).at(None),
+			false => StmtKind::Expr(Expr::ident(&p.name).assign(value)).at(None),
+		});
 	}
 
 	/// Emit the pending temporaries `e` reads, and those held back before them, so that
@@ -1108,22 +1113,67 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			parts,
 			reads,
 			copy,
+			decl: false,
 		});
 	}
 
-	/// The parts of the pending aggregate `local`, taking it if nothing else depends on
-	/// where it is read.
+	/// The parts of the pending aggregate `local`, each held back in its place, so the
+	/// expression that reads them keeps what they do and read in order.
 	fn take_parts(&mut self, op: &Operand<'tcx>) -> Option<Vec<Expr>> {
 		let Operand::Move(place) = op else {
 			return None;
 		};
 		let local = place.as_local()?;
 		let name = self.var(local)?;
-		let i = self.pending.iter().position(|p| p.name == name)?;
-		if self.pending[i].effect || self.pending[i].memory || self.pending[i].parts.is_none() {
-			return None;
+		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
+		let p = self.pending.remove(i);
+		let parts = p.parts.expect("checked above");
+		if !p.effect && !p.memory {
+			return Some(parts);
 		}
-		self.pending.remove(i).parts
+		let n = parts.len() as u32;
+		for q in &mut self.pending {
+			if q.order > p.order {
+				q.order += n;
+			}
+		}
+		self.order += n;
+		let mut names = Vec::new();
+		let mut held = 0;
+		for value in parts {
+			let mut events = Vec::new();
+			scan(&value, &mut events, false);
+			let effect = events.iter().any(|r| matches!(r, Read::Effect));
+			let memory = events.iter().any(|r| match r {
+				Read::Memory => true,
+				Read::Ident(name, _) => self.shared.contains(name.as_str()),
+				Read::Effect => false,
+			});
+			if !effect && !memory {
+				names.push(value);
+				continue;
+			}
+			let mut reads = Vec::new();
+			reads_of(&value, &mut reads);
+			let name = self.b.fresh("part");
+			names.push(Expr::ident(&name));
+			self.pending.insert(
+				i + held,
+				Pending {
+					name,
+					value,
+					order: p.order + 1 + held as u32,
+					effect,
+					memory,
+					parts: None,
+					reads,
+					copy: false,
+					decl: true,
+				},
+			);
+			held += 1;
+		}
+		Some(names)
 	}
 
 	/// Assign `value` to the local `local` now, or hold it back.
@@ -1147,7 +1197,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				if self.foldable(local) {
 					// What it reads that is held back folds into it first, so nothing held
-					// back reads another.
+					// back reads another, and its effects and reads go with it.
+					let mut reads = Vec::new();
+					reads_of(&value, &mut reads);
+					let (effect, memory) = self
+						.pending
+						.iter()
+						.filter(|p| reads.contains(&p.name))
+						.fold((effect, memory), |(e, m), p| (e || p.effect, m || p.memory));
 					let mut folded = self.fold_exprs(Vec::new(), vec![value], true, out);
 					let value = folded.pop().unwrap();
 					let parts = parts.and_then(|_| parts_of(&value));
@@ -1233,7 +1290,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
-						Rvalue::Ref(_, _, p) | Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
+						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
+							Some(e) => e,
+							None => self.place_expr(*p, span, out),
+						},
+						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
 						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						_ => unreachable!("an alias is a borrow or a copy of one"),
@@ -1721,7 +1782,10 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 			scan(b, reads, true);
 		}
 		Expr::Assign(target, value) => {
-			scan(target, reads, lazy);
+			// A variable assigned is not read; a place's base and index are, before the value.
+			if !matches!(**target, Expr::Ident(_)) {
+				scan(target, reads, lazy);
+			}
 			scan(value, reads, lazy);
 			reads.push(Read::Effect);
 		}

@@ -68,8 +68,9 @@ an iterator that owns `Noisy`, which drops, which is not supported yet at fixtur
 a `for` loop over values that drop, which is not supported yet at fixtures/reject/src/lib.rs:392:6
 passing `std::option::Option<Noisy>`, which drops, to `Option::unwrap_or`, which is not supported yet at fixtures/reject/src/lib.rs:400:4
 a rest pattern that moves values that drop out of a place, which is not supported yet at fixtures/reject/src/lib.rs:405:14
-replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private at fixtures/reject/src/lib.rs:411:2
-an array repeat of a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:416:14
+a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:411:13
+replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private at fixtures/reject/src/lib.rs:419:2
+an array repeat of a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:424:14
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:289:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:309:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:343:2

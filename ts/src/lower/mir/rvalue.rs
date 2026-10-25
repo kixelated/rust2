@@ -29,6 +29,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Rvalue::CopyForDeref(place) => self.place_expr(*place, span, out),
 			Rvalue::Repeat(op, count) => self.repeat(op, *count, span, out),
 			Rvalue::Ref(_, kind, place) => {
+				if let Some(e) = self.mut_subslice(*kind, *place, span) {
+					return Some(e);
+				}
 				if let mir::BorrowKind::Mut { .. } = kind {
 					let pointee = place.ty(&self.mir.local_decls, tcx).ty;
 					if self.b.t.object_kind(pointee).is_none()

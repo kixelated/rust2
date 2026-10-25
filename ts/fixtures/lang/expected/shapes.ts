@@ -197,6 +197,9 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	const both = [n, n] as [rt.u32, rt.u32];
 	n = 9;
 	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(rt.u32.add(both[0], both[1]), n)));
+	const marked = mark(out, 1) === 0;
+	mark(out, 2);
+	out.push(marked ? 1 : 0);
 	let opt: Meters | undefined = new Meters(9);
 	const taken = opt;
 	opt = undefined;
@@ -212,6 +215,12 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let err: Point = rt.result.unwrapErr(rt.copy(fail), rt.u8.display);
 	err.y = 3;
 	out.extendFromSlice(Uint8Array.of(first.x & 0xff, rt.result.unwrap(rt.copy(res), rt.u8.display).x & 0xff, err.y & 0xff, rt.result.unwrapErr(rt.copy(fail), rt.u8.display).y & 0xff));
+}
+
+/** Logs `b`, returning how much is logged. */
+export function mark(out: rt.ByteVec, b: rt.u8): rt.usize {
+	out.push(b);
+	return out.length;
 }
 
 /** Fieldless enums cast to every width, past their discriminant's range and sign. */
@@ -728,6 +737,10 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		area = rt.i64.mul(rt.i32.sub(a2.x, b3.x) as rt.i64, rt.i32.sub(a2.y, b3.y) as rt.i64);
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
+	let bytes: Uint8Array = Uint8Array.of(data.length & 0xff, 1, 2);
+	const tail = bytes.subarray(1, 3);
+	tail[0] = 9;
+	out.extendFromSlice(bytes);
 	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape], out), total$Meters([new Meters(3), new Meters(rt.u64.of(18446744073709551615n))], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);

@@ -174,6 +174,12 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	n = 9;
 	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
 
+	// A value computed from a call keeps that call before a later one, though it is read
+	// after.
+	let marked = mark(out, 1) == 0;
+	mark(out, 2);
+	out.push(marked as u8);
+
 	let mut opt = Some(Meters(9));
 	let taken = opt.take();
 	out.push(opt.is_none() as u8);
@@ -192,6 +198,13 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		err.y as u8,
 		fail.unwrap_err().y as u8,
 	]);
+}
+
+/// Logs `b`, returning how much is logged.
+#[inline(never)]
+fn mark(out: &mut Vec<u8>, b: u8) -> usize {
+	out.push(b);
+	out.len()
 }
 
 /// Fieldless enums cast to every width, past their discriminant's range and sign.
@@ -592,6 +605,11 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 		Shape::Line(a, b) => (a.x - b.x) as i64 * (a.y - b.y) as i64,
 	};
 	out.extend_from_slice(&area.to_be_bytes());
+	// A rest pattern borrowing bytes changes them where they are.
+	let mut bytes = [data.len() as u8, 1, 2];
+	let [_, tail @ ..] = &mut bytes;
+	tail[0] = 9;
+	out.extend_from_slice(&bytes);
 	let total = total(&[shape, Shape::Dot], out) + total(&[Meters(3), Meters(u64::MAX)], out);
 	out.extend_from_slice(&total.to_be_bytes());
 

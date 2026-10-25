@@ -127,7 +127,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let values = match self.take_parts(&tupled.node) {
 				Some(parts) => parts,
 				None => {
-					let tuple = self.operand(&tupled.node, span, out);
+					let tuple = self.operand_frozen(&tupled.node, span, out);
 					let tuple = self.path(tuple, "args", out);
 					let ty::Tuple(tys) = gargs.type_at(1).kind() else {
 						return self.err(span, "a closure call whose arguments are not a tuple");
