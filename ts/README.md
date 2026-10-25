@@ -3,7 +3,7 @@
 A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
-rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
+rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [--lower thir|mir] [-- cargo args]
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
@@ -28,6 +28,10 @@ ignore-macros = ["tracing::trace"]
 moq consumes it as the `ts` package of this repository's flake. In this repository,
 `just ts run ...` runs it from source on the pinned nightly.
 
+`--lower mir` lowers bodies from MIR instead of THIR: the prototype the MIR spike
+built, which the translator is moving to ([quest](/quest/m2/ts-mir.md)). The rest of
+this page describes the THIR lowering, the default, except where it says MIR.
+
 ## Census
 
 `--census file.md` translates nothing. It treats every item in the library as a root,
@@ -44,7 +48,9 @@ it finds; translation still fails on any refusal.
 ## Output
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
-with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
+and each type a module of its own beside it, holding the type and its functions
+(`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
+from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
 and async in `rt/task.ts`.
 
@@ -53,9 +59,9 @@ and async in `rt/task.ts`.
 | `bool`, `str`, `String` | `boolean`, `string` |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
-| `struct` | a class; methods take `this`, trait methods included |
+| `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
-| `enum` | a union of objects tagged by variant, with a companion object of functions |
+| `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
@@ -65,6 +71,7 @@ and async in `rt/task.ts`.
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
+| a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
@@ -99,7 +106,8 @@ width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`.
+`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`, after
+`import * as DecodeError from "./coding/decode.DecodeError.ts"`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
@@ -112,9 +120,11 @@ an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
-`roundtripLite$Group` or `get$Wrap_Pair`. Types are translated once, generically, so a
-generic class holds a method per instance, each declaring the instance it takes as
-`this`: `fmt$Pair(this: Wrap<Pair>, f: rt.Formatter)`. A `Copy` struct, tuple, or
+`roundtripLite$Group` or `Wrap.get$Wrap_Pair`. Types are translated once, generically, so
+a function of a generic type is one instance's, declaring the instance it takes as
+`self`: `fmt$Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
+type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
+and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
@@ -131,7 +141,7 @@ generator returns through the `finally` blocks that drop its locals and captures
 `rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
 microtask and yielding to a macrotask after 128 polls.
 
-A file's items, and a class's or companion's methods, follow the Rust source, whatever
+A file's items follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
 What a macro makes sits where the macro is called. The instances of one function sit
 together, sorted by their suffix (`Pair` in `fmt$Pair`) and then by their full type
@@ -164,10 +174,29 @@ they need.
   The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
   `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
   brand would cast every literal, so a plain number passes for any type.
-- A generic type is one class or union, the type TS callers name, and a method on it is
-  one instance's, typed by its `this`. A class per instance (`Wrap$Pair`) would rename
-  the type for callers, and TS generics with trait dictionaries would undo
-  monomorphization.
+- A struct is a plain object, and each function of a type, trait impls included, is its
+  own function in the type's module, so a caller's bundler drops every one it never
+  calls: no bundler drops a class's unused methods or an object's unused properties. A struct that
+  may drop, or holds a type parameter that may, keeps a class for its `[Symbol.dispose]`.
+  `just ts bench` measured it against classes everywhere and against a class facade on
+  the root types over free functions: all three within noise in Node, Bun, and Chrome.
+  A caller of moq-net's translation that decodes a group header bundles to 26.5 KB
+  minified and 8.3 KB gzipped, against 32.3 and 9.5 KB as classes; one that encodes
+  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB. Without the runtime, which does not
+  shake yet, gzip is 30% and 56% smaller. The facade was the largest,
+  since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
+  and date-fns made the same move for the same reason.
+- A type's functions are a module of their own, which callers import whole and call as
+  `Decoder.slice(dec, 4)`, as Effect's `Option.map` reads: Bun, esbuild, and Rollup drop
+  every function of an `import * as` the caller never calls, and the bundles measured
+  the same as flat names (`decoderSlice`) within 30 bytes. A barrel that re-exports a
+  type's module (`export * as Decoder`) still shakes in Bun and Rollup but not in
+  esbuild ([evanw/esbuild#1420](https://github.com/evanw/esbuild/issues/1420)), which
+  keeps the whole module: 10.2 KB gzipped against 8.3 for the decoding caller.
+- A generic type is one interface, class, or union, the type TS callers name, and a
+  function of it is one instance's, typed by its `self`. A type per instance
+  (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
+  dictionaries would undo monomorphization.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -176,11 +205,20 @@ they need.
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
   nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
-- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
-  come from its scopes, and async bodies are generators: MIR state machines were about
-  twice as fast per await level, but would need a second lowering
-  ([#16](https://github.com/kixelated/rust2/pull/16) measured both). The
-  [MIR spike](/quest/m2/ts-mir-spike.md) decides whether the whole lowering moves.
+- Bodies lower from MIR ([moving](/quest/m2/ts-mir.md)): drops are where drop
+  elaboration put them, exact by construction, with no `finally` per scope or
+  `undefined` left by a move, and a panic runs the cleanup blocks `-C panic=unwind`
+  MIR has, from a `catch`. Async bodies are the coroutine transform's state machines,
+  a class each. The MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)) ported
+  the whole lowering and measured it against THIR's: every fixture's differential test
+  passes either way, but MIR closes about 1,100 of the 1,400 drop refusals in moq-net's
+  census, runs an async handoff 1.4-5.5x faster at depths 1 to 16 in Node, Bun, and
+  Chrome, and runs the codec 2-12% slower than THIR, for 9% more gzip on the codec's
+  bundle and 35% on the async fixture's. Blocks become nested blocks, loops, and `if`s by Ramsey's
+  "Beyond Relooper", except a coroutine's resume function, which enters loops in the
+  middle and becomes a loop over a `switch` on the next block. Temporaries assigned
+  once and read once fold back into the expression that reads them unless that
+  would reorder an effect.
 
 ## Never
 
@@ -221,6 +259,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`. It is also translated without
   `bench::run` and then with it as the first root, which must keep every line in order.
+  Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
+  which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a
@@ -231,9 +271,15 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
-  fixture's native executor does. The logs must match byte for byte.
+  fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
+  also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
+  unwinds, catching and logging each step's panic and going on, so what a panic drops
+  must match too.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
-  and its expected census is `census.md`.
+  those from MIR `expected-mir.txt`, and its expected census is `census.md`.
+
+The codec, lang, and task fixtures also run their differential tests from MIR
+(`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
 rejects when a future panics as it drops.
@@ -275,4 +321,4 @@ The route runs both fixtures' translations from that directory's `translated/` a
 Read its gap from `translated` against A/A's, the noise of the same run. No route holds a
 fixed slot, so a gap past that noise is the change, and no reversed run is needed.
 
-The bench shell adds Bun, Chromium, and the wasm-bindgen that builds moq-wasm's package.
+The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.

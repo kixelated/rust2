@@ -65,7 +65,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// Whether any field of `adt` with `args` drops, counting one of a type parameter only
 	/// if `params`.
-	fn fields_drop(&mut self, adt: AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, params: bool) -> bool {
+	pub fn fields_drop(&mut self, adt: AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, params: bool) -> bool {
 		let tcx = self.tcx;
 		let env = self.typing_env_pub();
 		adt.all_fields().any(|field| {
@@ -145,6 +145,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		};
+		// A MIR lowering drops an enum or tuple by the glue rustc builds for it.
+		if !supported
+			&& self.mir
+			&& let Some(sym) = super::mir::glue::shim(self, ty, span)
+		{
+			return Some(super::mir::glue::call(sym, value));
+		}
 		if !supported {
 			self.err(span, format!("dropping `{ty}`, which is not supported yet"));
 			return None;
@@ -169,7 +176,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return;
 		}
 		// An enum that drops is refused where it drops: its glue would switch on its variant.
-		let AdtRepr::Class { fields, .. } = &info.repr else {
+		let AdtRepr::Struct { fields, .. } = &info.repr else {
 			if adt.has_dtor(tcx) {
 				self.err(
 					span,
@@ -193,7 +200,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				),
 				false => {
 					let sym = self.instance(Instance::mono(tcx, dtor.did));
-					body.push(StmtKind::Expr(Expr::Method(Box::new(Expr::This), sym, Vec::new())).at(None));
+					body.push(StmtKind::Expr(Expr::Sym(sym).call(vec![Expr::This])).at(None));
 				}
 			}
 		}
@@ -208,14 +215,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			base: "[Symbol.dispose]".into(),
 			suffix: String::new(),
 			owner: Some(info.sym),
-			kind: SymKind::Method { instance: true },
+			kind: SymKind::Method,
 			order: 0,
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
 		self.program.methods.entry(info.sym).or_default().push(ts::Function {
 			sym,
-			method: true,
 			params: Vec::new(),
 			ret: Type::Builtin("void"),
 			body,

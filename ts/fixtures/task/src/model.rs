@@ -72,6 +72,12 @@ impl Guard {
 	fn note(&self, event: &str) {
 		self.log.note(format!("g{} {event}", self.id));
 	}
+
+	/// Log `event`, then drop: `self`, taken by value, drops as the call returns.
+	fn finish(self, event: &str) -> u32 {
+		self.note(event);
+		self.id
+	}
 }
 
 impl Drop for Guard {
@@ -81,11 +87,13 @@ impl Drop for Guard {
 }
 
 /// Every value until the channel closes, summed, holding a guard of its own across
-/// each await beside the one it was given.
+/// each await beside the one it was given. It panics on 99.
 pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 	let inner = Guard::new(guard.id + 100, guard.log.clone());
 	let mut total = 0;
 	while let Some(value) = rx.recv().await {
+		// A poisoned value panics with every guard live, which unwinding drops.
+		assert!(value != 99, "g{} poisoned", guard.id);
 		inner.log.note(format!("g{} got {value}", guard.id));
 		total += value;
 	}
@@ -178,7 +186,8 @@ fn pick(log: &Log, i: usize) -> usize {
 /// guards destructured in part: the one left in the array drops with it, after the other;
 /// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
 /// temporary to the end of the block; a `_` binding of an element, which evaluates its
-/// index and moves nothing; and a boxed guard read twice, which a read leaves boxed.
+/// index and moves nothing; a boxed guard read twice, which a read leaves boxed; and a
+/// guard a method takes by value, which drops inside it.
 #[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
@@ -199,6 +208,8 @@ fn turns(log: &Log, count: u32) {
 	let boxed = Box::new(Guard::new(count + 100, log.clone()));
 	let once = boxed.id;
 	log.note(format!("boxed {once} {}", boxed.id));
+	let finished = Guard::new(count + 110, log.clone()).finish("finishing");
+	log.note(format!("finished {finished}"));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {

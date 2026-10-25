@@ -19,14 +19,18 @@ pub fn wrapped(args: &[String]) -> bool {
 pub type Job = Box<dyn Callbacks + Send>;
 
 /// Run as rustc, with `args` as cargo passed them. `job` picks the callbacks from
-/// rustc's own arguments, or `None` to compile the crate as rustc would; its error ends
-/// the run before rustc starts, prefixed with `tool`.
-pub fn run(tool: &str, mut args: Vec<String>, job: impl FnOnce(&[String]) -> Result<Option<Job>, String>) -> ExitCode {
+/// rustc's own arguments, which it may add to, or `None` to compile the crate as rustc
+/// would; its error ends the run before rustc starts, prefixed with `tool`.
+pub fn run(
+	tool: &str,
+	mut args: Vec<String>,
+	job: impl FnOnce(&mut Vec<String>) -> Result<Option<Job>, String>,
+) -> ExitCode {
 	args.remove(1);
 	let early_dcx = EarlyDiagCtxt::new(ErrorOutputType::default());
 	rustc_driver::init_rustc_env_logger(&early_dcx);
 	rustc_driver::install_ice_hook(BUG_REPORT_URL, |_| ());
-	let job = match job(&args) {
+	let job = match job(&mut args) {
 		Ok(job) => job,
 		Err(err) => early_dcx.early_fatal(format!("{tool}: {err}")),
 	};

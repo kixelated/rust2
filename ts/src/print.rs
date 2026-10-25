@@ -6,8 +6,8 @@ use std::path::{Component, Path, PathBuf};
 
 use oxc_sourcemap::SourceMapBuilder;
 
-use crate::program::{HEADER, ModPath, Program, SymKind, module_file};
-use crate::ts::{Ctor, Expr, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
+use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file};
+use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
 
 pub struct Printed {
 	pub code: String,
@@ -28,12 +28,22 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 		tokens: Vec::new(),
 		uses_rt: false,
 		renames: HashMap::new(),
+		aliases: Vec::new(),
 	};
 	for (i, item) in items.iter().enumerate() {
 		if i > 0 {
 			p.newline();
 		}
 		p.item(item);
+	}
+	if !p.aliases.is_empty() {
+		let aliases: Vec<String> = p
+			.aliases
+			.iter()
+			.map(|(name, alias)| format!("{name} as {alias}"))
+			.collect();
+		p.newline();
+		p.write(&format!("export {{ {} }};\n", aliases.join(", ")));
 	}
 
 	let file = module_file(module);
@@ -52,8 +62,20 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	if p.uses_rt {
 		writeln!(header, "import * as rt from \"{}\";", up(Path::new("rt.ts"))).unwrap();
 	}
-	for (target, names) in &bindings.imports {
-		let names: Vec<String> = names
+	let mut targets: Vec<&ModPath> = bindings.imports.keys().chain(bindings.namespaces.keys()).collect();
+	targets.sort();
+	for target in targets {
+		if let Some((binding, value)) = bindings.namespaces.get(target) {
+			let kind = if *value { "" } else { "type " };
+			writeln!(
+				header,
+				"import {kind}* as {binding} from \"{}\";",
+				up(&module_file(target))
+			)
+			.unwrap();
+			continue;
+		}
+		let names: Vec<String> = bindings.imports[target]
 			.iter()
 			.map(|(sym, binding, value)| {
 				let name = &program.syms[*sym].name;
@@ -72,7 +94,7 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 		)
 		.unwrap();
 	}
-	if p.uses_rt || !bindings.imports.is_empty() {
+	if p.uses_rt || !bindings.imports.is_empty() || !bindings.namespaces.is_empty() {
 		header.push('\n');
 	}
 	let offset = header.lines().count() as u32;
@@ -120,11 +142,17 @@ fn relative(from: &Path, to: &Path) -> PathBuf {
 
 /// The names a module refers to other modules' items by.
 struct Bindings {
-	/// A local binding for each top-level symbol the module names.
+	/// How the module names each top-level symbol it refers to: by a binding of its own,
+	/// or as a member of a type's module it imports whole, `Decoder.slice`.
 	names: HashMap<SymId, String>,
-	/// For each module imported from: each symbol, in that module's order, its binding, and
-	/// whether it is used as a value rather than only as a type.
+	/// Every name the module binds, which a local must not shadow.
+	bound: HashSet<String>,
+	/// For each module imported from by name: each symbol, in that module's order, its
+	/// binding, and whether it is used as a value rather than only as a type.
 	imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>>,
+	/// For each type's module imported whole: its binding, and whether any of it is used as
+	/// a value.
+	namespaces: BTreeMap<ModPath, (String, bool)>,
 }
 
 impl Bindings {
@@ -144,6 +172,7 @@ impl Bindings {
 		}
 
 		let mut imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>> = BTreeMap::new();
+		let mut namespaces: BTreeMap<ModPath, (String, bool)> = BTreeMap::new();
 		let mut foreign: Vec<(SymId, bool)> = refs
 			.used
 			.into_iter()
@@ -153,6 +182,27 @@ impl Bindings {
 		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
+			if is_type_module(&sym.module) {
+				let (binding, used) = namespaces.entry(sym.module.clone()).or_insert_with(|| {
+					// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
+					let (module, ty) = sym.module.last().unwrap().split_once('.').unwrap();
+					let mut binding = ty.to_string();
+					let mut n = 2;
+					while taken.contains(&binding) {
+						binding = match n {
+							2 => format!("{module}_{ty}"),
+							_ => format!("{module}_{ty}{n}"),
+						};
+						n += 1;
+					}
+					taken.insert(binding.clone());
+					(binding, false)
+				});
+				*used |= value;
+				let member = sym.alias.as_ref().unwrap_or(&sym.name);
+				names.insert(id, format!("{binding}.{member}"));
+				continue;
+			}
 			let mut binding = sym.name.clone();
 			if taken.contains(&binding) {
 				let prefix = sym.module.last().map_or("lib", String::as_str);
@@ -170,7 +220,12 @@ impl Bindings {
 				.or_default()
 				.push((id, binding, value));
 		}
-		Self { names, imports }
+		Self {
+			names,
+			bound: taken,
+			imports,
+			namespaces,
+		}
 	}
 }
 
@@ -183,15 +238,15 @@ struct Refs {
 impl Refs {
 	fn use_sym(&mut self, program: &Program, id: SymId, value: bool) {
 		let top = program.syms[id].owner.unwrap_or(id);
-		// A union without a companion has no value to import.
-		let value = value && !matches!(program.syms[top].kind, SymKind::Union { companion: false });
+		// A union has no value to import.
+		let value = value && program.syms[top].kind != SymKind::Union;
 		let used = self.used.entry(top).or_insert(false);
 		*used |= value;
 	}
 
 	fn item(&mut self, program: &Program, item: &Item) {
 		match item {
-			Item::Class { sym, fields, .. } => {
+			Item::Struct { sym, fields, .. } => {
 				for field in fields {
 					self.ty(program, &field.ty);
 				}
@@ -276,6 +331,22 @@ impl Refs {
 					self.stmts(program, body);
 					self.stmts(program, finally);
 				}
+				StmtKind::Catch { body, handler, .. } => {
+					self.stmts(program, body);
+					self.stmts(program, handler);
+				}
+				StmtKind::Switch {
+					disc, cases, default, ..
+				} => {
+					self.expr(program, disc);
+					for (value, body) in cases {
+						self.expr(program, value);
+						self.stmts(program, body);
+					}
+					self.stmts(program, default);
+				}
+				StmtKind::Declare { ty, .. } => self.ty(program, ty),
+				StmtKind::Throw(e) => self.expr(program, e),
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -287,17 +358,13 @@ impl Refs {
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
-			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) => self.expr(program, e),
+			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::Postfix(e, _) => self.expr(program, e),
 			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 				self.expr(program, a);
 				self.expr(program, b);
 			}
 			Expr::Call(f, args) | Expr::New(f, args) => {
 				self.expr(program, f);
-				args.iter().for_each(|e| self.expr(program, e));
-			}
-			Expr::Method(recv, _, args) => {
-				self.expr(program, recv);
 				args.iter().for_each(|e| self.expr(program, e));
 			}
 			Expr::Cond(a, b, c) => {
@@ -334,6 +401,8 @@ struct Printer<'p> {
 	uses_rt: bool,
 	/// Locals of the function being printed renamed away from the module's bindings.
 	renames: HashMap<String, String>,
+	/// Each function declared under an escaped name, and the name it is exported as.
+	aliases: Vec<(String, String)>,
 }
 
 const INDENT: &str = "\t";
@@ -409,7 +478,7 @@ impl Printer<'_> {
 
 	fn item(&mut self, item: &Item) {
 		match item {
-			Item::Class {
+			Item::Struct {
 				sym,
 				params,
 				fields,
@@ -420,14 +489,39 @@ impl Printer<'_> {
 				self.doc(doc);
 				let name = self.program.syms[*sym].name.clone();
 				self.start();
+				if self.program.plain.contains(sym) {
+					self.write(&format!("export interface {name}{} {{\n", type_params(params)));
+					self.indent += 1;
+					for field in fields {
+						self.doc(&field.doc);
+						self.start();
+						let ty = self.ty(&field.ty);
+						self.write(&format!("{}: {ty};\n", self.program.fields[field.id].name));
+					}
+					self.indent -= 1;
+					self.start();
+					self.write("}\n");
+					return;
+				}
 				self.write(&format!("export class {name}{} {{\n", type_params(params)));
 				self.indent += 1;
 				for field in fields {
 					self.doc(&field.doc);
 					self.start();
 					let ty = self.ty(&field.ty);
-					self.write(&format!("{}: {ty};\n", self.program.fields[field.id].name));
+					let name = self.program.fields[field.id].name.clone();
+					match &field.init {
+						FieldInit::Ctor => self.write(&format!("{name}: {ty};\n")),
+						FieldInit::Later => self.write(&format!("{name}!: {ty};\n")),
+						FieldInit::Value(value) => {
+							self.write(&format!("{name}: {ty} = "));
+							self.expr(value, 2);
+							self.write(";\n");
+						}
+					}
 				}
+				let fields: Vec<&crate::ts::Field> =
+					fields.iter().filter(|f| matches!(f.init, FieldInit::Ctor)).collect();
 				let names: Vec<String> = fields.iter().map(|f| self.program.fields[f.id].name.clone()).collect();
 				match ctor {
 					Ctor::Unit => {}
@@ -462,7 +556,7 @@ impl Printer<'_> {
 				}
 				for method in self.program.methods.get(sym).into_iter().flatten() {
 					self.newline();
-					self.function(method, Context::Class);
+					self.function(method, false);
 				}
 				self.indent -= 1;
 				self.start();
@@ -491,39 +585,26 @@ impl Printer<'_> {
 						self.write(&format!("{INDENT}| {variant}{end}\n"));
 					}
 				}
-				let functions = self.program.methods.get(sym).map_or(&[][..], Vec::as_slice);
-				if !functions.is_empty() {
-					self.newline();
-					self.start();
-					self.write(&format!("export const {name} = {{\n"));
-					self.indent += 1;
-					for (i, f) in functions.iter().enumerate() {
-						if i > 0 {
-							self.newline();
-						}
-						self.function(f, Context::Companion);
-					}
-					self.indent -= 1;
-					self.start();
-					self.write("};\n");
-				}
 			}
-			Item::Function(f) => self.function(f, Context::Module),
+			Item::Function(f) => self.function(f, true),
 		}
 	}
 
-	fn function(&mut self, f: &Function, cx: Context) {
+	/// Print `f`, a module's function, or else a class's method.
+	fn function(&mut self, f: &Function, module: bool) {
 		self.renames = self.renames_for(f);
 		self.doc(&f.doc);
 		self.start();
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
 		let star = if f.generator { "*" } else { "" };
-		match cx {
-			Context::Module => self.write(&format!("export function{star} {name}(")),
-			Context::Class if f.method => self.write(&format!("{name}(")),
-			Context::Class => self.write(&format!("static {name}(")),
-			Context::Companion => self.write(&format!("{name}(")),
+		match (module, &self.program.syms[f.sym].alias) {
+			(true, Some(alias)) => {
+				self.aliases.push((name.clone(), alias.clone()));
+				self.write(&format!("function{star} {name}("));
+			}
+			(true, None) => self.write(&format!("export function{star} {name}(")),
+			(false, _) => self.write(&format!("{star}{name}(")),
 		}
 		self.params(&f.params);
 		let mut ret = self.ty(&f.ret);
@@ -534,10 +615,7 @@ impl Printer<'_> {
 		self.write(&format!("): {ret} {{\n"));
 		self.block_body(&f.body);
 		self.start();
-		match cx {
-			Context::Companion => self.write("},\n"),
-			_ => self.write("}\n"),
-		}
+		self.write("}\n");
 	}
 
 	/// Renames for the locals of `f` that a module binding would shadow.
@@ -548,12 +626,10 @@ impl Printer<'_> {
 		}
 		collect_locals(&f.body, &mut locals);
 		let mut taken: HashSet<String> = locals.iter().cloned().collect();
-		taken.extend(self.bindings.names.values().cloned());
-		taken.insert("rt".into());
-		let bound: HashSet<&String> = self.bindings.names.values().collect();
+		taken.extend(self.bindings.bound.iter().cloned());
 		let mut renames = HashMap::new();
 		for local in locals {
-			if local == "rt" || bound.contains(&local) {
+			if self.bindings.bound.contains(&local) {
 				let mut name = format!("{local}_");
 				while taken.contains(&name) {
 					name.push('_');
@@ -752,6 +828,53 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::Catch { body, name, handler } => {
+				self.write("try {\n");
+				self.block_body(body);
+				self.start();
+				let name = self.local(name).to_string();
+				self.write(&format!("}} catch ({name}) {{\n"));
+				self.block_body(handler);
+				self.start();
+				self.write("}\n");
+			}
+			StmtKind::Switch {
+				label,
+				disc,
+				cases,
+				default,
+			} => {
+				self.label(label);
+				self.write("switch (");
+				self.expr(disc, 0);
+				self.write(") {\n");
+				self.indent += 1;
+				for (value, body) in cases {
+					self.start();
+					self.write("case ");
+					self.expr(value, 0);
+					self.write(":\n");
+					self.block_body(body);
+				}
+				if !default.is_empty() {
+					self.start();
+					self.write("default:\n");
+					self.block_body(default);
+				}
+				self.indent -= 1;
+				self.start();
+				self.write("}\n");
+			}
+			StmtKind::Declare { name, ty } => {
+				let name = self.local(name).to_string();
+				let ty = self.ty(ty);
+				self.write(&format!("let {name}!: {ty};\n"));
+			}
+			StmtKind::Throw(value) => {
+				self.write("throw ");
+				self.expr(value, 0);
+				self.write(";\n");
+			}
 			StmtKind::Break(label) => match label {
 				Some(label) => self.write(&format!("break {label};\n")),
 				None => self.write("break;\n"),
@@ -829,13 +952,6 @@ impl Printer<'_> {
 				self.list(args);
 				self.write(")");
 			}
-			Expr::Method(recv, sym, args) => {
-				self.base(recv);
-				let name = self.program.syms[*sym].name.clone();
-				self.write(&format!(".{name}("));
-				self.list(args);
-				self.write(")");
-			}
 			Expr::New(f, args) => {
 				self.write("new ");
 				self.base(f);
@@ -855,6 +971,10 @@ impl Printer<'_> {
 					}
 					false => self.expr(arg, 17),
 				}
+			}
+			Expr::Postfix(arg, op) => {
+				self.expr(arg, 19);
+				self.write(op);
 			}
 			Expr::Binary(l, op, r) => {
 				let p = binary_prec(op);
@@ -1017,13 +1137,6 @@ impl Printer<'_> {
 	}
 }
 
-#[derive(Clone, Copy)]
-enum Context {
-	Module,
-	Class,
-	Companion,
-}
-
 fn type_params(params: &[String]) -> String {
 	match params.is_empty() {
 		true => String::new(),
@@ -1063,8 +1176,9 @@ fn prec(e: &Expr) -> u8 {
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
 		Expr::Unary(..) => 17,
+		Expr::Postfix(..) => 18,
 		Expr::Lit(text) if text.starts_with('-') => 17,
-		Expr::New(..) | Expr::Call(..) | Expr::Method(..) | Expr::Member(..) | Expr::Index(..) => 19,
+		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) => 19,
 		Expr::Located(_, e) => prec(e),
 		_ => 20,
 	}
@@ -1129,6 +1243,23 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(body, out);
 				collect_locals(finally, out);
 			}
+			StmtKind::Catch { body, name, handler } => {
+				collect_locals(body, out);
+				out.push(name.clone());
+				collect_locals(handler, out);
+			}
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
+				collect_expr_locals(disc, out);
+				for (value, body) in cases {
+					collect_expr_locals(value, out);
+					collect_locals(body, out);
+				}
+				collect_locals(default, out);
+			}
+			StmtKind::Declare { name, .. } => out.push(name.clone()),
+			StmtKind::Throw(e) => collect_expr_locals(e, out),
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
 	}
@@ -1153,12 +1284,14 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),
-		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => collect_expr_locals(e, out),
+		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => {
+			collect_expr_locals(e, out)
+		}
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);
 		}
-		Expr::Call(f, args) | Expr::New(f, args) | Expr::Method(f, _, args) => {
+		Expr::Call(f, args) | Expr::New(f, args) => {
 			collect_expr_locals(f, out);
 			args.iter().for_each(|e| collect_expr_locals(e, out));
 		}

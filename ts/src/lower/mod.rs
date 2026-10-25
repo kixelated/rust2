@@ -2,8 +2,8 @@
 //!
 //! Translation starts from the configured roots and follows what they reach. Functions
 //! are monomorphized: each instance becomes its own TypeScript function, so a trait
-//! call is always a direct call. Types are translated once, generically: a generic
-//! class's method is one instance's, and declares that instance as its `this`.
+//! call is always a direct call. Types are translated once, generically, and a function of
+//! a type is a module-level one taking `self` first, so a bundler drops what goes unused.
 
 mod body;
 mod consts;
@@ -11,6 +11,7 @@ mod drop;
 mod fmt;
 mod iter;
 mod library;
+mod mir;
 mod num;
 mod pat;
 mod task;
@@ -33,6 +34,8 @@ use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 /// Each function's THIR, copied before borrow checking steals it.
 pub struct Bodies<'tcx> {
 	map: rustc_data_structures::fx::FxHashMap<LocalDefId, (Thir<'tcx>, ExprId)>,
+	/// No body: what a MIR lowering's library calls see, which pass their arguments lowered.
+	empty: Thir<'tcx>,
 }
 
 impl<'tcx> Bodies<'tcx> {
@@ -51,13 +54,15 @@ impl<'tcx> Bodies<'tcx> {
 				map.insert(def_id, (thir.borrow().clone(), expr));
 			}
 		}
-		Self { map }
+		let empty = Thir::new(rustc_middle::thir::BodyTy::Const(tcx.types.unit));
+		Self { map, empty }
 	}
 }
 
 /// Translate what the config's roots reach, or `None` after reporting why not.
-pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Program> {
+pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Program> {
 	let mut t = Translator::new(tcx, config, bodies, None)?;
+	t.mir = mir;
 	for root in &config.roots {
 		t.root(root);
 	}
@@ -74,8 +79,9 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>
 
 /// Every construct translation refuses in the crate, reached from each of its items
 /// as if each were a root.
-pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>) -> Option<Census> {
+pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Census> {
 	let mut t = Translator::new(tcx, config, bodies, Some(Vec::new()))?;
+	t.mir = mir;
 	for def_id in tcx.hir_crate_items(()).definitions() {
 		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) {
 			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
@@ -169,6 +175,12 @@ pub struct Translator<'a, 'tcx> {
 	drops_cycle: bool,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// Whether bodies lower from MIR, the spike's prototype, rather than THIR.
+	pub mir: bool,
+	/// The drop glue made from each type's drop shim, by a MIR lowering.
+	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
+	/// The class of each coroutine instance a MIR lowering made.
+	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -180,8 +192,8 @@ pub struct Adt {
 
 #[derive(Clone)]
 pub enum AdtRepr {
-	/// A struct: a class, whose fields are named at print time.
-	Class { ctor: Ctor, fields: Vec<FieldId> },
+	/// A struct: a plain object, or a class if it may drop, whose fields are named at print time.
+	Struct { ctor: Ctor, fields: Vec<FieldId> },
 	/// An enum whose variants carry no data: a string per variant.
 	Tags,
 	/// An enum: an object per variant, tagged by its name.
@@ -204,17 +216,6 @@ pub enum ObjectKind {
 pub struct Erased {
 	pub undefined: bool,
 	pub pending: bool,
-}
-
-/// Where a translated function lives.
-#[derive(Clone, Copy)]
-pub enum Owner {
-	/// On a class: an instance method if it takes `self`, otherwise static.
-	Class(SymId),
-	/// On an enum's companion object, taking `self` as its first parameter.
-	Companion(SymId),
-	/// A module-level function.
-	Module,
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
@@ -246,7 +247,33 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			drops_open: Default::default(),
 			drops_cycle: false,
 			glued: Default::default(),
+			mir: false,
+			coroutines: Default::default(),
+			drop_shims: Default::default(),
 		})
+	}
+
+	/// Whether a struct's values are plain objects rather than its class's.
+	pub fn plain(&self, sym: SymId) -> bool {
+		self.program.plain.contains(&sym)
+	}
+
+	/// A struct's value, from its fields' values in declaration order.
+	pub fn construct(&self, sym: SymId, ctor: &Ctor, fields: &[FieldId], values: Vec<ts::Expr>) -> ts::Expr {
+		let class = Box::new(ts::Expr::Sym(sym));
+		let props = |values: Vec<ts::Expr>| {
+			fields
+				.iter()
+				.zip(values)
+				.map(|(f, v)| (ts::Key::Field(*f), v))
+				.collect()
+		};
+		match ctor {
+			_ if self.plain(sym) => ts::Expr::Object(props(values)),
+			Ctor::Unit => ts::Expr::New(class, Vec::new()),
+			Ctor::Positional => ts::Expr::New(class, values),
+			Ctor::Named => ts::Expr::New(class, vec![ts::Expr::Object(props(values))]),
+		}
 	}
 
 	/// Translate every queued function instance, and those they reach.
@@ -493,41 +520,28 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
-		let owner = self.owner(instance);
-		let (owner_sym, kind) = match owner {
-			Owner::Class(sym) => (
-				Some(sym),
-				SymKind::Method {
-					instance: self.has_self(def_id),
-				},
-			),
-			Owner::Companion(sym) => (Some(sym), SymKind::Method { instance: false }),
-			Owner::Module => (None, SymKind::Function),
-		};
 		let base = camel(tcx.item_name(def_id).as_str());
+		// A function of a local type sits in the type's own module, escaped only where it is
+		// declared, so callers call it by its own name: `Decoder.new`.
+		let (module, base) = match self.owner(instance) {
+			Some(ty) => (self.program.syms[ty].module.clone(), base),
+			None => (self.module_of(def_id), escape(&base)),
+		};
 		let sym = self.program.sym(Symbol {
-			module: self.module_of(def_id),
-			base: match owner {
-				Owner::Module => escape(&base),
-				_ => base,
-			},
+			module,
+			base,
 			suffix: self.suffix(instance),
-			owner: owner_sym,
-			kind,
+			owner: None,
+			kind: SymKind::Function,
 			order: self.order(tcx.def_span(def_id)),
 			// Without trimmed paths, which rustc computes only for a diagnostic.
 			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
+			alias: None,
 		});
 		self.instances.insert(instance, sym);
 		self.queue.push_back((instance, sym));
 		sym
-	}
-
-	fn has_self(&self, def_id: DefId) -> bool {
-		self.tcx
-			.opt_associated_item(def_id)
-			.is_some_and(|item| item.is_method())
 	}
 
 	/// The type an associated function's impl or trait is for.
@@ -539,26 +553,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx.trait_of_assoc(def_id).map(|_| instance.args.type_at(0))
 	}
 
-	fn owner(&mut self, instance: Instance<'tcx>) -> Owner {
-		let Some(self_ty) = self.self_ty(instance) else {
-			return Owner::Module;
-		};
-		let self_ty = self_ty.peel_refs();
+	/// The local type an associated function's impl or trait is for, if any.
+	fn owner(&mut self, instance: Instance<'tcx>) -> Option<SymId> {
+		let self_ty = self.self_ty(instance)?.peel_refs();
 		let ty::Adt(adt, _) = self_ty.kind() else {
-			return Owner::Module;
+			return None;
 		};
 		if !adt.did().is_local() {
-			return Owner::Module;
+			return None;
 		}
 		let span = self.tcx.def_span(instance.def_id());
-		let info = self.adt(*adt, span);
-		match info.repr {
-			AdtRepr::Class { .. } => Owner::Class(info.sym),
-			AdtRepr::Tags | AdtRepr::Union => {
-				self.program.syms[info.sym].kind = SymKind::Union { companion: true };
-				Owner::Companion(info.sym)
-			}
-		}
+		Some(self.adt(*adt, span).sym)
 	}
 
 	/// What tells this instance apart from others of the same name.
@@ -692,7 +697,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Some(rustc_hir::def::CtorKind::Fn) => Ctor::Positional,
 					_ => Ctor::Named,
 				};
-				AdtRepr::Class {
+				AdtRepr::Struct {
 					ctor,
 					fields: Vec::new(),
 				}
@@ -705,21 +710,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 		};
 		let kind = match repr {
-			AdtRepr::Class { .. } => SymKind::Class,
-			_ => SymKind::Union { companion: false },
+			AdtRepr::Struct { .. } => SymKind::Struct,
+			_ => SymKind::Union,
 		};
+		let name = tcx.item_name(did).to_string();
 		let sym = self.program.sym(Symbol {
-			module: self.module_of(did),
-			base: tcx.item_name(did).to_string(),
+			module: crate::program::type_module(&self.module_of(did), &name),
+			base: name,
 			suffix: String::new(),
 			owner: None,
 			kind,
 			order: self.order(tcx.def_span(did)),
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
+		// A struct is a plain object, unless it may drop: then it is a class, whose
+		// `[Symbol.dispose]` whatever holds it calls without knowing its type. One holding a
+		// type parameter may, through an instance.
+		if matches!(repr, AdtRepr::Struct { .. })
+			&& !self.drops(tcx.type_of(did).instantiate_identity().skip_norm_wip())
+		{
+			self.program.plain.insert(sym);
+		}
 		let mut info = Adt { sym, repr };
-		if let AdtRepr::Class { fields, .. } = &mut info.repr {
+		if let AdtRepr::Struct { fields, .. } = &mut info.repr {
 			for (i, field) in adt.non_enum_variant().fields.iter().enumerate() {
 				fields.push(self.program.field(sym, field_name(field.name.as_str(), i)));
 			}
@@ -744,7 +759,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect();
 		let identity = ty::GenericArgs::identity_for_item(tcx, did);
 		let item = match &info.repr {
-			AdtRepr::Class { ctor, fields } => {
+			AdtRepr::Struct { ctor, fields } => {
 				let variant = adt.non_enum_variant();
 				let fields = (variant.fields.iter().zip(fields))
 					.map(|(field, &id)| {
@@ -753,10 +768,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							id,
 							ty: self.ty(field.ty(tcx, identity).skip_norm_wip(), span),
 							doc: self.doc(field.did),
+							init: ts::FieldInit::Ctor,
 						}
 					})
 					.collect();
-				Item::Class {
+				Item::Struct {
 					sym,
 					params,
 					fields,
@@ -977,10 +993,30 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Pin => self.ty(args.type_at(0), span),
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
+				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFull => Type::Builtin("undefined"),
+				library::Std::Argument => Type::Rt("Fmt", vec![]),
+				library::Std::NonNull => self.ty(args.type_at(0), span),
 				library::Std::Peekable => {
 					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
 					Type::Rt("Peekable", vec![self.item_ty(item, span)])
 				}
+				library::Std::Infallible => Type::Builtin("never"),
+				// The value `?` was applied to, which MIR branches on as this.
+				library::Std::ControlFlow => match (self.std_of(args.type_at(0)), args.type_at(0).kind()) {
+					(Some(library::Std::Result), ty::Adt(_, residual)) => Type::Rt(
+						"Result",
+						vec![self.ty(args.type_at(1), span), self.ty(residual.type_at(1), span)],
+					),
+					(Some(library::Std::Option), _) => {
+						Type::Union(vec![self.ty(args.type_at(1), span), Type::Builtin("undefined")])
+					}
+					_ => {
+						self.err(span, format!("`{}` other than from `?`", Ty::new_adt(tcx, adt, args)));
+						Type::Builtin("unknown")
+					}
+				},
 			};
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1050,19 +1086,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
 		};
-		let Some((thir, expr)) = self.bodies.map.get(&local) else {
-			self.err(
-				span,
-				format!(
-					"no body for `{}`: constant evaluation consumed it",
-					tcx.def_path_str(def_id)
-				),
-			);
-			return;
+		let function = match self.mir {
+			true => mir::function(self, instance),
+			false => {
+				let Some((thir, expr)) = self.bodies.map.get(&local) else {
+					self.err(
+						span,
+						format!(
+							"no body for `{}`: constant evaluation consumed it",
+							tcx.def_path_str(def_id)
+						),
+					);
+					return;
+				};
+				body::function(self, instance, thir, *expr)
+			}
 		};
-		let owner = self.owner(instance);
-		let method = matches!(owner, Owner::Class(_)) && self.has_self(def_id);
-		let function = body::function(self, instance, thir, *expr, method);
 		let Some(mut function) = function else {
 			return;
 		};
@@ -1072,12 +1111,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		function.doc = self
 			.doc(def_id)
 			.or_else(|| tcx.trait_item_of(def_id).and_then(|item| self.doc(item)));
-		match owner {
-			Owner::Class(owner) | Owner::Companion(owner) => {
-				self.program.methods.entry(owner).or_default().push(function)
-			}
-			Owner::Module => self.program.items.push(Item::Function(function)),
-		}
+		self.program.items.push(Item::Function(function));
 	}
 
 	/// The doc comment on an item, as written.
@@ -1092,6 +1126,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.collect();
 		let doc = lines.join("\n");
 		(!doc.trim().is_empty()).then_some(doc)
+	}
+
+	/// Where the invocation of a left-out macro that made `span` is written, if one did.
+	pub fn ignored_site(&self, mut span: Span) -> Option<Span> {
+		while span.from_expansion() {
+			let data = span.ctxt().outer_expn_data();
+			if let Some(def_id) = data.macro_def_id
+				&& self.config.ignore_macros.contains(&self.tcx.def_path_str(def_id))
+			{
+				return Some(data.call_site);
+			}
+			span = data.call_site;
+		}
+		None
 	}
 
 	/// Whether invocations of the macro that made `span` are left out.
@@ -1112,7 +1160,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 }
 
 /// A short name for a type, to tell instances apart.
-fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
+pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 	match ty.kind() {
 		// Its arguments, but not defaults such as a `Vec`'s allocator.
 		ty::Adt(adt, args) => {

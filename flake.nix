@@ -179,17 +179,18 @@
               shfmt
               taplo
               nixfmt
-              # The TypeScript driver's tests run and type-check its output.
+              # The TypeScript driver's tests run and type-check its output, and bundle a
+              # caller with Bun to check that unused output shakes out.
               nodejs
               typescript
+              bun
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };
-          # `just ts bench` adds Bun and Chrome as engines, and wasm-bindgen for moq-wasm's
-          # package, which must match the moq revision's or fails. Apart for their size.
+          # `just ts bench` adds Chrome as an engine, and wasm-bindgen for moq-wasm's package,
+          # which must match the moq revision's or fails. Apart for their size.
           devShells.bench = self.devShells.${system}.default.overrideAttrs (old: {
             nativeBuildInputs = old.nativeBuildInputs ++ [
-              pkgs.bun
               pkgs.chromium
               pkgs.wasm-bindgen-cli
             ];

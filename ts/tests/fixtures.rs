@@ -56,6 +56,25 @@ fn translated(name: &str) -> PathBuf {
 	out
 }
 
+/// Run the driver on a fixture with bodies lowered from MIR, the spike's prototype.
+fn translate_mir(name: &str) -> (PathBuf, Output) {
+	let out = scratch().join(name).join("mir");
+	let config = fixture(name).join("ts.toml");
+	let args: [&std::ffi::OsStr; 4] = ["--out".as_ref(), out.as_ref(), "--lower".as_ref(), "mir".as_ref()];
+	let output = driver(name, &config, &args, "mir");
+	(out, output)
+}
+
+fn translated_mir(name: &str) -> PathBuf {
+	let (out, output) = translate_mir(name);
+	assert!(
+		output.status.success(),
+		"translating {name} from MIR failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	out
+}
+
 /// The generated TypeScript, by path relative to `dir`, without the runtime.
 fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
 	let mut files = Vec::new();
@@ -195,6 +214,50 @@ fn differential(package: &str, out: &Path, entry: &str, cases: u32, extra: &[&st
 fn codec() {
 	let out = translated("codec");
 	snapshot("codec", &out);
+	std::fs::write(out.join("shake.ts"), SHAKE).unwrap();
+	typecheck(&out);
+	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
+	shake(&out);
+}
+
+/// A caller of two functions of a type, through its module, as moq's TypeScript calls
+/// the codec.
+const SHAKE: &str = r#"import * as Decoder from "./coding/decode.Decoder.ts";
+
+export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic" }));
+"#;
+
+/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it calls and what they call,
+/// and nothing else the translation holds: no other function of the type, though the
+/// caller imports its whole module, and no class. The runtime stays out, whose own
+/// shaking is another matter.
+fn shake(out: &Path) {
+	let output = Command::new("bun")
+		.args(["build", "--target=browser", "--external=*rt.ts"])
+		.arg(out.join("shake.ts"))
+		.output()
+		.expect("running bun, which the dev shell provides");
+	let bundle = String::from_utf8_lossy(&output.stdout);
+	assert!(
+		output.status.success(),
+		"bundling shake.ts failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	// Bun numbers a name another module also declares, `slice3`, so the digits it adds go.
+	let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+	let kept: Vec<String> = bundle
+		.lines()
+		.filter_map(|line| line.strip_prefix("function ").or_else(|| line.strip_prefix("class ")))
+		.map(|decl| unnumbered(decl.split(['(', ' ', '{']).next().unwrap()))
+		.collect();
+	let want: Vec<String> = ["new_", "short", "slice", "u8"].map(unnumbered).to_vec();
+	assert_eq!(kept, want, "the bundle keeps more than the caller reaches:\n{bundle}");
+}
+
+/// The codec with bodies lowered from MIR: the same differential test, without a snapshot.
+#[test]
+fn codec_mir() {
+	let out = translated_mir("codec");
 	typecheck(&out);
 	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
 }
@@ -256,13 +319,24 @@ fn lines(text: &str) -> Vec<String> {
 fn lang() {
 	let out = translated("lang");
 	snapshot("lang", &out);
+	lang_differential(&out);
+}
+
+/// The language fixture with bodies lowered from MIR.
+#[test]
+fn lang_mir() {
+	let out = translated_mir("lang");
+	lang_differential(&out);
+}
+
+fn lang_differential(out: &Path) {
 	// Hand-written callers, type-checked against the output they call: one runs it, and
 	// one mixes integer types, which `tsc` must refuse.
 	for file in ["caller.ts", "brands.ts"] {
 		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
 	}
-	typecheck(&out);
-	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
+	typecheck(out);
+	differential("lang-fixture", out, "caller.ts", 50_000, &["wide"]);
 }
 
 /// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
@@ -271,26 +345,90 @@ fn lang() {
 fn task() {
 	let out = translated("task");
 	snapshot("task", &out);
+	task_differential(&out);
+}
+
+/// Futures and drops with bodies lowered from MIR: each async body a state machine.
+#[test]
+fn task_mir() {
+	let out = translated_mir("task");
+	task_differential(&out);
+}
+
+fn task_differential(out: &Path) {
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
-import {{ Log }} from "./log.ts";
-import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
+import * as Log from "./log.Log.ts";
+import * as Channel from "./model.Channel.ts";
+import * as Guard from "./model.Guard.ts";
+import {{ blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
+const fixture = {{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }};
+export const run = harness(fixture);
+export const unwind = harness(fixture, true);
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
-	typecheck(&out);
-	differential("task-fixture", &out, "caller.ts", 20_000, &[]);
+	typecheck(out);
+	differential("task-fixture", out, "caller.ts", 20_000, &[]);
+	unwinding(out, "caller.ts", 5_000);
+}
+
+/// Run the task fixture's scripts where a panic unwinds, natively on the host and
+/// translated, logging each step's panic and going on: what a panic drops must match.
+fn unwinding(out: &Path, entry: &str, scripts: u32) {
+	let target_dir = scratch().join("host");
+	let status = cargo()
+		.args([
+			"build",
+			"--locked",
+			"--package",
+			"task-fixture",
+			"--example",
+			"unwind",
+			"--target-dir",
+		])
+		.arg(&target_dir)
+		.arg("--manifest-path")
+		.arg(manifest_dir().join("Cargo.toml"))
+		.status()
+		.expect("running cargo");
+	assert!(status.success(), "building the unwind example failed");
+	let output = Command::new("node")
+		.arg(manifest_dir().join("tests").join("unwind.ts"))
+		.arg(target_dir.join("debug").join("examples").join("unwind"))
+		.arg(out.join(entry))
+		.arg(scripts.to_string())
+		.output()
+		.expect("running node, which the dev shell provides");
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		output.status.success(),
+		"unwinding differs from native Rust:\n{stdout}{stderr}"
+	);
+	println!("{stdout}");
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.
 #[test]
 fn reject() {
 	let (out, output) = translate("reject");
+	rejected(&out, &output, "expected.txt");
+}
+
+/// What lowering from MIR refuses in the same fixture.
+#[test]
+fn reject_mir() {
+	let (out, output) = translate_mir("reject");
+	rejected(&out, &output, "expected-mir.txt");
+}
+
+/// The errors of a failed translation, each with where it points, against `expected`.
+fn rejected(out: &Path, output: &Output, expected: &str) {
 	assert!(!output.status.success(), "translating reject succeeded");
 	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
 	let stderr = String::from_utf8_lossy(&output.stderr);
@@ -306,7 +444,7 @@ fn reject() {
 			got.push('\n');
 		}
 	}
-	let path = fixture("reject").join("expected.txt");
+	let path = fixture("reject").join(expected);
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;

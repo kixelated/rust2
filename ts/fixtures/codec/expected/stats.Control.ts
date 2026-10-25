@@ -3,4 +3,4 @@
 /** The control message classes moq-net's metrics count, trimmed to what the codec names. */
 export type Control = "Probe" | "Other";
 
-//# sourceMappingURL=stats.ts.map
+//# sourceMappingURL=stats.Control.ts.map

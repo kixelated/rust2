@@ -14,7 +14,18 @@ use crate::{lower, program};
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
 	rust2_driver::rustc::run("rust2-ts", args, |args| {
-		Ok(Translate::for_args(args)?.map(|job| Box::new(job) as rust2_driver::rustc::Job))
+		let job = Translate::for_args(args)?;
+		// MIR without the checks of undefined behavior that debug builds add around raw
+		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
+		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
+		// can catch a panic and go on.
+		if job.as_ref().is_some_and(|job| job.mir) {
+			args.push("-Zub-checks=no".into());
+			if std::env::var_os("RUST2_TS_ABORT").is_none() {
+				args.push("-Cpanic=unwind".into());
+			}
+		}
+		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
 }
 
@@ -22,6 +33,8 @@ pub fn run(args: Vec<String>) -> ExitCode {
 struct Translate {
 	config: Config,
 	output: Output,
+	/// Whether bodies lower from MIR rather than THIR.
+	mir: bool,
 }
 
 /// What the job writes.
@@ -56,7 +69,12 @@ impl Translate {
 				));
 			}
 		};
-		Ok(Some(Self { config, output }))
+		let mir = match std::env::var(config::env::LOWER).as_deref() {
+			Ok("mir") => true,
+			Ok("thir") | Err(_) => false,
+			Ok(other) => return Err(format!("{} must be thir or mir, not {other}", config::env::LOWER)),
+		};
+		Ok(Some(Self { config, output, mir }))
 	}
 }
 
@@ -70,11 +88,11 @@ impl Callbacks for Translate {
 		}
 		// Only a program rustc accepts is translated.
 		let written = match &self.output {
-			Output::Dir(out) => match lower::translate(tcx, &self.config, &bodies) {
+			Output::Dir(out) => match lower::translate(tcx, &self.config, &bodies, self.mir) {
 				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out),
 				_ => Ok(()),
 			},
-			Output::Census(path) => match lower::census(tcx, &self.config, &bodies) {
+			Output::Census(path) => match lower::census(tcx, &self.config, &bodies, self.mir) {
 				Some(census) => program::write_file(path, &census.render(&self.config.package)),
 				None => Ok(()),
 			},

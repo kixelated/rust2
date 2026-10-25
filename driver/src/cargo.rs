@@ -15,6 +15,8 @@ pub struct Args {
 	pub manifest: PathBuf,
 	/// Passed on to `cargo check`.
 	pub cargo: Vec<String>,
+	/// The driver's own options, each with its value.
+	pub options: Vec<(String, String)>,
 }
 
 /// What a driver writes, absolute.
@@ -27,9 +29,11 @@ pub enum Output {
 
 impl Args {
 	/// Parse `args`, without the program name, or `None` after printing `usage` for
-	/// `--help`. An error ends with `usage`.
-	pub fn parse(args: &[String], usage: &str) -> Result<Option<Self>, String> {
+	/// `--help`. `options` are the driver's own, each taking a value. An error ends with
+	/// `usage`.
+	pub fn parse(args: &[String], usage: &str, options: &[&str]) -> Result<Option<Self>, String> {
 		let mut config = None;
+		let mut own = Vec::new();
 		let mut out = None;
 		let mut census = None;
 		let mut manifest = None;
@@ -50,6 +54,13 @@ impl Args {
 						_ => &mut manifest,
 					};
 					*slot = Some(absolute(Path::new(value))?);
+				}
+				option if options.contains(&option) => {
+					let [value, tail @ ..] = rest else {
+						return Err(format!("{arg} needs a value\n\n{usage}"));
+					};
+					rest = tail;
+					own.push((option.to_string(), value.clone()));
 				}
 				"--" => {
 					cargo = rest;
@@ -80,6 +91,7 @@ impl Args {
 			output,
 			manifest,
 			cargo: cargo.to_vec(),
+			options: own,
 		}))
 	}
 }
