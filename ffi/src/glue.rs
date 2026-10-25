@@ -594,11 +594,11 @@ impl Gen<'_> {
 					(format!("let {local} = unsafe {{ {c}.bytes(w) }};"), local.to_string())
 				}
 				(inner, m, _) => {
-					let pass = match m {
-						Mutability::Mut => format!("&mut {local}"),
-						Mutability::Not => format!("&{local}"),
+					let (binding, pass) = match m {
+						Mutability::Mut => ("let mut", format!("&mut {local}")),
+						Mutability::Not => ("let", format!("&{local}")),
 					};
-					(format!("let mut {local} = {};", self.lift(inner, c)), pass)
+					(format!("{binding} {local} = {};", self.lift(inner, c)), pass)
 				}
 			},
 			_ => (format!("let {local} = {};", self.lift(ty, c)), local.to_string()),

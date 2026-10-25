@@ -13,6 +13,9 @@ use rustc_span::Span;
 
 use crate::ir::{Api, Dyn, Function, Int, Receiver, Type};
 
+/// A C name claimed twice: the name, then what claimed it first and second.
+pub type Clash = (String, (String, Span), (String, Span));
+
 /// A C type, as a parameter, field, or return value takes it.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Ty {
@@ -67,8 +70,8 @@ pub struct Abi<'a> {
 	pub options: BTreeMap<String, Type>,
 	/// Every C name claimed, with what claimed it.
 	names: HashMap<String, (String, Span)>,
-	/// Each name claimed twice: the name, then both claimants.
-	pub clashes: Vec<(String, (String, Span), (String, Span))>,
+	/// Each name claimed twice.
+	pub clashes: Vec<Clash>,
 }
 
 impl<'a> Abi<'a> {

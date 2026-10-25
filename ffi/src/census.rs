@@ -6,10 +6,11 @@ use std::fmt::Write;
 
 use rustc_span::Span;
 
+use crate::abi::Clash;
 use crate::collect::{Collected, Refusal};
 
 /// The census of `krate` as Markdown; `at` locates a span.
-pub fn render(krate: &str, collected: &Collected, at: &dyn Fn(Span) -> String) -> String {
+pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn(Span) -> String) -> String {
 	let api = &collected.api;
 	let refused = |kinds: &[&str]| collected.refusals.iter().filter(|r| kinds.contains(&r.kind)).count();
 	let methods: usize = api.objects.iter().map(|o| o.methods.len()).sum::<usize>()
@@ -115,6 +116,12 @@ pub fn render(krate: &str, collected: &Collected, at: &dyn Fn(Span) -> String) -
 		);
 	}
 
+	if !clashes.is_empty() {
+		let _ = writeln!(out, "\n## C names claimed twice\n");
+		for (name, (first, _), (second, span)) in clashes {
+			let _ = writeln!(out, "- `{name}`: {first}, and {second} at {}", at(*span));
+		}
+	}
 	if !collected.opaque.is_empty() {
 		let _ = writeln!(out, "\n## Values exported as objects, since a field does not map\n");
 		for (path, why) in &collected.opaque {

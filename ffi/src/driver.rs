@@ -83,7 +83,8 @@ impl Callbacks for Export {
 		let collected = collect::collect(tcx, &self.config);
 		let written = match &self.output {
 			Output::Census(path) => {
-				let text = census::render(&self.config.package, &collected, &|span| at(tcx, span));
+				let abi = Abi::new(&collected.api, &self.config.prefix());
+				let text = census::render(&self.config.package, &collected, &abi.clashes, &|span| at(tcx, span));
 				write(path, &text)
 			}
 			Output::Dir(out) => {
@@ -110,9 +111,6 @@ impl Callbacks for Export {
 					if *count == 0 {
 						tcx.dcx().err(format!("rust2-ffi: exclude `{path}` names nothing exported"));
 					}
-				}
-				if tcx.dcx().has_errors().is_some() {
-					return Compilation::Stop;
 				}
 				let abi = Abi::new(&collected.api, &self.config.prefix());
 				for (name, (first, first_span), (second, second_span)) in &abi.clashes {
