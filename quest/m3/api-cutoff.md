@@ -31,6 +31,9 @@ Things to settle while measuring:
 - A two-crate differential test before the report recommends a wrapper: a body
   edit the hash ignores, such as `pub async fn value() -> u32` returning 2
   instead of 1, must change what the dependent observes once relinked.
+- Count the moq-net edits that change the hash only through coroutine MIR: they
+  would cut off once moq's poll-first plan ([moq-dev/moq#6814](https://github.com/moq-dev/moq/pull/6814),
+  `quest/m1/poll-first`) gates its `async fn` wrappers behind an `async` feature.
 - Compute the hash with [rust2-driver](/driver/src/lib.rs), so no rustc patch is needed.
 
 Public API: none.
