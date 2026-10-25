@@ -1,8 +1,9 @@
 // The benchmark's hand-written route: each workload in the codec fixture's `bench.rs`,
 // written with moq's own TypeScript codec (`js/net`) the way its benchmarks and session
 // code call it. Varints are sync, as `bench/varint.ts` times them; a frame header decodes
-// through the Reader's sync `tryDecode`, as the subscriber's read loop does; every other
-// encode and decode goes through moq's async Writer and Reader, as `lite-varint.ts`.
+// through the Reader's sync `tryDecode`, as the subscriber's read loop does, and so does
+// each read's worth of a split one; every other encode and decode goes through moq's
+// async Writer and Reader, as `lite-varint.ts`.
 //
 // `moq/` imports resolve to the moq checkout when `main.ts` bundles this file.
 
@@ -45,6 +46,8 @@ export function run(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
 			return decodeGroup(data, lite(selector));
 		case 6:
 			return iterate(selector, data);
+		case 7:
+			return decodeSplit(data, lite(selector));
 		default:
 			throw new Error(`unknown workload ${op}`);
 	}
@@ -137,6 +140,36 @@ function decodeFrames(wire: Uint8Array, version: Version): Uint8Array {
 	};
 	while (reader.tryDecode(header) !== undefined) count++;
 	return u64s(count, total, last);
+}
+
+// The headers as they arrive a read at a time. The Reader over the bytes so far stands in
+// for one that a stream fills, which awaits each read: its `tryDecode` drains every
+// complete header, and a cut one comes up short and is decoded again on the next read.
+function decodeSplit(data: Uint8Array, version: Version): Uint8Array {
+	const read = Math.max(1, Number(u64(data, 0)));
+	const wire = data.subarray(8);
+	let start = 0;
+	let count = 0;
+	let total = 0;
+	let last = 0n;
+	let short = 0;
+	// Nothing is kept from a header until its last read, which a retry runs again.
+	const header = (c: Cursor) => {
+		const delta = c.u62();
+		const size = c.u53();
+		last = unzigzag(delta);
+		total += size;
+		start += c.offset;
+		return true;
+	};
+	for (let end = 0; end < wire.byteLength; ) {
+		end = Math.min(wire.byteLength, end + read);
+		const reader = new Reader(undefined, wire.subarray(start, end), version);
+		while (reader.tryDecode(header) !== undefined) count++;
+		if (start < end) short++;
+	}
+	if (start < wire.byteLength) throw new Error("the wire ends mid-header");
+	return u64s(count, total, last, short);
 }
 
 function encodeGroup(data: Uint8Array, version: Version): Promise<Uint8Array> {

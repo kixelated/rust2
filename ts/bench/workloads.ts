@@ -1,6 +1,6 @@
 // The workloads every route runs, as inputs to the codec fixture's `bench::run`: moq's own
 // benchmarks' cases, from `js/net/bench/varint.ts` and `lite-varint.ts`. Each decode
-// reads what its encode wrote.
+// reads what its encode wrote, and a split decode reads it as it arrives over a stream.
 
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, or iterated. */
@@ -21,6 +21,7 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 		name = name.replace("%", `${wire.byteLength / items}B`);
 		out.push({ name, op: "encode", items, input });
 		out.push({ name, op: "decode", items, input: Uint8Array.of(op + 1, selector, ...wire) });
+		return wire;
 	};
 
 	// One call codes this many copies, as `varint.ts` decodes them through one Cursor.
@@ -40,7 +41,16 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 	] as const) {
 		// One group: 30 fps, a keyframe every 10 frames. Params: count, delta (µs), first
 		// size, size, key interval, key size.
-		pair(`frames/video/${version}`, 60, 2, selector, [60n, 33_333n, 60_000n, 8_000n, 10n, 17_000n]);
+		const video = pair(`frames/video/${version}`, 60, 2, selector, [60n, 33_333n, 60_000n, 8_000n, 10n, 17_000n]);
+		// The same headers in reads shorter than any of them, so each comes up short at least
+		// once and is decoded again: `bench.rs`'s op 7, whose param is the read size.
+		const read = 3;
+		out.push({
+			name: `frames/video/${version}/${read}B-reads`,
+			op: "decode",
+			items: 60,
+			input: Uint8Array.of(7, selector, ...u64(BigInt(read)), ...video),
+		});
 		pair(`frames/audio/${version}`, 50, 2, selector, [50n, 20_000n, 160n, 160n, 0n, 0n]);
 		pair(`group/${version}`, 1, 4, selector, [3n, 1_234n]);
 	}
