@@ -7,8 +7,24 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-use api_fixture::{Channel, Counter, Event, LIMIT, Point, Shape};
+use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Point, Shape, Stamp};
 use bytes::Bytes;
+
+/// Keeps even levels, as `tests/api.c`'s implementation does.
+struct Print;
+
+impl Log for Print {
+	fn log(&self, level: u8, line: &str) -> bool {
+		println!("log {level} {line}");
+		level % 2 == 0
+	}
+}
+
+impl Drop for Print {
+	fn drop(&mut self) {
+		println!("freed");
+	}
+}
 
 struct Count(AtomicUsize);
 
@@ -61,6 +77,21 @@ fn main() {
 	] {
 		println!("{}", api_fixture::describe(&event));
 	}
+
+	let stamp = Stamp::from_millis(2500);
+	println!("secs {}", stamp.secs());
+	println!("later {}", Stamp::from_millis(3000).later(stamp));
+	println!("secs {}", stamp.secs());
+	let message = Message::new(Some(stamp), Bytes::from_static(b"body"));
+	println!("payload {}", String::from_utf8_lossy(&message.payload));
+	println!("stamp {:?}", message.stamp.unwrap());
+	println!("sent {}", message.sent());
+
+	println!("kept {}", api_fixture::emit(Print, vec![1, 2, 3, 4]));
+	let logger = Logger::new(Box::new(Print));
+	println!("write {}", logger.write("hi"));
+	drop(logger);
+	println!("dropped");
 
 	let channel = Channel::new();
 	let count = Arc::new(Count(AtomicUsize::new(0)));

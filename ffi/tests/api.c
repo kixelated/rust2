@@ -31,6 +31,18 @@ static void drop(void *data) {
 	drops++;
 }
 
+/* The Log callback: keeps even levels. */
+static bool log_line(void *data, uint8_t level, api_buf line) {
+	(void)data;
+	printf("log %u %.*s\n", level, (int)line.len, (const char *)line.ptr);
+	return level % 2 == 0;
+}
+
+static void log_free(void *data) {
+	(void)data;
+	printf("freed\n");
+}
+
 static int script(void) {
 	printf("limit %llu\n", (unsigned long long)API_LIMIT);
 
@@ -84,6 +96,31 @@ static int script(void) {
 	for (int i = 0; i < 3; i++) {
 		print("", api_describe(events[i]), "\n");
 	}
+
+	/* A `Copy` handle passed by value is copied, so it stays usable. */
+	api_stamp *stamp = api_stamp_from_millis(2500);
+	printf("secs %llu\n", (unsigned long long)api_stamp_secs(stamp));
+	api_stamp *later = api_stamp_from_millis(3000);
+	printf("later %s\n", api_stamp_later(later, stamp) ? "true" : "false");
+	api_stamp_free(later);
+	printf("secs %llu\n", (unsigned long long)api_stamp_secs(stamp));
+	api_message *message = api_message_new(stamp, str("body"));
+	api_stamp_free(stamp);
+	print("payload ", api_message_payload(message), "\n");
+	api_stamp *read = api_message_stamp(message);
+	print("stamp ", api_stamp_debug(read), "\n");
+	api_stamp_free(read);
+	printf("sent %s\n", api_message_sent(message) ? "true" : "false");
+	api_message_free(message);
+
+	static const api_log_vtable print_log = {.free = log_free, .log = log_line};
+	uint8_t levels[] = {1, 2, 3, 4};
+	api_buf lines = {.ptr = levels, .len = sizeof levels};
+	printf("kept %u\n", api_emit((api_log){.vtable = &print_log}, lines));
+	api_logger *logger = api_logger_new((api_log){.vtable = &print_log});
+	printf("write %s\n", api_logger_write(logger, str("hi")) ? "true" : "false");
+	api_logger_free(logger);
+	printf("dropped\n");
 
 	api_channel *channel = api_channel_new();
 	api_waker waker = {.wake = wake, .drop = drop, .data = NULL};

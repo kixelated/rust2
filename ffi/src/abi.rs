@@ -219,13 +219,21 @@ impl<'a> Abi<'a> {
 			params.push(("self".to_string(), ty));
 		}
 		for param in &function.params {
-			let ty = match &param.ty {
+			let copied = match &param.ty {
+				Type::Object(i) => Some(*i),
+				Type::Option(inner) => match **inner {
+					Type::Object(i) => Some(i),
+					_ => None,
+				},
+				_ => None,
+			};
+			let ty = match copied {
 				// Taken by value, a `Copy` value is copied out, leaving its handle as it was.
-				Type::Object(i) if self.api.objects[*i].copy => Ty::Handle {
-					name: self.object(*i),
+				Some(i) if self.api.objects[i].copy => Ty::Handle {
+					name: self.object(i),
 					constant: true,
 				},
-				ty => self.ty(ty),
+				_ => self.ty(&param.ty),
 			};
 			params.push((escape(&param.name), ty));
 		}

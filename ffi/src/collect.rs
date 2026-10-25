@@ -82,6 +82,9 @@ struct Collector<'a, 'tcx> {
 	aliases: Vec<String>,
 	/// Local items the walk left out, and why: `excluded` or `doc(hidden)`.
 	left_out: rustc_data_structures::fx::FxHashMap<DefId, &'static str>,
+	/// The type parameters of the function being mapped that take a foreign
+	/// implementation, with the callback each takes.
+	impls: std::cell::RefCell<Vec<(Ty<'tcx>, usize)>>,
 	opaque: Vec<(String, Why)>,
 	bytes: Option<DefId>,
 	api: Api,
@@ -109,6 +112,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 		excluded: exclude.iter().map(|path| (path.clone(), 0)).collect(),
 		aliases: Vec::new(),
 		left_out: Default::default(),
+		impls: Default::default(),
 		opaque: Vec::new(),
 		bytes,
 		api: Api {
@@ -253,6 +257,15 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			self.decls.insert(def_id, decl);
 		}
 		self.settle();
+		// A trait whose methods do not map is refused before any signature takes it.
+		for (def_id, path) in self.items.clone() {
+			if matches!(self.decls.get(&def_id), Some(Decl::Callback(_)))
+				&& let Err(why) = self.callback(def_id, &path)
+			{
+				let first = why.into_iter().next().expect("a refusal has a reason");
+				self.decls.insert(def_id, Decl::Refused(first));
+			}
+		}
 		// Number each kind in item order, with placeholders filled in by `define`.
 		for (def_id, path) in self.items.clone() {
 			let span = tcx.def_span(def_id);
@@ -425,14 +438,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					object.methods = methods;
 					object.traits = traits;
 				}
-				Some(Decl::Callback(index)) => match self.callback(def_id, &path) {
-					Ok(methods) => self.api.callbacks[index].methods = methods,
-					Err(why) => {
-						// A trait refused after signatures could name it: those that do
-						// still compile, and the census counts this one.
-						self.refuse(&path, "trait", span, why);
-					}
-				},
+				Some(Decl::Callback(index)) => {
+					self.api.callbacks[index].methods = self.callback(def_id, &path).expect("settled");
+				}
 				None => match kind {
 					DefKind::Fn => match self.function(def_id, path.clone(), None) {
 						Ok(function) => self.api.functions.push(function),
@@ -558,6 +566,13 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					method.push(name.to_string());
 					match self.function(item.def_id, method, Some(self_ty)) {
 						Ok(function) if function.future => errs.push(why("async trait method", name.to_string())),
+						Ok(function)
+							if !function.params.iter().all(|p| foreign_arg(&p.ty))
+								|| !foreign_return(&function.ok)
+								|| function.err.is_some() =>
+						{
+							errs.push(why("callback signature", name.to_string()))
+						}
 						Ok(function) if function.receiver == Some(Receiver::Owned) || function.receiver.is_none() => {
 							errs.push(why("trait method without &self", name.to_string()))
 						}
@@ -581,6 +596,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 	fn function(&self, def_id: DefId, path: Path, self_ty: Option<Ty<'tcx>>) -> Result<Function, Vec<Why>> {
 		let tcx = self.tcx;
 		let mut errs = Vec::new();
+		self.impls.borrow_mut().clear();
 		let args = match self.instantiate(def_id, self_ty) {
 			Ok(args) => args,
 			Err(why) => return Err(why),
@@ -686,6 +702,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				GenericArgKind::Const(_) => errs.push(why("const generic", "")),
 				GenericArgKind::Type(param) => match self.choose(def_id, param) {
 					Ok(ty) => args[i] = ty.into(),
+					// The parameter stays, and `ty` maps it to the foreign implementation.
+					Err(Why { construct: "callback bound", .. }) if let Some(callback) = self.foreign(def_id, param) => {
+						self.impls.borrow_mut().push((param, callback));
+					}
 					Err(why) => errs.push(why),
 				},
 			}
@@ -773,6 +793,30 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			[_] => Err(why("callback bound", names.join(" + "))),
 			_ => Err(why("generic parameter", names.join(" + "))),
 		}
+	}
+
+	/// The callback a type parameter takes a foreign implementation of: one bounded by a
+	/// single exported trait, and otherwise only by what that implementation meets.
+	fn foreign(&self, def_id: DefId, param: Ty<'tcx>) -> Option<usize> {
+		let tcx = self.tcx;
+		let mut callback = None;
+		for clause in tcx.clauses_of(def_id).instantiate_identity(tcx).clauses {
+			let Some(bound) = clause.skip_norm_wip().as_trait_clause() else {
+				continue;
+			};
+			if bound.self_ty().skip_binder() != param {
+				continue;
+			}
+			let tr = bound.def_id();
+			let met = [sym::Send, sym::Sync].iter().any(|&item| tcx.is_diagnostic_item(item, tr))
+				|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
+			match self.decls.get(&tr) {
+				Some(Decl::Callback(i)) if callback.is_none() => callback = Some(*i),
+				_ if met => {}
+				_ => return None,
+			}
+		}
+		callback
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
@@ -887,7 +931,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					let inner = args.type_at(0);
 					match inner.kind() {
 						ty::Dynamic(preds, ..) => {
-							return self.dynamic(preds.principal_def_id(), Dyn::Box, inner);
+							return self.dynamic(preds.principal_def_id(), Dyn::Box, inner, pos);
 						}
 						_ => Type::Box(Box::new(self.ty(inner, pos.inner())?)),
 					}
@@ -895,7 +939,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					let inner = args.type_at(0);
 					match inner.kind() {
 						ty::Dynamic(preds, ..) => {
-							return self.dynamic(preds.principal_def_id(), Dyn::Arc, inner);
+							return self.dynamic(preds.principal_def_id(), Dyn::Arc, inner, pos);
 						}
 						_ => return Err(why("Arc", strip_args(tcx, did))),
 					}
@@ -922,8 +966,8 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
 			ty::Dynamic(..) => return Err(why("trait object", ty.to_string())),
-			ty::Param(_) => match pos {
-				// A callback method's `Self`.
+			ty::Param(_) => match self.impls.borrow().iter().find(|(param, _)| *param == ty) {
+				Some((_, callback)) if pos == Pos::Param => Type::Callback(*callback, Dyn::Impl),
 				_ => return Err(why("type parameter", ty.to_string())),
 			},
 			ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..) => return Err(why("function value", "")),
@@ -935,9 +979,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 	}
 
 	/// A trait object of one of the crate's traits, as a foreign implementation.
-	fn dynamic(&self, principal: Option<DefId>, form: Dyn, ty: Ty<'tcx>) -> Result<Type, Why> {
+	/// A foreign implementation crosses only into Rust, as a parameter.
+	fn dynamic(&self, principal: Option<DefId>, form: Dyn, ty: Ty<'tcx>, pos: Pos) -> Result<Type, Why> {
 		match principal.and_then(|tr| self.decls.get(&tr)) {
-			Some(Decl::Callback(i)) => Ok(Type::Callback(*i, form)),
+			Some(Decl::Callback(i)) if pos == Pos::Param => Ok(Type::Callback(*i, form)),
 			_ => Err(why("trait object", ty.to_string())),
 		}
 	}
@@ -951,6 +996,26 @@ enum Pos {
 	Field,
 	/// Inside another type: an `Option`, a `Box`, or behind a reference.
 	Behind,
+}
+
+/// Whether a callback can take `ty`: lent to the foreign side for the call, and
+/// copied by it if kept.
+fn foreign_arg(ty: &Type) -> bool {
+	match ty {
+		Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char | Type::Duration => true,
+		Type::String | Type::Vec | Type::Bytes => true,
+		Type::Ref(Mutability::Not, inner) => matches!(**inner, Type::Str | Type::Slice),
+		Type::Option(inner) => foreign_arg(inner),
+		_ => false,
+	}
+}
+
+/// Whether a callback can return `ty`: a value with no memory to own.
+fn foreign_return(ty: &Type) -> bool {
+	matches!(
+		ty,
+		Type::Unit | Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char
+	)
 }
 
 impl Pos {

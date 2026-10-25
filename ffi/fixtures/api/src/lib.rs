@@ -172,6 +172,78 @@ impl Channel {
 	}
 }
 
+/// A time: an object, since its field is private, but `Copy`, so passing it by value
+/// copies it rather than moving it out of its handle.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stamp {
+	millis: u64,
+}
+
+impl Stamp {
+	pub fn from_millis(millis: u64) -> Self {
+		Self { millis }
+	}
+
+	pub fn secs(self) -> u64 {
+		self.millis / 1000
+	}
+
+	pub fn later(self, other: Stamp) -> bool {
+		self.millis > other.millis
+	}
+}
+
+/// A message: an object, since one field is private, whose `pub` fields read as getters.
+#[derive(Clone, Debug)]
+pub struct Message {
+	pub stamp: Option<Stamp>,
+	pub payload: Bytes,
+	sent: bool,
+}
+
+impl Message {
+	pub fn new(stamp: Option<Stamp>, payload: Bytes) -> Self {
+		Self {
+			stamp,
+			payload,
+			sent: false,
+		}
+	}
+
+	pub fn sent(&self) -> bool {
+		self.sent
+	}
+}
+
+/// A sink: a callback interface, implemented in C.
+pub trait Log: Send + Sync {
+	/// Whether the line was kept.
+	fn log(&self, level: u8, line: &str) -> bool;
+}
+
+/// Each line to `log` as a type parameter takes it, returning how many it kept.
+pub fn emit(log: impl Log, lines: Vec<u8>) -> u32 {
+	lines
+		.iter()
+		.filter(|&&n| log.log(n, &format!("line {n}")))
+		.count() as u32
+}
+
+/// Holds a foreign implementation as a trait object, dropping it with itself.
+pub struct Logger {
+	sink: Box<dyn Log>,
+}
+
+impl Logger {
+	pub fn new(sink: Box<dyn Log>) -> Self {
+		Self { sink }
+	}
+
+	pub fn write(&self, line: &str) -> bool {
+		self.sink.log(0, line)
+	}
+}
+
 /// The length of a payload, borrowed for the call.
 pub fn len(payload: &[u8]) -> usize {
 	payload.len()

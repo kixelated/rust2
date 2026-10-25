@@ -121,6 +121,23 @@ impl Header<'_> {
 			self.value(&Ty::Struct(abi.enumeration(i)));
 		}
 
+		for (i, callback) in api.callbacks.iter().enumerate() {
+			let name = abi.callback(i);
+			let mut table = vec!["\tvoid (*free)(void *data);".to_string()];
+			for method in &callback.methods {
+				let params: Vec<String> = std::iter::once("void *data".to_string())
+					.chain(method.params.iter().map(|p| self.decl(&abi.ty(&p.ty), &abi::escape(&p.name))))
+					.collect();
+				let decl = self.decl(&abi.ty(&method.ok), &format!("(*{})({})", method.name(), params.join(", ")));
+				table.push(format!("\t{decl};"));
+			}
+			self.line(format!(
+				"/* {}: implemented in C. Rust calls free once it drops the implementation, and\n * may call the others from any thread. */\ntypedef struct {name}_vtable {{\n{}\n}} {name}_vtable;\n\ntypedef struct {name} {{\n\tconst {name}_vtable *vtable;\n\tvoid *data;\n}} {name};\n",
+				callback.path.join("::"),
+				table.join("\n")
+			));
+		}
+
 		for constant in &api.constants {
 			let value = match constant.value {
 				Literal::Bool(b) => b.to_string(),

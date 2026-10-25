@@ -14,6 +14,27 @@ use crate::ir::{Function, Mutability, Receiver, Traits, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.rs");
 
+/// The Rust spelling of a type a callback's method takes or returns.
+fn rust(ty: &Type) -> String {
+	match ty {
+		Type::Unit => "()".to_string(),
+		Type::Bool => "bool".to_string(),
+		Type::Int(int) => int.rust().to_string(),
+		Type::F32 => "f32".to_string(),
+		Type::F64 => "f64".to_string(),
+		Type::Char => "char".to_string(),
+		Type::Str => "str".to_string(),
+		Type::String => "::std::string::String".to_string(),
+		Type::Slice => "[u8]".to_string(),
+		Type::Vec => "::std::vec::Vec<u8>".to_string(),
+		Type::Bytes => "::bytes::Bytes".to_string(),
+		Type::Duration => "::std::time::Duration".to_string(),
+		Type::Option(inner) => format!("Option<{}>", rust(inner)),
+		Type::Ref(Mutability::Not, inner) => format!("&{}", rust(inner)),
+		other => unreachable!("a callback never takes {other:?}"),
+	}
+}
+
 /// The crate that builds the C ABI.
 pub struct Crate<'a> {
 	pub abi: &'a Abi<'a>,
@@ -563,7 +584,80 @@ impl Gen<'_> {
 		}
 	}
 
-	fn callback(&mut self, _i: usize) {}
+	/// A callback: its table of foreign functions, and the Rust type that implements the
+	/// trait by calling them.
+	fn callback(&mut self, i: usize) {
+		let callback = &self.abi.api.callbacks[i];
+		let name = self.abi.callback(i);
+		let path = self.path(&callback.path);
+		let mut table = String::from("\tpub free: Option<unsafe extern \"C\" fn(*mut c_void)>,\n");
+		let mut methods = String::new();
+		for method in &callback.methods {
+			let method_name = method.name();
+			let c_params: Vec<String> = std::iter::once("*mut c_void".to_string())
+				.chain(method.params.iter().map(|p| self.rs(&self.abi.ty(&p.ty))))
+				.collect();
+			let ret = self.rs(&self.abi.ty(&method.ok));
+			let _ = writeln!(
+				table,
+				"\tpub {method_name}: Option<unsafe extern \"C\" fn({}) -> {ret}>,",
+				c_params.join(", ")
+			);
+			let receiver = match method.receiver {
+				Some(Receiver::Mut) => "&mut self",
+				_ => "&self",
+			};
+			let params: Vec<String> = method
+				.params
+				.iter()
+				.enumerate()
+				.map(|(n, p)| format!("p{n}: {}", rust(&p.ty)))
+				.collect();
+			let args: Vec<String> = std::iter::once("self.0.data".to_string())
+				.chain(method.params.iter().enumerate().map(|(n, p)| self.view(&p.ty, &format!("p{n}"))))
+				.collect();
+			let _ = write!(
+				methods,
+				"\tfn {method_name}({receiver}{}) -> {} {{\n\t\tlet w = \"{name}_vtable.{method_name}\";\n\t\tlet f = unsafe {{ (*self.0.vtable).{method_name} }}.unwrap_or_else(|| rt::fail(w, \"the function is null\"));\n\t\tlet result = unsafe {{ f({}) }};\n\t\t{}\n\t}}\n",
+				params.iter().map(|p| format!(", {p}")).collect::<String>(),
+				rust(&method.ok),
+				args.join(", "),
+				self.lift(&method.ok, "result"),
+			);
+		}
+		self.line(format!("#[repr(C)]\npub struct {name}_vtable {{\n{table}}}\n"));
+		self.line(format!(
+			"#[repr(C)]\n#[derive(Clone, Copy)]\npub struct {name} {{\n\tpub vtable: *const {name}_vtable,\n\tpub data: *mut c_void,\n}}\n"
+		));
+		self.line(format!(
+			"/// The foreign implementation, which frees its data when dropped.\npub struct Foreign_{name}({name});\n\n// SAFETY: the callback's contract: its functions may be called from any thread.\nunsafe impl Send for Foreign_{name} {{}}\n// SAFETY: as above.\nunsafe impl Sync for Foreign_{name} {{}}\n\nimpl Drop for Foreign_{name} {{\n\tfn drop(&mut self) {{\n\t\tif let Some(free) = unsafe {{ (*self.0.vtable).free }} {{\n\t\t\tunsafe {{ free(self.0.data) }};\n\t\t}}\n\t}}\n}}\n"
+		));
+		self.line(format!("impl {path} for Foreign_{name} {{\n{methods}}}\n"));
+	}
+
+	/// The C value lending the Rust value `e` of type `ty` to a callback for its call.
+	fn view(&self, ty: &Type, e: &str) -> String {
+		match ty {
+			Type::Ref(_, inner) => match &**inner {
+				Type::Str => format!("rt::Buf::view({e}.as_bytes())"),
+				_ => format!("rt::Buf::view({e})"),
+			},
+			Type::String => format!("rt::Buf::view({e}.as_bytes())"),
+			Type::Vec | Type::Bytes => format!("rt::Buf::view(&{e}[..])"),
+			Type::Option(inner) => match &**inner {
+				inner if Abi::is_buf(inner) => format!(
+					"match &{e} {{ Some(v) => {}, None => rt::Buf::NONE }}",
+					self.view(inner, "v")
+				),
+				inner => format!(
+					"match {e} {{ Some(v) => {name} {{ some: true, value: {} }}, None => {name} {{ some: false, value: unsafe {{ ::std::mem::zeroed() }} }} }}",
+					self.view(inner, "v"),
+					name = self.abi.option(inner)
+				),
+			},
+			_ => self.lower(ty, e),
+		}
+	}
 
 	/// An argument: the statement binding it from its C parameter `c` to `local`, and
 	/// the expression passing it. A future owns its arguments, so it borrows nothing
