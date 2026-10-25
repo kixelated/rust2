@@ -162,18 +162,21 @@ checkout() {
     (cd "$dir" && PATH=$stable_path cargo fetch --locked -q)
 }
 
-# Fails unless no crate in the build has a build script or a `links` key.
-check_pure() {
-    local name=$1 tree impure
-    shift
+# Fails if a crate in the build breaks the corpus's rule. Both forbid a `links`
+# key; `pure` also forbids any build script, `no-c` only the crates that compile C.
+check_graph() { # corpus rule cargo-args...
+    local name=$1 rule=$2 tree found
+    shift 2
     tree=$(cargo tree --locked --offline "$@" -e normal,build --prefix none -f '{p}' |
         awk '{ sub(/^v/, "", $2); print $1 " " $2 }' | sort -u | jq -R . | jq -s .)
-    impure=$(cargo metadata --locked --offline --format-version 1 | jq -r --argjson tree "$tree" '
+    found=$(cargo metadata --locked --offline --format-version 1 | jq -r --argjson tree "$tree" --arg rule "$rule" '
 		.packages[]
 		| select(("\(.name) \(.version)") as $k | $tree | index($k))
-		| select(.links != null or any(.targets[]; .kind | index("custom-build")))
+		| select(.links != null or if $rule == "pure"
+			then any(.targets[]; .kind | index("custom-build"))
+			else .name == "cc" or .name == "cmake" end)
 		| "\(.name) \(.version)"')
-    [[ -z $impure ]] || die "corpus $name is marked pure but builds: $(tr '\n' ' ' <<<"$impure")"
+    [[ -z $found ]] || die "corpus $name is marked $rule but builds: $(tr '\n' ' ' <<<"$found")"
 }
 
 # Enters a variant's toolchain, flags, and target directory for the cargo calls that follow.
@@ -189,13 +192,15 @@ use_variant() { # corpus variant
 }
 
 # Times one run with hyperfine, appending its measurement to the scenario's raw log.
+# Earlier runs leave dirty pages behind (over a GiB on moq), and writing them
+# back stalls whichever run it overlaps, so each run starts after a sync.
 time_once() { # corpus dir scenario variant prepare command
     local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json
     json=$out/raw/$corpus.$scenario.$variant.json
     (
         use_variant "$corpus" "$variant"
         cd "$dir"
-        hyperfine --style none --runs 1 --prepare "$prepare" --export-json "$json" "$cmd"
+        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" "$cmd"
     )
     jq -c '.results[0].measurements[0]' "$json" | tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
@@ -203,8 +208,7 @@ time_once() { # corpus dir scenario variant prepare command
 
 # Folds a scenario's runs of one variant into a result record. Load on the host
 # adds an occasional slow run, so the compared numbers are trimmed means: the
-# mean without the fastest and slowest run. Edit times are often bimodal, where
-# averaging the middle runs is steadier than a median picking one.
+# mean without the fastest and slowest run.
 summarize_runs() { # corpus scenario variant
     jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
         --arg base "$(field variant "$3" '.base // .name')" '
@@ -346,9 +350,11 @@ for corpus in "${corpora[@]}"; do
     dir=$work/src/$corpus
     checkout "$corpus" "$dir"
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
-    if [[ $(field corpus "$corpus" .pure) == true ]]; then
-        (cd "$dir" && PATH=$stable_path check_pure "$corpus" "${args[@]}")
-    fi
+    for rule in pure no-c; do
+        if [[ $(field corpus "$corpus" ".\"$rule\"") == true ]]; then
+            (cd "$dir" && PATH=$stable_path check_graph "$corpus" "$rule" "${args[@]}")
+        fi
+    done
     bench_corpus "$corpus" "$dir"
     # A subshell keeps the nightly toolchain and flags from leaking into the next corpus.
     ((attribute == 0)) || (attribute "$corpus" "$dir")

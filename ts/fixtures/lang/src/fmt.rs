@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use crate::generics::Wrap;
 use crate::shapes::{Point, Shape};
 
 /// Take an integer's big-endian bytes from the front of `data`, zero-padded.
@@ -255,7 +256,8 @@ impl fmt::Debug for Hex {
 	}
 }
 
-/// `Display` through `pad`, which keeps the options.
+/// `Display` through `pad`, which keeps the options. Only `added` prints its `Debug`.
+#[derive(Debug)]
 pub struct Padded(&'static str);
 
 impl fmt::Display for Padded {
@@ -451,4 +453,12 @@ impl Fault {
 pub fn printed(data: &[u8]) -> Vec<u8> {
 	let fault = Fault::new(data);
 	format!("{fault}|{fault:>16}|{fault:?}|{fault:#?}").into_bytes()
+}
+
+/// A root only the `stable_names` test adds, reaching another instance of what `run`
+/// reaches one of: a generic method's, a closure's, and an impl's of another trait.
+pub fn added(out: &mut Vec<u8>) {
+	out.push(Wrap::new(1u8).into_inner());
+	let mapped = Wrap::new(2u8).map(|b| Pair(b, 0));
+	put(out, &format!("{mapped:?} {:?}", Padded("added")));
 }

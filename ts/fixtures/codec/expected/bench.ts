@@ -106,7 +106,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	const [keyEvery, data6] = takeU64(data5);
 	const [keySize, ] = takeU64(data6);
 	const [delta2, keyEvery2] = [rt.i64.cast(delta), rt.u64.low(keyEvery)] as [rt.i64, rt.usize];
-	let w: Encoder.Encoder = Encoder.new(out, Form.from(version));
+	let w: Encoder.Encoder = Encoder.new(out, Form.from$From_Version(version));
 	const end = rt.u64.low(count);
 	for (let n = 0; n < end; n++) {
 		let value: [rt.i64, rt.u64];
@@ -137,7 +137,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
 export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	let r: Decoder.Decoder = Decoder.new(wire, Form.from(version));
+	let r: Decoder.Decoder = Decoder.new(wire, Form.from$From_Version(version));
 	let count: rt.usize = 0;
 	let total: rt.u64 = 0;
 	let last: rt.i64 = 0;
@@ -179,7 +179,7 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 	while (end < wire.length) {
 		end = rt.min(wire.length, rt.usize.add(end, read2));
 		while (start < end) {
-			let r: Decoder.Decoder = Decoder.new(rt.slice.range(wire, start, end), Form.from(version));
+			let r: Decoder.Decoder = Decoder.new(rt.slice.range(wire, start, end), Form.from$From_Version(version));
 			const frameHeader_ = frameHeader(r);
 			if (frameHeader_.ok) {
 				const delta = frameHeader_.value[0];
@@ -227,7 +227,7 @@ export function encodeGroup(data: Uint8Array, version: Version.Version, out: rt.
 	const [subscribe, data2] = takeU64(data);
 	const [sequence, ] = takeU64(data2);
 	const group = { subscribe, sequence, frameStart: 0 };
-	return Group.encode(group, Encoder.new(out, Form.from(version)), version);
+	return Group.encode$Encode_Version(group, Encoder.new(out, Form.from$From_Version(version)), version);
 }
 
 /**
@@ -283,7 +283,7 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 }
 
 export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const decodeSlice = Group.decodeSlice(wire, version);
+	const decodeSlice = Group.decodeSlice$Decode_Version(wire, version);
 	if (!decodeSlice.ok) {
 		return rt.Err(decodeSlice.error);
 	}
