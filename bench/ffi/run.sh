@@ -202,6 +202,10 @@ mkdir -p "$work" "$out/logs"
 # Physical paths: on macOS /var is a symlink, and askama resolves its templates
 # by a relative path that breaks across one.
 work=$(cd "$work" && pwd -P)
+# Every run shares the checkouts and builds under $work, and timings taken side
+# by side would measure each other, so runs take turns.
+exec 9>"$work/lock"
+flock -n 9 || { echo "bench-ffi: waiting for another run to release $work" && flock 9; }
 out=$(cd "$out" && pwd)
 dir=$work
 while :; do

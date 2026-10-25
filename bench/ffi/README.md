@@ -11,6 +11,7 @@ just bench-ffi --base origin/main           # a fork change against its base
 
 Results land in `target/bench/ffi/`, newest at `target/bench/ffi/latest/report.md`.
 Checkouts and builds live in `/var/tmp/rust2-bench-<user>/ffi/`, with their own `CARGO_HOME` and none of the caller's cargo or rustc variables, as in the [build-speed benchmark](../build/README.md).
+Runs on one host share that directory, so a second run waits for the first to finish.
 
 ## What runs
 
