@@ -28,8 +28,9 @@ still needs:
   other THIR special cases the prototype mirrors (`for` loops by the iterator protocol,
   `from_be_bytes` of bytes made in place, ranges stepped in place): keep each only
   where `just ts bench` measures it.
-- Group encode: 1.5-2.1x slower than THIR in every engine, and noisy (±12-20%), where
-  the rest of the codec is within 8%. Find why before the move.
+- Codec encode: group encode is 1.9-2.6x slower than THIR in every engine, frames
+  encode 1.3-1.4x in Chromium, and small varint encodes up to 1.6x in Node (but 0.7x
+  in Bun), which puts the codec 2-12% behind THIR. Find why before the move.
 - Size: the task fixture's bundle is 35% larger gzipped than THIR's, the codec's 9%.
   Likely wins, each to measure: a coroutine resume function structured where the
   graph allows (a dispatch at each loop header the resume enters, rather than a
