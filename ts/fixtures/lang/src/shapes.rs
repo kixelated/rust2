@@ -192,6 +192,7 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let returned = same(source);
 	source[0] = 9;
 	out.extend_from_slice(&[returned[0], source[0]]);
+	out.push(copy_then_write((data.len() as u8, 0)));
 
 	let marked = mark(out, 1) == 0;
 	mark(out, 2);
@@ -222,6 +223,13 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 fn write_then_read(a: [u8; 1], b: &mut [u8; 1]) -> u8 {
 	b[0] = 9;
 	a[0]
+}
+
+/// A copy of `a` read after `a` changes in place, which it doesn't see.
+fn copy_then_write(mut a: (u8, u8)) -> u8 {
+	let b = a;
+	a.0 = 9;
+	b.0.wrapping_add(a.0)
 }
 
 /// `a` itself.

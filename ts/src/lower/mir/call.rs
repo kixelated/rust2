@@ -82,7 +82,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		match dest.as_local() {
 			Some(local) => {
-				let memory = effect || args.iter().any(|a| super::rvalue::arg_memory(&a.node, self));
+				let memory = effect || args.iter().any(|a| super::rvalue::operand_memory(&a.node, self));
 				self.set_local(local, value, effect, memory, None, out)
 			}
 			None => {

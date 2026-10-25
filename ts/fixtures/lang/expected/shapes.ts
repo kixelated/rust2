@@ -114,6 +114,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	const returned = same(rt.copy(source));
 	source[0] = 9;
 	out.extendFromSlice(Uint8Array.of(returned[0], source[0]));
+	out.push(copyThenWrite([data.length & 0xff, 0]));
 	const marked = mark(out, 1) === 0;
 	mark(out, 2);
 	out.push(marked ? 1 : 0);
@@ -138,6 +139,13 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 export function writeThenRead(a: Uint8Array, b: Uint8Array): rt.u8 {
 	b[0] = 9;
 	return a[0];
+}
+
+/** A copy of `a` read after `a` changes in place, which it doesn't see. */
+export function copyThenWrite(a: [rt.u8, rt.u8]): rt.u8 {
+	const b = rt.copy(a);
+	a[0] = 9;
+	return rt.u8.wrappingAdd(b[0], a[0]);
 }
 
 /** `a` itself. */
