@@ -76,7 +76,7 @@ pub struct CapiItem {
     pub maybes: Vec<Option<u32>>,
 }
 
-/// What `CapiStore::stats` returns, whose name the C method must not take.
+/// What `CapiStore::stats` returns: the C type and method spell the same words.
 #[derive(Clone, uniffi::Record)]
 pub struct CapiStoreStats {
     pub items: u64,
