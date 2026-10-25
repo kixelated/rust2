@@ -14,8 +14,8 @@ coroutine instance is a class of its state, its captures, and the locals it keep
 across an `.await`; its `poll` is the transform's resume function, a loop over a
 `switch` on the next block since it enters loops in the middle, and its
 `[Symbol.dispose]` is the transform's drop, which drops what the state it is in holds.
-A handoff through 1, 4, and 16 async functions measured 1.5-2.8x faster than #16's
-generators in Node, 1.8-5.4x in Bun, and 1.5-3.5x in Chrome, and past depth 1 faster than moq's
+A handoff through 1, 4, and 16 async functions measured 1.6-2.9x faster than #16's
+generators in Node, 2.0-5.7x in Bun, and 1.5-3.6x in Chrome, and past depth 1 faster than moq's
 hand-written promises. `rt.spawn` stays.
 
 What moq-net still needs, by its census from MIR at the pinned revision:

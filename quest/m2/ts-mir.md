@@ -28,14 +28,17 @@ still needs:
   other THIR special cases the prototype mirrors (`for` loops by the iterator protocol,
   `from_be_bytes` of bytes made in place, ranges stepped in place): keep each only
   where `just ts bench` measures it.
-- Size: the task fixture's bundle is 36% larger gzipped than THIR's, the codec's 9%.
+- Group encode: 1.5-2.1x slower than THIR in every engine, and noisy (±12-20%), where
+  the rest of the codec is within 8%. Find why before the move.
+- Size: the task fixture's bundle is 35% larger gzipped than THIR's, the codec's 9%.
   Likely wins, each to measure: a coroutine resume function structured where the
   graph allows (a dispatch at each loop header the resume enters, rather than a
   `switch` over every block), temporaries folded through reads of borrowed places, and
   `_0 = v; return _0` returned in place.
 - Source maps: MIR spans point at calls and asserts; check stack traces read well.
-- Unwinding by default (`-C panic=unwind`), unless the maintainer picks aborting
-  (the decision in [#36](https://github.com/kixelated/rust2/pull/36)).
+- Panics unwind (`-C panic=unwind`), as decided in
+  [#36](https://github.com/kixelated/rust2/pull/36); `RUST2_TS_ABORT`, kept only to
+  measure aborting, goes with `--lower`.
 
 Watch what the prototype's comments say it relies on: MIR's single-assignment
 temporaries, `Box` derefs elaborated into `BoxDerefTransmute`, and drop shims that
