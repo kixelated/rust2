@@ -67,6 +67,27 @@ A busy host adds an occasional slow run, which on an edit of a few seconds can m
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.
 
+## Cranelift for moq's CI
+
+Recommended on 2026-10-25: moq's CI keeps building its tests with LLVM, since 42 of its 5418 tests fail under Cranelift.
+
+- 23 catch a panic, which the Cranelift backend that ships with nightly cannot unwind: it builds every panic as an abort (unwinding is a flag on cg_clif's own build, off by default: [rustc_codegen_cranelift#1567](https://github.com/rust-lang/rustc_codegen_cranelift/issues/1567)).
+- 19 abort on an x86 SIMD intrinsic it does not implement, `llvm.x86.sse2.pmulhu.w` ([rustc_codegen_cranelift#171](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171)). moq's CI runs on aarch64, whose intrinsics this x86 benchmark does not try.
+
+The `cranelift` variant's `build` numbers are for that abort build too.
+
+Even passing, it would save little where CI spends its time.
+CPU seconds from the [PR run](https://github.com/kixelated/rust2/actions/runs/40235946635) (4 CPUs; the control stayed within 3%):
+
+| CI build | nightly | cranelift | change |
+| --- | ---: | ---: | ---: |
+| cold cache: `test-build` + `test-run` | 475 + 170 = 645 | 366 + 203 = 569 | -12% |
+| warm cache: `test-edit` + `test-run` | 219 + 170 = 389 | 169 + 203 = 372 | -4% |
+
+Cranelift builds the tests 23% cheaper but runs them 19% dearer, and the 42 failing tests abort early, so its run cost is a floor.
+Wall time falls 8% either way.
+moq's CI is usually warm: its compilation cache serves every dependency, and switching backends would miss that cache once.
+
 ## Attribution
 
 After the timed variants, one nightly build per corpus (clean, then each edit) records cargo's build analysis log with section timings and rustc's self-profile.
