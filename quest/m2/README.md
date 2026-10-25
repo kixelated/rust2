@@ -25,7 +25,6 @@ reports; [m1](/quest/m1/README.md#plan) records the decision.
 - [Lower bodies from MIR](/quest/m2/ts-mir.md) - the MIR spike's prototype becomes the only lowering, and the THIR one goes
 - [Enum variant field order](/quest/m2/ts-variant-order.md) - a variant's fields evaluate in the order written, not declared
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
-- [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Wide-integer fast paths](/quest/m2/ts-wide-fast.md) - a fused `from_halves` and an unboxed limb product, kept only if measured faster
 - [Error-path workload](/quest/m2/ts-bench-error-path.md) - the benchmark prices `?` on a frame split across reads

@@ -1369,7 +1369,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::FalseEdge { real_target, .. } | TerminatorKind::FalseUnwind { real_target, .. } => {
 				Exit::Goto(real_target.as_usize())
 			}
-			TerminatorKind::Return => {
+			TerminatorKind::Return if !self.mir.local_decls[mir::RETURN_PLACE].ty.is_never() => {
 				let ret = self.mir.local_decls[mir::RETURN_PLACE].ty;
 				let value = match self.zero_sized(ret) {
 					true => None,
@@ -1386,7 +1386,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.flush(out);
 				Exit::End
 			}
-			TerminatorKind::Unreachable => {
+			// A `Return` from a function of type `!`, as a generic instantiated at `!` is, is
+			// unreachable too: it has no value to return, and `tsc` must see that.
+			TerminatorKind::Unreachable | TerminatorKind::Return => {
 				self.emit(
 					vec![StmtKind::Expr(Expr::rt("unreachable", vec![Expr::undefined()])).at(None)],
 					None,
