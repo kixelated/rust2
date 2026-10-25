@@ -72,6 +72,9 @@ pub struct Object {
 	pub span: Span,
 	/// Whether it is `Sync`: if not, even its `&self` methods borrow it exclusively.
 	pub sync: bool,
+	/// Whether it is `Copy`: taken by value, it is copied out of its handle, as Rust
+	/// copies it, rather than moved out.
+	pub copy: bool,
 	pub methods: Vec<Function>,
 	pub traits: Traits,
 }
@@ -107,6 +110,9 @@ pub struct Function {
 	pub err: Option<Type>,
 	/// Whether it returns a future: an `async fn`, or a value that implements `Future`.
 	pub future: bool,
+	/// Whether it reads a `pub` field of its receiver, named as the function is, rather
+	/// than calling a method.
+	pub field: bool,
 }
 
 impl Function {

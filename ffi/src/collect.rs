@@ -87,8 +87,8 @@ struct Collector<'a, 'tcx> {
 	api: Api,
 }
 
-/// Collect the crate's exported API.
-pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Collected {
+/// Collect the crate's exported API, leaving out what `exclude` names.
+pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> Collected {
 	let bytes = tcx
 		.crates(())
 		.iter()
@@ -106,7 +106,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Collected {
 		decls: Default::default(),
 		refusals: Vec::new(),
 		hidden: Vec::new(),
-		excluded: config.exclude.iter().map(|path| (path.clone(), 0)).collect(),
+		excluded: exclude.iter().map(|path| (path.clone(), 0)).collect(),
 		aliases: Vec::new(),
 		left_out: Default::default(),
 		opaque: Vec::new(),
@@ -245,6 +245,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 						false => self.object(def_id),
 					}
 				}
+				DefKind::Enum if tcx.adt_def(def_id).variants().is_empty() => Decl::Refused(why("enum without variants", "")),
 				DefKind::Enum => Decl::Enum(0),
 				DefKind::Trait => Decl::Callback(0),
 				_ => continue,
@@ -285,10 +286,12 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				Decl::Object(i) => {
 					*i = api.objects.len();
 					let sync = implements(tcx, def_id, sym::Sync);
+					let copy = implements(tcx, def_id, sym::Copy);
 					api.objects.push(Object {
 						path,
 						span,
 						sync,
+						copy,
 						methods: Vec::new(),
 						traits: Traits::default(),
 					});
@@ -414,7 +417,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					e.traits = traits;
 				}
 				Some(Decl::Object(index)) => {
-					let (methods, traits) = self.methods(def_id, &path);
+					let (mut methods, traits) = self.methods(def_id, &path);
+					if kind == DefKind::Struct {
+						methods.splice(0..0, self.getters(def_id, &path));
+					}
 					let object = &mut self.api.objects[index];
 					object.methods = methods;
 					object.traits = traits;
@@ -440,6 +446,40 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				},
 			}
 		}
+	}
+
+	/// A getter for each `pub` field of a struct exported as an object, returning a copy.
+	fn getters(&mut self, def_id: DefId, path: &[String]) -> Vec<Function> {
+		let tcx = self.tcx;
+		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
+		let mut getters = Vec::new();
+		for field in &tcx.adt_def(def_id).non_enum_variant().fields {
+			if !field.vis.is_public() {
+				continue;
+			}
+			let mut getter = path.to_vec();
+			getter.push(field.name.to_string());
+			if self.exclude(&getter) {
+				continue;
+			}
+			let span = tcx.def_span(field.did);
+			let ty = field.ty(tcx, identity).skip_norm_wip();
+			// Read through `&self`, so returned as a copy, as a borrowed return is.
+			match self.ty(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty), Pos::Return) {
+				Ok(ty) => getters.push(Function {
+					path: getter,
+					span,
+					receiver: Some(Receiver::Ref),
+					params: Vec::new(),
+					ok: ty,
+					err: None,
+					future: false,
+					field: true,
+				}),
+				Err(why) => self.refuse(&getter, "field", span, vec![why]),
+			}
+		}
+		getters
 	}
 
 	/// A type's inherent `pub` methods, and the std traits it implements.
@@ -619,6 +659,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				ok,
 				err,
 				future,
+				field: false,
 			}),
 			_ => Err(errs),
 		}
@@ -711,7 +752,8 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				let obligation = Obligation::new(tcx, ObligationCause::dummy(), param_env, clause);
 				infcx.predicate_must_hold_modulo_regions(&obligation)
 			});
-			if holds {
+			// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
+			if holds && self.ty(candidate, Pos::Param).is_ok() {
 				return Ok(candidate);
 			}
 		}
@@ -808,7 +850,11 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				};
 				match (&inner_ty, pos, mutability) {
 					// Returned as a copy: plain data reads the same either way.
-					(Type::Object(_), Pos::Return, _) => return Err(why("borrowed object return", inner.to_string())),
+					// Returned as a copy: plain data reads the same either way, and so does a
+					// `Copy` handle's value.
+					(Type::Object(_), Pos::Return, _) if !tcx.type_is_copy_modulo_regions(TypingEnv::fully_monomorphized(), *inner) => {
+						return Err(why("borrowed object return", inner.to_string()));
+					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
 					(Type::Object(_), Pos::Param, _) => {}
 					(_, Pos::Param, Mutability::Mut) => return Err(why("&mut of a value", inner.to_string())),
@@ -830,7 +876,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
 					Type::Duration
 				} else if tcx.is_diagnostic_item(sym::Option, did) {
-					let inner = self.ty(args.type_at(0), Pos::Behind)?;
+					let inner = self.ty(args.type_at(0), pos.inner())?;
 					if matches!(inner, Type::Option(_)) {
 						return Err(why("nested Option", ty.to_string()));
 					}
@@ -843,7 +889,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 						ty::Dynamic(preds, ..) => {
 							return self.dynamic(preds.principal_def_id(), Dyn::Box, inner);
 						}
-						_ => Type::Box(Box::new(self.ty(inner, Pos::Behind)?)),
+						_ => Type::Box(Box::new(self.ty(inner, pos.inner())?)),
 					}
 				} else if tcx.is_diagnostic_item(sym::Arc, did) {
 					let inner = args.type_at(0);
@@ -859,6 +905,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					match self.decls.get(&did) {
 						Some(Decl::Record(i)) => Type::Record(*i),
 						Some(Decl::Enum(i)) => Type::Enum(*i),
+						// A value holds only values, and handles it can copy.
+						Some(Decl::Object(_)) if pos == Pos::Field && !implements(tcx, did, sym::Copy) => {
+							return Err(why("object in a value", tcx.def_path_str(did)));
+						}
 						Some(Decl::Object(i)) => Type::Object(*i),
 						Some(Decl::Refused(_)) => return Err(why("refused type", tcx.def_path_str(did))),
 						Some(Decl::Callback(_)) | None => {
@@ -901,6 +951,16 @@ enum Pos {
 	Field,
 	/// Inside another type: an `Option`, a `Box`, or behind a reference.
 	Behind,
+}
+
+impl Pos {
+	/// The position of a type inside an `Option` or `Box` here: a field's stays a field's.
+	fn inner(self) -> Pos {
+		match self {
+			Pos::Field => Pos::Field,
+			_ => Pos::Behind,
+		}
+	}
 }
 
 fn int(ty: Ty<'_>) -> Option<Int> {

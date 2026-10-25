@@ -116,6 +116,17 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 		);
 	}
 
+	if !collected.refusals.is_empty() {
+		let _ = writeln!(out, "\n## The config that exports what maps\n");
+		let _ = writeln!(out, "```toml\nexclude = [");
+		let mut paths: Vec<&str> = collected.refusals.iter().map(|r| r.path.as_str()).collect();
+		paths.sort();
+		paths.dedup();
+		for path in paths {
+			let _ = writeln!(out, "    \"{path}\",");
+		}
+		let _ = writeln!(out, "]\n```");
+	}
 	if !clashes.is_empty() {
 		let _ = writeln!(out, "\n## C names claimed twice\n");
 		for (name, (first, _), (second, span)) in clashes {

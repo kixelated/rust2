@@ -16,6 +16,11 @@ pub struct Config {
 	/// method (`track::Producer::poll_closed`). Each must name something exported.
 	#[serde(default)]
 	pub exclude: Vec<String>,
+	/// C names, without the prefix, for paths from the crate root whose names the rule
+	/// makes clash: `"session::Stats" = "session_stats_snapshot"`. A type's methods are
+	/// named through its new name.
+	#[serde(default)]
+	pub rename: std::collections::BTreeMap<String, String>,
 }
 
 impl Config {

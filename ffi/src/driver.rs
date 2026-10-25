@@ -80,10 +80,15 @@ impl Callbacks for Export {
 		if tcx.dcx().has_errors().is_some() {
 			return Compilation::Stop;
 		}
-		let collected = collect::collect(tcx, &self.config);
+		// A census counts the whole API, whatever the config leaves out.
+		let exclude = match self.output {
+			Output::Census(_) => &[][..],
+			Output::Dir(_) => &self.config.exclude[..],
+		};
+		let collected = collect::collect(tcx, &self.config, exclude);
 		let written = match &self.output {
 			Output::Census(path) => {
-				let abi = Abi::new(&collected.api, &self.config.prefix());
+				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
 				let text = census::render(&self.config.package, &collected, &abi.clashes, &|span| at(tcx, span));
 				write(path, &text)
 			}
@@ -112,7 +117,7 @@ impl Callbacks for Export {
 						tcx.dcx().err(format!("rust2-ffi: exclude `{path}` names nothing exported"));
 					}
 				}
-				let abi = Abi::new(&collected.api, &self.config.prefix());
+				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
 				for (name, (first, first_span), (second, second_span)) in &abi.clashes {
 					tcx.dcx()
 						.struct_span_err(
@@ -120,7 +125,7 @@ impl Callbacks for Export {
 							format!("rust2-ffi: {second} and {first} are both `{name}` in C"),
 						)
 						.with_span_note(*first_span, format!("{first} is here"))
-						.with_help("exclude one in the config")
+						.with_help("rename or exclude one in the config")
 						.emit();
 				}
 				if tcx.dcx().has_errors().is_some() {

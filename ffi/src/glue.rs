@@ -138,7 +138,10 @@ impl Gen<'_> {
 				true => format!("lift_{}({e}, w)", self.abi.enumeration(*i)),
 				false => format!("lift_{}(&{e}, w)", self.abi.enumeration(*i)),
 			},
-			Type::Object(i) => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
+			Type::Object(i) => match self.abi.api.objects[*i].copy {
+				true => format!("*unsafe {{ rt::Object::<{}>::borrow({e}, w) }}", self.object_path(*i)),
+				false => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
+			},
 			Type::Callback(i, form) => abi::dyn_wrap(*form, &format!("Foreign_{}({e})", self.abi.callback(*i))),
 		}
 	}
@@ -172,6 +175,7 @@ impl Gen<'_> {
 			Type::Box(inner) => self.lower(inner, &format!("*{e}")),
 			Type::Ref(_, inner) => match &**inner {
 				Type::Str | Type::Slice => self.lower(inner, e),
+				Type::Object(_) => format!("rt::Object::new(*{e})"),
 				inner => self.lower(inner, &format!("::std::clone::Clone::clone({e})")),
 			},
 			Type::Record(i) => format!("lower_{}({e})", self.abi.record(*i)),
@@ -187,11 +191,14 @@ impl Gen<'_> {
 			_ if Abi::is_buf(ty) => Some(format!("unsafe {{ {e}.free() }};")),
 			Type::Option(inner) => match inner.base() {
 				base if Abi::is_buf(base) => Some(format!("unsafe {{ {e}.free() }};")),
+				// A null handle frees nothing.
+				Type::Object(_) => self.free(inner, e),
 				_ => self
 					.free(inner, &format!("{e}.value"))
 					.map(|free| format!("if {e}.some {{ {free} }}")),
 			},
 			Type::Box(inner) => self.free(inner, e),
+			Type::Object(i) => Some(format!("unsafe {{ rt::Object::<{}>::free({e}) }};", self.object_path(*i))),
 			Type::Record(i) if self.owns(ty) => Some(format!("free_{}({e});", self.abi.record(*i))),
 			Type::Enum(i) if self.owns(ty) => Some(format!("free_{}({e});", self.abi.enumeration(*i))),
 			_ => None,
@@ -202,6 +209,7 @@ impl Gen<'_> {
 	fn owns(&self, ty: &Type) -> bool {
 		match ty {
 			_ if Abi::is_buf(ty) => true,
+			Type::Object(_) => true,
 			Type::Option(inner) | Type::Box(inner) => self.owns(inner),
 			Type::Record(i) => self.abi.api.records[*i].fields.iter().any(|f| self.owns(&f.ty)),
 			Type::Enum(i) => self.abi.api.enums[*i]
@@ -622,7 +630,10 @@ impl Gen<'_> {
 				Type::Unit => "result".to_string(),
 				_ => self.lower(&function.ok, "result"),
 			},
-			None => format!("let v = result;\n\t{write_ok}\n\t{ready}"),
+			None => match function.ok {
+				Type::Unit => format!("let _ = result;\n\t{ready}"),
+				_ => format!("let v = result;\n\t{write_ok}\n\t{ready}"),
+			},
 			Some(err) => format!(
 				"match result {{\n\t\tOk(v) => {{\n\t\t\tlet _ = &v;\n\t\t\t{write_ok}\n\t\t\t{ready}\n\t\t}}\n\t\tErr(e) => {{\n\t\t\tunsafe {{ rt::write::<{}>(err.cast(), || {}) }};\n\t\t\t{error}\n\t\t}}\n\t}}",
 				self.rs(&self.abi.ty(err)),
@@ -679,7 +690,10 @@ impl Gen<'_> {
 			}
 			None => self.path(&function.path),
 		};
-		let call = format!("{callee}({})", args.join(", "));
+		let call = match function.field {
+			true => format!("&({}).{}", args[0], function.name()),
+			false => format!("{callee}({})", args.join(", ")),
+		};
 		let body = stmts.join("\n\t");
 		if let Some((_, poll, free)) = &export.future {
 			self.line(format!(

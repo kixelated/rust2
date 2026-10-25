@@ -66,6 +66,8 @@ pub struct Export {
 pub struct Abi<'a> {
 	pub api: &'a Api,
 	pub prefix: String,
+	/// C names for paths, in place of the rule's: an item's, and its methods' through it.
+	rename: &'a BTreeMap<String, String>,
 	/// Each `Option<T>` struct by C name, with `T`.
 	pub options: BTreeMap<String, Type>,
 	/// Every C name claimed, with what claimed it.
@@ -75,10 +77,11 @@ pub struct Abi<'a> {
 }
 
 impl<'a> Abi<'a> {
-	pub fn new(api: &'a Api, prefix: &str) -> Self {
+	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>) -> Self {
 		let mut abi = Self {
 			api,
 			prefix: prefix.to_string(),
+			rename,
 			options: BTreeMap::new(),
 			names: HashMap::new(),
 			clashes: Vec::new(),
@@ -90,7 +93,16 @@ impl<'a> Abi<'a> {
 	/// The C name for a path from the crate root.
 	pub fn name(&self, path: &[String]) -> String {
 		let mut name = self.prefix.clone();
-		for segment in path {
+		let mut rest = path;
+		for len in (1..=path.len()).rev() {
+			if let Some(renamed) = self.rename.get(&path[..len].join("::")) {
+				name.push('_');
+				name.push_str(renamed);
+				rest = &path[len..];
+				break;
+			}
+		}
+		for segment in rest {
 			name.push('_');
 			name.push_str(&snake(segment));
 		}
@@ -198,7 +210,8 @@ impl<'a> Abi<'a> {
 			let ty = match owner {
 				Ty::Handle { name, .. } => Ty::Handle {
 					name: name.clone(),
-					constant: receiver == Receiver::Ref,
+					constant: receiver == Receiver::Ref
+						|| (receiver == Receiver::Owned && self.api.objects.iter().any(|o| o.copy && &self.name(&o.path) == name)),
 				},
 				// A value's receiver is read through a pointer, and never changed.
 				value => Ty::In(Box::new(value.clone())),
@@ -206,7 +219,15 @@ impl<'a> Abi<'a> {
 			params.push(("self".to_string(), ty));
 		}
 		for param in &function.params {
-			params.push((escape(&param.name), self.ty(&param.ty)));
+			let ty = match &param.ty {
+				// Taken by value, a `Copy` value is copied out, leaving its handle as it was.
+				Type::Object(i) if self.api.objects[*i].copy => Ty::Handle {
+					name: self.object(*i),
+					constant: true,
+				},
+				ty => self.ty(ty),
+			};
+			params.push((escape(&param.name), ty));
 		}
 		let mut outs = Vec::new();
 		if function.ok != Type::Unit {
