@@ -3,7 +3,7 @@
 // which nothing translated calls. `differential.ts` runs it beside native Rust's
 // `harness::entry`, from the output directory.
 
-import { Fault } from "./fmt.ts";
+import * as Fault from "./fmt.Fault.ts";
 import { run as harness } from "./harness.ts";
 import * as rt from "./rt.ts";
 

@@ -25,13 +25,12 @@ export interface Fixture<V> {
 	Pending: symbol;
 	spawn<T>(future: Future<T>): Promise<T>;
 	u64: { of(value: number): V; toBeBytes(a: V): Uint8Array };
-	Channel: { open(): Channel<V> };
+	Channel: {
+		open(): Disposable;
+		consumer(channel: Disposable): Disposable;
+		send(channel: Disposable, value: V): boolean;
+	};
 	drain(rx: Disposable, depth: number): Future<V>;
-}
-
-interface Channel<V> extends Disposable {
-	consumer(): Disposable;
-	send(value: V): boolean;
 }
 
 function parse(input: Uint8Array): [depth: number, count: number] {
@@ -72,7 +71,7 @@ export function polled<V>(f: Fixture<V>): (input: Uint8Array) => Uint8Array {
 	return (input) => {
 		const [depth, count] = parse(input);
 		const channel = f.Channel.open();
-		const task = f.drain(channel.consumer(), depth);
+		const task = f.drain(f.Channel.consumer(channel), depth);
 		const waker = new Woken();
 		const run = (): V | undefined => {
 			while (waker.woken) {
@@ -84,7 +83,7 @@ export function polled<V>(f: Fixture<V>): (input: Uint8Array) => Uint8Array {
 		};
 		run();
 		for (let value = 0; value < count; value++) {
-			channel.send(f.u64.of(value));
+			f.Channel.send(channel, f.u64.of(value));
 			run();
 		}
 		channel[Symbol.dispose]();
@@ -100,11 +99,11 @@ export function spawned<V>(f: Fixture<V>): (input: Uint8Array) => Promise<Uint8A
 	return async (input) => {
 		const [depth, count] = parse(input);
 		const channel = f.Channel.open();
-		const done = f.spawn(f.drain(channel.consumer(), depth));
+		const done = f.spawn(f.drain(f.Channel.consumer(channel), depth));
 		for (let value = 0; value < count; value++) {
 			// The task's poll is queued first, so it parks before the next send.
 			await undefined;
-			channel.send(f.u64.of(value));
+			f.Channel.send(channel, f.u64.of(value));
 		}
 		await undefined;
 		channel[Symbol.dispose]();

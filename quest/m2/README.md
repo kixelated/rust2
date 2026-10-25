@@ -22,6 +22,7 @@ reports; [m1](/quest/m1/README.md#plan) records the decision.
 ## Required
 
 - [MIR lowering spike](/quest/m2/ts-mir-spike.md) - the whole lowering ported to MIR on two fixtures decides whether the translator moves
+- [Enum variant field order](/quest/m2/ts-variant-order.md) - a variant's fields evaluate in the order written, not declared
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
@@ -31,7 +32,6 @@ reports; [m1](/quest/m1/README.md#plan) records the decision.
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
-- [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - classes, free functions, or free functions behind root facades, measured on speed, shaken size, and caller code
 - [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
