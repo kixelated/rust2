@@ -18,16 +18,32 @@ moq-net changed, 0.6 s of it the final link that would remain. Cranelift and
 the parallel frontend move the edit within noise; the backend is 6% of its
 rustc time.
 
-Status on 2026-10-24: neither flag is on nightly 2026-10-21. The 2025H2 project
-goal will not complete; rust#156940 is a draft, and cargo's early cutoff is a
-design discussion.
+Status on 2026-10-24: neither flag is on nightly 2026-10-21. rust#156940 is a
+draft that its author is splitting into smaller PRs, tracked in
+[rust-lang/rust#158844](https://github.com/rust-lang/rust/issues/158844).
+Cargo's early cutoff is a design discussion.
 
-The [early cutoff spike](/quest/m3/edit-cutoff.md) may change this plan: it
-decides whether rust2 carries rust#156940, helps upstream, or stops.
+The early cutoff spike (2026-10-24) replayed moq-net's real edits through
+rust#156940 and decided against carrying it: its public hash stayed unchanged
+on 4 of 171 non-test edits on PR branches, and on none of 81 squash merges.
+What decides whether this lever ever pays on moq:
+
+- Every edit touching an `async fn` body changed the hash, since rmeta encodes
+  the coroutine's MIR and moq-net is mostly async.
+- Span positions are hashed, so a line added above a public item changes it.
+  Hashing them position-independently would add 24 of the 171 edits, mostly
+  plain sync body edits.
+- With incremental on, an edit and its revert leave different rmeta bytes on
+  the pinned nightly, and a different rust#156940 hash, so a cutoff keyed on
+  either needs that fixed first.
+
+When the flags land, measure with an edit the hash can cut off: the benchmark's
+marker function is public and appended to the crate root, whose module span is
+the whole file, so it always changes the hash. A private sync body edit in a
+submodule is the case it is built for.
 
 Public API: a benchmark variant.
 
 ## Related
 
-- [Early cutoff for edit rebuilds](/quest/m3/edit-cutoff.md) - measures the same lever on real edits, without waiting on upstream
 - [ra-jit in the build benchmark](/quest/m3/bench-ra-jit.md) - another way past dependent rebuilds and the relink

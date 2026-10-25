@@ -26,3 +26,7 @@ anyway.
 
 Public API: the generated contract check, and the scaffolding's exported
 contract symbol.
+
+## Required
+
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
