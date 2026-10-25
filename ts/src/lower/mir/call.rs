@@ -34,6 +34,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				let iter_ty = gargs.skip_binder().type_at(0);
 				let recv = self.operand_frozen(&args[0].node, span, &mut pre);
+				if self.range_nexts.contains(&dest.local)
+					&& let Some(name) = self.var(dest.local)
+				{
+					let name = name.to_string();
+					self.assigned[dest.local] = true;
+					self.range_next(name, recv, &mut pre);
+					self.emit(pre, None, false, out);
+					return;
+				}
 				if let Some(name) = self.var(dest.local) {
 					let name = name.to_string();
 					self.next_names.insert(name);
@@ -221,11 +230,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::undefined(), true)
 			}
 			// A range of numbers steps in place, with nothing between it and the loop.
-			("Iterator", "next")
-				if let ty::Adt(adt, range_args) = targ(0)?.kind()
-					&& Std::of(tcx, adt.did()) == Some(Std::Range)
-					&& Int::of(range_args.type_at(0)).is_some_and(|i| !i.big()) =>
-			{
+			("Iterator", "next") if super::small_range(tcx, targ(0)?) => {
 				let range = self.alias_place(&args[0].node)?;
 				let start = range.clone().member("start");
 				let next = Expr::Cond(
@@ -427,6 +432,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// `name = recv.next()` of a range of numbers, stepped in place rather than through
+	/// `rt.Range`'s generic steps, into the item alone and a flag for whether there was
+	/// one: a number that is sometimes `rt.DONE` is slower in V8. Past the end, `name` is
+	/// left as it was, since only `Some` reads it.
+	fn range_next(&mut self, name: String, recv: Expr, out: &mut Vec<Stmt>) {
+		let range = self.path(recv, "range", out);
+		let start = range.clone().member("start");
+		let flag = self.b.fresh(&format!("{name}Some"));
+		let flag = Expr::ident(flag);
+		out.push(StmtKind::Expr(flag.clone().assign(start.clone().binary("<", range.member("end")))).at(None));
+		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
+		out.push(
+			StmtKind::If {
+				cond: flag.clone(),
+				then: vec![StmtKind::Expr(step).at(None)],
+				els: Vec::new(),
+			}
+			.at(None),
+		);
+		let Expr::Ident(flag) = flag else { unreachable!() };
+		self.range_flags.insert(name, flag);
+	}
+
 	/// The value at `place`, after setting `place` to `value`.
 	fn swap_out(&mut self, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 		let name = self.b.fresh(base);
@@ -584,6 +612,15 @@ pub fn control_flow_test<'tcx>(
 	span: Span,
 ) -> Expr {
 	let continues = variant.index() == 0;
+	if let Expr::Ident(n) = scrut
+		&& let Some(flag) = fx.range_flags.get(n)
+	{
+		let flag = Expr::ident(flag);
+		return match continues {
+			true => flag,
+			false => flag.not(),
+		};
+	}
 	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
 		return match continues {
 			true => scrut.clone().binary("!==", Expr::Rt("DONE")),

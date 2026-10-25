@@ -249,16 +249,35 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 		count = rt.u8.add(count, 1);
 	}
 	out.push(count);
+	const lo = rt.i32.neg(rt.usize.rem(data.length, 4) | 0);
+	let r: rt.Range<rt.i32> = new rt.Range(lo, rt.i32.add(lo, 3));
+	const first = rt.iter.toOption(r.next());
+	r.end = r.start;
+	const second = rt.iter.toOption(r.next());
+	if (first !== undefined) {
+		const x = first;
+		out.extendFromSlice(rt.i32.toBeBytes(x));
+	}
+	if (second !== undefined) {
+		const x2 = second;
+		out.extendFromSlice(rt.i32.toBeBytes(x2));
+	}
+	for (let k = lo; k < 2; k++) {
+		out.push(k & 0xff);
+	}
+	for (let k2 = rt.i8.sub(124, (lo << 24) >> 24); k2 < 127; k2++) {
+		out.push(k2 & 0xff);
+	}
 	out.push(firstRepeat(data));
 	out.extendFromSlice(rt.u16.toBeBytes(tailBreak(data)));
 	out.push(armLoop(data));
 	out.extendFromSlice(rt.u32.toBeBytes(position(data, 0) as rt.u32));
-	const settle = (x: rt.u8): rt.u8 => {
+	const settle = (x3: rt.u8): rt.u8 => {
 		while (true) {
-			if (x < 10) {
-				return x;
+			if (x3 < 10) {
+				return x3;
 			}
-			x = rt.u8.div(x, 3);
+			x3 = rt.u8.div(x3, 3);
 		}
 	};
 	out.push(settle(rt.u8.mul(data.length & 0xff, 7)));
