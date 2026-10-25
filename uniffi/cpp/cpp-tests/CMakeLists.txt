@@ -83,7 +83,6 @@ test_case(rondpoint)
 test_case(sprites)
 test_case(todolist)
 test_case(traits)
-test_case(coverall)
 test_case(uniffi_docstring)
 test_case(trait_methods)
 test_case(custom_types_builtin)
@@ -92,23 +91,6 @@ test_case(empty_type)
 test_case(error_types_builtin)
 test_case(reserved_field_name)
 test_case(type_flattening)
-test_case(uniffi_bindgen_cpp_fixtures)
-test_case(futures)
-
-add_executable(async-dispatcher-test
-    tests/async_dispatcher/main.cpp
-    ${BINDINGS_SRC_DIR}/futures.cpp)
-target_include_directories(async-dispatcher-test PRIVATE ${BINDINGS_SRC_DIR} include)
-target_link_directories(async-dispatcher-test PRIVATE ${BINDINGS_BUILD_DIR})
-target_link_libraries(async-dispatcher-test
-    uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
-add_dependencies(async-dispatcher-test bindings)
-
-foreach(SCENARIO IN ITEMS inline rejection lifetime)
-    add_test(NAME async-dispatcher-${SCENARIO}-test
-        COMMAND async-dispatcher-test ${SCENARIO})
-    set_tests_properties(async-dispatcher-${SCENARIO}-test PROPERTIES TIMEOUT 15)
-endforeach()
 
 add_executable(ext_types_import-test
     tests/ext_types_import/main.cpp
@@ -123,21 +105,6 @@ add_dependencies(ext_types_import-test bindings)
 list(APPEND BINDING_FILES
     ${BINDINGS_SRC_DIR}/ext_types_export.cpp
     ${BINDINGS_SRC_DIR}/ext_types_import.cpp)
-
-# Two crates that share their type names, one using the other's.
-add_executable(namespaces-test
-    tests/namespaces/main.cpp
-    ${BINDINGS_SRC_DIR}/net.cpp
-    ${BINDINGS_SRC_DIR}/media.cpp)
-target_include_directories(namespaces-test PRIVATE ${BINDINGS_SRC_DIR} include)
-target_link_directories(namespaces-test PRIVATE ${BINDINGS_BUILD_DIR})
-target_link_libraries(namespaces-test uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
-add_test(NAME namespaces-test COMMAND namespaces-test)
-memcheck_test(namespaces-test)
-add_dependencies(namespaces-test bindings)
-list(APPEND BINDING_FILES
-    ${BINDINGS_SRC_DIR}/net.cpp
-    ${BINDINGS_SRC_DIR}/media.cpp)
 
 # `error_style = "expected"` bindings, built the way Unreal builds: no exceptions, no RTTI.
 set(EXPECTED_BINDINGS_DIR ${BINDINGS_BUILD_DIR}/bindings-expected)
@@ -171,6 +138,36 @@ list(APPEND EXPECTED_BINDING_FILES
     ${EXPECTED_BINDINGS_DIR}/trait_methods.cpp
     ${EXPECTED_BINDINGS_DIR}/capi.cpp)
 
+add_executable(async-dispatcher-test
+    tests/async_dispatcher/main.cpp
+    ${EXPECTED_BINDINGS_DIR}/futures.cpp)
+target_include_directories(async-dispatcher-test PRIVATE ${EXPECTED_BINDINGS_DIR} include)
+target_link_directories(async-dispatcher-test PRIVATE ${BINDINGS_BUILD_DIR})
+target_link_libraries(async-dispatcher-test
+    uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
+add_dependencies(async-dispatcher-test bindings-expected)
+
+foreach(SCENARIO IN ITEMS inline rejection lifetime)
+    add_test(NAME async-dispatcher-${SCENARIO}-test
+        COMMAND async-dispatcher-test ${SCENARIO})
+    set_tests_properties(async-dispatcher-${SCENARIO}-test PROPERTIES TIMEOUT 15)
+endforeach()
+
+# Two crates that share their type names, one using the other's.
+add_executable(namespaces-test
+    tests/namespaces/main.cpp
+    ${EXPECTED_BINDINGS_DIR}/net.cpp
+    ${EXPECTED_BINDINGS_DIR}/media.cpp)
+target_include_directories(namespaces-test PRIVATE ${EXPECTED_BINDINGS_DIR} include)
+target_link_directories(namespaces-test PRIVATE ${BINDINGS_BUILD_DIR})
+target_link_libraries(namespaces-test uniffi_bindgen_cpp_fixtures Threads::Threads ${ADDITIONAL_LIBS})
+add_test(NAME namespaces-test COMMAND namespaces-test)
+memcheck_test(namespaces-test)
+add_dependencies(namespaces-test bindings-expected)
+list(APPEND EXPECTED_BINDING_FILES
+    ${EXPECTED_BINDINGS_DIR}/net.cpp
+    ${EXPECTED_BINDINGS_DIR}/media.cpp)
+
 # `strip_type_prefix` refuses to rename a type onto one that already exists.
 add_test(NAME strip-type-prefix-collision-test
     COMMAND ${BINDINGS_BUILD_DIR}/uniffi-bindgen-cpp${CMAKE_EXECUTABLE_SUFFIX}
@@ -180,6 +177,15 @@ add_test(NAME strip-type-prefix-collision-test
     WORKING_DIRECTORY ${BINDINGS_BUILD_DIR})
 set_tests_properties(strip-type-prefix-collision-test PROPERTIES
     PASS_REGULAR_EXPRESSION "renames `Flat[A-Za-z]+` to `[A-Za-z]+`, which is already a type")
+
+# Async needs the expected style; the default exceptions style refuses it.
+add_test(NAME exceptions-refuse-async-test
+    COMMAND ${BINDINGS_BUILD_DIR}/uniffi-bindgen-cpp${CMAKE_EXECUTABLE_SUFFIX}
+        --library ${UNIFFI_FIXTURES_LIB} --crate uniffi_namespaces_media
+        --out-dir ${CMAKE_CURRENT_BINARY_DIR}/exceptions-refused
+    WORKING_DIRECTORY ${BINDINGS_BUILD_DIR})
+set_tests_properties(exceptions-refuse-async-test PROPERTIES
+    PASS_REGULAR_EXPRESSION "async needs error_style = \"expected\", but `GroupConsumer::next_frame` is async")
 
 # The C backend: a C11 header over expected-style C++ bindings, built without exceptions.
 set(C_BINDINGS_DIR ${BINDINGS_BUILD_DIR}/bindings-c)
@@ -228,7 +234,7 @@ set_tests_properties(c-refuses-callbacks-test PROPERTIES
 add_executable(multilib-test 
     tests/multilib/main.cpp
     ${BINDINGS_SRC_DIR}/arithmetic.cpp
-    ${BINDINGS_SRC_DIR}/coverall.cpp
+    ${BINDINGS_SRC_DIR}/geometry.cpp
     ${BINDINGS_SRC_DIR}/sprites.cpp
 )
 target_include_directories(multilib-test PRIVATE ${BINDINGS_SRC_DIR} include)
@@ -243,9 +249,21 @@ add_custom_target(libs ALL
     COMMENT "Generating libs"
 )
 
+# Async needs the expected style, so the default style generates only crates without it.
+set(EXCEPTIONS_CRATES
+    arithmetical custom_types uniffi_callbacks uniffi_chronological uniffi_cpp_custom_types_builtin
+    uniffi_cpp_error_types_builtin uniffi_empty_type uniffi_enum_style_test uniffi_ext_types_export
+    uniffi_ext_types_import uniffi_fixture_callbacks uniffi_fixture_docstring uniffi_geometry
+    uniffi_reserved_field_name uniffi_rondpoint uniffi_sprites uniffi_todolist uniffi_trait_methods
+    uniffi_traits uniffi_type_flattening)
+set(EXCEPTIONS_COMMANDS)
+foreach(CRATE IN LISTS EXCEPTIONS_CRATES)
+    list(APPEND EXCEPTIONS_COMMANDS
+        COMMAND ./uniffi-bindgen-cpp --library ${UNIFFI_FIXTURES_LIB} --crate ${CRATE} --out-dir bindings)
+endforeach()
 add_custom_target(bindings ALL
     DEPENDS libs
-    COMMAND ./uniffi-bindgen-cpp --library ${UNIFFI_FIXTURES_LIB} --out-dir bindings
+    ${EXCEPTIONS_COMMANDS}
     WORKING_DIRECTORY ${BINDINGS_BUILD_DIR}
     COMMENT "Generating bindings"
 )
@@ -275,6 +293,10 @@ add_custom_target(bindings-expected ALL
         --config ${CMAKE_CURRENT_SOURCE_DIR}/expected.toml --out-dir bindings-expected
     COMMAND ./uniffi-bindgen-cpp --library ${UNIFFI_FIXTURES_LIB} --crate uniffi_c_api
         --config ${CMAKE_CURRENT_SOURCE_DIR}/renamed.toml --out-dir bindings-expected
+    COMMAND ./uniffi-bindgen-cpp --library ${UNIFFI_FIXTURES_LIB} --crate uniffi_namespaces_net
+        --config ${CMAKE_CURRENT_SOURCE_DIR}/expected.toml --out-dir bindings-expected
+    COMMAND ./uniffi-bindgen-cpp --library ${UNIFFI_FIXTURES_LIB} --crate uniffi_namespaces_media
+        --config ${CMAKE_CURRENT_SOURCE_DIR}/expected.toml --out-dir bindings-expected
     WORKING_DIRECTORY ${BINDINGS_BUILD_DIR}
     COMMENT "Generating expected-style bindings"
 )

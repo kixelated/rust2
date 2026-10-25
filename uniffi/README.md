@@ -55,9 +55,8 @@ Each directory keeps its upstream layout, so an upstream commit applies with
 repository's root workspace, in place of each upstream's own.
 
 Left out: the Ruby generator and its tests, weedle2 (used from crates.io), upstream's docs,
-CI, and Docker setup, the Android, iOS, and fxa-client examples, the Dart fixtures upstream
-does not build, and the C++ scaffolding tests, which need the Go and C# generators as
-submodules.
+CI, and Docker setup, the Android, iOS, and fxa-client examples, and the Dart fixtures upstream
+does not build.
 
 ## Carried changes
 
@@ -116,6 +115,12 @@ uniffi-bindgen-cpp, on top of upstream `main` at NordSecurity/uniffi-bindgen-cpp
 - `error_style = "expected"`, `strip_type_prefix`, exported `Display` and `Debug` on enums,
   newline-terminated files, released async results, and the C backend (`--lang c`).
 - The CMake test suite finds the fixtures in the root workspace's target directory.
+- Scaffolding mode (`--scaffolding`) is removed. It had no consumer and stubbed out generation,
+  and its tests need the Go and C# generators, so they were never imported.
+- Async needs `error_style = "expected"`. The exceptions style's async, including async callback
+  interfaces, had no consumer, raced a cancel against the Rust future's free, and leaked
+  results, so it is removed, and that style refuses an async item. The C++ coverall test goes
+  with it, since coverall mixes async with callback interfaces, which the expected style lacks.
 - Another crate's types are qualified from the global namespace, with aliased converters and
   namespaced container helpers, definitions sort per crate, and `strip_type_prefix` renames
   per crate. The C backend supports external types, and prefixes every C name with its

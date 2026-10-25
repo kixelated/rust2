@@ -168,11 +168,9 @@ throw std::runtime_error("{{ message }}");
 {%- endif -%}
 {%- endmacro %}
 
-{#- The error type argument of an expected-style future, present when the call can fail. #}
+{#- The error type argument of a future, present when the call can fail. #}
 {%- macro async_error_arg(func) -%}
-{%- if config.expected() -%}
 {%- match func.throws_type() %}{% when Some with (e) %}, {{ e|type_name(ci) }}{% else %}{% endmatch -%}
-{%- endif -%}
 {%- endmacro %}
 
 {#- What a callable returns, given the type of its value: a future when async, and
