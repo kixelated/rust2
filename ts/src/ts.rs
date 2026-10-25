@@ -38,6 +38,8 @@ pub enum Expr {
 	Call(Box<Expr>, Vec<Expr>),
 	New(Box<Expr>, Vec<Expr>),
 	Unary(&'static str, Box<Expr>),
+	/// `x++` and the like: the operand's value, before the operator changes it.
+	Postfix(Box<Expr>, &'static str),
 	Binary(Box<Expr>, &'static str, Box<Expr>),
 	Cond(Box<Expr>, Box<Expr>, Box<Expr>),
 	Assign(Box<Expr>, Box<Expr>),
@@ -219,6 +221,27 @@ pub enum StmtKind {
 		body: Vec<Stmt>,
 		finally: Vec<Stmt>,
 	},
+	/// `try { body } catch (name) { handler }`.
+	Catch {
+		body: Vec<Stmt>,
+		name: String,
+		handler: Vec<Stmt>,
+	},
+	/// `switch (disc) { case a: ... default: ... }`, whose cases never fall through.
+	Switch {
+		label: Option<String>,
+		disc: Expr,
+		cases: Vec<(Expr, Vec<Stmt>)>,
+		default: Vec<Stmt>,
+	},
+	/// `let name!: ty;`: a variable every read of which some write precedes, in ways
+	/// `tsc` can't follow.
+	Declare {
+		name: String,
+		ty: Type,
+	},
+	/// `throw value;`
+	Throw(Expr),
 }
 
 impl StmtKind {
@@ -253,7 +276,7 @@ impl Stmt {
 	/// Whether control never reaches the statement after this one.
 	pub fn diverges(&self) -> bool {
 		match &self.kind {
-			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
+			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) | StmtKind::Throw(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
 			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
 			StmtKind::While {
@@ -276,6 +299,11 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
 		StmtKind::Try { body, finally } => breaks_out(body, label, nested) || breaks_out(finally, label, nested),
+		StmtKind::Catch { body, handler, .. } => breaks_out(body, label, nested) || breaks_out(handler, label, nested),
+		// An unlabeled `break` in a case leaves the switch.
+		StmtKind::Switch { cases, default, .. } => {
+			cases.iter().any(|(_, body)| breaks_out(body, label, true)) || breaks_out(default, label, true)
+		}
 		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
 			breaks_out(body, label, true)
 		}
@@ -287,8 +315,15 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 pub fn mentions(stmts: &[Stmt], name: &str) -> bool {
 	let expr = |e: &Expr| e.mentions(name);
 	stmts.iter().any(|stmt| match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => expr(e),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => expr(e),
 		StmtKind::Decl { init, .. } => init.as_ref().is_some_and(expr),
+		StmtKind::Catch { body, handler, .. } => mentions(body, name) || mentions(handler, name),
+		StmtKind::Switch {
+			disc, cases, default, ..
+		} => {
+			expr(disc) || cases.iter().any(|(test, body)| expr(test) || mentions(body, name)) || mentions(default, name)
+		}
+		StmtKind::Declare { .. } => false,
 		StmtKind::If { cond, then, els } => expr(cond) || mentions(then, name) || mentions(els, name),
 		StmtKind::While { cond, body, .. } => expr(cond) || mentions(body, name),
 		StmtKind::ForRange { start, end, body, .. } => expr(start) || expr(end) || mentions(body, name),
@@ -306,7 +341,9 @@ impl Expr {
 			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) | Self::Yield => false,
 			Self::Array(es) => es.iter().any(|e| e.mentions(name)),
 			Self::Object(props) => props.iter().any(|(_, e)| e.mentions(name)),
-			Self::Member(e, _) | Self::Unary(_, e) | Self::Located(_, e) | Self::As(e, _) => e.mentions(name),
+			Self::Member(e, _) | Self::Unary(_, e) | Self::Postfix(e, _) | Self::Located(_, e) | Self::As(e, _) => {
+				e.mentions(name)
+			}
 			Self::Index(a, b) | Self::Binary(a, _, b) | Self::Assign(a, b) => a.mentions(name) || b.mentions(name),
 			Self::Call(f, args) | Self::New(f, args) => f.mentions(name) || args.iter().any(|e| e.mentions(name)),
 			Self::Cond(a, b, c) => a.mentions(name) || b.mentions(name) || c.mentions(name),
@@ -358,6 +395,18 @@ pub struct Field {
 	pub id: FieldId,
 	pub ty: Type,
 	pub doc: Option<String>,
+	/// What the field starts as, if not a constructor argument.
+	pub init: FieldInit,
+}
+
+#[derive(Clone, Debug)]
+pub enum FieldInit {
+	/// The constructor's argument.
+	Ctor,
+	/// `name: ty = value`.
+	Value(Expr),
+	/// `name!: ty`: set before every read, in ways `tsc` can't follow.
+	Later,
 }
 
 /// How a struct is constructed, as a class; a plain object is a literal of its fields.

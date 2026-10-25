@@ -168,6 +168,36 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let old = std::mem::replace(&mut a, Point::new(5, 6));
 	out.extend_from_slice(&[a.x as u8, b.x as u8, old.x as u8]);
 
+	// A tuple keeps the values it was made of, though the variable they came from changes.
+	let mut n = data.len() as u32;
+	let both = (n, n);
+	n = 9;
+	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
+
+	// A value computed from a call keeps that call before a later one, though it is read
+	// after.
+	// A conversion reads its bytes before they change.
+	let mut word = [0, 0, 0, data.len() as u8];
+	let converted = u32::from_be_bytes(word);
+	word[0] = 9;
+	out.extend_from_slice(&(converted + word[0] as u32).to_be_bytes());
+
+	// An argument copied keeps its value, though the callee changes its source through
+	// another.
+	let mut cell = [data.len() as u8];
+	out.push(write_then_read(cell, &mut cell));
+
+	// A result returning an argument is its own copy, though the source changes after.
+	let mut source = [data.len() as u8];
+	let returned = same(source);
+	source[0] = 9;
+	out.extend_from_slice(&[returned[0], source[0]]);
+	out.push(copy_then_write((data.len() as u8, 0)));
+
+	let marked = mark(out, 1) == 0;
+	mark(out, 2);
+	out.push(marked as u8);
+
 	let mut opt = Some(Meters(9));
 	let taken = opt.take();
 	out.push(opt.is_none() as u8);
@@ -186,6 +216,33 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		err.y as u8,
 		fail.unwrap_err().y as u8,
 	]);
+}
+
+/// `a`'s byte, after writing `b`'s.
+#[inline(never)]
+fn write_then_read(a: [u8; 1], b: &mut [u8; 1]) -> u8 {
+	b[0] = 9;
+	a[0]
+}
+
+/// A copy of `a` read after `a` changes in place, which it doesn't see.
+fn copy_then_write(mut a: (u8, u8)) -> u8 {
+	let b = a;
+	a.0 = 9;
+	b.0.wrapping_add(a.0)
+}
+
+/// `a` itself.
+#[inline(never)]
+fn same(a: [u8; 1]) -> [u8; 1] {
+	a
+}
+
+/// Logs `b`, returning how much is logged.
+#[inline(never)]
+fn mark(out: &mut Vec<u8>, b: u8) -> usize {
+	out.push(b);
+	out.len()
 }
 
 /// Fieldless enums cast to every width, past their discriminant's range and sign.
@@ -586,6 +643,11 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 		Shape::Line(a, b) => (a.x - b.x) as i64 * (a.y - b.y) as i64,
 	};
 	out.extend_from_slice(&area.to_be_bytes());
+	// A rest pattern borrowing bytes changes them where they are.
+	let mut bytes = [data.len() as u8, 1, 2];
+	let [_, tail @ ..] = &mut bytes;
+	tail[0] = 9;
+	out.extend_from_slice(&bytes);
 	let total = total(&[shape, Shape::Dot], out) + total(&[Meters(3), Meters(u64::MAX)], out);
 	out.extend_from_slice(&total.to_be_bytes());
 
@@ -634,6 +696,11 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let scale = move |v: u32| v * 3 + base;
 	out.extend_from_slice(&apply(scale, sum).to_be_bytes());
 
+	// A closure writing a whole array through a reference it captured changes the caller's.
+	let mut whole = [data.len() as u8];
+	overwrite(&mut whole);
+	out.push(whole[0]);
+
 	let mut parsed: Vec<Option<Dir>> = Vec::new();
 	for &b in data {
 		parsed.push(dir(b));
@@ -643,6 +710,12 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 		tags.push(d.map(u8::from).unwrap_or(0));
 	}
 	out.extend_from_slice(&tags);
+}
+
+/// Replaces `a` whole from a closure.
+fn overwrite(a: &mut [u8; 1]) {
+	let mut write = || *a = [9];
+	write();
 }
 
 fn apply<F: Fn(u32) -> u32>(f: F, v: u32) -> u32 {

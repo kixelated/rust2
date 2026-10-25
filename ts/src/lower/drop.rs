@@ -145,6 +145,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		};
+		// A MIR lowering drops an enum or tuple by the glue rustc builds for it.
+		if !supported
+			&& self.mir
+			&& let Some(sym) = super::mir::glue::shim(self, ty, span)
+		{
+			return Some(super::mir::glue::call(sym, value));
+		}
 		if !supported {
 			self.err(span, format!("dropping `{ty}`, which is not supported yet"));
 			return None;
