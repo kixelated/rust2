@@ -370,7 +370,8 @@ bench_corpus() { # corpus dir
             use_variant "$corpus" "$variant"
             rm -rf "$CARGO_TARGET_DIR"
             cd "$dir"
-            cargo "${sub[@]}" build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1
+            # The `||` below turns errexit off in here, so a failed build has to exit itself.
+            cargo "${sub[@]}" build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1 || exit
             ((${#sub[@]} == 0)) || rajit_settle "$dir" >/dev/null
         ) || { tail -40 "$out/logs/$corpus.$variant.log" >&2 && die "$corpus failed to build with $variant"; }
     done
