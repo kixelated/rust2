@@ -289,6 +289,12 @@ pub fn hash_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			};
 			let first = data.first().copied().unwrap_or(0);
 			out.push((hash(Nibble(first)) == hash(Nibble(first ^ 0xf0))) as u8);
+			// A hasher found by a call evaluates before the value written to it.
+			let (mut h, mut counted) = (DefaultHasher::new(), Tally { n: first as u16 });
+			counted_hasher(&mut h, &mut counted).write_u16(counted.n);
+			let mut want = DefaultHasher::new();
+			want.write_u16(first as u16 + 1);
+			out.push((h.finish() == want.finish()) as u8);
 			ranks.retain(|r, t| t.n % 2 == 0 || *r == Rank::Low);
 			let ranks: BTreeMap<Rank, u16> = ranks.iter().map(|(r, t)| (*r, t.n)).collect();
 			for (r, n) in &ranks {
@@ -335,6 +341,12 @@ pub fn hash_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 }
 
 /// Matching on an entry: add to an even tally, take out an odd one, or start one.
+/// Counts a write, and gives back the hasher.
+fn counted_hasher<'a>(h: &'a mut DefaultHasher, counted: &mut Tally) -> &'a mut DefaultHasher {
+	counted.n += 1;
+	h
+}
+
 /// Inserts a key, and gives back the map.
 fn stamp(map: &mut HashMap<u8, Tally>) -> &mut HashMap<u8, Tally> {
 	map.insert(map.len() as u8, Tally::default());

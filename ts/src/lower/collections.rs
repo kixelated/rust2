@@ -612,7 +612,15 @@ fn ordering(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, ou
 
 /// `Hasher`'s methods: writing an integer or a string, and `finish`.
 fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, out: &mut Vec<Stmt>) -> Expr {
-	let values = b.args(args, out);
+	let mut values = b.args(args, out);
+	// The runtime takes the value first, so a hasher that is not a path evaluates first.
+	if let [state, value] = values.as_mut_slice()
+		&& !state.is_path()
+		&& !value.is_constant()
+	{
+		let saved = std::mem::replace(state, Expr::undefined());
+		*state = b.spill(saved, "state", out);
+	}
 	let swapped = |values: Vec<Expr>| values.into_iter().rev().collect::<Vec<_>>();
 	match name {
 		"finish" => Expr::rt("hashFinish", values),

@@ -289,6 +289,14 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		};
 		const first2 = rt.option.unwrapOr(rt.slice.first(data), 0);
 		out.push(rt.u64.eq(hash({ _0: first2 }), hash({ _0: first2 ^ 0xf0 })) ? 1 : 0);
+		const value5 = [rt.hasher(), { n: first2 as rt.u16 }] as [rt.Hasher, Tally.Tally];
+		let h2: rt.Hasher = value5[0];
+		let counted: Tally.Tally = value5[1];
+		const state = countedHasher(h2, counted);
+		rt.hashInt(counted.n, state);
+		let want: rt.Hasher = rt.hasher();
+		rt.hashInt(rt.u16.add(first2 as rt.u16, 1), want);
+		out.push(rt.u64.eq(rt.hashFinish(h2), rt.hashFinish(want)) ? 1 : 0);
 		rt.hashRetain(ranks, (r2: Rank.Rank, t18: Tally.Tally): boolean => {
 			return rt.u16.rem(t18.n, 2) === 0 || Rank.eq$PartialEq(r2, { tag: "Low" });
 		});
@@ -313,8 +321,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		let words: rt.HashMap<string, rt.ByteVec> = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
 		for (const item7 of data) {
 			const b7 = item7;
-			const value5 = ["", "a", "ab", "b", "é", "", "￿", "𐀀"];
-			const word = rt.at(value5, rt.usize.rem(b7 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length));
+			const value6 = ["", "a", "ab", "b", "é", "", "￿", "𐀀"];
+			const word = rt.at(value6, rt.usize.rem(b7 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length));
 			rt.entryOrInsertWith(rt.entry(words, word), (): rt.ByteVec => {
 				return new rt.ByteVec();
 			}).push(b7);
@@ -357,12 +365,12 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			const i5 = item10[0];
 			const b8 = item10[1];
 			const k12 = { _0: rt.u8.rem(b8, 8) };
-			const value6 = rt.u8.rem(rt.u8.div(b8, 8), 4);
-			if (value6 === 0) {
+			const value7 = rt.u8.rem(rt.u8.div(b8, 8), 4);
+			if (value7 === 0) {
 				out.push(rt.option.mapOr(rt.hashRemove(clashes, k12), 0xee, (t20: Tally.Tally): rt.u8 => {
 					return t20.n & 0xff;
 				}));
-			} else if (value6 === 1) {
+			} else if (value7 === 1) {
 				out.push(rt.option.mapOr(rt.hashGet(clashes, k12), 0xdd, (t21: Tally.Tally): rt.u8 => {
 					return t21.n & 0xff;
 				}));
@@ -387,8 +395,14 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 
 /**
  * Matching on an entry: add to an even tally, take out an odd one, or start one.
- * Inserts a key, and gives back the map.
+ * Counts a write, and gives back the hasher.
  */
+export function countedHasher(h: rt.Hasher, counted: Tally.Tally): rt.Hasher {
+	counted.n = rt.u16.add(counted.n, 1);
+	return h;
+}
+
+/** Inserts a key, and gives back the map. */
 export function stamp(map: rt.HashMap<rt.u8, Tally.Tally>): rt.HashMap<rt.u8, Tally.Tally> {
 	rt.hashInsert(map, rt.hashLen(map) & 0xff, Tally.default$Default());
 	return map;
