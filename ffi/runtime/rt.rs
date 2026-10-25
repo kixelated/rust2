@@ -42,11 +42,12 @@ impl Buf {
 		self.ptr.is_null()
 	}
 
-	/// The bytes a caller passed in, which it keeps.
+	/// The bytes a caller passed in, which it keeps, borrowed no longer than the buffer
+	/// is, so nothing kept past the call can hold them.
 	///
 	/// # Safety
-	/// `ptr` points at `len` readable bytes for `'a`.
-	pub unsafe fn bytes<'a>(self, what: &str) -> &'a [u8] {
+	/// `ptr` points at `len` readable bytes while `self` lives.
+	pub unsafe fn bytes(&self, what: &str) -> &[u8] {
 		match (self.ptr.is_null(), self.len) {
 			(_, 0) => &[],
 			(true, _) => fail(what, "a buffer has a length but no pointer"),
@@ -59,7 +60,7 @@ impl Buf {
 	///
 	/// # Safety
 	/// As [`Self::bytes`].
-	pub unsafe fn str<'a>(self, what: &str) -> &'a str {
+	pub unsafe fn str(&self, what: &str) -> &str {
 		// SAFETY: the caller's contract.
 		match std::str::from_utf8(unsafe { self.bytes(what) }) {
 			Ok(s) => s,
@@ -123,6 +124,80 @@ impl Duration {
 		Self {
 			secs: duration.as_secs(),
 			nanos: duration.subsec_nanos(),
+		}
+	}
+}
+
+/// `std::ops::Range`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Range<T> {
+	pub start: T,
+	pub end: T,
+}
+
+impl<T> Range<T> {
+	pub fn lift(self) -> std::ops::Range<T> {
+		self.start..self.end
+	}
+
+	pub fn lower(range: std::ops::Range<T>) -> Self {
+		Self {
+			start: range.start,
+			end: range.end,
+		}
+	}
+}
+
+/// `std::ops::Bound`: its kind, and the value of an included or excluded bound.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Bound<T> {
+	pub kind: i32,
+	pub value: T,
+}
+
+const UNBOUNDED: i32 = 0;
+const INCLUDED: i32 = 1;
+const EXCLUDED: i32 = 2;
+
+impl<T: Default> Bound<T> {
+	pub fn lift(self, what: &str) -> std::ops::Bound<T> {
+		match self.kind {
+			UNBOUNDED => std::ops::Bound::Unbounded,
+			INCLUDED => std::ops::Bound::Included(self.value),
+			EXCLUDED => std::ops::Bound::Excluded(self.value),
+			_ => fail(what, "a bound's kind is invalid"),
+		}
+	}
+
+	pub fn lower(bound: std::ops::Bound<T>) -> Self {
+		let (kind, value) = match bound {
+			std::ops::Bound::Unbounded => (UNBOUNDED, T::default()),
+			std::ops::Bound::Included(value) => (INCLUDED, value),
+			std::ops::Bound::Excluded(value) => (EXCLUDED, value),
+		};
+		Self { kind, value }
+	}
+}
+
+/// `(Bound<T>, Bound<T>)`, the form a `RangeBounds<T>` parameter takes.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Bounds<T> {
+	pub start: Bound<T>,
+	pub end: Bound<T>,
+}
+
+impl<T: Default> Bounds<T> {
+	pub fn lift(self, what: &str) -> (std::ops::Bound<T>, std::ops::Bound<T>) {
+		(self.start.lift(what), self.end.lift(what))
+	}
+
+	pub fn lower((start, end): (std::ops::Bound<T>, std::ops::Bound<T>)) -> Self {
+		Self {
+			start: Bound::lower(start),
+			end: Bound::lower(end),
 		}
 	}
 }
@@ -483,8 +558,10 @@ impl Drop for Foreign {
 	}
 }
 
-/// Writes a finished future's result through the poll's out pointers, returning the poll.
-pub type Done = Box<dyn FnOnce(*mut c_void, *mut c_void) -> i32 + Send>;
+/// Writes a finished future's result through the poll's out pointers, one per value it
+/// returns, and its error pointer, returning the poll. The poll that finishes the future
+/// calls it, so it never crosses threads.
+pub type Done = Box<dyn FnOnce(&[*mut c_void], *mut c_void) -> i32>;
 
 pub const PENDING: i32 = 0;
 pub const READY: i32 = 1;
@@ -507,12 +584,12 @@ impl Future {
 		}))
 	}
 
-	/// Poll it once with `waker`, writing the result through `out` and `err` when ready.
+	/// Poll it once with `waker`, writing the result through `outs` and `err` when ready.
 	///
 	/// # Safety
-	/// `future` is a live future handle, and `out` and `err` are null or point where the
-	/// function's result types go.
-	pub unsafe fn poll(future: *mut Self, waker: Waker, out: *mut c_void, err: *mut c_void, what: &str) -> i32 {
+	/// `future` is a live future handle, and each of `outs` and `err` is null or points
+	/// where the function's result types go.
+	pub unsafe fn poll(future: *mut Self, waker: Waker, outs: &[*mut c_void], err: *mut c_void, what: &str) -> i32 {
 		if future.is_null() {
 			fail(what, "a future is null");
 		}
@@ -536,7 +613,7 @@ impl Future {
 			std::task::Poll::Ready(done) => {
 				this.future = None;
 				this.waker = None;
-				done(out, err)
+				done(outs, err)
 			}
 		};
 		this.polling.store(false, Ordering::Release);

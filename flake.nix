@@ -171,12 +171,18 @@
             };
           };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
-          # so stable remains the default.
+          # so stable remains the default. It holds only what the benchmark runs:
+          # a PR runs bench.yml only when this shell, or another output it lists
+          # (bench-ra-jit), changes derivation.
           devShells.build-bench = pkgs.mkShell {
-            inputsFrom = [ self.devShells.${system}.default ];
             packages =
               with pkgs;
               [
+                toolchain
+                just
+                jq
+                git
+                taplo
                 hyperfine
                 measureme
               ]
@@ -207,10 +213,11 @@
               flock
               nixfmt
               # The TypeScript driver's tests run and type-check its output, and bundle a
-              # caller with Bun to check that unused output shakes out.
+              # caller with Bun and esbuild to check that unused output shakes out.
               nodejs
               typescript
               bun
+              esbuild
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };

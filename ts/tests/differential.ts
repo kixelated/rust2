@@ -28,7 +28,8 @@ const wasm = new Wasm(await WebAssembly.compile(await readFile(wasmPath)));
 
 function translated(input: Uint8Array): Outcome {
 	try {
-		return harness.run(input).view().slice();
+		const out = harness.run(input);
+		return out.data.slice(0, out.length);
 	} catch (err) {
 		if (err instanceof Error && err.name === "Panic") return { panic: err.message };
 		throw err;

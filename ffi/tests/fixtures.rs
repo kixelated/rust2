@@ -99,6 +99,7 @@ fn api() {
 			"api_channel_recv_poll: a future is polled after it finished",
 		),
 		("enum", "api_greet: an enum value is invalid"),
+		("bound", "api_count: a bound's kind is invalid"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();
 		assert!(!output.status.success(), "{case} did not abort");

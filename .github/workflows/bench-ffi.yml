@@ -8,17 +8,17 @@ on:
     - cron: "0 8 * * *"
   workflow_dispatch:
   # A change to the fork measures its effect against the PR's base, and a change to
-  # the benchmark or its toolchains reports its numbers, before either merges.
+  # the benchmark or its toolchains reports its numbers, before either merges. The
+  # toolchains are moq's dev shell at the pin, so this repo's flake is not one.
   pull_request:
     paths:
       - uniffi/**
+      - "!uniffi/**/*.md"
       - Cargo.toml
       - Cargo.lock
       - bench/ffi/**
+      - "!bench/ffi/**/*.md"
       - .github/workflows/bench-ffi.yml
-      - flake.nix
-      - flake.lock
-      - rust-toolchain.toml
 
 concurrency:
   group: bench-ffi-${{ github.ref }}

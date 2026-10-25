@@ -5,24 +5,24 @@ import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 
 export function fmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self === "BoundsExceeded") {
-		return __formatter.writeStr("bounds exceeded");
+		return rt.fmtWriteStr(__formatter, "bounds exceeded");
 	} else if (self === "TooLarge") {
-		return __formatter.writeStr("too large");
+		return rt.fmtWriteStr(__formatter, "too large");
 	} else if (self === "Short") {
-		return __formatter.writeStr("short buffer");
+		return rt.fmtWriteStr(__formatter, "short buffer");
 	} else if (self === "InvalidState") {
-		return __formatter.writeStr("invalid state");
+		return rt.fmtWriteStr(__formatter, "invalid state");
 	} else if (self === "TooMany") {
-		return __formatter.writeStr("too many");
+		return rt.fmtWriteStr(__formatter, "too many");
 	} else if (self === "Version") {
-		return __formatter.writeStr("unsupported version");
+		return rt.fmtWriteStr(__formatter, "unsupported version");
 	} else {
-		return __formatter.writeStr("unsupported");
+		return rt.fmtWriteStr(__formatter, "unsupported");
 	}
 }
 
 export function fmt$Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.writeStr(self === "BoundsExceeded" ? "BoundsExceeded" : self === "TooLarge" ? "TooLarge" : self === "Short" ? "Short" : self === "InvalidState" ? "InvalidState" : self === "TooMany" ? "TooMany" : self === "Version" ? "Version" : "Unsupported");
+	return rt.fmtWriteStr(f, self === "BoundsExceeded" ? "BoundsExceeded" : self === "TooLarge" ? "TooLarge" : self === "Short" ? "Short" : self === "InvalidState" ? "InvalidState" : self === "TooMany" ? "TooMany" : self === "Version" ? "Version" : "Unsupported");
 }
 
 /** An error that occurs during encoding. */

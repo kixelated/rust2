@@ -28,8 +28,8 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 			self.entries[rt.idx(self.entries, self.cursor)] = value;
 			return;
 		}
-		self.cursor = rt.usize.rem(rt.usize.add(self.cursor, 1), self.entries.length);
-		probes = rt.usize.sub(probes, 1);
+		self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
+		probes = rt.usizeSub(probes, 1);
 	}
 	if (self.entries.length >= 4) {
 		let live: rt.Weak<rt.Waker>[] = [];
@@ -60,7 +60,7 @@ export function wake(self: WaiterList): void {
 	const taken = self.entries;
 	self.entries = [];
 	for (const entry of taken) {
-		const upgrade = entry.upgrade();
+		const upgrade = rt.weakUpgrade(entry);
 		if (upgrade !== undefined) {
 			const waker = upgrade;
 			try {

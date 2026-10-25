@@ -25,28 +25,29 @@ pub fn call<'tcx, 'x>(
 	let self_ty = call.args.types().next();
 	let self_std = self_ty.and_then(std_of);
 	let e = match (owner, name) {
-		("Arc", "new") => Expr::New(Box::new(Expr::Rt("Arc")), b.args(args, out)),
-		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak")), b.args(args, out)),
+		("Arc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), b.args(args, out)),
+		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak".into())), b.args(args, out)),
 		("Arc", "strong_count") => first(b, args, out).member("strong"),
 		("Arc", "ptr_eq") => {
 			let [l, r] = two(b, args, out);
 			l.binary("===", r)
 		}
-		("Weak", "upgrade") => first(b, args, out).member("upgrade").call(vec![]),
+		("Weak", "upgrade") => Expr::rt("weakUpgrade", b.args(args, out)),
 		("Weak", "strong_count") => first(b, args, out).member("arc").member("strong"),
 		("Weak", "ptr_eq") => {
 			let [l, r] = two(b, args, out);
 			l.member("arc").binary("===", r.member("arc"))
 		}
-		("Clone", "clone") if matches!(self_std, Some(Std::Arc | Std::Weak | Std::Waker)) => {
-			first(b, args, out).member("clone").call(vec![])
-		}
+		("Clone", "clone") if self_std == Some(Std::Arc) => Expr::rt("arcClone", b.args(args, out)),
+		("Clone", "clone") if self_std == Some(Std::Weak) => Expr::rt("weakClone", b.args(args, out)),
+		// A waker is the executor's, whose `clone` is its own.
+		("Clone", "clone") if self_std == Some(Std::Waker) => first(b, args, out).member("clone").call(vec![]),
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard) => first(b, args, out).member("value"),
 			Some(Std::Pin) => first(b, args, out),
 			_ => return Err(args),
 		},
-		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex")), b.args(args, out)),
+		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex".into())), b.args(args, out)),
 		// The mutex is its own guard, and a lock never fails on one thread.
 		("Mutex", "lock") => first(b, args, out),
 		("Result", "unwrap" | "expect") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {

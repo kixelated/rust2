@@ -6,52 +6,52 @@ import * as SessionError from "../lib.SessionError.ts";
 
 export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
-		return __formatter.writeStr("short buffer");
+		return rt.fmtWriteStr(__formatter, "short buffer");
 	} else if (self.tag === "Long") {
-		return __formatter.writeStr("long buffer");
+		return rt.fmtWriteStr(__formatter, "long buffer");
 	} else if (self.tag === "InvalidString") {
-		return __formatter.writeStr("invalid string");
+		return rt.fmtWriteStr(__formatter, "invalid string");
 	} else if (self.tag === "InvalidMessage") {
 		const _0 = self._0;
 		const value = [_0] as [rt.u64];
 		const __field0 = value[0];
-		return __formatter.writeFmt(["invalid message: ", (f: rt.Formatter) => rt.u64.display(__field0, f)]);
+		return rt.fmtWriteFmt(__formatter, ["invalid message: ", (f: rt.Formatter) => rt.u64Display(__field0, f)]);
 	} else if (self.tag === "InvalidSubscribeLocation") {
-		return __formatter.writeStr("invalid subscribe location");
+		return rt.fmtWriteStr(__formatter, "invalid subscribe location");
 	} else if (self.tag === "InvalidValue") {
-		return __formatter.writeStr("invalid value");
+		return rt.fmtWriteStr(__formatter, "invalid value");
 	} else if (self.tag === "TooMany") {
-		return __formatter.writeStr("too many");
+		return rt.fmtWriteStr(__formatter, "too many");
 	} else if (self.tag === "BoundsExceeded") {
-		return __formatter.writeStr("bounds exceeded");
+		return rt.fmtWriteStr(__formatter, "bounds exceeded");
 	} else if (self.tag === "ExpectedEnd") {
-		return __formatter.writeStr("expected end");
+		return rt.fmtWriteStr(__formatter, "expected end");
 	} else if (self.tag === "MessageTooLarge") {
 		const size = self.size;
 		const max = self.max;
 		const value2 = [size, max] as [rt.usize, rt.usize];
 		const __displaySize = value2[0];
 		const __displayMax = value2[1];
-		return __formatter.writeFmt(["message too large: ", (f: rt.Formatter) => rt.usize.display(__displaySize, f), " bytes exceeds ", (f: rt.Formatter) => rt.usize.display(__displayMax, f), " byte limit"]);
+		return rt.fmtWriteFmt(__formatter, ["message too large: ", (f: rt.Formatter) => rt.usizeDisplay(__displaySize, f), " bytes exceeds ", (f: rt.Formatter) => rt.usizeDisplay(__displayMax, f), " byte limit"]);
 	} else if (self.tag === "ExpectedData") {
-		return __formatter.writeStr("expected data");
+		return rt.fmtWriteStr(__formatter, "expected data");
 	} else if (self.tag === "Duplicate") {
-		return __formatter.writeStr("duplicate");
+		return rt.fmtWriteStr(__formatter, "duplicate");
 	} else if (self.tag === "Missing") {
-		return __formatter.writeStr("missing");
+		return rt.fmtWriteStr(__formatter, "missing");
 	} else if (self.tag === "Unsupported") {
-		return __formatter.writeStr("unsupported");
+		return rt.fmtWriteStr(__formatter, "unsupported");
 	} else if (self.tag === "TrailingBytes") {
-		return __formatter.writeStr("trailing bytes");
+		return rt.fmtWriteStr(__formatter, "trailing bytes");
 	} else if (self.tag === "Version") {
-		return __formatter.writeStr("unsupported version");
+		return rt.fmtWriteStr(__formatter, "unsupported version");
 	} else if (self.tag === "Session") {
 		const _02 = self._0;
 		return SessionError.fmt$Display(_02, __formatter);
 	} else if (self.tag === "MalformedAuthToken") {
-		return __formatter.writeStr("malformed authorization token");
+		return rt.fmtWriteStr(__formatter, "malformed authorization token");
 	} else {
-		return __formatter.writeStr("multiple authorization tokens");
+		return rt.fmtWriteStr(__formatter, "multiple authorization tokens");
 	}
 }
 
@@ -61,48 +61,48 @@ export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
 
 export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
-		return f.writeStr("Short");
+		return rt.fmtWriteStr(f, "Short");
 	} else if (self.tag === "Long") {
-		return f.writeStr("Long");
+		return rt.fmtWriteStr(f, "Long");
 	} else if (self.tag === "InvalidString") {
 		const __self0 = self._0;
-		return f.debugTuple("InvalidString").field((f: rt.Formatter) => rt.fmt.fromUtf8ErrorDebug(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "InvalidString"), (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(__self0, f)));
 	} else if (self.tag === "InvalidMessage") {
 		const __self02 = self._0;
-		return f.debugTuple("InvalidMessage").field((f: rt.Formatter) => rt.u64.display(__self02, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "InvalidMessage"), (f: rt.Formatter) => rt.u64Display(__self02, f)));
 	} else if (self.tag === "InvalidSubscribeLocation") {
-		return f.writeStr("InvalidSubscribeLocation");
+		return rt.fmtWriteStr(f, "InvalidSubscribeLocation");
 	} else if (self.tag === "InvalidValue") {
-		return f.writeStr("InvalidValue");
+		return rt.fmtWriteStr(f, "InvalidValue");
 	} else if (self.tag === "TooMany") {
-		return f.writeStr("TooMany");
+		return rt.fmtWriteStr(f, "TooMany");
 	} else if (self.tag === "BoundsExceeded") {
-		return f.writeStr("BoundsExceeded");
+		return rt.fmtWriteStr(f, "BoundsExceeded");
 	} else if (self.tag === "ExpectedEnd") {
-		return f.writeStr("ExpectedEnd");
+		return rt.fmtWriteStr(f, "ExpectedEnd");
 	} else if (self.tag === "MessageTooLarge") {
 		const __self03 = self.size;
 		const __self1 = self.max;
-		return f.debugStruct("MessageTooLarge").field("size", (f: rt.Formatter) => rt.usize.display(__self03, f)).field("max", (f: rt.Formatter) => rt.usize.display(__self1, f)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "MessageTooLarge"), "size", (f: rt.Formatter) => rt.usizeDisplay(__self03, f)), "max", (f: rt.Formatter) => rt.usizeDisplay(__self1, f)));
 	} else if (self.tag === "ExpectedData") {
-		return f.writeStr("ExpectedData");
+		return rt.fmtWriteStr(f, "ExpectedData");
 	} else if (self.tag === "Duplicate") {
-		return f.writeStr("Duplicate");
+		return rt.fmtWriteStr(f, "Duplicate");
 	} else if (self.tag === "Missing") {
-		return f.writeStr("Missing");
+		return rt.fmtWriteStr(f, "Missing");
 	} else if (self.tag === "Unsupported") {
-		return f.writeStr("Unsupported");
+		return rt.fmtWriteStr(f, "Unsupported");
 	} else if (self.tag === "TrailingBytes") {
-		return f.writeStr("TrailingBytes");
+		return rt.fmtWriteStr(f, "TrailingBytes");
 	} else if (self.tag === "Version") {
-		return f.writeStr("Version");
+		return rt.fmtWriteStr(f, "Version");
 	} else if (self.tag === "Session") {
 		const __self04 = self._0;
-		return f.debugTuple("Session").field((f: rt.Formatter) => SessionError.fmt$Debug(__self04, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Session"), (f: rt.Formatter) => SessionError.fmt$Debug(__self04, f)));
 	} else if (self.tag === "MalformedAuthToken") {
-		return f.writeStr("MalformedAuthToken");
+		return rt.fmtWriteStr(f, "MalformedAuthToken");
 	} else {
-		return f.writeStr("MultipleAuthTokens");
+		return rt.fmtWriteStr(f, "MultipleAuthTokens");
 	}
 }
 

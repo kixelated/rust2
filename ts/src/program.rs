@@ -10,6 +10,7 @@ use crate::ts::{FieldId, Function, Item, SymId};
 /// file's path from there, and its text.
 pub const RUNTIME: &[(&str, &str)] = &[
 	("rt.ts", include_str!("../runtime/rt.ts")),
+	("rt/int.ts", include_str!("../runtime/rt/int.ts")),
 	("rt/iter.ts", include_str!("../runtime/rt/iter.ts")),
 	("rt/task.ts", include_str!("../runtime/rt/task.ts")),
 ];

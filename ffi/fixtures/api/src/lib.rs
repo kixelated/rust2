@@ -1,6 +1,8 @@
 //! Each construct rust2-ffi exports, for `tests/api.c` to drive through the C ABI.
 
+use std::borrow::Cow;
 use std::fmt;
+use std::ops::{Bound, Range, RangeBounds};
 use std::sync::{Arc, Mutex};
 use std::task::{Poll, Waker};
 use std::time::Duration;
@@ -122,6 +124,117 @@ impl Counter {
 	pub fn rename(&mut self, name: impl Into<String>) {
 		self.name = name.into();
 	}
+
+	/// Consumes the counter into two, the second holding what is above `at`: a tuple
+	/// returns through one out pointer per element.
+	pub fn split(self, at: u64) -> (Counter, Counter) {
+		let above = self.value.saturating_sub(at);
+		let below = Counter::new(&self.name, self.value - above);
+		(below, Counter::new(&format!("{}+", self.name), above))
+	}
+}
+
+/// A tuple of one: its out pointer holds the counter, not the tuple.
+pub fn only(counter: Counter) -> (Counter,) {
+	(counter,)
+}
+
+/// The quotient and remainder, failing on a zero divisor.
+pub fn divide(a: u64, b: u64) -> Result<(u64, u64), Error> {
+	match b {
+		0 => Err(Error::Overflow),
+		b => Ok((a / b, a % b)),
+	}
+}
+
+/// Holds counters and lends them: each borrowed return is a new handle to a clone.
+#[derive(Default)]
+pub struct Registry {
+	pub first: Counter,
+	last: Option<Counter>,
+}
+
+impl Registry {
+	pub fn new(first: Counter) -> Self {
+		Self { first, last: None }
+	}
+
+	pub fn last(&self) -> Option<&Counter> {
+		self.last.as_ref()
+	}
+
+	pub fn push(&mut self, counter: Counter) {
+		self.last = Some(counter);
+	}
+}
+
+/// A name that may borrow its text: its only generic parameter is a lifetime, so a
+/// handle holds `Name<'static>`, which borrows nothing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Name<'a>(Cow<'a, str>);
+
+impl Name<'_> {
+	pub fn owned(text: String) -> Name<'static> {
+		Name(Cow::Owned(text))
+	}
+
+	pub fn as_str(&self) -> &str {
+		&self.0
+	}
+
+	/// `other` after this name, as a name that borrows neither.
+	pub fn join(&self, other: &Name<'_>) -> Name<'static> {
+		Name(Cow::Owned(format!("{}/{}", self.0, other.0)))
+	}
+
+	/// Takes a parameter that must outlive the call, so a `String`, not a borrow of C's.
+	pub fn rename(&mut self, text: impl AsRef<str> + Send + 'static) {
+		self.0 = Cow::Owned(text.as_ref().to_string());
+	}
+}
+
+/// The longer name: it takes only the lifetime of the names given, `'static` in a handle.
+pub fn longer<'a>(a: Name<'a>, b: &Name<'a>) -> Name<'a> {
+	match b.0.len() > a.0.len() {
+		true => b.clone(),
+		false => a,
+	}
+}
+
+/// The sum of a range.
+pub fn total(range: Range<u64>) -> u64 {
+	range.sum()
+}
+
+/// A range, widened by `by` at each end.
+pub fn widen(range: Range<u64>, by: u64) -> Range<u64> {
+	range.start.saturating_sub(by)..range.end + by
+}
+
+/// How many of `0..10` a range takes, in any of the forms `RangeBounds` takes.
+pub fn count(range: impl RangeBounds<u64>) -> usize {
+	(0..10).filter(|n| range.contains(n)).count()
+}
+
+/// The end a limit puts on a range: none for 0.
+pub fn end(limit: u64) -> Bound<u64> {
+	match limit {
+		0 => Bound::Unbounded,
+		limit => Bound::Excluded(limit),
+	}
+}
+
+/// A record of a range and a bound, which C holds after the structs they are.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Window {
+	pub range: Range<u64>,
+	pub end: Bound<u64>,
+}
+
+impl Window {
+	pub fn contains(&self, n: u64) -> bool {
+		self.range.contains(&n) && (Bound::Unbounded, self.end).contains(&n)
+	}
 }
 
 /// A one-slot channel: its receive is a future that waits for a send.
@@ -181,6 +294,14 @@ impl Channel {
 				Poll::Pending
 			}
 		}
+	}
+
+	/// The next payload and its length: a future's tuple is written through its poll's
+	/// out pointers.
+	pub async fn recv_sized(&self) -> (Bytes, usize) {
+		let payload = self.recv().await;
+		let len = payload.len();
+		(payload, len)
 	}
 
 	/// Fails once the payload is empty.

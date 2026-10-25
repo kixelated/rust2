@@ -8,10 +8,10 @@ export interface Doubled {
 }
 
 export function fmt$Debug(self: Doubled, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugList().entries(rt.iter.slice(self._0).map((arg: rt.u8): rt.u16 => {
+	return rt.debugListFinish(rt.debugListEntries(rt.fmtDebugList(f), rt.iterMap(rt.iterSlice(self._0), (arg: rt.u8): rt.u16 => {
 		const b = arg;
-		return rt.u16.mul(b as rt.u16, 2);
-	}), rt.u16.display).finish();
+		return rt.u16Mul(b as rt.u16, 2);
+	}), rt.u16Display));
 }
 
 //# sourceMappingURL=iters.Doubled.ts.map

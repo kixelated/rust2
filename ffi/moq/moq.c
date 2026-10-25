@@ -1,5 +1,5 @@
 /* moq-net's exported C API against the real library: a broadcast's track, published
- * and subscribed to in one process, with every read polled as a future.
+ * and subscribed to in one process, with every read polled as a future, and an origin.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -119,6 +119,29 @@ int main(void) {
 	moq_track_consumer_free(consumer);
 	moq_track_producer_free(track);
 	moq_broadcast_producer_free(broadcast);
+
+	/* An origin and the driver that runs it, a tuple returned through two out pointers.
+	 * A broadcast it creates is stamped with its path, which its info lends as a new
+	 * handle to a clone. */
+	moq_origin_config *config = moq_origin_config_default();
+	moq_origin_producer *origin = NULL;
+	moq_origin_driver *driver = NULL;
+	moq_origin_producer_new(config, &origin, &driver);
+	moq_origin_config_free(config);
+	CHECK(origin != NULL && driver != NULL);
+	moq_broadcast_producer *created = NULL;
+	CHECK(moq_origin_producer_create_broadcast(origin, str("room/alice"), &created, &err));
+	moq_broadcast_info *stamped = moq_broadcast_producer_info(created);
+	moq_path *path = moq_broadcast_info_path(stamped);
+	CHECK(is(moq_path_as_str(path), "room/alice"));
+	moq_path *joined = moq_path_join(path, str("cam"));
+	CHECK(is(moq_path_as_str(joined), "room/alice/cam"));
+	moq_path_free(joined);
+	moq_path_free(path);
+	moq_broadcast_info_free(stamped);
+	moq_broadcast_producer_free(created);
+	moq_origin_driver_free(driver);
+	moq_origin_producer_free(origin);
 
 	if (failures == 0) {
 		printf("ok\n");
