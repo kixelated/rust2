@@ -46,3 +46,20 @@ census checkout="":
         src=../ts/target/moq
     fi
     cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md
+
+# Export moq-net's C ABI, build it, and run moq/moq.c against it, from the moq revision `just ts moq` pins or a checkout.
+moq checkout="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="{{ checkout }}"
+    if [ -z "$src" ]; then
+        (cd ../ts && just moq-pin)
+        src=../ts/target/moq
+    fi
+    out=target/export/moq
+    cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --out "$out"
+    # moq's lockfile pins what the export depends on, as it pins moq-net's own build.
+    cp "$src/Cargo.lock" "$out/Cargo.lock"
+    cargo build --quiet --release --manifest-path "$out/Cargo.toml"
+    cc -std=c11 -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/moq-test
+    target/moq-test

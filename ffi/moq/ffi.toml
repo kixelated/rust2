@@ -155,6 +155,8 @@ exclude = [
     "track::Subscription::with_groups",
     "track::Subscription::with_ranges",
     "transport::Error",
+    "transport::MaybeSend",
+    "transport::MaybeSync",
     "transport::memory::pair",
     "transport::poll::AcceptBi",
     "transport::poll::AcceptUni",

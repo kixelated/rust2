@@ -542,6 +542,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 	fn callback(&mut self, def_id: DefId, path: &[String]) -> Result<Vec<Function>, Vec<Why>> {
 		let tcx = self.tcx;
 		let mut errs = Vec::new();
+		// It may already cover the foreign implementation, which could not then implement it.
+		if !tcx.trait_impls_of(def_id).blanket_impls().is_empty() {
+			errs.push(why("trait with a blanket impl", ""));
+		}
 		for clause in tcx.explicit_super_clauses_of(def_id).iter_identity_copied() {
 			let (clause, _) = clause.skip_norm_wip();
 			if let Some(trait_pred) = clause.as_trait_clause() {
