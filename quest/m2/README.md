@@ -3,8 +3,8 @@
 ## Goal
 
 Research work with a named consumer that is not waiting on it yet: the
-TypeScript translator's spikes and features, the exporter spike, and the UniFFI
-fork's gated or speculative work.
+TypeScript translator's spikes and features, and the UniFFI fork's gated or
+speculative work.
 
 ## Plan
 
@@ -16,11 +16,8 @@ Decided with the maintainer on 2026-10-24: the translator's output ranks correct
 then speed, then the size of the consumer's final tree-shaken, minified JS; readability
 is not a goal, and types must be solid at the API boundary ([design](/ts/README.md#design)).
 
-Decided with the maintainer on 2026-10-24: an [exporter](/quest/m2/ffi-export-spike.md)
-that turns a crate's `pub` API into bindings, with no attributes, may replace the UniFFI
-fork. The fork stays in maintenance and keeps building moq's bindings; its feature
-quests pause until the spike reports, which decides whether each is folded into the
-exporter. The binding benchmark continues as the exporter's baseline.
+The fork's feature quests here pause until the [exporter spike](/quest/m1/ffi-export-spike.md)
+reports; [m1](/quest/m1/README.md#plan) records the decision.
 
 ## Required
 
@@ -37,7 +34,6 @@ exporter. The binding benchmark continues as the exporter's baseline.
 - [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - classes, free functions, or free functions behind root facades, measured on speed, shaken size, and caller code
 - [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
-- [Exporter spike](/quest/m2/ffi-export-spike.md) - moq-net's `pub` API exported to a C ABI and header by a rustc driver, with refusals counted and compared against moq's `rs/moq-c`
 - [Delete the C++ generator's dead modes](/quest/m2/uniffi-cpp-dead-modes.md) - scaffolding mode and exception-style async go, with no consumer
 - [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
 - [Cheaper async](/quest/m2/ffi-async.md) - `RustFuture` exports cost fewer crossings, if the numbers show they matter
