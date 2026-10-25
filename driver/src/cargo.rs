@@ -140,17 +140,29 @@ impl Check<'_> {
 			cmd
 		};
 		run_cargo(cargo("clean").arg("--quiet"))?;
+		let ran = target_dir.join(format!("{}.ran", self.tool));
+		match std::fs::remove_file(&ran) {
+			Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+				return Err(format!("removing {}: {err}", ran.display()));
+			}
+			_ => {}
+		}
 		let status = cargo("check")
 			.arg("--lib")
 			.args(self.args)
 			.env("RUSTC_WRAPPER", &exe)
+			.env(crate::rustc::RAN, &ran)
 			.envs(self.env.iter().copied())
 			.status()
 			.map_err(|err| format!("running cargo: {err}"))?;
-		Ok(match status.success() {
-			true => ExitCode::SUCCESS,
-			false => ExitCode::FAILURE,
-		})
+		if !status.success() {
+			return Ok(ExitCode::FAILURE);
+		}
+		// A library the wrapper never recognized would otherwise succeed with nothing written.
+		if !ran.exists() {
+			return Err(format!("cargo compiled no library of package {}", self.package));
+		}
+		Ok(ExitCode::SUCCESS)
 	}
 }
 

@@ -169,6 +169,12 @@ static int script(void) {
 	uint32_t count = api_tally_bump(tally);
 	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
 	api_tally_free(tally);
+
+	/* Its Drop runs when C frees the handle, not before. */
+	api_token *token = api_token_new(7);
+	printf("token %u dropped %u\n", api_token_id(token), api_dropped());
+	api_token_free(token);
+	printf("dropped %u\n", api_dropped());
 	/* Each future dropped its waker once it finished. */
 	return drops == 3 ? 0 : 1;
 }

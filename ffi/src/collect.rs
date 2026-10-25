@@ -242,6 +242,9 @@ impl<'tcx> Collector<'tcx> {
 			let decl = match tcx.def_kind(def_id) {
 				DefKind::Union => Decl::Refused(why("union", "")),
 				DefKind::Struct | DefKind::Enum | DefKind::Trait if generic() => Decl::Refused(why("generic type", "")),
+				// A value is copied across and lowered into memory C frees, so its own `Drop`
+				// would run when Rust lets go of it, not when C does.
+				DefKind::Struct | DefKind::Enum if tcx.adt_destructor(def_id).is_some() => self.object(def_id),
 				DefKind::Struct => {
 					let variant = tcx.adt_def(def_id).non_enum_variant();
 					let record = !variant.fields.is_empty()

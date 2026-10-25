@@ -35,10 +35,20 @@ pub fn run(
 		Err(err) => early_dcx.early_fatal(format!("{tool}: {err}")),
 	};
 	rustc_driver::catch_with_exit_code(|| match job {
-		Some(mut job) => rustc_driver::compiler_entrypoint(&args, job.as_mut()),
+		Some(mut job) => {
+			rustc_driver::compiler_entrypoint(&args, job.as_mut());
+			// Tell the CLI its library was compiled with the job.
+			if let Some(ran) = std::env::var_os(RAN) {
+				let _ = std::fs::write(ran, "");
+			}
+		}
 		None => rustc_driver::compiler_entrypoint(&args, &mut Plain),
 	})
 }
+
+/// The file the wrapper creates once it has run a job, so the CLI knows cargo compiled
+/// the configured library at all.
+pub(crate) const RAN: &str = "RUST2_DRIVER_RAN";
 
 /// Compiles a crate as rustc would.
 struct Plain;
@@ -50,6 +60,8 @@ impl Callbacks for Plain {}
 /// library target is called.
 pub fn compiles_lib(args: &[String], package: &str) -> bool {
 	let ours = std::env::var("CARGO_PKG_NAME").is_ok_and(|name| name == package);
-	let lib = args.windows(2).any(|w| w[0] == "--crate-type" && w[1] == "lib");
+	let lib = args
+		.windows(2)
+		.any(|w| w[0] == "--crate-type" && matches!(w[1].as_str(), "lib" | "rlib"));
 	ours && lib && !args.iter().any(|a| a == "--test")
 }

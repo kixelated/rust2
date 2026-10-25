@@ -38,8 +38,8 @@ export nothing of their own.
 
 | Rust | C |
 | --- | --- |
-| a struct whose fields are all `pub`, not `#[non_exhaustive]`, and which map | a record: a struct, copied across |
-| an enum whose fields map | a C enum without fields, or a struct of a tag and a union |
+| a struct whose fields are all `pub`, not `#[non_exhaustive]`, which map, with no `Drop` of its own | a record: a struct, copied across |
+| an enum whose fields map, with no `Drop` of its own | a C enum without fields, or a struct of a tag and a union |
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |

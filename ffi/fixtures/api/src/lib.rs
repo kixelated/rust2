@@ -304,6 +304,31 @@ impl Tally {
 	}
 }
 
+static DROPPED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// A token: every field is `pub`, but its `Drop` must run when C frees it, so it is an
+/// object rather than a record.
+pub struct Token {
+	pub id: u32,
+}
+
+impl Token {
+	pub fn new(id: u32) -> Self {
+		Self { id }
+	}
+}
+
+impl Drop for Token {
+	fn drop(&mut self) {
+		DROPPED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+	}
+}
+
+/// How many tokens have dropped.
+pub fn dropped() -> u32 {
+	DROPPED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// The length of a payload, borrowed for the call.
 pub fn len(payload: &[u8]) -> usize {
 	payload.len()
