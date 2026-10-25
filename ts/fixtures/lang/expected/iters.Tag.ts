@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function clone(self: Tag): Tag {
+export function clone$Clone(self: Tag): Tag {
 	return { bytes: rt.byteVecFrom(rt.byteVecView(self.bytes)) };
 }
 

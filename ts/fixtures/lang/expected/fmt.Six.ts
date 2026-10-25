@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(self: Six, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Six, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const values = [(f: rt.Formatter) => rt.u8Display(self._0, f), (f: rt.Formatter) => rt.u8Display(self._1, f), (f: rt.Formatter) => rt.u8Display(self._2, f), (f: rt.Formatter) => rt.u8Display(self._3, f), (f: rt.Formatter) => rt.u8Display(self._4, f), (f: rt.Formatter) => rt.u8Display(self._5, f)];
 	return rt.fmtDebugTupleFields(f, "Six", values);
 }

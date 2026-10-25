@@ -14,7 +14,7 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		drop(this);
+		drop$Drop(this);
 		rt.drop(this.log);
 	}
 }
@@ -45,7 +45,7 @@ export function finish(self: Guard, event: string): rt.u32 {
 	}
 }
 
-export function drop(self: Guard): void {
+export function drop$Drop(self: Guard): void {
 	Log.note(self.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " drop"]));
 }
 

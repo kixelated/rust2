@@ -865,8 +865,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::LogicalOp { lhs, rhs, .. } => self.simple(*lhs) && self.simple(*rhs),
 			ExprKind::Call { args, fun, .. } => self.simple(*fun) && args.iter().all(|a| self.simple(*a)),
 			ExprKind::Tuple { fields } | ExprKind::Array { fields } => fields.iter().all(|f| self.simple(*f)),
+			// Fields written out of declaration order may be spilled to keep their order.
 			ExprKind::Adt(adt) => {
-				adt.fields.iter().all(|f| self.simple(f.expr)) && matches!(adt.base, thir::AdtExprBase::None)
+				adt.fields.iter().all(|f| self.simple(f.expr))
+					&& adt.fields.is_sorted_by_key(|f| f.name)
+					&& matches!(adt.base, thir::AdtExprBase::None)
 			}
 			ExprKind::VarRef { .. }
 			| ExprKind::UpvarRef { .. }
@@ -1654,22 +1657,25 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						.err(span, "a `for` loop over a range that is not written in place");
 					return None;
 				};
-				let mut fields: Vec<ExprId> = vec![range.fields[0].expr, range.fields[1].expr];
-				if range.fields[0].name.index() == 1 {
-					fields.swap(0, 1);
-				}
-				let mut values = self.operands(&fields, out);
-				let end = values.pop().unwrap();
-				let mut start = values.pop().unwrap();
-				let end = match end.is_constant() {
-					true => end,
-					false => {
-						if !start.is_constant() {
-							start = self.spill(start, "start", out);
+				let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
+				let mut values = self.operands(&ids, out);
+				// `end` is read on every turn, so unless constant it is spilled, after what is
+				// written before it.
+				let swapped = range.fields[0].name.index() == 1;
+				let end_at = if swapped { 0 } else { 1 };
+				if !values[end_at].is_constant() {
+					for (i, value) in values.iter_mut().enumerate().take(end_at + 1) {
+						if !value.is_constant() {
+							let saved = std::mem::replace(value, Expr::undefined());
+							*value = self.spill(saved, if i == end_at { "end" } else { "start" }, out);
 						}
-						self.spill(end, "end", out)
 					}
-				};
+				}
+				if swapped {
+					values.swap(0, 1);
+				}
+				let end = values.pop().unwrap();
+				let start = values.pop().unwrap();
 				Some(range_of(ty, start, end, false))
 			}
 			ty::Adt(adt, _) if tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::RangeInclusiveStruct) => {
@@ -1746,6 +1752,25 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let name = self.fresh(base);
 		out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
 		Expr::ident(name)
+	}
+
+	/// Fields' values by index, from the order they are written to declaration order.
+	/// Each that would then evaluate after one written later is spilled first, unless
+	/// constant, so they still evaluate as written.
+	pub fn declared(&mut self, mut written: Vec<(usize, Expr)>, out: &mut Vec<Stmt>) -> Vec<(usize, Expr)> {
+		// The longest tail already in declaration order evaluates in place, after the rest.
+		let mut tail = written.len().saturating_sub(1);
+		while tail > 0 && written[tail - 1].0 < written[tail].0 {
+			tail -= 1;
+		}
+		for (_, value) in &mut written[..tail] {
+			if !value.is_constant() {
+				let saved = std::mem::replace(value, Expr::undefined());
+				*value = self.spill(saved, "field", out);
+			}
+		}
+		written.sort_by_key(|(i, _)| *i);
+		written
 	}
 
 	/// `value`, from `id`, as something patterns can read more than once.
@@ -2495,10 +2520,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				(library::Std::Range, _) => {
-					let mut ordered: Vec<(usize, Expr)> =
-						adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
-					ordered.sort_by_key(|(i, _)| *i);
-					let mut args: Vec<Expr> = ordered.into_iter().map(|(_, v)| v).collect();
+					let written = adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
+					let mut args: Vec<Expr> = self.declared(written, out).into_iter().map(|(_, v)| v).collect();
 					// A wide range steps past 2^53 through its type.
 					let ty::Adt(_, gargs) = ty.kind() else {
 						unreachable!("a range is a struct")
@@ -2546,68 +2569,34 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		};
 		match info.repr {
 			AdtRepr::Struct { ctor, fields } => {
-				let class = Box::new(Expr::Sym(info.sym));
+				// The fields in the order they evaluate: as written, then those the base fills.
+				let mut written: Vec<(usize, Expr)> = adt
+					.fields
+					.iter()
+					.zip(values)
+					.map(|(f, value)| (f.name.index(), field_arg(tcx, &variant.fields[f.name], value)))
+					.collect();
+				if let Some(base) = &base {
+					for (i, field) in variant.fields.iter().enumerate() {
+						if adt.fields.iter().any(|f| f.name.index() == i) {
+							continue;
+						}
+						let field_ty = self.subst(field.ty(tcx, adt.args).skip_norm_wip());
+						written.push((i, self.copied(base.clone().field(fields[i]), field_ty)));
+					}
+				}
 				match ctor {
 					ts::Ctor::Unit => self.t.construct(info.sym, &ts::Ctor::Unit, &fields, Vec::new()),
-					ts::Ctor::Positional => {
-						let mut ordered: Vec<Option<Expr>> = vec![None; variant.fields.len()];
-						for (f, value) in adt.fields.iter().zip(values) {
-							ordered[f.name.index()] = Some(field_arg(tcx, &variant.fields[f.name], value));
-						}
-						let args = ordered
-							.into_iter()
-							.enumerate()
-							.map(|(i, v)| match (v, &base) {
-								(Some(v), _) => v,
-								(None, Some(base)) => {
-									let field_ty = self.subst(
-										variant.fields[rustc_abi::FieldIdx::from_usize(i)]
-											.ty(tcx, adt.args)
-											.skip_norm_wip(),
-									);
-									self.copied(base.clone().field(fields[i]), field_ty)
-								}
-								(None, None) => Expr::undefined(),
-							})
-							.collect();
-						self.t.construct(info.sym, &ts::Ctor::Positional, &fields, args)
+					// A class takes its named fields as an object, which evaluates them as written.
+					ts::Ctor::Named if !self.t.plain(info.sym) => {
+						let props = written.into_iter().map(|(i, v)| (Key::Field(fields[i]), v)).collect();
+						Expr::New(Box::new(Expr::Sym(info.sym)), vec![Expr::Object(props)])
 					}
-					ts::Ctor::Named => {
-						let mut props: Vec<(Key, Expr)> = adt
-							.fields
-							.iter()
-							.zip(values)
-							.map(|(f, value)| {
-								let value = field_arg(tcx, &variant.fields[f.name], value);
-								(Key::Field(fields[f.name.index()]), value)
-							})
-							.collect();
-						if let Some(base) = &base {
-							for (i, field) in variant.fields.iter().enumerate() {
-								if adt.fields.iter().any(|f| f.name.index() == i) {
-									continue;
-								}
-								let field_ty = self.subst(field.ty(tcx, adt.args).skip_norm_wip());
-								let value = self.copied(base.clone().field(fields[i]), field_ty);
-								props.push((Key::Field(fields[i]), value));
-							}
-						}
-						if !self.t.plain(info.sym) {
-							return Expr::New(class, vec![Expr::Object(props)]);
-						}
-						// A plain object's properties go in declaration order, so every value of
-						// the struct shares one shape; the values are still evaluated as written.
-						let index = |key: &Key| fields.iter().position(|f| matches!(key, Key::Field(k) if k == f));
-						if !props.is_sorted_by_key(|(key, _)| index(key)) {
-							for (_, value) in props.iter_mut() {
-								if !value.is_constant() {
-									let saved = std::mem::replace(value, Expr::undefined());
-									*value = self.spill(saved, "field", out);
-								}
-							}
-							props.sort_by_key(|(key, _)| index(key));
-						}
-						Expr::Object(props)
+					// A plain object's properties go in declaration order, so every value of the
+					// struct shares one shape.
+					_ => {
+						let args = self.declared(written, out).into_iter().map(|(_, v)| v).collect();
+						self.t.construct(info.sym, &ctor, &fields, args)
 					}
 				}
 			}
@@ -2617,14 +2606,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			AdtRepr::Union => {
 				let mut props = vec![(Key::Name("tag".into()), Expr::Str(variant.name.to_string()))];
-				let mut ordered: Vec<(usize, Expr)> = adt
-					.fields
-					.iter()
-					.zip(values)
-					.map(|(f, value)| (f.name.index(), value))
-					.collect();
-				ordered.sort_by_key(|(i, _)| *i);
-				for (i, value) in ordered {
+				let written = adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
+				for (i, value) in self.declared(written, out) {
 					let name = super::field_name(variant.fields[rustc_abi::FieldIdx::from_usize(i)].name.as_str(), i);
 					props.push((Key::Name(name), value));
 				}
@@ -2818,7 +2801,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		Expr::rt("future", args)
 	}
 
-	/// A module-level function in `parent`'s module, by the name `base`.
+	/// A module-level function in `parent`'s module, by the name `base` and the suffix of
+	/// the instance of `parent` it is part of.
 	#[expect(clippy::too_many_arguments, reason = "a function's parts")]
 	fn hoist(
 		&mut self,
@@ -2834,7 +2818,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sym = self.t.program.sym(crate::program::Symbol {
 			module: self.t.module_of(parent),
 			base,
-			suffix: String::new(),
+			suffix: self.t.suffix(Instance::new_raw(parent, self.args)),
 			owner: None,
 			kind: SymKind::Function,
 			order,

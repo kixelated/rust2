@@ -7,13 +7,13 @@ export interface Evens {
 	inner: rt.Iter<rt.u8>;
 }
 
-export function next(self: Evens): rt.u8 | rt.Done {
+export function next$Iterator(self: Evens): rt.u8 | rt.Done {
 	while (true) {
-		const next_ = self.inner.next();
-		if (next_ === rt.DONE) {
+		const next = self.inner.next();
+		if (next === rt.DONE) {
 			return rt.DONE;
 		}
-		const b = next_;
+		const b = next;
 		if (rt.u8Rem(b, 2) === 0) {
 			return b;
 		}

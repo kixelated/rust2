@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import * as Waiter from "./kio.Waiter.ts";
 
-function default_(): Park {
+export function default$Default(): Park {
 	return new Park(undefined);
 }
 
@@ -39,7 +39,5 @@ export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
 	}
 	return rt.optionUnwrap(self._0);
 }
-
-export { default_ as default };
 
 //# sourceMappingURL=kio.Park.ts.map

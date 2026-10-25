@@ -15,7 +15,7 @@ export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "TooLarge"), "size", (f: rt.Formatter) => rt.usizeDisplay(__self02, f)), "max", (f: rt.Formatter) => rt.usizeDisplay(__self1, f)));
 	} else {
 		const __self03 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "At"), (f: rt.Formatter) => Pair.fmt(__self03, f)));
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "At"), (f: rt.Formatter) => Pair.fmt$Debug(__self03, f)));
 	}
 }
 
@@ -41,7 +41,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
 	} else {
 		const pair = self._0;
-		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt(pair, f)]);
+		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f)]);
 	}
 }
 

@@ -35,7 +35,7 @@ export type EncodeError =
 	| "Version"
 	| "Unsupported";
 
-export function from(_: BoundsExceeded.BoundsExceeded): EncodeError {
+export function from$From_BoundsExceeded(_: BoundsExceeded.BoundsExceeded): EncodeError {
 	return "BoundsExceeded";
 }
 

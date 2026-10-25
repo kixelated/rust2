@@ -3,18 +3,18 @@
 import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
-export function fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
 		const __self0 = self._0;
 		const __self1 = self._1;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Line"), (f: rt.Formatter) => Point.fmt(__self0, f)), (f: rt.Formatter) => Point.fmt(__self1, f)));
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Line"), (f: rt.Formatter) => Point.fmt$Debug(__self0, f)), (f: rt.Formatter) => Point.fmt$Debug(__self1, f)));
 	} else {
 		const __self02 = self.corner;
 		const __self12 = self.width;
 		const __self2 = self.height;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Rect"), "corner", (f: rt.Formatter) => Point.fmt(__self02, f)), "width", (f: rt.Formatter) => rt.u16Display(__self12, f)), "height", (f: rt.Formatter) => rt.u16Display(__self2, f)));
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Rect"), "corner", (f: rt.Formatter) => Point.fmt$Debug(__self02, f)), "width", (f: rt.Formatter) => rt.u16Display(__self12, f)), "height", (f: rt.Formatter) => rt.u16Display(__self2, f)));
 	}
 }
 
@@ -25,12 +25,12 @@ export type Shape =
 	| { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 };
 
 /** A default method, monomorphized for each type. */
-export function describe(self: Shape, out: rt.ByteVec): void {
+export function describe$Area(self: Shape, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area(self)));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area(self)));
 }
 
-export function area(self: Shape): rt.u64 {
+export function area$Area(self: Shape): rt.u64 {
 	if (self.tag === "Dot") {
 		return 0;
 	} else if (self.tag === "Line") {

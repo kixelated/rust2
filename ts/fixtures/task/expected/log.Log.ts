@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function clone(self: Log): Log {
+export function clone$Clone(self: Log): Log {
 	return new Log(rt.arcClone(self._0));
 }
 

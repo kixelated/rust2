@@ -30,7 +30,7 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
  * Decode a size-prefixed `T`, reading its body with `decode` in place of
  * [`Message::decode_msg`], for a body whose bounds come from the session.
  */
-export function decodeWith$Group(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
+export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
 	const decodeSize_ = decodeSize(r, 65535);
 	if (!decodeSize_.ok) {
 		return rt.Err(decodeSize_.error);
@@ -58,7 +58,7 @@ export function decodeWith$Group(r: Decoder.Decoder, decode: (a0: Decoder.Decode
  * Decode a size-prefixed `T`, reading its body with `decode` in place of
  * [`Message::decode_msg`], for a body whose bounds come from the session.
  */
-export function decodeWith$Probe(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
+export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
 	const decodeSize_ = decodeSize(r, 65535);
 	if (!decodeSize_.ok) {
 		return rt.Err(decodeSize_.error);

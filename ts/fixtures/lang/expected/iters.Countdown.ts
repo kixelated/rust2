@@ -8,7 +8,7 @@ export interface Countdown {
 	step: rt.u8;
 }
 
-export function next(self: Countdown): rt.u8 | rt.Done {
+export function next$Iterator(self: Countdown): rt.u8 | rt.Done {
 	if (self.left === 0) {
 		return rt.DONE;
 	} else {

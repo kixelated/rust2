@@ -3,10 +3,10 @@
 import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
-export function fmt$Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => Point.fmt(__self0, f)));
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => Point.fmt$Debug(__self0, f)));
 	} else if (self.tag === "Right") {
 		const __self02 = self.value;
 		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => rt.u8Display(__self02, f)));
@@ -15,19 +15,19 @@ export function fmt$Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter):
 	}
 }
 
-export function fmt$u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
 	} else if (self.tag === "Right") {
 		const __self02 = self.value;
-		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => Point.fmt(__self02, f)));
+		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => Point.fmt$Debug(__self02, f)));
 	} else {
 		return rt.fmtWriteStr(f, "Neither");
 	}
 }
 
-export function fmt$u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
@@ -69,7 +69,7 @@ export function left$u8_u16(self: Either<rt.u8, rt.u16>): rt.u8 | undefined {
 	}
 }
 
-export function flip(self: Either<rt.u8, Point.Point>): Either<Point.Point, rt.u8> {
+export function flip$u8_Point(self: Either<rt.u8, Point.Point>): Either<Point.Point, rt.u8> {
 	if (self.tag === "Left") {
 		const l = self._0;
 		return { tag: "Right", value: l };

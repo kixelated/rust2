@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Point"), "x", (f: rt.Formatter) => rt.i32Display(self.x, f)), "y", (f: rt.Formatter) => rt.i32Display(self.y, f)));
 }
 
-export function eq(self: Point, other: Point): boolean {
+export function eq$PartialEq(self: Point, other: Point): boolean {
 	return self.x === other.x && self.y === other.y;
 }
 

@@ -21,29 +21,29 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	Wrap.bump$u8(byte);
 	const nested = Wrap.new$Wrap_Pair(Wrap.new$Pair({ _0: at(2), _1: -3 }));
 	const meters = new Wrap.Wrap({ value: { _0: at(3) as rt.u64 }, count: at(4) });
-	const shape = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner(rt.copy(point)), width: at(5) as rt.u16, height: 3 });
-	put(out, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Point(point, f), " ", (f: rt.Formatter) => Wrap.fmt$u8(byte, f), " ", (f: rt.Formatter) => Wrap.fmt$Wrap_Pair(nested, f), " ", (f: rt.Formatter) => Wrap.fmt$Shape(shape, f)]));
-	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Wrap.fmt$Wrap_Pair(nested, f))]));
-	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(Wrap.double(byte)));
+	const shape = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(rt.copy(point)), width: at(5) as rt.u16, height: 3 });
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Debug_Point(point, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_u8(byte, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Shape(shape, f)]));
+	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f))]));
+	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(Wrap.double$u8(byte)));
 	rt.byteVecPush(out, Wrap.get$u8(byte));
 	rt.byteVecPush(out, Wrap.get$Pair(Wrap.get$Wrap_Pair(nested))._0);
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(Wrap.scaled$Meters(meters)));
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(Wrap.scaled$Shape(shape)));
-	Wrap.describe$Meters(meters, out);
-	Wrap.describe$Shape(shape, out);
-	const mapped = Wrap.map(rt.copy(byte), (b: rt.u8): Pair.Pair => {
+	Wrap.describe$Area_Meters(meters, out);
+	Wrap.describe$Area_Shape(shape, out);
+	const mapped = Wrap.map$u8_Pair_methods_closure1(rt.copy(byte), (b: rt.u8): Pair.Pair => {
 		return { _0: b, _1: at(6) as rt.i64 };
 	});
 	const arg2 = out;
-	const arg = Wrap.eq(mapped, Wrap.new$Pair({ _0: at(1), _1: 0 }));
-	put(arg2, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Pair(mapped, f), " ", (f: rt.Formatter) => rt.fmtBool(arg, f)]));
+	const arg = Wrap.eq$PartialEq_Pair(mapped, Wrap.new$Pair({ _0: at(1), _1: 0 }));
+	put(arg2, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Debug_Pair(mapped, f), " ", (f: rt.Formatter) => rt.fmtBool(arg, f)]));
 	const eithers = [{ tag: "Left", _0: at(7) } as Either.Either<rt.u8, Point.Point>, { tag: "Right", value: Point.new(1, -1) } as Either.Either<rt.u8, Point.Point>, { tag: "Neither" } as Either.Either<rt.u8, Point.Point>];
 	for (const either of rt.copy(eithers)) {
-		const flipped = Either.flip(either);
+		const flipped = Either.flip$u8_Point(either);
 		const arg5 = out;
 		const arg3 = Either.left$u8_Point(either);
 		const arg4 = Either.left$Point_u8(flipped);
-		put(arg5, rt.fmtFormat([(f: rt.Formatter) => Either.fmt$u8_Point(either, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Either.fmt$Point_u8(flipped, f)), " ", (f: rt.Formatter) => rt.fmtOption(arg3, f, rt.u8Display), " ", (f: rt.Formatter) => rt.fmtOption(arg4, f, (value: Point.Point, f: rt.Formatter) => Point.fmt(value, f))]));
+		put(arg5, rt.fmtFormat([(f: rt.Formatter) => Either.fmt$Debug_u8_Point(either, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Either.fmt$Debug_Point_u8(flipped, f)), " ", (f: rt.Formatter) => rt.fmtOption(arg3, f, rt.u8Display), " ", (f: rt.Formatter) => rt.fmtOption(arg4, f, (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f))]));
 	}
 	let list: Wrap.Wrap<rt.u16[]> = new Wrap.Wrap({ value: [], count: 1 });
 	list.value.push(at(10) as rt.u16);
@@ -53,11 +53,11 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const err = new Wrap.Wrap({ value: rt.Err({ tag: "Dot" } as Shape.Shape), count: 2 });
 	const arg7 = out;
 	const arg6 = rt.optionUnwrapOr(Wrap.get$Option_u8(none), some.count);
-	put(arg7, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Vec_u16(list, f), " ", (f: rt.Formatter) => Wrap.fmt$Option_u8(none, f), " ", (f: rt.Formatter) => Wrap.fmt$Option_u8(some, f), " ", (f: rt.Formatter) => Wrap.fmt$Result_u8_Shape(err, f), " ", (f: rt.Formatter) => rt.u8Display(arg6, f)]));
+	put(arg7, rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Debug_Vec_u16(list, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(none, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(some, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Result_u8_Shape(err, f), " ", (f: rt.Formatter) => rt.u8Display(arg6, f)]));
 	const tagged = new Tagged.Tagged({ key: { tag: "Right", value: 500 } as Either.Either<rt.u8, rt.u16>, inner: Wrap.new$i16(rt.i16Sub(at(8) as rt.i16, 100)), all: rt.sliceToVec([Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)]) });
 	const arg9 = out;
-	const arg8 = Tagged.first(tagged);
-	put(arg9, rt.fmtFormat([(f: rt.Formatter) => Tagged.fmt(tagged, f), " ", (f: rt.Formatter) => rt.fmtOption(arg8, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$i16(value, f))]));
+	const arg8 = Tagged.first$Either_u8_u16_i16(tagged);
+	put(arg9, rt.fmtFormat([(f: rt.Formatter) => Tagged.fmt$Debug_Either_u8_u16_i16(tagged, f), " ", (f: rt.Formatter) => rt.fmtOption(arg8, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))]));
 	rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(tagged.inner.value));
 	rt.byteVecPush(out, rt.optionUnwrapOr(Either.left$u8_u16(tagged.key), 0));
 }
