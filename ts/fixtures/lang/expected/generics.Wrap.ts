@@ -6,44 +6,44 @@ import * as Meters from "./shapes.Meters.ts";
 import * as Point from "./shapes.Point.ts";
 import * as Shape from "./shapes.Shape.ts";
 
-export function fmt$Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.option(self.value, f, rt.u8.display)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Pair(self: Wrap<Pair.Pair>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Pair.fmt(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
+export function fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Pair.fmt$Debug(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Point.fmt(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
+export function fmt$Debug_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Point.fmt$Debug(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Result_u8_Shape(self: Wrap<rt.Result<rt.u8, Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.result(self.value, f, rt.u8.display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt(value, f))).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
+export function fmt$Debug_Result_u8_Shape(self: Wrap<rt.Result<rt.u8, Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.result(self.value, f, rt.u8.display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f))).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Shape(self: Wrap<Shape.Shape>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Shape.fmt(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
+export function fmt$Debug_Shape(self: Wrap<Shape.Shape>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => Shape.fmt$Debug(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.fmt.list(self.value, f, rt.u16.display)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$Wrap_Pair(self: Wrap<Wrap<Pair.Pair>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => fmt$Pair(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
+export function fmt$Debug_Wrap_Pair(self: Wrap<Wrap<Pair.Pair>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => fmt$Debug_Pair(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.i16.display(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function fmt$u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugStruct("Wrap").field("value", (f: rt.Formatter) => rt.u8.display(self.value, f)).field("count", (f: rt.Formatter) => rt.u8.display(self.count, f)).finish();
 }
 
-export function eq(self: Wrap<Pair.Pair>, other: Wrap<Pair.Pair>): boolean {
-	return self.count === other.count && Pair.eq(self.value, other.value);
+export function eq$PartialEq_Pair(self: Wrap<Pair.Pair>, other: Wrap<Pair.Pair>): boolean {
+	return self.count === other.count && Pair.eq$PartialEq(self.value, other.value);
 }
 
 /** A generic struct, with methods on every instance, on some, and on one. */
@@ -116,45 +116,45 @@ export function bump$u8(self: Wrap<rt.u8>): rt.u8 {
 	return self.count;
 }
 
-export function intoInner(self: Wrap<Point.Point>): Point.Point {
+export function intoInner$Point(self: Wrap<Point.Point>): Point.Point {
 	return rt.copy(self.value);
 }
 
 /** A method with its own type parameter. */
-export function map(self: Wrap<rt.u8>, f: (a0: rt.u8) => Pair.Pair): Wrap<Pair.Pair> {
+export function map$u8_Pair_methods_closure1(self: Wrap<rt.u8>, f: (a0: rt.u8) => Pair.Pair): Wrap<Pair.Pair> {
 	return new Wrap({ value: f(self.value), count: self.count });
 }
 
 export function scaled$Meters(self: Wrap<Meters.Meters>): rt.u64 {
-	return rt.u64.saturatingAdd(Meters.area(self.value), self.count as rt.u64);
+	return rt.u64.saturatingAdd(Meters.area$Area(self.value), self.count as rt.u64);
 }
 
 export function scaled$Shape(self: Wrap<Shape.Shape>): rt.u64 {
-	return rt.u64.saturatingAdd(Shape.area(self.value), self.count as rt.u64);
+	return rt.u64.saturatingAdd(Shape.area$Area(self.value), self.count as rt.u64);
 }
 
-export function double(self: Wrap<rt.u8>): rt.u16 {
+export function double$u8(self: Wrap<rt.u8>): rt.u16 {
 	return rt.u16.mul(self.value as rt.u16, 2);
 }
 
-export function area$Meters(self: Wrap<Meters.Meters>): rt.u64 {
-	return Meters.area(self.value);
+export function area$Area_Meters(self: Wrap<Meters.Meters>): rt.u64 {
+	return Meters.area$Area(self.value);
 }
 
-export function area$Shape(self: Wrap<Shape.Shape>): rt.u64 {
-	return Shape.area(self.value);
+export function area$Area_Shape(self: Wrap<Shape.Shape>): rt.u64 {
+	return Shape.area$Area(self.value);
 }
 
 /** A default method, monomorphized for each type. */
-export function describe$Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
+export function describe$Area_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
 	out.push(0);
-	out.extendFromSlice(rt.u64.toBeBytes(area$Meters(self)));
+	out.extendFromSlice(rt.u64.toBeBytes(area$Area_Meters(self)));
 }
 
 /** A default method, monomorphized for each type. */
-export function describe$Shape(self: Wrap<Shape.Shape>, out: rt.ByteVec): void {
+export function describe$Area_Shape(self: Wrap<Shape.Shape>, out: rt.ByteVec): void {
 	out.push(4);
-	out.extendFromSlice(rt.u64.toBeBytes(area$Shape(self)));
+	out.extendFromSlice(rt.u64.toBeBytes(area$Area_Shape(self)));
 }
 
 //# sourceMappingURL=generics.Wrap.ts.map

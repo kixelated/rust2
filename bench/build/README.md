@@ -17,7 +17,7 @@ The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and
 ## Corpus
 
 - **moq** builds `moq-relay`, which pulls in moq-net, the QUIC stack, and C code through aws-lc-sys.
-- **moq-pure-crypto** builds the same `moq-relay` with its crypto on graviola and RustCrypto, so it compiles no C.
+- **moq-pure-crypto** builds the same `moq-relay` with its crypto on graviola and RustCrypto, so it compiles no C: the run fails if any crate in its build gains a `links` key or pulls in cc or cmake, while pure-Rust build scripts stay allowed.
 - **regex** and **wasmparser** are pure Rust: the run fails if any crate in their build gains a build script or a `links` key.
 
 Each corpus pins a git revision (and a lockfile when the project commits none).
@@ -32,6 +32,7 @@ Bump a pin in its own change, since numbers on either side of it do not compare.
 
 An edit rewrites a marker function appended to the crate root, so every run changes code that reaches codegen.
 Before the timed runs, each variant does one untimed clean build that warms the disk cache and logs any failure.
+Each timed run starts after a `sync`: on CI's 16 GiB runners, writing back the dirty pages that earlier runs left made the edits it overlapped about 10% slower.
 
 ## Variants
 

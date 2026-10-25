@@ -7,12 +7,12 @@ export interface Meters {
 	_0: rt.u64;
 }
 
-export function area(self: Meters): rt.u64 {
+export function area$Area(self: Meters): rt.u64 {
 	return self._0;
 }
 
 /** A default method, monomorphized for each type. */
-export function describe(self: Meters, out: rt.ByteVec): void {
+export function describe$Area(self: Meters, out: rt.ByteVec): void {
 	out.push(0xaa);
 	out.extendFromSlice(rt.u64.toBeBytes(self._0));
 }

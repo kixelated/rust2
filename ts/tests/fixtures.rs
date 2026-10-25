@@ -266,34 +266,57 @@ fn codec_mir() {
 /// text and order, though translation reaches it in another order.
 #[test]
 fn source_order() {
-	let config = std::fs::read_to_string(fixture("codec").join("ts.toml")).unwrap();
-	let roots = r#"roots = ["harness::run", "bench::run"]"#;
-	assert!(config.contains(roots), "codec's roots changed: update this test");
-	let dir = scratch().join("codec").join("order");
+	added_root(
+		"codec",
+		r#"roots = ["harness::run", "bench::run"]"#,
+		r#"roots = ["harness::run"]"#,
+		// First, so that translation reaches what both share in another order.
+		r#"roots = ["bench::run", "harness::run"]"#,
+	);
+}
+
+/// Adding a root that reaches another instance of a generic function, or another trait's
+/// impl of a method, renames nothing the old roots reach.
+#[test]
+fn stable_names() {
+	let roots = r#"roots = ["harness::run", "fmt::Fault"]"#;
+	added_root(
+		"lang",
+		roots,
+		roots,
+		r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#,
+	);
+}
+
+/// Translate fixture `name` with its config's `roots` line replaced by `base`, then by
+/// `added`, and check that every line of the first output stays, in order, in the second.
+fn added_root(name: &str, roots: &str, base: &str, added: &str) {
+	let config = std::fs::read_to_string(fixture(name).join("ts.toml")).unwrap();
+	assert!(config.contains(roots), "{name}'s roots changed: update this test");
+	let dir = scratch().join(name).join("order");
 	std::fs::create_dir_all(&dir).unwrap();
-	let run = |name: &str, with: &str| {
-		let path = dir.join(format!("{name}.toml"));
+	let run = |file: &str, with: &str| {
+		let path = dir.join(format!("{file}.toml"));
 		std::fs::write(&path, config.replace(roots, with)).unwrap();
-		let out = dir.join(name);
-		let output = driver("codec", &path, &["--out".as_ref(), out.as_ref()], "order");
+		let out = dir.join(file);
+		let output = driver(name, &path, &["--out".as_ref(), out.as_ref()], "order");
 		assert!(
 			output.status.success(),
-			"translating codec with {with} failed:\n{}",
+			"translating {name} with {with} failed:\n{}",
 			String::from_utf8_lossy(&output.stderr)
 		);
 		sources(&out)
 	};
-	let base = run("base", r#"roots = ["harness::run"]"#);
-	// First, so that translation reaches what both share in another order.
-	let added = run("added", r#"roots = ["bench::run", "harness::run"]"#);
+	let base = run("base", base);
+	let more = run("added", added);
 	for (rel, text) in &base {
-		let more = added.iter().find(|(r, _)| r == rel).map(|(_, text)| text);
-		let more = more.unwrap_or_else(|| panic!("{} is gone once bench::run is added", rel.display()));
+		let more = more.iter().find(|(r, _)| r == rel).map(|(_, text)| text);
+		let more = more.unwrap_or_else(|| panic!("{} is gone once {added}", rel.display()));
 		let mut rest = lines(more).into_iter();
 		for line in lines(text) {
 			assert!(
 				rest.any(|l| l == line),
-				"{}: this line changed or moved once bench::run was added:\n{line}",
+				"{}: this line changed or moved once {added}:\n{line}",
 				rel.display()
 			);
 		}

@@ -23,3 +23,9 @@ export function run(input: Uint8Array): rt.ByteVec {
 	]);
 	return rt.ByteVec.from(new TextEncoder().encode(text));
 }
+
+/** `shapes::loops` with each first byte that one of its cases of `!` takes, with one more byte and without. */
+export const cases: Uint8Array[] = [0xf1, 0xf3, 0xf4, 0xf5, 0xf6, 0xf9, 0xfa].flatMap((b) => [
+	Uint8Array.of(16, 0, b),
+	Uint8Array.of(16, 0, b, 1),
+]);

@@ -55,7 +55,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	}
 }
 
-export function from$FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
+export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
 	return { tag: "InvalidString", _0: source };
 }
 
@@ -138,7 +138,7 @@ export function complete(self: DecodeError): DecodeError {
 	}
 }
 
-export function from$BoundsExceeded(_: BoundsExceeded.BoundsExceeded): DecodeError {
+export function from$From_BoundsExceeded(_: BoundsExceeded.BoundsExceeded): DecodeError {
 	return { tag: "BoundsExceeded" };
 }
 
