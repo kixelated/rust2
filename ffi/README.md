@@ -1,8 +1,8 @@
 # rust2-ffi
 
 A rustc driver that exports a crate's `pub` API as a C ABI and a C header, with no
-attributes in the Rust source. A spike: it answers whether such an exporter can replace
-[the UniFFI fork](../uniffi/README.md) for moq, starting from C.
+attributes in the Rust source. It replaces [the UniFFI fork](../uniffi/README.md) for moq,
+starting from C, which every other language's generator will build on.
 
 ```bash
 rust2-ffi --config ffi.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
@@ -45,7 +45,8 @@ export nothing of their own.
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
-| `async fn`, or a return that implements `Future` | a future: `f` makes it, `f_poll` polls it, `f_future_free` drops it |
+| `async fn`, or a return that implements `Future` | a future: `f` makes it, `f_poll` polls it, `f_future_free` drops it; a function that is not `async` runs at the call, as in Rust |
+| `poll_x`, when `x` exports as a future | left out: the future is its poll |
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `Duration` | `<prefix>_duration` |
@@ -54,9 +55,10 @@ export nothing of their own.
 | `impl Into<X>`, `impl AsRef<X>` | `X` |
 | another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait |
 
-A record or enum holds only values and `Copy` handles: one with a field that does not map
-is an object instead, and the census lists it. Everything else is refused, and the census
-counts why.
+A record or enum holds only values and `Copy` handles: one with a field that does not map,
+or that holds itself, is an object instead, and the census lists it. A borrowed return is
+returned as a copy, so it must be `Clone` and hold no other handle, whose clone would be a
+new one. Everything else is refused, and the census counts why.
 
 ## The C ABI
 

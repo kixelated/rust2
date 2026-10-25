@@ -1,2 +1,4 @@
 package = "api-fixture"
 prefix = "api"
+# A copy of the list's tail would be a new handle, so its getter is refused.
+exclude = ["Node::next"]

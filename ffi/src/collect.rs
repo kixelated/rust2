@@ -52,6 +52,8 @@ pub struct Collected {
 	pub refusals: Vec<Refusal>,
 	/// Records and enums exported as objects, since a field does not map: the first.
 	pub opaque: Vec<(String, Why)>,
+	/// `poll_x` methods that do not map, left out since `x` exports as a future.
+	pub twins: Vec<String>,
 	/// `#[doc(hidden)]` items, by path.
 	pub hidden: Vec<String>,
 	/// Excluded paths, and how many items each left out.
@@ -85,6 +87,7 @@ struct Collector<'tcx> {
 	/// implementation, with the callback each takes.
 	impls: std::cell::RefCell<Vec<(Ty<'tcx>, usize)>>,
 	opaque: Vec<(String, Why)>,
+	twins: Vec<String>,
 	bytes: Option<DefId>,
 	api: Api,
 }
@@ -112,6 +115,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 		left_out: Default::default(),
 		impls: Default::default(),
 		opaque: Vec::new(),
+		twins: Vec::new(),
 		bytes,
 		api: Api {
 			krate: config.crate_name(),
@@ -130,6 +134,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 		api: c.api,
 		refusals: c.refusals,
 		opaque: c.opaque,
+		twins: c.twins,
 		hidden: c.hidden,
 		excluded: c.excluded,
 		aliases: c.aliases,
@@ -344,7 +349,11 @@ impl<'tcx> Collector<'tcx> {
 				if !matches!(self.decls.get(&def_id), Some(Decl::Record(_) | Decl::Enum(_))) {
 					continue;
 				}
-				if let Err(why) = self.fields(def_id) {
+				let fields = match self.recursive(def_id) {
+					true => Err(vec![why("recursive value", "")]),
+					false => self.fields(def_id).map(|_| ()),
+				};
+				if let Err(why) = fields {
 					let first = why.into_iter().next().expect("a refusal has a reason");
 					self.opaque.push((path.join("::"), first));
 					let decl = self.object(def_id);
@@ -356,6 +365,39 @@ impl<'tcx> Collector<'tcx> {
 				break;
 			}
 		}
+	}
+
+	/// Whether a value holds itself, through other values, an `Option`, or a `Box`: C
+	/// holds each value in place, so it cannot.
+	fn recursive(&self, start: DefId) -> bool {
+		let tcx = self.tcx;
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let mut stack = vec![start];
+		while let Some(def_id) = stack.pop() {
+			let adt = tcx.adt_def(def_id);
+			let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
+			for field in adt.all_fields() {
+				for arg in field.ty(tcx, identity).skip_norm_wip().walk() {
+					let Some(ty) = arg.as_type() else {
+						continue;
+					};
+					let ty::Adt(inner, _) = ty.kind() else {
+						continue;
+					};
+					let did = inner.did();
+					if !matches!(self.decls.get(&did), Some(Decl::Record(_) | Decl::Enum(_))) {
+						continue;
+					}
+					if did == start {
+						return true;
+					}
+					if seen.insert(did) {
+						stack.push(did);
+					}
+				}
+			}
+		}
+		false
 	}
 
 	/// A struct's or enum's variants, with their fields mapped.
@@ -490,6 +532,7 @@ impl<'tcx> Collector<'tcx> {
 					ok: ty,
 					err: None,
 					future: false,
+					eager: false,
 					access: Access::Field,
 				}),
 				Err(why) => self.refuse(&getter, "field", span, vec![why]),
@@ -502,6 +545,7 @@ impl<'tcx> Collector<'tcx> {
 	fn methods(&mut self, def_id: DefId, path: &[String]) -> (Vec<Function>, Traits) {
 		let tcx = self.tcx;
 		let mut methods = Vec::new();
+		let mut refused = Vec::new();
 		let self_ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
 		for &imp in tcx.inherent_impls(def_id) {
 			for item in tcx.associated_items(imp).in_definition_order() {
@@ -527,8 +571,19 @@ impl<'tcx> Collector<'tcx> {
 				}
 				match self.function(item.def_id, method.clone(), Some(self_ty)) {
 					Ok(function) => methods.push(function),
-					Err(why) => self.refuse(&method, "method", span, why),
+					Err(why) => refused.push((method, span, why)),
 				}
+			}
+		}
+		// `poll_x` is left out when `x` exports as a future: the future is its poll.
+		for (method, span, why) in refused {
+			let name = method.last().expect("a method has a name");
+			let twin = name
+				.strip_prefix("poll_")
+				.is_some_and(|x| methods.iter().any(|m| m.future && m.name() == x));
+			match twin {
+				true => self.twins.push(method.join("::")),
+				false => self.refuse(&method, "method", span, why),
 			}
 		}
 		let env = TypingEnv::post_analysis(tcx, def_id);
@@ -625,6 +680,11 @@ impl<'tcx> Collector<'tcx> {
 		let args = self.instantiate(def_id, self_ty)?;
 		let env = TypingEnv::post_analysis(tcx, def_id);
 		let sig = tcx.fn_sig(def_id).instantiate(tcx, args).skip_norm_wip();
+		// Whether what it returns borrows: any lifetime but `'static` in it.
+		let borrows = sig.skip_binder().output().walk().any(|arg| match arg.kind() {
+			GenericArgKind::Lifetime(region) => !region.is_static(),
+			_ => false,
+		});
 		let sig = tcx.instantiate_bound_regions_with_erased(sig);
 		let normalize = |ty: Ty<'tcx>| {
 			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
@@ -669,9 +729,14 @@ impl<'tcx> Collector<'tcx> {
 		}
 		let mut output = normalize(sig.output());
 		let mut future = false;
+		let eager = !tcx.asyncness(def_id).is_async();
 		if let Some(inner) = self.future_output(output, env) {
 			if !self.is_send(output, env) {
 				errs.push(why("future not Send", ""));
+			}
+			// Called at once, the future must outlive the arguments the call borrowed.
+			if eager && borrows {
+				errs.push(why("borrowing future from a function that is not async", ""));
 			}
 			output = normalize(inner);
 			future = true;
@@ -702,6 +767,7 @@ impl<'tcx> Collector<'tcx> {
 				ok,
 				err,
 				future,
+				eager: future && eager,
 				access: Access::Call,
 			}),
 			_ => Err(errs),
@@ -868,6 +934,28 @@ impl<'tcx> Collector<'tcx> {
 			.ok()
 	}
 
+	/// Whether `ty` holds an object that is not `Copy`, which a copy would duplicate.
+	fn holds_handle(&self, ty: Ty<'tcx>) -> bool {
+		let tcx = self.tcx;
+		ty.walk().filter_map(|arg| arg.as_type()).any(|ty| match ty.kind() {
+			ty::Adt(adt, _) => {
+				matches!(self.decls.get(&adt.did()), Some(Decl::Object(_))) && !implements(tcx, adt.did(), sym::Copy)
+			}
+			_ => false,
+		})
+	}
+
+	fn is_clone(&self, ty: Ty<'tcx>) -> bool {
+		let tcx = self.tcx;
+		let Some(clone) = tcx.lang_items().clone_trait() else {
+			return false;
+		};
+		let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(TypingEnv::fully_monomorphized());
+		infcx
+			.type_implements_trait(clone, [ty], env)
+			.must_apply_modulo_regions()
+	}
+
 	fn is_send(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> bool {
 		let tcx = self.tcx;
 		let Some(send) = tcx.get_diagnostic_item(sym::Send) else {
@@ -911,6 +999,7 @@ impl<'tcx> Collector<'tcx> {
 				ok,
 				err: None,
 				future: false,
+				eager: false,
 				access: Access::Const,
 			}),
 			Err(why) => {
@@ -971,13 +1060,14 @@ impl<'tcx> Collector<'tcx> {
 					ty::Mutability::Mut => Mutability::Mut,
 				};
 				match (&inner_ty, pos, mutability) {
-					// Returned as a copy: plain data reads the same either way.
 					// Returned as a copy: plain data reads the same either way, and so does a
-					// `Copy` handle's value.
-					(Type::Object(_), Pos::Return, _)
-						if !tcx.type_is_copy_modulo_regions(TypingEnv::fully_monomorphized(), *inner) =>
-					{
+					// `Copy` handle's value, but a clone of another handle is a new one.
+					(_, Pos::Return, _) if self.holds_handle(*inner) => {
 						return Err(why("borrowed object return", inner.to_string()));
+					}
+					(Type::Str | Type::Slice, Pos::Return, _) => {}
+					(_, Pos::Return, _) if !self.is_clone(*inner) => {
+						return Err(why("borrowed return that is not Clone", inner.to_string()));
 					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
 					(Type::Object(_), Pos::Param, _) => {}

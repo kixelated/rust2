@@ -748,7 +748,8 @@ impl Gen<'_> {
 	fn function(&mut self, function: &Function, owner: Option<(&Ty, Option<usize>)>) {
 		let export = self.abi.export(function, owner.map(|(ty, _)| ty));
 		let name = export.call.name.clone();
-		let future = function.future;
+		// An eager call borrows its arguments only for the call, as a synchronous one does.
+		let future = function.future && !function.eager;
 		let mut stmts = Vec::new();
 		let mut args = Vec::new();
 		let mut params = Vec::new();
@@ -798,8 +799,14 @@ impl Gen<'_> {
 		};
 		let body = stmts.join("\n\t");
 		if let Some((_, poll, free)) = &export.future {
+			// A function that is not `async` runs when called, and what it returns
+			// borrows nothing, so it is called now; an `async fn` runs when polled.
+			let (now, later) = match function.eager {
+				true => (format!("\n\tlet future = {call};"), "future".to_string()),
+				false => (String::new(), call),
+			};
 			self.line(format!(
-				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> *mut rt::Future {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}\n\trt::Future::new(async move {{\n\t\tlet result = {call}.await;\n\t\t::std::boxed::Box::new(move |out: *mut c_void, err: *mut c_void| -> i32 {{\n\t\t\tlet _ = (out, err);\n\t\t\t{}\n\t\t}}) as rt::Done\n\t}})\n}}\n",
+				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> *mut rt::Future {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}{now}\n\trt::Future::new(async move {{\n\t\tlet result = {later}.await;\n\t\t::std::boxed::Box::new(move |out: *mut c_void, err: *mut c_void| -> i32 {{\n\t\t\tlet _ = (out, err);\n\t\t\t{}\n\t\t}}) as rt::Done\n\t}})\n}}\n",
 				params.join(", "),
 				self.finish(function, ("v", "rt::READY", "rt::ERROR"))
 			));

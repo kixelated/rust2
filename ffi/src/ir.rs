@@ -117,6 +117,9 @@ pub struct Function {
 	pub err: Option<Type>,
 	/// Whether it returns a future: an `async fn`, or a value that implements `Future`.
 	pub future: bool,
+	/// For a future, whether the call itself runs code, as a function that is not
+	/// `async` returning one does: the export calls it at once, and polls what it returns.
+	pub eager: bool,
 	/// What it reads: Rust's function, or a field or constant named as it is.
 	pub access: Access,
 }

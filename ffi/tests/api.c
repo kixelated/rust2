@@ -148,9 +148,23 @@ static int script(void) {
 		printf("nonempty pending\n");
 	}
 	api_channel_recv_nonempty_future_free(nonempty);
+
+	/* The send happens at the call: the future is dropped unpolled. */
+	api_channel_send_later_future_free(api_channel_send_later(channel, str("eager")));
+	recv = api_channel_recv(channel);
+	if (api_channel_recv_poll(recv, waker, &payload) == API_POLL_READY) {
+		print("recv ", payload, "\n");
+	}
+	api_channel_recv_future_free(recv);
 	api_channel_free(channel);
+
+	/* A value that holds itself is an object. */
+	api_node *list = api_node_new(1, NULL);
+	api_node_push(list, 2);
+	printf("node %llu\n", (unsigned long long)api_node_sum(list));
+	api_node_free(list);
 	/* Each future dropped its waker once it finished. */
-	return drops == 2 ? 0 : 1;
+	return drops == 3 ? 0 : 1;
 }
 
 /* Each breaks a contract, which must abort with a message naming the function. */

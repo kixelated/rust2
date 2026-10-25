@@ -44,10 +44,11 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 	row("Other items", 0, refused(&["use", "macro", "static", "item"]));
 	let _ = writeln!(
 		out,
-		"\nExported types: {} records, {} enums, {} objects. A refused type's methods are not counted.",
+		"\nExported types: {} records, {} enums, {} objects. A refused type's methods are not counted, nor are the {} `poll_*` methods left out for their async twins.",
 		api.records.len(),
 		api.enums.len(),
-		api.objects.len()
+		api.objects.len(),
+		collected.twins.len()
 	);
 
 	// Each item counts once per construct, however many times it hits it.
@@ -144,6 +145,15 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 		let _ = writeln!(out, "\n## Values exported as objects, since a field does not map\n");
 		for (path, why) in &collected.opaque {
 			let _ = writeln!(out, "- `{path}`: {} `{}`", why.construct, why.detail);
+		}
+	}
+	if !collected.twins.is_empty() {
+		let _ = writeln!(
+			out,
+			"\n## `poll_*` methods left out, since their async twin exports as a future\n"
+		);
+		for path in &collected.twins {
+			let _ = writeln!(out, "- `{path}`");
 		}
 	}
 	if !collected.excluded.is_empty() {

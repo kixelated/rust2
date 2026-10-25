@@ -20,6 +20,13 @@ pub fn generic<T: Copy>(value: T) -> T {
 	value
 }
 
+/// A future that borrows its argument, from a function that runs when called: the export
+/// would have to keep the argument alive past the call.
+#[allow(clippy::manual_async_fn, reason = "the construct under test")]
+pub fn borrowing(name: &str) -> impl Future<Output = usize> + '_ {
+	async move { name.len() }
+}
+
 /// A static.
 pub static COUNT: u8 = 0;
 

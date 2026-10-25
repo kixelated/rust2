@@ -1,8 +1,9 @@
 fixtures/reject/src/lib.rs:14:1: rust2-ffi: cannot export fn `map`: foreign type `std::collections::HashMap`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:19:1: rust2-ffi: cannot export fn `generic`: generic parameter `std::marker::Copy`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:24:1: rust2-ffi: cannot export static `COUNT`: static; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:28:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:36:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:47:2: rust2-ffi: fn `audio::encoder_finish` and fn `audio_encoder::finish` are both `reject_audio_encoder_finish` in C
+fixtures/reject/src/lib.rs:26:1: rust2-ffi: cannot export fn `borrowing`: borrowing future from a function that is not async; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:31:1: rust2-ffi: cannot export static `COUNT`: static; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:35:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:43:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:54:2: rust2-ffi: fn `audio::encoder_finish` and fn `audio_encoder::finish` are both `reject_audio_encoder_finish` in C
 fixtures/reject/src/lib.rs:6:1: rust2-ffi: cannot export struct `Wrap`: generic type; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:9:1: rust2-ffi: cannot export fn `pair`: tuple; exclude it in the config to leave it out

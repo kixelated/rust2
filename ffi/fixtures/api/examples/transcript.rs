@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Point, Shape, Stamp};
+use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp};
 use bytes::Bytes;
 
 /// Keeps even levels, as `tests/api.c`'s implementation does.
@@ -110,4 +110,17 @@ fn main() {
 		Poll::Ready(Err(e)) => println!("nonempty err {e}"),
 		Poll::Pending => println!("nonempty pending"),
 	}
+
+	// The send happens at the call: the future is dropped unpolled.
+	drop(channel.send_later(Bytes::from_static(b"eager")));
+	let mut recv = pin!(channel.recv());
+	if let Poll::Ready(payload) = recv.as_mut().poll(&mut cx) {
+		println!("recv {}", String::from_utf8_lossy(&payload));
+	}
+
+	let list = Node {
+		value: 1,
+		next: Some(Box::new(Node { value: 2, next: None })),
+	};
+	println!("node {}", list.sum());
 }

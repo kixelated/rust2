@@ -164,6 +164,25 @@ impl Channel {
 		.await
 	}
 
+	/// Sends at once, as a function that is not `async` runs when called, and returns a
+	/// future that borrows nothing.
+	pub fn send_later(&self, payload: Bytes) -> impl Future<Output = ()> + use<> {
+		self.send(payload);
+		std::future::ready(())
+	}
+
+	/// `recv`'s poll, which does not map: left out, since `recv` exports as a future.
+	pub fn poll_recv(&self, cx: &mut std::task::Context<'_>) -> Poll<Bytes> {
+		let mut state = self.state.lock().unwrap();
+		match state.0.take() {
+			Some(payload) => Poll::Ready(payload),
+			None => {
+				state.1 = Some(cx.waker().clone());
+				Poll::Pending
+			}
+		}
+	}
+
 	/// Fails once the payload is empty.
 	pub async fn recv_nonempty(&self) -> Result<Bytes, Error> {
 		match self.recv().await {
@@ -239,6 +258,30 @@ impl Logger {
 
 	pub fn write(&self, line: &str) -> bool {
 		self.sink.log(0, line)
+	}
+}
+
+/// A list: every field is `pub`, but it holds itself, which C cannot hold in place, so it
+/// is an object.
+#[derive(Debug)]
+pub struct Node {
+	pub value: u64,
+	pub next: Option<Box<Node>>,
+}
+
+impl Node {
+	pub fn new(value: u64, next: Option<Box<Node>>) -> Self {
+		Self { value, next }
+	}
+
+	/// Prepend `value`.
+	pub fn push(&mut self, value: u64) {
+		let rest = std::mem::replace(self, Node { value, next: None });
+		self.next = Some(Box::new(rest));
+	}
+
+	pub fn sum(&self) -> u64 {
+		self.value + self.next.as_ref().map_or(0, |next| next.sum())
 	}
 }
 
