@@ -1,5 +1,7 @@
 //! Control flow, patterns, aggregates, closures, and traits.
 
+use crate::fmt::Pair;
+
 /// A `Copy` struct, which Rust copies where JS would share.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point {
@@ -26,6 +28,10 @@ impl Point {
 /// A tuple struct.
 #[derive(Clone, Copy)]
 pub struct Meters(pub u64);
+
+/// A tuple struct that is not `Copy`, so struct update syntax reads its base in place.
+#[derive(Debug)]
+pub struct Moved(pub u8, pub u16);
 
 /// An enum with data, and one without.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -168,6 +174,36 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let old = std::mem::replace(&mut a, Point::new(5, 6));
 	out.extend_from_slice(&[a.x as u8, b.x as u8, old.x as u8]);
 
+	// A tuple keeps the values it was made of, though the variable they came from changes.
+	let mut n = data.len() as u32;
+	let both = (n, n);
+	n = 9;
+	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
+
+	// A value computed from a call keeps that call before a later one, though it is read
+	// after.
+	// A conversion reads its bytes before they change.
+	let mut word = [0, 0, 0, data.len() as u8];
+	let converted = u32::from_be_bytes(word);
+	word[0] = 9;
+	out.extend_from_slice(&(converted + word[0] as u32).to_be_bytes());
+
+	// An argument copied keeps its value, though the callee changes its source through
+	// another.
+	let mut cell = [data.len() as u8];
+	out.push(write_then_read(cell, &mut cell));
+
+	// A result returning an argument is its own copy, though the source changes after.
+	let mut source = [data.len() as u8];
+	let returned = same(source);
+	source[0] = 9;
+	out.extend_from_slice(&[returned[0], source[0]]);
+	out.push(copy_then_write((data.len() as u8, 0)));
+
+	let marked = mark(out, 1) == 0;
+	mark(out, 2);
+	out.push(marked as u8);
+
 	let mut opt = Some(Meters(9));
 	let taken = opt.take();
 	out.push(opt.is_none() as u8);
@@ -186,6 +222,119 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		err.y as u8,
 		fail.unwrap_err().y as u8,
 	]);
+}
+
+/// `a`'s byte, after writing `b`'s.
+#[inline(never)]
+fn write_then_read(a: [u8; 1], b: &mut [u8; 1]) -> u8 {
+	b[0] = 9;
+	a[0]
+}
+
+/// A copy of `a` read after `a` changes in place, which it doesn't see.
+fn copy_then_write(mut a: (u8, u8)) -> u8 {
+	let b = a;
+	a.0 = 9;
+	b.0.wrapping_add(a.0)
+}
+
+/// `a` itself.
+#[inline(never)]
+fn same(a: [u8; 1]) -> [u8; 1] {
+	a
+}
+
+/// Logs `b`, returning how much is logged.
+#[inline(never)]
+fn mark(out: &mut Vec<u8>, b: u8) -> usize {
+	out.push(b);
+	out.len()
+}
+
+/// Aggregates written with their fields out of declaration order evaluate them as
+/// written: each field logs as it runs.
+pub fn order(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let rect = Shape::Rect {
+		height: mark(out, at(0)) as u16,
+		width: mark(out, at(1)) as u16,
+		corner: Point {
+			y: mark(out, 2) as i32,
+			x: mark(out, 3) as i32,
+		},
+	};
+	let line = Shape::Line {
+		1: Point::new(mark(out, 4) as i32, 0),
+		0: Point::new(mark(out, 5) as i32, 0),
+	};
+	let pair = Pair {
+		1: mark(out, 6) as i64,
+		0: mark(out, 7) as u8,
+	};
+	// A local read before a later field changes it.
+	let mut n = [at(2)];
+	let read = Point {
+		y: n[0] as i32,
+		x: increment(&mut n) as i32,
+	};
+	// The base is read after the fields, which change it.
+	let mut base = Moved(at(4), 0);
+	let updated = Moved {
+		1: reset(&mut base),
+		..base
+	};
+	// Only the branch taken runs its fields.
+	let taken = match at(3) % 2 {
+		0 => Shape::Rect {
+			width: mark(out, 8) as u16,
+			height: 1,
+			corner: Point::new(0, mark(out, 9) as i32),
+		},
+		_ => Shape::Dot,
+	};
+	let range = std::ops::Range {
+		end: mark(out, 10),
+		start: mark(out, 11) / 2,
+	};
+	let mut sum = 0;
+	for i in (std::ops::Range {
+		end: mark(out, 12),
+		start: mark(out, 13) - 4,
+	}) {
+		sum += i;
+	}
+	let len = data.len();
+	// The sliced value comes before the range's fields.
+	let slice = &logged(data, out)[std::ops::Range {
+		end: mark(out, 14).min(len),
+		start: mark(out, 15).min(len) / 2,
+	}];
+	let text = format!(
+		"{rect:?} {line:?} {pair:?} {read:?} {updated:?} {taken:?} {} {} {sum} {slice:?}",
+		range.start, range.end
+	);
+	out.extend_from_slice(text.as_bytes());
+}
+
+/// `data`, logging that it was read.
+#[inline(never)]
+fn logged<'a>(data: &'a [u8], out: &mut Vec<u8>) -> &'a [u8] {
+	out.push(0xee);
+	data
+}
+
+/// `n`'s byte, incremented.
+#[inline(never)]
+fn increment(n: &mut [u8; 1]) -> u8 {
+	n[0] = n[0].wrapping_add(1);
+	n[0]
+}
+
+/// Changes `m`'s first field.
+#[inline(never)]
+fn reset(m: &mut Moved) -> u16 {
+	m.0 = 9;
+	1
 }
 
 /// Fieldless enums cast to every width, past their discriminant's range and sign.
@@ -306,6 +455,55 @@ fn diverging(data: &[u8], out: &mut Vec<u8>) {
 	out.push(guarded_return(head));
 	let found = bound_never(head, out);
 	out.push(found);
+	out.push(closure_never(b));
+	generic_never(b, data.len());
+}
+
+/// Calls that never return, through a closure, a function pointer, and a closure a
+/// function made: a statement, a bound value, and the tail.
+fn closure_never(b: u8) -> u8 {
+	let fail = |b: u8| -> ! { panic!("closure failed on {b:#x}") };
+	let ptr: fn(u8) -> ! = bail;
+	let made = made_never();
+	if b == 0xf5 {
+		fail(b);
+	}
+	let x: u8 = if b == 0xf4 { ptr(b) } else { b / 5 };
+	match b {
+		0xf3 => fail(b),
+		0xfa => made(b),
+		_ => x,
+	}
+}
+
+/// A closure that never returns, made by a function.
+fn made_never() -> impl Fn(u8) -> ! {
+	|b| panic!("made {b}")
+}
+
+/// Generic functions instantiated at `!`, which edition 2024 infers for a value that
+/// never exists: given one, and given an `Option` of none, which then calls one.
+#[allow(unreachable_code, clippy::diverging_sub_expression, reason = "`!` arguments")]
+fn generic_never(b: u8, len: usize) {
+	fn pass<T>(x: T) -> T {
+		x
+	}
+	fn unwrap_or_bail<T>(o: Option<T>, b: u8) -> T {
+		match o {
+			Some(x) => pass(x),
+			None => bail(b),
+		}
+	}
+	if b == 0xf1 {
+		pass(bail(b));
+	}
+	if b == 0xf6 {
+		pass(panic!("passed {b}"));
+	}
+	if b == 0xf9 {
+		let o = if len > 1 { None } else { Some(panic!("some {b}")) };
+		unwrap_or_bail(o, b);
+	}
 }
 
 /// A function that never returns.
@@ -586,6 +784,11 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 		Shape::Line(a, b) => (a.x - b.x) as i64 * (a.y - b.y) as i64,
 	};
 	out.extend_from_slice(&area.to_be_bytes());
+	// A rest pattern borrowing bytes changes them where they are.
+	let mut bytes = [data.len() as u8, 1, 2];
+	let [_, tail @ ..] = &mut bytes;
+	tail[0] = 9;
+	out.extend_from_slice(&bytes);
 	let total = total(&[shape, Shape::Dot], out) + total(&[Meters(3), Meters(u64::MAX)], out);
 	out.extend_from_slice(&total.to_be_bytes());
 
@@ -634,6 +837,11 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let scale = move |v: u32| v * 3 + base;
 	out.extend_from_slice(&apply(scale, sum).to_be_bytes());
 
+	// A closure writing a whole array through a reference it captured changes the caller's.
+	let mut whole = [data.len() as u8];
+	overwrite(&mut whole);
+	out.push(whole[0]);
+
 	let mut parsed: Vec<Option<Dir>> = Vec::new();
 	for &b in data {
 		parsed.push(dir(b));
@@ -643,6 +851,12 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 		tags.push(d.map(u8::from).unwrap_or(0));
 	}
 	out.extend_from_slice(&tags);
+}
+
+/// Replaces `a` whole from a closure.
+fn overwrite(a: &mut [u8; 1]) {
+	let mut write = || *a = [9];
+	write();
 }
 
 fn apply<F: Fn(u32) -> u32>(f: F, v: u32) -> u32 {

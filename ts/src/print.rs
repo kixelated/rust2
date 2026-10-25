@@ -7,7 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use oxc_sourcemap::SourceMapBuilder;
 
 use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file};
-use crate::ts::{Ctor, Expr, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
+use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
 
 pub struct Printed {
 	pub code: String,
@@ -331,6 +331,22 @@ impl Refs {
 					self.stmts(program, body);
 					self.stmts(program, finally);
 				}
+				StmtKind::Catch { body, handler, .. } => {
+					self.stmts(program, body);
+					self.stmts(program, handler);
+				}
+				StmtKind::Switch {
+					disc, cases, default, ..
+				} => {
+					self.expr(program, disc);
+					for (value, body) in cases {
+						self.expr(program, value);
+						self.stmts(program, body);
+					}
+					self.stmts(program, default);
+				}
+				StmtKind::Declare { ty, .. } => self.ty(program, ty),
+				StmtKind::Throw(e) => self.expr(program, e),
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -342,7 +358,7 @@ impl Refs {
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
-			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) => self.expr(program, e),
+			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::Postfix(e, _) => self.expr(program, e),
 			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 				self.expr(program, a);
 				self.expr(program, b);
@@ -493,8 +509,19 @@ impl Printer<'_> {
 					self.doc(&field.doc);
 					self.start();
 					let ty = self.ty(&field.ty);
-					self.write(&format!("{}: {ty};\n", self.program.fields[field.id].name));
+					let name = self.program.fields[field.id].name.clone();
+					match &field.init {
+						FieldInit::Ctor => self.write(&format!("{name}: {ty};\n")),
+						FieldInit::Later => self.write(&format!("{name}!: {ty};\n")),
+						FieldInit::Value(value) => {
+							self.write(&format!("{name}: {ty} = "));
+							self.expr(value, 2);
+							self.write(";\n");
+						}
+					}
 				}
+				let fields: Vec<&crate::ts::Field> =
+					fields.iter().filter(|f| matches!(f.init, FieldInit::Ctor)).collect();
 				let names: Vec<String> = fields.iter().map(|f| self.program.fields[f.id].name.clone()).collect();
 				match ctor {
 					Ctor::Unit => {}
@@ -801,6 +828,53 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::Catch { body, name, handler } => {
+				self.write("try {\n");
+				self.block_body(body);
+				self.start();
+				let name = self.local(name).to_string();
+				self.write(&format!("}} catch ({name}) {{\n"));
+				self.block_body(handler);
+				self.start();
+				self.write("}\n");
+			}
+			StmtKind::Switch {
+				label,
+				disc,
+				cases,
+				default,
+			} => {
+				self.label(label);
+				self.write("switch (");
+				self.expr(disc, 0);
+				self.write(") {\n");
+				self.indent += 1;
+				for (value, body) in cases {
+					self.start();
+					self.write("case ");
+					self.expr(value, 0);
+					self.write(":\n");
+					self.block_body(body);
+				}
+				if !default.is_empty() {
+					self.start();
+					self.write("default:\n");
+					self.block_body(default);
+				}
+				self.indent -= 1;
+				self.start();
+				self.write("}\n");
+			}
+			StmtKind::Declare { name, ty } => {
+				let name = self.local(name).to_string();
+				let ty = self.ty(ty);
+				self.write(&format!("let {name}!: {ty};\n"));
+			}
+			StmtKind::Throw(value) => {
+				self.write("throw ");
+				self.expr(value, 0);
+				self.write(";\n");
+			}
 			StmtKind::Break(label) => match label {
 				Some(label) => self.write(&format!("break {label};\n")),
 				None => self.write("break;\n"),
@@ -897,6 +971,10 @@ impl Printer<'_> {
 					}
 					false => self.expr(arg, 17),
 				}
+			}
+			Expr::Postfix(arg, op) => {
+				self.expr(arg, 19);
+				self.write(op);
 			}
 			Expr::Binary(l, op, r) => {
 				let p = binary_prec(op);
@@ -1098,6 +1176,7 @@ fn prec(e: &Expr) -> u8 {
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
 		Expr::Unary(..) => 17,
+		Expr::Postfix(..) => 18,
 		Expr::Lit(text) if text.starts_with('-') => 17,
 		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) => 19,
 		Expr::Located(_, e) => prec(e),
@@ -1164,6 +1243,23 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(body, out);
 				collect_locals(finally, out);
 			}
+			StmtKind::Catch { body, name, handler } => {
+				collect_locals(body, out);
+				out.push(name.clone());
+				collect_locals(handler, out);
+			}
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
+				collect_expr_locals(disc, out);
+				for (value, body) in cases {
+					collect_expr_locals(value, out);
+					collect_locals(body, out);
+				}
+				collect_locals(default, out);
+			}
+			StmtKind::Declare { name, .. } => out.push(name.clone()),
+			StmtKind::Throw(e) => collect_expr_locals(e, out),
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
 	}
@@ -1188,7 +1284,9 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),
-		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => collect_expr_locals(e, out),
+		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => {
+			collect_expr_locals(e, out)
+		}
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);

@@ -65,6 +65,19 @@ pub enum Std {
 	RangeInclusive,
 	/// `rt.Peekable`, an iterator with `peek`.
 	Peekable,
+	/// What `?` branches on, as MIR spells it: the value it was applied to.
+	ControlFlow,
+	/// `..end`, `start..`, and `..`, as MIR makes them to slice by: `{ end }`, `{ start }`,
+	/// and `undefined`.
+	RangeTo,
+	RangeFrom,
+	RangeFull,
+	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
+	Argument,
+	/// Its pointee: what an async body passes its context in.
+	NonNull,
+	/// No value: `never`.
+	Infallible,
 }
 
 impl Std {
@@ -106,6 +119,9 @@ impl Std {
 			(rustc_attr_ir::LangItem::Pin, Self::Pin),
 			(rustc_attr_ir::LangItem::Range, Self::Range),
 			(rustc_attr_ir::LangItem::RangeInclusiveStruct, Self::RangeInclusive),
+			(rustc_attr_ir::LangItem::RangeTo, Self::RangeTo),
+			(rustc_attr_ir::LangItem::RangeFrom, Self::RangeFrom),
+			(rustc_attr_ir::LangItem::RangeFull, Self::RangeFull),
 		] {
 			if tcx.is_lang_item(did, item) {
 				return Some(std);
@@ -131,6 +147,10 @@ impl Std {
 			["fmt", "builders", "DebugList"] => Some(Self::DebugList),
 			["panicking", "AssertKind"] => Some(Self::AssertKind),
 			["iter", "adapters", "peekable", "Peekable"] => Some(Self::Peekable),
+			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
+			["fmt", "rt", "Argument"] => Some(Self::Argument),
+			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["convert", "Infallible"] => Some(Self::Infallible),
 			_ => None,
 		}
 	}
@@ -538,8 +558,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let Args::Thir(ids) = args else {
 				return None;
 			};
-			let s = b.operand(ids[0], out);
-			let (start, end) = range_bounds(b, ids[1], out)?;
+			let mut s = [b.operand(ids[0], out)];
+			let (start, end) = range_bounds(b, &mut s, ids[1], out)?;
+			let [s] = s;
 			let end = end.unwrap_or_else(|| s.clone().member("length"));
 			let dest = b.operand(ids[2], out);
 			Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest])
@@ -664,7 +685,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						// A JS array has no views, so a mutable subslice would be a copy.
 						return None;
 					}
-					let (start, end) = range_bounds(b, ids[1], out)?;
+					let mut base = [base];
+					let (start, end) = range_bounds(b, &mut base, ids[1], out)?;
+					let [base] = base;
 					let mut values = vec![base, start];
 					values.extend(end);
 					Expr::Rt("slice").member("range").call(values)
@@ -839,6 +862,11 @@ fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out:
 		}
 	};
 	let values = b.operands(fields, out);
+	be_word(int, values)
+}
+
+/// A number from its big-endian bytes, each a value: shifted and or-ed.
+pub fn be_word(int: Int, values: Vec<Expr>) -> Expr {
 	let last = values.len() - 1;
 	let mut word: Option<Expr> = None;
 	let mut top = false;
@@ -870,7 +898,7 @@ fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out:
 }
 
 /// The `n`th type among a call's generic arguments, skipping lifetimes.
-fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
+pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 	gargs.types().nth(n).expect("a type argument")
 }
 
@@ -941,7 +969,13 @@ fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec
 }
 
 /// The start and optional end of a range written in place: `a..b`, `..b`, `a..`, `..`.
-fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<(Expr, Option<Expr>)> {
+/// `earlier` are the operands evaluated before it, spilled if the range needs statements.
+fn range_bounds<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	earlier: &mut [Expr],
+	id: ExprId,
+	out: &mut Vec<Stmt>,
+) -> Option<(Expr, Option<Expr>)> {
 	let tcx = b.t.tcx;
 	let written = id;
 	let id = b.strip(id);
@@ -956,11 +990,19 @@ fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt
 	let ExprKind::Adt(range) = &b.thir[id].kind else {
 		return None;
 	};
-	let mut fields: Vec<(usize, ExprId)> = range.fields.iter().map(|f| (f.name.index(), f.expr)).collect();
-	fields.sort_by_key(|(i, _)| *i);
-	let ids: Vec<ExprId> = fields.iter().map(|(_, id)| *id).collect();
+	let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
 	b.visit(written);
-	let mut values = b.operands(&ids, out);
+	let mut pre = Vec::new();
+	let values = b.operands(&ids, &mut pre);
+	let values = range.fields.iter().map(|f| f.name.index()).zip(values).collect();
+	let mut values: Vec<Expr> = b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect();
+	if !pre.is_empty() {
+		for value in earlier.iter_mut().filter(|v| !v.is_constant()) {
+			let saved = std::mem::replace(value, Expr::undefined());
+			*value = b.spill(saved, "arg", out);
+		}
+	}
+	out.extend(pre);
 	match name.as_str() {
 		"Range" => {
 			let end = values.pop()?;
@@ -1002,7 +1044,7 @@ fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<St
 }
 
 /// The value at `place`, after setting `place` to `value`.
-fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+pub fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 	let name = b.fresh(base);
 	out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
 	out.push(StmtKind::Expr(place.assign(value)).at(None));
@@ -1010,7 +1052,7 @@ fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &s
 }
 
 /// `Default::default()` for a standard type.
-fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
+pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
@@ -1037,7 +1079,7 @@ fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr>
 }
 
 /// The text of a `fmt::Arguments` with only literal pieces, which writes it as is.
-fn literal(parts: &Expr) -> Option<String> {
+pub fn literal(parts: &Expr) -> Option<String> {
 	let Expr::Array(parts) = parts else {
 		return None;
 	};

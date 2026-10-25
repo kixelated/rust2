@@ -399,6 +399,14 @@ pub fn rest_moved(pair: [Noisy; 2]) -> u8 {
 	first.0 + rest[0].0
 }
 
+/// `rest` borrows the tail of `items` mutably, but a JS array has no views.
+pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
+	if let [_, rest @ ..] = items {
+		rest[0] = 9;
+	}
+	items[1]
+}
+
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
@@ -408,4 +416,22 @@ pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::
 pub fn repeated(n: Noisy) -> usize {
 	let empty = [n; 0];
 	empty.len()
+}
+
+/// A reference copied into a closure holds its referent's object: replacing through it
+/// would change the copy, not the referent.
+pub fn replace_captured(a: &mut [u8; 1]) -> [u8; 1] {
+	let mut g = move || std::mem::replace(&mut *a, [9]);
+	g()
+}
+
+/// Each copy of a closure has its own captures, which copies of an arrow function share.
+pub fn copied_closure(n: u8) -> u8 {
+	let mut a = [n];
+	let mut g = move || {
+		a[0] = a[0].wrapping_add(1);
+		a[0]
+	};
+	let mut h = g;
+	g().wrapping_add(h())
 }

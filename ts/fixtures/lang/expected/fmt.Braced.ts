@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(_self: Braced, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(_self: Braced, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.writeStr("Braced");
 }
 
-export function eq(_self: Braced, _other: Braced): boolean {
+export function eq$PartialEq(_self: Braced, _other: Braced): boolean {
 	return true;
 }
 

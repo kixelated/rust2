@@ -149,11 +149,15 @@ const VERBATIM: &[&str] = &[
 	"Option",
 	"Pointer",
 	"Ready",
+	"Reborrow",
 	"Result",
 	"Some",
 	"UpperExp",
+	"async fn",
+	"become",
 	"bool",
 	"break",
+	"copy_nonoverlapping",
 	"fold",
 	"for",
 	"format_args!",
@@ -355,11 +359,22 @@ mod tests {
 	/// stays in the construct.
 	#[test]
 	fn verbatim_covers_messages() {
-		let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-			.join("src")
-			.join("lower");
-		for entry in std::fs::read_dir(dir).unwrap() {
-			let path = entry.unwrap().path();
+		let mut dirs = vec![
+			std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+				.join("src")
+				.join("lower"),
+		];
+		let mut files = Vec::new();
+		while let Some(dir) = dirs.pop() {
+			for entry in std::fs::read_dir(dir).unwrap() {
+				let path = entry.unwrap().path();
+				match path.is_dir() {
+					true => dirs.push(path),
+					false => files.push(path),
+				}
+			}
+		}
+		for path in files {
 			let text = std::fs::read_to_string(&path).unwrap();
 			let code = text.lines().filter(|line| !line.trim_start().starts_with("//"));
 			// Every other piece between quotes is a string literal.

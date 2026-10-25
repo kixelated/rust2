@@ -263,6 +263,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						ty::Uint(ty::UintTy::U8) => "subarray",
 						_ => "slice",
 					};
+					if method == "slice" && binds_mut_ref(p) {
+						self.t.err(
+							p.span,
+							format!("a mutable borrow of a subslice of `{elem}`, which JS would copy, having no views"),
+						);
+					}
 					// Its copy of the elements would drop them, and so would the place they stay in.
 					let rest_ty = self.subst(p.ty);
 					if !owned && !matches!(rest_ty.kind(), ty::Ref(..)) && self.t.drops(rest_ty) {

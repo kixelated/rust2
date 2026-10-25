@@ -14,7 +14,7 @@ export class Producer {
 	}
 
 	[Symbol.dispose](): void {
-		drop(this);
+		drop$Drop(this);
 		rt.drop(this.state);
 	}
 }
@@ -36,12 +36,12 @@ export function consume(self: Producer): Consumer.Consumer {
 	return new Consumer.Consumer({ state: self.state.clone(), next: 0 });
 }
 
-export function clone(self: Producer): Producer {
+export function clone$Clone(self: Producer): Producer {
 	self.state.value.value.producers = rt.usize.add(self.state.value.value.producers, 1);
 	return new Producer({ state: self.state.clone() });
 }
 
-export function drop(self: Producer): void {
+export function drop$Drop(self: Producer): void {
 	let state: rt.Mutex<State.State> = self.state.value;
 	state.value.producers = rt.usize.sub(state.value.producers, 1);
 	if (state.value.producers > 0) {

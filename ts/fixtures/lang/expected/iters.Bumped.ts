@@ -7,7 +7,7 @@ export interface Bumped {
 	_0: rt.u8;
 }
 
-export function clone(self: Bumped): Bumped {
+export function clone$Clone(self: Bumped): Bumped {
 	return { _0: rt.u8.wrappingAdd(self._0, 1) };
 }
 

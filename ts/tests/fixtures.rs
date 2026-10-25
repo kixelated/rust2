@@ -56,6 +56,25 @@ fn translated(name: &str) -> PathBuf {
 	out
 }
 
+/// Run the driver on a fixture with bodies lowered from MIR, the spike's prototype.
+fn translate_mir(name: &str) -> (PathBuf, Output) {
+	let out = scratch().join(name).join("mir");
+	let config = fixture(name).join("ts.toml");
+	let args: [&std::ffi::OsStr; 4] = ["--out".as_ref(), out.as_ref(), "--lower".as_ref(), "mir".as_ref()];
+	let output = driver(name, &config, &args, "mir");
+	(out, output)
+}
+
+fn translated_mir(name: &str) -> PathBuf {
+	let (out, output) = translate_mir(name);
+	assert!(
+		output.status.success(),
+		"translating {name} from MIR failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	out
+}
+
 /// The generated TypeScript, by path relative to `dir`, without the runtime.
 fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
 	let mut files = Vec::new();
@@ -235,38 +254,69 @@ fn shake(out: &Path) {
 	assert_eq!(kept, want, "the bundle keeps more than the caller reaches:\n{bundle}");
 }
 
+/// The codec with bodies lowered from MIR: the same differential test, without a snapshot.
+#[test]
+fn codec_mir() {
+	let out = translated_mir("codec");
+	typecheck(&out);
+	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
+}
+
 /// Adding a root changes only the output of what it reaches: everything else keeps its
 /// text and order, though translation reaches it in another order.
 #[test]
 fn source_order() {
-	let config = std::fs::read_to_string(fixture("codec").join("ts.toml")).unwrap();
-	let roots = r#"roots = ["harness::run", "bench::run"]"#;
-	assert!(config.contains(roots), "codec's roots changed: update this test");
-	let dir = scratch().join("codec").join("order");
+	added_root(
+		"codec",
+		r#"roots = ["harness::run", "bench::run"]"#,
+		r#"roots = ["harness::run"]"#,
+		// First, so that translation reaches what both share in another order.
+		r#"roots = ["bench::run", "harness::run"]"#,
+	);
+}
+
+/// Adding a root that reaches another instance of a generic function, or another trait's
+/// impl of a method, renames nothing the old roots reach.
+#[test]
+fn stable_names() {
+	let roots = r#"roots = ["harness::run", "fmt::Fault"]"#;
+	added_root(
+		"lang",
+		roots,
+		roots,
+		r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#,
+	);
+}
+
+/// Translate fixture `name` with its config's `roots` line replaced by `base`, then by
+/// `added`, and check that every line of the first output stays, in order, in the second.
+fn added_root(name: &str, roots: &str, base: &str, added: &str) {
+	let config = std::fs::read_to_string(fixture(name).join("ts.toml")).unwrap();
+	assert!(config.contains(roots), "{name}'s roots changed: update this test");
+	let dir = scratch().join(name).join("order");
 	std::fs::create_dir_all(&dir).unwrap();
-	let run = |name: &str, with: &str| {
-		let path = dir.join(format!("{name}.toml"));
+	let run = |file: &str, with: &str| {
+		let path = dir.join(format!("{file}.toml"));
 		std::fs::write(&path, config.replace(roots, with)).unwrap();
-		let out = dir.join(name);
-		let output = driver("codec", &path, &["--out".as_ref(), out.as_ref()], "order");
+		let out = dir.join(file);
+		let output = driver(name, &path, &["--out".as_ref(), out.as_ref()], "order");
 		assert!(
 			output.status.success(),
-			"translating codec with {with} failed:\n{}",
+			"translating {name} with {with} failed:\n{}",
 			String::from_utf8_lossy(&output.stderr)
 		);
 		sources(&out)
 	};
-	let base = run("base", r#"roots = ["harness::run"]"#);
-	// First, so that translation reaches what both share in another order.
-	let added = run("added", r#"roots = ["bench::run", "harness::run"]"#);
+	let base = run("base", base);
+	let more = run("added", added);
 	for (rel, text) in &base {
-		let more = added.iter().find(|(r, _)| r == rel).map(|(_, text)| text);
-		let more = more.unwrap_or_else(|| panic!("{} is gone once bench::run is added", rel.display()));
+		let more = more.iter().find(|(r, _)| r == rel).map(|(_, text)| text);
+		let more = more.unwrap_or_else(|| panic!("{} is gone once {added}", rel.display()));
 		let mut rest = lines(more).into_iter();
 		for line in lines(text) {
 			assert!(
 				rest.any(|l| l == line),
-				"{}: this line changed or moved once bench::run was added:\n{line}",
+				"{}: this line changed or moved once {added}:\n{line}",
 				rel.display()
 			);
 		}
@@ -292,13 +342,24 @@ fn lines(text: &str) -> Vec<String> {
 fn lang() {
 	let out = translated("lang");
 	snapshot("lang", &out);
+	lang_differential(&out);
+}
+
+/// The language fixture with bodies lowered from MIR.
+#[test]
+fn lang_mir() {
+	let out = translated_mir("lang");
+	lang_differential(&out);
+}
+
+fn lang_differential(out: &Path) {
 	// Hand-written callers, type-checked against the output they call: one runs it, and
 	// one mixes integer types, which `tsc` must refuse.
 	for file in ["caller.ts", "brands.ts"] {
 		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
 	}
-	typecheck(&out);
-	differential("lang-fixture", &out, "caller.ts", 50_000, &["wide"]);
+	typecheck(out);
+	differential("lang-fixture", out, "caller.ts", 50_000, &["wide"]);
 }
 
 /// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
@@ -307,6 +368,17 @@ fn lang() {
 fn task() {
 	let out = translated("task");
 	snapshot("task", &out);
+	task_differential(&out);
+}
+
+/// Futures and drops with bodies lowered from MIR: each async body a state machine.
+#[test]
+fn task_mir() {
+	let out = translated_mir("task");
+	task_differential(&out);
+}
+
+fn task_differential(out: &Path) {
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
@@ -317,18 +389,69 @@ import {{ blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
+const fixture = {{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }};
+export const run = harness(fixture);
+export const unwind = harness(fixture, true);
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
-	typecheck(&out);
-	differential("task-fixture", &out, "caller.ts", 20_000, &[]);
+	typecheck(out);
+	differential("task-fixture", out, "caller.ts", 20_000, &[]);
+	unwinding(out, "caller.ts", 5_000);
+}
+
+/// Run the task fixture's scripts where a panic unwinds, natively on the host and
+/// translated, logging each step's panic and going on: what a panic drops must match.
+fn unwinding(out: &Path, entry: &str, scripts: u32) {
+	let target_dir = scratch().join("host");
+	let status = cargo()
+		.args([
+			"build",
+			"--locked",
+			"--package",
+			"task-fixture",
+			"--example",
+			"unwind",
+			"--target-dir",
+		])
+		.arg(&target_dir)
+		.arg("--manifest-path")
+		.arg(manifest_dir().join("Cargo.toml"))
+		.status()
+		.expect("running cargo");
+	assert!(status.success(), "building the unwind example failed");
+	let output = Command::new("node")
+		.arg(manifest_dir().join("tests").join("unwind.ts"))
+		.arg(target_dir.join("debug").join("examples").join("unwind"))
+		.arg(out.join(entry))
+		.arg(scripts.to_string())
+		.output()
+		.expect("running node, which the dev shell provides");
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		output.status.success(),
+		"unwinding differs from native Rust:\n{stdout}{stderr}"
+	);
+	println!("{stdout}");
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.
 #[test]
 fn reject() {
 	let (out, output) = translate("reject");
+	rejected(&out, &output, "expected.txt");
+}
+
+/// What lowering from MIR refuses in the same fixture.
+#[test]
+fn reject_mir() {
+	let (out, output) = translate_mir("reject");
+	rejected(&out, &output, "expected-mir.txt");
+}
+
+/// The errors of a failed translation, each with where it points, against `expected`.
+fn rejected(out: &Path, output: &Output, expected: &str) {
 	assert!(!output.status.success(), "translating reject succeeded");
 	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
 	let stderr = String::from_utf8_lossy(&output.stderr);
@@ -344,7 +467,7 @@ fn reject() {
 			got.push('\n');
 		}
 	}
-	let path = fixture("reject").join("expected.txt");
+	let path = fixture("reject").join(expected);
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;

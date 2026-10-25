@@ -11,7 +11,7 @@ import type * as Tally from "./model.Tally.ts";
 
 /**
  * Every value until the channel closes, summed, holding a guard of its own across
- * each await beside the one it was given.
+ * each await beside the one it was given. It panics on 99.
  */
 export function sum(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return rt.future(sumBody, sumDrop, rx, guard);
@@ -24,7 +24,7 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer.Consumer, guard:
 		const guard2 = guard;
 		guard = undefined!;
 		try {
-			const inner = Guard.new(rt.u32.add(guard2.id, 100), Log.clone(guard2.log));
+			const inner = Guard.new(rt.u32.add(guard2.id, 100), Log.clone$Clone(guard2.log));
 			try {
 				let total: rt.u64 = 0;
 				while (true) {
@@ -45,6 +45,9 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer.Consumer, guard:
 					}
 					if (option !== undefined) {
 						const value = option;
+						if (value === 99) {
+							rt.panic(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " poisoned"]);
+						}
 						Log.note(inner.log, rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " got ", (f: rt.Formatter) => rt.u64.display(value, f)]));
 						total = rt.u64.add(total, value);
 					} else {
@@ -87,9 +90,9 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer.Consumer, gua
 		guard = undefined!;
 		try {
 			const moves2 = moves;
-			let first = Guard.new(rt.u32.add(guard2.id, 200), Log.clone(guard2.log));
+			let first = Guard.new(rt.u32.add(guard2.id, 200), Log.clone$Clone(guard2.log));
 			try {
-				let second = Guard.new(rt.u32.add(guard2.id, 300), Log.clone(guard2.log));
+				let second = Guard.new(rt.u32.add(guard2.id, 300), Log.clone$Clone(guard2.log));
 				try {
 					rt.drop(rt.future(blocksBody$2, undefined, first));
 					turns(guard2.log, rt.u32.rem(guard2.id, 5));
@@ -134,13 +137,13 @@ export function* blocksBody(_taskContext: rt.Context, rx: Consumer.Consumer, gua
 							rt.drop(__awaitee2);
 						}
 						Guard.note(guard2, rt.fmt.format(["mark ", (f: rt.Formatter) => rt.u32.display(replaced, f), " ", (f: rt.Formatter) => rt.u32.display(mark.n, f)]));
-						let cycle = new Outer.Outer({ inner: undefined, guard: Guard.new(rt.u32.add(guard2.id, 800), Log.clone(guard2.log)) });
+						let cycle = new Outer.Outer({ inner: undefined, guard: Guard.new(rt.u32.add(guard2.id, 800), Log.clone$Clone(guard2.log)) });
 						try {
 							const cycle2 = cycle;
 							cycle = undefined!;
 							const _nested = new Inner.Inner({ outer: cycle2 });
 							try {
-								let third = Guard.new(rt.u32.add(guard2.id, 400), Log.clone(guard2.log));
+								let third = Guard.new(rt.u32.add(guard2.id, 400), Log.clone$Clone(guard2.log));
 								try {
 									let chosen: Guard.Guard = undefined!;
 									try {
@@ -250,7 +253,7 @@ export function* blocksBody$6(_taskContext6: rt.Context, first: Guard.Guard, sec
 			try {
 				Guard.note(first, "reads");
 				Guard.note(second, "reads");
-				const _held = Guard.new(rt.u32.add(second.id, 100), Log.clone(second.log));
+				const _held = Guard.new(rt.u32.add(second.id, 100), Log.clone$Clone(second.log));
 				try {
 					let option: rt.u64 | undefined;
 					let __awaitee3: rt.Future<rt.u64 | undefined> = Consumer.recv(rx2);
@@ -313,24 +316,24 @@ export function pick(log: Log.Log, i: rt.usize): rt.usize {
  * guard a method takes by value, which drops inside it.
  */
 export function turns(log: Log.Log, count: rt.u32): void {
-	const pair = [Guard.new(rt.u32.add(count, 10), Log.clone(log)), Guard.new(rt.u32.add(count, 20), Log.clone(log))];
+	const pair = [Guard.new(rt.u32.add(count, 10), Log.clone$Clone(log)), Guard.new(rt.u32.add(count, 20), Log.clone$Clone(log))];
 	try {
 		const kept = pair[0];
 		pair[0] = undefined!;
 		try {
 			Guard.note(kept, "kept");
-			const pinned = Guard.new(rt.u32.add(count, 40), Log.clone(log));
+			const pinned = Guard.new(rt.u32.add(count, 40), Log.clone$Clone(log));
 			try {
 				Guard.note(pinned, "pinned");
-				const held = Guard.new(rt.u32.add(count, 50), Log.clone(log));
+				const held = Guard.new(rt.u32.add(count, 50), Log.clone$Clone(log));
 				try {
 					const borrowed = held;
 					Guard.note(borrowed, "borrowed");
-					const extended = Guard.new(rt.u32.add(count, 60), Log.clone(log));
+					const extended = Guard.new(rt.u32.add(count, 60), Log.clone$Clone(log));
 					try {
 						Guard.note(extended, "extended");
 						let value: rt.u32;
-						const inner = Guard.new(rt.u32.add(count, 90), Log.clone(log));
+						const inner = Guard.new(rt.u32.add(count, 90), Log.clone$Clone(log));
 						try {
 							value = inner.id;
 						} finally {
@@ -338,13 +341,13 @@ export function turns(log: Log.Log, count: rt.u32): void {
 						}
 						const scoped = value;
 						Log.note(log, rt.fmt.format(["after ", (f: rt.Formatter) => rt.u32.display(scoped, f)]));
-						const boxed = Guard.new(rt.u32.add(count, 100), Log.clone(log));
+						const boxed = Guard.new(rt.u32.add(count, 100), Log.clone$Clone(log));
 						try {
 							const once = boxed.id;
 							Log.note(log, rt.fmt.format(["boxed ", (f: rt.Formatter) => rt.u32.display(once, f), " ", (f: rt.Formatter) => rt.u32.display(boxed.id, f)]));
-							const finished = Guard.finish(Guard.new(rt.u32.add(count, 110), Log.clone(log)), "finishing");
+							const finished = Guard.finish(Guard.new(rt.u32.add(count, 110), Log.clone$Clone(log)), "finishing");
 							Log.note(log, rt.fmt.format(["finished ", (f: rt.Formatter) => rt.u32.display(finished, f)]));
-							const spares = [Guard.new(rt.u32.add(count, 70), Log.clone(log)), Guard.new(rt.u32.add(count, 80), Log.clone(log))];
+							const spares = [Guard.new(rt.u32.add(count, 70), Log.clone$Clone(log)), Guard.new(rt.u32.add(count, 80), Log.clone$Clone(log))];
 							try {
 								const index = pick(log, rt.usize.rem(count as rt.usize, 2));
 								spares[rt.idx(spares, index)];
@@ -357,7 +360,7 @@ export function turns(log: Log.Log, count: rt.u32): void {
 									if (n < 4) {
 										let left: rt.u32 = n;
 										while (true) {
-											const turn = Guard.new(left, Log.clone(log));
+											const turn = Guard.new(left, Log.clone$Clone(log));
 											try {
 												if (left === 1) {
 													break;

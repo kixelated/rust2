@@ -25,7 +25,8 @@ pub struct Symbol {
 	pub module: ModPath,
 	/// The name it would like, before collisions are resolved.
 	pub base: String,
-	/// Appended, after a `$`, when the base collides; empty for a numbered suffix.
+	/// Appended after a `$`, whether or not another instance of its item is reached:
+	/// what tells the instance apart, such as `Display_Pair`. Empty for none.
 	pub suffix: String,
 	/// The class a method belongs to.
 	pub owner: Option<SymId>,
@@ -57,7 +58,8 @@ pub enum SymKind {
 	/// A type alias, which has no value.
 	Union,
 	Function,
-	/// A class's method, called on its receiver: only drop glue's `[Symbol.dispose]`.
+	/// A class's method, called on its receiver: drop glue's `[Symbol.dispose]`, and a
+	/// coroutine's `poll`.
 	Method,
 }
 
@@ -136,27 +138,17 @@ impl Program {
 				// What a class already defines.
 				Scope::Owner(_) => taken.extend(["constructor".to_string(), "prototype".to_string()]),
 			}
-			// Instances sharing a name are all told apart, so none looks like the only one.
-			let mut shared: HashMap<&str, usize> = HashMap::new();
-			for &id in &ids {
-				*shared.entry(self.syms[id].base.as_str()).or_default() += 1;
-			}
-			let shared: HashSet<String> = shared
-				.into_iter()
-				.filter(|(_, n)| *n > 1)
-				.map(|(b, _)| b.to_string())
-				.collect();
 			for id in ids {
 				let sym = &self.syms[id];
-				let base = match shared.contains(&sym.base) && !sym.suffix.is_empty() {
-					true => format!("{}${}", sym.base, sym.suffix),
-					false => sym.base.clone(),
+				let base = match sym.suffix.is_empty() {
+					true => sym.base.clone(),
+					false => format!("{}${}", sym.base, sym.suffix),
 				};
 				let escaped = match sym.kind {
 					SymKind::Function => crate::lower::escape(&base),
 					_ => base.clone(),
 				};
-				let name = unique(&mut taken, &escaped, "");
+				let name = unique(&mut taken, &escaped);
 				self.syms[id].alias = (name == escaped && escaped != base).then_some(base);
 				self.syms[id].name = name;
 			}
@@ -167,7 +159,7 @@ impl Program {
 						true => format!("_{}", field.base),
 						false => field.base.clone(),
 					};
-					field.name = unique(&mut taken, &base, "");
+					field.name = unique(&mut taken, &base);
 				}
 			}
 		}
@@ -220,11 +212,9 @@ enum Scope {
 	Owner(SymId),
 }
 
-fn unique(taken: &mut HashSet<String>, base: &str, suffix: &str) -> String {
+/// `base`, or the first of `base$2`, `base$3`, and on that is not taken.
+fn unique(taken: &mut HashSet<String>, base: &str) -> String {
 	let mut name = base.to_string();
-	if taken.contains(&name) && !suffix.is_empty() {
-		name = format!("{base}${suffix}");
-	}
 	let mut n = 2;
 	while taken.contains(&name) {
 		name = format!("{base}${n}");
