@@ -448,9 +448,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ty::Adt(..) => library::vec_view(base, container),
 			_ => base,
 		};
-		let base = self.path(base, "slice", out);
 		match Int::of(index_ty) {
 			Some(_) => {
+				let base = self.path(base, "slice", out);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
@@ -471,7 +471,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// A JS array has no views, so a mutable subslice would be a copy.
 					return None;
 				}
+				// The range's bounds are taken apart before the slice is read, while they are
+				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
 				Some(Some((Expr::Rt("slice").member("range").call(values), true)))
@@ -492,8 +495,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		};
 		let name = tcx.item_name(adt.did()).to_string();
-		if name == "RangeFull" {
-			return Some((Expr::lit("0"), None));
+		match name.as_str() {
+			"RangeFull" => return Some((Expr::lit("0"), None)),
+			"Range" | "RangeTo" | "RangeFrom" => {}
+			_ => return None,
 		}
 		let fields: Vec<Expr> = match self.take_parts(op) {
 			Some(parts) => parts,
@@ -511,8 +516,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		match name.as_str() {
 			"Range" => Some((fields.next()?, Some(fields.next()?))),
 			"RangeTo" => Some((Expr::lit("0"), fields.next())),
-			"RangeFrom" => Some((fields.next()?, None)),
-			_ => None,
+			_ => Some((fields.next()?, None)),
 		}
 	}
 
