@@ -171,8 +171,9 @@
             };
           };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
-          # so stable remains the default. It holds only what the benchmark runs,
-          # since a PR runs bench.yml only when this shell's derivation changes.
+          # so stable remains the default. It holds only what the benchmark runs:
+          # a PR runs bench.yml only when this shell, or another output it lists
+          # (bench-ra-jit), changes derivation.
           devShells.build-bench = pkgs.mkShell {
             packages =
               with pkgs;

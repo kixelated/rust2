@@ -1,7 +1,7 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, or the `build-bench` shell.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
 Every build-speed change here states its effect with its numbers.
 
 ```bash
