@@ -1189,7 +1189,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..
-					}) = out.last() && let Some(parts) = parts_of(value)
+					}) = out.last()
+					&& let Some(parts) = parts_of(value)
 				{
 					self.var_parts.insert(local, parts);
 				}

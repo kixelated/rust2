@@ -1978,7 +1978,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				// A `ref` binding keeps a temporary alive to the end of the block.
 				if let PatKind::Binding {
 					mode, subpattern: None, ..
-				} = pattern.kind && mode.0 != rustc_hir::ByRef::No
+				} = pattern.kind
+					&& mode.0 != rustc_hir::ByRef::No
 					&& let Some(init) = *initializer
 					&& !self.is_place(init)
 				{

@@ -234,7 +234,8 @@ fn keeps_operands(owner: &str, name: &str) -> bool {
 			| (
 				"Result",
 				"map" | "map_err" | "and_then" | "inspect_err" | "unwrap" | "expect" | "unwrap_err"
-			) | ("Vec", "push")
+			)
+			| ("Vec", "push")
 			| ("Box", "new")
 			| ("boxed", "box_new")
 			| ("mem", "replace" | "take" | "swap")

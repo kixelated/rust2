@@ -235,7 +235,10 @@ export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic
 fn shake(out: &Path) {
 	let bundlers: [(&str, &[&str]); 2] = [
 		("bun", &["build", "--target=browser", "--minify-syntax"]),
-		("esbuild", &["--bundle", "--format=esm", "--platform=browser", "--minify-syntax"]),
+		(
+			"esbuild",
+			&["--bundle", "--format=esm", "--platform=browser", "--minify-syntax"],
+		),
 	];
 	for (bundler, args) in bundlers {
 		let output = Command::new(bundler)
