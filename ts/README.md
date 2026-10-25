@@ -235,9 +235,10 @@ they need.
   either end, and its branches hold each child's lower bound. A node's slots shift in a
   loop, which beat `splice` 2-3x at these sizes. On `just ts bench`'s `btree/` workloads
   it takes 0.5-0.8x the time two sorted arrays did, from 16 keys to 4096, in Node, Bun,
-  and Chrome; 64 keys a node measured best of 16 to 128. A hash map's JS primitive keys are a JS `Map`'s, the engine's own hash
-  table; its other keys go into a second `Map` by their translated hash, chained by
-  `Eq`. `VecDeque` is a ring buffer over an array whose length is a power of two.
+  and Chrome; 64 keys a node measured best of 16 to 128. A hash map's JS primitive keys
+  are a JS `Map`'s, the engine's own hash table; its other keys go into a second `Map`
+  by their translated hash, chained by `Eq`. `VecDeque` is a ring buffer over an array
+  whose length is a power of two.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
