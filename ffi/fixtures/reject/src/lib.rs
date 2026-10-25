@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// A generic type.
 pub struct Wrap<T>(pub T);
 
-/// A tuple return.
-pub fn pair() -> (u8, u8) {
-	(1, 2)
+/// A tuple inside an `Option`: only a returned tuple crosses, as out pointers.
+pub fn pair() -> Option<(u8, u8)> {
+	Some((1, 2))
 }
 
 /// Another crate's type, which has no mapping.
@@ -66,4 +66,34 @@ pub mod audio_encoder {
 pub mod audio {
 	/// ... and so is this: the clash is refused at both.
 	pub fn encoder_finish() {}
+}
+
+/// A range of what is not an integer.
+pub fn letters(range: std::ops::Range<char>) -> usize {
+	range.count()
+}
+
+/// A text that borrows: only its `'static` form crosses, held by a handle.
+pub struct Text<'a>(&'a str);
+
+impl<'a> Text<'a> {
+	/// Its `'static` form would borrow what C lends for the call past it.
+	pub fn new(text: &'a str) -> Self {
+		Self(text)
+	}
+
+	/// A text that borrows its handle, which a new handle would outlive.
+	pub fn view(&self) -> Text<'_> {
+		Text(self.0)
+	}
+}
+
+/// A borrow `text` could keep, since it lives as long as what it borrows.
+pub fn retext<'a>(text: &mut Text<'a>, with: &'a str) {
+	text.0 = with;
+}
+
+/// A borrowed return that is not `Clone`, so it has no copy to return.
+pub fn first(opaque: &Opaque) -> Option<&Opaque> {
+	Some(opaque)
 }

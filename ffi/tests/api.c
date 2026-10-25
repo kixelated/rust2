@@ -43,6 +43,21 @@ static void log_free(void *data) {
 	printf("freed\n");
 }
 
+/* A bound, as Rust's Debug prints it. */
+static void print_bound(api_bound_u64 bound) {
+	switch (bound.kind) {
+	case API_BOUND_INCLUDED:
+		printf("Included(%llu)", (unsigned long long)bound.value);
+		break;
+	case API_BOUND_EXCLUDED:
+		printf("Excluded(%llu)", (unsigned long long)bound.value);
+		break;
+	case API_BOUND_UNBOUNDED:
+		printf("Unbounded");
+		break;
+	}
+}
+
 static int script(void) {
 	printf("limit %llu\n", (unsigned long long)API_LIMIT);
 
@@ -85,6 +100,101 @@ static int script(void) {
 	api_counter_free(c);
 	print("label ", api_label_debug(&label), "\n");
 	api_label_free(&label);
+
+	/* A tuple returns through one out pointer per element. */
+	api_counter *whole = api_counter_new(str("s"), 7);
+	api_counter *below, *above;
+	api_counter_split(whole, 5, &below, &above);
+	api_counter_free(whole);
+	print("split ", api_counter_name(below), " ");
+	printf("%llu ", (unsigned long long)api_counter_get(below));
+	print("", api_counter_name(above), " ");
+	printf("%llu\n", (unsigned long long)api_counter_get(above));
+	api_counter_free(below);
+	api_counter_free(above);
+	api_counter *one = api_counter_new(str("o"), 3);
+	api_counter *only;
+	api_only(one, &only);
+	api_counter_free(one);
+	print("only ", api_counter_name(only), " ");
+	printf("%llu\n", (unsigned long long)api_counter_get(only));
+	api_counter_free(only);
+	uint64_t divisors[] = {2, 0};
+	for (int i = 0; i < 2; i++) {
+		uint64_t q, r;
+		if (api_divide(7, divisors[i], &q, &r, &err)) {
+			printf("divide %llu %llu\n", (unsigned long long)q, (unsigned long long)r);
+		} else {
+			print("divide err ", api_error_to_string(&err), "\n");
+			api_error_free(&err);
+		}
+	}
+
+	/* Each lent counter is a new handle to a clone. */
+	api_registry *registry = api_registry_new(api_counter_new(str("first"), 1));
+	printf("last %s\n", api_registry_last(registry) != NULL ? "true" : "false");
+	api_registry_push(registry, api_counter_new(str("last"), 2));
+	api_counter *first = api_registry_first(registry);
+	api_counter_add(first, 10, NULL, NULL);
+	api_counter *lent = api_registry_first(registry);
+	printf("first %llu lent %llu\n", (unsigned long long)api_counter_get(lent),
+		   (unsigned long long)api_counter_get(first));
+	api_counter_free(lent);
+	api_counter_free(first);
+	api_counter *last = api_registry_last(registry);
+	api_counter_add(last, 10, NULL, NULL);
+	lent = api_registry_last(registry);
+	printf("last %llu lent %llu\n", (unsigned long long)api_counter_get(lent),
+		   (unsigned long long)api_counter_get(last));
+	api_counter_free(lent);
+	api_counter_free(last);
+	api_registry_free(registry);
+
+	/* A type generic only over lifetimes is a handle to its 'static form. */
+	api_name *name = api_name_owned(str("a"));
+	api_name *b = api_name_owned(str("b"));
+	api_name *joined = api_name_join(name, b);
+	api_name_free(b);
+	print("joined ", api_name_as_str(joined), " ");
+	print("", api_name_debug(joined), " ");
+	printf("%s\n", api_name_eq(joined, name) ? "true" : "false");
+	api_name_free(name);
+	char text[] = "c";
+	api_name_rename(joined, str(text));
+	/* The name took a copy: the caller's buffer is its own again. */
+	text[0] = 'x';
+	print("renamed ", api_name_as_str(joined), "\n");
+	api_name *dd = api_name_owned(str("dd"));
+	api_name *longest = api_longer(joined, dd);
+	print("longer ", api_name_as_str(longest), "\n");
+	api_name_free(longest);
+	api_name_free(dd);
+	api_name_free(joined);
+
+	printf("total %llu\n", (unsigned long long)api_total((api_range_u64){.start = 2, .end = 5}));
+	api_range_u64 wide = api_widen((api_range_u64){.start = 2, .end = 5}, 1);
+	printf("widen %llu %llu\n", (unsigned long long)wide.start, (unsigned long long)wide.end);
+	api_bounds_u64 ranges[] = {
+		{.start = {API_BOUND_INCLUDED, 2}, .end = {API_BOUND_EXCLUDED, 5}},
+		{.start = {API_BOUND_INCLUDED, 2}, .end = {API_BOUND_INCLUDED, 5}},
+		{.start = {API_BOUND_INCLUDED, 3}},
+		{.start = {API_BOUND_UNBOUNDED, 0}},
+		{.start = {API_BOUND_EXCLUDED, 2}, .end = {API_BOUND_INCLUDED, 4}},
+	};
+	printf("count");
+	for (int i = 0; i < 5; i++) {
+		printf(" %zu", api_count(ranges[i]));
+	}
+	printf("\n");
+	printf("end ");
+	print_bound(api_end(3));
+	printf(" ");
+	print_bound(api_end(0));
+	printf("\n");
+	api_window window = {.range = {.start = 2, .end = 8}, .end = api_end(5)};
+	printf("window %s %s ", api_window_contains(&window, 4) ? "true" : "false",
+		   api_window_contains(&window, 6) ? "true" : "false");
+	print("", api_window_debug(&window), "\n");
 
 	print("", api_greet(str("x"), API_SHAPE_SQUARE), "\n");
 	printf("len %zu\n", api_len(str("abc")));
@@ -156,6 +266,14 @@ static int script(void) {
 		print("recv ", payload, "\n");
 	}
 	api_channel_recv_future_free(recv);
+	api_channel_send(channel, str("sized"));
+	api_channel_recv_sized_future *sized = api_channel_recv_sized(channel);
+	size_t len;
+	if (api_channel_recv_sized_poll(sized, waker, &payload, &len) == API_POLL_READY) {
+		print("sized ", payload, " ");
+		printf("%zu\n", len);
+	}
+	api_channel_recv_sized_future_free(sized);
 	api_channel_free(channel);
 
 	/* A value that holds itself is an object. */
@@ -177,7 +295,7 @@ static int script(void) {
 	api_token_free(token);
 	printf("dropped %u\n", api_dropped());
 	/* Each future dropped its waker once it finished. */
-	return drops == 3 ? 0 : 1;
+	return drops == 4 ? 0 : 1;
 }
 
 /* Each breaks a contract, which must abort with a message naming the function. */
@@ -206,6 +324,8 @@ static int broken(const char *which) {
 		api_channel_recv_poll(recv, waker, &payload);
 	} else if (strcmp(which, "enum") == 0) {
 		api_greet(str("x"), (api_shape)2);
+	} else if (strcmp(which, "bound") == 0) {
+		api_count((api_bounds_u64){.start = {.kind = (api_bound)3}});
 	}
 	return 0;
 }

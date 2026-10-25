@@ -15,10 +15,11 @@ Decided with the maintainer on 2026-10-25, from the spike
 the fork's paused feature quests into it. Split into quests as work starts, ranked by what the
 census refuses and what moq waits on:
 
-- **Rules the census asks for**: tuples as out parameters (`origin::Producer::new`, so an
-  origin can be made), `Path<'a>` exported as `Path<'static>`, `Range<u64>` and
-  `RangeBounds`, and the borrowed `info()` returns of non-`Copy` objects, whose clone is a new
-  handle.
+- **Paths borrowed from their handle**: moq-net's `root`, `absolute`, and
+  `origin::Request::path` return a `Path<'_>` that borrows `&self`, so the census refuses them.
+  [moq-dev/moq#6808](https://github.com/moq-dev/moq/pull/6808) returns the `PathOwned` they
+  already hold or build. Once it lands, bump the moq pin and drop their seven entries from
+  [the exclude list](/ffi/moq/ffi.toml).
 - **Several crates**: moq-native's sessions and the media crates hold moq-ffi's remaining API.
   Export each with its own census, naming another export's types across crates, as
   moq-pattern's re-exports already need.
