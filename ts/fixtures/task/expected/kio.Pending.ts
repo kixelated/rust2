@@ -20,7 +20,7 @@ export class Pending<F> {
 	}
 }
 
-export function poll(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
+export function poll$Future_recv_closure0_closure0(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
 	const this_ = self;
 	const waiter = Park.hold(this_.park, cx);
 	return this_.poll(waiter);

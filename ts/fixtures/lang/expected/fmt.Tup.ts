@@ -7,7 +7,7 @@ export interface Tup {
 	_1: rt.u8 | undefined;
 }
 
-export function fmt(self: Tup, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Tup, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self._1 !== undefined) {
 		return f.debugTuple("Tup").field((f: rt.Formatter) => rt.u8.display(self._0, f)).field((f: rt.Formatter) => rt.fmt.option(self._1, f, rt.u8.display)).finish();
 	} else {

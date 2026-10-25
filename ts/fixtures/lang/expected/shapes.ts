@@ -12,8 +12,8 @@ import type * as Wide from "./shapes.Wide.ts";
 export function total$Meters(items: Meters.Meters[], out: rt.ByteVec): rt.u64 {
 	let sum: rt.u64 = 0;
 	for (const item of items) {
-		Meters.describe(item, out);
-		sum = rt.u64.saturatingAdd(sum, Meters.area(item));
+		Meters.describe$Area(item, out);
+		sum = rt.u64.saturatingAdd(sum, Meters.area$Area(item));
 	}
 	return sum;
 }
@@ -21,13 +21,13 @@ export function total$Meters(items: Meters.Meters[], out: rt.ByteVec): rt.u64 {
 export function total$Shape(items: Shape.Shape[], out: rt.ByteVec): rt.u64 {
 	let sum: rt.u64 = 0;
 	for (const item of items) {
-		Shape.describe(item, out);
-		sum = rt.u64.saturatingAdd(sum, Shape.area(item));
+		Shape.describe$Area(item, out);
+		sum = rt.u64.saturatingAdd(sum, Shape.area$Area(item));
 	}
 	return sum;
 }
 
-export function from(dir_: Dir.Dir): rt.u8 {
+export function from$From_Dir_u8(dir_: Dir.Dir): rt.u8 {
 	return { North: 1, East: 2, South: 4, West: 8 }[dir_];
 }
 
@@ -90,7 +90,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	out.push(saved[1]);
 	out.push(pair[1]);
-	out.push(Point.eq(p, saved[0]) ? 1 : 0);
+	out.push(Point.eq$PartialEq(p, saved[0]) ? 1 : 0);
 	let a: Point.Point = Point.new(1, 2);
 	let b: Point.Point = Point.new(3, 4);
 	const swapped = a;
@@ -252,7 +252,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(firstRepeat(data));
 	out.extendFromSlice(rt.u16.toBeBytes(tailBreak(data)));
 	out.push(armLoop(data));
-	out.extendFromSlice(rt.u32.toBeBytes(position(data, 0) as rt.u32));
+	out.extendFromSlice(rt.u32.toBeBytes(position$u8(data, 0) as rt.u32));
 	const settle = (x: rt.u8): rt.u8 => {
 		while (true) {
 			if (x < 10) {
@@ -552,7 +552,7 @@ export function armLoop(data: Uint8Array): rt.u8 {
 }
 
 /** A generic function ending in a loop. */
-export function position(items: Uint8Array, want: rt.u8): rt.usize {
+export function position$u8(items: Uint8Array, want: rt.u8): rt.usize {
 	let i: rt.usize = 0;
 	while (true) {
 		if (i === items.length || items[rt.idx(items, i)] === want) {
@@ -640,7 +640,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			if (dir_ !== undefined) {
 				const d = dir_;
 				if (b2 > 10) {
-					out.push(from(d));
+					out.push(from$From_Dir_u8(d));
 					break chain;
 				}
 			}
@@ -700,7 +700,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	const v3 = parsed.value;
 	c = v3;
 	out.extendFromSlice(Uint8Array.of(a3, b4, c, early(a3)));
-	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void.Void, f: rt.Formatter) => Void.fmt(value, f))])));
+	out.extendFromSlice(rt.string.asBytes(rt.fmt.format([(f: rt.Formatter) => rt.fmt.result(parsed, f, rt.u8.display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))])));
 }
 
 /** A value holding a `Void` can't exist either. */
@@ -729,7 +729,7 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	const scale = (v2: rt.u32): rt.u32 => {
 		return rt.u32.add(rt.u32.mul(v2, 3), base);
 	};
-	out.extendFromSlice(rt.u32.toBeBytes(apply(scale, sum)));
+	out.extendFromSlice(rt.u32.toBeBytes(apply$closures_closure1(scale, sum)));
 	let whole: Uint8Array = Uint8Array.of(data.length & 0xff);
 	overwrite(whole);
 	out.push(whole[0]);
@@ -740,7 +740,7 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	let tags: rt.ByteVec = new rt.ByteVec();
 	for (const d of parsed) {
-		tags.push(rt.option.unwrapOr(rt.option.map(d, from), 0));
+		tags.push(rt.option.unwrapOr(rt.option.map(d, from$From_Dir_u8), 0));
 	}
 	out.extendFromSlice(tags.view());
 }
@@ -753,7 +753,7 @@ export function overwrite(a: Uint8Array): void {
 	write();
 }
 
-export function apply(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {
+export function apply$closures_closure1(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {
 	return f(v);
 }
 

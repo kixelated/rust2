@@ -8,7 +8,7 @@ export interface Gaps {
 	at: rt.usize;
 }
 
-export function next(self: Gaps): rt.u8 | undefined | rt.Done {
+export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
 	const get = rt.slice.get(self.data, self.at);
 	if (get === undefined) {
 		return rt.DONE;

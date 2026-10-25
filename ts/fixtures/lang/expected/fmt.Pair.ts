@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(self: Pair, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Pair, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugTuple("Pair").field((f: rt.Formatter) => rt.u8.display(self._0, f)).field((f: rt.Formatter) => rt.i64.display(self._1, f)).finish();
 }
 
-export function eq(self: Pair, other: Pair): boolean {
+export function eq$PartialEq(self: Pair, other: Pair): boolean {
 	return self._0 === other._0 && rt.i64.eq(self._1, other._1);
 }
 

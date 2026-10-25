@@ -2795,7 +2795,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		Expr::rt("future", args)
 	}
 
-	/// A module-level function in `parent`'s module, by the name `base`.
+	/// A module-level function in `parent`'s module, by the name `base` and the suffix of
+	/// the instance of `parent` it is part of.
 	#[expect(clippy::too_many_arguments, reason = "a function's parts")]
 	fn hoist(
 		&mut self,
@@ -2811,7 +2812,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sym = self.t.program.sym(crate::program::Symbol {
 			module: self.t.module_of(parent),
 			base,
-			suffix: String::new(),
+			suffix: self.t.suffix(Instance::new_raw(parent, self.args)),
 			owner: None,
 			kind: SymKind::Function,
 			order,

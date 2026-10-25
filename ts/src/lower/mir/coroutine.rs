@@ -44,10 +44,12 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	let tcx = t.tcx;
 	let parent = tcx.typeck_root_def_id(def_id);
 	let base = format!("{}Future", crate::lower::camel(tcx.item_name(parent).as_str()));
+	// The suffix of the instance of `parent` it is part of.
+	let suffix = t.suffix(Instance::new_raw(parent, args.truncate_to(tcx, tcx.generics_of(parent))));
 	let sym = t.program.sym(Symbol {
 		module: t.module_of(parent),
 		base,
-		suffix: String::new(),
+		suffix,
 		owner: None,
 		kind: SymKind::Struct,
 		order: t.order(tcx.def_span(def_id)),

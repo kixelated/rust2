@@ -5,7 +5,7 @@ import { recvBody } from "./kio.ts";
 import type * as State from "./kio.State.ts";
 import * as Waiter from "./kio.Waiter.ts";
 
-export function clone(self: Consumer): Consumer {
+export function clone$Clone(self: Consumer): Consumer {
 	return new Consumer({ state: self.state.clone(), next: self.next });
 }
 

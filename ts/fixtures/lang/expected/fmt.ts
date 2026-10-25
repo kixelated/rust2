@@ -194,24 +194,24 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
 	};
 	const value = nested(data);
-	put(out, rt.fmt.format([(f: rt.Formatter) => Nested.fmt(value, f)]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Nested.fmt(value, f))]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Nested.fmt$Debug(value, f)]));
+	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Nested.fmt$Debug(value, f))]));
 	const wide = { a: at(0), b: 300, c: 70_000, d: rt.u64.of(18446744073709551615n), e: -1, f: at(1) > 10 };
 	const six = { _0: at(0), _1: 1, _2: 2, _3: 3, _4: 4, _5: at(1) };
 	const arg3 = out;
 	const arg = {};
 	const arg2 = {};
-	put(arg3, rt.fmt.format([(f: rt.Formatter) => Wide.fmt(wide, f), " ", (f: rt.Formatter) => Six.fmt(six, f), " ", (f: rt.Formatter) => Unit.fmt(arg, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Unit.fmt(arg2, f))]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Wide.fmt(wide, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Six.fmt(six, f))]));
+	put(arg3, rt.fmt.format([(f: rt.Formatter) => Wide.fmt$Debug(wide, f), " ", (f: rt.Formatter) => Six.fmt$Debug(six, f), " ", (f: rt.Formatter) => Unit.fmt$Debug(arg, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Unit.fmt$Debug(arg2, f))]));
+	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Wide.fmt$Debug(wide, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Six.fmt$Debug(six, f))]));
 	const point = { x: at(2) as rt.i32, y: -1 };
 	const arg5 = out;
 	const arg4 = { _0: at(3), _1: -9 };
-	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => Point.fmt(point, f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => Point.fmt(point, f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => Point.fmt(point, f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => Pair.fmt(arg4, f))]));
+	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => Pair.fmt$Debug(arg4, f))]));
 	const kinds = [{ tag: "Empty" } as Kind.Kind, { tag: "One", _0: at(4) } as Kind.Kind, { tag: "Braced" } as Kind.Kind, { tag: "Bare" } as Kind.Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind.Kind];
 	const arg7 = out;
 	const arg6 = kinds[1];
-	put(arg7, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt(value, f)), " ", (f: rt.Formatter) => Kind.fmt(arg6, f)]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt(value, f)))]));
+	put(arg7, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)), " ", (f: rt.Formatter) => Kind.fmt$Debug(arg6, f)]));
+	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)))]));
 	const bytes = data;
 	const words = [at(5) as rt.u16, 0xffff];
 	const arg10 = out;
@@ -223,8 +223,8 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const arg12 = {};
 	const arg13 = {};
 	const arg14 = {};
-	put(arg15, rt.fmt.format([(f: rt.Formatter) => Braced.fmt(arg11, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Braced.fmt(arg12, f)), " ", (f: rt.Formatter) => Bare.fmt(arg13, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Bare.fmt(arg14, f))]));
-	out.extendFromSlice(Uint8Array.of(Braced.eq({}, {}) ? 1 : 0, Bare.eq({}, {}) ? 1 : 0));
+	put(arg15, rt.fmt.format([(f: rt.Formatter) => Braced.fmt$Debug(arg11, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Braced.fmt$Debug(arg12, f)), " ", (f: rt.Formatter) => Bare.fmt$Debug(arg13, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Bare.fmt$Debug(arg14, f))]));
+	out.extendFromSlice(Uint8Array.of(Braced.eq$PartialEq({}, {}) ? 1 : 0, Bare.eq$PartialEq({}, {}) ? 1 : 0));
 }
 
 /** Written `Display` and `Debug`, and a `Display` that fails inside `format!`. */
@@ -236,17 +236,17 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	put(out, rt.fmt.format([(f: rt.Formatter) => Hex.fmt$Display(hex, f), "|", rt.fmt.spec({ align: ">", width: 12 }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", (f: rt.Formatter) => Hex.fmt$Debug(hex, f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f))]));
 	put(out, rt.fmt.toString((f: rt.Formatter) => Hex.fmt$Display(hex, f)));
 	const padded = { _0: "pad" };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Padded.fmt(padded, f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => Padded.fmt(padded, f)), "|", rt.fmt.spec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => Padded.fmt(padded, f)), "|", rt.fmt.spec({ width: 30 }, (f: rt.Formatter) => Padded.fmt(padded, f)), "|"]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Padded.fmt$Display(padded, f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmt.spec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmt.spec({ width: 30 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|"]));
 	const manual = { id: at(1), list: rt.slice.toVec([1, at(2) as rt.u16]) };
 	const empty = { id: 0, list: [] };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Manual.fmt(manual, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Manual.fmt(manual, f)), " ", (f: rt.Formatter) => Manual.fmt(empty, f)]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Manual.fmt$Debug(manual, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Manual.fmt$Debug(manual, f)), " ", (f: rt.Formatter) => Manual.fmt$Debug(empty, f)]));
 	const seq = { _0: rt.slice.toVec([{ _0: at(3), _1: 0 }, { _0: 1, _1: -1 }]) };
 	const none = { _0: [] };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Seq.fmt(seq, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt(seq, f)), " ", (f: rt.Formatter) => Seq.fmt(none, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt(none, f))]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Seq.fmt$Debug(seq, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(seq, f)), " ", (f: rt.Formatter) => Seq.fmt$Debug(none, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(none, f))]));
 	const tup = { _0: at(4), _1: rt.u8.rem(at(5), 2) === 0 ? at(5) : undefined };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Tup.fmt(tup, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Tup.fmt(tup, f))]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Tup.fmt$Debug(tup, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Tup.fmt$Debug(tup, f))]));
 	const fine = { _0: at(6) & (~1 & 0xff) };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Fails.fmt(fine, f), " ", rt.fmt.spec({ align: ">", width: 9 }, (f: rt.Formatter) => Fails.fmt(fine, f))]));
+	put(out, rt.fmt.format([(f: rt.Formatter) => Fails.fmt$Display(fine, f), " ", rt.fmt.spec({ align: ">", width: 9 }, (f: rt.Formatter) => Fails.fmt$Display(fine, f))]));
 	const arg3 = out;
 	const arg = at(7);
 	const arg2 = at(8);
@@ -265,7 +265,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 2) {
 		if (!(n > 200)) {
 			const arg2 = { _0: n, _1: 0 };
-			rt.panic(["small ", (f: rt.Formatter) => rt.u8.display(n, f), " ", (f: rt.Formatter) => Pair.fmt(arg2, f)]);
+			rt.panic(["small ", (f: rt.Formatter) => rt.u8.display(n, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(arg2, f)]);
 		}
 	} else if (value === 3) {
 		if (!(n > 200)) {
@@ -283,9 +283,9 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const value3 = [{ _0: n, _1: 1 }, { _0: n, _1: 1 }] as [Pair.Pair, Pair.Pair];
 		const leftVal2 = value3[0];
 		const rightVal2 = value3[1];
-		if (Pair.eq(leftVal2, rightVal2)) {
+		if (Pair.eq$PartialEq(leftVal2, rightVal2)) {
 			const kind3 = "!=";
-			rt.assertFailed(kind3, (f: rt.Formatter) => Pair.fmt(leftVal2, f), (f: rt.Formatter) => Pair.fmt(rightVal2, f), ["same ", (f: rt.Formatter) => rt.u8.display(n, f)]);
+			rt.assertFailed(kind3, (f: rt.Formatter) => Pair.fmt$Debug(leftVal2, f), (f: rt.Formatter) => Pair.fmt$Debug(rightVal2, f), ["same ", (f: rt.Formatter) => rt.u8.display(n, f)]);
 		}
 	} else if (value === 6) {
 		const value4 = [n, 9] as [rt.u8, rt.u8];
@@ -298,17 +298,17 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		const r = rt.u8.rem(n, 2) === 0 ? rt.Err({ tag: "One", _0: n } as Kind.Kind) : rt.Err({ tag: "Many", count: 1, items: rt.slice.toByteVec(Uint8Array.of(n)) } as Kind.Kind);
 		const arg4 = out;
-		const arg3 = rt.result.unwrap(r, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt(value, f));
+		const arg3 = rt.result.unwrap(r, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f));
 		put(arg4, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg3, f)));
 	} else if (value === 8) {
 		const r2 = n > 128 ? rt.Ok(n) : rt.Err({ _0: n, _1: -2 });
 		const arg6 = out;
-		const arg5 = rt.result.expect(rt.copy(r2), "expected a byte", (value: Pair.Pair, f: rt.Formatter) => Pair.fmt(value, f));
+		const arg5 = rt.result.expect(rt.copy(r2), "expected a byte", (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f));
 		put(arg6, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg5, f)));
 	} else if (value === 9) {
 		const r3 = rt.Ok({ x: n as rt.i32, y: 0 });
 		const arg8 = out;
-		const arg7 = rt.result.unwrapErr(rt.copy(r3), (value: Point.Point, f: rt.Formatter) => Point.fmt(value, f));
+		const arg7 = rt.result.unwrapErr(rt.copy(r3), (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f));
 		put(arg8, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg7, f)));
 	} else if (value === 10) {
 		const missing = rt.slice.get(rest, 200);
@@ -318,15 +318,15 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 11) {
 		const arg12 = out;
 		const arg11 = { _0: n };
-		put(arg12, rt.fmt.format([(f: rt.Formatter) => Fails.fmt(arg11, f)]));
+		put(arg12, rt.fmt.format([(f: rt.Formatter) => Fails.fmt$Display(arg11, f)]));
 	} else if (value === 12) {
 		const arg14 = out;
 		const arg13 = { _0: n };
-		put(arg14, rt.fmt.toString((f: rt.Formatter) => Fails.fmt(arg13, f)));
+		put(arg14, rt.fmt.toString((f: rt.Formatter) => Fails.fmt$Display(arg13, f)));
 	} else if (value === 13) {
 		const arg15 = { _0: n as rt.u32 };
 		const arg16 = { _0: n };
-		rt.panic([(f: rt.Formatter) => Hex.fmt$Display(arg15, f), " then ", (f: rt.Formatter) => Fails.fmt(arg16, f)]);
+		rt.panic([(f: rt.Formatter) => Hex.fmt$Display(arg15, f), " then ", (f: rt.Formatter) => Fails.fmt$Display(arg16, f)]);
 	} else if (value === 14) {
 		const [start, end] = [rt.u8.rem(n, 8) as rt.usize, rt.u8.div(n, 32) as rt.usize] as [rt.usize, rt.usize];
 		const arg19 = out;
