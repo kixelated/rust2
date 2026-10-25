@@ -17,7 +17,6 @@ extern crate rustc_index;
 extern crate rustc_infer;
 extern crate rustc_interface;
 extern crate rustc_middle;
-extern crate rustc_session;
 extern crate rustc_span;
 extern crate rustc_trait_selection;
 
@@ -30,13 +29,11 @@ mod print;
 mod program;
 mod ts;
 
-use std::path::Path;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
 	let args: Vec<String> = std::env::args().collect();
-	// Cargo runs a wrapper with the rustc it would have run as the first argument.
-	if args.get(1).map(Path::new).and_then(Path::file_stem) == Some("rustc".as_ref()) {
+	if rust2_driver::rustc::wrapped(&args) {
 		return driver::run(args);
 	}
 	cli::run(&args[1..])

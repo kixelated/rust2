@@ -3,7 +3,7 @@
 A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
-rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
+rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [--lower thir|mir] [-- cargo args]
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
@@ -27,6 +27,10 @@ ignore-macros = ["tracing::trace"]
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
 `just ts run ...` runs it from source on the pinned nightly.
+
+`--lower mir` lowers bodies from MIR instead of THIR: the prototype the MIR spike
+built, which the translator is moving to ([quest](/quest/m2/ts-mir.md)). The rest of
+this page describes the THIR lowering, the default, except where it says MIR.
 
 ## Census
 
@@ -201,11 +205,20 @@ they need.
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
   nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
-- Bodies lower from THIR, which keeps loops, `match`, and `?` shaped as written. Drops
-  come from its scopes, and async bodies are generators: MIR state machines were about
-  twice as fast per await level, but would need a second lowering
-  ([#16](https://github.com/kixelated/rust2/pull/16) measured both). The
-  [MIR spike](/quest/m2/ts-mir-spike.md) decides whether the whole lowering moves.
+- Bodies lower from MIR ([moving](/quest/m2/ts-mir.md)): drops are where drop
+  elaboration put them, exact by construction, with no `finally` per scope or
+  `undefined` left by a move, and a panic runs the cleanup blocks `-C panic=unwind`
+  MIR has, from a `catch`. Async bodies are the coroutine transform's state machines,
+  a class each. The MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)) ported
+  the whole lowering and measured it against THIR's: every fixture's differential test
+  passes either way, but MIR closes about 1,100 of the 1,400 drop refusals in moq-net's
+  census, runs an async handoff 1.4-5.5x faster at depths 1 to 16 in Node, Bun, and
+  Chrome, and runs the codec 2-12% slower than THIR, for 9% more gzip on the codec's
+  bundle and 35% on the async fixture's. Blocks become nested blocks, loops, and `if`s by Ramsey's
+  "Beyond Relooper", except a coroutine's resume function, which enters loops in the
+  middle and becomes a loop over a `switch` on the next block. Temporaries assigned
+  once and read once fold back into the expression that reads them unless that
+  would reorder an effect.
 
 ## Never
 
@@ -258,9 +271,15 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
-  fixture's native executor does. The logs must match byte for byte.
+  fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
+  also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
+  unwinds, catching and logging each step's panic and going on, so what a panic drops
+  must match too.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
-  and its expected census is `census.md`.
+  those from MIR `expected-mir.txt`, and its expected census is `census.md`.
+
+The codec, lang, and task fixtures also run their differential tests from MIR
+(`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
 rejects when a future panics as it drops.

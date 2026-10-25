@@ -1,7 +1,8 @@
 //! The command line: run cargo on the configured package with this binary as rustc.
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::ExitCode;
+
+use rust2_driver::cargo::{Args, Check, Output};
 
 use crate::config::{self, Config};
 
@@ -9,14 +10,17 @@ use crate::config::{self, Config};
 /// holds exactly, and its `cfg`s are the browser's.
 const TARGET: &str = "wasm32-unknown-unknown";
 
-const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]
+const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [--lower thir|mir] [-- <cargo args>]
 
 Translates the library of the package that ts.toml names to TypeScript in <dir>. The
 package's Cargo.toml is beside ts.toml unless --manifest-path says where. Cargo args,
 such as --features, are passed to `cargo check`.
 
 --census writes a Markdown report of every construct translation refuses in the library,
-reached from each of its items as if each were a root, instead of translating it.";
+reached from each of its items as if each were a root, instead of translating it.
+
+--lower picks what function bodies lower from: THIR, the default, or MIR, the spike's
+prototype.";
 
 pub fn run(args: &[String]) -> ExitCode {
 	match try_run(args) {
@@ -29,124 +33,28 @@ pub fn run(args: &[String]) -> ExitCode {
 }
 
 fn try_run(args: &[String]) -> Result<ExitCode, String> {
-	let mut config = None;
-	let mut out = None;
-	let mut census = None;
-	let mut manifest = None;
-	let mut cargo_args: &[String] = &[];
-	let mut rest = args;
-	while let [arg, tail @ ..] = rest {
-		rest = tail;
-		match arg.as_str() {
-			"--config" | "--out" | "--census" | "--manifest-path" => {
-				let [value, tail @ ..] = rest else {
-					return Err(format!("{arg} needs a value\n\n{USAGE}"));
-				};
-				rest = tail;
-				let slot = match arg.as_str() {
-					"--config" => &mut config,
-					"--out" => &mut out,
-					"--census" => &mut census,
-					_ => &mut manifest,
-				};
-				*slot = Some(absolute(Path::new(value))?);
-			}
-			"--" => {
-				cargo_args = rest;
-				break;
-			}
-			"-h" | "--help" => {
-				println!("{USAGE}");
-				return Ok(ExitCode::SUCCESS);
-			}
-			_ => return Err(format!("unexpected argument {arg}\n\n{USAGE}")),
+	let Some(args) = Args::parse(args, USAGE, &["--lower"])? else {
+		return Ok(ExitCode::SUCCESS);
+	};
+	let config = Config::load(&args.config)?;
+	let output = match &args.output {
+		Output::Dir(out) => (config::env::OUT, out.as_os_str()),
+		Output::Census(census) => (config::env::CENSUS, census.as_os_str()),
+	};
+	let mut env = vec![(config::env::CONFIG, args.config.as_os_str()), output];
+	for (_, lower) in &args.options {
+		if !matches!(lower.as_str(), "thir" | "mir") {
+			return Err(format!("--lower takes thir or mir, not {lower}\n\n{USAGE}"));
 		}
+		env.push((config::env::LOWER, lower.as_ref()));
 	}
-	let config_path = config.ok_or_else(|| format!("--config is required\n\n{USAGE}"))?;
-	let (output_env, output) = match (out, census) {
-		(Some(out), None) => (config::env::OUT, out),
-		(None, Some(census)) => (config::env::CENSUS, census),
-		_ => return Err(format!("one of --out and --census is required\n\n{USAGE}")),
-	};
-	let config = Config::load(&config_path)?;
-	let manifest = match manifest {
-		Some(manifest) => manifest,
-		None => config_path
-			.parent()
-			.expect("an absolute file path has a parent")
-			.join("Cargo.toml"),
-	};
-	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
-	let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
-		Some(dir) => PathBuf::from(dir),
-		// Apart from the workspace's own builds, which a different rustc would invalidate.
-		None => workspace_root(&manifest)?.join("target").join("rust2-ts"),
-	};
-
-	let package_dir = manifest.parent().expect("a manifest path has a parent").to_path_buf();
-	let cargo = |subcommand: &str| {
-		let mut cmd = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
-		// Cargo reads its config from where it runs, so run where the package is.
-		cmd.current_dir(&package_dir);
-		cmd.arg(subcommand)
-			.arg("--manifest-path")
-			.arg(&manifest)
-			.arg("--package")
-			.arg(&config.package)
-			.arg("--target")
-			.arg(TARGET)
-			.arg("--target-dir")
-			.arg(&target_dir);
-		cmd
-	};
-
-	// Cargo can't tell the TypeScript is stale, so the package always recompiles.
-	run_cargo(cargo("clean").arg("--quiet"))?;
-	let status = cargo("check")
-		.arg("--lib")
-		.args(cargo_args)
-		.env("RUSTC_WRAPPER", &exe)
-		.env(config::env::CONFIG, &config_path)
-		.env(output_env, &output)
-		.status()
-		.map_err(|err| format!("running cargo: {err}"))?;
-	Ok(match status.success() {
-		true => ExitCode::SUCCESS,
-		false => ExitCode::FAILURE,
-	})
-}
-
-fn run_cargo(cmd: &mut Command) -> Result<(), String> {
-	let status = cmd.status().map_err(|err| format!("running cargo: {err}"))?;
-	match status.success() {
-		true => Ok(()),
-		false => Err(format!("{cmd:?} failed")),
+	Check {
+		tool: "rust2-ts",
+		manifest: &args.manifest,
+		package: &config.package,
+		target: Some(TARGET),
+		args: &args.cargo,
+		env: &env,
 	}
-}
-
-fn absolute(path: &Path) -> Result<PathBuf, String> {
-	std::path::absolute(path).map_err(|err| format!("resolving {}: {err}", path.display()))
-}
-
-/// The directory of the workspace `manifest` belongs to.
-fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
-	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
-		.args([
-			"locate-project",
-			"--workspace",
-			"--message-format",
-			"plain",
-			"--manifest-path",
-		])
-		.arg(manifest)
-		.output()
-		.map_err(|err| format!("running cargo: {err}"))?;
-	if !output.status.success() {
-		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-	}
-	let root = String::from_utf8(output.stdout).map_err(|_| "cargo printed a non-UTF-8 path".to_string())?;
-	Ok(Path::new(root.trim())
-		.parent()
-		.expect("a manifest path has a parent")
-		.to_path_buf())
+	.run()
 }
