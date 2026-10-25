@@ -192,13 +192,15 @@ use_variant() { # corpus variant
 }
 
 # Times one run with hyperfine, appending its measurement to the scenario's raw log.
+# Earlier runs leave dirty pages behind (over a GiB on moq), and writing them
+# back stalls whichever run it overlaps, so each run starts after a sync.
 time_once() { # corpus dir scenario variant prepare command
     local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json
     json=$out/raw/$corpus.$scenario.$variant.json
     (
         use_variant "$corpus" "$variant"
         cd "$dir"
-        hyperfine --style none --runs 1 --prepare "$prepare" --export-json "$json" "$cmd"
+        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" "$cmd"
     )
     jq -c '.results[0].measurements[0]' "$json" | tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
@@ -206,8 +208,7 @@ time_once() { # corpus dir scenario variant prepare command
 
 # Folds a scenario's runs of one variant into a result record. Load on the host
 # adds an occasional slow run, so the compared numbers are trimmed means: the
-# mean without the fastest and slowest run. Edit times are often bimodal, where
-# averaging the middle runs is steadier than a median picking one.
+# mean without the fastest and slowest run.
 summarize_runs() { # corpus scenario variant
     jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
         --arg base "$(field variant "$3" '.base // .name')" '
