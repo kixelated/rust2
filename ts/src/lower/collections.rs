@@ -201,7 +201,7 @@ fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 	}
 }
 
-/// Evaluate `values` for their effects: a capacity, which nothing here keeps.
+/// Evaluate `values` for their effects: a receiver or a capacity, which nothing here keeps.
 fn discard(values: Vec<Expr>, out: &mut Vec<Stmt>) {
 	for value in values {
 		if !value.is_path() {
@@ -253,9 +253,7 @@ fn hash<'tcx>(
 		(_, "drain") => Expr::rt("hashDrain", values),
 		(_, "entry") => Expr::rt("entry", values),
 		(_, "reserve" | "shrink_to_fit") => {
-			let m = values.remove(0);
 			discard(values, out);
-			let _ = m;
 			Expr::undefined()
 		}
 		("Index", "index") => Expr::rt("hashIndex", values),
@@ -484,7 +482,6 @@ fn deque<'tcx>(
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
 		(_, "drain") => Expr::rt("dequeDrain", values),
 		(_, "reserve" | "reserve_exact" | "shrink_to_fit") => {
-			values.remove(0);
 			discard(values, out);
 			Expr::undefined()
 		}

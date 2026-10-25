@@ -260,6 +260,10 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			const b6 = item5;
 			out.push(claim(copy2, rt.u8.rem(b6, 8), b6 as rt.u16));
 		}
+		let stamped: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
+		stamp(stamped);
+		stamp(stamped);
+		out.push(rt.hashLen(stamped) & 0xff);
 		let extended: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
 		rt.hashExtend(extended, rt.hashIter(bytes).map(rt.copy));
 		const iter8 = rt.hashValues(extended);
@@ -381,7 +385,15 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	}
 }
 
-/** Matching on an entry: add to an even tally, take out an odd one, or start one. */
+/**
+ * Matching on an entry: add to an even tally, take out an odd one, or start one.
+ * Inserts a key, and gives back the map.
+ */
+export function stamp(map: rt.HashMap<rt.u8, Tally.Tally>): rt.HashMap<rt.u8, Tally.Tally> {
+	rt.hashInsert(map, rt.hashLen(map) & 0xff, Tally.default());
+	return map;
+}
+
 export function claim(map: rt.HashMap<rt.u8, Tally.Tally>, k: rt.u8, n: rt.u16): rt.u8 {
 	const entry = rt.entry(map, k);
 	arms: {
@@ -792,6 +804,12 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	}
 }
 
+/** Pushes an item, and gives back the deque. */
+export function touch(q: rt.VecDeque<rt.u8>): rt.VecDeque<rt.u8> {
+	rt.dequePushBack(q, 0x42);
+	return q;
+}
+
 /** `VecDeque`: a ring buffer, pushed and popped at both ends past its capacity. */
 export function deques(data: Uint8Array, out: rt.ByteVec): void {
 	let q: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
@@ -817,6 +835,8 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 			rt.dequePopFront(pairs);
 		}
 	}
+	touch(q);
+	touch(q);
 	out.push(q.n & 0xff);
 	rt.iter.extend(out, rt.dequeIter(q).rev());
 	if (!((q.n === 0))) {

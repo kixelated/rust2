@@ -266,6 +266,11 @@ pub fn hash_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			for &b in data {
 				out.push(claim(&mut copy, b % 8, b as u16));
 			}
+			// A capacity call still evaluates its receiver.
+			let mut stamped: HashMap<u8, Tally> = HashMap::new();
+			stamp(&mut stamped).shrink_to_fit();
+			stamp(&mut stamped).reserve(2);
+			out.push(stamped.len() as u8);
 			// Extending by reference copies each value.
 			let mut extended: HashMap<u8, Tally> = HashMap::new();
 			extended.extend(&bytes);
@@ -330,6 +335,12 @@ pub fn hash_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 }
 
 /// Matching on an entry: add to an even tally, take out an odd one, or start one.
+/// Inserts a key, and gives back the map.
+fn stamp(map: &mut HashMap<u8, Tally>) -> &mut HashMap<u8, Tally> {
+	map.insert(map.len() as u8, Tally::default());
+	map
+}
+
 fn claim(map: &mut HashMap<u8, Tally>, k: u8, n: u16) -> u8 {
 	match map.entry(k) {
 		hash_map::Entry::Occupied(mut e) if e.get().n % 2 == 0 => {
@@ -562,6 +573,12 @@ pub fn btree_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// Pushes an item, and gives back the deque.
+fn touch(q: &mut VecDeque<u8>) -> &mut VecDeque<u8> {
+	q.push_back(0x42);
+	q
+}
+
 /// `VecDeque`: a ring buffer, pushed and popped at both ends past its capacity.
 pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 	let mut q: VecDeque<u8> = VecDeque::new();
@@ -583,6 +600,8 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 			pairs.pop_front();
 		}
 	}
+	touch(&mut q).shrink_to_fit();
+	touch(&mut q).reserve(1);
 	out.push(q.len() as u8);
 	out.extend(q.iter().rev());
 	if !q.is_empty() {
