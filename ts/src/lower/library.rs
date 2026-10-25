@@ -990,11 +990,9 @@ fn range_bounds<'tcx>(
 	let ExprKind::Adt(range) = &b.thir[id].kind else {
 		return None;
 	};
-	let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
 	b.visit(written);
 	let mut pre = Vec::new();
-	let values = b.operands(&ids, &mut pre);
-	let values = range.fields.iter().map(|f| f.name.index()).zip(values).collect();
+	let values = b.written(range, ty, b.thir[id].span, &mut pre);
 	let mut values: Vec<Expr> = b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect();
 	if !pre.is_empty() {
 		for value in earlier.iter_mut().filter(|v| !v.is_constant()) {

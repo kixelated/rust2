@@ -445,6 +445,47 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	for (const s of steps) {
 		out.push(s & 0xff);
 	}
+	updates(a, b, data, out);
+}
+
+/**
+ * Struct update syntax on std's ranges: the fields written run before the base, and
+ * the rest are read from it.
+ */
+export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+	let base: rt.Range<rt.u8> = new rt.Range(a, b);
+	out.push(0xd0);
+	const field = rt.u8.div(b, 2);
+	out.push(0xd1);
+	const range = base.clone();
+	const field2 = field;
+	const made = new rt.Range(range.start, field2);
+	const clone = base.clone();
+	const whole = new rt.Range(clone.start, clone.end);
+	out.extendFromSlice(Uint8Array.of(made.start, made.end, whole.start, whole.end));
+	const start = rt.u8.div(a, 2);
+	const end = base.end;
+	for (let i = start; i < end; i++) {
+		base.end = rt.u8.wrappingAdd(base.end, 1);
+		out.push(i);
+	}
+	out.push(base.end);
+	const len = data.length;
+	const [to, from] = [rt.min(b as rt.usize, len), rt.min(a as rt.usize, len)] as [rt.usize, rt.usize];
+	const all = new rt.Range(0, len);
+	out.push(0xd2);
+	const arg = data;
+	out.push(0xd3);
+	const field3 = from;
+	out.push(0xd4);
+	const range2 = all.clone();
+	const sliced = rt.slice.range(arg, field3, range2.end);
+	out.extendFromSlice(sliced);
+	let copied: rt.ByteVec = rt.slice.toByteVec(data);
+	const arg2 = copied.view();
+	const field4 = to;
+	rt.slice.copyWithin(arg2, all.start, field4, 0);
+	out.extendFromSlice(copied.view());
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */

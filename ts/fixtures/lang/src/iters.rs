@@ -293,6 +293,53 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	for s in steps {
 		out.push(s as u8);
 	}
+	updates(a, b, data, out);
+}
+
+/// Struct update syntax on std's ranges: the fields written run before the base, and
+/// the rest are read from it.
+fn updates(a: u8, b: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::ops::Range;
+	let mut base = a..b;
+	let made = Range {
+		end: {
+			out.push(0xd0);
+			b / 2
+		},
+		..{
+			out.push(0xd1);
+			base.clone()
+		}
+	};
+	let whole = Range { ..base.clone() };
+	out.extend_from_slice(&[made.start, made.end, whole.start, whole.end]);
+	// The loop's end is read once, though the base it came from changes.
+	for i in (Range { start: a / 2, ..base }) {
+		base.end = base.end.wrapping_add(1);
+		out.push(i);
+	}
+	out.push(base.end);
+	let len = data.len();
+	let (to, from) = ((b as usize).min(len), (a as usize).min(len));
+	let all = 0..len;
+	// The sliced value, the fields written, then the base.
+	let sliced = &{
+		out.push(0xd2);
+		data
+	}[Range {
+		start: {
+			out.push(0xd3);
+			from
+		},
+		..{
+			out.push(0xd4);
+			all.clone()
+		}
+	}];
+	out.extend_from_slice(sliced);
+	let mut copied = data.to_vec();
+	copied.copy_within(Range { end: to, ..all }, 0);
+	out.extend_from_slice(&copied);
 }
 
 /// Iterators of `Option`, which keep each `None` apart from their end.
