@@ -23,5 +23,4 @@ Public API: a benchmark variant.
 
 ## Related
 
-- [Early cutoff for edit rebuilds](/quest/m3/edit-cutoff.md) - the rustc-side route past dependent rebuilds
 - [Relink without rebuilding](/quest/m3/relink.md) - upstream's route past the same rebuilds

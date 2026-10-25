@@ -15,9 +15,7 @@ use uniffi_bindgen::{
 
 use self::gen_cpp::{generate_cpp_bindings, Bindings};
 
-pub(crate) struct CppBindingGenerator {
-    pub scaffolding_mode: bool,
-}
+pub(crate) struct CppBindingGenerator;
 
 /// A Trait to help render types in a language specific format.
 pub trait CodeType: Debug {
@@ -102,9 +100,6 @@ impl BindingGenerator for CppBindingGenerator {
         components: &[uniffi_bindgen::Component<Self::Config>],
     ) -> Result<()> {
         for Component { ci, config, .. } in components {
-            if self.scaffolding_mode {
-                unimplemented!("Cpp scaffolding is not supported yet!");
-            }
             write_cpp_bindings(&settings.out_dir, ci, config)?;
         }
 
