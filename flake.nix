@@ -159,6 +159,7 @@
                 taplo
                 hyperfine
                 measureme
+                hello
               ]
               # The alternative linkers the stable variants measure are ELF-only.
               ++ lib.optionals stdenv.hostPlatform.isLinux [
