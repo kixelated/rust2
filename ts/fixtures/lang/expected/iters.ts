@@ -489,11 +489,23 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 	out.push(0xd6);
 	const full2 = rt.slice.range(arg3, 0);
 	out.push(full2.length & 0xff);
+	const arg4 = data;
+	fullRange(out);
+	const full3 = rt.slice.range(arg4, 0);
+	out.push(full3.length & 0xff);
+	const full4 = rt.slice.range(data, 0);
+	out.push(full4.length & 0xff);
 	let copied: rt.ByteVec = rt.slice.toByteVec(data);
-	const arg4 = copied.view();
+	const arg5 = copied.view();
 	const field4 = to;
-	rt.slice.copyWithin(arg4, all.start, field4, 0);
+	rt.slice.copyWithin(arg5, all.start, field4, 0);
 	out.extendFromSlice(copied.view());
+}
+
+/** `..`, logging that it was made. */
+export function fullRange(out: rt.ByteVec): undefined {
+	out.push(0xd7);
+	return undefined;
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */

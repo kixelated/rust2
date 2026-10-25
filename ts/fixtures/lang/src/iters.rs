@@ -349,9 +349,20 @@ fn updates(a: u8, b: u8, data: &[u8], out: &mut Vec<u8>) {
 		..
 	}];
 	out.push(full.len() as u8);
+	let full = &data[full_range(out)];
+	out.push(full.len() as u8);
+	let full = &data[..];
+	out.push(full.len() as u8);
 	let mut copied = data.to_vec();
 	copied.copy_within(Range { end: to, ..all }, 0);
 	out.extend_from_slice(&copied);
+}
+
+/// `..`, logging that it was made.
+#[inline(never)]
+fn full_range(out: &mut Vec<u8>) -> std::ops::RangeFull {
+	out.push(0xd7);
+	..
 }
 
 /// Iterators of `Option`, which keep each `None` apart from their end.

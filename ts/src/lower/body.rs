@@ -836,7 +836,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// Whether `id` lowers to an expression with no statements before it.
-	pub fn simple(&mut self, id: ExprId) -> bool {
+	fn simple(&mut self, id: ExprId) -> bool {
 		self.simple_at(id, false)
 	}
 

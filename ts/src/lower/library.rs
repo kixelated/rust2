@@ -988,9 +988,7 @@ fn range_bounds<'tcx>(
 	let mut values: Vec<Expr> = match &b.thir[id].kind {
 		// `..` has no bounds, but what makes it still runs.
 		_ if name == "RangeFull" => {
-			if !b.simple(written) {
-				b.stmt(written, Dest::Discard, &mut pre);
-			}
+			b.stmt(written, Dest::Discard, &mut pre);
 			Vec::new()
 		}
 		ExprKind::Adt(range) => {
