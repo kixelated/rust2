@@ -566,38 +566,45 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(self.adt(*adt, span).sym)
 	}
 
-	/// What tells this instance apart from others of the same name.
+	/// What tells this instance apart from others of its item: the trait it implements, then
+	/// the type arguments its type and itself take, as `Display_Pair` for `Wrap<Pair>`'s
+	/// `Display::fmt`. It is printed whether or not another instance is reached, so reaching
+	/// one renames nothing; empty for a function that is neither generic, of a generic type,
+	/// nor of a trait.
 	fn suffix(&self, instance: Instance<'tcx>) -> String {
 		let tcx = self.tcx;
-		let mut parts = Vec::new();
 		let def_id = instance.def_id();
-		if let Some(imp) = tcx.trait_impl_of_assoc(def_id) {
-			let trait_ref = tcx.impl_trait_ref(imp).skip_binder();
-			let args = self.subst(instance.args, trait_ref.args);
-			parts.extend(args.types().skip(1).map(|t| short_name(tcx, t)));
+		let mut parts = Vec::new();
+		let trait_ref = match tcx.trait_impl_of_assoc(def_id) {
+			Some(imp) => Some(self.subst(instance.args, tcx.impl_trait_ref(imp).skip_binder())),
+			// A trait's own method, which an impl did not override.
+			None => tcx
+				.trait_of_assoc(def_id)
+				.map(|trait_id| ty::TraitRef::from_assoc(tcx, trait_id, instance.args)),
+		};
+		if let Some(trait_ref) = trait_ref {
+			parts.push(tcx.item_name(trait_ref.def_id).to_string());
+			// Without defaults, as `PartialEq`'s `Self`.
+			let args = tcx
+				.generics_of(trait_ref.def_id)
+				.own_args_no_defaults(tcx, trait_ref.args);
+			parts.extend(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)));
 		}
-		// The type whose class or companion this is on goes without saying, but not its
-		// arguments, such as a default method's on `Wrap<Pair>`.
-		let owner = self
-			.self_ty(instance)
-			.map(Ty::peel_refs)
-			.filter(|t| matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local()));
-		// A closure or function type follows from the others, and has no name.
-		let named = |t: &Ty<'tcx>| !matches!(t.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
-		for t in instance.args.types().filter(named) {
-			match (owner == Some(t), t.kind()) {
-				(true, ty::Adt(_, args)) => parts.extend(args.types().map(|t| short_name(tcx, t))),
-				_ => parts.push(short_name(tcx, t)),
+		// The type whose module this is in goes without saying, but not its arguments; any
+		// other self type, such as `u64`'s in a trait impl, is spelled out.
+		if let Some(self_ty) = self.self_ty(instance) {
+			match self_ty.peel_refs().kind() {
+				ty::Adt(adt, args) if adt.did().is_local() => parts.extend(args.types().map(|t| short_name(tcx, t))),
+				_ => parts.push(short_name(tcx, self_ty)),
 			}
 		}
-		parts.dedup();
-		// Impls of traits without arguments, such as `Display::fmt` and `Debug::fmt`, are
-		// told apart by their trait.
-		if parts.is_empty()
-			&& let Some(imp) = tcx.trait_impl_of_assoc(def_id)
-		{
-			let trait_id = tcx.impl_trait_ref(imp).skip_binder().def_id;
-			parts.push(tcx.item_name(trait_id).to_string());
+		let own = tcx.generics_of(def_id).parent_count;
+		for arg in &instance.args[own..] {
+			match arg.kind() {
+				ty::GenericArgKind::Type(t) => parts.push(short_name(tcx, t)),
+				ty::GenericArgKind::Const(c) => parts.push(c.to_string().replace(|c: char| !c.is_alphanumeric(), "")),
+				ty::GenericArgKind::Lifetime(_) => {}
+			}
 		}
 		parts.join("_")
 	}
@@ -1171,10 +1178,34 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 				.join("_")
 		}
 		ty::Ref(_, inner, _) => short_name(tcx, *inner),
+		// Named, since a suffix without its part would read as no instance.
+		ty::Tuple(tys) if tys.is_empty() => "unit".into(),
+		ty::Never => "never".into(),
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
+		// By where it is defined, not by its span, which code above it moves.
+		ty::Closure(def_id, _) | ty::Coroutine(def_id, _) | ty::CoroutineClosure(def_id, _) | ty::FnDef(def_id, _) => {
+			def_name(tcx, *def_id)
+		}
 		_ => ty.to_string().replace(|c: char| !c.is_alphanumeric(), ""),
 	}
+}
+
+/// A function's name, or a closure's as Rust numbers it in what defines it: `run_closure0`
+/// for `run::{closure#0}`. A tuple struct's constructor goes by the struct's name.
+fn def_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
+	use rustc_hir::definitions::{DefPathData, DefPathDataName};
+	let path = tcx.def_path(def_id).data;
+	let named = path.iter().rposition(|part| part.data.get_opt_name().is_some());
+	path[named.unwrap_or(0)..]
+		.iter()
+		.filter(|part| part.data != DefPathData::Ctor)
+		.map(|part| match part.data.name() {
+			DefPathDataName::Named(name) => name.to_string(),
+			DefPathDataName::Anon { namespace } => format!("{namespace}{}", part.disambiguator),
+		})
+		.collect::<Vec<_>>()
+		.join("_")
 }
 
 /// `snake_case` to `camelCase`, keeping leading underscores.

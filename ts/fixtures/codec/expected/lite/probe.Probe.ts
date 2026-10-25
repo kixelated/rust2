@@ -6,27 +6,27 @@ import * as Decoder from "../coding/decode.Decoder.ts";
 import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import * as Form from "../coding/varint.Form.ts";
-import { decodeWith$Probe } from "../lite/message.ts";
+import { decodeWith$Probe_decode_closure0 } from "../lite/message.ts";
 import * as Version from "../lite/version.Version.ts";
 import type * as Control from "../stats.Control.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice(buf: Uint8Array, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
-	let r: Decoder.Decoder = Decoder.new(buf, Form.from(version));
-	const decode_ = decode(r, version);
-	if (!decode_.ok) {
-		return rt.Err(decode_.error);
+export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
+	let r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
+	const decode = decode$Decode_Version(r, version);
+	if (!decode.ok) {
+		return rt.Err(decode.error);
 	}
-	const value = decode_.value;
+	const value = decode.value;
 	return rt.Ok([value, rt.usize.sub(buf.length, Decoder.remaining(r))]);
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const prefix = Encoder.prefixVarint(w);
-	const encodeMsg_ = encodeMsg(self, w, version);
-	if (!encodeMsg_.ok) {
-		return rt.Err(encodeMsg_.error);
+	const encodeMsg = encodeMsg$Message(self, w, version);
+	if (!encodeMsg.ok) {
+		return rt.Err(encodeMsg.error);
 	}
 	if (Encoder.since(w, prefix) > 65535) {
 		Encoder.discard(w, prefix);
@@ -41,9 +41,9 @@ export function encode(self: Probe, w: Encoder.Encoder, version: Version.Version
 }
 
 /** Decode the value from the front of the decoder. */
-export function decode(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
-	return decodeWith$Probe(r, (body: Decoder.Decoder): rt.Result<Probe, DecodeError.DecodeError> => {
-		return decodeMsg(body, version);
+export function decode$Decode_Version(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
+	return decodeWith$Probe_decode_closure0(r, (body: Decoder.Decoder): rt.Result<Probe, DecodeError.DecodeError> => {
+		return decodeMsg$Message(body, version);
 	});
 }
 
@@ -59,7 +59,7 @@ export interface Probe {
 }
 
 /** Decode a message body (without size prefix). */
-export function decodeMsg(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
+export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err({ tag: "Version" });
 	}
@@ -93,7 +93,7 @@ export function decodeMsg(r: Decoder.Decoder, version: Version.Version): rt.Resu
 }
 
 /** Encode this message body (without size prefix). */
-export function encodeMsg(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version");
 	}

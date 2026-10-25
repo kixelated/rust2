@@ -15,7 +15,7 @@ export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt
 		return f.debugStruct("TooLarge").field("size", (f: rt.Formatter) => rt.usize.display(__self02, f)).field("max", (f: rt.Formatter) => rt.usize.display(__self1, f)).finish();
 	} else {
 		const __self03 = self._0;
-		return f.debugTuple("At").field((f: rt.Formatter) => Pair.fmt(__self03, f)).finish();
+		return f.debugTuple("At").field((f: rt.Formatter) => Pair.fmt$Debug(__self03, f)).finish();
 	}
 }
 
@@ -41,7 +41,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return f.writeFmt([(f: rt.Formatter) => rt.usize.display(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usize.display(max, f), " byte limit"]);
 	} else {
 		const pair = self._0;
-		return f.writeFmt(["at ", (f: rt.Formatter) => Pair.fmt(pair, f)]);
+		return f.writeFmt(["at ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f)]);
 	}
 }
 

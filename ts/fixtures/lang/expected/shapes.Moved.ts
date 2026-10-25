@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugTuple("Moved").field((f: rt.Formatter) => rt.u8.display(self._0, f)).field((f: rt.Formatter) => rt.u16.display(self._1, f)).finish();
 }
 
