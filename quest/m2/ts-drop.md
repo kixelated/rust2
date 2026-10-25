@@ -9,56 +9,38 @@ native Rust.
 
 ## Plan
 
-Decided by the async spike ([#16](https://github.com/kixelated/rust2/pull/16)) on
-2026-10-24: drop points come from the THIR lowering's own scopes, not MIR. What landed
-there: a class that drops gets `[Symbol.dispose]` as drop glue (its `Drop` impl, then
-each field); a variable drops in a `finally` at the end of its scope; a move leaves
-`undefined` behind, so a variable moved on some paths drops on the others. The task
-fixture's trace test proves it on kio's waiters, wakers, and channels.
+Decided by the MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)): drop
+points come from MIR's drop elaboration, which puts each drop where Rust runs it, with
+a flag where a value moved on some paths only, so the lowering adds nothing of its own:
+no `finally` per scope, and no `undefined` left by a move. A panic unwinds through the
+cleanup blocks of `-C panic=unwind` MIR, which a function runs from a `catch` (the
+task fixture's unwinding test checks them against native unwinding). An enum, tuple,
+or `Result` that drops is dropped by glue lowered from rustc's own `drop_in_place`
+shim.
 
-What still fails translation, each with its span (the reject fixture has one of each),
-ranked by the census of moq-net at the pinned revision (kio's has 28 in all):
+What still fails translation from MIR, by the census of moq-net at the pinned revision
+(kio's has 9 in all):
 
-- Dropping a value whose drop no `[Symbol.dispose]` carries (657): a `Result`, an
-  `Option` or `Poll` of one, an enum or tuple holding one, a `Vec` of one. Each needs
-  glue of its own, switching on the variant.
-- A temporary that drops, unless a call or binding takes it whole (280): borrowed, a
-  field or index of one, a `match`, `if let`, `let`, or let chain that moves only part
-  of it, and a guarded arm that binds one. Rust drops it at the end of its statement, or
-  of the `match`.
-- A `for` loop over values that drop (60): each at the end of its iteration, and the
-  rest on a `break`.
-- An iterator that owns a value that drops (55): a `Vec` of one moved into it, or an
-  adaptor over items that drop. An `rt.Iter` drops nothing it skips, consumes, or still
-  holds when it is dropped.
-- A std mapping that may discard an operand that drops (19): `bool::then_some`,
-  `Option::ok_or`, `map_or`, and `unwrap_or`, and `Result::ok`. Each refuses any operand
-  that drops today, even one it always keeps, such as `ok_or`'s option: `keeps_operands`
-  in `library.rs` should name the operands each mapping may discard instead.
-- Struct update syntax from a value that drops (16), a closure capturing one (13), a
-  generic type that implements `Drop` (11), a parameter that drops bound by a pattern,
-  a rest pattern that moves values that drop out of a place, and an array repeat of a
-  value that drops.
-- A value that drops, moved ahead of an `.await` in the same call (3) or in the place
-  an assignment writes it to, which a cancel would leave in a temporary no scope drops,
-  and an `Arc` or `Mutex` holding a borrow of a value that drops, which JS would drop
-  as the value itself.
+- An iterator that owns a value that drops (95): an `rt.Iter` drops nothing it skips,
+  consumes, or still holds when it is dropped.
+- Dropping a value whose glue is std's (128): a `Vec` of a value without
+  `[Symbol.dispose]`, such as an enum, and the instances of generic enums a census
+  lowers over their type parameters.
+- A std mapping that may discard an operand that drops (20): `keeps_operands` in
+  `library.rs` refuses any operand that drops, even one a mapping always keeps;
+  it should name the operands each mapping may discard instead.
+- A generic type that implements `Drop` (11).
 
-Decided with the maintainer on 2026-10-24: the async spike
-([#16](https://github.com/kixelated/rust2/pull/16)) merges with drop points from
-THIR's scopes, and the [MIR lowering spike](/quest/m2/ts-mir-spike.md) then
-decides whether drops move to MIR's elaboration; rewrite this plan to its report
-too. Also in scope, found since: a temporary that drops and is held across an
-`.await` is owned instead of refused (3 refusal sites), which needs declarations
-at scope level.
+THIR's refusals that MIR's elaboration closes, for comparison: 657 drops of a value
+without glue, 280 temporaries that drop, 60 `for` loops, 112 moves out of other places,
+and 75 more in patterns, closures, and struct updates.
 
-Watch the cost: each move of a value that drops writes `undefined` to where it was, and
-each scope holding one becomes a `try`/`finally`. A pass that proves a variable moved on
-every path, or on none, would drop most of both; measure it on the
-[TS benchmark](/ts/README.md#bench) before adding it.
+Watch the cost: a function whose cleanup does something JS can see sets a variable
+before each call that can panic and wraps its body in a `try`; measure any change on
+the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for values that drop.
 
 ## Required
 
-- [MIR lowering spike](/quest/m2/ts-mir-spike.md) - rewrite to the spike's report before starting
+- [Lower bodies from MIR](/quest/m2/ts-mir.md) - drops come from MIR's elaboration

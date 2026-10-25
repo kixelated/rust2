@@ -11,7 +11,7 @@ import type * as Tally from "./model.Tally.ts";
 
 /**
  * Every value until the channel closes, summed, holding a guard of its own across
- * each await beside the one it was given.
+ * each await beside the one it was given. It panics on 99.
  */
 export function sum(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return rt.future(sumBody, sumDrop, rx, guard);
@@ -45,6 +45,9 @@ export function* sumBody(_taskContext: rt.Context, rx: Consumer.Consumer, guard:
 					}
 					if (option !== undefined) {
 						const value = option;
+						if (value === 99) {
+							rt.panic(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " poisoned"]);
+						}
 						Log.note(inner.log, rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(guard2.id, f), " got ", (f: rt.Formatter) => rt.u64.display(value, f)]));
 						total = rt.u64.add(total, value);
 					} else {

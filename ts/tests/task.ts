@@ -160,8 +160,11 @@ class Executor {
 	}
 }
 
-/** The script runner, as `harness.rs` runs it natively. */
-export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint8Array } {
+/**
+ * The script runner, as `harness.rs` runs it natively. Where a panic unwinds, as on
+ * the host, `unwind` logs a step's panic and goes on, as the native harness does.
+ */
+export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) => { view(): Uint8Array } {
 	return (input) => {
 		const log = f.Log.new();
 		const note = (event: string) => f.Log.note(log, event);
@@ -170,6 +173,25 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 		for (let i = 0; i < input.length; i += 2) {
 			const op = input[i];
 			const arg = input[i + 1] ?? 0;
+			if (!unwind) {
+				step(op, arg);
+				continue;
+			}
+			try {
+				step(op, arg);
+			} catch (err) {
+				if (!(err instanceof Error && err.name === "Panic")) throw err;
+				note(`panic ${err.message}`);
+			}
+		}
+		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
+		channels.forEach((channel, c) => {
+			note(`c${c} drop`);
+			channel[Symbol.dispose]();
+		});
+		return f.Log.text(log);
+
+		function step(op: number, arg: number): void {
 			const pick = (len: number) => (len > 0 ? arg % len : undefined);
 			const c = pick(channels.length);
 			switch (op % 11) {
@@ -223,12 +245,6 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 					}
 			}
 		}
-		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
-		channels.forEach((channel, c) => {
-			note(`c${c} drop`);
-			channel[Symbol.dispose]();
-		});
-		return f.Log.text(log);
 	};
 }
 
@@ -249,4 +265,7 @@ export const cases: Uint8Array[] = [
 	// An async block's captures: one borrowed, one moved on one path only, and one moved
 	// but only borrowed, dropped when its block returns or is cancelled mid-await.
 	[0, 0, 10, 0, 10, 128, 10, 0, 6, 0, 3, 5, 7, 0, 7, 0, 9, 2, 6, 0],
+	// A future that panics mid-loop holding guards: unwinding drops them, and a poll after
+	// panics again.
+	[0, 0, 1, 0, 1, 0, 6, 0, 3, 99, 7, 0, 3, 4, 6, 0, 8, 0, 9, 1],
 ].map((script) => Uint8Array.from(script));
