@@ -21,7 +21,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 ## Required
 
-- [MIR's codec as fast as THIR's](/quest/m2/ts-mir-codec.md) - the codec from MIR no slower than from THIR in any engine
 - [Lower bodies from MIR](/quest/m2/ts-mir.md) - the MIR spike's prototype becomes the only lowering, and the THIR one goes
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Wide-integer fast paths](/quest/m2/ts-wide-fast.md) - a fused `from_halves` and an unboxed limb product, kept only if measured faster

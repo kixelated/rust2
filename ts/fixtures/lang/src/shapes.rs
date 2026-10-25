@@ -493,6 +493,26 @@ pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 	}
 	out.push(count);
 
+	// Ranges stepped by hand: signed across zero, up to the type's end, and an item read
+	// after the range changed.
+	let lo = -((data.len() % 4) as i32);
+	let mut r = lo..lo + 3;
+	let first = r.next();
+	r.end = r.start;
+	let second = r.next();
+	if let Some(x) = first {
+		out.extend_from_slice(&x.to_be_bytes());
+	}
+	if let Some(x) = second {
+		out.extend_from_slice(&x.to_be_bytes());
+	}
+	for k in lo..2 {
+		out.push(k as u8);
+	}
+	for k in 124 - lo as i8..i8::MAX {
+		out.push(k as u8);
+	}
+
 	out.push(first_repeat(data));
 	out.extend_from_slice(&tail_break(data).to_be_bytes());
 	out.push(arm_loop(data));

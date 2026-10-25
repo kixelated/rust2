@@ -26,8 +26,11 @@ still needs:
   copied out of a field and then passed on.
 - `?` on an `Option` returned through a `next` whose item can be `undefined`, and the
   other THIR special cases the prototype mirrors (`for` loops by the iterator protocol,
-  `from_be_bytes` of bytes made in place, ranges stepped in place): keep each only
-  where `just ts bench` measures it.
+  `from_be_bytes` of bytes made in place): keep each only where `just ts bench`
+  measures it. Ranges stepped in place stay: a `for` over `0..n` read through
+  `rt.Range.next` or as a number-or-`rt.DONE` was up to 1.3x slower in V8.
+- A signed `%` by a constant leaves its overflow check's operands as statements
+  (`4 === -1;`), which `tsc` rejects.
 - Size: the task fixture's bundle is 35% larger gzipped than THIR's, the codec's 9%.
   Likely wins, each to measure: a coroutine resume function structured where the
   graph allows (a dispatch at each loop header the resume enters, rather than a
@@ -44,7 +47,3 @@ take a raw pointer. A nightly bump that changes them should fail loudly, as each
 now.
 
 Public API: the translator's whole output, and the `--lower` option, which goes.
-
-## Required
-
-- [MIR's codec as fast as THIR's](/quest/m2/ts-mir-codec.md) - the codec from MIR no slower than from THIR in any engine
