@@ -189,15 +189,36 @@ use_variant() { # corpus variant
 }
 
 # Times one run with hyperfine, appending its measurement to the scenario's raw log.
+# DIAGNOSTIC (temporary): host counters around each timed run.
+diag_counters() {
+    {
+        awk '/^cpu / { printf "{\"user\":%s,\"system\":%s,\"idle\":%s,\"iowait\":%s,\"steal\":%s}\n", $2, $4, $5, $6, $9 }' /proc/stat
+        awk '$1 ~ /^(pgmajfault|pgpgin|pgpgout|nr_dirty|nr_writeback|pgscan_kswapd|pgsteal_kswapd|pgscan_direct)$/ { printf "{\"%s\":%s}\n", $1, $2 }' /proc/vmstat
+        awk '/^(Cached|MemAvailable|Dirty):/ { sub(":", "", $1); printf "{\"%s\":%s}\n", $1, $2 }' /proc/meminfo
+        for r in cpu io memory; do
+            [[ ! -r /proc/pressure/$r ]] || awk -v r="$r" '{ split($5, a, "="); printf "{\"psi_%s_%s\":%s}\n", r, $1, a[2] }' "/proc/pressure/$r"
+        done
+    } | jq -s -c add
+}
+
 time_once() { # corpus dir scenario variant prepare command
-    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json
+    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json before after sync_s=null t0
     json=$out/raw/$corpus.$scenario.$variant.json
+    if [[ ${diag_sync:-0} == 1 ]]; then
+        t0=$(date +%s.%N)
+        sync
+        sync_s=$(awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { print b - a }')
+    fi
+    before=$(diag_counters)
     (
         use_variant "$corpus" "$variant"
         cd "$dir"
         hyperfine --style none --runs 1 --prepare "$prepare" --export-json "$json" "$cmd"
     )
-    jq -c '.results[0].measurements[0]' "$json" | tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
+    after=$(diag_counters)
+    jq -c --argjson b "$before" --argjson a "$after" --argjson sync "$sync_s" \
+        '.results[0].measurements[0] + {diag: {before: $b, after: $a, sync: $sync}}' "$json" |
+        tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
 }
 
@@ -259,7 +280,7 @@ bench_corpus() { # corpus dir
                 [[ -n $file ]] || continue
                 cmd=$build
                 prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
-                n=${runs:-5}
+                n=${runs:-10} # DIAGNOSTIC: 10, not 5
                 # Add the marker and build it, so each timed run is a body edit.
                 "$bench/run.sh" edit "$dir/$file"
                 for variant in "${variants[@]}"; do
@@ -270,9 +291,21 @@ bench_corpus() { # corpus dir
         for ((i = 0; i < n; i++)); do
             for ((j = 0; j < count; j++)); do
                 variant=${variants[(i + j) % count]}
+                # DIAGNOSTIC: odd edit rounds flush dirty pages before each run.
+                diag_sync=0
+                [[ $scenario != edit-* ]] || diag_sync=$((i % 2))
                 time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "$cmd"
             done
         done
+        # DIAGNOSTIC: the host's disks, memory, and target sizes.
+        {
+            echo "== $corpus after $scenario"
+            df -h "$work" /mnt /tmp || true
+            lsblk -o NAME,ROTA,SIZE,TYPE,MOUNTPOINTS || true
+            free -m
+            sysctl vm.dirty_ratio vm.dirty_background_ratio vm.dirty_expire_centisecs vm.swappiness || true
+            du -sh "$work/target/$corpus"/* || true
+        } >>"$out/logs/diag.txt" 2>&1
         for variant in "${variants[@]}"; do
             summarize_runs "$corpus" "$scenario" "$variant"
         done
