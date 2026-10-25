@@ -28,11 +28,6 @@ impl Config {
 		let text = std::fs::read_to_string(path).map_err(|err| format!("reading {}: {err}", path.display()))?;
 		toml::from_str(&text).map_err(|err| format!("parsing {}: {err}", path.display()))
 	}
-
-	/// The library's crate name, as rustc is given it.
-	pub fn crate_name(&self) -> String {
-		self.package.replace('-', "_")
-	}
 }
 
 /// Environment variables the CLI hands the wrapper.
@@ -43,4 +38,6 @@ pub mod env {
 	pub const OUT: &str = "RUST2_TS_OUT";
 	/// Where to write a census instead of translating, absolute.
 	pub const CENSUS: &str = "RUST2_TS_CENSUS";
+	/// What bodies lower from: `thir`, the default, or `mir`.
+	pub const LOWER: &str = "RUST2_TS_LOWER";
 }

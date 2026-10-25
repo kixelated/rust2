@@ -57,7 +57,8 @@ pub enum SymKind {
 	/// A type alias, which has no value.
 	Union,
 	Function,
-	/// A class's method, called on its receiver: only drop glue's `[Symbol.dispose]`.
+	/// A class's method, called on its receiver: drop glue's `[Symbol.dispose]`, and a
+	/// coroutine's `poll`.
 	Method,
 }
 

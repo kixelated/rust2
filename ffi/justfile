@@ -1,0 +1,83 @@
+#!/usr/bin/env just --justfile
+#
+# The C exporter, invoked from the repo root as `just ffi <recipe>`. Its crates are their
+# own workspace on ts/rust-toolchain.toml's nightly, which the dev shell exports as
+# RUST2_TS_TOOLCHAIN; without it, rustup reads the same file through the link here.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+export PATH := if env("RUST2_TS_TOOLCHAIN", "") == "" { env("PATH") } else { env("RUST2_TS_TOOLCHAIN") / "bin:" + env("PATH") }
+
+default:
+    @just --list
+
+# Lint and format-check the exporter, its fixtures, and the shared driver front end.
+check:
+    cargo clippy --locked --all-targets -- -D warnings
+    cargo fmt --all --check
+    cargo shear
+    cargo sort --workspace --check --no-format
+    cargo clippy --locked --manifest-path ../driver/Cargo.toml -- -D warnings
+    cargo fmt --manifest-path ../driver/Cargo.toml --check
+
+# Export each fixture, build it, and run its C test.
+test *args:
+    cargo test --locked {{ args }}
+
+# Apply formatters without changing program behavior.
+fix:
+    cargo clippy --locked --fix --allow-staged --allow-dirty --all-targets
+    cargo fmt --all
+    cargo fmt --manifest-path ../driver/Cargo.toml
+    cargo shear --fix
+    cargo sort --workspace --no-format
+
+# Run the exporter: `just ffi run --config <ffi.toml> --out <dir>`.
+run *args:
+    cargo run --locked --quiet -- {{ args }}
+
+# Census what moq-net exports into target/census, from the moq revision `just ts moq` pins or a checkout.
+census checkout="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="{{ checkout }}"
+    if [ -z "$src" ]; then
+        (cd ../ts && just moq-pin)
+        src=../ts/target/moq
+    fi
+    cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md
+
+# Time frame writes through the export and through moq's hand-written rs/moq-c, in the bench shell: nix develop .#bench.
+bench checkout="": (moq checkout)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -n "${LIBCLANG_PATH:-}" ] || { echo "LIBCLANG_PATH is unset: run this in the bench shell, nix develop .#bench" >&2; exit 1; }
+    src="{{ checkout }}"
+    [ -n "$src" ] || src=../ts/target/moq
+    out=target/export/moq
+    # moq-c's header is written to its build script's output directory.
+    moqc=$(cd "$src" && cargo build --locked --quiet --release --package moq-c --message-format=json \
+        | jq -r 'select(.reason == "build-script-executed" and (.package_id | contains("moq-c#"))) | .out_dir')
+    cc -O2 -std=c11 -Wall -Wextra -Werror -I "$out/include" moq/bench/export.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-export
+    cc -O2 -std=c11 -Wall -Wextra -Werror -I "$moqc/include" moq/bench/moq-c.c "$src/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-moq-c
+    for _ in 1 2 3; do
+        target/bench-moq-c
+        target/bench-export
+    done
+
+# Export moq-net's C ABI, build it, and run moq/moq.c against it, from the moq revision `just ts moq` pins or a checkout.
+moq checkout="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="{{ checkout }}"
+    if [ -z "$src" ]; then
+        (cd ../ts && just moq-pin)
+        src=../ts/target/moq
+    fi
+    out=target/export/moq
+    cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --out "$out"
+    # moq's lockfile pins what the export depends on, as it pins moq-net's own build.
+    cp "$src/Cargo.lock" "$out/Cargo.lock"
+    cargo build --quiet --release --manifest-path "$out/Cargo.toml"
+    cc -std=c11 -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/moq-test
+    target/moq-test
