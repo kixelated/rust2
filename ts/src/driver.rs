@@ -52,7 +52,7 @@ impl Translate {
 			return Ok(None);
 		};
 		let config = Config::load(path.as_ref())?;
-		if !rust2_driver::rustc::compiles_lib(args, &config.crate_name()) {
+		if !rust2_driver::rustc::compiles_lib(args, &config.package) {
 			return Ok(None);
 		}
 		let output = match (

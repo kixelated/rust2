@@ -32,6 +32,15 @@ pub fn nested(value: Option<Box<Option<u32>>>) -> bool {
 	value.is_some()
 }
 
+/// An object, since its field is private.
+pub struct Opaque(u8);
+
+/// A handle lent inside a `Box`: it would cross by value, moving it out of the caller's
+/// handle for a call that only reads it.
+pub fn peek(value: &Box<Opaque>) -> u8 {
+	value.0
+}
+
 /// A static.
 pub static COUNT: u8 = 0;
 

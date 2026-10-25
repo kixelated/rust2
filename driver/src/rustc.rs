@@ -45,9 +45,11 @@ struct Plain;
 
 impl Callbacks for Plain {}
 
-/// Whether rustc's `args` compile the library of `crate_name`, not its tests.
-pub fn compiles_lib(args: &[String], crate_name: &str) -> bool {
-	let name = args.windows(2).find(|w| w[0] == "--crate-name").map(|w| w[1].as_str());
+/// Whether rustc's `args` compile the library of the cargo package `package`, not its
+/// tests. Cargo names the package being compiled in `CARGO_PKG_NAME`, whatever its
+/// library target is called.
+pub fn compiles_lib(args: &[String], package: &str) -> bool {
+	let ours = std::env::var("CARGO_PKG_NAME").is_ok_and(|name| name == package);
 	let lib = args.windows(2).any(|w| w[0] == "--crate-type" && w[1] == "lib");
-	name == Some(crate_name) && lib && !args.iter().any(|a| a == "--test")
+	ours && lib && !args.iter().any(|a| a == "--test")
 }

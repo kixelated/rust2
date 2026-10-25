@@ -16,7 +16,6 @@ use rustc_span::{Span, sym};
 use rustc_trait_selection::infer::InferCtxtExt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
-use crate::config::Config;
 use crate::ir::{
 	Access, Api, Callback, Constant, Dyn, Enum, Field, Function, Int, Literal, Mutability, Object, Param, Path,
 	Receiver, Record, Traits, Type, Variant,
@@ -93,7 +92,7 @@ struct Collector<'tcx> {
 }
 
 /// Collect the crate's exported API, leaving out what `exclude` names.
-pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> Collected {
+pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, exclude: &[String]) -> Collected {
 	let bytes = tcx
 		.crates(())
 		.iter()
@@ -118,7 +117,8 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 		twins: Vec::new(),
 		bytes,
 		api: Api {
-			krate: config.crate_name(),
+			// The library's name, which may not be the package's.
+			krate: tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string(),
 			records: Vec::new(),
 			enums: Vec::new(),
 			objects: Vec::new(),
@@ -1071,6 +1071,11 @@ impl<'tcx> Collector<'tcx> {
 					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
 					(Type::Object(_), Pos::Param, _) => {}
+					// Lent only through a handle: one inside a `Box` or `Option` crosses by
+					// value, which would move it out of the caller's handle.
+					(_, Pos::Param, _) if self.holds_handle(*inner) => {
+						return Err(why("reference to a handle inside a value", inner.to_string()));
+					}
 					(_, Pos::Param, Mutability::Mut) => return Err(why("&mut of a value", inner.to_string())),
 					_ => {}
 				}

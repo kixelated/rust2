@@ -10,7 +10,7 @@ use serde::Deserialize;
 pub struct Config {
 	/// The cargo package whose library is exported.
 	pub package: String,
-	/// The prefix of every C name, the crate name by default.
+	/// The prefix of every C name, the package's name in snake case by default.
 	pub prefix: Option<String>,
 	/// Paths from the crate root left out of the export: a module, an item, or one
 	/// method (`track::Producer::poll_closed`). Each must name something exported.
@@ -29,14 +29,9 @@ impl Config {
 		toml::from_str(&text).map_err(|err| format!("parsing {}: {err}", path.display()))
 	}
 
-	/// The library's crate name, as rustc is given it.
-	pub fn crate_name(&self) -> String {
-		self.package.replace('-', "_")
-	}
-
 	/// The prefix of every C name.
 	pub fn prefix(&self) -> String {
-		self.prefix.clone().unwrap_or_else(|| self.crate_name())
+		self.prefix.clone().unwrap_or_else(|| self.package.replace('-', "_"))
 	}
 }
 

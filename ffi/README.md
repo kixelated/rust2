@@ -19,7 +19,7 @@ shared library.
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
 package = "moq-net"
-# The prefix of every C name, the crate name by default.
+# The prefix of every C name, the package's name in snake case by default.
 prefix = "moq"
 # Paths from the crate root left out: a module, an item, or one method or field. Each
 # must name something exported. Nothing else leaves an item out.

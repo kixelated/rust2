@@ -6,6 +6,10 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 publish = false
 
+# Named apart from the package, which the export must follow.
+[lib]
+name = "api_lib"
+
 [dependencies]
 bytes = "1.11.1"
 

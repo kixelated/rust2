@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp, Tally};
+use api_lib::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp, Tally};
 use bytes::Bytes;
 
 /// Keeps even levels, as `tests/api.c`'s implementation does.
@@ -68,10 +68,10 @@ fn main() {
 	let label = c.into_label(Some(p));
 	println!("label {label:?}");
 
-	println!("{}", api_fixture::greet("x", Shape::Square));
-	println!("len {}", api_fixture::len(b"abc"));
+	println!("{}", api_lib::greet("x", Shape::Square));
+	println!("len {}", api_lib::len(b"abc"));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
-		println!("{}", api_fixture::describe(&event));
+		println!("{}", api_lib::describe(&event));
 	}
 
 	let stamp = Stamp::from_millis(2500);
@@ -83,7 +83,7 @@ fn main() {
 	println!("stamp {:?}", message.stamp.unwrap());
 	println!("sent {}", message.sent());
 
-	println!("kept {}", api_fixture::emit(Print, vec![1, 2, 3, 4]));
+	println!("kept {}", api_lib::emit(Print, vec![1, 2, 3, 4]));
 	let logger = Logger::new(Box::new(Print));
 	println!("write {}", logger.write("hi"));
 	drop(logger);
