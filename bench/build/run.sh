@@ -85,11 +85,17 @@ for name in "${variants[@]}"; do
     base=$(jq -r --arg n "$name" '.variant[] | select(.name == $n) | .base // .name' <<<"$config")
     [[ -n $base ]] || die "unknown variant: $name"
     [[ " ${variants[*]} " == *" $base "* ]] || die "variant $name compares against $base; select it too"
-    jq -e --arg n "$name" --arg b "$base" '
-        ["check", "build", "edit-leaf", "edit-hub"] as $all
-        | def runs($v): (.variant[] | select(.name == $v) | .scenarios) // $all;
-        runs($n) - runs($b) == [] and runs($n) - $all == []' <<<"$config" >/dev/null ||
-        die "variant $name runs a scenario that is unknown or that its base $base skips"
+    for key in corpora scenarios; do
+        jq -e --arg n "$name" --arg b "$base" --arg k "$key" '
+            {corpora: [.corpus[].name], scenarios: ["check", "build", "edit-leaf", "edit-hub"]}[$k] as $all
+            | def runs($v): (.variant[] | select(.name == $v) | .[$k]) // $all;
+            runs($n) - runs($b) == [] and runs($n) - $all == []' <<<"$config" >/dev/null ||
+            die "variant $name lists $key that are unknown or that its base $base skips"
+    done
+done
+for name in "${corpora[@]}"; do
+    jq -e --arg c "$name" --args 'any(.variant[] | select(.name | IN($ARGS.positional[])); .corpora // [$c] | index($c))' \
+        "${variants[@]}" <<<"$config" >/dev/null || die "no selected variant runs on corpus $name"
 done
 
 # Cargo reads every .cargo/config.toml above its working directory, so a user's
@@ -123,7 +129,15 @@ fi
 export CARGO_HOME=$work/cargo-home
 stable_path=$PATH
 nightly_path=$RUST2_BENCH_NIGHTLY:$PATH
-rajit_path=${RUST2_BENCH_RAJIT:+$RUST2_BENCH_RAJIT:$PATH}
+
+# ra-jit compiles from source, so only a run that measures it builds it.
+rajit_path=
+if jq -e --argjson corpora "$(jq -n -c '$ARGS.positional' --args "${corpora[@]}")" --args '
+    any(.variant[] | select(.name | IN($ARGS.positional[])) | select(.toolchain == "ra-jit");
+        any((.corpora // $corpora)[]; IN($corpora[])))' "${variants[@]}" <<<"$config" >/dev/null; then
+    echo "bench: building ra-jit"
+    rajit_path=$(nix build --no-link --print-out-paths "$root#bench-ra-jit")/bin:$PATH
+fi
 
 # ra-jit's daemon outlives the build that starts it, so it gets a home and a store
 # of its own, and stops however the run ends.
@@ -135,6 +149,12 @@ trap rajit_stop EXIT
 
 field() { # corpus|variant, name, jq path
     jq -r --arg n "$2" ".$1[] | select(.name == \$n) | $3 // empty" <<<"$config"
+}
+
+# Whether a variant runs on a corpus or scenario: those its list under the key names, or all.
+runs_on() { # variant corpora|scenarios name
+    jq -e --arg n "$1" --arg k "$2" --arg v "$3" '.variant[] | select(.name == $n) | .[$k] // [$v] | index($v) != null' \
+        <<<"$config" >/dev/null
 }
 
 record_host() {
@@ -151,7 +171,7 @@ record_host() {
         --arg rust2 "$(git -C "$root" rev-parse HEAD)" \
         --arg stable "$(PATH=$stable_path rustc -V)" \
         --arg nightly "$(PATH=$nightly_path rustc -V)" \
-        --arg ra_jit "$([[ -z $rajit_path ]] && echo "ra-jit missing" ||
+        --arg ra_jit "$([[ -z $rajit_path ]] && echo "ra-jit not measured" ||
             echo "$(PATH=$rajit_path ra-jit --version) on $(PATH=$rajit_path rustc -V)")" \
         --arg hyperfine "$(hyperfine --version)" \
         --arg mold "$(mold --version 2>/dev/null || echo missing)" \
@@ -198,7 +218,7 @@ use_variant() { # corpus variant
     case $(field variant "$2" .toolchain) in
         stable) PATH=$stable_path ;;
         nightly) PATH=$nightly_path ;;
-        ra-jit) PATH=${rajit_path:?ra-jit does not build on this system} ;;
+        ra-jit) PATH=$rajit_path ;;
         *) die "variant $2 has no valid toolchain" ;;
     esac
     case $(field variant "$2" .subcommand) in
@@ -313,7 +333,7 @@ summarize_runs() { # corpus scenario variant
         }
         + if $daemon then {ra_jit: {
             served: map(select(.ra_jit.served)) | length,
-            cargo: (map(select(.ra_jit.served | not) | .ra_jit.cargo // "no reason given, as for a first build") | group_by(.) | map({key: .[0], value: length}) | from_entries),
+            cargo: (map(select(.ra_jit.served | not) | .ra_jit.cargo // "no reason given") | group_by(.) | map({key: .[0], value: length}) | from_entries),
             rss: (map(.ra_jit.rss) | max)
         }} else {} end' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
 }
@@ -323,10 +343,17 @@ summarize_runs() { # corpus scenario variant
 # them instead of favoring whichever ran last.
 bench_corpus() { # corpus dir
     local corpus=$1 dir=$2 leaf hub scenario subcommand file prepare n i j variant
-    local -a args active
+    local -a args present active
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
     leaf=$(field corpus "$corpus" .leaf)
     hub=$(field corpus "$corpus" .hub)
+
+    present=()
+    for variant in "${variants[@]}"; do
+        if runs_on "$variant" corpora "$corpus"; then
+            present+=("$variant")
+        fi
+    done
 
     # Each corpus starts ra-jit from nothing: no daemon, and an empty store.
     rajit_stop
@@ -334,7 +361,7 @@ bench_corpus() { # corpus dir
     mkdir -p "$work/ra-jit" && mkdir -m 700 "$RA_JIT_HOME"
 
     # An untimed clean build per variant warms the disk cache and shows any failure in full.
-    for variant in "${variants[@]}"; do
+    for variant in "${present[@]}"; do
         echo "bench: $corpus warm-up $variant"
         (
             use_variant "$corpus" "$variant"
@@ -347,9 +374,8 @@ bench_corpus() { # corpus dir
 
     for scenario in check build edit-leaf edit-hub; do
         active=()
-        for variant in "${variants[@]}"; do
-            if jq -e --arg n "$variant" --arg s "$scenario" \
-                '.variant[] | select(.name == $n) | .scenarios // [$s] | index($s) != null' <<<"$config" >/dev/null; then
+        for variant in "${present[@]}"; do
+            if runs_on "$variant" scenarios "$scenario"; then
                 active+=("$variant")
             fi
         done

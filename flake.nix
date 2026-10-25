@@ -158,6 +158,17 @@
             uniffi-bindgen-go = generator "uniffi-bindgen-go" [ "uniffi-bindgen-go" ];
             uniffi-bindgen-dart = generator "uniffi-bindgen-dart" [ "uniffi_bindgen_dart" ];
             uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
+          }
+          # ra-jit and its toolchain for the benchmark's ra-jit variants, which build it
+          # only when they run: it compiles from source. ra-jit skips Intel macOS.
+          // pkgs.lib.optionalAttrs (ra-jit.packages ? ${system}) {
+            bench-ra-jit = pkgs.symlinkJoin {
+              name = "bench-ra-jit";
+              paths = [
+                ra-jit.packages.${system}.ra-jit
+                raJitToolchain
+              ];
+            };
           };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
           # so stable remains the default.
@@ -175,12 +186,6 @@
                 wild
               ];
             RUST2_BENCH_NIGHTLY = "${nightly}/bin";
-            # ra-jit and its toolchain; empty where ra-jit does not build (Intel macOS).
-            RUST2_BENCH_RAJIT =
-              if ra-jit.packages ? ${system} then
-                "${ra-jit.packages.${system}.ra-jit}/bin:${raJitToolchain}/bin"
-              else
-                "";
           };
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [

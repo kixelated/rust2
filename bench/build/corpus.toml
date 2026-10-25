@@ -48,8 +48,8 @@ pure = true
 # Each variant is one build configuration. `base` names the variant it is
 # compared against; a variant without one is a base. `rustflags` replaces any
 # host rustflags the corpus configures (none do today). `subcommand` goes between
-# cargo and `build` or `check`. `scenarios` limits a variant to those it lists,
-# which its base must run too.
+# cargo and `build` or `check`. `corpora` and `scenarios` limit a variant to those
+# they list, which its base must run too.
 
 [[variant]]
 name = "baseline"
@@ -103,12 +103,15 @@ toolchain = "nightly"
 # ra-jit keeps the workspace loaded in a daemon on rust-analyzer, and after an edit
 # compiles only the changed functions with Cranelift and splices them into the
 # program cargo linked, handing the build to cargo when it cannot. It works with
-# one rustc only, so its base is plain cargo on that toolchain. Neither checks:
-# with no build loaded, `cargo ra-jit check` reads every crate of the workspace,
-# tests included, and on moq it takes minutes to report errors rustc does not.
+# one rustc only, so its base is plain cargo on that toolchain. It loads a program,
+# and on a library corpus `cargo ra-jit build` returns without building anything.
+# Neither checks: with no build loaded, `cargo ra-jit check` reads every crate of
+# the workspace, tests included, and on moq it takes minutes to report errors
+# rustc does not.
 [[variant]]
 name = "ra-jit-baseline"
 toolchain = "ra-jit"
+corpora = ["moq", "moq-pure-crypto"]
 scenarios = ["build", "edit-leaf", "edit-hub"]
 
 [[variant]]
@@ -116,4 +119,5 @@ name = "ra-jit"
 base = "ra-jit-baseline"
 toolchain = "ra-jit"
 subcommand = "ra-jit"
+corpora = ["moq", "moq-pure-crypto"]
 scenarios = ["build", "edit-leaf", "edit-hub"]

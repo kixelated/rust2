@@ -41,8 +41,9 @@ The `control` variants repeat their base, so their change is the run's noise flo
 Timed runs interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
 To measure a new build-speed change, add a variant whose base is the configuration it improves on.
 
-The `ra-jit` variant builds with `cargo ra-jit` ([ra-jit](https://github.com/indexable-inc/ra-jit), pinned in `flake.nix`), a daemon that compiles only the functions an edit changed and splices them into the program cargo linked, or hands the build back to cargo.
-ra-jit works with one rustc only, so its base, `ra-jit-baseline`, is plain cargo on that toolchain, and neither runs `check`, which `cargo ra-jit` fails on moq.
+The `ra-jit` variant builds with `cargo ra-jit` ([ra-jit](https://github.com/indexable-inc/ra-jit), pinned in `flake.nix` and compiled from source on a run that selects it), a daemon that compiles only the functions an edit changed and splices them into the program cargo linked, or hands the build back to cargo.
+ra-jit works with one rustc only, so its base, `ra-jit-baseline`, is plain cargo on that toolchain.
+Both run on the moq corpora only, since ra-jit needs a program to load, and skip `check`, which `cargo ra-jit` fails on moq.
 The daemon keeps working after a build returns, so each ra-jit run waits for it to go idle before and after, and none of its work overlaps another run.
 Its CPU time adds the daemon's, its peak RSS adds what the daemon holds, and its instructions read `n/a`; the report also says how many of its runs the daemon built, and why cargo built the rest.
 The edit marker is a function nothing calls: rustc recompiles its crate and every crate that depends on it, while ra-jit, when it builds the edit itself, compiles nothing, so its edit times are a lower bound.
