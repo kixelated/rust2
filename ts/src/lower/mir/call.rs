@@ -394,7 +394,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// The place a `&mut` operand borrows, as an assignable path.
+	/// The place a `&mut` operand borrows, as an assignable path: an alias of a borrowed
+	/// place, not a copy of a reference, which holds the object it points at.
 	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<Expr> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
 			return None;
@@ -403,7 +404,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		}
 		match &self.slots[place.local] {
-			Slot::Alias(Some(target)) if target.is_path() || matches!(target, Expr::Index(..)) => Some(target.clone()),
+			Slot::Alias(Some(target))
+				if (target.is_path() || matches!(target, Expr::Index(..))) && self.alias_of_place(place.local) =>
+			{
+				Some(target.clone())
+			}
 			_ => {
 				let pointee = self.mir.local_decls[place.local].ty.peel_refs();
 				Some(self.err(span, format!("replacing the value behind a reference to `{pointee}`")))

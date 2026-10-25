@@ -325,7 +325,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// Whether `local` is an alias of a borrowed place, as `&mut x` or `&mut v[i]`, rather
 	/// than a copy of a reference or a reborrow of what one points at.
-	fn alias_of_place(&self, local: Local) -> bool {
+	pub(super) fn alias_of_place(&self, local: Local) -> bool {
 		matches!(self.slots[local], Slot::Alias(_))
 			&& match self.def_rvalue(local) {
 				Some(mir::Rvalue::Ref(_, _, p)) => !matches!(p.projection.last(), Some(ProjectionElem::Deref)),
