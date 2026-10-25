@@ -1,0 +1,4 @@
+package = "reject-fixture"
+prefix = "reject"
+# An exclusion leaves an item out, so nothing refuses it.
+exclude = ["Excluded"]
