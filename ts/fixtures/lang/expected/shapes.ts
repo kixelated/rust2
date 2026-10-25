@@ -205,6 +205,68 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	const slice = rt.slice.range(arg3, rt.usize.div(rt.min(mark(out, 15), len), 2), field10);
 	const text = rt.fmt.format([(f: rt.Formatter) => Shape.fmt$Debug(rect, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(line, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f), " ", (f: rt.Formatter) => Point.fmt$Debug(read, f), " ", (f: rt.Formatter) => Moved.fmt$Debug(updated, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(taken, f), " ", (f: rt.Formatter) => rt.usize.display(range.start, f), " ", (f: rt.Formatter) => rt.usize.display(range.end, f), " ", (f: rt.Formatter) => rt.usize.display(sum, f), " ", (f: rt.Formatter) => rt.fmt.list(slice, f, rt.u8.display)]);
 	out.extendFromSlice(rt.string.asBytes(text));
+	indexed(data, out);
+}
+
+/**
+ * Indexing, calls, and assignments whose later operands need statements of their own
+ * evaluate what comes before those first: each logs as it runs, or changes what an
+ * earlier operand read.
+ */
+export function indexed(data: Uint8Array, out: rt.ByteVec): void {
+	const at = (i: rt.usize): rt.u8 => {
+		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+	};
+	const arg = listed(out, at(0)).view();
+	out.push(0xe1);
+	const first = rt.at(arg, 1);
+	let bytes: Uint8Array = Uint8Array.of(at(1), at(2), at(3), 4);
+	const arg2 = loggedMut(bytes, out);
+	out.push(0xe3);
+	const arg3 = arg2;
+	out.push(0xe4);
+	rt.slice.copyWithin(arg3, 1, 3, 0);
+	const slice = loggedMut(bytes, out);
+	const arg4 = slice;
+	const arg5 = slice.length;
+	out.push(0xe5);
+	rt.slice.copyWithin(arg4, 2, arg5, 1);
+	const slice2 = loggedMut(bytes, out);
+	rt.slice.copyWithin(slice2, 3, slice2.length, 0);
+	const value = logged(bytes, out);
+	out.push(0xe6);
+	const second = rt.at(value, 1);
+	let f: (a0: rt.u8) => rt.u8 = halve;
+	const arg6 = f;
+	f = twice;
+	const called = arg6(at(4));
+	let n: rt.u8 = at(5);
+	let slots: Uint8Array = rt.bytes(2);
+	const value2 = n;
+	n = rt.u8.wrappingAdd(n, 1);
+	slots[rt.idx(slots, 0)] = rt.u8.add(slots[rt.idx(slots, 0)], value2);
+	out.extendFromSlice(Uint8Array.of(first, second, called, f(1), slots[0], n));
+	out.extendFromSlice(bytes);
+}
+
+/** A vector of `b`, logging that it was made. */
+export function listed(out: rt.ByteVec, b: rt.u8): rt.ByteVec {
+	out.push(0xe0);
+	return rt.slice.toByteVec(Uint8Array.of(b, b ^ 1));
+}
+
+/** `s`, logging that it was read. */
+export function loggedMut(s: Uint8Array, out: rt.ByteVec): Uint8Array {
+	out.push(0xe2);
+	return s;
+}
+
+export function halve(b: rt.u8): rt.u8 {
+	return rt.u8.div(b, 2);
+}
+
+export function twice(b: rt.u8): rt.u8 {
+	return rt.u8.wrappingAdd(b, b);
 }
 
 /** `data`, logging that it was read. */
