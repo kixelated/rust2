@@ -359,7 +359,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				if let ty::Adt(_, args) = self.ret.kind() {
 					super::iter::option_ok(self, args.type_at(0), span);
 				}
-				let value = Expr::Rt("iter").member("fromOption").call(vec![value]);
+				let value = Expr::rt("iterFromOption", vec![value]);
 				self.push(out, StmtKind::Return(Some(value)), span);
 			}
 			Dest::Return => self.push(out, StmtKind::Return(Some(value.typed())), span),
@@ -450,7 +450,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::Adt(adt) if library::Std::of(self.t.tcx, adt.adt_def.did()) == Some(library::Std::Option) => {
 				self.visit(id);
 				Some(match adt.fields.first() {
-					None => Expr::Rt("DONE"),
+					None => Expr::Rt("DONE".into()),
 					Some(field) => self.operand(field.expr, out).typed(),
 				})
 			}
@@ -1413,7 +1413,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		// `it.next()?` tests for the end itself, so its item may be an `Option`.
 		let raw = self.raw_next(inner, out);
 		let none = match raw {
-			Some(_) => Expr::Rt("DONE"),
+			Some(_) => Expr::Rt("DONE".into()),
 			None => Expr::undefined(),
 		};
 		let value = match raw {
@@ -1447,7 +1447,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						cond: t.clone().binary("===", none),
 						then: vec![
 							StmtKind::Return(Some(match self.done {
-								true => Expr::Rt("DONE"),
+								true => Expr::Rt("DONE".into()),
 								false => Expr::undefined(),
 							}))
 							.at(None),
@@ -1630,7 +1630,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let mut body = vec![
 					StmtKind::decl(false, name.clone(), None, Some(next)).at(None),
 					StmtKind::If {
-						cond: Expr::ident(&name).binary("===", Expr::Rt("DONE")),
+						cond: Expr::ident(&name).binary("===", Expr::Rt("DONE".into())),
 						then: vec![StmtKind::Break(None).at(None)],
 						els: Vec::new(),
 					}
@@ -2568,13 +2568,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let mut values: Vec<Expr> = self.declared(written, out).into_iter().map(|(_, v)| v).collect();
 			return match (std, adt.variant_index.index()) {
 				(library::Std::Option, 0) | (library::Std::Poll, 1) => match std {
-					library::Std::Poll => Expr::Rt("Pending"),
+					library::Std::Poll => Expr::Rt("Pending".into()),
 					_ => Expr::undefined(),
 				},
 				(library::Std::Option | library::Std::Poll, _) => values.pop().unwrap(),
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
-				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				(library::Std::RangeFull, _) => Expr::undefined(),
 				(library::Std::Range, _) => {
 					// A wide range steps past 2^53 through its type.
@@ -2584,9 +2584,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					if let Some(int) = super::num::Int::of(gargs.type_at(0))
 						&& int.big()
 					{
-						values.push(Expr::Rt(int.rt()));
+						values.push(int.func("step"));
 					}
-					Expr::New(Box::new(Expr::Rt("Range")), values)
+					Expr::New(Box::new(Expr::Rt("Range".into())), values)
 				}
 				(library::Std::AssertKind, _) => match variant.name.as_str() {
 					"Eq" => Expr::Str("==".into()),
@@ -2953,7 +2953,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
 				self.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
-				return Expr::Rt("iter").member("toOption").call(vec![call]);
+				return Expr::rt("iterToOption", vec![call]);
 			}
 			return call;
 		}
@@ -3120,8 +3120,8 @@ fn range_of(ty: Ty<'_>, start: Expr, end: Expr, inclusive: bool) -> Iterable {
 		Some(int) if int.big() => {
 			let class = if inclusive { "RangeInclusive" } else { "Range" };
 			Iterable::Of(Expr::New(
-				Box::new(Expr::Rt(class)),
-				vec![start, end, Expr::Rt(int.rt())],
+				Box::new(Expr::Rt(class.into())),
+				vec![start, end, int.func("step")],
 			))
 		}
 		_ => Iterable::Range { start, end, inclusive },

@@ -66,7 +66,7 @@ and async in `rt/task.ts`.
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
-| an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
+| an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
@@ -92,30 +92,30 @@ which costs nothing at run time.
 A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
 object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
 `hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
-makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
-comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
-is `rt.u64.low(x)`.
+makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
+is `rt.u64Low(x)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
 runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
 becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
-and such functions: `f.writeFmt(["code=", (f) => rt.u16.display(code, f)])`. A `&dyn
+and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`, after
+would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
+`rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
-are `rt.Iter` methods, lazy and short-circuiting as std's are, and call their closures in
-the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
+are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
+short-circuiting as std's are, and call their closures in the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
 array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
 counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
-std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or iterates
+std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
@@ -187,8 +187,8 @@ they need.
   the root types over free functions: all three within noise in Node, Bun, and Chrome.
   A caller of moq-net's translation that decodes a group header bundles to 26.5 KB
   minified and 8.3 KB gzipped, against 32.3 and 9.5 KB as classes; one that encodes
-  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB. Without the runtime, which does not
-  shake yet, gzip is 30% and 56% smaller. The facade was the largest,
+  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB, each with the whole runtime, which
+  did not shake then. The facade was the largest,
   since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
   and date-fns made the same move for the same reason.
 - A type's functions are a module of their own, which callers import whole and call as
@@ -198,6 +198,20 @@ they need.
   type's module (`export * as Decoder`) still shakes in Bun and Rollup but not in
   esbuild ([evanw/esbuild#1420](https://github.com/evanw/esbuild/issues/1420)), which
   keeps the whole module: 10.2 KB gzipped against 8.3 for the decoding caller.
+- The runtime is free functions too, flat exports of `rt.ts` named for what they act on
+  (`rt.u64Add`, `rt.iterMap`, `rt.fmtPad`), so a bundler drops every one translated code
+  never calls. `rt.ts` re-exports its parts with `export *`, since esbuild keeps a whole
+  `export * as` namespace. A method stays only where a call dispatches on its receiver:
+  an iterator's `next`, a future's `poll`, a waker's, and `[Symbol.dispose]`. Each
+  integer type's functions pass their bounds or width to shared helpers, with a wide
+  type's number fast path inline in its own: through the shared helper alone, V8 took
+  up to 1.7x as long on frame encode. A caller of moq-net's translation that decodes a
+  group header bundles to 6.9 KB minified and 2.2 KB gzipped, against 21.6 and 6.9 KB
+  with the runtime's namespaces and methods; one that reads a varint, to 4.7 and 1.5 KB
+  against 19.4 and 6.2. `just ts bench` measured it within noise of them in Node, Bun,
+  and Chrome: 1.01, 0.97, and 1.00 times their time at the geometric mean, where the
+  A/A route measured 1.00, 0.97, and 0.99. The whole runtime, every export kept, is 52
+  KB minified against 36.
 - A generic type is one interface, class, or union, the type TS callers name, and a
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait

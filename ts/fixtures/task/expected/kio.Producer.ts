@@ -33,17 +33,17 @@ export function send(self: Producer, value: rt.u64): void {
 }
 
 export function consume(self: Producer): Consumer.Consumer {
-	return new Consumer.Consumer({ state: self.state.clone(), next: 0 });
+	return new Consumer.Consumer({ state: rt.arcClone(self.state), next: 0 });
 }
 
 export function clone$Clone(self: Producer): Producer {
-	self.state.value.value.producers = rt.usize.add(self.state.value.value.producers, 1);
-	return new Producer({ state: self.state.clone() });
+	self.state.value.value.producers = rt.usizeAdd(self.state.value.value.producers, 1);
+	return new Producer({ state: rt.arcClone(self.state) });
 }
 
 export function drop$Drop(self: Producer): void {
 	let state: rt.Mutex<State.State> = self.state.value;
-	state.value.producers = rt.usize.sub(state.value.producers, 1);
+	state.value.producers = rt.usizeSub(state.value.producers, 1);
 	if (state.value.producers > 0) {
 		return;
 	}

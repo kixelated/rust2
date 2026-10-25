@@ -103,7 +103,7 @@ impl Int {
 	}
 
 	/// A literal of this type spelled `text`, JS number digits of `value`. A wide value
-	/// past 2^53 is limbs, made from a bigint: `rt.u64.of(0xffffffffffffffffn)`.
+	/// past 2^53 is limbs, made from a bigint: `rt.u64Of(0xffffffffffffffffn)`.
 	pub fn spelled(self, text: String, value: i128) -> Expr {
 		let safe = (1 - (1i128 << 53)..(1 << 53)).contains(&value) && (self.signed || value >= 0);
 		match safe {
@@ -112,9 +112,14 @@ impl Int {
 		}
 	}
 
-	/// The runtime method `rt.<type>.<name>`.
+	/// A call of the type's runtime function `name`: `rt.u8Add` for `add`.
 	pub fn method(self, name: &str, args: Vec<Expr>) -> Expr {
-		Expr::Rt(self.rt()).member(name).call(args)
+		self.func(name).call(args)
+	}
+
+	/// The type's runtime function `name`, uncalled.
+	pub fn func(self, name: &str) -> Expr {
+		Expr::rt_of(self.rt(), name)
 	}
 
 	/// `value`, an exact integer of at most 32 bits, wrapped into this narrow type's range.

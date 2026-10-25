@@ -19,253 +19,253 @@ import * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
 
 export function put(out: rt.ByteVec, s: string): void {
-	out.extendFromSlice(rt.string.asBytes(s));
-	out.push(0xff);
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+	rt.byteVecPush(out, 0xff);
 }
 
 /** Integers of every width, with each spec. */
 export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	const value = rt.u8.rem(kind, 12);
+	const value = rt.u8Rem(kind, 12);
 	if (value === 0) {
 		const data2 = data;
 		let buf: Uint8Array = rt.bytes(1);
 		const n = rt.min(data2.length, buf.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-		const v = rt.u8.fromBeBytes(buf);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(v, f), " ", (f: rt.Formatter) => rt.u8.display(v, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u8.display(v, f)), "|", (f: rt.Formatter) => rt.u8.lowerHex(v, f), " ", (f: rt.Formatter) => rt.u8.upperHex(v, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(v, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.upperHex(v, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u8.lowerHex(v, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u8.lowerHex(v, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u8.lowerHex(v, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u8.upperHex(v, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.display(v, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.u8.display(v, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+		const v = rt.u8FromBeBytes(buf);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(v, f), " ", (f: rt.Formatter) => rt.u8Display(v, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u8Display(v, f)), "|", (f: rt.Formatter) => rt.u8LowerHex(v, f), " ", (f: rt.Formatter) => rt.u8UpperHex(v, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8LowerHex(v, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8UpperHex(v, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u8LowerHex(v, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u8LowerHex(v, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u8LowerHex(v, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u8UpperHex(v, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8Display(v, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.u8Display(v, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.u8Display(v, f)));
 	} else if (value === 1) {
 		const data3 = data;
 		let buf2: Uint8Array = rt.bytes(2);
 		const n2 = rt.min(data3.length, buf2.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data3, 0, n2));
-		const v2 = rt.u16.fromBeBytes(buf2);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u16.display(v2, f), " ", (f: rt.Formatter) => rt.u16.display(v2, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u16.display(v2, f)), "|", (f: rt.Formatter) => rt.u16.lowerHex(v2, f), " ", (f: rt.Formatter) => rt.u16.upperHex(v2, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u16.lowerHex(v2, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u16.upperHex(v2, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u16.lowerHex(v2, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u16.lowerHex(v2, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u16.lowerHex(v2, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u16.upperHex(v2, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u16.display(v2, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.u16.display(v2, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v2, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data3, 0, n2));
+		const v2 = rt.u16FromBeBytes(buf2);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u16Display(v2, f), " ", (f: rt.Formatter) => rt.u16Display(v2, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u16Display(v2, f)), "|", (f: rt.Formatter) => rt.u16LowerHex(v2, f), " ", (f: rt.Formatter) => rt.u16UpperHex(v2, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u16LowerHex(v2, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u16UpperHex(v2, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u16LowerHex(v2, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u16LowerHex(v2, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u16LowerHex(v2, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u16UpperHex(v2, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u16Display(v2, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.u16Display(v2, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.u16Display(v2, f)));
 	} else if (value === 2) {
 		const data4 = data;
 		let buf3: Uint8Array = rt.bytes(4);
 		const n3 = rt.min(data4.length, buf3.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf3, 0, n3), rt.slice.range(data4, 0, n3));
-		const v3 = rt.u32.fromBeBytes(buf3);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u32.display(v3, f), " ", (f: rt.Formatter) => rt.u32.display(v3, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u32.display(v3, f)), "|", (f: rt.Formatter) => rt.u32.lowerHex(v3, f), " ", (f: rt.Formatter) => rt.u32.upperHex(v3, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u32.lowerHex(v3, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u32.upperHex(v3, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u32.lowerHex(v3, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u32.lowerHex(v3, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u32.lowerHex(v3, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u32.upperHex(v3, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u32.display(v3, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.u32.display(v3, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v3, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf3, 0, n3), rt.sliceRange(data4, 0, n3));
+		const v3 = rt.u32FromBeBytes(buf3);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u32Display(v3, f), " ", (f: rt.Formatter) => rt.u32Display(v3, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u32Display(v3, f)), "|", (f: rt.Formatter) => rt.u32LowerHex(v3, f), " ", (f: rt.Formatter) => rt.u32UpperHex(v3, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u32LowerHex(v3, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u32UpperHex(v3, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u32LowerHex(v3, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u32LowerHex(v3, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u32LowerHex(v3, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u32UpperHex(v3, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u32Display(v3, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.u32Display(v3, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.u32Display(v3, f)));
 	} else if (value === 3) {
 		const data5 = data;
 		let buf4: Uint8Array = rt.bytes(8);
 		const n4 = rt.min(data5.length, buf4.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf4, 0, n4), rt.slice.range(data5, 0, n4));
-		const v4 = rt.u64.fromBeBytes(buf4);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u64.display(v4, f), " ", (f: rt.Formatter) => rt.u64.display(v4, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u64.display(v4, f)), "|", (f: rt.Formatter) => rt.u64.lowerHex(v4, f), " ", (f: rt.Formatter) => rt.u64.upperHex(v4, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u64.lowerHex(v4, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u64.upperHex(v4, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u64.lowerHex(v4, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u64.lowerHex(v4, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u64.lowerHex(v4, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u64.upperHex(v4, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u64.display(v4, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.u64.display(v4, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v4, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf4, 0, n4), rt.sliceRange(data5, 0, n4));
+		const v4 = rt.u64FromBeBytes(buf4);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u64Display(v4, f), " ", (f: rt.Formatter) => rt.u64Display(v4, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u64Display(v4, f)), "|", (f: rt.Formatter) => rt.u64LowerHex(v4, f), " ", (f: rt.Formatter) => rt.u64UpperHex(v4, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u64LowerHex(v4, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u64UpperHex(v4, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u64LowerHex(v4, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u64LowerHex(v4, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u64LowerHex(v4, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u64UpperHex(v4, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u64Display(v4, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.u64Display(v4, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.u64Display(v4, f)));
 	} else if (value === 4) {
 		const data6 = data;
 		let buf5: Uint8Array = rt.bytes(16);
 		const n5 = rt.min(data6.length, buf5.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf5, 0, n5), rt.slice.range(data6, 0, n5));
-		const v5 = rt.u128.fromBeBytes(buf5);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u128.display(v5, f), " ", (f: rt.Formatter) => rt.u128.display(v5, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u128.display(v5, f)), "|", (f: rt.Formatter) => rt.u128.lowerHex(v5, f), " ", (f: rt.Formatter) => rt.u128.upperHex(v5, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u128.lowerHex(v5, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u128.upperHex(v5, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u128.lowerHex(v5, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u128.lowerHex(v5, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u128.lowerHex(v5, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u128.upperHex(v5, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u128.display(v5, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.u128.display(v5, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v5, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf5, 0, n5), rt.sliceRange(data6, 0, n5));
+		const v5 = rt.u128FromBeBytes(buf5);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u128Display(v5, f), " ", (f: rt.Formatter) => rt.u128Display(v5, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.u128Display(v5, f)), "|", (f: rt.Formatter) => rt.u128LowerHex(v5, f), " ", (f: rt.Formatter) => rt.u128UpperHex(v5, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u128LowerHex(v5, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u128UpperHex(v5, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.u128LowerHex(v5, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.u128LowerHex(v5, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.u128LowerHex(v5, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.u128UpperHex(v5, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u128Display(v5, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.u128Display(v5, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.u128Display(v5, f)));
 	} else if (value === 5) {
 		const data7 = data;
 		let buf6: Uint8Array = rt.bytes(4);
 		const n6 = rt.min(data7.length, buf6.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf6, 0, n6), rt.slice.range(data7, 0, n6));
-		const v6 = rt.usize.fromBeBytes(buf6);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.usize.display(v6, f), " ", (f: rt.Formatter) => rt.usize.display(v6, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.usize.display(v6, f)), "|", (f: rt.Formatter) => rt.usize.lowerHex(v6, f), " ", (f: rt.Formatter) => rt.usize.upperHex(v6, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.usize.lowerHex(v6, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.usize.upperHex(v6, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.usize.lowerHex(v6, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.usize.lowerHex(v6, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.usize.lowerHex(v6, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.usize.upperHex(v6, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.usize.display(v6, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.usize.display(v6, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v6, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf6, 0, n6), rt.sliceRange(data7, 0, n6));
+		const v6 = rt.usizeFromBeBytes(buf6);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.usizeDisplay(v6, f), " ", (f: rt.Formatter) => rt.usizeDisplay(v6, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), "|", (f: rt.Formatter) => rt.usizeLowerHex(v6, f), " ", (f: rt.Formatter) => rt.usizeUpperHex(v6, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.usizeLowerHex(v6, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.usizeUpperHex(v6, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.usizeLowerHex(v6, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.usizeLowerHex(v6, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.usizeLowerHex(v6, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.usizeUpperHex(v6, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.usizeDisplay(v6, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.usizeDisplay(v6, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v6, f)));
 	} else if (value === 6) {
 		const data8 = data;
 		let buf7: Uint8Array = rt.bytes(1);
 		const n7 = rt.min(data8.length, buf7.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf7, 0, n7), rt.slice.range(data8, 0, n7));
-		const v7 = rt.i8.fromBeBytes(buf7);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.i8.display(v7, f), " ", (f: rt.Formatter) => rt.i8.display(v7, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i8.display(v7, f)), "|", (f: rt.Formatter) => rt.i8.lowerHex(v7, f), " ", (f: rt.Formatter) => rt.i8.upperHex(v7, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i8.lowerHex(v7, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i8.upperHex(v7, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i8.lowerHex(v7, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i8.lowerHex(v7, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i8.lowerHex(v7, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i8.upperHex(v7, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i8.display(v7, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.i8.display(v7, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v7, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf7, 0, n7), rt.sliceRange(data8, 0, n7));
+		const v7 = rt.i8FromBeBytes(buf7);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.i8Display(v7, f), " ", (f: rt.Formatter) => rt.i8Display(v7, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i8Display(v7, f)), "|", (f: rt.Formatter) => rt.i8LowerHex(v7, f), " ", (f: rt.Formatter) => rt.i8UpperHex(v7, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i8LowerHex(v7, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i8UpperHex(v7, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i8LowerHex(v7, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i8LowerHex(v7, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i8LowerHex(v7, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i8UpperHex(v7, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i8Display(v7, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.i8Display(v7, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.i8Display(v7, f)));
 	} else if (value === 7) {
 		const data9 = data;
 		let buf8: Uint8Array = rt.bytes(2);
 		const n8 = rt.min(data9.length, buf8.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf8, 0, n8), rt.slice.range(data9, 0, n8));
-		const v8 = rt.i16.fromBeBytes(buf8);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.i16.display(v8, f), " ", (f: rt.Formatter) => rt.i16.display(v8, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i16.display(v8, f)), "|", (f: rt.Formatter) => rt.i16.lowerHex(v8, f), " ", (f: rt.Formatter) => rt.i16.upperHex(v8, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i16.lowerHex(v8, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i16.upperHex(v8, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i16.lowerHex(v8, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i16.lowerHex(v8, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i16.lowerHex(v8, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i16.upperHex(v8, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i16.display(v8, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.i16.display(v8, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v8, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf8, 0, n8), rt.sliceRange(data9, 0, n8));
+		const v8 = rt.i16FromBeBytes(buf8);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.i16Display(v8, f), " ", (f: rt.Formatter) => rt.i16Display(v8, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i16Display(v8, f)), "|", (f: rt.Formatter) => rt.i16LowerHex(v8, f), " ", (f: rt.Formatter) => rt.i16UpperHex(v8, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i16LowerHex(v8, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i16UpperHex(v8, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i16LowerHex(v8, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i16LowerHex(v8, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i16LowerHex(v8, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i16UpperHex(v8, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i16Display(v8, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.i16Display(v8, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.i16Display(v8, f)));
 	} else if (value === 8) {
 		const data10 = data;
 		let buf9: Uint8Array = rt.bytes(4);
 		const n9 = rt.min(data10.length, buf9.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf9, 0, n9), rt.slice.range(data10, 0, n9));
-		const v9 = rt.i32.fromBeBytes(buf9);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.i32.display(v9, f), " ", (f: rt.Formatter) => rt.i32.display(v9, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i32.display(v9, f)), "|", (f: rt.Formatter) => rt.i32.lowerHex(v9, f), " ", (f: rt.Formatter) => rt.i32.upperHex(v9, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i32.lowerHex(v9, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i32.upperHex(v9, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i32.lowerHex(v9, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i32.lowerHex(v9, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i32.lowerHex(v9, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i32.upperHex(v9, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i32.display(v9, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.i32.display(v9, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v9, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf9, 0, n9), rt.sliceRange(data10, 0, n9));
+		const v9 = rt.i32FromBeBytes(buf9);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.i32Display(v9, f), " ", (f: rt.Formatter) => rt.i32Display(v9, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i32Display(v9, f)), "|", (f: rt.Formatter) => rt.i32LowerHex(v9, f), " ", (f: rt.Formatter) => rt.i32UpperHex(v9, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i32LowerHex(v9, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i32UpperHex(v9, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i32LowerHex(v9, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i32LowerHex(v9, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i32LowerHex(v9, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i32UpperHex(v9, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i32Display(v9, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.i32Display(v9, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.i32Display(v9, f)));
 	} else if (value === 9) {
 		const data11 = data;
 		let buf10: Uint8Array = rt.bytes(8);
 		const n10 = rt.min(data11.length, buf10.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf10, 0, n10), rt.slice.range(data11, 0, n10));
-		const v10 = rt.i64.fromBeBytes(buf10);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.i64.display(v10, f), " ", (f: rt.Formatter) => rt.i64.display(v10, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i64.display(v10, f)), "|", (f: rt.Formatter) => rt.i64.lowerHex(v10, f), " ", (f: rt.Formatter) => rt.i64.upperHex(v10, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i64.lowerHex(v10, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i64.upperHex(v10, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i64.lowerHex(v10, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i64.lowerHex(v10, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i64.lowerHex(v10, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i64.upperHex(v10, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i64.display(v10, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.i64.display(v10, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v10, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf10, 0, n10), rt.sliceRange(data11, 0, n10));
+		const v10 = rt.i64FromBeBytes(buf10);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.i64Display(v10, f), " ", (f: rt.Formatter) => rt.i64Display(v10, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i64Display(v10, f)), "|", (f: rt.Formatter) => rt.i64LowerHex(v10, f), " ", (f: rt.Formatter) => rt.i64UpperHex(v10, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i64LowerHex(v10, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i64UpperHex(v10, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i64LowerHex(v10, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i64LowerHex(v10, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i64LowerHex(v10, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i64UpperHex(v10, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i64Display(v10, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.i64Display(v10, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.i64Display(v10, f)));
 	} else if (value === 10) {
 		const data12 = data;
 		let buf11: Uint8Array = rt.bytes(16);
 		const n11 = rt.min(data12.length, buf11.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf11, 0, n11), rt.slice.range(data12, 0, n11));
-		const v11 = rt.i128.fromBeBytes(buf11);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.i128.display(v11, f), " ", (f: rt.Formatter) => rt.i128.display(v11, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i128.display(v11, f)), "|", (f: rt.Formatter) => rt.i128.lowerHex(v11, f), " ", (f: rt.Formatter) => rt.i128.upperHex(v11, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i128.lowerHex(v11, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i128.upperHex(v11, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i128.lowerHex(v11, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i128.lowerHex(v11, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i128.lowerHex(v11, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i128.upperHex(v11, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.i128.display(v11, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.i128.display(v11, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v11, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf11, 0, n11), rt.sliceRange(data12, 0, n11));
+		const v11 = rt.i128FromBeBytes(buf11);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.i128Display(v11, f), " ", (f: rt.Formatter) => rt.i128Display(v11, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.i128Display(v11, f)), "|", (f: rt.Formatter) => rt.i128LowerHex(v11, f), " ", (f: rt.Formatter) => rt.i128UpperHex(v11, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i128LowerHex(v11, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i128UpperHex(v11, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.i128LowerHex(v11, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.i128LowerHex(v11, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.i128LowerHex(v11, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.i128UpperHex(v11, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.i128Display(v11, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.i128Display(v11, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.i128Display(v11, f)));
 	} else {
 		const data13 = data;
 		let buf12: Uint8Array = rt.bytes(4);
 		const n12 = rt.min(data13.length, buf12.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf12, 0, n12), rt.slice.range(data13, 0, n12));
-		const v12 = rt.isize.fromBeBytes(buf12);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.isize.display(v12, f), " ", (f: rt.Formatter) => rt.isize.display(v12, f), " ", rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", rt.fmt.spec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.isize.display(v12, f)), "|", (f: rt.Formatter) => rt.isize.lowerHex(v12, f), " ", (f: rt.Formatter) => rt.isize.upperHex(v12, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.isize.lowerHex(v12, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.isize.upperHex(v12, f)), " ", rt.fmt.spec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.isize.lowerHex(v12, f)), " ", rt.fmt.spec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.isize.lowerHex(v12, f)), " ", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.isize.lowerHex(v12, f)), "|", rt.fmt.spec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.isize.upperHex(v12, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.isize.display(v12, f)), " ", rt.fmt.spec({ width: 3 }, (f: rt.Formatter) => rt.isize.display(v12, f))]));
-		put(out, rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v12, f)));
+		rt.sliceCopyFromSlice(rt.sliceRange(buf12, 0, n12), rt.sliceRange(data13, 0, n12));
+		const v12 = rt.isizeFromBeBytes(buf12);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.isizeDisplay(v12, f), " ", (f: rt.Formatter) => rt.isizeDisplay(v12, f), " ", rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ align: "<", width: 5 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ align: "^", width: 7 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ fill: "*", align: "^", width: 9 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ fill: "é", align: ">", width: 6 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ zero: true, width: 5 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", rt.fmtSpec({ align: "<", zero: true, width: 5 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), "|", (f: rt.Formatter) => rt.isizeLowerHex(v12, f), " ", (f: rt.Formatter) => rt.isizeUpperHex(v12, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.isizeLowerHex(v12, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.isizeUpperHex(v12, f)), " ", rt.fmtSpec({ zero: true, width: 8 }, (f: rt.Formatter) => rt.isizeLowerHex(v12, f)), " ", rt.fmtSpec({ alternate: true, zero: true, width: 10 }, (f: rt.Formatter) => rt.isizeLowerHex(v12, f)), " ", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.isizeLowerHex(v12, f)), "|", rt.fmtSpec({ align: "<", alternate: true, width: 6 }, (f: rt.Formatter) => rt.isizeUpperHex(v12, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.isizeDisplay(v12, f)), " ", rt.fmtSpec({ width: 3 }, (f: rt.Formatter) => rt.isizeDisplay(v12, f))]));
+		put(out, rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v12, f)));
 	}
 }
 
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
-	for (const item of rt.slice.range(data, 0, rt.min(data.length, 3))) {
+	for (const item of rt.sliceRange(data, 0, rt.min(data.length, 3))) {
 		const b = item;
 		const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-		const s = rt.at(value, rt.usize.rem(b as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
-		put(out, rt.fmt.format([(f: rt.Formatter) => f.pad(s), "|", rt.fmt.spec({ width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: ">", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ align: "^", width: 8 }, (f: rt.Formatter) => f.pad(s)), "|", rt.fmt.spec({ fill: "-", align: "<", width: 3 }, (f: rt.Formatter) => f.pad(s)), "|", (f: rt.Formatter) => rt.fmt.str(s, f), "|", rt.fmt.spec({ width: 12 }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.str(s, f)), "|{", (f: rt.Formatter) => f.pad(s), "}"]));
+		const s = rt.at(value, rt.usizeRem(b as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtPad(f, s), "|", rt.fmtSpec({ width: 8 }, (f: rt.Formatter) => rt.fmtPad(f, s)), "|", rt.fmtSpec({ align: ">", width: 8 }, (f: rt.Formatter) => rt.fmtPad(f, s)), "|", rt.fmtSpec({ align: "^", width: 8 }, (f: rt.Formatter) => rt.fmtPad(f, s)), "|", rt.fmtSpec({ fill: "-", align: "<", width: 3 }, (f: rt.Formatter) => rt.fmtPad(f, s)), "|", (f: rt.Formatter) => rt.fmtStr(s, f), "|", rt.fmtSpec({ width: 12 }, (f: rt.Formatter) => rt.fmtStr(s, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.fmtStr(s, f)), "|{", (f: rt.Formatter) => rt.fmtPad(f, s), "}"]));
 	}
-	const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(data));
+	const fromUtf8 = rt.stringFromUtf8(rt.sliceToByteVec(data));
 	if (fromUtf8.ok) {
 		const s2 = fromUtf8.value;
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.str(s2, f), " ", rt.fmt.spec({ align: ">", width: 4 }, (f: rt.Formatter) => f.pad(s2))]));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtStr(s2, f), " ", rt.fmtSpec({ align: ">", width: 4 }, (f: rt.Formatter) => rt.fmtPad(f, s2))]));
 	} else {
 		const e = fromUtf8.error;
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.fromUtf8ErrorDisplay(e, f), " ", (f: rt.Formatter) => rt.fmt.fromUtf8ErrorDebug(e, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.fromUtf8ErrorDebug(e, f)), " ", rt.fmt.spec({ align: ">", width: 80 }, (f: rt.Formatter) => rt.fmt.fromUtf8ErrorDisplay(e, f))]));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtFromUtf8ErrorDisplay(e, f), " ", (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(e, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(e, f)), " ", rt.fmtSpec({ align: ">", width: 80 }, (f: rt.Formatter) => rt.fmtFromUtf8ErrorDisplay(e, f))]));
 	}
 	let flag: boolean;
-	const first = rt.slice.first(data);
+	const first = rt.sliceFirst(data);
 	arms: {
 		if (first !== undefined) {
 			const b2 = first;
-			if (rt.u8.rem(b2, 2) === 0) {
+			if (rt.u8Rem(b2, 2) === 0) {
 				flag = true;
 				break arms;
 			}
 		}
 		flag = false;
 	}
-	put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.bool(flag, f), " ", (f: rt.Formatter) => rt.fmt.bool(flag, f), " ", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => rt.fmt.bool(flag, f)), " ", (f: rt.Formatter) => rt.fmt.unit(undefined, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.unit(undefined, f))]));
-	put(out, rt.fmt.toString((f: rt.Formatter) => rt.fmt.bool(flag, f)));
-	const tryFrom = rt.u8.tryFrom(rt.i32.sub(data.length | 0, 3));
+	put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtBool(flag, f), " ", (f: rt.Formatter) => rt.fmtBool(flag, f), " ", rt.fmtSpec({ align: ">", width: 6 }, (f: rt.Formatter) => rt.fmtBool(flag, f)), " ", (f: rt.Formatter) => rt.fmtUnit(undefined, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.fmtUnit(undefined, f))]));
+	put(out, rt.fmtToString((f: rt.Formatter) => rt.fmtBool(flag, f)));
+	const tryFrom = rt.u8TryFrom(rt.i32Sub(data.length | 0, 3));
 	if (tryFrom.ok) {
 		const v = tryFrom.value;
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(v, f)]));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(v, f)]));
 	} else {
 		const e2 = tryFrom.error;
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.tryFromIntErrorDisplay(e2, f), " ", (f: rt.Formatter) => rt.fmt.tryFromIntErrorDebug(e2, f), " ", rt.fmt.spec({ align: ">", width: 40 }, (f: rt.Formatter) => rt.fmt.tryFromIntErrorDisplay(e2, f)), "|"]));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtTryFromIntErrorDisplay(e2, f), " ", (f: rt.Formatter) => rt.fmtTryFromIntErrorDebug(e2, f), " ", rt.fmtSpec({ align: ">", width: 40 }, (f: rt.Formatter) => rt.fmtTryFromIntErrorDisplay(e2, f)), "|"]));
 	}
 }
 
 export function nested(data: Uint8Array): Nested.Nested {
 	const at = (i: rt.usize): rt.u8 => {
-		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
 	const value = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-	const arg = rt.at(value, rt.usize.rem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
-	const arg2 = { x: rt.i32.sub(at(1) as rt.i32, 128), y: -7 };
-	const value2 = rt.u8.rem(at(2), 3);
+	const arg = rt.at(value, rt.usizeRem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length));
+	const arg2 = { x: rt.i32Sub(at(1) as rt.i32, 128), y: -7 };
+	const value2 = rt.u8Rem(at(2), 3);
 	const arg3 = arg;
 	const arg4 = arg2;
 	const arg5 = value2 === 0 ? { tag: "Dot" } as Shape.Shape : value2 === 1 ? { tag: "Line", _0: { x: 1, y: 2 }, _1: { x: -3, y: 4 } } as Shape.Shape : { tag: "Rect", corner: { x: 0, y: 0 }, width: at(3) as rt.u16, height: 9 } as Shape.Shape;
-	const arg6 = rt.slice.toByteVec(rt.slice.range(data, 0, rt.min(data.length, 4)));
-	const arg7 = rt.slice.toVec([{ _0: at(4), _1: -1 }, { _0: 2, _1: rt.i64.of(-9223372036854775808n) }]);
-	const arg8 = rt.u8.rem(at(5), 2) === 0 ? { _0: at(5), _1: 5 } : undefined;
-	const arg9 = rt.u8.rem(at(6), 2) === 0 ? rt.Ok(at(6)) : rt.Err("no");
-	const arg10 = [rt.i16.sub(at(7) as rt.i16, 100), 32767];
+	const arg6 = rt.sliceToByteVec(rt.sliceRange(data, 0, rt.min(data.length, 4)));
+	const arg7 = rt.sliceToVec([{ _0: at(4), _1: -1 }, { _0: 2, _1: rt.i64Of(-9223372036854775808n) }]);
+	const arg8 = rt.u8Rem(at(5), 2) === 0 ? { _0: at(5), _1: 5 } : undefined;
+	const arg9 = rt.u8Rem(at(6), 2) === 0 ? rt.Ok(at(6)) : rt.Err("no");
+	const arg10 = [rt.i16Sub(at(7) as rt.i16, 100), 32767];
 	const arg11 = [at(8), true, "t"] as [rt.u8, boolean, string];
 	const arg12 = [at(9)] as [rt.u8];
 	const arg13 = new rt.ByteVec();
-	const value3 = rt.u8.rem(at(10), 3);
-	return { name: arg3, point: arg4, shape: arg5, tags: arg6, pairs: arg7, maybe: arg8, none: undefined, result: arg9, list: arg10, tuple: arg11, single: arg12, empty: arg13, unit: undefined, boxed: value3 === 0 ? { tag: "Empty" } as Kind.Kind : value3 === 1 ? { tag: "One", _0: at(11) } as Kind.Kind : { tag: "Many", count: 2, items: rt.slice.toByteVec(Uint8Array.of(at(11), at(12))) } as Kind.Kind };
+	const value3 = rt.u8Rem(at(10), 3);
+	return { name: arg3, point: arg4, shape: arg5, tags: arg6, pairs: arg7, maybe: arg8, none: undefined, result: arg9, list: arg10, tuple: arg11, single: arg12, empty: arg13, unit: undefined, boxed: value3 === 0 ? { tag: "Empty" } as Kind.Kind : value3 === 1 ? { tag: "One", _0: at(11) } as Kind.Kind : { tag: "Many", count: 2, items: rt.sliceToByteVec(Uint8Array.of(at(11), at(12))) } as Kind.Kind };
 }
 
 /** Derived `Debug` of every shape, compact and pretty, with options passed to fields. */
 export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const at = (i: rt.usize): rt.u8 => {
-		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
 	const value = nested(data);
-	put(out, rt.fmt.format([(f: rt.Formatter) => Nested.fmt$Debug(value, f)]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Nested.fmt$Debug(value, f))]));
-	const wide = { a: at(0), b: 300, c: 70_000, d: rt.u64.of(18446744073709551615n), e: -1, f: at(1) > 10 };
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Nested.fmt$Debug(value, f)]));
+	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Nested.fmt$Debug(value, f))]));
+	const wide = { a: at(0), b: 300, c: 70_000, d: rt.u64Of(18446744073709551615n), e: -1, f: at(1) > 10 };
 	const six = { _0: at(0), _1: 1, _2: 2, _3: 3, _4: 4, _5: at(1) };
 	const arg3 = out;
 	const arg = {};
 	const arg2 = {};
-	put(arg3, rt.fmt.format([(f: rt.Formatter) => Wide.fmt$Debug(wide, f), " ", (f: rt.Formatter) => Six.fmt$Debug(six, f), " ", (f: rt.Formatter) => Unit.fmt$Debug(arg, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Unit.fmt$Debug(arg2, f))]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Wide.fmt$Debug(wide, f)), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Six.fmt$Debug(six, f))]));
+	put(arg3, rt.fmtFormat([(f: rt.Formatter) => Wide.fmt$Debug(wide, f), " ", (f: rt.Formatter) => Six.fmt$Debug(six, f), " ", (f: rt.Formatter) => Unit.fmt$Debug(arg, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Unit.fmt$Debug(arg2, f))]));
+	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Wide.fmt$Debug(wide, f)), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Six.fmt$Debug(six, f))]));
 	const point = { x: at(2) as rt.i32, y: -1 };
 	const arg5 = out;
 	const arg4 = { _0: at(3), _1: -9 };
-	put(arg5, rt.fmt.format([rt.fmt.spec({ width: 5 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ align: "<", width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ alternate: true, width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmt.spec({ align: ">", width: 3 }, (f: rt.Formatter) => Pair.fmt$Debug(arg4, f))]));
+	put(arg5, rt.fmtFormat([rt.fmtSpec({ width: 5 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmtSpec({ align: "<", width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmtSpec({ alternate: true, width: 4 }, (f: rt.Formatter) => Point.fmt$Debug(point, f)), "|", rt.fmtSpec({ align: ">", width: 3 }, (f: rt.Formatter) => Pair.fmt$Debug(arg4, f))]));
 	const kinds = [{ tag: "Empty" } as Kind.Kind, { tag: "One", _0: at(4) } as Kind.Kind, { tag: "Braced" } as Kind.Kind, { tag: "Bare" } as Kind.Kind, { tag: "Many", count: 0, items: new rt.ByteVec() } as Kind.Kind];
 	const arg7 = out;
 	const arg6 = kinds[1];
-	put(arg7, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)), " ", (f: rt.Formatter) => Kind.fmt$Debug(arg6, f)]));
-	put(out, rt.fmt.format([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.fmt.list(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)))]));
+	put(arg7, rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)), " ", (f: rt.Formatter) => Kind.fmt$Debug(arg6, f)]));
+	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.fmtList(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)))]));
 	const bytes = data;
 	const words = [at(5) as rt.u16, 0xffff];
 	const arg10 = out;
-	const arg8 = rt.slice.first(data);
-	const arg9 = rt.slice.get(data, 100);
-	put(arg10, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(bytes, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.list(words, f, rt.u16.display), " ", (f: rt.Formatter) => rt.fmt.option(arg8, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.option(arg9, f, rt.u8.display)]));
+	const arg8 = rt.sliceFirst(data);
+	const arg9 = rt.sliceGet(data, 100);
+	put(arg10, rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(bytes, f, rt.u8Display), " ", (f: rt.Formatter) => rt.fmtList(words, f, rt.u16Display), " ", (f: rt.Formatter) => rt.fmtOption(arg8, f, rt.u8Display), " ", (f: rt.Formatter) => rt.fmtOption(arg9, f, rt.u8Display)]));
 	const arg15 = out;
 	const arg11 = {};
 	const arg12 = {};
 	const arg13 = {};
 	const arg14 = {};
-	put(arg15, rt.fmt.format([(f: rt.Formatter) => Braced.fmt$Debug(arg11, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Braced.fmt$Debug(arg12, f)), " ", (f: rt.Formatter) => Bare.fmt$Debug(arg13, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Bare.fmt$Debug(arg14, f))]));
-	out.extendFromSlice(Uint8Array.of(Braced.eq$PartialEq({}, {}) ? 1 : 0, Bare.eq$PartialEq({}, {}) ? 1 : 0));
+	put(arg15, rt.fmtFormat([(f: rt.Formatter) => Braced.fmt$Debug(arg11, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Braced.fmt$Debug(arg12, f)), " ", (f: rt.Formatter) => Bare.fmt$Debug(arg13, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Bare.fmt$Debug(arg14, f))]));
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(Braced.eq$PartialEq({}, {}) ? 1 : 0, Bare.eq$PartialEq({}, {}) ? 1 : 0));
 }
 
 /** Written `Display` and `Debug`, and a `Display` that fails inside `format!`. */
 export function written(data: Uint8Array, out: rt.ByteVec): void {
 	const at = (i: rt.usize): rt.u8 => {
-		return rt.option.unwrapOr(rt.slice.get(data, i), 0);
+		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
-	const hex = { _0: rt.u32.mul(at(0) as rt.u32, 0x1001) };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Hex.fmt$Display(hex, f), "|", rt.fmt.spec({ align: ">", width: 12 }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", (f: rt.Formatter) => Hex.fmt$Debug(hex, f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f)), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f))]));
-	put(out, rt.fmt.toString((f: rt.Formatter) => Hex.fmt$Display(hex, f)));
+	const hex = { _0: rt.u32Mul(at(0) as rt.u32, 0x1001) };
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Hex.fmt$Display(hex, f), "|", rt.fmtSpec({ align: ">", width: 12 }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Display(hex, f)), "|", (f: rt.Formatter) => Hex.fmt$Debug(hex, f), "|", rt.fmtSpec({ align: ">", width: 6 }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f)), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Hex.fmt$Debug(hex, f))]));
+	put(out, rt.fmtToString((f: rt.Formatter) => Hex.fmt$Display(hex, f)));
 	const padded = { _0: "pad" };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Padded.fmt$Display(padded, f), "|", rt.fmt.spec({ align: ">", width: 6 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmt.spec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmt.spec({ width: 30 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|"]));
-	const manual = { id: at(1), list: rt.slice.toVec([1, at(2) as rt.u16]) };
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Padded.fmt$Display(padded, f), "|", rt.fmtSpec({ align: ">", width: 6 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmtSpec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|", rt.fmtSpec({ width: 30 }, (f: rt.Formatter) => Padded.fmt$Display(padded, f)), "|"]));
+	const manual = { id: at(1), list: rt.sliceToVec([1, at(2) as rt.u16]) };
 	const empty = { id: 0, list: [] };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Manual.fmt$Debug(manual, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Manual.fmt$Debug(manual, f)), " ", (f: rt.Formatter) => Manual.fmt$Debug(empty, f)]));
-	const seq = { _0: rt.slice.toVec([{ _0: at(3), _1: 0 }, { _0: 1, _1: -1 }]) };
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Manual.fmt$Debug(manual, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Manual.fmt$Debug(manual, f)), " ", (f: rt.Formatter) => Manual.fmt$Debug(empty, f)]));
+	const seq = { _0: rt.sliceToVec([{ _0: at(3), _1: 0 }, { _0: 1, _1: -1 }]) };
 	const none = { _0: [] };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Seq.fmt$Debug(seq, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(seq, f)), " ", (f: rt.Formatter) => Seq.fmt$Debug(none, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(none, f))]));
-	const tup = { _0: at(4), _1: rt.u8.rem(at(5), 2) === 0 ? at(5) : undefined };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Tup.fmt$Debug(tup, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Tup.fmt$Debug(tup, f))]));
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Seq.fmt$Debug(seq, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(seq, f)), " ", (f: rt.Formatter) => Seq.fmt$Debug(none, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Seq.fmt$Debug(none, f))]));
+	const tup = { _0: at(4), _1: rt.u8Rem(at(5), 2) === 0 ? at(5) : undefined };
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Tup.fmt$Debug(tup, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Tup.fmt$Debug(tup, f))]));
 	const fine = { _0: at(6) & (~1 & 0xff) };
-	put(out, rt.fmt.format([(f: rt.Formatter) => Fails.fmt$Display(fine, f), " ", rt.fmt.spec({ align: ">", width: 9 }, (f: rt.Formatter) => Fails.fmt$Display(fine, f))]));
+	put(out, rt.fmtFormat([(f: rt.Formatter) => Fails.fmt$Display(fine, f), " ", rt.fmtSpec({ align: ">", width: 9 }, (f: rt.Formatter) => Fails.fmt$Display(fine, f))]));
 	const arg3 = out;
 	const arg = at(7);
 	const arg2 = at(8);
-	put(arg3, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(arg2, f), " ", (f: rt.Formatter) => rt.u8.display(arg, f), " ", (f: rt.Formatter) => rt.u8.display(arg, f), " named ", rt.fmt.spec({ align: ">", width: 5 }, (f: rt.Formatter) => f.pad("named"))]));
+	put(arg3, rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(arg2, f), " ", (f: rt.Formatter) => rt.u8Display(arg, f), " ", (f: rt.Formatter) => rt.u8Display(arg, f), " named ", rt.fmtSpec({ align: ">", width: 5 }, (f: rt.Formatter) => rt.fmtPad(f, "named"))]));
 }
 
 /** Panics, each with the message native Rust formats. */
 export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
-	const n = rt.option.unwrapOr(rt.slice.first(rest), 0);
-	const value = rt.u8.rem(kind, 19);
+	const n = rt.optionUnwrapOr(rt.sliceFirst(rest), 0);
+	const value = rt.u8Rem(kind, 19);
 	if (value === 0) {
-		rt.panic(["bad ", (f: rt.Formatter) => rt.u8.display(n, f), ": ", (f: rt.Formatter) => rt.fmt.list(rest, f, rt.u8.display)]);
+		rt.panicFmt(["bad ", (f: rt.Formatter) => rt.u8Display(n, f), ": ", (f: rt.Formatter) => rt.fmtList(rest, f, rt.u8Display)]);
 	} else if (value === 1) {
 		const arg = { _0: n as rt.u32 };
-		rt.panic(["internal error: entered unreachable code: never ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(n, f)), " ", (f: rt.Formatter) => Hex.fmt$Display(arg, f)]);
+		rt.panicFmt(["internal error: entered unreachable code: never ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8LowerHex(n, f)), " ", (f: rt.Formatter) => Hex.fmt$Display(arg, f)]);
 	} else if (value === 2) {
 		if (!(n > 200)) {
 			const arg2 = { _0: n, _1: 0 };
-			rt.panic(["small ", (f: rt.Formatter) => rt.u8.display(n, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(arg2, f)]);
+			rt.panicFmt(["small ", (f: rt.Formatter) => rt.u8Display(n, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(arg2, f)]);
 		}
 	} else if (value === 3) {
 		if (!(n > 200)) {
@@ -277,7 +277,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const rightVal = value2[1];
 		if (leftVal !== rightVal) {
 			const kind2 = "==";
-			rt.assertFailed(kind2, (f: rt.Formatter) => rt.u8.display(leftVal, f), (f: rt.Formatter) => rt.u8.display(rightVal, f));
+			rt.assertFailed(kind2, (f: rt.Formatter) => rt.u8Display(leftVal, f), (f: rt.Formatter) => rt.u8Display(rightVal, f));
 		}
 	} else if (value === 5) {
 		const value3 = [{ _0: n, _1: 1 }, { _0: n, _1: 1 }] as [Pair.Pair, Pair.Pair];
@@ -285,7 +285,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const rightVal2 = value3[1];
 		if (Pair.eq$PartialEq(leftVal2, rightVal2)) {
 			const kind3 = "!=";
-			rt.assertFailed(kind3, (f: rt.Formatter) => Pair.fmt$Debug(leftVal2, f), (f: rt.Formatter) => Pair.fmt$Debug(rightVal2, f), ["same ", (f: rt.Formatter) => rt.u8.display(n, f)]);
+			rt.assertFailed(kind3, (f: rt.Formatter) => Pair.fmt$Debug(leftVal2, f), (f: rt.Formatter) => Pair.fmt$Debug(rightVal2, f), ["same ", (f: rt.Formatter) => rt.u8Display(n, f)]);
 		}
 	} else if (value === 6) {
 		const value4 = [n, 9] as [rt.u8, rt.u8];
@@ -293,73 +293,73 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const rightVal3 = value4[1];
 		if (leftVal3 !== rightVal3) {
 			const kind4 = "==";
-			rt.assertFailed(kind4, (f: rt.Formatter) => rt.u8.display(leftVal3, f), (f: rt.Formatter) => rt.u8.display(rightVal3, f), ["with context"]);
+			rt.assertFailed(kind4, (f: rt.Formatter) => rt.u8Display(leftVal3, f), (f: rt.Formatter) => rt.u8Display(rightVal3, f), ["with context"]);
 		}
 	} else if (value === 7) {
-		const r = rt.u8.rem(n, 2) === 0 ? rt.Err({ tag: "One", _0: n } as Kind.Kind) : rt.Err({ tag: "Many", count: 1, items: rt.slice.toByteVec(Uint8Array.of(n)) } as Kind.Kind);
+		const r = rt.u8Rem(n, 2) === 0 ? rt.Err({ tag: "One", _0: n } as Kind.Kind) : rt.Err({ tag: "Many", count: 1, items: rt.sliceToByteVec(Uint8Array.of(n)) } as Kind.Kind);
 		const arg4 = out;
-		const arg3 = rt.result.unwrap(r, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f));
-		put(arg4, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg3, f)));
+		const arg3 = rt.resultUnwrap(r, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f));
+		put(arg4, rt.fmtToString((f: rt.Formatter) => rt.u8Display(arg3, f)));
 	} else if (value === 8) {
 		const r2 = n > 128 ? rt.Ok(n) : rt.Err({ _0: n, _1: -2 });
 		const arg6 = out;
-		const arg5 = rt.result.expect(rt.copy(r2), "expected a byte", (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f));
-		put(arg6, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg5, f)));
+		const arg5 = rt.resultExpect(rt.copy(r2), "expected a byte", (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f));
+		put(arg6, rt.fmtToString((f: rt.Formatter) => rt.u8Display(arg5, f)));
 	} else if (value === 9) {
 		const r3 = rt.Ok({ x: n as rt.i32, y: 0 });
 		const arg8 = out;
-		const arg7 = rt.result.unwrapErr(rt.copy(r3), (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f));
-		put(arg8, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg7, f)));
+		const arg7 = rt.resultUnwrapErr(rt.copy(r3), (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f));
+		put(arg8, rt.fmtToString((f: rt.Formatter) => rt.u8Display(arg7, f)));
 	} else if (value === 10) {
-		const missing = rt.slice.get(rest, 200);
+		const missing = rt.sliceGet(rest, 200);
 		const arg10 = out;
-		const arg9 = rt.option.expect(missing, rt.fmt.format(["missing ", (f: rt.Formatter) => rt.u8.display(n, f)]));
-		put(arg10, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg9, f)));
+		const arg9 = rt.optionExpect(missing, rt.fmtFormat(["missing ", (f: rt.Formatter) => rt.u8Display(n, f)]));
+		put(arg10, rt.fmtToString((f: rt.Formatter) => rt.u8Display(arg9, f)));
 	} else if (value === 11) {
 		const arg12 = out;
 		const arg11 = { _0: n };
-		put(arg12, rt.fmt.format([(f: rt.Formatter) => Fails.fmt$Display(arg11, f)]));
+		put(arg12, rt.fmtFormat([(f: rt.Formatter) => Fails.fmt$Display(arg11, f)]));
 	} else if (value === 12) {
 		const arg14 = out;
 		const arg13 = { _0: n };
-		put(arg14, rt.fmt.toString((f: rt.Formatter) => Fails.fmt$Display(arg13, f)));
+		put(arg14, rt.fmtToString((f: rt.Formatter) => Fails.fmt$Display(arg13, f)));
 	} else if (value === 13) {
 		const arg15 = { _0: n as rt.u32 };
 		const arg16 = { _0: n };
-		rt.panic([(f: rt.Formatter) => Hex.fmt$Display(arg15, f), " then ", (f: rt.Formatter) => Fails.fmt$Display(arg16, f)]);
+		rt.panicFmt([(f: rt.Formatter) => Hex.fmt$Display(arg15, f), " then ", (f: rt.Formatter) => Fails.fmt$Display(arg16, f)]);
 	} else if (value === 14) {
-		const [start, end] = [rt.u8.rem(n, 8) as rt.usize, rt.u8.div(n, 32) as rt.usize] as [rt.usize, rt.usize];
+		const [start, end] = [rt.u8Rem(n, 8) as rt.usize, rt.u8Div(n, 32) as rt.usize] as [rt.usize, rt.usize];
 		const arg19 = out;
-		const arg17 = rt.slice.range(rest, start);
-		const arg18 = rt.slice.range(rest, start, end);
-		put(arg19, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(arg17, f, rt.u8.display), " ", (f: rt.Formatter) => rt.fmt.list(arg18, f, rt.u8.display)]));
+		const arg17 = rt.sliceRange(rest, start);
+		const arg18 = rt.sliceRange(rest, start, end);
+		put(arg19, rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(arg17, f, rt.u8Display), " ", (f: rt.Formatter) => rt.fmtList(arg18, f, rt.u8Display)]));
 	} else if (value === 15) {
 		let buf: Uint8Array = rt.bytes(3);
-		rt.slice.copyFromSlice(buf, rt.slice.range(rest, 0, rt.min(rest.length, 4)));
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf, f, rt.u8.display)]));
+		rt.sliceCopyFromSlice(buf, rt.sliceRange(rest, 0, rt.min(rest.length, 4)));
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(buf, f, rt.u8Display)]));
 	} else if (value === 16) {
 		let r4: rt.Result<rt.u8, rt.FromUtf8Error>;
-		const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(rest));
+		const fromUtf8 = rt.stringFromUtf8(rt.sliceToByteVec(rest));
 		if (fromUtf8.ok) {
 			const s = fromUtf8.value;
-			r4 = rt.Ok(rt.string.len(s) & 0xff);
+			r4 = rt.Ok(rt.stringLen(s) & 0xff);
 		} else {
 			const e = fromUtf8.error;
 			r4 = rt.Err(e);
 		}
 		const arg21 = out;
-		const arg20 = rt.result.unwrap(r4, rt.fmt.fromUtf8ErrorDebug);
-		put(arg21, rt.fmt.toString((f: rt.Formatter) => rt.u8.display(arg20, f)));
+		const arg20 = rt.resultUnwrap(r4, rt.fmtFromUtf8ErrorDebug);
+		put(arg21, rt.fmtToString((f: rt.Formatter) => rt.u8Display(arg20, f)));
 	} else if (value === 17) {
 		let buf2: Uint8Array = Uint8Array.of(1, 2, 3, 4);
-		const dest = rt.usize.rem(rt.option.unwrapOr(rt.slice.get(rest, 1), 0) as rt.usize, 4);
-		rt.slice.copyWithin(buf2, rt.u8.rem(n, 6) as rt.usize, rt.u8.rem(rt.u8.div(n, 6), 6) as rt.usize, dest);
-		put(out, rt.fmt.format([(f: rt.Formatter) => rt.fmt.list(buf2, f, rt.u8.display)]));
+		const dest = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(rest, 1), 0) as rt.usize, 4);
+		rt.sliceCopyWithin(buf2, rt.u8Rem(n, 6) as rt.usize, rt.u8Rem(rt.u8Div(n, 6), 6) as rt.usize, dest);
+		put(out, rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(buf2, f, rt.u8Display)]));
 	} else {
-		const r5 = rt.u8.rem(n, 2) === 0 ? rt.Err(n) : rt.Ok(n);
+		const r5 = rt.u8Rem(n, 2) === 0 ? rt.Err(n) : rt.Ok(n);
 		const arg23 = out;
-		const arg22 = rt.result.unwrapErr(r5, rt.u8.display);
-		put(arg23, rt.fmt.format([(f: rt.Formatter) => rt.u8.display(arg22, f)]));
+		const arg22 = rt.resultUnwrapErr(r5, rt.u8Display);
+		put(arg23, rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(arg22, f)]));
 	}
 }
 
