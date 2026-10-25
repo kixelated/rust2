@@ -8,7 +8,7 @@
 /.claude/cache/
 /.claude/tmp/
 /.claude/worktrees/
-/.scratch/
+/.tmp/
 
 # Build output.
 target
