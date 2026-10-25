@@ -43,7 +43,3 @@ the whole file, so it always changes the hash. A private sync body edit in a
 submodule is the case it is built for.
 
 Public API: a benchmark variant.
-
-## Related
-
-- [ra-jit in the build benchmark](/quest/m3/bench-ra-jit.md) - another way past dependent rebuilds and the relink

@@ -34,6 +34,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				let iter_ty = gargs.skip_binder().type_at(0);
 				let recv = self.operand_frozen(&args[0].node, span, &mut pre);
+				if self.range_nexts.contains(&dest.local)
+					&& let Some(name) = self.var(dest.local)
+				{
+					let name = name.to_string();
+					self.assigned[dest.local] = true;
+					self.range_next(name, recv, &mut pre);
+					self.emit(pre, None, false, out);
+					return;
+				}
 				if let Some(name) = self.var(dest.local) {
 					let name = name.to_string();
 					self.next_names.insert(name);
@@ -221,11 +230,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::undefined(), true)
 			}
 			// A range of numbers steps in place, with nothing between it and the loop.
-			("Iterator", "next")
-				if let ty::Adt(adt, range_args) = targ(0)?.kind()
-					&& Std::of(tcx, adt.did()) == Some(Std::Range)
-					&& Int::of(range_args.type_at(0)).is_some_and(|i| !i.big()) =>
-			{
+			("Iterator", "next") if super::small_range(tcx, targ(0)?) => {
 				let range = self.alias_place(&args[0].node)?;
 				let start = range.clone().member("start");
 				let next = Expr::Cond(
@@ -425,6 +430,28 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			(Slot::Alias(Some(target)), true) if target.is_path() => Some(target.clone()),
 			_ => None,
 		}
+	}
+
+	/// `name = recv.next()` of a range of numbers, stepped in place rather than through
+	/// `rt.Range`'s generic steps, into the item alone and a flag for whether there was
+	/// one: a number that is sometimes `rt.DONE` is slower in V8. Past the end, `name` is
+	/// left as it was, since only `Some` reads it.
+	fn range_next(&mut self, name: String, recv: Expr, out: &mut Vec<Stmt>) {
+		let range = self.path(recv, "range", out);
+		let start = range.clone().member("start");
+		let flag = self.b.fresh(&format!("{name}Some"));
+		let more = start.clone().binary("<", range.member("end"));
+		out.push(StmtKind::Expr(Expr::ident(&flag).assign(more)).at(None));
+		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
+		out.push(
+			StmtKind::If {
+				cond: Expr::ident(&flag),
+				then: vec![StmtKind::Expr(step).at(None)],
+				els: Vec::new(),
+			}
+			.at(None),
+		);
+		self.range_flags.insert(name, flag);
 	}
 
 	/// The value at `place`, after setting `place` to `value`.

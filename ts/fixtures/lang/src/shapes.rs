@@ -314,6 +314,81 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 		range.start, range.end
 	);
 	out.extend_from_slice(text.as_bytes());
+	indexed(data, out);
+}
+
+/// Indexing, calls, and assignments whose later operands need statements of their own
+/// evaluate what comes before those first: each logs as it runs, or changes what an
+/// earlier operand read.
+fn indexed(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	// The vector, then the index.
+	let first = listed(out, at(0))[{
+		out.push(0xe1);
+		1
+	}];
+	// The slice, the range, then `dest`.
+	let mut bytes = [at(1), at(2), at(3), 4];
+	logged_mut(&mut bytes, out).copy_within(
+		{
+			out.push(0xe3);
+			1
+		}..3,
+		{
+			out.push(0xe4);
+			0
+		},
+	);
+	logged_mut(&mut bytes, out).copy_within(2.., {
+		out.push(0xe5);
+		1
+	});
+	// Without an end, the slice is read once for its length too.
+	logged_mut(&mut bytes, out).copy_within(3.., 0);
+	// A slice, then its index.
+	let second = logged(&bytes, out)[{
+		out.push(0xe6);
+		1
+	}];
+	// A function pointer is read before its argument, which changes it.
+	let mut f: fn(u8) -> u8 = halve;
+	let called = f({
+		f = twice;
+		at(4)
+	});
+	// A compound assignment's value is read before its place's index, which changes it.
+	let mut n = at(5);
+	let mut slots = [0u8; 2];
+	slots[{
+		n = n.wrapping_add(1);
+		0
+	}] += n;
+	out.extend_from_slice(&[first, second, called, f(1), slots[0], n]);
+	out.extend_from_slice(&bytes);
+}
+
+/// A vector of `b`, logging that it was made.
+#[inline(never)]
+fn listed(out: &mut Vec<u8>, b: u8) -> Vec<u8> {
+	out.push(0xe0);
+	[b, b ^ 1].to_vec()
+}
+
+/// `s`, logging that it was read.
+#[inline(never)]
+fn logged_mut<'a>(s: &'a mut [u8], out: &mut Vec<u8>) -> &'a mut [u8] {
+	out.push(0xe2);
+	s
+}
+
+#[inline(never)]
+fn halve(b: u8) -> u8 {
+	b / 2
+}
+
+#[inline(never)]
+fn twice(b: u8) -> u8 {
+	b.wrapping_add(b)
 }
 
 /// `data`, logging that it was read.
@@ -417,6 +492,26 @@ pub fn loops(data: &[u8], out: &mut Vec<u8>) {
 		count += 1;
 	}
 	out.push(count);
+
+	// Ranges stepped by hand: signed across zero, up to the type's end, and an item read
+	// after the range changed.
+	let lo = -((data.len() % 4) as i32);
+	let mut r = lo..lo + 3;
+	let first = r.next();
+	r.end = r.start;
+	let second = r.next();
+	if let Some(x) = first {
+		out.extend_from_slice(&x.to_be_bytes());
+	}
+	if let Some(x) = second {
+		out.extend_from_slice(&x.to_be_bytes());
+	}
+	for k in lo..2 {
+		out.push(k as u8);
+	}
+	for k in 124 - lo as i8..i8::MAX {
+		out.push(k as u8);
+	}
 
 	out.push(first_repeat(data));
 	out.extend_from_slice(&tail_break(data).to_be_bytes());

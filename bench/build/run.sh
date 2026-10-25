@@ -85,6 +85,17 @@ for name in "${variants[@]}"; do
     base=$(jq -r --arg n "$name" '.variant[] | select(.name == $n) | .base // .name' <<<"$config")
     [[ -n $base ]] || die "unknown variant: $name"
     [[ " ${variants[*]} " == *" $base "* ]] || die "variant $name compares against $base; select it too"
+    for key in corpora scenarios; do
+        jq -e --arg n "$name" --arg b "$base" --arg k "$key" '
+            {corpora: [.corpus[].name], scenarios: ["check", "build", "edit-leaf", "edit-hub"]}[$k] as $all
+            | def runs($v): (.variant[] | select(.name == $v) | .[$k]) // $all;
+            runs($n) - runs($b) == [] and runs($n) - $all == []' <<<"$config" >/dev/null ||
+            die "variant $name lists $key that are unknown or that its base $base skips"
+    done
+done
+for name in "${corpora[@]}"; do
+    jq -e --arg c "$name" --args 'any(.variant[] | select(.name | IN($ARGS.positional[])); .corpora // [$c] | index($c))' \
+        "${variants[@]}" <<<"$config" >/dev/null || die "no selected variant runs on corpus $name"
 done
 
 # Cargo reads every .cargo/config.toml above its working directory, so a user's
@@ -107,7 +118,7 @@ while :; do
     [[ $dir != / ]] || break
     dir=$(dirname "$dir")
 done
-caller_vars=("${!CARGO@}" "${!RUSTC@}" "${!RUSTDOC@}" "${!RUSTUP@}")
+caller_vars=("${!CARGO@}" "${!RUSTC@}" "${!RUSTDOC@}" "${!RUSTUP@}" "${!RA_JIT@}")
 for name in RUSTFLAGS CI TF_BUILD; do
     [[ -z ${!name+set} ]] || caller_vars+=("$name")
 done
@@ -119,8 +130,31 @@ export CARGO_HOME=$work/cargo-home
 stable_path=$PATH
 nightly_path=$RUST2_BENCH_NIGHTLY:$PATH
 
+# ra-jit compiles from source, so only a run that measures it builds it.
+rajit_path=
+if jq -e --argjson corpora "$(jq -n -c '$ARGS.positional' --args "${corpora[@]}")" --args '
+    any(.variant[] | select(.name | IN($ARGS.positional[])) | select(.toolchain == "ra-jit");
+        any((.corpora // $corpora)[]; IN($corpora[])))' "${variants[@]}" <<<"$config" >/dev/null; then
+    echo "bench: building ra-jit"
+    rajit_path=$(nix build --no-link --print-out-paths "$root#bench-ra-jit")/bin:$PATH
+fi
+
+# ra-jit's daemon outlives the build that starts it, so it gets a home and a store
+# of its own, and stops however the run ends.
+export RA_JIT_HOME=$work/ra-jit/home RA_JIT_CACHE=$work/ra-jit/store
+rajit_stop() {
+    [[ ! -S $RA_JIT_HOME/daemon.sock ]] || PATH=$rajit_path cargo ra-jit stop >/dev/null
+}
+trap rajit_stop EXIT
+
 field() { # corpus|variant, name, jq path
     jq -r --arg n "$2" ".$1[] | select(.name == \$n) | $3 // empty" <<<"$config"
+}
+
+# Whether a variant runs on a corpus or scenario: those its list under the key names, or all.
+runs_on() { # variant corpora|scenarios name
+    jq -e --arg n "$1" --arg k "$2" --arg v "$3" '.variant[] | select(.name == $n) | .[$k] // [$v] | index($v) != null' \
+        <<<"$config" >/dev/null
 }
 
 record_host() {
@@ -137,6 +171,8 @@ record_host() {
         --arg rust2 "$(git -C "$root" rev-parse HEAD)" \
         --arg stable "$(PATH=$stable_path rustc -V)" \
         --arg nightly "$(PATH=$nightly_path rustc -V)" \
+        --arg ra_jit "$([[ -z $rajit_path ]] && echo "ra-jit not measured" ||
+            echo "$(PATH=$rajit_path ra-jit --version) on $(PATH=$rajit_path rustc -V)")" \
         --arg hyperfine "$(hyperfine --version)" \
         --arg mold "$(mold --version 2>/dev/null || echo missing)" \
         --arg wild "$(wild --version 2>/dev/null || echo missing)" \
@@ -179,36 +215,108 @@ check_graph() { # corpus rule cargo-args...
     [[ -z $found ]] || die "corpus $name is marked $rule but builds: $(tr '\n' ' ' <<<"$found")"
 }
 
-# Enters a variant's toolchain, flags, and target directory for the cargo calls that follow.
+# Enters a variant's toolchain, flags, and target directory for the cargo calls that
+# follow, and sets `sub` to what goes between cargo and its subcommand.
 use_variant() { # corpus variant
     case $(field variant "$2" .toolchain) in
         stable) PATH=$stable_path ;;
         nightly) PATH=$nightly_path ;;
+        ra-jit) PATH=$rajit_path ;;
         *) die "variant $2 has no valid toolchain" ;;
+    esac
+    case $(field variant "$2" .subcommand) in
+        '') sub=() ;;
+        ra-jit) sub=(ra-jit) ;;
+        *) die "variant $2 has no valid subcommand" ;;
     esac
     RUSTFLAGS=$(field variant "$2" .rustflags)
     CARGO_TARGET_DIR=$work/target/$1/$2
     export PATH RUSTFLAGS CARGO_TARGET_DIR
 }
 
+# The ra-jit daemon keeps working after a build returns: it loads the workspace again
+# after cargo builds, and compiles ahead once nothing has asked it for a second.
+# Waits until it has been idle for three seconds, so none of that overlaps another
+# run, and prints its pid, the CPU seconds its processes and their children have
+# used, and the memory they hold.
+rajit_settle() { # dir
+    local dir=$1 status pid cpu rss last="" quiet=0 i
+    for ((i = 0; i < 1800; i++)); do
+        status=$(cargo ra-jit status)
+        pid=$(sed -n 's/^daemon: pid \([0-9]*\),.*/\1/p' <<<"$status")
+        [[ -n $pid ]] || die "the ra-jit daemon is not running"
+        # The daemon, its workers, and what they run; a child they have reaped counts in its parent.
+        read -r cpu rss < <(ps -e -o pid=,ppid= | awk -v root="$pid" '
+            { parent[$1] = $2 }
+            END { for (p in parent) { q = p; while (q != root && q in parent) q = parent[q]; if (q == root) print p } }' |
+            while read -r p; do cat "/proc/$p/stat" 2>/dev/null; done |
+            awk -v hz="$(getconf CLK_TCK)" -v page="$(getconf PAGESIZE)" '
+                { sub(/^.*\) /, ""); cpu += $12 + $13 + $14 + $15; rss += $22 }
+                END { printf "%.2f %d\n", cpu / hz, rss * page }')
+        if [[ $status != *"    $dir: loading"* && -n $last ]] && awk -v a="$cpu" -v b="$last" 'BEGIN { exit !(a - b < 0.05) }'; then
+            ((++quiet < 3)) || {
+                echo "$pid $cpu $rss"
+                return
+            }
+        else
+            quiet=0
+        fi
+        last=$cpu
+        sleep 1
+    done
+    die "the ra-jit daemon was still busy after 30 minutes"
+}
+
+# How many builds of the checkout the daemon served, and how many it left to cargo
+# by reason, summed over every build configuration it keeps.
+rajit_counts() { # dir
+    find "$RA_JIT_HOME/states" -regex '.*/[0-9a-f]+\.json' -print0 2>/dev/null | xargs -0 -r cat |
+        jq -s -c --arg root "$1" '
+            map(select(.root == $root) | .counts)
+            | {served: (map(.served) | add // 0), cargo: (map(.cargo | to_entries[]) | group_by(.key) | map({key: .[0].key, value: (map(.value) | add)}) | from_entries)}'
+}
+
 # Times one run with hyperfine, appending its measurement to the scenario's raw log.
 # Earlier runs leave dirty pages behind (over a GiB on moq), and writing them
 # back stalls whichever run it overlaps, so each run starts after a sync.
-time_once() { # corpus dir scenario variant prepare command
-    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 cmd=$6 json
+# A ra-jit run also records whether the daemon or cargo built it, and the CPU time
+# and memory of the daemon, which hyperfine does not see.
+time_once() { # corpus dir scenario variant prepare cargo-args...
+    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 json
+    shift 5
     json=$out/raw/$corpus.$scenario.$variant.json
     (
         use_variant "$corpus" "$variant"
         cd "$dir"
-        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" "$cmd"
+        local before after counts measurement
+        if ((${#sub[@]})); then
+            before=$(rajit_settle "$dir")
+            counts=$(rajit_counts "$dir")
+        fi
+        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" "$(printf '%q ' cargo "${sub[@]}" "$@")"
+        measurement=$(jq -c '.results[0].measurements[0]' "$json")
+        if ((${#sub[@]})); then
+            after=$(rajit_settle "$dir")
+            measurement=$(jq -c --argjson before "$counts" --argjson after "$(rajit_counts "$dir")" \
+                --arg was "$before" --arg now "$after" '
+                ($was | split(" ")) as [$pid0, $cpu0] | ($now | split(" ")) as [$pid1, $cpu1, $rss]
+                | . + {ra_jit: {
+                    served: ($after.served > $before.served),
+                    cargo: [$after.cargo | to_entries[] | select(.value > ($before.cargo[.key] // 0)) | .key][0],
+                    cpu: (($cpu1 | tonumber) - (if $pid0 == $pid1 then $cpu0 | tonumber else 0 end)),
+                    rss: ($rss | tonumber)
+                }}' <<<"$measurement")
+        fi
+        echo "$measurement" >>"$out/raw/$corpus.$scenario.$variant.jsonl"
+        jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"
+            + if .ra_jit == null then "" elif .ra_jit.served then " by ra-jit" else " by cargo" end' <<<"$measurement"
     )
-    jq -c '.results[0].measurements[0]' "$json" | tee -a "$out/raw/$corpus.$scenario.$variant.jsonl" |
-        jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"'
 }
 
 # Folds a scenario's runs of one variant into a result record. Load on the host
 # adds an occasional slow run, so the compared numbers are trimmed means: the
-# mean without the fastest and slowest run.
+# mean without the fastest and slowest run. A ra-jit run's CPU time includes its
+# daemon's; its instructions, which nothing counts in the daemon, are left out.
 summarize_runs() { # corpus scenario variant
     jq -s -c --arg corpus "$1" --arg scenario "$2" --arg variant "$3" \
         --arg base "$(field variant "$3" '.base // .name')" '
@@ -216,74 +324,104 @@ summarize_runs() { # corpus scenario variant
         def trimmed: sort | if length > 2 then .[1:-1] else . end | mean;
         [.[].time_wall_clock.value] as $t
         | ($t | mean) as $mean
+        | any(.[]; .ra_jit != null) as $daemon
         | {
             $corpus, $scenario, $variant, $base, $mean,
             stddev: (if ($t | length) > 1 then $t | map(. - $mean | . * .) | add / (length - 1) | sqrt else null end),
             trimmed: ($t | trimmed),
-            cpu: (map(.time_cpu.value) | trimmed),
-            instructions: (if all(.[]; .instructions.value != null) then map(.instructions.value) | trimmed else null end),
+            cpu: (map(.time_cpu.value + (.ra_jit.cpu // 0)) | trimmed),
+            instructions: (if all(.[]; .instructions.value != null) and ($daemon | not) then map(.instructions.value) | trimmed else null end),
             rss: (map(.memory_peak_resident.value) | max),
             times: $t
-        }' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
+        }
+        + if $daemon then {ra_jit: {
+            served: map(select(.ra_jit.served)) | length,
+            cargo: (map(select(.ra_jit.served | not) | .ra_jit.cargo // "no reason given") | group_by(.) | map({key: .[0], value: length}) | from_entries),
+            rss: (map(.ra_jit.rss) | max)
+        }} else {} end' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
 }
 
 # Times every scenario on one corpus. Runs interleave the variants, rotating
 # which goes first each round, so drift over a long job spreads across all of
 # them instead of favoring whichever ran last.
 bench_corpus() { # corpus dir
-    local corpus=$1 dir=$2 leaf hub build check scenario file prepare cmd n i j variant
-    local -a args
-    local count=${#variants[@]}
+    local corpus=$1 dir=$2 leaf hub scenario subcommand file prepare n i j variant
+    local -a args present active
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
     leaf=$(field corpus "$corpus" .leaf)
     hub=$(field corpus "$corpus" .hub)
-    build=$(printf '%q ' cargo build --locked --offline -q "${args[@]}")
-    check=$(printf '%q ' cargo check --locked --offline -q "${args[@]}")
+
+    present=()
+    for variant in "${variants[@]}"; do
+        if runs_on "$variant" corpora "$corpus"; then
+            present+=("$variant")
+        fi
+    done
+
+    # Each corpus starts ra-jit from nothing: no daemon, and an empty store.
+    rajit_stop
+    rm -rf "$work/ra-jit"
+    mkdir -p "$work/ra-jit" && mkdir -m 700 "$RA_JIT_HOME"
 
     # An untimed clean build per variant warms the disk cache and shows any failure in full.
-    for variant in "${variants[@]}"; do
+    for variant in "${present[@]}"; do
         echo "bench: $corpus warm-up $variant"
         (
             use_variant "$corpus" "$variant"
             rm -rf "$CARGO_TARGET_DIR"
             cd "$dir"
-            cargo build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1
+            # The `||` below turns errexit off in here, so a failed build has to exit itself.
+            cargo "${sub[@]}" build --locked --offline "${args[@]}" >"$out/logs/$corpus.$variant.log" 2>&1 || exit
+            ((${#sub[@]} == 0)) || rajit_settle "$dir" >/dev/null
         ) || { tail -40 "$out/logs/$corpus.$variant.log" >&2 && die "$corpus failed to build with $variant"; }
     done
 
     for scenario in check build edit-leaf edit-hub; do
+        active=()
+        for variant in "${present[@]}"; do
+            if runs_on "$variant" scenarios "$scenario"; then
+                active+=("$variant")
+            fi
+        done
+        ((${#active[@]})) || continue
         case $scenario in
             check | build)
-                [[ $scenario == check ]] && cmd=$check || cmd=$build
+                subcommand=$scenario
                 prepare="cargo clean -q"
                 n=${runs:-3}
                 ;;
             edit-*)
                 [[ $scenario == edit-leaf ]] && file=$leaf || file=$hub
                 [[ -n $file ]] || continue
-                cmd=$build
+                subcommand=build
                 prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
                 n=${runs:-5}
                 # Add the marker and build it, so each timed run is a body edit.
                 "$bench/run.sh" edit "$dir/$file"
-                for variant in "${variants[@]}"; do
-                    (use_variant "$corpus" "$variant" && cd "$dir" && cargo build --locked --offline -q "${args[@]}")
+                for variant in "${active[@]}"; do
+                    (
+                        use_variant "$corpus" "$variant"
+                        cd "$dir"
+                        cargo "${sub[@]}" build --locked --offline -q "${args[@]}"
+                        ((${#sub[@]} == 0)) || rajit_settle "$dir" >/dev/null
+                    )
                 done
                 ;;
         esac
         for ((i = 0; i < n; i++)); do
-            for ((j = 0; j < count; j++)); do
-                variant=${variants[(i + j) % count]}
-                time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "$cmd"
+            for ((j = 0; j < ${#active[@]}; j++)); do
+                variant=${active[(i + j) % ${#active[@]}]}
+                time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "$subcommand" --locked --offline -q "${args[@]}"
             done
         done
-        for variant in "${variants[@]}"; do
+        for variant in "${active[@]}"; do
             summarize_runs "$corpus" "$scenario" "$variant"
         done
     done
 
+    rajit_stop
     git -C "$dir" checkout -q -- .
-    rm -rf "$work/target/$corpus"
+    rm -rf "$work/target/$corpus" "$work/ra-jit"
 }
 
 # One nightly clean build and each edit, with cargo's build analysis log and

@@ -179,6 +179,11 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	next_results: FxHashSet<Local>,
 	/// Their names, which a switch on their variant tests against `rt.DONE`.
 	next_names: FxHashSet<String>,
+	/// Next results of a range of numbers stepped in place: each holds only the item, so
+	/// JS keeps it a number, and a flag holds whether there was one.
+	range_nexts: FxHashSet<Local>,
+	/// Their names, and their flags' names, which a switch on their variant tests.
+	range_flags: FxHashMap<String, String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -219,6 +224,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			var_parts: FxHashMap::default(),
 			next_results: FxHashSet::default(),
 			next_names: FxHashSet::default(),
+			range_nexts: FxHashSet::default(),
+			range_flags: FxHashMap::default(),
 		};
 		fx.analyze();
 		fx
@@ -422,11 +429,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Whether a `ty` has no JS value: `()`, a function item, or a struct of no fields.
+	/// Whether a `ty` has no JS value: `()`, a function item, or `..`.
 	fn zero_sized(&self, ty: Ty<'tcx>) -> bool {
 		match ty.kind() {
 			ty::Tuple(tys) => tys.is_empty(),
 			ty::FnDef(..) | ty::Never => true,
+			ty::Adt(adt, _) => {
+				crate::lower::library::Std::of(self.tcx, adt.did()) == Some(crate::lower::library::Std::RangeFull)
+			}
 			_ => false,
 		}
 	}
@@ -573,14 +583,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			else {
 				continue;
 			};
-			let ty::FnDef(def_id, _) = *func.ty(&mir.local_decls, tcx).kind() else {
+			let ty::FnDef(def_id, gargs) = *func.ty(&mir.local_decls, tcx).kind() else {
 				continue;
 			};
 			let Some(local) = destination.as_local() else {
 				continue;
 			};
 			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 {
-				nexts.push(local);
+				nexts.push((local, gargs.skip_binder().type_at(0)));
 			}
 			if crate::lower::library::key(tcx, def_id).is_some_and(|(o, n)| o == "Try" && n == "branch")
 				&& let [arg] = &**args
@@ -594,7 +604,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				branches.insert(from, (at, local));
 			}
 		}
-		for local in nexts {
+		for (local, iter_ty) in nexts {
 			let branch = branches.get(&local).copied();
 			let mut uses = Uses {
 				local,
@@ -621,6 +631,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					continue;
 				}
 				self.next_results.insert(to);
+			} else if local != mir::RETURN_PLACE && small_range(tcx, iter_ty) {
+				self.range_nexts.insert(local);
 			}
 			self.next_results.insert(local);
 		}
@@ -758,6 +770,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				out.push(StmtKind::Declare { name, ty }.at(None));
 			}
 		}
+		let mut flags: Vec<String> = self.range_flags.values().cloned().collect();
+		flags.sort();
+		for name in flags {
+			out.push(
+				StmtKind::Declare {
+					name,
+					ty: Type::Builtin("boolean"),
+				}
+				.at(None),
+			);
+		}
 		out.extend(entry);
 		out.extend(body);
 		drop_self_assignments(&mut out);
@@ -838,6 +861,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => args.type_at(0),
 			};
 			let item = self.b.t.ty(item, self.span);
+			if self.range_nexts.contains(&local) {
+				return item;
+			}
 			return Type::Union(vec![item, Type::Rt("Done", Vec::new())]);
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
@@ -2122,4 +2148,11 @@ fn inert(e: &Expr) -> bool {
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
 	}
+}
+
+/// Whether `ty` is a `Range` of numbers that fit a JS number, which steps in place.
+pub(super) fn small_range<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	matches!(ty.kind(), ty::Adt(adt, args)
+		if crate::lower::library::Std::of(tcx, adt.did()) == Some(crate::lower::library::Std::Range)
+			&& crate::lower::num::Int::of(args.type_at(0)).is_some_and(|i| !i.big()))
 }

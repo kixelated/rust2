@@ -58,11 +58,39 @@
         "type": "github"
       }
     },
+    "ra-jit": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": [
+          "rust-overlay"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792901758,
+        "narHash": "sha256-r36PMl7vzuiEpysRWwcLNJgNtxRj/0QtQVKQRvMbUxY=",
+        "owner": "indexable-inc",
+        "repo": "ra-jit",
+        "rev": "d4f6027e82d312bf805ebfe6252369f6048a1e18",
+        "type": "github"
+      },
+      "original": {
+        "owner": "indexable-inc",
+        "repo": "ra-jit",
+        "rev": "d4f6027e82d312bf805ebfe6252369f6048a1e18",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "quest": "quest",
+        "ra-jit": "ra-jit",
         "rust-overlay": "rust-overlay"
       }
     },
