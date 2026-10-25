@@ -181,6 +181,7 @@
               cargo-sort
               actionlint
               shellcheck
+              hello
               shfmt
               taplo
               # bench/ffi/run.sh serializes runs that share a work directory.
