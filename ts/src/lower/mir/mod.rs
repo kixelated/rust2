@@ -186,6 +186,8 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	force_share: bool,
 	/// Locals whose one read is as a call's argument, which may share what it copies.
 	arg_use: IndexVec<Local, bool>,
+	/// Locals whose one read is as an argument to a call given nothing that changes memory.
+	arg_alone: IndexVec<Local, bool>,
 	/// The cleanups a panic runs, if any does something JS can see.
 	unwind: Option<unwind::Unwind>,
 	/// While the cleanups are lowered, the caught exception's name.
@@ -233,6 +235,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			copy_on_flush: false,
 			force_share: false,
 			arg_use: IndexVec::from_elem_n(false, n),
+			arg_alone: IndexVec::from_elem_n(false, n),
 			unwind: None,
 			in_cleanup: None,
 			ignored_sites: Vec::new(),
@@ -303,12 +306,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					..
 				} => {
 					self.operand_use(func);
+					// A callee given nothing that changes memory can't change an argument's
+					// source while it runs.
+					let alone = !std::iter::once(func)
+						.chain(args.iter().map(|a| &a.node))
+						.any(|op| self.reaches_mutable(op.ty(&mir.local_decls, self.tcx)));
 					for arg in args.iter() {
 						self.operand_use(&arg.node);
 						if let Operand::Copy(p) | Operand::Move(p) = &arg.node
 							&& let Some(local) = p.as_local()
 						{
 							self.arg_use[local] = true;
+							self.arg_alone[local] = alone;
 						}
 					}
 					self.def(*destination);
@@ -1319,10 +1328,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut pre = Vec::new();
 		// A copy into a local nothing changes in place can share what it copies, if that
 		// doesn't change either. One into a temporary only an argument reads shares it as
-		// long as it folds into the argument, before anything could change it.
+		// long as it folds into the argument, before anything could change it, if the callee
+		// can't change it either: a local's own value nothing borrows, or a callee given
+		// nothing that changes memory.
 		self.into_frozen = place.as_local().is_some_and(|l| !self.mutated[l]);
-		let shares = place.as_local().is_some_and(|l| self.arg_use[l] && self.foldable(l))
-			&& matches!(rvalue, Rvalue::Use(Operand::Copy(p), _) if !self.frozen(*p) && self.b.needs_copy(p.ty(&self.mir.local_decls, self.tcx).ty));
+		let shares = place.as_local().is_some_and(|l| {
+			self.arg_use[l]
+				&& self.foldable(l)
+				&& matches!(rvalue, Rvalue::Use(Operand::Copy(p), _)
+					if !self.frozen(*p)
+						&& (own(*p) && !self.borrowed[p.local] || self.arg_alone[l])
+						&& self.b.needs_copy(p.ty(&self.mir.local_decls, self.tcx).ty))
+		});
 		if shares {
 			self.into_frozen = true;
 			self.force_share = true;
@@ -1696,6 +1713,22 @@ impl Fx<'_, '_, '_, '_> {
 	/// Emit a statement every held-back value that can do anything runs before.
 	fn emit_barrier(&mut self, stmt: Stmt, out: &mut Vec<Stmt>) {
 		self.emit(vec![stmt], None, false, out);
+	}
+}
+
+impl<'tcx> Fx<'_, '_, '_, 'tcx> {
+	/// Whether a value of `ty` can change memory: it holds a mutable reference, a raw
+	/// pointer, or something with interior mutability.
+	fn reaches_mutable(&self, ty: Ty<'tcx>) -> bool {
+		use rustc_middle::ty::TypeVisitableExt;
+		let env = self.b.t.typing_env_pub();
+		ty.walk().any(|arg| {
+			arg.as_type().is_some_and(|t| {
+				matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut) | ty::RawPtr(..))
+					// Inside a binder, as a function pointer's signature, only its kind tells.
+					|| !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env)
+			})
+		})
 	}
 }
 

@@ -182,6 +182,11 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	word[0] = 9;
 	out.extend_from_slice(&(converted + word[0] as u32).to_be_bytes());
 
+	// An argument copied keeps its value, though the callee changes its source through
+	// another.
+	let mut cell = [data.len() as u8];
+	out.push(write_then_read(cell, &mut cell));
+
 	let marked = mark(out, 1) == 0;
 	mark(out, 2);
 	out.push(marked as u8);
@@ -204,6 +209,13 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		err.y as u8,
 		fail.unwrap_err().y as u8,
 	]);
+}
+
+/// `a`'s byte, after writing `b`'s.
+#[inline(never)]
+fn write_then_read(a: [u8; 1], b: &mut [u8; 1]) -> u8 {
+	b[0] = 9;
+	a[0]
 }
 
 /// Logs `b`, returning how much is logged.
