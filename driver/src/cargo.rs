@@ -140,7 +140,8 @@ impl Check<'_> {
 			cmd
 		};
 		run_cargo(cargo("clean").arg("--quiet"))?;
-		let ran = target_dir.join(format!("{}.ran", self.tool));
+		// Its own, since runs may share a target directory.
+		let ran = target_dir.join(format!("{}-{}.ran", self.tool, std::process::id()));
 		match std::fs::remove_file(&ran) {
 			Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
 				return Err(format!("removing {}: {err}", ran.display()));
@@ -159,7 +160,9 @@ impl Check<'_> {
 			return Ok(ExitCode::FAILURE);
 		}
 		// A library the wrapper never recognized would otherwise succeed with nothing written.
-		if !ran.exists() {
+		let compiled = ran.exists();
+		let _ = std::fs::remove_file(&ran);
+		if !compiled {
 			return Err(format!("cargo compiled no library of package {}", self.package));
 		}
 		Ok(ExitCode::SUCCESS)
