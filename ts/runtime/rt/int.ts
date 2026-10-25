@@ -578,29 +578,41 @@ function shr(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
 	return one(halves(0, a.hi >>> (n - 32)));
 }
 
-/** A bitwise operator, on 32-bit words and on bigints. */
-interface Bitwise {
-	word(x: number, y: number): number;
-	big(x: bigint, y: bigint): bigint;
+// The bitwise operators. On two safe integers, a type's own computes them a 32-bit half
+// at a time, which can make -2^53 in a signed type, the one result past the safe
+// integers; past that, these compute them on limbs.
+
+function wordAnd(a: number, b: number): number {
+	return (Math.floor(a / TWO32) & Math.floor(b / TWO32)) * TWO32 + ((a & b) >>> 0);
 }
 
-const AND: Bitwise = { word: (x, y) => x & y, big: (x, y) => x & y };
-const OR: Bitwise = { word: (x, y) => x | y, big: (x, y) => x | y };
-const XOR: Bitwise = { word: (x, y) => x ^ y, big: (x, y) => x ^ y };
+function wordOr(a: number, b: number): number {
+	return (Math.floor(a / TWO32) | Math.floor(b / TWO32)) * TWO32 + ((a | b) >>> 0);
+}
 
-/**
- * A bitwise operator, on two safe integers a 32-bit half at a time. Signed ones can make
- * -2^53, the one result past the safe integers, which takes limbs.
- */
-function bitwise(a: Wide, b: Wide, bits: number, signed: boolean, op: Bitwise): Wide {
-	if (typeof a === "number" && typeof b === "number") {
-		const n = op.word(Math.floor(a / TWO32), Math.floor(b / TWO32)) * TWO32 + (op.word(a >>> 0, b >>> 0) >>> 0);
-		if (fits(n, signed)) return n;
-	}
+function wordXor(a: number, b: number): number {
+	return (Math.floor(a / TWO32) ^ Math.floor(b / TWO32)) * TWO32 + ((a ^ b) >>> 0);
+}
+
+function and(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	const y = limbs(b, bits, signed);
-	if (bits === 64) return one(halves(high(op.word(x.hi, y.hi), signed), op.word(x.lo, y.lo) >>> 0));
-	return one(box(op.big(exact(x), exact(y)), bits, signed));
+	if (bits === 64) return one(halves(high(x.hi & y.hi, signed), (x.lo & y.lo) >>> 0));
+	return one(box(exact(x) & exact(y), bits, signed));
+}
+
+function or(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
+	const x = limbs(a, bits, signed);
+	const y = limbs(b, bits, signed);
+	if (bits === 64) return one(halves(high(x.hi | y.hi, signed), (x.lo | y.lo) >>> 0));
+	return one(box(exact(x) | exact(y), bits, signed));
+}
+
+function xor(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
+	const x = limbs(a, bits, signed);
+	const y = limbs(b, bits, signed);
+	if (bits === 64) return one(halves(high(x.hi ^ y.hi, signed), (x.lo ^ y.lo) >>> 0));
+	return one(box(exact(x) ^ exact(y), bits, signed));
 }
 
 function not(a: Wide, bits: number, signed: boolean): Wide {
@@ -752,16 +764,25 @@ function wideStep(n: Wide, by: number, bits: number, signed: boolean): [Wide, bo
 	return [one(box(v, bits, signed)), !fitsBig(v, bits, signed)];
 }
 
-export const u64Add = (a: u64, b: u64): u64 => add(a, b, 64, false) as u64;
-export const u64Sub = (a: u64, b: u64): u64 => sub(a, b, 64, false) as u64;
-export const u64Mul = (a: u64, b: u64): u64 => mul(a, b, 64, false) as u64;
-export const u64Div = (a: u64, b: u64): u64 => div(a, b, 64, false) as u64;
-export const u64Rem = (a: u64, b: u64): u64 => rem(a, b, 64, false) as u64;
-export const u64Shl = (a: u64, b: number | Limbs): u64 => shl(a, b, 64, false) as u64;
-export const u64Shr = (a: u64, b: number | Limbs): u64 => shr(a, b, 64, false) as u64;
-export const u64And = (a: u64, b: u64): u64 => bitwise(a, b, 64, false, AND) as u64;
-export const u64Or = (a: u64, b: u64): u64 => bitwise(a, b, 64, false, OR) as u64;
-export const u64Xor = (a: u64, b: u64): u64 => bitwise(a, b, 64, false, XOR) as u64;
+export const u64Add = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : add(a, b, 64, false)) as u64;
+export const u64Sub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sub(a, b, 64, false)) as u64;
+export const u64Mul = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 64, false)) as u64;
+export const u64Div = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? Math.trunc(a / b) + 0 : div(a, b, 64, false)) as u64;
+export const u64Rem = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 64, false)) as u64;
+export const u64Shl = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 64, false)) as u64;
+export const u64Shr = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 64, false)) as u64;
+export const u64And = (a: u64, b: u64): u64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
+	return (fits(n, false) ? n : and(a, b, 64, false)) as u64;
+};
+export const u64Or = (a: u64, b: u64): u64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
+	return (fits(n, false) ? n : or(a, b, 64, false)) as u64;
+};
+export const u64Xor = (a: u64, b: u64): u64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
+	return (fits(n, false) ? n : xor(a, b, 64, false)) as u64;
+};
 export const u64Not = (a: u64): u64 => not(a, 64, false) as u64;
 export const u64CheckedAdd = (a: u64, b: u64): u64 | undefined => checkedOp(sum(a, b, 64, false), 64, false) as u64 | undefined;
 export const u64CheckedSub = (a: u64, b: u64): u64 | undefined => checkedOp(difference(a, b, 64, false), 64, false) as u64 | undefined;
@@ -781,30 +802,39 @@ export const u64UpperHex = (a: u64, f: Formatter): FmtResult => wideHex(a, 64, f
 /** A `u64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u64Of = (value: number | bigint): u64 => of(value, 64, false) as u64;
 /** `value as u64`. */
-export const u64Cast = (value: number | Limbs): u64 => cast(value, 64, false) as u64;
+export const u64Cast = (value: number | Limbs): u64 => (typeof value === "number" && fits(value, false) ? value : cast(value, 64, false)) as u64;
 /** The low 32 bits, as a uint32. */
 export const u64Low = (a: u64): number => low(a);
 export const u64Eq = (a: u64, b: u64): boolean => eq(a, b);
 export const u64Ne = (a: u64, b: u64): boolean => !eq(a, b);
-export const u64Lt = (a: u64, b: u64): boolean => wideLt(a, b, 64, false);
-export const u64Le = (a: u64, b: u64): boolean => !wideLt(b, a, 64, false);
-export const u64Gt = (a: u64, b: u64): boolean => wideLt(b, a, 64, false);
-export const u64Ge = (a: u64, b: u64): boolean => !wideLt(a, b, 64, false);
+export const u64Lt = (a: u64, b: u64): boolean => typeof a === "number" && typeof b === "number" ? a < b : wideLt(a, b, 64, false);
+export const u64Le = (a: u64, b: u64): boolean => typeof a === "number" && typeof b === "number" ? a <= b : !wideLt(b, a, 64, false);
+export const u64Gt = (a: u64, b: u64): boolean => typeof a === "number" && typeof b === "number" ? a > b : wideLt(b, a, 64, false);
+export const u64Ge = (a: u64, b: u64): boolean => typeof a === "number" && typeof b === "number" ? a >= b : !wideLt(a, b, 64, false);
 export const u64Max = (a: u64, b: u64): u64 => (wideLt(b, a, 64, false) ? a : b);
 export const u64Min = (a: u64, b: u64): u64 => (wideLt(b, a, 64, false) ? b : a);
 export const u64Step: Step<u64> = (n, by) => wideStep(n, by, 64, false) as [u64, boolean];
 
-export const i64Add = (a: i64, b: i64): i64 => add(a, b, 64, true) as i64;
-export const i64Sub = (a: i64, b: i64): i64 => sub(a, b, 64, true) as i64;
-export const i64Mul = (a: i64, b: i64): i64 => mul(a, b, 64, true) as i64;
-export const i64Div = (a: i64, b: i64): i64 => div(a, b, 64, true) as i64;
-export const i64Rem = (a: i64, b: i64): i64 => rem(a, b, 64, true) as i64;
-export const i64Neg = (a: i64): i64 => neg(a, 64, true) as i64;
-export const i64Shl = (a: i64, b: number | Limbs): i64 => shl(a, b, 64, true) as i64;
-export const i64Shr = (a: i64, b: number | Limbs): i64 => shr(a, b, 64, true) as i64;
-export const i64And = (a: i64, b: i64): i64 => bitwise(a, b, 64, true, AND) as i64;
-export const i64Or = (a: i64, b: i64): i64 => bitwise(a, b, 64, true, OR) as i64;
-export const i64Xor = (a: i64, b: i64): i64 => bitwise(a, b, 64, true, XOR) as i64;
+export const i64Add = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : add(a, b, 64, true)) as i64;
+export const i64Sub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sub(a, b, 64, true)) as i64;
+export const i64Mul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 64, true)) as i64;
+export const i64Div = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? Math.trunc(a / b) + 0 : div(a, b, 64, true)) as i64;
+export const i64Rem = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 64, true)) as i64;
+export const i64Neg = (a: i64): i64 => (typeof a === "number" ? -a + 0 : neg(a, 64, true)) as i64;
+export const i64Shl = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 64, true)) as i64;
+export const i64Shr = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 64, true)) as i64;
+export const i64And = (a: i64, b: i64): i64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
+	return (fits(n, true) ? n : and(a, b, 64, true)) as i64;
+};
+export const i64Or = (a: i64, b: i64): i64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
+	return (fits(n, true) ? n : or(a, b, 64, true)) as i64;
+};
+export const i64Xor = (a: i64, b: i64): i64 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
+	return (fits(n, true) ? n : xor(a, b, 64, true)) as i64;
+};
 export const i64Not = (a: i64): i64 => not(a, 64, true) as i64;
 export const i64CheckedAdd = (a: i64, b: i64): i64 | undefined => checkedOp(sum(a, b, 64, true), 64, true) as i64 | undefined;
 export const i64CheckedSub = (a: i64, b: i64): i64 | undefined => checkedOp(difference(a, b, 64, true), 64, true) as i64 | undefined;
@@ -824,29 +854,38 @@ export const i64UpperHex = (a: i64, f: Formatter): FmtResult => wideHex(a, 64, t
 /** A `i64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i64Of = (value: number | bigint): i64 => of(value, 64, true) as i64;
 /** `value as i64`. */
-export const i64Cast = (value: number | Limbs): i64 => cast(value, 64, true) as i64;
+export const i64Cast = (value: number | Limbs): i64 => (typeof value === "number" && fits(value, true) ? value : cast(value, 64, true)) as i64;
 /** The low 32 bits, as a uint32. */
 export const i64Low = (a: i64): number => low(a);
 export const i64Eq = (a: i64, b: i64): boolean => eq(a, b);
 export const i64Ne = (a: i64, b: i64): boolean => !eq(a, b);
-export const i64Lt = (a: i64, b: i64): boolean => wideLt(a, b, 64, true);
-export const i64Le = (a: i64, b: i64): boolean => !wideLt(b, a, 64, true);
-export const i64Gt = (a: i64, b: i64): boolean => wideLt(b, a, 64, true);
-export const i64Ge = (a: i64, b: i64): boolean => !wideLt(a, b, 64, true);
+export const i64Lt = (a: i64, b: i64): boolean => typeof a === "number" && typeof b === "number" ? a < b : wideLt(a, b, 64, true);
+export const i64Le = (a: i64, b: i64): boolean => typeof a === "number" && typeof b === "number" ? a <= b : !wideLt(b, a, 64, true);
+export const i64Gt = (a: i64, b: i64): boolean => typeof a === "number" && typeof b === "number" ? a > b : wideLt(b, a, 64, true);
+export const i64Ge = (a: i64, b: i64): boolean => typeof a === "number" && typeof b === "number" ? a >= b : !wideLt(a, b, 64, true);
 export const i64Max = (a: i64, b: i64): i64 => (wideLt(b, a, 64, true) ? a : b);
 export const i64Min = (a: i64, b: i64): i64 => (wideLt(b, a, 64, true) ? b : a);
 export const i64Step: Step<i64> = (n, by) => wideStep(n, by, 64, true) as [i64, boolean];
 
-export const u128Add = (a: u128, b: u128): u128 => add(a, b, 128, false) as u128;
-export const u128Sub = (a: u128, b: u128): u128 => sub(a, b, 128, false) as u128;
-export const u128Mul = (a: u128, b: u128): u128 => mul(a, b, 128, false) as u128;
-export const u128Div = (a: u128, b: u128): u128 => div(a, b, 128, false) as u128;
-export const u128Rem = (a: u128, b: u128): u128 => rem(a, b, 128, false) as u128;
-export const u128Shl = (a: u128, b: number | Limbs): u128 => shl(a, b, 128, false) as u128;
-export const u128Shr = (a: u128, b: number | Limbs): u128 => shr(a, b, 128, false) as u128;
-export const u128And = (a: u128, b: u128): u128 => bitwise(a, b, 128, false, AND) as u128;
-export const u128Or = (a: u128, b: u128): u128 => bitwise(a, b, 128, false, OR) as u128;
-export const u128Xor = (a: u128, b: u128): u128 => bitwise(a, b, 128, false, XOR) as u128;
+export const u128Add = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : add(a, b, 128, false)) as u128;
+export const u128Sub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sub(a, b, 128, false)) as u128;
+export const u128Mul = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 128, false)) as u128;
+export const u128Div = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? Math.trunc(a / b) + 0 : div(a, b, 128, false)) as u128;
+export const u128Rem = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 128, false)) as u128;
+export const u128Shl = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 128, false)) as u128;
+export const u128Shr = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 128, false)) as u128;
+export const u128And = (a: u128, b: u128): u128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
+	return (fits(n, false) ? n : and(a, b, 128, false)) as u128;
+};
+export const u128Or = (a: u128, b: u128): u128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
+	return (fits(n, false) ? n : or(a, b, 128, false)) as u128;
+};
+export const u128Xor = (a: u128, b: u128): u128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
+	return (fits(n, false) ? n : xor(a, b, 128, false)) as u128;
+};
 export const u128Not = (a: u128): u128 => not(a, 128, false) as u128;
 export const u128CheckedAdd = (a: u128, b: u128): u128 | undefined => checkedOp(sum(a, b, 128, false), 128, false) as u128 | undefined;
 export const u128CheckedSub = (a: u128, b: u128): u128 | undefined => checkedOp(difference(a, b, 128, false), 128, false) as u128 | undefined;
@@ -866,30 +905,39 @@ export const u128UpperHex = (a: u128, f: Formatter): FmtResult => wideHex(a, 128
 /** A `u128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u128Of = (value: number | bigint): u128 => of(value, 128, false) as u128;
 /** `value as u128`. */
-export const u128Cast = (value: number | Limbs): u128 => cast(value, 128, false) as u128;
+export const u128Cast = (value: number | Limbs): u128 => (typeof value === "number" && fits(value, false) ? value : cast(value, 128, false)) as u128;
 /** The low 32 bits, as a uint32. */
 export const u128Low = (a: u128): number => low(a);
 export const u128Eq = (a: u128, b: u128): boolean => eq(a, b);
 export const u128Ne = (a: u128, b: u128): boolean => !eq(a, b);
-export const u128Lt = (a: u128, b: u128): boolean => wideLt(a, b, 128, false);
-export const u128Le = (a: u128, b: u128): boolean => !wideLt(b, a, 128, false);
-export const u128Gt = (a: u128, b: u128): boolean => wideLt(b, a, 128, false);
-export const u128Ge = (a: u128, b: u128): boolean => !wideLt(a, b, 128, false);
+export const u128Lt = (a: u128, b: u128): boolean => typeof a === "number" && typeof b === "number" ? a < b : wideLt(a, b, 128, false);
+export const u128Le = (a: u128, b: u128): boolean => typeof a === "number" && typeof b === "number" ? a <= b : !wideLt(b, a, 128, false);
+export const u128Gt = (a: u128, b: u128): boolean => typeof a === "number" && typeof b === "number" ? a > b : wideLt(b, a, 128, false);
+export const u128Ge = (a: u128, b: u128): boolean => typeof a === "number" && typeof b === "number" ? a >= b : !wideLt(a, b, 128, false);
 export const u128Max = (a: u128, b: u128): u128 => (wideLt(b, a, 128, false) ? a : b);
 export const u128Min = (a: u128, b: u128): u128 => (wideLt(b, a, 128, false) ? b : a);
 export const u128Step: Step<u128> = (n, by) => wideStep(n, by, 128, false) as [u128, boolean];
 
-export const i128Add = (a: i128, b: i128): i128 => add(a, b, 128, true) as i128;
-export const i128Sub = (a: i128, b: i128): i128 => sub(a, b, 128, true) as i128;
-export const i128Mul = (a: i128, b: i128): i128 => mul(a, b, 128, true) as i128;
-export const i128Div = (a: i128, b: i128): i128 => div(a, b, 128, true) as i128;
-export const i128Rem = (a: i128, b: i128): i128 => rem(a, b, 128, true) as i128;
-export const i128Neg = (a: i128): i128 => neg(a, 128, true) as i128;
-export const i128Shl = (a: i128, b: number | Limbs): i128 => shl(a, b, 128, true) as i128;
-export const i128Shr = (a: i128, b: number | Limbs): i128 => shr(a, b, 128, true) as i128;
-export const i128And = (a: i128, b: i128): i128 => bitwise(a, b, 128, true, AND) as i128;
-export const i128Or = (a: i128, b: i128): i128 => bitwise(a, b, 128, true, OR) as i128;
-export const i128Xor = (a: i128, b: i128): i128 => bitwise(a, b, 128, true, XOR) as i128;
+export const i128Add = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : add(a, b, 128, true)) as i128;
+export const i128Sub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sub(a, b, 128, true)) as i128;
+export const i128Mul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 128, true)) as i128;
+export const i128Div = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? Math.trunc(a / b) + 0 : div(a, b, 128, true)) as i128;
+export const i128Rem = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 128, true)) as i128;
+export const i128Neg = (a: i128): i128 => (typeof a === "number" ? -a + 0 : neg(a, 128, true)) as i128;
+export const i128Shl = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 128, true)) as i128;
+export const i128Shr = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 128, true)) as i128;
+export const i128And = (a: i128, b: i128): i128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
+	return (fits(n, true) ? n : and(a, b, 128, true)) as i128;
+};
+export const i128Or = (a: i128, b: i128): i128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
+	return (fits(n, true) ? n : or(a, b, 128, true)) as i128;
+};
+export const i128Xor = (a: i128, b: i128): i128 => {
+	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
+	return (fits(n, true) ? n : xor(a, b, 128, true)) as i128;
+};
 export const i128Not = (a: i128): i128 => not(a, 128, true) as i128;
 export const i128CheckedAdd = (a: i128, b: i128): i128 | undefined => checkedOp(sum(a, b, 128, true), 128, true) as i128 | undefined;
 export const i128CheckedSub = (a: i128, b: i128): i128 | undefined => checkedOp(difference(a, b, 128, true), 128, true) as i128 | undefined;
@@ -909,15 +957,15 @@ export const i128UpperHex = (a: i128, f: Formatter): FmtResult => wideHex(a, 128
 /** A `i128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i128Of = (value: number | bigint): i128 => of(value, 128, true) as i128;
 /** `value as i128`. */
-export const i128Cast = (value: number | Limbs): i128 => cast(value, 128, true) as i128;
+export const i128Cast = (value: number | Limbs): i128 => (typeof value === "number" && fits(value, true) ? value : cast(value, 128, true)) as i128;
 /** The low 32 bits, as a uint32. */
 export const i128Low = (a: i128): number => low(a);
 export const i128Eq = (a: i128, b: i128): boolean => eq(a, b);
 export const i128Ne = (a: i128, b: i128): boolean => !eq(a, b);
-export const i128Lt = (a: i128, b: i128): boolean => wideLt(a, b, 128, true);
-export const i128Le = (a: i128, b: i128): boolean => !wideLt(b, a, 128, true);
-export const i128Gt = (a: i128, b: i128): boolean => wideLt(b, a, 128, true);
-export const i128Ge = (a: i128, b: i128): boolean => !wideLt(a, b, 128, true);
+export const i128Lt = (a: i128, b: i128): boolean => typeof a === "number" && typeof b === "number" ? a < b : wideLt(a, b, 128, true);
+export const i128Le = (a: i128, b: i128): boolean => typeof a === "number" && typeof b === "number" ? a <= b : !wideLt(b, a, 128, true);
+export const i128Gt = (a: i128, b: i128): boolean => typeof a === "number" && typeof b === "number" ? a > b : wideLt(b, a, 128, true);
+export const i128Ge = (a: i128, b: i128): boolean => typeof a === "number" && typeof b === "number" ? a >= b : !wideLt(a, b, 128, true);
 export const i128Max = (a: i128, b: i128): i128 => (wideLt(b, a, 128, true) ? a : b);
 export const i128Min = (a: i128, b: i128): i128 => (wideLt(b, a, 128, true) ? b : a);
 export const i128Step: Step<i128> = (n, by) => wideStep(n, by, 128, true) as [i128, boolean];

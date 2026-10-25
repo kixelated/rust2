@@ -311,7 +311,8 @@ export function iterToArray<T>(it: Iter<T>): T[] {
 /** `collect` into a `Vec<u8>`. */
 export function iterToByteVec(it: Iter<number>): ByteVec {
 	const out = new ByteVec();
-	iterExtendBytes(out, it);
+	// Its own loop: through `iterExtendBytes`, JavaScriptCore took 1.9x as long.
+	for (let item = it.next(); item !== DONE; item = it.next()) byteVecPush(out, item);
 	return out;
 }
 
