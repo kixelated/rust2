@@ -34,7 +34,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (value === 3) {
 		sizes(data, out);
 	} else if (value === 4) {
-		roundtrip(data, out);
+		roundtrip$Versions(data, out);
 	} else if (value === 5) {
 		roundtripLite$Group(data, out);
 	} else if (value === 6) {
@@ -398,7 +398,7 @@ export function sizes(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** Decode a `T` from the wire, then encode what came out. */
-export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
+export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 	const splitFirst = rt.slice.splitFirst(data);
 	if (splitFirst === undefined) {
 		return;
@@ -406,13 +406,13 @@ export function roundtrip(data: Uint8Array, out: rt.ByteVec): void {
 	const selector = splitFirst[0];
 	const wire = splitFirst[1];
 	const form_ = form(selector);
-	const decodeSlice = Versions.decodeSlice(wire, form_);
+	const decodeSlice = Versions.decodeSlice$Decode_Form(wire, form_);
 	if (decodeSlice.ok) {
 		const value = decodeSlice.value[0];
 		const used = decodeSlice.value[1];
 		putUsize(out, used);
 		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Versions.encode$Form(value, Encoder.new(buf, form_), form_);
+		const encode = Versions.encode$Encode_Form(value, Encoder.new(buf, form_), form_);
 		if (encode.ok) {
 			out.extendFromSlice(buf.view());
 		} else {
@@ -434,13 +434,13 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 	const selector = splitFirst[0];
 	const wire = splitFirst[1];
 	const version = liteVersion(selector);
-	const decodeSlice = Group.decodeSlice(wire, version);
+	const decodeSlice = Group.decodeSlice$Decode_Version(wire, version);
 	if (decodeSlice.ok) {
 		const value = decodeSlice.value[0];
 		const used = decodeSlice.value[1];
 		putUsize(out, used);
 		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Group.encode(value, Encoder.new(buf, Form.from(version)), version);
+		const encode = Group.encode$Encode_Version(value, Encoder.new(buf, Form.from$From_Version(version)), version);
 		if (encode.ok) {
 			out.extendFromSlice(buf.view());
 		} else {
@@ -462,13 +462,13 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 	const selector = splitFirst[0];
 	const wire = splitFirst[1];
 	const version = liteVersion(selector);
-	const decodeSlice = Probe.decodeSlice(wire, version);
+	const decodeSlice = Probe.decodeSlice$Decode_Version(wire, version);
 	if (decodeSlice.ok) {
 		const value = decodeSlice.value[0];
 		const used = decodeSlice.value[1];
 		putUsize(out, used);
 		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Probe.encode(value, Encoder.new(buf, Form.from(version)), version);
+		const encode = Probe.encode$Encode_Version(value, Encoder.new(buf, Form.from$From_Version(version)), version);
 		if (encode.ok) {
 			out.extendFromSlice(buf.view());
 		} else {
@@ -499,9 +499,9 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 	encodeMessage$Group(group, version, out);
 	const probe = { bitrate: rt.u64.checkedSub(bitrate, 1), rtt: rt.thenSome(rt.u64.rem(rtt, 3) !== 0, rtt) };
 	encodeMessage$Probe(probe, version, out);
-	const versions = Versions.from([{ _0: subscribe }, { _0: sequence }]);
+	const versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
 	let buf: rt.ByteVec = new rt.ByteVec();
-	const encode = Versions.encode$Version(versions, Encoder.new(buf, Form.from(version)), version);
+	const encode = Versions.encode$Encode_Version(versions, Encoder.new(buf, Form.from$From_Version(version)), version);
 	if (encode.ok) {
 		out.extendFromSlice(buf.view());
 	} else {
@@ -512,8 +512,8 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 
 export function encodeMessage$Group(msg: Group.Group, version: Version.Version, out: rt.ByteVec): void {
 	let buf: rt.ByteVec = new rt.ByteVec();
-	let w: Encoder.Encoder = Encoder.new(buf, Form.from(version));
-	const encode = Group.encode(msg, w, version);
+	let w: Encoder.Encoder = Encoder.new(buf, Form.from$From_Version(version));
+	const encode = Group.encode$Encode_Version(msg, w, version);
 	if (encode.ok) {
 		out.push(w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
@@ -526,8 +526,8 @@ export function encodeMessage$Group(msg: Group.Group, version: Version.Version, 
 
 export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, out: rt.ByteVec): void {
 	let buf: rt.ByteVec = new rt.ByteVec();
-	let w: Encoder.Encoder = Encoder.new(buf, Form.from(version));
-	const encode = Probe.encode(msg, w, version);
+	let w: Encoder.Encoder = Encoder.new(buf, Form.from$From_Version(version));
+	const encode = Probe.encode$Encode_Version(msg, w, version);
 	if (encode.ok) {
 		out.push(w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
@@ -566,7 +566,7 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 			err = { tag: "InvalidString", _0: e };
 		}
 	} else if (value2 === 5) {
-		err = DecodeError.from$BoundsExceeded({});
+		err = DecodeError.from$From_BoundsExceeded({});
 	} else if (value2 === 6) {
 		const bounds = {};
 		putText(out, rt.fmt.toString((f: rt.Formatter) => BoundsExceeded.fmt$Display(bounds, f)), rt.fmt.format([(f: rt.Formatter) => BoundsExceeded.fmt$Debug(bounds, f), " ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => BoundsExceeded.fmt$Debug(bounds, f))]));

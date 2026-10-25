@@ -2,12 +2,12 @@
 
 import * as rt from "./rt.ts";
 
-/** `Display` through `pad`, which keeps the options. */
+/** `Display` through `pad`, which keeps the options. Only `added` prints its `Debug`. */
 export interface Padded {
 	_0: string;
 }
 
-export function fmt(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Display(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const width = f.width();
 	arms: {
 		if (width !== undefined) {
