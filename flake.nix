@@ -146,12 +146,17 @@
             uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
           };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
-          # so stable remains the default.
+          # so stable remains the default. It holds only what the benchmark runs,
+          # since a PR runs bench.yml only when this shell's derivation changes.
           devShells.build-bench = pkgs.mkShell {
-            inputsFrom = [ self.devShells.${system}.default ];
             packages =
               with pkgs;
               [
+                toolchain
+                just
+                jq
+                git
+                taplo
                 hyperfine
                 measureme
               ]

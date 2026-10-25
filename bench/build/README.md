@@ -1,7 +1,8 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and every build-speed change here states its effect with its numbers.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, or the `build-bench` shell.
+Every build-speed change here states its effect with its numbers.
 
 ```bash
 just bench                                    # everything; takes hours
@@ -9,7 +10,7 @@ just bench --corpus regex --runs 1            # a quick smoke test
 just bench --corpus moq --variant baseline --variant mold
 ```
 
-The script enters the `build-bench` dev shell itself, which adds hyperfine, mold, wild, measureme, and a pinned nightly to the default shell.
+The script enters the `build-bench` dev shell itself, which holds only what the benchmark runs: the stable toolchain, a pinned nightly, hyperfine, mold, wild, measureme, and the script's tools.
 Results land in `target/bench/results/`, newest at `target/bench/results/latest/report.md`.
 Checkouts and builds live in `/var/tmp/rust2-bench-<user>/` with their own `CARGO_HOME`, since cargo reads every `.cargo/config.toml` above the directory it runs in and a user-level one (such as `build.incremental = false`) would change what is measured.
 The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and `RUSTFLAGS` variables, and `CI` and `TF_BUILD`, which make newer cargo skip incremental compilation.
