@@ -7,44 +7,27 @@ use std::process::ExitCode;
 use rustc_driver::{Callbacks, Compilation};
 use rustc_interface::interface::Compiler;
 use rustc_middle::ty::TyCtxt;
-use rustc_session::EarlyDiagCtxt;
-use rustc_session::config::ErrorOutputType;
 
 use crate::config::{self, Config};
 use crate::{lower, program};
 
-const BUG_REPORT_URL: &str = "https://github.com/kixelated/rust2/issues/new";
-
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
-pub fn run(mut args: Vec<String>) -> ExitCode {
-	args.remove(1);
-	let early_dcx = EarlyDiagCtxt::new(ErrorOutputType::default());
-	rustc_driver::init_rustc_env_logger(&early_dcx);
-	rustc_driver::install_ice_hook(BUG_REPORT_URL, |_| ());
-	let job = match Translate::for_args(&args) {
-		Ok(job) => job,
-		Err(err) => early_dcx.early_fatal(format!("rust2-ts: {err}")),
-	};
-	// MIR without the checks of undefined behavior that debug builds add around raw
-	// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
-	// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
-	// can catch a panic and go on.
-	if job.as_ref().is_some_and(|job| job.mir) {
-		args.push("-Zub-checks=no".into());
-		if std::env::var_os("RUST2_TS_ABORT").is_none() {
-			args.push("-Cpanic=unwind".into());
+pub fn run(args: Vec<String>) -> ExitCode {
+	rust2_driver::rustc::run("rust2-ts", args, |args| {
+		let job = Translate::for_args(args)?;
+		// MIR without the checks of undefined behavior that debug builds add around raw
+		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
+		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
+		// can catch a panic and go on.
+		if job.as_ref().is_some_and(|job| job.mir) {
+			args.push("-Zub-checks=no".into());
+			if std::env::var_os("RUST2_TS_ABORT").is_none() {
+				args.push("-Cpanic=unwind".into());
+			}
 		}
-	}
-	rustc_driver::catch_with_exit_code(|| match job {
-		Some(mut job) => rustc_driver::compiler_entrypoint(&args, &mut job),
-		None => rustc_driver::compiler_entrypoint(&args, &mut Plain),
+		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
 }
-
-/// Compiles a crate as rustc would.
-struct Plain;
-
-impl Callbacks for Plain {}
 
 /// Compiles the configured crate, translating it after analysis.
 struct Translate {
@@ -69,9 +52,7 @@ impl Translate {
 			return Ok(None);
 		};
 		let config = Config::load(path.as_ref())?;
-		let crate_name = args.windows(2).find(|w| w[0] == "--crate-name").map(|w| w[1].as_str());
-		let lib = args.windows(2).any(|w| w[0] == "--crate-type" && w[1] == "lib");
-		if crate_name != Some(config.crate_name().as_str()) || !lib || args.iter().any(|a| a == "--test") {
+		if !rust2_driver::rustc::compiles_lib(args, &config.package) {
 			return Ok(None);
 		}
 		let output = match (

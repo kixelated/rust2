@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Empty") {
 		return f.writeStr("Empty");
 	} else if (self.tag === "Braced") {

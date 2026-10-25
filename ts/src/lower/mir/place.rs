@@ -28,6 +28,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		match &self.slots[local] {
 			Slot::Var(name) => Expr::ident(name),
+			// A value of type `!`, as a generic instantiated at `!` reads: native code never
+			// gets here, and `tsc` sees that through `rt.unreachable`.
+			Slot::Unit if self.mir.local_decls[local].ty.is_never() => Expr::rt("unreachable", vec![Expr::undefined()]),
 			Slot::Unit => Expr::undefined(),
 			Slot::Alias(Some(target)) => target.clone(),
 			Slot::Alias(None) => self.err(span, "a reference read before its borrow"),

@@ -17,7 +17,7 @@ The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and
 ## Corpus
 
 - **moq** builds `moq-relay`, which pulls in moq-net, the QUIC stack, and C code through aws-lc-sys.
-- **moq-pure-crypto** builds the same `moq-relay` with its crypto on graviola and RustCrypto, so it compiles no C.
+- **moq-pure-crypto** builds the same `moq-relay` with its crypto on graviola and RustCrypto, so it compiles no C: the run fails if any crate in its build gains a `links` key or pulls in cc or cmake, while pure-Rust build scripts stay allowed.
 - **regex** and **wasmparser** are pure Rust: the run fails if any crate in their build gains a build script or a `links` key.
 
 Each corpus pins a git revision (and a lockfile when the project commits none).

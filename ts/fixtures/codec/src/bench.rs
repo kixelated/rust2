@@ -2,7 +2,7 @@
 //! benchmarks: `js/net/bench/varint.ts` and `lite-varint.ts`. The first input byte picks
 //! the workload and the second its wire format; an encode's output is the matching
 //! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
-//! writes them.
+//! writes them, and op 7 decodes frame headers as they arrive a few bytes at a time.
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
 use crate::harness::{decode_error, encode_error, form, lite_version, put_u64, put_usize, take_u64};
@@ -25,6 +25,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		3 => decoded(decode_frames(data, lite_version(selector), &mut out), &mut out),
 		4 => encoded(encode_group(data, lite_version(selector), &mut out), &mut out),
 		6 => iterate(selector, data, &mut out),
+		7 => decoded(decode_split(data, lite_version(selector), &mut out), &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -108,6 +109,56 @@ fn decode_frames(wire: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Resu
 	put_u64(out, total);
 	put_u64(out, last as u64);
 	Ok(())
+}
+
+/// The FRAME headers of [`decode_frames`] as a subscriber reads them: the wire after the
+/// read size arrives that many bytes at a time, and each read decodes every header it
+/// completes. A header cut by the end of a read comes up [`DecodeError::Short`] and is
+/// decoded again from its start on the next. How many, their total size, the last delta,
+/// and how many decodes came up short.
+fn decode_split(data: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Result<(), DecodeError> {
+	let (read, wire) = take_u64(data);
+	let read = (read as usize).max(1);
+	let mut start = 0;
+	let mut end = 0;
+	let mut count = 0;
+	let mut total = 0;
+	let mut last = 0;
+	let mut short = 0;
+	while end < wire.len() {
+		end = wire.len().min(end + read);
+		while start < end {
+			let mut r = Decoder::new(&wire[start..end], version.into());
+			match frame_header(&mut r) {
+				Ok((delta, size)) => {
+					start = end - r.remaining();
+					last = delta;
+					total += size;
+					count += 1;
+				}
+				Err(DecodeError::Short) => {
+					short += 1;
+					break;
+				}
+				Err(err) => return Err(err),
+			}
+		}
+	}
+	// The wire ended mid-header.
+	if start < end {
+		return Err(DecodeError::Short);
+	}
+	put_usize(out, count);
+	put_u64(out, total);
+	put_u64(out, last as u64);
+	put_usize(out, short);
+	Ok(())
+}
+
+/// One FRAME header: the zigzag timestamp delta, then the size.
+fn frame_header(r: &mut Decoder<'_>) -> Result<(i64, u64), DecodeError> {
+	let delta = varint::unzigzag(r.varint()?);
+	Ok((delta, r.varint()?))
 }
 
 /// One size-prefixed GROUP header, starting at the first frame.

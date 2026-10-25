@@ -7,18 +7,18 @@ import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending.Pending({ poll, park: Park.default() });
+export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
+	return new Pending.Pending({ poll, park: Park.default$Default() });
 }
 
 export function* recvBody(_taskContext: rt.Context, self: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
 	const self2 = self;
-	let __awaitee: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> = wait((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+	let __awaitee: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 		return Consumer.pollRecv(self2, waiter);
 	});
 	try {
 		while (true) {
-			const poll = Pending.poll(__awaitee, _taskContext);
+			const poll = Pending.poll$Future_recv_closure0_closure0(__awaitee, _taskContext);
 			if (poll !== rt.Pending) {
 				const result = poll;
 				return result;

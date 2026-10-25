@@ -162,18 +162,21 @@ checkout() {
     (cd "$dir" && PATH=$stable_path cargo fetch --locked -q)
 }
 
-# Fails unless no crate in the build has a build script or a `links` key.
-check_pure() {
-    local name=$1 tree impure
-    shift
+# Fails if a crate in the build breaks the corpus's rule. Both forbid a `links`
+# key; `pure` also forbids any build script, `no-c` only the crates that compile C.
+check_graph() { # corpus rule cargo-args...
+    local name=$1 rule=$2 tree found
+    shift 2
     tree=$(cargo tree --locked --offline "$@" -e normal,build --prefix none -f '{p}' |
         awk '{ sub(/^v/, "", $2); print $1 " " $2 }' | sort -u | jq -R . | jq -s .)
-    impure=$(cargo metadata --locked --offline --format-version 1 | jq -r --argjson tree "$tree" '
+    found=$(cargo metadata --locked --offline --format-version 1 | jq -r --argjson tree "$tree" --arg rule "$rule" '
 		.packages[]
 		| select(("\(.name) \(.version)") as $k | $tree | index($k))
-		| select(.links != null or any(.targets[]; .kind | index("custom-build")))
+		| select(.links != null or if $rule == "pure"
+			then any(.targets[]; .kind | index("custom-build"))
+			else .name == "cc" or .name == "cmake" end)
 		| "\(.name) \(.version)"')
-    [[ -z $impure ]] || die "corpus $name is marked pure but builds: $(tr '\n' ' ' <<<"$impure")"
+    [[ -z $found ]] || die "corpus $name is marked $rule but builds: $(tr '\n' ' ' <<<"$found")"
 }
 
 # Enters a variant's toolchain, flags, and target directory for the cargo calls that follow.
@@ -347,9 +350,11 @@ for corpus in "${corpora[@]}"; do
     dir=$work/src/$corpus
     checkout "$corpus" "$dir"
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
-    if [[ $(field corpus "$corpus" .pure) == true ]]; then
-        (cd "$dir" && PATH=$stable_path check_pure "$corpus" "${args[@]}")
-    fi
+    for rule in pure no-c; do
+        if [[ $(field corpus "$corpus" ".\"$rule\"") == true ]]; then
+            (cd "$dir" && PATH=$stable_path check_graph "$corpus" "$rule" "${args[@]}")
+        fi
+    done
     bench_corpus "$corpus" "$dir"
     # A subshell keeps the nightly toolchain and flags from leaking into the next corpus.
     ((attribute == 0)) || (attribute "$corpus" "$dir")
