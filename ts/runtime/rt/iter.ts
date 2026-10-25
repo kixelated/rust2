@@ -4,17 +4,20 @@
 // `next` returns an item or `DONE`, never `undefined`, so an iterator of `Option<T>` keeps
 // its `None` items apart from its end. Each adaptor calls what it wraps, and the closures
 // it was given, in the order and as many times as std's does, and stops where std's
-// stops: a `find` or `any` reads no further than its match.
+// stops: a `find` or `any` reads no further than its match. Adaptors and consumers are
+// functions, `iterMap(it, f)`, so a bundler drops the ones nothing calls; an iterator's
+// methods are only what each kind does its own way.
 
-import { ByteVec, Err, type Int, type Limbs, lt as wideLt, Ok, panic, type Result } from "../rt.ts";
+import { ByteVec, byteVecPush, Err, Ok, panic, type Result } from "../rt.ts";
+import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 
 /** What `next` returns once an iterator is exhausted, which no item is. */
-export const DONE: unique symbol = Symbol("DONE");
+export const DONE: unique symbol = /* @__PURE__ */ Symbol("DONE");
 
 /** The type of `DONE`. */
 export type Done = typeof DONE;
 
-/** `Iterator`, with the provided methods std's iterators share. */
+/** `Iterator`: `next`, and the methods std's iterators each do their own way. */
 export abstract class Iter<T> implements Iterable<T> {
 	/** The next item, or `DONE`. */
 	abstract next(): T | Done;
@@ -29,304 +32,302 @@ export abstract class Iter<T> implements Iterable<T> {
 		throw new Error("rust2-ts: an iterator without `len`");
 	}
 
-	/** Its items, for a JS `for ... of`. */
-	*[Symbol.iterator](): Iterator<T> {
-		for (let item = this.next(); item !== DONE; item = this.next()) yield item;
-	}
-
-	// Adaptors
-
-	map<U>(f: (item: T) => U): Iter<U> {
-		return new MapIter(this, f);
-	}
-
-	filter(f: (item: T) => boolean): Iter<T> {
-		return new FilterIter(this, f);
-	}
-
-	filterMap<U>(f: (item: T) => U | undefined): Iter<U> {
-		return new FilterMapIter(this, f);
-	}
-
-	enumerate(): Iter<[number, T]> {
-		return new EnumerateIter(this);
-	}
-
-	/** `chain`, with `other` already made an iterator, as std does when it is called. */
-	chain(other: Iter<T>): Iter<T> {
-		return new ChainIter(this, other);
-	}
-
-	/**
-	 * `zip`, with `other` already made an iterator, as std does when it is called. A
-	 * `trusted` zip is one of two `TrustedRandomAccess` iterators, which std reads by
-	 * index up to the shorter length and never past it.
-	 */
-	zip<U>(other: Iter<U>, trusted = false): Iter<[T, U]> {
-		return trusted ? new TrustedZipIter(this, other) : new ZipIter(this, other);
-	}
-
-	rev(): Iter<T> {
-		return new RevIter(this);
-	}
-
-	skip(n: number): Iter<T> {
-		return new SkipIter(this, n);
-	}
-
-	take(n: number): Iter<T> {
-		return new TakeIter(this, n);
-	}
-
-	skipWhile(f: (item: T) => boolean): Iter<T> {
-		return new SkipWhileIter(this, f);
-	}
-
-	takeWhile(f: (item: T) => boolean): Iter<T> {
-		return new TakeWhileIter(this, f);
-	}
-
-	mapWhile<U>(f: (item: T) => U | undefined): Iter<U> {
-		return new MapWhileIter(this, f);
-	}
-
-	stepBy(step: number): Iter<T> {
-		return new StepByIter(this, step);
-	}
-
-	inspect(f: (item: T) => void): Iter<T> {
-		return new InspectIter(this, f);
-	}
-
-	fuse(): Iter<T> {
-		return new FuseIter(this);
-	}
-
-	peekable(): Peekable<T> {
-		return new Peekable(this);
-	}
-
-	/** `flat_map`: `into` makes each of `f`'s results an iterator, as `IntoIterator` does. */
-	flatMap<V>(f: (item: T) => Iter<V>): Iter<V>;
-	flatMap<U, V>(f: (item: T) => U, into: (value: U) => Iter<V>): Iter<V>;
-	flatMap<U, V>(f: (item: T) => U, into?: (value: U) => Iter<V>): Iter<V> {
-		return new FlattenIter(new MapIter(this, f), into ?? (itself as (value: U) => Iter<V>));
-	}
-
-	/** `flatten`: `into` makes each item an iterator, as `IntoIterator` does. */
-	flatten<V>(this: Iter<Iter<V>>): Iter<V>;
-	flatten<V>(into: (value: T) => Iter<V>): Iter<V>;
-	flatten<V>(into?: (value: T) => Iter<V>): Iter<V> {
-		return new FlattenIter(this, into ?? (itself as (value: T) => Iter<V>));
-	}
-
-	// Consumers
-
-	count(): number {
-		let n = 0;
-		while (this.next() !== DONE) n++;
-		return n;
-	}
-
-	last(): T | undefined {
-		let last: T | undefined;
-		for (let item = this.next(); item !== DONE; item = this.next()) last = item;
-		return last;
-	}
-
-	/** `advance_by`: whether `n` items were there to skip. */
-	advanceBy(n: number): boolean {
-		for (let i = 0; i < n; i++) if (this.next() === DONE) return false;
-		return true;
-	}
-
-	/** `advance_back_by`. */
-	advanceBackBy(n: number): boolean {
-		for (let i = 0; i < n; i++) if (this.nextBack() === DONE) return false;
-		return true;
-	}
-
 	/** `nth`, as `next` returns it. */
 	nthItem(n: number): T | Done {
-		return this.advanceBy(n) ? this.next() : DONE;
+		for (let i = 0; i < n; i++) if (this.next() === DONE) return DONE;
+		return this.next();
 	}
 
 	/** `nth_back`, as `next_back` returns it. */
 	nthBackItem(n: number): T | Done {
-		return this.advanceBackBy(n) ? this.nextBack() : DONE;
+		for (let i = 0; i < n; i++) if (this.nextBack() === DONE) return DONE;
+		return this.nextBack();
 	}
 
-	nth(n: number): T | undefined {
-		return toOption(this.nthItem(n));
-	}
-
-	any(f: (item: T) => boolean): boolean {
-		for (let item = this.next(); item !== DONE; item = this.next()) if (f(item)) return true;
-		return false;
-	}
-
-	all(f: (item: T) => boolean): boolean {
-		for (let item = this.next(); item !== DONE; item = this.next()) if (!f(item)) return false;
-		return true;
-	}
-
-	/** `find`, as `next` returns it. */
-	findItem(f: (item: T) => boolean): T | Done {
-		for (let item = this.next(); item !== DONE; item = this.next()) if (f(item)) return item;
-		return DONE;
-	}
-
-	/** `rfind`, as `next_back` returns it. */
-	rfindItem(f: (item: T) => boolean): T | Done {
-		for (let item = this.nextBack(); item !== DONE; item = this.nextBack()) if (f(item)) return item;
-		return DONE;
-	}
-
-	find(f: (item: T) => boolean): T | undefined {
-		return toOption(this.findItem(f));
-	}
-
-	findMap<U>(f: (item: T) => U | undefined): U | undefined {
-		for (let item = this.next(); item !== DONE; item = this.next()) {
-			const found = f(item);
-			if (found !== undefined) return found;
-		}
-		return undefined;
-	}
-
-	position(f: (item: T) => boolean): number | undefined {
-		let i = 0;
-		for (let item = this.next(); item !== DONE; item = this.next()) {
-			if (f(item)) return i;
-			i++;
-		}
-		return undefined;
-	}
-
-	fold<A>(init: A, f: (acc: A, item: T) => A): A {
-		let acc = init;
-		for (let item = this.next(); item !== DONE; item = this.next()) acc = f(acc, item);
-		return acc;
-	}
-
-	forEach(f: (item: T) => void): void {
-		for (let item = this.next(); item !== DONE; item = this.next()) f(item);
-	}
-
-	/** `sum`, adding with an integer type's checked `add`, so overflow panics as Rust's does. */
-	sum(add: (a: T, b: T) => T, zero: T): T {
-		return this.fold(zero, add);
-	}
-
-	/** `product`, multiplying with an integer type's checked `mul`. */
-	product(mul: (a: T, b: T) => T, one: T): T {
-		return this.fold(one, mul);
-	}
-
-	/** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
-	max<K extends number | Limbs | boolean>(this: Iter<K>): K | undefined {
-		return this.maxByKey((item) => item);
-	}
-
-	/** `min` of integers or booleans: the first of the least. */
-	min<K extends number | Limbs | boolean>(this: Iter<K>): K | undefined {
-		return this.minByKey((item) => item);
-	}
-
-	/** `max_by_key` with an integer or boolean key, each item's taken once. */
-	maxByKey<K extends number | Limbs | boolean>(f: (item: T) => K): T | undefined {
-		let best = this.next();
-		if (best === DONE) return undefined;
-		let key = f(best);
-		for (let item = this.next(); item !== DONE; item = this.next()) {
-			const k = f(item);
-			if (!lt(k, key)) [best, key] = [item, k];
-		}
-		return best;
-	}
-
-	/** `min_by_key` with an integer or boolean key, each item's taken once. */
-	minByKey<K extends number | Limbs | boolean>(f: (item: T) => K): T | undefined {
-		let best = this.next();
-		if (best === DONE) return undefined;
-		let key = f(best);
-		for (let item = this.next(); item !== DONE; item = this.next()) {
-			const k = f(item);
-			if (lt(k, key)) [best, key] = [item, k];
-		}
-		return best;
-	}
-
-	/** `collect` into a `Vec`. */
-	toArray(): T[] {
-		const out: T[] = [];
-		for (let item = this.next(); item !== DONE; item = this.next()) out.push(item);
-		return out;
-	}
-
-	/** `collect` into a `Vec<u8>`. */
-	toByteVec(this: Iter<number>): ByteVec {
-		const out = new ByteVec();
-		for (let item = this.next(); item !== DONE; item = this.next()) out.push(item);
-		return out;
-	}
-
-	/** `collect` of `Result`s: the first error, or every value collected by `into`. */
-	collectResult<U, E, C>(this: Iter<Result<U, E>>, into: (values: Iter<U>) => C): Result<C, E> {
-		const shunt = new ResultShunt(this);
-		const values = into(shunt);
-		return shunt.error === undefined ? Ok(values) : Err(shunt.error.value);
-	}
-
-	/** `collect` of `Option`s: `None` at the first `None`, or every value collected by `into`. */
-	collectOption<U, C>(this: Iter<U | undefined>, into: (values: Iter<U>) => C): C | undefined {
-		const shunt = new OptionShunt(this);
-		const values = into(shunt);
-		return shunt.none ? undefined : values;
+	/** Its items, for a JS `for ... of`. */
+	*[Symbol.iterator](): Iterator<T> {
+		for (let item = this.next(); item !== DONE; item = this.next()) yield item;
 	}
 }
 
 /** The item `next` returned, as an `Option`. */
-function toOption<T>(item: T | Done): T | undefined {
+export function iterToOption<T>(item: T | Done): T | undefined {
 	return item === DONE ? undefined : item;
 }
 
 /** An `Option`, as `next` returns it. */
-function fromOption<T>(option: T | undefined): T | Done {
+export function iterFromOption<T>(option: T | undefined): T | Done {
 	return option === undefined ? DONE : option;
 }
 
-/** Where std's iterators come from. */
-export const iter = {
-	toOption,
-	fromOption,
-	/** `slice::Iter`, and what iterating a `Vec` or array by value makes. */
-	slice<T>(s: ArrayLike<T>): Iter<T> {
-		return new SliceIter(s);
-	},
-	/** `Option::iter`, and `option::IntoIter`. */
-	option<T>(o: T | undefined): Iter<T> {
-		return new OptionIter(o);
-	},
-	once<T>(value: T): Iter<T> {
-		return new OptionIter<T>(value, true);
-	},
-	empty<T>(): Iter<T> {
-		return new OptionIter<T>(undefined, false);
-	},
-	/** `iter::from_fn`, whose closure returns an `Option`. */
-	fromFn<T>(f: () => T | undefined): Iter<T> {
-		return new FromNext(f, (f) => fromOption(f()));
-	},
-	/** An `impl Iterator` of the translated crate, which `next` calls the `next` of. */
-	from<S, T>(source: S, next: (source: S) => T | Done): Iter<T> {
-		return new FromNext(source, next);
-	},
-	/** `Extend::extend` of a `Vec`. */
-	extend<T>(v: { push(item: T): void }, items: Iter<T>): void {
-		for (let item = items.next(); item !== DONE; item = items.next()) v.push(item);
-	},
-};
+// Where std's iterators come from.
+
+/** `slice::Iter`, and what iterating a `Vec` or array by value makes. */
+export function iterSlice<T>(s: ArrayLike<T>): Iter<T> {
+	return new SliceIter(s);
+}
+
+/** `Option::iter`, and `option::IntoIter`. */
+export function iterOption<T>(o: T | undefined): Iter<T> {
+	return new OptionIter(o);
+}
+
+export function iterOnce<T>(value: T): Iter<T> {
+	return new OptionIter<T>(value, true);
+}
+
+export function iterEmpty<T>(): Iter<T> {
+	return new OptionIter<T>(undefined, false);
+}
+
+/** `iter::from_fn`, whose closure returns an `Option`. */
+export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
+	return new FromNext(f, (f) => iterFromOption(f()));
+}
+
+/** An `impl Iterator` of the translated crate, which `next` calls the `next` of. */
+export function iterFrom<S, T>(source: S, next: (source: S) => T | Done): Iter<T> {
+	return new FromNext(source, next);
+}
+
+/** `Extend::extend` of a `Vec`. */
+export function iterExtend<T>(v: T[], items: Iter<T>): void {
+	for (let item = items.next(); item !== DONE; item = items.next()) v.push(item);
+}
+
+/** `Extend::extend` of a `Vec<u8>`. */
+export function iterExtendBytes(v: ByteVec, items: Iter<number>): void {
+	for (let item = items.next(); item !== DONE; item = items.next()) byteVecPush(v, item);
+}
+
+// Adaptors
+
+export function iterMap<T, U>(it: Iter<T>, f: (item: T) => U): Iter<U> {
+	return new MapIter(it, f);
+}
+
+export function iterFilter<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
+	return new FilterIter(it, f);
+}
+
+export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
+	return new FilterMapIter(it, f);
+}
+
+export function iterEnumerate<T>(it: Iter<T>): Iter<[number, T]> {
+	return new EnumerateIter(it);
+}
+
+/** `chain`, with `other` already made an iterator, as std does when it is called. */
+export function iterChain<T>(it: Iter<T>, other: Iter<T>): Iter<T> {
+	return new ChainIter(it, other);
+}
+
+/**
+ * `zip`, with `other` already made an iterator, as std does when it is called. A
+ * `trusted` zip is one of two `TrustedRandomAccess` iterators, which std reads by
+ * index up to the shorter length and never past it.
+ */
+export function iterZip<T, U>(it: Iter<T>, other: Iter<U>, trusted = false): Iter<[T, U]> {
+	return trusted ? new TrustedZipIter(it, other) : new ZipIter(it, other);
+}
+
+export function iterRev<T>(it: Iter<T>): Iter<T> {
+	return new RevIter(it);
+}
+
+export function iterSkip<T>(it: Iter<T>, n: number): Iter<T> {
+	return new SkipIter(it, n);
+}
+
+export function iterTake<T>(it: Iter<T>, n: number): Iter<T> {
+	return new TakeIter(it, n);
+}
+
+export function iterSkipWhile<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
+	return new SkipWhileIter(it, f);
+}
+
+export function iterTakeWhile<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
+	return new TakeWhileIter(it, f);
+}
+
+export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
+	return new MapWhileIter(it, f);
+}
+
+export function iterStepBy<T>(it: Iter<T>, step: number): Iter<T> {
+	return new StepByIter(it, step);
+}
+
+export function iterInspect<T>(it: Iter<T>, f: (item: T) => void): Iter<T> {
+	return new InspectIter(it, f);
+}
+
+export function iterFuse<T>(it: Iter<T>): Iter<T> {
+	return new FuseIter(it);
+}
+
+export function iterPeekable<T>(it: Iter<T>): Peekable<T> {
+	return new Peekable(it);
+}
+
+/** `flat_map`: `into` makes each of `f`'s results an iterator, as `IntoIterator` does. */
+export function iterFlatMap<T, V>(it: Iter<T>, f: (item: T) => Iter<V>): Iter<V>;
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into: (value: U) => Iter<V>): Iter<V>;
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>): Iter<V> {
+	return new FlattenIter(new MapIter(it, f), into ?? (itself as (value: U) => Iter<V>));
+}
+
+/** `flatten`: `into` makes each item an iterator, as `IntoIterator` does. */
+export function iterFlatten<V>(it: Iter<Iter<V>>): Iter<V>;
+export function iterFlatten<T, V>(it: Iter<T>, into: (value: T) => Iter<V>): Iter<V>;
+export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>): Iter<V> {
+	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>));
+}
+
+// Consumers
+
+export function iterCount<T>(it: Iter<T>): number {
+	let n = 0;
+	while (it.next() !== DONE) n++;
+	return n;
+}
+
+export function iterLast<T>(it: Iter<T>): T | undefined {
+	let last: T | undefined;
+	for (let item = it.next(); item !== DONE; item = it.next()) last = item;
+	return last;
+}
+
+export function iterNth<T>(it: Iter<T>, n: number): T | undefined {
+	return iterToOption(it.nthItem(n));
+}
+
+export function iterAny<T>(it: Iter<T>, f: (item: T) => boolean): boolean {
+	for (let item = it.next(); item !== DONE; item = it.next()) if (f(item)) return true;
+	return false;
+}
+
+export function iterAll<T>(it: Iter<T>, f: (item: T) => boolean): boolean {
+	for (let item = it.next(); item !== DONE; item = it.next()) if (!f(item)) return false;
+	return true;
+}
+
+/** `find`, as `next` returns it. */
+function findItem<T>(it: Iter<T>, f: (item: T) => boolean): T | Done {
+	for (let item = it.next(); item !== DONE; item = it.next()) if (f(item)) return item;
+	return DONE;
+}
+
+/** `rfind`, as `next_back` returns it. */
+function rfindItem<T>(it: Iter<T>, f: (item: T) => boolean): T | Done {
+	for (let item = it.nextBack(); item !== DONE; item = it.nextBack()) if (f(item)) return item;
+	return DONE;
+}
+
+export function iterFind<T>(it: Iter<T>, f: (item: T) => boolean): T | undefined {
+	return iterToOption(findItem(it, f));
+}
+
+export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U | undefined {
+	for (let item = it.next(); item !== DONE; item = it.next()) {
+		const found = f(item);
+		if (found !== undefined) return found;
+	}
+	return undefined;
+}
+
+export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
+	let i = 0;
+	for (let item = it.next(); item !== DONE; item = it.next()) {
+		if (f(item)) return i;
+		i++;
+	}
+	return undefined;
+}
+
+export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A): A {
+	let acc = init;
+	for (let item = it.next(); item !== DONE; item = it.next()) acc = f(acc, item);
+	return acc;
+}
+
+export function iterForEach<T>(it: Iter<T>, f: (item: T) => void): void {
+	for (let item = it.next(); item !== DONE; item = it.next()) f(item);
+}
+
+/** `sum`, adding with an integer type's checked `add`, so overflow panics as Rust's does. */
+export function iterSum<T>(it: Iter<T>, add: (a: T, b: T) => T, zero: T): T {
+	return iterFold(it, zero, add);
+}
+
+/** `product`, multiplying with an integer type's checked `mul`. */
+export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T): T {
+	return iterFold(it, one, mul);
+}
+
+/** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
+export function iterMax<K extends number | Limbs | boolean>(it: Iter<K>): K | undefined {
+	return iterMaxByKey(it, (item) => item);
+}
+
+/** `min` of integers or booleans: the first of the least. */
+export function iterMin<K extends number | Limbs | boolean>(it: Iter<K>): K | undefined {
+	return iterMinByKey(it, (item) => item);
+}
+
+/** `max_by_key` with an integer or boolean key, each item's taken once. */
+export function iterMaxByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K): T | undefined {
+	let best = it.next();
+	if (best === DONE) return undefined;
+	let key = f(best);
+	for (let item = it.next(); item !== DONE; item = it.next()) {
+		const k = f(item);
+		if (!lt(k, key)) [best, key] = [item, k];
+	}
+	return best;
+}
+
+/** `min_by_key` with an integer or boolean key, each item's taken once. */
+export function iterMinByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K): T | undefined {
+	let best = it.next();
+	if (best === DONE) return undefined;
+	let key = f(best);
+	for (let item = it.next(); item !== DONE; item = it.next()) {
+		const k = f(item);
+		if (lt(k, key)) [best, key] = [item, k];
+	}
+	return best;
+}
+
+/** `collect` into a `Vec`. */
+export function iterToArray<T>(it: Iter<T>): T[] {
+	const out: T[] = [];
+	for (let item = it.next(); item !== DONE; item = it.next()) out.push(item);
+	return out;
+}
+
+/** `collect` into a `Vec<u8>`. */
+export function iterToByteVec(it: Iter<number>): ByteVec {
+	const out = new ByteVec();
+	iterExtendBytes(out, it);
+	return out;
+}
+
+/** `collect` of `Result`s: the first error, or every value collected by `into`. */
+export function iterCollectResult<U, E, C>(it: Iter<Result<U, E>>, into: (values: Iter<U>) => C): Result<C, E> {
+	const shunt = new ResultShunt(it);
+	const values = into(shunt);
+	return shunt.error === undefined ? Ok(values) : Err(shunt.error.value);
+}
+
+/** `collect` of `Option`s: `None` at the first `None`, or every value collected by `into`. */
+export function iterCollectOption<U, C>(it: Iter<U | undefined>, into: (values: Iter<U>) => C): C | undefined {
+	const shunt = new OptionShunt(it);
+	const values = into(shunt);
+	return shunt.none ? undefined : values;
+}
 
 class SliceIter<T> extends Iter<T> {
 	private readonly s: ArrayLike<T>;
@@ -432,11 +433,11 @@ class FilterIter<T> extends Iter<T> {
 	}
 
 	next(): T | Done {
-		return this.inner.findItem(this.f);
+		return findItem(this.inner, this.f);
 	}
 
 	override nextBack(): T | Done {
-		return this.inner.rfindItem(this.f);
+		return rfindItem(this.inner, this.f);
 	}
 }
 
@@ -716,7 +717,7 @@ class SkipWhileIter<T> extends Iter<T> {
 	}
 
 	next(): T | Done {
-		return this.inner.findItem((item) => {
+		return findItem(this.inner, (item) => {
 			if (this.flag || !this.f(item)) {
 				this.flag = true;
 				return true;
@@ -760,7 +761,7 @@ class MapWhileIter<T, U> extends Iter<U> {
 
 	next(): U | Done {
 		const item = this.inner.next();
-		return item === DONE ? DONE : fromOption(this.f(item));
+		return item === DONE ? DONE : iterFromOption(this.f(item));
 	}
 }
 
@@ -903,9 +904,9 @@ class FlattenIter<T, V> extends Iter<V> {
 
 /** `Peekable`. */
 export class Peekable<T> extends Iter<T> {
-	private readonly inner: Iter<T>;
-	private peeked = false;
-	private item: T | Done = DONE;
+	readonly inner: Iter<T>;
+	peeked = false;
+	item: T | Done = DONE;
 
 	constructor(inner: Iter<T>) {
 		super();
@@ -933,35 +934,25 @@ export class Peekable<T> extends Iter<T> {
 		if (!this.peeked) return this.inner.len();
 		return this.item === DONE ? 0 : this.inner.len() + 1;
 	}
-
-	/** `peek`, as `next` returns it. */
-	peekItem(): T | Done {
-		if (!this.peeked) {
-			this.item = this.inner.next();
-			this.peeked = true;
-		}
-		return this.item;
-	}
-
-	peek(): T | undefined {
-		return toOption(this.peekItem());
-	}
-
-	/** `next_if`, as `next` returns it. */
-	nextIfItem(f: (item: T) => boolean): T | Done {
-		const item = this.next();
-		if (item !== DONE && f(item)) return item;
-		this.peeked = true;
-		this.item = item;
-		return DONE;
-	}
-
-	nextIf(f: (item: T) => boolean): T | undefined {
-		return toOption(this.nextIfItem(f));
-	}
 }
 
-/** What `collectResult` collects from: values until the first error, which it keeps. */
+export function peekablePeek<T>(p: Peekable<T>): T | undefined {
+	if (!p.peeked) {
+		p.item = p.inner.next();
+		p.peeked = true;
+	}
+	return iterToOption(p.item);
+}
+
+export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean): T | undefined {
+	const item = p.next();
+	if (item !== DONE && f(item)) return item;
+	p.peeked = true;
+	p.item = item;
+	return undefined;
+}
+
+/** What `iterCollectResult` collects from: values until the first error, which it keeps. */
 class ResultShunt<U, E> extends Iter<U> {
 	private readonly inner: Iter<Result<U, E>>;
 	error: { value: E } | undefined;
@@ -981,7 +972,7 @@ class ResultShunt<U, E> extends Iter<U> {
 	}
 }
 
-/** What `collectOption` collects from: values until the first `None`. */
+/** What `iterCollectOption` collects from: values until the first `None`. */
 class OptionShunt<U> extends Iter<U> {
 	private readonly inner: Iter<U | undefined>;
 	none = false;
@@ -1008,25 +999,27 @@ function lt<T>(a: T, b: T): boolean {
 }
 
 /**
- * `n + by` in `int`, held within its bounds, which a step past an end only needs to
- * stay past. A narrow integer's sum is an exact number whatever its type.
+ * `n + by` in the integer type `int` steps, or `undefined` past its range, which a range
+ * stepping past its end only needs to stay past. A narrow integer's sum is an exact
+ * number whatever its type.
  */
-function step<T>(n: T, by: number, int: Int<T> | undefined): T {
+function step<T>(n: T, by: number, int: Step<T> | undefined): T | undefined {
 	if (typeof n === "number" && Number.isSafeInteger(n + by)) return (n + by) as T;
 	if (int === undefined) throw new Error("rust2-ts: stepping a wide range without its type");
-	return by >= 0 ? int.saturatingAdd(n, by as T) : int.saturatingSub(n, -by as T);
+	const [sum, over] = int(n, by);
+	return over ? undefined : sum;
 }
 
 /**
  * `ops::Range`: `start..end`, which iterates its integers by moving `start`. A 64- or
- * 128-bit range takes its type, `rt.u64`, to step past 2^53.
+ * 128-bit range takes its type's `Step`, `rt.u64Step`, to step past 2^53.
  */
 export class Range<T> extends Iter<T> {
 	start: T;
 	end: T;
-	private readonly int: Int<T> | undefined;
+	readonly int: Step<T> | undefined;
 
-	constructor(start: T, end: T, int?: Int<T>) {
+	constructor(start: T, end: T, int?: Step<T>) {
 		super();
 		this.start = start;
 		this.end = end;
@@ -1036,21 +1029,21 @@ export class Range<T> extends Iter<T> {
 	next(): T | Done {
 		const start = this.start;
 		if (!lt(start, this.end)) return DONE;
-		this.start = step(start, 1, this.int);
+		this.start = step(start, 1, this.int)!;
 		return start;
 	}
 
 	override nextBack(): T | Done {
 		if (!lt(this.start, this.end)) return DONE;
-		this.end = step(this.end, -1, this.int);
+		this.end = step(this.end, -1, this.int)!;
 		return this.end;
 	}
 
 	/** std's `nth`, in one step: past the end, the range ends. */
 	override nthItem(n: number): T | Done {
 		const item = step(this.start, n, this.int);
-		if (lt(item, this.end)) {
-			this.start = step(item, 1, this.int);
+		if (item !== undefined && lt(item, this.end)) {
+			this.start = step(item, 1, this.int)!;
 			return item;
 		}
 		this.start = this.end;
@@ -1060,8 +1053,8 @@ export class Range<T> extends Iter<T> {
 	/** std's `nth_back`, in one step. */
 	override nthBackItem(n: number): T | Done {
 		const item = step(this.end, -n, this.int);
-		if (lt(this.start, item)) {
-			this.end = step(item, -1, this.int);
+		if (item !== undefined && lt(this.start, item)) {
+			this.end = step(item, -1, this.int)!;
 			return this.end;
 		}
 		this.end = this.start;
@@ -1071,83 +1064,60 @@ export class Range<T> extends Iter<T> {
 	override len(): number {
 		return lt(this.start, this.end) ? Number(this.end) - Number(this.start) : 0;
 	}
+}
 
-	isEmpty(): boolean {
-		return !lt(this.start, this.end);
-	}
+export function rangeIsEmpty<T>(r: Range<T>): boolean {
+	return !lt(r.start, r.end);
+}
 
-	contains(item: T): boolean {
-		return !lt(item, this.start) && lt(item, this.end);
-	}
+export function rangeContains<T>(r: Range<T>, item: T): boolean {
+	return !lt(item, r.start) && lt(item, r.end);
+}
 
-	clone(): Range<T> {
-		return new Range(this.start, this.end, this.int);
-	}
+export function rangeClone<T>(r: Range<T>): Range<T> {
+	return new Range(r.start, r.end, r.int);
 }
 
 /** `ops::RangeInclusive`: `start..=end`, which remembers once it has yielded `end`. */
 export class RangeInclusive<T> extends Iter<T> {
-	private lo: T;
-	private hi: T;
-	private exhausted = false;
+	lo: T;
+	hi: T;
+	exhausted = false;
 	/** The integer type, which `nth` wraps within as std's does. */
-	private readonly bounds: Int<T> | undefined;
+	readonly int: Step<T> | undefined;
 
-	constructor(start: T, end: T, bounds?: Int<T>) {
+	constructor(start: T, end: T, int?: Step<T>) {
 		super();
 		this.lo = start;
 		this.hi = end;
-		this.bounds = bounds;
-	}
-
-	start(): T {
-		return this.lo;
-	}
-
-	end(): T {
-		return this.hi;
-	}
-
-	isEmpty(): boolean {
-		return this.exhausted || lt(this.hi, this.lo);
-	}
-
-	contains(item: T): boolean {
-		// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
-		return !this.exhausted && !lt(item, this.lo) && !lt(this.hi, item);
-	}
-
-	clone(): RangeInclusive<T> {
-		const range = new RangeInclusive(this.lo, this.hi, this.bounds);
-		range.exhausted = this.exhausted;
-		return range;
+		this.int = int;
 	}
 
 	next(): T | Done {
-		if (this.isEmpty()) return DONE;
+		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const lo = this.lo;
-		if (lt(lo, this.hi)) this.lo = step(lo, 1, this.bounds);
+		if (lt(lo, this.hi)) this.lo = step(lo, 1, this.int)!;
 		else this.exhausted = true;
 		return lo;
 	}
 
 	override nextBack(): T | Done {
-		if (this.isEmpty()) return DONE;
+		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const hi = this.hi;
-		if (lt(this.lo, hi)) this.hi = step(hi, -1, this.bounds);
+		if (lt(this.lo, hi)) this.hi = step(hi, -1, this.int)!;
 		else this.exhausted = true;
 		return hi;
 	}
 
 	override len(): number {
-		return this.isEmpty() ? 0 : Number(this.hi) - Number(this.lo) + 1;
+		return rangeInclusiveIsEmpty(this) ? 0 : Number(this.hi) - Number(this.lo) + 1;
 	}
 
 	/** std's `nth`: `start` moves past the item, wrapping if it overflows, which ends the range. */
 	override nthItem(n: number): T | Done {
-		if (this.isEmpty()) return DONE;
-		const [item, over] = overflowing(this.lo, n, this.bounds);
-		const [after, overAfter] = overflowing(item, 1, this.bounds);
+		if (rangeInclusiveIsEmpty(this)) return DONE;
+		const [item, over] = overflowing(this.lo, n, this.int);
+		const [after, overAfter] = overflowing(item, 1, this.int);
 		this.lo = after;
 		this.exhausted = over || overAfter;
 		return !over && !lt(this.hi, item) ? item : DONE;
@@ -1155,22 +1125,42 @@ export class RangeInclusive<T> extends Iter<T> {
 
 	/** std's `nth_back`, from the end. */
 	override nthBackItem(n: number): T | Done {
-		if (this.isEmpty()) return DONE;
-		const [item, over] = overflowing(this.hi, -n, this.bounds);
-		const [before, overBefore] = overflowing(item, -1, this.bounds);
+		if (rangeInclusiveIsEmpty(this)) return DONE;
+		const [item, over] = overflowing(this.hi, -n, this.int);
+		const [before, overBefore] = overflowing(item, -1, this.int);
 		this.hi = before;
 		this.exhausted = over || overBefore;
 		return !over && !lt(item, this.lo) ? item : DONE;
 	}
 }
 
+export function rangeInclusiveStart<T>(r: RangeInclusive<T>): T {
+	return r.lo;
+}
+
+export function rangeInclusiveEnd<T>(r: RangeInclusive<T>): T {
+	return r.hi;
+}
+
+export function rangeInclusiveIsEmpty<T>(r: RangeInclusive<T>): boolean {
+	return r.exhausted || lt(r.hi, r.lo);
+}
+
+export function rangeInclusiveContains<T>(r: RangeInclusive<T>, item: T): boolean {
+	// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
+	return !r.exhausted && !lt(item, r.lo) && !lt(r.hi, item);
+}
+
+export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> {
+	const range = new RangeInclusive(r.lo, r.hi, r.int);
+	range.exhausted = r.exhausted;
+	return range;
+}
+
 /** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `int`, and whether it wrapped. */
-function overflowing<T>(n: T, by: number, int: Int<T> | undefined): [T, boolean] {
+function overflowing<T>(n: T, by: number, int: Step<T> | undefined): [T, boolean] {
 	if (int === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
-	// `by` may be past a narrow type's range, which its sums take exactly.
-	const sum = by >= 0 ? int.checkedAdd(n, by as T) : int.checkedSub(n, -by as T);
-	if (sum !== undefined) return [sum, false];
-	return [by >= 0 ? int.wrappingAdd(n, by as T) : int.wrappingSub(n, -by as T), true];
+	return int(n, by);
 }
 
 /** An iterator as itself: what `into_iter` makes of one. */

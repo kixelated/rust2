@@ -5,7 +5,7 @@ import * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 
 export function fmt(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Tagged").field("key", (f: rt.Formatter) => Either.fmt$u8_u16(self.key, f)).field("inner", (f: rt.Formatter) => Wrap.fmt$i16(self.inner, f)).field("all", (f: rt.Formatter) => rt.fmt.list(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$i16(value, f))).finish();
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Tagged"), "key", (f: rt.Formatter) => Either.fmt$u8_u16(self.key, f)), "inner", (f: rt.Formatter) => Wrap.fmt$i16(self.inner, f)), "all", (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$i16(value, f))));
 }
 
 /** Two parameters, one nested in another generic type. */
@@ -22,7 +22,7 @@ export class Tagged<K, V> {
 }
 
 export function first(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>): Wrap.Wrap<rt.i16> | undefined {
-	return rt.copy(rt.slice.first(self.all));
+	return rt.copy(rt.sliceFirst(self.all));
 }
 
 //# sourceMappingURL=generics.Tagged.ts.map

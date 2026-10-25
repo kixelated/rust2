@@ -66,7 +66,7 @@ and async in `rt/task.ts`.
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
-| an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
+| an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
@@ -92,30 +92,30 @@ which costs nothing at run time.
 A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
 object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
 `hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
-makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
-comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
-is `rt.u64.low(x)`.
+makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
+is `rt.u64Low(x)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
 runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
 becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
-and such functions: `f.writeFmt(["code=", (f) => rt.u16.display(code, f)])`. A `&dyn
+and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`, after
+would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
+`rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
-are `rt.Iter` methods, lazy and short-circuiting as std's are, and call their closures in
-the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
+are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
+short-circuiting as std's are, and call their closures in the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
 array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
 counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
-std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or iterates
+std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its

@@ -1189,8 +1189,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..
-					}) = out.last()
-					&& let Some(parts) = parts_of(value)
+					}) = out.last() && let Some(parts) = parts_of(value)
 				{
 					self.var_parts.insert(local, parts);
 				}
@@ -1318,7 +1317,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		) {
 			(false, _) => value,
 			(true, Rvalue::Aggregate(kind, _)) if matches!(**kind, mir::AggregateKind::Adt(_, v, ..) if v.as_u32() == 0) => {
-				Expr::Rt("DONE")
+				Expr::Rt("DONE".into())
 			}
 			(true, Rvalue::Aggregate(..)) => value,
 			(true, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _))
@@ -1972,7 +1971,7 @@ fn parts_of(value: &Expr) -> Option<Vec<Expr>> {
 			Some(items.clone())
 		}
 		Expr::Object(props) => Some(props.iter().map(|(_, v)| v.clone()).collect()),
-		Expr::New(f, items) if matches!(&**f, Expr::Rt("Range")) => Some(items.clone()),
+		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range") => Some(items.clone()),
 		_ => None,
 	}
 }
@@ -2067,8 +2066,8 @@ fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
 /// An `Option` as `Iterator::next` returns it: the item, or `rt.DONE` for `None`.
 pub fn done_of(option: Expr) -> Expr {
 	match option {
-		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE"),
-		option => Expr::Rt("iter").member("fromOption").call(vec![option]),
+		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE".into()),
+		option => Expr::rt("iterFromOption", vec![option]),
 	}
 }
 

@@ -8,15 +8,15 @@ export interface Padded {
 }
 
 export function fmt(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const width = f.width();
+	const width = rt.fmtWidth(f);
 	arms: {
 		if (width !== undefined) {
 			const width2 = width;
 			if (width2 > 20) {
-				return f.writeStr("wide");
+				return rt.fmtWriteStr(f, "wide");
 			}
 		}
-		return f.pad(self._0);
+		return rt.fmtPad(f, self._0);
 	}
 }
 

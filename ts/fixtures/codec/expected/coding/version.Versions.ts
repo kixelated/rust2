@@ -17,7 +17,7 @@ export function decodeSlice(buf: Uint8Array, version: Form.Form): rt.Result<[Ver
 		return rt.Err(decode_.error);
 	}
 	const value = decode_.value;
-	return rt.Ok([value, rt.usize.sub(buf.length, Decoder.remaining(r))]);
+	return rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 }
 
 /** A list of versions in preferred order. */
@@ -34,7 +34,7 @@ export function decode(r: Decoder.Decoder, version: Form.Form): rt.Result<Versio
 	const count = varint.value;
 	let vs: Version.Version[] = [];
 	const end = count;
-	for (const _ of new rt.Range(0, end, rt.u64)) {
+	for (const _ of new rt.Range(0, end, rt.u64Step)) {
 		const decode_ = Version.decode(r, version);
 		if (!decode_.ok) {
 			return rt.Err(decode_.error);
@@ -76,7 +76,7 @@ export function encode$Version(self: Versions, w: Encoder.Encoder, version: vers
 }
 
 export function from(vs: Version.Version[]): Versions {
-	return { _0: rt.slice.toVec(vs) };
+	return { _0: rt.sliceToVec(vs) };
 }
 
 //# sourceMappingURL=version.Versions.ts.map

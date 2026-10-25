@@ -4,18 +4,18 @@ import * as rt from "./rt.ts";
 
 export function fmt(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Empty") {
-		return f.writeStr("Empty");
+		return rt.fmtWriteStr(f, "Empty");
 	} else if (self.tag === "Braced") {
-		return f.writeStr("Braced");
+		return rt.fmtWriteStr(f, "Braced");
 	} else if (self.tag === "Bare") {
-		return f.writeStr("Bare");
+		return rt.fmtWriteStr(f, "Bare");
 	} else if (self.tag === "One") {
 		const __self0 = self._0;
-		return f.debugTuple("One").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "One"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
 	} else {
 		const __self02 = self.count;
 		const __self1 = self.items;
-		return f.debugStruct("Many").field("count", (f: rt.Formatter) => rt.u32.display(__self02, f)).field("items", (f: rt.Formatter) => rt.fmt.list(__self1.view(), f, rt.u8.display)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Many"), "count", (f: rt.Formatter) => rt.u32Display(__self02, f)), "items", (f: rt.Formatter) => rt.fmtList(rt.byteVecView(__self1), f, rt.u8Display)));
 	}
 }
 

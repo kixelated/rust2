@@ -8,15 +8,15 @@ export interface Hex {
 }
 
 export function fmt$Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	if (f.alternate()) {
-		return f.writeFmt([rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u32.lowerHex(self._0, f))]);
+	if (rt.fmtAlternate(f)) {
+		return rt.fmtWriteFmt(f, [rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u32LowerHex(self._0, f))]);
 	} else {
-		return f.writeFmt([(f: rt.Formatter) => rt.u32.lowerHex(self._0, f)]);
+		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.u32LowerHex(self._0, f)]);
 	}
 }
 
 export function fmt$Debug(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.u32.display(self._0, f);
+	return rt.u32Display(self._0, f);
 }
 
 //# sourceMappingURL=fmt.Hex.ts.map

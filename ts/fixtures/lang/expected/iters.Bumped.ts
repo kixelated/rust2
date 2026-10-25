@@ -8,7 +8,7 @@ export interface Bumped {
 }
 
 export function clone(self: Bumped): Bumped {
-	return { _0: rt.u8.wrappingAdd(self._0, 1) };
+	return { _0: rt.u8WrappingAdd(self._0, 1) };
 }
 
 //# sourceMappingURL=iters.Bumped.ts.map

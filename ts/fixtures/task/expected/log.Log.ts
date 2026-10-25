@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function clone(self: Log): Log {
-	return new Log(self._0.clone());
+	return new Log(rt.arcClone(self._0));
 }
 
 /** A shared, append-only list of events. */
@@ -33,8 +33,8 @@ export function text(self: Log): rt.ByteVec {
 	const events = self._0.value;
 	let out: rt.ByteVec = new rt.ByteVec();
 	for (const event of events.value) {
-		out.extendFromSlice(rt.string.asBytes(event));
-		out.push(10);
+		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(event));
+		rt.byteVecPush(out, 10);
 	}
 	return out;
 }

@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function fmt(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugStruct("Point").field("x", (f: rt.Formatter) => rt.i32.display(self.x, f)).field("y", (f: rt.Formatter) => rt.i32.display(self.y, f)).finish();
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Point"), "x", (f: rt.Formatter) => rt.i32Display(self.x, f)), "y", (f: rt.Formatter) => rt.i32Display(self.y, f)));
 }
 
 export function eq(self: Point, other: Point): boolean {
@@ -22,12 +22,12 @@ function new_(x: rt.i32, y: rt.i32): Point {
 
 /** Changes `self`, which a caller's copy must not see. */
 export function shift(self: Point, by: rt.i32): Point {
-	self.x = rt.i32.add(self.x, by);
+	self.x = rt.i32Add(self.x, by);
 	return rt.copy(self);
 }
 
 export function bump(self: Point): void {
-	self.y = rt.i32.add(self.y, 1);
+	self.y = rt.i32Add(self.y, 1);
 }
 
 export { new_ as new };

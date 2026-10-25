@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function fmt(_self: Bare, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.writeStr("Bare");
+	return rt.fmtWriteStr(f, "Bare");
 }
 
 export function eq(_self: Bare, _other: Bare): boolean {

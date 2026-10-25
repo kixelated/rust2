@@ -18,7 +18,7 @@ export function decodeSlice(buf: Uint8Array, version: Version.Version): rt.Resul
 		return rt.Err(decode_.error);
 	}
 	const value = decode_.value;
-	return rt.Ok([value, rt.usize.sub(buf.length, Decoder.remaining(r))]);
+	return rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
@@ -97,16 +97,16 @@ export function encodeMsg(self: Probe, w: Encoder.Encoder, version: Version.Vers
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version");
 	}
-	const wire = rt.option.unwrapOr(rt.option.map(self.bitrate, (v: rt.u64): rt.u64 => {
-		return rt.u64.max(v, 1);
+	const wire = rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
+		return rt.u64Max(v, 1);
 	}), 0);
 	const varint = Encoder.varint(w, wire);
 	if (!varint.ok) {
 		return rt.Err(varint.error);
 	}
 	if (Version.hasProbeRtt(version)) {
-		const wire2 = rt.option.unwrapOr(rt.option.map(self.rtt, (v2: rt.u64): rt.u64 => {
-			return rt.u64.max(v2, 1);
+		const wire2 = rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
+			return rt.u64Max(v2, 1);
 		}), 0);
 		const varint2 = Encoder.varint(w, wire2);
 		if (!varint2.ok) {

@@ -14,7 +14,7 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
 		return rt.Err(varint.error);
 	}
 	const size = varint.value;
-	const tryFrom = rt.usize.tryFrom(size);
+	const tryFrom = rt.usizeTryFrom(size);
 	arms: {
 		if (tryFrom.ok) {
 			const size2 = tryFrom.value;
@@ -22,7 +22,7 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
 				return rt.Ok(size2);
 			}
 		}
-		return rt.Err({ tag: "MessageTooLarge", size: rt.result.unwrapOr(rt.usize.tryFrom(size), 4294967295), max });
+		return rt.Err({ tag: "MessageTooLarge", size: rt.resultUnwrapOr(rt.usizeTryFrom(size), 4294967295), max });
 	}
 }
 
@@ -41,7 +41,7 @@ export function decodeWith$Group(r: Decoder.Decoder, decode: (a0: Decoder.Decode
 		return rt.Err(sub.error);
 	}
 	let body: Decoder.Decoder = sub.value;
-	const result = rt.result.andThen(rt.result.mapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
+	const result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
 		if (Decoder.isEmpty(body)) {
 			return rt.Ok(msg);
 		} else {
@@ -69,7 +69,7 @@ export function decodeWith$Probe(r: Decoder.Decoder, decode: (a0: Decoder.Decode
 		return rt.Err(sub.error);
 	}
 	let body: Decoder.Decoder = sub.value;
-	const result = rt.result.andThen(rt.result.mapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
+	const result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
 		if (Decoder.isEmpty(body)) {
 			return rt.Ok(msg);
 		} else {

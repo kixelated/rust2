@@ -17,7 +17,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const kind = input[1];
 	const data = input.subarray(2, input.length - 0);
 	const [op2, kind2] = [op, kind] as [rt.u8, rt.u8];
-	const value = rt.u8.rem(op2, 33);
+	const value = rt.u8Rem(op2, 33);
 	if (value === 0) {
 		u8Op(kind2, data, out);
 	} else if (value === 1) {
@@ -43,7 +43,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (value === 11) {
 		isizeOp(kind2, data, out);
 	} else if (value === 12) {
-		const value2 = rt.u8.rem(kind2, 6);
+		const value2 = rt.u8Rem(kind2, 6);
 		if (value2 === 0) {
 			i8Neg(data, out);
 		} else if (value2 === 1) {
@@ -58,13 +58,13 @@ export function run(input: Uint8Array): rt.ByteVec {
 			isizeNeg(data, out);
 		}
 	} else if (value === 13) {
-		const splitFirst = rt.slice.splitFirst(data);
+		const splitFirst = rt.sliceSplitFirst(data);
 		if (splitFirst !== undefined) {
 			const to = splitFirst[0];
 			const data2 = splitFirst[1];
 			cast(kind2, to, data2, out);
 		} else {
-			cast(kind2, rt.u8.div(kind2, 12), data, out);
+			cast(kind2, rt.u8Div(kind2, 12), data, out);
 		}
 	} else if (value === 14) {
 		convert(data, out);

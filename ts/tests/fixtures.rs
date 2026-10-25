@@ -227,31 +227,73 @@ const SHAKE: &str = r#"import * as Decoder from "./coding/decode.Decoder.ts";
 export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic" }));
 "#;
 
-/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it calls and what they call,
-/// and nothing else the translation holds: no other function of the type, though the
-/// caller imports its whole module, and no class. The runtime stays out, whose own
-/// shaking is another matter.
+/// Bun's and esbuild's tree-shaken bundles of [`SHAKE`] keep the functions it calls and
+/// what they call, runtime included, and nothing else: no other function of the type,
+/// though the caller imports its whole module, and none of the runtime's, though the
+/// translation imports it whole. The bundles minify all but names and whitespace, which
+/// would only rename and pack what is left.
 fn shake(out: &Path) {
-	let output = Command::new("bun")
-		.args(["build", "--target=browser", "--external=*rt.ts"])
-		.arg(out.join("shake.ts"))
-		.output()
-		.expect("running bun, which the dev shell provides");
-	let bundle = String::from_utf8_lossy(&output.stdout);
-	assert!(
-		output.status.success(),
-		"bundling shake.ts failed:\n{}",
-		String::from_utf8_lossy(&output.stderr)
-	);
-	// Bun numbers a name another module also declares, `slice3`, so the digits it adds go.
-	let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
-	let kept: Vec<String> = bundle
-		.lines()
-		.filter_map(|line| line.strip_prefix("function ").or_else(|| line.strip_prefix("class ")))
-		.map(|decl| unnumbered(decl.split(['(', ' ', '{']).next().unwrap()))
-		.collect();
-	let want: Vec<String> = ["new_", "short", "slice", "u8"].map(unnumbered).to_vec();
-	assert_eq!(kept, want, "the bundle keeps more than the caller reaches:\n{bundle}");
+	let bundlers: [(&str, &[&str]); 2] = [
+		("bun", &["build", "--target=browser", "--minify-syntax"]),
+		("esbuild", &["--bundle", "--format=esm", "--platform=browser", "--minify-syntax"]),
+	];
+	for (bundler, args) in bundlers {
+		let output = Command::new(bundler)
+			.args(args)
+			.arg(out.join("shake.ts"))
+			.output()
+			.unwrap_or_else(|err| panic!("running {bundler}, which the dev shell provides: {err}"));
+		let bundle = String::from_utf8_lossy(&output.stdout);
+		assert!(
+			output.status.success(),
+			"bundling shake.ts with {bundler} failed:\n{}",
+			String::from_utf8_lossy(&output.stderr)
+		);
+		// A bundler numbers a name another module also declares, `slice3`, so the digits
+		// it adds go.
+		let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+		let mut kept: Vec<String> = bundle
+			.lines()
+			.filter_map(|line| {
+				["function ", "class ", "var ", "let ", "const "]
+					.iter()
+					.find_map(|k| line.strip_prefix(k))
+			})
+			.map(|decl| decl.split(['(', ' ', '{', '=']).next().unwrap())
+			.map(unnumbered)
+			.collect();
+		kept.sort_unstable();
+		let want = [
+			// The runtime's.
+			"Err",
+			"Ok",
+			"Panic",
+			"at",
+			"checked",
+			"clamp",
+			"idx",
+			"max",
+			"panic",
+			"sliceRange",
+			"sliceSplitAtChecked",
+			"u32SaturatingAdd",
+			"u32Sub",
+			"usizeSaturatingAdd",
+			"usizeSub",
+			// The translation's, and the caller.
+			"new_",
+			"run",
+			"short",
+			"slice",
+			"u8",
+		];
+		let mut want: Vec<String> = want.map(unnumbered).to_vec();
+		want.sort_unstable();
+		assert_eq!(
+			kept, want,
+			"{bundler}'s bundle keeps more than the caller reaches:\n{bundle}"
+		);
+	}
 }
 
 /// The codec with bodies lowered from MIR: the same differential test, without a snapshot.
@@ -366,7 +408,7 @@ import {{ blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-const fixture = {{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }};
+const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks }};
 export const run = harness(fixture);
 export const unwind = harness(fixture, true);
 "#

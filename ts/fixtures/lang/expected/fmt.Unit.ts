@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function fmt(_self: Unit, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.writeStr("Unit");
+	return rt.fmtWriteStr(f, "Unit");
 }
 
 export interface Unit {

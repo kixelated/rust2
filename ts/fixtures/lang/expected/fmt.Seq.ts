@@ -8,7 +8,7 @@ export interface Seq {
 }
 
 export function fmt(self: Seq, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.debugList().entries(self._0, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt(value, f)).finish();
+	return rt.debugListFinish(rt.debugListEntries(rt.fmtDebugList(f), self._0, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt(value, f)));
 }
 
 //# sourceMappingURL=fmt.Seq.ts.map

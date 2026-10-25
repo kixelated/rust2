@@ -5,16 +5,16 @@ import * as Point from "./shapes.Point.ts";
 
 export function fmt(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Dot") {
-		return f.writeStr("Dot");
+		return rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
 		const __self0 = self._0;
 		const __self1 = self._1;
-		return f.debugTuple("Line").field((f: rt.Formatter) => Point.fmt(__self0, f)).field((f: rt.Formatter) => Point.fmt(__self1, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Line"), (f: rt.Formatter) => Point.fmt(__self0, f)), (f: rt.Formatter) => Point.fmt(__self1, f)));
 	} else {
 		const __self02 = self.corner;
 		const __self12 = self.width;
 		const __self2 = self.height;
-		return f.debugStruct("Rect").field("corner", (f: rt.Formatter) => Point.fmt(__self02, f)).field("width", (f: rt.Formatter) => rt.u16.display(__self12, f)).field("height", (f: rt.Formatter) => rt.u16.display(__self2, f)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Rect"), "corner", (f: rt.Formatter) => Point.fmt(__self02, f)), "width", (f: rt.Formatter) => rt.u16Display(__self12, f)), "height", (f: rt.Formatter) => rt.u16Display(__self2, f)));
 	}
 }
 
@@ -26,8 +26,8 @@ export type Shape =
 
 /** A default method, monomorphized for each type. */
 export function describe(self: Shape, out: rt.ByteVec): void {
-	out.push(4);
-	out.extendFromSlice(rt.u64.toBeBytes(area(self)));
+	rt.byteVecPush(out, 4);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area(self)));
 }
 
 export function area(self: Shape): rt.u64 {
@@ -38,7 +38,7 @@ export function area(self: Shape): rt.u64 {
 	} else {
 		const width = self.width;
 		const height = self.height;
-		return rt.u64.mul(width as rt.u64, height as rt.u64);
+		return rt.u64Mul(width as rt.u64, height as rt.u64);
 	}
 }
 

@@ -31,14 +31,14 @@ export class Arc<T> implements Disposable {
 		this.value = value;
 	}
 
-	clone(): Arc<T> {
-		this.strong++;
-		return this;
-	}
-
 	[Symbol.dispose](): void {
 		if (--this.strong === 0) drop(this.value);
 	}
+}
+
+export function arcClone<T>(arc: Arc<T>): Arc<T> {
+	arc.strong++;
+	return arc;
 }
 
 /** `Weak<T>`, which nothing observes dropping. */
@@ -48,14 +48,14 @@ export class Weak<T> {
 	constructor(arc: Arc<T>) {
 		this.arc = arc;
 	}
+}
 
-	upgrade(): Arc<T> | undefined {
-		return this.arc.strong > 0 ? this.arc.clone() : undefined;
-	}
+export function weakUpgrade<T>(weak: Weak<T>): Arc<T> | undefined {
+	return weak.arc.strong > 0 ? arcClone(weak.arc) : undefined;
+}
 
-	clone(): Weak<T> {
-		return new Weak(this.arc);
-	}
+export function weakClone<T>(weak: Weak<T>): Weak<T> {
+	return new Weak(weak.arc);
 }
 
 /**
@@ -77,7 +77,7 @@ export class Mutex<T> implements Disposable {
 // Futures
 
 /** `Poll::Pending`; `Poll::Ready(v)` is `v` itself. */
-export const Pending: unique symbol = Symbol("Pending");
+export const Pending: unique symbol = /* @__PURE__ */ Symbol("Pending");
 
 /** `Poll<T>`. */
 export type Poll<T> = T | typeof Pending;

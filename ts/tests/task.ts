@@ -18,6 +18,8 @@ interface Future<T> extends Disposable {
 type Log = Disposable;
 type Consumer = Disposable;
 type Guard = Disposable;
+/** A `ByteVec`, by shape: its first `length` bytes of `data`. */
+export type Bytes = { data: Uint8Array; length: number };
 type Channel = Disposable;
 
 /**
@@ -30,7 +32,7 @@ export interface Fixture<V> {
 	Log: {
 		"new"(): Log;
 		note(log: Log, event: string): void;
-		text(log: Log): { view(): Uint8Array };
+		text(log: Log): Bytes;
 		clone(log: Log): Log;
 	};
 	Channel: {
@@ -164,7 +166,7 @@ class Executor {
  * The script runner, as `harness.rs` runs it natively. Where a panic unwinds, as on
  * the host, `unwind` logs a step's panic and goes on, as the native harness does.
  */
-export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) => { view(): Uint8Array } {
+export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) => Bytes {
 	return (input) => {
 		const log = f.Log.new();
 		const note = (event: string) => f.Log.note(log, event);

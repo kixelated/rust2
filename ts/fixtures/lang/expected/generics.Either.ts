@@ -6,36 +6,36 @@ import * as Point from "./shapes.Point.ts";
 export function fmt$Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
-		return f.debugTuple("Left").field((f: rt.Formatter) => Point.fmt(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => Point.fmt(__self0, f)));
 	} else if (self.tag === "Right") {
 		const __self02 = self.value;
-		return f.debugStruct("Right").field("value", (f: rt.Formatter) => rt.u8.display(__self02, f)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => rt.u8Display(__self02, f)));
 	} else {
-		return f.writeStr("Neither");
+		return rt.fmtWriteStr(f, "Neither");
 	}
 }
 
 export function fmt$u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
-		return f.debugTuple("Left").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
 	} else if (self.tag === "Right") {
 		const __self02 = self.value;
-		return f.debugStruct("Right").field("value", (f: rt.Formatter) => Point.fmt(__self02, f)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => Point.fmt(__self02, f)));
 	} else {
-		return f.writeStr("Neither");
+		return rt.fmtWriteStr(f, "Neither");
 	}
 }
 
 export function fmt$u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Left") {
 		const __self0 = self._0;
-		return f.debugTuple("Left").field((f: rt.Formatter) => rt.u8.display(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
 	} else if (self.tag === "Right") {
 		const __self02 = self.value;
-		return f.debugStruct("Right").field("value", (f: rt.Formatter) => rt.u16.display(__self02, f)).finish();
+		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => rt.u16Display(__self02, f)));
 	} else {
-		return f.writeStr("Neither");
+		return rt.fmtWriteStr(f, "Neither");
 	}
 }
 
