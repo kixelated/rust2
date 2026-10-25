@@ -440,18 +440,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let range = self.path(recv, "range", out);
 		let start = range.clone().member("start");
 		let flag = self.b.fresh(&format!("{name}Some"));
-		let flag = Expr::ident(flag);
-		out.push(StmtKind::Expr(flag.clone().assign(start.clone().binary("<", range.member("end")))).at(None));
+		let more = start.clone().binary("<", range.member("end"));
+		out.push(StmtKind::Expr(Expr::ident(&flag).assign(more)).at(None));
 		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
 		out.push(
 			StmtKind::If {
-				cond: flag.clone(),
+				cond: Expr::ident(&flag),
 				then: vec![StmtKind::Expr(step).at(None)],
 				els: Vec::new(),
 			}
 			.at(None),
 		);
-		let Expr::Ident(flag) = flag else { unreachable!() };
 		self.range_flags.insert(name, flag);
 	}
 
@@ -612,15 +611,6 @@ pub fn control_flow_test<'tcx>(
 	span: Span,
 ) -> Expr {
 	let continues = variant.index() == 0;
-	if let Expr::Ident(n) = scrut
-		&& let Some(flag) = fx.range_flags.get(n)
-	{
-		let flag = Expr::ident(flag);
-		return match continues {
-			true => flag,
-			false => flag.not(),
-		};
-	}
 	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
 		return match continues {
 			true => scrut.clone().binary("!==", Expr::Rt("DONE")),

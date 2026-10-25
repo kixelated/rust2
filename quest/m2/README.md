@@ -21,7 +21,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 ## Required
 
-- [MIR's codec as fast as THIR's](/quest/m2/ts-mir-codec.md) - the codec from MIR no slower than from THIR in any engine
 - [Lower bodies from MIR](/quest/m2/ts-mir.md) - the MIR spike's prototype becomes the only lowering, and the THIR one goes
 - [Enum variant field order](/quest/m2/ts-variant-order.md) - a variant's fields evaluate in the order written, not declared
 - [Stable names](/quest/m2/ts-stable-names.md) - generic instances and trait-impl methods always carry their suffix, so callers' names never shift
