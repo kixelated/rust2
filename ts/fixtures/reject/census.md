@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 78
-- Function instances: 68
+- Refusals: 80
+- Function instances: 69
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -20,6 +20,7 @@
 | 2 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:69:6 |
 | 2 | a `match` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:210:2 |
 | 2 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:142:18 |
+| 2 | a field of `_` | fixtures/reject/src/lib.rs:441:7 |
 | 2 | a field of a temporary that drops: bind it to a variable first | fixtures/reject/src/lib.rs:55:2 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:302:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:282:2 |
@@ -83,6 +84,8 @@ The type or module each refused type or path belongs to.
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:424:45 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:315:51 |
+| 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:441:48 |
+| 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:441:7 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:323:8 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:393:4 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:269:11 |
@@ -112,6 +115,8 @@ The type or module each refused type or path belongs to.
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
 | 1 | a cast to `_` | `f64` | fixtures/reject/src/lib.rs:172:2 |
 | 1 | a closure of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:114:10 |
+| 1 | a field of `_` | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:441:48 |
+| 1 | a field of `_` | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:441:7 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:404:13 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | `std::string::String` | fixtures/reject/src/lib.rs:137:17 |
 | 1 | an async body returning `_` is not supported: its `Ready` could be pending | `std::task::Poll` | fixtures/reject/src/lib.rs:238:54 |
@@ -235,6 +240,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:142:18: a closure that copies a mutable variable
 - fixtures/reject/src/lib.rs:432:3: a closure that copies a mutable variable
+
+</details>
+
+<details><summary>a field of `_` (2)</summary>
+
+- fixtures/reject/src/lib.rs:441:7: a field of `std::ops::RangeTo<usize>`
+- fixtures/reject/src/lib.rs:441:48: a field of `std::ops::RangeFrom<usize>`
 
 </details>
 

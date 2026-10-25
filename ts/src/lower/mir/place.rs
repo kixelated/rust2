@@ -369,6 +369,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return self.err(span, format!("no variant of `{ty}` has discriminant {value}"));
 				};
 				match Std::of(tcx, adt.did()) {
+					Some(Std::Option)
+						if let Expr::Ident(n) = scrut
+							&& let Some(flag) = self.range_flags.get(n) =>
+					{
+						let flag = Expr::ident(flag);
+						match index.index() {
+							0 => flag.not(),
+							_ => flag,
+						}
+					}
 					Some(Std::Option) if matches!(scrut, Expr::Ident(n) if self.next_names.contains(n)) => {
 						match index.index() {
 							0 => scrut.clone().binary("===", Expr::Rt("DONE".into())),

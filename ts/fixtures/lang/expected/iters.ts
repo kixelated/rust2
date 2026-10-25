@@ -445,6 +445,67 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	for (const s of steps) {
 		rt.byteVecPush(out, s & 0xff);
 	}
+	updates(a, b, data, out);
+}
+
+/**
+ * Struct update syntax on std's ranges: the fields written run before the base, and
+ * the rest are read from it.
+ */
+export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+	let base: rt.Range<rt.u8> = new rt.Range(a, b);
+	rt.byteVecPush(out, 0xd0);
+	const field = rt.u8Div(b, 2);
+	rt.byteVecPush(out, 0xd1);
+	const range = rt.rangeClone(base);
+	const field2 = field;
+	const made = new rt.Range(range.start, field2);
+	const clone = rt.rangeClone(base);
+	const whole = new rt.Range(clone.start, clone.end);
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(made.start, made.end, whole.start, whole.end));
+	const start = rt.u8Div(a, 2);
+	const end = base.end;
+	for (let i = start; i < end; i++) {
+		base.end = rt.u8WrappingAdd(base.end, 1);
+		rt.byteVecPush(out, i);
+	}
+	rt.byteVecPush(out, base.end);
+	const len = data.length;
+	const [to, from] = [rt.min(b as rt.usize, len), rt.min(a as rt.usize, len)] as [rt.usize, rt.usize];
+	const all = new rt.Range(0, len);
+	rt.byteVecPush(out, 0xd2);
+	const arg = data;
+	rt.byteVecPush(out, 0xd3);
+	const field3 = from;
+	rt.byteVecPush(out, 0xd4);
+	const range2 = rt.rangeClone(all);
+	const sliced = rt.sliceRange(arg, field3, range2.end);
+	rt.byteVecExtendFromSlice(out, sliced);
+	const arg2 = data;
+	rt.byteVecPush(out, 0xd5);
+	const full = rt.sliceRange(arg2, 0);
+	rt.byteVecPush(out, full.length & 0xff);
+	const arg3 = data;
+	rt.byteVecPush(out, 0xd6);
+	const full2 = rt.sliceRange(arg3, 0);
+	rt.byteVecPush(out, full2.length & 0xff);
+	const arg4 = data;
+	fullRange(out);
+	const full3 = rt.sliceRange(arg4, 0);
+	rt.byteVecPush(out, full3.length & 0xff);
+	const full4 = rt.sliceRange(data, 0);
+	rt.byteVecPush(out, full4.length & 0xff);
+	let copied: rt.ByteVec = rt.sliceToByteVec(data);
+	const arg5 = rt.byteVecView(copied);
+	const field4 = to;
+	rt.sliceCopyWithin(arg5, all.start, field4, 0);
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(copied));
+}
+
+/** `..`, logging that it was made. */
+export function fullRange(out: rt.ByteVec): undefined {
+	rt.byteVecPush(out, 0xd7);
+	return undefined;
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */

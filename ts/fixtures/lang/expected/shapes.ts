@@ -205,6 +205,68 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	const slice = rt.sliceRange(arg3, rt.usizeDiv(rt.min(mark(out, 15), len), 2), field10);
 	const text = rt.fmtFormat([(f: rt.Formatter) => Shape.fmt$Debug(rect, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(line, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f), " ", (f: rt.Formatter) => Point.fmt$Debug(read, f), " ", (f: rt.Formatter) => Moved.fmt$Debug(updated, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(taken, f), " ", (f: rt.Formatter) => rt.usizeDisplay(range.start, f), " ", (f: rt.Formatter) => rt.usizeDisplay(range.end, f), " ", (f: rt.Formatter) => rt.usizeDisplay(sum, f), " ", (f: rt.Formatter) => rt.fmtList(slice, f, rt.u8Display)]);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(text));
+	indexed(data, out);
+}
+
+/**
+ * Indexing, calls, and assignments whose later operands need statements of their own
+ * evaluate what comes before those first: each logs as it runs, or changes what an
+ * earlier operand read.
+ */
+export function indexed(data: Uint8Array, out: rt.ByteVec): void {
+	const at = (i: rt.usize): rt.u8 => {
+		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
+	};
+	const arg = rt.byteVecView(listed(out, at(0)));
+	rt.byteVecPush(out, 0xe1);
+	const first = rt.at(arg, 1);
+	let bytes: Uint8Array = Uint8Array.of(at(1), at(2), at(3), 4);
+	const arg2 = loggedMut(bytes, out);
+	rt.byteVecPush(out, 0xe3);
+	const arg3 = arg2;
+	rt.byteVecPush(out, 0xe4);
+	rt.sliceCopyWithin(arg3, 1, 3, 0);
+	const slice = loggedMut(bytes, out);
+	const arg4 = slice;
+	const arg5 = slice.length;
+	rt.byteVecPush(out, 0xe5);
+	rt.sliceCopyWithin(arg4, 2, arg5, 1);
+	const slice2 = loggedMut(bytes, out);
+	rt.sliceCopyWithin(slice2, 3, slice2.length, 0);
+	const value = logged(bytes, out);
+	rt.byteVecPush(out, 0xe6);
+	const second = rt.at(value, 1);
+	let f: (a0: rt.u8) => rt.u8 = halve;
+	const arg6 = f;
+	f = twice;
+	const called = arg6(at(4));
+	let n: rt.u8 = at(5);
+	let slots: Uint8Array = rt.bytes(2);
+	const value2 = n;
+	n = rt.u8WrappingAdd(n, 1);
+	slots[rt.idx(slots, 0)] = rt.u8Add(slots[rt.idx(slots, 0)], value2);
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, f(1), slots[0], n));
+	rt.byteVecExtendFromSlice(out, bytes);
+}
+
+/** A vector of `b`, logging that it was made. */
+export function listed(out: rt.ByteVec, b: rt.u8): rt.ByteVec {
+	rt.byteVecPush(out, 0xe0);
+	return rt.sliceToByteVec(Uint8Array.of(b, b ^ 1));
+}
+
+/** `s`, logging that it was read. */
+export function loggedMut(s: Uint8Array, out: rt.ByteVec): Uint8Array {
+	rt.byteVecPush(out, 0xe2);
+	return s;
+}
+
+export function halve(b: rt.u8): rt.u8 {
+	return rt.u8Div(b, 2);
+}
+
+export function twice(b: rt.u8): rt.u8 {
+	return rt.u8WrappingAdd(b, b);
 }
 
 /** `data`, logging that it was read. */
@@ -316,16 +378,35 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 		count = rt.u8Add(count, 1);
 	}
 	rt.byteVecPush(out, count);
+	const lo = rt.i32Neg(rt.usizeRem(data.length, 4) | 0);
+	let r: rt.Range<rt.i32> = new rt.Range(lo, rt.i32Add(lo, 3));
+	const first = rt.iterToOption(r.next());
+	r.end = r.start;
+	const second = rt.iterToOption(r.next());
+	if (first !== undefined) {
+		const x = first;
+		rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(x));
+	}
+	if (second !== undefined) {
+		const x2 = second;
+		rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(x2));
+	}
+	for (let k = lo; k < 2; k++) {
+		rt.byteVecPush(out, k & 0xff);
+	}
+	for (let k2 = rt.i8Sub(124, (lo << 24) >> 24); k2 < 127; k2++) {
+		rt.byteVecPush(out, k2 & 0xff);
+	}
 	rt.byteVecPush(out, firstRepeat(data));
 	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(tailBreak(data)));
 	rt.byteVecPush(out, armLoop(data));
 	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(position$u8(data, 0) as rt.u32));
-	const settle = (x: rt.u8): rt.u8 => {
+	const settle = (x3: rt.u8): rt.u8 => {
 		while (true) {
-			if (x < 10) {
-				return x;
+			if (x3 < 10) {
+				return x3;
 			}
-			x = rt.u8Div(x, 3);
+			x3 = rt.u8Div(x3, 3);
 		}
 	};
 	rt.byteVecPush(out, settle(rt.u8Mul(data.length & 0xff, 7)));
