@@ -1091,7 +1091,9 @@ impl<'tcx> Collector<'tcx> {
 					Type::Duration
 				} else if tcx.is_diagnostic_item(sym::Option, did) {
 					let inner = self.ty(args.type_at(0), pos.inner())?;
-					if matches!(inner, Type::Option(_)) {
+					// C has one `None` per option, so it cannot hold one inside another, even
+					// through a `Box`.
+					if matches!(inner.base(), Type::Option(_)) {
 						return Err(why("nested Option", ty.to_string()));
 					}
 					Type::Option(Box::new(inner))

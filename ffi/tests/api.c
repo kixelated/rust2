@@ -163,6 +163,12 @@ static int script(void) {
 	api_node_push(list, 2);
 	printf("node %llu\n", (unsigned long long)api_node_sum(list));
 	api_node_free(list);
+
+	api_tally *tally = api_tally_new();
+	api_tally_bump(tally);
+	uint32_t count = api_tally_bump(tally);
+	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
+	api_tally_free(tally);
 	/* Each future dropped its waker once it finished. */
 	return drops == 3 ? 0 : 1;
 }

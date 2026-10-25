@@ -27,6 +27,11 @@ pub fn borrowing(name: &str) -> impl Future<Output = usize> + '_ {
 	async move { name.len() }
 }
 
+/// An option inside an option, through a `Box`: C has one `None` per option.
+pub fn nested(value: Option<Box<Option<u32>>>) -> bool {
+	value.is_some()
+}
+
 /// A static.
 pub static COUNT: u8 = 0;
 

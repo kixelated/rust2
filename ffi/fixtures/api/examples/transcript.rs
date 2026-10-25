@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp};
+use api_fixture::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp, Tally};
 use bytes::Bytes;
 
 /// Keeps even levels, as `tests/api.c`'s implementation does.
@@ -123,4 +123,8 @@ fn main() {
 		next: Some(Box::new(Node { value: 2, next: None })),
 	};
 	println!("node {}", list.sum());
+
+	let tally = Tally::new();
+	tally.bump();
+	println!("tally {} {}", tally.bump(), tally == tally);
 }

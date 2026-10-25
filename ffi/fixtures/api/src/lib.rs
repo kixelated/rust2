@@ -285,6 +285,25 @@ impl Node {
 	}
 }
 
+/// A tally: `Send` but not `Sync`, so even `&self` borrows it exclusively, and comparing
+/// a handle with itself is one borrow.
+#[derive(Debug, Default, PartialEq)]
+pub struct Tally {
+	count: std::cell::Cell<u32>,
+}
+
+impl Tally {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Counts through `&self`, which only an exclusive borrow makes sound across threads.
+	pub fn bump(&self) -> u32 {
+		self.count.set(self.count.get() + 1);
+		self.count.get()
+	}
+}
+
 /// The length of a payload, borrowed for the call.
 pub fn len(payload: &[u8]) -> usize {
 	payload.len()

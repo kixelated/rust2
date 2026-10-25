@@ -313,7 +313,8 @@ impl Gen<'_> {
 		}
 		if traits.eq {
 			self.line(format!(
-				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_eq(a: {handle}, b: {handle}) -> bool {{\n\tlet w = \"{name}_eq\";\n\tlet a = {};\n\tlet b = {};\n\t<{path} as ::std::cmp::PartialEq>::eq(&*a, &*b)\n}}\n",
+				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_eq(a: {handle}, b: {handle}) -> bool {{\n\tlet w = \"{name}_eq\";\n\t// One handle twice is one borrow, which an exclusive one must be.\n\tif a == b {{\n\t\tlet a = {};\n\t\treturn <{path} as ::std::cmp::PartialEq>::eq(&*a, &*a);\n\t}}\n\tlet a = {};\n\tlet b = {};\n\t<{path} as ::std::cmp::PartialEq>::eq(&*a, &*b)\n}}\n",
+				borrow("a"),
 				borrow("a"),
 				borrow("b")
 			));
