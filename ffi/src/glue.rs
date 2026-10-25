@@ -100,8 +100,14 @@ impl Gen<'_> {
 		format!("{}::{}", self.krate, path.join("::"))
 	}
 
+	/// An object's Rust type: its lifetimes `'static`, as the handle holds it.
 	fn object_path(&self, i: usize) -> String {
-		self.path(&self.abi.api.objects[i].path)
+		let object = &self.abi.api.objects[i];
+		let path = self.path(&object.path);
+		match object.lifetimes {
+			0 => path,
+			n => format!("{path}<{}>", vec!["'static"; n].join(", ")),
+		}
 	}
 
 	/// The Rust spelling of a C type.
@@ -162,6 +168,9 @@ impl Gen<'_> {
 				false => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
 			},
 			Type::Callback(i, form) => abi::dyn_wrap(*form, &format!("Foreign_{}({e})", self.abi.callback(*i))),
+			Type::Range(_) => format!("{e}.lift()"),
+			Type::Bound(_) | Type::Bounds(_) => format!("{e}.lift(w)"),
+			Type::Tuple(_) => unreachable!("a tuple is never taken"),
 		}
 	}
 
@@ -202,13 +211,17 @@ impl Gen<'_> {
 			Type::Box(inner) => self.lower(inner, &format!("*{e}")),
 			Type::Ref(_, inner) => match &**inner {
 				Type::Str | Type::Slice => self.lower(inner, e),
-				Type::Object(_) => format!("rt::Object::new(*{e})"),
+				// A handle in the clone is a new handle.
 				inner => self.lower(inner, &format!("::std::clone::Clone::clone({e})")),
 			},
 			Type::Record(i) => format!("lower_{}({e})", self.abi.record(*i)),
 			Type::Enum(i) => format!("lower_{}({e})", self.abi.enumeration(*i)),
 			Type::Object(_) => format!("rt::Object::new({e})"),
 			Type::Callback(..) => unreachable!("a callback is never returned"),
+			Type::Range(_) => format!("rt::Range::lower({e})"),
+			Type::Bound(_) => format!("rt::Bound::lower({e})"),
+			Type::Bounds(_) => format!("rt::Bounds::lower({e})"),
+			Type::Tuple(_) => unreachable!("a tuple is lowered element by element"),
 		}
 	}
 
@@ -268,6 +281,15 @@ impl Gen<'_> {
 			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {p}_buf_free(buf: rt::Buf) {{\n\tunsafe {{ buf.free() }}\n}}\n"
 		));
 
+		for (name, ty) in &self.abi.ranges {
+			let (kind, int) = match ty {
+				Type::Range(int) => ("Range", int),
+				Type::Bound(int) => ("Bound", int),
+				Type::Bounds(int) => ("Bounds", int),
+				other => unreachable!("{other:?} is no range"),
+			};
+			self.line(format!("pub type {name} = rt::{kind}<{}>;\n", int.rust()));
+		}
 		for (name, inner) in &self.abi.options.clone() {
 			let value = self.rs(&self.abi.ty(inner));
 			self.line(format!(
@@ -721,21 +743,45 @@ impl Gen<'_> {
 		}
 	}
 
+	/// The out pointers a call's value is written through: one per element of a tuple.
+	fn outs(function: &Function) -> Vec<String> {
+		match &function.ok {
+			Type::Unit => Vec::new(),
+			Type::Tuple(elements) => (0..elements.len()).map(|n| format!("out{n}")).collect(),
+			_ => vec!["out".to_string()],
+		}
+	}
+
 	/// The statements that hand a call's `result` to C: return it, or for a fallible
-	/// function, write it through `out` or `err` and return whether it succeeded.
+	/// function or a tuple, write it through its out pointers or `err`, and return whether
+	/// it succeeded.
 	fn finish(&self, function: &Function, ret: (&str, &str, &str)) -> String {
 		let (ok_value, ready, error) = ret;
-		let out_ty = self.rs(&self.abi.ty(&function.ok));
-		let write_ok = match function.ok {
+		let write = |ty: &Type, out: &str, v: &str| {
+			format!(
+				"unsafe {{ rt::write::<{}>({out}.cast(), || {}) }};",
+				self.rs(&self.abi.ty(ty)),
+				self.lower(ty, v)
+			)
+		};
+		let write_ok = match &function.ok {
 			Type::Unit => String::new(),
-			_ => format!(
-				"unsafe {{ rt::write::<{out_ty}>(out.cast(), || {}) }};",
-				self.lower(&function.ok, "v")
-			),
+			Type::Tuple(elements) => {
+				let names: Vec<String> = (0..elements.len()).map(|n| format!("v{n}")).collect();
+				let writes: Vec<String> = elements
+					.iter()
+					.zip(Self::outs(function))
+					.zip(&names)
+					.map(|((ty, out), v)| write(ty, &out, v))
+					.collect();
+				format!("let ({}) = v;\n\t{}", names.join(", "), writes.join("\n\t"))
+			}
+			ok => write(ok, "out", "v"),
 		};
 		match &function.err {
 			None if ok_value.is_empty() => match function.ok {
 				Type::Unit => "result".to_string(),
+				Type::Tuple(_) => format!("let v = result;\n\t{write_ok}"),
 				_ => self.lower(&function.ok, "result"),
 			},
 			None => match function.ok {
@@ -793,9 +839,13 @@ impl Gen<'_> {
 			args.push(arg);
 		}
 		let callee = match owner {
-			Some(_) => {
+			Some((_, object)) => {
 				let (owner_path, method) = function.path.split_at(function.path.len() - 1);
-				format!("<{}>::{}", self.path(owner_path), method[0])
+				let owner_path = match object {
+					Some(i) => self.object_path(i),
+					None => self.path(owner_path),
+				};
+				format!("<{owner_path}>::{}", method[0])
 			}
 			None => self.path(&function.path),
 		};
@@ -812,8 +862,13 @@ impl Gen<'_> {
 				true => (format!("\n\tlet future = {call};"), "future".to_string()),
 				false => (String::new(), call),
 			};
+			let bind: String = Self::outs(function)
+				.iter()
+				.enumerate()
+				.map(|(n, out)| format!("let {out} = outs[{n}];\n\t\t\t"))
+				.collect();
 			self.line(format!(
-				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> *mut rt::Future {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}{now}\n\trt::Future::new(async move {{\n\t\tlet result = {later}.await;\n\t\t::std::boxed::Box::new(move |out: *mut c_void, err: *mut c_void| -> i32 {{\n\t\t\tlet _ = (out, err);\n\t\t\t{}\n\t\t}}) as rt::Done\n\t}})\n}}\n",
+				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> *mut rt::Future {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}{now}\n\trt::Future::new(async move {{\n\t\tlet result = {later}.await;\n\t\t::std::boxed::Box::new(move |outs: &[*mut c_void], err: *mut c_void| -> i32 {{\n\t\t\tlet _ = (outs, err);\n\t\t\t{bind}{}\n\t\t}}) as rt::Done\n\t}})\n}}\n",
 				params.join(", "),
 				self.finish(function, ("v", "rt::READY", "rt::ERROR"))
 			));
@@ -821,16 +876,14 @@ impl Gen<'_> {
 				.iter()
 				.map(|(n, ty)| format!("{n}: {}", self.rs(ty)))
 				.collect();
-			let out = match function.ok {
-				Type::Unit => "::std::ptr::null_mut()",
-				_ => "out.cast()",
-			};
+			let outs: Vec<String> = Self::outs(function).iter().map(|out| format!("{out}.cast()")).collect();
+			let outs = outs.join(", ");
 			let err = match function.err {
 				Some(_) => "err.cast()",
 				None => "::std::ptr::null_mut()",
 			};
 			self.line(format!(
-				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {}(future: *mut rt::Future, waker: rt::Waker{}) -> i32 {{\n\tunsafe {{ rt::Future::poll(future, waker, {out}, {err}, \"{}\") }}\n}}\n",
+				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {}(future: *mut rt::Future, waker: rt::Waker{}) -> i32 {{\n\tunsafe {{ rt::Future::poll(future, waker, &[{outs}], {err}, \"{}\") }}\n}}\n",
 				poll.name,
 				poll_params.iter().map(|p| format!(", {p}")).collect::<String>(),
 				poll.name

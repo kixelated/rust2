@@ -75,6 +75,8 @@ pub struct Abi<'a> {
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
 	/// Each `Option<T>` struct by C name, with `T`.
 	pub options: BTreeMap<String, Type>,
+	/// Each range, bound, and pair of bounds struct by C name, with its type.
+	pub ranges: BTreeMap<String, Type>,
 	/// Every C name claimed, with what claimed it.
 	names: HashMap<String, (String, Span)>,
 	/// Each name claimed twice.
@@ -89,6 +91,7 @@ impl<'a> Abi<'a> {
 			rename,
 			renamed: Default::default(),
 			options: BTreeMap::new(),
+			ranges: BTreeMap::new(),
 			names: HashMap::new(),
 			clashes: Vec::new(),
 		};
@@ -158,6 +161,11 @@ impl<'a> Abi<'a> {
 		format!("{}_option_{}", self.prefix, self.key(inner))
 	}
 
+	/// The C name of a range, bound, or pair of bounds struct: `<prefix>_range_u64`.
+	pub fn range(&self, ty: &Type) -> String {
+		format!("{}_{}", self.prefix, self.key(ty))
+	}
+
 	/// A type's name within the prefix, for naming the structs built from it.
 	fn key(&self, ty: &Type) -> String {
 		let strip = |name: String| name[self.prefix.len() + 1..].to_string();
@@ -170,6 +178,9 @@ impl<'a> Abi<'a> {
 			Type::Duration => "duration".to_string(),
 			Type::Record(i) => strip(self.record(*i)),
 			Type::Enum(i) => strip(self.enumeration(*i)),
+			Type::Range(int) => format!("range_{}", int.rust()),
+			Type::Bound(int) => format!("bound_{}", int.rust()),
+			Type::Bounds(int) => format!("bounds_{}", int.rust()),
 			Type::Ref(_, inner) | Type::Box(inner) => self.key(inner),
 			other => unreachable!("no option struct holds {other:?}"),
 		}
@@ -217,7 +228,23 @@ impl<'a> Abi<'a> {
 				constant: false,
 			},
 			Type::Callback(i, _) => Ty::Struct(self.callback(*i)),
+			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => Ty::Struct(self.range(ty)),
+			Type::Tuple(_) => unreachable!("a tuple is only returned, through out parameters"),
 		}
+	}
+
+	/// The C type of `ty` returned: a borrow is returned as a copy, so a handle in it is
+	/// the caller's own.
+	fn returned(&self, ty: &Type) -> Ty {
+		fn owned(ty: &Type) -> Type {
+			match ty {
+				Type::Ref(_, inner) => owned(inner),
+				Type::Option(inner) => Type::Option(Box::new(owned(inner))),
+				Type::Box(inner) => Type::Box(Box::new(owned(inner))),
+				ty => ty.clone(),
+			}
+		}
+		self.ty(&owned(ty))
 	}
 
 	/// The C signature of `function`, a method of the type named `owner` if it has one.
@@ -257,11 +284,17 @@ impl<'a> Abi<'a> {
 			params.push((escape(&param.name), ty));
 		}
 		let mut outs = Vec::new();
-		if function.ok != Type::Unit {
-			outs.push(("out".to_string(), Ty::Out(Box::new(self.ty(&function.ok)))));
+		match &function.ok {
+			Type::Unit => {}
+			Type::Tuple(elements) => {
+				for (n, element) in elements.iter().enumerate() {
+					outs.push((format!("out{n}"), Ty::Out(Box::new(self.returned(element)))));
+				}
+			}
+			ok => outs.push(("out".to_string(), Ty::Out(Box::new(self.returned(ok))))),
 		}
 		if let Some(err) = &function.err {
-			outs.push(("err".to_string(), Ty::Out(Box::new(self.ty(err)))));
+			outs.push(("err".to_string(), Ty::Out(Box::new(self.returned(err)))));
 		}
 		if function.future {
 			let handle = format!("{name}_future");
@@ -289,12 +322,16 @@ impl<'a> Abi<'a> {
 				future: Some((handle, poll, free)),
 			};
 		}
-		let ret = match &function.err {
-			Some(_) => {
+		let ret = match (&function.err, &function.ok) {
+			(Some(_), _) => {
 				params.extend(outs);
 				Ty::Bool
 			}
-			None => self.ty(&function.ok),
+			(None, Type::Tuple(_)) => {
+				params.extend(outs);
+				Ty::Void
+			}
+			(None, ok) => self.returned(ok),
 		};
 		Export {
 			call: Sig { name, params, ret },
@@ -406,6 +443,7 @@ impl<'a> Abi<'a> {
 			);
 		}
 		let mut options = BTreeMap::new();
+		let mut ranges = BTreeMap::new();
 		let mut stack = types;
 		while let Some(ty) = stack.pop() {
 			match ty {
@@ -416,13 +454,35 @@ impl<'a> Abi<'a> {
 					stack.push(inner);
 				}
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),
+				Type::Tuple(elements) => stack.extend(elements),
+				Type::Range(_) | Type::Bound(_) => {
+					ranges.insert(self.range(ty), ty.clone());
+				}
+				Type::Bounds(int) => {
+					ranges.insert(self.range(ty), ty.clone());
+					ranges.insert(self.range(&Type::Bound(*int)), Type::Bound(*int));
+				}
 				_ => {}
 			}
 		}
 		for name in options.keys() {
 			self.claim(name.clone(), "an option".to_string(), crate_span);
 		}
+		for name in ranges.keys() {
+			self.claim(name.clone(), "a range".to_string(), crate_span);
+		}
+		if ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
+			let bound = self.rt("bound");
+			for kind in ["", "_UNBOUNDED", "_INCLUDED", "_EXCLUDED"] {
+				let name = match kind {
+					"" => bound.clone(),
+					kind => format!("{}{kind}", bound.to_uppercase()),
+				};
+				self.claim(name, "a bound".to_string(), crate_span);
+			}
+		}
 		self.options = options;
+		self.ranges = ranges;
 	}
 
 	/// Claim the functions a type's std traits export.
@@ -482,7 +542,11 @@ pub fn escape(name: &str) -> String {
 		"short", "signed", "sizeof", "static", "struct", "switch", "true", "typedef", "union", "unsigned", "void",
 		"volatile", "while", "out", "err", "future", "waker", "data",
 	];
-	match KEYWORDS.contains(&name) || name.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+	// `out0`, `out1`, ... are a returned tuple's.
+	let out = name
+		.strip_prefix("out")
+		.is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
+	match out || KEYWORDS.contains(&name) || name.chars().next().is_some_and(|c| c.is_ascii_digit()) {
 		true => format!("_{name}"),
 		false => name.to_string(),
 	}
