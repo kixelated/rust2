@@ -112,6 +112,13 @@ static int script(void) {
 	printf("%llu\n", (unsigned long long)api_counter_get(above));
 	api_counter_free(below);
 	api_counter_free(above);
+	api_counter *one = api_counter_new(str("o"), 3);
+	api_counter *only;
+	api_only(one, &only);
+	api_counter_free(one);
+	print("only ", api_counter_name(only), " ");
+	printf("%llu\n", (unsigned long long)api_counter_get(only));
+	api_counter_free(only);
 	uint64_t divisors[] = {2, 0};
 	for (int i = 0; i < 2; i++) {
 		uint64_t q, r;

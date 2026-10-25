@@ -774,7 +774,8 @@ impl Gen<'_> {
 					.zip(&names)
 					.map(|((ty, out), v)| write(ty, &out, v))
 					.collect();
-				format!("let ({}) = v;\n\t{}", names.join(", "), writes.join("\n\t"))
+				// The trailing comma makes `(v0,)` a tuple pattern, not parentheses.
+				format!("let ({},) = v;\n\t{}", names.join(", "), writes.join("\n\t"))
 			}
 			ok => write(ok, "out", "v"),
 		};

@@ -134,6 +134,11 @@ impl Counter {
 	}
 }
 
+/// A tuple of one: its out pointer holds the counter, not the tuple.
+pub fn only(counter: Counter) -> (Counter,) {
+	(counter,)
+}
+
 /// The quotient and remainder, failing on a zero divisor.
 pub fn divide(a: u64, b: u64) -> Result<(u64, u64), Error> {
 	match b {
