@@ -28,7 +28,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Diverging calls through closures and generics](/quest/m2/ts-never-edges.md) - closures returning `!` and generics at `!` pass `tsc`
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Wide-integer fast paths](/quest/m2/ts-wide-fast.md) - a fused `from_halves` and an unboxed limb product, kept only if measured faster
-- [Error-path workload](/quest/m2/ts-bench-error-path.md) - the benchmark prices `?` on a frame split across reads
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values

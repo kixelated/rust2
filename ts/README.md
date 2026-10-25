@@ -291,9 +291,10 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 ```
 
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
-(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, and
-iterator chains over bytes. Each runs four ways: natively, as wasm32 at moq-wasm's
-size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
+(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, the same
+frame headers decoded as they arrive a few bytes at a time, which prices a decode that
+comes up `Short` and retries, and iterator chains over bytes. Each runs four ways:
+natively, as wasm32 at moq-wasm's size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
 helpers in `bench/iter.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
