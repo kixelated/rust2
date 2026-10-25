@@ -436,6 +436,11 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
+/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
+pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
+	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
+}
+
 /// Each value `clear` takes out would drop, which the runtime leaves to JS's collector.
 pub fn cleared(map: &mut std::collections::HashMap<u8, Noisy>) {
 	map.clear();

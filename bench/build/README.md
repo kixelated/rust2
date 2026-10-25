@@ -32,6 +32,7 @@ Bump a pin in its own change, since numbers on either side of it do not compare.
 
 An edit rewrites a marker function appended to the crate root, so every run changes code that reaches codegen.
 Before the timed runs, each variant does one untimed clean build that warms the disk cache and logs any failure.
+Each timed run starts after a `sync`: on CI's 16 GiB runners, writing back the dirty pages that earlier runs left made the edits it overlapped about 10% slower.
 
 ## Variants
 
