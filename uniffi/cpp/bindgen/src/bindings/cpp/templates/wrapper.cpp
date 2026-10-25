@@ -157,9 +157,10 @@ R rust_call(F f, EF error_cb, Args... args) {
     }
 }
 {%- endif %}
+{%- if config.expected() %}
 
 {% include "async.cpp" %}
-{%- if !config.expected() %}
+{%- else %}
 
 template <typename F, typename W>
 void rust_call_trait_interface(RustCallStatus* status, F make_call, W write_value) {

@@ -46,3 +46,7 @@ with the binding benchmark:
   skip it.
 
 Public API: none unless `&[u8]` lands, which changes Kotlin's parameter type.
+
+## Required
+
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter

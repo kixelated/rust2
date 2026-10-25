@@ -15,3 +15,7 @@ per-method boilerplate) before shrinking, and stop where the remaining gain is
 not worth the template complexity.
 
 Public API: generated code changes shape; wrapper APIs do not.
+
+## Required
+
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter

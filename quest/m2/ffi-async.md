@@ -25,4 +25,5 @@ Public API: none expected.
 
 ## Required
 
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
 - [Foreign poll for hot reads](/quest/m1/ffi-poll-protocol.md) - the waker design this reuses

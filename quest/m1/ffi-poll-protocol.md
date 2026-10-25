@@ -73,6 +73,7 @@ terminal to per-read.
 
 ## Required
 
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
 - [moq's poll-native async](/quest/m1/moq-poll-migrate.md) - the kio poll each export wraps, with `ffi::Task` gone
 
 ## Related

@@ -38,3 +38,7 @@ measured a call at 3.04 us to 7 ns and bytes at 14.7 us to 87 ns
 about even with BoltFFI. List it as a carried change in the fork's README.
 
 Public API: none expected.
+
+## Required
+
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
