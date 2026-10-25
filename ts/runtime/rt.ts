@@ -47,10 +47,12 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 /** `Result<T, E>`. */
 export type Result<T, E> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: E };
 
+/** `Ok(value)`. */
 export function Ok<T, E = never>(value: T): Result<T, E> {
 	return { ok: true, value };
 }
 
+/** `Err(error)`. */
 export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
@@ -59,31 +61,38 @@ function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
 	panicFmt([message, ": ", (f) => debug(value, f)]);
 }
 
+/** `Result::ok`: the value, or `undefined` for an error. */
 export function resultOk<T, E>(r: Result<T, E>): T | undefined {
 	return r.ok ? r.value : undefined;
 }
 
+/** `Result::err`: the error, or `undefined` for a value. */
 export function resultErr<T, E>(r: Result<T, E>): E | undefined {
 	return r.ok ? undefined : r.error;
 }
 
+/** `Result::map`. */
 export function resultMap<T, E, U>(r: Result<T, E>, f: (value: T) => U): Result<U, E> {
 	return r.ok ? Ok(f(r.value)) : r;
 }
 
+/** `Result::map_err`. */
 export function resultMapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F): Result<T, F> {
 	return r.ok ? r : Err(f(r.error));
 }
 
+/** `Result::and_then`. */
 export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<U, E>): Result<U, E> {
 	return r.ok ? f(r.value) : r;
 }
 
+/** `Result::inspect_err`. */
 export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void): Result<T, E> {
 	if (!r.ok) f(r.error);
 	return r;
 }
 
+/** `Result::unwrap_or`. */
 export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T): T {
 	return r.ok ? r.value : fallback;
 }
@@ -94,11 +103,13 @@ export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
 	return r.value;
 }
 
+/** `Result::expect`: the value, or a panic with `message` and the error's `Debug`. */
 export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
 	if (!r.ok) unwrapFailed(message, r.error, debug);
 	return r.value;
 }
 
+/** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
 export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
 	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
 	return r.error;
@@ -106,28 +117,34 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
 
 // Options, which are `T | undefined`.
 
+/** `Option::map`. */
 export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
 	return o === undefined ? undefined : f(o);
 }
 
+/** `Option::unwrap_or`. */
 export function optionUnwrapOr<T>(o: T | undefined, fallback: T): T {
 	return o === undefined ? fallback : o;
 }
 
 // `f` decides `U`, since a literal fallback would infer a literal type.
+/** `Option::map_or`. */
 export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U): U {
 	return o === undefined ? fallback : f(o);
 }
 
+/** `Option::ok_or`. */
 export function optionOkOr<T, E>(o: T | undefined, error: E): Result<T, E> {
 	return o === undefined ? Err(error) : Ok(o);
 }
 
+/** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T {
 	if (o === undefined) panic("called `Option::unwrap()` on a `None` value");
 	return o;
 }
 
+/** `Option::expect`: the value, or a panic with `message`. */
 export function optionExpect<T>(o: T | undefined, message: string): T {
 	if (o === undefined) panic(message);
 	return o;
@@ -159,31 +176,38 @@ export function sliceRange<S extends Uint8Array | unknown[]>(s: S, start: number
 	return (s instanceof Uint8Array ? s.subarray(start, end) : s.slice(start, end)) as S;
 }
 
+/** `split_first`: the first element and the rest, or `undefined` if empty. */
 export function sliceSplitFirst<S extends Uint8Array | unknown[]>(s: S): [S[number], S] | undefined {
 	return s.length === 0 ? undefined : [s[0], sliceRange(s, 1)];
 }
 
+/** `split_first_chunk`: the first `n` elements and the rest, or `undefined` if shorter. */
 export function sliceSplitFirstChunk<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] | undefined {
 	return s.length < n ? undefined : [sliceRange(s, 0, n), sliceRange(s, n)];
 }
 
+/** `split_at`, panicking past the length. */
 export function sliceSplitAt<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] {
 	if (n > s.length) panic("mid > len");
 	return [sliceRange(s, 0, n), sliceRange(s, n)];
 }
 
+/** `split_at_checked`: the halves, or `undefined` past the length. */
 export function sliceSplitAtChecked<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] | undefined {
 	return n > s.length ? undefined : [sliceRange(s, 0, n), sliceRange(s, n)];
 }
 
+/** `first`: the first element, or `undefined` if empty. */
 export function sliceFirst<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[0];
 }
 
+/** `get`: the element at `index`, or `undefined` past the end. */
 export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 	return index < s.length ? s[index] : undefined;
 }
 
+/** `copy_from_slice`, panicking if the lengths differ. */
 export function sliceCopyFromSlice(dst: Uint8Array, src: Uint8Array): void {
 	if (dst.length !== src.length) {
 		panic(`copy_from_slice: source slice length (${src.length}) does not match destination slice length (${dst.length})`);
@@ -191,6 +215,7 @@ export function sliceCopyFromSlice(dst: Uint8Array, src: Uint8Array): void {
 	dst.set(src);
 }
 
+/** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds. */
 export function sliceCopyWithin(s: Uint8Array, start: number, end: number, dest: number): void {
 	// `slice::range` checks the end first, then `range` reports the rest.
 	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
@@ -272,25 +297,30 @@ export function byteVecView(v: ByteVec): Uint8Array {
 	return v.data.subarray(0, v.length);
 }
 
+/** `Vec::push`. */
 export function byteVecPush(v: ByteVec, byte: number): void {
 	reserve(v, 1);
 	v.data[v.length++] = byte;
 }
 
+/** `Vec::pop`: the last byte, or `undefined` if empty. */
 export function byteVecPop(v: ByteVec): number | undefined {
 	return v.length === 0 ? undefined : v.data[--v.length];
 }
 
+/** `Vec::extend_from_slice`. */
 export function byteVecExtendFromSlice(v: ByteVec, bytes: Uint8Array): void {
 	reserve(v, bytes.length);
 	v.data.set(bytes, v.length);
 	v.length += bytes.length;
 }
 
+/** `Vec::truncate`. */
 export function byteVecTruncate(v: ByteVec, length: number): void {
 	if (length < v.length) v.length = length;
 }
 
+/** `Vec::clear`. */
 export function byteVecClear(v: ByteVec): void {
 	v.length = 0;
 }
@@ -340,6 +370,7 @@ function utf8Error(v: Uint8Array): [number, number | undefined] {
 	throw new Error("utf8Error: the bytes are valid UTF-8");
 }
 
+/** `String::from_utf8`. */
 export function stringFromUtf8(bytes: ByteVec): Result<string, FromUtf8Error> {
 	try {
 		return Ok(decoder.decode(byteVecView(bytes)));
@@ -348,10 +379,12 @@ export function stringFromUtf8(bytes: ByteVec): Result<string, FromUtf8Error> {
 	}
 }
 
+/** `str::as_bytes`: its UTF-8 bytes. */
 export function stringAsBytes(s: string): Uint8Array {
 	return encoder.encode(s);
 }
 
+/** `str::len`: its length in UTF-8 bytes. */
 export function stringLen(s: string): number {
 	return encoder.encode(s).length;
 }
@@ -461,18 +494,22 @@ function chars(s: string): number {
 	return n;
 }
 
+/** `Formatter::write_str`. */
 export function fmtWriteStr(f: Formatter, s: string): FmtResult {
 	return f.out.writeStr(s);
 }
 
+/** `Formatter::write_fmt`. */
 export function fmtWriteFmt(f: Formatter, args: Arguments): FmtResult {
 	return write(f.out, args);
 }
 
+/** `Formatter::alternate`: whether the spec has `#`. */
 export function fmtAlternate(f: Formatter): boolean {
 	return f.spec.alternate === true;
 }
 
+/** `Formatter::width`: the spec's width, or `undefined`. */
 export function fmtWidth(f: Formatter): number | undefined {
 	return f.spec.width;
 }
@@ -505,14 +542,17 @@ function padded(f: Formatter, padding: number, align: "<" | "^" | ">", fill: str
 	return r.ok ? f.out.writeStr(fill.repeat(padding - left)) : r;
 }
 
+/** `Formatter::debug_struct`. */
 export function fmtDebugStruct(f: Formatter, name: string): DebugStruct {
 	return { fmt: f, result: f.out.writeStr(name), hasFields: false };
 }
 
+/** `Formatter::debug_tuple`. */
 export function fmtDebugTuple(f: Formatter, name: string): DebugTuple {
 	return { fmt: f, result: f.out.writeStr(name), fields: 0, emptyName: name === "" };
 }
 
+/** `Formatter::debug_list`. */
 export function fmtDebugList(f: Formatter): DebugList {
 	return { fmt: f, result: f.out.writeStr("["), hasFields: false };
 }
@@ -545,6 +585,7 @@ export interface DebugStruct {
 	hasFields: boolean;
 }
 
+/** `DebugStruct::field`. */
 export function debugStructField(b: DebugStruct, name: string, value: Fmt): DebugStruct {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
@@ -559,6 +600,7 @@ export function debugStructField(b: DebugStruct, name: string, value: Fmt): Debu
 	return b;
 }
 
+/** `DebugStruct::finish_non_exhaustive`. */
 export function debugStructFinishNonExhaustive(b: DebugStruct): FmtResult {
 	if (b.result.ok) {
 		if (!b.hasFields) b.result = b.fmt.out.writeStr(" { .. }");
@@ -568,6 +610,7 @@ export function debugStructFinishNonExhaustive(b: DebugStruct): FmtResult {
 	return b.result;
 }
 
+/** `DebugStruct::finish`. */
 export function debugStructFinish(b: DebugStruct): FmtResult {
 	if (b.hasFields && b.result.ok) b.result = b.fmt.out.writeStr(fmtAlternate(b.fmt) ? "}" : " }");
 	return b.result;
@@ -581,6 +624,7 @@ export interface DebugTuple {
 	readonly emptyName: boolean;
 }
 
+/** `DebugTuple::field`. */
 export function debugTupleField(b: DebugTuple, value: Fmt): DebugTuple {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
@@ -595,6 +639,7 @@ export function debugTupleField(b: DebugTuple, value: Fmt): DebugTuple {
 	return b;
 }
 
+/** `DebugTuple::finish_non_exhaustive`. */
 export function debugTupleFinishNonExhaustive(b: DebugTuple): FmtResult {
 	if (b.result.ok) {
 		if (b.fields === 0) b.result = b.fmt.out.writeStr("(..)");
@@ -604,6 +649,7 @@ export function debugTupleFinishNonExhaustive(b: DebugTuple): FmtResult {
 	return b.result;
 }
 
+/** `DebugTuple::finish`. */
 export function debugTupleFinish(b: DebugTuple): FmtResult {
 	if (b.fields > 0 && b.result.ok) {
 		const comma = b.fields === 1 && b.emptyName && !fmtAlternate(b.fmt);
@@ -619,6 +665,7 @@ export interface DebugList {
 	hasFields: boolean;
 }
 
+/** `DebugList::entry`. */
 export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
@@ -633,11 +680,13 @@ export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	return b;
 }
 
+/** `DebugList::entries`. */
 export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>): DebugList {
 	for (const item of items) debugListEntry(b, (f) => debug(item, f));
 	return b;
 }
 
+/** `DebugList::finish_non_exhaustive`. */
 export function debugListFinishNonExhaustive(b: DebugList): FmtResult {
 	if (!b.result.ok) return b.result;
 	if (!b.hasFields) return b.fmt.out.writeStr("..]");
@@ -645,6 +694,7 @@ export function debugListFinishNonExhaustive(b: DebugList): FmtResult {
 	return closePretty(b.fmt, "]");
 }
 
+/** `DebugList::finish`. */
 export function debugListFinish(b: DebugList): FmtResult {
 	if (b.result.ok) b.result = b.fmt.out.writeStr("]");
 	return b.result;
@@ -714,6 +764,7 @@ export function fmtSpec(spec: Spec, value: Fmt): Fmt {
 	return (f) => value({ out: f.out, spec });
 }
 
+/** `Display` and `Debug` of a `bool`. */
 export function fmtBool(value: boolean, f: Formatter): FmtResult {
 	return fmtPad(f, value ? "true" : "false");
 }
@@ -730,11 +781,13 @@ export function fmtUnit(_: undefined, f: Formatter): FmtResult {
 	return fmtPad(f, "()");
 }
 
+/** `Debug` of an `Option`, through its value's. */
 export function fmtOption<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult {
 	if (o === undefined) return f.out.writeStr("None");
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "Some"), (f) => debug(o, f)));
 }
 
+/** `Debug` of a `Result`, through its value's and error's. */
 export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err: Debug<E>): FmtResult {
 	const field: Fmt = r.ok ? (f) => ok(r.value, f) : (f) => err(r.error, f);
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, r.ok ? "Ok" : "Err"), field));
@@ -757,23 +810,28 @@ export function fmtArguments(args: Arguments, f: Formatter): FmtResult {
 	return fmtWriteFmt(f, args);
 }
 
+/** `Debug` of `fmt::Error`. */
 export function fmtErrorDebug(_: FmtError, f: Formatter): FmtResult {
 	return f.out.writeStr("Error");
 }
 
+/** `Display` of `fmt::Error`. */
 export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 	return fmtPad(f, "an error occurred when formatting an argument");
 }
 
+/** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
 }
 
+/** `Display` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDisplay(e: TryFromIntError, f: Formatter): FmtResult {
 	const positive = e.kind === "PosOverflow";
 	return fmtPad(f, `number too ${positive ? "large" : "small"} to fit in target type`);
 }
 
+/** `Debug` of `FromUtf8Error`. */
 export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
 	const error: Fmt = (f) =>
 		debugStructFinish(

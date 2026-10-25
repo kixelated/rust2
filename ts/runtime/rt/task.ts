@@ -36,6 +36,7 @@ export class Arc<T> implements Disposable {
 	}
 }
 
+/** `Arc::clone`: the same value, counted once more. */
 export function arcClone<T>(arc: Arc<T>): Arc<T> {
 	arc.strong++;
 	return arc;
@@ -50,10 +51,12 @@ export class Weak<T> {
 	}
 }
 
+/** `Weak::upgrade`: a new `Arc`, or `undefined` once none is left. */
 export function weakUpgrade<T>(weak: Weak<T>): Arc<T> | undefined {
 	return weak.arc.strong > 0 ? arcClone(weak.arc) : undefined;
 }
 
+/** `Weak::clone`. */
 export function weakClone<T>(weak: Weak<T>): Weak<T> {
 	return new Weak(weak.arc);
 }

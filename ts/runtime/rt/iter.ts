@@ -72,10 +72,12 @@ export function iterOption<T>(o: T | undefined): Iter<T> {
 	return new OptionIter(o);
 }
 
+/** `iter::once`. */
 export function iterOnce<T>(value: T): Iter<T> {
 	return new OptionIter<T>(value, true);
 }
 
+/** `iter::empty`. */
 export function iterEmpty<T>(): Iter<T> {
 	return new OptionIter<T>(undefined, false);
 }
@@ -102,18 +104,22 @@ export function iterExtendBytes(v: ByteVec, items: Iter<number>): void {
 
 // Adaptors
 
+/** `Iterator::map`. */
 export function iterMap<T, U>(it: Iter<T>, f: (item: T) => U): Iter<U> {
 	return new MapIter(it, f);
 }
 
+/** `Iterator::filter`. */
 export function iterFilter<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
 	return new FilterIter(it, f);
 }
 
+/** `Iterator::filter_map`. */
 export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
 	return new FilterMapIter(it, f);
 }
 
+/** `Iterator::enumerate`. */
 export function iterEnumerate<T>(it: Iter<T>): Iter<[number, T]> {
 	return new EnumerateIter(it);
 }
@@ -132,42 +138,52 @@ export function iterZip<T, U>(it: Iter<T>, other: Iter<U>, trusted = false): Ite
 	return trusted ? new TrustedZipIter(it, other) : new ZipIter(it, other);
 }
 
+/** `Iterator::rev`. */
 export function iterRev<T>(it: Iter<T>): Iter<T> {
 	return new RevIter(it);
 }
 
+/** `Iterator::skip`. */
 export function iterSkip<T>(it: Iter<T>, n: number): Iter<T> {
 	return new SkipIter(it, n);
 }
 
+/** `Iterator::take`. */
 export function iterTake<T>(it: Iter<T>, n: number): Iter<T> {
 	return new TakeIter(it, n);
 }
 
+/** `Iterator::skip_while`. */
 export function iterSkipWhile<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
 	return new SkipWhileIter(it, f);
 }
 
+/** `Iterator::take_while`. */
 export function iterTakeWhile<T>(it: Iter<T>, f: (item: T) => boolean): Iter<T> {
 	return new TakeWhileIter(it, f);
 }
 
+/** `Iterator::map_while`. */
 export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
 	return new MapWhileIter(it, f);
 }
 
+/** `Iterator::step_by`, panicking on a step of 0. */
 export function iterStepBy<T>(it: Iter<T>, step: number): Iter<T> {
 	return new StepByIter(it, step);
 }
 
+/** `Iterator::inspect`. */
 export function iterInspect<T>(it: Iter<T>, f: (item: T) => void): Iter<T> {
 	return new InspectIter(it, f);
 }
 
+/** `Iterator::fuse`. */
 export function iterFuse<T>(it: Iter<T>): Iter<T> {
 	return new FuseIter(it);
 }
 
+/** `Iterator::peekable`. */
 export function iterPeekable<T>(it: Iter<T>): Peekable<T> {
 	return new Peekable(it);
 }
@@ -188,27 +204,32 @@ export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>): It
 
 // Consumers
 
+/** `Iterator::count`. */
 export function iterCount<T>(it: Iter<T>): number {
 	let n = 0;
 	while (it.next() !== DONE) n++;
 	return n;
 }
 
+/** `Iterator::last`. */
 export function iterLast<T>(it: Iter<T>): T | undefined {
 	let last: T | undefined;
 	for (let item = it.next(); item !== DONE; item = it.next()) last = item;
 	return last;
 }
 
+/** `Iterator::nth`. */
 export function iterNth<T>(it: Iter<T>, n: number): T | undefined {
 	return iterToOption(it.nthItem(n));
 }
 
+/** `Iterator::any`. */
 export function iterAny<T>(it: Iter<T>, f: (item: T) => boolean): boolean {
 	for (let item = it.next(); item !== DONE; item = it.next()) if (f(item)) return true;
 	return false;
 }
 
+/** `Iterator::all`. */
 export function iterAll<T>(it: Iter<T>, f: (item: T) => boolean): boolean {
 	for (let item = it.next(); item !== DONE; item = it.next()) if (!f(item)) return false;
 	return true;
@@ -226,10 +247,12 @@ function rfindItem<T>(it: Iter<T>, f: (item: T) => boolean): T | Done {
 	return DONE;
 }
 
+/** `Iterator::find`. */
 export function iterFind<T>(it: Iter<T>, f: (item: T) => boolean): T | undefined {
 	return iterToOption(findItem(it, f));
 }
 
+/** `Iterator::find_map`. */
 export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U | undefined {
 	for (let item = it.next(); item !== DONE; item = it.next()) {
 		const found = f(item);
@@ -238,6 +261,7 @@ export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U
 	return undefined;
 }
 
+/** `Iterator::position`. */
 export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
 	let i = 0;
 	for (let item = it.next(); item !== DONE; item = it.next()) {
@@ -247,12 +271,14 @@ export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | 
 	return undefined;
 }
 
+/** `Iterator::fold`. */
 export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A): A {
 	let acc = init;
 	for (let item = it.next(); item !== DONE; item = it.next()) acc = f(acc, item);
 	return acc;
 }
 
+/** `Iterator::for_each`. */
 export function iterForEach<T>(it: Iter<T>, f: (item: T) => void): void {
 	for (let item = it.next(); item !== DONE; item = it.next()) f(item);
 }
@@ -937,6 +963,7 @@ export class Peekable<T> extends Iter<T> {
 	}
 }
 
+/** `Peekable::peek`. */
 export function peekablePeek<T>(p: Peekable<T>): T | undefined {
 	if (!p.peeked) {
 		p.item = p.inner.next();
@@ -945,6 +972,7 @@ export function peekablePeek<T>(p: Peekable<T>): T | undefined {
 	return iterToOption(p.item);
 }
 
+/** `Peekable::next_if`. */
 export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean): T | undefined {
 	const item = p.next();
 	if (item !== DONE && f(item)) return item;
@@ -1067,14 +1095,17 @@ export class Range<T> extends Iter<T> {
 	}
 }
 
+/** `Range::is_empty`. */
 export function rangeIsEmpty<T>(r: Range<T>): boolean {
 	return !lt(r.start, r.end);
 }
 
+/** `Range::contains`. */
 export function rangeContains<T>(r: Range<T>, item: T): boolean {
 	return !lt(item, r.start) && lt(item, r.end);
 }
 
+/** `Range::clone`. */
 export function rangeClone<T>(r: Range<T>): Range<T> {
 	return new Range(r.start, r.end, r.int);
 }
@@ -1135,23 +1166,28 @@ export class RangeInclusive<T> extends Iter<T> {
 	}
 }
 
+/** `RangeInclusive::start`. */
 export function rangeInclusiveStart<T>(r: RangeInclusive<T>): T {
 	return r.lo;
 }
 
+/** `RangeInclusive::end`. */
 export function rangeInclusiveEnd<T>(r: RangeInclusive<T>): T {
 	return r.hi;
 }
 
+/** `RangeInclusive::is_empty`. */
 export function rangeInclusiveIsEmpty<T>(r: RangeInclusive<T>): boolean {
 	return r.exhausted || lt(r.hi, r.lo);
 }
 
+/** `RangeInclusive::contains`. */
 export function rangeInclusiveContains<T>(r: RangeInclusive<T>, item: T): boolean {
 	// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
 	return !r.exhausted && !lt(item, r.lo) && !lt(r.hi, item);
 }
 
+/** `RangeInclusive::clone`. */
 export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> {
 	const range = new RangeInclusive(r.lo, r.hi, r.int);
 	range.exhausted = r.exhausted;
