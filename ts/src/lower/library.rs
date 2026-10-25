@@ -10,7 +10,7 @@ use rustc_middle::thir::{ExprId, ExprKind};
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
-use super::body::Body;
+use super::body::{Body, Dest};
 use super::fmt;
 use super::num::{self, Int, Operand};
 use crate::ts::{Expr, Stmt, StmtKind};
@@ -999,18 +999,20 @@ fn range_bounds<'tcx>(
 		return None;
 	};
 	let name = tcx.item_name(adt.did()).to_string();
-	if name == "RangeFull" {
-		return Some((Expr::lit("0"), None));
-	}
-	let ExprKind::Adt(range) = &b.thir[id].kind else {
-		return None;
-	};
-	let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
-	b.visit(written);
 	let mut pre = Vec::new();
-	let values = b.operands(&ids, &mut pre);
-	let values = range.fields.iter().map(|f| f.name.index()).zip(values).collect();
-	let mut values: Vec<Expr> = b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect();
+	let mut values: Vec<Expr> = match &b.thir[id].kind {
+		// `..` has no bounds, but what makes it still runs.
+		_ if name == "RangeFull" => {
+			b.stmt(written, Dest::Discard, &mut pre);
+			Vec::new()
+		}
+		ExprKind::Adt(range) => {
+			b.visit(written);
+			let values = b.written(range, ty, b.thir[id].span, &mut pre);
+			b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect()
+		}
+		_ => return None,
+	};
 	b.after(earlier, pre, out);
 	match name.as_str() {
 		"Range" => {
@@ -1020,6 +1022,7 @@ fn range_bounds<'tcx>(
 		}
 		"RangeTo" => Some((Expr::lit("0"), values.pop())),
 		"RangeFrom" => Some((values.pop()?, None)),
+		"RangeFull" => Some((Expr::lit("0"), None)),
 		_ => None,
 	}
 }

@@ -1657,25 +1657,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						.err(span, "a `for` loop over a range that is not written in place");
 					return None;
 				};
-				let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
-				let mut values = self.operands(&ids, out);
-				// `end` is read on every turn, so unless constant it is spilled, after what is
-				// written before it.
-				let swapped = range.fields[0].name.index() == 1;
-				let end_at = if swapped { 0 } else { 1 };
-				if !values[end_at].is_constant() {
-					for (i, value) in values.iter_mut().enumerate().take(end_at + 1) {
+				let mut written = self.written(range, ty, span, out);
+				// `end` is read on every turn, so unless constant it is spilled, after what
+				// evaluates before it.
+				let end_at = written.iter().position(|(i, _)| *i == 1).expect("a range has an end");
+				if !written[end_at].1.is_constant() {
+					for (i, value) in written.iter_mut().take(end_at + 1) {
 						if !value.is_constant() {
 							let saved = std::mem::replace(value, Expr::undefined());
-							*value = self.spill(saved, if i == end_at { "end" } else { "start" }, out);
+							*value = self.spill(saved, if *i == 1 { "end" } else { "start" }, out);
 						}
 					}
 				}
-				if swapped {
-					values.swap(0, 1);
-				}
-				let end = values.pop().unwrap();
-				let start = values.pop().unwrap();
+				written.sort_by_key(|(i, _)| *i);
+				let [(_, start), (_, end)] = <[_; 2]>::try_from(written).expect("a range has two fields");
 				Some(range_of(ty, start, end, false))
 			}
 			ty::Adt(adt, _) if tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::RangeInclusiveStruct) => {
@@ -2512,52 +2507,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	fn adt_expr(&mut self, adt: &thir::AdtExpr<'tcx>, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
-		let tcx = self.t.tcx;
-		let def = adt.adt_def;
-		let variant = def.variant(adt.variant_index);
+	/// A struct expression's fields by index, in the order they evaluate: those written,
+	/// then those `..base` fills, read from the base after it.
+	pub fn written(
+		&mut self,
+		adt: &thir::AdtExpr<'tcx>,
+		ty: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<(usize, Expr)> {
 		let ids: Vec<ExprId> = adt.fields.iter().map(|f| f.expr).collect();
 		let mut values = self.operands(&ids, out);
-		if let Some(std) = library::Std::of(tcx, def.did()) {
-			return match (std, adt.variant_index.index()) {
-				(library::Std::Option, 0) | (library::Std::Poll, 1) => match std {
-					library::Std::Poll => Expr::Rt("Pending"),
-					_ => Expr::undefined(),
-				},
-				(library::Std::Option | library::Std::Poll, _) => values.pop().unwrap(),
-				(library::Std::Result, 0) => Expr::rt("Ok", values),
-				(library::Std::Result, _) => Expr::rt("Err", values),
-				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
-				(library::Std::Range, _) => {
-					let written = adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
-					let mut args: Vec<Expr> = self.declared(written, out).into_iter().map(|(_, v)| v).collect();
-					// A wide range steps past 2^53 through its type.
-					let ty::Adt(_, gargs) = ty.kind() else {
-						unreachable!("a range is a struct")
-					};
-					if let Some(int) = super::num::Int::of(gargs.type_at(0))
-						&& int.big()
-					{
-						args.push(Expr::Rt(int.rt()));
-					}
-					Expr::New(Box::new(Expr::Rt("Range")), args)
-				}
-				(library::Std::AssertKind, _) => match variant.name.as_str() {
-					"Eq" => Expr::Str("==".into()),
-					"Ne" => Expr::Str("!=".into()),
-					_ => self.err(span, format!("constructing `{ty}`")),
-				},
-				_ => self.err(span, format!("constructing `{ty}`")),
-			};
-		}
-		if !def.did().is_local() {
-			return self.err(span, format!("constructing `{ty}` from another crate"));
-		}
-		let info = self.t.adt(def, span);
 		let base = match &adt.base {
 			thir::AdtExprBase::None => None,
 			thir::AdtExprBase::Base(fru) if self.t.drops(self.ty_of(fru.base)) => {
-				return self.err(span, "struct update syntax from a value that drops");
+				self.t.err(span, "struct update syntax from a value that drops");
+				None
 			}
 			thir::AdtExprBase::Base(fru) => {
 				// The base is read after the fields, so earlier fields are saved first.
@@ -2574,26 +2539,78 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				out.extend(pre);
 				Some(self.path(base, fru.base, out))
 			}
-			thir::AdtExprBase::DefaultFields(_) => return self.err(span, "default field values are not supported"),
+			thir::AdtExprBase::DefaultFields(_) => {
+				self.t.err(span, "default field values are not supported");
+				None
+			}
 		};
+		let mut written: Vec<(usize, Expr)> = adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
+		if let Some(base) = base {
+			let variant = adt.adt_def.variant(adt.variant_index);
+			for (i, field) in variant.fields.iter_enumerated() {
+				if adt.fields.iter().any(|f| f.name == i) {
+					continue;
+				}
+				let field_ty = self.subst(field.ty(self.t.tcx, adt.args).skip_norm_wip());
+				let value = self.project(base.clone(), ty, adt.variant_index, i, span);
+				written.push((i.index(), self.copied(value, field_ty)));
+			}
+		}
+		written
+	}
+
+	fn adt_expr(&mut self, adt: &thir::AdtExpr<'tcx>, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let tcx = self.t.tcx;
+		let def = adt.adt_def;
+		let variant = def.variant(adt.variant_index);
+		let written = self.written(adt, ty, span, out);
+		if let Some(std) = library::Std::of(tcx, def.did()) {
+			let mut values: Vec<Expr> = self.declared(written, out).into_iter().map(|(_, v)| v).collect();
+			return match (std, adt.variant_index.index()) {
+				(library::Std::Option, 0) | (library::Std::Poll, 1) => match std {
+					library::Std::Poll => Expr::Rt("Pending"),
+					_ => Expr::undefined(),
+				},
+				(library::Std::Option | library::Std::Poll, _) => values.pop().unwrap(),
+				(library::Std::Result, 0) => Expr::rt("Ok", values),
+				(library::Std::Result, _) => Expr::rt("Err", values),
+				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(library::Std::RangeFull, _) => Expr::undefined(),
+				(library::Std::Range, _) => {
+					// A wide range steps past 2^53 through its type.
+					let ty::Adt(_, gargs) = ty.kind() else {
+						unreachable!("a range is a struct")
+					};
+					if let Some(int) = super::num::Int::of(gargs.type_at(0))
+						&& int.big()
+					{
+						values.push(Expr::Rt(int.rt()));
+					}
+					Expr::New(Box::new(Expr::Rt("Range")), values)
+				}
+				(library::Std::AssertKind, _) => match variant.name.as_str() {
+					"Eq" => Expr::Str("==".into()),
+					"Ne" => Expr::Str("!=".into()),
+					_ => self.err(span, format!("constructing `{ty}`")),
+				},
+				_ => self.err(span, format!("constructing `{ty}`")),
+			};
+		}
+		if !def.did().is_local() {
+			return self.err(span, format!("constructing `{ty}` from another crate"));
+		}
+		let info = self.t.adt(def, span);
 		match info.repr {
 			AdtRepr::Struct { ctor, fields } => {
-				// The fields in the order they evaluate: as written, then those the base fills.
-				let mut written: Vec<(usize, Expr)> = adt
-					.fields
-					.iter()
-					.zip(values)
-					.map(|(f, value)| (f.name.index(), field_arg(tcx, &variant.fields[f.name], value)))
+				let written: Vec<(usize, Expr)> = written
+					.into_iter()
+					.map(|(i, value)| {
+						(
+							i,
+							field_arg(tcx, &variant.fields[rustc_abi::FieldIdx::from_usize(i)], value),
+						)
+					})
 					.collect();
-				if let Some(base) = &base {
-					for (i, field) in variant.fields.iter().enumerate() {
-						if adt.fields.iter().any(|f| f.name.index() == i) {
-							continue;
-						}
-						let field_ty = self.subst(field.ty(tcx, adt.args).skip_norm_wip());
-						written.push((i, self.copied(base.clone().field(fields[i]), field_ty)));
-					}
-				}
 				match ctor {
 					ts::Ctor::Unit => self.t.construct(info.sym, &ts::Ctor::Unit, &fields, Vec::new()),
 					// A class takes its named fields as an object, which evaluates them as written.
@@ -2615,7 +2632,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			AdtRepr::Union => {
 				let mut props = vec![(Key::Name("tag".into()), Expr::Str(variant.name.to_string()))];
-				let written = adt.fields.iter().map(|f| f.name.index()).zip(values).collect();
 				for (i, value) in self.declared(written, out) {
 					let name = super::field_name(variant.fields[rustc_abi::FieldIdx::from_usize(i)].name.as_str(), i);
 					props.push((Key::Name(name), value));
