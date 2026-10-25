@@ -1108,6 +1108,11 @@ export class RangeInclusive<T> extends Iter<T> {
 		return this.hi;
 	}
 
+	/** Whether `end` is in the range, as `RangeBounds::end_bound` says: not once exhausted. */
+	endIncluded(): boolean {
+		return !this.exhausted;
+	}
+
 	isEmpty(): boolean {
 		return this.exhausted || lt(this.hi, this.lo);
 	}

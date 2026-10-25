@@ -38,9 +38,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Arc | Std::Waker) => true,
-				Some(Std::Option | Std::Result | Std::Box | Std::Vec | Std::Mutex | Std::Poll | Std::Pin) => {
-					args.types().any(|t| self.drops(t))
-				}
+				Some(
+					Std::Option
+					| Std::Result
+					| Std::Box
+					| Std::Vec
+					| Std::Mutex
+					| Std::Poll
+					| Std::Pin
+					| Std::HashMap
+					| Std::HashSet
+					| Std::BTreeMap
+					| Std::BTreeSet
+					| Std::VecDeque,
+				) => args.types().any(|t| self.drops(t)),
+				// An entry borrows its map, and holds only the key it was given.
+				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
 				Some(_) => false,
 				None if adt.did().is_local() => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
 				None => false,

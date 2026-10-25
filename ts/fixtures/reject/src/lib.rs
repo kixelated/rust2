@@ -435,3 +435,19 @@ pub fn copied_closure(n: u8) -> u8 {
 	let mut h = g;
 	g().wrapping_add(h())
 }
+
+/// Each value `clear` takes out would drop, which the runtime leaves to JS's collector.
+pub fn cleared(map: &mut std::collections::HashMap<u8, Noisy>) {
+	map.clear();
+}
+
+/// `get`'s `None` and `Some(&None)` would both be `undefined`.
+pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
+	map.get(&1).is_some()
+}
+
+/// A key the runtime has no `Hash` and `Eq` of.
+pub fn byte_keys() -> usize {
+	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
+	map.len()
+}

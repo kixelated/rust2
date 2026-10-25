@@ -50,6 +50,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					}),
+					Some(Std::Entry) => {
+						tests.push(super::collections::entry_test(*adt_def, *variant_index, scrut.clone()))
+					}
+					Some(Std::Ordering) => tests.push(
+						scrut
+							.clone()
+							.binary("===", super::collections::ordering_variant(*variant_index)),
+					),
 					None if adt_def.did().is_local() => {
 						let info = self.t.adt(*adt_def, pat.span);
 						let name = Expr::Str(adt_def.variant(*variant_index).name.to_string());

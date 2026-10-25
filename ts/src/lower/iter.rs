@@ -138,7 +138,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 				option_ok(b, args.type_at(0), span);
 				Some(rt_iter("option").call(vec![value]))
 			}
-			_ => None,
+			_ => super::collections::into_iter(b, ty, value),
 		},
 		_ => None,
 	}
@@ -453,6 +453,6 @@ fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, item: Ty<'tcx>, iter:
 					.call(vec![Expr::Lambda(vec![param], Box::new(values))]),
 			)
 		}
-		_ => None,
+		_ => super::collections::collect(b, ty, iter, span),
 	}
 }

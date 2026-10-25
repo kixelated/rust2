@@ -1,10 +1,11 @@
 //! The language the driver translates, exercised against native Rust: every integer
 //! width's arithmetic and casts, control flow, patterns, `Copy` aggregates, closures,
-//! traits, generic types, formatting, and the standard library calls it maps.
+//! traits, generic types, formatting, collections, and the standard library calls it maps.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
+mod collections;
 mod fmt;
 mod generics;
 pub mod harness;

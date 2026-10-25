@@ -219,7 +219,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Std::Range | Std::RangeInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
-				Some(Std::Context | Std::NonNull) => base,
+				Some(Std::Context | Std::NonNull | Std::Entry) => base,
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant, span),
 				_ if transparent(self.b.t, ty) => base,
 				None if adt.did().is_local() => {
@@ -394,6 +394,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index, span),
+					Some(Std::Entry) => crate::lower::collections::entry_test(*adt, index, scrut.clone()),
+					Some(Std::Ordering) => scrut
+						.clone()
+						.binary("===", crate::lower::collections::ordering_variant(index)),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}

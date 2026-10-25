@@ -51,8 +51,8 @@ Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.
 and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
-and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collections in
+`rt/collections.ts`, and ownership and async in `rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -68,6 +68,8 @@ and async in `rt/task.ts`.
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
 | an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
+| `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
+| `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
@@ -127,6 +129,15 @@ type by its own name, which a caller writes `Decoder.Decoder`, and a function wh
 and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
+
+A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
+number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
+finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
+`Eq`; a B-tree orders every key by its translated `Ord`. A hash map iterates in an order
+of the runtime's, mostly insertion order, which std leaves unspecified, as it does
+`DefaultHasher`'s values, which are the runtime's own too. So is how often the runtime
+calls a key's `Hash`, `Eq`, or `Ord`.
+Its iterators are `rt.Iter`s, so std's adaptors run over them.
 
 A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
 impl, an `Arc`'s count, or a waker. A variable drops at the end of its scope through a
@@ -200,6 +211,11 @@ they need.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
+- A `BTreeMap` is two sorted arrays, keys and values, which a binary search reads and a
+  splice changes, so an insert or removal is O(n) where std's is O(log n); no benchmark
+  covers it yet. A hash map's JS primitive keys are a JS `Map`'s, the engine's own hash
+  table; its other keys go into a second `Map` by their translated hash, chained by
+  `Eq`. `VecDeque` is a ring buffer over an array whose length is a power of two.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
@@ -232,8 +248,10 @@ These fail translation: floats, `char`, statics, async blocks that borrow a numb
 mutably and async closures, values that drop as temporaries not moved whole, in a
 closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, passed to
 a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
-moved ahead of an `.await` in the same call or assignment ([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
-a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
+moved ahead of an `.await` in the same call or assignment, or in a collection
+([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be `undefined`, as
+`()` and `Option` can, a collection's `capacity`, the adaptors without a mapping in
+`src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
 `impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
 let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
@@ -262,8 +280,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
-  that log what each adaptor reads. Its differential test runs through `caller.ts`, a
+  `Copy` aggregates, formatting, methods on generic types, iterators, with closures
+  that log what each adaptor reads, and std's collections, over keys whose own `Hash`,
+  `Eq`, and `Ord` disagree with JS's. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow.
