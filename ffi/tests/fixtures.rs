@@ -73,7 +73,15 @@ fn api() {
 
 	let c = run(&mut Command::new(&exe));
 	let native = run(cargo()
-		.args(["run", "--quiet", "--locked", "--package", "api-fixture", "--example", "transcript"])
+		.args([
+			"run",
+			"--quiet",
+			"--locked",
+			"--package",
+			"api-fixture",
+			"--example",
+			"transcript",
+		])
 		.current_dir(manifest_dir()));
 	assert_eq!(
 		String::from_utf8_lossy(&c.stdout),
@@ -86,7 +94,10 @@ fn api() {
 		("moved", "api_counter_get: a handle's value was moved out"),
 		("borrowed", "api_channel_clear: a handle is already borrowed"),
 		("utf8", "api_greet: a string is not UTF-8"),
-		("finished", "api_channel_recv_poll: a future is polled after it finished"),
+		(
+			"finished",
+			"api_channel_recv_poll: a future is polled after it finished",
+		),
 		("enum", "api_greet: an enum value is invalid"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();

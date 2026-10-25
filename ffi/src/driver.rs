@@ -9,8 +9,8 @@ use rustc_interface::interface::Compiler;
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Span;
 
-use crate::config::{self, Config};
 use crate::abi::Abi;
+use crate::config::{self, Config};
 use crate::{c, census, collect, glue};
 
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
@@ -114,7 +114,8 @@ impl Callbacks for Export {
 				}
 				for (path, count) in &collected.excluded {
 					if *count == 0 {
-						tcx.dcx().err(format!("rust2-ffi: exclude `{path}` names nothing exported"));
+						tcx.dcx()
+							.err(format!("rust2-ffi: exclude `{path}` names nothing exported"));
 					}
 				}
 				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);

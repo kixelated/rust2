@@ -20,7 +20,10 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 
 	let mut out = String::new();
 	let _ = writeln!(out, "# Export census of `{krate}`\n");
-	let _ = writeln!(out, "| Item | Exported | Refused | Share exported |\n| --- | ---: | ---: | ---: |");
+	let _ = writeln!(
+		out,
+		"| Item | Exported | Refused | Share exported |\n| --- | ---: | ---: | ---: |"
+	);
 	let mut row = |name: &str, exported: usize, refused: usize| {
 		let total = exported + refused;
 		let share = match total {
@@ -161,7 +164,7 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 }
 
 /// Groups by count, most first, then by key.
-fn ranked<'a, K: Ord, V>(groups: &'a BTreeMap<K, Vec<V>>) -> Vec<(&'a K, &'a Vec<V>)> {
+fn ranked<K: Ord, V>(groups: &BTreeMap<K, Vec<V>>) -> Vec<(&K, &Vec<V>)> {
 	let mut ranked: Vec<_> = groups.iter().collect();
 	ranked.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(b.0)));
 	ranked

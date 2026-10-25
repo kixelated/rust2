@@ -18,8 +18,8 @@ use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _
 
 use crate::config::Config;
 use crate::ir::{
-	Api, Callback, Constant, Dyn, Enum, Field, Function, Int, Literal, Mutability, Object, Param, Path, Receiver,
-	Record, Traits, Type, Variant,
+	Access, Api, Callback, Constant, Dyn, Enum, Field, Function, Int, Literal, Mutability, Object, Param, Path,
+	Receiver, Record, Traits, Type, Variant,
 };
 
 /// Why something is refused: a construct, ranked by the census, and what it names.
@@ -70,9 +70,8 @@ enum Decl {
 	Refused(Why),
 }
 
-struct Collector<'a, 'tcx> {
+struct Collector<'tcx> {
 	tcx: TyCtxt<'tcx>,
-	config: &'a Config,
 	/// Each `pub` item and its shortest path, in the order the walk met them.
 	items: Vec<(DefId, Path)>,
 	decls: rustc_data_structures::fx::FxHashMap<DefId, Decl>,
@@ -104,7 +103,6 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 		});
 	let mut c = Collector {
 		tcx,
-		config,
 		items: Vec::new(),
 		decls: Default::default(),
 		refusals: Vec::new(),
@@ -138,7 +136,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, exclude: &[String]) -> 
 	}
 }
 
-impl<'a, 'tcx> Collector<'a, 'tcx> {
+impl<'tcx> Collector<'tcx> {
 	/// Whether the config excludes `path`, counting the exclusion.
 	fn exclude(&mut self, path: &[String]) -> bool {
 		let joined = path.join("::");
@@ -217,7 +215,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					| DefKind::Union
 					| DefKind::Trait
 					| DefKind::Fn
-					| DefKind::Const { .. } => self.items.push((def_id, path)),
+					| DefKind::Const => self.items.push((def_id, path)),
 					_ => self.refuse(&path, "item", span, vec![why("item kind", format!("{kind:?}"))]),
 				}
 			}
@@ -249,7 +247,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 						false => self.object(def_id),
 					}
 				}
-				DefKind::Enum if tcx.adt_def(def_id).variants().is_empty() => Decl::Refused(why("enum without variants", "")),
+				DefKind::Enum if tcx.adt_def(def_id).variants().is_empty() => {
+					Decl::Refused(why("enum without variants", ""))
+				}
 				DefKind::Enum => Decl::Enum(0),
 				DefKind::Trait => Decl::Callback(0),
 				_ => continue,
@@ -446,10 +446,11 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 						Ok(function) => self.api.functions.push(function),
 						Err(why) => self.refuse(&path, "fn", span, why),
 					},
-					DefKind::Const { .. } => match self.constant(def_id) {
-						Ok(value) => self.api.constants.push(Constant { path, span, value }),
-						Err(why) => self.refuse(&path, "const", span, vec![why]),
-					},
+					DefKind::Const => {
+						if let Some(getter) = self.constant_item(def_id, path) {
+							self.api.functions.push(getter);
+						}
+					}
 					_ => {}
 				},
 			}
@@ -482,7 +483,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					ok: ty,
 					err: None,
 					future: false,
-					field: true,
+					access: Access::Field,
 				}),
 				Err(why) => self.refuse(&getter, "field", span, vec![why]),
 			}
@@ -497,7 +498,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 		let self_ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
 		for &imp in tcx.inherent_impls(def_id) {
 			for item in tcx.associated_items(imp).in_definition_order() {
-				let ty::AssocKind::Fn { name, .. } = item.kind else {
+				let (ty::AssocKind::Fn { name, .. } | ty::AssocKind::Const { name, .. }) = item.kind else {
 					continue;
 				};
 				if !tcx.visibility(item.def_id).is_public() {
@@ -512,9 +513,14 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					self.hidden.push(method.join("::"));
 					continue;
 				}
+				let span = tcx.def_span(item.def_id);
+				if let ty::AssocKind::Const { .. } = item.kind {
+					methods.extend(self.constant_item(item.def_id, method));
+					continue;
+				}
 				match self.function(item.def_id, method.clone(), Some(self_ty)) {
 					Ok(function) => methods.push(function),
-					Err(why) => self.refuse(&method, "method", tcx.def_span(item.def_id), why),
+					Err(why) => self.refuse(&method, "method", span, why),
 				}
 			}
 		}
@@ -522,14 +528,18 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 		let implements = |item| {
 			tcx.get_diagnostic_item(item).is_some_and(|tr| {
 				let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(env);
-				infcx.type_implements_trait(tr, [self_ty], env).must_apply_modulo_regions()
+				infcx
+					.type_implements_trait(tr, [self_ty], env)
+					.must_apply_modulo_regions()
 			})
 		};
 		let traits = Traits {
 			clone: implements(sym::Clone),
 			eq: tcx.lang_items().eq_trait().is_some_and(|tr| {
 				let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(env);
-				infcx.type_implements_trait(tr, [self_ty, self_ty], env).must_apply_modulo_regions()
+				infcx
+					.type_implements_trait(tr, [self_ty, self_ty], env)
+					.must_apply_modulo_regions()
 			}),
 			display: implements(sym::Display),
 			debug: implements(sym::Debug),
@@ -550,7 +560,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			let (clause, _) = clause.skip_norm_wip();
 			if let Some(trait_pred) = clause.as_trait_clause() {
 				let tr = trait_pred.def_id();
-				let auto = [sym::Send, sym::Sync].iter().any(|&item| tcx.is_diagnostic_item(item, tr))
+				let auto = [sym::Send, sym::Sync]
+					.iter()
+					.any(|&item| tcx.is_diagnostic_item(item, tr))
 					|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
 				if !auto {
 					errs.push(why("supertrait", tcx.def_path_str(tr)));
@@ -585,7 +597,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					}
 				}
 				// An `impl Trait` return's own type: the method refuses it.
-				ty::AssocKind::Type { data: ty::AssocTypeData::Rpitit(_) } => {}
+				ty::AssocKind::Type {
+					data: ty::AssocTypeData::Rpitit(_),
+				} => {}
 				ty::AssocKind::Type { .. } => errs.push(why("associated type", item.name().to_string())),
 				ty::AssocKind::Const { .. } => errs.push(why("associated const", item.name().to_string())),
 			}
@@ -601,10 +615,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 		let tcx = self.tcx;
 		let mut errs = Vec::new();
 		self.impls.borrow_mut().clear();
-		let args = match self.instantiate(def_id, self_ty) {
-			Ok(args) => args,
-			Err(why) => return Err(why),
-		};
+		let args = self.instantiate(def_id, self_ty)?;
 		let env = TypingEnv::post_analysis(tcx, def_id);
 		let sig = tcx.fn_sig(def_id).instantiate(tcx, args).skip_norm_wip();
 		let sig = tcx.instantiate_bound_regions_with_erased(sig);
@@ -614,7 +625,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 		};
 		let names = tcx.fn_arg_idents(def_id);
 		let has_self = matches!(tcx.def_kind(def_id), DefKind::AssocFn)
-			&& matches!(tcx.associated_item(def_id).kind, ty::AssocKind::Fn { has_self: true, .. });
+			&& matches!(
+				tcx.associated_item(def_id).kind,
+				ty::AssocKind::Fn { has_self: true, .. }
+			);
 		let mut inputs = sig.inputs().iter().copied().map(normalize).enumerate();
 		let receiver = match has_self {
 			false => None,
@@ -656,9 +670,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			future = true;
 		}
 		let (ok, err) = match output.kind() {
-			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
-				(self.ty(args.type_at(0), Pos::Return), Some(self.ty(args.type_at(1), Pos::Return)))
-			}
+			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => (
+				self.ty(args.type_at(0), Pos::Return),
+				Some(self.ty(args.type_at(1), Pos::Return)),
+			),
 			_ => (self.ty(output, Pos::Return), None),
 		};
 		let ok = ok.map_err(|why| errs.push(why)).ok();
@@ -679,7 +694,7 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				ok,
 				err,
 				future,
-				field: false,
+				access: Access::Call,
 			}),
 			_ => Err(errs),
 		}
@@ -707,7 +722,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				GenericArgKind::Type(param) => match self.choose(def_id, param) {
 					Ok(ty) => args[i] = ty.into(),
 					// The parameter stays, and `ty` maps it to the foreign implementation.
-					Err(Why { construct: "callback bound", .. }) if let Some(callback) = self.foreign(def_id, param) => {
+					Err(Why {
+						construct: "callback bound",
+						..
+					}) if let Some(callback) = self.foreign(def_id, param) => {
 						self.impls.borrow_mut().push((param, callback));
 					}
 					Err(why) => errs.push(why),
@@ -812,7 +830,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 				continue;
 			}
 			let tr = bound.def_id();
-			let met = [sym::Send, sym::Sync].iter().any(|&item| tcx.is_diagnostic_item(item, tr))
+			let met = [sym::Send, sym::Sync]
+				.iter()
+				.any(|&item| tcx.is_diagnostic_item(item, tr))
 				|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
 			match self.decls.get(&tr) {
 				Some(Decl::Callback(i)) if callback.is_none() => callback = Some(*i),
@@ -829,7 +849,10 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 		let future = tcx.lang_items().future_trait()?;
 		let output = tcx.lang_items().future_output()?;
 		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
-		if !infcx.type_implements_trait(future, [ty], param_env).must_apply_modulo_regions() {
+		if !infcx
+			.type_implements_trait(future, [ty], param_env)
+			.must_apply_modulo_regions()
+		{
 			return None;
 		}
 		let projection = Ty::new_projection(tcx, ty::IsRigid::No, output, [ty]);
@@ -843,7 +866,44 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 			return true;
 		};
 		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
-		infcx.type_implements_trait(send, [ty], param_env).must_apply_modulo_regions()
+		infcx
+			.type_implements_trait(send, [ty], param_env)
+			.must_apply_modulo_regions()
+	}
+
+	/// A constant: a C constant if a `bool` or integer, or else a function returning it,
+	/// which the caller adds.
+	fn constant_item(&mut self, def_id: DefId, path: Path) -> Option<Function> {
+		let tcx = self.tcx;
+		let span = tcx.def_span(def_id);
+		let why = match self.constant(def_id) {
+			Ok(value) => {
+				self.api.constants.push(Constant { path, span, value });
+				return None;
+			}
+			Err(why) => why,
+		};
+		let ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+		if why.construct != "constant type" {
+			self.refuse(&path, "const", span, vec![why]);
+			return None;
+		}
+		match self.ty(ty, Pos::Return) {
+			Ok(ok) => Some(Function {
+				path,
+				span,
+				receiver: None,
+				params: Vec::new(),
+				ok,
+				err: None,
+				future: false,
+				access: Access::Const,
+			}),
+			Err(why) => {
+				self.refuse(&path, "const", span, vec![why]);
+				None
+			}
+		}
 	}
 
 	/// A constant's value, if it is a `bool` or integer.
@@ -900,7 +960,9 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 					// Returned as a copy: plain data reads the same either way.
 					// Returned as a copy: plain data reads the same either way, and so does a
 					// `Copy` handle's value.
-					(Type::Object(_), Pos::Return, _) if !tcx.type_is_copy_modulo_regions(TypingEnv::fully_monomorphized(), *inner) => {
+					(Type::Object(_), Pos::Return, _)
+						if !tcx.type_is_copy_modulo_regions(TypingEnv::fully_monomorphized(), *inner) =>
+					{
 						return Err(why("borrowed object return", inner.to_string()));
 					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
@@ -960,7 +1022,11 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
 						Some(Decl::Object(i)) => Type::Object(*i),
 						Some(Decl::Refused(_)) => return Err(why("refused type", tcx.def_path_str(did))),
 						Some(Decl::Callback(_)) | None => {
-							let construct = self.left_out.get(&did).copied().unwrap_or("type not reachable from the crate root");
+							let construct = self
+								.left_out
+								.get(&did)
+								.copied()
+								.unwrap_or("type not reachable from the crate root");
 							return Err(why(construct, tcx.def_path_str(did)));
 						}
 					}
@@ -1072,7 +1138,9 @@ fn implements(tcx: TyCtxt<'_>, def_id: DefId, item: rustc_span::Symbol) -> bool 
 	let Some(tr) = tcx.get_diagnostic_item(item) else {
 		return false;
 	};
-	let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
+	let (infcx, env) = tcx
+		.infer_ctxt()
+		.build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
 }
 

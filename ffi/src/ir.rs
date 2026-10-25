@@ -110,9 +110,19 @@ pub struct Function {
 	pub err: Option<Type>,
 	/// Whether it returns a future: an `async fn`, or a value that implements `Future`.
 	pub future: bool,
-	/// Whether it reads a `pub` field of its receiver, named as the function is, rather
-	/// than calling a method.
-	pub field: bool,
+	/// What it reads: Rust's function, or a field or constant named as it is.
+	pub access: Access,
+}
+
+/// What an exported function reads.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Access {
+	/// It calls the function.
+	Call,
+	/// It reads a `pub` field of its receiver.
+	Field,
+	/// It reads a constant that is not a `bool` or integer.
+	Const,
 }
 
 impl Function {

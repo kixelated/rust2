@@ -24,12 +24,14 @@ check:
     cargo fmt --all --check
     cargo clippy --locked --workspace --all-targets -- -D warnings
     just ts check
+    just ffi check
     just uniffi check
 
 # Run the tests.
 test:
     bash .claude/hooks/direnv.test.sh
     just ts test
+    just ffi test
     just uniffi test
 
 # Measure Rust build time on the pinned corpus; see bench/build/README.md.
@@ -43,3 +45,4 @@ fix:
     nixfmt flake.nix
     cargo fmt --all
     just ts fix
+    just ffi fix

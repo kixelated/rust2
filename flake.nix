@@ -60,7 +60,16 @@
               {
                 pname = "rust2-ts";
                 version = "0.0.0";
-                src = ./ts;
+                # With the driver front end it shares, which it depends on by path.
+                src = pkgs.lib.fileset.toSource {
+                  root = ./.;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./ts
+                    ./driver
+                  ];
+                };
+                buildAndTestSubdir = "ts";
+                cargoRoot = "ts";
                 cargoLock.lockFile = ./ts/Cargo.lock;
                 cargoBuildFlags = [
                   "--package"

@@ -70,11 +70,7 @@ fn main() {
 
 	println!("{}", api_fixture::greet("x", Shape::Square));
 	println!("len {}", api_fixture::len(b"abc"));
-	for event in [
-		Event::Moved(p),
-		Event::Named { name: "n".to_string() },
-		Event::Done,
-	] {
+	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_fixture::describe(&event));
 	}
 

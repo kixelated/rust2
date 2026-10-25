@@ -161,7 +161,13 @@ fn run_cargo(cmd: &mut Command) -> Result<(), String> {
 /// The directory of the workspace `manifest` belongs to.
 fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
 	let output = cargo()
-		.args(["locate-project", "--workspace", "--message-format", "plain", "--manifest-path"])
+		.args([
+			"locate-project",
+			"--workspace",
+			"--message-format",
+			"plain",
+			"--manifest-path",
+		])
 		.arg(manifest)
 		.output()
 		.map_err(|err| format!("running cargo: {err}"))?;

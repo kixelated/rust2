@@ -10,7 +10,7 @@ use std::fmt::Write;
 use std::path::Path;
 
 use crate::abi::{self, Abi, Ty};
-use crate::ir::{Function, Mutability, Receiver, Traits, Type};
+use crate::ir::{Access, Function, Mutability, Receiver, Traits, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.rs");
 
@@ -80,10 +80,7 @@ impl Crate<'_> {
 		crate::driver::write(&out.join("Cargo.toml"), &manifest)?;
 		crate::driver::write(&out.join("src/lib.rs"), &generator.out)?;
 		crate::driver::write(&out.join("src/rt.rs"), RUNTIME)?;
-		crate::driver::write(
-			&out.join("include").join(format!("{}.h", self.abi.prefix)),
-			self.header,
-		)
+		crate::driver::write(&out.join("include").join(format!("{}.h", self.abi.prefix)), self.header)
 	}
 }
 
@@ -140,10 +137,7 @@ impl Gen<'_> {
 			Type::Bytes => format!("::bytes::Bytes::copy_from_slice(unsafe {{ {e}.bytes(w) }})"),
 			Type::Duration => format!("{e}.lift(w)"),
 			Type::Option(inner) => match inner.base() {
-				Type::Object(_) => format!(
-					"if {e}.is_null() {{ None }} else {{ Some({}) }}",
-					self.lift(inner, e)
-				),
+				Type::Object(_) => format!("if {e}.is_null() {{ None }} else {{ Some({}) }}", self.lift(inner, e)),
 				base if Abi::is_buf(base) => {
 					format!("if {e}.is_none() {{ None }} else {{ Some({}) }}", self.lift(inner, e))
 				}
@@ -219,7 +213,10 @@ impl Gen<'_> {
 					.map(|free| format!("if {e}.some {{ {free} }}")),
 			},
 			Type::Box(inner) => self.free(inner, e),
-			Type::Object(i) => Some(format!("unsafe {{ rt::Object::<{}>::free({e}) }};", self.object_path(*i))),
+			Type::Object(i) => Some(format!(
+				"unsafe {{ rt::Object::<{}>::free({e}) }};",
+				self.object_path(*i)
+			)),
 			Type::Record(i) if self.owns(ty) => Some(format!("free_{}({e});", self.abi.record(*i))),
 			Type::Enum(i) if self.owns(ty) => Some(format!("free_{}({e});", self.abi.enumeration(*i))),
 			_ => None,
@@ -274,8 +271,7 @@ impl Gen<'_> {
 		for i in 0..api.callbacks.len() {
 			self.callback(i);
 		}
-		for i in 0..api.objects.len() {
-			let object = &api.objects[i];
+		for (i, object) in api.objects.iter().enumerate() {
 			let name = self.abi.object(i);
 			let path = self.object_path(i);
 			self.line(format!(
@@ -614,7 +610,13 @@ impl Gen<'_> {
 				.map(|(n, p)| format!("p{n}: {}", rust(&p.ty)))
 				.collect();
 			let args: Vec<String> = std::iter::once("self.0.data".to_string())
-				.chain(method.params.iter().enumerate().map(|(n, p)| self.view(&p.ty, &format!("p{n}"))))
+				.chain(
+					method
+						.params
+						.iter()
+						.enumerate()
+						.map(|(n, p)| self.view(&p.ty, &format!("p{n}"))),
+				)
 				.collect();
 			let _ = write!(
 				methods,
@@ -784,9 +786,10 @@ impl Gen<'_> {
 			}
 			None => self.path(&function.path),
 		};
-		let call = match function.field {
-			true => format!("&({}).{}", args[0], function.name()),
-			false => format!("{callee}({})", args.join(", ")),
+		let call = match function.access {
+			Access::Call => format!("{callee}({})", args.join(", ")),
+			Access::Field => format!("&({}).{}", args[0], function.name()),
+			Access::Const => callee,
 		};
 		let body = stmts.join("\n\t");
 		if let Some((_, poll, free)) = &export.future {

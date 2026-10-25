@@ -126,9 +126,17 @@ impl Header<'_> {
 			let mut table = vec!["\tvoid (*free)(void *data);".to_string()];
 			for method in &callback.methods {
 				let params: Vec<String> = std::iter::once("void *data".to_string())
-					.chain(method.params.iter().map(|p| self.decl(&abi.ty(&p.ty), &abi::escape(&p.name))))
+					.chain(
+						method
+							.params
+							.iter()
+							.map(|p| self.decl(&abi.ty(&p.ty), &abi::escape(&p.name))),
+					)
 					.collect();
-				let decl = self.decl(&abi.ty(&method.ok), &format!("(*{})({})", method.name(), params.join(", ")));
+				let decl = self.decl(
+					&abi.ty(&method.ok),
+					&format!("(*{})({})", method.name(), params.join(", ")),
+				);
 				table.push(format!("\t{decl};"));
 			}
 			self.line(format!(
@@ -221,7 +229,9 @@ impl Header<'_> {
 			let inner = abi.ty(inner);
 			self.value(&inner);
 			let value = self.decl(&inner, "value");
-			self.line(format!("typedef struct {name} {{\n\tbool some;\n\t{value};\n}} {name};\n"));
+			self.line(format!(
+				"typedef struct {name} {{\n\tbool some;\n\t{value};\n}} {name};\n"
+			));
 			return;
 		}
 		if let Some(i) = (0..abi.api.records.len()).find(|&i| &abi.record(i) == name) {
@@ -250,7 +260,10 @@ impl Header<'_> {
 			.enumerate()
 			.map(|(n, v)| format!("\t{upper}_{} = {n},", abi::snake(&v.name).to_uppercase()))
 			.collect();
-		self.line(format!("typedef enum {name}_tag {{\n{}\n}} {name}_tag;\n", tags.join("\n")));
+		self.line(format!(
+			"typedef enum {name}_tag {{\n{}\n}} {name}_tag;\n",
+			tags.join("\n")
+		));
 		let mut members = Vec::new();
 		for variant in e.variants.iter().filter(|v| !v.fields.is_empty()) {
 			let payload = format!("{name}_{}", abi::snake(&variant.name));
@@ -264,7 +277,10 @@ impl Header<'_> {
 				.zip(&fields)
 				.map(|(f, ty)| format!("\t{};", self.decl(ty, &abi::escape(&f.name))))
 				.collect();
-			self.line(format!("typedef struct {payload} {{\n{}\n}} {payload};\n", decls.join("\n")));
+			self.line(format!(
+				"typedef struct {payload} {{\n{}\n}} {payload};\n",
+				decls.join("\n")
+			));
 			members.push(format!("\t\t{payload} {};", abi::escape(&abi::snake(&variant.name))));
 		}
 		self.line(format!(

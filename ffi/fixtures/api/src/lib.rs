@@ -223,10 +223,7 @@ pub trait Log: Send + Sync {
 
 /// Each line to `log` as a type parameter takes it, returning how many it kept.
 pub fn emit(log: impl Log, lines: Vec<u8>) -> u32 {
-	lines
-		.iter()
-		.filter(|&&n| log.log(n, &format!("line {n}")))
-		.count() as u32
+	lines.iter().filter(|&&n| log.log(n, &format!("line {n}"))).count() as u32
 }
 
 /// Holds a foreign implementation as a trait object, dropping it with itself.

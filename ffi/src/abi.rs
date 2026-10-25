@@ -35,7 +35,10 @@ pub enum Ty {
 	/// A plain enum, passed as its C enum, which is an `int`.
 	Enum(String),
 	/// A handle: `const` when only borrowed.
-	Handle { name: String, constant: bool },
+	Handle {
+		name: String,
+		constant: bool,
+	},
 	/// A future's handle.
 	Future(String),
 	/// `<prefix>_waker`
@@ -211,7 +214,8 @@ impl<'a> Abi<'a> {
 				Ty::Handle { name, .. } => Ty::Handle {
 					name: name.clone(),
 					constant: receiver == Receiver::Ref
-						|| (receiver == Receiver::Owned && self.api.objects.iter().any(|o| o.copy && &self.name(&o.path) == name)),
+						|| (receiver == Receiver::Owned
+							&& self.api.objects.iter().any(|o| o.copy && &self.name(&o.path) == name)),
 				},
 				// A value's receiver is read through a pointer, and never changed.
 				value => Ty::In(Box::new(value.clone())),
@@ -323,7 +327,11 @@ impl<'a> Abi<'a> {
 			let what = format!("enum `{}`", e.path.join("::"));
 			let upper = name.to_uppercase();
 			for variant in &e.variants {
-				self.claim(format!("{upper}_{}", snake(&variant.name).to_uppercase()), what.clone(), e.span);
+				self.claim(
+					format!("{upper}_{}", snake(&variant.name).to_uppercase()),
+					what.clone(),
+					e.span,
+				);
 				types.extend(variant.fields.iter().map(|f| &f.ty));
 			}
 			let plain = e.plain();
@@ -396,7 +404,7 @@ impl<'a> Abi<'a> {
 				_ => {}
 			}
 		}
-		for (name, _) in &options {
+		for name in options.keys() {
 			self.claim(name.clone(), "an option".to_string(), crate_span);
 		}
 		self.options = options;

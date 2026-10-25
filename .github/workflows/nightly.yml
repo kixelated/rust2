@@ -97,6 +97,36 @@ jobs:
       - name: Summary
         run: cat ts/target/bench/report.md >> "$GITHUB_STEP_SUMMARY"
 
+  ffi:
+    name: Export moq-net to C
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      # moq-net's pub API at the pinned moq revision, exported, built, and driven from C.
+      - name: Export
+        run: nix develop --command just ffi moq
+
+      # What exports, and every refusal, ranked.
+      - name: Census
+        run: nix develop --command just ffi census
+
+      - name: Summarize
+        run: awk '/^## Refused items/ { exit } { print }' ffi/target/census/moq-net.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ffi-census
+          path: ffi/target/census
+
   census:
     name: Census moq-net and kio
     runs-on: ubuntu-24.04-arm
