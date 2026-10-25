@@ -10,6 +10,7 @@ type Workloads = { name: string; op: Workload["op"]; items: number; input: strin
 export interface Config {
 	sampleMs: number;
 	rounds: number;
+	seed: number;
 	workloads: Workloads;
 	/** The async handoff's, on the task fixture. */
 	handoffs: Workloads;

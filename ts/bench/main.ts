@@ -3,7 +3,7 @@
 //
 // usage: bun main.ts --translated <dir> --wasm <file> --native <bin> --moq <checkout>
 //                    --moq-wasm <dir> --task <dir> --task-wasm <file> --task-native <bin>
-//                    --out <dir> [--sample-ms 10] [--rounds 15] [--route <name>=<dir>]
+//                    --out <dir> [--sample-ms 10] [--rounds 15] [--seed <u32>] [--route <name>=<dir>]
 //
 // The task fixture's async handoff runs beside the codec, against moq's way with promises.
 // `--route` times the translations in another run's `--out` as one more route, for A/B runs.
@@ -36,6 +36,7 @@ const { values: args } = parseArgs({
 		out: { type: "string" },
 		"sample-ms": { type: "string", default: "10" },
 		rounds: { type: "string", default: "15" },
+		seed: { type: "string" },
 		route: { type: "string" },
 	},
 	strict: true,
@@ -49,6 +50,9 @@ const checkout = arg("moq");
 const out = arg("out");
 const sampleMs = Number(args["sample-ms"]);
 const rounds = Number(args.rounds);
+// Each run orders its rounds anew unless `--seed` replays one.
+const seed = args.seed === undefined ? crypto.getRandomValues(new Uint32Array(1))[0] : Number(args.seed);
+if (!Number.isInteger(seed) || seed < 0 || seed >= 2 ** 32) throw new Error(`--seed takes a u32, not ${args.seed}`);
 
 const codecRoutes = ["native", "wasm", "wasm copy-in", "wasm copy-out", "hand-written", "translated", "A/A"];
 const handoffRoutes = ["native", "wasm", "hand-written", "translated", "spawned", "A/A"];
@@ -170,6 +174,7 @@ const handoffList = handoffs();
 const config: Config = {
 	sampleMs,
 	rounds,
+	seed,
 	workloads: list.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
 	handoffs: handoffList.map((w) => ({ name: w.name, op: w.op, items: w.items, input: hex(w.input) })),
 	route: extra?.name,
@@ -283,7 +288,7 @@ for (const run of [() => script("node"), () => script(process.execPath), chrome]
 
 const report = render();
 await Bun.write(join(out, "report.md"), report);
-await Bun.write(join(out, "report.json"), JSON.stringify({ native: host, engines, sizes, taskSizes }, null, "\t"));
+await Bun.write(join(out, "report.json"), JSON.stringify({ seed, native: host, engines, sizes, taskSizes }, null, "\t"));
 console.log(report);
 
 function render(): string {
@@ -300,8 +305,9 @@ function render(): string {
 		...engines.map((e) => `- ${e.engine}`),
 		"",
 		"Each cell is nanoseconds per item (a varint, a frame header, a message, or a byte iterated): the median",
-		`of ${rounds} samples of at least ${sampleMs} ms, ± half their interquartile range. Each round interleaves`,
-		"every route and workload. `native` is a release build on the host. `wasm` is the same",
+		`of ${rounds} samples of at least ${sampleMs} ms, ± half their interquartile range. Each round runs`,
+		`the JS routes and workloads in a new random order, from seed ${seed}. \`native\` is a release`,
+		"build on the host, its workloads in a fixed order. `wasm` is the same",
 		"Rust at moq-wasm's size-optimized profile, run with its input already in memory;",
 		"copying the input in and the output out are timed apart. `hand-written` is moq's",
 		"`js/net`, called as its own benchmarks call it, and for `iter/` the same chain with ES",
