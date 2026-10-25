@@ -134,10 +134,15 @@ name = "reject-fixture"
 version = "0.0.0"
 
 [[package]]
+name = "rust2-driver"
+version = "0.0.0"
+
+[[package]]
 name = "rust2-ts"
 version = "0.0.0"
 dependencies = [
  "oxc_sourcemap",
+ "rust2-driver",
  "serde",
  "toml",
 ]

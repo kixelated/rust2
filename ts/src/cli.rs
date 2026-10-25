@@ -1,7 +1,7 @@
 //! The command line: run cargo on the configured package with this binary as rustc.
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::path::Path;
+use std::process::ExitCode;
 
 use crate::config::{self, Config};
 
@@ -49,7 +49,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 					"--census" => &mut census,
 					_ => &mut manifest,
 				};
-				*slot = Some(absolute(Path::new(value))?);
+				*slot = Some(rust2_driver::cargo::absolute(Path::new(value))?);
 			}
 			"--" => {
 				cargo_args = rest;
@@ -76,77 +76,16 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 			.expect("an absolute file path has a parent")
 			.join("Cargo.toml"),
 	};
-	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
-	let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
-		Some(dir) => PathBuf::from(dir),
-		// Apart from the workspace's own builds, which a different rustc would invalidate.
-		None => workspace_root(&manifest)?.join("target").join("rust2-ts"),
-	};
-
-	let package_dir = manifest.parent().expect("a manifest path has a parent").to_path_buf();
-	let cargo = |subcommand: &str| {
-		let mut cmd = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
-		// Cargo reads its config from where it runs, so run where the package is.
-		cmd.current_dir(&package_dir);
-		cmd.arg(subcommand)
-			.arg("--manifest-path")
-			.arg(&manifest)
-			.arg("--package")
-			.arg(&config.package)
-			.arg("--target")
-			.arg(TARGET)
-			.arg("--target-dir")
-			.arg(&target_dir);
-		cmd
-	};
-
-	// Cargo can't tell the TypeScript is stale, so the package always recompiles.
-	run_cargo(cargo("clean").arg("--quiet"))?;
-	let status = cargo("check")
-		.arg("--lib")
-		.args(cargo_args)
-		.env("RUSTC_WRAPPER", &exe)
-		.env(config::env::CONFIG, &config_path)
-		.env(output_env, &output)
-		.status()
-		.map_err(|err| format!("running cargo: {err}"))?;
-	Ok(match status.success() {
-		true => ExitCode::SUCCESS,
-		false => ExitCode::FAILURE,
-	})
-}
-
-fn run_cargo(cmd: &mut Command) -> Result<(), String> {
-	let status = cmd.status().map_err(|err| format!("running cargo: {err}"))?;
-	match status.success() {
-		true => Ok(()),
-		false => Err(format!("{cmd:?} failed")),
+	rust2_driver::cargo::Check {
+		tool: "rust2-ts",
+		manifest: &manifest,
+		package: &config.package,
+		target: Some(TARGET),
+		args: cargo_args,
+		env: &[
+			(config::env::CONFIG, config_path.as_os_str()),
+			(output_env, output.as_os_str()),
+		],
 	}
-}
-
-fn absolute(path: &Path) -> Result<PathBuf, String> {
-	std::path::absolute(path).map_err(|err| format!("resolving {}: {err}", path.display()))
-}
-
-/// The directory of the workspace `manifest` belongs to.
-fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
-	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
-		.args([
-			"locate-project",
-			"--workspace",
-			"--message-format",
-			"plain",
-			"--manifest-path",
-		])
-		.arg(manifest)
-		.output()
-		.map_err(|err| format!("running cargo: {err}"))?;
-	if !output.status.success() {
-		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-	}
-	let root = String::from_utf8(output.stdout).map_err(|_| "cargo printed a non-UTF-8 path".to_string())?;
-	Ok(Path::new(root.trim())
-		.parent()
-		.expect("a manifest path has a parent")
-		.to_path_buf())
+	.run()
 }
