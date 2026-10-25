@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 77
-- Function instances: 67
+- Refusals: 79
+- Function instances: 69
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -10,15 +10,16 @@
 | ---: | --- | --- |
 | 6 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
 | 4 | replacing the `_` behind a reference, whose JS object is shared or private | fixtures/reject/src/lib.rs:225:2 |
+| 4 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:168:17 |
 | 4 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 3 | a `_` binding: a JS value of `_` is a copy, so it can't change | fixtures/reject/src/lib.rs:19:13 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:371:4 |
 | 3 | dropping `_`, which is not supported yet | fixtures/reject/src/lib.rs:66:31 |
-| 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:168:17 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
 | 2 | a `for` loop over values that drop, which is not supported yet | fixtures/reject/src/lib.rs:76:6 |
 | 2 | a `match` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:217:2 |
+| 2 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:149:18 |
 | 2 | a field of a temporary that drops: bind it to a variable first | fixtures/reject/src/lib.rs:62:2 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:309:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:289:2 |
@@ -34,7 +35,6 @@
 | 1 | a cast to `_` | fixtures/reject/src/lib.rs:179:2 |
 | 1 | a closure of type `_` | fixtures/reject/src/lib.rs:121:10 |
 | 1 | a closure that captures a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:68:23 |
-| 1 | a closure that copies a mutable variable | fixtures/reject/src/lib.rs:149:18 |
 | 1 | a method that takes `self` by value that drops, which is not supported yet | fixtures/reject/src/lib.rs:51:20 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:411:13 |
 | 1 | a mutable reference to `_`, which is no object it can change in place | fixtures/reject/src/lib.rs:144:17 |
@@ -81,6 +81,7 @@ The type or module each refused type or path belongs to.
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:363:1 |
 | 1 | `Poll` | fixtures/reject/src/lib.rs:229:20 |
 | 1 | `Slot` | fixtures/reject/src/lib.rs:93:1 |
+| 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:431:45 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:322:51 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:330:8 |
@@ -128,6 +129,7 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `std::option::Option`, `Option::unwrap_or` | fixtures/reject/src/lib.rs:400:4 |
 | 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::Arc` | fixtures/reject/src/lib.rs:225:2 |
 | 1 | replacing the `_` behind a reference, whose JS object is shared or private | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:271:2 |
+| 1 | replacing the value behind a reference to `_` | `[u8; 1]` | fixtures/reject/src/lib.rs:431:45 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:276:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:144:10 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:330:8 |
@@ -156,6 +158,15 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:261:2: replacing the `std::pin::Pin<std::sync::Arc<u8>>` behind a reference, whose JS object is shared or private
 - fixtures/reject/src/lib.rs:271:2: replacing the `std::sync::MutexGuard<'_, u8>` behind a reference, whose JS object is shared or private
 - fixtures/reject/src/lib.rs:419:2: replacing the `std::pin::Pin<&mut Noisy>` behind a reference, whose JS object is shared or private
+
+</details>
+
+<details><summary>replacing the value behind a reference to `_` (4)</summary>
+
+- fixtures/reject/src/lib.rs:168:17: replacing the value behind a reference to `Meters`
+- fixtures/reject/src/lib.rs:168:20: replacing the value behind a reference to `Meters`
+- fixtures/reject/src/lib.rs:172:25: replacing the value behind a reference to `Meters`
+- fixtures/reject/src/lib.rs:431:45: replacing the value behind a reference to `[u8; 1]`
 
 </details>
 
@@ -200,14 +211,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>replacing the value behind a reference to `_` (3)</summary>
-
-- fixtures/reject/src/lib.rs:168:17: replacing the value behind a reference to `Meters`
-- fixtures/reject/src/lib.rs:168:20: replacing the value behind a reference to `Meters`
-- fixtures/reject/src/lib.rs:172:25: replacing the value behind a reference to `Meters`
-
-</details>
-
 <details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (2)</summary>
 
 - fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
@@ -226,6 +229,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:217:2: a `match` on a temporary that drops, which it doesn't move out of whole
 - fixtures/reject/src/lib.rs:252:16: a `match` on a temporary that drops, which it doesn't move out of whole
+
+</details>
+
+<details><summary>a closure that copies a mutable variable (2)</summary>
+
+- fixtures/reject/src/lib.rs:149:18: a closure that copies a mutable variable
+- fixtures/reject/src/lib.rs:439:3: a closure that copies a mutable variable
 
 </details>
 
@@ -319,12 +329,6 @@ The type or module each refused type or path belongs to.
 <details><summary>a closure that captures a value that drops, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:68:23: a closure that captures a value that drops, which is not supported yet
-
-</details>
-
-<details><summary>a closure that copies a mutable variable (1)</summary>
-
-- fixtures/reject/src/lib.rs:149:18: a closure that copies a mutable variable
 
 </details>
 

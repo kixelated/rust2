@@ -249,7 +249,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
-  and its expected census is `census.md`.
+  those from MIR `expected-mir.txt`, and its expected census is `census.md`.
 
 The codec, lang, and task fixtures also run their differential tests from MIR
 (`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.

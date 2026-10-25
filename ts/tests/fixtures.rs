@@ -56,12 +56,17 @@ fn translated(name: &str) -> PathBuf {
 	out
 }
 
-/// Translate a fixture with bodies lowered from MIR, the spike's prototype.
-fn translated_mir(name: &str) -> PathBuf {
+/// Run the driver on a fixture with bodies lowered from MIR, the spike's prototype.
+fn translate_mir(name: &str) -> (PathBuf, Output) {
 	let out = scratch().join(name).join("mir");
 	let config = fixture(name).join("ts.toml");
 	let args: [&std::ffi::OsStr; 4] = ["--out".as_ref(), out.as_ref(), "--lower".as_ref(), "mir".as_ref()];
 	let output = driver(name, &config, &args, "mir");
+	(out, output)
+}
+
+fn translated_mir(name: &str) -> PathBuf {
+	let (out, output) = translate_mir(name);
 	assert!(
 		output.status.success(),
 		"translating {name} from MIR failed:\n{}",
@@ -374,6 +379,18 @@ fn unwinding(out: &Path, entry: &str, scripts: u32) {
 #[test]
 fn reject() {
 	let (out, output) = translate("reject");
+	rejected(&out, &output, "expected.txt");
+}
+
+/// What lowering from MIR refuses in the same fixture.
+#[test]
+fn reject_mir() {
+	let (out, output) = translate_mir("reject");
+	rejected(&out, &output, "expected-mir.txt");
+}
+
+/// The errors of a failed translation, each with where it points, against `expected`.
+fn rejected(out: &Path, output: &Output, expected: &str) {
 	assert!(!output.status.success(), "translating reject succeeded");
 	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
 	let stderr = String::from_utf8_lossy(&output.stderr);
@@ -389,7 +406,7 @@ fn reject() {
 			got.push('\n');
 		}
 	}
-	let path = fixture("reject").join("expected.txt");
+	let path = fixture("reject").join(expected);
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;

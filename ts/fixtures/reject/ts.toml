@@ -54,6 +54,8 @@ roots = [
     "rest_mut",
     "replace_pinned_ref",
     "repeated",
+    "replace_captured",
+    "copied_closure",
     "missing",
 ]
 printable = ["Meters"]

@@ -248,6 +248,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+				if changes_captures(ty) {
+					return self.err(span, "a copy of a closure that changes what it captured");
+				}
 				let value = self.place_expr(*place, span, out);
 				match self.force_share || self.into_frozen && self.frozen(*place) {
 					true => value,
@@ -588,6 +591,21 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 		path.as_slice(),
 		["future", "ResumeTy"] | ["ptr", "non_null", "NonNull"] | ["future", _, "ResumeTy"]
 	)
+}
+
+/// Whether `ty` holds an `FnMut` closure by value: a copy of its arrow function shares
+/// the variables it captured, which in Rust each copy has its own of.
+fn changes_captures(ty: Ty<'_>) -> bool {
+	match ty.kind() {
+		ty::Closure(_, args) => {
+			let closure = args.as_closure();
+			closure.kind() == ty::ClosureKind::FnMut || closure.upvar_tys().iter().any(changes_captures)
+		}
+		ty::Tuple(tys) => tys.iter().any(changes_captures),
+		ty::Array(t, _) => changes_captures(*t),
+		ty::Adt(_, args) => args.types().any(changes_captures),
+		_ => false,
+	}
 }
 
 /// Whether the JS object of a `ty` is shared or private, so that copying fields into it
