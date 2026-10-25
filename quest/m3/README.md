@@ -11,3 +11,4 @@ each a measurement that decides whether its follow-up lands.
 - [Steadier edit numbers](/quest/m3/bench-edit-noise.md) - moq's edit scenarios compare night to night within a few percent
 - [Body edits](/quest/m3/bench-body-edit.md) - moq edits that change a called sync and async body in moq-net, which ra-jit and relinking can skip work on
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
+- [What macros cost moq](/quest/m3/macro-cost.md) - report expansion's share of moq's builds and which levers cut it
