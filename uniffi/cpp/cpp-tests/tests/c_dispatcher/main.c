@@ -113,10 +113,10 @@ int main(void) {
 
     /* A pending future calls back once woken and drained. */
     memset(&r, 0, sizeof r);
-    r.task = capi_store_next(store, on_next, &r);
+    r.task = capi_store_method_next(store, on_next, &r);
     drain();
     CHECK(r.calls == 0);
-    capi_store_push(store, 11);
+    capi_store_method_push(store, 11);
     CHECK(r.calls == 0);
     drain();
     CHECK(r.calls == 1 && r.error == NULL && r.value == 11);
@@ -124,7 +124,7 @@ int main(void) {
 
     /* Freeing a pending task drops the Rust future, and its callback never runs. */
     memset(&r, 0, sizeof r);
-    r.task = capi_store_wait_forever(store, on_wait, &r);
+    r.task = capi_store_method_wait_forever(store, on_wait, &r);
     CHECK(capi_pending_count() == 1);
     capi_task_free(r.task);
     drain();
@@ -165,10 +165,10 @@ int main(void) {
 
     /* Shutdown drains through the host, then no call calls back. */
     memset(&r, 0, sizeof r);
-    r.task = capi_store_next(store, on_next, &r);
+    r.task = capi_store_method_next(store, on_next, &r);
     capi_shutdown_dispatcher();
     CHECK(shutdowns == 1);
-    capi_store_push(store, 5);
+    capi_store_method_push(store, 5);
     CHECK(queued == 0);
     CHECK(r.calls == 0);
     capi_task_free(r.task);

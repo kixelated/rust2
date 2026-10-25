@@ -14,3 +14,7 @@
   style, where an async call returns `uniffi::Future<T, E>`.
 - Generated C: every type and function name starts with the crate's namespace, so a crate
   whose items did not already start with it gets renamed C symbols.
+- Generated C: methods and named constructors gain `_method_` after their type's name
+  (`app_my_object_do_thing` is now `app_my_object_method_do_thing`), and so do their async
+  callback typedefs. The primary constructor `_new`, `_free`, and top-level functions keep their
+  names.

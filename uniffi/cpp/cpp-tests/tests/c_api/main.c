@@ -133,7 +133,7 @@ static void records(void) {
 
     /* The echoed record owns a new handle to the same store. */
     CHECK(echo->owner != NULL && echo->owner != owner);
-    owner_name = capi_store_name(echo->owner);
+    owner_name = capi_store_method_name(echo->owner);
     CHECK(streq(owner_name, "owner"));
     capi_string_free(owner_name);
 
@@ -257,16 +257,17 @@ static void objects(void) {
     capi_item_list list;
     capi_item *got = NULL;
     capi_string_list *names;
+    capi_store_stats *stats;
     capi_optional_u64 limit;
     uint32_t index;
     char *text;
 
-    error = capi_store_open("", &store);
+    error = capi_store_method_open("", &store);
     CHECK(error && error->tag == CAPI_ERROR_INVALID && store == NULL);
     capi_error_free(error);
 
-    CHECK(capi_store_open("main", &store) == NULL && store != NULL);
-    CHECK(capi_store_len(store) == 0);
+    CHECK(capi_store_method_open("main", &store) == NULL && store != NULL);
+    CHECK(capi_store_method_len(store) == 0);
 
     item = capi_item_default();
     item.name = "one";
@@ -274,62 +275,67 @@ static void objects(void) {
     item.limit.has_value = true;
     item.limit.value = 5;
     index = 99;
-    CHECK(capi_store_add(store, &item, &index) == NULL && index == 0);
+    CHECK(capi_store_method_add(store, &item, &index) == NULL && index == 0);
 
     /* A failed call clears its out-param. */
     item.name = "";
     index = 99;
-    error = capi_store_add(store, &item, &index);
+    error = capi_store_method_add(store, &item, &index);
     CHECK(error && error->tag == CAPI_ERROR_INVALID && index == 0);
     capi_error_free(error);
 
     item.name = "two";
     item.note = NULL;
     item.limit.has_value = false;
-    CHECK(capi_store_add(store, &item, &index) == NULL && index == 1);
-    CHECK(capi_store_len(store) == 2);
+    CHECK(capi_store_method_add(store, &item, &index) == NULL && index == 1);
+    CHECK(capi_store_method_len(store) == 2);
 
-    CHECK(capi_store_get(store, 1, &got) == NULL);
+    CHECK(capi_store_method_get(store, 1, &got) == NULL);
     CHECK(streq(got->name, "two") && got->note == NULL);
     capi_item_free(got);
 
-    error = capi_store_get(store, 5, &got);
+    error = capi_store_method_get(store, 5, &got);
     CHECK(error && error->tag == CAPI_ERROR_CODE && error->code.code == 5 && got == NULL);
     capi_error_free(error);
 
-    got = capi_store_find(store, "one");
+    got = capi_store_method_find(store, "one");
     CHECK(got && got->count == 7);
     capi_item_free(got);
-    CHECK(capi_store_find(store, "nope") == NULL);
+    CHECK(capi_store_method_find(store, "nope") == NULL);
 
-    text = capi_store_note(store, 0);
+    text = capi_store_method_note(store, 0);
     CHECK(streq(text, "n1"));
     capi_string_free(text);
-    CHECK(capi_store_note(store, 1) == NULL);
+    CHECK(capi_store_method_note(store, 1) == NULL);
 
-    limit = capi_store_limit(store, 0);
+    limit = capi_store_method_limit(store, 0);
     CHECK(limit.has_value && limit.value == 5);
-    limit = capi_store_limit(store, 1);
+    limit = capi_store_method_limit(store, 1);
     CHECK(!limit.has_value);
 
-    names = capi_store_names(store);
+    names = capi_store_method_names(store);
     CHECK(names->len == 2 && streq(names->data[0], "one") && streq(names->data[1], "two"));
     capi_string_list_free(names);
 
-    fork = capi_store_fork(store, NULL);
-    text = capi_store_name(fork);
+    fork = capi_store_method_fork(store, NULL);
+    text = capi_store_method_name(fork);
     CHECK(streq(text, "main"));
     capi_string_free(text);
-    renamed = capi_store_fork(store, "other");
-    text = capi_store_name(renamed);
+    renamed = capi_store_method_fork(store, "other");
+    text = capi_store_method_name(renamed);
     CHECK(streq(text, "other"));
     capi_string_free(text);
 
-    CHECK(capi_store_total(store, fork, NULL) == 4);
-    CHECK(capi_store_total(store, fork, renamed) == 6);
+    CHECK(capi_store_method_total(store, fork, NULL) == 4);
+    CHECK(capi_store_method_total(store, fork, renamed) == 6);
 
-    capi_store_clear(store);
-    CHECK(capi_store_len(store) == 0 && capi_store_len(fork) == 2);
+    /* The method and the record it returns share a snake-case name. */
+    stats = capi_store_method_stats(store);
+    CHECK(stats->items == 2 && stats->queued == 0);
+    capi_store_stats_free(stats);
+
+    capi_store_method_clear(store);
+    CHECK(capi_store_method_len(store) == 0 && capi_store_method_len(fork) == 2);
 
     items[0] = capi_item_default();
     items[0].name = "x";
@@ -337,8 +343,8 @@ static void objects(void) {
     items[1].name = "y";
     list.data = items;
     list.len = 2;
-    filled = capi_store_with_items("filled", &list);
-    CHECK(capi_store_len(filled) == 2);
+    filled = capi_store_method_with_items("filled", &list);
+    CHECK(capi_store_method_len(filled) == 2);
 
     capi_store_free(filled);
     capi_store_free(renamed);
@@ -418,8 +424,8 @@ static void async_calls(void) {
     capi_task_free(task);
 
     /* Pending until another call wakes it. */
-    task = capi_store_next(store, on_next, &r);
-    capi_store_push(store, 42);
+    task = capi_store_method_next(store, on_next, &r);
+    capi_store_method_push(store, 42);
     test_latch_wait(r.done);
     CHECK(r.error == NULL && r.value == 42);
     capi_task_free(task);
@@ -427,8 +433,8 @@ static void async_calls(void) {
     /* Freeing a task whose callback is running elsewhere waits for the callback. */
     r.entered = test_latch_new();
     r.release = test_latch_new();
-    task = capi_store_next(store, on_next_slow, &r);
-    capi_store_push(store, 7);
+    task = capi_store_method_next(store, on_next_slow, &r);
+    capi_store_method_push(store, 7);
     test_latch_wait(r.entered);
     test_latch_signal_from_thread(r.release);
     capi_task_free(task);
@@ -436,8 +442,8 @@ static void async_calls(void) {
     test_latch_free(r.entered);
     test_latch_free(r.release);
 
-    capi_store_close(store);
-    task = capi_store_next(store, on_next, &r);
+    capi_store_method_close(store);
+    task = capi_store_method_next(store, on_next, &r);
     test_latch_wait(r.done);
     CHECK(r.error && r.error->tag == CAPI_ERROR_NOT_FOUND);
     capi_error_free(r.error);

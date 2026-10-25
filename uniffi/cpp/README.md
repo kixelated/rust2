@@ -55,9 +55,12 @@ uniffi-bindgen-cpp --lang c --library your_rust_library.so --out-dir output_dire
 ```
 
 Names are the uniffi names in snake case, prefixed with the namespace unless they already start
-with it, since every crate's C API shares one scope: in namespace `app`, `MyObject.do_thing` is
-`app_my_object_do_thing`, and its handle is `app_my_object *`, released with
-`app_my_object_free`; `AppObject` is `app_object`. The rest follows from a few rules:
+with it, since every crate's C API shares one scope: in namespace `app`, `MyObject` is
+`app_my_object *`, created with `app_my_object_new` and released with `app_my_object_free`, and
+`AppObject` is `app_object`. A method or named constructor goes under `_method_`, so
+`MyObject.do_thing` is `app_my_object_method_do_thing` and never meets a type named
+`MyObjectDoThing`. Two items that still render one name, such as `AppObject` and `Object`, are
+refused with both named. The rest follows from a few rules:
 
 * A call that can fail returns an error struct, or NULL on success, and writes its result to a
   trailing `out` pointer. An error is a tagged union with a `message`; free it with `<error>_free`.

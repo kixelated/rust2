@@ -28,26 +28,26 @@ static void object_wraps_its_namesake(void) {
     media_group_consumer *group = media_group_consumer_new(inner);
     net_group_consumer_free(inner);
 
-    net_group_consumer *held = media_group_consumer_group(group);
-    CHECK(net_group_consumer_sequence(held) == 3);
+    net_group_consumer *held = media_group_consumer_method_group(group);
+    CHECK(net_group_consumer_method_sequence(held) == 3);
     net_group_consumer_free(held);
 
-    media_priority *priority = media_group_consumer_priority(group);
+    media_priority *priority = media_group_consumer_method_priority(group);
     CHECK(priority->tag == MEDIA_PRIORITY_NET);
     CHECK(priority->net.priority == NET_PRIORITY_LOW);
     media_priority_free(priority);
 
     media_frame *frame = NULL;
-    CHECK(media_group_consumer_read_frame(group, &frame) == NULL);
+    CHECK(media_group_consumer_method_read_frame(group, &frame) == NULL);
     CHECK(payload_is(&frame->raw, first, 2));
     CHECK(frame->keyframe);
     media_frame_free(frame);
-    CHECK(media_group_consumer_read_frame(group, &frame) == NULL);
+    CHECK(media_group_consumer_method_read_frame(group, &frame) == NULL);
     CHECK(!frame->keyframe);
     media_frame_free(frame);
 
     /* Each layer's error, both named `GroupError`. */
-    media_group_error *error = media_group_consumer_read_frame(group, &frame);
+    media_group_error *error = media_group_consumer_method_read_frame(group, &frame);
     CHECK(error != NULL);
     CHECK(frame == NULL);
     CHECK(error->tag == MEDIA_GROUP_ERROR_NET);
@@ -85,12 +85,12 @@ static void async_throws_the_net_error(void) {
     media_group_consumer *group = media_group_consumer_new(inner);
     net_group_consumer_free(inner);
 
-    media_priority *priority = media_group_consumer_priority(group);
+    media_priority *priority = media_group_consumer_method_priority(group);
     CHECK(priority->tag == MEDIA_PRIORITY_REALTIME);
     media_priority_free(priority);
 
     next_result r = {test_latch_new(), NULL, NULL};
-    media_task *task = media_group_consumer_next_frame(group, on_next, &r);
+    media_task *task = media_group_consumer_method_next_frame(group, on_next, &r);
     test_latch_wait(r.done);
     media_task_free(task);
     CHECK(r.error == NULL);
@@ -98,7 +98,7 @@ static void async_throws_the_net_error(void) {
     media_frame_free(r.frame);
 
     r.frame = NULL;
-    task = media_group_consumer_next_frame(group, on_next, &r);
+    task = media_group_consumer_method_next_frame(group, on_next, &r);
     test_latch_wait(r.done);
     media_task_free(task);
     CHECK(r.frame == NULL);
@@ -155,8 +155,8 @@ static void containers_of_both(void) {
 
     CHECK(groups->groups.len == 2);
     for (size_t i = 0; i < 2; ++i) {
-        net_group_consumer *held = media_group_consumer_group(groups->groups.data[i]);
-        CHECK(net_group_consumer_sequence(held) == i + 1);
+        net_group_consumer *held = media_group_consumer_method_group(groups->groups.data[i]);
+        CHECK(net_group_consumer_method_sequence(held) == i + 1);
         net_group_consumer_free(held);
     }
     CHECK(groups->net.len == 2);

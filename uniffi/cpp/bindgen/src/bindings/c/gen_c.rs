@@ -212,6 +212,16 @@ impl CType {
         }
     }
 
+    /// The uniffi item this type renders, for errors.
+    fn item(&self) -> String {
+        match &self.ty {
+            Type::Record { name, .. } => format!("record `{name}`"),
+            Type::Enum { name, .. } => format!("enum `{name}`"),
+            Type::Object { name, .. } => format!("object `{name}`"),
+            _ => format!("type `{}`", self.cpp),
+        }
+    }
+
     /// The function that frees a returned value, when the caller owns an allocation.
     fn free_fn(&self, ns: &str) -> Option<String> {
         match &self.kind {
@@ -290,8 +300,9 @@ struct Gen<'a> {
     ns: String,
     /// Every type a converter is emitted for, by canonical name.
     types: BTreeMap<String, CType>,
-    /// Every global C identifier, to refuse a collision instead of emitting one.
-    names: BTreeSet<String>,
+    /// Every global C identifier and the item that claimed it, to refuse a collision instead of
+    /// emitting one.
+    names: BTreeMap<String, String>,
     /// The crates whose types this one uses, each checked once for C support.
     externals: BTreeSet<String>,
 }
@@ -303,7 +314,7 @@ impl<'a> Gen<'a> {
             config,
             ns: ci.namespace().to_snake_case(),
             types: BTreeMap::new(),
-            names: BTreeSet::new(),
+            names: BTreeMap::new(),
             externals: BTreeSet::new(),
         }
     }
@@ -319,9 +330,10 @@ impl<'a> Gen<'a> {
             .collect()
     }
 
-    fn claim(&mut self, name: &str) -> Result<()> {
-        if !self.names.insert(name.to_string()) {
-            bail!("the C backend would emit `{name}` twice; rename one of the uniffi items");
+    /// Registers `name` for `item`, which describes the uniffi item the name renders.
+    fn claim(&mut self, name: &str, item: &str) -> Result<()> {
+        if let Some(other) = self.names.insert(name.to_string(), item.to_string()) {
+            bail!("the C backend names both {other} and {item} `{name}`; rename one of them");
         }
         Ok(())
     }
@@ -558,7 +570,7 @@ impl<'a> Gen<'a> {
             "shutdown_dispatcher",
             "string_free",
         ] {
-            self.claim(&format!("{ns}_{name}"))?;
+            self.claim(&format!("{ns}_{name}"), &format!("the runtime's `{name}`"))?;
         }
 
         // Register every reachable type before rendering any of them.
@@ -593,7 +605,7 @@ impl<'a> Gen<'a> {
                     | Kind::List(_)
                     | Kind::Map(..)
             ) {
-                self.claim(&ct.c)?;
+                self.claim(&ct.c, &ct.item())?;
                 writeln!(forwards, "typedef struct {0} {0};", ct.c)?;
             }
         }
@@ -675,6 +687,7 @@ impl<'a> Gen<'a> {
                 self.ci.namespace(),
                 filters::fn_name(func.name()).unwrap()
             );
+            self.claim(&name, &format!("function `{}`", func.name()))?;
             self.render_callable(h, s, func, &name, None, &call)?;
         }
 
@@ -688,12 +701,15 @@ impl<'a> Gen<'a> {
 
     fn render_flat_enum(&mut self, h: &mut String, ct: &CType) -> Result<()> {
         let e = self.enum_def(&ct.ty)?;
-        self.claim(&ct.c)?;
+        self.claim(&ct.c, &ct.item())?;
         h.push_str(&doc(e.docstring(), 0));
         writeln!(h, "typedef enum {} {{", ct.c)?;
         for (i, variant) in e.variants().iter().enumerate() {
             let constant = variant_constant(&ct.c, variant.name());
-            self.claim(&constant)?;
+            self.claim(
+                &constant,
+                &format!("variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&doc(variant.docstring(), 4));
             let comma = if i + 1 < e.variants().len() { "," } else { "" };
             writeln!(h, "    {constant}{comma}")?;
@@ -798,7 +814,7 @@ impl<'a> Gen<'a> {
 
         if rec.fields().iter().any(|f| f.default_value().is_some()) {
             let name = format!("{}_default", ct.c);
-            self.claim(&name)?;
+            self.claim(&name, &format!("the defaults of {}", ct.item()))?;
             h.push_str(&line_doc(
                 "A record with every defaulted field set and the rest zeroed, to fill in before passing it.",
             ));
@@ -885,13 +901,16 @@ impl<'a> Gen<'a> {
         let e = self.enum_def(&ct.ty)?;
         let error = self.ci.is_used_as_error(e);
         let tag = format!("{}_tag", ct.c);
-        self.claim(&tag)?;
+        self.claim(&tag, &format!("the tag of {}", ct.item()))?;
 
         h.push_str(&line_doc(&format!("Which variant a `{}` holds.", ct.c)));
         writeln!(h, "typedef enum {tag} {{")?;
         for (i, variant) in e.variants().iter().enumerate() {
             let constant = variant_constant(&ct.c, variant.name());
-            self.claim(&constant)?;
+            self.claim(
+                &constant,
+                &format!("variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&doc(variant.docstring(), 4));
             let comma = if i + 1 < e.variants().len() { "," } else { "" };
             writeln!(h, "    {constant}{comma}")?;
@@ -912,7 +931,10 @@ impl<'a> Gen<'a> {
                 );
             }
             let fields = format!("{}_{member}", ct.c);
-            self.claim(&fields)?;
+            self.claim(
+                &fields,
+                &format!("the fields of variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&line_doc(&format!(
                 "The fields of a `{}` holding `{}`.",
                 ct.c,
@@ -955,7 +977,7 @@ impl<'a> Gen<'a> {
         if error {
             self.render_free(h, s, ct, "this error")?;
             let name = format!("{}_message", ct.c);
-            self.claim(&name)?;
+            self.claim(&name, &format!("the message of {}", ct.item()))?;
             h.push_str(&line_doc("The error's message, owned by the error."));
             writeln!(h, "const char *{name}(const {} *error);\n", ct.c)?;
             writeln!(
@@ -979,7 +1001,7 @@ impl<'a> Gen<'a> {
         what: &str,
     ) -> Result<()> {
         let name = format!("{}_free", ct.c);
-        self.claim(&name)?;
+        self.claim(&name, &format!("the release function of {}", ct.item()))?;
         h.push_str(&line_doc(&format!(
             "Frees {what}, as returned by this API; NULL is ignored."
         )));
@@ -1006,34 +1028,44 @@ impl<'a> Gen<'a> {
         }
 
         let free = format!("{c}_free");
-        self.claim(&free)?;
+        self.claim(
+            &free,
+            &format!("the release function of object `{}`", obj.name()),
+        )?;
         h.push_str(&line_doc(&format!(
             "Releases this `{c}` handle; NULL is ignored. Other handles to the same object stay valid."
         )));
         writeln!(h, "void {free}({c} *self);\n")?;
         writeln!(s, "void {free}({c} *self) {{\n    delete self;\n}}\n")?;
 
+        // `_method_` keeps a function's name from spelling another type's (`AudioEncoder::finish`
+        // against `AudioEncoderFinish`).
         for ctor in obj.constructors() {
+            let item = format!("constructor `{}::{}`", obj.name(), ctor.name());
             let (name, call) = if ctor.is_primary_constructor() {
                 (format!("{c}_new"), format!("::{namespace}::{class}::init"))
             } else {
                 (
-                    format!("{c}_{}", c_name(ctor.name())),
+                    format!("{c}_method_{}", c_name(ctor.name())),
                     format!("::{namespace}::{class}::{}", ctor.name()),
                 )
             };
+            self.claim(&name, &item)?;
             self.render_callable(h, s, ctor, &name, None, &call)?;
         }
 
         for method in obj.methods() {
-            let name = format!("{c}_{}", c_name(method.name()));
+            let item = format!("method `{}::{}`", obj.name(), method.name());
+            let name = format!("{c}_method_{}", c_name(method.name()));
             let call = format!("self->inner->{}", filters::fn_name(method.name()).unwrap());
+            self.claim(&name, &item)?;
             self.render_callable(h, s, method, &name, Some(&c), &call)?;
         }
         Ok(())
     }
 
-    /// Renders one function, constructor, or method. `call` names the C++ callee.
+    /// Renders one function, constructor, or method, after the caller claimed its `name`.
+    /// `call` names the C++ callee.
     fn render_callable(
         &mut self,
         h: &mut String,
@@ -1045,7 +1077,6 @@ impl<'a> Gen<'a> {
     ) -> Result<()> {
         let namespace = self.ci.namespace().to_string();
         let ns = self.ns.clone();
-        self.claim(name)?;
 
         let mut params = Vec::new();
         let mut checks = String::new();
@@ -1135,7 +1166,7 @@ impl<'a> Gen<'a> {
                 }
             }
             let callback = format!("{name}_callback");
-            self.claim(&callback)?;
+            self.claim(&callback, &format!("the callback of `{name}`"))?;
 
             let mut cb_params = vec!["void *user_data".to_string()];
             if let Some(err) = &err {
