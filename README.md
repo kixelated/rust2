@@ -3,6 +3,7 @@
 Rust to other places.
 
 - **TypeScript**: an own rustc driver that translates a [documented Rust subset](ts/README.md) to readable TypeScript, without WASM.
+- **C, then any language**: an [exporter spike](ffi/README.md) that turns a crate's `pub` API into a C ABI and header with no attributes, sharing the TypeScript driver's front end.
 - **Any language**: [a hard fork](uniffi/README.md) of [UniFFI](https://github.com/mozilla/uniffi-rs) with every generator [moq](https://github.com/moq-dev/moq) uses.
 - **Faster builds**: a reproducible [build-speed benchmark](bench/build/README.md), then a pure-Rust subset (no build scripts, no C linking) that builds faster.
 

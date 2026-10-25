@@ -153,9 +153,14 @@ impl Gen<'_> {
 				true => format!("lift_{}({e}, w)", self.abi.enumeration(*i)),
 				false => format!("lift_{}(&{e}, w)", self.abi.enumeration(*i)),
 			},
-			Type::Object(i) => match self.abi.api.objects[*i].copy {
-				true => format!("*unsafe {{ rt::Object::<{}>::borrow({e}, w) }}", self.object_path(*i)),
-				false => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
+			// A value that is not `Sync` may change through `&self`, so it is read exclusively.
+			Type::Object(i) => match (self.abi.api.objects[*i].copy, self.abi.api.objects[*i].sync) {
+				(true, true) => format!("*unsafe {{ rt::Object::<{}>::borrow({e}, w) }}", self.object_path(*i)),
+				(true, false) => format!(
+					"*unsafe {{ rt::Object::<{}>::borrow_mut({e}, w) }}",
+					self.object_path(*i)
+				),
+				(false, _) => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
 			},
 			Type::Callback(i, form) => abi::dyn_wrap(*form, &format!("Foreign_{}({e})", self.abi.callback(*i))),
 		}

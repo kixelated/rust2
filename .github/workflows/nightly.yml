@@ -127,6 +127,26 @@ jobs:
           name: ffi-census
           path: ffi/target/census
 
+  ffi-bench:
+    name: Bench the C export against moq-c
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      # Frame writes through each C API. The numbers go in the run's summary: no threshold
+      # fails the job.
+      - name: Bench
+        # Named, so a failing bench fails the pipe.
+        shell: bash
+        run: nix develop .#bench --command just ffi bench | tee -a "$GITHUB_STEP_SUMMARY"
+
   census:
     name: Census moq-net and kio
     runs-on: ubuntu-24.04-arm

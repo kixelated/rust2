@@ -480,7 +480,7 @@ pub fn escape(name: &str) -> String {
 		"auto", "bool", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
 		"extern", "false", "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return",
 		"short", "signed", "sizeof", "static", "struct", "switch", "true", "typedef", "union", "unsigned", "void",
-		"volatile", "while", "out", "err", "future", "waker",
+		"volatile", "while", "out", "err", "future", "waker", "data",
 	];
 	match KEYWORDS.contains(&name) || name.chars().next().is_some_and(|c| c.is_ascii_digit()) {
 		true => format!("_{name}"),

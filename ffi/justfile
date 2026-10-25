@@ -47,6 +47,24 @@ census checkout="":
     fi
     cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md
 
+# Time frame writes through the export and through moq's hand-written rs/moq-c, in the bench shell: nix develop .#bench.
+bench checkout="": (moq checkout)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -n "${LIBCLANG_PATH:-}" ] || { echo "LIBCLANG_PATH is unset: run this in the bench shell, nix develop .#bench" >&2; exit 1; }
+    src="{{ checkout }}"
+    [ -n "$src" ] || src=../ts/target/moq
+    out=target/export/moq
+    # moq-c's header is written to its build script's output directory.
+    moqc=$(cd "$src" && cargo build --locked --quiet --release --package moq-c --message-format=json \
+        | jq -r 'select(.reason == "build-script-executed" and (.package_id | contains("moq-c#"))) | .out_dir')
+    cc -O2 -std=c11 -Wall -Wextra -Werror -I "$out/include" moq/bench/export.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-export
+    cc -O2 -std=c11 -Wall -Wextra -Werror -I "$moqc/include" moq/bench/moq-c.c "$src/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-moq-c
+    for _ in 1 2 3; do
+        target/bench-moq-c
+        target/bench-export
+    done
+
 # Export moq-net's C ABI, build it, and run moq/moq.c against it, from the moq revision `just ts moq` pins or a checkout.
 moq checkout="":
     #!/usr/bin/env bash

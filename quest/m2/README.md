@@ -16,8 +16,8 @@ Decided with the maintainer on 2026-10-24: the translator's output ranks correct
 then speed, then the size of the consumer's final tree-shaken, minified JS; readability
 is not a goal, and types must be solid at the API boundary ([design](/ts/README.md#design)).
 
-The fork's feature quests here pause until the [exporter spike](/quest/m1/ffi-export-spike.md)
-reports; [m1](/quest/m1/README.md#plan) records the decision.
+The fork's feature quests here pause until the [exporter decision](/quest/m1/ffi-export-decision.md);
+[m1](/quest/m1/README.md#plan) records why.
 
 ## Required
 

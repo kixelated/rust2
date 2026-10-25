@@ -20,6 +20,6 @@ Public API: none; generated bindings lose their checksum calls.
 
 ## Required
 
-- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
+- [Waiting: the exporter decision](/quest/m1/ffi-export-decision.md) - paused until the maintainer decides whether this folds into the exporter, as the spike recommends
 - [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - what refuses a mismatched library once the checksums are gone
 - [Binding benchmark](/quest/m1/ffi-bench.md) - load time, size, and symbol numbers

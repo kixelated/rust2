@@ -193,6 +193,8 @@
               pkgs.chromium
               pkgs.wasm-bindgen-cli
             ];
+            # `just ffi bench` builds moq's rs/moq-c, whose VAAPI bindings run bindgen.
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           });
           # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
           devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {
