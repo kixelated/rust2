@@ -314,26 +314,24 @@ export function hashClear<K, V>(m: HashMap<K, V>): void {
 	m.n = 0;
 }
 
-/** `retain`, which keeps each entry `f` returns true for. */
+/**
+ * `retain`, which keeps each entry `f` returns true for. Each entry goes as `f` rejects
+ * it, so a panic in `f` leaves the map whole, as std's.
+ */
 export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => boolean): void {
 	for (const [k, v] of m.p) if (!f(k, v)) m.p.delete(k);
 	if (m.o === undefined) return;
 	for (const [hash, first] of m.o) {
-		let head: Slot<K, V> | undefined;
-		let tail: Slot<K, V> | undefined;
+		let prev: Slot<K, V> | undefined;
 		for (let s: Slot<K, V> | undefined = first; s !== undefined; s = s.next) {
-			if (!f(s.k, s.v)) {
-				m.n--;
+			if (f(s.k, s.v)) {
+				prev = s;
 				continue;
 			}
-			if (tail === undefined) head = s;
-			else tail.next = s;
-			tail = s;
-		}
-		if (tail === undefined) m.o.delete(hash);
-		else {
-			tail.next = undefined;
-			if (head !== first) m.o.set(hash, head as Slot<K, V>);
+			m.n--;
+			if (prev !== undefined) prev.next = s.next;
+			else if (s.next !== undefined) m.o.set(hash, s.next);
+			else m.o.delete(hash);
 		}
 	}
 }
@@ -583,17 +581,24 @@ export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
 	m.r = false;
 }
 
-/** `retain`, which visits the keys in order and keeps each entry `f` returns true for. */
+/**
+ * `retain`, which visits the keys in order and keeps each entry `f` returns true for. A
+ * panic in `f` leaves the entries from the one it panicked on, as std's.
+ */
 export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => boolean): void {
 	let kept = 0;
-	for (let i = 0; i < m.k.length; i++) {
-		if (!f(m.k[i], m.v[i])) continue;
-		m.k[kept] = m.k[i];
-		m.v[kept] = m.v[i];
-		kept++;
+	let i = 0;
+	try {
+		for (; i < m.k.length; i++) {
+			if (!f(m.k[i], m.v[i])) continue;
+			m.k[kept] = m.k[i];
+			m.v[kept] = m.v[i];
+			kept++;
+		}
+	} finally {
+		m.k.splice(kept, i - kept);
+		m.v.splice(kept, i - kept);
 	}
-	m.k.length = kept;
-	m.v.length = kept;
 }
 
 /** An iterator of a B-tree's entries, keys, or values from index `front` up to `back`. */
@@ -717,7 +722,14 @@ export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false):
 
 /** `clone`, with each key and value through its `Clone`, or as itself without one. */
 export function btreeClone<K, V>(m: BTreeMap<K, V>, key: (k: K) => K = itself, value: (v: V) => V = itself): BTreeMap<K, V> {
-	return { k: m.k.map(key), v: m.v.map(value), c: m.c, r: m.k.length > 0 };
+	const k: K[] = [];
+	const v: V[] = [];
+	// Each key, then its value, as std's clones them.
+	for (let i = 0; i < m.k.length; i++) {
+		k.push(key(m.k[i]));
+		v.push(value(m.v[i]));
+	}
+	return { k, v, c: m.c, r: m.k.length > 0 };
 }
 
 // Entries
@@ -900,12 +912,16 @@ export function dequeTruncate<T>(q: VecDeque<T>, len: number): void {
 	while (q.n > len) dequePopBack(q);
 }
 
-/** `retain`, which visits the items in order and keeps each `f` returns true for. */
+/**
+ * `retain`, which visits the items in order and keeps each `f` returns true for. It swaps
+ * each kept item into place, as std's does, so a panic in `f` leaves every item.
+ */
 export function dequeRetain<T>(q: VecDeque<T>, f: (item: T) => boolean): void {
 	let kept = 0;
 	for (let i = 0; i < q.n; i++) {
 		const item = q.b[at(q, i)] as T;
 		if (!f(item)) continue;
+		q.b[at(q, i)] = q.b[at(q, kept)];
 		q.b[at(q, kept++)] = item;
 	}
 	dequeTruncate(q, kept);

@@ -3,6 +3,7 @@
 import * as rt from "./rt.ts";
 import * as Clash from "./collections.Clash.ts";
 import * as Dir from "./collections.Dir.ts";
+import * as Fussy from "./collections.Fussy.ts";
 import * as Nibble from "./collections.Nibble.ts";
 import * as Pair from "./collections.Pair.ts";
 import * as Rank from "./collections.Rank.ts";
@@ -522,7 +523,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 
 /** `BTreeMap`: ordered by the key's `Ord`, through inserts, removals, and ranges. */
 export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	const value = rt.u8.rem(kind, 3);
+	const value = rt.u8.rem(kind, 4);
 	if (value === 0) {
 		let map: rt.BTreeMap<rt.u8, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>;
 		const iter = new rt.Range(0, data.length).stepBy(2);
@@ -698,77 +699,93 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			out.extendFromSlice(rt.u64.toBeBytes(k11));
 			out.push(v10);
 		}
+	} else if (value === 2) {
+		const map2 = rt.btreeExtend(rt.btreeNew(Fussy.cmp) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, rt.iter.slice(data).map((arg9: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
+			const b4 = arg9;
+			return [{ _0: b4 }, { _0: b4 ^ 0x5a }];
+		}), true);
+		const copy = rt.btreeClone(map2, Fussy.clone, Fussy.clone);
+		const iter8 = rt.btreeIter(copy);
+		while (true) {
+			const item7 = iter8.next();
+			if (item7 === rt.DONE) {
+				break;
+			}
+			const k12 = item7[0];
+			const v11 = item7[1];
+			out.push(k12._0 ^ v11._0);
+		}
 	} else {
 		let nibbles: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 		let words: rt.BTreeMap<string, Tally.Tally> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
-		for (const item7 of data) {
-			const b4 = item7;
-			out.push(rt.option.unwrapOr(rt.btreeInsert(nibbles, { _0: b4 }, b4), 0xcc));
-			const arg9 = words;
+		for (const item8 of data) {
+			const b5 = item8;
+			out.push(rt.option.unwrapOr(rt.btreeInsert(nibbles, { _0: b5 }, b5), 0xcc));
+			const arg10 = words;
 			const value4 = ["", "a", "ab", "b", "é", "", "￿", "𐀀"];
-			const t4 = rt.entryOrInsertWith(rt.entry(arg9, rt.at(value4, rt.usize.rem(b4 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length))), Tally.default);
+			const t4 = rt.entryOrInsertWith(rt.entry(arg10, rt.at(value4, rt.usize.rem(b5 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length))), Tally.default);
 			t4.n = rt.u16.add(t4.n, 1);
 		}
-		const iter8 = rt.btreeIter(nibbles);
-		while (true) {
-			const item8 = iter8.next();
-			if (item8 === rt.DONE) {
-				break;
-			}
-			const k12 = item8[0];
-			const v11 = item8[1];
-			out.push(k12._0);
-			out.push(v11);
-		}
-		const end2 = data.length;
-		for (let i3 = 1; i3 < end2; i3++) {
-			const value5 = [{ _0: rt.at(data, rt.usize.sub(i3, 1)) }, { _0: rt.at(data, i3) }] as [Nibble.Nibble, Nibble.Nibble];
-			const a3 = value5[0];
-			const b5 = value5[1];
-			const [x, y] = [rt.at(data, rt.usize.sub(i3, 1)), rt.at(data, i3)] as [rt.u8, rt.u8];
-			const o = rt.orderingThen(rt.orderingReverse(Nibble.cmp(a3, b5)), (): rt.Ordering => {
-				return rt.cmp(y, x);
-			}, true);
-			out.push((o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp(a3, b5), -1) === 0 ? 1 : 0) << 2) & 0xff));
-			out.push(o === -1 ? 1 : o === 0 ? 2 : 3);
-			out.push(rt.same(o, 1) ? 1 : 0);
-		}
-		const collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp) as rt.BTreeMap<Nibble.Nibble, rt.u8>, rt.iter.slice(data).map((arg10: rt.u8): [Nibble.Nibble, rt.u8] => {
-			const b6 = arg10;
-			return [{ _0: b6 }, b6];
-		}), true);
-		let keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp) as rt.BTreeSet<Nibble.Nibble>, rt.iter.slice(data).map((arg11: rt.u8): Nibble.Nibble => {
-			const b7 = arg11;
-			return { _0: b7 };
-		}), true);
-		rt.btreeExtendKeys(keys, rt.iter.slice(data).map((arg12: rt.u8): Nibble.Nibble => {
-			const b8 = arg12;
-			return { _0: b8 ^ 0x30 };
-		}));
-		const iter9 = rt.btreeIter(collected).zip(rt.btreeKeys(keys));
+		const iter9 = rt.btreeIter(nibbles);
 		while (true) {
 			const item9 = iter9.next();
 			if (item9 === rt.DONE) {
 				break;
 			}
-			const k13 = item9[0][0];
-			const v12 = item9[0][1];
-			const n = item9[1];
+			const k13 = item9[0];
+			const v12 = item9[1];
 			out.push(k13._0);
 			out.push(v12);
-			out.push(n._0);
 		}
-		rt.btreeRetain(words, (w: string, t5: Tally.Tally): boolean => {
-			return rt.string.len(w) > 1 || t5.n > 1;
-		});
-		const iter10 = rt.btreeIter(words);
+		const end2 = data.length;
+		for (let i3 = 1; i3 < end2; i3++) {
+			const value5 = [{ _0: rt.at(data, rt.usize.sub(i3, 1)) }, { _0: rt.at(data, i3) }] as [Nibble.Nibble, Nibble.Nibble];
+			const a3 = value5[0];
+			const b6 = value5[1];
+			const [x, y] = [rt.at(data, rt.usize.sub(i3, 1)), rt.at(data, i3)] as [rt.u8, rt.u8];
+			const o = rt.orderingThen(rt.orderingReverse(Nibble.cmp(a3, b6)), (): rt.Ordering => {
+				return rt.cmp(y, x);
+			}, true);
+			out.push((o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp(a3, b6), -1) === 0 ? 1 : 0) << 2) & 0xff));
+			out.push(o === -1 ? 1 : o === 0 ? 2 : 3);
+			out.push(rt.same(o, 1) ? 1 : 0);
+		}
+		const collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp) as rt.BTreeMap<Nibble.Nibble, rt.u8>, rt.iter.slice(data).map((arg11: rt.u8): [Nibble.Nibble, rt.u8] => {
+			const b7 = arg11;
+			return [{ _0: b7 }, b7];
+		}), true);
+		let keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp) as rt.BTreeSet<Nibble.Nibble>, rt.iter.slice(data).map((arg12: rt.u8): Nibble.Nibble => {
+			const b8 = arg12;
+			return { _0: b8 };
+		}), true);
+		rt.btreeExtendKeys(keys, rt.iter.slice(data).map((arg13: rt.u8): Nibble.Nibble => {
+			const b9 = arg13;
+			return { _0: b9 ^ 0x30 };
+		}));
+		const iter10 = rt.btreeIter(collected).zip(rt.btreeKeys(keys));
 		while (true) {
 			const item10 = iter10.next();
 			if (item10 === rt.DONE) {
 				break;
 			}
-			const w2 = item10[0];
-			const t6 = item10[1];
+			const k14 = item10[0][0];
+			const v13 = item10[0][1];
+			const n = item10[1];
+			out.push(k14._0);
+			out.push(v13);
+			out.push(n._0);
+		}
+		rt.btreeRetain(words, (w: string, t5: Tally.Tally): boolean => {
+			return rt.string.len(w) > 1 || t5.n > 1;
+		});
+		const iter11 = rt.btreeIter(words);
+		while (true) {
+			const item11 = iter11.next();
+			if (item11 === rt.DONE) {
+				break;
+			}
+			const w2 = item11[0];
+			const t6 = item11[1];
 			out.extendFromSlice(rt.string.asBytes(w2));
 			out.push(t6.n & 0xff);
 		}

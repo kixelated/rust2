@@ -94,6 +94,19 @@ impl Hash for Dir {
 	}
 }
 
+/// A value whose `clone` panics on a multiple of 7, saying which.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct Fussy(u8);
+
+impl Clone for Fussy {
+	fn clone(&self) -> Self {
+		if self.0 % 7 == 0 {
+			panic!("cloning {}", self.0);
+		}
+		Fussy(self.0)
+	}
+}
+
 /// Strings whose UTF-8 order differs from their UTF-16 order: past U+FFFF, a surrogate
 /// pair sorts below U+E000 in UTF-16, and above it in UTF-8, as Rust sorts.
 const WORDS: [&str; 8] = ["", "a", "ab", "b", "\u{e9}", "\u{e000}", "\u{ffff}", "\u{10000}"];
@@ -412,7 +425,7 @@ pub fn sets(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 
 /// `BTreeMap`: ordered by the key's `Ord`, through inserts, removals, and ranges.
 pub fn btree_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 3 {
+	match kind % 4 {
 		0 => {
 			let mut map: BTreeMap<u8, u8> = BTreeMap::new();
 			for i in (0..data.len()).step_by(2) {
@@ -494,6 +507,14 @@ pub fn btree_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			for (k, v) in wides.range(1u64 << 52..) {
 				out.extend_from_slice(&k.to_be_bytes());
 				out.push(*v);
+			}
+		}
+		// `clone` clones each key and then its value, so which `Fussy` panics first is std's.
+		2 => {
+			let map: BTreeMap<Fussy, Fussy> = data.iter().map(|&b| (Fussy(b), Fussy(b ^ 0x5a))).collect();
+			let copy = map.clone();
+			for (k, v) in &copy {
+				out.push(k.0 ^ v.0);
 			}
 		}
 		_ => {

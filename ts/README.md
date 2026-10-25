@@ -302,7 +302,8 @@ The codec, lang, and task fixtures also run their differential tests from MIR
 (`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
-rejects when a future panics as it drops.
+rejects when a future panics as it drops. `tests/retain.ts` panics in a collection's
+`retain` at each item, and `retain_unwinds` checks that it leaves what std's leaves.
 
 ## Bench
 
