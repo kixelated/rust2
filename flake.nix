@@ -15,6 +15,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
+    # The daemon the benchmark's ra-jit variant measures. Bumping the rev is a
+    # benchmark corpus change: numbers before and after it do not compare.
+    ra-jit = {
+      url = "github:indexable-inc/ra-jit/d4f6027e82d312bf805ebfe6252369f6048a1e18";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.rust-overlay.follows = "rust-overlay";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   outputs =
@@ -24,6 +32,7 @@
       flake-utils,
       rust-overlay,
       quest,
+      ra-jit,
       ...
     }:
     flake-utils.lib.eachSystem
@@ -46,6 +55,11 @@
           # after it do not compare.
           nightly = pkgs.rust-bin.nightly."2026-10-22".minimal.override {
             extensions = [ "rustc-codegen-cranelift-preview" ];
+          };
+          # ra-jit works with one rustc only. This is the toolchain its flake builds
+          # with, so the daemon and the variant's plain cargo share it.
+          raJitToolchain = pkgs.rust-bin.stable."1.99.0".default.override {
+            extensions = [ "rust-src" ];
           };
           # The TypeScript driver's own nightly, kept off PATH so the other projects keep
           # the repo toolchain. ts/justfile puts it first for its recipes.
@@ -152,6 +166,12 @@
                 wild
               ];
             RUST2_BENCH_NIGHTLY = "${nightly}/bin";
+            # ra-jit and its toolchain; empty where ra-jit does not build (Intel macOS).
+            RUST2_BENCH_RAJIT =
+              if ra-jit.packages ? ${system} then
+                "${ra-jit.packages.${system}.ra-jit}/bin:${raJitToolchain}/bin"
+              else
+                "";
           };
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
