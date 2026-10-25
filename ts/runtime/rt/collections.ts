@@ -580,14 +580,24 @@ export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V): V | unde
 function insertAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number, key: K, value: V): void {
 	m.r = true;
 	m.n++;
-	if (i === l.k.length) {
-		l.k.push(key);
-		l.v.push(value);
-	} else {
-		l.k.splice(i, 0, key);
-		l.v.splice(i, 0, value);
-	}
+	put(l.k, i, key);
+	put(l.v, i, value);
 	if (l.k.length > NODE) settle(m, key);
+}
+
+/** Puts `item` at index `i` of `a`, after moving the rest up: in a node, faster than `splice`. */
+function put<T>(a: T[], i: number, item: T): void {
+	let j = a.length;
+	a.push(item);
+	for (; j > i; j--) a[j] = a[j - 1];
+	a[i] = item;
+}
+
+/** Takes index `i` out of `a`, moving the rest down. */
+function take<T>(a: T[], i: number): void {
+	const n = a.length - 1;
+	for (let j = i; j < n; j++) a[j] = a[j + 1];
+	a.pop();
 }
 
 /** `BTreeSet::insert`: whether `key` was not there yet. An equal key already there stays. */
@@ -599,29 +609,40 @@ export function btreeAdd<K>(m: BTreeSet<K>, key: K): boolean {
 	return true;
 }
 
-/** The key and value at index `i` of `l`, taken out, with the leaf merged if too small. */
-function removeAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number): [K, V] {
+/** Takes the key and value at index `i` of `l` out, and merges the leaf if too small. */
+function removeAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number): void {
+	const key = l.k[i];
 	m.n--;
-	const entry: [K, V] =
-		i === l.k.length - 1 ? [l.k.pop() as K, l.v.pop() as V] : [l.k.splice(i, 1)[0], l.v.splice(i, 1)[0]];
-	if (l.k.length < MIN && m.h > 0) settle(m, entry[0]);
-	return entry;
+	take(l.k, i);
+	take(l.v, i);
+	if (l.k.length < MIN && m.h > 0) settle(m, key);
 }
 
 /** `BTreeMap::remove_entry`, and `BTreeSet::take`. */
 export function btreeRemoveEntry<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	return i < 0 ? undefined : removeAt(m, l, i);
+	if (i < 0) return undefined;
+	const entry: [K, V] = [l.k[i], l.v[i]];
+	removeAt(m, l, i);
+	return entry;
 }
 
 export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
-	return btreeRemoveEntry(m, key)?.[1];
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	if (i < 0) return undefined;
+	const value = l.v[i];
+	removeAt(m, l, i);
+	return value;
 }
 
 /** `BTreeSet::remove`: whether `key` was there. */
 export function btreeDelete<K>(m: BTreeSet<K>, key: K): boolean {
-	return btreeRemoveEntry(m, key) !== undefined;
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	if (i >= 0) removeAt(m, l, i);
+	return i >= 0;
 }
 
 /**
@@ -766,7 +787,10 @@ export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefi
 export function btreePop<K, V>(m: BTreeMap<K, V>, last = false): [K, V] | undefined {
 	if (m.n === 0) return undefined;
 	const l = end(m, last);
-	return removeAt(m, l, last ? l.k.length - 1 : 0);
+	const i = last ? l.k.length - 1 : 0;
+	const entry: [K, V] = [l.k[i], l.v[i]];
+	removeAt(m, l, i);
+	return entry;
 }
 
 /** `BTreeSet::pop_first`, and with `last`, `pop_last`. */
