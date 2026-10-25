@@ -58,7 +58,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
 				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
 					let info = self.t.adt(adt, span);
-					Expr::New(Box::new(Expr::Sym(info.sym)), Vec::new())
+					self.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
 				}
 				_ => self.err(span, format!("a value of type `{ty}`")),
 			},
@@ -226,14 +226,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let info = self.t.adt(*adt, span);
 				let def = adt.variant(variant);
 				match info.repr {
-					AdtRepr::Class { ctor, fields } => match ctor {
-						crate::ts::Ctor::Unit => Expr::New(Box::new(Expr::Sym(info.sym)), Vec::new()),
-						crate::ts::Ctor::Positional => Expr::New(Box::new(Expr::Sym(info.sym)), values),
-						crate::ts::Ctor::Named => {
-							let props = fields.iter().zip(values).map(|(f, v)| (Key::Field(*f), v)).collect();
-							Expr::New(Box::new(Expr::Sym(info.sym)), vec![Expr::Object(props)])
-						}
-					},
+					AdtRepr::Struct { ctor, fields } => self.t.construct(info.sym, &ctor, &fields, values),
 					AdtRepr::Tags => {
 						let ts_ty = self.t.ty(ty, span);
 						Expr::As(Box::new(Expr::Str(def.name.to_string())), ts_ty)

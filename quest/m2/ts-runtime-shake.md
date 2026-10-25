@@ -12,13 +12,11 @@ minified JS.
 ## Plan
 
 Decided with the maintainer on 2026-10-24: the runtime is always free functions,
-whatever the [tree-shaking spike](/quest/m2/ts-shake-spike.md) picks for types,
-because callers never touch `rt` directly. Bundle size counts the consumer's final
-JS: a Bun production build (`bun build --minify`, which tree-shakes) of a small
-consumer, raw and gzipped, using the benchmark's existing Bun setup.
+as translated types' functions now are, because callers never touch `rt` directly.
+Bundle size counts the consumer's final JS: a Bun production build (`bun build
+--minify`, which tree-shakes) of a small consumer, raw and gzipped. The codec test's
+tree-shake check leaves the runtime out of its bundle today; it can take the runtime
+in once the runtime shakes. Today the runtime is most of a small caller's bundle: about
+15 KB minified, 5 KB gzipped, for a caller of one varint function in moq-net.
 
 Public API: the runtime's exports, which translated code calls.
-
-## Related
-
-- [Tree-shaking spike](/quest/m2/ts-shake-spike.md) - the same measurement for translated types

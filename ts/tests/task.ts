@@ -15,21 +15,10 @@ interface Future<T> extends Disposable {
 	poll(cx: Waker): T | symbol;
 }
 
-interface Log {
-	note(event: string): void;
-	text(): { view(): Uint8Array };
-	clone(): Log;
-}
-
+type Log = Disposable;
 type Consumer = Disposable;
 type Guard = Disposable;
-
-interface Channel<V> extends Disposable {
-	consumer(): Consumer;
-	send(value: V): boolean;
-	close(): boolean;
-	cloneProducer(): boolean;
-}
+type Channel = Disposable;
 
 /**
  * What the harness drives: the translation's roots, and the runtime's `Pending` and
@@ -38,8 +27,19 @@ interface Channel<V> extends Disposable {
 export interface Fixture<V> {
 	Pending: symbol;
 	u64: { of(value: number): V };
-	Log: { "new"(): Log };
-	Channel: { open(): Channel<V> };
+	Log: {
+		"new"(): Log;
+		note(log: Log, event: string): void;
+		text(log: Log): { view(): Uint8Array };
+		clone(log: Log): Log;
+	};
+	Channel: {
+		open(): Channel;
+		consumer(channel: Channel): Consumer;
+		send(channel: Channel, value: V): boolean;
+		close(channel: Channel): boolean;
+		cloneProducer(channel: Channel): boolean;
+	};
 	Guard: { "new"(id: number, log: Log): Guard };
 	sum(rx: Consumer, guard: Guard): Future<V>;
 	drain(rx: Consumer, depth: number): Future<V>;
@@ -49,13 +49,13 @@ export interface Fixture<V> {
 /** What every waker of one task points at. */
 class Wake {
 	readonly task: number;
-	readonly log: Log;
+	readonly note: (event: string) => void;
 	readonly queue: number[];
 	queued = false;
 
-	constructor(task: number, log: Log, queue: number[]) {
+	constructor(task: number, note: (event: string) => void, queue: number[]) {
 		this.task = task;
-		this.log = log;
+		this.note = note;
 		this.queue = queue;
 	}
 
@@ -74,7 +74,7 @@ class TaskWaker implements Waker {
 	}
 
 	wake(): void {
-		this.target.log.note(`t${this.target.task} wake`);
+		this.target.note(`t${this.target.task} wake`);
 		this.target.schedule();
 	}
 
@@ -83,7 +83,7 @@ class TaskWaker implements Waker {
 	}
 
 	clone(): Waker {
-		this.target.log.note(`t${this.target.task} waker clone`);
+		this.target.note(`t${this.target.task} waker clone`);
 		return new TaskWaker(this.target);
 	}
 
@@ -92,7 +92,7 @@ class TaskWaker implements Waker {
 	}
 
 	[Symbol.dispose](): void {
-		this.target.log.note(`t${this.target.task} waker drop`);
+		this.target.note(`t${this.target.task} waker drop`);
 	}
 }
 
@@ -108,18 +108,18 @@ class Executor {
 	readonly queue: number[] = [];
 	/** Every task spawned, by id; `undefined` once dropped. */
 	readonly tasks: (Task | undefined)[] = [];
-	readonly log: Log;
+	readonly note: (event: string) => void;
 	readonly pending: symbol;
 
-	constructor(log: Log, pending: symbol) {
-		this.log = log;
+	constructor(note: (event: string) => void, pending: symbol) {
+		this.note = note;
 		this.pending = pending;
 	}
 
 	spawn(future: Future<unknown>): void {
 		const task = this.tasks.length;
-		this.log.note(`t${task} spawn`);
-		const wake = new Wake(task, this.log, this.queue);
+		this.note(`t${task} spawn`);
+		const wake = new Wake(task, this.note, this.queue);
 		wake.schedule();
 		this.tasks.push({ future, waker: new TaskWaker(wake), wake, done: false });
 	}
@@ -140,13 +140,13 @@ class Executor {
 		const t = this.tasks[task];
 		if (t === undefined) return;
 		t.wake.queued = false;
-		this.log.note(`t${task} poll`);
+		this.note(`t${task} poll`);
 		const output = t.future.poll(t.waker);
 		if (output === this.pending) {
-			this.log.note(`t${task} pending`);
+			this.note(`t${task} pending`);
 		} else {
 			t.done = true;
-			this.log.note(`t${task} ready ${String(output)}`);
+			this.note(`t${task} ready ${String(output)}`);
 		}
 	}
 
@@ -154,7 +154,7 @@ class Executor {
 		const t = this.tasks[task];
 		if (t === undefined) return;
 		this.tasks[task] = undefined;
-		this.log.note(`t${task} drop`);
+		this.note(`t${task} drop`);
 		t.future[Symbol.dispose]();
 		t.waker[Symbol.dispose]();
 	}
@@ -164,8 +164,9 @@ class Executor {
 export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint8Array } {
 	return (input) => {
 		const log = f.Log.new();
-		const exec = new Executor(log, f.Pending);
-		const channels: Channel<V>[] = [];
+		const note = (event: string) => f.Log.note(log, event);
+		const exec = new Executor(note, f.Pending);
+		const channels: Channel[] = [];
 		for (let i = 0; i < input.length; i += 2) {
 			const op = input[i];
 			const arg = input[i + 1] ?? 0;
@@ -173,31 +174,31 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 			const c = pick(channels.length);
 			switch (op % 11) {
 				case 0:
-					log.note(`c${channels.length} open`);
+					note(`c${channels.length} open`);
 					channels.push(f.Channel.open());
 					break;
 				case 1:
-					if (c !== undefined) exec.spawn(f.sum(channels[c].consumer(), f.Guard.new(exec.tasks.length, log.clone())));
+					if (c !== undefined) exec.spawn(f.sum(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log))));
 					break;
 				case 2:
-					if (c !== undefined) exec.spawn(f.drain(channels[c].consumer(), [1, 4, 16][(arg >> 4) % 3]));
+					if (c !== undefined) exec.spawn(f.drain(f.Channel.consumer(channels[c]), [1, 4, 16][(arg >> 4) % 3]));
 					break;
 				case 3:
 					if (c !== undefined) {
-						log.note(`c${c} send ${arg}`);
-						if (!channels[c].send(f.u64.of(arg))) log.note(`c${c} closed`);
+						note(`c${c} send ${arg}`);
+						if (!f.Channel.send(channels[c], f.u64.of(arg))) note(`c${c} closed`);
 					}
 					break;
 				case 4:
 					if (c !== undefined) {
-						log.note(`c${c} close`);
-						channels[c].close();
+						note(`c${c} close`);
+						f.Channel.close(channels[c]);
 					}
 					break;
 				case 5:
 					if (c !== undefined) {
-						log.note(`c${c} clone`);
-						channels[c].cloneProducer();
+						note(`c${c} clone`);
+						f.Channel.cloneProducer(channels[c]);
 					}
 					break;
 				case 6:
@@ -218,16 +219,16 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 				}
 				default:
 					if (c !== undefined) {
-						exec.spawn(f.blocks(channels[c].consumer(), f.Guard.new(exec.tasks.length, log.clone()), arg >= 128));
+						exec.spawn(f.blocks(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log)), arg >= 128));
 					}
 			}
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
 		channels.forEach((channel, c) => {
-			log.note(`c${c} drop`);
+			note(`c${c} drop`);
 			channel[Symbol.dispose]();
 		});
-		return log.text();
+		return f.Log.text(log);
 	};
 }
 

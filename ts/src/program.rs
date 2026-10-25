@@ -27,7 +27,7 @@ pub struct Symbol {
 	pub base: String,
 	/// Appended, after a `$`, when the base collides; empty for a numbered suffix.
 	pub suffix: String,
-	/// The class or companion a method or field belongs to.
+	/// The class a method belongs to.
 	pub owner: Option<SymId>,
 	pub kind: SymKind,
 	/// Its source position in rustc's source map, which numbers files in the order it
@@ -37,6 +37,9 @@ pub struct Symbol {
 	pub instance: String,
 	/// The final name, set by [`Program::name`].
 	pub name: String,
+	/// The name it is exported as, where `name` had to escape a reserved word: `new` for
+	/// `new_`. Set by [`Program::name`].
+	pub alias: Option<String>,
 }
 
 impl Symbol {
@@ -50,16 +53,12 @@ impl Symbol {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymKind {
-	Class,
-	/// A type alias, with a companion object of the same name if it has functions.
-	Union {
-		companion: bool,
-	},
+	Struct,
+	/// A type alias, which has no value.
+	Union,
 	Function,
-	/// A function of a class or companion; `instance` is called on its receiver.
-	Method {
-		instance: bool,
-	},
+	/// A class's method, called on its receiver: only drop glue's `[Symbol.dispose]`.
+	Method,
 }
 
 #[derive(Debug)]
@@ -82,8 +81,10 @@ pub struct Program {
 	pub fields: Vec<FieldInfo>,
 	/// Module-level items, by the symbol each defines.
 	pub items: Vec<Item>,
-	/// The methods of each class or companion, by owner.
+	/// The methods of each class, by owner.
 	pub methods: HashMap<SymId, Vec<Function>>,
+	/// The structs whose values are plain objects; the others are classes.
+	pub plain: HashSet<SymId>,
 	pub sources: Vec<Source>,
 }
 
@@ -147,24 +148,22 @@ impl Program {
 				.collect();
 			for id in ids {
 				let sym = &self.syms[id];
-				// A static method can't take a name its class's constructor function has.
-				let in_class = sym.owner.is_some_and(|owner| self.syms[owner].kind == SymKind::Class);
-				let reserved = in_class && matches!(sym.base.as_str(), "name" | "length" | "caller" | "arguments");
-				let base = match sym.kind {
-					SymKind::Method { instance: false } if reserved => format!("{}_", sym.base),
-					_ => sym.base.clone(),
-				};
 				let base = match shared.contains(&sym.base) && !sym.suffix.is_empty() {
-					true => format!("{base}${}", sym.suffix),
-					false => base,
+					true => format!("{}${}", sym.base, sym.suffix),
+					false => sym.base.clone(),
 				};
-				let name = unique(&mut taken, &base, "");
+				let escaped = match sym.kind {
+					SymKind::Function => crate::lower::escape(&base),
+					_ => base.clone(),
+				};
+				let name = unique(&mut taken, &escaped, "");
+				self.syms[id].alias = (name == escaped && escaped != base).then_some(base);
 				self.syms[id].name = name;
 			}
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
 					let base = match taken.contains(&field.base) {
-						// A getter and its field: the field gives way.
+						// A name a class already defines: the field gives way.
 						true => format!("_{}", field.base),
 						false => field.base.clone(),
 					};
@@ -190,6 +189,20 @@ impl Program {
 
 		for (path, text) in RUNTIME {
 			write_file(&out.join(path), &format!("{HEADER}\n{text}"))?;
+		}
+		// Two types whose names differ only in case would share a file where file names
+		// ignore case, as on macOS and Windows.
+		let mut files = HashMap::new();
+		for module in modules.keys() {
+			let file = module_file(module);
+			let folded = file.to_string_lossy().to_lowercase();
+			if let Some(other) = files.insert(folded, file.clone()) {
+				return Err(format!(
+					"{} and {} differ only in case, which a case-insensitive file system can't tell apart",
+					other.display(),
+					file.display()
+				));
+			}
 		}
 		for (module, items) in modules {
 			let path = out.join(module_file(module));
@@ -223,9 +236,27 @@ fn unique(taken: &mut HashSet<String>, base: &str, suffix: &str) -> String {
 
 pub fn item_sym(item: &Item) -> SymId {
 	match item {
-		Item::Class { sym, .. } | Item::Union { sym, .. } => *sym,
+		Item::Struct { sym, .. } | Item::Union { sym, .. } => *sym,
 		Item::Function(f) => f.sym,
 	}
+}
+
+/// The module of a type and its functions, beside the Rust module that defines it:
+/// `coding/decode.Decoder.ts` for `coding::decode::Decoder`, which callers import whole,
+/// `import * as Decoder`. A Rust module's name has no `.`, so neither can collide.
+pub fn type_module(module: &[String], ty: &str) -> ModPath {
+	let (parents, last) = match module {
+		[] => (&[][..], "lib"),
+		[parents @ .., last] => (parents, last.as_str()),
+	};
+	let mut path = parents.to_vec();
+	path.push(format!("{last}.{ty}"));
+	path
+}
+
+/// Whether `module` is a type's, from [`type_module`].
+pub fn is_type_module(module: &[String]) -> bool {
+	module.last().is_some_and(|last| last.contains('.'))
 }
 
 /// The file a module is written to, relative to the output directory.
