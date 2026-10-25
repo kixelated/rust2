@@ -363,6 +363,55 @@ fn diverging(data: &[u8], out: &mut Vec<u8>) {
 	out.push(guarded_return(head));
 	let found = bound_never(head, out);
 	out.push(found);
+	out.push(closure_never(b));
+	generic_never(b, data.len());
+}
+
+/// Calls that never return, through a closure, a function pointer, and a closure a
+/// function made: a statement, a bound value, and the tail.
+fn closure_never(b: u8) -> u8 {
+	let fail = |b: u8| -> ! { panic!("closure failed on {b:#x}") };
+	let ptr: fn(u8) -> ! = bail;
+	let made = made_never();
+	if b == 0xf5 {
+		fail(b);
+	}
+	let x: u8 = if b == 0xf4 { ptr(b) } else { b / 5 };
+	match b {
+		0xf3 => fail(b),
+		0xfa => made(b),
+		_ => x,
+	}
+}
+
+/// A closure that never returns, made by a function.
+fn made_never() -> impl Fn(u8) -> ! {
+	|b| panic!("made {b}")
+}
+
+/// Generic functions instantiated at `!`, which edition 2024 infers for a value that
+/// never exists: given one, and given an `Option` of none, which then calls one.
+#[allow(unreachable_code, clippy::diverging_sub_expression, reason = "`!` arguments")]
+fn generic_never(b: u8, len: usize) {
+	fn pass<T>(x: T) -> T {
+		x
+	}
+	fn unwrap_or_bail<T>(o: Option<T>, b: u8) -> T {
+		match o {
+			Some(x) => pass(x),
+			None => bail(b),
+		}
+	}
+	if b == 0xf1 {
+		pass(bail(b));
+	}
+	if b == 0xf6 {
+		pass(panic!("passed {b}"));
+	}
+	if b == 0xf9 {
+		let o = if len > 1 { None } else { Some(panic!("some {b}")) };
+		unwrap_or_bail(o, b);
+	}
 }
 
 /// A function that never returns.
