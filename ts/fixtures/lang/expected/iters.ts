@@ -78,7 +78,7 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		out.push(skipped.length & 0xff);
 		out.extendFromSlice(mapped.view());
 	} else if (value === 4) {
-		const words = chunksByZero(data);
+		const words = chunksByZero$ChunksByZero_u8s(data);
 		const flat = rt.iter.slice(words).flatMap((w: rt.ByteVec): rt.Iter<rt.u8> => {
 			return rt.iter.slice(w.view()).rev();
 		}).toByteVec();
@@ -160,7 +160,7 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** The runs between zero bytes. */
-export function chunksByZero(self: Uint8Array): rt.ByteVec[] {
+export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 	let words: rt.ByteVec[] = [];
 	let word: rt.ByteVec = new rt.ByteVec();
 	for (const item of self) {
@@ -266,7 +266,7 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		}
 		let back: rt.Iter<[rt.u8, rt.u8]> = rt.iter.slice(data).map((arg12: rt.u8): rt.u8 => {
 			const b15 = arg12;
-			return rotateFree(b15);
+			return rotateFree$RotateFree_u8(b15);
 		}).zip(rt.iter.slice(short), true);
 		const nextBack = rt.iter.toOption(back.nextBack());
 		if (nextBack !== undefined) {
@@ -307,7 +307,7 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		out.extendFromSlice(rt.u32.toBeBytes(folded));
 		rt.iter.slice(data).forEach((arg17: rt.u8): void => {
 			const b21 = arg17;
-			log.push(rotateFree(b21));
+			log.push(rotateFree$RotateFree_u8(b21));
 		});
 	} else if (value === 4) {
 		const total = rt.iter.slice(data).sum(rt.u8.add, 0);
@@ -347,7 +347,7 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	out.extendFromSlice(log.view());
 }
 
-export function rotateFree(self: rt.u8): rt.u8 {
+export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {
 	return ((self << 1) & 0xff) | (self >> 7);
 }
 
@@ -477,7 +477,7 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 		return o !== undefined;
 	}).count();
 	out.push(somes & 0xff);
-	out.push(rt.option.unwrapOr(second(rt.iter.slice(data).map(maybe)), 0xcd));
+	out.push(rt.option.unwrapOr(second$Map_Iter_u8_options_closure0(rt.iter.slice(data).map(maybe)), 0xcd));
 	const first = rt.slice.first(data);
 	const iter2 = rt.iter.option(first).chain(rt.iter.once(0x99));
 	while (true) {
@@ -496,7 +496,7 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(counted.view());
 	const gaps = { data, at: 0 };
 	while (true) {
-		const gap = Gaps.next(gaps);
+		const gap = Gaps.next$Iterator(gaps);
 		if (gap === rt.DONE) {
 			break;
 		}
@@ -507,7 +507,7 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** The second item of an iterator of options, through `?`, which tests for its end. */
-export function second(items: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined {
+export function second$Map_Iter_u8_options_closure0(items: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined {
 	const next = items.next();
 	if (next === rt.DONE) {
 		return undefined;
@@ -526,19 +526,19 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
 	const step = rt.max(rt.option.unwrapOr(rt.slice.get(data, 1), 1), 1);
 	const iter = { left, step };
 	while (true) {
-		const n = Countdown.next(iter);
+		const n = Countdown.next$Iterator(iter);
 		if (n === rt.DONE) {
 			break;
 		}
 		out.push(n);
 	}
-	const total = rt.iter.from({ left, step }, (it: Countdown.Countdown) => Countdown.next(it)).map((n2: rt.u8): rt.u64 => {
+	const total = rt.iter.from({ left, step }, (it: Countdown.Countdown) => Countdown.next$Iterator(it)).map((n2: rt.u8): rt.u64 => {
 		return rt.u64.div(rt.u64.mul(n2 as rt.u64, 1000), 7);
 	}).sum(rt.u64.add, 0);
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	let down: Countdown.Countdown = { left, step };
 	while (true) {
-		const next = rt.iter.toOption(Countdown.next(down));
+		const next = rt.iter.toOption(Countdown.next$Iterator(down));
 		if (next !== undefined) {
 			const n3 = next;
 			if (rt.u8.rem(n3, 5) === 0) {
@@ -549,15 +549,15 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
 		}
 	}
 	out.push(down.left);
-	const evens = rt.iter.from({ inner: rt.iter.slice(data) }, (it: Evens.Evens) => Evens.next(it)).toByteVec();
+	const evens = rt.iter.from({ inner: rt.iter.slice(data) }, (it: Evens.Evens) => Evens.next$Iterator(it)).toByteVec();
 	out.extendFromSlice(evens.view());
 	let byRef: Evens.Evens = { inner: rt.iter.slice(rt.slice.range(data, rt.min(data.length, 1))) };
-	const firsts = rt.iter.from(byRef, (it: Evens.Evens) => Evens.next(it)).take(2).toByteVec();
+	const firsts = rt.iter.from(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)).take(2).toByteVec();
 	out.extendFromSlice(firsts.view());
-	out.push(rt.iter.from(byRef, (it: Evens.Evens) => Evens.next(it)).count() & 0xff);
-	const halves = rt.iter.from(new Halving.Halving({ value: left }), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator(it)).toByteVec();
+	out.push(rt.iter.from(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)).count() & 0xff);
+	const halves = rt.iter.from(new Halving.Halving({ value: left }), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator_u8(it)).toByteVec();
 	out.extendFromSlice(halves.view());
-	const total2 = rt.iter.from(new Halving.Halving({ value: rt.u64.mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator$2(it)).sum(rt.u64.add, 0);
+	const total2 = rt.iter.from(new Halving.Halving({ value: rt.u64.mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)).sum(rt.u64.add, 0);
 	out.extendFromSlice(rt.u64.toBeBytes(total2));
 }
 
@@ -599,13 +599,13 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 	}
 	const arg = { _0: data };
 	const arg2 = { _0: rt.slice.range(data, 0, rt.min(data.length, 2)) };
-	const printed = rt.fmt.format([(f: rt.Formatter) => Doubled.fmt(arg, f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Doubled.fmt(arg2, f))]);
+	const printed = rt.fmt.format([(f: rt.Formatter) => Doubled.fmt$Debug(arg, f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Doubled.fmt$Debug(arg2, f))]);
 	out.extendFromSlice(rt.string.asBytes(printed));
 	const tags = rt.iter.slice(data).map((arg3: rt.u8): Tag.Tag => {
 		const b3 = arg3;
 		return { bytes: rt.slice.toByteVec(Uint8Array.of(b3, ~b3 & 0xff)) };
 	}).toArray();
-	let cloned: Tag.Tag[] = rt.iter.slice(tags).map(Tag.clone).toArray();
+	let cloned: Tag.Tag[] = rt.iter.slice(tags).map(Tag.clone$Clone).toArray();
 	const iter3 = rt.iter.slice(cloned);
 	while (true) {
 		const tag = iter3.next();
@@ -626,7 +626,7 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		const b4 = arg4;
 		return { _0: b4 };
 	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(bumps).map(Bumped.clone).map((b5: Bumped.Bumped): rt.u8 => {
+	rt.iter.extend(out, rt.iter.slice(bumps).map(Bumped.clone$Clone).map((b5: Bumped.Bumped): rt.u8 => {
 		return b5._0;
 	}));
 	rt.iter.extend(out, rt.iter.slice(bumps).map(rt.copy).map((b6: Bumped.Bumped): rt.u8 => {
@@ -636,7 +636,7 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		const b7 = arg5;
 		return new Wrapper.Wrapper({ _0: b7 });
 	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(wrapped).map(Wrapper.clone).map((w: Wrapper.Wrapper<Bumped.Bumped>): rt.u8 => {
+	rt.iter.extend(out, rt.iter.slice(wrapped).map(Wrapper.clone$Clone_Bumped).map((w: Wrapper.Wrapper<Bumped.Bumped>): rt.u8 => {
 		return w._0._0;
 	}));
 }

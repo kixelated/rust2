@@ -31,7 +31,7 @@ export interface Fixture<V> {
 		"new"(): Log;
 		note(log: Log, event: string): void;
 		text(log: Log): { view(): Uint8Array };
-		clone(log: Log): Log;
+		clone$Clone(log: Log): Log;
 	};
 	Channel: {
 		open(): Channel;
@@ -200,7 +200,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 					channels.push(f.Channel.open());
 					break;
 				case 1:
-					if (c !== undefined) exec.spawn(f.sum(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log))));
+					if (c !== undefined) exec.spawn(f.sum(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log))));
 					break;
 				case 2:
 					if (c !== undefined) exec.spawn(f.drain(f.Channel.consumer(channels[c]), [1, 4, 16][(arg >> 4) % 3]));
@@ -241,7 +241,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 				}
 				default:
 					if (c !== undefined) {
-						exec.spawn(f.blocks(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log)), arg >= 128));
+						exec.spawn(f.blocks(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log)), arg >= 128));
 					}
 			}
 		}
