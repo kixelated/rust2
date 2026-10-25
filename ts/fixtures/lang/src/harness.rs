@@ -19,7 +19,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 33 {
+	match op % 34 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -62,7 +62,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		29 => iters::ranges(data, &mut out),
 		30 => iters::options(data, &mut out),
 		31 => iters::own(data, &mut out),
-		_ => iters::values(data, &mut out),
+		32 => iters::values(data, &mut out),
+		_ => shapes::order(data, &mut out),
 	}
 	out
 }
