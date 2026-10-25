@@ -527,7 +527,7 @@ fn extend_source<'tcx>(
 	};
 	let borrowed = owner == "Extend" && library::targ(call.args, 1) != stored;
 	Some(match borrowed && elems.iter().any(|&t| b.needs_copy(t)) {
-		true => items.member("map").call(vec![Expr::Rt("copy")]),
+		true => Expr::rt("iterMap", vec![items, Expr::Rt("copy".into())]),
 		false => items,
 	})
 }
@@ -676,10 +676,10 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
-		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp"),
-		ty::Str => Expr::Rt("cmpStr"),
-		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("cmpStr"),
-		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp"),
+		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
+		ty::Str => Expr::Rt("cmpStr".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("cmpStr".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| cmp_fn(b, t, span)).collect();
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
@@ -701,10 +701,10 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 			if let Some(int) = Int::of(ty)
 				&& int.big() =>
 		{
-			Expr::Rt(int.rt()).member("eq")
+			int.func("eq")
 		}
-		ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same"),
-		ty::Adt(..) if matches!(b.t.std_of(ty), Some(Std::String | Std::Ordering)) => Expr::Rt("same"),
+		ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
+		ty::Adt(..) if matches!(b.t.std_of(ty), Some(Std::String | Std::Ordering)) => Expr::Rt("same".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
@@ -723,10 +723,10 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
-		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("hashInt"),
-		ty::Str => Expr::Rt("hashStr"),
-		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("hashStr"),
-		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt"),
+		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("hashInt".into()),
+		ty::Str => Expr::Rt("hashStr".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("hashStr".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| hash_fn(b, t, hasher, span)).collect();
 			Expr::rt("hashTuple", vec![Expr::Array(fns)])
@@ -743,7 +743,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	if b.needs_copy(ty) && library::clone_copies(b.t, ty) {
-		return Expr::Rt("copy");
+		return Expr::Rt("copy".into());
 	}
 	if (b.t.is_copy(ty) && library::clone_copies(b.t, ty)) || b.t.std_of(ty) == Some(Std::String) {
 		return Expr::undefined();

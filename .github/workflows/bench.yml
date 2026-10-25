@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - bench/build/**
+      - "!bench/build/**/*.md"
       - .github/workflows/bench.yml
       - flake.nix
       - flake.lock
@@ -21,8 +22,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Path filters cannot tell which output a flake change touches, so a PR runs the
+  # bench only if a flake output it runs has a derivation other than its base's.
+  changed:
+    name: Changed
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      bench: ${{ steps.diff.outputs.bench }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The merge commit and its first parent, the base.
+          fetch-depth: 2
+
+      - uses: ./.github/actions/nix
+
+      - name: Diff
+        id: diff
+        run: |
+          # The trigger's paths, less the flake's.
+          if ! git diff --quiet HEAD^ HEAD -- bench/build .github/workflows/bench.yml ':!*.md'; then
+            echo "bench=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          drvs() { # rev
+            local rev drv output
+            rev=$(git rev-parse "$1")
+            for output in devShells.x86_64-linux.build-bench packages.x86_64-linux.bench-ra-jit; do
+              drv=$(nix eval --raw "git+file://$PWD?shallow=1&rev=$rev#$output.drvPath")
+              echo "$output $drv"
+            done
+          }
+          drvs HEAD^ >"$RUNNER_TEMP/base"
+          drvs HEAD >"$RUNNER_TEMP/head"
+          cat "$RUNNER_TEMP/head"
+          if diff "$RUNNER_TEMP/base" "$RUNNER_TEMP/head"; then changed=false; else changed=true; fi
+          echo "bench=$changed" >>"$GITHUB_OUTPUT"
+
   bench:
     name: Bench (${{ matrix.name }})
+    needs: changed
+    # A schedule or dispatch skips the changed job, and runs everything.
+    if: ${{ !cancelled() && (needs.changed.result == 'skipped' || needs.changed.outputs.bench == 'true') }}
     # x86_64 Linux is where rustc links with LLD by default.
     runs-on: ubuntu-24.04
     timeout-minutes: 330
@@ -35,6 +81,8 @@ jobs:
             args: --corpus moq --variant baseline --variant mold --variant wild --variant control --no-attribute
           - name: moq nightly
             args: --corpus moq --variant nightly --variant jobs-frontend --variant cranelift --variant cache-proc-macros --variant nightly-control
+          - name: moq ra-jit
+            args: --corpus moq --variant ra-jit-baseline --variant ra-jit --no-attribute
           - name: moq pure-crypto
             args: --corpus moq --corpus moq-pure-crypto --variant baseline
           - name: pure

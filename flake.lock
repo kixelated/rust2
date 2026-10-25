@@ -44,17 +44,44 @@
         ]
       },
       "locked": {
-        "lastModified": 1792615929,
-        "narHash": "sha256-sm5clS5dQPeAXL0qwgSmVN7TjOCZ4UPMZHHfz+HdxWk=",
+        "lastModified": 1792954329,
+        "narHash": "sha256-JfHwJJ1qKWckXj2PNb19FgVpfxcLFfpQjMF9dbFOLmM=",
         "owner": "kixelated",
         "repo": "quest",
-        "rev": "a73fb295a3679ff54205af68a1a7bb8ec5bdc7af",
+        "rev": "ed657ba9362a941b3be9bbea55120a3c5a90374c",
         "type": "github"
       },
       "original": {
         "owner": "kixelated",
         "repo": "quest",
-        "rev": "a73fb295a3679ff54205af68a1a7bb8ec5bdc7af",
+        "rev": "ed657ba9362a941b3be9bbea55120a3c5a90374c",
+        "type": "github"
+      }
+    },
+    "ra-jit": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": [
+          "rust-overlay"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792901758,
+        "narHash": "sha256-r36PMl7vzuiEpysRWwcLNJgNtxRj/0QtQVKQRvMbUxY=",
+        "owner": "indexable-inc",
+        "repo": "ra-jit",
+        "rev": "d4f6027e82d312bf805ebfe6252369f6048a1e18",
+        "type": "github"
+      },
+      "original": {
+        "owner": "indexable-inc",
+        "repo": "ra-jit",
+        "rev": "d4f6027e82d312bf805ebfe6252369f6048a1e18",
         "type": "github"
       }
     },
@@ -63,6 +90,7 @@
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "quest": "quest",
+        "ra-jit": "ra-jit",
         "rust-overlay": "rust-overlay"
       }
     },

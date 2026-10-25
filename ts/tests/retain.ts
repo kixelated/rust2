@@ -35,8 +35,8 @@ for (let n = 0; n <= 6; n++) {
 			for (let i = n >> 1; i < n; i++) rt.dequePushBack(deque, i);
 			caught(() => rt.dequeRetain(deque, keep));
 
-			const entries = rt.btreeIter(tree).toArray();
-			const items = rt.dequeIter(deque).toArray();
+			const entries = rt.iterToArray(rt.btreeIter(tree));
+			const items = rt.iterToArray(rt.dequeIter(deque));
 			console.log(`${n} ${mask} ${p} btree ${entries.join(";")} deque ${items.join(",")}`);
 
 			// Keys that collide by twos, so `retain` unlinks within chains.
@@ -56,7 +56,7 @@ for (let n = 0; n <= 6; n++) {
 					return kept;
 				}),
 			);
-			const held = rt.hashIter(hashed).toArray().map(([key, v]) => {
+			const held = rt.iterToArray(rt.hashIter(hashed)).map(([key, v]) => {
 				if (rt.hashGet(hashed, key) !== v) throw new Error(`${key.k} is not found`);
 				return key.k;
 			});

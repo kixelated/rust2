@@ -8,10 +8,10 @@ export interface Fails {
 }
 
 export function fmt$Display(self: Fails, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	if (rt.u8.rem(self._0, 2) === 0) {
-		return f.writeStr("fine");
+	if (rt.u8Rem(self._0, 2) === 0) {
+		return rt.fmtWriteStr(f, "fine");
 	}
-	const writeFmt = f.writeFmt(["half ", (f: rt.Formatter) => rt.u8.display(self._0, f)]);
+	const writeFmt = rt.fmtWriteFmt(f, ["half ", (f: rt.Formatter) => rt.u8Display(self._0, f)]);
 	if (!writeFmt.ok) {
 		return rt.Err(writeFmt.error);
 	}

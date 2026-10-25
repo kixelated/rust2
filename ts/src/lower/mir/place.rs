@@ -381,8 +381,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					Some(Std::Option) if matches!(scrut, Expr::Ident(n) if self.next_names.contains(n)) => {
 						match index.index() {
-							0 => scrut.clone().binary("===", Expr::Rt("DONE")),
-							_ => scrut.clone().binary("!==", Expr::Rt("DONE")),
+							0 => scrut.clone().binary("===", Expr::Rt("DONE".into())),
+							_ => scrut.clone().binary("!==", Expr::Rt("DONE".into())),
 						}
 					}
 					Some(Std::Option) => match index.index() {
@@ -390,8 +390,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", Expr::undefined()),
 					},
 					Some(Std::Poll) => match index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending")),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending")),
+						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
+						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
 					},
 					Some(Std::Result) => match index.index() {
 						0 => scrut.clone().member("ok"),

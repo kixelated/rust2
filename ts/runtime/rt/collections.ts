@@ -11,7 +11,8 @@
 // No key, value, or item is ever `undefined`, which the translator refuses, so
 // `undefined` is a missing one.
 
-import { lt, type Limbs, panic } from "../rt.ts";
+import { panic } from "../rt.ts";
+import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, RangeInclusive } from "./iter.ts";
 
 // Ordering
@@ -440,8 +441,8 @@ export function hashClone<K, V>(m: HashMap<K, V>, key: (k: K) => K = itself, val
  * at most this many array slots after `log_{NODE/2} n` searches of one node each.
  */
 const NODE = 64;
-/** The fewest keys a node other than the root holds. */
-const MIN = NODE >> 1;
+/** The fewest keys a node other than the root holds, half of `NODE`, as a literal a bundler can drop. */
+const MIN = 32;
 
 /** A leaf: its keys in order, each key's value at the same index, and the leaves beside it. */
 interface Leaf<K, V> {
@@ -835,10 +836,10 @@ export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => bo
  * last key, and the back to the previous leaf as it passes a leaf's first key.
  */
 class BTreeIter<K, V, T> extends Iter<T> {
-	private fl: Leaf<K, V>;
-	private fi: number;
-	private bl: Leaf<K, V>;
-	private bi: number;
+	fl: Leaf<K, V>;
+	fi: number;
+	bl: Leaf<K, V>;
+	bi: number;
 	/** How many items are left, where it is known: an iterator of the whole map. */
 	private n: number;
 	private readonly pick: Pick;
@@ -861,18 +862,10 @@ class BTreeIter<K, V, T> extends Iter<T> {
 		this.n = n;
 	}
 
-	private done(): boolean {
-		return this.fl === this.bl ? this.fi >= this.bi : this.fi === 0 && this.bl.next === this.fl && this.bi === this.bl.k.length;
-	}
-
-	private at(l: Leaf<K, V>, i: number): T {
-		return (this.pick === ENTRIES ? [l.k[i], l.v[i]] : this.pick === KEYS ? l.k[i] : l.v[i]) as T;
-	}
-
 	next(): T | Done {
-		if (this.done()) return DONE;
+		if (done(this)) return DONE;
 		const l = this.fl;
-		const item = this.at(l, this.fi++);
+		const item = picked<K, V, T>(this.pick, l, this.fi++);
 		if (this.fi === l.k.length && l.next !== undefined) {
 			this.fl = l.next;
 			this.fi = 0;
@@ -882,9 +875,9 @@ class BTreeIter<K, V, T> extends Iter<T> {
 	}
 
 	override nextBack(): T | Done {
-		if (this.done()) return DONE;
+		if (done(this)) return DONE;
 		const l = this.bl;
-		const item = this.at(l, --this.bi);
+		const item = picked<K, V, T>(this.pick, l, --this.bi);
 		if (this.bi === 0 && l.prev !== undefined) {
 			this.bl = l.prev;
 			this.bi = this.bl.k.length;
@@ -896,6 +889,16 @@ class BTreeIter<K, V, T> extends Iter<T> {
 	override len(): number {
 		return this.n;
 	}
+}
+
+/** Whether `it`'s front has met its back. */
+function done<K, V, T>(it: BTreeIter<K, V, T>): boolean {
+	return it.fl === it.bl ? it.fi >= it.bi : it.fi === 0 && it.bl.next === it.fl && it.bi === it.bl.k.length;
+}
+
+/** What `pick` yields of index `i` of leaf `l`. */
+function picked<K, V, T>(pick: Pick, l: Leaf<K, V>, i: number): T {
+	return (pick === ENTRIES ? [l.k[i], l.v[i]] : pick === KEYS ? l.k[i] : l.v[i]) as T;
 }
 
 function whole<K, V, T>(m: BTreeMap<K, V>, pick: Pick): Iter<T> {
@@ -928,7 +931,7 @@ export type Bounds<K> = { readonly start: K; readonly end: K } | RangeInclusive<
 function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefined, boolean] {
 	if (r === undefined) return [undefined, undefined, false];
 	// Exhausted, an inclusive range ends before its end, as its `end_bound` says.
-	if (r instanceof RangeInclusive) return [{ key: r.start() }, { key: r.end() }, r.endIncluded()];
+	if (r instanceof RangeInclusive) return [{ key: r.lo }, { key: r.hi }, !r.exhausted];
 	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, false];
 }
 

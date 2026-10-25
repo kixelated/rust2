@@ -112,7 +112,7 @@ for (let step = 0; step < steps; step++) {
 	}
 	if (step % 499 === 0) check(m);
 }
-out.push(`end ${rt.btreeLen(m)} ${rt.btreeKeys(m).toArray().join(",")}`);
+out.push(`end ${rt.btreeLen(m)} ${rt.iterToArray(rt.btreeKeys(m)).join(",")}`);
 // Emptied from both ends, down to its root leaf.
 const drained: number[] = [];
 while (rt.btreeLen(m) > 0) {

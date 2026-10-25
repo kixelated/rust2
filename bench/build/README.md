@@ -1,7 +1,8 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and every build-speed change here states its effect with its numbers.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
+Every build-speed change here states its effect with its numbers.
 
 ```bash
 just bench                                    # everything; takes hours
@@ -9,7 +10,7 @@ just bench --corpus regex --runs 1            # a quick smoke test
 just bench --corpus moq --variant baseline --variant mold
 ```
 
-The script enters the `build-bench` dev shell itself, which adds hyperfine, mold, wild, measureme, and a pinned nightly to the default shell.
+The script enters the `build-bench` dev shell itself, which holds only what the benchmark runs: the stable toolchain, a pinned nightly, hyperfine, mold, wild, measureme, and the script's tools.
 Results land in `target/bench/results/`, newest at `target/bench/results/latest/report.md`.
 Checkouts and builds live in `/var/tmp/rust2-bench-<user>/` with their own `CARGO_HOME`, since cargo reads every `.cargo/config.toml` above the directory it runs in and a user-level one (such as `build.incremental = false`) would change what is measured.
 The run also ignores the caller's `CARGO*`, `RUSTC*`, `RUSTDOC*`, `RUSTUP*`, and `RUSTFLAGS` variables, and `CI` and `TF_BUILD`, which make newer cargo skip incremental compilation.
@@ -41,6 +42,20 @@ Each is compared against its `base`, run in the same job: the levers on stable a
 The `control` variants repeat their base, so their change is the run's noise floor: an A/A control.
 Timed runs interleave the variants and rotate which goes first each round, so drift over a long job spreads across all of them.
 To measure a new build-speed change, add a variant whose base is the configuration it improves on.
+
+The `ra-jit` variant builds with `cargo ra-jit` ([ra-jit](https://github.com/indexable-inc/ra-jit), pinned in `flake.nix` and compiled from source on a run that selects it), a daemon that compiles only the functions an edit changed and splices them into the program cargo linked, or hands the build back to cargo.
+ra-jit works with one rustc only, so its base, `ra-jit-baseline`, is plain cargo on that toolchain.
+Both run on the moq corpora only, since ra-jit needs a program to load, and skip `check`, which `cargo ra-jit` fails on moq.
+The daemon keeps working after a build returns, so each ra-jit run waits for it to go idle before and after, and none of its work overlaps another run.
+Its CPU time adds the daemon's, its peak RSS adds what the daemon holds, and its instructions read `n/a`; the report also says how many of its runs the daemon built, and why cargo built the rest.
+The edit marker is a function nothing calls: rustc recompiles its crate and every crate that depends on it, while ra-jit, when it builds the edit itself, compiles nothing, so its edit times are a lower bound.
+
+ra-jit bugs seen on moq at the pinned rev, not reported upstream:
+
+- `cargo ra-jit check` with no build loaded reads every crate of the workspace, takes minutes and GBs, and fails on errors rustc does not report (`unresolved macro moq_clock::test` in moq-net's integration tests).
+- Async body edits in moq-net often go to cargo (2 of 3 by hand): "`new` is not compiled by ra-jit and rustc's copy is from before the edit: an instance of it does not compile".
+- A fallback logs `Duplicate definition of identifier ... <cc::Build>::cargo_metadata` while compiling aws-lc-sys's build script.
+- On a library-only build such as regex, `cargo ra-jit build` returns after `cargo clean` without building anything.
 
 The report shows wall time (trimmed mean, and mean ± standard deviation), CPU time, retired instructions, and peak RSS, all from hyperfine.
 A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares trimmed means, which drop each variant's fastest and slowest run; CPU time and instructions are trimmed means too.

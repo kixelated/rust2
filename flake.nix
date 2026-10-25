@@ -11,8 +11,16 @@
     # The quest CLI, which also serves the quest guide and skills the stubs in
     # .claude/skills call. Bump the rev to upgrade them.
     quest = {
-      url = "github:kixelated/quest/a73fb295a3679ff54205af68a1a7bb8ec5bdc7af";
+      url = "github:kixelated/quest/ed657ba9362a941b3be9bbea55120a3c5a90374c";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
+    # The daemon the benchmark's ra-jit variant measures. Bumping the rev is a
+    # benchmark corpus change: numbers before and after it do not compare.
+    ra-jit = {
+      url = "github:indexable-inc/ra-jit/d4f6027e82d312bf805ebfe6252369f6048a1e18";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.rust-overlay.follows = "rust-overlay";
       inputs.flake-utils.follows = "flake-utils";
     };
   };
@@ -24,6 +32,7 @@
       flake-utils,
       rust-overlay,
       quest,
+      ra-jit,
       ...
     }:
     flake-utils.lib.eachSystem
@@ -46,6 +55,11 @@
           # after it do not compare.
           nightly = pkgs.rust-bin.nightly."2026-10-22".minimal.override {
             extensions = [ "rustc-codegen-cranelift-preview" ];
+          };
+          # ra-jit works with one rustc only. This is the toolchain its flake builds
+          # with, so the daemon and the variant's plain cargo share it.
+          raJitToolchain = pkgs.rust-bin.stable."1.99.0".default.override {
+            extensions = [ "rust-src" ];
           };
           # The TypeScript driver's own nightly, kept off PATH so the other projects keep
           # the repo toolchain. ts/justfile puts it first for its recipes.
@@ -144,14 +158,31 @@
             uniffi-bindgen-go = generator "uniffi-bindgen-go" [ "uniffi-bindgen-go" ];
             uniffi-bindgen-dart = generator "uniffi-bindgen-dart" [ "uniffi_bindgen_dart" ];
             uniffi-bindgen-cpp = generator "uniffi-bindgen-cpp" [ "uniffi-bindgen-cpp" ];
+          }
+          # ra-jit and its toolchain for the benchmark's ra-jit variants, which build it
+          # only when they run: it compiles from source. ra-jit skips Intel macOS.
+          // pkgs.lib.optionalAttrs (ra-jit.packages ? ${system}) {
+            bench-ra-jit = pkgs.symlinkJoin {
+              name = "bench-ra-jit";
+              paths = [
+                ra-jit.packages.${system}.ra-jit
+                raJitToolchain
+              ];
+            };
           };
           # `just bench` enters this shell; the nightly toolchain stays off PATH
-          # so stable remains the default.
+          # so stable remains the default. It holds only what the benchmark runs:
+          # a PR runs bench.yml only when this shell, or another output it lists
+          # (bench-ra-jit), changes derivation.
           devShells.build-bench = pkgs.mkShell {
-            inputsFrom = [ self.devShells.${system}.default ];
             packages =
               with pkgs;
               [
+                toolchain
+                just
+                jq
+                git
+                taplo
                 hyperfine
                 measureme
               ]
@@ -182,10 +213,11 @@
               flock
               nixfmt
               # The TypeScript driver's tests run and type-check its output, and bundle a
-              # caller with Bun to check that unused output shakes out.
+              # caller with Bun and esbuild to check that unused output shakes out.
               nodejs
               typescript
               bun
+              esbuild
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };

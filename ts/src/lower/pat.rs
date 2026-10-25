@@ -43,8 +43,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", Expr::undefined()),
 					}),
 					Some(Std::Poll) => tests.push(match variant_index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending")),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending")),
+						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
+						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
 					}),
 					Some(Std::Result) => tests.push(match variant_index.index() {
 						0 => scrut.clone().member("ok"),

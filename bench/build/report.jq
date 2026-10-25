@@ -12,7 +12,7 @@ $host[0] as $h
 	"# Build benchmark",
 	"",
 	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`.",
-	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.hyperfine); \($h.mold); \($h.wild).",
+	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.ra_jit // "ra-jit missing"); \($h.hyperfine); \($h.mold); \($h.wild).",
 	"",
 	"Wall time in seconds: the trimmed mean (without the fastest and slowest run), and the mean ± standard deviation of every run.",
 	"The change against the variant's base compares trimmed means, so one slow run does not move it; CPU time and instructions are trimmed means too.",
@@ -39,9 +39,22 @@ $host[0] as $h
 				(if .instructions == null then "n/a"
 					elif $is_base then "\(.instructions / 1e9 | fixed(1))G"
 					else (.instructions / $base.instructions - 1 | pct) end),
-				"\(.rss / 1048576 | round) MiB"
+				"\(.rss / 1048576 | round) MiB" + if .ra_jit then " + daemon \(.ra_jit.rss / 1048576 | round) MiB" else "" end
 			]
 			| row
+		),
+		(
+			$runs | map(select(.ra_jit)) | select(length > 0)
+			| "",
+			"ra-jit's CPU time includes its daemon's, from before each run until the daemon goes idle after it, and its peak RSS adds what the daemon holds then; nothing counts the daemon's instructions.",
+			"",
+			(
+				.[]
+				| (.times | length) as $n
+				| "- `\(.scenario)` \(.variant): the daemon built \(.ra_jit.served) of \($n) runs"
+					+ (.ra_jit.cargo | to_entries | if length == 0 then "." else
+						", cargo the rest: " + (map("\(.value) × \(.key)") | join("; ")) + "." end)
+			)
 		)
 	),
 	(

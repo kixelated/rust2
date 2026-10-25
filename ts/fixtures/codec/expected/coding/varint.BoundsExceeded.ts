@@ -3,11 +3,11 @@
 import * as rt from "../rt.ts";
 
 export function fmt$Debug(_self: BoundsExceeded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.writeStr("BoundsExceeded");
+	return rt.fmtWriteStr(f, "BoundsExceeded");
 }
 
 export function fmt$Display(_self: BoundsExceeded, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return __formatter.writeStr("value out of range");
+	return rt.fmtWriteStr(__formatter, "value out of range");
 }
 
 /** The number does not fit the target: a varint wire form or a narrower integer. */

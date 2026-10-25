@@ -12,8 +12,8 @@ export interface Fussy {
 }
 
 export function clone$Clone(self: Fussy): Fussy {
-	if (rt.u8.rem(self._0, 7) === 0) {
-		rt.panic(["cloning ", (f: rt.Formatter) => rt.u8.display(self._0, f)]);
+	if (rt.u8Rem(self._0, 7) === 0) {
+		rt.panicFmt(["cloning ", (f: rt.Formatter) => rt.u8Display(self._0, f)]);
 	}
 	return { _0: self._0 };
 }
