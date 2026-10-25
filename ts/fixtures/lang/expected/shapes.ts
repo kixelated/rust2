@@ -824,6 +824,9 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.u32.add(rt.u32.mul(v2, 3), base);
 	};
 	out.extendFromSlice(rt.u32.toBeBytes(apply(scale, sum)));
+	let whole: Uint8Array = Uint8Array.of(data.length & 0xff);
+	overwrite(whole);
+	out.push(whole[0]);
 	let parsed: Array<Dir | undefined> = [];
 	for (const item2 of data) {
 		const b2 = item2;
@@ -834,6 +837,14 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 		tags.push(rt.option.unwrapOr(rt.option.map(d, from), 0));
 	}
 	out.extendFromSlice(tags.view());
+}
+
+/** Replaces `a` whole from a closure. */
+export function overwrite(a: Uint8Array): void {
+	let write: () => void = (): void => {
+		a.set(Uint8Array.of(9));
+	};
+	write();
 }
 
 export function apply(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {

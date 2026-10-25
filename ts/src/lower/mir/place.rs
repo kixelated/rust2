@@ -287,31 +287,52 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The statements that assign `value` to `place`, which has projections.
 	pub(super) fn store(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> Vec<Stmt> {
 		let mut out = Vec::new();
-		// `*r = v` through a reference that is no alias replaces what it points at.
+		// `*r = v` replaces the object `r` points at in place, which other references and
+		// captures share. An alias of a borrowed place, or of a reference to no object,
+		// assigns the place.
 		if let [ProjectionElem::Deref] = place.projection.as_slice()
-			&& !matches!(self.slots[place.local], Slot::Alias(_))
+			&& !self.alias_of_place(place.local)
 			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)))
 		{
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
+			let alias = matches!(self.slots[place.local], Slot::Alias(_));
 			let target = self.local_expr(place.local, span);
 			let e = match self.b.t.object_kind(pointee) {
 				Some(ObjectKind::Class) if !shared(self, pointee) => {
-					Expr::ident("Object").member("assign").call(vec![target, value])
+					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
-				Some(ObjectKind::Bytes) => target.member("set").call(vec![value]),
-				_ => {
+				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
+				_ => None,
+			};
+			match (e, alias) {
+				(Some(e), _) => {
+					out.push(StmtKind::Expr(e).at(None));
+					return out;
+				}
+				(None, true) => {}
+				(None, false) => {
 					return vec![
 						StmtKind::Expr(self.err(span, format!("an assignment through a reference to `{pointee}`")))
 							.at(None),
 					];
 				}
-			};
-			out.push(StmtKind::Expr(e).at(None));
-			return out;
+			}
 		}
 		let target = self.place_expr(place, span, &mut out);
 		out.push(StmtKind::Expr(target.assign(value)).at(self.b.t.loc(span)));
 		out
+	}
+
+	/// Whether `local` is an alias of a borrowed place, as `&mut x` or `&mut v[i]`, rather
+	/// than a copy of a reference or a reborrow of what one points at.
+	fn alias_of_place(&self, local: Local) -> bool {
+		matches!(self.slots[local], Slot::Alias(_))
+			&& match self.def_rvalue(local) {
+				Some(mir::Rvalue::Ref(_, _, p)) => !matches!(p.projection.last(), Some(ProjectionElem::Deref)),
+				Some(_) => false,
+				// An element `index_mut` borrows.
+				None => true,
+			}
 	}
 
 	/// `SetDiscriminant`: a coroutine's state.

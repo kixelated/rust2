@@ -688,6 +688,11 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let scale = move |v: u32| v * 3 + base;
 	out.extend_from_slice(&apply(scale, sum).to_be_bytes());
 
+	// A closure writing a whole array through a reference it captured changes the caller's.
+	let mut whole = [data.len() as u8];
+	overwrite(&mut whole);
+	out.push(whole[0]);
+
 	let mut parsed: Vec<Option<Dir>> = Vec::new();
 	for &b in data {
 		parsed.push(dir(b));
@@ -697,6 +702,12 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 		tags.push(d.map(u8::from).unwrap_or(0));
 	}
 	out.extend_from_slice(&tags);
+}
+
+/// Replaces `a` whole from a closure.
+fn overwrite(a: &mut [u8; 1]) {
+	let mut write = || *a = [9];
+	write();
 }
 
 fn apply<F: Fn(u32) -> u32>(f: F, v: u32) -> u32 {
