@@ -18,6 +18,8 @@ export interface Options {
 	sampleMs: number;
 	/** Samples per timed body, interleaved with every other body's. */
 	rounds: number;
+	/** Seeds the order of the bodies in each round. */
+	seed: number;
 	/** Told what runs next, between timed regions. */
 	progress(step: string): void;
 }
@@ -87,14 +89,17 @@ export async function measure(wasm: Wasm, routes: Route[], workloads: Workload[]
 		while ((await sample(body)) < options.sampleMs) body.calls *= 2;
 	}
 
-	// Interleave the bodies in each round, starting each round one later, so drift and
-	// position spread over all of them. Progress is per round: a report per sample slows
-	// Chrome's samples by about 10%.
+	// Each round runs the bodies in a new random order, so drift spreads over all of them
+	// and no body keeps a slot: a fixed order runs identical code slower in one slot than
+	// in another. Progress is per round: a report per sample slows Chrome's samples by
+	// about 10%.
 	const span = `${workloads[0].name} through ${workloads[workloads.length - 1].name}`;
+	const random = prng(options.seed);
+	const order = [...bodies];
 	for (let round = 0; round < options.rounds; round++) {
 		progress(`timing round ${round + 1} of ${options.rounds} on ${span}`);
-		for (let i = 0; i < bodies.length; i++) {
-			const body = bodies[(i + round) % bodies.length];
+		shuffle(order, random);
+		for (const body of order) {
 			const ms = await sample(body);
 			body.ns.push((ms * 1e6) / (body.calls * body.workload.items));
 		}
@@ -114,4 +119,22 @@ async function sample(body: Body): Promise<number> {
 		for (let i = 0; i < calls; i++) sink = call();
 	}
 	return performance.now() - start;
+}
+
+/** Shuffles `items` in place: Fisher-Yates. */
+function shuffle<T>(items: T[], random: () => number) {
+	for (let i = items.length - 1; i > 0; i--) {
+		const j = Math.floor(random() * (i + 1));
+		[items[i], items[j]] = [items[j], items[i]];
+	}
+}
+
+/** Uniform numbers in [0, 1) from a 32-bit seed: mulberry32. */
+function prng(seed: number): () => number {
+	return () => {
+		seed = (seed + 0x6d2b79f5) | 0;
+		let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
+	};
 }

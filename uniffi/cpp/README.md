@@ -28,22 +28,16 @@ Regardless of the generation method, these files are produced:
 To integrate the bindings into your projects, simply add the generated bindings files to your project.
 C++17 or newer is required to compile the bindings.
 
-Async calls return a move-only `uniffi::Future<T>`. It supports `get()`, `wait()`, `wait_for()`,
-and `cancel()`. Destroying an incomplete future cancels it and releases the Rust future. See
-[the LiveKit integration notes](docs/LIVEKIT_INTEGRATION.md) for the migration shape and current
-tradeoffs.
+Async calls need `error_style = "expected"` (see [the configuration](docs/CONFIGURATION.md)); the
+default exceptions style refuses to generate them. An async call returns a move-only
+`uniffi::Future<T, E>`. It supports `get()`, `wait()`, `wait_for()`, and `cancel()`. Destroying an
+incomplete future cancels it and releases the Rust future.
 
 To adapt without a blocking waiter thread, consume the future with
-`std::move(future).then(executor, callback)`. The callback receives `uniffi::FutureResult<T>` and
-the returned `uniffi::FutureContinuation` owns cancellation until completion. Destroying that
-token early cancels the Rust operation.
+`std::move(future).then(executor, callback)`. The returned `uniffi::FutureContinuation` owns
+cancellation until completion. Destroying that token early cancels the Rust operation.
 
-C++ implementations of async callback interfaces return `uniffi::ForeignFuture<T>`. Its start
-function receives success and failure callbacks and returns a cancellation function. The generated
-bridge accepts the first completion and ignores duplicates, allowing the implementation to use its
-own executor while preserving UniFFI typed-error and cancellation semantics.
-
-Rust-future continuations use one bounded background dispatcher by default. Before making any async
+Rust-future continuations use one background dispatcher by default. Before making any async
 call, applications can call `uniffi::set_async_dispatcher(dispatch, shutdown)` to use their own
 executor. Before unloading the executor or generated bindings, call
 `uniffi::shutdown_async_dispatcher()`; it rejects new continuations and waits for the registered

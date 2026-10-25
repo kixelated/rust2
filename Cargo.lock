@@ -2411,7 +2411,6 @@ dependencies = [
 name = "uniffi-bindgen-cpp-fixtures"
 version = "1.0.0"
 dependencies = [
- "async-trait",
  "uniffi",
  "uniffi-async-calls",
  "uniffi-c-api",

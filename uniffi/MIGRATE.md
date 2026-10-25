@@ -6,5 +6,11 @@
   `ComponentInterface::is_name_used_as_error(name)` is now `is_used_as_error(&ty)`,
   `ComponentInterface::get_type(name)` finds only the crate's own types, and
   `VisitMut::visit_error_name` takes the module path of the crate that defines the error.
+- `uniffi-bindgen-cpp`: the `--scaffolding` flag is gone. It only stubbed out generation.
+- Generated C++: async needs `error_style = "expected"`, and the default exceptions style refuses
+  an async function, constructor, method, or callback interface method. Its `uniffi::Future<T>`,
+  `FutureResult`, `ForeignFuture`, `AsyncCancelledError`, and `AsyncDispatcherError`, and the
+  `<Trait>Foreign` interface of a trait with async methods, are gone. Switch to the expected
+  style, where an async call returns `uniffi::Future<T, E>`.
 - Generated C: every type and function name starts with the crate's namespace, so a crate
   whose items did not already start with it gets renamed C symbols.

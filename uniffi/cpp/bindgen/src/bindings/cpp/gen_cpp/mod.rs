@@ -157,27 +157,6 @@ impl Config {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug, Default)]
-pub(crate) struct ScaffoldingConfig {
-    #[serde(default)]
-    namespace: Option<String>,
-    #[serde(default)]
-    enum_style: EnumStyle,
-}
-
-#[derive(Template)]
-#[template(syntax = "cpp", escape = "none", path = "cpp_scaffolding.cpp")]
-struct CppScaffolding<'a> {
-    ci: &'a ComponentInterface,
-    config: &'a ScaffoldingConfig,
-}
-
-impl<'a> CppScaffolding<'a> {
-    fn new(ci: &'a ComponentInterface, config: &'a ScaffoldingConfig) -> Self {
-        Self { ci, config }
-    }
-}
-
 #[derive(Template)]
 #[template(syntax = "cpp", escape = "none", path = "internal_types.cpp")]
 struct InternalTypeRenderer<'a> {
@@ -446,6 +425,38 @@ impl<'a> CppWrapper<'a> {
     }
 }
 
+/// The first async function, constructor, or method, including those a foreign
+/// implementation provides.
+fn first_async(ci: &ComponentInterface) -> Option<String> {
+    let functions = ci
+        .function_definitions()
+        .iter()
+        .filter(|func| func.is_async())
+        .map(|func| func.name().to_string());
+    let objects = ci.object_definitions().iter().flat_map(|obj| {
+        let constructors = obj
+            .constructors()
+            .into_iter()
+            .filter(|ctor| ctor.is_async())
+            .map(|ctor| ctor.name());
+        let methods = obj
+            .methods()
+            .into_iter()
+            .filter(|method| method.is_async())
+            .map(|method| method.name());
+        constructors
+            .chain(methods)
+            .map(move |name| format!("{}::{name}", obj.name()))
+    });
+    let callbacks = ci.callback_interface_definitions().iter().flat_map(|cbi| {
+        cbi.methods()
+            .into_iter()
+            .filter(|method| method.is_async())
+            .map(move |method| format!("{}::{}", cbi.name(), method.name()))
+    });
+    functions.chain(objects).chain(callbacks).next()
+}
+
 pub(crate) struct Bindings {
     pub(crate) scaffolding_header: String,
     pub(crate) header: String,
@@ -454,8 +465,8 @@ pub(crate) struct Bindings {
 
 pub(crate) fn generate_cpp_bindings(ci: &ComponentInterface, config: &Config) -> Result<Bindings> {
     if config.expected() {
-        // Foreign implementations report failure by throwing, and the foreign-future bridge
-        // carries `std::exception_ptr`; neither has an expected-style design yet.
+        // Foreign implementations report failure by throwing, which has no expected-style
+        // design yet.
         if let Some(name) = ci
             .callback_interface_definitions()
             .iter()
@@ -472,6 +483,8 @@ pub(crate) fn generate_cpp_bindings(ci: &ComponentInterface, config: &Config) ->
                 "error_style = \"expected\" does not support callback interfaces yet, but `{name}` is one"
             );
         }
+    } else if let Some(name) = first_async(ci) {
+        anyhow::bail!("async needs error_style = \"expected\", but `{name}` is async");
     }
     ERROR_STYLE.with(|style| style.set(config.error_style));
     RENAMES.with(|renames| renames.replace(config.renames.clone()));
@@ -490,25 +503,6 @@ pub(crate) fn generate_cpp_bindings(ci: &ComponentInterface, config: &Config) ->
         scaffolding_header,
         header,
         source,
-    })
-}
-
-#[allow(unused)]
-pub(crate) struct Scaffolding {
-    pub(crate) cpp_scaffolding_source: String,
-}
-
-#[allow(unused)]
-pub(crate) fn generate_cpp_scaffolding(
-    ci: &ComponentInterface,
-    config: &ScaffoldingConfig,
-) -> Result<Scaffolding> {
-    let cpp_scaffolding_source = CppScaffolding::new(ci, config)
-        .render()
-        .context("generating C++ scaffolding source failed")?;
-
-    Ok(Scaffolding {
-        cpp_scaffolding_source,
     })
 }
 

@@ -25,8 +25,6 @@ struct Args {
     lib_file: Option<Utf8PathBuf>,
     #[clap(long = "library", conflicts_with = "lib_file", requires = "out_dir")]
     library_mode: bool,
-    #[clap(long = "scaffolding", conflicts_with = "lang")]
-    scaffolding_mode: bool,
     #[clap(long = "crate")]
     crate_name: Option<String>,
     #[clap(long, value_enum, default_value_t = Lang::Cpp)]
@@ -38,12 +36,7 @@ fn main() {
     let args = Args::parse();
 
     match args.lang {
-        Lang::Cpp => generate(
-            &CppBindingGenerator {
-                scaffolding_mode: args.scaffolding_mode,
-            },
-            args,
-        ),
+        Lang::Cpp => generate(&CppBindingGenerator, args),
         Lang::C => generate(&CBindingGenerator, args),
     }
 }
