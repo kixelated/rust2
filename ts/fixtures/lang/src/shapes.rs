@@ -176,6 +176,12 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 
 	// A value computed from a call keeps that call before a later one, though it is read
 	// after.
+	// A conversion reads its bytes before they change.
+	let mut word = [0, 0, 0, data.len() as u8];
+	let converted = u32::from_be_bytes(word);
+	word[0] = 9;
+	out.extend_from_slice(&(converted + word[0] as u32).to_be_bytes());
+
 	let marked = mark(out, 1) == 0;
 	mark(out, 2);
 	out.push(marked as u8);

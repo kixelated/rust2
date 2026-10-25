@@ -81,7 +81,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => value,
 		};
 		match dest.as_local() {
-			Some(local) => self.set_local(local, value, effect, effect, None, out),
+			Some(local) => {
+				let memory = effect || args.iter().any(|a| super::rvalue::arg_memory(&a.node, self));
+				self.set_local(local, value, effect, memory, None, out)
+			}
 			None => {
 				let stmts = self.store(dest, value, span);
 				self.emit(stmts, None, false, out);

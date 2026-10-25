@@ -477,13 +477,25 @@ pub fn effect<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 }
 
 /// Whether evaluating `rvalue` reads memory that something else could change.
+/// Whether reading `p` reads memory something else could change.
+fn place_memory<'tcx>(p: &Place<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
+	!p.projection.is_empty()
+		|| fx.borrowed[p.local]
+		|| matches!(fx.slots[p.local], Slot::Alias(_))
+		|| p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain | Env::Shim)
+}
+
+/// Whether a call's argument `op`, passed uncopied, reads memory something could change,
+/// a local changed in place included.
+pub fn arg_memory<'tcx>(op: &Operand<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
+	match op {
+		Operand::Copy(p) | Operand::Move(p) => place_memory(p, fx) || fx.mutated[p.local],
+		_ => false,
+	}
+}
+
 pub fn memory<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
-	let place = |p: &Place<'tcx>| {
-		!p.projection.is_empty()
-			|| fx.borrowed[p.local]
-			|| matches!(fx.slots[p.local], Slot::Alias(_))
-			|| p.local.as_u32() == 1 && !matches!(fx.env, Env::Plain | Env::Shim)
-	};
+	let place = |p: &Place<'tcx>| place_memory(p, fx);
 	let operand = |op: &Operand<'tcx>| match op {
 		Operand::Copy(p) | Operand::Move(p) => place(p),
 		_ => false,

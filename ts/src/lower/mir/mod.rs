@@ -1353,7 +1353,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			(true, _) => done_of(value),
 		};
 		let effect = rvalue::effect(rvalue, self);
-		let memory = rvalue::memory(rvalue, self);
+		// A copy shared until it folds into its argument reads its source there.
+		let memory = rvalue::memory(rvalue, self) || shares;
 		let parts = self.parts.take();
 		if let Some(local) = place.as_local() {
 			let parts = match rvalue {

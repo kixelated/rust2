@@ -197,6 +197,10 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	const both = [n, n] as [rt.u32, rt.u32];
 	n = 9;
 	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(rt.u32.add(both[0], both[1]), n)));
+	let word: Uint8Array = Uint8Array.of(0, 0, 0, data.length & 0xff);
+	const converted = rt.u32.fromBeBytes(word);
+	word[0] = 9;
+	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(converted, word[0] as rt.u32)));
 	const marked = mark(out, 1) === 0;
 	mark(out, 2);
 	out.push(marked ? 1 : 0);
