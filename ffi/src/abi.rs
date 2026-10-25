@@ -233,7 +233,7 @@ impl<'a> Abi<'a> {
 		}
 	}
 
-	/// The C type of `ty` returned: a borrow is returned as a copy, so a handle in it is
+	/// The C type of `ty` returned: a borrow is returned as a clone, so a handle in it is
 	/// the caller's own.
 	fn returned(&self, ty: &Type) -> Ty {
 		fn owned(ty: &Type) -> Type {
