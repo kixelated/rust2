@@ -25,4 +25,5 @@ Public API: returned payload types may change per language.
 
 ## Required
 
+- [Exporter spike](/quest/m2/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
 - [Payload bytes](/quest/m1/ffi-bytes.md) - the numbers that justify it
