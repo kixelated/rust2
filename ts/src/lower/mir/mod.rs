@@ -422,11 +422,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Whether a `ty` has no JS value: `()`, a function item, or a struct of no fields.
+	/// Whether a `ty` has no JS value: `()`, a function item, or `..`.
 	fn zero_sized(&self, ty: Ty<'tcx>) -> bool {
 		match ty.kind() {
 			ty::Tuple(tys) => tys.is_empty(),
 			ty::FnDef(..) | ty::Never => true,
+			ty::Adt(adt, _) => {
+				crate::lower::library::Std::of(self.tcx, adt.did()) == Some(crate::lower::library::Std::RangeFull)
+			}
 			_ => false,
 		}
 	}
