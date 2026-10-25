@@ -239,17 +239,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				done(self.swap_out(place, Expr::undefined(), "taken", out), true)
 			}
-			("Option", "replace") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
-				let value = self.operand(&args[1].node, span, out);
-				done(self.swap_out(place, value, "old", out), true)
-			}
-			("Option", "insert") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
-				let value = self.operand(&args[1].node, span, out);
-				out.push(StmtKind::Expr(place.clone().assign(value)).at(None));
-				done(place, true)
-			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
 			("slice", "copy_within") => {
