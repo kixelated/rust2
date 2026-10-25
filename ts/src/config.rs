@@ -28,11 +28,6 @@ impl Config {
 		let text = std::fs::read_to_string(path).map_err(|err| format!("reading {}: {err}", path.display()))?;
 		toml::from_str(&text).map_err(|err| format!("parsing {}: {err}", path.display()))
 	}
-
-	/// The library's crate name, as rustc is given it.
-	pub fn crate_name(&self) -> String {
-		self.package.replace('-', "_")
-	}
 }
 
 /// Environment variables the CLI hands the wrapper.

@@ -16,8 +16,8 @@ Decided with the maintainer on 2026-10-24: the translator's output ranks correct
 then speed, then the size of the consumer's final tree-shaken, minified JS; readability
 is not a goal, and types must be solid at the API boundary ([design](/ts/README.md#design)).
 
-The fork's feature quests here pause until the [exporter spike](/quest/m1/ffi-export-spike.md)
-reports; [m1](/quest/m1/README.md#plan) records the decision.
+The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
+[m1](/quest/m1/README.md#plan) records why.
 
 ## Required
 
@@ -34,10 +34,4 @@ reports; [m1](/quest/m1/README.md#plan) records the decision.
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
-- [Zero-copy byte returns](/quest/m2/ffi-bytes-return.md) - returned payloads reach the host without a copy, if the payload numbers justify it
-- [Cheaper async](/quest/m2/ffi-async.md) - `RustFuture` exports cost fewer crossings, if the numbers show they matter
-- [C-first bindings spike](/quest/m2/uniffi-c-first-spike.md) - C directly on the UniFFI ABI with per-standard C++ on top, measured against C-over-C++ on a moq-ffi slice
 - [Nightly MSVC and macOS](/quest/m2/uniffi-ci-msvc-macos.md) - the C and C++ fixtures compile nightly with MSVC and Apple Clang, at C++17 and C++20, and without exceptions or RTTI
-- [Namespaced FFI contract](/quest/m2/uniffi-contract.md) - bindings and a cdylib from different UniFFI forks refuse to load together
-- [Drop checksums](/quest/m2/ffi-checksums.md) - bindings load without a checksum call per method
-- [Smaller bindings](/quest/m2/ffi-code-size.md) - generated bindings shrink in every language, measured per template
