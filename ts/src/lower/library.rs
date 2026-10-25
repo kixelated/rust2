@@ -981,11 +981,11 @@ fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt
 	let ExprKind::Adt(range) = &b.thir[id].kind else {
 		return None;
 	};
-	let mut fields: Vec<(usize, ExprId)> = range.fields.iter().map(|f| (f.name.index(), f.expr)).collect();
-	fields.sort_by_key(|(i, _)| *i);
-	let ids: Vec<ExprId> = fields.iter().map(|(_, id)| *id).collect();
+	let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
 	b.visit(written);
-	let mut values = b.operands(&ids, out);
+	let values = b.operands(&ids, out);
+	let values = range.fields.iter().map(|f| f.name.index()).zip(values).collect();
+	let mut values: Vec<Expr> = b.declared(values, out).into_iter().map(|(_, v)| v).collect();
 	match name.as_str() {
 		"Range" => {
 			let end = values.pop()?;
