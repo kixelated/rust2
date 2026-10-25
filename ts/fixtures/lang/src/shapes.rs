@@ -187,6 +187,12 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	let mut cell = [data.len() as u8];
 	out.push(write_then_read(cell, &mut cell));
 
+	// A result returning an argument is its own copy, though the source changes after.
+	let mut source = [data.len() as u8];
+	let returned = same(source);
+	source[0] = 9;
+	out.extend_from_slice(&[returned[0], source[0]]);
+
 	let marked = mark(out, 1) == 0;
 	mark(out, 2);
 	out.push(marked as u8);
@@ -216,6 +222,12 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 fn write_then_read(a: [u8; 1], b: &mut [u8; 1]) -> u8 {
 	b[0] = 9;
 	a[0]
+}
+
+/// `a` itself.
+#[inline(never)]
+fn same(a: [u8; 1]) -> [u8; 1] {
+	a
 }
 
 /// Logs `b`, returning how much is logged.

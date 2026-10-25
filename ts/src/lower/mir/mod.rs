@@ -188,6 +188,8 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	arg_use: IndexVec<Local, bool>,
 	/// Locals whose one read is as an argument to a call given nothing that changes memory.
 	arg_alone: IndexVec<Local, bool>,
+	/// Locals whose one read is as an argument to a call whose result could hold it.
+	arg_kept: IndexVec<Local, bool>,
 	/// The cleanups a panic runs, if any does something JS can see.
 	unwind: Option<unwind::Unwind>,
 	/// While the cleanups are lowered, the caught exception's name.
@@ -236,6 +238,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			force_share: false,
 			arg_use: IndexVec::from_elem_n(false, n),
 			arg_alone: IndexVec::from_elem_n(false, n),
+			arg_kept: IndexVec::from_elem_n(false, n),
 			unwind: None,
 			in_cleanup: None,
 			ignored_sites: Vec::new(),
@@ -311,6 +314,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let alone = !std::iter::once(func)
 						.chain(args.iter().map(|a| &a.node))
 						.any(|op| self.reaches_mutable(op.ty(&mir.local_decls, self.tcx)));
+					let result = destination.ty(&mir.local_decls, self.tcx).ty;
 					for arg in args.iter() {
 						self.operand_use(&arg.node);
 						if let Operand::Copy(p) | Operand::Move(p) = &arg.node
@@ -318,6 +322,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						{
 							self.arg_use[local] = true;
 							self.arg_alone[local] = alone;
+							self.arg_kept[local] = holds(result, mir.local_decls[local].ty);
 						}
 					}
 					self.def(*destination);
@@ -1329,11 +1334,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// A copy into a local nothing changes in place can share what it copies, if that
 		// doesn't change either. One into a temporary only an argument reads shares it as
 		// long as it folds into the argument, before anything could change it, if the callee
-		// can't change it either: a local's own value nothing borrows, or a callee given
-		// nothing that changes memory.
+		// can't change it either (a local's own value nothing borrows, or a callee given
+		// nothing that changes memory) nor return it.
 		self.into_frozen = place.as_local().is_some_and(|l| !self.mutated[l]);
 		let shares = place.as_local().is_some_and(|l| {
 			self.arg_use[l]
+				&& !self.arg_kept[l]
 				&& self.foldable(l)
 				&& matches!(rvalue, Rvalue::Use(Operand::Copy(p), _)
 					if !self.frozen(*p)
@@ -1730,6 +1736,19 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			})
 		})
 	}
+}
+
+/// Whether a value of `ty` could hold a `part`: contains its type, or hides what it holds.
+fn holds<'tcx>(ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+	ty.walk().any(|arg| {
+		arg.as_type().is_some_and(|t| {
+			t == part
+				|| matches!(
+					t.kind(),
+					ty::Dynamic(..) | ty::Alias(..) | ty::Param(_) | ty::Closure(..) | ty::Coroutine(..)
+				)
+		})
+	})
 }
 
 /// Whether `place` is part of its local's own value, rather than reached through a

@@ -203,6 +203,10 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(converted, word[0] as rt.u32)));
 	let cell: Uint8Array = Uint8Array.of(data.length & 0xff);
 	out.push(writeThenRead(rt.copy(cell), cell));
+	let source: Uint8Array = Uint8Array.of(data.length & 0xff);
+	const returned = same(rt.copy(source));
+	source[0] = 9;
+	out.extendFromSlice(Uint8Array.of(returned[0], source[0]));
 	const marked = mark(out, 1) === 0;
 	mark(out, 2);
 	out.push(marked ? 1 : 0);
@@ -227,6 +231,11 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 export function writeThenRead(a: Uint8Array, b: Uint8Array): rt.u8 {
 	b[0] = 9;
 	return a[0];
+}
+
+/** `a` itself. */
+export function same(a: Uint8Array): Uint8Array {
+	return rt.copy(a);
 }
 
 /** Logs `b`, returning how much is logged. */
