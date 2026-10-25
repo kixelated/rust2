@@ -7,8 +7,10 @@ each a measurement that decides whether its follow-up lands.
 
 ## Required
 
-- [Narrower bench trigger](/quest/m3/bench-trigger.md) - PRs run the build benchmark only when they change what it measures
 - [Steadier edit numbers](/quest/m3/bench-edit-noise.md) - moq's edit scenarios compare night to night within a few percent
 - [Body edits](/quest/m3/bench-body-edit.md) - moq edits that change a called sync and async body in moq-net, which ra-jit and relinking can skip work on
 - [Retrial Cranelift on moq's tests](/quest/m3/cranelift-unwind.md) - waits on upstream: moq's tests pass under Cranelift, so its CI can weigh it again
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
+- [What macros cost moq](/quest/m3/macro-cost.md) - report expansion's share of moq's builds and which levers cut it
+- [Semantic API hash](/quest/m3/api-cutoff.md) - how often moq's edits keep a hash of what dependents can observe, before building an early cutoff on it
+- [Test selection from MIR](/quest/m3/test-select.md) - how many tests a function-level selector would skip beyond moq's crate-level selection

@@ -79,6 +79,8 @@ pub struct Object {
 	/// Whether it is `Copy`: taken by value, it is copied out of its handle, as Rust
 	/// copies it, rather than moved out.
 	pub copy: bool,
+	/// How many lifetime parameters it has, each `'static` in the export.
+	pub lifetimes: usize,
 	pub methods: Vec<Function>,
 	pub traits: Traits,
 }
@@ -199,6 +201,14 @@ pub enum Type {
 	Object(usize),
 	/// A foreign implementation of a callback trait, in the form the parameter takes.
 	Callback(usize, Dyn),
+	/// `std::ops::Range` of an integer.
+	Range(Int),
+	/// `std::ops::Bound` of an integer.
+	Bound(Int),
+	/// `(Bound<T>, Bound<T>)` of an integer, the form a `RangeBounds<T>` parameter takes.
+	Bounds(Int),
+	/// A tuple, only as what a function returns.
+	Tuple(Vec<Type>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

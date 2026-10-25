@@ -13,7 +13,7 @@ the fork's perf work. m2 is research: the TypeScript translator, a track moq
 compares against its WASM route, and the fork's gated or speculative work. m3
 holds the build-speed tracks, which the
 [build-speed benchmark](/bench/build/README.md) rescopes before they start,
-and speculative work.
+and speculative work. m4 holds long-term research.
 
 Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
 ([moq-dev/moq#6578](https://github.com/moq-dev/moq/pull/6578)):
@@ -34,3 +34,4 @@ Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
 - [m1: consumers waiting](/quest/m1/README.md) - the UniFFI fork moq switches to, the exporter spike, and the fork's perf work
 - [m2: research](/quest/m2/README.md) - the TypeScript translator's spikes and features toward moq-net's model, and the fork's gated work
 - [m3: deferred](/quest/m3/README.md) - the pure-Rust profile and upstream's build-speed levers, measured by the benchmark
+- [m4: long-term research](/quest/m4/README.md) - ideas no consumer needs yet, such as a subset compiler
