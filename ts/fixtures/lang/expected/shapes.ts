@@ -200,10 +200,17 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 		sum = rt.usize.add(sum, i2);
 	}
 	const len = data.length;
+	const arg3 = logged(data, out);
 	const field10 = rt.min(mark(out, 14), len);
-	const slice = rt.slice.range(data, rt.usize.div(rt.min(mark(out, 15), len), 2), field10);
+	const slice = rt.slice.range(arg3, rt.usize.div(rt.min(mark(out, 15), len), 2), field10);
 	const text = rt.fmt.format([(f: rt.Formatter) => Shape.fmt(rect, f), " ", (f: rt.Formatter) => Shape.fmt(line, f), " ", (f: rt.Formatter) => Pair.fmt(pair, f), " ", (f: rt.Formatter) => Point.fmt(read, f), " ", (f: rt.Formatter) => Moved.fmt(updated, f), " ", (f: rt.Formatter) => Shape.fmt(taken, f), " ", (f: rt.Formatter) => rt.usize.display(range.start, f), " ", (f: rt.Formatter) => rt.usize.display(range.end, f), " ", (f: rt.Formatter) => rt.usize.display(sum, f), " ", (f: rt.Formatter) => rt.fmt.list(slice, f, rt.u8.display)]);
 	out.extendFromSlice(rt.string.asBytes(text));
+}
+
+/** `data`, logging that it was read. */
+export function logged(data: Uint8Array, out: rt.ByteVec): Uint8Array {
+	out.push(0xee);
+	return data;
 }
 
 /** `n`'s byte, incremented. */

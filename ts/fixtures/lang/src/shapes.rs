@@ -304,7 +304,8 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 		sum += i;
 	}
 	let len = data.len();
-	let slice = &data[std::ops::Range {
+	// The sliced value comes before the range's fields.
+	let slice = &logged(data, out)[std::ops::Range {
 		end: mark(out, 14).min(len),
 		start: mark(out, 15).min(len) / 2,
 	}];
@@ -313,6 +314,13 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 		range.start, range.end
 	);
 	out.extend_from_slice(text.as_bytes());
+}
+
+/// `data`, logging that it was read.
+#[inline(never)]
+fn logged<'a>(data: &'a [u8], out: &mut Vec<u8>) -> &'a [u8] {
+	out.push(0xee);
+	data
 }
 
 /// `n`'s byte, incremented.

@@ -558,8 +558,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let Args::Thir(ids) = args else {
 				return None;
 			};
-			let s = b.operand(ids[0], out);
-			let (start, end) = range_bounds(b, ids[1], out)?;
+			let mut s = [b.operand(ids[0], out)];
+			let (start, end) = range_bounds(b, &mut s, ids[1], out)?;
+			let [s] = s;
 			let end = end.unwrap_or_else(|| s.clone().member("length"));
 			let dest = b.operand(ids[2], out);
 			Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest])
@@ -684,7 +685,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 						// A JS array has no views, so a mutable subslice would be a copy.
 						return None;
 					}
-					let (start, end) = range_bounds(b, ids[1], out)?;
+					let mut base = [base];
+					let (start, end) = range_bounds(b, &mut base, ids[1], out)?;
+					let [base] = base;
 					let mut values = vec![base, start];
 					values.extend(end);
 					Expr::Rt("slice").member("range").call(values)
@@ -966,7 +969,13 @@ fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec
 }
 
 /// The start and optional end of a range written in place: `a..b`, `..b`, `a..`, `..`.
-fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<(Expr, Option<Expr>)> {
+/// `earlier` are the operands evaluated before it, spilled if the range needs statements.
+fn range_bounds<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	earlier: &mut [Expr],
+	id: ExprId,
+	out: &mut Vec<Stmt>,
+) -> Option<(Expr, Option<Expr>)> {
 	let tcx = b.t.tcx;
 	let written = id;
 	let id = b.strip(id);
@@ -983,9 +992,17 @@ fn range_bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt
 	};
 	let ids: Vec<ExprId> = range.fields.iter().map(|f| f.expr).collect();
 	b.visit(written);
-	let values = b.operands(&ids, out);
+	let mut pre = Vec::new();
+	let values = b.operands(&ids, &mut pre);
 	let values = range.fields.iter().map(|f| f.name.index()).zip(values).collect();
-	let mut values: Vec<Expr> = b.declared(values, out).into_iter().map(|(_, v)| v).collect();
+	let mut values: Vec<Expr> = b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect();
+	if !pre.is_empty() {
+		for value in earlier.iter_mut().filter(|v| !v.is_constant()) {
+			let saved = std::mem::replace(value, Expr::undefined());
+			*value = b.spill(saved, "arg", out);
+		}
+	}
+	out.extend(pre);
 	match name.as_str() {
 		"Range" => {
 			let end = values.pop()?;
