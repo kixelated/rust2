@@ -836,7 +836,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// Whether `id` lowers to an expression with no statements before it.
-	fn simple(&mut self, id: ExprId) -> bool {
+	pub fn simple(&mut self, id: ExprId) -> bool {
 		self.simple_at(id, false)
 	}
 
@@ -2567,6 +2567,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(library::Std::RangeFull, _) => Expr::undefined(),
 				(library::Std::Range, _) => {
 					// A wide range steps past 2^53 through its type.
 					let ty::Adt(_, gargs) = ty.kind() else {

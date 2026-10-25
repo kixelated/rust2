@@ -481,10 +481,18 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 	const range2 = all.clone();
 	const sliced = rt.slice.range(arg, field3, range2.end);
 	out.extendFromSlice(sliced);
+	const arg2 = data;
+	out.push(0xd5);
+	const full = rt.slice.range(arg2, 0);
+	out.push(full.length & 0xff);
+	const arg3 = data;
+	out.push(0xd6);
+	const full2 = rt.slice.range(arg3, 0);
+	out.push(full2.length & 0xff);
 	let copied: rt.ByteVec = rt.slice.toByteVec(data);
-	const arg2 = copied.view();
+	const arg4 = copied.view();
 	const field4 = to;
-	rt.slice.copyWithin(arg2, all.start, field4, 0);
+	rt.slice.copyWithin(arg4, all.start, field4, 0);
 	out.extendFromSlice(copied.view());
 }
 

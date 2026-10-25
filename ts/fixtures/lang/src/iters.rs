@@ -337,6 +337,18 @@ fn updates(a: u8, b: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 	}];
 	out.extend_from_slice(sliced);
+	let full = &data[std::ops::RangeFull {
+		..{
+			out.push(0xd5);
+			std::ops::RangeFull
+		}
+	}];
+	out.push(full.len() as u8);
+	let full = &data[{
+		out.push(0xd6);
+		..
+	}];
+	out.push(full.len() as u8);
 	let mut copied = data.to_vec();
 	copied.copy_within(Range { end: to, ..all }, 0);
 	out.extend_from_slice(&copied);
