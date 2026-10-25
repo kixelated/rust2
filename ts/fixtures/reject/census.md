@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 82
-- Function instances: 71
+- Refusals: 85
+- Function instances: 78
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -30,7 +30,10 @@
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | fixtures/reject/src/lib.rs:446:6 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:90:1 |
 | 1 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:222:20 |
+| 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:481:6 |
+| 1 | `_` of `_`, which may drop a `_`, which is not supported yet | fixtures/reject/src/lib.rs:464:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | fixtures/reject/src/lib.rs:441:6 |
+| 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:489:9 |
 | 1 | a `let` on a temporary that drops, which it doesn't move out of whole | fixtures/reject/src/lib.rs:193:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:315:51 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
@@ -73,30 +76,34 @@ The type or module each refused type or path belongs to.
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:135:16 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 3 | `Meters` | fixtures/reject/src/lib.rs:161:17 |
+| 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:441:6 |
 | 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:364:4 |
+| 2 | `HashMap` | fixtures/reject/src/lib.rs:441:6 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:282:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:364:16 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
-| 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:441:6 |
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:393:4 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:254:2 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:176:42 |
+| 2 | `u8` | fixtures/reject/src/lib.rs:106:3 |
 | 2 | `{async closure}` | fixtures/reject/src/lib.rs:114:6 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:90:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:302:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:356:1 |
-| 1 | `HashMap` | fixtures/reject/src/lib.rs:441:6 |
+| 1 | `HashSet` | fixtures/reject/src/lib.rs:464:6 |
+| 1 | `Hasher` | fixtures/reject/src/lib.rs:489:9 |
+| 1 | `Loud` | fixtures/reject/src/lib.rs:464:6 |
 | 1 | `Poll` | fixtures/reject/src/lib.rs:222:20 |
 | 1 | `Slot` | fixtures/reject/src/lib.rs:86:1 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:424:45 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
+| 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:464:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:315:51 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:323:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:269:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:264:2 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:238:54 |
-| 1 | `u8` | fixtures/reject/src/lib.rs:106:3 |
 | 1 | `{closure}` | fixtures/reject/src/lib.rs:59:31 |
 
 ## By type or path
@@ -112,7 +119,10 @@ The type or module each refused type or path belongs to.
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:446:6 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | `Boxed` | fixtures/reject/src/lib.rs:90:1 |
 | 1 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:222:20 |
+| 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:481:6 |
+| 1 | `_` of `_`, which may drop a `_`, which is not supported yet | `HashSet::remove`, `std::collections::HashSet`, `Loud` | fixtures/reject/src/lib.rs:464:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:441:6 |
+| 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:489:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:135:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 1 | a `_` binding: a JS value of `_` is a copy, so it can't change | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:135:16 |
@@ -311,9 +321,27 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` of `_` by `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:481:6: `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of `_`, which may drop a `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:464:6: `HashSet::remove` of `std::collections::HashSet<Loud>`, which may drop a `Loud`, which is not supported yet
+
+</details>
+
 <details><summary>`_` of `_`, which may drop what it holds, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:441:6: `HashMap::clear` of `std::collections::HashMap<u8, Noisy>`, which may drop what it holds, which is not supported yet
+
+</details>
+
+<details><summary>`_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:489:9: `Hasher::write`, which is not supported yet
 
 </details>
 

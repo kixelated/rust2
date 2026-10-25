@@ -250,7 +250,8 @@ closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, p
 a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
 moved ahead of an `.await` in the same call or assignment, or in a collection
 ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be `undefined`, as
-`()` and `Option` can, a collection's `capacity`, the adaptors without a mapping in
+`()` and `Option` can, a collection's `capacity`, looking up a key by another type it
+borrows as (`Arc<str>` by `str`), `Hasher::write` of bytes, the adaptors without a mapping in
 `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
 `impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
 let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other

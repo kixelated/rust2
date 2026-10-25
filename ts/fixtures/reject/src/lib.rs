@@ -451,3 +451,47 @@ pub fn byte_keys() -> usize {
 	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
 	map.len()
 }
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct Loud(pub u8);
+
+impl Drop for Loud {
+	fn drop(&mut self) {}
+}
+
+/// `remove` drops the key the set held.
+pub fn removed(set: &mut std::collections::HashSet<Loud>, key: &Loud) -> bool {
+	set.remove(key)
+}
+
+/// A key whose `Hash` and `Eq` agree with a `u8`'s, but which is a JS object.
+#[derive(PartialEq, Eq, Hash)]
+pub struct Id {
+	pub n: u8,
+}
+
+impl std::borrow::Borrow<u8> for Id {
+	fn borrow(&self) -> &u8 {
+		&self.n
+	}
+}
+
+/// Looked up by a `u8`, which the map would look for among its primitive keys.
+pub fn borrowed(map: &std::collections::HashMap<Id, u8>) -> bool {
+	map.contains_key(&1)
+}
+
+#[derive(PartialEq, Eq)]
+pub struct Raw(pub u8);
+
+impl std::hash::Hash for Raw {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		state.write(&[self.0]);
+	}
+}
+
+/// A `Hash` that writes bytes, which the runtime's hasher does not take.
+pub fn raw_keys() -> usize {
+	let map: std::collections::HashMap<Raw, u8> = std::collections::HashMap::new();
+	map.len()
+}

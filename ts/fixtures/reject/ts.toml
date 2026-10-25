@@ -59,6 +59,9 @@ roots = [
     "cleared",
     "optional",
     "byte_keys",
+    "removed",
+    "borrowed",
+    "raw_keys",
     "missing",
 ]
 printable = ["Meters"]

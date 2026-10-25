@@ -65,7 +65,7 @@ pub fn call<'tcx, 'x>(
 				let eq = eq_fn(b, t, span).call(b.args(args, out));
 				return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 			}
-			("Hasher", _, Some(Std::Hasher), _) => return Ok(Some(hasher_call(b, name, args, out))),
+			("Hasher", _, Some(Std::Hasher), _) => return Ok(Some(hasher_call(b, name, args, span, out))),
 			// The discriminant derived `Hash` and `Ord` read of an enum.
 			("intrinsics", "discriminant_value", ..) if let Some(t) = self_ty => {
 				let value = b.args(args, out).pop();
@@ -78,6 +78,14 @@ pub fn call<'tcx, 'x>(
 		return Ok(Some(b.err(
 			span,
 			format!("`{coll}` holds `{elem}`, which is `undefined` as `None` is, which is not supported"),
+		)));
+	}
+	if let Some(by) = lookup_ty(b, std, call, owner, name)
+		&& !same_key(b, arg(coll, 0), by)
+	{
+		return Ok(Some(b.err(
+			span,
+			format!("`{owner}::{name}` of `{coll}` by `{by}`, which is not supported yet"),
 		)));
 	}
 	let e = match std {
@@ -95,7 +103,7 @@ pub fn call<'tcx, 'x>(
 	{
 		let what = match lost == coll {
 			true => "what it holds".to_string(),
-			false => format!("the `{lost}` it is given"),
+			false => format!("a `{lost}`"),
 		};
 		return Ok(Some(b.err(
 			span,
@@ -107,16 +115,50 @@ pub fn call<'tcx, 'x>(
 
 /// What a method of `coll` may drop rather than return or keep, which the runtime would
 /// leave to JS's collector: the key `insert` and `entry` are given if an equal one is
-/// there already, the value `or_insert` is given if one is, or anything `coll` holds.
+/// there already, the key `remove` takes out, the value `or_insert` is given if one is,
+/// or anything `coll` holds.
 fn discarded<'tcx>(std: Std, coll: Ty<'tcx>, owner: &str, name: &str) -> Option<Ty<'tcx>> {
 	let map = matches!(std, Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet);
 	match (owner, name) {
-		(_, "insert" | "entry") if map => Some(arg(coll, 0)),
+		(_, "insert" | "entry" | "remove") if map => Some(arg(coll, 0)),
+		(_, "remove") if std == Std::Entry => Some(arg(coll, 0)),
 		(_, "or_insert") if std == Std::Entry => Some(arg(coll, 1)),
 		("Extend", _) | ("From", _) if map => Some(coll),
 		(_, "clear" | "retain" | "retain_mut" | "truncate" | "drain" | "into_keys" | "into_values") => Some(coll),
 		_ => None,
 	}
+}
+
+/// The type a lookup of a map or set takes its key as: the `Q` of `get<Q>` where
+/// `K: Borrow<Q>`, or of `Index<&Q>`.
+fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &str, name: &str) -> Option<Ty<'tcx>> {
+	if !matches!(std, Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet) {
+		return None;
+	}
+	match (owner, name) {
+		("Index", "index") => Some(library::targ(call.args, 1)),
+		(
+			_,
+			"get" | "get_mut" | "get_key_value" | "contains_key" | "contains" | "remove" | "remove_entry" | "take"
+			| "range" | "range_mut",
+		) => {
+			let tcx = b.t.tcx;
+			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
+			call.args[tcx.generics_of(imp).count()..]
+				.iter()
+				.find_map(|a| a.as_type())
+		}
+		_ => None,
+	}
+}
+
+/// Whether a key of type `by` is a JS value that hashes, compares, and orders as one of
+/// type `key` does: the same type through references and boxes, or a string either way.
+fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	let (key, by) = (peel(b, key), peel(b, by));
+	let string = |t: Ty<'tcx>| t.is_str() || b.t.std_of(t) == Some(Std::String);
+	tcx.erase_and_anonymize_regions(key) == tcx.erase_and_anonymize_regions(by) || (string(key) && string(by))
 }
 
 /// A key, value, or item type of `coll` that can be `undefined` in JS, so that an `Option`
@@ -572,14 +614,14 @@ fn ordering(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, ou
 }
 
 /// `Hasher`'s methods: writing an integer or a string, and `finish`.
-fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, out: &mut Vec<Stmt>) -> Expr {
+fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 	let values = b.args(args, out);
 	let swapped = |values: Vec<Expr>| values.into_iter().rev().collect::<Vec<_>>();
 	match name {
 		"finish" => Expr::rt("hashFinish", values),
 		"write_str" => Expr::rt("hashStr", swapped(values)),
 		n if n.starts_with("write_") => Expr::rt("hashInt", swapped(values)),
-		_ => Expr::undefined(),
+		_ => b.err(span, format!("`Hasher::{name}`, which is not supported yet")),
 	}
 }
 
