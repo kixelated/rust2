@@ -1178,6 +1178,9 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 				.join("_")
 		}
 		ty::Ref(_, inner, _) => short_name(tcx, *inner),
+		// Named, since a suffix without its part would read as no instance.
+		ty::Tuple(tys) if tys.is_empty() => "unit".into(),
+		ty::Never => "never".into(),
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
 		// By where it is defined, not by its span, which code above it moves.

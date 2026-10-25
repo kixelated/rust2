@@ -1,0 +1,97 @@
+/* The frame write path through the exported C ABI: a timed track, groups of 100 frames of
+ * 100 bytes, each frame stamped. bench/moq-c.c times the same through moq's rs/moq-c. */
+
+#define _POSIX_C_SOURCE 199309L
+
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
+#include "moq.h"
+
+#define GROUPS 10000
+#define FRAMES 100
+
+static double now(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
+}
+
+static moq_buf str(const char *s) {
+	return (moq_buf){.ptr = (const uint8_t *)s, .len = strlen(s)};
+}
+
+int main(void) {
+	moq_broadcast_info *binfo = moq_broadcast_info_new();
+	moq_broadcast_producer *broadcast = moq_broadcast_info_produce(binfo);
+	moq_broadcast_info_free(binfo);
+	moq_timescale *micro = moq_timescale_micro();
+	/* Builders take the handle's value, leaving the handle to free. */
+	moq_track_info *defaults = moq_track_info_default();
+	moq_track_info *info = moq_track_info_with_timescale(defaults, micro);
+	moq_track_info_free(defaults);
+	moq_track_producer *track = NULL;
+	moq_error *err = NULL;
+	if (!moq_broadcast_producer_create_track(broadcast, str("bench"), info, &track, &err)) {
+		return 1;
+	}
+	moq_track_info_free(info);
+
+	uint8_t payload[100] = {0};
+	moq_buf frame = {.ptr = payload, .len = sizeof payload};
+	uint64_t micros = 0;
+
+	/* Each frame stamped through a fresh timestamp handle, as a caller holding a u64 must. */
+	double start = now();
+	for (int g = 0; g < GROUPS; g++) {
+		moq_group_producer *group = NULL;
+		moq_track_producer_append_group(track, &group, &err);
+		for (int f = 0; f < FRAMES; f++) {
+			moq_timestamp *at = NULL;
+			moq_time_overflow *overflow = NULL;
+			moq_timestamp_from_micros(micros++, &at, &overflow);
+			if (!moq_group_producer_write_frame(group, at, frame, &err)) {
+				return 2;
+			}
+			moq_timestamp_free(at);
+		}
+		moq_group_producer_finish(group, &err);
+		moq_group_producer_free(group);
+	}
+	double stamped = (now() - start) / (GROUPS * FRAMES);
+
+	/* The same, reusing one timestamp handle: what the handle costs. */
+	moq_timestamp *at = NULL;
+	moq_time_overflow *overflow = NULL;
+	moq_timestamp_from_micros(micros, &at, &overflow);
+	start = now();
+	for (int g = 0; g < GROUPS; g++) {
+		moq_group_producer *group = NULL;
+		moq_track_producer_append_group(track, &group, &err);
+		for (int f = 0; f < FRAMES; f++) {
+			if (!moq_group_producer_write_frame(group, at, frame, &err)) {
+				return 3;
+			}
+		}
+		moq_group_producer_finish(group, &err);
+		moq_group_producer_free(group);
+	}
+	double reused = (now() - start) / (GROUPS * FRAMES);
+	moq_timestamp_free(at);
+
+	/* The floor: a borrow of a handle and a bool back. */
+	start = now();
+	int closed = 0;
+	for (int i = 0; i < GROUPS * FRAMES; i++) {
+		closed += moq_track_producer_is_closed(track);
+	}
+	double call = (now() - start) / (GROUPS * FRAMES);
+
+	printf("export: %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call%s\n", stamped, reused,
+		   call, closed ? "!" : "");
+	moq_track_producer_free(track);
+	moq_timescale_free(micro);
+	moq_broadcast_producer_free(broadcast);
+	return 0;
+}
