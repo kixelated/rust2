@@ -400,14 +400,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) -> Expr {
 		let tcx = self.tcx;
 		// A capture by reference reads the place it borrows; one by value is the value as
-		// it was when the closure was made.
+		// it was when the closure was made, a reference held in a variable included.
 		let mut captures = Vec::with_capacity(ops.len());
 		for op in ops.iter() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
 			let value = self.operand(op, span, out);
-			let value = match (ty.kind(), value.is_constant()) {
-				(ty::Ref(..), _) | (_, true) => value,
-				_ => {
+			let in_var = op
+				.place()
+				.and_then(|p| p.as_local())
+				.is_some_and(|l| matches!(self.slots[l], Slot::Var(_)));
+			let snapshot = match ty.kind() {
+				ty::Ref(..) => in_var && !self.stable_name(&value),
+				_ => true,
+			};
+			let value = match snapshot && !value.is_constant() {
+				false => value,
+				true => {
 					let name = self.b.fresh("captured");
 					let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
 					self.emit(vec![stmt], None, false, out);

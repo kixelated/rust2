@@ -15,7 +15,9 @@ fixtures' differential tests and the task fixture's unwinding test. What the mov
 still needs:
 
 - The reject fixture and its census, rewritten to what MIR refuses, and snapshots of
-  MIR's output.
+  MIR's output. Constructs THIR refuses that MIR lowers move into the differential
+  fixtures, such as a `move` closure taking a reference from a variable assigned again
+  after (`a closure that copies a mutable variable`), which the prototype snapshots.
 - The census to at least THIR's coverage of moq-net and kio. MIR types each
   intermediate it holds, so a gap in the library or model shows up once more per
   temporary; read the census by construct, not by total. MIR-only refusals to close:

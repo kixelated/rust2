@@ -269,7 +269,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// Whether `e` names a local nothing assigns again or changes in place, so reading it
 	/// later reads what it held earlier.
-	fn stable_name(&self, e: &Expr) -> bool {
+	pub(super) fn stable_name(&self, e: &Expr) -> bool {
 		let Expr::Ident(name) = e else {
 			return false;
 		};
