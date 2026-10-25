@@ -44,7 +44,9 @@ it finds; translation still fails on any refusal.
 ## Output
 
 Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.ts`),
-with a `.ts.map` source map into the Rust it came from. `rt.ts` beside them is the
+and each type a module of its own beside it, holding the type and its functions
+(`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
+from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
 and async in `rt/task.ts`.
 
@@ -65,7 +67,7 @@ and async in `rt/task.ts`.
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
-| a type's function | a module-level function named after both, taking `self` first: `decoderSlice(dec, 4)` |
+| a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`, around a generator |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
@@ -99,8 +101,9 @@ Debug` or `&dyn Display` is such a function too. Format specs take fill, alignme
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmt.toString((f) => decodeErrorFmt$Display(err, f))` and
-`rt.fmt.format([(f) => decodeErrorFmt$Debug(err, f)])`.
+would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
+`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`, after
+`import * as DecodeError from "./coding/decode.DecodeError.ts"`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
@@ -113,9 +116,11 @@ an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, and instances that share a name are suffixed by type, as in
-`roundtripLite$Group` or `wrapGet$Wrap_Pair`. Types are translated once, generically, so
+`roundtripLite$Group` or `Wrap.get$Wrap_Pair`. Types are translated once, generically, so
 a function of a generic type is one instance's, declaring the instance it takes as
-`self`: `wrapFmt$Pair(self: Wrap<Pair>, f: rt.Formatter)`. A `Copy` struct, tuple, or
+`self`: `fmt$Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
+type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
+and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
 
@@ -166,8 +171,8 @@ they need.
   `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
   brand would cast every literal, so a plain number passes for any type.
 - A struct is a plain object, and each function of a type, trait impls included, is its
-  own module-level function, so a caller's bundler drops every one it never calls: no
-  bundler drops a class's unused methods or an object's unused properties. A struct that
+  own function in the type's module, so a caller's bundler drops every one it never
+  calls: no bundler drops a class's unused methods or an object's unused properties. A struct that
   may drop, or holds a type parameter that may, keeps a class for its `[Symbol.dispose]`.
   `just ts bench` measured it against classes everywhere and against a class facade on
   the root types over free functions: all three within noise in Node, Bun, and Chrome.
@@ -177,6 +182,13 @@ they need.
   shake yet, gzip is 30% and 56% smaller. The facade was the largest,
   since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
   and date-fns made the same move for the same reason.
+- A type's functions are a module of their own, which callers import whole and call as
+  `Decoder.slice(dec, 4)`, as Effect's `Option.map` reads: Bun, esbuild, and Rollup drop
+  every function of an `import * as` the caller never calls, and the bundles measured
+  the same as flat names (`decoderSlice`) within 30 bytes. A barrel that re-exports a
+  type's module (`export * as Decoder`) still shakes in Bun and Rollup but not in
+  esbuild ([evanw/esbuild#1420](https://github.com/evanw/esbuild/issues/1420)), which
+  keeps the whole module: 10.2 KB gzipped against 8.3 for the decoding caller.
 - A generic type is one interface, class, or union, the type TS callers name, and a
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
@@ -234,7 +246,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `codec` vendors moq-net's sync codec, which a harness outside the crate could not reach,
   and writes its errors' `Display` and `Debug`. It is also translated without
   `bench::run` and then with it as the first root, which must keep every line in order.
-  Bun bundles a caller of `decoderU8` alone, which must keep only it and what it calls.
+  Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
+  which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
   `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a

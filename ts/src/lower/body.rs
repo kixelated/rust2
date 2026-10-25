@@ -2794,6 +2794,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			order,
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
 		let loc = self.t.loc(span);
 		self.t.program.items.push(ts::Item::Function(ts::Function {

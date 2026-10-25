@@ -212,6 +212,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			order: 0,
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
 		self.program.methods.entry(info.sym).or_default().push(ts::Function {
 			sym,

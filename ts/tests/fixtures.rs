@@ -201,15 +201,17 @@ fn codec() {
 	shake(&out);
 }
 
-/// A caller importing one function of a type, as moq's TypeScript calls the codec.
-const SHAKE: &str = r#"import { decoderNew, decoderU8 } from "./coding/decode.ts";
+/// A caller of two functions of a type, through its module, as moq's TypeScript calls
+/// the codec.
+const SHAKE: &str = r#"import * as Decoder from "./coding/decode.Decoder.ts";
 
-export const run = (buf: Uint8Array) => decoderU8(decoderNew(buf, { tag: "Quic" }));
+export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic" }));
 "#;
 
-/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it imports and what they
-/// call, and nothing else the translation holds: no other function of the type, and no
-/// class. The runtime stays out, whose own shaking is another matter.
+/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it calls and what they call,
+/// and nothing else the translation holds: no other function of the type, though the
+/// caller imports its whole module, and no class. The runtime stays out, whose own
+/// shaking is another matter.
 fn shake(out: &Path) {
 	let output = Command::new("bun")
 		.args(["build", "--target=browser", "--external=*rt.ts"])
@@ -222,16 +224,15 @@ fn shake(out: &Path) {
 		"bundling shake.ts failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
-	let kept: Vec<&str> = bundle
+	// Bun numbers a name another module also declares, `slice3`, so the digits it adds go.
+	let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+	let kept: Vec<String> = bundle
 		.lines()
 		.filter_map(|line| line.strip_prefix("function ").or_else(|| line.strip_prefix("class ")))
-		.map(|decl| decl.split(['(', ' ', '{']).next().unwrap())
+		.map(|decl| unnumbered(decl.split(['(', ' ', '{']).next().unwrap()))
 		.collect();
-	assert_eq!(
-		kept,
-		["decoderNew", "decoderShort", "decoderSlice", "decoderU8"],
-		"the bundle keeps more than the caller reaches:\n{bundle}"
-	);
+	let want: Vec<String> = ["new_", "short", "slice", "u8"].map(unnumbered).to_vec();
+	assert_eq!(kept, want, "the bundle keeps more than the caller reaches:\n{bundle}");
 }
 
 /// Adding a root changes only the output of what it reaches: everything else keeps its
@@ -309,28 +310,14 @@ fn task() {
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
-import {{ logClone, logNew, logNote, logText }} from "./log.ts";
-import {{ blocks, channelCloneProducer, channelClose, channelConsumer, channelOpen, channelSend, drain, guardNew, sum }} from "./model.ts";
+import * as Log from "./log.Log.ts";
+import * as Channel from "./model.Channel.ts";
+import * as Guard from "./model.Guard.ts";
+import {{ blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-export const run = harness({{
-	Pending: rt.Pending,
-	u64: rt.u64,
-	logNew,
-	logNote,
-	logText,
-	logClone,
-	channelOpen,
-	channelConsumer,
-	channelSend,
-	channelClose,
-	channelCloneProducer,
-	guardNew,
-	sum,
-	drain,
-	blocks,
-}});
+export const run = harness({{ Pending: rt.Pending, u64: rt.u64, Log, Channel, Guard, sum, drain, blocks }});
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();

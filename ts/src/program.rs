@@ -37,6 +37,9 @@ pub struct Symbol {
 	pub instance: String,
 	/// The final name, set by [`Program::name`].
 	pub name: String,
+	/// The name it is exported as, where `name` had to escape a reserved word: `new` for
+	/// `new_`. Set by [`Program::name`].
+	pub alias: Option<String>,
 }
 
 impl Symbol {
@@ -149,7 +152,12 @@ impl Program {
 					true => format!("{}${}", sym.base, sym.suffix),
 					false => sym.base.clone(),
 				};
-				let name = unique(&mut taken, &base, "");
+				let escaped = match sym.kind {
+					SymKind::Function => crate::lower::escape(&base),
+					_ => base.clone(),
+				};
+				let name = unique(&mut taken, &escaped, "");
+				self.syms[id].alias = (name == escaped && escaped != base).then_some(base);
 				self.syms[id].name = name;
 			}
 			if let Scope::Owner(owner) = scope {
@@ -181,6 +189,20 @@ impl Program {
 
 		for (path, text) in RUNTIME {
 			write_file(&out.join(path), &format!("{HEADER}\n{text}"))?;
+		}
+		// Two types whose names differ only in case would share a file where file names
+		// ignore case, as on macOS and Windows.
+		let mut files = HashMap::new();
+		for module in modules.keys() {
+			let file = module_file(module);
+			let folded = file.to_string_lossy().to_lowercase();
+			if let Some(other) = files.insert(folded, file.clone()) {
+				return Err(format!(
+					"{} and {} differ only in case, which a case-insensitive file system can't tell apart",
+					other.display(),
+					file.display()
+				));
+			}
 		}
 		for (module, items) in modules {
 			let path = out.join(module_file(module));
@@ -217,6 +239,24 @@ pub fn item_sym(item: &Item) -> SymId {
 		Item::Struct { sym, .. } | Item::Union { sym, .. } => *sym,
 		Item::Function(f) => f.sym,
 	}
+}
+
+/// The module of a type and its functions, beside the Rust module that defines it:
+/// `coding/decode.Decoder.ts` for `coding::decode::Decoder`, which callers import whole,
+/// `import * as Decoder`. A Rust module's name has no `.`, so neither can collide.
+pub fn type_module(module: &[String], ty: &str) -> ModPath {
+	let (parents, last) = match module {
+		[] => (&[][..], "lib"),
+		[parents @ .., last] => (parents, last.as_str()),
+	};
+	let mut path = parents.to_vec();
+	path.push(format!("{last}.{ty}"));
+	path
+}
+
+/// Whether `module` is a type's, from [`type_module`].
+pub fn is_type_module(module: &[String]) -> bool {
+	module.last().is_some_and(|last| last.contains('.'))
 }
 
 /// The file a module is written to, relative to the output directory.

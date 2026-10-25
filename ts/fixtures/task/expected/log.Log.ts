@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function logClone(self: Log): Log {
+export function clone(self: Log): Log {
 	return new Log(self._0.clone());
 }
 
@@ -19,17 +19,17 @@ export class Log {
 	}
 }
 
-export function logNew(): Log {
+function new_(): Log {
 	return new Log(new rt.Arc(new rt.Mutex([])));
 }
 
 /** Append one event. */
-export function logNote(self: Log, event: string): void {
+export function note(self: Log, event: string): void {
 	self._0.value.value.push(event);
 }
 
 /** Every event so far, one per line. */
-export function logText(self: Log): rt.ByteVec {
+export function text(self: Log): rt.ByteVec {
 	const events = self._0.value;
 	let out: rt.ByteVec = new rt.ByteVec();
 	for (const event of events.value) {
@@ -39,4 +39,6 @@ export function logText(self: Log): rt.ByteVec {
 	return out;
 }
 
-//# sourceMappingURL=log.ts.map
+export { new_ as new };
+
+//# sourceMappingURL=log.Log.ts.map

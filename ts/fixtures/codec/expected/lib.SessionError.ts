@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function sessionErrorFmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "ProtocolViolation") {
 		return __formatter.writeStr("protocol violation");
 	} else {
@@ -13,7 +13,7 @@ export function sessionErrorFmt$Display(self: SessionError, __formatter: rt.Form
 	}
 }
 
-export function sessionErrorFmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "ProtocolViolation") {
 		return f.writeStr("ProtocolViolation");
 	} else {
@@ -25,4 +25,4 @@ export function sessionErrorFmt$Debug(self: SessionError, f: rt.Formatter): rt.R
 /** moq-net's session error, trimmed to a few variants: the codec only carries it. */
 export type SessionError = { tag: "ProtocolViolation" } | { tag: "App"; _0: rt.u16 };
 
-//# sourceMappingURL=lib.ts.map
+//# sourceMappingURL=lib.SessionError.ts.map

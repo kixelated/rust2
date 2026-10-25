@@ -4,8 +4,8 @@
 
 A caller's translated names never change when unrelated code adds a generic
 instance or a trait impl. Every generic instance always prints its type-argument
-suffix (`foo$u8`, `wrapGet$Wrap_Pair`), and every trait-impl function always prints its
-trait (`pairFmt$Display`), even when it is the only one.
+suffix (`foo$u8`, `Wrap.get$Wrap_Pair`), and every trait-impl function always prints its
+trait (`Pair.fmt$Display`), even when it is the only one.
 
 ## Plan
 

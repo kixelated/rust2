@@ -8,7 +8,7 @@ export type Version = "Lite01" | "Lite02" | "Lite03" | "Lite04" | "Lite05" | "Li
  * carries the bitrate alone, so a report with only an RTT to give says nothing
  * there and must not be sent.
  */
-export function versionHasProbeRtt(self: Version): boolean {
+export function hasProbeRtt(self: Version): boolean {
 	return !(self === "Lite01" || self === "Lite02" || self === "Lite03");
 }
 
@@ -20,8 +20,8 @@ export function versionHasProbeRtt(self: Version): boolean {
  * Older versions only address whole groups, so a route change has to wait for the
  * next group before it can resume.
  */
-export function versionHasFrameBounds(self: Version): boolean {
+export function hasFrameBounds(self: Version): boolean {
 	return !(self === "Lite01" || self === "Lite02" || self === "Lite03" || self === "Lite04" || self === "Lite05");
 }
 
-//# sourceMappingURL=version.ts.map
+//# sourceMappingURL=version.Version.ts.map

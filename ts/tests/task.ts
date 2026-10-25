@@ -27,16 +27,20 @@ type Channel = Disposable;
 export interface Fixture<V> {
 	Pending: symbol;
 	u64: { of(value: number): V };
-	logNew(): Log;
-	logNote(log: Log, event: string): void;
-	logText(log: Log): { view(): Uint8Array };
-	logClone(log: Log): Log;
-	channelOpen(): Channel;
-	channelConsumer(channel: Channel): Consumer;
-	channelSend(channel: Channel, value: V): boolean;
-	channelClose(channel: Channel): boolean;
-	channelCloneProducer(channel: Channel): boolean;
-	guardNew(id: number, log: Log): Guard;
+	Log: {
+		"new"(): Log;
+		note(log: Log, event: string): void;
+		text(log: Log): { view(): Uint8Array };
+		clone(log: Log): Log;
+	};
+	Channel: {
+		open(): Channel;
+		consumer(channel: Channel): Consumer;
+		send(channel: Channel, value: V): boolean;
+		close(channel: Channel): boolean;
+		cloneProducer(channel: Channel): boolean;
+	};
+	Guard: { "new"(id: number, log: Log): Guard };
 	sum(rx: Consumer, guard: Guard): Future<V>;
 	drain(rx: Consumer, depth: number): Future<V>;
 	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
@@ -159,8 +163,8 @@ class Executor {
 /** The script runner, as `harness.rs` runs it natively. */
 export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint8Array } {
 	return (input) => {
-		const log = f.logNew();
-		const note = (event: string) => f.logNote(log, event);
+		const log = f.Log.new();
+		const note = (event: string) => f.Log.note(log, event);
 		const exec = new Executor(note, f.Pending);
 		const channels: Channel[] = [];
 		for (let i = 0; i < input.length; i += 2) {
@@ -171,30 +175,30 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 			switch (op % 11) {
 				case 0:
 					note(`c${channels.length} open`);
-					channels.push(f.channelOpen());
+					channels.push(f.Channel.open());
 					break;
 				case 1:
-					if (c !== undefined) exec.spawn(f.sum(f.channelConsumer(channels[c]), f.guardNew(exec.tasks.length, f.logClone(log))));
+					if (c !== undefined) exec.spawn(f.sum(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log))));
 					break;
 				case 2:
-					if (c !== undefined) exec.spawn(f.drain(f.channelConsumer(channels[c]), [1, 4, 16][(arg >> 4) % 3]));
+					if (c !== undefined) exec.spawn(f.drain(f.Channel.consumer(channels[c]), [1, 4, 16][(arg >> 4) % 3]));
 					break;
 				case 3:
 					if (c !== undefined) {
 						note(`c${c} send ${arg}`);
-						if (!f.channelSend(channels[c], f.u64.of(arg))) note(`c${c} closed`);
+						if (!f.Channel.send(channels[c], f.u64.of(arg))) note(`c${c} closed`);
 					}
 					break;
 				case 4:
 					if (c !== undefined) {
 						note(`c${c} close`);
-						f.channelClose(channels[c]);
+						f.Channel.close(channels[c]);
 					}
 					break;
 				case 5:
 					if (c !== undefined) {
 						note(`c${c} clone`);
-						f.channelCloneProducer(channels[c]);
+						f.Channel.cloneProducer(channels[c]);
 					}
 					break;
 				case 6:
@@ -215,7 +219,7 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 				}
 				default:
 					if (c !== undefined) {
-						exec.spawn(f.blocks(f.channelConsumer(channels[c]), f.guardNew(exec.tasks.length, f.logClone(log)), arg >= 128));
+						exec.spawn(f.blocks(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone(log)), arg >= 128));
 					}
 			}
 		}
@@ -224,7 +228,7 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => { view(): Uint
 			note(`c${c} drop`);
 			channel[Symbol.dispose]();
 		});
-		return f.logText(log);
+		return f.Log.text(log);
 	};
 }
 

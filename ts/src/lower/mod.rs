@@ -506,12 +506,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
 		let base = camel(tcx.item_name(def_id).as_str());
-		// A function of a local type sits beside it, named after it.
+		// A function of a local type sits in the type's own module, escaped only where it is
+		// declared, so callers call it by its own name: `Decoder.new`.
 		let (module, base) = match self.owner(instance) {
-			Some(ty) => (
-				self.program.syms[ty].module.clone(),
-				prefixed(&self.program.syms[ty].base, &base),
-			),
+			Some(ty) => (self.program.syms[ty].module.clone(), base),
 			None => (self.module_of(def_id), escape(&base)),
 		};
 		let sym = self.program.sym(Symbol {
@@ -524,6 +522,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Without trimmed paths, which rustc computes only for a diagnostic.
 			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
+			alias: None,
 		});
 		self.instances.insert(instance, sym);
 		self.queue.push_back((instance, sym));
@@ -699,15 +698,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			AdtRepr::Struct { .. } => SymKind::Struct,
 			_ => SymKind::Union,
 		};
+		let name = tcx.item_name(did).to_string();
 		let sym = self.program.sym(Symbol {
-			module: self.module_of(did),
-			base: tcx.item_name(did).to_string(),
+			module: crate::program::type_module(&self.module_of(did), &name),
+			base: name,
 			suffix: String::new(),
 			owner: None,
 			kind,
 			order: self.order(tcx.def_span(did)),
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
 		// A struct is a plain object, unless it may drop: then it is a class, whose
 		// `[Symbol.dispose]` whatever holds it calls without knowing its type. One holding a
@@ -1101,18 +1102,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		false
 	}
-}
-
-/// A function of a type as a module-level name: `Decoder` and `slice` make `decoderSlice`.
-fn prefixed(ty: &str, method: &str) -> String {
-	let mut out = String::new();
-	let mut chars = ty.chars();
-	out.extend(chars.next().map(|c| c.to_ascii_lowercase()));
-	out.extend(chars);
-	let mut chars = method.chars();
-	out.extend(chars.next().map(|c| c.to_ascii_uppercase()));
-	out.extend(chars);
-	out
 }
 
 /// A short name for a type, to tell instances apart.

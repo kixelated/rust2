@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 use oxc_sourcemap::SourceMapBuilder;
 
-use crate::program::{HEADER, ModPath, Program, SymKind, module_file};
+use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file};
 use crate::ts::{Ctor, Expr, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
 
 pub struct Printed {
@@ -28,12 +28,22 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 		tokens: Vec::new(),
 		uses_rt: false,
 		renames: HashMap::new(),
+		aliases: Vec::new(),
 	};
 	for (i, item) in items.iter().enumerate() {
 		if i > 0 {
 			p.newline();
 		}
 		p.item(item);
+	}
+	if !p.aliases.is_empty() {
+		let aliases: Vec<String> = p
+			.aliases
+			.iter()
+			.map(|(name, alias)| format!("{name} as {alias}"))
+			.collect();
+		p.newline();
+		p.write(&format!("export {{ {} }};\n", aliases.join(", ")));
 	}
 
 	let file = module_file(module);
@@ -52,8 +62,20 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	if p.uses_rt {
 		writeln!(header, "import * as rt from \"{}\";", up(Path::new("rt.ts"))).unwrap();
 	}
-	for (target, names) in &bindings.imports {
-		let names: Vec<String> = names
+	let mut targets: Vec<&ModPath> = bindings.imports.keys().chain(bindings.namespaces.keys()).collect();
+	targets.sort();
+	for target in targets {
+		if let Some((binding, value)) = bindings.namespaces.get(target) {
+			let kind = if *value { "" } else { "type " };
+			writeln!(
+				header,
+				"import {kind}* as {binding} from \"{}\";",
+				up(&module_file(target))
+			)
+			.unwrap();
+			continue;
+		}
+		let names: Vec<String> = bindings.imports[target]
 			.iter()
 			.map(|(sym, binding, value)| {
 				let name = &program.syms[*sym].name;
@@ -72,7 +94,7 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 		)
 		.unwrap();
 	}
-	if p.uses_rt || !bindings.imports.is_empty() {
+	if p.uses_rt || !bindings.imports.is_empty() || !bindings.namespaces.is_empty() {
 		header.push('\n');
 	}
 	let offset = header.lines().count() as u32;
@@ -120,11 +142,17 @@ fn relative(from: &Path, to: &Path) -> PathBuf {
 
 /// The names a module refers to other modules' items by.
 struct Bindings {
-	/// A local binding for each top-level symbol the module names.
+	/// How the module names each top-level symbol it refers to: by a binding of its own,
+	/// or as a member of a type's module it imports whole, `Decoder.slice`.
 	names: HashMap<SymId, String>,
-	/// For each module imported from: each symbol, in that module's order, its binding, and
-	/// whether it is used as a value rather than only as a type.
+	/// Every name the module binds, which a local must not shadow.
+	bound: HashSet<String>,
+	/// For each module imported from by name: each symbol, in that module's order, its
+	/// binding, and whether it is used as a value rather than only as a type.
 	imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>>,
+	/// For each type's module imported whole: its binding, and whether any of it is used as
+	/// a value.
+	namespaces: BTreeMap<ModPath, (String, bool)>,
 }
 
 impl Bindings {
@@ -144,6 +172,7 @@ impl Bindings {
 		}
 
 		let mut imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>> = BTreeMap::new();
+		let mut namespaces: BTreeMap<ModPath, (String, bool)> = BTreeMap::new();
 		let mut foreign: Vec<(SymId, bool)> = refs
 			.used
 			.into_iter()
@@ -153,6 +182,27 @@ impl Bindings {
 		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
+			if is_type_module(&sym.module) {
+				let (binding, used) = namespaces.entry(sym.module.clone()).or_insert_with(|| {
+					// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
+					let (module, ty) = sym.module.last().unwrap().split_once('.').unwrap();
+					let mut binding = ty.to_string();
+					let mut n = 2;
+					while taken.contains(&binding) {
+						binding = match n {
+							2 => format!("{module}_{ty}"),
+							_ => format!("{module}_{ty}{n}"),
+						};
+						n += 1;
+					}
+					taken.insert(binding.clone());
+					(binding, false)
+				});
+				*used |= value;
+				let member = sym.alias.as_ref().unwrap_or(&sym.name);
+				names.insert(id, format!("{binding}.{member}"));
+				continue;
+			}
 			let mut binding = sym.name.clone();
 			if taken.contains(&binding) {
 				let prefix = sym.module.last().map_or("lib", String::as_str);
@@ -170,7 +220,12 @@ impl Bindings {
 				.or_default()
 				.push((id, binding, value));
 		}
-		Self { names, imports }
+		Self {
+			names,
+			bound: taken,
+			imports,
+			namespaces,
+		}
 	}
 }
 
@@ -330,6 +385,8 @@ struct Printer<'p> {
 	uses_rt: bool,
 	/// Locals of the function being printed renamed away from the module's bindings.
 	renames: HashMap<String, String>,
+	/// Each function declared under an escaped name, and the name it is exported as.
+	aliases: Vec<(String, String)>,
 }
 
 const INDENT: &str = "\t";
@@ -514,9 +571,13 @@ impl Printer<'_> {
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
 		let star = if f.generator { "*" } else { "" };
-		match module {
-			true => self.write(&format!("export function{star} {name}(")),
-			false => self.write(&format!("{star}{name}(")),
+		match (module, &self.program.syms[f.sym].alias) {
+			(true, Some(alias)) => {
+				self.aliases.push((name.clone(), alias.clone()));
+				self.write(&format!("function{star} {name}("));
+			}
+			(true, None) => self.write(&format!("export function{star} {name}(")),
+			(false, _) => self.write(&format!("{star}{name}(")),
 		}
 		self.params(&f.params);
 		let mut ret = self.ty(&f.ret);
@@ -538,12 +599,10 @@ impl Printer<'_> {
 		}
 		collect_locals(&f.body, &mut locals);
 		let mut taken: HashSet<String> = locals.iter().cloned().collect();
-		taken.extend(self.bindings.names.values().cloned());
-		taken.insert("rt".into());
-		let bound: HashSet<&String> = self.bindings.names.values().collect();
+		taken.extend(self.bindings.bound.iter().cloned());
 		let mut renames = HashMap::new();
 		for local in locals {
-			if local == "rt" || bound.contains(&local) {
+			if self.bindings.bound.contains(&local) {
 				let mut name = format!("{local}_");
 				while taken.contains(&name) {
 					name.push('_');
