@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function eq(self: Rank, other: Rank): boolean {
+export function eq$PartialEq(self: Rank, other: Rank): boolean {
 	let cond: boolean = { Low: 0, Mid: 1, High: 2 }[self.tag] === { Low: 0, Mid: 1, High: 2 }[other.tag];
 	if (cond) {
 		let value: boolean;
@@ -25,7 +25,7 @@ export function eq(self: Rank, other: Rank): boolean {
 	return cond;
 }
 
-export function hash(self: Rank, state: rt.Hasher): void {
+export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
 	rt.hashInt({ Low: 0, Mid: 1, High: 2 }[self.tag], state);
 	if (self.tag === "Mid") {
 		const __self0 = self._0;
@@ -38,7 +38,7 @@ export function hash(self: Rank, state: rt.Hasher): void {
 	}
 }
 
-export function cmp(self: Rank, other: Rank): rt.Ordering {
+export function cmp$Ord(self: Rank, other: Rank): rt.Ordering {
 	const value = [self, other] as [Rank, Rank];
 	if (value[0].tag === "Mid" && value[1].tag === "Mid") {
 		const __self0 = value[0]._0;
@@ -49,11 +49,11 @@ export function cmp(self: Rank, other: Rank): rt.Ordering {
 		const __self1 = value[0].y;
 		const __arg102 = value[1].x;
 		const __arg11 = value[1].y;
-		const cmp_ = rt.cmp(__self02, __arg102);
-		if (cmp_ === 0) {
+		const cmp = rt.cmp(__self02, __arg102);
+		if (cmp === 0) {
 			return rt.cmp(__self1, __arg11);
 		} else {
-			const cmp2 = cmp_;
+			const cmp2 = cmp;
 			return cmp2;
 		}
 	} else {

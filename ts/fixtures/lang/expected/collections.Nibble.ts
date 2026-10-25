@@ -10,15 +10,15 @@ export interface Nibble {
 	_0: rt.u8;
 }
 
-export function eq(self: Nibble, other: Nibble): boolean {
+export function eq$PartialEq(self: Nibble, other: Nibble): boolean {
 	return (self._0 & 0xf) === (other._0 & 0xf);
 }
 
-export function hash(self: Nibble, state: rt.Hasher): void {
+export function hash$Hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
 	rt.hashInt(self._0 & 0xf, state);
 }
 
-export function cmp(self: Nibble, other: Nibble): rt.Ordering {
+export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
 	return rt.cmp(other._0 & 0xf, self._0 & 0xf);
 }
 

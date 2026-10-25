@@ -173,7 +173,7 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 	}
 	const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(bytes_.value));
 	if (!fromUtf8.ok) {
-		return rt.Err(DecodeError.from$FromUtf8Error(fromUtf8.error));
+		return rt.Err(DecodeError.from$From_FromUtf8Error(fromUtf8.error));
 	}
 	return rt.Ok(fromUtf8.value);
 }

@@ -178,6 +178,8 @@
               shellcheck
               shfmt
               taplo
+              # bench/ffi/run.sh serializes runs that share a work directory.
+              flock
               nixfmt
               # The TypeScript driver's tests run and type-check its output, and bundle a
               # caller with Bun to check that unused output shakes out.

@@ -121,10 +121,15 @@ std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or 
 an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
-own function, and instances that share a name are suffixed by type, as in
-`roundtripLite$Group` or `Wrap.get$Wrap_Pair`. Types are translated once, generically, so
-a function of a generic type is one instance's, declaring the instance it takes as
-`self`: `fmt$Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
+own function, suffixed after a `$` by its trait, then by its type's type arguments and
+its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
+`DecodeError.from$From_BoundsExceeded`. The suffix is there even when no other instance
+is, so reaching one renames nothing. A closure type goes by where it is defined,
+`methods_closure1` for `methods::{closure#1}`, and instances whose suffixes still match,
+such as of two types of one name, are numbered `$2` on in the order of their full type
+arguments. Types are translated once, generically, so a function of a generic type is one
+instance's, declaring the instance it takes as `self`:
+`fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
 type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
 and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
@@ -155,8 +160,8 @@ microtask and yielding to a macrotask after 128 polls.
 A file's items follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
 What a macro makes sits where the macro is called. The instances of one function sit
-together, sorted by their suffix (`Pair` in `fmt$Pair`) and then by their full type
-arguments.
+together, sorted by their suffix (`Debug_Pair` in `fmt$Debug_Pair`) and then by their
+full type arguments.
 
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
@@ -312,9 +317,10 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 ```
 
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
-(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, and
-iterator chains over bytes. Each runs four ways: natively, as wasm32 at moq-wasm's
-size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
+(`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, the same
+frame headers decoded as they arrive a few bytes at a time, which prices a decode that
+comes up `Short` and retries, and iterator chains over bytes. Each runs four ways:
+natively, as wasm32 at moq-wasm's size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
 helpers in `bench/iter.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the

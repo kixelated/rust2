@@ -6,7 +6,7 @@ import { ints, strings, derived, written, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { adaptors, consumers, ranges, options, own, values } from "./iters.ts";
-import { copies, discriminants, loops, patterns, closures, library } from "./shapes.ts";
+import { copies, order, discriminants, loops, patterns, closures, library } from "./shapes.ts";
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
@@ -18,7 +18,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const kind = input[1];
 	const data = input.subarray(2, input.length - 0);
 	const [op2, kind2] = [op, kind] as [rt.u8, rt.u8];
-	const value = rt.u8.rem(op2, 37);
+	const value = rt.u8.rem(op2, 38);
 	if (value === 0) {
 		u8Op(kind2, data, out);
 	} else if (value === 1) {
@@ -106,10 +106,12 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (value === 32) {
 		values(data, out);
 	} else if (value === 33) {
-		hashMaps(kind2, data, out);
+		order(data, out);
 	} else if (value === 34) {
-		sets(kind2, data, out);
+		hashMaps(kind2, data, out);
 	} else if (value === 35) {
+		sets(kind2, data, out);
+	} else if (value === 36) {
 		btreeMaps(kind2, data, out);
 	} else {
 		deques(data, out);

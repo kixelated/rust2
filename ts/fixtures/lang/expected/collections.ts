@@ -134,16 +134,16 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			out.push(rt.hashIndex(map2, wide(rt.u8.rem(b2, 13))));
 		}
 	} else if (value === 2) {
-		let map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash, Nibble.eq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
-		let pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash, Pair.eq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
-		let ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash, Rank.eq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
+		let map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+		let pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
+		let ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
 		let tuples: rt.HashMap<[rt.u8, string], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
 		const end = data.length;
 		for (let i3 = 1; i3 < end; i3++) {
 			const [a, b3] = [rt.at(data, rt.usize.sub(i3, 1)), rt.at(data, i3)] as [rt.u8, rt.u8];
 			out.push(rt.option.unwrapOr(rt.hashInsert(map3, { _0: a }, b3), 0xcc));
 			const pair = { a: rt.u8.rem(a, 4), b: rt.u16.rem(b3 as rt.u16, 3) };
-			const t = rt.entryOrInsertWith(rt.entry(pairs, rt.copy(pair)), Tally.default);
+			const t = rt.entryOrInsertWith(rt.entry(pairs, rt.copy(pair)), Tally.default$Default);
 			t.n = rt.u16.add(t.n, 1);
 			const r = rank(a, b3);
 			const getMut = rt.hashGet(ranks, r);
@@ -190,7 +190,7 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		out.push(local.n & 0xff);
 		out.push(before.n & 0xff);
 		out.push(rt.hashIndex(pairs, key).n & 0xff);
-		const pairs2 = rt.btreeExtend(rt.btreeNew(Pair.cmp) as rt.BTreeMap<Pair.Pair, Tally.Tally>, rt.hashIter(pairs), true);
+		const pairs2 = rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, rt.hashIter(pairs), true);
 		const iter6 = rt.btreeIter(pairs2);
 		while (true) {
 			const item4 = iter6.next();
@@ -284,15 +284,15 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		}
 		const hash = (n: Nibble.Nibble): rt.u64 => {
 			let h: rt.Hasher = rt.hasher();
-			Nibble.hash(n, h);
+			Nibble.hash$Hash_DefaultHasher(n, h);
 			return rt.hashFinish(h);
 		};
 		const first2 = rt.option.unwrapOr(rt.slice.first(data), 0);
 		out.push(rt.u64.eq(hash({ _0: first2 }), hash({ _0: first2 ^ 0xf0 })) ? 1 : 0);
 		rt.hashRetain(ranks, (r2: Rank.Rank, t18: Tally.Tally): boolean => {
-			return rt.u16.rem(t18.n, 2) === 0 || Rank.eq(r2, { tag: "Low" });
+			return rt.u16.rem(t18.n, 2) === 0 || Rank.eq$PartialEq(r2, { tag: "Low" });
 		});
-		const ranks2 = rt.btreeExtend(rt.btreeNew(Rank.cmp) as rt.BTreeMap<Rank.Rank, rt.u16>, rt.hashIter(ranks).map((arg6: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
+		const ranks2 = rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, rt.hashIter(ranks).map((arg6: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
 			const r3 = arg6[0];
 			const t19 = arg6[1];
 			return [r3, t19.n];
@@ -347,7 +347,7 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		}).sum(rt.usize.add, 0);
 		out.push(drained & 0xff);
 		out.push(rt.hashLen(words) === 0 ? 1 : 0);
-		let clashes: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashNew(rt.hashing(Clash.hash, Clash.eq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
+		let clashes: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
 		const iter12 = rt.iter.slice(data).enumerate();
 		while (true) {
 			const item10 = iter12.next();
@@ -390,7 +390,7 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
  * Inserts a key, and gives back the map.
  */
 export function stamp(map: rt.HashMap<rt.u8, Tally.Tally>): rt.HashMap<rt.u8, Tally.Tally> {
-	rt.hashInsert(map, rt.hashLen(map) & 0xff, Tally.default());
+	rt.hashInsert(map, rt.hashLen(map) & 0xff, Tally.default$Default());
 	return map;
 }
 
@@ -463,8 +463,8 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			return v6 & 0xff;
 		}));
 	} else if (value === 1) {
-		let nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp) as rt.BTreeSet<Nibble.Nibble>;
-		let seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash, Nibble.eq)) as rt.HashSet<Nibble.Nibble>;
+		let nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
+		let seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
 		for (const item2 of data) {
 			const b2 = item2;
 			out.push(rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
@@ -493,7 +493,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 		out.push(rt.hashLen(seen) & 0xff);
-		let dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash, Dir.eq, true)) as rt.HashSet<Dir.Dir>;
+		let dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
 		for (const item3 of data) {
 			const b3 = item3;
 			const value3 = ["Up" as Dir.Dir, "Top" as Dir.Dir, "Down" as Dir.Dir];
@@ -639,13 +639,13 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		out.extendFromSlice(within.view());
 		rt.iter.extend(out, rt.btreeValues(map));
 	} else if (value === 1) {
-		let ranks: rt.BTreeMap<Rank.Rank, Tally.Tally> = rt.btreeNew(Rank.cmp) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
+		let ranks: rt.BTreeMap<Rank.Rank, Tally.Tally> = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
 		let pairs: rt.BTreeMap<[rt.u8, rt.u8], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
 		let wides: rt.BTreeMap<rt.u64, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u64, rt.u8>;
 		const end = data.length;
 		for (let i2 = 1; i2 < end; i2++) {
 			const [a, b] = [rt.at(data, rt.usize.sub(i2, 1)), rt.at(data, i2)] as [rt.u8, rt.u8];
-			const t = rt.entryOrInsertWith(rt.entry(ranks, rank(a, b)), Tally.default);
+			const t = rt.entryOrInsertWith(rt.entry(ranks, rank(a, b)), Tally.default$Default);
 			t.n = rt.u16.wrappingAdd(t.n, b as rt.u16);
 			rt.btreeInsert(pairs, [rt.u8.rem(a, 4), rt.u8.rem(b, 4)] as [rt.u8, rt.u8], a);
 			rt.entryOrInsert(rt.entry(wides, wide(a)), b);
@@ -712,11 +712,11 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			out.push(v10);
 		}
 	} else if (value === 2) {
-		const map2 = rt.btreeExtend(rt.btreeNew(Fussy.cmp) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, rt.iter.slice(data).map((arg9: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
+		const map2 = rt.btreeExtend(rt.btreeNew(Fussy.cmp$Ord) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, rt.iter.slice(data).map((arg9: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
 			const b4 = arg9;
 			return [{ _0: b4 }, { _0: b4 ^ 0x5a }];
 		}), true);
-		const copy = rt.btreeClone(map2, Fussy.clone, Fussy.clone);
+		const copy = rt.btreeClone(map2, Fussy.clone$Clone, Fussy.clone$Clone);
 		const iter8 = rt.btreeIter(copy);
 		while (true) {
 			const item7 = iter8.next();
@@ -728,14 +728,14 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			out.push(k12._0 ^ v11._0);
 		}
 	} else {
-		let nibbles: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
+		let nibbles: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 		let words: rt.BTreeMap<string, Tally.Tally> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
 		for (const item8 of data) {
 			const b5 = item8;
 			out.push(rt.option.unwrapOr(rt.btreeInsert(nibbles, { _0: b5 }, b5), 0xcc));
 			const arg10 = words;
 			const value4 = ["", "a", "ab", "b", "é", "", "￿", "𐀀"];
-			const t4 = rt.entryOrInsertWith(rt.entry(arg10, rt.at(value4, rt.usize.rem(b5 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length))), Tally.default);
+			const t4 = rt.entryOrInsertWith(rt.entry(arg10, rt.at(value4, rt.usize.rem(b5 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length))), Tally.default$Default);
 			t4.n = rt.u16.add(t4.n, 1);
 		}
 		const iter9 = rt.btreeIter(nibbles);
@@ -755,18 +755,18 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			const a3 = value5[0];
 			const b6 = value5[1];
 			const [x, y] = [rt.at(data, rt.usize.sub(i3, 1)), rt.at(data, i3)] as [rt.u8, rt.u8];
-			const o = rt.orderingThen(rt.orderingReverse(Nibble.cmp(a3, b6)), (): rt.Ordering => {
+			const o = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a3, b6)), (): rt.Ordering => {
 				return rt.cmp(y, x);
 			}, true);
-			out.push((o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp(a3, b6), -1) === 0 ? 1 : 0) << 2) & 0xff));
+			out.push((o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a3, b6), -1) === 0 ? 1 : 0) << 2) & 0xff));
 			out.push(o === -1 ? 1 : o === 0 ? 2 : 3);
 			out.push(rt.same(o, 1) ? 1 : 0);
 		}
-		const collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp) as rt.BTreeMap<Nibble.Nibble, rt.u8>, rt.iter.slice(data).map((arg11: rt.u8): [Nibble.Nibble, rt.u8] => {
+		const collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, rt.iter.slice(data).map((arg11: rt.u8): [Nibble.Nibble, rt.u8] => {
 			const b7 = arg11;
 			return [{ _0: b7 }, b7];
 		}), true);
-		let keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp) as rt.BTreeSet<Nibble.Nibble>, rt.iter.slice(data).map((arg12: rt.u8): Nibble.Nibble => {
+		let keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, rt.iter.slice(data).map((arg12: rt.u8): Nibble.Nibble => {
 			const b8 = arg12;
 			return { _0: b8 };
 		}), true);

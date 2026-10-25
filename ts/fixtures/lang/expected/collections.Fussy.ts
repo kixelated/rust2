@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function cmp(self: Fussy, other: Fussy): rt.Ordering {
+export function cmp$Ord(self: Fussy, other: Fussy): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 
@@ -11,7 +11,7 @@ export interface Fussy {
 	_0: rt.u8;
 }
 
-export function clone(self: Fussy): Fussy {
+export function clone$Clone(self: Fussy): Fussy {
 	if (rt.u8.rem(self._0, 7) === 0) {
 		rt.panic(["cloning ", (f: rt.Formatter) => rt.u8.display(self._0, f)]);
 	}

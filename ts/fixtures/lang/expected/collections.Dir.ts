@@ -12,11 +12,11 @@ export function rising(self: Dir): boolean {
 	return self !== "Down";
 }
 
-export function eq(self: Dir, other: Dir): boolean {
+export function eq$PartialEq(self: Dir, other: Dir): boolean {
 	return rising(self) === rising(other);
 }
 
-export function hash(self: Dir, state: rt.Hasher): void {
+export function hash$Hash_DefaultHasher(self: Dir, state: rt.Hasher): void {
 	rt.hashInt(rising(self), state);
 }
 

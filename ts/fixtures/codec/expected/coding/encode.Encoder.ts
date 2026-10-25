@@ -47,7 +47,7 @@ export function bool(self: Encoder, v: boolean): void {
 export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError.EncodeError> {
 	const write_ = write(v, self.form, self.buf);
 	if (!write_.ok) {
-		return rt.Err(EncodeError.from(write_.error));
+		return rt.Err(EncodeError.from$From_BoundsExceeded(write_.error));
 	}
 	return rt.Ok(write_.value);
 }
@@ -126,7 +126,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 	} else {
 		const write_ = write(rt.usize.sub(end, body) as rt.u64, self.form, self.buf);
 		if (!write_.ok) {
-			return rt.Err(EncodeError.from(write_.error));
+			return rt.Err(EncodeError.from$From_BoundsExceeded(write_.error));
 		}
 		const len = rt.usize.sub(self.buf.length, end);
 		if (len === 1) {

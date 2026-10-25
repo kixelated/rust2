@@ -50,7 +50,7 @@ export function open(): Channel {
 
 /** A consumer that reads every value from the first. */
 export function consumer(self: Channel): Consumer.Consumer {
-	return Consumer.clone(self.consumer);
+	return Consumer.clone$Clone(self.consumer);
 }
 
 /** Send `value` through the first producer, if one is open. */
@@ -90,7 +90,7 @@ export function cloneProducer(self: Channel): boolean {
 		const first = rt.slice.first(self.producers);
 		if (first !== undefined) {
 			const producer = first;
-			clone = Producer.clone(producer);
+			clone = Producer.clone$Clone(producer);
 		} else {
 			return false;
 		}

@@ -19,7 +19,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 37 {
+	match op % 38 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -63,9 +63,10 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		30 => iters::options(data, &mut out),
 		31 => iters::own(data, &mut out),
 		32 => iters::values(data, &mut out),
-		33 => collections::hash_maps(kind, data, &mut out),
-		34 => collections::sets(kind, data, &mut out),
-		35 => collections::btree_maps(kind, data, &mut out),
+		33 => shapes::order(data, &mut out),
+		34 => collections::hash_maps(kind, data, &mut out),
+		35 => collections::sets(kind, data, &mut out),
+		36 => collections::btree_maps(kind, data, &mut out),
 		_ => collections::deques(data, &mut out),
 	}
 	out

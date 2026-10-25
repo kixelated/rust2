@@ -28,7 +28,7 @@ census refuses and what moq waits on:
 - **A contract symbol** per build, checked when bindings load, so a header and a library from
   different builds refuse to mix. It replaces the fork's namespaced contract and per-method
   checksums, which the export never had.
-- **Generators** on the C ABI, measured on the [binding benchmark](/quest/m1/ffi-bench.md):
+- **Generators** on the C ABI, measured on the [binding benchmark](/bench/ffi/README.md):
   - C++ per standard (17, 20, 23) over the one C ABI, compiled with GCC, Clang, and MSVC, with
     and without exceptions and RTTI; OBS builds at C17 and C++17.
   - Kotlin through JNI or Panama rather than JNA: the fork measured 3.2 us per call against
@@ -43,7 +43,3 @@ census refuses and what moq waits on:
   window, and pick a semantic for concurrent pollers. Go's cancel contract (moq's
   `go/wrapper/doc.go` ends the stream) is decided then. A hot read still makes a future handle
   per read; measure it before adding a per-handle poll.
-
-## Related
-
-- [Binding benchmark](/quest/m1/ffi-bench.md) - the fork's numbers, the baseline each generator is measured against

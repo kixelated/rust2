@@ -7,7 +7,7 @@ export interface Doubled {
 	_0: Uint8Array;
 }
 
-export function fmt(self: Doubled, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$Debug(self: Doubled, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return f.debugList().entries(rt.iter.slice(self._0).map((arg: rt.u8): rt.u16 => {
 		const b = arg;
 		return rt.u16.mul(b as rt.u16, 2);

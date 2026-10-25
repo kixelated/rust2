@@ -1,5 +1,7 @@
 //! Control flow, patterns, aggregates, closures, and traits.
 
+use crate::fmt::Pair;
+
 /// A `Copy` struct, which Rust copies where JS would share.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point {
@@ -26,6 +28,10 @@ impl Point {
 /// A tuple struct.
 #[derive(Clone, Copy)]
 pub struct Meters(pub u64);
+
+/// A tuple struct that is not `Copy`, so struct update syntax reads its base in place.
+#[derive(Debug)]
+pub struct Moved(pub u8, pub u16);
 
 /// An enum with data, and one without.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -245,6 +251,92 @@ fn mark(out: &mut Vec<u8>, b: u8) -> usize {
 	out.len()
 }
 
+/// Aggregates written with their fields out of declaration order evaluate them as
+/// written: each field logs as it runs.
+pub fn order(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let rect = Shape::Rect {
+		height: mark(out, at(0)) as u16,
+		width: mark(out, at(1)) as u16,
+		corner: Point {
+			y: mark(out, 2) as i32,
+			x: mark(out, 3) as i32,
+		},
+	};
+	let line = Shape::Line {
+		1: Point::new(mark(out, 4) as i32, 0),
+		0: Point::new(mark(out, 5) as i32, 0),
+	};
+	let pair = Pair {
+		1: mark(out, 6) as i64,
+		0: mark(out, 7) as u8,
+	};
+	// A local read before a later field changes it.
+	let mut n = [at(2)];
+	let read = Point {
+		y: n[0] as i32,
+		x: increment(&mut n) as i32,
+	};
+	// The base is read after the fields, which change it.
+	let mut base = Moved(at(4), 0);
+	let updated = Moved {
+		1: reset(&mut base),
+		..base
+	};
+	// Only the branch taken runs its fields.
+	let taken = match at(3) % 2 {
+		0 => Shape::Rect {
+			width: mark(out, 8) as u16,
+			height: 1,
+			corner: Point::new(0, mark(out, 9) as i32),
+		},
+		_ => Shape::Dot,
+	};
+	let range = std::ops::Range {
+		end: mark(out, 10),
+		start: mark(out, 11) / 2,
+	};
+	let mut sum = 0;
+	for i in (std::ops::Range {
+		end: mark(out, 12),
+		start: mark(out, 13) - 4,
+	}) {
+		sum += i;
+	}
+	let len = data.len();
+	// The sliced value comes before the range's fields.
+	let slice = &logged(data, out)[std::ops::Range {
+		end: mark(out, 14).min(len),
+		start: mark(out, 15).min(len) / 2,
+	}];
+	let text = format!(
+		"{rect:?} {line:?} {pair:?} {read:?} {updated:?} {taken:?} {} {} {sum} {slice:?}",
+		range.start, range.end
+	);
+	out.extend_from_slice(text.as_bytes());
+}
+
+/// `data`, logging that it was read.
+#[inline(never)]
+fn logged<'a>(data: &'a [u8], out: &mut Vec<u8>) -> &'a [u8] {
+	out.push(0xee);
+	data
+}
+
+/// `n`'s byte, incremented.
+#[inline(never)]
+fn increment(n: &mut [u8; 1]) -> u8 {
+	n[0] = n[0].wrapping_add(1);
+	n[0]
+}
+
+/// Changes `m`'s first field.
+#[inline(never)]
+fn reset(m: &mut Moved) -> u16 {
+	m.0 = 9;
+	1
+}
+
 /// Fieldless enums cast to every width, past their discriminant's range and sign.
 pub fn discriminants(data: &[u8], out: &mut Vec<u8>) {
 	for &b in data {
@@ -363,6 +455,55 @@ fn diverging(data: &[u8], out: &mut Vec<u8>) {
 	out.push(guarded_return(head));
 	let found = bound_never(head, out);
 	out.push(found);
+	out.push(closure_never(b));
+	generic_never(b, data.len());
+}
+
+/// Calls that never return, through a closure, a function pointer, and a closure a
+/// function made: a statement, a bound value, and the tail.
+fn closure_never(b: u8) -> u8 {
+	let fail = |b: u8| -> ! { panic!("closure failed on {b:#x}") };
+	let ptr: fn(u8) -> ! = bail;
+	let made = made_never();
+	if b == 0xf5 {
+		fail(b);
+	}
+	let x: u8 = if b == 0xf4 { ptr(b) } else { b / 5 };
+	match b {
+		0xf3 => fail(b),
+		0xfa => made(b),
+		_ => x,
+	}
+}
+
+/// A closure that never returns, made by a function.
+fn made_never() -> impl Fn(u8) -> ! {
+	|b| panic!("made {b}")
+}
+
+/// Generic functions instantiated at `!`, which edition 2024 infers for a value that
+/// never exists: given one, and given an `Option` of none, which then calls one.
+#[allow(unreachable_code, clippy::diverging_sub_expression, reason = "`!` arguments")]
+fn generic_never(b: u8, len: usize) {
+	fn pass<T>(x: T) -> T {
+		x
+	}
+	fn unwrap_or_bail<T>(o: Option<T>, b: u8) -> T {
+		match o {
+			Some(x) => pass(x),
+			None => bail(b),
+		}
+	}
+	if b == 0xf1 {
+		pass(bail(b));
+	}
+	if b == 0xf6 {
+		pass(panic!("passed {b}"));
+	}
+	if b == 0xf9 {
+		let o = if len > 1 { None } else { Some(panic!("some {b}")) };
+		unwrap_or_bail(o, b);
+	}
 }
 
 /// A function that never returns.

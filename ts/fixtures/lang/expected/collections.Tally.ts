@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-function default_(): Tally {
+export function default$Default(): Tally {
 	return { n: 0 };
 }
 
@@ -10,7 +10,5 @@ function default_(): Tally {
 export interface Tally {
 	n: rt.u16;
 }
-
-export { default_ as default };
 
 //# sourceMappingURL=collections.Tally.ts.map
