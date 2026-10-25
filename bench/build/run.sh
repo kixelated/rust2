@@ -23,7 +23,7 @@ Usage: just bench [OPTIONS]
 Options:
   --corpus NAME    Measure only this corpus (repeatable; default: all)
   --variant NAME   Measure only this variant (repeatable; default: all)
-  --runs N         Timed runs per scenario (default: 3 clean, 5 incremental)
+  --runs N         Timed runs per scenario (default: 5 for edit-leaf and edit-hub, else 3)
   --no-attribute   Skip the nightly build that attributes where the time goes
   --out DIR        Write results to this new or empty directory
                    (default: target/bench/results/<UTC time>)
@@ -74,6 +74,9 @@ done
 [[ -z $runs || $runs =~ ^[1-9][0-9]*$ ]] || die "--runs must be a positive integer, got $runs"
 
 config=$(taplo get -f "$bench/corpus.toml" -o json)
+# Every scenario in the order it runs, and those a variant without a `scenarios` list runs.
+scenarios='["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]'
+build_scenarios='["check", "build", "edit-leaf", "edit-hub"]'
 mapfile -t all_corpora < <(jq -r '.corpus[].name' <<<"$config")
 mapfile -t all_variants < <(jq -r '.variant[].name' <<<"$config")
 ((${#corpora[@]})) || corpora=("${all_corpora[@]}")
@@ -86,9 +89,9 @@ for name in "${variants[@]}"; do
     [[ -n $base ]] || die "unknown variant: $name"
     [[ " ${variants[*]} " == *" $base "* ]] || die "variant $name compares against $base; select it too"
     for key in corpora scenarios; do
-        jq -e --arg n "$name" --arg b "$base" --arg k "$key" '
-            {corpora: [.corpus[].name], scenarios: ["check", "build", "edit-leaf", "edit-hub"]}[$k] as $all
-            | def runs($v): (.variant[] | select(.name == $v) | .[$k]) // $all;
+        jq -e --arg n "$name" --arg b "$base" --arg k "$key" --argjson all "$scenarios" --argjson default "$build_scenarios" '
+            {corpora: [[.corpus[].name], [.corpus[].name]], scenarios: [$all, $default]}[$k] as [$all, $default]
+            | def runs($v): (.variant[] | select(.name == $v) | .[$k]) // $default;
             runs($n) - runs($b) == [] and runs($n) - $all == []' <<<"$config" >/dev/null ||
             die "variant $name lists $key that are unknown or that its base $base skips"
     done
@@ -151,9 +154,11 @@ field() { # corpus|variant, name, jq path
     jq -r --arg n "$2" ".$1[] | select(.name == \$n) | $3 // empty" <<<"$config"
 }
 
-# Whether a variant runs on a corpus or scenario: those its list under the key names, or all.
+# Whether a variant runs on a corpus or scenario: those its list under the key names,
+# or else every corpus and the build scenarios.
 runs_on() { # variant corpora|scenarios name
-    jq -e --arg n "$1" --arg k "$2" --arg v "$3" '.variant[] | select(.name == $n) | .[$k] // [$v] | index($v) != null' \
+    jq -e --arg n "$1" --arg k "$2" --arg v "$3" --argjson default "$build_scenarios" '
+        .variant[] | select(.name == $n) | .[$k] // (if $k == "scenarios" then $default else [$v] end) | index($v) != null' \
         <<<"$config" >/dev/null
 }
 
@@ -174,6 +179,7 @@ record_host() {
         --arg ra_jit "$([[ -z $rajit_path ]] && echo "ra-jit not measured" ||
             echo "$(PATH=$rajit_path ra-jit --version) on $(PATH=$rajit_path rustc -V)")" \
         --arg hyperfine "$(hyperfine --version)" \
+        --arg nextest "$(cargo-nextest nextest --version | head -1)" \
         --arg mold "$(mold --version 2>/dev/null || echo missing)" \
         --arg wild "$(wild --version 2>/dev/null || echo missing)" \
         '$ARGS.named' >"$out/host.json"
@@ -277,24 +283,41 @@ rajit_counts() { # dir
 }
 
 # Times one run with hyperfine, appending its measurement to the scenario's raw log.
+# Its output goes to a log, which a failure shows.
 # Earlier runs leave dirty pages behind (over a GiB on moq), and writing them
 # back stalls whichever run it overlaps, so each run starts after a sync.
 # A ra-jit run also records whether the daemon or cargo built it, and the CPU time
-# and memory of the daemon, which hyperfine does not see.
+# and memory of the daemon, which hyperfine does not see. A test run records how
+# many tests failed, from nextest's summary; it runs them all and fails only
+# when nextest cannot run them.
 time_once() { # corpus dir scenario variant prepare cargo-args...
-    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 json
+    local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 json log
+    local -a failure=()
     shift 5
     json=$out/raw/$corpus.$scenario.$variant.json
+    log=$out/logs/$corpus.$scenario.$variant.log
+    # nextest exits with 100 when tests fail.
+    [[ $scenario != test-run ]] || failure=(--ignore-failure=100)
     (
         use_variant "$corpus" "$variant"
         cd "$dir"
-        local before after counts measurement
+        local before after counts measurement summary
         if ((${#sub[@]})); then
             before=$(rajit_settle "$dir")
             counts=$(rajit_counts "$dir")
         fi
-        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" "$(printf '%q ' cargo "${sub[@]}" "$@")"
+        # hyperfine sends only stdout to the log; nextest and cargo report on stderr.
+        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" --output "$log" "${failure[@]}" \
+            --shell bash "$(printf '%q ' cargo "${sub[@]}" "$@") 2>&1" ||
+            { tail -40 "$log" >&2 && die "$corpus $scenario failed with $variant"; }
         measurement=$(jq -c '.results[0].measurements[0]' "$json")
+        if ((${#failure[@]})); then
+            # "Summary [  34.7s] 5418 tests run: 5376 passed, 42 failed, 33 skipped"
+            summary=$(sed -n 's/^ *Summary \[.*\] \([0-9]*\) tests run: \([0-9]*\) passed.*/\1 \2/p' "$log")
+            [[ -n $summary ]] || { tail -40 "$log" >&2 && die "$corpus $scenario with $variant printed no nextest summary"; }
+            measurement=$(jq -c --arg summary "$summary" '($summary | split(" ") | map(tonumber)) as [$run, $passed]
+                | . + {tests: {run: $run, failed: ($run - $passed)}}' <<<"$measurement")
+        fi
         if ((${#sub[@]})); then
             after=$(rajit_settle "$dir")
             measurement=$(jq -c --argjson before "$counts" --argjson after "$(rajit_counts "$dir")" \
@@ -309,7 +332,8 @@ time_once() { # corpus dir scenario variant prepare cargo-args...
         fi
         echo "$measurement" >>"$out/raw/$corpus.$scenario.$variant.jsonl"
         jq -r --arg label "$corpus $scenario $variant" '"bench: \($label) \(.time_wall_clock.value * 100 | round / 100) s"
-            + if .ra_jit == null then "" elif .ra_jit.served then " by ra-jit" else " by cargo" end' <<<"$measurement"
+            + if .ra_jit == null then "" elif .ra_jit.served then " by ra-jit" else " by cargo" end
+            + if .tests == null then "" else ", \(.tests.failed) of \(.tests.run) tests failed" end' <<<"$measurement"
     )
 }
 
@@ -338,16 +362,20 @@ summarize_runs() { # corpus scenario variant
             served: map(select(.ra_jit.served)) | length,
             cargo: (map(select(.ra_jit.served | not) | .ra_jit.cargo // "no reason given") | group_by(.) | map({key: .[0], value: length}) | from_entries),
             rss: (map(.ra_jit.rss) | max)
-        }} else {} end' "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
+        }} else {} end
+        + if any(.[]; .tests != null) then {tests: {run: (map(.tests.run) | max), failed: (map(.tests.failed) | max)}} else {} end' \
+        "$out/raw/$1.$2.$3.jsonl" >>"$out/results.jsonl"
 }
 
 # Times every scenario on one corpus. Runs interleave the variants, rotating
 # which goes first each round, so drift over a long job spreads across all of
 # them instead of favoring whichever ran last.
 bench_corpus() { # corpus dir
-    local corpus=$1 dir=$2 leaf hub scenario subcommand file prepare n i j variant
-    local -a args present active
+    local corpus=$1 dir=$2 leaf hub scenario file prepare n i j variant
+    local -a args test present active scenario_names cmd
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
+    mapfile -t test < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .test // [] | .[]' <<<"$config")
+    mapfile -t scenario_names < <(jq -r '.[]' <<<"$scenarios")
     leaf=$(field corpus "$corpus" .leaf)
     hub=$(field corpus "$corpus" .hub)
 
@@ -376,7 +404,7 @@ bench_corpus() { # corpus dir
         ) || { tail -40 "$out/logs/$corpus.$variant.log" >&2 && die "$corpus failed to build with $variant"; }
     done
 
-    for scenario in check build edit-leaf edit-hub; do
+    for scenario in "${scenario_names[@]}"; do
         active=()
         for variant in "${present[@]}"; do
             if runs_on "$variant" scenarios "$scenario"; then
@@ -384,40 +412,55 @@ bench_corpus() { # corpus dir
             fi
         done
         ((${#active[@]})) || continue
+        # CI builds without incremental compilation, so the test scenarios do too.
+        unset CARGO_INCREMENTAL
         case $scenario in
             check | build)
-                subcommand=$scenario
+                cmd=("$scenario" --locked --offline -q "${args[@]}")
                 prepare="cargo clean -q"
                 n=${runs:-3}
                 ;;
             edit-*)
-                [[ $scenario == edit-leaf ]] && file=$leaf || file=$hub
-                [[ -n $file ]] || continue
-                subcommand=build
-                prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
+                cmd=(build --locked --offline -q "${args[@]}")
                 n=${runs:-5}
-                # Add the marker and build it, so each timed run is a body edit.
-                "$bench/run.sh" edit "$dir/$file"
-                for variant in "${active[@]}"; do
-                    (
-                        use_variant "$corpus" "$variant"
-                        cd "$dir"
-                        cargo "${sub[@]}" build --locked --offline -q "${args[@]}"
-                        ((${#sub[@]} == 0)) || rajit_settle "$dir" >/dev/null
-                    )
-                done
+                ;;
+            test-*)
+                ((${#test[@]})) || continue
+                export CARGO_INCREMENTAL=0
+                cmd=(nextest run --tests --locked --offline --cargo-quiet "${test[@]}")
+                [[ $scenario == test-run ]] && cmd+=(--no-fail-fast) || cmd+=(--no-run)
+                prepare="cargo clean -q"
+                [[ $scenario != test-run ]] || prepare=true
+                n=${runs:-3}
                 ;;
         esac
+        if [[ $scenario == edit-* || $scenario == test-edit ]]; then
+            file=$hub
+            [[ $scenario != edit-leaf ]] || file=$leaf
+            [[ -n $file ]] || continue
+            prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
+            # Add the marker and build it, so each timed run is a body edit.
+            "$bench/run.sh" edit "$dir/$file"
+            for variant in "${active[@]}"; do
+                (
+                    use_variant "$corpus" "$variant"
+                    cd "$dir"
+                    cargo "${sub[@]}" "${cmd[@]}"
+                    ((${#sub[@]} == 0)) || rajit_settle "$dir" >/dev/null
+                )
+            done
+        fi
         for ((i = 0; i < n; i++)); do
             for ((j = 0; j < ${#active[@]}; j++)); do
                 variant=${active[(i + j) % ${#active[@]}]}
-                time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "$subcommand" --locked --offline -q "${args[@]}"
+                time_once "$corpus" "$dir" "$scenario" "$variant" "$prepare" "${cmd[@]}"
             done
         done
         for variant in "${active[@]}"; do
             summarize_runs "$corpus" "$scenario" "$variant"
         done
     done
+    unset CARGO_INCREMENTAL
 
     rajit_stop
     git -C "$dir" checkout -q -- .

@@ -29,8 +29,14 @@ Bump a pin in its own change, since numbers on either side of it do not compare.
 - `build`: a clean debug `cargo build`, dependencies included.
 - `edit-leaf`: rebuild after a body edit in a crate nothing else in the build depends on.
 - `edit-hub`: the same edit in a crate most of the build depends on (moq-net in moq).
+- `test-build`: a clean build of the corpus's tests with `cargo nextest run --no-run`, as CI builds them with a cold cache.
+- `test-run`: run those tests, already built.
+- `test-edit`: rebuild the tests after the hub edit, as CI does when its compilation cache serves every dependency.
 
 An edit rewrites a marker function appended to the crate root, so every run changes code that reaches codegen.
+The test scenarios run only on a corpus that names its tests (moq: every workspace crate `moq-relay` builds) and only for the variants that list them, since a test build costs more than `build`.
+They build without incremental compilation, as CI does.
+A test run runs every test even when some fail, and the report lists how many failed, since a failed test can end sooner than a passing one.
 Before the timed runs, each variant does one untimed clean build that warms the disk cache and logs any failure.
 Each timed run starts after a `sync`: on CI's 16 GiB runners, writing back the dirty pages that earlier runs left made the edits it overlapped about 10% slower.
 
@@ -56,7 +62,7 @@ ra-jit bugs seen on moq at the pinned rev, not reported upstream:
 - A fallback logs `Duplicate definition of identifier ... <cc::Build>::cargo_metadata` while compiling aws-lc-sys's build script.
 - On a library-only build such as regex, `cargo ra-jit build` returns after `cargo clean` without building anything.
 
-The report shows wall time (trimmed mean, and mean ± standard deviation), CPU time, retired instructions, and peak RSS, all from hyperfine.
+The report shows wall time (trimmed mean, and mean ± standard deviation), CPU time and its change against the base, retired instructions, and peak RSS, all from hyperfine.
 A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares trimmed means, which drop each variant's fastest and slowest run; CPU time and instructions are trimmed means too.
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.

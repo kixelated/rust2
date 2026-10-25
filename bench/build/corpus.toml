@@ -5,7 +5,8 @@
 # the incremental scenarios edit: a crate nothing in the build depends on, and
 # one most of the build depends on. `pure` fails the run if any crate in the
 # build has a build script or links native code; `no-c` allows pure-Rust build
-# scripts but fails on native links and on the cc and cmake crates.
+# scripts but fails on native links and on the cc and cmake crates. `test` is
+# what the test scenarios pass to `cargo nextest run`; a corpus without it skips them.
 
 [[corpus]]
 name = "moq"
@@ -14,6 +15,24 @@ rev = "f36c8482066bb5704d02d7cf7ea5350f5f78e025"
 args = ["-p", "moq-relay"]
 leaf = "rs/moq-relay/src/lib.rs"
 hub = "rs/moq-net/src/lib.rs"
+# The tests of every workspace crate moq-relay builds, under the profile moq's CI
+# uses. Not moq-auth's: its tests depend on its published self, so no package
+# spec names it alone. The versions pick the workspace crate over a published one.
+test = [
+    "--profile=ci",
+    "--package=kio@0.6.2",
+    "--package=moq-clock",
+    "--package=moq-flate",
+    "--package=moq-json",
+    "--package=moq-net",
+    "--package=moq-pattern@0.1.2",
+    "--package=moq-quic",
+    "--package=moq-relay",
+    "--package=moq-sock",
+    "--package=moq-stats",
+    "--package=moq-tokio",
+    "--package=qmux@0.7.0",
+]
 
 # The moq corpus's rev plus moq-dev/moq's spike/pure-crypto branch, which moves
 # moq-relay's crypto off aws-lc-rs onto graviola and RustCrypto. Compare it with moq.
@@ -51,7 +70,8 @@ pure = true
 # compared against; a variant without one is a base. `rustflags` replaces any
 # host rustflags the corpus configures (none do today). `subcommand` goes between
 # cargo and `build` or `check`. `corpora` and `scenarios` limit a variant to those
-# they list, which its base must run too.
+# they list, which its base must run too. A variant without `scenarios` runs all
+# but the test scenarios, which only the levers worth their cost list.
 
 [[variant]]
 name = "baseline"
@@ -78,6 +98,7 @@ toolchain = "stable"
 [[variant]]
 name = "nightly"
 toolchain = "nightly"
+scenarios = ["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]
 
 [[variant]]
 name = "jobs-frontend"
@@ -90,6 +111,7 @@ name = "cranelift"
 base = "nightly"
 toolchain = "nightly"
 rustflags = "-Z codegen-backend=cranelift"
+scenarios = ["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]
 
 [[variant]]
 name = "cache-proc-macros"
@@ -101,6 +123,7 @@ rustflags = "-Z cache-proc-macros"
 name = "nightly-control"
 base = "nightly"
 toolchain = "nightly"
+scenarios = ["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]
 
 # ra-jit keeps the workspace loaded in a daemon on rust-analyzer, and after an edit
 # compiles only the changed functions with Cranelift and splices them into the
