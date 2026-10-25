@@ -216,9 +216,12 @@ they need.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
-- A `BTreeMap` is two sorted arrays, keys and values, which a binary search reads and a
-  splice changes, so an insert or removal is O(n) where std's is O(log n); no benchmark
-  covers it yet. A hash map's JS primitive keys are a JS `Map`'s, the engine's own hash
+- A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
+  leaves hold the keys and values and link to their neighbors, which iterators walk from
+  either end, and its branches hold each child's lower bound. A node's slots shift in a
+  loop, which beat `splice` 2-3x at these sizes. On `just ts bench`'s `btree/` workloads
+  it takes 0.5-0.8x the time two sorted arrays did, from 16 keys to 4096, in Node, Bun,
+  and Chrome; 64 keys a node measured best of 16 to 128. A hash map's JS primitive keys are a JS `Map`'s, the engine's own hash
   table; its other keys go into a second `Map` by their translated hash, chained by
   `Eq`. `VecDeque` is a ring buffer over an array whose length is a power of two.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
