@@ -42,6 +42,10 @@ generator with two error styles that each support only part of UniFFI:
 - moq's expected-style C++ bindings are today's baseline; the rewrite may change
   them, so the report says how moq migrates.
 
+## Required
+
+- [Exporter spike](/quest/m1/ffi-export-spike.md) - this quest is paused until the spike reports, and may be folded into the exporter
+
 ## Related
 
 - [Nightly MSVC and macOS](/quest/m2/uniffi-ci-msvc-macos.md) - the compile matrix this spike measures by hand, run nightly

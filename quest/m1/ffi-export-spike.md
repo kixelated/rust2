@@ -35,9 +35,8 @@ Rust-to-language exporter. A crate's `pub` API alone defines what gets exported,
   every other language layers on that one ABI later. Compare it against moq's
   hand-written `rs/moq-c`.
 - **The UniFFI fork**: spike first, with the fork in maintenance. New fork features
-  pause behind this spike: the C-first bindings spike
-  ([kixelated/rust2#34](https://github.com/kixelated/rust2/pull/34) adds it), the
-  [namespaced contract](/quest/m2/uniffi-contract.md), and the perf quests
+  pause behind this spike: the [C-first bindings spike](/quest/m2/uniffi-c-first-spike.md),
+  the [namespaced contract](/quest/m2/uniffi-contract.md), and the perf quests
   ([payload bytes](/quest/m1/ffi-bytes.md),
   [zero-copy returns](/quest/m2/ffi-bytes-return.md),
   [cheaper async](/quest/m2/ffi-async.md),
