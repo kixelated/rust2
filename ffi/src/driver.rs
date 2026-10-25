@@ -89,6 +89,10 @@ impl Callbacks for Export {
 		let written = match &self.output {
 			Output::Census(path) => {
 				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
+				for path in abi.unused_renames() {
+					tcx.dcx()
+						.err(format!("rust2-ffi: rename `{path}` names nothing exported"));
+				}
 				let text = census::render(&self.config.package, &collected, &abi.clashes, &|span| at(tcx, span));
 				write(path, &text)
 			}
@@ -119,6 +123,10 @@ impl Callbacks for Export {
 					}
 				}
 				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
+				for path in abi.unused_renames() {
+					tcx.dcx()
+						.err(format!("rust2-ffi: rename `{path}` names nothing exported"));
+				}
 				for (name, (first, first_span), (second, second_span)) in &abi.clashes {
 					tcx.dcx()
 						.struct_span_err(

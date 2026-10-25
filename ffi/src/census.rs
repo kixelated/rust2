@@ -34,7 +34,11 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 	};
 	row("Types", types, refused(&["struct", "enum", "union"]));
 	row("Functions", api.functions.len(), refused(&["fn"]));
-	row("Methods of exported types", methods, refused(&["method"]));
+	row(
+		"Methods and fields of exported types",
+		methods,
+		refused(&["method", "field"]),
+	);
 	row("Traits", api.callbacks.len(), refused(&["trait"]));
 	row("Constants", api.constants.len(), refused(&["const"]));
 	row("Other items", 0, refused(&["use", "macro", "static", "item"]));

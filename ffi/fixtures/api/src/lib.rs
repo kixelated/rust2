@@ -10,7 +10,8 @@ use bytes::Bytes;
 /// The largest value a [`Counter`] reaches.
 pub const LIMIT: u64 = 1000;
 
-/// A point: a record, since every field is `pub`.
+/// A point: a record, since every field is `pub`. Its docs reach the header, where a
+/// comment such as `/* this */` must not close the header's own.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Point {
 	pub x: i32,

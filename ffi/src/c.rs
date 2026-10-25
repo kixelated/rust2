@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use crate::abi::{self, Abi, Sig, Ty};
-use crate::ir::{Function, Int, Literal, Traits, Type};
+use crate::ir::{Function, Int, Literal, Receiver, Traits, Type};
 
 /// The header for `abi`, as `<prefix>.h`.
 pub fn header(abi: &Abi<'_>, package: &str) -> String {
@@ -107,7 +107,11 @@ impl Header<'_> {
 				.iter()
 				.map(|v| format!("\t{upper}_{} = {},", abi::snake(&v.name).to_uppercase(), v.discriminant))
 				.collect();
-			self.line(format!("typedef enum {name} {{\n{}\n}} {name};\n", variants.join("\n")));
+			self.line(format!(
+				"{}typedef enum {name} {{\n{}\n}} {name};\n",
+				comment(&e.docs, ""),
+				variants.join("\n")
+			));
 		}
 
 		// Value structs, each after the values it holds.
@@ -139,9 +143,14 @@ impl Header<'_> {
 				);
 				table.push(format!("\t{decl};"));
 			}
-			self.line(format!(
-				"/* {}: implemented in C. Rust calls free once it drops the implementation, and\n * may call the others from any thread. */\ntypedef struct {name}_vtable {{\n{}\n}} {name}_vtable;\n\ntypedef struct {name} {{\n\tconst {name}_vtable *vtable;\n\tvoid *data;\n}} {name};\n",
+			let docs = format!(
+				"{}: implemented in C. Rust calls free once it drops the implementation, and\nmay call the others from any thread.\n\n{}",
 				callback.path.join("::"),
+				callback.docs
+			);
+			self.line(format!(
+				"{}typedef struct {name}_vtable {{\n{}\n}} {name}_vtable;\n\ntypedef struct {name} {{\n\tconst {name}_vtable *vtable;\n\tvoid *data;\n}} {name};\n",
+				comment(docs.trim(), ""),
 				table.join("\n")
 			));
 		}
@@ -151,7 +160,11 @@ impl Header<'_> {
 				Literal::Bool(b) => b.to_string(),
 				Literal::Int(int, v) => c_literal(int, v),
 			};
-			self.line(format!("#define {} {value}", abi.constant(&constant.path)));
+			self.line(format!(
+				"{}#define {} {value}",
+				comment(&constant.docs, ""),
+				abi.constant(&constant.path)
+			));
 		}
 		if !api.constants.is_empty() {
 			self.line("");
@@ -159,7 +172,7 @@ impl Header<'_> {
 
 		for (i, record) in api.records.iter().enumerate() {
 			let name = abi.record(i);
-			self.line(format!("/* {} */", record.path.join("::")));
+			self.line(format!("/* {} */", record.path.join("::")).trim_end());
 			self.value_functions(&name, Ty::Struct(name.clone()), record.traits, true);
 			let owner = Ty::Struct(name.clone());
 			for method in &record.methods {
@@ -182,7 +195,8 @@ impl Header<'_> {
 		}
 		for (i, object) in api.objects.iter().enumerate() {
 			let name = abi.object(i);
-			self.line(format!("/* {} */", object.path.join("::")));
+			let docs = format!("{}\n\n{}", object.path.join("::"), object.docs);
+			self.line(comment(docs.trim(), "").trim_end());
 			self.line(format!("void {name}_free({name} *self);"));
 			let t = object.traits;
 			if t.clone {
@@ -244,9 +258,13 @@ impl Header<'_> {
 				.fields
 				.iter()
 				.zip(&fields)
-				.map(|(f, ty)| format!("\t{};", self.decl(ty, &abi::escape(&f.name))))
+				.map(|(f, ty)| format!("{}\t{};", comment(&f.docs, "\t"), self.decl(ty, &abi::escape(&f.name))))
 				.collect();
-			self.line(format!("typedef struct {name} {{\n{}\n}} {name};\n", decls.join("\n")));
+			self.line(format!(
+				"{}typedef struct {name} {{\n{}\n}} {name};\n",
+				comment(&record.docs, ""),
+				decls.join("\n")
+			));
 			return;
 		}
 		let Some(i) = (0..abi.api.enums.len()).find(|&i| &abi.enumeration(i) == name) else {
@@ -314,6 +332,28 @@ impl Header<'_> {
 
 	fn function(&mut self, function: &Function, owner: Option<&Ty>) {
 		let export = self.abi.export(function, owner);
+		let mut docs = function.docs.clone();
+		// What the call moves out of the caller's handles, which are then only freed.
+		// A handle taken by value: one taken `&mut` is not `const` either, but stays.
+		let receiver = function.receiver.map(|r| r == Receiver::Owned);
+		let by_value = receiver
+			.into_iter()
+			.chain(function.params.iter().map(|p| !matches!(p.ty, Type::Ref(..))));
+		let moved: Vec<String> = export
+			.call
+			.params
+			.iter()
+			.zip(by_value)
+			.filter(|((_, ty), by_value)| *by_value && matches!(ty, Ty::Handle { constant: false, .. }))
+			.map(|((name, _), _)| format!("`{name}`"))
+			.collect();
+		if !moved.is_empty() {
+			docs.push_str(&format!(
+				"\n\nMoves the value out of {}: free the handle after.",
+				moved.join(" and ")
+			));
+		}
+		self.out.push_str(&comment(docs.trim(), ""));
 		if let Some((handle, poll, free)) = &export.future {
 			self.line(format!("typedef struct {handle} {handle};"));
 			let call = self.prototype(&export.call);
@@ -327,6 +367,34 @@ impl Header<'_> {
 		let call = self.prototype(&export.call);
 		self.line(call);
 	}
+}
+
+/// A C comment holding `docs`, each line indented by `indent`, or nothing for none.
+fn comment(docs: &str, indent: &str) -> String {
+	if docs.is_empty() {
+		return String::new();
+	}
+	// Neither may appear inside a C comment.
+	let docs = docs.replace("*/", "* /").replace("/*", "/ *");
+	let lines: Vec<&str> = docs.lines().collect();
+	let mut out = String::new();
+	for (i, line) in lines.iter().enumerate() {
+		let lead = match i {
+			0 => "/* ",
+			_ => " * ",
+		};
+		out.push_str(indent);
+		out.push_str(lead.trim_end_matches(' '));
+		if !line.is_empty() {
+			out.push(' ');
+			out.push_str(line);
+		}
+		if i + 1 == lines.len() {
+			out.push_str(" */");
+		}
+		out.push('\n');
+	}
+	out
 }
 
 fn has(traits: Traits) -> bool {

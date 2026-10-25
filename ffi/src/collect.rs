@@ -269,6 +269,7 @@ impl<'tcx> Collector<'tcx> {
 		// Number each kind in item order, with placeholders filled in by `define`.
 		for (def_id, path) in self.items.clone() {
 			let span = tcx.def_span(def_id);
+			let docs = docs(tcx, def_id);
 			let Some(decl) = self.decls.get_mut(&def_id) else {
 				continue;
 			};
@@ -279,6 +280,7 @@ impl<'tcx> Collector<'tcx> {
 					api.records.push(Record {
 						path,
 						span,
+						docs,
 						fields: Vec::new(),
 						tuple: false,
 						methods: Vec::new(),
@@ -290,6 +292,7 @@ impl<'tcx> Collector<'tcx> {
 					api.enums.push(Enum {
 						path,
 						span,
+						docs,
 						variants: Vec::new(),
 						exhaustive: true,
 						methods: Vec::new(),
@@ -303,6 +306,7 @@ impl<'tcx> Collector<'tcx> {
 					api.objects.push(Object {
 						path,
 						span,
+						docs,
 						sync,
 						copy,
 						methods: Vec::new(),
@@ -314,6 +318,7 @@ impl<'tcx> Collector<'tcx> {
 					api.callbacks.push(Callback {
 						path,
 						span,
+						docs,
 						methods: Vec::new(),
 					});
 				}
@@ -374,6 +379,7 @@ impl<'tcx> Collector<'tcx> {
 				match self.ty(ty, Pos::Field) {
 					Ok(ty) => fields.push(Field {
 						name: field.name.to_string(),
+						docs: docs(tcx, field.did),
 						ty,
 					}),
 					Err(why) => errs.push(why),
@@ -478,6 +484,7 @@ impl<'tcx> Collector<'tcx> {
 				Ok(ty) => getters.push(Function {
 					path: getter,
 					span,
+					docs: docs(tcx, field.did),
 					receiver: Some(Receiver::Ref),
 					params: Vec::new(),
 					ok: ty,
@@ -689,6 +696,7 @@ impl<'tcx> Collector<'tcx> {
 			(true, Some(ok)) => Ok(Function {
 				path,
 				span: tcx.def_span(def_id),
+				docs: docs(tcx, def_id),
 				receiver,
 				params,
 				ok,
@@ -878,7 +886,12 @@ impl<'tcx> Collector<'tcx> {
 		let span = tcx.def_span(def_id);
 		let why = match self.constant(def_id) {
 			Ok(value) => {
-				self.api.constants.push(Constant { path, span, value });
+				self.api.constants.push(Constant {
+					path,
+					span,
+					docs: docs(tcx, def_id),
+					value,
+				});
 				return None;
 			}
 			Err(why) => why,
@@ -892,6 +905,7 @@ impl<'tcx> Collector<'tcx> {
 			Ok(ok) => Some(Function {
 				path,
 				span,
+				docs: docs(tcx, def_id),
 				receiver: None,
 				params: Vec::new(),
 				ok,
@@ -1130,6 +1144,23 @@ fn signed<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, bits: u128) -> i128 {
 		}
 		false => bits as i128,
 	}
+}
+
+/// An item's doc comment, each line as written after `///`.
+fn docs(tcx: TyCtxt<'_>, def_id: DefId) -> String {
+	#[expect(deprecated, reason = "doc comments are no parsed attribute to find")]
+	let attrs = tcx.get_all_attrs(def_id);
+	let lines: Vec<String> = attrs
+		.iter()
+		.filter_map(|attr| attr.doc_str())
+		.flat_map(|doc| {
+			doc.as_str()
+				.lines()
+				.map(|line| line.strip_prefix(' ').unwrap_or(line).to_string())
+				.collect::<Vec<_>>()
+		})
+		.collect();
+	lines.join("\n").trim().to_string()
 }
 
 /// Whether the local type `def_id` implements the std trait `item`.

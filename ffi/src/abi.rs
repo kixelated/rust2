@@ -71,6 +71,8 @@ pub struct Abi<'a> {
 	pub prefix: String,
 	/// C names for paths, in place of the rule's: an item's, and its methods' through it.
 	rename: &'a BTreeMap<String, String>,
+	/// The renamed paths some name went through.
+	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
 	/// Each `Option<T>` struct by C name, with `T`.
 	pub options: BTreeMap<String, Type>,
 	/// Every C name claimed, with what claimed it.
@@ -85,6 +87,7 @@ impl<'a> Abi<'a> {
 			api,
 			prefix: prefix.to_string(),
 			rename,
+			renamed: Default::default(),
 			options: BTreeMap::new(),
 			names: HashMap::new(),
 			clashes: Vec::new(),
@@ -98,7 +101,9 @@ impl<'a> Abi<'a> {
 		let mut name = self.prefix.clone();
 		let mut rest = path;
 		for len in (1..=path.len()).rev() {
-			if let Some(renamed) = self.rename.get(&path[..len].join("::")) {
+			let key = path[..len].join("::");
+			if let Some(renamed) = self.rename.get(&key) {
+				self.renamed.borrow_mut().insert(key);
 				name.push('_');
 				name.push_str(renamed);
 				rest = &path[len..];
@@ -110,6 +115,16 @@ impl<'a> Abi<'a> {
 			name.push_str(&snake(segment));
 		}
 		name
+	}
+
+	/// The config's renames that name nothing exported.
+	pub fn unused_renames(&self) -> Vec<&str> {
+		let renamed = self.renamed.borrow();
+		self.rename
+			.keys()
+			.filter(|key| !renamed.contains(*key))
+			.map(String::as_str)
+			.collect()
 	}
 
 	/// A constant's name for a path: the name in upper case.

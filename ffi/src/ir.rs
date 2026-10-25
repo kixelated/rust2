@@ -25,6 +25,7 @@ pub type Path = Vec<String>;
 pub struct Record {
 	pub path: Path,
 	pub span: Span,
+	pub docs: String,
 	pub fields: Vec<Field>,
 	/// Whether its fields are positional, named `0`, `1`, ...
 	pub tuple: bool,
@@ -35,6 +36,7 @@ pub struct Record {
 pub struct Field {
 	/// Its Rust name: a number for a positional field.
 	pub name: String,
+	pub docs: String,
 	pub ty: Type,
 }
 
@@ -43,6 +45,7 @@ pub struct Field {
 pub struct Enum {
 	pub path: Path,
 	pub span: Span,
+	pub docs: String,
 	pub variants: Vec<Variant>,
 	/// Whether another crate can match it without a wildcard arm.
 	pub exhaustive: bool,
@@ -70,6 +73,7 @@ impl Enum {
 pub struct Object {
 	pub path: Path,
 	pub span: Span,
+	pub docs: String,
 	/// Whether it is `Sync`: if not, even its `&self` methods borrow it exclusively.
 	pub sync: bool,
 	/// Whether it is `Copy`: taken by value, it is copied out of its handle, as Rust
@@ -83,6 +87,7 @@ pub struct Object {
 pub struct Callback {
 	pub path: Path,
 	pub span: Span,
+	pub docs: String,
 	/// Its required methods, each taking `&self` or `&mut self`.
 	pub methods: Vec<Function>,
 }
@@ -102,6 +107,8 @@ pub struct Function {
 	/// Its path, ending in its own name: a method's goes through its type's.
 	pub path: Path,
 	pub span: Span,
+	/// Its doc comment, as Markdown.
+	pub docs: String,
 	pub receiver: Option<Receiver>,
 	pub params: Vec<Param>,
 	/// What it returns, or for a future, what the future does.
@@ -151,6 +158,7 @@ pub struct Param {
 pub struct Constant {
 	pub path: Path,
 	pub span: Span,
+	pub docs: String,
 	pub value: Literal,
 }
 
