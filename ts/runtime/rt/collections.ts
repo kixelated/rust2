@@ -435,12 +435,38 @@ export function hashClone<K, V>(m: HashMap<K, V>, key: (k: K) => K = itself, val
 // BTreeMap and BTreeSet
 
 /**
- * `BTreeMap<K, V>`, and `BTreeSet<K>` as a map to `undefined`: its keys sorted by their
- * `Ord`, and each key's value at the same index.
+ * The most keys a node holds. A B+ tree's leaves hold its keys and values in order, and
+ * its branches each child's lower bound, so every operation but a split or merge shifts
+ * at most this many array slots after `log_{NODE/2} n` searches of one node each.
  */
-export interface BTreeMap<K, V> {
+const NODE = 64;
+/** The fewest keys a node other than the root holds. */
+const MIN = NODE >> 1;
+
+/** A leaf: its keys in order, each key's value at the same index, and the leaves beside it. */
+interface Leaf<K, V> {
 	k: K[];
 	v: V[];
+	prev: Leaf<K, V> | undefined;
+	next: Leaf<K, V> | undefined;
+}
+
+/** A branch: its children, and each one's lower bound, which the first child's is not. */
+interface Branch<K, V> {
+	k: K[];
+	c: Node<K, V>[];
+}
+
+type Node<K, V> = Leaf<K, V> | Branch<K, V>;
+
+/** `BTreeMap<K, V>`, and `BTreeSet<K>` as a map to `undefined`: a B+ tree ordered by `Ord`. */
+export interface BTreeMap<K, V> {
+	/** The root, which is a leaf where `h` is 0. */
+	t: Node<K, V>;
+	/** The height: how many branches are above each leaf. */
+	h: number;
+	/** How many keys it holds. */
+	n: number;
 	/** `Ord::cmp` of the keys. */
 	readonly c: (a: K, b: K) => Ordering;
 	/**
@@ -453,18 +479,22 @@ export interface BTreeMap<K, V> {
 /** `BTreeSet<K>`. */
 export type BTreeSet<K> = BTreeMap<K, undefined>;
 
-/** `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. */
-export function btreeNew<K, V>(cmp: (a: K, b: K) => Ordering): BTreeMap<K, V> {
-	return { k: [], v: [], c: cmp, r: false };
+function leaf<K, V>(k: K[] = [], v: V[] = []): Leaf<K, V> {
+	return { k, v, prev: undefined, next: undefined };
 }
 
-/** The index of `key` if the map has it, or else the bitwise not of where it would go. */
-function search<K, V>(m: BTreeMap<K, V>, key: K): number {
+/** `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. */
+export function btreeNew<K, V>(cmp: (a: K, b: K) => Ordering): BTreeMap<K, V> {
+	return { t: leaf(), h: 0, n: 0, c: cmp, r: false };
+}
+
+/** The index of `key` in `keys` if there, or else the bitwise not of where it would go. */
+function search<K>(keys: K[], key: K, cmp: (a: K, b: K) => Ordering): number {
 	let lo = 0;
-	let hi = m.k.length;
+	let hi = keys.length;
 	while (lo < hi) {
 		const mid = (lo + hi) >>> 1;
-		const c = m.c(m.k[mid], key);
+		const c = cmp(keys[mid], key);
 		if (c === 0) return mid;
 		if (c < 0) lo = mid + 1;
 		else hi = mid;
@@ -472,74 +502,117 @@ function search<K, V>(m: BTreeMap<K, V>, key: K): number {
 	return ~lo;
 }
 
+/** The index of the child of `b` whose keys `key` would be among. */
+function child<K, V>(b: Branch<K, V>, key: K, cmp: (a: K, b: K) => Ordering): number {
+	let lo = 1;
+	let hi = b.k.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (cmp(b.k[mid], key) <= 0) lo = mid + 1;
+		else hi = mid;
+	}
+	return lo - 1;
+}
+
+/** The leaf `key` would be in. */
+function leafOf<K, V>(m: BTreeMap<K, V>, key: K): Leaf<K, V> {
+	let node = m.t;
+	for (let h = m.h; h > 0; h--) {
+		const b = node as Branch<K, V>;
+		node = b.c[child(b, key, m.c)];
+	}
+	return node as Leaf<K, V>;
+}
+
+/** The first leaf, or with `last`, the last. */
+function end<K, V>(m: BTreeMap<K, V>, last: boolean): Leaf<K, V> {
+	let node = m.t;
+	for (let h = m.h; h > 0; h--) {
+		const c = (node as Branch<K, V>).c;
+		node = c[last ? c.length - 1 : 0];
+	}
+	return node as Leaf<K, V>;
+}
+
 export function btreeLen<K, V>(m: BTreeMap<K, V>): number {
-	return m.k.length;
+	return m.n;
 }
 
 export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
-	const i = search(m, key);
-	return i < 0 ? undefined : m.v[i];
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : l.v[i];
 }
 
 /** `BTreeMap::get_key_value`, and `BTreeSet::get`, which return the equal key the map holds. */
 export function btreeGetKeyValue<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | undefined {
-	const i = search(m, key);
-	return i < 0 ? undefined : [m.k[i], m.v[i]];
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : [l.k[i], l.v[i]];
 }
 
 export function btreeContains<K, V>(m: BTreeMap<K, V>, key: K): boolean {
-	return search(m, key) >= 0;
+	return search(leafOf(m, key).k, key, m.c) >= 0;
 }
 
 /** `BTreeMap::index`: `map[&key]`. */
 export function btreeIndex<K, V>(m: BTreeMap<K, V>, key: K): V {
-	const i = search(m, key);
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
 	if (i < 0) panic("no entry found for key");
-	return m.v[i];
+	return l.v[i];
 }
 
 /** `BTreeMap::insert`: the old value, if any. An equal key already there stays. */
 export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V): V | undefined {
-	const i = search(m, key);
-	if (i >= 0) {
-		const old = m.v[i];
-		m.v[i] = value;
-		return old;
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	if (i < 0) {
+		insertAt(m, l, ~i, key, value);
+		return undefined;
 	}
-	insertAt(m, ~i, key, value);
-	return undefined;
+	const old = l.v[i];
+	l.v[i] = value;
+	return old;
 }
 
-function insertAt<K, V>(m: BTreeMap<K, V>, i: number, key: K, value: V): void {
+/** Puts `key` and `value` at index `i` of `l`, the leaf it goes in, and splits what overflows. */
+function insertAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number, key: K, value: V): void {
 	m.r = true;
-	if (i === m.k.length) {
-		m.k.push(key);
-		m.v.push(value);
+	m.n++;
+	if (i === l.k.length) {
+		l.k.push(key);
+		l.v.push(value);
 	} else {
-		m.k.splice(i, 0, key);
-		m.v.splice(i, 0, value);
+		l.k.splice(i, 0, key);
+		l.v.splice(i, 0, value);
 	}
+	if (l.k.length > NODE) settle(m, key);
 }
 
 /** `BTreeSet::insert`: whether `key` was not there yet. An equal key already there stays. */
 export function btreeAdd<K>(m: BTreeSet<K>, key: K): boolean {
-	const i = search(m, key);
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
 	if (i >= 0) return false;
-	insertAt(m, ~i, key, undefined);
+	insertAt(m, l, ~i, key, undefined);
 	return true;
 }
 
-/** The key and value at `i`, taken out. */
-function removeAt<K, V>(m: BTreeMap<K, V>, i: number): [K, V] {
-	if (i === 0) return [m.k.shift() as K, m.v.shift() as V];
-	if (i === m.k.length - 1) return [m.k.pop() as K, m.v.pop() as V];
-	return [m.k.splice(i, 1)[0], m.v.splice(i, 1)[0]];
+/** The key and value at index `i` of `l`, taken out, with the leaf merged if too small. */
+function removeAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number): [K, V] {
+	m.n--;
+	const entry: [K, V] =
+		i === l.k.length - 1 ? [l.k.pop() as K, l.v.pop() as V] : [l.k.splice(i, 1)[0], l.v.splice(i, 1)[0]];
+	if (l.k.length < MIN && m.h > 0) settle(m, entry[0]);
+	return entry;
 }
 
 /** `BTreeMap::remove_entry`, and `BTreeSet::take`. */
 export function btreeRemoveEntry<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | undefined {
-	const i = search(m, key);
-	return i < 0 ? undefined : removeAt(m, i);
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : removeAt(m, l, i);
 }
 
 export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
@@ -551,23 +624,149 @@ export function btreeDelete<K>(m: BTreeSet<K>, key: K): boolean {
 	return btreeRemoveEntry(m, key) !== undefined;
 }
 
+/**
+ * Splits or merges the node on `key`'s path that a change left too large or too small,
+ * and each above it that this leaves so in turn, finding them again from the root.
+ */
+function settle<K, V>(m: BTreeMap<K, V>, key: K): void {
+	if (m.h > 0) settleBelow(m, m.t as Branch<K, V>, m.h, key);
+	const t = m.t;
+	if (t.k.length > NODE) {
+		const right = split(t, m.h === 0);
+		m.t = { k: [t.k[0], right.k[0]], c: [t, right] };
+		m.h++;
+	} else if (m.h > 0 && (t as Branch<K, V>).c.length === 1) {
+		m.t = (t as Branch<K, V>).c[0];
+		m.h--;
+	}
+}
+
+/** `settle` below `b`, a branch at height `h`. */
+function settleBelow<K, V>(m: BTreeMap<K, V>, b: Branch<K, V>, h: number, key: K): void {
+	const i = child(b, key, m.c);
+	const c = b.c[i];
+	if (h > 1) settleBelow(m, c as Branch<K, V>, h - 1, key);
+	if (c.k.length > NODE) {
+		const right = split(c, h === 1);
+		b.k.splice(i + 1, 0, right.k[0]);
+		b.c.splice(i + 1, 0, right);
+	} else if (c.k.length < MIN) {
+		const j = i > 0 ? i - 1 : i;
+		balance(b, j, h === 1);
+	}
+}
+
+/** Takes the second half of `node` into a new node beside it, and returns that. */
+function split<K, V>(node: Node<K, V>, isLeaf: boolean): Node<K, V> {
+	const mid = node.k.length >> 1;
+	if (!isLeaf) {
+		const b = node as Branch<K, V>;
+		return { k: b.k.splice(mid), c: b.c.splice(mid) };
+	}
+	const l = node as Leaf<K, V>;
+	const right = leaf(l.k.splice(mid), l.v.splice(mid));
+	right.prev = l;
+	right.next = l.next;
+	if (l.next !== undefined) l.next.prev = right;
+	l.next = right;
+	return right;
+}
+
+/** Evens out children `j` and `j + 1` of `b`, one of which is too small, or merges them. */
+function balance<K, V>(b: Branch<K, V>, j: number, isLeaf: boolean): void {
+	const left = b.c[j];
+	const right = b.c[j + 1];
+	const total = left.k.length + right.k.length;
+	if (total <= NODE) {
+		left.k.push(...right.k);
+		if (isLeaf) {
+			const l = left as Leaf<K, V>;
+			const r = right as Leaf<K, V>;
+			l.v.push(...r.v);
+			l.next = r.next;
+			if (r.next !== undefined) r.next.prev = l;
+		} else {
+			(left as Branch<K, V>).c.push(...(right as Branch<K, V>).c);
+		}
+		b.k.splice(j + 1, 1);
+		b.c.splice(j + 1, 1);
+		return;
+	}
+	const half = total >> 1;
+	if (left.k.length < half) {
+		const n = half - left.k.length;
+		left.k.push(...right.k.splice(0, n));
+		if (isLeaf) (left as Leaf<K, V>).v.push(...(right as Leaf<K, V>).v.splice(0, n));
+		else (left as Branch<K, V>).c.push(...(right as Branch<K, V>).c.splice(0, n));
+	} else {
+		const n = left.k.length - half;
+		right.k.unshift(...left.k.splice(half, n));
+		if (isLeaf) (right as Leaf<K, V>).v.unshift(...(left as Leaf<K, V>).v.splice(half, n));
+		else (right as Branch<K, V>).c.unshift(...(left as Branch<K, V>).c.splice(half, n));
+	}
+	b.k[j + 1] = right.k[0];
+}
+
+/** The tree of `keys` and their `values`, in order and without equal keys, built whole. */
+function build<K, V>(m: BTreeMap<K, V>, keys: K[], values: V[]): void {
+	m.n = keys.length;
+	// As few nodes per level as hold them, evened out, so each holds at least half.
+	const chunks = (n: number) => {
+		const count = Math.max(1, Math.ceil(n / NODE));
+		return Array.from({ length: count }, (_, i) => [Math.floor((i * n) / count), Math.floor(((i + 1) * n) / count)]);
+	};
+	let level: Node<K, V>[] = [];
+	let prev: Leaf<K, V> | undefined;
+	for (const [from, to] of chunks(keys.length)) {
+		const l = leaf(keys.slice(from, to), values.slice(from, to));
+		l.prev = prev;
+		if (prev !== undefined) prev.next = l;
+		prev = l;
+		level.push(l);
+	}
+	let h = 0;
+	while (level.length > 1) {
+		level = chunks(level.length).map(([from, to]) => {
+			const c = level.slice(from, to);
+			return { k: c.map((node) => node.k[0]), c };
+		});
+		h++;
+	}
+	m.t = level[0];
+	m.h = h;
+}
+
+/** Each key in order, and each one's value. */
+function flatten<K, V>(m: BTreeMap<K, V>): [K[], V[]] {
+	const keys: K[] = [];
+	const values: V[] = [];
+	for (let l: Leaf<K, V> | undefined = end(m, false); l !== undefined; l = l.next) {
+		keys.push(...l.k);
+		values.push(...l.v);
+	}
+	return [keys, values];
+}
+
 /** `first_key_value`, and with `last`, `last_key_value`. */
 export function btreeFirst<K, V>(m: BTreeMap<K, V>, last = false): [K, V] | undefined {
-	const n = m.k.length;
-	if (n === 0) return undefined;
-	const i = last ? n - 1 : 0;
-	return [m.k[i], m.v[i]];
+	if (m.n === 0) return undefined;
+	const l = end(m, last);
+	const i = last ? l.k.length - 1 : 0;
+	return [l.k[i], l.v[i]];
 }
 
 /** `BTreeSet::first`, and with `last`, `BTreeSet::last`. */
 export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefined {
-	return last ? m.k[m.k.length - 1] : m.k[0];
+	if (m.n === 0) return undefined;
+	const l = end(m, last);
+	return l.k[last ? l.k.length - 1 : 0];
 }
 
 /** `pop_first`, and with `last`, `pop_last`. */
 export function btreePop<K, V>(m: BTreeMap<K, V>, last = false): [K, V] | undefined {
-	const n = m.k.length;
-	return n === 0 ? undefined : removeAt(m, last ? n - 1 : 0);
+	if (m.n === 0) return undefined;
+	const l = end(m, last);
+	return removeAt(m, l, last ? l.k.length - 1 : 0);
 }
 
 /** `BTreeSet::pop_first`, and with `last`, `pop_last`. */
@@ -576,8 +775,9 @@ export function btreePopKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefine
 }
 
 export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
-	m.k = [];
-	m.v = [];
+	m.t = leaf();
+	m.h = 0;
+	m.n = 0;
 	m.r = false;
 }
 
@@ -586,68 +786,112 @@ export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
  * panic in `f` leaves the entries from the one it panicked on, as std's.
  */
 export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => boolean): void {
+	const [keys, values] = flatten(m);
 	let kept = 0;
 	let i = 0;
 	try {
-		for (; i < m.k.length; i++) {
-			if (!f(m.k[i], m.v[i])) continue;
-			m.k[kept] = m.k[i];
-			m.v[kept] = m.v[i];
+		for (; i < keys.length; i++) {
+			if (!f(keys[i], values[i])) continue;
+			keys[kept] = keys[i];
+			values[kept] = values[i];
 			kept++;
 		}
 	} finally {
-		m.k.splice(kept, i - kept);
-		m.v.splice(kept, i - kept);
+		if (kept < i) {
+			keys.splice(kept, i - kept);
+			values.splice(kept, i - kept);
+			build(m, keys, values);
+		}
 	}
 }
 
-/** An iterator of a B-tree's entries, keys, or values from index `front` up to `back`. */
+/**
+ * An iterator of a B-tree's entries, keys, or values, from index `fi` of leaf `fl` up to
+ * before index `bi` of leaf `bl`. The front moves to the next leaf as it passes a leaf's
+ * last key, and the back to the previous leaf as it passes a leaf's first key.
+ */
 class BTreeIter<K, V, T> extends Iter<T> {
-	private readonly k: K[];
-	private readonly v: V[];
-	private front: number;
-	private back: number;
+	private fl: Leaf<K, V>;
+	private fi: number;
+	private bl: Leaf<K, V>;
+	private bi: number;
+	/** How many items are left, where it is known: an iterator of the whole map. */
+	private n: number;
 	private readonly pick: Pick;
 
-	constructor(m: BTreeMap<K, V>, pick: Pick, front = 0, back = m.k.length) {
+	constructor(pick: Pick, fl: Leaf<K, V>, fi: number, bl: Leaf<K, V>, bi: number, n = -1) {
 		super();
-		this.k = m.k;
-		this.v = m.v;
 		this.pick = pick;
-		this.front = front;
-		this.back = back;
+		if (fi === fl.k.length && fl.next !== undefined) {
+			fl = fl.next;
+			fi = 0;
+		}
+		if (bi === 0 && bl.prev !== undefined) {
+			bl = bl.prev;
+			bi = bl.k.length;
+		}
+		this.fl = fl;
+		this.fi = fi;
+		this.bl = bl;
+		this.bi = bi;
+		this.n = n;
 	}
 
-	private at(i: number): T {
-		return (this.pick === ENTRIES ? [this.k[i], this.v[i]] : this.pick === KEYS ? this.k[i] : this.v[i]) as T;
+	private done(): boolean {
+		return this.fl === this.bl ? this.fi >= this.bi : this.fi === 0 && this.bl.next === this.fl && this.bi === this.bl.k.length;
+	}
+
+	private at(l: Leaf<K, V>, i: number): T {
+		return (this.pick === ENTRIES ? [l.k[i], l.v[i]] : this.pick === KEYS ? l.k[i] : l.v[i]) as T;
 	}
 
 	next(): T | Done {
-		return this.front < this.back ? this.at(this.front++) : DONE;
+		if (this.done()) return DONE;
+		const l = this.fl;
+		const item = this.at(l, this.fi++);
+		if (this.fi === l.k.length && l.next !== undefined) {
+			this.fl = l.next;
+			this.fi = 0;
+		}
+		this.n--;
+		return item;
 	}
 
 	override nextBack(): T | Done {
-		return this.front < this.back ? this.at(--this.back) : DONE;
+		if (this.done()) return DONE;
+		const l = this.bl;
+		const item = this.at(l, --this.bi);
+		if (this.bi === 0 && l.prev !== undefined) {
+			this.bl = l.prev;
+			this.bi = this.bl.k.length;
+		}
+		this.n--;
+		return item;
 	}
 
 	override len(): number {
-		return this.back - this.front;
+		return this.n;
 	}
+}
+
+function whole<K, V, T>(m: BTreeMap<K, V>, pick: Pick): Iter<T> {
+	const last = end(m, true);
+	return new BTreeIter<K, V, T>(pick, end(m, false), 0, last, last.k.length, m.n);
 }
 
 /** `iter`, `iter_mut`, and `into_iter` of a map: its entries in key order. */
 export function btreeIter<K, V>(m: BTreeMap<K, V>): Iter<[K, V]> {
-	return new BTreeIter<K, V, [K, V]>(m, ENTRIES);
+	return whole(m, ENTRIES);
 }
 
 /** `keys` and `into_keys` of a map, and `iter` and `into_iter` of a set. */
 export function btreeKeys<K, V>(m: BTreeMap<K, V>): Iter<K> {
-	return new BTreeIter<K, V, K>(m, KEYS);
+	return whole(m, KEYS);
 }
 
 /** `values`, `values_mut`, and `into_values`. */
 export function btreeValues<K, V>(m: BTreeMap<K, V>): Iter<V> {
-	return new BTreeIter<K, V, V>(m, VALUES);
+	return whole(m, VALUES);
 }
 
 /**
@@ -666,32 +910,32 @@ function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefine
 
 /** `BTreeMap::range` and `range_mut`: the entries within `r`. */
 export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, V]> {
-	const [front, back] = span(m, r, "BTreeMap");
-	return new BTreeIter<K, V, [K, V]>(m, ENTRIES, front, back);
+	return range(m, r, ENTRIES, "BTreeMap");
 }
 
 /** `BTreeSet::range`: the keys within `r`. */
 export function btreeRangeKeys<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<K> {
-	const [front, back] = span(m, r, "BTreeSet");
-	return new BTreeIter<K, V, K>(m, KEYS, front, back);
+	return range(m, r, KEYS, "BTreeSet");
 }
 
-/** The indices from and up to which `r` runs in `m`, checked as std checks it. */
-function span<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, name: string): [number, number] {
-	if (!m.r) return [0, 0];
-	const [start, end, inclusive] = bounds(r);
-	if (start !== undefined && end !== undefined && m.c(start.key, end.key) > 0) {
+/** The items of `m` within `r`, checked as std checks it. */
+function range<K, V, T>(m: BTreeMap<K, V>, r: Bounds<K>, pick: Pick, name: string): Iter<T> {
+	if (!m.r) return new BTreeIter<K, V, T>(pick, m.t as Leaf<K, V>, 0, m.t as Leaf<K, V>, 0);
+	const [start, stop, inclusive] = bounds(r);
+	if (start !== undefined && stop !== undefined && m.c(start.key, stop.key) > 0) {
 		panic(`range start is greater than range end in ${name}`);
 	}
-	const front = start === undefined ? 0 : edge(m, start.key, false);
-	const back = end === undefined ? m.k.length : edge(m, end.key, inclusive);
-	return [front, Math.max(front, back)];
+	const [fl, fi] = start === undefined ? [end(m, false), 0] : edge(m, start.key, false);
+	const last = end(m, true);
+	const [bl, bi] = stop === undefined ? [last, last.k.length] : edge(m, stop.key, inclusive);
+	return new BTreeIter<K, V, T>(pick, fl, fi, bl, bi);
 }
 
-/** The index of the first key past `key` if `past`, or else of the first key not below it. */
-function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): number {
-	const i = search(m, key);
-	return i < 0 ? ~i : past ? i + 1 : i;
+/** Where the first key past `key` is if `past`, or else the first key not below it. */
+function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, number] {
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return [l, i < 0 ? ~i : past ? i + 1 : i];
 }
 
 /**
@@ -700,11 +944,12 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): number {
  */
 export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last = false): BTreeMap<K, V> {
 	for (let item = items.next(); item !== DONE; item = items.next()) {
-		const i = search(m, item[0]);
-		if (i < 0) insertAt(m, ~i, item[0], item[1]);
+		const l = leafOf(m, item[0]);
+		const i = search(l.k, item[0], m.c);
+		if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
 		else {
-			if (last) m.k[i] = item[0];
-			m.v[i] = item[1];
+			if (last) l.k[i] = item[0];
+			l.v[i] = item[1];
 		}
 	}
 	return m;
@@ -713,23 +958,29 @@ export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last =
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
 export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false): BTreeSet<K> {
 	for (let key = keys.next(); key !== DONE; key = keys.next()) {
-		const i = search(m, key);
-		if (i < 0) insertAt(m, ~i, key, undefined);
-		else if (last) m.k[i] = key;
+		const l = leafOf(m, key);
+		const i = search(l.k, key, m.c);
+		if (i < 0) insertAt(m, l, ~i, key, undefined);
+		else if (last) l.k[i] = key;
 	}
 	return m;
 }
 
 /** `clone`, with each key and value through its `Clone`, or as itself without one. */
 export function btreeClone<K, V>(m: BTreeMap<K, V>, key: (k: K) => K = itself, value: (v: V) => V = itself): BTreeMap<K, V> {
-	const k: K[] = [];
-	const v: V[] = [];
+	const keys: K[] = [];
+	const values: V[] = [];
 	// Each key, then its value, as std's clones them.
-	for (let i = 0; i < m.k.length; i++) {
-		k.push(key(m.k[i]));
-		v.push(value(m.v[i]));
+	for (let l: Leaf<K, V> | undefined = end(m, false); l !== undefined; l = l.next) {
+		for (let i = 0; i < l.k.length; i++) {
+			keys.push(key(l.k[i]));
+			values.push(value(l.v[i]));
+		}
 	}
-	return { k, v, c: m.c, r: m.k.length > 0 };
+	const out = btreeNew<K, V>(m.c);
+	build(out, keys, values);
+	out.r = m.n > 0;
+	return out;
 }
 
 // Entries
@@ -762,10 +1013,11 @@ export function entryOrInsertWith<K, V>(e: Entry<K, V>, make: (key: K) => V): V 
 		hashInsert(m, e.k, value);
 		return value;
 	}
-	const i = search(m, e.k);
-	if (i >= 0) return m.v[i];
+	const l = leafOf(m, e.k);
+	const i = search(l.k, e.k, m.c);
+	if (i >= 0) return l.v[i];
 	const value = make(e.k);
-	insertAt(m, ~i, e.k, value);
+	insertAt(m, l, ~i, e.k, value);
 	return value;
 }
 
@@ -789,8 +1041,9 @@ export function entryAndModify<K, V>(e: Entry<K, V>, f: (value: V) => void): Ent
 /** `Entry::key` and `OccupiedEntry::key`: the key the map holds, or else the one looked up. */
 export function entryKey<K, V>(e: Entry<K, V>): K {
 	if (isHash(e.m)) return hashed(e.m, e.k) ? (slot(e.m, e.k)?.k ?? e.k) : e.k;
-	const i = search(e.m, e.k);
-	return i < 0 ? e.k : e.m.k[i];
+	const l = leafOf(e.m, e.k);
+	const i = search(l.k, e.k, e.m.c);
+	return i < 0 ? e.k : l.k[i];
 }
 
 /** `OccupiedEntry::get` and `get_mut`. */
@@ -815,8 +1068,7 @@ export function entryRemove<K, V>(e: Entry<K, V>): V {
 
 /** `first_entry`, and with `last`, `last_entry`: an occupied entry, if the map has one. */
 export function btreeFirstEntry<K, V>(m: BTreeMap<K, V>, last = false): Entry<K, V> | undefined {
-	const key = btreeFirstKey(m, last);
-	return m.k.length === 0 ? undefined : { m, k: key as K };
+	return m.n === 0 ? undefined : { m, k: btreeFirstKey(m, last) as K };
 }
 
 // VecDeque

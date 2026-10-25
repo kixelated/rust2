@@ -14,6 +14,109 @@ fn spawn_budget() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
+/// The runtime's B-tree runs `btree.ts`'s script of random operations as std's does.
+#[test]
+fn btree_script() {
+	use std::collections::BTreeMap;
+
+	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("btree.ts");
+	let output = Command::new("node")
+		.arg(script)
+		.output()
+		.expect("running node, which the dev shell provides");
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+	let got = String::from_utf8(output.stdout).unwrap();
+
+	// xorshift32, as `btree.ts` runs it.
+	let mut state: u32 = 0x2545f491;
+	let mut rand = move || {
+		state ^= state << 13;
+		state ^= state >> 17;
+		state ^= state << 5;
+		state
+	};
+	fn walk<'a>(
+		rand: &mut impl FnMut() -> u32,
+		it: &mut impl DoubleEndedIterator<Item = (&'a u32, &'a u32)>,
+	) -> String {
+		let mut seen = Vec::new();
+		for _ in 0..40 {
+			let item = if rand() & 1 == 1 { it.next() } else { it.next_back() };
+			let Some((k, _)) = item else { break };
+			seen.push(k.to_string());
+		}
+		seen.join(",")
+	}
+	let show = |v: Option<u32>| v.map_or("-".to_string(), |v| v.to_string());
+	let entry = |e: Option<(&u32, &u32)>| e.map_or("-".to_string(), |(k, v)| format!("{k} {v}"));
+
+	let mut want = Vec::new();
+	let mut m: BTreeMap<u32, u32> = BTreeMap::new();
+	let steps = 120_000;
+	for step in 0..steps {
+		let keys = 65_536;
+		let phase = 3 * step / steps;
+		let op = rand() % 10;
+		let k = rand() % keys;
+		if op < 5 {
+			if phase == 0 || (phase == 1 && k % 2 == 0) {
+				want.push(format!("insert {k} {}", show(m.insert(k, step))));
+			} else {
+				want.push(format!("remove {k} {}", show(m.remove(&k))));
+			}
+		} else if op == 5 {
+			want.push(format!("get {k} {}", show(m.get(&k).copied())));
+		} else if op == 6 {
+			let j = rand() % keys;
+			let (lo, hi) = if k < j { (k, j) } else { (j, k) };
+			let inclusive = rand() & 1;
+			let seen = match inclusive {
+				1 => walk(&mut rand, &mut m.range(lo..=hi)),
+				_ => walk(&mut rand, &mut m.range(lo..hi)),
+			};
+			want.push(format!("range {lo} {hi} {inclusive} {seen}"));
+		} else if op == 7 {
+			let last = rand() & 1 == 1;
+			let popped = if last { m.pop_last() } else { m.pop_first() };
+			want.push(format!(
+				"pop {last} {}",
+				popped.map_or("-".to_string(), |(k, v)| format!("{k} {v}"))
+			));
+		} else if op == 8 {
+			want.push(format!("remove {k} {}", show(m.remove(&k))));
+		} else if step % 97 == 0 {
+			let mut it = m.iter();
+			let seen = walk(&mut rand, &mut it);
+			want.push(format!("iter {} {} {seen}", m.len(), it.len()));
+		} else if step % 1009 == 0 {
+			let copy = m.clone();
+			m.retain(|key, _| key % 7 != k % 7);
+			want.push(format!(
+				"retain {} {} {}",
+				m.len(),
+				entry(m.first_key_value()),
+				entry(m.last_key_value())
+			));
+			if rand() & 1 == 1 {
+				m = copy;
+			}
+			want.push(format!("kept {}", m.len()));
+		}
+	}
+	let keys: Vec<String> = m.keys().map(u32::to_string).collect();
+	want.push(format!("end {} {}", m.len(), keys.join(",")));
+	let mut drained = Vec::new();
+	while !m.is_empty() {
+		let popped = if rand() & 1 == 1 { m.pop_last() } else { m.pop_first() };
+		drained.push(popped.unwrap().0.to_string());
+	}
+	want.push(format!("drain {}", drained.join(",")));
+	for (got, want) in got.lines().zip(&want) {
+		assert_eq!(got, want);
+	}
+	assert_eq!(got.lines().count(), want.len());
+}
+
 /// A `retain` whose predicate panics leaves a B-tree and a deque as std's do, which
 /// `retain.ts` prints for every keep mask of up to 6 items and each item to panic on.
 #[test]
