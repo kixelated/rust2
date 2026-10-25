@@ -100,6 +100,24 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	a = Point.new(5, 6);
 	const old2 = old;
 	out.extendFromSlice(Uint8Array.of(a.x & 0xff, b.x & 0xff, old2.x & 0xff));
+	let n: rt.u32 = data.length as rt.u32;
+	const both = [n, n] as [rt.u32, rt.u32];
+	n = 9;
+	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(rt.u32.add(both[0], both[1]), n)));
+	let word: Uint8Array = Uint8Array.of(0, 0, 0, data.length & 0xff);
+	const converted = rt.u32.fromBeBytes(word);
+	word[0] = 9;
+	out.extendFromSlice(rt.u32.toBeBytes(rt.u32.add(converted, word[0] as rt.u32)));
+	let cell: Uint8Array = Uint8Array.of(data.length & 0xff);
+	out.push(writeThenRead(rt.copy(cell), cell));
+	let source: Uint8Array = Uint8Array.of(data.length & 0xff);
+	const returned = same(rt.copy(source));
+	source[0] = 9;
+	out.extendFromSlice(Uint8Array.of(returned[0], source[0]));
+	out.push(copyThenWrite([data.length & 0xff, 0]));
+	const marked = mark(out, 1) === 0;
+	mark(out, 2);
+	out.push(marked ? 1 : 0);
 	let opt: Meters.Meters | undefined = { _0: 9 };
 	const taken = opt;
 	opt = undefined;
@@ -115,6 +133,30 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let err: Point.Point = rt.result.unwrapErr(rt.copy(fail), rt.u8.display);
 	err.y = 3;
 	out.extendFromSlice(Uint8Array.of(first.x & 0xff, rt.result.unwrap(rt.copy(res), rt.u8.display).x & 0xff, err.y & 0xff, rt.result.unwrapErr(rt.copy(fail), rt.u8.display).y & 0xff));
+}
+
+/** `a`'s byte, after writing `b`'s. */
+export function writeThenRead(a: Uint8Array, b: Uint8Array): rt.u8 {
+	b[0] = 9;
+	return a[0];
+}
+
+/** A copy of `a` read after `a` changes in place, which it doesn't see. */
+export function copyThenWrite(a: [rt.u8, rt.u8]): rt.u8 {
+	const b = rt.copy(a);
+	a[0] = 9;
+	return rt.u8.wrappingAdd(b[0], a[0]);
+}
+
+/** `a` itself. */
+export function same(a: Uint8Array): Uint8Array {
+	return rt.copy(a);
+}
+
+/** Logs `b`, returning how much is logged. */
+export function mark(out: rt.ByteVec, b: rt.u8): rt.usize {
+	out.push(b);
+	return out.length;
 }
 
 /** Fieldless enums cast to every width, past their discriminant's range and sign. */
@@ -631,6 +673,10 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 		area = rt.i64.mul(rt.i32.sub(a2.x, b3.x) as rt.i64, rt.i32.sub(a2.y, b3.y) as rt.i64);
 	}
 	out.extendFromSlice(rt.i64.toBeBytes(area));
+	let bytes: Uint8Array = Uint8Array.of(data.length & 0xff, 1, 2);
+	const tail = bytes.subarray(1, 3);
+	tail[0] = 9;
+	out.extendFromSlice(bytes);
 	const total = rt.u64.add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: rt.u64.of(18446744073709551615n) }], out));
 	out.extendFromSlice(rt.u64.toBeBytes(total));
 	const parsed = rt.Ok(data.length & 0xff);
@@ -684,6 +730,9 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.u32.add(rt.u32.mul(v2, 3), base);
 	};
 	out.extendFromSlice(rt.u32.toBeBytes(apply(scale, sum)));
+	let whole: Uint8Array = Uint8Array.of(data.length & 0xff);
+	overwrite(whole);
+	out.push(whole[0]);
 	let parsed: Array<Dir.Dir | undefined> = [];
 	for (const item2 of data) {
 		const b2 = item2;
@@ -694,6 +743,14 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 		tags.push(rt.option.unwrapOr(rt.option.map(d, from), 0));
 	}
 	out.extendFromSlice(tags.view());
+}
+
+/** Replaces `a` whole from a closure. */
+export function overwrite(a: Uint8Array): void {
+	let write: () => void = (): void => {
+		a.set(Uint8Array.of(9));
+	};
+	write();
 }
 
 export function apply(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {

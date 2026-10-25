@@ -65,6 +65,19 @@ pub enum Std {
 	RangeInclusive,
 	/// `rt.Peekable`, an iterator with `peek`.
 	Peekable,
+	/// What `?` branches on, as MIR spells it: the value it was applied to.
+	ControlFlow,
+	/// `..end`, `start..`, and `..`, as MIR makes them to slice by: `{ end }`, `{ start }`,
+	/// and `undefined`.
+	RangeTo,
+	RangeFrom,
+	RangeFull,
+	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
+	Argument,
+	/// Its pointee: what an async body passes its context in.
+	NonNull,
+	/// No value: `never`.
+	Infallible,
 }
 
 impl Std {
@@ -106,6 +119,9 @@ impl Std {
 			(rustc_attr_ir::LangItem::Pin, Self::Pin),
 			(rustc_attr_ir::LangItem::Range, Self::Range),
 			(rustc_attr_ir::LangItem::RangeInclusiveStruct, Self::RangeInclusive),
+			(rustc_attr_ir::LangItem::RangeTo, Self::RangeTo),
+			(rustc_attr_ir::LangItem::RangeFrom, Self::RangeFrom),
+			(rustc_attr_ir::LangItem::RangeFull, Self::RangeFull),
 		] {
 			if tcx.is_lang_item(did, item) {
 				return Some(std);
@@ -131,6 +147,10 @@ impl Std {
 			["fmt", "builders", "DebugList"] => Some(Self::DebugList),
 			["panicking", "AssertKind"] => Some(Self::AssertKind),
 			["iter", "adapters", "peekable", "Peekable"] => Some(Self::Peekable),
+			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
+			["fmt", "rt", "Argument"] => Some(Self::Argument),
+			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["convert", "Infallible"] => Some(Self::Infallible),
 			_ => None,
 		}
 	}
@@ -839,6 +859,11 @@ fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out:
 		}
 	};
 	let values = b.operands(fields, out);
+	be_word(int, values)
+}
+
+/// A number from its big-endian bytes, each a value: shifted and or-ed.
+pub fn be_word(int: Int, values: Vec<Expr>) -> Expr {
 	let last = values.len() - 1;
 	let mut word: Option<Expr> = None;
 	let mut top = false;
@@ -870,7 +895,7 @@ fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out:
 }
 
 /// The `n`th type among a call's generic arguments, skipping lifetimes.
-fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
+pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 	gargs.types().nth(n).expect("a type argument")
 }
 
@@ -1002,7 +1027,7 @@ fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<St
 }
 
 /// The value at `place`, after setting `place` to `value`.
-fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+pub fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
 	let name = b.fresh(base);
 	out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
 	out.push(StmtKind::Expr(place.assign(value)).at(None));
@@ -1010,7 +1035,7 @@ fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &s
 }
 
 /// `Default::default()` for a standard type.
-fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
+pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
@@ -1037,7 +1062,7 @@ fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr>
 }
 
 /// The text of a `fmt::Arguments` with only literal pieces, which writes it as is.
-fn literal(parts: &Expr) -> Option<String> {
+pub fn literal(parts: &Expr) -> Option<String> {
 	let Expr::Array(parts) = parts else {
 		return None;
 	};
