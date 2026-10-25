@@ -1,0 +1,28 @@
+//! Calls each of `exec`'s generics with 20 closure types, behind a feature apiece.
+
+macro_rules! calls {
+	($($n:literal)*) => {
+		#[cfg(feature = "fat")]
+		pub fn fat() -> u64 {
+			0 $(+ exec::block(exec::fat(|x| x + $n)))*
+		}
+
+		#[cfg(feature = "budgeted")]
+		pub fn budgeted() -> u64 {
+			0 $(+ exec::block(exec::budgeted(|x| x + $n)))*
+		}
+
+		#[cfg(feature = "thin")]
+		pub fn thin() -> u64 {
+			0 $(+ exec::thin(|x| x + $n))*
+		}
+	};
+}
+
+calls!(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19);
+
+/// A lighter caller, which the error names after `fat`.
+#[cfg(feature = "fat")]
+pub fn once() -> u64 {
+	exec::block(exec::fat(|x| x * 2))
+}

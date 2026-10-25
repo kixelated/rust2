@@ -1,0 +1,171 @@
+//! rust2-lint: fail a build whose generics cost its codegen more than a budget.
+//!
+//! The binary is two programs, as rust2-ts is. Run directly, it is the CLI: it runs a
+//! cargo command with itself as `RUSTC_WRAPPER`. Run by cargo as that wrapper, it is
+//! rustc, which compiles every crate as rustc would, checks its `rust2` attributes, and
+//! checks the mono budget of the packages the command selected.
+
+#![feature(rustc_private)]
+
+extern crate rustc_ast;
+extern crate rustc_attr_ir;
+extern crate rustc_data_structures;
+extern crate rustc_driver;
+extern crate rustc_hir;
+extern crate rustc_interface;
+extern crate rustc_middle;
+extern crate rustc_span;
+
+mod mono;
+
+use std::process::{Command, ExitCode};
+
+use rust2_driver::{cargo, rustc};
+use rustc_driver::{Callbacks, Compilation};
+use rustc_interface::interface::Compiler;
+use rustc_middle::ty::TyCtxt;
+use rustc_span::Symbol;
+
+const TOOL: &str = "rust2-lint";
+
+/// Carries the mono budget from the CLI to the wrapper.
+const BUDGET: &str = "RUST2_MONO_BUDGET";
+
+/// The mono budget without `--mono-budget`, in MIR statements: about 4% of moq-net's
+/// test target, and 3x its heaviest generic once `moq_clock::sim::run` only forwards.
+const DEFAULT_BUDGET: u64 = 50_000;
+
+fn usage() -> String {
+	format!(
+		"usage: {TOOL} [--mono-budget <statements>] -- <cargo command>
+
+Runs the cargo command, such as `test --no-run -p <package>`, with this binary as
+rustc, into its own target directory. A crate of a package the command selects fails
+to compile when a generic it instantiates costs more MIR statements, across every copy,
+than the mono budget ({DEFAULT_BUDGET} unless given) or the generic's own:
+
+  #[cfg_attr(rust2, rust2::mono_budget(limit = <statements>, reason = \"<why>\"))]
+
+A generic whose copies cost at most {} statements each only forwards, and passes.
+Every crate compiles with `--cfg rust2` and the `rust2` tool registered. The command
+must build: `cargo check` collects no mono items.",
+		mono::THIN
+	)
+}
+
+fn main() -> ExitCode {
+	let args: Vec<String> = std::env::args().collect();
+	if rustc::wrapped(&args) {
+		return rustc::run(TOOL, args, job);
+	}
+	match cli(&args[1..]) {
+		Ok(code) => code,
+		Err(err) => {
+			eprintln!("{TOOL}: {err}");
+			ExitCode::FAILURE
+		}
+	}
+}
+
+/// Run the cargo command in `args`, with this binary as rustc.
+fn cli(args: &[String]) -> Result<ExitCode, String> {
+	let mut budget = DEFAULT_BUDGET;
+	let mut rest = args;
+	let command = loop {
+		match rest {
+			[flag, value, tail @ ..] if flag == "--mono-budget" => {
+				budget = parse_budget(value)?;
+				rest = tail;
+			}
+			[flag, ..] if flag == "-h" || flag == "--help" => {
+				println!("{}", usage());
+				return Ok(ExitCode::SUCCESS);
+			}
+			[flag, command @ ..] if flag == "--" && !command.is_empty() => break command,
+			_ => return Err(format!("expected a cargo command after --\n\n{}", usage())),
+		}
+	};
+	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
+	let status = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+		.args(command)
+		.env("RUSTC_WRAPPER", exe)
+		.env("CARGO_TARGET_DIR", cargo::target_dir(TOOL, None)?)
+		.env(BUDGET, budget.to_string())
+		.status()
+		.map_err(|err| format!("running cargo: {err}"))?;
+	Ok(match status.success() {
+		true => ExitCode::SUCCESS,
+		false => ExitCode::FAILURE,
+	})
+}
+
+fn parse_budget(value: &str) -> Result<u64, String> {
+	value
+		.parse()
+		.map_err(|_| format!("the mono budget is a count of MIR statements, not `{value}`"))
+}
+
+/// Compile with the `rust2` tool and cfg, and lint the crate.
+fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
+	args.extend(
+		[
+			"--cfg=rust2",
+			"-Zcrate-attr=feature(register_tool)",
+			"-Zcrate-attr=register_tool(rust2)",
+		]
+		.map(String::from),
+	);
+	let budget = match std::env::var_os("CARGO_PRIMARY_PACKAGE") {
+		None => None,
+		Some(_) => {
+			let value = std::env::var(BUDGET)
+				.map_err(|_| format!("{BUDGET} is unset: run {TOOL} itself, not as RUSTC_WRAPPER"))?;
+			Some(parse_budget(&value)?)
+		}
+	};
+	Ok(Some(Box::new(Lint { budget })))
+}
+
+/// Checks the crate's `rust2` attributes, and its mono budget once rustc has collected
+/// its mono items.
+struct Lint {
+	/// The crate-wide mono budget, for a package cargo's command selected.
+	budget: Option<u64>,
+}
+
+impl Callbacks for Lint {
+	fn after_expansion<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
+		if let Some(budget) = self.budget {
+			// Cargo rebuilds the crate when the budget changes, as it does for `env!`.
+			let value = Symbol::intern(&budget.to_string());
+			tcx.sess
+				.env_depinfo
+				.borrow_mut()
+				.insert((Symbol::intern(BUDGET), Some(value)));
+		}
+		Compilation::Continue
+	}
+
+	fn after_analysis<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
+		mono::check_attributes(tcx);
+		if tcx.dcx().has_errors().is_some() {
+			return Compilation::Stop;
+		}
+		let Some(budget) = self.budget else {
+			return Compilation::Continue;
+		};
+		if !tcx.sess.opts.output_types.should_codegen() {
+			tcx.dcx().err(format!(
+				"{TOOL}: the mono budget needs mono items, which `cargo check` never collects: build instead"
+			));
+			return Compilation::Stop;
+		}
+		// Codegen would collect them next; the timer counts only the lint's own work.
+		let _ = tcx.collect_and_partition_mono_items(());
+		tcx.sess.time("mono_budget", || mono::check(tcx, budget));
+		match tcx.dcx().has_errors() {
+			Some(_) => Compilation::Stop,
+			None => Compilation::Continue,
+		}
+	}
+}
