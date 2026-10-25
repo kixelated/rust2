@@ -13,6 +13,3 @@ crate-type = ["lib", "cdylib"]
 [features]
 # The wasm32 build exports the benchmark's handoff in place of the harness.
 bench = []
-
-[lints]
-workspace = true

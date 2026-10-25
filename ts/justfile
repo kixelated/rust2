@@ -16,7 +16,7 @@ default:
 
 # Lint and format-check the driver and its fixtures.
 check:
-    cargo clippy --locked --all-targets -- -D warnings
+    cargo check --locked --workspace --all-targets --config 'build.warnings="deny"'
     cargo fmt --all --check
     cargo shear
     cargo sort --workspace --check --no-format
@@ -28,7 +28,7 @@ test *args:
 
 # Apply formatters without changing program behavior.
 fix:
-    cargo clippy --locked --fix --allow-staged --allow-dirty --all-targets
+    cargo fix --locked --allow-staged --allow-dirty --workspace --all-targets
     cargo fmt --all
     cargo shear --fix
     cargo sort --workspace --no-format

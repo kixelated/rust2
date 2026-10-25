@@ -148,11 +148,13 @@ struct Mark {
 
 /// Drops through `guard`, and `Inner` through it: deciding `Outer` first must not leave
 /// `Inner` decided as dropping nothing.
+#[allow(dead_code, reason = "only its drop is under test")]
 struct Outer {
 	inner: Option<Box<Inner>>,
 	guard: Guard,
 }
 
+#[allow(dead_code, reason = "only its drop is under test")]
 struct Inner {
 	outer: Option<Box<Outer>>,
 }
@@ -179,7 +181,6 @@ fn pick(log: &Log, i: usize) -> usize {
 /// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
 /// temporary to the end of the block; a `_` binding of an element, which evaluates its
 /// index and moves nothing; and a boxed guard read twice, which a read leaves boxed.
-#[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
 	let [kept, _] = pair;

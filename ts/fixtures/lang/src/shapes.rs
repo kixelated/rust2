@@ -297,7 +297,7 @@ fn diverging(data: &[u8], out: &mut Vec<u8>) {
 	out.push(broken_never(head));
 	let check = |b: u8| -> u8 {
 		if b == 0xfd {
-			#[allow(unreachable_code, clippy::needless_return, reason = "a `return` of a `!` value")]
+			#[allow(unreachable_code, reason = "a `return` of a `!` value")]
 			return panic!("closure {b}");
 		}
 		b / 3
@@ -314,7 +314,7 @@ fn bail(b: u8) -> ! {
 }
 
 /// `return`, and `break` out of the function's labeled block, with values that never exist.
-#[allow(unreachable_code, clippy::needless_return, reason = "`return` of `!` values")]
+#[allow(unreachable_code, reason = "`return` of `!` values")]
 fn returned_never(b: u8, len: usize) -> u8 {
 	match b {
 		0xf7 => return panic!("returned {b}"),
@@ -330,7 +330,6 @@ fn returned_never(b: u8, len: usize) -> u8 {
 }
 
 /// A `return` of a `match` that guards, whose arms fall through to the next.
-#[allow(clippy::needless_return, reason = "the `return` is not the function's tail")]
 fn guarded_return(data: &[u8]) -> u8 {
 	if !data.is_empty() {
 		return match data {
@@ -361,7 +360,7 @@ fn broken_never(data: &[u8]) -> u8 {
 
 /// Values that never exist where a value is needed: bound, and passed. A loop that
 /// only `return` leaves gives the function's result.
-#[allow(unreachable_code, clippy::diverging_sub_expression, reason = "`!` values")]
+#[allow(unreachable_code, unused_variables, reason = "`!` values")]
 fn bound_never(data: &[u8], out: &mut Vec<u8>) -> u8 {
 	let mut i = 0;
 	let found: u8 = loop {
@@ -426,7 +425,7 @@ fn branch_loops(data: &[u8], out: &mut Vec<u8>) {
 }
 
 /// A loop that only `return` leaves, returned itself, around loops that `break`.
-#[allow(unreachable_code, clippy::needless_return)]
+#[allow(unreachable_code)]
 fn returned_loop(data: &[u8]) -> u8 {
 	let mut i = 0;
 	return loop {

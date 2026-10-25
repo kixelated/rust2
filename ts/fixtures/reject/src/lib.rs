@@ -117,6 +117,7 @@ pub fn async_borrow() -> u8 {
 }
 
 /// An async closure is a coroutine closure, not an async body.
+#[allow(dropping_copy_types, reason = "the closure is only named")]
 pub fn async_closure() -> u8 {
 	let f = async || 1u8;
 	drop(f);
@@ -236,7 +237,6 @@ pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
 }
 
 /// The payload of the `Some` that fails the test drops after the `if let`.
-#[allow(clippy::redundant_pattern_matching, reason = "the `if let` is under test")]
 pub fn unmatched() -> u8 {
 	if let None = Some(make()) { 1 } else { 0 }
 }
@@ -247,7 +247,6 @@ pub async fn pending_output() -> std::task::Poll<u8> {
 }
 
 /// The temporary drops after the `match`, which nothing marks.
-#[allow(clippy::match_like_matches_macro, reason = "the `match` is under test")]
 pub fn tested() -> u8 {
 	let matched = match Some(make()) {
 		Some(_) => 1,

@@ -8,7 +8,7 @@ dylib := if os() == "macos" { "dylib" } else { "so" }
 default:
     @just --list uniffi
 
-# Check the library crates' docs. The root `just check` lints and format-checks the code.
+# Check the library crates' docs. The root `just check` type-checks and format-checks the code.
 check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --package uniffi --package 'uniffi_*'
 

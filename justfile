@@ -19,7 +19,7 @@ check:
     taplo format --check
     nixfmt --check flake.nix
     cargo fmt --all --check
-    cargo clippy --locked --workspace --all-targets -- -D warnings
+    cargo check --locked --workspace --all-targets --config 'build.warnings="deny"'
     just ts check
     just uniffi check
 

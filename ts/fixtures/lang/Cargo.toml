@@ -9,6 +9,3 @@ publish = false
 [lib]
 # The cdylib is the native side of the differential test, built for wasm32.
 crate-type = ["lib", "cdylib"]
-
-[lints]
-workspace = true

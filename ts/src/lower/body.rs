@@ -2824,7 +2824,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 
 	/// A module-level function in `parent`'s module, by the name `base`.
-	#[expect(clippy::too_many_arguments, reason = "a function's parts")]
 	fn hoist(
 		&mut self,
 		parent: rustc_hir::def_id::DefId,

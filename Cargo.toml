@@ -132,11 +132,6 @@ members = [
 ]
 resolver = "2"
 
-[workspace.lints.clippy]
-# Every suppression says why, so the next lint audit can judge it. The UniFFI fork's
-# crates do not inherit this: they keep upstream's lints, so cherry-picks apply unchanged.
-allow_attributes_without_reason = "warn"
-
 # The UniFFI fork's fixtures depend on its crates through the workspace, as upstream's do.
 [workspace.dependencies]
 uniffi = { path = "uniffi/uniffi", version = "=0.1.0" }
