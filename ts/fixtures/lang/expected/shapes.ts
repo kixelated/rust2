@@ -347,6 +347,82 @@ export function diverging(data: Uint8Array, out: rt.ByteVec): void {
 	out.push(guardedReturn(head));
 	const found = boundNever(head, out);
 	out.push(found);
+	out.push(closureNever(b));
+	genericNever(b, data.length);
+}
+
+/**
+ * Calls that never return, through a closure, a function pointer, and a closure a
+ * function made: a statement, a bound value, and the tail.
+ */
+export function closureNever(b: rt.u8): rt.u8 {
+	const fail: (a0: rt.u8) => never = (b2: rt.u8): never => {
+		rt.panic(["closure failed on ", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => rt.u8.lowerHex(b2, f))]);
+	};
+	const ptr: (a0: rt.u8) => never = bail;
+	const made: (a0: rt.u8) => never = madeNever();
+	if (b === 0xf5) {
+		fail(b);
+	}
+	let x: rt.u8;
+	if (b === 0xf4) {
+		ptr(b);
+	} else {
+		x = rt.u8.div(b, 5);
+	}
+	if (b === 243) {
+		fail(b);
+	} else if (b === 250) {
+		made(b);
+	} else {
+		return x;
+	}
+}
+
+/** A closure that never returns, made by a function. */
+export function madeNever(): (a0: rt.u8) => never {
+	return (b: rt.u8): never => {
+		rt.panic(["made ", (f: rt.Formatter) => rt.u8.display(b, f)]);
+	};
+}
+
+/**
+ * Generic functions instantiated at `!`, which edition 2024 infers for a value that
+ * never exists: given one, and given an `Option` of none, which then calls one.
+ */
+export function genericNever(b: rt.u8, len: rt.usize): void {
+	if (b === 0xf1) {
+		pass(bail(b));
+	}
+	if (b === 0xf6) {
+		let value: never;
+		rt.panic(["passed ", (f: rt.Formatter) => rt.u8.display(b, f)]);
+		pass(value);
+	}
+	if (b === 0xf9) {
+		let o: never | undefined;
+		if (len > 1) {
+			o = undefined;
+		} else {
+			let value2: never;
+			rt.panic(["some ", (f: rt.Formatter) => rt.u8.display(b, f)]);
+			o = value2;
+		}
+		unwrapOrBail(o, b);
+	}
+}
+
+export function pass(x: never): never {
+	rt.unreachable(x);
+}
+
+export function unwrapOrBail(o: never | undefined, b: rt.u8): never {
+	if (o !== undefined) {
+		const x = o;
+		pass(rt.unreachable(x));
+	} else {
+		bail(b);
+	}
 }
 
 /** A function that never returns. */

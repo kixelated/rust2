@@ -583,8 +583,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if by_value && self.moves(init) {
 				let place = self.place(init, out);
 				let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
-				let annotate = mutable.then_some(ty);
-				self.push(out, StmtKind::decl(mutable, name, annotate, Some(place.clone())), span);
+				let annotate = mutable || diverges_when_called(pat_ty);
+				self.push(
+					out,
+					StmtKind::decl(mutable, name, annotate.then_some(ty), Some(place.clone())),
+					span,
+				);
 				self.clear(place, out);
 				return;
 			}
@@ -593,7 +597,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				false => self.operand(init, out),
 			};
 			let name = self.bind_var(*var, *name, mutable, pat_ty, pat.span, owns);
-			let annotate = mutable || needs_annotation(&value);
+			let annotate = mutable || needs_annotation(&value) || diverges_when_called(pat_ty);
 			self.push(
 				out,
 				StmtKind::decl(mutable, name, annotate.then_some(ty), Some(value)),
@@ -2053,7 +2057,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			ExprKind::ValueTypeAscription { source, .. } | ExprKind::ValueExpr { source } => self.expr(*source, out),
 			// The temp is never assigned: control never gets past the source.
 			ExprKind::NeverToAny { .. } => self.via_temp(id, ty, span, out),
-			ExprKind::Block { block } if !self.thir[*block].targeted_by_break && !self.block_owns(*block) => {
+			// A block of type `!` without a value, such as `panic!(..)`, goes through a temp.
+			ExprKind::Block { block }
+				if !self.thir[*block].targeted_by_break
+					&& !self.block_owns(*block)
+					&& (self.thir[*block].expr.is_some() || !ty.is_never()) =>
+			{
 				let block = &self.thir[*block];
 				for &stmt in &block.stmts {
 					self.stmt_item(stmt, out);
@@ -2107,6 +2116,19 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					Some(loc) => Expr::Located(loc, Box::new(call)),
 					None => call,
 				}
+			}
+			// A place of type `!`, as in a generic instantiated at `!`, which native code never
+			// reads: `tsc` sees that through `rt.unreachable`.
+			ExprKind::VarRef { .. }
+			| ExprKind::UpvarRef { .. }
+			| ExprKind::Field { .. }
+			| ExprKind::Index { .. }
+			| ExprKind::Deref { .. }
+			| ExprKind::PlaceTypeAscription { .. }
+				if ty.is_never() =>
+			{
+				let place = self.place(id, out);
+				Expr::rt("unreachable", vec![place])
 			}
 			ExprKind::VarRef { .. }
 			| ExprKind::UpvarRef { .. }
@@ -2323,8 +2345,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		i >= 0 && (i as u64) < len
 	}
 
+	/// `id` assigned to a new variable, which a value of type `!` leaves unassigned: control
+	/// never gets past it.
 	fn via_temp(&mut self, id: ExprId, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
-		if ty.is_unit() || ty.is_never() {
+		if ty.is_unit() {
 			self.stmt(id, Dest::Discard, out);
 			return Expr::undefined();
 		}
@@ -3112,6 +3136,17 @@ fn reads<'tcx>(tcx: ty::TyCtxt<'tcx>, thir: &Thir<'tcx>) -> FxHashSet<HirId> {
 		}
 	}
 	read
+}
+
+/// Whether `ty` is a closure or function pointer that never returns, whose binding `tsc`
+/// sees a call to diverge only through a declared type.
+fn diverges_when_called(ty: Ty<'_>) -> bool {
+	let output = match ty.peel_refs().kind() {
+		ty::Closure(_, args) => args.as_closure().sig().output(),
+		ty::FnPtr(sig, header) => sig.with(*header).output(),
+		_ => return false,
+	};
+	output.skip_binder().is_never()
 }
 
 /// Whether a declaration's initializer is one TypeScript can't type on its own.

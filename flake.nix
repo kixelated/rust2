@@ -60,7 +60,16 @@
               {
                 pname = "rust2-ts";
                 version = "0.0.0";
-                src = ./ts;
+                # With the driver front end it shares, which it depends on by path.
+                src = pkgs.lib.fileset.toSource {
+                  root = ./.;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./ts
+                    ./driver
+                  ];
+                };
+                buildAndTestSubdir = "ts";
+                cargoRoot = "ts";
                 cargoLock.lockFile = ./ts/Cargo.lock;
                 cargoBuildFlags = [
                   "--package"
@@ -185,6 +194,8 @@
               pkgs.chromium
               pkgs.wasm-bindgen-cli
             ];
+            # `just ffi bench` builds moq's rs/moq-c, whose VAAPI bindings run bindgen.
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           });
           # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
           devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {

@@ -1,0 +1,17 @@
+[package]
+name = "api-fixture"
+description = "Each construct rust2-ffi exports, driven from C by tests/api.c"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Named apart from the package, which the export must follow.
+[lib]
+name = "api_lib"
+
+[dependencies]
+bytes = "1.11.1"
+
+[lints]
+workspace = true

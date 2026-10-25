@@ -5,7 +5,7 @@
 `just bench-ffi` runs here, nightly in CI: it builds moq-ffi at a pinned moq
 revision against [the fork](/uniffi/README.md) and measures every wrapper
 (Python, Go, Kotlin, Swift, Dart, C++, and the browser over ubrn) as moq's
-`bench/` does today. Every fork perf quest states its effect with these
+`bench/` does today. Each [exporter](/quest/m1/ffi-export.md) generator states its effect against these
 numbers. moq deletes its copy (`just bench-ffi`, `bench/ffi-gen`, and their
 nightly jobs) in a paired PR.
 
