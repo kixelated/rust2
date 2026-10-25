@@ -1,4 +1,4 @@
-//! Function bodies from MIR: the spike's prototype, beside the THIR lowering in `body`.
+//! Function bodies, from MIR.
 //!
 //! MIR is each body's control-flow graph after borrow checking. Every drop is a
 //! terminator where drop elaboration put it, with a flag wherever a value is moved on
@@ -7,8 +7,8 @@
 //! with each temporary that is assigned once and read once folded back into the
 //! expression that reads it, unless that would reorder an effect.
 //!
-//! Library calls go through the THIR lowering's mappings, which take their arguments
-//! lowered: a detached `Body` holds the names, and its translator everything else.
+//! Library calls go through the mappings in `library`, which take their arguments
+//! lowered: a `Body` holds the names, and its translator everything else.
 
 mod call;
 mod cfg;
@@ -41,7 +41,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		super::iter::check_impl(t, def_id);
 	}
 	let ret_ty = mir.return_ty();
-	let mut b = Body::detached(t, instance.args, ret_ty);
+	let mut b = Body::new(t, instance.args);
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
@@ -56,7 +56,6 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		body,
 		loc: None,
 		doc: None,
-		generator: false,
 	})
 }
 
@@ -1772,7 +1771,7 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 	match e {
 		Expr::Ident(name) => reads.push(Read::Ident(name.clone(), lazy)),
-		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		Expr::Array(items) => items.iter().for_each(|e| scan(e, reads, lazy)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| scan(e, reads, lazy)),
 		// The runtime's and the program's own items never change.
@@ -1839,7 +1838,7 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			*e = value.clone();
 			true
 		}
-		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => false,
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => false,
 		Expr::Array(items) => items.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Object(props) => props.iter_mut().any(|(_, e)| subst(e, name, value)),
 		Expr::Member(base, _) => subst(base, name, value),
@@ -1900,17 +1899,7 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			}
 			default.iter().for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::Try { body, finally } => body.iter().chain(finally).for_each(|s| scan_reads(s, out)),
 		StmtKind::Catch { body, handler, .. } => body.iter().chain(handler).for_each(|s| scan_reads(s, out)),
-		StmtKind::ForRange { start, end, body, .. } => {
-			reads_of(start, out);
-			reads_of(end, out);
-			body.iter().for_each(|s| scan_reads(s, out));
-		}
-		StmtKind::ForOf { iter, body, .. } => {
-			reads_of(iter, out);
-			body.iter().for_each(|s| scan_reads(s, out));
-		}
 		_ => {}
 	}
 }
@@ -1918,7 +1907,7 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 fn reads_of(e: &Expr, out: &mut Vec<String>) {
 	match e {
 		Expr::Ident(name) => out.push(name.clone()),
-		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		Expr::Array(items) => items.iter().for_each(|e| reads_of(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| reads_of(e, out)),
 		Expr::Member(base, _) => reads_of(base, out),
@@ -1973,10 +1962,6 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
-			}
-			StmtKind::Try { body, finally } => {
-				strip_assignments(body, unread);
-				strip_assignments(finally, unread);
 			}
 			StmtKind::Catch { body, handler, .. } => {
 				strip_assignments(body, unread);
@@ -2125,10 +2110,6 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
-			}
-			StmtKind::Try { body, finally } => {
-				drop_self_assignments(body);
-				drop_self_assignments(finally);
 			}
 			StmtKind::Catch { body, handler, .. } => {
 				drop_self_assignments(body);

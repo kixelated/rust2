@@ -9,7 +9,15 @@ export type Version = "Lite01" | "Lite02" | "Lite03" | "Lite04" | "Lite05" | "Li
  * there and must not be sent.
  */
 export function hasProbeRtt(self: Version): boolean {
-	return !(self === "Lite01" || self === "Lite02" || self === "Lite03");
+	let _2!: boolean;
+	b0: {
+		if (!(self === "Lite01" || self === "Lite02" || self === "Lite03")) {
+			_2 = false;
+			break b0;
+		}
+		_2 = true;
+	}
+	return !_2;
 }
 
 /**
@@ -21,7 +29,15 @@ export function hasProbeRtt(self: Version): boolean {
  * next group before it can resume.
  */
 export function hasFrameBounds(self: Version): boolean {
-	return !(self === "Lite01" || self === "Lite02" || self === "Lite03" || self === "Lite04" || self === "Lite05");
+	let _2!: boolean;
+	b0: {
+		if (!(self === "Lite01" || self === "Lite02" || self === "Lite03" || self === "Lite04" || self === "Lite05")) {
+			_2 = false;
+			break b0;
+		}
+		_2 = true;
+	}
+	return !_2;
 }
 
 //# sourceMappingURL=version.Version.ts.map

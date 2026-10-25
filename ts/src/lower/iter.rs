@@ -10,9 +10,9 @@ use rustc_span::Span;
 
 use super::Translator;
 use super::body::Body;
-use super::library::{self, Args, Call, Std};
+use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, Stmt, Type};
+use crate::ts::{Expr, Param, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
 fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
@@ -185,8 +185,7 @@ pub fn call<'tcx>(
 	call: &Call<'tcx>,
 	owner: &str,
 	name: &str,
-	args: Args<'_>,
-	out: &mut Vec<Stmt>,
+	mut args: Vec<Expr>,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	let span = call.span;
@@ -198,14 +197,14 @@ pub fn call<'tcx>(
 	// Where iterators come from.
 	match (owner, name) {
 		("slice", "iter" | "iter_mut") => {
-			return Some(Expr::rt("iterSlice", b.args(args, out)));
+			return Some(Expr::rt("iterSlice", args));
 		}
 		("Option", "iter" | "iter_mut") => {
 			option_ok(b, targ(0)?, span);
-			return Some(Expr::rt("iterOption", b.args(args, out)));
+			return Some(Expr::rt("iterOption", args));
 		}
 		("IntoIterator", "into_iter") => {
-			let value = b.args(args, out).pop()?;
+			let value = args.pop()?;
 			return into_iter(b, targ(0)?, value, span);
 		}
 		_ => {}
@@ -213,10 +212,10 @@ pub fn call<'tcx>(
 	match path.as_slice() {
 		["iter", "sources", "once", "once"] => {
 			no_drops(b, targ(0)?, span);
-			return Some(Expr::rt("iterOnce", b.args(args, out)));
+			return Some(Expr::rt("iterOnce", args));
 		}
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
-		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", b.args(args, out))),
+		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
 		_ => {}
 	}
 
@@ -229,7 +228,7 @@ pub fn call<'tcx>(
 		if Std::of(tcx, adt.did()) != Some(Std::Vec) {
 			return None;
 		}
-		let [v, items] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+		let [v, items] = <[Expr; 2]>::try_from(args).ok()?;
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
 		if item != vec_args.type_at(0) && b.needs_copy(vec_args.type_at(0)) {
@@ -256,7 +255,7 @@ pub fn call<'tcx>(
 	if name != "by_ref" && !(name == "next" && own_next(b, self_ty).is_some()) {
 		no_drops(b, item, span);
 	}
-	let mut values = b.args(args, out).into_iter();
+	let mut values = args.into_iter();
 	let recv = values.next()?;
 	let rest: Vec<Expr> = values.collect();
 

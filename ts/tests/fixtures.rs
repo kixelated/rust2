@@ -56,25 +56,6 @@ fn translated(name: &str) -> PathBuf {
 	out
 }
 
-/// Run the driver on a fixture with bodies lowered from MIR, the spike's prototype.
-fn translate_mir(name: &str) -> (PathBuf, Output) {
-	let out = scratch().join(name).join("mir");
-	let config = fixture(name).join("ts.toml");
-	let args: [&std::ffi::OsStr; 4] = ["--out".as_ref(), out.as_ref(), "--lower".as_ref(), "mir".as_ref()];
-	let output = driver(name, &config, &args, "mir");
-	(out, output)
-}
-
-fn translated_mir(name: &str) -> PathBuf {
-	let (out, output) = translate_mir(name);
-	assert!(
-		output.status.success(),
-		"translating {name} from MIR failed:\n{}",
-		String::from_utf8_lossy(&output.stderr)
-	);
-	out
-}
-
 /// The generated TypeScript, by path relative to `dir`, without the runtime.
 fn sources(dir: &Path) -> Vec<(PathBuf, String)> {
 	let mut files = Vec::new();
@@ -271,10 +252,8 @@ fn shake(out: &Path) {
 			"Err",
 			"Ok",
 			"Panic",
-			"at",
 			"checked",
 			"clamp",
-			"idx",
 			"max",
 			"panic",
 			"sliceRange",
@@ -297,14 +276,6 @@ fn shake(out: &Path) {
 			"{bundler}'s bundle keeps more than the caller reaches:\n{bundle}"
 		);
 	}
-}
-
-/// The codec with bodies lowered from MIR: the same differential test, without a snapshot.
-#[test]
-fn codec_mir() {
-	let out = translated_mir("codec");
-	typecheck(&out);
-	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
 }
 
 /// Adding a root changes only the output of what it reaches: everything else keeps its
@@ -390,13 +361,6 @@ fn lang() {
 	lang_differential(&out);
 }
 
-/// The language fixture with bodies lowered from MIR.
-#[test]
-fn lang_mir() {
-	let out = translated_mir("lang");
-	lang_differential(&out);
-}
-
 fn lang_differential(out: &Path) {
 	// Hand-written callers, type-checked against the output they call: one runs it, and
 	// one mixes integer types, which `tsc` must refuse.
@@ -413,13 +377,6 @@ fn lang_differential(out: &Path) {
 fn task() {
 	let out = translated("task");
 	snapshot("task", &out);
-	task_differential(&out);
-}
-
-/// Futures and drops with bodies lowered from MIR: each async body a state machine.
-#[test]
-fn task_mir() {
-	let out = translated_mir("task");
 	task_differential(&out);
 }
 
@@ -485,18 +442,11 @@ fn unwinding(out: &Path, entry: &str, scripts: u32) {
 #[test]
 fn reject() {
 	let (out, output) = translate("reject");
-	rejected(&out, &output, "expected.txt");
+	rejected(&out, &output);
 }
 
-/// What lowering from MIR refuses in the same fixture.
-#[test]
-fn reject_mir() {
-	let (out, output) = translate_mir("reject");
-	rejected(&out, &output, "expected-mir.txt");
-}
-
-/// The errors of a failed translation, each with where it points, against `expected`.
-fn rejected(out: &Path, output: &Output, expected: &str) {
+/// The errors of a failed translation, each with where it points, against `expected.txt`.
+fn rejected(out: &Path, output: &Output) {
 	assert!(!output.status.success(), "translating reject succeeded");
 	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
 	let stderr = String::from_utf8_lossy(&output.stderr);
@@ -512,7 +462,7 @@ fn rejected(out: &Path, output: &Output, expected: &str) {
 			got.push('\n');
 		}
 	}
-	let path = fixture("reject").join(expected);
+	let path = fixture("reject").join("expected.txt");
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
 		std::fs::write(&path, &got).unwrap();
 		return;

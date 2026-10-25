@@ -25,17 +25,17 @@ export class Park {
  * dropping the old and so its registrations.
  */
 export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
-	let reuse: boolean;
-	if (self._0 !== undefined) {
-		const waiter = self._0;
-		reuse = cx.willWake(waiter.waker);
-	} else {
+	let reuse!: boolean;
+	let _10!: Waiter.Waiter | undefined;
+	if (self._0 === undefined) {
 		reuse = false;
+	} else {
+		reuse = cx.willWake(self._0.waker);
 	}
 	if (!reuse) {
-		const value = Waiter.new(cx.clone());
+		_10 = Waiter.new(cx.clone());
 		rt.drop(self._0);
-		self._0 = value;
+		self._0 = _10;
 	}
 	return rt.optionUnwrap(self._0);
 }

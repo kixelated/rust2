@@ -3,20 +3,37 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self0!: rt.u8;
+	let _8!: string;
+	let _9!: rt.Fmt;
+	let __self1!: rt.ByteVec;
+	let _13!: string;
+	let _14!: string;
+	let _15!: rt.Fmt;
+	let _16!: string;
+	let _17!: rt.Fmt;
 	if (self.tag === "Empty") {
-		return rt.fmtWriteStr(f, "Empty");
+		_0 = rt.fmtWriteStr(f, "Empty");
 	} else if (self.tag === "Braced") {
-		return rt.fmtWriteStr(f, "Braced");
+		_0 = rt.fmtWriteStr(f, "Braced");
 	} else if (self.tag === "Bare") {
-		return rt.fmtWriteStr(f, "Bare");
+		_0 = rt.fmtWriteStr(f, "Bare");
 	} else if (self.tag === "One") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "One"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
+		__self0 = self._0;
+		_8 = "One";
+		_9 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _8), _9));
 	} else {
-		const __self02 = self.count;
-		const __self1 = self.items;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Many"), "count", (f: rt.Formatter) => rt.u32Display(__self02, f)), "items", (f: rt.Formatter) => rt.fmtList(rt.byteVecView(__self1), f, rt.u8Display)));
+		__self1 = self.items;
+		_13 = "Many";
+		_14 = "count";
+		_15 = (f: rt.Formatter) => rt.u32Display(self.count, f);
+		_16 = "items";
+		_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(__self1), f, rt.u8Display);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 	}
+	return _0;
 }
 
 export type Kind =

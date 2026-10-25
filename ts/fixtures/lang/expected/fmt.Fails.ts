@@ -8,14 +8,22 @@ export interface Fails {
 }
 
 export function fmt$Display(self: Fails, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	if (rt.u8Rem(self._0, 2) === 0) {
-		return rt.fmtWriteStr(f, "fine");
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let _8!: rt.Result<undefined, rt.FmtError>;
+	let args!: [rt.u8];
+	if (!(rt.u8Rem(self._0, 2) === 0)) {
+		args = [self._0] as [rt.u8];
+		const arg = args[0];
+		_8 = rt.fmtWriteFmt(f, ["half ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
+		if (_8.ok) {
+			_0 = rt.Err(new rt.FmtError());
+		} else {
+			_0 = rt.Err(new rt.FmtError());
+		}
+	} else {
+		_0 = rt.fmtWriteStr(f, "fine");
 	}
-	const writeFmt = rt.fmtWriteFmt(f, ["half ", (f: rt.Formatter) => rt.u8Display(self._0, f)]);
-	if (!writeFmt.ok) {
-		return rt.Err(writeFmt.error);
-	}
-	return rt.Err(new rt.FmtError());
+	return _0;
 }
 
 //# sourceMappingURL=fmt.Fails.ts.map

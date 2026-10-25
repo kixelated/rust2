@@ -4,19 +4,41 @@ import * as rt from "./rt.ts";
 import * as Pair from "./fmt.Pair.ts";
 
 export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self0!: rt.u16;
+	let _6!: string;
+	let _7!: rt.Fmt;
+	let __self1!: rt.usize;
+	let _11!: string;
+	let _12!: string;
+	let _13!: rt.Fmt;
+	let _14!: string;
+	let _15!: rt.Fmt;
+	let __self02!: Pair.Pair;
+	let _18!: string;
+	let _19!: rt.Fmt;
 	if (self.tag === "Short") {
-		return rt.fmtWriteStr(f, "Short");
+		_0 = rt.fmtWriteStr(f, "Short");
 	} else if (self.tag === "Code") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Code"), (f: rt.Formatter) => rt.u16Display(__self0, f)));
+		__self0 = self._0;
+		_6 = "Code";
+		_7 = (f: rt.Formatter) => rt.u16Display(__self0, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	} else if (self.tag === "TooLarge") {
-		const __self02 = self.size;
-		const __self1 = self.max;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "TooLarge"), "size", (f: rt.Formatter) => rt.usizeDisplay(__self02, f)), "max", (f: rt.Formatter) => rt.usizeDisplay(__self1, f)));
+		__self1 = self.max;
+		_11 = "TooLarge";
+		_12 = "size";
+		_13 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
+		_14 = "max";
+		_15 = (f: rt.Formatter) => rt.usizeDisplay(__self1, f);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	} else {
-		const __self03 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "At"), (f: rt.Formatter) => Pair.fmt$Debug(__self03, f)));
+		__self02 = self._0;
+		_18 = "At";
+		_19 = (f: rt.Formatter) => Pair.fmt$Debug(__self02, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _18), _19));
 	}
+	return _0;
 }
 
 /**
@@ -30,36 +52,52 @@ export type Fault =
 	| { tag: "At"; _0: Pair.Pair };
 
 export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let code!: rt.u16;
+	let args!: [rt.u16];
+	let size!: rt.usize;
+	let max!: rt.usize;
+	let pair!: Pair.Pair;
+	let args5!: [Pair.Pair];
 	if (self.tag === "Short") {
-		return rt.fmtPad(f, "short buffer");
+		_0 = rt.fmtPad(f, "short buffer");
 	} else if (self.tag === "Code") {
-		const code = self._0;
-		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16LowerHex(code, f))]);
+		code = self._0;
+		args = [code] as [rt.u16];
+		const arg2 = args[0];
+		_0 = rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16LowerHex(arg2, f))]);
 	} else if (self.tag === "TooLarge") {
-		const size = self.size;
-		const max = self.max;
-		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
+		size = self.size;
+		max = self.max;
+		_0 = rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
 	} else {
-		const pair = self._0;
-		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f)]);
+		pair = self._0;
+		args5 = [pair] as [Pair.Pair];
+		const arg = args5[0];
+		_0 = rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(arg, f)]);
 	}
+	return _0;
 }
 
 /** The fault `data` picks. */
 function new_(data: Uint8Array): Fault {
-	const at = (i: rt.usize): rt.u8 => {
+	let _0!: Fault;
+	let at!: (a0: rt.usize) => rt.u8;
+	let _3!: rt.u8;
+	at = (i: rt.usize): rt.u8 => {
 		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
-	const value = rt.u8Rem(at(0), 4);
-	if (value === 0) {
-		return { tag: "Short" };
-	} else if (value === 1) {
-		return { tag: "Code", _0: (at(1) << 8) | at(2) };
-	} else if (value === 2) {
-		return { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize };
+	_3 = rt.u8Rem(at(0), 4);
+	if (_3 === 0) {
+		_0 = { tag: "Short" } as Fault;
+	} else if (_3 === 1) {
+		_0 = { tag: "Code", _0: (at(1) << 8) | at(2) } as Fault;
+	} else if (_3 === 2) {
+		_0 = { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize } as Fault;
 	} else {
-		return { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } };
+		_0 = { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } } as Fault;
 	}
+	return _0;
 }
 
 export { new_ as new };

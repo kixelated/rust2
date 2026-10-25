@@ -25,18 +25,34 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	self._0.value.value.push(event);
+	let _4!: string[];
+	let _6!: rt.Mutex<string[]>;
+	_6 = self._0.value;
+	_4 = _6.value;
+	_4.push(event);
+	return;
 }
 
 /** Every event so far, one per line. */
 export function text(self: Log): rt.ByteVec {
-	const events = self._0.value;
-	let out: rt.ByteVec = new rt.ByteVec();
-	for (const event of events.value) {
-		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(event));
-		rt.byteVecPush(out, 10);
+	let events!: rt.Mutex<string[]>;
+	let out!: rt.ByteVec;
+	let iter!: rt.Iter<string>;
+	let _13!: string | rt.Done;
+	let _19!: Uint8Array;
+	events = self._0.value;
+	out = new rt.ByteVec();
+	iter = rt.iterSlice(events.value);
+	while (true) {
+		_13 = iter.next();
+		if (_13 === rt.DONE) {
+			return out;
+		} else {
+			_19 = rt.stringAsBytes(_13);
+			rt.byteVecExtendFromSlice(out, _19);
+			rt.byteVecPush(out, 10);
+		}
 	}
-	return out;
 }
 
 export { new_ as new };

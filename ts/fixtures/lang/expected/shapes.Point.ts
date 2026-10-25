@@ -3,11 +3,29 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Point"), "x", (f: rt.Formatter) => rt.i32Display(self.x, f)), "y", (f: rt.Formatter) => rt.i32Display(self.y, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	let _10!: rt.i32;
+	_5 = (f: rt.Formatter) => rt.i32Display(self.x, f);
+	_10 = self.y;
+	_3 = "Point";
+	_4 = "x";
+	_7 = "y";
+	_8 = (f: rt.Formatter) => rt.i32Display(_10, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function eq$PartialEq(self: Point, other: Point): boolean {
-	return self.x === other.x && self.y === other.y;
+	let _0!: boolean;
+	if (!(self.x === other.x)) {
+		_0 = false;
+	} else {
+		_0 = self.y === other.y;
+	}
+	return _0;
 }
 
 /** A `Copy` struct, which Rust copies where JS would share. */
@@ -22,12 +40,18 @@ function new_(x: rt.i32, y: rt.i32): Point {
 
 /** Changes `self`, which a caller's copy must not see. */
 export function shift(self: Point, by: rt.i32): Point {
-	self.x = rt.i32Add(self.x, by);
+	let _3!: rt.i32;
+	self = rt.copy(self);
+	_3 = rt.i32Add(self.x, by);
+	self.x = _3;
 	return rt.copy(self);
 }
 
 export function bump(self: Point): void {
-	self.y = rt.i32Add(self.y, 1);
+	let _2!: rt.i32;
+	_2 = rt.i32Add(self.y, 1);
+	self.y = _2;
+	return;
 }
 
 export { new_ as new };

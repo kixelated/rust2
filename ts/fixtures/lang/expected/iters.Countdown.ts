@@ -9,13 +9,18 @@ export interface Countdown {
 }
 
 export function next$Iterator(self: Countdown): rt.u8 | rt.Done {
+	let _0!: rt.u8 | rt.Done;
+	let left!: rt.u8;
+	let _3!: rt.u8;
 	if (self.left === 0) {
-		return rt.DONE;
+		_0 = rt.DONE;
 	} else {
-		const left = self.left;
-		self.left = rt.u8SaturatingSub(left, self.step);
-		return left;
+		left = self.left;
+		_3 = rt.u8SaturatingSub(left, self.step);
+		self.left = _3;
+		_0 = left;
 	}
+	return _0;
 }
 
 //# sourceMappingURL=iters.Countdown.ts.map

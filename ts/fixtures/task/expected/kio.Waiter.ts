@@ -20,26 +20,27 @@ export class Waiter {
 }
 
 function new_(waker: rt.Waker): Waiter {
+	let shared!: rt.Arc<rt.Waker>;
+	let _5!: rt.Waker;
+	let unwind: number = 0;
 	try {
-		let shared = new rt.Arc(waker.clone());
-		try {
-			const waker2 = waker;
-			waker = undefined!;
-			const arg = waker2;
-			const shared2 = shared;
-			shared = undefined!;
-			return new Waiter({ waker: arg, shared: shared2 });
-		} finally {
-			rt.drop(shared);
+		unwind = 4;
+		shared = new rt.Arc(waker.clone());
+		_5 = waker;
+		return new Waiter({ waker: _5, shared });
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
 		}
-	} finally {
 		rt.drop(waker);
+		throw e;
 	}
 }
 
 /** Register with `list`, a no-op while the list still holds this waiter. */
 export function register(self: Waiter, list: WaiterList.WaiterList): void {
 	WaiterList.register(list, self);
+	return;
 }
 
 export { new_ as new };

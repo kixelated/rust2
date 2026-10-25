@@ -6,12 +6,11 @@
 //! call goes to the impl of the value's type directly, as monomorphization allows.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::thir::{ExprId, ExprKind, StmtKind};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::body::Body;
-use super::library::{self, Args, Std};
+use super::library::{self, Std};
 use super::num::Int;
 use crate::ts::{Expr, Key, Param, Stmt, Type};
 
@@ -66,8 +65,25 @@ impl Trait {
 	}
 }
 
-const UNEXPECTED: &str = "an unexpected `format_args!` lowering";
-pub const FROM_ARGUMENT: &str = "a width or precision from an argument, as in `{:1$}`,";
+/// The trait a `format_args!` argument's constructor, `Argument::new_display` and the
+/// like, writes its value by, or the construct outside the subset that it is.
+pub fn argument(name: &str) -> Result<Trait, &'static str> {
+	match name {
+		"new_display" => Ok(Trait::Display),
+		"new_debug" => Ok(Trait::Debug),
+		"new_lower_hex" => Ok(Trait::LowerHex),
+		"new_upper_hex" => Ok(Trait::UpperHex),
+		"from_usize" => Err(FROM_ARGUMENT),
+		"new_octal" => Err("`Octal` formatting, as in `{:o}`,"),
+		"new_binary" => Err("`Binary` formatting, as in `{:b}`,"),
+		"new_lower_exp" => Err("`LowerExp` formatting, as in `{:e}`,"),
+		"new_upper_exp" => Err("`UpperExp` formatting, as in `{:E}`,"),
+		"new_pointer" => Err("`Pointer` formatting, as in `{:p}`,"),
+		_ => Err("an unexpected `format_args!` lowering"),
+	}
+}
+
+const FROM_ARGUMENT: &str = "a width or precision from an argument, as in `{:1$}`,";
 
 /// A formatter's type, for the parameters of the functions written here.
 fn formatter() -> Type {
@@ -75,26 +91,6 @@ fn formatter() -> Type {
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
-	/// Whether `id` is what `format_args!` lowers to: `Arguments::from_str(s)`, or a block
-	/// of two `super let`s ending in `unsafe { Arguments::new(template, &args) }`.
-	pub fn is_format_args(&self, id: ExprId) -> bool {
-		let calls = |id: ExprId, names: &[&str]| match &self.thir[self.strip(id)].kind {
-			ExprKind::Call { ty, .. } => self
-				.callee(*ty)
-				.is_some_and(|(owner, name)| owner == "Arguments" && names.contains(&name.as_str())),
-			_ => false,
-		};
-		let tail = |id: ExprId| match &self.thir[self.strip(id)].kind {
-			ExprKind::Block { block } => self.thir[*block].expr,
-			_ => None,
-		};
-		let block = match &self.thir[self.strip(id)].kind {
-			ExprKind::Block { block } => &self.thir[*block],
-			_ => return calls(id, &["from_str", "from_str_nonconst"]),
-		};
-		block.stmts.len() == 2 && block.expr.and_then(tail).is_some_and(|call| calls(call, &["new"]))
-	}
-
 	/// The formatting trait of a `&dyn Debug` or the like.
 	pub fn fmt_object(&self, ty: Ty<'tcx>) -> Option<Trait> {
 		let ty::Ref(_, inner, rustc_ast::Mutability::Not) = ty.kind() else {
@@ -112,142 +108,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			.is_some_and(|pointee| matches!(pointee.kind(), ty::Dynamic(..)))
 	}
 
-	/// The `owner::name` key of a call's callee in std.
-	fn callee(&self, fn_ty: Ty<'tcx>) -> Option<(String, String)> {
-		match *self.subst(fn_ty).kind() {
-			ty::FnDef(def_id, _) => library::key(self.t.tcx, def_id),
-			_ => None,
-		}
-	}
-
-	/// A `fmt::Arguments`, from what `format_args!` lowers to: an array of literal pieces
-	/// and functions writing each placeholder's value.
-	pub fn format_args(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Expr {
-		let span = self.span(id);
-		match self.arguments(id, out) {
-			Ok(parts) => Expr::Array(parts),
-			Err(msg) if msg == UNEXPECTED => self.err(span, msg),
-			Err(msg) => self.err(span, format!("{msg} is not supported")),
-		}
-	}
-
-	/// The parts of a `format_args!`, or the construct that is outside the subset.
-	fn arguments(&mut self, id: ExprId, out: &mut Vec<Stmt>) -> Result<Vec<Expr>, String> {
-		let id = self.strip(id);
-		let thir = self.thir;
-		let block = match &thir[id].kind {
-			// A template without placeholders.
-			ExprKind::Call { args, .. } if args.len() == 1 => return Ok(vec![self.operand(args[0], out)]),
-			ExprKind::Block { block } => &thir[*block],
-			_ => return Err(UNEXPECTED.into()),
-		};
-		// `super let args = (&a, &b); super let args = [Argument::new_display(args.0), ..];`
-		let [values, arguments] = block.stmts[..] else {
-			return Err(UNEXPECTED.into());
-		};
-		let binding = |stmt: rustc_middle::thir::StmtId| match &thir[stmt].kind {
-			StmtKind::Let {
-				pattern,
-				initializer: Some(init),
-				..
-			} => match pattern.kind {
-				rustc_middle::thir::PatKind::Binding { var, .. } => Some((var, *init)),
-				_ => None,
-			},
-			_ => None,
-		};
-		let ((values_var, values), (_, arguments)) = binding(values).zip(binding(arguments)).ok_or(UNEXPECTED)?;
-		let ExprKind::Tuple { fields } = &thir[self.strip(values)].kind else {
-			return Err(UNEXPECTED.into());
-		};
-		// Each value is evaluated once, in order, before anything is written.
-		let mut values = self.operands(fields, out);
-		for value in &mut values {
-			if !value.is_path() {
-				let saved = std::mem::replace(value, Expr::undefined());
-				*value = self.spill(saved, "arg", out);
-			}
-		}
-		let ExprKind::Array { fields: arguments } = &thir[self.strip(arguments)].kind else {
-			return Err(UNEXPECTED.into());
-		};
-		let mut placeholders = Vec::new();
-		for &argument in arguments.iter() {
-			let ExprKind::Call { ty, args, .. } = &thir[self.strip(argument)].kind else {
-				return Err(UNEXPECTED.into());
-			};
-			let ty::FnDef(def_id, gargs) = *self.subst(*ty).kind() else {
-				return Err(UNEXPECTED.into());
-			};
-			let tr = match self.t.tcx.item_name(def_id).as_str() {
-				"new_display" => Trait::Display,
-				"new_debug" => Trait::Debug,
-				"new_lower_hex" => Trait::LowerHex,
-				"new_upper_hex" => Trait::UpperHex,
-				"from_usize" => return Err(FROM_ARGUMENT.into()),
-				"new_octal" => return Err("`Octal` formatting, as in `{:o}`,".into()),
-				"new_binary" => return Err("`Binary` formatting, as in `{:b}`,".into()),
-				"new_lower_exp" => return Err("`LowerExp` formatting, as in `{:e}`,".into()),
-				"new_upper_exp" => return Err("`UpperExp` formatting, as in `{:E}`,".into()),
-				"new_pointer" => return Err("`Pointer` formatting, as in `{:p}`,".into()),
-				_ => return Err(UNEXPECTED.into()),
-			};
-			let field = self.tuple_field(args[0], values_var).ok_or(UNEXPECTED)?;
-			let ty = self.subst(gargs.skip_binder().types().next().ok_or(UNEXPECTED)?);
-			placeholders.push((tr, field, ty));
-		}
-		// `unsafe { Arguments::new(template, &args) }`
-		let call = match &thir[self.strip(block.expr.ok_or(UNEXPECTED)?)].kind {
-			ExprKind::Block { block } => thir[*block].expr.ok_or(UNEXPECTED)?,
-			_ => return Err(UNEXPECTED.into()),
-		};
-		let ExprKind::Call { args, .. } = &thir[self.strip(call)].kind else {
-			return Err(UNEXPECTED.into());
-		};
-		let template = self.byte_str(args[0]).ok_or(UNEXPECTED)?;
-		let span = self.span(id);
-		let mut parts = Vec::new();
-		for piece in decode(&template)? {
-			match piece {
-				Piece::Lit(s) => parts.push(Expr::Str(s)),
-				Piece::Arg { index, spec } => {
-					let &(tr, field, ty) = placeholders.get(index).ok_or(UNEXPECTED)?;
-					let value = values.get(field).ok_or(UNEXPECTED)?.clone();
-					let value = self.fmt_value(tr, ty, value, span, out);
-					parts.push(match spec.object() {
-						Some(spec) => Expr::rt("fmtSpec", vec![spec, value]),
-						None => value,
-					});
-				}
-			}
-		}
-		Ok(parts)
-	}
-
-	/// The index of `args.N`, a field of the tuple `var`, behind borrows and derefs.
-	fn tuple_field(&self, id: ExprId, var: rustc_middle::thir::LocalVarId) -> Option<usize> {
-		match &self.thir[self.strip(id)].kind {
-			ExprKind::Borrow { arg, .. } | ExprKind::Deref { arg } => self.tuple_field(*arg, var),
-			ExprKind::Field { lhs, name, .. } => match self.thir[self.strip(*lhs)].kind {
-				ExprKind::VarRef { id } if id == var => Some(name.index()),
-				_ => None,
-			},
-			_ => None,
-		}
-	}
-
-	/// The bytes of a byte string literal, behind borrows and derefs.
-	fn byte_str(&self, id: ExprId) -> Option<Vec<u8>> {
-		match &self.thir[self.strip(id)].kind {
-			ExprKind::Borrow { arg, .. } | ExprKind::Deref { arg } => self.byte_str(*arg),
-			ExprKind::Literal { lit, .. } => match &lit.node {
-				rustc_ast::LitKind::ByteStr(bytes, _) => Some(bytes.as_byte_str().to_vec()),
-				_ => None,
-			},
-			_ => None,
-		}
-	}
-
 	/// `value`, a `ty`, written by `tr` to `f`, through the impl for `ty`.
 	pub fn fmt_call(&mut self, tr: Trait, ty: Ty<'tcx>, value: Expr, f: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
@@ -256,7 +116,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		};
 		let args = tcx.mk_args(&[ty.into()]);
 		let mut pre = Vec::new();
-		let call = self.call_def(method, args, Args::Values(vec![value, f]), span, &mut pre);
+		let call = self.call_def(method, args, vec![value, f], span, &mut pre);
 		match pre.is_empty() {
 			true => call,
 			false => self.err(span, format!("`{}` of `{ty}` needs statements", tr.name())),

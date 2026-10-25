@@ -4,18 +4,39 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self1!: Point.Point;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	let _9!: rt.Fmt;
+	let __self2!: rt.u16;
+	let _14!: string;
+	let _15!: string;
+	let _16!: rt.Fmt;
+	let _17!: string;
+	let _18!: rt.Fmt;
+	let _19!: string;
+	let _20!: rt.Fmt;
 	if (self.tag === "Dot") {
-		return rt.fmtWriteStr(f, "Dot");
+		_0 = rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
-		const __self0 = self._0;
-		const __self1 = self._1;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Line"), (f: rt.Formatter) => Point.fmt$Debug(__self0, f)), (f: rt.Formatter) => Point.fmt$Debug(__self1, f)));
+		__self1 = self._1;
+		_7 = "Line";
+		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
+		_9 = (f: rt.Formatter) => Point.fmt$Debug(__self1, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	} else {
-		const __self02 = self.corner;
-		const __self12 = self.width;
-		const __self2 = self.height;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Rect"), "corner", (f: rt.Formatter) => Point.fmt$Debug(__self02, f)), "width", (f: rt.Formatter) => rt.u16Display(__self12, f)), "height", (f: rt.Formatter) => rt.u16Display(__self2, f)));
+		__self2 = self.height;
+		_14 = "Rect";
+		_15 = "corner";
+		_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
+		_17 = "width";
+		_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
+		_19 = "height";
+		_20 = (f: rt.Formatter) => rt.u16Display(__self2, f);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 	}
+	return _0;
 }
 
 /** An enum with data, and one without. */
@@ -26,20 +47,27 @@ export type Shape =
 
 /** A default method, monomorphized for each type. */
 export function describe$Area(self: Shape, out: rt.ByteVec): void {
+	let _7!: Uint8Array;
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area(self)));
+	_7 = rt.u64ToBeBytes(area$Area(self));
+	rt.byteVecExtendFromSlice(out, _7);
+	return;
 }
 
 export function area$Area(self: Shape): rt.u64 {
+	let _0!: rt.u64;
+	let width!: rt.u16;
+	let height!: rt.u16;
 	if (self.tag === "Dot") {
-		return 0;
+		_0 = 0;
 	} else if (self.tag === "Line") {
-		return 0;
+		_0 = 0;
 	} else {
-		const width = self.width;
-		const height = self.height;
-		return rt.u64Mul(width as rt.u64, height as rt.u64);
+		width = self.width;
+		height = self.height;
+		_0 = rt.u64Mul(width as rt.u64, height as rt.u64);
 	}
+	return _0;
 }
 
 //# sourceMappingURL=shapes.Shape.ts.map

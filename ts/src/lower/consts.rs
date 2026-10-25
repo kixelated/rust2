@@ -1,9 +1,7 @@
-//! Literals and constants. A named constant is evaluated by rustc and written as its
-//! value at each use, as Rust inlines it.
+//! Constants: rustc evaluates each, and its value is written at each use, as Rust
+//! inlines it.
 
-use rustc_middle::mir::interpret::GlobalId;
-use rustc_middle::thir::{ExprId, ExprKind};
-use rustc_middle::ty::{self, Instance, Ty, ValTree};
+use rustc_middle::ty::{self, Ty, ValTree};
 use rustc_span::Span;
 
 use super::AdtRepr;
@@ -13,121 +11,6 @@ use super::num::Int;
 use crate::ts::{Expr, Key};
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
-	/// A literal or constant expression.
-	pub fn constant(&mut self, id: ExprId) -> Expr {
-		let tcx = self.t.tcx;
-		let e = &self.thir[id];
-		let span = e.span;
-		let ty = self.ty_of(id);
-		match &e.kind {
-			ExprKind::Literal { lit, neg } => match lit.node {
-				rustc_ast::LitKind::Int(n, _) => {
-					let Some(int) = Int::of(ty) else {
-						return self.err(span, format!("an integer literal of type `{ty}`"));
-					};
-					let value = n.get() as i128;
-					let value = if *neg { -value } else { value };
-					match self.literal_text(span, *neg) {
-						Some(text) => int.spelled(text, value),
-						None => int.lit(value),
-					}
-				}
-				rustc_ast::LitKind::Bool(b) => Expr::lit(b.to_string()),
-				rustc_ast::LitKind::Str(s, _) => Expr::Str(s.to_string()),
-				rustc_ast::LitKind::Byte(b) => Expr::lit(b.to_string()),
-				rustc_ast::LitKind::ByteStr(ref bytes, _) => {
-					let items = bytes.as_byte_str().iter().map(|b| Expr::lit(b.to_string())).collect();
-					Expr::ident("Uint8Array").member("of").call(items)
-				}
-				_ => self.err(span, format!("unsupported literal of type `{ty}`")),
-			},
-			ExprKind::NonHirLiteral { lit, .. } => match (ty.kind(), Int::of(ty)) {
-				(ty::Bool, _) => Expr::lit((lit.to_bits_unchecked() != 0).to_string()),
-				(_, Some(int)) => {
-					let size = rustc_abi::Size::from_bits(int.bits);
-					let value = match int.signed {
-						true => lit.to_int(size),
-						false => lit.to_uint(size) as i128,
-					};
-					int.lit(value)
-				}
-				_ => self.err(span, format!("a literal of type `{ty}`")),
-			},
-			ExprKind::ZstLiteral { .. } => match *ty.kind() {
-				ty::FnDef(def_id, args) => self.fn_value(def_id, args.skip_binder(), span),
-				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
-				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
-					let info = self.t.adt(adt, span);
-					self.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
-				}
-				_ => self.err(span, format!("a value of type `{ty}`")),
-			},
-			ExprKind::NamedConst { def_id, args, .. } => {
-				let args = self.subst(*args);
-				let env = self.t.typing_env_pub();
-				let instance = match Instance::try_resolve(tcx, env, *def_id, args) {
-					Ok(Some(instance)) => instance,
-					_ => return self.err(span, "a constant that does not resolve"),
-				};
-				let cid = GlobalId {
-					instance,
-					promoted: None,
-				};
-				match tcx.const_eval_global_id_for_typeck(env, cid, span) {
-					Ok(Ok(valtree)) => self.value(ty, valtree, span),
-					Ok(Err(_)) => self.err(span, format!("a constant of type `{ty}`, which has no value tree")),
-					Err(_) => self.err(span, "a constant that failed to evaluate"),
-				}
-			}
-			ExprKind::ConstParam { .. } | ExprKind::ConstBlock { .. } => {
-				self.err(span, "const generics and const blocks in expressions are not supported")
-			}
-			_ => unreachable!(),
-		}
-	}
-
-	/// A literal as the source spells it, when that is also valid JS.
-	fn literal_text(&self, span: Span, neg: bool) -> Option<String> {
-		if span.from_expansion() {
-			return None;
-		}
-		let text = self.t.tcx.sess.source_map().span_to_snippet(span).ok()?;
-		let text = text.trim_start_matches('-').trim();
-		let (prefix, digits) = match text.get(..2) {
-			Some("0x" | "0o" | "0b") => text.split_at(2),
-			_ => ("", text),
-		};
-		let radix = match prefix {
-			"0x" => 16,
-			"0o" => 8,
-			"0b" => 2,
-			_ => 10,
-		};
-		// Drop a type suffix, which hex digits can't be confused with.
-		let end = digits
-			.find(|c: char| c != '_' && !c.is_digit(radix))
-			.unwrap_or(digits.len());
-		let digits = &digits[..end];
-		// JS allows `_` only between two digits.
-		let chars: Vec<char> = digits.chars().collect();
-		let mut cleaned = String::new();
-		for (i, &c) in chars.iter().enumerate() {
-			if c == '_' {
-				let between = i > 0 && chars[i - 1] != '_' && chars.get(i + 1).is_some_and(|n| *n != '_');
-				if !between {
-					continue;
-				}
-			}
-			cleaned.push(c);
-		}
-		let cleaned = cleaned.trim_matches('_');
-		if cleaned.is_empty() || cleaned.contains("__") {
-			return None;
-		}
-		let sign = if neg { "-" } else { "" };
-		Some(format!("{sign}{prefix}{cleaned}"))
-	}
-
 	/// A constant's value tree as a JS value of type `ty`.
 	pub fn value(&mut self, ty: Ty<'tcx>, valtree: ValTree<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;

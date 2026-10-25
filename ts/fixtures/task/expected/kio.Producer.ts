@@ -20,16 +20,24 @@ export class Producer {
 }
 
 function new_(): Producer {
-	const state = { queue: [], closed: false, producers: 1, waiters: WaiterList.new() };
-	return new Producer({ state: new rt.Arc(new rt.Mutex(state)) });
+	let _2!: rt.u64[];
+	_2 = [];
+	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() })) });
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
 export function send(self: Producer, value: rt.u64): void {
-	let state: rt.Mutex<State.State> = self.state.value;
-	state.value.queue.push(value);
-	let waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
+	let waiters!: WaiterList.WaiterList;
+	let state!: rt.Mutex<State.State>;
+	let _10!: State.State;
+	let _13!: State.State;
+	state = self.state.value;
+	_10 = state.value;
+	_10.queue.push(value);
+	_13 = state.value;
+	waiters = WaiterList.take(_13.waiters);
 	WaiterList.wake(waiters);
+	return;
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -37,19 +45,33 @@ export function consume(self: Producer): Consumer.Consumer {
 }
 
 export function clone$Clone(self: Producer): Producer {
-	self.state.value.value.producers = rt.usizeAdd(self.state.value.value.producers, 1);
+	let _2!: State.State;
+	let _4!: rt.Mutex<State.State>;
+	let _8!: rt.usize;
+	_4 = self.state.value;
+	_2 = _4.value;
+	_8 = rt.usizeAdd(_2.producers, 1);
+	_2.producers = _8;
 	return new Producer({ state: rt.arcClone(self.state) });
 }
 
 export function drop$Drop(self: Producer): void {
-	let state: rt.Mutex<State.State> = self.state.value;
-	state.value.producers = rt.usizeSub(state.value.producers, 1);
-	if (state.value.producers > 0) {
-		return;
+	let waiters!: WaiterList.WaiterList;
+	let state!: rt.Mutex<State.State>;
+	let _7!: State.State;
+	let _9!: rt.usize;
+	let _17!: State.State;
+	state = self.state.value;
+	_7 = state.value;
+	_9 = rt.usizeSub(_7.producers, 1);
+	_7.producers = _9;
+	if (!(state.value.producers > 0)) {
+		state.value.closed = true;
+		_17 = state.value;
+		waiters = WaiterList.take(_17.waiters);
+		WaiterList.wake(waiters);
 	}
-	state.value.closed = true;
-	let waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
-	WaiterList.wake(waiters);
+	return;
 }
 
 export { new_ as new };

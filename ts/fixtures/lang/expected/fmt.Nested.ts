@@ -7,9 +7,43 @@ import * as Point from "./shapes.Point.ts";
 import * as Shape from "./shapes.Shape.ts";
 
 export function fmt$Debug(self: Nested, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const names = ["name", "point", "shape", "tags", "pairs", "maybe", "none", "result", "list", "tuple", "single", "empty", "unit", "boxed"];
-	const values = [(f: rt.Formatter) => rt.fmtStr(self.name, f), (f: rt.Formatter) => Point.fmt$Debug(self.point, f), (f: rt.Formatter) => Shape.fmt$Debug(self.shape, f), (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.tags), f, rt.u8Display), (f: rt.Formatter) => rt.fmtList(self.pairs, f, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtOption(self.maybe, f, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtOption(self.none, f, rt.u8Display), (f: rt.Formatter) => rt.fmtResult(self.result, f, rt.u8Display, rt.fmtStr), (f: rt.Formatter) => rt.fmtList(self.list, f, rt.i16Display), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Display(self.tuple[0], f), (f: rt.Formatter) => rt.fmtBool(self.tuple[1], f), (f: rt.Formatter) => rt.fmtStr(self.tuple[2], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Display(self.single[0], f)], f), (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.empty), f, rt.u8Display), (f: rt.Formatter) => rt.fmtUnit(self.unit, f), (f: rt.Formatter) => Kind.fmt$Debug(self.boxed, f)];
-	return rt.fmtDebugStructFields(f, "Nested", names, values);
+	let names!: string[];
+	let values!: rt.Fmt[];
+	let _6!: rt.Fmt[];
+	let _7!: rt.Fmt;
+	let _9!: rt.Fmt;
+	let _11!: rt.Fmt;
+	let _13!: rt.Fmt;
+	let _15!: rt.Fmt;
+	let _17!: rt.Fmt;
+	let _19!: rt.Fmt;
+	let _21!: rt.Fmt;
+	let _23!: rt.Fmt;
+	let _25!: rt.Fmt;
+	let _27!: rt.Fmt;
+	let _29!: rt.Fmt;
+	let _31!: rt.Fmt;
+	let _35!: Kind.Kind;
+	let _36!: string;
+	_7 = (f: rt.Formatter) => rt.fmtStr(self.name, f);
+	_9 = (f: rt.Formatter) => Point.fmt$Debug(self.point, f);
+	_11 = (f: rt.Formatter) => Shape.fmt$Debug(self.shape, f);
+	_13 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.tags), f, rt.u8Display);
+	_15 = (f: rt.Formatter) => rt.fmtList(self.pairs, f, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f));
+	_17 = (f: rt.Formatter) => rt.fmtOption(self.maybe, f, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f));
+	_19 = (f: rt.Formatter) => rt.fmtOption(self.none, f, rt.u8Display);
+	_21 = (f: rt.Formatter) => rt.fmtResult(self.result, f, rt.u8Display, rt.fmtStr);
+	_23 = (f: rt.Formatter) => rt.fmtList(self.list, f, rt.i16Display);
+	_25 = (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Display(self.tuple[0], f), (f: rt.Formatter) => rt.fmtBool(self.tuple[1], f), (f: rt.Formatter) => rt.fmtStr(self.tuple[2], f)], f);
+	_27 = (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Display(self.single[0], f)], f);
+	_29 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.empty), f, rt.u8Display);
+	_31 = (f: rt.Formatter) => rt.fmtUnit(self.unit, f);
+	_35 = self.boxed;
+	_6 = [_7, _9, _11, _13, _15, _17, _19, _21, _23, _25, _27, _29, _31, (f: rt.Formatter) => Kind.fmt$Debug(_35, f)];
+	names = ["name", "point", "shape", "tags", "pairs", "maybe", "none", "result", "list", "tuple", "single", "empty", "unit", "boxed"];
+	values = _6;
+	_36 = "Nested";
+	return rt.fmtDebugStructFields(f, _36, names, values);
 }
 
 export interface Nested {

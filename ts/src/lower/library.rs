@@ -6,11 +6,10 @@
 //! function by its module (`mem::take`).
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::thir::{ExprId, ExprKind};
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
-use super::body::{Body, Dest};
+use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
 use crate::ts::{Expr, Stmt, StmtKind};
@@ -210,12 +209,6 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 	}
 }
 
-/// A call's arguments: still THIR, or already lowered.
-pub enum Args<'x> {
-	Thir(&'x [ExprId]),
-	Values(Vec<Expr>),
-}
-
 pub struct Call<'tcx> {
 	/// The function as written, before resolving a trait method to its impl.
 	pub def_id: DefId,
@@ -289,7 +282,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 	Some((owner, name))
 }
 
-pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>, out: &mut Vec<Stmt>) -> Option<Expr> {
+pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	// thiserror's `Display` derive reads each field through `AsDisplay`, which is the
 	// field itself for anything but a path.
@@ -297,7 +290,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		&& tcx.item_name(call.def_id).as_str() == "as_display"
 		&& matches!(targ(call.args, 0).kind(), ty::Ref(..))
 	{
-		return b.args(args, out).pop();
+		return args.into_iter().next_back();
 	}
 	if !is_std(tcx, call.def_id) {
 		return None;
@@ -305,7 +298,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 	let (owner, name) = key(tcx, call.def_id)?;
 	let span = call.span;
 	let gargs = call.args;
-	let args = match super::task::call(b, call, &owner, &name, args, out) {
+	let mut args = match super::task::call(b, call, &owner, &name, args) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
@@ -330,21 +323,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			"wrapping_sub" => "wrappingSub",
 			_ => return None,
 		};
-		if let ("from_be_bytes", Args::Thir([bytes])) = (name.as_str(), &args) {
-			return Some(from_be_bytes(b, int, *bytes, out));
-		}
-		let values = b.args(args, out);
-		return Some(int.method(method, values));
+		return Some(int.method(method, args));
 	}
 
 	let self_ty = || gargs.types().next();
-	let elem = |t: Ty<'tcx>| -> Option<Ty<'tcx>> {
-		match t.peel_refs().kind() {
-			ty::Slice(e) | ty::Array(e, _) => Some(*e),
-			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(args.type_at(0)),
-			_ => None,
-		}
-	};
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
 	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
 	// A range of integers, whose comparisons and clones JS makes as Rust does.
@@ -360,7 +342,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		// Conversions.
 		("From", "from") => {
 			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
-			let mut values = b.args(args, out);
+			let mut values = args;
 			let value = values.pop()?;
 			if to == from {
 				return Some(value);
@@ -378,7 +360,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("Into", "into") => {
 			let (from, to) = (targ(gargs, 0), targ(gargs, 1));
-			let mut values = b.args(args, out);
+			let mut values = args;
 			let value = values.pop()?;
 			b.convert(value, from, to, span, out)
 		}
@@ -387,7 +369,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
 				return None;
 			};
-			let values = b.args(args, out);
+			let values = args;
 			int.method("tryFrom", values)
 		}
 
@@ -408,23 +390,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				_ => rustc_middle::mir::BinOp::Shr,
 			};
 			let (lty, rty) = (targ(gargs, 0), targ(gargs, 1));
-			let consts = match &args {
-				Args::Thir(ids) => (b.const_int(ids[0]), b.const_int(ids[1])),
-				Args::Values(_) => (None, None),
-			};
-			let values = b.args(args, out);
-			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
+			let [l, r] = <[Expr; 2]>::try_from(args).ok()?;
 			num::binary(
 				b,
 				op,
-				Operand {
-					expr: l,
-					value: consts.0,
-				},
-				Operand {
-					expr: r,
-					value: consts.1,
-				},
+				Operand { expr: l, value: None },
+				Operand { expr: r, value: None },
 				lty,
 				rty,
 				span,
@@ -441,7 +412,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				"gt" => ">",
 				_ => ">=",
 			};
-			let values = b.args(args, out);
+			let values = args;
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
 			match Int::of(targ(gargs, 0).peel_refs()) {
 				Some(int) => int.compare(js, l, r),
@@ -449,7 +420,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 		}
 		("Ord", "max" | "min") if let Some(int) = Int::of(targ(gargs, 0)) => {
-			let values = b.args(args, out);
+			let values = args;
 			match int.big() {
 				true => int.method(name.as_str(), values),
 				false => Expr::rt(if name == "max" { "max" } else { "min" }, values),
@@ -457,7 +428,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("Clone", "clone") => {
 			let ty = targ(gargs, 0);
-			let values = b.args(args, out);
+			let values = args;
 			let value = values.into_iter().next()?;
 			match ty.kind() {
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) && is_u8(args.type_at(0)) => {
@@ -474,37 +445,30 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("Default", "default") => default_value(b, targ(gargs, 0))?,
 
 		// Options.
-		("Option", "map") => rt2(b, args, out, "option", "map"),
-		("Option", "map_or") => rt2(b, args, out, "option", "mapOr"),
-		("Option", "unwrap_or") => rt2(b, args, out, "option", "unwrapOr"),
-		("Option", "ok_or") => rt2(b, args, out, "option", "okOr"),
-		("Option", "unwrap") => rt2(b, args, out, "option", "unwrap"),
-		("Option", "expect") => rt2(b, args, out, "option", "expect"),
-		("Option", "is_some") => b.args(args, out).pop()?.binary("!==", Expr::undefined()),
-		("Option", "is_none") => b.args(args, out).pop()?.binary("===", Expr::undefined()),
-		("Option", "as_ref" | "as_mut") => b.args(args, out).pop()?,
+		("Option", "map") => rt2(args, "option", "map"),
+		("Option", "map_or") => rt2(args, "option", "mapOr"),
+		("Option", "unwrap_or") => rt2(args, "option", "unwrapOr"),
+		("Option", "ok_or") => rt2(args, "option", "okOr"),
+		("Option", "unwrap") => rt2(args, "option", "unwrap"),
+		("Option", "expect") => rt2(args, "option", "expect"),
+		("Option", "is_some") => args.pop()?.binary("!==", Expr::undefined()),
+		("Option", "is_none") => args.pop()?.binary("===", Expr::undefined()),
+		("Option", "as_ref" | "as_mut") => args.pop()?,
 		("Option", "copied" | "cloned") => {
 			let inner = targ(gargs, 0);
-			let value = b.args(args, out).pop()?;
+			let value = args.pop()?;
 			b.copied(value, inner)
-		}
-		("Option", "take") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let place = borrowed_place(b, ids[0], out)?;
-			swap_out(b, place, Expr::undefined(), "taken", out)
 		}
 
 		// Results.
-		("Result", "map") => rt2(b, args, out, "result", "map"),
-		("Result", "map_err") => rt2(b, args, out, "result", "mapErr"),
-		("Result", "and_then") => rt2(b, args, out, "result", "andThen"),
-		("Result", "inspect_err") => rt2(b, args, out, "result", "inspectErr"),
-		("Result", "is_ok") => b.args(args, out).pop()?.member("ok"),
-		("Result", "is_err") => b.args(args, out).pop()?.member("ok").not(),
-		("Result", "ok") => rt2(b, args, out, "result", "ok"),
-		("Result", "err") => rt2(b, args, out, "result", "err"),
+		("Result", "map") => rt2(args, "result", "map"),
+		("Result", "map_err") => rt2(args, "result", "mapErr"),
+		("Result", "and_then") => rt2(args, "result", "andThen"),
+		("Result", "inspect_err") => rt2(args, "result", "inspectErr"),
+		("Result", "is_ok") => args.pop()?.member("ok"),
+		("Result", "is_err") => args.pop()?.member("ok").not(),
+		("Result", "ok") => rt2(args, "result", "ok"),
+		("Result", "err") => rt2(args, "result", "err"),
 		// Their panics show the other side with its `Debug`.
 		("Result", "unwrap" | "expect" | "unwrap_err") => {
 			let (method, shown) = match name.as_str() {
@@ -512,16 +476,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				"expect" => ("expect", targ(gargs, 1)),
 				_ => ("unwrapErr", targ(gargs, 0)),
 			};
-			let mut values = b.args(args, out);
+			let mut values = args;
 			values.push(b.fmt_fn(fmt::Trait::Debug, shown, span));
 			Expr::rt_of("result", method).call(values)
 		}
-		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
+		("Result", "unwrap_or") => rt2(args, "result", "unwrapOr"),
 
 		// Ranges, which are their own iterators.
 		// An integer range wraps within its type's bounds where std's `nth` does.
 		("RangeInclusive", "new") if range => {
-			let mut values = b.args(args, out);
+			let mut values = args;
 			values.extend(self_ty().and_then(Int::of).map(|int| int.func("step")));
 			Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 		}
@@ -530,53 +494,32 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			if range && (matches!(name.as_str(), "start" | "end") || self_ty().and_then(Int::of).is_some()) =>
 		{
 			let of = range_of(inherent_std(tcx, call.def_id)?)?;
-			Expr::rt_of(of, &super::camel(&name)).call(b.args(args, out))
+			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
 
 		("bool", "then_some") => {
-			let values = b.args(args, out);
+			let values = args;
 			Expr::rt("thenSome", values)
 		}
 
 		// Slices.
-		("slice", "len") => b.args(args, out).pop()?.member("length"),
-		("slice", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
-		("slice", "split_first") => rt2(b, args, out, "slice", "splitFirst"),
-		("slice", "split_at") => rt2(b, args, out, "slice", "splitAt"),
-		("slice", "split_at_checked") => rt2(b, args, out, "slice", "splitAtChecked"),
-		("slice", "first") => rt2(b, args, out, "slice", "first"),
-		("slice", "get") if Int::of(targ(gargs, 1)).is_some() => rt2(b, args, out, "slice", "get"),
+		("slice", "len") => args.pop()?.member("length"),
+		("slice", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
+		("slice", "split_first") => rt2(args, "slice", "splitFirst"),
+		("slice", "split_at") => rt2(args, "slice", "splitAt"),
+		("slice", "split_at_checked") => rt2(args, "slice", "splitAtChecked"),
+		("slice", "first") => rt2(args, "slice", "first"),
+		("slice", "get") if Int::of(targ(gargs, 1)).is_some() => rt2(args, "slice", "get"),
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
-			let mut values = b.args(args, out);
+			let mut values = args;
 			values.push(Expr::lit(n.to_string()));
 			Expr::rt("sliceSplitFirstChunk", values)
 		}
-		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(b, args, out, "slice", "copyFromSlice"),
-		("slice", "copy_within") if is_u8(targ(gargs, 0)) => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let mut s = [b.operand(ids[0], out)];
-			let (start, end) = range_bounds(b, &mut s, ids[1], out)?;
-			let [s] = s;
-			let (s, end) = match end {
-				Some(end) => (s, end),
-				None => {
-					let s = path(b, s, "slice", out);
-					(s.clone(), s.member("length"))
-				}
-			};
-			let mut pre = Vec::new();
-			let dest = b.operand(ids[2], &mut pre);
-			let mut values = vec![s, start, end];
-			b.after(&mut values, pre, out);
-			values.push(dest);
-			Expr::rt("sliceCopyWithin", values)
-		}
+		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "slice", "copyFromSlice"),
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
-			let values = b.args(args, out);
+			let values = args;
 			match is_u8(elem) {
 				true => Expr::rt("sliceToByteVec", values),
 				false if b.t.is_copy(elem) => Expr::rt("sliceToVec", values),
@@ -586,16 +529,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		("slice", "into_vec") => {
 			// `vec![..]`: `<[T]>::into_vec(box_new([..]))`.
 			let elem = targ(gargs, 0);
-			let value = b.args(args, out).pop()?;
+			let value = args.pop()?;
 			match is_u8(elem) {
 				true => Expr::rt("byteVecFrom", vec![value]),
 				false => value,
 			}
 		}
-		("boxed", "box_new") | ("Box", "new") => b.args(args, out).pop()?,
+		("boxed", "box_new") | ("Box", "new") => args.pop()?,
 		("vec", "from_elem") => {
 			let elem = targ(gargs, 0);
-			let values = b.args(args, out);
+			let values = args;
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
 				false if b.t.is_copy(elem) => {
@@ -625,14 +568,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			false => Expr::Array(Vec::new()),
 		},
 		("Vec", "with_capacity") => match is_u8(targ(gargs, 0)) {
-			true => Expr::New(Box::new(Expr::Rt("ByteVec".into())), b.args(args, out)),
-			false => {
-				b.args(args, out);
-				Expr::Array(Vec::new())
-			}
+			true => Expr::New(Box::new(Expr::Rt("ByteVec".into())), args),
+			false => Expr::Array(Vec::new()),
 		},
 		("Vec", "push") => {
-			let mut values = b.args(args, out);
+			let mut values = args;
 			match is_u8(targ(gargs, 0)) {
 				true => Expr::rt("byteVecPush", values),
 				false => {
@@ -642,21 +582,21 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 		}
 		("Vec", "pop") => match is_u8(targ(gargs, 0)) {
-			true => Expr::rt("byteVecPop", b.args(args, out)),
-			false => b.args(args, out).pop()?.method("pop", vec![]),
+			true => Expr::rt("byteVecPop", args),
+			false => args.pop()?.method("pop", vec![]),
 		},
-		("Vec", "len") => b.args(args, out).pop()?.member("length"),
-		("Vec", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
-		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", b.args(args, out)),
-		("Vec", "clear") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecClear", b.args(args, out)),
-		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecExtendFromSlice", b.args(args, out)),
+		("Vec", "len") => args.pop()?.member("length"),
+		("Vec", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
+		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", args),
+		("Vec", "clear") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecClear", args),
+		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecExtendFromSlice", args),
 		("Vec", "as_slice" | "as_mut_slice") => {
-			let v = b.args(args, out).pop()?;
+			let v = args.pop()?;
 			vec_view(v, targ(gargs, 0))
 		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => {
 			let ty = targ(gargs, 0);
-			let v = b.args(args, out).pop()?;
+			let v = args.pop()?;
 			match ty.kind() {
 				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 					Some(Std::Vec) => vec_view(v, ty),
@@ -666,100 +606,29 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				_ => return None,
 			}
 		}
-		("Index", "index") | ("IndexMut", "index_mut") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let container = targ(gargs, 0);
-			let index_ty = targ(gargs, 1);
-			let elem_ty = elem(container)?;
-			let base = b.operand(ids[0], out);
-			let base = match container.kind() {
-				ty::Adt(..) => vec_view(base, container),
-				_ => base,
-			};
-			match Int::of(index_ty) {
-				Some(_) => {
-					let mut pre = Vec::new();
-					let i = b.operand(ids[1], &mut pre);
-					let mut base = [base];
-					b.after(&mut base, pre, out);
-					let [base] = base;
-					match name.as_str() {
-						"index" => Expr::rt("at", vec![base, i]),
-						_ => {
-							let base = path(b, base, "slice", out);
-							let i = path(b, i, "index", out);
-							base.clone().index(Expr::rt("idx", vec![base, i]))
-						}
-					}
-				}
-				None => {
-					if name == "index_mut" && !is_u8(elem_ty) {
-						// A JS array has no views, so a mutable subslice would be a copy.
-						return None;
-					}
-					let mut base = [base];
-					let (start, end) = range_bounds(b, &mut base, ids[1], out)?;
-					let [base] = base;
-					let mut values = vec![base, start];
-					values.extend(end);
-					Expr::rt("sliceRange", values)
-				}
-			}
-		}
 
 		// Strings.
-		("String" | "str", "as_bytes") => Expr::rt("stringAsBytes", b.args(args, out)),
-		("String", "from_utf8") => Expr::rt("stringFromUtf8", b.args(args, out)),
-		("String" | "str", "len") => Expr::rt("stringLen", b.args(args, out)),
-		("String", "as_str") => b.args(args, out).pop()?,
+		("String" | "str", "as_bytes") => Expr::rt("stringAsBytes", args),
+		("String", "from_utf8") => Expr::rt("stringFromUtf8", args),
+		("String" | "str", "len") => Expr::rt("stringLen", args),
+		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
-			b.args(args, out).pop()?
-		}
-
-		// Moving out of a place.
-		("mem", "take") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let ty = targ(gargs, 0);
-			let place = borrowed_place(b, ids[0], out)?;
-			let default = default_value(b, ty)?;
-			swap_out(b, place, default, "taken", out)
-		}
-		("mem", "replace") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let place = borrowed_place(b, ids[0], out)?;
-			let value = b.operand(ids[1], out);
-			swap_out(b, place, value, "old", out)
-		}
-		("mem", "swap") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let a = borrowed_place(b, ids[0], out)?;
-			let c = borrowed_place(b, ids[1], out)?;
-			let old = swap_out(b, a.clone(), c.clone(), "swapped", out);
-			out.push(StmtKind::Expr(c.assign(old)).at(None));
-			Expr::undefined()
+			args.pop()?
 		}
 
 		// Panics, which format their message as std does.
 		("panicking", "panic_fmt") => {
-			let message = b.args(args, out).pop()?;
+			let message = args.pop()?;
 			match literal(&message) {
 				Some(s) => Expr::rt("panic", vec![Expr::Str(s)]),
 				None => Expr::rt("panicFmt", vec![message]),
 			}
 		}
-		("panicking", "panic") | ("rt", "begin_panic") => Expr::rt("panic", b.args(args, out)),
+		("panicking", "panic") | ("rt", "begin_panic") => Expr::rt("panic", args),
 		("panicking", "panic_explicit") => Expr::rt("panic", vec![Expr::Str("explicit panic".into())]),
 		("panicking", "panic_display" | "unreachable_display") => {
-			let value = b.args(args, out).pop()?;
+			let value = args.pop()?;
 			let value = b.fmt_value(fmt::Trait::Display, targ(gargs, 0), value, span, out);
 			let mut message = vec![value];
 			if name == "unreachable_display" {
@@ -769,7 +638,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		// `assert_eq!` and `assert_ne!`: the operator, both sides, and any message.
 		("panicking", "assert_failed") => {
-			let [kind, left, right, message] = <[Expr; 4]>::try_from(b.args(args, out)).ok()?;
+			let [kind, left, right, message] = <[Expr; 4]>::try_from(args).ok()?;
 			let left = b.fmt_value(fmt::Trait::Debug, targ(gargs, 0), left, span, out);
 			let right = b.fmt_value(fmt::Trait::Debug, targ(gargs, 1), right, span, out);
 			let mut values = vec![kind, left, right];
@@ -780,9 +649,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 
 		// Formatting.
-		("hint", "must_use") => b.args(args, out).pop()?,
+		("hint", "must_use") => args.pop()?,
 		("fmt", "format") => {
-			let parts = b.args(args, out).pop()?;
+			let parts = args.pop()?;
 			match literal(&parts) {
 				Some(s) => Expr::Str(s),
 				None => Expr::rt("fmtFormat", vec![parts]),
@@ -790,12 +659,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		}
 		("Display" | "Debug" | "LowerHex" | "UpperHex", "fmt") => {
 			let tr = fmt::Trait::of(tcx, tcx.trait_of_assoc(call.def_id)?)?;
-			let [value, f] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+			let [value, f] = <[Expr; 2]>::try_from(args).ok()?;
 			fmt::std_impl(b, tr, targ(gargs, 0), value, f, span, out)?
 		}
 		("ToString", "to_string") => {
 			let ty = targ(gargs, 0);
-			let value = b.args(args, out).pop()?;
+			let value = args.pop()?;
 			match ty.kind() {
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
 				_ => {
@@ -805,7 +674,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 		}
 		("Formatter", "write_fmt") => {
-			let [f, parts] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
+			let [f, parts] = <[Expr; 2]>::try_from(args).ok()?;
 			match literal(&parts) {
 				Some(s) => Expr::rt("fmtWriteStr", vec![f, Expr::Str(s)]),
 				None => Expr::rt("fmtWriteFmt", vec![f, parts]),
@@ -821,13 +690,13 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				"DebugTuple" => "debugTuple",
 				_ => "debugList",
 			};
-			Expr::rt_of(of, &super::camel(&name)).call(b.args(args, out))
+			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
 		// Derived `Debug`: `debug_struct_field2_finish(f, name, "a", &a, "b", &b)`.
-		("Formatter", "debug_struct_fields_finish") => Expr::rt("fmtDebugStructFields", b.args(args, out)),
-		("Formatter", "debug_tuple_fields_finish") => Expr::rt("fmtDebugTupleFields", b.args(args, out)),
+		("Formatter", "debug_struct_fields_finish") => Expr::rt("fmtDebugStructFields", args),
+		("Formatter", "debug_tuple_fields_finish") => Expr::rt("fmtDebugTupleFields", args),
 		("Formatter", n) if n.starts_with("debug_struct_field") || n.starts_with("debug_tuple_field") => {
-			let mut values = b.args(args, out).into_iter();
+			let mut values = args.into_iter();
 			let (f, type_name) = (values.next()?, values.next()?);
 			let structure = n.starts_with("debug_struct");
 			let (of, start) = match structure {
@@ -845,16 +714,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			}
 			Expr::rt_of(of, "finish").call(vec![builder])
 		}
-		("DebugList", "entries") => {
-			let Args::Thir(ids) = args else {
-				return None;
-			};
-			let list = b.operand(ids[0], out);
-			let items = items(b, ids[1], out)?;
-			let debug = b.fmt_fn(fmt::Trait::Debug, targ(gargs, 0), span);
-			Expr::rt("debugListEntries", vec![list, items, debug])
-		}
-		_ => return super::iter::call(b, call, &owner, &name, args, out),
+		_ => return super::iter::call(b, call, &owner, &name, args),
 	};
 	if let Some(ty) = dropping {
 		return Some(b.err(
@@ -863,22 +723,6 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		));
 	}
 	Some(e)
-}
-
-/// `int::from_be_bytes(bytes)`. A number from an array written in place is its bytes
-/// shifted and or-ed, with no array made. Otherwise the runtime reads the array the
-/// argument names, uncopied, since the read neither keeps nor changes it.
-fn from_be_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, int: Int, bytes: ExprId, out: &mut Vec<Stmt>) -> Expr {
-	let thir = b.thir;
-	let fields = match &thir[b.strip(bytes)].kind {
-		ExprKind::Array { fields } if !int.big() => fields,
-		_ => {
-			let value = b.place(bytes, out);
-			return int.method("fromBeBytes", vec![value]);
-		}
-	};
-	let values = b.operands(fields, out);
-	be_word(int, values)
 }
 
 /// A number from its big-endian bytes, each a value: shifted and or-ed.
@@ -919,9 +763,8 @@ pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 }
 
 /// `rt.<of><Name>(args)`.
-fn rt2<'tcx>(b: &mut Body<'_, '_, 'tcx>, args: Args<'_>, out: &mut Vec<Stmt>, of: &str, name: &str) -> Expr {
-	let values = b.args(args, out);
-	Expr::rt_of(of, name).call(values)
+fn rt2(args: Vec<Expr>, of: &str, name: &str) -> Expr {
+	Expr::rt_of(of, name).call(args)
 }
 
 /// What the runtime's functions of a std range type start with.
@@ -978,95 +821,6 @@ impl MethodCall for Expr {
 	}
 }
 
-fn path<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
-	if value.is_path() {
-		return value;
-	}
-	let name = b.fresh(base);
-	out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
-	Expr::ident(name)
-}
-
-/// The start and optional end of a range written in place: `a..b`, `..b`, `a..`, `..`.
-/// `earlier` are the operands evaluated before it, spilled if the range needs statements.
-fn range_bounds<'tcx>(
-	b: &mut Body<'_, '_, 'tcx>,
-	earlier: &mut [Expr],
-	id: ExprId,
-	out: &mut Vec<Stmt>,
-) -> Option<(Expr, Option<Expr>)> {
-	let tcx = b.t.tcx;
-	let written = id;
-	let id = b.strip(id);
-	let ty = b.ty_of(id);
-	let ty::Adt(adt, _) = ty.kind() else {
-		return None;
-	};
-	let name = tcx.item_name(adt.did()).to_string();
-	let mut pre = Vec::new();
-	let mut values: Vec<Expr> = match &b.thir[id].kind {
-		// `..` has no bounds, but what makes it still runs.
-		_ if name == "RangeFull" => {
-			b.stmt(written, Dest::Discard, &mut pre);
-			Vec::new()
-		}
-		ExprKind::Adt(range) => {
-			b.visit(written);
-			let values = b.written(range, ty, b.thir[id].span, &mut pre);
-			b.declared(values, &mut pre).into_iter().map(|(_, v)| v).collect()
-		}
-		_ => return None,
-	};
-	b.after(earlier, pre, out);
-	match name.as_str() {
-		"Range" => {
-			let end = values.pop()?;
-			let start = values.pop()?;
-			Some((start, Some(end)))
-		}
-		"RangeTo" => Some((Expr::lit("0"), values.pop())),
-		"RangeFrom" => Some((values.pop()?, None)),
-		"RangeFull" => Some((Expr::lit("0"), None)),
-		_ => None,
-	}
-}
-
-/// The place behind `&mut place`, as an assignable path.
-fn borrowed_place<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
-	let written = id;
-	let id = b.strip(id);
-	let ExprKind::Borrow { mut arg, .. } = b.thir[id].kind else {
-		return None;
-	};
-	// A reborrow, `&mut *&mut place`.
-	while let ExprKind::Deref { arg: inner } = b.thir[b.strip(arg)].kind
-		&& let ExprKind::Borrow { arg: place, .. } = b.thir[b.strip(inner)].kind
-	{
-		arg = place;
-	}
-	// The path to `*r` is `r` itself: assigning it would rebind the reference.
-	if let ExprKind::Deref { arg: pointer } = b.thir[b.strip(arg)].kind
-		&& matches!(b.ty_of(pointer).kind(), ty::Ref(..))
-	{
-		let pointee = b.ty_of(arg);
-		return Some(b.err(
-			b.thir[arg].span,
-			format!("replacing the value behind a reference to `{pointee}`"),
-		));
-	}
-	b.visit(written);
-	let place = b.place(arg, out);
-	place.is_path().then_some(place)
-}
-
-/// The value at `place`, after setting `place` to `value`.
-pub fn swap_out<'tcx>(b: &mut Body<'_, '_, 'tcx>, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
-	let name = b.fresh(base);
-	out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
-	out.push(StmtKind::Expr(place.assign(value)).at(None));
-	Expr::ident(name)
-}
-
 /// `Default::default()` for a standard type.
 pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
 	let tcx = b.t.tcx;
@@ -1106,39 +860,4 @@ pub fn literal(parts: &Expr) -> Option<String> {
 			_ => None,
 		})
 		.collect()
-}
-
-/// The slice `id` iterates if it is `<[T]>::iter(slice)`, which iterates as the JS array
-/// or `Uint8Array` itself does.
-pub fn iterated_slice(b: &Body<'_, '_, '_>, id: ExprId) -> Option<ExprId> {
-	let ExprKind::Call { ty: fn_ty, args, .. } = &b.thir[b.strip(id)].kind else {
-		return None;
-	};
-	let ty::FnDef(iter, _) = *b.subst(*fn_ty).kind() else {
-		return None;
-	};
-	(key(b.t.tcx, iter) == Some(("slice".into(), "iter".into()))).then(|| args[0])
-}
-
-/// What an `IntoIterator` iterates, as an iterable JS value: a slice, array, or `Vec`
-/// itself, by value or by reference, or else an `rt.Iter`.
-fn items<'tcx>(b: &mut Body<'_, '_, 'tcx>, id: ExprId, out: &mut Vec<Stmt>) -> Option<Expr> {
-	let tcx = b.t.tcx;
-	if let Some(slice) = iterated_slice(b, id) {
-		b.visit(id);
-		return Some(b.operand(slice, out));
-	}
-	let id = b.strip(id);
-	let ty = b.ty_of(id);
-	match ty.peel_refs().kind() {
-		ty::Slice(_) | ty::Array(..) => Some(b.operand(id, out)),
-		ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
-			let v = b.operand(id, out);
-			Some(vec_view(v, ty))
-		}
-		_ => {
-			let value = b.operand(id, out);
-			super::iter::into_iter(b, ty, value, b.span(id))
-		}
-	}
 }

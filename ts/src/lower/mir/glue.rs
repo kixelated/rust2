@@ -45,7 +45,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 	let body = tcx.instance_mir(instance.def).clone();
 	let mir =
 		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
-	let mut b = Body::detached(t, instance.args, tcx.types.unit);
+	let mut b = Body::new(t, instance.args);
 	let mut fx = Fx::new(&mut b, &mir, Env::Shim, span);
 	let params = fx.params();
 	let body = fx.lower();
@@ -64,7 +64,6 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 		body,
 		loc: None,
 		doc: None,
-		generator: false,
 	}));
 	Some(sym)
 }

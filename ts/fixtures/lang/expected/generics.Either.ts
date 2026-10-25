@@ -4,81 +4,126 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug_Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self0!: Point.Point;
+	let _5!: string;
+	let _6!: rt.Fmt;
+	let __self02!: rt.u8;
+	let _9!: string;
+	let _10!: string;
+	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => Point.fmt$Debug(__self0, f)));
+		__self0 = self._0;
+		_5 = "Left";
+		_6 = (f: rt.Formatter) => Point.fmt$Debug(__self0, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		const __self02 = self.value;
-		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => rt.u8Display(__self02, f)));
+		__self02 = self.value;
+		_9 = "Right";
+		_10 = "value";
+		_11 = (f: rt.Formatter) => rt.u8Display(__self02, f);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
-		return rt.fmtWriteStr(f, "Neither");
+		_0 = rt.fmtWriteStr(f, "Neither");
 	}
+	return _0;
 }
 
 export function fmt$Debug_u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self0!: rt.u8;
+	let _5!: string;
+	let _6!: rt.Fmt;
+	let __self02!: Point.Point;
+	let _9!: string;
+	let _10!: string;
+	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
+		__self0 = self._0;
+		_5 = "Left";
+		_6 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		const __self02 = self.value;
-		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => Point.fmt$Debug(__self02, f)));
+		__self02 = self.value;
+		_9 = "Right";
+		_10 = "value";
+		_11 = (f: rt.Formatter) => Point.fmt$Debug(__self02, f);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
-		return rt.fmtWriteStr(f, "Neither");
+		_0 = rt.fmtWriteStr(f, "Neither");
 	}
+	return _0;
 }
 
 export function fmt$Debug_u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _0!: rt.Result<undefined, rt.FmtError>;
+	let __self0!: rt.u8;
+	let _5!: string;
+	let _6!: rt.Fmt;
+	let __self02!: rt.u16;
+	let _9!: string;
+	let _10!: string;
+	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Left"), (f: rt.Formatter) => rt.u8Display(__self0, f)));
+		__self0 = self._0;
+		_5 = "Left";
+		_6 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		const __self02 = self.value;
-		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, "Right"), "value", (f: rt.Formatter) => rt.u16Display(__self02, f)));
+		__self02 = self.value;
+		_9 = "Right";
+		_10 = "value";
+		_11 = (f: rt.Formatter) => rt.u16Display(__self02, f);
+		_0 = rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
-		return rt.fmtWriteStr(f, "Neither");
+		_0 = rt.fmtWriteStr(f, "Neither");
 	}
+	return _0;
 }
 
 /** A generic enum, with a companion function per instance. */
 export type Either<L, R> = { tag: "Left"; _0: L } | { tag: "Right"; value: R } | { tag: "Neither" };
 
 export function left$Point_u8(self: Either<Point.Point, rt.u8>): Point.Point | undefined {
+	let _0!: Point.Point | undefined;
 	if (self.tag === "Left") {
-		const l = rt.copy(self._0);
-		return rt.copy(l);
+		_0 = rt.copy(self._0);
 	} else {
-		return undefined;
+		_0 = undefined;
 	}
+	return _0;
 }
 
 export function left$u8_Point(self: Either<rt.u8, Point.Point>): rt.u8 | undefined {
+	let _0!: rt.u8 | undefined;
 	if (self.tag === "Left") {
-		const l = self._0;
-		return l;
+		_0 = self._0;
 	} else {
-		return undefined;
+		_0 = undefined;
 	}
+	return _0;
 }
 
 export function left$u8_u16(self: Either<rt.u8, rt.u16>): rt.u8 | undefined {
+	let _0!: rt.u8 | undefined;
 	if (self.tag === "Left") {
-		const l = self._0;
-		return l;
+		_0 = self._0;
 	} else {
-		return undefined;
+		_0 = undefined;
 	}
+	return _0;
 }
 
 export function flip$u8_Point(self: Either<rt.u8, Point.Point>): Either<Point.Point, rt.u8> {
+	let _0!: Either<Point.Point, rt.u8>;
 	if (self.tag === "Left") {
-		const l = self._0;
-		return { tag: "Right", value: l };
+		_0 = { tag: "Right", value: self._0 } as Either<Point.Point, rt.u8>;
 	} else if (self.tag === "Right") {
-		const value = rt.copy(self.value);
-		return { tag: "Left", _0: rt.copy(value) };
+		_0 = { tag: "Left", _0: self.value } as Either<Point.Point, rt.u8>;
 	} else {
-		return { tag: "Neither" };
+		_0 = { tag: "Neither" } as Either<Point.Point, rt.u8>;
 	}
+	return _0;
 }
 
 //# sourceMappingURL=generics.Either.ts.map

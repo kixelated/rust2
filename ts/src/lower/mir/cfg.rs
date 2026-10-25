@@ -395,10 +395,6 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| simplify(body));
 				simplify(default);
 			}
-			StmtKind::Try { body, finally } => {
-				simplify(body);
-				simplify(finally);
-			}
 			StmtKind::Catch { body, handler, .. } => {
 				simplify(body);
 				simplify(handler);
@@ -494,11 +490,7 @@ fn targets(stmts: &[Stmt], label: &str) -> bool {
 	stmts.iter().any(|stmt| match &stmt.kind {
 		StmtKind::Break(Some(l)) | StmtKind::Continue(Some(l)) => l == label,
 		StmtKind::If { then, els, .. } => targets(then, label) || targets(els, label),
-		StmtKind::Block { body, .. }
-		| StmtKind::While { body, .. }
-		| StmtKind::ForRange { body, .. }
-		| StmtKind::ForOf { body, .. } => targets(body, label),
-		StmtKind::Try { body, finally } => targets(body, label) || targets(finally, label),
+		StmtKind::Block { body, .. } | StmtKind::While { body, .. } => targets(body, label),
 		StmtKind::Catch { body, handler, .. } => targets(body, label) || targets(handler, label),
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| targets(body, label)) || targets(default, label)

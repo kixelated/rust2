@@ -21,30 +21,42 @@ export class Channel {
 }
 
 export function open(): Channel {
-	let producer = Producer.new();
+	let _0!: Channel;
+	let producer!: Producer.Producer;
+	let consumer_!: Consumer.Consumer;
+	let producers!: Producer.Producer[];
+	let _10!: boolean;
+	let unwind: number = 0;
 	try {
-		let consumer_ = Producer.consume(producer);
-		try {
-			let producers: Producer.Producer[] = [];
-			try {
-				const arg = producers;
-				const producer2 = producer;
-				producer = undefined!;
-				arg.push(producer2);
-				const producers2 = producers;
-				producers = undefined!;
-				const arg2 = producers2;
-				const consumer2 = consumer_;
-				consumer_ = undefined!;
-				return new Channel({ producers: arg2, consumer: consumer2 });
-			} finally {
-				rt.dropAll(producers);
+		_10 = false;
+		_10 = true;
+		producer = Producer.new();
+		unwind = 10;
+		consumer_ = Producer.consume(producer);
+		unwind = 7;
+		producers = [];
+		unwind = 6;
+		_10 = false;
+		producers.push(producer);
+		_0 = new Channel({ producers, consumer: consumer_ });
+		_10 = false;
+		return _0;
+	} catch (e) {
+		b0: {
+			if (unwind === 0) {
+				throw e;
 			}
-		} finally {
+			if (unwind === 6) {
+				rt.dropAll(producers);
+			} else if (unwind !== 7) {
+				break b0;
+			}
 			rt.drop(consumer_);
 		}
-	} finally {
-		rt.drop(producer);
+		if (_10) {
+			rt.drop(producer);
+		}
+		throw e;
 	}
 }
 
@@ -55,53 +67,46 @@ export function consumer(self: Channel): Consumer.Consumer {
 
 /** Send `value` through the first producer, if one is open. */
 export function send(self: Channel, value: rt.u64): boolean {
-	const first = rt.sliceFirst(self.producers);
-	if (first !== undefined) {
-		const producer = first;
-		Producer.send(producer, value);
-		return true;
+	let _0!: boolean;
+	let _3!: Producer.Producer | undefined;
+	_3 = rt.sliceFirst(self.producers);
+	if (_3 === undefined) {
+		_0 = false;
 	} else {
-		return false;
+		Producer.send(_3, value);
+		_0 = true;
 	}
+	return _0;
 }
 
 /** Drop the last producer, if one is open: the last closes the channel. */
 export function close(self: Channel): boolean {
-	const pop = self.producers.pop();
-	if (pop !== undefined) {
-		let producer = pop;
-		try {
-			const producer2 = producer;
-			producer = undefined!;
-			rt.drop(producer2);
-			return true;
-		} finally {
-			rt.drop(producer);
-		}
+	let _0!: boolean;
+	let _2!: Producer.Producer | undefined;
+	_2 = self.producers.pop();
+	if (_2 === undefined) {
+		_0 = false;
 	} else {
-		return false;
+		rt.drop(_2);
+		_0 = true;
 	}
+	return _0;
 }
 
 /** Open another producer, if one is open to clone. */
 export function cloneProducer(self: Channel): boolean {
-	let clone: Producer.Producer = undefined!;
-	try {
-		const first = rt.sliceFirst(self.producers);
-		if (first !== undefined) {
-			const producer = first;
-			clone = Producer.clone$Clone(producer);
-		} else {
-			return false;
-		}
-		const arg = self.producers;
-		const clone2 = clone;
-		clone = undefined!;
-		arg.push(clone2);
-		return true;
-	} finally {
-		rt.drop(clone);
+	let _0!: boolean;
+	let clone!: Producer.Producer;
+	let _3!: Producer.Producer | undefined;
+	_3 = rt.sliceFirst(self.producers);
+	if (_3 === undefined) {
+		_0 = false;
+	} else {
+		clone = Producer.clone$Clone(_3);
+		self.producers.push(clone);
+		_0 = true;
 	}
+	return _0;
 }
 
 //# sourceMappingURL=model.Channel.ts.map

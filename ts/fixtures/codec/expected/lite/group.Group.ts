@@ -5,19 +5,30 @@ import type * as DecodeError from "../coding/decode.DecodeError.ts";
 import * as Decoder from "../coding/decode.Decoder.ts";
 import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
+import type * as Prefix from "../coding/encode.Prefix.ts";
 import * as Form from "../coding/varint.Form.ts";
 import { decodeWith$Group_decode_closure0 } from "../lite/message.ts";
 import * as Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
-	let r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
-	const decode = decode$Decode_Version(r, version);
-	if (!decode.ok) {
-		return rt.Err(decode.error);
+	let _0!: rt.Result<[Group, rt.usize], DecodeError.DecodeError>;
+	let r!: Decoder.Decoder;
+	let value!: Group;
+	let _6!: rt.Result<Group, DecodeError.DecodeError>;
+	let val!: Group;
+	let _13!: Group;
+	r = Decoder.new(buf, Form.from$From_Version(version));
+	_6 = decode$Decode_Version(r, version);
+	if (_6.ok) {
+		val = _6.value;
+		value = val;
+		_13 = value;
+		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Group, rt.usize]);
+	} else {
+		_0 = _6;
 	}
-	const value = decode.value;
-	return rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
+	return _0;
 }
 
 export interface Group {
@@ -28,67 +39,101 @@ export interface Group {
 
 /** Decode a message body (without size prefix). */
 export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Group, DecodeError.DecodeError> {
-	const varint = Decoder.varint(r);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	const subscribe = varint.value;
-	const varint2 = Decoder.varint(r);
-	if (!varint2.ok) {
-		return rt.Err(varint2.error);
-	}
-	const sequence = varint2.value;
-	let frameStart: rt.u64;
-	if (Version.hasFrameBounds(version)) {
-		const varint3 = Decoder.varint(r);
-		if (!varint3.ok) {
-			return rt.Err(varint3.error);
+	let _0!: rt.Result<Group, DecodeError.DecodeError>;
+	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	let subscribe!: rt.u64;
+	let _8!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	let sequence!: rt.u64;
+	let frameStart!: rt.u64;
+	let _15!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	_3 = Decoder.varint(r);
+	b0: {
+		if (_3.ok) {
+			subscribe = _3.value;
+			_8 = Decoder.varint(r);
+			if (_8.ok) {
+				sequence = _8.value;
+				if (!Version.hasFrameBounds(version)) {
+					frameStart = 0;
+				} else {
+					_15 = Decoder.varint(r);
+					if (_15.ok) {
+						frameStart = _15.value;
+					} else {
+						_0 = _15;
+						break b0;
+					}
+				}
+				_0 = rt.Ok({ subscribe, sequence, frameStart });
+			} else {
+				_0 = _8;
+			}
+		} else {
+			_0 = _3;
 		}
-		frameStart = varint3.value;
-	} else {
-		frameStart = 0;
 	}
-	return rt.Ok({ subscribe, sequence, frameStart });
+	return _0;
 }
 
 /** Encode this message body (without size prefix). */
 export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint = Encoder.varint(w, self.subscribe);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	const varint2 = Encoder.varint(w, self.sequence);
-	if (!varint2.ok) {
-		return rt.Err(varint2.error);
-	}
-	if (Version.hasFrameBounds(version)) {
-		const varint3 = Encoder.varint(w, self.frameStart);
-		if (!varint3.ok) {
-			return rt.Err(varint3.error);
+	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _9!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _15!: rt.Result<undefined, EncodeError.EncodeError>;
+	_4 = Encoder.varint(w, self.subscribe);
+	b0: {
+		if (_4.ok) {
+			_9 = Encoder.varint(w, self.sequence);
+			if (_9.ok) {
+				if (!Version.hasFrameBounds(version)) {
+					if (self.frameStart !== 0) {
+						_0 = rt.Err("Version" as EncodeError.EncodeError);
+						break b0;
+					}
+				} else {
+					_15 = Encoder.varint(w, self.frameStart);
+					if (!_15.ok) {
+						_0 = _15;
+						break b0;
+					}
+				}
+				_0 = rt.Ok(undefined);
+			} else {
+				_0 = _9;
+			}
+		} else {
+			_0 = _4;
 		}
-	} else if (self.frameStart !== 0) {
-		return rt.Err("Version");
 	}
-	return rt.Ok(undefined);
+	return _0;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
 export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	const prefix = Encoder.prefixVarint(w);
-	const encodeMsg = encodeMsg$Message(self, w, version);
-	if (!encodeMsg.ok) {
-		return rt.Err(encodeMsg.error);
+	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
+	let prefix!: Prefix.Prefix;
+	let _39!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _49!: rt.Result<undefined, EncodeError.EncodeError>;
+	prefix = Encoder.prefixVarint(w);
+	_39 = encodeMsg$Message(self, w, version);
+	if (_39.ok) {
+		if (!(Encoder.since(w, prefix) > 65535)) {
+			_49 = Encoder.fill(w, prefix);
+			if (_49.ok) {
+				w.control = undefined;
+				_0 = rt.Ok(undefined);
+			} else {
+				_0 = _49;
+			}
+		} else {
+			Encoder.discard(w, prefix);
+			_0 = rt.Err("TooLarge" as EncodeError.EncodeError);
+		}
+	} else {
+		_0 = _39;
 	}
-	if (Encoder.since(w, prefix) > 65535) {
-		Encoder.discard(w, prefix);
-		return rt.Err("TooLarge");
-	}
-	const fill = Encoder.fill(w, prefix);
-	if (!fill.ok) {
-		return rt.Err(fill.error);
-	}
-	w.control = undefined;
-	return rt.Ok(undefined);
+	return _0;
 }
 
 /** Decode the value from the front of the decoder. */

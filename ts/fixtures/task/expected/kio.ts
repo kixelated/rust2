@@ -8,25 +8,79 @@ import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending.Pending({ poll, park: Park.default$Default() });
+	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>;
+	_2 = poll;
+	return new Pending.Pending({ poll: _2, park: Park.default$Default() });
 }
 
-export function* recvBody(_taskContext: rt.Context, self: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const self2 = self;
-	let __awaitee: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
-		return Consumer.pollRecv(self2, waiter);
-	});
-	try {
-		while (true) {
-			const poll = Pending.poll$Future_recv_closure0_closure0(__awaitee, _taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class recvFuture {
+	state: number = 0;
+	self: Consumer.Consumer;
+	__awaitee_!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
+
+	constructor(self: Consumer.Consumer) {
+		this.self = self;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 0) {
+			return;
+		} else if (this.state === 3) {
+			rt.drop(this.__awaitee_);
+			return;
+		} else {
+			return;
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _0!: rt.Poll<rt.u64 | undefined>;
+		let self!: Consumer.Consumer;
+		let _4!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
+		let _7!: rt.Poll<rt.u64 | undefined>;
+		let result!: rt.u64 | undefined;
+		let _taskContext!: rt.Context;
+		let unwind: number = 0;
+		try {
+			_taskContext = _2;
+			if (this.state === 0) {
+				unwind = 12;
+				self = this.self;
+				_4 = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+					return Consumer.pollRecv(self, waiter);
+				});
+				this.__awaitee_ = _4;
+			} else if (this.state === 1) {
+				unwind = 0;
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				unwind = 0;
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_7 = Pending.poll$Future_recv_closure0_closure0(this.__awaitee_, _taskContext);
+			if (_7 !== rt.Pending) {
+				unwind = 12;
+				result = _7;
+				rt.drop(this.__awaitee_);
+				_0 = result;
+				this.state = 1;
+				return _0;
+			} else {
+				_0 = rt.Pending;
+				this.state = 3;
+				return _0;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 

@@ -10,7 +10,7 @@ use rustc_span::{Span, Spanned};
 
 use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
-use crate::lower::library::{self, Args, Std};
+use crate::lower::library::{self, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
@@ -150,9 +150,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			};
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
-				return self
-					.b
-					.call_def(inner, inner_args.skip_binder(), Args::Values(values), span, out);
+				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
 			let f = self.operand(&callee.node, span, out);
 			return f.call(values);
@@ -168,7 +166,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		let values = self.operands(args, span, out);
-		self.b.call_def(def_id, gargs, Args::Values(values), span, out)
+		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
 	/// Refuse a `&mut` to a value JS copies, passed on whole to code that could write
@@ -272,17 +270,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// `format_args!`, as MIR builds it: each argument a function writing its value,
 			// and a template of literal pieces and placeholders.
 			("Argument", name) if name.starts_with("new_") || name == "from_usize" => {
-				let tr = match name {
-					"new_display" => fmt::Trait::Display,
-					"new_debug" => fmt::Trait::Debug,
-					"new_lower_hex" => fmt::Trait::LowerHex,
-					"new_upper_hex" => fmt::Trait::UpperHex,
-					"from_usize" => {
-						self.err(span, format!("{} is not supported", fmt::FROM_ARGUMENT));
-						return done(Expr::undefined(), false);
-					}
-					other => {
-						self.err(span, format!("formatting by `{other}` is not supported"));
+				let tr = match fmt::argument(name) {
+					Ok(tr) => tr,
+					Err(construct) => {
+						self.err(span, format!("{construct} is not supported"));
 						return done(Expr::undefined(), false);
 					}
 				};

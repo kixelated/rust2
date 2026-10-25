@@ -3,7 +3,15 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Moved"), (f: rt.Formatter) => rt.u8Display(self._0, f)), (f: rt.Formatter) => rt.u16Display(self._1, f)));
+	let _3!: string;
+	let _4!: rt.Fmt;
+	let _6!: rt.Fmt;
+	let _8!: rt.u16;
+	_4 = (f: rt.Formatter) => rt.u8Display(self._0, f);
+	_8 = self._1;
+	_3 = "Moved";
+	_6 = (f: rt.Formatter) => rt.u16Display(_8, f);
+	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _3), _4), _6));
 }
 
 /** A tuple struct that is not `Copy`, so struct update syntax reads its base in place. */
