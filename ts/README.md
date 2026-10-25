@@ -187,8 +187,8 @@ they need.
   the root types over free functions: all three within noise in Node, Bun, and Chrome.
   A caller of moq-net's translation that decodes a group header bundles to 26.5 KB
   minified and 8.3 KB gzipped, against 32.3 and 9.5 KB as classes; one that encodes
-  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB. Without the runtime, which does not
-  shake yet, gzip is 30% and 56% smaller. The facade was the largest,
+  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB, each with the whole runtime, which
+  did not shake then. The facade was the largest,
   since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
   and date-fns made the same move for the same reason.
 - A type's functions are a module of their own, which callers import whole and call as
@@ -198,6 +198,20 @@ they need.
   type's module (`export * as Decoder`) still shakes in Bun and Rollup but not in
   esbuild ([evanw/esbuild#1420](https://github.com/evanw/esbuild/issues/1420)), which
   keeps the whole module: 10.2 KB gzipped against 8.3 for the decoding caller.
+- The runtime is free functions too, flat exports of `rt.ts` named for what they act on
+  (`rt.u64Add`, `rt.iterMap`, `rt.fmtPad`), so a bundler drops every one translated code
+  never calls. `rt.ts` re-exports its parts with `export *`, since esbuild keeps a whole
+  `export * as` namespace. A method stays only where a call dispatches on its receiver:
+  an iterator's `next`, a future's `poll`, a waker's, and `[Symbol.dispose]`. Each
+  integer type's functions pass their bounds or width to shared helpers, with a wide
+  type's number fast path inline in its own: through the shared helper alone, V8 took
+  up to 1.7x as long on frame encode. A caller of moq-net's translation that decodes a
+  group header bundles to 6.9 KB minified and 2.2 KB gzipped, against 21.6 and 6.9 KB
+  with the runtime's namespaces and methods; one that reads a varint, to 4.7 and 1.5 KB
+  against 19.4 and 6.2. `just ts bench` measured it within noise of them in Node, Bun,
+  and Chrome: 1.01, 0.97, and 1.00 times their time at the geometric mean, where the
+  A/A route measured 1.00, 0.97, and 0.99. The whole runtime, every export kept, is 52
+  KB minified against 36.
 - A generic type is one interface, class, or union, the type TS callers name, and a
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
