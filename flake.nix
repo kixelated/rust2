@@ -184,6 +184,7 @@
                 git
                 taplo
                 hyperfine
+                cargo-nextest
                 measureme
               ]
               # The alternative linkers the stable variants measure are ELF-only.
