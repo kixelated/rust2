@@ -585,7 +585,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(trait_ref) = trait_ref {
 			parts.push(tcx.item_name(trait_ref.def_id).to_string());
 			// Without defaults, as `PartialEq`'s `Self`.
-			let args = tcx.generics_of(trait_ref.def_id).own_args_no_defaults(tcx, trait_ref.args);
+			let args = tcx
+				.generics_of(trait_ref.def_id)
+				.own_args_no_defaults(tcx, trait_ref.args);
 			parts.extend(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)));
 		}
 		// The type whose module this is in goes without saying, but not its arguments; any
@@ -1179,10 +1181,9 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
 		// By where it is defined, not by its span, which code above it moves.
-		ty::Closure(def_id, _)
-		| ty::Coroutine(def_id, _)
-		| ty::CoroutineClosure(def_id, _)
-		| ty::FnDef(def_id, _) => def_name(tcx, *def_id),
+		ty::Closure(def_id, _) | ty::Coroutine(def_id, _) | ty::CoroutineClosure(def_id, _) | ty::FnDef(def_id, _) => {
+			def_name(tcx, *def_id)
+		}
 		_ => ty.to_string().replace(|c: char| !c.is_alphanumeric(), ""),
 	}
 }
@@ -1193,12 +1194,14 @@ fn def_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 	let root = tcx.typeck_root_def_id(def_id);
 	let depth = tcx.def_path(root).data.len();
 	std::iter::once(tcx.item_name(root).to_string())
-		.chain(tcx.def_path(def_id).data[depth..].iter().map(|part| {
-			match part.data.get_opt_name() {
-				Some(name) => name.to_string(),
-				None => format!("closure{}", part.disambiguator),
-			}
-		}))
+		.chain(
+			tcx.def_path(def_id).data[depth..]
+				.iter()
+				.map(|part| match part.data.get_opt_name() {
+					Some(name) => name.to_string(),
+					None => format!("closure{}", part.disambiguator),
+				}),
+		)
 		.collect::<Vec<_>>()
 		.join("_")
 }

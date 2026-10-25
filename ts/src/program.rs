@@ -212,8 +212,7 @@ enum Scope {
 	Owner(SymId),
 }
 
-/// `base`, or `base$2` and on if it is taken: only where two suffixes match, such as
-/// for instances whose types share a name.
+/// `base`, or the first of `base$2`, `base$3`, and on that is not taken.
 fn unique(taken: &mut HashSet<String>, base: &str) -> String {
 	let mut name = base.to_string();
 	let mut n = 2;

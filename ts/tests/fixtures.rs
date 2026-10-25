@@ -280,7 +280,12 @@ fn source_order() {
 #[test]
 fn stable_names() {
 	let roots = r#"roots = ["harness::run", "fmt::Fault"]"#;
-	added_root("lang", roots, roots, r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#);
+	added_root(
+		"lang",
+		roots,
+		roots,
+		r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#,
+	);
 }
 
 /// Translate fixture `name` with its config's `roots` line replaced by `base`, then by
