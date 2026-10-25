@@ -15,10 +15,6 @@ Decided with the maintainer on 2026-10-25, from the spike
 the fork's paused feature quests into it. Split into quests as work starts, ranked by what the
 census refuses and what moq waits on:
 
-- **Rules the census asks for**: tuples as out parameters (`origin::Producer::new`, so an
-  origin can be made), `Path<'a>` exported as `Path<'static>`, `Range<u64>` and
-  `RangeBounds`, and the borrowed `info()` returns of non-`Copy` objects, whose clone is a new
-  handle.
 - **Several crates**: moq-native's sessions and the media crates hold moq-ffi's remaining API.
   Export each with its own census, naming another export's types across crates, as
   moq-pattern's re-exports already need.
@@ -43,3 +39,7 @@ census refuses and what moq waits on:
   window, and pick a semantic for concurrent pollers. Go's cancel contract (moq's
   `go/wrapper/doc.go` ends the stream) is decided then. A hot read still makes a future handle
   per read; measure it before adding a per-handle poll.
+
+## Required
+
+- [Rules the census asks for](/quest/m1/ffi-export-rules.md) - tuples, `Path<'static>`, ranges, and borrowed object returns export, so an origin can be made

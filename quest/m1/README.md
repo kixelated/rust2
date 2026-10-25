@@ -17,4 +17,5 @@ are folded into the [exporter's](/quest/m1/ffi-export.md). The
 ## Required
 
 - [Waiting: publish the UniFFI fork](/quest/m1/uniffi-release.md) - the fork publishes to crates.io under `rust2-*` names, once the maintainer decides it should
+- [Exporter rules the census asks for](/quest/m1/ffi-export-rules.md) - tuples, `Path<'static>`, ranges, and borrowed object returns export
 - [Exporter](/quest/m1/ffi-export.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
