@@ -329,6 +329,11 @@ pub fn dropped() -> u32 {
 	DROPPED.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// Both tallies bumped: C may pass one handle twice, which Rust allows of `&`.
+pub fn bump_both(a: &Tally, b: &Tally) -> u32 {
+	a.bump() + b.bump()
+}
+
 /// The length of a payload, borrowed for the call.
 pub fn len(payload: &[u8]) -> usize {
 	payload.len()

@@ -136,10 +136,20 @@ const TAKEN: usize = usize::MAX - 1;
 
 /// A value behind a handle: shared through an `Arc`, and borrowed as Rust borrows it, with
 /// the borrow checked at run time. `state` counts shared borrows, or is [`EXCLUSIVE`]
-/// while one exclusive borrow lasts, or [`TAKEN`] once the value moved out.
+/// while one exclusive borrow lasts, or [`TAKEN`] once the value moved out. A value that is
+/// not `Sync` is shared on one thread at a time instead: `state` is that thread's id, and
+/// `depth` counts its borrows, which only that thread touches.
 pub struct Object<T> {
 	state: AtomicUsize,
+	depth: UnsafeCell<usize>,
 	value: UnsafeCell<ManuallyDrop<T>>,
+}
+
+/// This thread's id for [`Object::borrow_local`]: the address of a thread local, which no
+/// other live thread shares and which is neither 0 nor a sentinel.
+fn thread() -> usize {
+	thread_local!(static ID: u8 = const { 0 });
+	ID.with(|id| std::ptr::from_ref(id) as usize)
 }
 
 // SAFETY: the value moves between threads only by `take` or an exclusive borrow, and is
@@ -153,6 +163,7 @@ impl<T> Object<T> {
 	pub fn new(value: T) -> *const c_void {
 		Arc::into_raw(Arc::new(Self {
 			state: AtomicUsize::new(0),
+			depth: UnsafeCell::new(0),
 			value: UnsafeCell::new(ManuallyDrop::new(value)),
 		}))
 		.cast()
@@ -207,6 +218,27 @@ impl<T> Object<T> {
 		let object = unsafe { Self::get(handle, what) };
 		object.acquire(what);
 		Shared { object }
+	}
+
+	/// Borrow a value that is not `Sync` shared for a call: any number of times on one
+	/// thread, as Rust allows, and on no other thread meanwhile.
+	///
+	/// # Safety
+	/// As [`Self::borrow`].
+	pub unsafe fn borrow_local<'a>(handle: *const c_void, what: &str) -> Local<'a, T> {
+		// SAFETY: the caller's contract.
+		let object = unsafe { Self::get(handle, what) };
+		let me = thread();
+		match object.state.compare_exchange(0, me, Ordering::Acquire, Ordering::Relaxed) {
+			Ok(_) => {}
+			Err(owner) if owner == me => {}
+			Err(TAKEN) => fail(what, "a handle's value was moved out"),
+			Err(EXCLUSIVE) => fail(what, "a handle is borrowed exclusively"),
+			Err(_) => fail(what, "a handle is borrowed on another thread"),
+		}
+		// SAFETY: only the thread in `state` touches `depth`.
+		unsafe { *object.depth.get() += 1 };
+		Local { object }
 	}
 
 	/// Borrow the value exclusively for a call.
@@ -311,6 +343,29 @@ impl<T> Deref for Shared<'_, T> {
 impl<T> Drop for Shared<'_, T> {
 	fn drop(&mut self) {
 		self.object.state.fetch_sub(1, Ordering::Release);
+	}
+}
+
+pub struct Local<'a, T> {
+	object: &'a Object<T>,
+}
+
+impl<T> Deref for Local<'_, T> {
+	type Target = T;
+	fn deref(&self) -> &T {
+		// SAFETY: this thread holds the value shared.
+		unsafe { &*self.object.value.get() }
+	}
+}
+
+impl<T> Drop for Local<'_, T> {
+	fn drop(&mut self) {
+		// SAFETY: this thread is the one in `state`, so `depth` is its own.
+		let depth = unsafe { &mut *self.object.depth.get() };
+		*depth -= 1;
+		if *depth == 0 {
+			self.object.state.store(0, Ordering::Release);
+		}
 	}
 }
 

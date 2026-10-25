@@ -65,7 +65,8 @@ new one. Everything else is refused, and the census counts why.
 - **Handles** are `Arc`s, and a call borrows the value as Rust's receiver or parameter
   does, checked at run time: shared for `&T`, exclusive for `&mut T`, and moved out for
   `T`, after which the handle is only freed. A `Copy` value is copied out instead, and a
-  value that is not `Sync` is borrowed exclusively even through `&T`. A borrow Rust would
+  value that is not `Sync` is shared on one thread at a time, and held exclusively by a
+  future, which may be polled on any thread. A borrow Rust would
   refuse at compile time aborts, naming the function, as does a null or moved-out handle:
   there is no Rust caller to return an error to.
 - **Values** are copied in from the caller's memory, which Rust never frees, and lowered

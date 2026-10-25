@@ -74,7 +74,7 @@ pub struct Object {
 	pub path: Path,
 	pub span: Span,
 	pub docs: String,
-	/// Whether it is `Sync`: if not, even its `&self` methods borrow it exclusively.
+	/// Whether it is `Sync`: if not, `&self` borrows it on one thread at a time.
 	pub sync: bool,
 	/// Whether it is `Copy`: taken by value, it is copied out of its handle, as Rust
 	/// copies it, rather than moved out.

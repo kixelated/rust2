@@ -153,16 +153,23 @@ impl Gen<'_> {
 				true => format!("lift_{}({e}, w)", self.abi.enumeration(*i)),
 				false => format!("lift_{}(&{e}, w)", self.abi.enumeration(*i)),
 			},
-			// A value that is not `Sync` may change through `&self`, so it is read exclusively.
-			Type::Object(i) => match (self.abi.api.objects[*i].copy, self.abi.api.objects[*i].sync) {
-				(true, true) => format!("*unsafe {{ rt::Object::<{}>::borrow({e}, w) }}", self.object_path(*i)),
-				(true, false) => format!(
-					"*unsafe {{ rt::Object::<{}>::borrow_mut({e}, w) }}",
-					self.object_path(*i)
+			Type::Object(i) => match self.abi.api.objects[*i].copy {
+				true => format!(
+					"*unsafe {{ rt::Object::<{}>::{}({e}, w) }}",
+					self.object_path(*i),
+					self.shared(*i)
 				),
-				(false, _) => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
+				false => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
 			},
 			Type::Callback(i, form) => abi::dyn_wrap(*form, &format!("Foreign_{}({e})", self.abi.callback(*i))),
+		}
+	}
+
+	/// How a call borrows object `i` shared: across threads if it is `Sync`, else on one.
+	fn shared(&self, i: usize) -> &'static str {
+		match self.abi.api.objects[i].sync {
+			true => "borrow",
+			false => "borrow_local",
 		}
 	}
 
@@ -282,10 +289,7 @@ impl Gen<'_> {
 			self.line(format!(
 				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_free(this: *const c_void) {{\n\tunsafe {{ rt::Object::<{path}>::free(this) }}\n}}\n"
 			));
-			let borrow = match object.sync {
-				true => "borrow",
-				false => "borrow_mut",
-			};
+			let borrow = self.shared(i);
 			self.traits(&name, &path, object.traits, |e| {
 				format!("unsafe {{ rt::Object::<{path}>::{borrow}({e}, w) }}")
 			});
@@ -313,8 +317,7 @@ impl Gen<'_> {
 		}
 		if traits.eq {
 			self.line(format!(
-				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_eq(a: {handle}, b: {handle}) -> bool {{\n\tlet w = \"{name}_eq\";\n\t// One handle twice is one borrow, which an exclusive one must be.\n\tif a == b {{\n\t\tlet a = {};\n\t\treturn <{path} as ::std::cmp::PartialEq>::eq(&*a, &*a);\n\t}}\n\tlet a = {};\n\tlet b = {};\n\t<{path} as ::std::cmp::PartialEq>::eq(&*a, &*b)\n}}\n",
-				borrow("a"),
+				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_eq(a: {handle}, b: {handle}) -> bool {{\n\tlet w = \"{name}_eq\";\n\tlet a = {};\n\tlet b = {};\n\t<{path} as ::std::cmp::PartialEq>::eq(&*a, &*b)\n}}\n",
 				borrow("a"),
 				borrow("b")
 			));
@@ -674,9 +677,12 @@ impl Gen<'_> {
 		match ty {
 			Type::Ref(m, inner) => match (&**inner, m, future) {
 				(Type::Object(i), _, _) => {
-					let exclusive = *m == Mutability::Mut || !self.abi.api.objects[*i].sync;
+					let sync = self.abi.api.objects[*i].sync;
+					// A future may be polled on any thread, so it holds a value that is not
+					// `Sync` exclusively.
+					let exclusive = *m == Mutability::Mut || (future && !sync);
 					let borrow = match (exclusive, future) {
-						(false, false) => "borrow",
+						(false, false) => self.shared(*i),
 						(true, false) => "borrow_mut",
 						(false, true) => "borrow_arc",
 						(true, true) => "borrow_mut_arc",

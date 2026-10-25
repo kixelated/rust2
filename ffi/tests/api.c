@@ -168,6 +168,7 @@ static int script(void) {
 	api_tally_bump(tally);
 	uint32_t count = api_tally_bump(tally);
 	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
+	printf("both %u\n", api_bump_both(tally, tally));
 	api_tally_free(tally);
 
 	/* Its Drop runs when C frees the handle, not before. */

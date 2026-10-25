@@ -127,6 +127,7 @@ fn main() {
 	let tally = Tally::new();
 	tally.bump();
 	println!("tally {} {}", tally.bump(), tally == tally);
+	println!("both {}", api_lib::bump_both(&tally, &tally));
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());

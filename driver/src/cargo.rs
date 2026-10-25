@@ -118,7 +118,8 @@ impl Check<'_> {
 	pub fn run(&self) -> Result<ExitCode, String> {
 		let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
 		let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
-			Some(dir) => PathBuf::from(dir),
+			// Absolute, as the caller meant it: cargo runs in the package's directory.
+			Some(dir) => absolute(Path::new(&dir))?,
 			// Apart from the workspace's own builds, which a different rustc would invalidate.
 			None => workspace_root(self.manifest)?.join("target").join(self.tool),
 		};

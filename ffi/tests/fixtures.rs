@@ -107,6 +107,29 @@ fn api() {
 	}
 }
 
+/// A relative `CARGO_TARGET_DIR` is the caller's, wherever cargo runs.
+#[test]
+fn relative_target() {
+	let dir = scratch().join("relative");
+	std::fs::create_dir_all(&dir).unwrap();
+	let census = dir.join("census.md");
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(manifest_dir().join("fixtures/api/ffi.toml"))
+		.arg("--census")
+		.arg(&census)
+		.current_dir(&dir)
+		.env("CARGO_TARGET_DIR", "build")
+		.output()
+		.expect("running rust2-ffi");
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	assert!(census.exists() && dir.join("build").exists());
+}
+
 #[test]
 fn reject() {
 	let out = scratch().join("reject").join("out");
