@@ -40,7 +40,6 @@ export class sumFuture {
 				rt.drop(this.rx);
 				unwind = 0;
 				rt.drop(this.guard);
-				return;
 			} else if (this.state === 3) {
 				unwind = 10;
 				rt.drop(this.__awaitee_);
@@ -50,9 +49,6 @@ export class sumFuture {
 				rt.drop(this.guard_);
 				unwind = 0;
 				rt.drop(this.rx_);
-				return;
-			} else {
-				return;
 			}
 		} catch (e) {
 			b0: {
@@ -79,7 +75,6 @@ export class sumFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _0!: rt.Poll<rt.u64>;
 		let _3!: rt.u32;
 		let _6!: Log.Log;
 		let _8!: rt.Future<rt.u64 | undefined>;
@@ -156,14 +151,12 @@ export class sumFuture {
 								rt.drop(this.guard_);
 								unwind = 35;
 								rt.drop(this.rx_);
-								_0 = _47;
 								this.state = 1;
-								return _0;
+								return _47;
 							}
 						} else {
-							_0 = rt.Pending;
 							this.state = 3;
-							return _0;
+							return rt.Pending;
 						}
 				}
 			}
@@ -286,7 +279,6 @@ export class blocksFuture {
 				rt.drop(this.rx_);
 			}
 			this._saved$5 = false;
-			return;
 		} catch (e) {
 			b6: {
 				b7: {
@@ -348,7 +340,6 @@ export class blocksFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _0!: rt.Poll<rt.u64>;
 		let _3!: rt.u32;
 		let _6!: Log.Log;
 		let _8!: rt.u32;
@@ -441,9 +432,8 @@ export class blocksFuture {
 						_48 = new blocksFuture$4(this.mark_);
 						this.___awaitee_ = _48;
 					} else {
-						_0 = rt.Pending;
 						this.state = 3;
-						return _0;
+						return rt.Pending;
 					}
 				}
 				unwind = 71;
@@ -483,9 +473,8 @@ export class blocksFuture {
 					_97 = new blocksFuture$6(this.first_, this.second_, this.rx_);
 					this.___awaitee_$2 = _97;
 				} else {
-					_0 = rt.Pending;
 					this.state = 4;
-					return _0;
+					return rt.Pending;
 				}
 			}
 			unwind = 66;
@@ -507,13 +496,11 @@ export class blocksFuture {
 				}
 				this._saved$2 = false;
 				this._saved$5 = false;
-				_0 = result3;
 				this.state = 1;
-				return _0;
+				return result3;
 			} else {
-				_0 = rt.Pending;
 				this.state = 5;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			b6: {
@@ -598,11 +585,6 @@ export class blocksFuture$2 {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else {
-			return;
-		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<undefined> {
@@ -639,11 +621,6 @@ export class blocksFuture$3 {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else {
-			return;
-		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
@@ -681,11 +658,6 @@ export class blocksFuture$4 {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else {
-			return;
-		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
@@ -716,9 +688,6 @@ export class blocksFuture$5 {
 	[Symbol.dispose](): void {
 		if (this.state === 0) {
 			rt.drop(this.guard);
-			return;
-		} else {
-			return;
 		}
 	}
 
@@ -776,7 +745,6 @@ export class blocksFuture$6 {
 				rt.drop(this.second);
 				unwind = 0;
 				rt.drop(this.rx);
-				return;
 			} else if (this.state === 3) {
 				unwind = 8;
 				rt.drop(this.__awaitee_);
@@ -788,9 +756,6 @@ export class blocksFuture$6 {
 				rt.drop(this.second);
 				unwind = 0;
 				rt.drop(this.rx);
-				return;
-			} else {
-				return;
 			}
 		} catch (e) {
 			b0: {
@@ -827,7 +792,6 @@ export class blocksFuture$6 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _0!: rt.Poll<rt.u64>;
 		let _9!: rt.u32;
 		let _12!: Log.Log;
 		let _14!: rt.Future<rt.u64 | undefined>;
@@ -874,13 +838,11 @@ export class blocksFuture$6 {
 				rt.drop(this.second);
 				unwind = 22;
 				rt.drop(this.rx);
-				_0 = _27;
 				this.state = 1;
-				return _0;
+				return _27;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			b2: {
@@ -1044,7 +1006,6 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		rt.drop(kept);
 		unwind = 0;
 		rt.dropAll(pair.slice(1, 2));
-		return;
 	} catch (e) {
 		b2: {
 			b3: {
@@ -1142,7 +1103,6 @@ export class drainFuture {
 			}
 			unwind = 0;
 			rt.drop(this.rx_);
-			return;
 		} catch (e) {
 			if (unwind === 0) {
 				throw e;
@@ -1153,7 +1113,6 @@ export class drainFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _0!: rt.Poll<rt.u64>;
 		let next!: rt.u64 | undefined;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _7!: rt.Poll<rt.u64 | undefined>;
@@ -1223,9 +1182,8 @@ export class drainFuture {
 							bb0 = 27;
 							continue l0;
 						} else {
-							_0 = rt.Pending;
 							this.state = 5;
-							return _0;
+							return rt.Pending;
 						}
 					case 15:
 						unwind = 34;
@@ -1237,9 +1195,8 @@ export class drainFuture {
 							bb0 = 27;
 							continue l0;
 						} else {
-							_0 = rt.Pending;
 							this.state = 4;
-							return _0;
+							return rt.Pending;
 						}
 					case 7:
 						unwind = 35;
@@ -1251,18 +1208,16 @@ export class drainFuture {
 							bb0 = 27;
 							continue l0;
 						} else {
-							_0 = rt.Pending;
 							this.state = 3;
-							return _0;
+							return rt.Pending;
 						}
 					case 27:
 						if (next === undefined) {
 							unwind = 37;
 							_40 = this.total_;
 							rt.drop(this.rx_);
-							_0 = _40;
 							this.state = 1;
-							return _0;
+							return _40;
 						} else {
 							unwind = 36;
 							_39 = rt.u64Add(this.total_, next);
@@ -1308,18 +1263,14 @@ export class level1Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1344,13 +1295,11 @@ export class level1Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1379,18 +1328,14 @@ export class level10Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1415,13 +1360,11 @@ export class level10Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1450,18 +1393,14 @@ export class level11Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1486,13 +1425,11 @@ export class level11Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1521,18 +1458,14 @@ export class level12Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1557,13 +1490,11 @@ export class level12Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1592,18 +1523,14 @@ export class level13Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1628,13 +1555,11 @@ export class level13Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1663,18 +1588,14 @@ export class level14Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1699,13 +1620,11 @@ export class level14Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1734,18 +1653,14 @@ export class level15Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1770,13 +1685,11 @@ export class level15Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1805,18 +1718,14 @@ export class level2Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1841,13 +1750,11 @@ export class level2Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1876,18 +1783,14 @@ export class level3Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1912,13 +1815,11 @@ export class level3Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -1947,18 +1848,14 @@ export class level4Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -1983,13 +1880,11 @@ export class level4Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -2018,18 +1913,14 @@ export class level5Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -2054,13 +1945,11 @@ export class level5Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -2089,18 +1978,14 @@ export class level6Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -2125,13 +2010,11 @@ export class level6Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -2160,18 +2043,14 @@ export class level7Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -2196,13 +2075,11 @@ export class level7Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -2231,18 +2108,14 @@ export class level8Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -2267,13 +2140,11 @@ export class level8Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {
@@ -2302,18 +2173,14 @@ export class level9Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
@@ -2338,13 +2205,11 @@ export class level9Future {
 				unwind = 12;
 				result = _6;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {

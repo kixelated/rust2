@@ -28,7 +28,6 @@ export function note(self: Guard, event: string): void {
 	let _5!: string;
 	_5 = rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " ", (f: rt.Formatter) => rt.fmtPad(f, event)]);
 	Log.note(self.log, _5);
-	return;
 }
 
 /** Log `event`, then drop: `self`, taken by value, drops as the call returns. */
@@ -58,7 +57,6 @@ export function drop$Drop(self: Guard): void {
 	const arg = args[0];
 	_4 = rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(arg, f), " drop"]);
 	Log.note(self.log, _4);
-	return;
 }
 
 export { new_ as new };

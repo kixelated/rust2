@@ -474,13 +474,23 @@ fn strip_tail(stmts: &mut Vec<Stmt>, jump: &StmtKind) {
 			strip_tail(els, jump);
 		}
 		StmtKind::Block { body, .. } => strip_tail(body, jump),
+		// Falling off the `try` goes past its `catch`.
+		StmtKind::Catch { body, .. } => strip_tail(body, jump),
 		_ => {}
 	}
+}
+
+/// Drop the `return;`s a function returning nothing ends with.
+pub fn strip_return(stmts: &mut Vec<Stmt>) {
+	strip_tail(stmts, &StmtKind::Return(None));
+	simplify(stmts);
+	simplify(stmts);
 }
 
 fn same_jump(a: &StmtKind, b: &StmtKind) -> bool {
 	match (a, b) {
 		(StmtKind::Break(x), StmtKind::Break(y)) | (StmtKind::Continue(x), StmtKind::Continue(y)) => x == y,
+		(StmtKind::Return(None), StmtKind::Return(None)) => true,
 		_ => false,
 	}
 }

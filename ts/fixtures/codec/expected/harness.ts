@@ -17,7 +17,6 @@ import type * as Version from "./lite/version.Version.ts";
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let _0!: rt.ByteVec;
 	let out!: rt.ByteVec;
 	let _5!: [rt.u8, Uint8Array] | undefined;
 	let _8!: rt.u8;
@@ -44,59 +43,52 @@ export function run(input: Uint8Array): rt.ByteVec {
 		} else {
 			errors(_5[1], out);
 		}
-		_0 = out;
+		return out;
 	} else {
-		_0 = out;
+		return out;
 	}
-	return _0;
 }
 
 export function form(selector: rt.u8): Form.Form {
-	let _0!: Form.Form;
 	let _2!: rt.u8;
 	_2 = rt.u8Rem(selector, 3);
 	if (_2 === 0) {
-		_0 = { tag: "Quic" } as Form.Form;
+		return { tag: "Quic" } as Form.Form;
 	} else if (_2 === 1) {
-		_0 = { tag: "LeadingOnes", seven: false } as Form.Form;
+		return { tag: "LeadingOnes", seven: false } as Form.Form;
 	} else {
-		_0 = { tag: "LeadingOnes", seven: true } as Form.Form;
+		return { tag: "LeadingOnes", seven: true } as Form.Form;
 	}
-	return _0;
 }
 
 export function liteVersion(selector: rt.u8): Version.Version {
-	let _0!: Version.Version;
 	let _2!: rt.u8;
 	_2 = rt.u8Rem(selector, 7);
 	if (_2 === 0) {
-		_0 = "Lite01" as Version.Version;
+		return "Lite01" as Version.Version;
 	} else if (_2 === 1) {
-		_0 = "Lite02" as Version.Version;
+		return "Lite02" as Version.Version;
 	} else if (_2 === 2) {
-		_0 = "Lite03" as Version.Version;
+		return "Lite03" as Version.Version;
 	} else if (_2 === 3) {
-		_0 = "Lite04" as Version.Version;
+		return "Lite04" as Version.Version;
 	} else if (_2 === 4) {
-		_0 = "Lite05" as Version.Version;
+		return "Lite05" as Version.Version;
 	} else if (_2 === 5) {
-		_0 = "Lite06" as Version.Version;
+		return "Lite06" as Version.Version;
 	} else {
-		_0 = "Lite07" as Version.Version;
+		return "Lite07" as Version.Version;
 	}
-	return _0;
 }
 
 export function putU64(out: rt.ByteVec, value: rt.u64): void {
 	let _6!: Uint8Array;
 	_6 = rt.u64ToBeBytes(value);
 	rt.byteVecExtendFromSlice(out, _6);
-	return;
 }
 
 export function putUsize(out: rt.ByteVec, value: rt.usize): void {
 	putU64(out, value as rt.u64);
-	return;
 }
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
@@ -120,7 +112,6 @@ export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): voi
 	const arg = args[0];
 	_6 = rt.fmtFormat([(f: rt.Formatter) => DecodeError.fmt$Debug(arg, f)]);
 	putText(out, _5, _6);
-	return;
 }
 
 /** An encode error's code, then its text. */
@@ -134,7 +125,6 @@ export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): voi
 	const arg = args[0];
 	_6 = rt.fmtFormat([(f: rt.Formatter) => EncodeError.fmt$Debug(arg, f)]);
 	putText(out, _5, _6);
-	return;
 }
 
 /** An error's thiserror `Display` and derived `Debug`, which callers see. */
@@ -143,7 +133,6 @@ export function putText(out: rt.ByteVec, display: string, debug: string): void {
 	rt.byteVecPush(out, 0);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(debug));
 	rt.byteVecPush(out, 0);
-	return;
 }
 
 export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void {
@@ -190,7 +179,6 @@ export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void
 	} else {
 		rt.byteVecPush(out, 18);
 	}
-	return;
 }
 
 export function encodeError(out: rt.ByteVec, err: EncodeError.EncodeError): void {
@@ -212,7 +200,6 @@ export function encodeError(out: rt.ByteVec, err: EncodeError.EncodeError): void
 		_5 = 6;
 	}
 	rt.byteVecPush(out, _5);
-	return;
 }
 
 /**
@@ -266,11 +253,9 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 	}
-	return;
 }
 
 export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	let _0!: rt.Result<undefined, DecodeError.DecodeError>;
 	let _5!: rt.u8;
 	let _7!: rt.Result<rt.u8, DecodeError.DecodeError>;
 	let _14!: Uint8Array;
@@ -287,104 +272,91 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 	let sub!: Decoder.Decoder;
 	let _67!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
 	let _76!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	b0: {
-		_5 = rt.u8Rem(step, 10);
-		if (_5 === 0) {
-			_7 = Decoder.u8(r);
-			if (_7.ok) {
-				rt.byteVecPush(out, _7.value);
+	_5 = rt.u8Rem(step, 10);
+	if (_5 === 0) {
+		_7 = Decoder.u8(r);
+		if (_7.ok) {
+			rt.byteVecPush(out, _7.value);
+		} else {
+			return _7;
+		}
+	} else if (_5 === 1) {
+		_15 = Decoder.u16(r);
+		if (_15.ok) {
+			_14 = rt.u16ToBeBytes(_15.value);
+			rt.byteVecExtendFromSlice(out, _14);
+		} else {
+			return _15;
+		}
+	} else if (_5 === 2) {
+		_21 = Decoder.bool(r);
+		if (_21.ok) {
+			rt.byteVecPush(out, _21.value ? 1 : 0);
+		} else {
+			return _21;
+		}
+	} else if (_5 === 3) {
+		_26 = Decoder.varint(r);
+		if (_26.ok) {
+			putU64(out, _26.value);
+		} else {
+			return _26;
+		}
+	} else if (_5 === 4) {
+		_31 = Decoder.varintOpt(r);
+		if (_31.ok) {
+			val5 = _31.value;
+			if (val5 === undefined) {
+				rt.byteVecPush(out, 0);
 			} else {
-				_0 = _7;
-				break b0;
-			}
-		} else if (_5 === 1) {
-			_15 = Decoder.u16(r);
-			if (_15.ok) {
-				_14 = rt.u16ToBeBytes(_15.value);
-				rt.byteVecExtendFromSlice(out, _14);
-			} else {
-				_0 = _15;
-				break b0;
-			}
-		} else if (_5 === 2) {
-			_21 = Decoder.bool(r);
-			if (_21.ok) {
-				rt.byteVecPush(out, _21.value ? 1 : 0);
-			} else {
-				_0 = _21;
-				break b0;
-			}
-		} else if (_5 === 3) {
-			_26 = Decoder.varint(r);
-			if (_26.ok) {
-				putU64(out, _26.value);
-			} else {
-				_0 = _26;
-				break b0;
-			}
-		} else if (_5 === 4) {
-			_31 = Decoder.varintOpt(r);
-			if (_31.ok) {
-				val5 = _31.value;
-				if (val5 === undefined) {
-					rt.byteVecPush(out, 0);
-				} else {
-					v = val5;
-					rt.byteVecPush(out, 1);
-					putU64(out, v);
-				}
-			} else {
-				_0 = _31;
-				break b0;
-			}
-		} else if (_5 === 5) {
-			_40 = Decoder.bytes(r);
-			if (_40.ok) {
-				putUsize(out, _40.value.length);
-				rt.byteVecExtendFromSlice(out, _40.value);
-			} else {
-				_0 = _40;
-				break b0;
-			}
-		} else if (_5 === 6) {
-			_49 = Decoder.string(r);
-			if (_49.ok) {
-				s = _49.value;
-				rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
-			} else {
-				_0 = _49;
-				break b0;
-			}
-		} else if (_5 === 7) {
-			_57 = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
-			if (_57.ok) {
-				rt.byteVecExtendFromSlice(out, _57.value);
-			} else {
-				_0 = _57;
-				break b0;
-			}
-		} else if (_5 === 8) {
-			_67 = Decoder.sub(r, rt.u8Div(step, 10) as rt.usize);
-			if (_67.ok) {
-				sub = _67.value;
-				_76 = Decoder.varint(sub);
-				if (_76.ok) {
-					putU64(out, _76.value);
-					putUsize(out, Decoder.rest(sub).length);
-				} else {
-					_0 = _76;
-					break b0;
-				}
-			} else {
-				_0 = _67;
-				break b0;
+				v = val5;
+				rt.byteVecPush(out, 1);
+				putU64(out, v);
 			}
 		} else {
-			putUsize(out, Decoder.rest(r).length);
+			return _31;
 		}
-		_0 = rt.Ok(undefined);
+	} else if (_5 === 5) {
+		_40 = Decoder.bytes(r);
+		if (_40.ok) {
+			putUsize(out, _40.value.length);
+			rt.byteVecExtendFromSlice(out, _40.value);
+		} else {
+			return _40;
+		}
+	} else if (_5 === 6) {
+		_49 = Decoder.string(r);
+		if (_49.ok) {
+			s = _49.value;
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+		} else {
+			return _49;
+		}
+	} else if (_5 === 7) {
+		_57 = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
+		if (_57.ok) {
+			rt.byteVecExtendFromSlice(out, _57.value);
+		} else {
+			return _57;
+		}
+	} else if (_5 === 8) {
+		_67 = Decoder.sub(r, rt.u8Div(step, 10) as rt.usize);
+		if (_67.ok) {
+			sub = _67.value;
+			_76 = Decoder.varint(sub);
+			if (_76.ok) {
+				putU64(out, _76.value);
+				putUsize(out, Decoder.rest(sub).length);
+			} else {
+				return _76;
+			}
+		} else {
+			return _67;
+		}
+	} else {
+		putUsize(out, Decoder.rest(r).length);
 	}
-	return _0;
+	return rt.Ok(undefined);
 }
 
 /** Write primitives as a script says, taking each value from the data that follows. */
@@ -532,7 +504,6 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 	}
-	return;
 }
 
 export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
@@ -543,7 +514,6 @@ export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
 	putU64(out, varint_zigzag(signed));
 	putU64(out, rt.u64Cast(unzigzag(value)));
 	putU64(out, rt.u64Cast(unzigzag(varint_zigzag(signed))));
-	return;
 }
 
 export function sizes(data: Uint8Array, out: rt.ByteVec): void {
@@ -604,7 +574,6 @@ export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 			decodeFailed(out, err2);
 		}
 	}
-	return;
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
@@ -641,7 +610,6 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 			decodeFailed(out, err2);
 		}
 	}
-	return;
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
@@ -678,7 +646,6 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 			decodeFailed(out, err2);
 		}
 	}
-	return;
 }
 
 /** Encode messages built from the data, at a lite version. */
@@ -730,7 +697,6 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 			encodeFailed(out, err);
 		}
 	}
-	return;
 }
 
 export function encodeMessage$Group(msg: Group.Group, version: Version.Version, out: rt.ByteVec): void {
@@ -751,7 +717,6 @@ export function encodeMessage$Group(msg: Group.Group, version: Version.Version, 
 		err = _8.error;
 		encodeFailed(out, err);
 	}
-	return;
 }
 
 export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, out: rt.ByteVec): void {
@@ -772,7 +737,6 @@ export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, 
 		err = _8.error;
 		encodeFailed(out, err);
 	}
-	return;
 }
 
 /** Each error the codec can return, built from the data, as callers see it. */
@@ -834,7 +798,6 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 			decodeFailed(out, err);
 		}
 	}
-	return;
 }
 
 //# sourceMappingURL=harness.ts.map

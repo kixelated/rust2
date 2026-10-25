@@ -8,7 +8,6 @@ export interface Evens {
 }
 
 export function next$Iterator(self: Evens): rt.u8 | rt.Done {
-	let _0!: rt.u8 | rt.Done;
 	let _2!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	l0: while (true) {
@@ -18,12 +17,11 @@ export function next$Iterator(self: Evens): rt.u8 | rt.Done {
 			if (!(rt.u8Rem(b, 2) === 0)) {
 				continue l0;
 			} else {
-				_0 = b;
+				return b;
 			}
 		} else {
-			_0 = rt.DONE;
+			return rt.DONE;
 		}
-		return _0;
 	}
 }
 

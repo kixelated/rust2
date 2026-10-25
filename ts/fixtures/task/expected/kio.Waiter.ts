@@ -40,7 +40,6 @@ function new_(waker: rt.Waker): Waiter {
 /** Register with `list`, a no-op while the list still holds this waiter. */
 export function register(self: Waiter, list: WaiterList.WaiterList): void {
 	WaiterList.register(list, self);
-	return;
 }
 
 export { new_ as new };

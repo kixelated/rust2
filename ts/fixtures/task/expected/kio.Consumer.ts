@@ -26,7 +26,6 @@ export class Consumer {
 
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	let _0!: rt.Poll<rt.u64 | undefined>;
 	let state!: rt.Mutex<State.State>;
 	let _8!: rt.usize;
 	let _11!: State.State;
@@ -42,9 +41,9 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 		if (!state.value.closed) {
 			_27 = state.value;
 			Waiter.register(waiter, _27.waiters);
-			_0 = rt.Pending;
+			return rt.Pending;
 		} else {
-			_0 = undefined;
+			return undefined;
 		}
 	} else {
 		_16 = state.value;
@@ -53,9 +52,8 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 		value = _16.queue[at];
 		_19 = rt.usizeAdd(self.next, 1);
 		self.next = _19;
-		_0 = value;
+		return value;
 	}
-	return _0;
 }
 
 /** kio's one-line wrapper over a `poll_*` method. */

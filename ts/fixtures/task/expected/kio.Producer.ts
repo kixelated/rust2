@@ -37,7 +37,6 @@ export function send(self: Producer, value: rt.u64): void {
 	_13 = state.value;
 	waiters = WaiterList.take(_13.waiters);
 	WaiterList.wake(waiters);
-	return;
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -71,7 +70,6 @@ export function drop$Drop(self: Producer): void {
 		waiters = WaiterList.take(_17.waiters);
 		WaiterList.wake(waiters);
 	}
-	return;
 }
 
 export { new_ as new };

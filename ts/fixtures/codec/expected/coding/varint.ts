@@ -17,84 +17,79 @@ export function fromHalves(hi: rt.u32, lo: rt.u32): rt.u64 {
 
 /** The bytes `value` takes on the wire in `form`, or [`BoundsExceeded`] if it does not fit. */
 export function size(value: rt.u64, form: Form.Form): rt.Result<rt.usize, BoundsExceeded.BoundsExceeded> {
-	let _0!: rt.Result<rt.usize, BoundsExceeded.BoundsExceeded>;
 	let hi!: rt.u32;
 	let lo!: rt.u32;
 	let _5!: [rt.u32, rt.u32];
 	let _6!: rt.usize;
 	_5 = toHalves(value);
-	b0: {
-		b1: {
-			hi = _5[0];
-			lo = _5[1];
-			if (form.tag === "Quic") {
-				if (hi === 0) {
-					if (lo < 64) {
-						_6 = 1;
-						break b1;
-					}
-				}
-				if (hi === 0) {
-					if (lo < 16384) {
-						_6 = 2;
-						break b1;
-					}
-				}
-				if (hi === 0) {
-					if (lo < 1073741824) {
-						_6 = 4;
-						break b1;
-					}
-				}
-				if (!(hi < 1073741824)) {
-					_0 = rt.Err({});
-					break b0;
-				} else {
-					_6 = 8;
-				}
-			} else {
-				if (hi === 0) {
-					if (lo < 128) {
-						_6 = 1;
-						break b1;
-					}
-				}
-				if (hi === 0) {
-					if (lo < 16384) {
-						_6 = 2;
-						break b1;
-					}
-				}
-				if (hi === 0) {
-					if (lo < 2097152) {
-						_6 = 3;
-						break b1;
-					}
-				}
-				if (hi === 0) {
-					if (lo < 268435456) {
-						_6 = 4;
-						break b1;
-					}
-				}
-				if (!(hi < 8)) {
-					if (!(hi < 1024)) {
-						if (!(hi < 16777216)) {
-							_6 = 9;
-						} else {
-							_6 = 8;
-						}
-					} else {
-						_6 = 6;
-					}
-				} else {
-					_6 = 5;
+	b1: {
+		hi = _5[0];
+		lo = _5[1];
+		if (form.tag === "Quic") {
+			if (hi === 0) {
+				if (lo < 64) {
+					_6 = 1;
+					break b1;
 				}
 			}
+			if (hi === 0) {
+				if (lo < 16384) {
+					_6 = 2;
+					break b1;
+				}
+			}
+			if (hi === 0) {
+				if (lo < 1073741824) {
+					_6 = 4;
+					break b1;
+				}
+			}
+			if (!(hi < 1073741824)) {
+				return rt.Err({});
+			} else {
+				_6 = 8;
+			}
+		} else {
+			if (hi === 0) {
+				if (lo < 128) {
+					_6 = 1;
+					break b1;
+				}
+			}
+			if (hi === 0) {
+				if (lo < 16384) {
+					_6 = 2;
+					break b1;
+				}
+			}
+			if (hi === 0) {
+				if (lo < 2097152) {
+					_6 = 3;
+					break b1;
+				}
+			}
+			if (hi === 0) {
+				if (lo < 268435456) {
+					_6 = 4;
+					break b1;
+				}
+			}
+			if (!(hi < 8)) {
+				if (!(hi < 1024)) {
+					if (!(hi < 16777216)) {
+						_6 = 9;
+					} else {
+						_6 = 8;
+					}
+				} else {
+					_6 = 6;
+				}
+			} else {
+				_6 = 5;
+			}
 		}
-		_0 = rt.Ok(_6);
 	}
-	return _0;
+	return rt.Ok(_6);
 }
 
 /**
@@ -103,18 +98,15 @@ export function size(value: rt.u64, form: Form.Form): rt.Result<rt.usize, Bounds
  * Fails past [`MAX_QUIC`] in the QUIC form, writing nothing.
  */
 export function write(value: rt.u64, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded.BoundsExceeded> {
-	let _0!: rt.Result<undefined, BoundsExceeded.BoundsExceeded>;
 	if (form.tag === "Quic") {
-		_0 = writeQuic(value, out);
+		return writeQuic(value, out);
 	} else {
 		writeLeadingOnes(value, out);
-		_0 = rt.Ok(undefined);
+		return rt.Ok(undefined);
 	}
-	return _0;
 }
 
 export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded.BoundsExceeded> {
-	let _0!: rt.Result<undefined, BoundsExceeded.BoundsExceeded>;
 	let hi!: rt.u32;
 	let lo!: rt.u32;
 	let _5!: [rt.u32, rt.u32];
@@ -128,47 +120,43 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 	let _48!: Uint8Array;
 	let _52!: Uint8Array;
 	_5 = toHalves(value);
-	b0: {
-		b1: {
-			hi = _5[0];
-			lo = _5[1];
-			if (hi === 0) {
-				if (lo < 64) {
-					rt.byteVecPush(out, lo & 0xff);
-					break b1;
-				}
-			}
-			if (hi === 0) {
-				if (lo < 16384) {
-					_21 = rt.u16ToBeBytes(16384 | (lo & 0xffff));
-					rt.byteVecExtendFromSlice(out, _21);
-					break b1;
-				}
-			}
-			if (hi === 0) {
-				if (lo < 1073741824) {
-					_32 = rt.u32ToBeBytes((2147483648 | lo) >>> 0);
-					rt.byteVecExtendFromSlice(out, _32);
-					break b1;
-				}
-			}
-			if (!(hi < 1073741824)) {
-				_0 = rt.Err({});
-				break b0;
-			} else {
-				_42 = rt.u32ToBeBytes((3221225472 | hi) >>> 0);
-				a = _42[0];
-				b = _42[1];
-				c = _42[2];
-				d = _42[3];
-				_48 = rt.u32ToBeBytes(lo);
-				_52 = Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]);
-				rt.byteVecExtendFromSlice(out, _52);
+	b1: {
+		hi = _5[0];
+		lo = _5[1];
+		if (hi === 0) {
+			if (lo < 64) {
+				rt.byteVecPush(out, lo & 0xff);
+				break b1;
 			}
 		}
-		_0 = rt.Ok(undefined);
+		if (hi === 0) {
+			if (lo < 16384) {
+				_21 = rt.u16ToBeBytes(16384 | (lo & 0xffff));
+				rt.byteVecExtendFromSlice(out, _21);
+				break b1;
+			}
+		}
+		if (hi === 0) {
+			if (lo < 1073741824) {
+				_32 = rt.u32ToBeBytes((2147483648 | lo) >>> 0);
+				rt.byteVecExtendFromSlice(out, _32);
+				break b1;
+			}
+		}
+		if (!(hi < 1073741824)) {
+			return rt.Err({});
+		} else {
+			_42 = rt.u32ToBeBytes((3221225472 | hi) >>> 0);
+			a = _42[0];
+			b = _42[1];
+			c = _42[2];
+			d = _42[3];
+			_48 = rt.u32ToBeBytes(lo);
+			_52 = Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]);
+			rt.byteVecExtendFromSlice(out, _52);
+		}
 	}
-	return _0;
+	return rt.Ok(undefined);
 }
 
 export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
@@ -245,22 +233,18 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, _54);
 		}
 	}
-	return;
 }
 
 /** Decode a varint in `form` from the front of `buf`, returning it and the rest of `buf`. */
 export function read(buf: Uint8Array, form: Form.Form): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
-	let _0!: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError>;
 	if (form.tag === "Quic") {
-		_0 = readQuic(buf);
+		return readQuic(buf);
 	} else {
-		_0 = readLeadingOnes(buf, form.seven);
+		return readLeadingOnes(buf, form.seven);
 	}
-	return _0;
 }
 
 export function readQuic(buf: Uint8Array): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
-	let _0!: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError>;
 	let first!: rt.u8;
 	let _5!: [rt.u8, Uint8Array] | undefined;
 	let _14!: rt.Result<[Uint8Array, Uint8Array], DecodeError.DecodeError>;
@@ -279,39 +263,37 @@ export function readQuic(buf: Uint8Array): rt.Result<[rt.u64, Uint8Array], Decod
 					if (_54.ok) {
 						val3 = _54.value;
 						const slice = val3[0];
-						_0 = rt.Ok([fromHalves((((val3[0][0] & 63) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0, rt.u32FromBeBytes(slice.subarray(4, 8))), val3[1]] as [rt.u64, Uint8Array]);
+						return rt.Ok([fromHalves((((val3[0][0] & 63) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0, rt.u32FromBeBytes(slice.subarray(4, 8))), val3[1]] as [rt.u64, Uint8Array]);
 					} else {
-						_0 = _54;
+						return _54;
 					}
 				} else {
 					_33 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
 					if (_33.ok) {
 						val2 = _33.value;
-						_0 = rt.Ok([(((val2[0][0] & 63) << 24) | (val2[0][1] << 16) | (val2[0][2] << 8) | val2[0][3]) >>> 0 as rt.u64, val2[1]] as [rt.u64, Uint8Array]);
+						return rt.Ok([(((val2[0][0] & 63) << 24) | (val2[0][1] << 16) | (val2[0][2] << 8) | val2[0][3]) >>> 0 as rt.u64, val2[1]] as [rt.u64, Uint8Array]);
 					} else {
-						_0 = _33;
+						return _33;
 					}
 				}
 			} else {
 				_14 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
 				if (_14.ok) {
 					val = _14.value;
-					_0 = rt.Ok([(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array]);
+					return rt.Ok([(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array]);
 				} else {
-					_0 = _14;
+					return _14;
 				}
 			}
 		} else {
-			_0 = rt.Ok([first as rt.u64, _5[1]] as [rt.u64, Uint8Array]);
+			return rt.Ok([first as rt.u64, _5[1]] as [rt.u64, Uint8Array]);
 		}
 	} else {
-		_0 = rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+		return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 	}
-	return _0;
 }
 
 export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
-	let _0!: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError>;
 	let first!: rt.u8;
 	let _6!: [rt.u8, Uint8Array] | undefined;
 	let _8!: [rt.u64, Uint8Array];
@@ -333,101 +315,89 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 	let _142!: rt.Result<[Uint8Array, Uint8Array], DecodeError.DecodeError>;
 	let val8!: [Uint8Array, Uint8Array];
 	_6 = rt.sliceSplitFirst(buf);
-	b0: {
-		if (_6 !== undefined) {
-			first = _6[0];
-			_9 = rt.u8LeadingOnes(first);
-			if (_9 === 0) {
-				_8 = [first as rt.u64, _6[1]] as [rt.u64, Uint8Array];
-			} else if (_9 === 1) {
-				_14 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
-				if (_14.ok) {
-					val = _14.value;
-					_8 = [(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _14;
-					break b0;
-				}
-			} else if (_9 === 2) {
-				_30 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 3), { tag: "Short" } as DecodeError.DecodeError);
-				if (_30.ok) {
-					val2 = _30.value;
-					_8 = [(((val2[0][0] & 31) << 16) | (val2[0][1] << 8) | val2[0][2]) as rt.u64, val2[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _30;
-					break b0;
-				}
-			} else if (_9 === 3) {
-				_48 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
-				if (_48.ok) {
-					val3 = _48.value;
-					_8 = [(((val3[0][0] & 15) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0 as rt.u64, val3[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _48;
-					break b0;
-				}
-			} else if (_9 === 4) {
-				_65 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 5), { tag: "Short" } as DecodeError.DecodeError);
-				if (_65.ok) {
-					val4 = _65.value;
-					const slice5 = val4[0];
-					_8 = [fromHalves(((val4[0][0] & 7)) as rt.u32, rt.u32FromBeBytes(slice5.subarray(1, 5))), val4[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _65;
-					break b0;
-				}
-			} else if (_9 === 5) {
-				_81 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 6), { tag: "Short" } as DecodeError.DecodeError);
-				if (_81.ok) {
-					val5 = _81.value;
-					const slice4 = val5[0];
-					_8 = [fromHalves(((val5[0][0] & 3) << 8) | val5[0][1], rt.u32FromBeBytes(slice4.subarray(2, 6))), val5[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _81;
-					break b0;
-				}
-			} else if (_9 === 6) {
-				if (!seven) {
-					_0 = rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
-					break b0;
-				} else {
-					_101 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
-					if (_101.ok) {
-						val6 = _101.value;
-						const slice3 = val6[0];
-						_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(slice3.subarray(3, 7))), val6[1]] as [rt.u64, Uint8Array];
-					} else {
-						_0 = _101;
-						break b0;
-					}
-				}
-			} else if (_9 === 7) {
-				_121 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
-				if (_121.ok) {
-					val7 = _121.value;
-					const slice2 = val7[0];
-					_8 = [fromHalves((val7[0][1] << 16) | (val7[0][2] << 8) | val7[0][3], rt.u32FromBeBytes(slice2.subarray(4, 8))), val7[1]] as [rt.u64, Uint8Array];
-				} else {
-					_0 = _121;
-					break b0;
-				}
+	if (_6 !== undefined) {
+		first = _6[0];
+		_9 = rt.u8LeadingOnes(first);
+		if (_9 === 0) {
+			_8 = [first as rt.u64, _6[1]] as [rt.u64, Uint8Array];
+		} else if (_9 === 1) {
+			_14 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
+			if (_14.ok) {
+				val = _14.value;
+				_8 = [(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array];
 			} else {
-				_142 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 9), { tag: "Short" } as DecodeError.DecodeError);
-				if (_142.ok) {
-					val8 = _142.value;
-					const slice = val8[0];
-					_8 = [fromHalves(rt.u32FromBeBytes(slice.subarray(1, 5)), ((val8[0][5] << 24) | (val8[0][6] << 16) | (val8[0][7] << 8) | val8[0][8]) >>> 0), val8[1]] as [rt.u64, Uint8Array];
+				return _14;
+			}
+		} else if (_9 === 2) {
+			_30 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 3), { tag: "Short" } as DecodeError.DecodeError);
+			if (_30.ok) {
+				val2 = _30.value;
+				_8 = [(((val2[0][0] & 31) << 16) | (val2[0][1] << 8) | val2[0][2]) as rt.u64, val2[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _30;
+			}
+		} else if (_9 === 3) {
+			_48 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
+			if (_48.ok) {
+				val3 = _48.value;
+				_8 = [(((val3[0][0] & 15) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0 as rt.u64, val3[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _48;
+			}
+		} else if (_9 === 4) {
+			_65 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 5), { tag: "Short" } as DecodeError.DecodeError);
+			if (_65.ok) {
+				val4 = _65.value;
+				const slice5 = val4[0];
+				_8 = [fromHalves(((val4[0][0] & 7)) as rt.u32, rt.u32FromBeBytes(slice5.subarray(1, 5))), val4[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _65;
+			}
+		} else if (_9 === 5) {
+			_81 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 6), { tag: "Short" } as DecodeError.DecodeError);
+			if (_81.ok) {
+				val5 = _81.value;
+				const slice4 = val5[0];
+				_8 = [fromHalves(((val5[0][0] & 3) << 8) | val5[0][1], rt.u32FromBeBytes(slice4.subarray(2, 6))), val5[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _81;
+			}
+		} else if (_9 === 6) {
+			if (!seven) {
+				return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
+			} else {
+				_101 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
+				if (_101.ok) {
+					val6 = _101.value;
+					const slice3 = val6[0];
+					_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(slice3.subarray(3, 7))), val6[1]] as [rt.u64, Uint8Array];
 				} else {
-					_0 = _142;
-					break b0;
+					return _101;
 				}
 			}
-			_0 = rt.Ok(_8);
+		} else if (_9 === 7) {
+			_121 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
+			if (_121.ok) {
+				val7 = _121.value;
+				const slice2 = val7[0];
+				_8 = [fromHalves((val7[0][1] << 16) | (val7[0][2] << 8) | val7[0][3], rt.u32FromBeBytes(slice2.subarray(4, 8))), val7[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _121;
+			}
 		} else {
-			_0 = rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+			_142 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 9), { tag: "Short" } as DecodeError.DecodeError);
+			if (_142.ok) {
+				val8 = _142.value;
+				const slice = val8[0];
+				_8 = [fromHalves(rt.u32FromBeBytes(slice.subarray(1, 5)), ((val8[0][5] << 24) | (val8[0][6] << 16) | (val8[0][7] << 8) | val8[0][8]) >>> 0), val8[1]] as [rt.u64, Uint8Array];
+			} else {
+				return _142;
+			}
 		}
+		return rt.Ok(_8);
+	} else {
+		return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 	}
-	return _0;
 }
 
 /**

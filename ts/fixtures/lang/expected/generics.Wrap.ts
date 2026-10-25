@@ -151,13 +151,11 @@ export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<unde
 }
 
 export function eq$PartialEq_Pair(self: Wrap<Pair.Pair>, other: Wrap<Pair.Pair>): boolean {
-	let _0!: boolean;
 	if (!(self.count === other.count)) {
-		_0 = false;
+		return false;
 	} else {
-		_0 = Pair.eq$PartialEq(self.value, other.value);
+		return Pair.eq$PartialEq(self.value, other.value);
 	}
-	return _0;
 }
 
 /** A generic struct, with methods on every instance, on some, and on one. */
@@ -271,7 +269,6 @@ export function describe$Area_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec)
 	rt.byteVecPush(out, 0);
 	_7 = rt.u64ToBeBytes(area$Area_Meters(self));
 	rt.byteVecExtendFromSlice(out, _7);
-	return;
 }
 
 /** A default method, monomorphized for each type. */
@@ -280,7 +277,6 @@ export function describe$Area_Shape(self: Wrap<Shape.Shape>, out: rt.ByteVec): v
 	rt.byteVecPush(out, 4);
 	_7 = rt.u64ToBeBytes(area$Area_Shape(self));
 	rt.byteVecExtendFromSlice(out, _7);
-	return;
 }
 
 //# sourceMappingURL=generics.Wrap.ts.map

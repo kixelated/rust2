@@ -67,46 +67,40 @@ export function consumer(self: Channel): Consumer.Consumer {
 
 /** Send `value` through the first producer, if one is open. */
 export function send(self: Channel, value: rt.u64): boolean {
-	let _0!: boolean;
 	let _3!: Producer.Producer | undefined;
 	_3 = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
-		_0 = false;
+		return false;
 	} else {
 		Producer.send(_3, value);
-		_0 = true;
+		return true;
 	}
-	return _0;
 }
 
 /** Drop the last producer, if one is open: the last closes the channel. */
 export function close(self: Channel): boolean {
-	let _0!: boolean;
 	let _2!: Producer.Producer | undefined;
 	_2 = self.producers.pop();
 	if (_2 === undefined) {
-		_0 = false;
+		return false;
 	} else {
 		rt.drop(_2);
-		_0 = true;
+		return true;
 	}
-	return _0;
 }
 
 /** Open another producer, if one is open to clone. */
 export function cloneProducer(self: Channel): boolean {
-	let _0!: boolean;
 	let clone!: Producer.Producer;
 	let _3!: Producer.Producer | undefined;
 	_3 = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
-		_0 = false;
+		return false;
 	} else {
 		clone = Producer.clone$Clone(_3);
 		self.producers.push(clone);
-		_0 = true;
+		return true;
 	}
-	return _0;
 }
 
 //# sourceMappingURL=model.Channel.ts.map

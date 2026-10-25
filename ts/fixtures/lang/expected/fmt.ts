@@ -21,7 +21,6 @@ import type * as Shape from "./shapes.Shape.ts";
 export function put(out: rt.ByteVec, s: string): void {
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	rt.byteVecPush(out, 255);
-	return;
 }
 
 /** Integers of every width, with each spec. */
@@ -197,7 +196,6 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_412 = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v12, f));
 		put(out, _412);
 	}
-	return;
 }
 
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
@@ -458,7 +456,6 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	put(out, _168);
 	_186 = Uint8Array.of(Braced.eq$PartialEq({}, {}) ? 1 : 0, Bare.eq$PartialEq({}, {}) ? 1 : 0);
 	rt.byteVecExtendFromSlice(out, _186);
-	return;
 }
 
 /** Written `Display` and `Debug`, and a `Display` that fails inside `format!`. */
@@ -534,7 +531,6 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	_152 = at(8);
 	_143 = rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(_152, f), " ", (f: rt.Formatter) => rt.u8Display(_148, f), " ", (f: rt.Formatter) => rt.u8Display(_148, f), " named ", rt.fmtSpec({ align: ">", width: 5 }, (f: rt.Formatter) => rt.fmtPad(f, "named"))]);
 	put(out, _143);
-	return;
 }
 
 /** Panics, each with the message native Rust formats. */
@@ -727,7 +723,6 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		_274 = rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(arg, f)]);
 		put(out, _274);
 	}
-	return;
 }
 
 //# sourceMappingURL=fmt.ts.map

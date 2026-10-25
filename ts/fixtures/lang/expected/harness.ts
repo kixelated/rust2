@@ -9,7 +9,6 @@ import { copies, order, discriminants, loops, patterns, closures, library } from
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let _0!: rt.ByteVec;
 	let out!: rt.ByteVec;
 	let op!: rt.u8;
 	let kind!: rt.u8;
@@ -19,7 +18,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	let _36!: [rt.u8, Uint8Array] | undefined;
 	out = new rt.ByteVec();
 	if (!(input.length >= 2)) {
-		_0 = out;
+		return out;
 	} else {
 		_10 = [input[0], input[1]] as [rt.u8, rt.u8];
 		op = _10[0];
@@ -112,9 +111,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 		} else {
 			order(input.subarray(2, input.length - 0), out);
 		}
-		_0 = out;
+		return out;
 	}
-	return _0;
 }
 
 //# sourceMappingURL=harness.ts.map

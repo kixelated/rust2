@@ -23,18 +23,14 @@ export class recvFuture {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 0) {
-			return;
-		} else if (this.state === 3) {
-			rt.drop(this.__awaitee_);
-			return;
-		} else {
-			return;
+		if (this.state !== 0) {
+			if (this.state === 3) {
+				rt.drop(this.__awaitee_);
+			}
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _0!: rt.Poll<rt.u64 | undefined>;
 		let self!: Consumer.Consumer;
 		let _4!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
 		let _7!: rt.Poll<rt.u64 | undefined>;
@@ -63,13 +59,11 @@ export class recvFuture {
 				unwind = 12;
 				result = _7;
 				rt.drop(this.__awaitee_);
-				_0 = result;
 				this.state = 1;
-				return _0;
+				return result;
 			} else {
-				_0 = rt.Pending;
 				this.state = 3;
-				return _0;
+				return rt.Pending;
 			}
 		} catch (e) {
 			if (unwind === 0) {

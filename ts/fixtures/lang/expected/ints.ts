@@ -27,7 +27,6 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(v as rt.u128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.u8 | undefined): void => {
 		let v3!: rt.u8;
@@ -40,7 +39,6 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(v3 as rt.u128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = Uint8Array.of(0);
 	n = rt.min(data.length, buf.length);
@@ -139,7 +137,6 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & (~(1 << 2) & 0xff);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -167,7 +164,6 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(v as rt.u128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.u16 | undefined): void => {
 		let v3!: rt.u16;
@@ -180,7 +176,6 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(v3 as rt.u128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(2);
 	n = rt.min(data.length, buf.length);
@@ -279,7 +274,6 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & (~(1 << 2) & 0xffff);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -307,7 +301,6 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(v as rt.u128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.u32 | undefined): void => {
 		let v3!: rt.u32;
@@ -320,7 +313,6 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(v3 as rt.u128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(4);
 	n = rt.min(data.length, buf.length);
@@ -419,7 +411,6 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = (x & (~(1 << 2) >>> 0)) >>> 0;
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -447,7 +438,6 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(rt.u128Cast(v));
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v)), v) ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.u64 | undefined): void => {
 		let v3!: rt.u64;
@@ -460,7 +450,6 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(rt.u128Cast(v3));
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(8);
 	n = rt.min(data.length, buf.length);
@@ -559,7 +548,6 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.u64And(x, rt.u64Not(4));
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -587,7 +575,6 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(v);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v)), v) ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.u128 | undefined): void => {
 		let v3!: rt.u128;
@@ -600,7 +587,6 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(v3);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(16);
 	n = rt.min(data.length, buf.length);
@@ -699,7 +685,6 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.u128And(x, rt.u128Not(rt.u128Shl(1, 2)));
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -727,7 +712,6 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.u128ToBeBytes(v as rt.u128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.usize | undefined): void => {
 		let v3!: rt.usize;
@@ -740,7 +724,6 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.u128ToBeBytes(v3 as rt.u128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(4);
 	n = rt.min(data.length, buf.length);
@@ -839,7 +822,6 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = (x & (~(1 << 2) >>> 0)) >>> 0;
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -867,7 +849,6 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(v as rt.i128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.i8 | undefined): void => {
 		let v3!: rt.i8;
@@ -880,7 +861,6 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(v3 as rt.i128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = Uint8Array.of(0);
 	n = rt.min(data.length, buf.length);
@@ -983,7 +963,6 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & ~(1 << 2);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -1011,7 +990,6 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(v as rt.i128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.i16 | undefined): void => {
 		let v3!: rt.i16;
@@ -1024,7 +1002,6 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(v3 as rt.i128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(2);
 	n = rt.min(data.length, buf.length);
@@ -1127,7 +1104,6 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & ~(1 << 2);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -1155,7 +1131,6 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(v as rt.i128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.i32 | undefined): void => {
 		let v3!: rt.i32;
@@ -1168,7 +1143,6 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(v3 as rt.i128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(4);
 	n = rt.min(data.length, buf.length);
@@ -1271,7 +1245,6 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & ~(1 << 2);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -1299,7 +1272,6 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(rt.i128Cast(v));
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v)), v) ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.i64 | undefined): void => {
 		let v3!: rt.i64;
@@ -1312,7 +1284,6 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(rt.i128Cast(v3));
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(8);
 	n = rt.min(data.length, buf.length);
@@ -1415,7 +1386,6 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.i64And(x, rt.i64Not(4));
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -1443,7 +1413,6 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(v);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v)), v) ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.i128 | undefined): void => {
 		let v3!: rt.i128;
@@ -1456,7 +1425,6 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(v3);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(16);
 	n = rt.min(data.length, buf.length);
@@ -1559,7 +1527,6 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.i128And(x, rt.i128Not(rt.i128Shl(1, 2)));
 		_50(out, x);
 	}
-	return;
 }
 
 /** Apply operation `op` to operands taken from `data`. */
@@ -1587,7 +1554,6 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		_7 = rt.i128ToBeBytes(v as rt.i128);
 		rt.byteVecExtendFromSlice(out2, _7);
 		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v)) === v ? 1 : 0);
-		return;
 	};
 	_51 = (out3: rt.ByteVec, v2: rt.isize | undefined): void => {
 		let v3!: rt.isize;
@@ -1600,7 +1566,6 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			_106 = rt.i128ToBeBytes(v3 as rt.i128);
 			rt.byteVecExtendFromSlice(out3, _106);
 		}
-		return;
 	};
 	buf = rt.bytes(4);
 	n = rt.min(data.length, buf.length);
@@ -1703,7 +1668,6 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x & ~(1 << 2);
 		_50(out, x);
 	}
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1718,7 +1682,6 @@ export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.i8FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.i8, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.i8Neg(a) as rt.i128);
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1733,7 +1696,6 @@ export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.i16FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.i16, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.i16Neg(a) as rt.i128);
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1748,7 +1710,6 @@ export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.i32FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.i32, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.i32Neg(a) as rt.i128);
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1763,7 +1724,6 @@ export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.i64FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.i64, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.i128Cast(rt.i64Neg(a)));
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1778,7 +1738,6 @@ export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.i128FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.i128, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.i128Neg(a));
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1793,7 +1752,6 @@ export function isizeNeg(data: Uint8Array, out: rt.ByteVec): void {
 	a = ([rt.isizeFromBeBytes(buf), rt.sliceRange(data, n)] as [rt.isize, Uint8Array])[0];
 	_24 = rt.i128ToBeBytes(rt.isizeNeg(a) as rt.i128);
 	rt.byteVecExtendFromSlice(out, _24);
-	return;
 }
 
 /** Cast a value of type `from` to type `to`, both indexes into the twelve types. */
@@ -3229,7 +3187,6 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1685));
 		}
 	}
-	return;
 }
 
 /** Conversions that check, and ones that cannot fail. */
@@ -3336,7 +3293,6 @@ export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	_138 = Uint8Array.of(d, c, b, a);
 	_142 = rt.i32ToBeBytes(rt.i32FromBeBytes(_138));
 	rt.byteVecExtendFromSlice(out, _142);
-	return;
 }
 
 //# sourceMappingURL=ints.ts.map

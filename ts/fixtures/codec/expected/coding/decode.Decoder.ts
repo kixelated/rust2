@@ -66,16 +66,14 @@ export function isEmpty(self: Decoder): boolean {
 
 /** Read `len` raw bytes. */
 export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	let _0!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let _6!: [Uint8Array, Uint8Array] | undefined;
 	_6 = rt.sliceSplitAtChecked(self.buf, len);
 	if (_6 !== undefined) {
 		self.buf = _6[1];
-		_0 = rt.Ok(_6[0]);
+		return rt.Ok(_6[0]);
 	} else {
-		_0 = rt.Err(short(self, len));
+		return rt.Err(short(self, len));
 	}
-	return _0;
 }
 
 /** Read every remaining byte. */
@@ -87,20 +85,17 @@ export function rest(self: Decoder): Uint8Array {
 
 /** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
 export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeError.DecodeError> {
-	let _0!: rt.Result<Decoder, DecodeError.DecodeError>;
 	let _4!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	_4 = slice(self, len);
 	if (_4.ok) {
-		_0 = rt.Ok(new_(_4.value, self.form));
+		return rt.Ok(new_(_4.value, self.form));
 	} else {
-		_0 = _4;
+		return _4;
 	}
-	return _0;
 }
 
 /** Read a single byte. */
 export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
-	let _0!: rt.Result<rt.u8, DecodeError.DecodeError>;
 	let _3!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let _8!: rt.usize;
 	let _9!: rt.usize;
@@ -111,16 +106,14 @@ export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
 		if (!(_8 < _9)) {
 			rt.panic("index out of bounds: the len is " + _9 + " but the index is " + _8);
 		}
-		_0 = rt.Ok(_3.value[_8]);
+		return rt.Ok(_3.value[_8]);
 	} else {
-		_0 = _3;
+		return _3;
 	}
-	return _0;
 }
 
 /** Read a big-endian `u16`. */
 export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
-	let _0!: rt.Result<rt.u16, DecodeError.DecodeError>;
 	let _2!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let _9!: rt.u8;
 	let _10!: rt.usize;
@@ -140,32 +133,29 @@ export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
 		if (!(_14 < _15)) {
 			rt.panic("index out of bounds: the len is " + _15 + " but the index is " + _14);
 		}
-		_0 = rt.Ok((_9 << 8) | _2.value[_14]);
+		return rt.Ok((_9 << 8) | _2.value[_14]);
 	} else {
-		_0 = _2;
+		return _2;
 	}
-	return _0;
 }
 
 /** Read a byte that must be 0 or 1. */
 export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError> {
-	let _0!: rt.Result<boolean, DecodeError.DecodeError>;
 	let _2!: rt.Result<rt.u8, DecodeError.DecodeError>;
 	let val!: rt.u8;
 	_2 = u8(self);
 	if (_2.ok) {
 		val = _2.value;
 		if (val === 0) {
-			_0 = rt.Ok(false);
+			return rt.Ok(false);
 		} else if (val === 1) {
-			_0 = rt.Ok(true);
+			return rt.Ok(true);
 		} else {
-			_0 = rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
+			return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
 		}
 	} else {
-		_0 = _2;
+		return _2;
 	}
-	return _0;
 }
 
 /** Read a varint. */
@@ -192,20 +182,17 @@ export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError
 
 /** Read an optional varint: 0 is `None`, and `n + 1` is `Some(n)`. */
 export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeError.DecodeError> {
-	let _0!: rt.Result<rt.u64 | undefined, DecodeError.DecodeError>;
 	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	_3 = varint(self);
 	if (_3.ok) {
-		_0 = rt.Ok(rt.u64CheckedSub(_3.value, 1));
+		return rt.Ok(rt.u64CheckedSub(_3.value, 1));
 	} else {
-		_0 = _3;
+		return _3;
 	}
-	return _0;
 }
 
 /** Read a varint length, then that many raw bytes. */
 export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	let _0!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let start!: Uint8Array;
 	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
 	let _6!: rt.Result<rt.u64, DecodeError.DecodeError>;
@@ -216,22 +203,19 @@ export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeEr
 			return { tag: "BoundsExceeded" } as DecodeError.DecodeError;
 		});
 		if (_3.ok) {
-			_0 = rt.resultInspectErr(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
+			return rt.resultInspectErr(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
 				self.buf = start;
-				return;
 			});
 		} else {
-			_0 = _3;
+			return _3;
 		}
 	} else {
-		_0 = _6;
+		return _6;
 	}
-	return _0;
 }
 
 /** Read a varint length, then that many bytes of UTF-8. */
 export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError> {
-	let _0!: rt.Result<string, DecodeError.DecodeError>;
 	let _2!: rt.Result<string, rt.FromUtf8Error>;
 	let _5!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let residual2!: rt.Result<never, rt.FromUtf8Error>;
@@ -239,15 +223,14 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 	if (_5.ok) {
 		_2 = rt.stringFromUtf8(rt.sliceToByteVec(_5.value));
 		if (_2.ok) {
-			_0 = rt.Ok(_2.value);
+			return rt.Ok(_2.value);
 		} else {
 			residual2 = _2;
-			_0 = rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
+			return rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
 		}
 	} else {
-		_0 = _5;
+		return _5;
 	}
-	return _0;
 }
 
 export { new_ as new };

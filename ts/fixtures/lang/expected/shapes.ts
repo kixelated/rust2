@@ -50,25 +50,22 @@ export function from$From_Dir_u8(dir_: Dir.Dir): rt.u8 {
 }
 
 export function dir(byte: rt.u8): Dir.Dir | undefined {
-	let _0!: Dir.Dir | undefined;
 	let _2!: rt.u8;
 	_2 = rt.u8Rem(byte, 5);
 	if (_2 === 0) {
-		_0 = "North" as Dir.Dir;
+		return "North" as Dir.Dir;
 	} else if (_2 === 1) {
-		_0 = "East" as Dir.Dir;
+		return "East" as Dir.Dir;
 	} else if (_2 === 2) {
-		_0 = "South" as Dir.Dir;
+		return "South" as Dir.Dir;
 	} else if (_2 === 3) {
-		_0 = "West" as Dir.Dir;
+		return "West" as Dir.Dir;
 	} else {
-		_0 = undefined;
+		return undefined;
 	}
-	return _0;
 }
 
 export function shape(data: Uint8Array): Shape.Shape {
-	let _0!: Shape.Shape;
 	let kind!: rt.u8;
 	let _4!: [rt.u8, Uint8Array] | undefined;
 	let at!: (a0: rt.usize) => rt.i32;
@@ -81,16 +78,15 @@ export function shape(data: Uint8Array): Shape.Shape {
 		};
 		_7 = rt.u8Rem(kind, 3);
 		if (_7 === 0) {
-			_0 = { tag: "Dot" } as Shape.Shape;
+			return { tag: "Dot" } as Shape.Shape;
 		} else if (_7 === 1) {
-			_0 = { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
+			return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
 		} else {
-			_0 = { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.sliceGet(_4[1], 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.sliceGet(_4[1], 3), 0) as rt.u16 } as Shape.Shape;
+			return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.sliceGet(_4[1], 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.sliceGet(_4[1], 3), 0) as rt.u16 } as Shape.Shape;
 		}
 	} else {
-		_0 = { tag: "Dot" } as Shape.Shape;
+		return { tag: "Dot" } as Shape.Shape;
 	}
-	return _0;
 }
 
 /** `Copy` aggregates: a copy changes apart from its original. */
@@ -504,7 +500,6 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	_67 = Uint8Array.of(first, second, called, _68, slots[_71], n);
 	rt.byteVecExtendFromSlice(out, _67);
 	rt.byteVecExtendFromSlice(out, bytes);
-	return;
 }
 
 /** A vector of `b`, logging that it was made. */
@@ -866,7 +861,6 @@ export function diverging(data: Uint8Array, out: rt.ByteVec): void {
 	rt.byteVecPush(out, boundNever(head, out));
 	rt.byteVecPush(out, closureNever(b));
 	genericNever(b, data.length);
-	return;
 }
 
 /**
@@ -906,14 +900,12 @@ export function closureNever(b: rt.u8): rt.u8 {
 
 /** A closure that never returns, made by a function. */
 export function madeNever(): (a0: rt.u8) => never {
-	let _0!: (a0: rt.u8) => never;
-	_0 = (b: rt.u8): never => {
+	return (b: rt.u8): never => {
 		let args!: [rt.u8];
 		args = [b] as [rt.u8];
 		const arg = args[0];
 		rt.panicFmt(["made ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
 	};
-	return _0;
 }
 
 /**
@@ -925,14 +917,14 @@ export function genericNever(b: rt.u8, len: rt.usize): void {
 	let args3!: [rt.u8];
 	if (!(b === 241)) {
 		if (!(b === 246)) {
-			if (!(b === 249)) {
-				return;
-			} else if (!(len > 1)) {
-				args3 = [b] as [rt.u8];
-				const arg2 = args3[0];
-				rt.panicFmt(["some ", (f: rt.Formatter) => rt.u8Display(arg2, f)]);
-			} else {
-				unwrapOrBail$never(undefined, b);
+			if (b === 249) {
+				if (!(len > 1)) {
+					args3 = [b] as [rt.u8];
+					const arg2 = args3[0];
+					rt.panicFmt(["some ", (f: rt.Formatter) => rt.u8Display(arg2, f)]);
+				} else {
+					unwrapOrBail$never(undefined, b);
+				}
 			}
 		} else {
 			args = [b] as [rt.u8];
@@ -990,35 +982,29 @@ export function returnedNever(b: rt.u8, len: rt.usize): rt.u8 {
 
 /** A `return` of a `match` that guards, whose arms fall through to the next. */
 export function guardedReturn(data: Uint8Array): rt.u8 {
-	let _0!: rt.u8;
 	let a!: rt.u8;
 	let b!: rt.u8;
 	let _13!: rt.u8;
 	let a2!: rt.u8;
-	b0: {
-		if (!((data.length === 0))) {
-			if (data.length === 2) {
-				a = data[0];
-				b = data[1];
-				_13 = b;
-				if (a > _13) {
-					_0 = rt.u8Sub(a, b);
-					break b0;
-				}
+	if (!((data.length === 0))) {
+		if (data.length === 2) {
+			a = data[0];
+			b = data[1];
+			_13 = b;
+			if (a > _13) {
+				return rt.u8Sub(a, b);
 			}
-			if (data.length >= 1) {
-				a2 = data[0];
-				if (a2 > 128) {
-					_0 = 1;
-					break b0;
-				}
-			}
-			_0 = 2;
-		} else {
-			_0 = 3;
 		}
+		if (data.length >= 1) {
+			a2 = data[0];
+			if (a2 > 128) {
+				return 1;
+			}
+		}
+		return 2;
+	} else {
+		return 3;
 	}
-	return _0;
 }
 
 /** A loop ending the function, left by `break` with values that never exist. */
@@ -1043,6 +1029,7 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 				args = [i] as [rt.usize];
 				const arg = args[0];
 				rt.panicFmt(["broken at ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]);
+				return _0;
 			} else if (value === 252) {
 				_19 = i;
 				_20 = data.length;
@@ -1050,16 +1037,16 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 					rt.panic("index out of bounds: the len is " + _20 + " but the index is " + _19);
 				}
 				bail(data[_19]);
+				return _0;
 			} else if (value === 0) {
-				_0 = i & 0xff;
+				return i & 0xff;
 			} else {
 				i = rt.usizeAdd(i, 1);
 				continue l0;
 			}
 		} else {
-			_0 = 204;
+			return 204;
 		}
-		return _0;
 	}
 }
 
@@ -1079,52 +1066,50 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 	let _33!: rt.usize;
 	i = 0;
 	l0: while (true) {
-		b1: {
-			if (!(i >= data.length)) {
-				_8 = i;
-				_9 = data.length;
-				if (!(_8 < _9)) {
-					rt.panic("index out of bounds: the len is " + _9 + " but the index is " + _8);
+		if (!(i >= data.length)) {
+			_8 = i;
+			_9 = data.length;
+			if (!(_8 < _9)) {
+				rt.panic("index out of bounds: the len is " + _9 + " but the index is " + _8);
+			}
+			const value = data[_8];
+			if (value === 239) {
+				args = [i] as [rt.usize];
+				const arg = args[0];
+				rt.panicFmt(["bound at ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]);
+				return _0;
+			} else if (value === 240) {
+				_22 = i;
+				_23 = data.length;
+				if (!(_22 < _23)) {
+					rt.panic("index out of bounds: the len is " + _23 + " but the index is " + _22);
 				}
-				const value = data[_8];
-				if (value === 239) {
-					args = [i] as [rt.usize];
-					const arg = args[0];
-					rt.panicFmt(["bound at ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]);
-				} else if (value === 240) {
-					_22 = i;
-					_23 = data.length;
-					if (!(_22 < _23)) {
-						rt.panic("index out of bounds: the len is " + _23 + " but the index is " + _22);
-					}
-					bail(data[_22]);
-				} else if (value === 0) {
-					_0 = i & 0xff;
-				} else if (value === 128) {
-					l2: while (true) {
-						i = rt.usizeAdd(i, 1);
-						if (!(i >= data.length)) {
-							_32 = i;
-							_33 = data.length;
-							if (!(_32 < _33)) {
-								rt.panic("index out of bounds: the len is " + _33 + " but the index is " + _32);
-							}
-							if (!(data[_32] < 128)) {
-								continue l2;
-							}
-						}
-						_0 = i & 0xff;
-						break b1;
-					}
-				} else {
+				bail(data[_22]);
+				return _0;
+			} else if (value === 0) {
+				return i & 0xff;
+			} else if (value === 128) {
+				l2: while (true) {
 					i = rt.usizeAdd(i, 1);
-					continue l0;
+					if (!(i >= data.length)) {
+						_32 = i;
+						_33 = data.length;
+						if (!(_32 < _33)) {
+							rt.panic("index out of bounds: the len is " + _33 + " but the index is " + _32);
+						}
+						if (!(data[_32] < 128)) {
+							continue l2;
+						}
+					}
+					return i & 0xff;
 				}
 			} else {
-				_0 = 187;
+				i = rt.usizeAdd(i, 1);
+				continue l0;
 			}
+		} else {
+			return 187;
 		}
-		return _0;
 	}
 }
 
@@ -1184,43 +1169,37 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 
 /** A loop that only `return` leaves, returned itself, around loops that `break`. */
 export function returnedLoop(data: Uint8Array): rt.u8 {
-	let _0!: rt.u8;
 	let i!: rt.usize;
 	let iter!: rt.Iter<rt.u8>;
 	let _11!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	i = 0;
 	l0: while (true) {
-		b1: {
-			if (!(i >= data.length)) {
-				iter = rt.iterSlice(rt.sliceRange(data, i));
-				l2: while (true) {
-					_11 = iter.next();
-					if (_11 !== rt.DONE) {
-						b = _11;
-						if (!(b === 0)) {
-							if (!(b > 240)) {
-								continue l2;
-							} else {
-								_0 = b ^ (i & 0xff);
-								break b1;
-							}
+		if (!(i >= data.length)) {
+			iter = rt.iterSlice(rt.sliceRange(data, i));
+			l2: while (true) {
+				_11 = iter.next();
+				if (_11 !== rt.DONE) {
+					b = _11;
+					if (!(b === 0)) {
+						if (!(b > 240)) {
+							continue l2;
+						} else {
+							return b ^ (i & 0xff);
 						}
 					}
-					i = rt.usizeAdd(i, 1);
-					continue l0;
 				}
-			} else {
-				_0 = 221;
+				i = rt.usizeAdd(i, 1);
+				continue l0;
 			}
+		} else {
+			return 221;
 		}
-		return _0;
 	}
 }
 
 /** A loop that ends the function, left only by `return` from nested scopes. */
 export function firstRepeat(data: Uint8Array): rt.u8 {
-	let _0!: rt.u8;
 	let i!: rt.usize;
 	let j!: rt.usize;
 	let _14!: rt.usize;
@@ -1234,59 +1213,54 @@ export function firstRepeat(data: Uint8Array): rt.u8 {
 	let _30!: rt.usize;
 	i = 0;
 	l0: while (true) {
-		b1: {
-			if (!(i >= data.length)) {
-				j = rt.usizeAdd(i, 1);
-				while (true) {
-					if (!(j < data.length)) {
-						i = rt.usizeAdd(i, 1);
-						continue l0;
-					} else {
-						_14 = j;
-						_15 = data.length;
-						if (!(_14 < _15)) {
-							rt.panic("index out of bounds: the len is " + _15 + " but the index is " + _14);
+		if (!(i >= data.length)) {
+			j = rt.usizeAdd(i, 1);
+			while (true) {
+				if (!(j < data.length)) {
+					i = rt.usizeAdd(i, 1);
+					continue l0;
+				} else {
+					_14 = j;
+					_15 = data.length;
+					if (!(_14 < _15)) {
+						rt.panic("index out of bounds: the len is " + _15 + " but the index is " + _14);
+					}
+					if (!(data[_14] === 0)) {
+						_21 = i;
+						_22 = data.length;
+						if (!(_21 < _22)) {
+							rt.panic("index out of bounds: the len is " + _22 + " but the index is " + _21);
 						}
-						if (!(data[_14] === 0)) {
-							_21 = i;
-							_22 = data.length;
-							if (!(_21 < _22)) {
-								rt.panic("index out of bounds: the len is " + _22 + " but the index is " + _21);
-							}
-							_20 = data[_21];
-							_25 = j;
-							_26 = data.length;
-							if (!(_25 < _26)) {
-								rt.panic("index out of bounds: the len is " + _26 + " but the index is " + _25);
-							}
-							if (!(_20 === data[_25])) {
-								j = rt.usizeAdd(j, 1);
-							} else {
-								_29 = j;
-								_30 = data.length;
-								if (!(_29 < _30)) {
-									rt.panic("index out of bounds: the len is " + _30 + " but the index is " + _29);
-								}
-								_0 = data[_29] ^ (i & 0xff);
-								break b1;
-							}
+						_20 = data[_21];
+						_25 = j;
+						_26 = data.length;
+						if (!(_25 < _26)) {
+							rt.panic("index out of bounds: the len is " + _26 + " but the index is " + _25);
+						}
+						if (!(_20 === data[_25])) {
+							j = rt.usizeAdd(j, 1);
 						} else {
-							i = rt.usizeAdd(j, 1);
-							continue l0;
+							_29 = j;
+							_30 = data.length;
+							if (!(_29 < _30)) {
+								rt.panic("index out of bounds: the len is " + _30 + " but the index is " + _29);
+							}
+							return data[_29] ^ (i & 0xff);
 						}
+					} else {
+						i = rt.usizeAdd(j, 1);
+						continue l0;
 					}
 				}
-			} else {
-				_0 = 255;
 			}
+		} else {
+			return 255;
 		}
-		return _0;
 	}
 }
 
 /** A loop that ends the function, left by `break` with a value from nested scopes. */
 export function tailBreak(data: Uint8Array): rt.u16 {
-	let _0!: rt.u16;
 	let i!: rt.usize;
 	let b!: rt.u8;
 	let _7!: rt.usize;
@@ -1298,61 +1272,54 @@ export function tailBreak(data: Uint8Array): rt.u16 {
 	let n!: rt.u8;
 	i = 0;
 	l0: while (true) {
-		b1: {
-			if (!(i >= data.length)) {
-				_7 = i;
-				_8 = data.length;
-				if (!(_7 < _8)) {
-					rt.panic("index out of bounds: the len is " + _8 + " but the index is " + _7);
-				}
-				b = data[_7];
-				i = rt.usizeAdd(i, 1);
-				_11 = rt.u8Rem(b, 4);
-				if (_11 === 0) {
-					continue l0;
-				} else if (_11 === 1) {
-					iter = rt.iterSlice(rt.sliceRange(data, i));
-					while (true) {
-						_18 = iter.next();
-						if (_18 === rt.DONE) {
-							continue l0;
-						} else {
-							c = _18;
-							if (c === b) {
-								_0 = rt.u16Mul(c as rt.u16, 2);
-								break b1;
-							}
-						}
-					}
-				} else if (_11 === 2) {
-					if (b > 100) {
-						_0 = rt.u16Add(b as rt.u16, i & 0xffff);
-						break b1;
-					}
-				}
-				n = b;
-				while (true) {
-					if (!(n < 10)) {
-						n = rt.u8Div(n, 3);
-						if (n === 7) {
-							_0 = 7;
-							break b1;
-						}
-					} else {
-						continue l0;
-					}
-				}
-			} else {
-				_0 = 256;
+		if (!(i >= data.length)) {
+			_7 = i;
+			_8 = data.length;
+			if (!(_7 < _8)) {
+				rt.panic("index out of bounds: the len is " + _8 + " but the index is " + _7);
 			}
+			b = data[_7];
+			i = rt.usizeAdd(i, 1);
+			_11 = rt.u8Rem(b, 4);
+			if (_11 === 0) {
+				continue l0;
+			} else if (_11 === 1) {
+				iter = rt.iterSlice(rt.sliceRange(data, i));
+				while (true) {
+					_18 = iter.next();
+					if (_18 === rt.DONE) {
+						continue l0;
+					} else {
+						c = _18;
+						if (c === b) {
+							return rt.u16Mul(c as rt.u16, 2);
+						}
+					}
+				}
+			} else if (_11 === 2) {
+				if (b > 100) {
+					return rt.u16Add(b as rt.u16, i & 0xffff);
+				}
+			}
+			n = b;
+			while (true) {
+				if (!(n < 10)) {
+					n = rt.u8Div(n, 3);
+					if (n === 7) {
+						return 7;
+					}
+				} else {
+					continue l0;
+				}
+			}
+		} else {
+			return 256;
 		}
-		return _0;
 	}
 }
 
 /** A loop that only `return` leaves, in a `match` arm that needs a value. */
 export function armLoop(data: Uint8Array): rt.u8 {
-	let _0!: rt.u8;
 	let k!: rt.usize;
 	let _3!: rt.u8 | undefined;
 	let _13!: rt.usize;
@@ -1361,38 +1328,32 @@ export function armLoop(data: Uint8Array): rt.u8 {
 	let _18!: rt.usize;
 	k = 0;
 	_3 = rt.sliceFirst(data);
-	b0: {
-		if (_3 !== undefined) {
-			if (_3 >= 128) {
-				_0 = rt.u8Div(_3, 2);
-				break b0;
-			}
-		}
-		while (true) {
-			if (!(k >= data.length)) {
-				_13 = k;
-				_14 = data.length;
-				if (!(_13 < _14)) {
-					rt.panic("index out of bounds: the len is " + _14 + " but the index is " + _13);
-				}
-				if (!(data[_13] >= 128)) {
-					k = rt.usizeAdd(k, 1);
-				} else {
-					_17 = k;
-					_18 = data.length;
-					if (!(_17 < _18)) {
-						rt.panic("index out of bounds: the len is " + _18 + " but the index is " + _17);
-					}
-					_0 = rt.u8Sub(data[_17], 128);
-					break b0;
-				}
-			} else {
-				_0 = 238;
-				break b0;
-			}
+	if (_3 !== undefined) {
+		if (_3 >= 128) {
+			return rt.u8Div(_3, 2);
 		}
 	}
-	return _0;
+	while (true) {
+		if (!(k >= data.length)) {
+			_13 = k;
+			_14 = data.length;
+			if (!(_13 < _14)) {
+				rt.panic("index out of bounds: the len is " + _14 + " but the index is " + _13);
+			}
+			if (!(data[_13] >= 128)) {
+				k = rt.usizeAdd(k, 1);
+			} else {
+				_17 = k;
+				_18 = data.length;
+				if (!(_17 < _18)) {
+					rt.panic("index out of bounds: the len is " + _18 + " but the index is " + _17);
+				}
+				return rt.u8Sub(data[_17], 128);
+			}
+		} else {
+			return 238;
+		}
+	}
 }
 
 /** A generic function ending in a loop. */
@@ -1411,9 +1372,12 @@ export function position$u8(items: Uint8Array, want: rt.u8): rt.usize {
 			if (!((items[_9] === want))) {
 				i = rt.usizeAdd(i, 1);
 				continue l0;
+			} else {
+				return i;
 			}
+		} else {
+			return i;
 		}
-		return i;
 	}
 }
 
@@ -1614,7 +1578,6 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	sum = 0;
 	add = (v: rt.u8): void => {
 		sum = rt.u32Add(sum, v as rt.u32);
-		return;
 	};
 	iter = rt.iterSlice(data);
 	while (true) {
@@ -1667,10 +1630,8 @@ export function overwrite(a: Uint8Array): void {
 	let write!: () => void;
 	write = (): void => {
 		a.set(Uint8Array.of(9));
-		return;
 	};
 	write();
-	return;
 }
 
 export function apply$closures_closure1(f: (a0: rt.u32) => rt.u32, v: rt.u32): rt.u32 {
@@ -1689,21 +1650,19 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 	let s!: string;
 	let _38!: Uint8Array;
 	_3 = (a2: rt.u8, b2: rt.u8): rt.u8 | undefined => {
-		let _0!: rt.u8 | undefined;
 		let _4!: rt.u8 | undefined;
 		let _82!: rt.u8 | undefined;
 		_4 = rt.u8CheckedAdd(a2, b2);
 		if (_4 !== undefined) {
 			_82 = rt.u8CheckedMul(_4, 2);
 			if (_82 !== undefined) {
-				_0 = rt.u8Sub(_82, 1);
+				return rt.u8Sub(_82, 1);
 			} else {
-				_0 = undefined;
+				return undefined;
 			}
 		} else {
-			_0 = undefined;
+			return undefined;
 		}
-		return _0;
 	};
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 	const part = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
@@ -1735,7 +1694,6 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 	} else {
 		rt.byteVecPush(out, 0);
 	}
-	return;
 }
 
 //# sourceMappingURL=shapes.ts.map

@@ -24,10 +24,10 @@ export function decodeSlice$Decode_Form(buf: Uint8Array, version: Form.Form): rt
 		value = val;
 		_13 = value;
 		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Versions, rt.usize]);
+		return _0;
 	} else {
-		_0 = _6;
+		return _6;
 	}
-	return _0;
 }
 
 /** A list of versions in preferred order. */
@@ -37,7 +37,6 @@ export interface Versions {
 
 /** Decode the version list. */
 export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.Result<Versions, DecodeError.DecodeError> {
-	let _0!: rt.Result<Versions, DecodeError.DecodeError>;
 	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	let count!: rt.u64;
 	let vs!: Version.Version[];
@@ -45,93 +44,76 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 	let _12!: rt.u64 | rt.Done;
 	let _15!: rt.Result<Version.Version, DecodeError.DecodeError>;
 	_3 = Decoder.varint(r);
-	b0: {
-		if (_3.ok) {
-			count = _3.value;
-			vs = [];
-			iter = new rt.Range(0, count, rt.u64Step);
-			while (true) {
-				_12 = iter.next();
-				if (_12 === rt.DONE) {
-					_0 = rt.Ok({ _0: vs });
-					break b0;
+	if (_3.ok) {
+		count = _3.value;
+		vs = [];
+		iter = new rt.Range(0, count, rt.u64Step);
+		while (true) {
+			_12 = iter.next();
+			if (_12 === rt.DONE) {
+				return rt.Ok({ _0: vs });
+			} else {
+				_15 = Version.decode$Decode_Form(r, version);
+				if (_15.ok) {
+					vs.push(_15.value);
 				} else {
-					_15 = Version.decode$Decode_Form(r, version);
-					if (_15.ok) {
-						vs.push(_15.value);
-					} else {
-						_0 = _15;
-						break b0;
-					}
+					return _15;
 				}
 			}
-		} else {
-			_0 = _3;
 		}
+	} else {
+		return _3;
 	}
-	return _0;
 }
 
 /** Encode the version list. */
 export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
 	let iter!: rt.Iter<Version.Version>;
 	let _14!: Version.Version | rt.Done;
 	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
 	_4 = Encoder.varint(w, self._0.length as rt.u64);
-	b0: {
-		if (_4.ok) {
-			iter = rt.iterSlice(self._0);
-			while (true) {
-				_14 = iter.next();
-				if (_14 === rt.DONE) {
-					_0 = rt.Ok(undefined);
-					break b0;
-				} else {
-					_18 = Version.encode$Encode_Form(_14, w, version);
-					if (!_18.ok) {
-						_0 = _18;
-						break b0;
-					}
+	if (_4.ok) {
+		iter = rt.iterSlice(self._0);
+		while (true) {
+			_14 = iter.next();
+			if (_14 === rt.DONE) {
+				return rt.Ok(undefined);
+			} else {
+				_18 = Version.encode$Encode_Form(_14, w, version);
+				if (!_18.ok) {
+					return _18;
 				}
 			}
-		} else {
-			_0 = _4;
 		}
+	} else {
+		return _4;
 	}
-	return _0;
 }
 
 /** Encode the version list. */
 export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
 	let iter!: rt.Iter<Version.Version>;
 	let _14!: Version.Version | rt.Done;
 	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
 	_4 = Encoder.varint(w, self._0.length as rt.u64);
-	b0: {
-		if (_4.ok) {
-			iter = rt.iterSlice(self._0);
-			while (true) {
-				_14 = iter.next();
-				if (_14 === rt.DONE) {
-					_0 = rt.Ok(undefined);
-					break b0;
-				} else {
-					_18 = Version.encode$Encode_Version(_14, w, version);
-					if (!_18.ok) {
-						_0 = _18;
-						break b0;
-					}
+	if (_4.ok) {
+		iter = rt.iterSlice(self._0);
+		while (true) {
+			_14 = iter.next();
+			if (_14 === rt.DONE) {
+				return rt.Ok(undefined);
+			} else {
+				_18 = Version.encode$Encode_Version(_14, w, version);
+				if (!_18.ok) {
+					return _18;
 				}
 			}
-		} else {
-			_0 = _4;
 		}
+	} else {
+		return _4;
 	}
-	return _0;
 }
 
 export function from$From_Versions(vs: Version.Version[]): Versions {

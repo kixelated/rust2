@@ -4,7 +4,6 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _0!: rt.Result<undefined, rt.FmtError>;
 	let __self1!: Point.Point;
 	let _7!: string;
 	let _8!: rt.Fmt;
@@ -18,13 +17,13 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	let _19!: string;
 	let _20!: rt.Fmt;
 	if (self.tag === "Dot") {
-		_0 = rt.fmtWriteStr(f, "Dot");
+		return rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
 		__self1 = self._1;
 		_7 = "Line";
 		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
 		_9 = (f: rt.Formatter) => Point.fmt$Debug(__self1, f);
-		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	} else {
 		__self2 = self.height;
 		_14 = "Rect";
@@ -34,9 +33,8 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 		_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
 		_19 = "height";
 		_20 = (f: rt.Formatter) => rt.u16Display(__self2, f);
-		_0 = rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 	}
-	return _0;
 }
 
 /** An enum with data, and one without. */
@@ -51,23 +49,20 @@ export function describe$Area(self: Shape, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
 	_7 = rt.u64ToBeBytes(area$Area(self));
 	rt.byteVecExtendFromSlice(out, _7);
-	return;
 }
 
 export function area$Area(self: Shape): rt.u64 {
-	let _0!: rt.u64;
 	let width!: rt.u16;
 	let height!: rt.u16;
 	if (self.tag === "Dot") {
-		_0 = 0;
+		return 0;
 	} else if (self.tag === "Line") {
-		_0 = 0;
+		return 0;
 	} else {
 		width = self.width;
 		height = self.height;
-		_0 = rt.u64Mul(width as rt.u64, height as rt.u64);
+		return rt.u64Mul(width as rt.u64, height as rt.u64);
 	}
-	return _0;
 }
 
 //# sourceMappingURL=shapes.Shape.ts.map

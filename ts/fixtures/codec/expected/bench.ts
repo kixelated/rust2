@@ -13,7 +13,6 @@ import type * as Version from "./lite/version.Version.ts";
 
 /** Run one workload. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let _0!: rt.ByteVec;
 	let out!: rt.ByteVec;
 	let op!: rt.u8;
 	let _5!: [rt.u8, Uint8Array] | undefined;
@@ -57,14 +56,13 @@ export function run(input: Uint8Array): rt.ByteVec {
 				_38 = liteVersion(selector);
 				decoded(decodeGroup(_9[1], _38, out), out);
 			}
-			_0 = out;
+			return out;
 		} else {
-			_0 = out;
+			return out;
 		}
 	} else {
-		_0 = out;
+		return out;
 	}
-	return _0;
 }
 
 export function encoded(result: rt.Result<undefined, EncodeError.EncodeError>, out: rt.ByteVec): void {
@@ -73,7 +71,6 @@ export function encoded(result: rt.Result<undefined, EncodeError.EncodeError>, o
 		err = result.error;
 		encodeError(out, err);
 	}
-	return;
 }
 
 export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, out: rt.ByteVec): void {
@@ -82,12 +79,10 @@ export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, o
 		err = result.error;
 		decodeError(out, err);
 	}
-	return;
 }
 
 /** The same value, `count` times. */
 export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let count!: rt.u64;
 	let _6!: [rt.u64, Uint8Array];
 	let value!: rt.u64;
@@ -106,22 +101,20 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 			iter.start++;
 		}
 		if (!_14Some) {
-			_0 = rt.Ok(undefined);
+			return rt.Ok(undefined);
 		} else {
 			_17 = Encoder.varint(w, value);
 			if (_17.ok) {
 				continue l0;
 			} else {
-				_0 = _17;
+				return _17;
 			}
 		}
-		return _0;
 	}
 }
 
 /** Every varint on the wire: how many, and the last. */
 export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	let _0!: rt.Result<undefined, DecodeError.DecodeError>;
 	let r!: Decoder.Decoder;
 	let count!: rt.usize;
 	let last!: rt.u64;
@@ -137,14 +130,13 @@ export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVe
 				count = rt.usizeAdd(count, 1);
 				continue l0;
 			} else {
-				_0 = _9;
+				return _9;
 			}
 		} else {
 			putUsize(out, count);
 			putU64(out, last);
-			_0 = rt.Ok(undefined);
+			return rt.Ok(undefined);
 		}
-		return _0;
 	}
 }
 
@@ -154,7 +146,6 @@ export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVe
  * and every `key_every`th frame after it is `key_size`, as moq's benchmark samples are.
  */
 export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let count!: rt.u64;
 	let _6!: [rt.u64, Uint8Array];
 	let delta!: rt.u64;
@@ -204,7 +195,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 			_32 = iter.start++;
 		}
 		if (!_32Some) {
-			_0 = rt.Ok(undefined);
+			return rt.Ok(undefined);
 		} else {
 			b2: {
 				n = _32;
@@ -229,19 +220,17 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 				if (_51.ok) {
 					continue l0;
 				} else {
-					_0 = _51;
+					return _51;
 				}
 			} else {
-				_0 = _45;
+				return _45;
 			}
 		}
-		return _0;
 	}
 }
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
 export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	let _0!: rt.Result<undefined, DecodeError.DecodeError>;
 	let r!: Decoder.Decoder;
 	let count!: rt.usize;
 	let total!: rt.u64;
@@ -263,18 +252,17 @@ export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt
 					count = rt.usizeAdd(count, 1);
 					continue l0;
 				} else {
-					_0 = _18;
+					return _18;
 				}
 			} else {
-				_0 = _12;
+				return _12;
 			}
 		} else {
 			putUsize(out, count);
 			putU64(out, total);
 			putU64(out, rt.u64Cast(last));
-			_0 = rt.Ok(undefined);
+			return rt.Ok(undefined);
 		}
-		return _0;
 	}
 }
 
@@ -308,51 +296,47 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 	last = 0;
 	short = 0;
 	l0: while (true) {
-		b1: {
-			if (!(end < _6[1].length)) {
-				if (!(start < end)) {
-					putUsize(out, count);
-					putU64(out, total);
-					putU64(out, rt.u64Cast(last));
-					putUsize(out, short);
-					_0 = rt.Ok(undefined);
-				} else {
-					_0 = rt.Err({ tag: "Short" } as DecodeError.DecodeError);
-				}
+		if (!(end < _6[1].length)) {
+			if (!(start < end)) {
+				putUsize(out, count);
+				putU64(out, total);
+				putU64(out, rt.u64Cast(last));
+				putUsize(out, short);
+				return rt.Ok(undefined);
 			} else {
-				end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
-				while (true) {
-					if (!(start < end)) {
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+			}
+		} else {
+			end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
+			while (true) {
+				if (!(start < end)) {
+					continue l0;
+				} else {
+					const slice = _6[1];
+					r = Decoder.new(rt.sliceRange(slice, start, end), Form.from$From_Version(version));
+					_32 = frameHeader(r);
+					if (_32.ok) {
+						delta = _32.value[0];
+						size = _32.value[1];
+						start = rt.usizeSub(end, Decoder.remaining(r));
+						last = delta;
+						total = rt.u64Add(total, size);
+						count = rt.usizeAdd(count, 1);
+					} else if (_32.error.tag === "Short") {
+						short = rt.usizeAdd(short, 1);
 						continue l0;
 					} else {
-						const slice = _6[1];
-						r = Decoder.new(rt.sliceRange(slice, start, end), Form.from$From_Version(version));
-						_32 = frameHeader(r);
-						if (_32.ok) {
-							delta = _32.value[0];
-							size = _32.value[1];
-							start = rt.usizeSub(end, Decoder.remaining(r));
-							last = delta;
-							total = rt.u64Add(total, size);
-							count = rt.usizeAdd(count, 1);
-						} else if (_32.error.tag === "Short") {
-							short = rt.usizeAdd(short, 1);
-							continue l0;
-						} else {
-							_0 = rt.Err(_32.error);
-							break b1;
-						}
+						_0 = rt.Err(_32.error);
+						return _0;
 					}
 				}
 			}
 		}
-		return _0;
 	}
 }
 
 /** One FRAME header: the zigzag timestamp delta, then the size. */
 export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError> {
-	let _0!: rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError>;
 	let delta!: rt.i64;
 	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	let _9!: rt.Result<rt.u64, DecodeError.DecodeError>;
@@ -361,14 +345,13 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 		delta = unzigzag(_3.value);
 		_9 = Decoder.varint(r);
 		if (_9.ok) {
-			_0 = rt.Ok([delta, _9.value] as [rt.i64, rt.u64]);
+			return rt.Ok([delta, _9.value] as [rt.i64, rt.u64]);
 		} else {
-			_0 = _9;
+			return _9;
 		}
 	} else {
-		_0 = _3;
+		return _3;
 	}
-	return _0;
 }
 
 /** One size-prefixed GROUP header, starting at the first frame. */
@@ -435,11 +418,9 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 	}
-	return;
 }
 
 export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	let _0!: rt.Result<undefined, DecodeError.DecodeError>;
 	let group!: Group.Group;
 	let used!: rt.usize;
 	let _6!: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError>;
@@ -453,11 +434,10 @@ export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.
 		putU64(out, group.sequence);
 		putU64(out, group.frameStart);
 		putUsize(out, used);
-		_0 = rt.Ok(undefined);
+		return rt.Ok(undefined);
 	} else {
-		_0 = _6;
+		return _6;
 	}
-	return _0;
 }
 
 //# sourceMappingURL=bench.ts.map

@@ -30,7 +30,6 @@ export function note(self: Log, event: string): void {
 	_6 = self._0.value;
 	_4 = _6.value;
 	_4.push(event);
-	return;
 }
 
 /** Every event so far, one per line. */

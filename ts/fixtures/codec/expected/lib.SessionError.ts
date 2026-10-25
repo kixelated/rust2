@@ -3,36 +3,32 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _0!: rt.Result<undefined, rt.FmtError>;
 	let _02!: rt.u16;
 	let __display0!: rt.u16;
 	let args!: [rt.u16];
 	if (self.tag === "ProtocolViolation") {
-		_0 = rt.fmtWriteStr(__formatter, "protocol violation");
+		return rt.fmtWriteStr(__formatter, "protocol violation");
 	} else {
 		_02 = self._0;
 		__display0 = ([_02] as [rt.u16])[0];
 		args = [__display0] as [rt.u16];
 		const arg = args[0];
-		_0 = rt.fmtWriteFmt(__formatter, ["app code=", (f: rt.Formatter) => rt.u16Display(arg, f)]);
+		return rt.fmtWriteFmt(__formatter, ["app code=", (f: rt.Formatter) => rt.u16Display(arg, f)]);
 	}
-	return _0;
 }
 
 export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _0!: rt.Result<undefined, rt.FmtError>;
 	let __self0!: rt.u16;
 	let _6!: string;
 	let _7!: rt.Fmt;
 	if (self.tag === "ProtocolViolation") {
-		_0 = rt.fmtWriteStr(f, "ProtocolViolation");
+		return rt.fmtWriteStr(f, "ProtocolViolation");
 	} else {
 		__self0 = self._0;
 		_6 = "App";
 		_7 = (f: rt.Formatter) => rt.u16Display(__self0, f);
-		_0 = rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	}
-	return _0;
 }
 
 /** moq-net's session error, trimmed to a few variants: the codec only carries it. */

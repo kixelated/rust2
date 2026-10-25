@@ -17,7 +17,6 @@ export function describe$Area(self: Meters, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 170);
 	_7 = rt.u64ToBeBytes(self._0);
 	rt.byteVecExtendFromSlice(out, _7);
-	return;
 }
 
 //# sourceMappingURL=shapes.Meters.ts.map

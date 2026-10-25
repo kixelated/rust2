@@ -783,7 +783,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out.extend(entry);
 		out.extend(body);
 		drop_self_assignments(&mut out);
+		return_in_place(&mut out);
 		prune_unread(&mut out);
+		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
+			cfg::strip_return(&mut out);
+		}
 		out
 	}
 
@@ -2114,6 +2118,138 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 			StmtKind::Catch { body, handler, .. } => {
 				drop_self_assignments(body);
 				drop_self_assignments(handler);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// `x = v; ...; return x;` as `return v;`, where moving `v` past the statements between
+/// changes nothing: there are none, or `v` is a constant or a name none of them assigns.
+fn return_in_place(stmts: &mut Vec<Stmt>) {
+	sink_return(stmts);
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				return_in_place(then);
+				return_in_place(els);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => return_in_place(body),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| return_in_place(body));
+				return_in_place(default);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				return_in_place(body);
+				return_in_place(handler);
+			}
+			_ => {}
+		}
+	}
+	let Some(Stmt {
+		kind: StmtKind::Return(Some(Expr::Ident(name))),
+		..
+	}) = stmts.last()
+	else {
+		return;
+	};
+	let name = name.clone();
+	let assigns = |e: &Expr, to: &str| matches!(e, Expr::Assign(t, _) if matches!(&**t, Expr::Ident(n) if n == to));
+	let mut at = None;
+	for i in (0..stmts.len() - 1).rev() {
+		let StmtKind::Expr(e) = &stmts[i].kind else {
+			return;
+		};
+		if assigns(e, &name) {
+			at = Some(i);
+			break;
+		}
+		let mut reads = Vec::new();
+		reads_of(e, &mut reads);
+		if reads.contains(&name) {
+			return;
+		}
+	}
+	let Some(at) = at else {
+		return;
+	};
+	let StmtKind::Expr(Expr::Assign(_, value)) = &stmts[at].kind else {
+		unreachable!("found above")
+	};
+	let between = &stmts[at + 1..stmts.len() - 1];
+	let moves = between.is_empty()
+		|| value.is_constant()
+		|| matches!(&**value, Expr::Ident(n) if between.iter().all(|s| !matches!(&s.kind, StmtKind::Expr(e) if assigns(e, n))));
+	if !moves {
+		return;
+	}
+	let StmtKind::Expr(Expr::Assign(_, value)) = stmts.remove(at).kind else {
+		unreachable!("found above")
+	};
+	let last = stmts.last_mut().expect("the return");
+	last.kind = StmtKind::Return(Some(*value));
+}
+
+/// Move a `return x;` that follows an `if` or a labeled block into each way out of it, so
+/// each can return what it assigns `x` in place.
+fn sink_return(stmts: &mut Vec<Stmt>) {
+	while stmts.len() >= 2
+		&& matches!(
+			stmts.last().map(|s| &s.kind),
+			Some(StmtKind::Return(Some(Expr::Ident(_))))
+		) {
+		let ret = stmts.pop().expect("checked above");
+		let last = stmts.last_mut().expect("checked above");
+		match &mut last.kind {
+			StmtKind::If { then, els, .. } => {
+				for branch in [then, els] {
+					if !crate::ts::diverges(branch) {
+						branch.push(ret.clone());
+					}
+				}
+				return;
+			}
+			StmtKind::Block {
+				label: Some(label),
+				body,
+			} => {
+				let label = label.clone();
+				breaks_to_return(body, &label, &ret);
+				if !crate::ts::diverges(body) {
+					body.push(ret);
+				}
+				let StmtKind::Block { body, .. } = stmts.pop().expect("checked above").kind else {
+					unreachable!("matched above")
+				};
+				stmts.extend(body);
+			}
+			_ => {
+				stmts.push(ret);
+				return;
+			}
+		}
+	}
+}
+
+/// Replace each `break label;` in `stmts` with `ret`.
+fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::Break(Some(l)) if l == label => *stmt = ret.clone(),
+			StmtKind::If { then, els, .. } => {
+				breaks_to_return(then, label, ret);
+				breaks_to_return(els, label, ret);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => breaks_to_return(body, label, ret),
+			StmtKind::Switch { cases, default, .. } => {
+				cases
+					.iter_mut()
+					.for_each(|(_, body)| breaks_to_return(body, label, ret));
+				breaks_to_return(default, label, ret);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				breaks_to_return(body, label, ret);
+				breaks_to_return(handler, label, ret);
 			}
 			_ => {}
 		}

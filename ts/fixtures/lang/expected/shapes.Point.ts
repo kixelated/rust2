@@ -19,13 +19,11 @@ export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt
 }
 
 export function eq$PartialEq(self: Point, other: Point): boolean {
-	let _0!: boolean;
 	if (!(self.x === other.x)) {
-		_0 = false;
+		return false;
 	} else {
-		_0 = self.y === other.y;
+		return self.y === other.y;
 	}
-	return _0;
 }
 
 /** A `Copy` struct, which Rust copies where JS would share. */
@@ -51,7 +49,6 @@ export function bump(self: Point): void {
 	let _2!: rt.i32;
 	_2 = rt.i32Add(self.y, 1);
 	self.y = _2;
-	return;
 }
 
 export { new_ as new };

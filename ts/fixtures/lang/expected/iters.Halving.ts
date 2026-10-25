@@ -19,16 +19,14 @@ export function next$Iterator_u8(self: Halving<rt.u8>): rt.u8 | rt.Done {
 }
 
 export function next$Iterator_u64(self: Halving<rt.u64>): rt.u64 | rt.Done {
-	let _0!: rt.u64 | rt.Done;
 	let value!: rt.u64;
 	if (self.value === 0) {
-		_0 = rt.DONE;
+		return rt.DONE;
 	} else {
 		value = self.value;
 		self.value = rt.u64Shr(value, 1);
-		_0 = value;
+		return value;
 	}
-	return _0;
 }
 
 //# sourceMappingURL=iters.Halving.ts.map

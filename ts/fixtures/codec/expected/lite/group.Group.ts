@@ -25,10 +25,10 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 		value = val;
 		_13 = value;
 		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Group, rt.usize]);
+		return _0;
 	} else {
-		_0 = _6;
+		return _6;
 	}
-	return _0;
 }
 
 export interface Group {
@@ -39,7 +39,6 @@ export interface Group {
 
 /** Decode a message body (without size prefix). */
 export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Group, DecodeError.DecodeError> {
-	let _0!: rt.Result<Group, DecodeError.DecodeError>;
 	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	let subscribe!: rt.u64;
 	let _8!: rt.Result<rt.u64, DecodeError.DecodeError>;
@@ -47,71 +46,60 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 	let frameStart!: rt.u64;
 	let _15!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	_3 = Decoder.varint(r);
-	b0: {
-		if (_3.ok) {
-			subscribe = _3.value;
-			_8 = Decoder.varint(r);
-			if (_8.ok) {
-				sequence = _8.value;
-				if (!Version.hasFrameBounds(version)) {
-					frameStart = 0;
-				} else {
-					_15 = Decoder.varint(r);
-					if (_15.ok) {
-						frameStart = _15.value;
-					} else {
-						_0 = _15;
-						break b0;
-					}
-				}
-				_0 = rt.Ok({ subscribe, sequence, frameStart });
+	if (_3.ok) {
+		subscribe = _3.value;
+		_8 = Decoder.varint(r);
+		if (_8.ok) {
+			sequence = _8.value;
+			if (!Version.hasFrameBounds(version)) {
+				frameStart = 0;
 			} else {
-				_0 = _8;
+				_15 = Decoder.varint(r);
+				if (_15.ok) {
+					frameStart = _15.value;
+				} else {
+					return _15;
+				}
 			}
+			return rt.Ok({ subscribe, sequence, frameStart });
 		} else {
-			_0 = _3;
+			return _8;
 		}
+	} else {
+		return _3;
 	}
-	return _0;
 }
 
 /** Encode this message body (without size prefix). */
 export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _9!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _15!: rt.Result<undefined, EncodeError.EncodeError>;
 	_4 = Encoder.varint(w, self.subscribe);
-	b0: {
-		if (_4.ok) {
-			_9 = Encoder.varint(w, self.sequence);
-			if (_9.ok) {
-				if (!Version.hasFrameBounds(version)) {
-					if (self.frameStart !== 0) {
-						_0 = rt.Err("Version" as EncodeError.EncodeError);
-						break b0;
-					}
-				} else {
-					_15 = Encoder.varint(w, self.frameStart);
-					if (!_15.ok) {
-						_0 = _15;
-						break b0;
-					}
+	if (_4.ok) {
+		_9 = Encoder.varint(w, self.sequence);
+		if (_9.ok) {
+			if (!Version.hasFrameBounds(version)) {
+				if (self.frameStart !== 0) {
+					return rt.Err("Version" as EncodeError.EncodeError);
 				}
-				_0 = rt.Ok(undefined);
 			} else {
-				_0 = _9;
+				_15 = Encoder.varint(w, self.frameStart);
+				if (!_15.ok) {
+					return _15;
+				}
 			}
+			return rt.Ok(undefined);
 		} else {
-			_0 = _4;
+			return _9;
 		}
+	} else {
+		return _4;
 	}
-	return _0;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
 export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let _0!: rt.Result<undefined, EncodeError.EncodeError>;
 	let prefix!: Prefix.Prefix;
 	let _39!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _49!: rt.Result<undefined, EncodeError.EncodeError>;
@@ -122,18 +110,17 @@ export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: 
 			_49 = Encoder.fill(w, prefix);
 			if (_49.ok) {
 				w.control = undefined;
-				_0 = rt.Ok(undefined);
+				return rt.Ok(undefined);
 			} else {
-				_0 = _49;
+				return _49;
 			}
 		} else {
 			Encoder.discard(w, prefix);
-			_0 = rt.Err("TooLarge" as EncodeError.EncodeError);
+			return rt.Err("TooLarge" as EncodeError.EncodeError);
 		}
 	} else {
-		_0 = _39;
+		return _39;
 	}
-	return _0;
 }
 
 /** Decode the value from the front of the decoder. */

@@ -202,12 +202,10 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 	}
-	return;
 }
 
 /** The runs between zero bytes. */
 export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
-	let _0!: rt.ByteVec[];
 	let words!: rt.ByteVec[];
 	let word!: rt.ByteVec;
 	let iter!: rt.Iter<rt.u8>;
@@ -221,8 +219,7 @@ export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 		_6 = iter.next();
 		if (_6 === rt.DONE) {
 			words.push(word);
-			_0 = words;
-			return _0;
+			return words;
 		} else {
 			b = _6;
 			if (!(b === 0)) {
@@ -270,7 +267,6 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		if (_5 === 0) {
 			_9 = rt.iterInspect(rt.iterSlice(data), (_228: rt.u8): void => {
 				rt.byteVecPush(log, _228);
-				return;
 			});
 			rt.byteVecPush(out, rt.iterAny(_9, (_229: rt.u8): boolean => {
 				return _229 > 240;
@@ -286,22 +282,19 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		} else if (_5 === 1) {
 			_31 = rt.iterInspect(rt.iterSlice(data), (_220: rt.u8): void => {
 				rt.byteVecPush(log, _220);
-				return;
 			});
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterFind(_31, (_221: rt.u8): boolean => {
 				return rt.u8Rem(_221, 7) === 3;
 			}), 255));
 			_40 = rt.iterSlice(data);
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterFindMap(_40, (_222: rt.u8): rt.u8 | undefined => {
-				let _010!: rt.u8 | undefined;
 				let b14!: rt.u8;
 				b14 = _222;
 				if (!(b14 > 80)) {
-					_010 = undefined;
+					return undefined;
 				} else {
-					_010 = rt.u8CheckedMul(b14, 3);
+					return rt.u8CheckedMul(b14, 3);
 				}
-				return _010;
 			}), 0));
 			_45 = rt.iterSlice(data);
 			rt.byteVecPush(out, rt.optionMapOr(rt.iterPosition(_45, (_223: rt.u8): boolean => {
@@ -327,7 +320,6 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 				if (_69 === rt.DONE) {
 					iter2 = rt.iterZip(rt.iterMap(rt.iterInspect(rt.iterSlice(data), (_226: rt.u8): void => {
 						rt.byteVecPush(log, _226);
-						return;
 					}), (b19: rt.u8): rt.u8 => {
 						return b19;
 					}), rt.iterSlice(short));
@@ -388,7 +380,6 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			rt.byteVecExtendFromSlice(out, _184);
 			rt.iterForEach(rt.iterSlice(data), (_216: rt.u8): void => {
 				rt.byteVecPush(log, rotateFree$RotateFree_u8(_216));
-				return;
 			});
 		} else if (_5 === 4) {
 			rt.byteVecPush(out, rt.iterSum(rt.iterSlice(data), rt.u8Add, 0));
@@ -398,15 +389,13 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			rt.byteVecExtendFromSlice(out, _198);
 		} else {
 			parsed = rt.iterCollectResult(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.Result<rt.u8, rt.u8> => {
-				let _0!: rt.Result<rt.u8, rt.u8>;
 				let b3!: rt.u8;
 				b3 = _2;
 				if (!(b3 < 240)) {
-					_0 = rt.Err(b3);
+					return rt.Err(b3);
 				} else {
-					_0 = rt.Ok(b3);
+					return rt.Ok(b3);
 				}
-				return _0;
 			}), (values__: rt.Iter<rt.u8>) => rt.iterToByteVec(values__));
 			if (parsed.ok) {
 				v = parsed.value;
@@ -416,7 +405,6 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			}
 			rt.byteVecPush(out, rt.optionMapOr(rt.iterCollectOption(rt.iterMap(rt.iterInspect(rt.iterSlice(data), (_24: rt.u8): void => {
 				rt.byteVecPush(log, _24);
-				return;
 			}), (_29: rt.u8): rt.u16 | undefined => {
 				let b5!: rt.u8;
 				b5 = _29;
@@ -427,7 +415,6 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		}
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecView(log));
-	return;
 }
 
 export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {
@@ -664,7 +651,6 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 /** `..`, logging that it was made. */
 export function fullRange(out: rt.ByteVec): undefined {
 	rt.byteVecPush(out, 215);
-	return;
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */
@@ -683,48 +669,40 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 	let iter3!: Gaps.Gaps;
 	let _70!: rt.u8 | undefined | rt.Done;
 	all = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (b2: rt.u8): rt.u8 | undefined => {
-		let _0!: rt.u8 | undefined;
 		if (!(rt.u8Rem(b2, 3) === 0)) {
-			_0 = b2;
+			return b2;
 		} else {
-			_0 = undefined;
+			return undefined;
 		}
-		return _0;
 	}));
 	rt.byteVecPush(out, all.length & 0xff);
 	iter = rt.iterMap(rt.iterSlice(data), (b3: rt.u8): rt.u8 | undefined => {
-		let _02!: rt.u8 | undefined;
 		if (!(rt.u8Rem(b3, 3) === 0)) {
-			_02 = b3;
+			return b3;
 		} else {
-			_02 = undefined;
+			return undefined;
 		}
-		return _02;
 	});
 	while (true) {
 		_15 = iter.next();
 		if (_15 === rt.DONE) {
 			flat = rt.iterToByteVec(rt.iterFlatten(rt.iterMap(rt.iterSlice(data), (b4: rt.u8): rt.u8 | undefined => {
-				let _03!: rt.u8 | undefined;
 				if (!(rt.u8Rem(b4, 3) === 0)) {
-					_03 = b4;
+					return b4;
 				} else {
-					_03 = undefined;
+					return undefined;
 				}
-				return _03;
 			}), (value: rt.u8 | undefined) => rt.iterOption(value)));
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(flat));
 			rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterSlice(all), (o: rt.u8 | undefined): boolean => {
 				return o !== undefined;
 			})) & 0xff);
 			rt.byteVecPush(out, rt.optionUnwrapOr(second$Map_Iter_u8_options_closure0(rt.iterMap(rt.iterSlice(data), (b5: rt.u8): rt.u8 | undefined => {
-				let _05!: rt.u8 | undefined;
 				if (!(rt.u8Rem(b5, 3) === 0)) {
-					_05 = b5;
+					return b5;
 				} else {
-					_05 = undefined;
+					return undefined;
 				}
-				return _05;
 			})), 205));
 			first = rt.sliceFirst(data);
 			iter2 = rt.iterChain(rt.iterOption(first), rt.iterOnce(153));
@@ -768,21 +746,19 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 
 /** The second item of an iterator of options, through `?`, which tests for its end. */
 export function second$Map_Iter_u8_options_closure0(items: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined {
-	let _0!: rt.u8 | undefined;
 	let _2!: rt.u8 | undefined | rt.Done;
 	let _7!: rt.u8 | undefined | rt.Done;
 	_2 = items.next();
 	if (_2 !== rt.DONE) {
 		_7 = items.next();
 		if (_7 !== rt.DONE) {
-			_0 = rt.optionUnwrapOr(_7, 171);
+			return rt.optionUnwrapOr(_7, 171);
 		} else {
-			_0 = undefined;
+			return undefined;
 		}
 	} else {
-		_0 = undefined;
+		return undefined;
 	}
-	return _0;
 }
 
 /** The crate's own iterators, through `for`, adaptors, and `next`. */

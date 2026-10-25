@@ -9,7 +9,6 @@ export interface Gaps {
 }
 
 export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
-	let _0!: rt.u8 | undefined | rt.Done;
 	let b!: rt.u8;
 	let _3!: rt.u8 | undefined;
 	let _8!: rt.usize;
@@ -19,14 +18,13 @@ export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
 		_8 = rt.usizeAdd(self.at, 1);
 		self.at = _8;
 		if (!(b === 0)) {
-			_0 = b;
+			return b;
 		} else {
-			_0 = undefined;
+			return undefined;
 		}
 	} else {
-		_0 = rt.DONE;
+		return rt.DONE;
 	}
-	return _0;
 }
 
 //# sourceMappingURL=iters.Gaps.ts.map
