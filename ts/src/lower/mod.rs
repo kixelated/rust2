@@ -1188,20 +1188,19 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 	}
 }
 
-/// A function's name, or a closure's as Rust numbers it in its function: `run_closure0`
-/// for `run::{closure#0}`.
+/// A function's name, or a closure's as Rust numbers it in what defines it: `run_closure0`
+/// for `run::{closure#0}`. A tuple struct's constructor goes by the struct's name.
 fn def_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
-	let root = tcx.typeck_root_def_id(def_id);
-	let depth = tcx.def_path(root).data.len();
-	std::iter::once(tcx.item_name(root).to_string())
-		.chain(
-			tcx.def_path(def_id).data[depth..]
-				.iter()
-				.map(|part| match part.data.get_opt_name() {
-					Some(name) => name.to_string(),
-					None => format!("closure{}", part.disambiguator),
-				}),
-		)
+	use rustc_hir::definitions::{DefPathData, DefPathDataName};
+	let path = tcx.def_path(def_id).data;
+	let named = path.iter().rposition(|part| part.data.get_opt_name().is_some());
+	path[named.unwrap_or(0)..]
+		.iter()
+		.filter(|part| part.data != DefPathData::Ctor)
+		.map(|part| match part.data.name() {
+			DefPathDataName::Named(name) => name.to_string(),
+			DefPathDataName::Anon { namespace } => format!("{namespace}{}", part.disambiguator),
+		})
 		.collect::<Vec<_>>()
 		.join("_")
 }
