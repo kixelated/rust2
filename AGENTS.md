@@ -51,8 +51,7 @@ Each project lives in its own top-level directory; the [quest tree](quest/README
 
 # Development
 
-PRs target `main`. Pass PR bodies to `gh` on stdin (`--body-file -`).
-Keep scratch files in your worktree's `.scratch/`.
+PRs target `main`.
 
 Use the Nix dev shell so tooling matches CI.
 direnv loads it automatically, but if not: `nix develop --command ...`.
@@ -63,4 +62,4 @@ just test    # Run the tests
 just fix     # Auto-fix formatting
 ```
 
-Quests: when work mentions a quest, run `quest guide` and follow it.
+Quests: before starting work, run `quest guide` and follow it.
