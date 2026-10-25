@@ -3,6 +3,9 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # The TypeScript driver, its own workspace on its own nightly: `just ts <recipe>`.
 mod ts
 
+# The C exporter, its own workspace on the TypeScript driver's nightly: `just ffi <recipe>`.
+mod ffi
+
 # The UniFFI fork, in the root workspace: `just uniffi <recipe>`.
 mod uniffi
 

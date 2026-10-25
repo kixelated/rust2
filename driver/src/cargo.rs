@@ -4,6 +4,86 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+/// The command line every driver takes:
+/// `--config <file> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]`.
+pub struct Args {
+	/// The driver's config file, absolute.
+	pub config: PathBuf,
+	/// What to write.
+	pub output: Output,
+	/// The package's `Cargo.toml`, absolute: beside the config unless given.
+	pub manifest: PathBuf,
+	/// Passed on to `cargo check`.
+	pub cargo: Vec<String>,
+}
+
+/// What a driver writes, absolute.
+pub enum Output {
+	/// Its output, into this directory.
+	Dir(PathBuf),
+	/// A census of what it refuses, to this file, instead.
+	Census(PathBuf),
+}
+
+impl Args {
+	/// Parse `args`, without the program name, or `None` after printing `usage` for
+	/// `--help`. An error ends with `usage`.
+	pub fn parse(args: &[String], usage: &str) -> Result<Option<Self>, String> {
+		let mut config = None;
+		let mut out = None;
+		let mut census = None;
+		let mut manifest = None;
+		let mut cargo: &[String] = &[];
+		let mut rest = args;
+		while let [arg, tail @ ..] = rest {
+			rest = tail;
+			match arg.as_str() {
+				"--config" | "--out" | "--census" | "--manifest-path" => {
+					let [value, tail @ ..] = rest else {
+						return Err(format!("{arg} needs a value\n\n{usage}"));
+					};
+					rest = tail;
+					let slot = match arg.as_str() {
+						"--config" => &mut config,
+						"--out" => &mut out,
+						"--census" => &mut census,
+						_ => &mut manifest,
+					};
+					*slot = Some(absolute(Path::new(value))?);
+				}
+				"--" => {
+					cargo = rest;
+					break;
+				}
+				"-h" | "--help" => {
+					println!("{usage}");
+					return Ok(None);
+				}
+				_ => return Err(format!("unexpected argument {arg}\n\n{usage}")),
+			}
+		}
+		let config: PathBuf = config.ok_or_else(|| format!("--config is required\n\n{usage}"))?;
+		let output = match (out, census) {
+			(Some(out), None) => Output::Dir(out),
+			(None, Some(census)) => Output::Census(census),
+			_ => return Err(format!("one of --out and --census is required\n\n{usage}")),
+		};
+		let manifest = match manifest {
+			Some(manifest) => manifest,
+			None => config
+				.parent()
+				.expect("an absolute file path has a parent")
+				.join("Cargo.toml"),
+		};
+		Ok(Some(Self {
+			config,
+			output,
+			manifest,
+			cargo: cargo.to_vec(),
+		}))
+	}
+}
+
 /// A `cargo check` of one package's library, with this executable as rustc.
 pub struct Check<'a> {
 	/// The driver's name, which names its target directory.
@@ -62,8 +142,7 @@ impl Check<'_> {
 	}
 }
 
-/// `path`, absolute.
-pub fn absolute(path: &Path) -> Result<PathBuf, String> {
+fn absolute(path: &Path) -> Result<PathBuf, String> {
 	std::path::absolute(path).map_err(|err| format!("resolving {}: {err}", path.display()))
 }
 

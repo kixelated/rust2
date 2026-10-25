@@ -1,0 +1,953 @@
+//! The crate's `pub` API, as rustc checked it, to the [IR](crate::ir).
+//!
+//! Every `pub` item reachable from the crate root is exported by fixed rules, or refused
+//! with its span. Nothing is opted in by attribute and nothing is skipped silently: the
+//! config's `exclude` is the only way to leave an item out, and `#[doc(hidden)]` items,
+//! which are no part of the documented API, are listed in the census.
+
+use std::collections::VecDeque;
+
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{CRATE_DEF_ID, DefId};
+use rustc_infer::infer::TyCtxtInferExt;
+use rustc_infer::traits::{Obligation, ObligationCause};
+use rustc_middle::ty::{self, GenericArgKind, Ty, TyCtxt, TypingEnv};
+use rustc_span::{Span, sym};
+use rustc_trait_selection::infer::InferCtxtExt;
+use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
+
+use crate::config::Config;
+use crate::ir::{
+	Api, Callback, Constant, Dyn, Enum, Field, Function, Int, Literal, Mutability, Object, Param, Path, Receiver,
+	Record, Traits, Type, Variant,
+};
+
+/// Why something is refused: a construct, ranked by the census, and what it names.
+#[derive(Clone, Debug)]
+pub struct Why {
+	pub construct: &'static str,
+	pub detail: String,
+}
+
+fn why(construct: &'static str, detail: impl Into<String>) -> Why {
+	Why {
+		construct,
+		detail: detail.into(),
+	}
+}
+
+/// An item the export refuses, with every reason found.
+pub struct Refusal {
+	/// Its path from the crate root.
+	pub path: String,
+	/// What kind of item it is: `fn`, `method`, `struct`, ...
+	pub kind: &'static str,
+	pub span: Span,
+	pub why: Vec<Why>,
+}
+
+/// What collection found.
+pub struct Collected {
+	pub api: Api,
+	pub refusals: Vec<Refusal>,
+	/// Records and enums exported as objects, since a field does not map: the first.
+	pub opaque: Vec<(String, Why)>,
+	/// `#[doc(hidden)]` items, by path.
+	pub hidden: Vec<String>,
+	/// Excluded paths, and how many items each left out.
+	pub excluded: Vec<(String, usize)>,
+	/// Type aliases, which export nothing of their own.
+	pub aliases: Vec<String>,
+}
+
+/// How a local type is exported, once decided.
+#[derive(Clone)]
+enum Decl {
+	Record(usize),
+	Enum(usize),
+	Object(usize),
+	Callback(usize),
+	Refused(Why),
+}
+
+struct Collector<'a, 'tcx> {
+	tcx: TyCtxt<'tcx>,
+	config: &'a Config,
+	/// Each `pub` item and its shortest path, in the order the walk met them.
+	items: Vec<(DefId, Path)>,
+	decls: rustc_data_structures::fx::FxHashMap<DefId, Decl>,
+	refusals: Vec<Refusal>,
+	hidden: Vec<String>,
+	excluded: Vec<(String, usize)>,
+	aliases: Vec<String>,
+	/// Local items the walk left out, and why: `excluded` or `doc(hidden)`.
+	left_out: rustc_data_structures::fx::FxHashMap<DefId, &'static str>,
+	opaque: Vec<(String, Why)>,
+	bytes: Option<DefId>,
+	api: Api,
+}
+
+/// Collect the crate's exported API.
+pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Collected {
+	let bytes = tcx
+		.crates(())
+		.iter()
+		.find(|&&krate| tcx.crate_name(krate).as_str() == "bytes")
+		.and_then(|&krate| {
+			tcx.module_children(krate.as_def_id())
+				.iter()
+				.find(|child| child.ident.as_str() == "Bytes")
+				.and_then(|child| child.res.opt_def_id())
+		});
+	let mut c = Collector {
+		tcx,
+		config,
+		items: Vec::new(),
+		decls: Default::default(),
+		refusals: Vec::new(),
+		hidden: Vec::new(),
+		excluded: config.exclude.iter().map(|path| (path.clone(), 0)).collect(),
+		aliases: Vec::new(),
+		left_out: Default::default(),
+		opaque: Vec::new(),
+		bytes,
+		api: Api {
+			krate: config.crate_name(),
+			records: Vec::new(),
+			enums: Vec::new(),
+			objects: Vec::new(),
+			callbacks: Vec::new(),
+			functions: Vec::new(),
+			constants: Vec::new(),
+		},
+	};
+	c.walk();
+	c.declare();
+	c.define();
+	Collected {
+		api: c.api,
+		refusals: c.refusals,
+		opaque: c.opaque,
+		hidden: c.hidden,
+		excluded: c.excluded,
+		aliases: c.aliases,
+	}
+}
+
+impl<'a, 'tcx> Collector<'a, 'tcx> {
+	/// Whether the config excludes `path`, counting the exclusion.
+	fn exclude(&mut self, path: &[String]) -> bool {
+		let joined = path.join("::");
+		for (excluded, count) in &mut self.excluded {
+			if joined == *excluded || joined.starts_with(&format!("{excluded}::")) {
+				*count += 1;
+				return true;
+			}
+		}
+		false
+	}
+
+	fn refuse(&mut self, path: &[String], kind: &'static str, span: Span, why: Vec<Why>) {
+		self.refusals.push(Refusal {
+			path: path.join("::"),
+			kind,
+			span,
+			why,
+		});
+	}
+
+	/// Every `pub` item reachable from the crate root, breadth first so each keeps its
+	/// shortest path.
+	fn walk(&mut self) {
+		let tcx = self.tcx;
+		let mut queue = VecDeque::from([(CRATE_DEF_ID, Vec::new())]);
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		while let Some((module, path)) = queue.pop_front() {
+			for child in tcx.module_children_local(module) {
+				if !child.vis.is_public() || child.ident.name == rustc_span::kw::Underscore {
+					continue;
+				}
+				let Res::Def(kind, def_id) = child.res else {
+					continue;
+				};
+				// Variants and constructors come along with their type.
+				if matches!(kind, DefKind::Ctor(..) | DefKind::Variant) {
+					continue;
+				}
+				let mut path = path.clone();
+				path.push(child.ident.to_string());
+				if !seen.insert(def_id) {
+					continue;
+				}
+				if self.exclude(&path) {
+					self.left_out.insert(def_id, "excluded type");
+					continue;
+				}
+				if tcx.is_doc_hidden(def_id) {
+					self.hidden.push(path.join("::"));
+					self.left_out.insert(def_id, "doc(hidden) type");
+					continue;
+				}
+				let span = child
+					.reexport_chain
+					.first()
+					.and_then(|reexport| reexport.id())
+					.map_or_else(|| tcx.def_span(def_id), |id| tcx.def_span(id));
+				let Some(local) = def_id.as_local() else {
+					let krate = tcx.crate_name(def_id.krate);
+					self.refuse(
+						&path,
+						"use",
+						span,
+						vec![why("re-export of another crate's item", krate.to_string())],
+					);
+					continue;
+				};
+				match kind {
+					DefKind::Mod => queue.push_back((local, path)),
+					DefKind::TyAlias => self.aliases.push(path.join("::")),
+					DefKind::Macro(_) => self.refuse(&path, "macro", span, vec![why("macro", "")]),
+					DefKind::Static { .. } => self.refuse(&path, "static", span, vec![why("static", "")]),
+					DefKind::Struct
+					| DefKind::Enum
+					| DefKind::Union
+					| DefKind::Trait
+					| DefKind::Fn
+					| DefKind::Const { .. } => self.items.push((def_id, path)),
+					_ => self.refuse(&path, "item", span, vec![why("item kind", format!("{kind:?}"))]),
+				}
+			}
+		}
+	}
+
+	/// Decide how each type and trait is exported, before any signature names one: a
+	/// struct whose fields are all `pub`, or an enum, is a value if its fields map, and
+	/// any other type is an object.
+	fn declare(&mut self) {
+		let tcx = self.tcx;
+		for (def_id, _) in self.items.clone() {
+			let generic = || {
+				tcx.generics_of(def_id)
+					.own_params
+					.iter()
+					.any(|p| p.name != rustc_span::kw::SelfUpper)
+			};
+			let decl = match tcx.def_kind(def_id) {
+				DefKind::Union => Decl::Refused(why("union", "")),
+				DefKind::Struct | DefKind::Enum | DefKind::Trait if generic() => Decl::Refused(why("generic type", "")),
+				DefKind::Struct => {
+					let variant = tcx.adt_def(def_id).non_enum_variant();
+					let record = !variant.fields.is_empty()
+						&& variant.fields.iter().all(|f| f.vis.is_public())
+						&& !variant.is_field_list_non_exhaustive();
+					match record {
+						true => Decl::Record(0),
+						false => self.object(def_id),
+					}
+				}
+				DefKind::Enum => Decl::Enum(0),
+				DefKind::Trait => Decl::Callback(0),
+				_ => continue,
+			};
+			self.decls.insert(def_id, decl);
+		}
+		self.settle();
+		// Number each kind in item order, with placeholders filled in by `define`.
+		for (def_id, path) in self.items.clone() {
+			let span = tcx.def_span(def_id);
+			let Some(decl) = self.decls.get_mut(&def_id) else {
+				continue;
+			};
+			let api = &mut self.api;
+			match decl {
+				Decl::Record(i) => {
+					*i = api.records.len();
+					api.records.push(Record {
+						path,
+						span,
+						fields: Vec::new(),
+						tuple: false,
+						methods: Vec::new(),
+						traits: Traits::default(),
+					});
+				}
+				Decl::Enum(i) => {
+					*i = api.enums.len();
+					api.enums.push(Enum {
+						path,
+						span,
+						variants: Vec::new(),
+						exhaustive: true,
+						methods: Vec::new(),
+						traits: Traits::default(),
+					});
+				}
+				Decl::Object(i) => {
+					*i = api.objects.len();
+					let sync = implements(tcx, def_id, sym::Sync);
+					api.objects.push(Object {
+						path,
+						span,
+						sync,
+						methods: Vec::new(),
+						traits: Traits::default(),
+					});
+				}
+				Decl::Callback(i) => {
+					*i = api.callbacks.len();
+					api.callbacks.push(Callback {
+						path,
+						span,
+						methods: Vec::new(),
+					});
+				}
+				Decl::Refused(_) => {}
+			}
+		}
+	}
+
+	/// An object, if the type can move across threads. Shared borrows of one that is not
+	/// `Sync` are exclusive.
+	fn object(&self, def_id: DefId) -> Decl {
+		match implements(self.tcx, def_id, sym::Send) {
+			true => Decl::Object(0),
+			false => Decl::Refused(why("object not Send", "")),
+		}
+	}
+
+	/// Make each record or enum whose fields do not map an object, until none changes.
+	fn settle(&mut self) {
+		loop {
+			let mut changed = false;
+			for (def_id, path) in self.items.clone() {
+				if !matches!(self.decls.get(&def_id), Some(Decl::Record(_) | Decl::Enum(_))) {
+					continue;
+				}
+				if let Err(why) = self.fields(def_id) {
+					let first = why.into_iter().next().expect("a refusal has a reason");
+					self.opaque.push((path.join("::"), first));
+					let decl = self.object(def_id);
+					self.decls.insert(def_id, decl);
+					changed = true;
+				}
+			}
+			if !changed {
+				break;
+			}
+		}
+	}
+
+	/// A struct's or enum's variants, with their fields mapped.
+	fn fields(&self, def_id: DefId) -> Result<Vec<Variant>, Vec<Why>> {
+		let tcx = self.tcx;
+		let adt = tcx.adt_def(def_id);
+		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
+		let mut errs = Vec::new();
+		let mut variants = Vec::new();
+		let discriminants: Vec<i128> = match adt.is_enum() {
+			true => adt.discriminants(tcx).map(|(_, d)| signed(tcx, d.ty, d.val)).collect(),
+			false => vec![0],
+		};
+		for (variant, discriminant) in adt.variants().iter().zip(discriminants) {
+			if adt.is_enum() && variant.is_field_list_non_exhaustive() {
+				errs.push(why("non-exhaustive variant", variant.name.to_string()));
+			}
+			let mut fields = Vec::new();
+			for field in &variant.fields {
+				let ty = field.ty(tcx, identity).skip_norm_wip();
+				match self.ty(ty, Pos::Field) {
+					Ok(ty) => fields.push(Field {
+						name: field.name.to_string(),
+						ty,
+					}),
+					Err(why) => errs.push(why),
+				}
+			}
+			let tuple = variant.ctor_kind() == Some(rustc_hir::def::CtorKind::Fn);
+			variants.push(Variant {
+				name: variant.name.to_string(),
+				discriminant,
+				fields,
+				tuple,
+			});
+		}
+		match errs.is_empty() {
+			true => Ok(variants),
+			false => Err(errs),
+		}
+	}
+
+	/// Fill in every declaration, then the functions and constants.
+	fn define(&mut self) {
+		let tcx = self.tcx;
+		for (def_id, path) in self.items.clone() {
+			let span = tcx.def_span(def_id);
+			let kind = tcx.def_kind(def_id);
+			match self.decls.get(&def_id).cloned() {
+				Some(Decl::Refused(why)) => {
+					let kind = match kind {
+						DefKind::Trait => "trait",
+						DefKind::Enum => "enum",
+						DefKind::Union => "union",
+						_ => "struct",
+					};
+					self.refuse(&path, kind, span, vec![why]);
+				}
+				Some(Decl::Record(index)) => {
+					let variants = self.fields(def_id).expect("settled");
+					let variant = variants.into_iter().next().expect("a struct has a variant");
+					let (methods, traits) = self.methods(def_id, &path);
+					let record = &mut self.api.records[index];
+					record.fields = variant.fields;
+					record.tuple = variant.tuple;
+					record.methods = methods;
+					record.traits = traits;
+				}
+				Some(Decl::Enum(index)) => {
+					let variants = self.fields(def_id).expect("settled");
+					let exhaustive = !tcx.adt_def(def_id).is_variant_list_non_exhaustive();
+					let (methods, traits) = self.methods(def_id, &path);
+					let e = &mut self.api.enums[index];
+					e.variants = variants;
+					e.exhaustive = exhaustive;
+					e.methods = methods;
+					e.traits = traits;
+				}
+				Some(Decl::Object(index)) => {
+					let (methods, traits) = self.methods(def_id, &path);
+					let object = &mut self.api.objects[index];
+					object.methods = methods;
+					object.traits = traits;
+				}
+				Some(Decl::Callback(index)) => match self.callback(def_id, &path) {
+					Ok(methods) => self.api.callbacks[index].methods = methods,
+					Err(why) => {
+						// A trait refused after signatures could name it: those that do
+						// still compile, and the census counts this one.
+						self.refuse(&path, "trait", span, why);
+					}
+				},
+				None => match kind {
+					DefKind::Fn => match self.function(def_id, path.clone(), None) {
+						Ok(function) => self.api.functions.push(function),
+						Err(why) => self.refuse(&path, "fn", span, why),
+					},
+					DefKind::Const { .. } => match self.constant(def_id) {
+						Ok(value) => self.api.constants.push(Constant { path, span, value }),
+						Err(why) => self.refuse(&path, "const", span, vec![why]),
+					},
+					_ => {}
+				},
+			}
+		}
+	}
+
+	/// A type's inherent `pub` methods, and the std traits it implements.
+	fn methods(&mut self, def_id: DefId, path: &[String]) -> (Vec<Function>, Traits) {
+		let tcx = self.tcx;
+		let mut methods = Vec::new();
+		let self_ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+		for &imp in tcx.inherent_impls(def_id) {
+			for item in tcx.associated_items(imp).in_definition_order() {
+				let ty::AssocKind::Fn { name, .. } = item.kind else {
+					continue;
+				};
+				if !tcx.visibility(item.def_id).is_public() {
+					continue;
+				}
+				let mut method = path.to_vec();
+				method.push(name.to_string());
+				if self.exclude(&method) {
+					continue;
+				}
+				if tcx.is_doc_hidden(item.def_id) {
+					self.hidden.push(method.join("::"));
+					continue;
+				}
+				match self.function(item.def_id, method.clone(), Some(self_ty)) {
+					Ok(function) => methods.push(function),
+					Err(why) => self.refuse(&method, "method", tcx.def_span(item.def_id), why),
+				}
+			}
+		}
+		let env = TypingEnv::post_analysis(tcx, def_id);
+		let implements = |item| {
+			tcx.get_diagnostic_item(item).is_some_and(|tr| {
+				let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(env);
+				infcx.type_implements_trait(tr, [self_ty], env).must_apply_modulo_regions()
+			})
+		};
+		let traits = Traits {
+			clone: implements(sym::Clone),
+			eq: tcx.lang_items().eq_trait().is_some_and(|tr| {
+				let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(env);
+				infcx.type_implements_trait(tr, [self_ty, self_ty], env).must_apply_modulo_regions()
+			}),
+			display: implements(sym::Display),
+			debug: implements(sym::Debug),
+			default: implements(sym::Default),
+		};
+		(methods, traits)
+	}
+
+	/// A trait's required methods, as a callback interface.
+	fn callback(&mut self, def_id: DefId, path: &[String]) -> Result<Vec<Function>, Vec<Why>> {
+		let tcx = self.tcx;
+		let mut errs = Vec::new();
+		for clause in tcx.explicit_super_clauses_of(def_id).iter_identity_copied() {
+			let (clause, _) = clause.skip_norm_wip();
+			if let Some(trait_pred) = clause.as_trait_clause() {
+				let tr = trait_pred.def_id();
+				let auto = [sym::Send, sym::Sync].iter().any(|&item| tcx.is_diagnostic_item(item, tr))
+					|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
+				if !auto {
+					errs.push(why("supertrait", tcx.def_path_str(tr)));
+				}
+			}
+		}
+		let mut methods = Vec::new();
+		let self_ty = Ty::new_param(tcx, 0, rustc_span::kw::SelfUpper);
+		for item in tcx.associated_items(def_id).in_definition_order() {
+			match item.kind {
+				ty::AssocKind::Fn { name, .. } => {
+					// A provided method keeps its body: only required ones are foreign.
+					if item.defaultness(tcx).has_value() {
+						continue;
+					}
+					let mut method = path.to_vec();
+					method.push(name.to_string());
+					match self.function(item.def_id, method, Some(self_ty)) {
+						Ok(function) if function.future => errs.push(why("async trait method", name.to_string())),
+						Ok(function) if function.receiver == Some(Receiver::Owned) || function.receiver.is_none() => {
+							errs.push(why("trait method without &self", name.to_string()))
+						}
+						Ok(function) => methods.push(function),
+						Err(why) => errs.extend(why),
+					}
+				}
+				// An `impl Trait` return's own type: the method refuses it.
+				ty::AssocKind::Type { data: ty::AssocTypeData::Rpitit(_) } => {}
+				ty::AssocKind::Type { .. } => errs.push(why("associated type", item.name().to_string())),
+				ty::AssocKind::Const { .. } => errs.push(why("associated const", item.name().to_string())),
+			}
+		}
+		match errs.is_empty() {
+			true => Ok(methods),
+			false => Err(errs),
+		}
+	}
+
+	/// A function or method's signature, with its type parameters chosen.
+	fn function(&self, def_id: DefId, path: Path, self_ty: Option<Ty<'tcx>>) -> Result<Function, Vec<Why>> {
+		let tcx = self.tcx;
+		let mut errs = Vec::new();
+		let args = match self.instantiate(def_id, self_ty) {
+			Ok(args) => args,
+			Err(why) => return Err(why),
+		};
+		let env = TypingEnv::post_analysis(tcx, def_id);
+		let sig = tcx.fn_sig(def_id).instantiate(tcx, args).skip_norm_wip();
+		let sig = tcx.instantiate_bound_regions_with_erased(sig);
+		let normalize = |ty: Ty<'tcx>| {
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
+				.unwrap_or(ty)
+		};
+		let names = tcx.fn_arg_idents(def_id);
+		let has_self = matches!(tcx.def_kind(def_id), DefKind::AssocFn)
+			&& matches!(tcx.associated_item(def_id).kind, ty::AssocKind::Fn { has_self: true, .. });
+		let mut inputs = sig.inputs().iter().copied().map(normalize).enumerate();
+		let receiver = match has_self {
+			false => None,
+			true => {
+				let (_, ty) = inputs.next().expect("a method has self");
+				let self_ty = self_ty.map(normalize);
+				match ty.kind() {
+					_ if Some(ty) == self_ty => Some(Receiver::Owned),
+					ty::Ref(_, inner, m) if Some(*inner) == self_ty => Some(match m {
+						ty::Mutability::Not => Receiver::Ref,
+						ty::Mutability::Mut => Receiver::Mut,
+					}),
+					_ => {
+						errs.push(why("receiver", ty.to_string()));
+						None
+					}
+				}
+			}
+		};
+		let mut params = Vec::new();
+		for (i, ty) in inputs {
+			let name = names
+				.get(i)
+				.copied()
+				.flatten()
+				.map_or_else(|| format!("arg{i}"), |ident| ident.to_string());
+			match self.ty(ty, Pos::Param) {
+				Ok(ty) => params.push(Param { name, ty }),
+				Err(why) => errs.push(why),
+			}
+		}
+		let mut output = normalize(sig.output());
+		let mut future = false;
+		if let Some(inner) = self.future_output(output, env) {
+			if !self.is_send(output, env) {
+				errs.push(why("future not Send", ""));
+			}
+			output = normalize(inner);
+			future = true;
+		}
+		let (ok, err) = match output.kind() {
+			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
+				(self.ty(args.type_at(0), Pos::Return), Some(self.ty(args.type_at(1), Pos::Return)))
+			}
+			_ => (self.ty(output, Pos::Return), None),
+		};
+		let ok = ok.map_err(|why| errs.push(why)).ok();
+		let err = match err {
+			Some(Ok(err)) => Some(err),
+			Some(Err(why)) => {
+				errs.push(why);
+				None
+			}
+			None => None,
+		};
+		match (errs.is_empty(), ok) {
+			(true, Some(ok)) => Ok(Function {
+				path,
+				span: tcx.def_span(def_id),
+				receiver,
+				params,
+				ok,
+				err,
+				future,
+			}),
+			_ => Err(errs),
+		}
+	}
+
+	/// The generic arguments a function is exported with: its parent's own (a trait's
+	/// `Self`), its lifetimes erased, and each type parameter by the rules in
+	/// [`Self::choose`].
+	fn instantiate(&self, def_id: DefId, self_ty: Option<Ty<'tcx>>) -> Result<ty::GenericArgsRef<'tcx>, Vec<Why>> {
+		let tcx = self.tcx;
+		let generics = tcx.generics_of(def_id);
+		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
+		if !generics.requires_monomorphization(tcx) {
+			return Ok(identity);
+		}
+		let mut errs = Vec::new();
+		let mut args: Vec<ty::GenericArg<'tcx>> = identity.to_vec();
+		let parent = generics.parent_count;
+		// A trait method's `Self` stays a parameter: the trait is the callback.
+		let _ = self_ty;
+		for (i, arg) in identity.iter().enumerate().skip(parent) {
+			match arg.kind() {
+				GenericArgKind::Lifetime(_) => args[i] = tcx.lifetimes.re_erased.into(),
+				GenericArgKind::Const(_) => errs.push(why("const generic", "")),
+				GenericArgKind::Type(param) => match self.choose(def_id, param) {
+					Ok(ty) => args[i] = ty.into(),
+					Err(why) => errs.push(why),
+				},
+			}
+		}
+		match errs.is_empty() {
+			true => Ok(tcx.mk_args(&args)),
+			false => Err(errs),
+		}
+	}
+
+	/// The type a type parameter is exported as: `X` for `impl Into<X>` or
+	/// `impl AsRef<X>`, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its
+	/// bounds.
+	fn choose(&self, def_id: DefId, param: Ty<'tcx>) -> Result<Ty<'tcx>, Why> {
+		let tcx = self.tcx;
+		let clauses = tcx.clauses_of(def_id);
+		let identity = clauses.instantiate_identity(tcx);
+		let bounds: Vec<_> = identity
+			.clauses
+			.iter()
+			.map(|clause| clause.skip_norm_wip())
+			.filter_map(|clause| clause.as_trait_clause())
+			.filter(|pred| pred.self_ty().skip_binder() == param)
+			.collect();
+		let mut candidates = Vec::new();
+		for bound in &bounds {
+			let tr = bound.def_id();
+			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
+				let target = bound.skip_binder().trait_ref.args.type_at(1);
+				candidates.push(match target.kind() {
+					ty::Str => Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, target),
+					ty::Slice(_) => Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, target),
+					_ => target,
+				});
+			}
+		}
+		if let Some(string) = tcx.lang_items().string() {
+			candidates.push(Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
+		}
+		if let Some(bytes) = self.bytes {
+			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
+		}
+		if let Some(vec) = tcx.get_diagnostic_item(sym::Vec) {
+			let alloc = tcx.lang_items().global_alloc_ty();
+			if let Some(alloc) = alloc {
+				let args = tcx.mk_args(&[
+					tcx.types.u8.into(),
+					Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty()).into(),
+				]);
+				candidates.push(Ty::new_adt(tcx, tcx.adt_def(vec), args));
+			}
+		}
+		let env = TypingEnv::post_analysis(tcx, def_id);
+		for candidate in candidates {
+			let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+			let mut args: Vec<ty::GenericArg<'tcx>> = ty::GenericArgs::identity_for_item(tcx, def_id).to_vec();
+			let ty::Param(p) = param.kind() else {
+				unreachable!("a generic type argument is a parameter");
+			};
+			args[p.index as usize] = candidate.into();
+			let instantiated = clauses.instantiate(tcx, tcx.mk_args(&args));
+			let holds = instantiated.clauses.iter().all(|clause| {
+				let clause = clause.skip_norm_wip();
+				let obligation = Obligation::new(tcx, ObligationCause::dummy(), param_env, clause);
+				infcx.predicate_must_hold_modulo_regions(&obligation)
+			});
+			if holds {
+				return Ok(candidate);
+			}
+		}
+		// A bound on one of the crate's traits takes a foreign implementation.
+		let local: Vec<_> = bounds
+			.iter()
+			.map(|b| b.def_id())
+			.filter(|tr| matches!(self.decls.get(tr), Some(Decl::Callback(_))))
+			.collect();
+		let sized = [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()];
+		let names: Vec<String> = bounds
+			.iter()
+			.filter(|b| !sized.contains(&Some(b.def_id())))
+			.map(|b| tcx.def_path_str(b.def_id()))
+			.collect();
+		match local.as_slice() {
+			[_] => Err(why("callback bound", names.join(" + "))),
+			_ => Err(why("generic parameter", names.join(" + "))),
+		}
+	}
+
+	/// What `ty` resolves to when awaited, if it is a future.
+	fn future_output(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let future = tcx.lang_items().future_trait()?;
+		let output = tcx.lang_items().future_output()?;
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		if !infcx.type_implements_trait(future, [ty], param_env).must_apply_modulo_regions() {
+			return None;
+		}
+		let projection = Ty::new_projection(tcx, ty::IsRigid::No, output, [ty]);
+		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+			.ok()
+	}
+
+	fn is_send(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> bool {
+		let tcx = self.tcx;
+		let Some(send) = tcx.get_diagnostic_item(sym::Send) else {
+			return true;
+		};
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		infcx.type_implements_trait(send, [ty], param_env).must_apply_modulo_regions()
+	}
+
+	/// A constant's value, if it is a `bool` or integer.
+	fn constant(&self, def_id: DefId) -> Result<Literal, Why> {
+		let tcx = self.tcx;
+		let ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+		let int = match ty.kind() {
+			ty::Bool => None,
+			ty::Int(_) | ty::Uint(_) => match int(ty) {
+				Some(int) => Some(int),
+				None => return Err(why("constant type", ty.to_string())),
+			},
+			_ => return Err(why("constant type", ty.to_string())),
+		};
+		let Ok(value) = tcx.const_eval_poly(def_id) else {
+			return Err(why("constant value", ""));
+		};
+		let Some(scalar) = value.try_to_scalar_int() else {
+			return Err(why("constant value", ""));
+		};
+		let bits = scalar.to_bits(scalar.size());
+		Ok(match int {
+			None => Literal::Bool(bits != 0),
+			Some(int) => Literal::Int(int, signed(tcx, ty, bits)),
+		})
+	}
+
+	/// The exported form of `ty` where it appears.
+	fn ty(&self, ty: Ty<'tcx>, pos: Pos) -> Result<Type, Why> {
+		let tcx = self.tcx;
+		Ok(match ty.kind() {
+			ty::Tuple(list) if list.is_empty() => match pos {
+				Pos::Return => Type::Unit,
+				_ => return Err(why("unit outside a return", "")),
+			},
+			ty::Bool => Type::Bool,
+			ty::Char => Type::Char,
+			ty::Float(ty::FloatTy::F32) => Type::F32,
+			ty::Float(ty::FloatTy::F64) => Type::F64,
+			ty::Int(_) | ty::Uint(_) => Type::Int(int(ty).ok_or_else(|| why("128-bit integer", ty.to_string()))?),
+			ty::Ref(_, inner, m) => {
+				let inner_ty = match inner.kind() {
+					ty::Str => Type::Str,
+					ty::Slice(elem) if *elem == tcx.types.u8 => Type::Slice,
+					ty::Slice(elem) => return Err(why("slice", elem.to_string())),
+					ty::Dynamic(..) => return Err(why("trait object", inner.to_string())),
+					_ => self.ty(*inner, Pos::Behind)?,
+				};
+				let mutability = match m {
+					ty::Mutability::Not => Mutability::Not,
+					ty::Mutability::Mut => Mutability::Mut,
+				};
+				match (&inner_ty, pos, mutability) {
+					// Returned as a copy: plain data reads the same either way.
+					(Type::Object(_), Pos::Return, _) => return Err(why("borrowed object return", inner.to_string())),
+					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
+					(Type::Object(_), Pos::Param, _) => {}
+					(_, Pos::Param, Mutability::Mut) => return Err(why("&mut of a value", inner.to_string())),
+					_ => {}
+				}
+				Type::Ref(mutability, Box::new(inner_ty))
+			}
+			ty::Adt(adt, args) => {
+				let did = adt.did();
+				if tcx.lang_items().string() == Some(did) {
+					Type::String
+				} else if tcx.is_diagnostic_item(sym::Vec, did) {
+					match args.type_at(0) == tcx.types.u8 {
+						true => Type::Vec,
+						false => return Err(why("Vec", args.type_at(0).to_string())),
+					}
+				} else if Some(did) == self.bytes {
+					Type::Bytes
+				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
+					Type::Duration
+				} else if tcx.is_diagnostic_item(sym::Option, did) {
+					let inner = self.ty(args.type_at(0), Pos::Behind)?;
+					if matches!(inner, Type::Option(_)) {
+						return Err(why("nested Option", ty.to_string()));
+					}
+					Type::Option(Box::new(inner))
+				} else if tcx.is_diagnostic_item(sym::Result, did) {
+					return Err(why("Result outside a return", ""));
+				} else if adt.is_box() {
+					let inner = args.type_at(0);
+					match inner.kind() {
+						ty::Dynamic(preds, ..) => {
+							return self.dynamic(preds.principal_def_id(), Dyn::Box, inner);
+						}
+						_ => Type::Box(Box::new(self.ty(inner, Pos::Behind)?)),
+					}
+				} else if tcx.is_diagnostic_item(sym::Arc, did) {
+					let inner = args.type_at(0);
+					match inner.kind() {
+						ty::Dynamic(preds, ..) => {
+							return self.dynamic(preds.principal_def_id(), Dyn::Arc, inner);
+						}
+						_ => return Err(why("Arc", strip_args(tcx, did))),
+					}
+				} else if !did.is_local() {
+					return Err(why("foreign type", strip_args(tcx, did)));
+				} else {
+					match self.decls.get(&did) {
+						Some(Decl::Record(i)) => Type::Record(*i),
+						Some(Decl::Enum(i)) => Type::Enum(*i),
+						Some(Decl::Object(i)) => Type::Object(*i),
+						Some(Decl::Refused(_)) => return Err(why("refused type", tcx.def_path_str(did))),
+						Some(Decl::Callback(_)) | None => {
+							let construct = self.left_out.get(&did).copied().unwrap_or("type not reachable from the crate root");
+							return Err(why(construct, tcx.def_path_str(did)));
+						}
+					}
+				}
+			}
+			ty::Tuple(_) => return Err(why("tuple", "")),
+			ty::Array(..) => return Err(why("array", ty.to_string())),
+			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
+			ty::Dynamic(..) => return Err(why("trait object", ty.to_string())),
+			ty::Param(_) => match pos {
+				// A callback method's `Self`.
+				_ => return Err(why("type parameter", ty.to_string())),
+			},
+			ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..) => return Err(why("function value", "")),
+			ty::RawPtr(..) => return Err(why("raw pointer", "")),
+			ty::Never => return Err(why("never type", "")),
+			ty::Alias(..) => return Err(why("opaque type", ty.to_string())),
+			_ => return Err(why("type", ty.to_string())),
+		})
+	}
+
+	/// A trait object of one of the crate's traits, as a foreign implementation.
+	fn dynamic(&self, principal: Option<DefId>, form: Dyn, ty: Ty<'tcx>) -> Result<Type, Why> {
+		match principal.and_then(|tr| self.decls.get(&tr)) {
+			Some(Decl::Callback(i)) => Ok(Type::Callback(*i, form)),
+			_ => Err(why("trait object", ty.to_string())),
+		}
+	}
+}
+
+/// Where a type appears, which decides the forms it may take.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Pos {
+	Param,
+	Return,
+	Field,
+	/// Inside another type: an `Option`, a `Box`, or behind a reference.
+	Behind,
+}
+
+fn int(ty: Ty<'_>) -> Option<Int> {
+	Some(match ty.kind() {
+		ty::Uint(ty::UintTy::U8) => Int::U8,
+		ty::Uint(ty::UintTy::U16) => Int::U16,
+		ty::Uint(ty::UintTy::U32) => Int::U32,
+		ty::Uint(ty::UintTy::U64) => Int::U64,
+		ty::Uint(ty::UintTy::Usize) => Int::Usize,
+		ty::Int(ty::IntTy::I8) => Int::I8,
+		ty::Int(ty::IntTy::I16) => Int::I16,
+		ty::Int(ty::IntTy::I32) => Int::I32,
+		ty::Int(ty::IntTy::I64) => Int::I64,
+		ty::Int(ty::IntTy::Isize) => Int::Isize,
+		_ => return None,
+	})
+}
+
+/// An integer of type `ty` from its bits: sign-extended if `ty` is signed.
+fn signed<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, bits: u128) -> i128 {
+	let width = match int(ty) {
+		Some(Int::U8 | Int::I8) => 8,
+		Some(Int::U16 | Int::I16) => 16,
+		Some(Int::U32 | Int::I32) => 32,
+		Some(Int::U64 | Int::I64) => 64,
+		_ => tcx.data_layout.pointer_size().bits() as u32,
+	};
+	match ty.is_signed() {
+		true => {
+			let shift = 128 - width;
+			((bits << shift) as i128) >> shift
+		}
+		false => bits as i128,
+	}
+}
+
+/// Whether the local type `def_id` implements the std trait `item`.
+fn implements(tcx: TyCtxt<'_>, def_id: DefId, item: rustc_span::Symbol) -> bool {
+	let ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+	let Some(tr) = tcx.get_diagnostic_item(item) else {
+		return false;
+	};
+	let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
+	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
+}
+
+/// A type's path without generic arguments.
+fn strip_args(tcx: TyCtxt<'_>, did: DefId) -> String {
+	tcx.def_path_str(did)
+}
