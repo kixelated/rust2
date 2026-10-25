@@ -215,7 +215,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					let value = values.get(field).ok_or(UNEXPECTED)?.clone();
 					let value = self.fmt_value(tr, ty, value, span, out);
 					parts.push(match spec.object() {
-						Some(spec) => Expr::Rt("fmt").member("spec").call(vec![spec, value]),
+						Some(spec) => Expr::rt("fmtSpec", vec![spec, value]),
 						None => value,
 					});
 				}
@@ -314,13 +314,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	}
 }
 
-/// Whether `e` is a runtime function, `rt.a.b`, which reads no `this`.
+/// Whether `e` is a runtime function, which reads no `this`.
 fn runtime(e: &Expr) -> bool {
-	match e {
-		Expr::Rt(_) => true,
-		Expr::Member(base, Key::Name(_)) => runtime(base),
-		_ => false,
-	}
+	matches!(e, Expr::Rt(_))
 }
 
 /// Whether the path `e` reads the variable `name`.
@@ -353,7 +349,7 @@ pub fn std_impl<'tcx>(
 	out: &mut Vec<Stmt>,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
-	let rt = |name: &str, args: Vec<Expr>| Expr::Rt("fmt").member(name).call(args);
+	let rt = |name: &str, args: Vec<Expr>| Expr::rt_of("fmt", name).call(args);
 	let text = matches!(tr, Trait::Display | Trait::Debug);
 	Some(match ty.kind() {
 		ty::Ref(_, inner, _) => b.fmt_call(tr, *inner, value, f, span),
@@ -366,7 +362,7 @@ pub fn std_impl<'tcx>(
 			Int::of(ty)?.method(method, vec![value, f])
 		}
 		ty::Bool if text => rt("bool", vec![value, f]),
-		ty::Str if tr == Trait::Display => f.member("pad").call(vec![value]),
+		ty::Str if tr == Trait::Display => Expr::rt("fmtPad", vec![f, value]),
 		ty::Str if tr == Trait::Debug => rt("str", vec![value, f]),
 		ty::Tuple(tys) if tys.is_empty() && tr == Trait::Debug => rt("unit", vec![value, f]),
 		ty::Tuple(tys) if tr == Trait::Debug => {
@@ -391,7 +387,7 @@ pub fn std_impl<'tcx>(
 			value.call(vec![f])
 		}
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
-			(Std::String, Trait::Display) => f.member("pad").call(vec![value]),
+			(Std::String, Trait::Display) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String, Trait::Debug) => rt("str", vec![value, f]),
 			(Std::Box, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
 			(Std::Vec, Trait::Debug) => {

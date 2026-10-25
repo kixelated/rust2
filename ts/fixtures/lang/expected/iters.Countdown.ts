@@ -13,7 +13,7 @@ export function next$Iterator(self: Countdown): rt.u8 | rt.Done {
 		return rt.DONE;
 	} else {
 		const left = self.left;
-		self.left = rt.u8.saturatingSub(left, self.step);
+		self.left = rt.u8SaturatingSub(left, self.step);
 		return left;
 	}
 }

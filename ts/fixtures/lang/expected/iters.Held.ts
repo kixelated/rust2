@@ -8,8 +8,8 @@ export interface Held {
 }
 
 export function skipOne(self: Held): rt.u8 {
-	rt.iter.toOption(self.it.next());
-	return rt.option.unwrapOr(rt.iter.toOption(self.it.next()), 0xbb);
+	rt.iterToOption(self.it.next());
+	return rt.optionUnwrapOr(rt.iterToOption(self.it.next()), 0xbb);
 }
 
 //# sourceMappingURL=iters.Held.ts.map

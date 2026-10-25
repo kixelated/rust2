@@ -13,24 +13,24 @@ import * as Wrapper from "./iters.Wrapper.ts";
 
 /** Adaptor chains over the input bytes, each consumed one way. */
 export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	const value = rt.u8.rem(kind, 8);
+	const value = rt.u8Rem(kind, 8);
 	if (value === 0) {
-		const doubled = rt.iter.slice(data).map((arg: rt.u8): rt.u8 => {
+		const doubled = rt.iterToByteVec(rt.iterFilter(rt.iterMap(rt.iterSlice(data), (arg: rt.u8): rt.u8 => {
 			const b = arg;
-			return rt.u8.div(b, 2);
-		}).filter((b2: rt.u8): boolean => {
-			return rt.u8.rem(b2, 3) !== 0;
-		}).toByteVec();
-		out.extendFromSlice(doubled.view());
-		const small = rt.iter.slice(data).filterMap((arg2: rt.u8): rt.u16 | undefined => {
+			return rt.u8Div(b, 2);
+		}), (b2: rt.u8): boolean => {
+			return rt.u8Rem(b2, 3) !== 0;
+		}));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(doubled));
+		const small = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (arg2: rt.u8): rt.u16 | undefined => {
 			const b3 = arg2;
-			return rt.thenSome(b3 < 100, rt.u16.mul(b3 as rt.u16, 200));
-		}).toArray();
+			return rt.thenSome(b3 < 100, rt.u16Mul(b3 as rt.u16, 200));
+		}));
 		for (const v of small) {
-			out.extendFromSlice(rt.u16.toBeBytes(v));
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v));
 		}
 	} else if (value === 1) {
-		const iter = rt.iter.slice(data).enumerate().skip(1).stepBy(2);
+		const iter = rt.iterStepBy(rt.iterSkip(rt.iterEnumerate(rt.iterSlice(data)), 1), 2);
 		while (true) {
 			const item = iter.next();
 			if (item === rt.DONE) {
@@ -38,10 +38,10 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 			const i = item[0];
 			const b4 = item[1];
-			out.push(i & 0xff);
-			out.push(b4);
+			rt.byteVecPush(out, i & 0xff);
+			rt.byteVecPush(out, b4);
 		}
-		const iter2 = rt.iter.slice(data).rev().enumerate().take(3);
+		const iter2 = rt.iterTake(rt.iterEnumerate(rt.iterRev(rt.iterSlice(data))), 3);
 		while (true) {
 			const item2 = iter2.next();
 			if (item2 === rt.DONE) {
@@ -49,110 +49,110 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 			const i2 = item2[0];
 			const b5 = item2[1];
-			out.push((i2 & 0xff) ^ b5);
+			rt.byteVecPush(out, (i2 & 0xff) ^ b5);
 		}
 	} else if (value === 2) {
-		const [front, back] = rt.slice.splitAt(data, rt.usize.div(data.length, 2));
-		const zipped = rt.iter.slice(front).zip(rt.iter.slice(back).rev()).map((arg3: [rt.u8, rt.u8]): rt.u8 => {
+		const [front, back] = rt.sliceSplitAt(data, rt.usizeDiv(data.length, 2));
+		const zipped = rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(front), rt.iterRev(rt.iterSlice(back))), (arg3: [rt.u8, rt.u8]): rt.u8 => {
 			const a = arg3[0];
 			const b6 = arg3[1];
 			return a ^ b6;
-		}).toByteVec();
-		out.extendFromSlice(zipped.view());
-		const chained = rt.iter.slice(front).chain(rt.iter.slice(back)).rev().toByteVec();
-		out.extendFromSlice(chained.view());
+		}));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(zipped));
+		const chained = rt.iterToByteVec(rt.iterRev(rt.iterChain(rt.iterSlice(front), rt.iterSlice(back))));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(chained));
 	} else if (value === 3) {
-		const taken = rt.iter.slice(data).takeWhile((arg4: rt.u8): boolean => {
+		const taken = rt.iterToByteVec(rt.iterTakeWhile(rt.iterSlice(data), (arg4: rt.u8): boolean => {
 			const b7 = arg4;
 			return b7 !== 0;
-		}).toByteVec();
-		const skipped = rt.iter.slice(data).skipWhile((arg5: rt.u8): boolean => {
+		}));
+		const skipped = rt.iterToByteVec(rt.iterSkipWhile(rt.iterSlice(data), (arg5: rt.u8): boolean => {
 			const b8 = arg5;
 			return b8 < 0x80;
-		}).toByteVec();
-		const mapped = rt.iter.slice(data).mapWhile((arg6: rt.u8): rt.u8 | undefined => {
+		}));
+		const mapped = rt.iterToByteVec(rt.iterMapWhile(rt.iterSlice(data), (arg6: rt.u8): rt.u8 | undefined => {
 			const b9 = arg6;
-			return rt.u8.checkedAdd(b9, 0x40);
-		}).toByteVec();
-		out.push(taken.length & 0xff);
-		out.push(skipped.length & 0xff);
-		out.extendFromSlice(mapped.view());
+			return rt.u8CheckedAdd(b9, 0x40);
+		}));
+		rt.byteVecPush(out, taken.length & 0xff);
+		rt.byteVecPush(out, skipped.length & 0xff);
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(mapped));
 	} else if (value === 4) {
 		const words = chunksByZero$ChunksByZero_u8s(data);
-		const flat = rt.iter.slice(words).flatMap((w: rt.ByteVec): rt.Iter<rt.u8> => {
-			return rt.iter.slice(w.view()).rev();
-		}).toByteVec();
-		out.extendFromSlice(flat.view());
-		const nested = rt.iter.slice(words).map((w2: rt.ByteVec): rt.Iter<rt.u8> => {
-			return rt.iter.slice(w2.view()).map((arg7: rt.u8): rt.u8 => {
+		const flat = rt.iterToByteVec(rt.iterFlatMap(rt.iterSlice(words), (w: rt.ByteVec): rt.Iter<rt.u8> => {
+			return rt.iterRev(rt.iterSlice(rt.byteVecView(w)));
+		}));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(flat));
+		const nested = rt.iterFlatten(rt.iterMap(rt.iterSlice(words), (w2: rt.ByteVec): rt.Iter<rt.u8> => {
+			return rt.iterMap(rt.iterSlice(rt.byteVecView(w2)), (arg7: rt.u8): rt.u8 => {
 				const b10 = arg7;
-				return rt.u8.wrappingAdd(b10, 3);
+				return rt.u8WrappingAdd(b10, 3);
 			});
-		}).flatten();
-		rt.iter.extend(out, nested.rev());
+		}));
+		rt.iterExtendBytes(out, rt.iterRev(nested));
 	} else if (value === 5) {
-		let it: rt.Peekable<rt.u8> = rt.iter.slice(data).peekable();
+		let it: rt.Peekable<rt.u8> = rt.iterPeekable(rt.iterSlice(data));
 		while (true) {
-			const next = rt.iter.toOption(it.next());
+			const next = rt.iterToOption(it.next());
 			if (next !== undefined) {
 				const b11 = next;
 				let run: rt.u8 = 1;
-				while (it.nextIf((arg8: rt.u8): boolean => {
+				while (rt.peekableNextIf(it, (arg8: rt.u8): boolean => {
 					const next2 = arg8;
 					return next2 === b11;
 				}) !== undefined) {
-					run = rt.u8.add(run, 1);
+					run = rt.u8Add(run, 1);
 				}
-				out.push(b11);
-				out.push(run);
-				const peek = it.peek();
+				rt.byteVecPush(out, b11);
+				rt.byteVecPush(out, run);
+				const peek = rt.peekablePeek(it);
 				if (peek !== undefined) {
 					const next3 = peek;
-					out.push(next3);
+					rt.byteVecPush(out, next3);
 				}
 			} else {
 				break;
 			}
 		}
 	} else if (value === 6) {
-		let it2: rt.Iter<rt.u8> = rt.iter.slice(data);
-		const firsts = it2.take(2).toByteVec();
-		out.extendFromSlice(firsts.view());
-		out.push(it2.len() & 0xff);
-		const nextBack = rt.iter.toOption(it2.nextBack());
+		let it2: rt.Iter<rt.u8> = rt.iterSlice(data);
+		const firsts = rt.iterToByteVec(rt.iterTake(it2, 2));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(firsts));
+		rt.byteVecPush(out, it2.len() & 0xff);
+		const nextBack = rt.iterToOption(it2.nextBack());
 		if (nextBack !== undefined) {
 			const last = nextBack;
-			out.push(last);
+			rt.byteVecPush(out, last);
 		} else {
-			out.push(0xee);
+			rt.byteVecPush(out, 0xee);
 		}
-		const rest = it2.rev().stepBy(3).toByteVec();
-		out.extendFromSlice(rest.view());
+		const rest = rt.iterToByteVec(rt.iterStepBy(rt.iterRev(it2), 3));
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(rest));
 	} else {
-		const pairs = rt.iter.slice(data).map((arg9: rt.u8): Uint8Array => {
+		const pairs = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (arg9: rt.u8): Uint8Array => {
 			const b12 = arg9;
 			return Uint8Array.of(b12, ~b12 & 0xff);
-		}).toArray();
-		let copies: Uint8Array[] = rt.iter.slice(pairs).map(rt.copy).toArray();
+		}));
+		let copies: Uint8Array[] = rt.iterToArray(rt.iterMap(rt.iterSlice(pairs), rt.copy));
 		if (!((copies.length === 0))) {
 			const value2 = copies[rt.idx(copies, 0)];
 			value2[0] = 0x55;
 		}
-		const iter3 = rt.iter.slice(pairs).chain(rt.iter.slice(copies));
+		const iter3 = rt.iterChain(rt.iterSlice(pairs), rt.iterSlice(copies));
 		while (true) {
 			const pair = iter3.next();
 			if (pair === rt.DONE) {
 				break;
 			}
-			out.extendFromSlice(pair);
+			rt.byteVecExtendFromSlice(out, pair);
 		}
 		let v2: rt.u16[] = [];
-		rt.iter.extend(v2, rt.iter.slice(data).map((arg10: rt.u8): rt.u16 => {
+		rt.iterExtend(v2, rt.iterMap(rt.iterSlice(data), (arg10: rt.u8): rt.u16 => {
 			const b13 = arg10;
-			return rt.u16.add(b13 as rt.u16, 1);
+			return rt.u16Add(b13 as rt.u16, 1);
 		}));
-		out.push(v2.length & 0xff);
-		rt.iter.extend(out, rt.iter.slice(data).filter((arg11: rt.u8): boolean => {
+		rt.byteVecPush(out, v2.length & 0xff);
+		rt.iterExtendBytes(out, rt.iterFilter(rt.iterSlice(data), (arg11: rt.u8): boolean => {
 			const b14 = arg11;
 			return b14 > 0x80;
 		}));
@@ -171,7 +171,7 @@ export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 			word = new rt.ByteVec();
 			arg.push(taken);
 		} else {
-			word.push(b);
+			rt.byteVecPush(word, b);
 		}
 	}
 	words.push(word);
@@ -181,67 +181,67 @@ export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 /** Consumers, and how far each reads: `log` records every item a closure sees. */
 export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let log: rt.ByteVec = new rt.ByteVec();
-	const value = rt.u8.rem(kind, 6);
+	const value = rt.u8Rem(kind, 6);
 	if (value === 0) {
-		const any = rt.iter.slice(data).inspect((arg: rt.u8): void => {
+		const any = rt.iterAny(rt.iterInspect(rt.iterSlice(data), (arg: rt.u8): void => {
 			const b = arg;
-			log.push(b);
-		}).any((arg2: rt.u8): boolean => {
+			rt.byteVecPush(log, b);
+		}), (arg2: rt.u8): boolean => {
 			const b2 = arg2;
 			return b2 > 0xf0;
 		});
-		out.push(any ? 1 : 0);
-		const all = rt.iter.slice(data).all((arg3: rt.u8): boolean => {
+		rt.byteVecPush(out, any ? 1 : 0);
+		const all = rt.iterAll(rt.iterSlice(data), (arg3: rt.u8): boolean => {
 			const b3 = arg3;
 			return b3 !== 0;
 		});
-		out.push(all ? 1 : 0);
-		out.push(rt.iter.slice(data).count() & 0xff);
-		out.push(rt.iter.slice(data).filter((arg4: rt.u8): boolean => {
+		rt.byteVecPush(out, all ? 1 : 0);
+		rt.byteVecPush(out, rt.iterCount(rt.iterSlice(data)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterSlice(data), (arg4: rt.u8): boolean => {
 			const b4 = arg4;
-			return rt.u8.rem(b4, 2) === 0;
-		}).count() & 0xff);
+			return rt.u8Rem(b4, 2) === 0;
+		})) & 0xff);
 	} else if (value === 1) {
-		const found = rt.iter.slice(data).inspect((arg5: rt.u8): void => {
+		const found = rt.iterFind(rt.iterInspect(rt.iterSlice(data), (arg5: rt.u8): void => {
 			const b5 = arg5;
-			log.push(b5);
-		}).find((arg6: rt.u8): boolean => {
+			rt.byteVecPush(log, b5);
+		}), (arg6: rt.u8): boolean => {
 			const b6 = arg6;
-			return rt.u8.rem(b6, 7) === 3;
+			return rt.u8Rem(b6, 7) === 3;
 		});
-		out.push(rt.option.unwrapOr(found, 0xff));
-		const mapped = rt.iter.slice(data).findMap((arg7: rt.u8): rt.u8 | undefined => {
+		rt.byteVecPush(out, rt.optionUnwrapOr(found, 0xff));
+		const mapped = rt.iterFindMap(rt.iterSlice(data), (arg7: rt.u8): rt.u8 | undefined => {
 			const b7 = arg7;
 			if (b7 > 0x50) {
-				return rt.u8.checkedMul(b7, 3);
+				return rt.u8CheckedMul(b7, 3);
 			} else {
 				return undefined;
 			}
 		});
-		out.push(rt.option.unwrapOr(mapped, 0));
-		const position = rt.iter.slice(data).position((arg8: rt.u8): boolean => {
+		rt.byteVecPush(out, rt.optionUnwrapOr(mapped, 0));
+		const position = rt.iterPosition(rt.iterSlice(data), (arg8: rt.u8): boolean => {
 			const b8 = arg8;
 			return b8 === 0x40;
 		});
-		out.push(rt.option.mapOr(position, 0xff, (p: rt.usize): rt.u8 => {
+		rt.byteVecPush(out, rt.optionMapOr(position, 0xff, (p: rt.usize): rt.u8 => {
 			return p & 0xff;
 		}));
-		const short = rt.slice.range(data, rt.usize.div(data.length, 2));
+		const short = rt.sliceRange(data, rt.usizeDiv(data.length, 2));
 		const logged = (b9: rt.u8): rt.u8 => {
 			return b9;
 		};
-		const pairs = rt.iter.slice(data).map((arg9: rt.u8): rt.u8 => {
+		const pairs = rt.iterCount(rt.iterZip(rt.iterMap(rt.iterSlice(data), (arg9: rt.u8): rt.u8 => {
 			const b10 = arg9;
-			log.push(b10);
+			rt.byteVecPush(log, b10);
 			return b10;
-		}).zip(rt.iter.slice(short), true).count();
-		out.push(pairs & 0xff);
-		const walked = rt.iter.slice(data).map((arg10: rt.u8): rt.u8 => {
+		}), rt.iterSlice(short), true));
+		rt.byteVecPush(out, pairs & 0xff);
+		const walked = rt.iterMap(rt.iterSlice(data), (arg10: rt.u8): rt.u8 => {
 			const b11 = arg10;
-			log.push(~b11 & 0xff);
+			rt.byteVecPush(log, ~b11 & 0xff);
 			return b11;
 		});
-		const iter = walked.zip(rt.iter.slice(short), true);
+		const iter = rt.iterZip(walked, rt.iterSlice(short), true);
 		while (true) {
 			const item = iter.next();
 			if (item === rt.DONE) {
@@ -249,12 +249,12 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			}
 			const a = item[0];
 			const b12 = item[1];
-			out.push(a ^ b12);
+			rt.byteVecPush(out, a ^ b12);
 		}
-		const iter2 = rt.iter.slice(data).inspect((arg11: rt.u8): void => {
+		const iter2 = rt.iterZip(rt.iterMap(rt.iterInspect(rt.iterSlice(data), (arg11: rt.u8): void => {
 			const b13 = arg11;
-			log.push(b13);
-		}).map(logged).zip(rt.iter.slice(short));
+			rt.byteVecPush(log, b13);
+		}), logged), rt.iterSlice(short));
 		while (true) {
 			const item2 = iter2.next();
 			if (item2 === rt.DONE) {
@@ -262,89 +262,89 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			}
 			const a2 = item2[0];
 			const b14 = item2[1];
-			out.push(a2 ^ b14);
+			rt.byteVecPush(out, a2 ^ b14);
 		}
-		let back: rt.Iter<[rt.u8, rt.u8]> = rt.iter.slice(data).map((arg12: rt.u8): rt.u8 => {
+		let back: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(data), (arg12: rt.u8): rt.u8 => {
 			const b15 = arg12;
 			return rotateFree$RotateFree_u8(b15);
-		}).zip(rt.iter.slice(short), true);
-		const nextBack = rt.iter.toOption(back.nextBack());
+		}), rt.iterSlice(short), true);
+		const nextBack = rt.iterToOption(back.nextBack());
 		if (nextBack !== undefined) {
 			const a3 = nextBack[0];
 			const b16 = nextBack[1];
-			out.push(a3);
-			out.push(b16);
+			rt.byteVecPush(out, a3);
+			rt.byteVecPush(out, b16);
 		}
-		out.push(back.len() & 0xff);
+		rt.byteVecPush(out, back.len() & 0xff);
 	} else if (value === 2) {
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).max(), 0));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).min(), 0xff));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).maxByKey((arg13: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterMax(rt.iterSlice(data)), 0));
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterMin(rt.iterSlice(data)), 0xff));
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterMaxByKey(rt.iterSlice(data), (arg13: rt.u8): rt.u8 => {
 			const b17 = arg13;
-			return rt.u8.rem(b17, 16);
+			return rt.u8Rem(b17, 16);
 		}), 0xee));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).minByKey((arg14: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterMinByKey(rt.iterSlice(data), (arg14: rt.u8): rt.u8 => {
 			const b18 = arg14;
-			return rt.u8.div(b18, 16);
+			return rt.u8Div(b18, 16);
 		}), 0xee));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).last(), 0xdd));
-		out.push(rt.option.unwrapOr(rt.iter.slice(data).nth(3), 0xcc));
-		let it: rt.Iter<rt.u8> = rt.iter.slice(data);
-		out.push(rt.option.unwrapOr(rt.iter.toOption(it.take(rt.usize.rem(data.length, 3)).nthBackItem(1)), 0xbb));
-		out.push(it.len() & 0xff);
-		out.push(rt.option.unwrapOr(it.take(rt.usize.rem(data.length, 5)).nth(2), 0xbb));
-		out.push(it.len() & 0xff);
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterLast(rt.iterSlice(data)), 0xdd));
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(rt.iterSlice(data), 3), 0xcc));
+		let it: rt.Iter<rt.u8> = rt.iterSlice(data);
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterToOption(rt.iterTake(it, rt.usizeRem(data.length, 3)).nthBackItem(1)), 0xbb));
+		rt.byteVecPush(out, it.len() & 0xff);
+		rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(rt.iterTake(it, rt.usizeRem(data.length, 5)), 2), 0xbb));
+		rt.byteVecPush(out, it.len() & 0xff);
 	} else if (value === 3) {
-		const wide = rt.iter.slice(data).map((arg15: rt.u8): rt.u64 => {
+		const wide = rt.iterSum(rt.iterMap(rt.iterSlice(data), (arg15: rt.u8): rt.u64 => {
 			const b19 = arg15;
-			return rt.u64.mul(b19 as rt.u64, 0x0101_0101_0101);
-		}).sum(rt.u64.add, 0);
-		out.extendFromSlice(rt.u64.toBeBytes(wide));
-		const folded = rt.iter.slice(data).fold(0, (acc: rt.u32, arg16: rt.u8): rt.u32 => {
+			return rt.u64Mul(b19 as rt.u64, 0x0101_0101_0101);
+		}), rt.u64Add, 0);
+		rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(wide));
+		const folded = rt.iterFold(rt.iterSlice(data), 0, (acc: rt.u32, arg16: rt.u8): rt.u32 => {
 			const b20 = arg16;
-			return rt.u32.wrappingAdd((acc << 3) >>> 0, (b20 as rt.u32 ^ acc) >>> 0);
+			return rt.u32WrappingAdd((acc << 3) >>> 0, (b20 as rt.u32 ^ acc) >>> 0);
 		});
-		out.extendFromSlice(rt.u32.toBeBytes(folded));
-		rt.iter.slice(data).forEach((arg17: rt.u8): void => {
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(folded));
+		rt.iterForEach(rt.iterSlice(data), (arg17: rt.u8): void => {
 			const b21 = arg17;
-			log.push(rotateFree$RotateFree_u8(b21));
+			rt.byteVecPush(log, rotateFree$RotateFree_u8(b21));
 		});
 	} else if (value === 4) {
-		const total = rt.iter.slice(data).sum(rt.u8.add, 0);
-		out.push(total);
-		const product = rt.iter.slice(data).map((arg18: rt.u8): rt.u16 => {
+		const total = rt.iterSum(rt.iterSlice(data), rt.u8Add, 0);
+		rt.byteVecPush(out, total);
+		const product = rt.iterProduct(rt.iterMap(rt.iterSlice(data), (arg18: rt.u8): rt.u16 => {
 			const b22 = arg18;
-			return rt.u16.add(rt.u16.rem(b22 as rt.u16, 4), 1);
-		}).product(rt.u16.mul, 1);
-		out.extendFromSlice(rt.u16.toBeBytes(product));
+			return rt.u16Add(rt.u16Rem(b22 as rt.u16, 4), 1);
+		}), rt.u16Mul, 1);
+		rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(product));
 	} else {
-		const parsed = rt.iter.slice(data).map((arg19: rt.u8): rt.Result<rt.u8, rt.u8> => {
+		const parsed = rt.iterCollectResult(rt.iterMap(rt.iterSlice(data), (arg19: rt.u8): rt.Result<rt.u8, rt.u8> => {
 			const b23 = arg19;
 			if (b23 < 0xf0) {
 				return rt.Ok(b23);
 			} else {
 				return rt.Err(b23);
 			}
-		}).collectResult((values__: rt.Iter<rt.u8>) => values__.toByteVec());
+		}), (values__: rt.Iter<rt.u8>) => rt.iterToByteVec(values__));
 		if (parsed.ok) {
 			const v = parsed.value;
-			out.extendFromSlice(v.view());
+			rt.byteVecExtendFromSlice(out, rt.byteVecView(v));
 		} else {
 			const e = parsed.error;
-			out.push(e);
+			rt.byteVecPush(out, e);
 		}
-		const some = rt.iter.slice(data).inspect((arg20: rt.u8): void => {
+		const some = rt.iterCollectOption(rt.iterMap(rt.iterInspect(rt.iterSlice(data), (arg20: rt.u8): void => {
 			const b24 = arg20;
-			log.push(b24);
-		}).map((arg21: rt.u8): rt.u16 | undefined => {
+			rt.byteVecPush(log, b24);
+		}), (arg21: rt.u8): rt.u16 | undefined => {
 			const b25 = arg21;
 			return rt.thenSome(b25 !== 0x20, b25 as rt.u16);
-		}).collectOption((values__: rt.Iter<rt.u16>) => values__.toArray());
-		out.push(rt.option.mapOr(some, 0xff, (v2: rt.u16[]): rt.u8 => {
+		}), (values__: rt.Iter<rt.u16>) => rt.iterToArray(values__));
+		rt.byteVecPush(out, rt.optionMapOr(some, 0xff, (v2: rt.u16[]): rt.u8 => {
 			return v2.length & 0xff;
 		}));
 	}
-	out.extendFromSlice(log.view());
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(log));
 }
 
 export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {
@@ -353,97 +353,97 @@ export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {
 
 /** Ranges as values and as iterators. */
 export function ranges(data: Uint8Array, out: rt.ByteVec): void {
-	const a = rt.option.unwrapOr(rt.slice.first(data), 0);
-	const b = rt.option.unwrapOr(rt.slice.get(data, 1), 0);
+	const a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+	const b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
 	const range = new rt.Range(a, b);
-	out.push(range.start);
-	out.push(range.end);
-	out.push(range.isEmpty() ? 1 : 0);
-	out.push(range.contains(0x40) ? 1 : 0);
-	let copy: rt.Range<rt.u8> = range.clone();
-	out.push(rt.option.unwrapOr(rt.iter.toOption(copy.next()), 0xff));
-	out.push(range.len() & 0xff);
-	const iter = range.rev().stepBy(3);
+	rt.byteVecPush(out, range.start);
+	rt.byteVecPush(out, range.end);
+	rt.byteVecPush(out, rt.rangeIsEmpty(range) ? 1 : 0);
+	rt.byteVecPush(out, rt.rangeContains(range, 0x40) ? 1 : 0);
+	let copy: rt.Range<rt.u8> = rt.rangeClone(range);
+	rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterToOption(copy.next()), 0xff));
+	rt.byteVecPush(out, range.len() & 0xff);
+	const iter = rt.iterStepBy(rt.iterRev(range), 3);
 	while (true) {
 		const i = iter.next();
 		if (i === rt.DONE) {
 			break;
 		}
-		out.push(i);
+		rt.byteVecPush(out, i);
 	}
-	const iter2 = new rt.Range(a, b).skip(1).stepBy(4);
+	const iter2 = rt.iterStepBy(rt.iterSkip(new rt.Range(a, b), 1), 4);
 	while (true) {
 		const i2 = iter2.next();
 		if (i2 === rt.DONE) {
 			break;
 		}
-		out.push(i2);
+		rt.byteVecPush(out, i2);
 	}
-	out.push(rt.option.unwrapOr(new rt.Range(a, b).nth(5), 0xee));
-	const top = new rt.RangeInclusive(rt.max(a, 250), 255, rt.u8).toByteVec();
-	out.extendFromSlice(top.view());
-	const inclusive = new rt.RangeInclusive(a, b, rt.u8);
-	out.push(inclusive.start());
-	out.push(inclusive.end());
-	out.push(inclusive.contains(b) ? 1 : 0);
-	let near: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(rt.max(a, 200), 255, rt.u8);
-	out.push(rt.option.unwrapOr(near.nth(b as rt.usize), 0xee));
-	out.push(near.start());
-	out.push(near.isEmpty() ? 1 : 0);
-	out.push(near.contains(255) ? 1 : 0);
-	out.push(near.contains(100) ? 1 : 0);
-	let low: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(0, b, rt.u8);
-	out.push(rt.option.unwrapOr(rt.iter.toOption(low.nthBackItem(rt.usize.rem(a as rt.usize, 16))), 0xee));
-	out.push(low.end());
-	out.push(low.contains(rt.u8.div(b, 2)) ? 1 : 0);
-	let reversed: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8);
-	out.push(rt.option.unwrapOr(reversed.rev().nth(a as rt.usize), 0xee));
-	out.push(reversed.end());
-	out.push(reversed.contains(a) ? 1 : 0);
-	let counted: rt.Iter<[rt.usize, rt.u8]> = new rt.RangeInclusive(a, b, rt.u8).enumerate();
-	const [i3, n] = rt.option.unwrapOr(counted.nth(rt.usize.div(b as rt.usize, 4)), [0xdd, 0xdd] as [rt.usize, rt.u8]);
-	out.push(i3 & 0xff);
-	out.push(n);
-	out.push(rt.option.mapOr(rt.iter.toOption(counted.next()), 0xcc, (arg: [rt.usize, rt.u8]): rt.u8 => {
+	rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(new rt.Range(a, b), 5), 0xee));
+	const top = rt.iterToByteVec(new rt.RangeInclusive(rt.max(a, 250), 255, rt.u8Step));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(top));
+	const inclusive = new rt.RangeInclusive(a, b, rt.u8Step);
+	rt.byteVecPush(out, rt.rangeInclusiveStart(inclusive));
+	rt.byteVecPush(out, rt.rangeInclusiveEnd(inclusive));
+	rt.byteVecPush(out, rt.rangeInclusiveContains(inclusive, b) ? 1 : 0);
+	let near: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(rt.max(a, 200), 255, rt.u8Step);
+	rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(near, b as rt.usize), 0xee));
+	rt.byteVecPush(out, rt.rangeInclusiveStart(near));
+	rt.byteVecPush(out, rt.rangeInclusiveIsEmpty(near) ? 1 : 0);
+	rt.byteVecPush(out, rt.rangeInclusiveContains(near, 255) ? 1 : 0);
+	rt.byteVecPush(out, rt.rangeInclusiveContains(near, 100) ? 1 : 0);
+	let low: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(0, b, rt.u8Step);
+	rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterToOption(low.nthBackItem(rt.usizeRem(a as rt.usize, 16))), 0xee));
+	rt.byteVecPush(out, rt.rangeInclusiveEnd(low));
+	rt.byteVecPush(out, rt.rangeInclusiveContains(low, rt.u8Div(b, 2)) ? 1 : 0);
+	let reversed: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+	rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(rt.iterRev(reversed), a as rt.usize), 0xee));
+	rt.byteVecPush(out, rt.rangeInclusiveEnd(reversed));
+	rt.byteVecPush(out, rt.rangeInclusiveContains(reversed, a) ? 1 : 0);
+	let counted: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(new rt.RangeInclusive(a, b, rt.u8Step));
+	const [i3, n] = rt.optionUnwrapOr(rt.iterNth(counted, rt.usizeDiv(b as rt.usize, 4)), [0xdd, 0xdd] as [rt.usize, rt.u8]);
+	rt.byteVecPush(out, i3 & 0xff);
+	rt.byteVecPush(out, n);
+	rt.byteVecPush(out, rt.optionMapOr(rt.iterToOption(counted.next()), 0xcc, (arg: [rt.usize, rt.u8]): rt.u8 => {
 		const i4 = arg[0];
 		return i4 & 0xff;
 	}));
-	let stepped: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8);
-	out.push(stepped.stepBy(3).count() & 0xff);
-	out.push(stepped.start());
-	const signed = new rt.RangeInclusive((a << 24) >> 24, (b << 24) >> 24, rt.i8);
-	rt.iter.extend(out, signed.rev().map((i5: rt.i8): rt.u8 => {
+	let stepped: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+	rt.byteVecPush(out, rt.iterCount(rt.iterStepBy(stepped, 3)) & 0xff);
+	rt.byteVecPush(out, rt.rangeInclusiveStart(stepped));
+	const signed = new rt.RangeInclusive((a << 24) >> 24, (b << 24) >> 24, rt.i8Step);
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterRev(signed), (i5: rt.i8): rt.u8 => {
 		return i5 & 0xff;
 	}));
-	let wide: rt.Range<rt.u64> = new rt.Range(a as rt.u64, rt.u64.mul(b as rt.u64, 3), rt.u64);
-	out.push(wide.map((n2: rt.u64): rt.u64 => {
-		return rt.u64.rem(n2, 5);
-	}).filter((arg2: rt.u64): boolean => {
+	let wide: rt.Range<rt.u64> = new rt.Range(a as rt.u64, rt.u64Mul(b as rt.u64, 3), rt.u64Step);
+	rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterMap(wide, (n2: rt.u64): rt.u64 => {
+		return rt.u64Rem(n2, 5);
+	}), (arg2: rt.u64): boolean => {
 		const n3 = arg2;
 		return n3 === 0;
-	}).count() & 0xff);
-	out.push(wide.isEmpty() ? 1 : 0);
-	const total = new rt.Range(0, a as rt.u64, rt.u64).sum(rt.u64.add, 0);
-	out.extendFromSlice(rt.u64.toBeBytes(total));
-	const edge = rt.u64.add(9007199254740990, rt.u64.rem(a as rt.u64, 4));
-	let past: rt.Range<rt.u64> = new rt.Range(edge, rt.u64.add(edge, 4), rt.u64);
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.unwrapOr(past.nth(rt.usize.rem(b as rt.usize, 3)), 0)));
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.unwrapOr(rt.iter.toOption(past.nextBack()), 0)));
-	out.extendFromSlice(rt.u64.toBeBytes(rt.option.unwrapOr(new rt.RangeInclusive(edge, rt.u64.add(edge, 3), rt.u64).nth(rt.usize.rem(b as rt.usize, 5)), 0)));
-	const top2 = new rt.RangeInclusive(rt.u64.sub(rt.u64.of(18446744073709551615n), rt.u64.rem(a as rt.u64, 3)), rt.u64.of(18446744073709551615n), rt.u64).map((n4: rt.u64): rt.u64 => {
-		return rt.u64.rem(n4, 7);
-	}).sum(rt.u64.add, 0);
-	out.extendFromSlice(rt.u64.toBeBytes(top2));
-	const most = rt.option.unwrapOr(new rt.RangeInclusive(edge, rt.u64.add(edge, 2), rt.u64).rev().maxByKey((arg3: rt.u64): rt.u64 => {
+	})) & 0xff);
+	rt.byteVecPush(out, rt.rangeIsEmpty(wide) ? 1 : 0);
+	const total = rt.iterSum(new rt.Range(0, a as rt.u64, rt.u64Step), rt.u64Add, 0);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(total));
+	const edge = rt.u64Add(9007199254740990, rt.u64Rem(a as rt.u64, 4));
+	let past: rt.Range<rt.u64> = new rt.Range(edge, rt.u64Add(edge, 4), rt.u64Step);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(past, rt.usizeRem(b as rt.usize, 3)), 0)));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterToOption(past.nextBack()), 0)));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step), rt.usizeRem(b as rt.usize, 5)), 0)));
+	const top2 = rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub(rt.u64Of(18446744073709551615n), rt.u64Rem(a as rt.u64, 3)), rt.u64Of(18446744073709551615n), rt.u64Step), (n4: rt.u64): rt.u64 => {
+		return rt.u64Rem(n4, 7);
+	}), rt.u64Add, 0);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(top2));
+	const most = rt.optionUnwrapOr(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (arg3: rt.u64): rt.u64 => {
 		const n5 = arg3;
 		return n5;
 	}), 0);
-	out.extendFromSlice(rt.u64.toBeBytes(most));
-	const least = rt.option.unwrapOr(new rt.Range(rt.i64.sub(rt.i64.neg(rt.i64.of(9007199254740992n)), 1), rt.i64.add(rt.i64.neg(rt.i64.of(9007199254740992n)), 1), rt.i64).min(), 0);
-	out.extendFromSlice(rt.i64.toBeBytes(least));
-	const steps = new rt.Range(0, 48).stepBy(8).rev().toArray();
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(most));
+	const least = rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Add(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Step)), 0);
+	rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(least));
+	const steps = rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)));
 	for (const s of steps) {
-		out.push(s & 0xff);
+		rt.byteVecPush(out, s & 0xff);
 	}
 	updates(a, b, data, out);
 }
@@ -454,72 +454,72 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
  */
 export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let base: rt.Range<rt.u8> = new rt.Range(a, b);
-	out.push(0xd0);
-	const field = rt.u8.div(b, 2);
-	out.push(0xd1);
-	const range = base.clone();
+	rt.byteVecPush(out, 0xd0);
+	const field = rt.u8Div(b, 2);
+	rt.byteVecPush(out, 0xd1);
+	const range = rt.rangeClone(base);
 	const field2 = field;
 	const made = new rt.Range(range.start, field2);
-	const clone = base.clone();
+	const clone = rt.rangeClone(base);
 	const whole = new rt.Range(clone.start, clone.end);
-	out.extendFromSlice(Uint8Array.of(made.start, made.end, whole.start, whole.end));
-	const start = rt.u8.div(a, 2);
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(made.start, made.end, whole.start, whole.end));
+	const start = rt.u8Div(a, 2);
 	const end = base.end;
 	for (let i = start; i < end; i++) {
-		base.end = rt.u8.wrappingAdd(base.end, 1);
-		out.push(i);
+		base.end = rt.u8WrappingAdd(base.end, 1);
+		rt.byteVecPush(out, i);
 	}
-	out.push(base.end);
+	rt.byteVecPush(out, base.end);
 	const len = data.length;
 	const [to, from] = [rt.min(b as rt.usize, len), rt.min(a as rt.usize, len)] as [rt.usize, rt.usize];
 	const all = new rt.Range(0, len);
-	out.push(0xd2);
+	rt.byteVecPush(out, 0xd2);
 	const arg = data;
-	out.push(0xd3);
+	rt.byteVecPush(out, 0xd3);
 	const field3 = from;
-	out.push(0xd4);
-	const range2 = all.clone();
-	const sliced = rt.slice.range(arg, field3, range2.end);
-	out.extendFromSlice(sliced);
+	rt.byteVecPush(out, 0xd4);
+	const range2 = rt.rangeClone(all);
+	const sliced = rt.sliceRange(arg, field3, range2.end);
+	rt.byteVecExtendFromSlice(out, sliced);
 	const arg2 = data;
-	out.push(0xd5);
-	const full = rt.slice.range(arg2, 0);
-	out.push(full.length & 0xff);
+	rt.byteVecPush(out, 0xd5);
+	const full = rt.sliceRange(arg2, 0);
+	rt.byteVecPush(out, full.length & 0xff);
 	const arg3 = data;
-	out.push(0xd6);
-	const full2 = rt.slice.range(arg3, 0);
-	out.push(full2.length & 0xff);
+	rt.byteVecPush(out, 0xd6);
+	const full2 = rt.sliceRange(arg3, 0);
+	rt.byteVecPush(out, full2.length & 0xff);
 	const arg4 = data;
 	fullRange(out);
-	const full3 = rt.slice.range(arg4, 0);
-	out.push(full3.length & 0xff);
-	const full4 = rt.slice.range(data, 0);
-	out.push(full4.length & 0xff);
-	let copied: rt.ByteVec = rt.slice.toByteVec(data);
-	const arg5 = copied.view();
+	const full3 = rt.sliceRange(arg4, 0);
+	rt.byteVecPush(out, full3.length & 0xff);
+	const full4 = rt.sliceRange(data, 0);
+	rt.byteVecPush(out, full4.length & 0xff);
+	let copied: rt.ByteVec = rt.sliceToByteVec(data);
+	const arg5 = rt.byteVecView(copied);
 	const field4 = to;
-	rt.slice.copyWithin(arg5, all.start, field4, 0);
-	out.extendFromSlice(copied.view());
+	rt.sliceCopyWithin(arg5, all.start, field4, 0);
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(copied));
 }
 
 /** `..`, logging that it was made. */
 export function fullRange(out: rt.ByteVec): undefined {
-	out.push(0xd7);
+	rt.byteVecPush(out, 0xd7);
 	return undefined;
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */
 export function options(data: Uint8Array, out: rt.ByteVec): void {
 	const maybe = (b: rt.u8): rt.u8 | undefined => {
-		if (rt.u8.rem(b, 3) === 0) {
+		if (rt.u8Rem(b, 3) === 0) {
 			return undefined;
 		} else {
 			return b;
 		}
 	};
-	const all = rt.iter.slice(data).map(maybe).toArray();
-	out.push(all.length & 0xff);
-	const iter = rt.iter.slice(data).map(maybe);
+	const all = rt.iterToArray(rt.iterMap(rt.iterSlice(data), maybe));
+	rt.byteVecPush(out, all.length & 0xff);
+	const iter = rt.iterMap(rt.iterSlice(data), maybe);
 	while (true) {
 		const item = iter.next();
 		if (item === rt.DONE) {
@@ -527,41 +527,41 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		if (item !== undefined) {
 			const b2 = item;
-			out.push(b2);
+			rt.byteVecPush(out, b2);
 		} else {
-			out.push(0);
+			rt.byteVecPush(out, 0);
 		}
 	}
-	const flat = rt.iter.slice(data).map(maybe).flatten((value: rt.u8 | undefined) => rt.iter.option(value)).toByteVec();
-	out.extendFromSlice(flat.view());
-	const somes = rt.iter.slice(all).filter((o: rt.u8 | undefined): boolean => {
+	const flat = rt.iterToByteVec(rt.iterFlatten(rt.iterMap(rt.iterSlice(data), maybe), (value: rt.u8 | undefined) => rt.iterOption(value)));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(flat));
+	const somes = rt.iterCount(rt.iterFilter(rt.iterSlice(all), (o: rt.u8 | undefined): boolean => {
 		return o !== undefined;
-	}).count();
-	out.push(somes & 0xff);
-	out.push(rt.option.unwrapOr(second$Map_Iter_u8_options_closure0(rt.iter.slice(data).map(maybe)), 0xcd));
-	const first = rt.slice.first(data);
-	const iter2 = rt.iter.option(first).chain(rt.iter.once(0x99));
+	}));
+	rt.byteVecPush(out, somes & 0xff);
+	rt.byteVecPush(out, rt.optionUnwrapOr(second$Map_Iter_u8_options_closure0(rt.iterMap(rt.iterSlice(data), maybe)), 0xcd));
+	const first = rt.sliceFirst(data);
+	const iter2 = rt.iterChain(rt.iterOption(first), rt.iterOnce(0x99));
 	while (true) {
 		const b3 = iter2.next();
 		if (b3 === rt.DONE) {
 			break;
 		}
-		out.push(b3);
+		rt.byteVecPush(out, b3);
 	}
-	rt.iter.extend(out, rt.iter.option(first).chain(rt.iter.empty()));
+	rt.iterExtendBytes(out, rt.iterChain(rt.iterOption(first), rt.iterEmpty()));
 	let n: rt.u8 = 0;
-	const counted = rt.iter.fromFn((): rt.u8 | undefined => {
-		n = rt.u8.add(n, 1);
+	const counted = rt.iterToByteVec(rt.iterFromFn((): rt.u8 | undefined => {
+		n = rt.u8Add(n, 1);
 		return rt.thenSome(n < 4, n);
-	}).toByteVec();
-	out.extendFromSlice(counted.view());
+	}));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(counted));
 	const gaps = { data, at: 0 };
 	while (true) {
 		const gap = Gaps.next$Iterator(gaps);
 		if (gap === rt.DONE) {
 			break;
 		}
-		out.push(rt.option.mapOr(gap, 0xaa, (b4: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, rt.optionMapOr(gap, 0xaa, (b4: rt.u8): rt.u8 => {
 			return b4;
 		}));
 	}
@@ -578,48 +578,48 @@ export function second$Map_Iter_u8_options_closure0(items: rt.Iter<rt.u8 | undef
 		return undefined;
 	}
 	const item = next2;
-	return rt.option.unwrapOr(item, 0xab);
+	return rt.optionUnwrapOr(item, 0xab);
 }
 
 /** The crate's own iterators, through `for`, adaptors, and `next`. */
 export function own(data: Uint8Array, out: rt.ByteVec): void {
-	const left = rt.option.unwrapOr(rt.slice.first(data), 0);
-	const step = rt.max(rt.option.unwrapOr(rt.slice.get(data, 1), 1), 1);
+	const left = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+	const step = rt.max(rt.optionUnwrapOr(rt.sliceGet(data, 1), 1), 1);
 	const iter = { left, step };
 	while (true) {
 		const n = Countdown.next$Iterator(iter);
 		if (n === rt.DONE) {
 			break;
 		}
-		out.push(n);
+		rt.byteVecPush(out, n);
 	}
-	const total = rt.iter.from({ left, step }, (it: Countdown.Countdown) => Countdown.next$Iterator(it)).map((n2: rt.u8): rt.u64 => {
-		return rt.u64.div(rt.u64.mul(n2 as rt.u64, 1000), 7);
-	}).sum(rt.u64.add, 0);
-	out.extendFromSlice(rt.u64.toBeBytes(total));
+	const total = rt.iterSum(rt.iterMap(rt.iterFrom({ left, step }, (it: Countdown.Countdown) => Countdown.next$Iterator(it)), (n2: rt.u8): rt.u64 => {
+		return rt.u64Div(rt.u64Mul(n2 as rt.u64, 1000), 7);
+	}), rt.u64Add, 0);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(total));
 	let down: Countdown.Countdown = { left, step };
 	while (true) {
-		const next = rt.iter.toOption(Countdown.next$Iterator(down));
+		const next = rt.iterToOption(Countdown.next$Iterator(down));
 		if (next !== undefined) {
 			const n3 = next;
-			if (rt.u8.rem(n3, 5) === 0) {
+			if (rt.u8Rem(n3, 5) === 0) {
 				break;
 			}
 		} else {
 			break;
 		}
 	}
-	out.push(down.left);
-	const evens = rt.iter.from({ inner: rt.iter.slice(data) }, (it: Evens.Evens) => Evens.next$Iterator(it)).toByteVec();
-	out.extendFromSlice(evens.view());
-	let byRef: Evens.Evens = { inner: rt.iter.slice(rt.slice.range(data, rt.min(data.length, 1))) };
-	const firsts = rt.iter.from(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)).take(2).toByteVec();
-	out.extendFromSlice(firsts.view());
-	out.push(rt.iter.from(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)).count() & 0xff);
-	const halves = rt.iter.from(new Halving.Halving({ value: left }), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator_u8(it)).toByteVec();
-	out.extendFromSlice(halves.view());
-	const total2 = rt.iter.from(new Halving.Halving({ value: rt.u64.mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)).sum(rt.u64.add, 0);
-	out.extendFromSlice(rt.u64.toBeBytes(total2));
+	rt.byteVecPush(out, down.left);
+	const evens = rt.iterToByteVec(rt.iterFrom({ inner: rt.iterSlice(data) }, (it: Evens.Evens) => Evens.next$Iterator(it)));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(evens));
+	let byRef: Evens.Evens = { inner: rt.iterSlice(rt.sliceRange(data, rt.min(data.length, 1))) };
+	const firsts = rt.iterToByteVec(rt.iterTake(rt.iterFrom(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)), 2));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(firsts));
+	rt.byteVecPush(out, rt.iterCount(rt.iterFrom(byRef, (it: Evens.Evens) => Evens.next$Iterator(it))) & 0xff);
+	const halves = rt.iterToByteVec(rt.iterFrom(new Halving.Halving({ value: left }), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator_u8(it)));
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(halves));
+	const total2 = rt.iterSum(rt.iterFrom(new Halving.Halving({ value: rt.u64Mul(left as rt.u64, 0x1_0000_0001) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)), rt.u64Add, 0);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(total2));
 }
 
 /**
@@ -627,13 +627,13 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
  * `for` must iterate it, not the first.
  */
 export function tail(_head: Uint8Array, data: Uint8Array): rt.Iter<rt.u8> {
-	return rt.iter.slice(rt.slice.range(data, rt.usize.saturatingSub(data.length, 2)));
+	return rt.iterSlice(rt.sliceRange(data, rt.usizeSaturatingSub(data.length, 2)));
 }
 
 /** The odd bytes, from a function returning `impl Iterator`. */
 export function odds(data: Uint8Array): rt.Iter<rt.u8> {
-	return rt.iter.slice(data).filter((b: rt.u8): boolean => {
-		return rt.u8.rem(b, 2) === 1;
+	return rt.iterFilter(rt.iterSlice(data), (b: rt.u8): boolean => {
+		return rt.u8Rem(b, 2) === 1;
 	});
 }
 
@@ -646,58 +646,58 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 			break;
 		}
 		const b = item;
-		out.push(b);
+		rt.byteVecPush(out, b);
 	}
-	let held: Held.Held = { it: rt.iter.slice(data) };
-	out.push(Held.skipOne(held));
+	let held: Held.Held = { it: rt.iterSlice(data) };
+	rt.byteVecPush(out, Held.skipOne(held));
 	const iter2 = odds(data);
 	while (true) {
 		const b2 = iter2.next();
 		if (b2 === rt.DONE) {
 			break;
 		}
-		out.push(b2);
+		rt.byteVecPush(out, b2);
 	}
 	const arg = { _0: data };
-	const arg2 = { _0: rt.slice.range(data, 0, rt.min(data.length, 2)) };
-	const printed = rt.fmt.format([(f: rt.Formatter) => Doubled.fmt$Debug(arg, f), "|", rt.fmt.spec({ alternate: true }, (f: rt.Formatter) => Doubled.fmt$Debug(arg2, f))]);
-	out.extendFromSlice(rt.string.asBytes(printed));
-	const tags = rt.iter.slice(data).map((arg3: rt.u8): Tag.Tag => {
+	const arg2 = { _0: rt.sliceRange(data, 0, rt.min(data.length, 2)) };
+	const printed = rt.fmtFormat([(f: rt.Formatter) => Doubled.fmt$Debug(arg, f), "|", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Doubled.fmt$Debug(arg2, f))]);
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(printed));
+	const tags = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (arg3: rt.u8): Tag.Tag => {
 		const b3 = arg3;
-		return { bytes: rt.slice.toByteVec(Uint8Array.of(b3, ~b3 & 0xff)) };
-	}).toArray();
-	let cloned: Tag.Tag[] = rt.iter.slice(tags).map(Tag.clone$Clone).toArray();
-	const iter3 = rt.iter.slice(cloned);
+		return { bytes: rt.sliceToByteVec(Uint8Array.of(b3, ~b3 & 0xff)) };
+	}));
+	let cloned: Tag.Tag[] = rt.iterToArray(rt.iterMap(rt.iterSlice(tags), Tag.clone$Clone));
+	const iter3 = rt.iterSlice(cloned);
 	while (true) {
 		const tag = iter3.next();
 		if (tag === rt.DONE) {
 			break;
 		}
-		tag.bytes.push(0x77);
+		rt.byteVecPush(tag.bytes, 0x77);
 	}
-	const iter4 = rt.iter.slice(tags).chain(rt.iter.slice(cloned));
+	const iter4 = rt.iterChain(rt.iterSlice(tags), rt.iterSlice(cloned));
 	while (true) {
 		const tag2 = iter4.next();
 		if (tag2 === rt.DONE) {
 			break;
 		}
-		out.extendFromSlice(tag2.bytes.view());
+		rt.byteVecExtendFromSlice(out, rt.byteVecView(tag2.bytes));
 	}
-	const bumps = rt.iter.slice(data).map((arg4: rt.u8): Bumped.Bumped => {
+	const bumps = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (arg4: rt.u8): Bumped.Bumped => {
 		const b4 = arg4;
 		return { _0: b4 };
-	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(bumps).map(Bumped.clone$Clone).map((b5: Bumped.Bumped): rt.u8 => {
+	}));
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterMap(rt.iterSlice(bumps), Bumped.clone$Clone), (b5: Bumped.Bumped): rt.u8 => {
 		return b5._0;
 	}));
-	rt.iter.extend(out, rt.iter.slice(bumps).map(rt.copy).map((b6: Bumped.Bumped): rt.u8 => {
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterMap(rt.iterSlice(bumps), rt.copy), (b6: Bumped.Bumped): rt.u8 => {
 		return b6._0;
 	}));
-	const wrapped = rt.iter.slice(data).map((arg5: rt.u8): Wrapper.Wrapper<Bumped.Bumped> => {
+	const wrapped = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (arg5: rt.u8): Wrapper.Wrapper<Bumped.Bumped> => {
 		const b7 = arg5;
 		return new Wrapper.Wrapper({ _0: b7 });
-	}).toArray();
-	rt.iter.extend(out, rt.iter.slice(wrapped).map(Wrapper.clone$Clone_Bumped).map((w: Wrapper.Wrapper<Bumped.Bumped>): rt.u8 => {
+	}));
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterMap(rt.iterSlice(wrapped), Wrapper.clone$Clone_Bumped), (w: Wrapper.Wrapper<Bumped.Bumped>): rt.u8 => {
 		return w._0._0;
 	}));
 }
