@@ -1871,11 +1871,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) {
+		// The value evaluates first, so it is saved before the place reads it again or
+		// runs statements of its own.
 		let mut value = self.operand(rhs, out);
-		if !value.is_path() {
+		let mut pre = Vec::new();
+		let target = self.place(lhs, &mut pre);
+		if (!pre.is_empty() || !value.is_path()) && !value.is_constant() {
 			value = self.spill(value, "value", out);
 		}
-		let target = self.place(lhs, out);
+		out.extend(pre);
 		if !target.is_path() && !matches!(target, Expr::Index(..)) {
 			self.t.err(span, "a compound assignment to a computed place");
 			return;
@@ -1921,18 +1925,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				);
 			}
 			holds |= self.t.drops(self.ty_of(id));
-			if !pre.is_empty() {
-				for earlier in values.iter_mut() {
-					if !earlier.is_constant() {
-						let saved = std::mem::replace(earlier, Expr::undefined());
-						*earlier = self.spill(saved, "arg", out);
-					}
-				}
-			}
-			out.extend(pre);
+			self.after(&mut values, pre, out);
 			values.push(value);
 		}
 		values
+	}
+
+	/// Emit `pre`, the statements of an operand that evaluates after `earlier`, saving
+	/// `earlier` first if there are any, so they cannot change it.
+	pub fn after(&mut self, earlier: &mut [Expr], pre: Vec<Stmt>, out: &mut Vec<Stmt>) {
+		if !pre.is_empty() {
+			for value in earlier.iter_mut().filter(|v| !v.is_constant()) {
+				let saved = std::mem::replace(value, Expr::undefined());
+				*value = self.spill(saved, "arg", out);
+			}
+		}
+		out.extend(pre);
 	}
 
 	/// Whether `id` names a place, rather than making a temporary value.
@@ -2869,8 +2877,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				self.call_def(def_id, gargs.skip_binder(), Args::Thir(args), span, out)
 			}
 			ty::FnPtr(..) => {
-				let f = self.operand(fun, out);
-				let values = self.operands(args, out);
+				let ids: Vec<ExprId> = std::iter::once(fun).chain(args.iter().copied()).collect();
+				let mut values = self.operands(&ids, out);
+				let f = values.remove(0);
 				f.call(values)
 			}
 			_ => self.err(span, format!("a call through `{fn_ty}`")),

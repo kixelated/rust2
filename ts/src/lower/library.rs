@@ -561,9 +561,19 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let mut s = [b.operand(ids[0], out)];
 			let (start, end) = range_bounds(b, &mut s, ids[1], out)?;
 			let [s] = s;
-			let end = end.unwrap_or_else(|| s.clone().member("length"));
-			let dest = b.operand(ids[2], out);
-			Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest])
+			let (s, end) = match end {
+				Some(end) => (s, end),
+				None => {
+					let s = path(b, s, "slice", out);
+					(s.clone(), s.member("length"))
+				}
+			};
+			let mut pre = Vec::new();
+			let dest = b.operand(ids[2], &mut pre);
+			let mut values = vec![s, start, end];
+			b.after(&mut values, pre, out);
+			values.push(dest);
+			Expr::Rt("slice").member("copyWithin").call(values)
 		}
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
@@ -670,15 +680,20 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				_ => base,
 			};
 			match Int::of(index_ty) {
-				Some(_) if name == "index" => {
-					let i = b.operand(ids[1], out);
-					Expr::rt("at", vec![base, i])
-				}
 				Some(_) => {
-					let base = path(b, base, "slice", out);
-					let i = b.operand(ids[1], out);
-					let i = path(b, i, "index", out);
-					base.clone().index(Expr::rt("idx", vec![base, i]))
+					let mut pre = Vec::new();
+					let i = b.operand(ids[1], &mut pre);
+					let mut base = [base];
+					b.after(&mut base, pre, out);
+					let [base] = base;
+					match name.as_str() {
+						"index" => Expr::rt("at", vec![base, i]),
+						_ => {
+							let base = path(b, base, "slice", out);
+							let i = path(b, i, "index", out);
+							base.clone().index(Expr::rt("idx", vec![base, i]))
+						}
+					}
 				}
 				None => {
 					if name == "index_mut" && !is_u8(elem_ty) {
@@ -998,13 +1013,7 @@ fn range_bounds<'tcx>(
 		}
 		_ => return None,
 	};
-	if !pre.is_empty() {
-		for value in earlier.iter_mut().filter(|v| !v.is_constant()) {
-			let saved = std::mem::replace(value, Expr::undefined());
-			*value = b.spill(saved, "arg", out);
-		}
-	}
-	out.extend(pre);
+	b.after(earlier, pre, out);
 	match name.as_str() {
 		"Range" => {
 			let end = values.pop()?;
