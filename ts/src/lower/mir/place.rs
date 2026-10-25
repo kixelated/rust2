@@ -21,8 +21,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn local_expr(&mut self, local: Local, span: Span) -> Expr {
 		if local.as_u32() == 1 {
 			match &self.env {
-				Env::Method if self.self_var => {}
-				Env::Method | Env::Coroutine => return Expr::This,
+				Env::Coroutine => return Expr::This,
 				Env::Closure(_) => return self.err(span, "a closure's environment read whole"),
 				Env::Plain | Env::Shim => {}
 			}
@@ -226,7 +225,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				None if adt.did().is_local() => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
-						AdtRepr::Class { fields, .. } => base.field(fields[field.index()]),
+						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
 						AdtRepr::Union | AdtRepr::Tags => {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
@@ -391,7 +390,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						match info.repr {
 							AdtRepr::Tags => scrut.clone().binary("===", name),
 							AdtRepr::Union => scrut.clone().member("tag").binary("===", name),
-							AdtRepr::Class { .. } => self.err(span, format!("a switch on `{ty}`")),
+							AdtRepr::Struct { .. } => self.err(span, format!("a switch on `{ty}`")),
 						}
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index, span),
@@ -467,7 +466,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
 				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
 					let info = self.b.t.adt(adt, span);
-					Expr::New(Box::new(Expr::Sym(info.sym)), Vec::new())
+					self.b.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
 				}
 				ty::Array(..) => Expr::Array(Vec::new()),
 				ty::Closure(def_id, args) => self.bare_closure(def_id, args, span),

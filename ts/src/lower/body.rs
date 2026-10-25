@@ -27,7 +27,6 @@ pub fn function<'a, 'tcx>(
 	instance: Instance<'tcx>,
 	thir: &'a Thir<'tcx>,
 	expr: ExprId,
-	method: bool,
 ) -> Option<ts::Function> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
@@ -56,60 +55,15 @@ pub fn function<'a, 'tcx>(
 	let mut body = Vec::new();
 	let mut params = Vec::new();
 	b.open_scope();
-	for (i, param) in thir.params.iter().enumerate() {
+	for param in thir.params.iter() {
 		let ty = b.subst(param.ty);
-		// An explicit `self: Pin<&mut Self>` has no implicit self kind.
-		let this = i == 0 && (param.self_kind.is_some() || method);
-		match (&param.pat, this) {
-			(Some(pat), true) => {
-				let PatKind::Binding { var, .. } = pat.kind else {
-					b.t.err(pat.span, "unsupported `self` pattern");
-					continue;
-				};
-				let name = if method { "this" } else { "self" };
-				b.names.insert(name.to_string());
-				b.locals.insert(
-					var.0,
-					Local::Name {
-						name: name.to_string(),
-						mutable: false,
-					},
-				);
-				// `this` can't be left `undefined`, as a move out of it would.
-				if method && !matches!(ty.kind(), ty::Ref(..)) && b.t.drops(ty) {
-					b.t.err(
-						pat.span,
-						"a method that takes `self` by value that drops, which is not supported yet",
-					);
-				}
-				match method {
-					// A generic class's method is one instance's, so `this` is that
-					// instance's type, under which its fields have their types.
-					true => {
-						let self_ty = b.t.self_ty(instance).expect("a method has a self type").peel_refs();
-						let ty = b.t.ty(self_ty, pat.span);
-						if matches!(&ty, Type::Sym(_, args) if !args.is_empty()) {
-							params.push(Param {
-								name: name.to_string(),
-								ty: Some(ty),
-							});
-						}
-					}
-					false => {
-						let ty = b.t.ty(ty, pat.span);
-						params.push(Param {
-							name: name.to_string(),
-							ty: Some(ty),
-						});
-					}
-				}
-			}
-			(Some(pat), false) => {
+		match &param.pat {
+			Some(pat) => {
 				let name = b.param(pat, &mut body);
 				let ty = b.t.ty(ty, pat.span);
 				params.push(Param { name, ty: Some(ty) });
 			}
-			(None, _) => {
+			None => {
 				let name = b.fresh("arg");
 				let ty = b.t.ty(ty, span);
 				params.push(Param { name, ty: Some(ty) });
@@ -123,13 +77,20 @@ pub fn function<'a, 'tcx>(
 	};
 	b.stmt(expr, dest, &mut body);
 	b.close_scope(&mut body, 0, span);
+	// A `self` the body never names, such as a unit struct's derived `Display`, takes a `_`
+	// so it passes `noUnusedParameters`.
+	if let Some(param) = params.first_mut()
+		&& param.name == "self"
+		&& !ts::mentions(&body, "self")
+	{
+		param.name = "_self".into();
+	}
 	let ret = match (b.done, ret.kind()) {
 		(true, ty::Adt(_, args)) => Type::Union(vec![b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
 		_ => b.t.ret_ty(ret, span),
 	};
 	Some(ts::Function {
 		sym: 0,
-		method,
 		params,
 		ret,
 		body,
@@ -373,7 +334,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 
 	fn local(&mut self, var: HirId, span: Span) -> Expr {
 		match self.locals.get(&var) {
-			Some(Local::Name { name, .. }) if name == "this" => Expr::This,
 			Some(Local::Name { name, .. }) => Expr::ident(name),
 			Some(Local::FnItem) => self.err(span, "a function item read as a value"),
 			None => self.err(span, "a variable from outside the function"),
@@ -2482,7 +2442,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				None if adt.did().is_local() => {
 					let info = self.t.adt(*adt, span);
 					match info.repr {
-						AdtRepr::Class { fields, .. } => base.field(fields[field.index()]),
+						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
 						AdtRepr::Union | AdtRepr::Tags => {
 							let def = &adt.variant(variant).fields[field];
 							base.member(super::field_name(def.name.as_str(), field.index()))
@@ -2562,10 +2522,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			thir::AdtExprBase::DefaultFields(_) => return self.err(span, "default field values are not supported"),
 		};
 		match info.repr {
-			AdtRepr::Class { ctor, fields } => {
+			AdtRepr::Struct { ctor, fields } => {
 				let class = Box::new(Expr::Sym(info.sym));
 				match ctor {
-					ts::Ctor::Unit => Expr::New(class, Vec::new()),
+					ts::Ctor::Unit => self.t.construct(info.sym, &ts::Ctor::Unit, &fields, Vec::new()),
 					ts::Ctor::Positional => {
 						let mut ordered: Vec<Option<Expr>> = vec![None; variant.fields.len()];
 						for (f, value) in adt.fields.iter().zip(values) {
@@ -2587,7 +2547,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 								(None, None) => Expr::undefined(),
 							})
 							.collect();
-						Expr::New(class, args)
+						self.t.construct(info.sym, &ts::Ctor::Positional, &fields, args)
 					}
 					ts::Ctor::Named => {
 						let mut props: Vec<(Key, Expr)> = adt
@@ -2609,7 +2569,22 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 								props.push((Key::Field(fields[i]), value));
 							}
 						}
-						Expr::New(class, vec![Expr::Object(props)])
+						if !self.t.plain(info.sym) {
+							return Expr::New(class, vec![Expr::Object(props)]);
+						}
+						// A plain object's properties go in declaration order, so every value of
+						// the struct shares one shape; the values are still evaluated as written.
+						let index = |key: &Key| fields.iter().position(|f| matches!(key, Key::Field(k) if k == f));
+						if !props.is_sorted_by_key(|(key, _)| index(key)) {
+							for (_, value) in props.iter_mut() {
+								if !value.is_constant() {
+									let saved = std::mem::replace(value, Expr::undefined());
+									*value = self.spill(saved, "field", out);
+								}
+							}
+							props.sort_by_key(|(key, _)| index(key));
+						}
+						Expr::Object(props)
 					}
 				}
 			}
@@ -2674,8 +2649,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		// A generator's upvars, each a parameter: its name, its value here, its type, and
 		// whether the future owns it and so drops it.
 		let mut upvars: Vec<(String, Expr, Ty<'tcx>, bool)> = Vec::new();
-		// What the generator renames, to put back once it is lowered.
-		let mut renamed = Vec::new();
 		for capture in tcx.closure_captures(local) {
 			let var = capture.get_root_variable();
 			let ty = self.subst(capture.place.ty());
@@ -2721,10 +2694,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				continue;
 			};
 			let owns = by_value && self.t.drops(ty);
-			let place = match name == "this" {
-				true => Expr::This,
-				false => Expr::ident(&name),
-			};
+			let place = Expr::ident(&name);
 			let value = match (owns, fn_body) {
 				(true, true) => {
 					self.disown(&name);
@@ -2735,22 +2705,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(false, _) if by_value => self.copied(place, ty),
 				(false, _) => place,
 			};
-			let param = match name == "this" {
-				true => {
-					let alias = self.fresh("self");
-					let saved = self.locals.insert(
-						var,
-						Local::Name {
-							name: alias.clone(),
-							mutable: false,
-						},
-					);
-					renamed.push((var, saved));
-					alias
-				}
-				false => name,
-			};
-			upvars.push((param, value, ty, owns));
+			upvars.push((name, value, ty, owns));
 		}
 		let saved_thir = std::mem::replace(&mut self.thir, thir);
 		self.read.extend(reads(tcx, thir));
@@ -2788,12 +2743,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		self.breakables = saved_breakables;
 		self.ret = saved_ret;
 		self.done = saved_done;
-		for (var, saved) in renamed {
-			match saved {
-				Some(saved) => self.locals.insert(var, saved),
-				None => self.locals.remove(&var),
-			};
-		}
 		if !coroutine {
 			return Expr::Arrow(params, ret_ty, body_stmts);
 		}
@@ -2868,11 +2817,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			order,
 			instance: String::new(),
 			name: String::new(),
+			alias: None,
 		});
 		let loc = self.t.loc(span);
 		self.t.program.items.push(ts::Item::Function(ts::Function {
 			sym,
-			method: false,
 			params,
 			ret,
 			body,
@@ -2966,14 +2915,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		{
 			let sym = self.t.instance(instance);
 			let values: Vec<Expr> = self.args(args, out).into_iter().map(Expr::typed).collect();
-			let call = match self.t.program.syms[sym].kind {
-				SymKind::Method { instance: true } => {
-					let mut values = values;
-					let recv = values.remove(0);
-					Expr::Method(Box::new(recv), sym, values)
-				}
-				_ => Expr::Sym(sym).call(values),
-			};
+			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
@@ -3051,12 +2993,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let info = self.t.adt(adt, span);
 		let ty = tcx.type_of(adt_id).instantiate(tcx, gargs).skip_norm_wip();
 		match info.repr {
-			AdtRepr::Class { .. } => Expr::New(
-				Box::new(Expr::Sym(info.sym)),
-				(adt.variant(variant).fields.iter().zip(values))
+			AdtRepr::Struct { ctor, fields } => {
+				let args = (adt.variant(variant).fields.iter().zip(values))
 					.map(|(field, value)| field_arg(tcx, field, value))
-					.collect(),
-			),
+					.collect();
+				self.t.construct(info.sym, &ctor, &fields, args)
+			}
 			AdtRepr::Tags => {
 				let ts_ty = self.t.ty(ty, span);
 				Expr::As(Box::new(Expr::Str(adt.variant(variant).name.to_string())), ts_ty)
@@ -3082,16 +3024,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
 		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
-		// A local function that is not a method is named directly.
+		// A local function is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
 			&& let ty::InstanceKind::Item(did) = instance.def
 			&& did.is_local()
 		{
-			let sym = self.t.instance(instance);
-			if !matches!(self.t.program.syms[sym].kind, SymKind::Method { instance: true }) {
-				return Expr::Sym(sym);
-			}
+			return Expr::Sym(self.t.instance(instance));
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, Args::Values(values), span, &mut body);

@@ -46,13 +46,6 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-impl Noisy {
-	/// A move out of `self` would leave `this` undefined, which JS can't.
-	pub fn into_inner(self) -> u8 {
-		self.0
-	}
-}
-
 pub fn make() -> Noisy {
 	Noisy(1)
 }

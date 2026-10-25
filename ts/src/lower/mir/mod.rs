@@ -31,11 +31,7 @@ use super::body::Body;
 use crate::ts::{self, Expr, Param, Stmt, StmtKind, Type};
 
 /// Translate one function instance's body from its MIR.
-pub fn function<'a, 'tcx>(
-	t: &mut Translator<'a, 'tcx>,
-	instance: Instance<'tcx>,
-	method: bool,
-) -> Option<ts::Function> {
+pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>) -> Option<ts::Function> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
 	let span = tcx.def_span(def_id);
@@ -46,24 +42,8 @@ pub fn function<'a, 'tcx>(
 	}
 	let ret_ty = mir.return_ty();
 	let mut b = Body::detached(t, instance.args, ret_ty);
-	let env = match method {
-		true => Env::Method,
-		false => Env::Plain,
-	};
-	let mut fx = Fx::new(&mut b, &mir, env, span);
-	let mut params = Vec::new();
-	if method {
-		// A generic class's method is one instance's, so `this` is that instance's type.
-		let self_ty = fx.b.t.self_ty(instance).expect("a method has a self type").peel_refs();
-		let ty = fx.b.t.ty(self_ty, span);
-		if matches!(&ty, Type::Sym(_, args) if !args.is_empty()) {
-			params.push(Param {
-				name: "this".into(),
-				ty: Some(ty),
-			});
-		}
-	}
-	params.extend(fx.params());
+	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
+	let params = fx.params();
 	let body = fx.lower();
 	let ret = match (next, ret_ty.kind()) {
 		(true, ty::Adt(_, args)) => Type::Union(vec![fx.b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
@@ -71,7 +51,6 @@ pub fn function<'a, 'tcx>(
 	};
 	Some(ts::Function {
 		sym: 0,
-		method,
 		params,
 		ret,
 		body,
@@ -98,8 +77,6 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 pub enum Env {
 	/// A parameter like any other.
 	Plain,
-	/// `this`: the method's receiver.
-	Method,
 	/// A closure's environment, whose fields are the expressions it captured.
 	Closure(Vec<Expr>),
 	/// A coroutine's state, behind `Pin<&mut Self>` or `&mut Self`: `this` of its class.
@@ -198,9 +175,6 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	ignored_sites: Vec<Span>,
 	/// The operands of aggregates assigned once to locals nothing changes.
 	var_parts: FxHashMap<Local, Vec<Expr>>,
-	/// Whether a method's receiver is assigned or changed in place, so it is a variable
-	/// rather than `this`.
-	pub(super) self_var: bool,
 	/// Locals holding what `Iterator::next` returns by the protocol: an item or `rt.DONE`.
 	next_results: FxHashSet<Local>,
 	/// Their names, which a switch on their variant tests against `rt.DONE`.
@@ -245,14 +219,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			var_parts: FxHashMap::default(),
 			next_results: FxHashSet::default(),
 			next_names: FxHashSet::default(),
-			self_var: false,
 		};
 		fx.analyze();
-		if matches!(fx.env, Env::Method) && fx.mir.arg_count >= 1 {
-			let receiver = Local::from_u32(1);
-			let ty = fx.mir.local_decls[receiver].ty;
-			fx.self_var = fx.defs[receiver] > 0 || (fx.mutated[receiver] && fx.b.needs_copy(ty));
-		}
 		fx
 	}
 
@@ -476,7 +444,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		}
 		let info = self.b.t.adt(*adt, self.span);
-		Some(Expr::New(Box::new(Expr::Sym(info.sym)), Vec::new()))
+		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
 	}
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.
@@ -704,7 +672,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		assigned && switched
 	}
 
-	/// The parameters: `_1` through the argument count, but a method's `this`.
+	/// The parameters: `_1` through the argument count, but a closure's environment or a
+	/// coroutine's `this`.
 	pub fn params(&mut self) -> Vec<Param> {
 		let mut params = Vec::new();
 		let skip = match self.env {
@@ -730,23 +699,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn lower(&mut self) -> Vec<Stmt> {
 		// A parameter changed in place gets its own copy, since the caller's may be shared.
 		let mut entry = Vec::new();
-		// `this` can't be assigned: a receiver that is gets a variable of its own.
-		if self.self_var
-			&& let Slot::Var(name) = self.slots[Local::from_u32(1)].clone()
-		{
-			let ty = self.mir.local_decls[Local::from_u32(1)].ty;
-			let value = match self.mutated[Local::from_u32(1)] {
-				true => self.b.copied(Expr::This, ty),
-				false => Expr::This,
-			};
-			self.assigned[Local::from_u32(1)] = true;
-			entry.push(StmtKind::Expr(Expr::ident(&name).assign(value)).at(None));
-		}
 		for local in self.mir.args_iter() {
 			let ty = self.mir.local_decls[local].ty;
-			if self.self_var && local.as_u32() == 1 {
-				continue;
-			}
 			if self.mutated[local]
 				&& self.b.needs_copy(ty)
 				&& let Slot::Var(name) = &self.slots[local]
@@ -795,9 +749,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let body = self.catch(body);
 		let mut out = Vec::new();
 		for local in self.mir.local_decls.indices() {
-			// Parameters are declared by the signature, but a receiver held in a variable.
-			let receiver = self.self_var && local.as_u32() == 1;
-			if (self.is_arg(local) && !receiver) || !self.assigned[local] {
+			// Parameters are declared by the signature.
+			if self.is_arg(local) || !self.assigned[local] {
 				continue;
 			}
 			if let Slot::Var(name) = self.slots[local].clone() {
@@ -1814,11 +1767,6 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 			args.iter().for_each(|e| scan(e, reads, lazy));
 			reads.push(Read::Effect);
 		}
-		Expr::Method(recv, _, args) => {
-			scan(recv, reads, lazy);
-			args.iter().for_each(|e| scan(e, reads, lazy));
-			reads.push(Read::Effect);
-		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
 		Expr::Postfix(e, _) => {
 			scan(e, reads, lazy);
@@ -1871,7 +1819,6 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))
 		}
-		Expr::Method(recv, _, args) => subst(recv, name, value) || args.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
 		Expr::Cond(c, a, b) => subst(c, name, value) || subst(a, name, value) || subst(b, name, value),
@@ -1953,10 +1900,6 @@ fn reads_of(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			reads_of(f, out);
-			args.iter().for_each(|e| reads_of(e, out));
-		}
-		Expr::Method(recv, _, args) => {
-			reads_of(recv, out);
 			args.iter().for_each(|e| reads_of(e, out));
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Lambda(_, e) | Expr::Postfix(e, _) => {

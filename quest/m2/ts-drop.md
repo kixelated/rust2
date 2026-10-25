@@ -32,9 +32,8 @@ What still fails translation from MIR, by the census of moq-net at the pinned re
 - A generic type that implements `Drop` (11).
 
 THIR's refusals that MIR's elaboration closes, for comparison: 657 drops of a value
-without glue, 155 methods taking `self` by value, 280 temporaries that drop, 60 `for`
-loops, 112 moves out of other places, and 75 more in patterns, closures, and struct
-updates.
+without glue, 280 temporaries that drop, 60 `for` loops, 112 moves out of other places,
+and 75 more in patterns, closures, and struct updates.
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on

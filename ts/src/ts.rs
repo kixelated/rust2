@@ -3,10 +3,10 @@
 //! Translated items and class fields are referenced by id, and named once every item
 //! is known, since a later item can force a rename.
 
-/// A translated item: a function, class, type, or companion object.
+/// A translated item: a function, struct, or type alias.
 pub type SymId = usize;
 
-/// A field of a translated class, named with the class's methods.
+/// A field of a translated struct, named with the other names its class may define.
 pub type FieldId = usize;
 
 /// A position in a Rust source file, for the source map.
@@ -36,8 +36,6 @@ pub enum Expr {
 	Member(Box<Expr>, Key),
 	Index(Box<Expr>, Box<Expr>),
 	Call(Box<Expr>, Vec<Expr>),
-	/// `recv.method(args)`, with the method named at print time.
-	Method(Box<Expr>, SymId, Vec<Expr>),
 	New(Box<Expr>, Vec<Expr>),
 	Unary(&'static str, Box<Expr>),
 	/// `x++` and the like: the operand's value, before the operator changes it.
@@ -313,6 +311,48 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 	})
 }
 
+/// Whether `stmts` name the local `name` anywhere, their closures included.
+pub fn mentions(stmts: &[Stmt], name: &str) -> bool {
+	let expr = |e: &Expr| e.mentions(name);
+	stmts.iter().any(|stmt| match &stmt.kind {
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => expr(e),
+		StmtKind::Decl { init, .. } => init.as_ref().is_some_and(expr),
+		StmtKind::Catch { body, handler, .. } => mentions(body, name) || mentions(handler, name),
+		StmtKind::Switch {
+			disc, cases, default, ..
+		} => {
+			expr(disc) || cases.iter().any(|(test, body)| expr(test) || mentions(body, name)) || mentions(default, name)
+		}
+		StmtKind::Declare { .. } => false,
+		StmtKind::If { cond, then, els } => expr(cond) || mentions(then, name) || mentions(els, name),
+		StmtKind::While { cond, body, .. } => expr(cond) || mentions(body, name),
+		StmtKind::ForRange { start, end, body, .. } => expr(start) || expr(end) || mentions(body, name),
+		StmtKind::ForOf { iter, body, .. } => expr(iter) || mentions(body, name),
+		StmtKind::Block { body, .. } => mentions(body, name),
+		StmtKind::Try { body, finally } => mentions(body, name) || mentions(finally, name),
+		StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => false,
+	})
+}
+
+impl Expr {
+	fn mentions(&self, name: &str) -> bool {
+		match self {
+			Self::Ident(ident) => ident == name,
+			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) | Self::Yield => false,
+			Self::Array(es) => es.iter().any(|e| e.mentions(name)),
+			Self::Object(props) => props.iter().any(|(_, e)| e.mentions(name)),
+			Self::Member(e, _) | Self::Unary(_, e) | Self::Postfix(e, _) | Self::Located(_, e) | Self::As(e, _) => {
+				e.mentions(name)
+			}
+			Self::Index(a, b) | Self::Binary(a, _, b) | Self::Assign(a, b) => a.mentions(name) || b.mentions(name),
+			Self::Call(f, args) | Self::New(f, args) => f.mentions(name) || args.iter().any(|e| e.mentions(name)),
+			Self::Cond(a, b, c) => a.mentions(name) || b.mentions(name) || c.mentions(name),
+			Self::Arrow(_, _, body) => mentions(body, name),
+			Self::Lambda(_, body) => body.mentions(name),
+		}
+	}
+}
+
 /// Whether control never falls off the end of `stmts`.
 pub fn diverges(stmts: &[Stmt]) -> bool {
 	stmts.last().is_some_and(Stmt::diverges)
@@ -340,8 +380,6 @@ pub enum Type {
 #[derive(Clone, Debug)]
 pub struct Function {
 	pub sym: SymId,
-	/// An instance method, called on its receiver, rather than a static or free one.
-	pub method: bool,
 	pub params: Vec<Param>,
 	pub ret: Type,
 	pub body: Vec<Stmt>,
@@ -371,7 +409,7 @@ pub enum FieldInit {
 	Later,
 }
 
-/// How a class is constructed.
+/// How a struct is constructed, as a class; a plain object is a literal of its fields.
 #[derive(Clone, Debug)]
 pub enum Ctor {
 	/// `new C()`, for a struct without fields.
@@ -384,14 +422,15 @@ pub enum Ctor {
 
 #[derive(Clone, Debug)]
 pub enum Item {
-	Class {
+	/// A struct: an interface, or a class if it may drop.
+	Struct {
 		sym: SymId,
 		params: Vec<String>,
 		fields: Vec<Field>,
 		ctor: Ctor,
 		doc: Option<String>,
 	},
-	/// A type alias, and the companion object holding its functions if it has any.
+	/// A type alias.
 	Union {
 		sym: SymId,
 		params: Vec<String>,

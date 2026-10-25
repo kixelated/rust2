@@ -49,10 +49,11 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		base,
 		suffix: String::new(),
 		owner: None,
-		kind: SymKind::Class,
+		kind: SymKind::Struct,
 		order: t.order(tcx.def_span(def_id)),
 		instance: String::new(),
 		name: String::new(),
+		alias: None,
 	});
 	let mut fields = Vec::new();
 	let state = t.program.field(sym, "state".into());
@@ -124,7 +125,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		_tcx: std::marker::PhantomData,
 	};
 	t.coroutines.insert(instance, info.clone());
-	t.program.items.push(Item::Class {
+	t.program.items.push(Item::Struct {
 		sym,
 		params: Vec::new(),
 		fields,
@@ -140,10 +141,11 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		base: "poll".into(),
 		suffix: String::new(),
 		owner: Some(sym),
-		kind: SymKind::Method { instance: true },
+		kind: SymKind::Method,
 		order: 0,
 		instance: String::new(),
 		name: String::new(),
+		alias: None,
 	});
 	if let Some(mir) = super::instance_mir(t, instance, span) {
 		let ret = mir.return_ty();
@@ -155,7 +157,6 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		let loc = t.loc(span);
 		t.program.methods.entry(sym).or_default().push(ts::Function {
 			sym: poll,
-			method: true,
 			params,
 			ret,
 			body,
@@ -170,10 +171,11 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		base: "[Symbol.dispose]".into(),
 		suffix: String::new(),
 		owner: Some(sym),
-		kind: SymKind::Method { instance: true },
+		kind: SymKind::Method,
 		order: 0,
 		instance: String::new(),
 		name: String::new(),
+		alias: None,
 	});
 	let drop = tcx.optimized_mir(def_id).coroutine_drop().cloned();
 	let body: Vec<Stmt> = match drop {
@@ -191,7 +193,6 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	};
 	t.program.methods.entry(sym).or_default().push(ts::Function {
 		sym: dispose,
-		method: true,
 		params: Vec::<Param>::new(),
 		ret: Type::Builtin("void"),
 		body,

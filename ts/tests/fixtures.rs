@@ -214,8 +214,44 @@ fn differential(package: &str, out: &Path, entry: &str, cases: u32, extra: &[&st
 fn codec() {
 	let out = translated("codec");
 	snapshot("codec", &out);
+	std::fs::write(out.join("shake.ts"), SHAKE).unwrap();
 	typecheck(&out);
 	differential("codec-fixture", &out, "harness.ts", 20_000, &[]);
+	shake(&out);
+}
+
+/// A caller of two functions of a type, through its module, as moq's TypeScript calls
+/// the codec.
+const SHAKE: &str = r#"import * as Decoder from "./coding/decode.Decoder.ts";
+
+export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic" }));
+"#;
+
+/// Bun's tree-shaken bundle of [`SHAKE`] keeps the functions it calls and what they call,
+/// and nothing else the translation holds: no other function of the type, though the
+/// caller imports its whole module, and no class. The runtime stays out, whose own
+/// shaking is another matter.
+fn shake(out: &Path) {
+	let output = Command::new("bun")
+		.args(["build", "--target=browser", "--external=*rt.ts"])
+		.arg(out.join("shake.ts"))
+		.output()
+		.expect("running bun, which the dev shell provides");
+	let bundle = String::from_utf8_lossy(&output.stdout);
+	assert!(
+		output.status.success(),
+		"bundling shake.ts failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	// Bun numbers a name another module also declares, `slice3`, so the digits it adds go.
+	let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+	let kept: Vec<String> = bundle
+		.lines()
+		.filter_map(|line| line.strip_prefix("function ").or_else(|| line.strip_prefix("class ")))
+		.map(|decl| unnumbered(decl.split(['(', ' ', '{']).next().unwrap()))
+		.collect();
+	let want: Vec<String> = ["new_", "short", "slice", "u8"].map(unnumbered).to_vec();
+	assert_eq!(kept, want, "the bundle keeps more than the caller reaches:\n{bundle}");
 }
 
 /// The codec with bodies lowered from MIR: the same differential test, without a snapshot.
@@ -323,8 +359,10 @@ fn task_differential(out: &Path) {
 	let harness = manifest_dir().join("tests").join("task.ts").display().to_string();
 	let text = format!(
 		r#"import * as rt from "./rt.ts";
-import {{ Log }} from "./log.ts";
-import {{ Channel, Guard, blocks, drain, sum }} from "./model.ts";
+import * as Log from "./log.Log.ts";
+import * as Channel from "./model.Channel.ts";
+import * as Guard from "./model.Guard.ts";
+import {{ blocks, drain, sum }} from "./model.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};

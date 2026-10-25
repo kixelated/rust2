@@ -11,7 +11,7 @@ use super::{Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
 use crate::lower::{AdtRepr, field_name};
-use crate::ts::{self, Expr, Key, Stmt, StmtKind};
+use crate::ts::{Expr, Key, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The value of `rvalue`, assigned to `dest`, or `None` if it has none to assign.
@@ -334,8 +334,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let info = self.b.t.adt(adt, span);
 		match info.repr {
-			AdtRepr::Class { ctor, fields } => {
-				let class = Box::new(Expr::Sym(info.sym));
+			AdtRepr::Struct { ctor, fields } => {
 				let field_arg = |i: usize, value: Expr| {
 					let generic = tcx
 						.type_of(def.fields[FieldIdx::from_usize(i)].did)
@@ -346,21 +345,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						false => value.typed(),
 					}
 				};
-				match ctor {
-					ts::Ctor::Unit => Expr::New(class, Vec::new()),
-					ts::Ctor::Positional => Expr::New(
-						class,
-						values.into_iter().enumerate().map(|(i, v)| field_arg(i, v)).collect(),
-					),
-					ts::Ctor::Named => {
-						let props = values
-							.into_iter()
-							.enumerate()
-							.map(|(i, v)| (Key::Field(fields[i]), field_arg(i, v)))
-							.collect();
-						Expr::New(class, vec![Expr::Object(props)])
-					}
-				}
+				let values = values.into_iter().enumerate().map(|(i, v)| field_arg(i, v)).collect();
+				self.b.t.construct(info.sym, &ctor, &fields, values)
 			}
 			AdtRepr::Tags => {
 				let ts_ty = self.b.t.ty(ty, span);

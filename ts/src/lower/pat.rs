@@ -56,7 +56,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						match info.repr {
 							AdtRepr::Tags => tests.push(scrut.clone().binary("===", name)),
 							AdtRepr::Union => tests.push(scrut.clone().member("tag").binary("===", name)),
-							AdtRepr::Class { .. } => {}
+							AdtRepr::Struct { .. } => {}
 						}
 					}
 					_ => {

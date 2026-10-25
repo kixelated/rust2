@@ -39,6 +39,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 		order: 0,
 		instance: ty::print::with_no_trimmed_paths!(ty.to_string()),
 		name: String::new(),
+		alias: None,
 	});
 	t.drop_shims.insert(ty, sym);
 	let body = tcx.instance_mir(instance.def).clone();
@@ -58,7 +59,6 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 		.collect();
 	t.program.items.push(ts::Item::Function(ts::Function {
 		sym,
-		method: false,
 		params,
 		ret: Type::Builtin("void"),
 		body,
