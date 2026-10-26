@@ -399,9 +399,9 @@ fn calls_closures(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
 	})
 }
 
-/// Whether `ty` implements `core`'s trait `name`, one of the iterator markers std
-/// specializes on and names nowhere else.
-fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
+/// Whether `ty` implements `core`'s trait `name`, one std specializes on: an iterator
+/// marker it names nowhere else, or `Eq`.
+pub(super) fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
 	use rustc_infer::infer::TyCtxtInferExt;
 	use rustc_trait_selection::infer::InferCtxtExt;
 	let tcx = t.tcx;

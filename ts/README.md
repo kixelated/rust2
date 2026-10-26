@@ -65,7 +65,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
+| `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
@@ -140,7 +140,11 @@ would share the object.
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
-`Eq`; a B-tree orders every key by its translated `Ord`. A hash map iterates in an order
+`Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
+`Option` orders `None` first, and an `Arc` compares, orders, and hashes as what it holds,
+so a map of `Arc<str>` finds a `&str`. A `&mut` to a value a map holds that JS copies,
+such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
+writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, as it does
 `DefaultHasher`'s values, which are the runtime's own too. So is how often the runtime
 calls a key's `Hash`, `Eq`, or `Ord`.
@@ -283,7 +287,8 @@ takes it, in an iterator, in an enum or generic `Drop` type, passed to a std fun
 that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
 collection ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
 `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
-another type it borrows as (`Arc<str>` by `str`), `Hasher::write` of bytes, the adaptors
+another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
+holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
