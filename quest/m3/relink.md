@@ -37,6 +37,20 @@ What decides whether this lever ever pays on moq:
   the pinned nightly, and a different rust#156940 hash, so a cutoff keyed on
   either needs that fixed first.
 
+The [semantic API hash replay](https://github.com/kixelated/rust2/pull/62)
+(2026-10-25) hashed only what a dependent can reach and observe, over the same
+edits. Differential tests show it sound, and it held on 18 of 250 non-test
+edits under moq's dev profile (17 of 169 on PR branches, 1 of 81 squash merges):
+
+- Panic locations and debuginfo lines in the generic and inline bodies that
+  dependents codegen move with every line added above them. Building
+  dependents with `debug = 0` and `-Z location-detail=none` would make it 65.
+- Edits to `async fn` bodies held on none of 84, and on 7 with positions
+  ignored: generic `async fn`s' coroutines, closures, and tracing callsites
+  reach dependents. Gating the `async fn` wrappers (poll-first) adds 2.
+- On stock rustc the cutoff must also keep every DefIndex, which a dependent's
+  rmeta encodes raw, and patch the SVH, or the next crate fails with E0460.
+
 When the flags land, measure with an edit the hash can cut off: the benchmark's
 marker function is public and appended to the crate root, whose module span is
 the whole file, so it always changes the hash. A private sync body edit in a
