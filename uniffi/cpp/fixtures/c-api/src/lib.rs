@@ -76,6 +76,13 @@ pub struct CapiItem {
     pub maybes: Vec<Option<u32>>,
 }
 
+/// What `CapiStore::stats` returns: the C type and method spell the same words.
+#[derive(Clone, uniffi::Record)]
+pub struct CapiStoreStats {
+    pub items: u64,
+    pub queued: u64,
+}
+
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 #[uniffi::export(Display)]
 pub enum CapiError {
@@ -186,6 +193,13 @@ impl CapiStore {
 
     pub fn limit(&self, index: u32) -> Option<u64> {
         self.items.lock().unwrap().get(index as usize)?.limit
+    }
+
+    pub fn stats(&self) -> CapiStoreStats {
+        CapiStoreStats {
+            items: self.len(),
+            queued: self.queue.lock().unwrap().values.len() as u64,
+        }
     }
 
     pub fn names(&self) -> Vec<String> {
