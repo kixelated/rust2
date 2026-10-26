@@ -101,6 +101,16 @@ export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
 
+/** An `async fn` polled again after it returned. */
+export function asyncFnResumed(): never {
+	throw new Panic("`async fn` resumed after completion");
+}
+
+/** An `async fn` polled again after it panicked. */
+export function asyncFnResumedPanic(): never {
+	throw new Panic("`async fn` resumed after panicking");
+}
+
 // Executor
 
 /**

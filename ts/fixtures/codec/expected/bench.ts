@@ -47,12 +47,10 @@ export function run(input: Uint8Array): rt.ByteVec {
 				decoded(decodeGroup(_9[1], liteVersion(selector), out), out);
 			}
 			return out;
-		} else {
-			return out;
 		}
-	} else {
 		return out;
 	}
+	return out;
 }
 
 export function encoded(result: rt.Result<undefined, EncodeError.EncodeError>, out: rt.ByteVec): void {
@@ -87,14 +85,12 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 	l0: while (true) {
 		if (!(iterStart++ < iterEnd)) {
 			return rt.Ok(undefined);
-		} else {
-			_17 = Encoder.varint(w, value);
-			if (_17.ok) {
-				continue l0;
-			} else {
-				return _17;
-			}
 		}
+		_17 = Encoder.varint(w, value);
+		if (_17.ok) {
+			continue l0;
+		}
+		return _17;
 	}
 }
 
@@ -114,14 +110,12 @@ export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVe
 				last = _9.value;
 				count = rt.usizeAdd(count, 1);
 				continue l0;
-			} else {
-				return _9;
 			}
-		} else {
-			putUsize(out, count);
-			putU64(out, last);
-			return rt.Ok(undefined);
+			return _9;
 		}
+		putUsize(out, count);
+		putU64(out, last);
+		return rt.Ok(undefined);
 	}
 }
 
@@ -178,36 +172,33 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	l0: while (true) {
 		if (!((_32 = iterStart++) < iterEnd)) {
 			return rt.Ok(undefined);
-		} else {
-			b2: {
-				n = _32;
-				if (n === 0) {
-					_38 = [0, first] as [rt.i64, rt.u64];
-				} else {
-					if (keyEvery2 !== 0) {
-						if (rt.usizeRem(n, keyEvery2) === 0) {
-							_38 = [delta2, keySize] as [rt.i64, rt.u64];
-							break b2;
-						}
-					}
-					_38 = [delta2, size] as [rt.i64, rt.u64];
-				}
-			}
-			delta3 = _38[0];
-			size2 = _38[1];
-			_48 = zigzag(delta3);
-			_45 = Encoder.varint(w, _48);
-			if (_45.ok) {
-				_51 = Encoder.varint(w, size2);
-				if (_51.ok) {
-					continue l0;
-				} else {
-					return _51;
-				}
+		}
+		b2: {
+			n = _32;
+			if (n === 0) {
+				_38 = [0, first] as [rt.i64, rt.u64];
 			} else {
-				return _45;
+				if (keyEvery2 !== 0) {
+					if (rt.usizeRem(n, keyEvery2) === 0) {
+						_38 = [delta2, keySize] as [rt.i64, rt.u64];
+						break b2;
+					}
+				}
+				_38 = [delta2, size] as [rt.i64, rt.u64];
 			}
 		}
+		delta3 = _38[0];
+		size2 = _38[1];
+		_48 = zigzag(delta3);
+		_45 = Encoder.varint(w, _48);
+		if (_45.ok) {
+			_51 = Encoder.varint(w, size2);
+			if (_51.ok) {
+				continue l0;
+			}
+			return _51;
+		}
+		return _45;
 	}
 }
 
@@ -233,18 +224,15 @@ export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt
 					total = rt.u64Add(total, _18.value);
 					count = rt.usizeAdd(count, 1);
 					continue l0;
-				} else {
-					return _18;
 				}
-			} else {
-				return _12;
+				return _18;
 			}
-		} else {
-			putUsize(out, count);
-			putU64(out, total);
-			putU64(out, rt.u64Cast(last));
-			return rt.Ok(undefined);
+			return _12;
 		}
+		putUsize(out, count);
+		putU64(out, total);
+		putU64(out, rt.u64Cast(last));
+		return rt.Ok(undefined);
 	}
 }
 
@@ -285,32 +273,30 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 				putU64(out, rt.u64Cast(last));
 				putUsize(out, short);
 				return rt.Ok(undefined);
-			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
-		} else {
-			end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
-			while (true) {
-				if (!(start < end)) {
+			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+		}
+		end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
+		while (true) {
+			if (!(start < end)) {
+				continue l0;
+			} else {
+				const slice = _6[1];
+				r = Decoder.new(rt.sliceRange(slice, start, end), Form.from$From_Version(version));
+				_32 = frameHeader(r);
+				if (_32.ok) {
+					delta = _32.value[0];
+					size = _32.value[1];
+					start = rt.usizeSub(end, Decoder.remaining(r));
+					last = delta;
+					total = rt.u64Add(total, size);
+					count = rt.usizeAdd(count, 1);
+				} else if (_32.error.tag === "Short") {
+					short = rt.usizeAdd(short, 1);
 					continue l0;
 				} else {
-					const slice = _6[1];
-					r = Decoder.new(rt.sliceRange(slice, start, end), Form.from$From_Version(version));
-					_32 = frameHeader(r);
-					if (_32.ok) {
-						delta = _32.value[0];
-						size = _32.value[1];
-						start = rt.usizeSub(end, Decoder.remaining(r));
-						last = delta;
-						total = rt.u64Add(total, size);
-						count = rt.usizeAdd(count, 1);
-					} else if (_32.error.tag === "Short") {
-						short = rt.usizeAdd(short, 1);
-						continue l0;
-					} else {
-						_0 = rt.Err(_32.error);
-						return _0;
-					}
+					_0 = rt.Err(_32.error);
+					return _0;
 				}
 			}
 		}
@@ -328,12 +314,10 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 		_9 = Decoder.varint(r);
 		if (_9.ok) {
 			return rt.Ok([delta, _9.value] as [rt.i64, rt.u64]);
-		} else {
-			return _9;
 		}
-	} else {
-		return _3;
+		return _9;
 	}
+	return _3;
 }
 
 /** One size-prefixed GROUP header, starting at the first frame. */
@@ -400,14 +384,12 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 								if (!((_66 = iterStart3++) < iterEnd3)) {
 									putU64(out, sum);
 									return;
-								} else {
-									_73 = _10(_66);
-									rt.btreeRemove(map, _73);
 								}
+								_73 = _10(_66);
+								rt.btreeRemove(map, _73);
 							}
-						} else {
-							sum = rt.u64Add(sum, _57[1] as rt.u64);
 						}
+						sum = rt.u64Add(sum, _57[1] as rt.u64);
 					}
 				} else {
 					i2 = _28;
@@ -417,11 +399,10 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 					sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
 				}
 			}
-		} else {
-			i = _15;
-			_21 = _10(i);
-			rt.btreeInsert(map, _21, i);
 		}
+		i = _15;
+		_21 = _10(i);
+		rt.btreeInsert(map, _21, i);
 	}
 }
 
@@ -469,11 +450,10 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				if (_33 === rt.DONE) {
 					putUsize(out, last);
 					break b0;
-				} else {
-					i = _33[0];
-					if (_33[1] === 128) {
-						last = i;
-					}
+				}
+				i = _33[0];
+				if (_33[1] === 128) {
+					last = i;
 				}
 			}
 		}
@@ -525,35 +505,34 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 			putU64(out, overflowed);
 			putU64(out, last);
 			return;
-		} else {
-			b1: {
-				value = rt.u64Add(start, rt.u64Mul(_26 as rt.u64, step));
-				if (selector === 0) {
-					_36 = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
-					if (_36 === undefined) {
-						scaled = undefined;
-					} else {
-						scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
-					}
-				} else {
-					_44 = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
-						return rt.u64Div(scaled3, from);
-					});
-					if (_44 !== undefined) {
-						if (rt.u64Le(_44, rt.u64Of(2305843009213693951n))) {
-							scaled = _44;
-							break b1;
-						}
-					}
+		}
+		b1: {
+			value = rt.u64Add(start, rt.u64Mul(_26 as rt.u64, step));
+			if (selector === 0) {
+				_36 = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
+				if (_36 === undefined) {
 					scaled = undefined;
+				} else {
+					scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
 				}
-			}
-			if (scaled === undefined) {
-				overflowed = rt.u64Add(overflowed, 1);
 			} else {
-				last = scaled;
-				converted = rt.u64Add(converted, 1);
+				_44 = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
+					return rt.u64Div(scaled3, from);
+				});
+				if (_44 !== undefined) {
+					if (rt.u64Le(_44, rt.u64Of(2305843009213693951n))) {
+						scaled = _44;
+						break b1;
+					}
+				}
+				scaled = undefined;
 			}
+		}
+		if (scaled === undefined) {
+			overflowed = rt.u64Add(overflowed, 1);
+		} else {
+			last = scaled;
+			converted = rt.u64Add(converted, 1);
 		}
 	}
 }
@@ -562,9 +541,8 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 export function bounded(value: rt.u128): rt.u64 | undefined {
 	if (!rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
 		return undefined;
-	} else {
-		return rt.u64Cast(value);
 	}
+	return rt.u64Cast(value);
 }
 
 export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
@@ -582,9 +560,8 @@ export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.
 		putU64(out, group.frameStart);
 		putUsize(out, used);
 		return rt.Ok(undefined);
-	} else {
-		return _6;
 	}
+	return _6;
 }
 
 //# sourceMappingURL=bench.ts.map

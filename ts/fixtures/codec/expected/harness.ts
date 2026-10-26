@@ -44,9 +44,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 			errors(_5[1], out);
 		}
 		return out;
-	} else {
-		return out;
 	}
+	return out;
 }
 
 export function form(selector: rt.u8): Form.Form {
@@ -54,11 +53,11 @@ export function form(selector: rt.u8): Form.Form {
 	_2 = rt.u8Rem(selector, 3);
 	if (_2 === 0) {
 		return { tag: "Quic" } as Form.Form;
-	} else if (_2 === 1) {
-		return { tag: "LeadingOnes", seven: false } as Form.Form;
-	} else {
-		return { tag: "LeadingOnes", seven: true } as Form.Form;
 	}
+	if (_2 === 1) {
+		return { tag: "LeadingOnes", seven: false } as Form.Form;
+	}
+	return { tag: "LeadingOnes", seven: true } as Form.Form;
 }
 
 export function liteVersion(selector: rt.u8): Version.Version {
@@ -66,19 +65,23 @@ export function liteVersion(selector: rt.u8): Version.Version {
 	_2 = rt.u8Rem(selector, 7);
 	if (_2 === 0) {
 		return "Lite01" as Version.Version;
-	} else if (_2 === 1) {
-		return "Lite02" as Version.Version;
-	} else if (_2 === 2) {
-		return "Lite03" as Version.Version;
-	} else if (_2 === 3) {
-		return "Lite04" as Version.Version;
-	} else if (_2 === 4) {
-		return "Lite05" as Version.Version;
-	} else if (_2 === 5) {
-		return "Lite06" as Version.Version;
-	} else {
-		return "Lite07" as Version.Version;
 	}
+	if (_2 === 1) {
+		return "Lite02" as Version.Version;
+	}
+	if (_2 === 2) {
+		return "Lite03" as Version.Version;
+	}
+	if (_2 === 3) {
+		return "Lite04" as Version.Version;
+	}
+	if (_2 === 4) {
+		return "Lite05" as Version.Version;
+	}
+	if (_2 === 5) {
+		return "Lite06" as Version.Version;
+	}
+	return "Lite07" as Version.Version;
 }
 
 export function putU64(out: rt.ByteVec, value: rt.u64): void {
@@ -237,11 +240,10 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 							rt.byteVecPush(out, 0);
 							putUsize(out, Decoder.remaining(r));
 							continue l1;
-						} else {
-							err = _26.error;
-							decodeFailed(out, err);
-							putUsize(out, Decoder.need(r));
 						}
+						err = _26.error;
+						decodeFailed(out, err);
+						putUsize(out, Decoder.need(r));
 					}
 					rt.byteVecPush(out, Decoder.isEmpty(r) ? 1 : 0);
 					break b0;
@@ -419,74 +421,73 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 								break b0;
 							}
 						}
-					} else {
-						step = _24;
-						_30 = takeU64(values);
-						value = _30[0];
-						values = _30[1];
-						_33 = rt.u8Rem(step, 10);
-						if (_33 === 0) {
-							Encoder.u8(w, rt.u64Low(value) & 0xff);
-							result = rt.Ok(undefined);
-						} else if (_33 === 1) {
-							Encoder.u16(w, rt.u64Low(value) & 0xffff);
-							result = rt.Ok(undefined);
-						} else if (_33 === 2) {
-							Encoder.bool(w, rt.u64And(value, 1) === 1);
-							result = rt.Ok(undefined);
-						} else if (_33 === 3) {
-							result = Encoder.varint(w, value);
-						} else if (_33 === 4) {
-							_48 = rt.u64Rem(value, 3);
-							if (_48 === 0) {
-								_47 = undefined;
-							} else if (_48 === 1) {
-								_47 = value;
-							} else {
-								_47 = rt.u64Of(18446744073709551615n);
-							}
-							result = Encoder.varintOpt(w, _47);
-						} else if (_33 === 5) {
-							const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
-							_53 = rt.u64ToBeBytes(value);
-							_51 = rt.sliceRange(_53, 0, part);
-							result = Encoder.bytes(w, _51);
-						} else if (_33 === 6) {
-							_60 = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
-							if (_60.ok) {
-								s = _60.value;
-								_68 = s;
-								result = Encoder.string(w, _68);
-							} else {
-								result = Encoder.string(w, "not utf-8");
-							}
-						} else if (_33 === 7) {
-							if (rt.u64Rem(value, 2) === 0) {
-								_74 = Encoder.prefixVarint(w);
-							} else {
-								_74 = Encoder.prefixU16(w);
-							}
-							prefixes.push(_74);
-							result = rt.Ok(undefined);
-						} else if (_33 === 8) {
-							_79 = prefixes.pop();
-							if (_79 === undefined) {
-								result = rt.Ok(undefined);
-							} else {
-								prefix = _79;
-								putUsize(out, Encoder.since(w, prefix));
-								result = Encoder.fill(w, prefix);
-							}
+					}
+					step = _24;
+					_30 = takeU64(values);
+					value = _30[0];
+					values = _30[1];
+					_33 = rt.u8Rem(step, 10);
+					if (_33 === 0) {
+						Encoder.u8(w, rt.u64Low(value) & 0xff);
+						result = rt.Ok(undefined);
+					} else if (_33 === 1) {
+						Encoder.u16(w, rt.u64Low(value) & 0xffff);
+						result = rt.Ok(undefined);
+					} else if (_33 === 2) {
+						Encoder.bool(w, rt.u64And(value, 1) === 1);
+						result = rt.Ok(undefined);
+					} else if (_33 === 3) {
+						result = Encoder.varint(w, value);
+					} else if (_33 === 4) {
+						_48 = rt.u64Rem(value, 3);
+						if (_48 === 0) {
+							_47 = undefined;
+						} else if (_48 === 1) {
+							_47 = value;
 						} else {
-							_88 = prefixes.pop();
-							if (_88 !== undefined) {
-								Encoder.discard(w, _88);
-							}
+							_47 = rt.u64Of(18446744073709551615n);
+						}
+						result = Encoder.varintOpt(w, _47);
+					} else if (_33 === 5) {
+						const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
+						_53 = rt.u64ToBeBytes(value);
+						_51 = rt.sliceRange(_53, 0, part);
+						result = Encoder.bytes(w, _51);
+					} else if (_33 === 6) {
+						_60 = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
+						if (_60.ok) {
+							s = _60.value;
+							_68 = s;
+							result = Encoder.string(w, _68);
+						} else {
+							result = Encoder.string(w, "not utf-8");
+						}
+					} else if (_33 === 7) {
+						if (rt.u64Rem(value, 2) === 0) {
+							_74 = Encoder.prefixVarint(w);
+						} else {
+							_74 = Encoder.prefixU16(w);
+						}
+						prefixes.push(_74);
+						result = rt.Ok(undefined);
+					} else if (_33 === 8) {
+						_79 = prefixes.pop();
+						if (_79 === undefined) {
 							result = rt.Ok(undefined);
+						} else {
+							prefix = _79;
+							putUsize(out, Encoder.since(w, prefix));
+							result = Encoder.fill(w, prefix);
 						}
-						if (!result.ok) {
-							encodeFailed(out, result.error);
+					} else {
+						_88 = prefixes.pop();
+						if (_88 !== undefined) {
+							Encoder.discard(w, _88);
 						}
+						result = rt.Ok(undefined);
+					}
+					if (!result.ok) {
+						encodeFailed(out, result.error);
 					}
 				}
 			}
@@ -516,13 +517,12 @@ export function sizes(data: Uint8Array, out: rt.ByteVec): void {
 	while (true) {
 		if (!((_9 = iterStart++) < iterEnd)) {
 			return;
+		}
+		_13 = size(value, form(_9));
+		if (_13.ok) {
+			putUsize(out, _13.value);
 		} else {
-			_13 = size(value, form(_9));
-			if (_13.ok) {
-				putUsize(out, _13.value);
-			} else {
-				rt.byteVecPush(out, 255);
-			}
+			rt.byteVecPush(out, 255);
 		}
 	}
 }

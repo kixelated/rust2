@@ -46,9 +46,8 @@ export function size(value: rt.u64, form: Form.Form): rt.Result<rt.usize, Bounds
 			}
 			if (!(hi < 1073741824)) {
 				return rt.Err({});
-			} else {
-				_6 = 8;
 			}
+			_6 = 8;
 		} else {
 			if (hi === 0) {
 				if (lo < 128) {
@@ -100,10 +99,9 @@ export function size(value: rt.u64, form: Form.Form): rt.Result<rt.usize, Bounds
 export function write(value: rt.u64, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded.BoundsExceeded> {
 	if (form.tag === "Quic") {
 		return writeQuic(value, out);
-	} else {
-		writeLeadingOnes(value, out);
-		return rt.Ok(undefined);
 	}
+	writeLeadingOnes(value, out);
+	return rt.Ok(undefined);
 }
 
 export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded.BoundsExceeded> {
@@ -140,15 +138,14 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 		}
 		if (!(hi < 1073741824)) {
 			return rt.Err({});
-		} else {
-			_42 = rt.u32ToBeBytes((3221225472 | hi) >>> 0);
-			a = _42[0];
-			b = _42[1];
-			c = _42[2];
-			d = _42[3];
-			_48 = rt.u32ToBeBytes(lo);
-			rt.byteVecExtendFromSlice(out, Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]));
 		}
+		_42 = rt.u32ToBeBytes((3221225472 | hi) >>> 0);
+		a = _42[0];
+		b = _42[1];
+		c = _42[2];
+		d = _42[3];
+		_48 = rt.u32ToBeBytes(lo);
+		rt.byteVecExtendFromSlice(out, Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]));
 	}
 	return rt.Ok(undefined);
 }
@@ -219,9 +216,8 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 export function read(buf: Uint8Array, form: Form.Form): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
 	if (form.tag === "Quic") {
 		return readQuic(buf);
-	} else {
-		return readLeadingOnes(buf, form.seven);
 	}
+	return readLeadingOnes(buf, form.seven);
 }
 
 export function readQuic(buf: Uint8Array): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
@@ -244,33 +240,26 @@ export function readQuic(buf: Uint8Array): rt.Result<[rt.u64, Uint8Array], Decod
 						val3 = _54.value;
 						const slice = val3[0];
 						return rt.Ok([fromHalves((((val3[0][0] & 63) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0, rt.u32FromBeBytes(slice.subarray(4, 8))), val3[1]] as [rt.u64, Uint8Array]);
-					} else {
-						return _54;
 					}
-				} else {
-					_33 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
-					if (_33.ok) {
-						val2 = _33.value;
-						return rt.Ok([(((val2[0][0] & 63) << 24) | (val2[0][1] << 16) | (val2[0][2] << 8) | val2[0][3]) >>> 0 as rt.u64, val2[1]] as [rt.u64, Uint8Array]);
-					} else {
-						return _33;
-					}
+					return _54;
 				}
-			} else {
-				_14 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
-				if (_14.ok) {
-					val = _14.value;
-					return rt.Ok([(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array]);
-				} else {
-					return _14;
+				_33 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
+				if (_33.ok) {
+					val2 = _33.value;
+					return rt.Ok([(((val2[0][0] & 63) << 24) | (val2[0][1] << 16) | (val2[0][2] << 8) | val2[0][3]) >>> 0 as rt.u64, val2[1]] as [rt.u64, Uint8Array]);
 				}
+				return _33;
 			}
-		} else {
-			return rt.Ok([first as rt.u64, _5[1]] as [rt.u64, Uint8Array]);
+			_14 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
+			if (_14.ok) {
+				val = _14.value;
+				return rt.Ok([(((val[0][0] & 63) << 8) | val[0][1]) as rt.u64, val[1]] as [rt.u64, Uint8Array]);
+			}
+			return _14;
 		}
-	} else {
-		return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+		return rt.Ok([first as rt.u64, _5[1]] as [rt.u64, Uint8Array]);
 	}
+	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }
 
 export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> {
@@ -345,15 +334,14 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 		} else if (_9 === 6) {
 			if (!seven) {
 				return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
+			}
+			_101 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
+			if (_101.ok) {
+				val6 = _101.value;
+				const slice3 = val6[0];
+				_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(slice3.subarray(3, 7))), val6[1]] as [rt.u64, Uint8Array];
 			} else {
-				_101 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
-				if (_101.ok) {
-					val6 = _101.value;
-					const slice3 = val6[0];
-					_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(slice3.subarray(3, 7))), val6[1]] as [rt.u64, Uint8Array];
-				} else {
-					return _101;
-				}
+				return _101;
 			}
 		} else if (_9 === 7) {
 			_121 = rt.optionOkOr(rt.sliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
@@ -375,9 +363,8 @@ export function readLeadingOnes(buf: Uint8Array, seven: boolean): rt.Result<[rt.
 			}
 		}
 		return rt.Ok(_8);
-	} else {
-		return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 	}
+	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }
 
 /**

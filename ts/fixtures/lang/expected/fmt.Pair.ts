@@ -15,9 +15,8 @@ export function fmt$Debug(self: Pair, f: rt.Formatter): rt.Result<undefined, rt.
 export function eq$PartialEq(self: Pair, other: Pair): boolean {
 	if (!(self._0 === other._0)) {
 		return false;
-	} else {
-		return rt.i64Eq(self._1, other._1);
 	}
+	return rt.i64Eq(self._1, other._1);
 }
 
 export interface Pair {

@@ -71,10 +71,9 @@ export function send(self: Channel, value: rt.u64): boolean {
 	_3 = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
 		return false;
-	} else {
-		Producer.send(_3, value);
-		return true;
 	}
+	Producer.send(_3, value);
+	return true;
 }
 
 /** Drop the last producer, if one is open: the last closes the channel. */
@@ -83,10 +82,9 @@ export function close(self: Channel): boolean {
 	_2 = self.producers.pop();
 	if (_2 === undefined) {
 		return false;
-	} else {
-		rt.drop(_2);
-		return true;
 	}
+	rt.drop(_2);
+	return true;
 }
 
 /** Open another producer, if one is open to clone. */
@@ -96,11 +94,10 @@ export function cloneProducer(self: Channel): boolean {
 	_3 = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
 		return false;
-	} else {
-		clone = Producer.clone$Clone(_3);
-		self.producers.push(clone);
-		return true;
 	}
+	clone = Producer.clone$Clone(_3);
+	self.producers.push(clone);
+	return true;
 }
 
 //# sourceMappingURL=model.Channel.ts.map

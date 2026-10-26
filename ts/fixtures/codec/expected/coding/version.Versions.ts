@@ -25,9 +25,8 @@ export function decodeSlice$Decode_Form(buf: Uint8Array, version: Form.Form): rt
 		_13 = value;
 		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Versions, rt.usize]);
 		return _0;
-	} else {
-		return _6;
 	}
+	return _6;
 }
 
 /** A list of versions in preferred order. */
@@ -52,18 +51,16 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 			_12 = iter.next();
 			if (_12 === rt.DONE) {
 				return rt.Ok({ _0: vs });
+			}
+			_15 = Version.decode$Decode_Form(r, version);
+			if (_15.ok) {
+				vs.push(_15.value);
 			} else {
-				_15 = Version.decode$Decode_Form(r, version);
-				if (_15.ok) {
-					vs.push(_15.value);
-				} else {
-					return _15;
-				}
+				return _15;
 			}
 		}
-	} else {
-		return _3;
 	}
+	return _3;
 }
 
 /** Encode the version list. */
@@ -81,16 +78,14 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 			_14 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_14 === rt.DONE) {
 				return rt.Ok(undefined);
-			} else {
-				_18 = Version.encode$Encode_Form(_14, w, version);
-				if (!_18.ok) {
-					return _18;
-				}
+			}
+			_18 = Version.encode$Encode_Form(_14, w, version);
+			if (!_18.ok) {
+				return _18;
 			}
 		}
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 /** Encode the version list. */
@@ -108,16 +103,14 @@ export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, versio
 			_14 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_14 === rt.DONE) {
 				return rt.Ok(undefined);
-			} else {
-				_18 = Version.encode$Encode_Version(_14, w, version);
-				if (!_18.ok) {
-					return _18;
-				}
+			}
+			_18 = Version.encode$Encode_Version(_14, w, version);
+			if (!_18.ok) {
+				return _18;
 			}
 		}
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 export function from$From_Versions(vs: Version.Version[]): Versions {

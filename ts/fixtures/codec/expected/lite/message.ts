@@ -22,9 +22,8 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
 			}
 		}
 		return rt.Err({ tag: "MessageTooLarge", size: rt.resultUnwrapOr(rt.usizeTryFrom(size), 4294967295), max } as DecodeError.DecodeError);
-	} else {
-		return _3;
 	}
+	return _3;
 }
 
 /**
@@ -44,20 +43,17 @@ export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0
 			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
-				} else {
-					return rt.Ok(msg);
 				}
+				return rt.Ok(msg);
 			});
 			if (result.ok) {
 				r.control = undefined;
 			}
 			return result;
-		} else {
-			return _9;
 		}
-	} else {
-		return _3;
+		return _9;
 	}
+	return _3;
 }
 
 /**
@@ -77,20 +73,17 @@ export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0
 			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
-				} else {
-					return rt.Ok(msg);
 				}
+				return rt.Ok(msg);
 			});
 			if (result.ok) {
 				r.control = "Probe" as Control.Control;
 			}
 			return result;
-		} else {
-			return _9;
 		}
-	} else {
-		return _3;
+		return _9;
 	}
+	return _3;
 }
 
 //# sourceMappingURL=message.ts.map

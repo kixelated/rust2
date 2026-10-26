@@ -61,7 +61,9 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		alias: None,
 	});
 	let mut fields = Vec::new();
-	let state = t.program.field(sym, "state".into());
+	// Private, as only the class's own methods read its fields, which a minifier can then
+	// rename.
+	let state = t.program.field(sym, "#state".into());
 	fields.push(ts::Field {
 		id: state,
 		ty: Type::Builtin("number"),
@@ -79,7 +81,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	};
 	let mut upvars = Vec::new();
 	for (i, ty) in coroutine.upvar_tys().iter().enumerate() {
-		let name = names.get(i).cloned().unwrap_or_else(|| format!("u{i}"));
+		let name = format!("#{}", names.get(i).cloned().unwrap_or_else(|| format!("u{i}")));
 		let id = t.program.field(sym, name);
 		upvars.push(id);
 		let ty = t.ty(ty, span);
@@ -106,9 +108,10 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	};
 	let mut saved = IndexVec::new();
 	for field in layout.field_tys.iter() {
-		let name = match field.debuginfo_name {
-			Some(name) => format!("{}_", crate::lower::camel(name.as_str())),
-			None => "saved".into(),
+		// rustc's own locals, such as `__awaitee`, start with `_`.
+		let name = match field.debuginfo_name.map(|n| n.as_str().trim_start_matches('_').to_string()) {
+			Some(name) if !name.is_empty() => format!("#{}", crate::lower::camel(&name)),
+			_ => "#saved".into(),
 		};
 		let id = t.program.field(sym, name);
 		saved.push(id);
@@ -204,6 +207,46 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		doc: None,
 	});
 	info
+}
+
+/// The class of the future the `async fn` `instance` returns, if its body only moves its
+/// arguments, in order, into it: a call can then make the future itself.
+pub fn of_async_fn<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, span: Span) -> Option<SymId> {
+	use rustc_middle::mir::{AggregateKind, Rvalue, StatementKind, TerminatorKind};
+	if !t.tcx.asyncness(instance.def_id()).is_async() {
+		return None;
+	}
+	let mir = super::instance_mir(t, instance, span)?;
+	if mir.basic_blocks.len() != 1 {
+		return None;
+	}
+	let block = &mir.basic_blocks[rustc_middle::mir::START_BLOCK];
+	if !matches!(block.terminator().kind, TerminatorKind::Return) {
+		return None;
+	}
+	let mut made = None;
+	for stmt in &block.statements {
+		match &stmt.kind {
+			StatementKind::StorageLive(_) | StatementKind::StorageDead(_) | StatementKind::Nop => {}
+			StatementKind::Assign(assign) if made.is_none() => made = Some(&**assign),
+			_ => return None,
+		}
+	}
+	let (place, Rvalue::Aggregate(kind, ops)) = made? else {
+		return None;
+	};
+	let AggregateKind::Coroutine(def_id, args) = **kind else {
+		return None;
+	};
+	let moved_args = ops.len() == mir.arg_count
+		&& ops.iter().zip(mir.args_iter()).all(|(op, arg)| match op {
+			Operand::Move(p) | Operand::Copy(p) => p.as_local() == Some(arg),
+			Operand::Constant(_) | Operand::RuntimeChecks(_) => false,
+		});
+	if place.as_local() != Some(rustc_middle::mir::RETURN_PLACE) || !moved_args {
+		return None;
+	}
+	Some(info(t, def_id, args, span).sym)
 }
 
 /// A coroutine made in place: `new Class(...captures)`.

@@ -27,9 +27,8 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 		_13 = value;
 		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Probe, rt.usize]);
 		return _0;
-	} else {
-		return _6;
 	}
+	return _6;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
@@ -45,16 +44,13 @@ export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: 
 			if (_49.ok) {
 				w.control = "Probe" as Control.Control;
 				return rt.Ok(undefined);
-			} else {
-				return _49;
 			}
-		} else {
-			Encoder.discard(w, prefix);
-			return rt.Err("TooLarge" as EncodeError.EncodeError);
+			return _49;
 		}
-	} else {
-		return _39;
+		Encoder.discard(w, prefix);
+		return rt.Err("TooLarge" as EncodeError.EncodeError);
 	}
+	return _39;
 }
 
 /** Decode the value from the front of the decoder. */
@@ -85,35 +81,33 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 	let val2!: rt.u64;
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err({ tag: "Version" } as DecodeError.DecodeError);
-	} else {
-		_6 = Decoder.varint(r);
-		if (_6.ok) {
-			val = _6.value;
-			if (val === 0) {
-				bitrate = undefined;
-			} else {
-				bitrate = val;
-			}
-			if (!Version.hasProbeRtt(version)) {
-				rtt = undefined;
-			} else {
-				_13 = Decoder.varint(r);
-				if (_13.ok) {
-					val2 = _13.value;
-					if (val2 === 0) {
-						rtt = undefined;
-					} else {
-						rtt = val2;
-					}
-				} else {
-					return _13;
-				}
-			}
-			return rt.Ok({ bitrate, rtt });
-		} else {
-			return _6;
-		}
 	}
+	_6 = Decoder.varint(r);
+	if (_6.ok) {
+		val = _6.value;
+		if (val === 0) {
+			bitrate = undefined;
+		} else {
+			bitrate = val;
+		}
+		if (!Version.hasProbeRtt(version)) {
+			rtt = undefined;
+		} else {
+			_13 = Decoder.varint(r);
+			if (_13.ok) {
+				val2 = _13.value;
+				if (val2 === 0) {
+					rtt = undefined;
+				} else {
+					rtt = val2;
+				}
+			} else {
+				return _13;
+			}
+		}
+		return rt.Ok({ bitrate, rtt });
+	}
+	return _6;
 }
 
 /** Encode this message body (without size prefix). */
@@ -122,24 +116,22 @@ export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Vers
 	let _17!: rt.Result<undefined, EncodeError.EncodeError>;
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version" as EncodeError.EncodeError);
-	} else {
-		_9 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
-			return rt.u64Max(v, 1);
-		}), 0));
-		if (_9.ok) {
-			if (Version.hasProbeRtt(version)) {
-				_17 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
-					return rt.u64Max(v2, 1);
-				}), 0));
-				if (!_17.ok) {
-					return _17;
-				}
-			}
-			return rt.Ok(undefined);
-		} else {
-			return _9;
-		}
 	}
+	_9 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
+		return rt.u64Max(v, 1);
+	}), 0));
+	if (_9.ok) {
+		if (Version.hasProbeRtt(version)) {
+			_17 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
+				return rt.u64Max(v2, 1);
+			}), 0));
+			if (!_17.ok) {
+				return _17;
+			}
+		}
+		return rt.Ok(undefined);
+	}
+	return _9;
 }
 
 //# sourceMappingURL=probe.Probe.ts.map

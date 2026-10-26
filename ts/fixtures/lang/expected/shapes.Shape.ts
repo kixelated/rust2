@@ -16,21 +16,21 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	let _20!: rt.Fmt;
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
-	} else if (self.tag === "Line") {
+	}
+	if (self.tag === "Line") {
 		_7 = "Line";
 		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
 		_9 = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
-	} else {
-		_14 = "Rect";
-		_15 = "corner";
-		_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
-		_17 = "width";
-		_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
-		_19 = "height";
-		_20 = (f: rt.Formatter) => rt.u16Display(self.height, f);
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 	}
+	_14 = "Rect";
+	_15 = "corner";
+	_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
+	_17 = "width";
+	_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
+	_19 = "height";
+	_20 = (f: rt.Formatter) => rt.u16Display(self.height, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 }
 
 /** An enum with data, and one without. */
@@ -50,13 +50,13 @@ export function area$Area(self: Shape): rt.u64 {
 	let height!: rt.u16;
 	if (self.tag === "Dot") {
 		return 0;
-	} else if (self.tag === "Line") {
-		return 0;
-	} else {
-		width = self.width;
-		height = self.height;
-		return rt.u64Mul(width as rt.u64, height as rt.u64);
 	}
+	if (self.tag === "Line") {
+		return 0;
+	}
+	width = self.width;
+	height = self.height;
+	return rt.u64Mul(width as rt.u64, height as rt.u64);
 }
 
 //# sourceMappingURL=shapes.Shape.ts.map

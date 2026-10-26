@@ -66,11 +66,11 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				_18 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 				if (_18 === rt.DONE) {
 					break b0;
-				} else {
-					rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_18));
 				}
+				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_18));
 			}
-		} else if (_4 === 1) {
+		}
+		if (_4 === 1) {
 			iter2 = rt.iterStepBy(rt.iterSkip(rt.iterEnumerate(rt.iterSlice(data)), 1), 2);
 			while (true) {
 				_32 = iter2.next();
@@ -80,18 +80,17 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 						_46 = iter3.next();
 						if (_46 === rt.DONE) {
 							break b0;
-						} else {
-							rt.byteVecPush(out, (_46[0] & 0xff) ^ _46[1]);
 						}
+						rt.byteVecPush(out, (_46[0] & 0xff) ^ _46[1]);
 					}
-				} else {
-					i = _32[0];
-					b = _32[1];
-					rt.byteVecPush(out, i & 0xff);
-					rt.byteVecPush(out, b);
 				}
+				i = _32[0];
+				b = _32[1];
+				rt.byteVecPush(out, i & 0xff);
+				rt.byteVecPush(out, b);
 			}
-		} else if (_4 === 2) {
+		}
+		if (_4 === 2) {
 			_56 = rt.sliceSplitAt(data, rt.usizeDiv(data.length, 2));
 			zipped = rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(_56[0]), rt.iterRev(rt.iterSlice(_56[1]))), (_215: [rt.u8, rt.u8]): rt.u8 => {
 				return _215[0] ^ _215[1];
@@ -140,16 +139,13 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 							if (_133 !== undefined) {
 								rt.byteVecPush(out, _133);
 								continue l4;
-							} else {
-								continue l4;
 							}
-						} else {
-							run = rt.u8Add(run, 1);
+							continue l4;
 						}
+						run = rt.u8Add(run, 1);
 					}
-				} else {
-					break b0;
 				}
+				break b0;
 			}
 		} else if (_4 === 6) {
 			it2 = rt.iterSlice(data);
@@ -189,9 +185,8 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 						return _24 > 128;
 					}));
 					break b0;
-				} else {
-					rt.byteVecExtendFromSlice(out, _187);
 				}
+				rt.byteVecExtendFromSlice(out, _187);
 			}
 		}
 	}
@@ -215,16 +210,15 @@ export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 		if (_6 === rt.DONE) {
 			words.push(word);
 			return words;
+		}
+		b = _6;
+		if (!(b === 0)) {
+			rt.byteVecPush(word, b);
 		} else {
-			b = _6;
-			if (!(b === 0)) {
-				rt.byteVecPush(word, b);
-			} else {
-				const taken = word;
-				word = new rt.ByteVec();
-				_13 = taken;
-				words.push(_13);
-			}
+			const taken = word;
+			word = new rt.ByteVec();
+			_13 = taken;
+			words.push(_13);
 		}
 	}
 }
@@ -284,9 +278,8 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 				b14 = _222;
 				if (!(b14 > 80)) {
 					return undefined;
-				} else {
-					return rt.u8CheckedMul(b14, 3);
 				}
+				return rt.u8CheckedMul(b14, 3);
 			}), 0));
 			_45 = rt.iterSlice(data);
 			rt.byteVecPush(out, rt.optionMapOr(rt.iterPosition(_45, (_223: rt.u8): boolean => {
@@ -330,13 +323,11 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 							}
 							rt.byteVecPush(out, back.len() & 0xff);
 							break b0;
-						} else {
-							rt.byteVecPush(out, _85[0] ^ _85[1]);
 						}
+						rt.byteVecPush(out, _85[0] ^ _85[1]);
 					}
-				} else {
-					rt.byteVecPush(out, _69[0] ^ _69[1]);
 				}
+				rt.byteVecPush(out, _69[0] ^ _69[1]);
 			}
 		} else if (_5 === 2) {
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterMax(rt.iterSlice(data)), 0));
@@ -382,9 +373,8 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 				b3 = _2;
 				if (!(b3 < 240)) {
 					return rt.Err(b3);
-				} else {
-					return rt.Ok(b3);
 				}
+				return rt.Ok(b3);
 			}), (values__: rt.Iter<rt.u8>) => rt.iterToByteVec(values__));
 			if (parsed.ok) {
 				v = parsed.value;
@@ -536,17 +526,14 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 						if (_295 === rt.DONE) {
 							updates(a, b, data, out);
 							return;
-						} else {
-							rt.byteVecPush(out, _295 & 0xff);
 						}
+						rt.byteVecPush(out, _295 & 0xff);
 					}
-				} else {
-					rt.byteVecPush(out, _47);
 				}
+				rt.byteVecPush(out, _47);
 			}
-		} else {
-			rt.byteVecPush(out, _37);
 		}
+		rt.byteVecPush(out, _37);
 	}
 }
 
@@ -606,12 +593,11 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 			rt.sliceCopyWithin(_76, 0, to, 0);
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(copied));
 			return;
-		} else {
-			i = _29;
-			_33 = rt.u8WrappingAdd(base.end, 1);
-			base.end = _33;
-			rt.byteVecPush(out, i);
 		}
+		i = _29;
+		_33 = rt.u8WrappingAdd(base.end, 1);
+		base.end = _33;
+		rt.byteVecPush(out, i);
 	}
 }
 
@@ -638,17 +624,15 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 	all = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (b2: rt.u8): rt.u8 | undefined => {
 		if (!(rt.u8Rem(b2, 3) === 0)) {
 			return b2;
-		} else {
-			return undefined;
 		}
+		return undefined;
 	}));
 	rt.byteVecPush(out, all.length & 0xff);
 	iter = rt.iterMap(rt.iterSlice(data), (b3: rt.u8): rt.u8 | undefined => {
 		if (!(rt.u8Rem(b3, 3) === 0)) {
 			return b3;
-		} else {
-			return undefined;
 		}
+		return undefined;
 	});
 	while (true) {
 		_15 = iter.next();
@@ -656,9 +640,8 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 			flat = rt.iterToByteVec(rt.iterFlatten(rt.iterMap(rt.iterSlice(data), (b4: rt.u8): rt.u8 | undefined => {
 				if (!(rt.u8Rem(b4, 3) === 0)) {
 					return b4;
-				} else {
-					return undefined;
 				}
+				return undefined;
 			}), (value: rt.u8 | undefined) => rt.iterOption(value)));
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(flat));
 			rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterSlice(all), (o: rt.u8 | undefined): boolean => {
@@ -667,9 +650,8 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecPush(out, rt.optionUnwrapOr(second$Map_Iter_u8_options_closure0(rt.iterMap(rt.iterSlice(data), (b5: rt.u8): rt.u8 | undefined => {
 				if (!(rt.u8Rem(b5, 3) === 0)) {
 					return b5;
-				} else {
-					return undefined;
 				}
+				return undefined;
 			})), 205));
 			first = rt.sliceFirst(data);
 			iter2 = rt.iterChain(rt.iterOption(first), rt.iterOnce(153));
@@ -690,23 +672,20 @@ export function options(data: Uint8Array, out: rt.ByteVec): void {
 						_70 = Gaps.next$Iterator(iter3);
 						if (_70 === rt.DONE) {
 							return;
-						} else {
-							rt.byteVecPush(out, rt.optionMapOr(_70, 170, (b6: rt.u8): rt.u8 => {
-								return b6;
-							}));
 						}
+						rt.byteVecPush(out, rt.optionMapOr(_70, 170, (b6: rt.u8): rt.u8 => {
+							return b6;
+						}));
 					}
-				} else {
-					rt.byteVecPush(out, _49);
 				}
+				rt.byteVecPush(out, _49);
 			}
+		}
+		item = _15;
+		if (item === undefined) {
+			rt.byteVecPush(out, 0);
 		} else {
-			item = _15;
-			if (item === undefined) {
-				rt.byteVecPush(out, 0);
-			} else {
-				rt.byteVecPush(out, item);
-			}
+			rt.byteVecPush(out, item);
 		}
 	}
 }
@@ -720,12 +699,10 @@ export function second$Map_Iter_u8_options_closure0(items: rt.Iter<rt.u8 | undef
 		_7 = items.next();
 		if (_7 !== rt.DONE) {
 			return rt.optionUnwrapOr(_7, 171);
-		} else {
-			return undefined;
 		}
-	} else {
 		return undefined;
 	}
+	return undefined;
 }
 
 /** The crate's own iterators, through `for`, adaptors, and `next`. */
@@ -769,9 +746,8 @@ export function own(data: Uint8Array, out: rt.ByteVec): void {
 				rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(rt.iterFrom(new Halving.Halving({ value: rt.u64Mul(left as rt.u64, 4294967297) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)), rt.u64Add, 0)));
 				return;
 			}
-		} else {
-			rt.byteVecPush(out, _13);
 		}
+		rt.byteVecPush(out, _13);
 	}
 }
 
@@ -855,21 +831,17 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 										return w._0._0;
 									}));
 									return;
-								} else {
-									rt.byteVecExtendFromSlice(out, rt.byteVecView(_74.bytes));
 								}
+								rt.byteVecExtendFromSlice(out, rt.byteVecView(_74.bytes));
 							}
-						} else {
-							rt.byteVecPush(_59.bytes, 119);
 						}
+						rt.byteVecPush(_59.bytes, 119);
 					}
-				} else {
-					rt.byteVecPush(out, _21);
 				}
+				rt.byteVecPush(out, _21);
 			}
-		} else {
-			rt.byteVecPush(out, _8);
 		}
+		rt.byteVecPush(out, _8);
 	}
 }
 

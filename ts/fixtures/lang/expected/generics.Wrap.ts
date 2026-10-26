@@ -135,9 +135,8 @@ export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<unde
 export function eq$PartialEq_Pair(self: Wrap<Pair.Pair>, other: Wrap<Pair.Pair>): boolean {
 	if (!(self.count === other.count)) {
 		return false;
-	} else {
-		return Pair.eq$PartialEq(self.value, other.value);
 	}
+	return Pair.eq$PartialEq(self.value, other.value);
 }
 
 /** A generic struct, with methods on every instance, on some, and on one. */

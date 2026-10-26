@@ -18,11 +18,10 @@ export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefi
 	let _7!: rt.Fmt;
 	if (self.tag === "ProtocolViolation") {
 		return rt.fmtWriteStr(f, "ProtocolViolation");
-	} else {
-		_6 = "App";
-		_7 = (f: rt.Formatter) => rt.u16Display(self._0, f);
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	}
+	_6 = "App";
+	_7 = (f: rt.Formatter) => rt.u16Display(self._0, f);
+	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 }
 
 /** moq-net's session error, trimmed to a few variants: the codec only carries it. */

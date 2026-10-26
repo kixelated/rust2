@@ -69,9 +69,8 @@ export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, Decod
 	if (_6 !== undefined) {
 		self.buf = _6[1];
 		return rt.Ok(_6[0]);
-	} else {
-		return rt.Err(short(self, len));
 	}
+	return rt.Err(short(self, len));
 }
 
 /** Read every remaining byte. */
@@ -87,9 +86,8 @@ export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeErro
 	_4 = slice(self, len);
 	if (_4.ok) {
 		return rt.Ok(new_(_4.value, self.form));
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 /** Read a single byte. */
@@ -99,9 +97,8 @@ export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
 	if (_3.ok) {
 		rt.idx(_3.value, 0);
 		return rt.Ok(_3.value[0]);
-	} else {
-		return _3;
 	}
+	return _3;
 }
 
 /** Read a big-endian `u16`. */
@@ -114,9 +111,8 @@ export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
 		_9 = _2.value[0];
 		rt.idx(_2.value, 1);
 		return rt.Ok((_9 << 8) | _2.value[1]);
-	} else {
-		return _2;
 	}
+	return _2;
 }
 
 /** Read a byte that must be 0 or 1. */
@@ -128,14 +124,13 @@ export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError>
 		val = _2.value;
 		if (val === 0) {
 			return rt.Ok(false);
-		} else if (val === 1) {
-			return rt.Ok(true);
-		} else {
-			return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
 		}
-	} else {
-		return _2;
+		if (val === 1) {
+			return rt.Ok(true);
+		}
+		return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
 	}
+	return _2;
 }
 
 /** Read a varint. */
@@ -166,9 +161,8 @@ export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeEr
 	_3 = varint(self);
 	if (_3.ok) {
 		return rt.Ok(rt.u64CheckedSub(_3.value, 1));
-	} else {
-		return _3;
 	}
+	return _3;
 }
 
 /** Read a varint length, then that many raw bytes. */
@@ -186,12 +180,10 @@ export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeEr
 			return rt.resultInspectErr(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
 				self.buf = start;
 			});
-		} else {
-			return _3;
 		}
-	} else {
-		return _6;
+		return _3;
 	}
+	return _6;
 }
 
 /** Read a varint length, then that many bytes of UTF-8. */
@@ -204,13 +196,11 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 		_2 = rt.stringFromUtf8(rt.sliceToByteVec(_5.value));
 		if (_2.ok) {
 			return rt.Ok(_2.value);
-		} else {
-			residual2 = _2;
-			return rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
 		}
-	} else {
-		return _5;
+		residual2 = _2;
+		return rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
 	}
+	return _5;
 }
 
 export { new_ as new };

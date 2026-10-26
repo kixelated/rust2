@@ -22,11 +22,10 @@ export function next$Iterator_u64(self: Halving<rt.u64>): rt.u64 | rt.Done {
 	let value!: rt.u64;
 	if (self.value === 0) {
 		return rt.DONE;
-	} else {
-		value = self.value;
-		self.value = rt.u64Shr(value, 1);
-		return value;
 	}
+	value = self.value;
+	self.value = rt.u64Shr(value, 1);
+	return value;
 }
 
 //# sourceMappingURL=iters.Halving.ts.map

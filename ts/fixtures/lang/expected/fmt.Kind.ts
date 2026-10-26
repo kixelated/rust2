@@ -12,22 +12,24 @@ export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.
 	let _17!: rt.Fmt;
 	if (self.tag === "Empty") {
 		return rt.fmtWriteStr(f, "Empty");
-	} else if (self.tag === "Braced") {
+	}
+	if (self.tag === "Braced") {
 		return rt.fmtWriteStr(f, "Braced");
-	} else if (self.tag === "Bare") {
+	}
+	if (self.tag === "Bare") {
 		return rt.fmtWriteStr(f, "Bare");
-	} else if (self.tag === "One") {
+	}
+	if (self.tag === "One") {
 		_8 = "One";
 		_9 = (f: rt.Formatter) => rt.u8Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _8), _9));
-	} else {
-		_13 = "Many";
-		_14 = "count";
-		_15 = (f: rt.Formatter) => rt.u32Display(self.count, f);
-		_16 = "items";
-		_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 	}
+	_13 = "Many";
+	_14 = "count";
+	_15 = (f: rt.Formatter) => rt.u32Display(self.count, f);
+	_16 = "items";
+	_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 }
 
 export type Kind =

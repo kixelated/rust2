@@ -17,12 +17,10 @@ export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
 		self.at = rt.usizeAdd(self.at, 1);
 		if (!(b === 0)) {
 			return b;
-		} else {
-			return undefined;
 		}
-	} else {
-		return rt.DONE;
+		return undefined;
 	}
+	return rt.DONE;
 }
 
 //# sourceMappingURL=iters.Gaps.ts.map

@@ -16,12 +16,10 @@ export function fmt$Display(self: Fails, f: rt.Formatter): rt.Result<undefined, 
 		_8 = rt.fmtWriteFmt(f, ["half ", args2[0]]);
 		if (_8.ok) {
 			return rt.Err(new rt.FmtError());
-		} else {
-			return rt.Err(new rt.FmtError());
 		}
-	} else {
-		return rt.fmtWriteStr(f, "fine");
+		return rt.Err(new rt.FmtError());
 	}
+	return rt.fmtWriteStr(f, "fine");
 }
 
 //# sourceMappingURL=fmt.Fails.ts.map

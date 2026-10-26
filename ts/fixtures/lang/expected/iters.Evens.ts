@@ -16,12 +16,10 @@ export function next$Iterator(self: Evens): rt.u8 | rt.Done {
 			b = _2;
 			if (!(rt.u8Rem(b, 2) === 0)) {
 				continue l0;
-			} else {
-				return b;
 			}
-		} else {
-			return rt.DONE;
+			return b;
 		}
+		return rt.DONE;
 	}
 }
 

@@ -51,9 +51,8 @@ export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeErr
 	_3 = write(v, self.form, self.buf);
 	if (_3.ok) {
 		return rt.Ok(undefined);
-	} else {
-		return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 	}
+	return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 }
 
 /** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
@@ -80,9 +79,8 @@ export function bytes(self: Encoder, v: Uint8Array): rt.Result<undefined, Encode
 	if (_3.ok) {
 		slice(self, v);
 		return rt.Ok(undefined);
-	} else {
-		return _3;
 	}
+	return _3;
 }
 
 /** Write a varint length, then the UTF-8 bytes. */

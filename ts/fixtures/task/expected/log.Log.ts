@@ -46,11 +46,10 @@ export function text(self: Log): rt.ByteVec {
 		_13 = iter.next();
 		if (_13 === rt.DONE) {
 			return out;
-		} else {
-			_19 = rt.stringAsBytes(_13);
-			rt.byteVecExtendFromSlice(out, _19);
-			rt.byteVecPush(out, 10);
 		}
+		_19 = rt.stringAsBytes(_13);
+		rt.byteVecExtendFromSlice(out, _19);
+		rt.byteVecPush(out, 10);
 	}
 }
 

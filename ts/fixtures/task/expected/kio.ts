@@ -14,17 +14,17 @@ export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter)
 }
 
 export class recvFuture {
-	state: number = 0;
-	self: Consumer.Consumer;
-	__awaitee_!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
+	#state: number = 0;
+	#self: Consumer.Consumer;
+	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
 
 	constructor(self: Consumer.Consumer) {
-		this.self = self;
+		this.#self = self;
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state === 3) {
-			rt.drop(this.__awaitee_);
+		if (this.#state === 3) {
+			rt.drop(this.#awaitee);
 		}
 	}
 
@@ -33,36 +33,35 @@ export class recvFuture {
 		let _7!: rt.Poll<rt.u64 | undefined>;
 		let unwind: number = 0;
 		try {
-			if (this.state === 0) {
+			if (this.#state === 0) {
 				unwind = 12;
-				self = this.self;
-				this.__awaitee_ = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+				self = this.#self;
+				this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 					return Consumer.pollRecv(self, waiter);
 				});
-			} else if (this.state === 1) {
-				rt.panic("`async fn` resumed after completion");
-			} else if (this.state === 2) {
-				rt.panic("`async fn` resumed after panicking");
+			} else if (this.#state === 1) {
+				rt.asyncFnResumed();
+			} else if (this.#state === 2) {
+				rt.asyncFnResumedPanic();
 			}
 			unwind = 11;
-			_7 = Pending.poll$Future_recv_closure0_closure0(this.__awaitee_, _2);
+			_7 = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
 			if (_7 !== rt.Pending) {
 				unwind = 12;
-				rt.drop(this.__awaitee_);
-				this.state = 1;
+				rt.drop(this.#awaitee);
+				this.#state = 1;
 				return _7;
-			} else {
-				this.state = 3;
-				return rt.Pending;
 			}
+			this.#state = 3;
+			return rt.Pending;
 		} catch (e) {
 			if (unwind === 0) {
 				throw e;
 			}
 			if (unwind === 11) {
-				rt.drop(this.__awaitee_);
+				rt.drop(this.#awaitee);
 			}
-			this.state = 2;
+			this.#state = 2;
 			throw e;
 		}
 	}

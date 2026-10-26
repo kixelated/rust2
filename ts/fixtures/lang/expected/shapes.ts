@@ -23,10 +23,9 @@ export function total$Meters(items: Meters.Meters[], out: rt.ByteVec): rt.u64 {
 		_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_6 === rt.DONE) {
 			return sum;
-		} else {
-			Meters.describe$Area(_6, out);
-			sum = rt.u64SaturatingAdd(sum, Meters.area$Area(_6));
 		}
+		Meters.describe$Area(_6, out);
+		sum = rt.u64SaturatingAdd(sum, Meters.area$Area(_6));
 	}
 }
 
@@ -42,10 +41,9 @@ export function total$Shape(items: Shape.Shape[], out: rt.ByteVec): rt.u64 {
 		_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_6 === rt.DONE) {
 			return sum;
-		} else {
-			Shape.describe$Area(_6, out);
-			sum = rt.u64SaturatingAdd(sum, Shape.area$Area(_6));
 		}
+		Shape.describe$Area(_6, out);
+		sum = rt.u64SaturatingAdd(sum, Shape.area$Area(_6));
 	}
 }
 
@@ -58,15 +56,17 @@ export function dir(byte: rt.u8): Dir.Dir | undefined {
 	_2 = rt.u8Rem(byte, 5);
 	if (_2 === 0) {
 		return "North" as Dir.Dir;
-	} else if (_2 === 1) {
-		return "East" as Dir.Dir;
-	} else if (_2 === 2) {
-		return "South" as Dir.Dir;
-	} else if (_2 === 3) {
-		return "West" as Dir.Dir;
-	} else {
-		return undefined;
 	}
+	if (_2 === 1) {
+		return "East" as Dir.Dir;
+	}
+	if (_2 === 2) {
+		return "South" as Dir.Dir;
+	}
+	if (_2 === 3) {
+		return "West" as Dir.Dir;
+	}
+	return undefined;
 }
 
 export function shape(data: Uint8Array): Shape.Shape {
@@ -83,14 +83,13 @@ export function shape(data: Uint8Array): Shape.Shape {
 		_7 = rt.u8Rem(kind, 3);
 		if (_7 === 0) {
 			return { tag: "Dot" } as Shape.Shape;
-		} else if (_7 === 1) {
-			return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
-		} else {
-			return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.sliceGet(_4[1], 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.sliceGet(_4[1], 3), 0) as rt.u16 } as Shape.Shape;
 		}
-	} else {
-		return { tag: "Dot" } as Shape.Shape;
+		if (_7 === 1) {
+			return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
+		}
+		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.sliceGet(_4[1], 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.sliceGet(_4[1], 3), 0) as rt.u16 } as Shape.Shape;
 	}
+	return { tag: "Dot" } as Shape.Shape;
 }
 
 /** `Copy` aggregates: a copy changes apart from its original. */
@@ -218,9 +217,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			err.y = 3;
 			rt.byteVecExtendFromSlice(out, Uint8Array.of(first.x & 0xff, rt.resultUnwrap(res, rt.u8Display).x & 0xff, err.y & 0xff, rt.resultUnwrapErr(fail, rt.u8Display).y & 0xff));
 			return;
-		} else {
-			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(_42));
 		}
+		rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(_42));
 	}
 }
 
@@ -342,9 +340,8 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(text));
 			indexed(data, out);
 			return;
-		} else {
-			sum = rt.usizeAdd(sum, _75);
 		}
+		sum = rt.usizeAdd(sum, _75);
 	}
 }
 
@@ -462,34 +459,33 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 		_5 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_5 === rt.DONE) {
 			return;
-		} else {
-			b = _5;
-			_10 = rt.u8Rem(b, 3);
-			if (_10 === 0) {
-				wide = "Low" as Wide.Wide;
-			} else if (_10 === 1) {
-				wide = "High" as Wide.Wide;
-			} else {
-				wide = "Top" as Wide.Wide;
-			}
-			_13 = rt.u8Rem(b, 3);
-			if (_13 === 0) {
-				signed = "Neg" as Signed.Signed;
-			} else if (_13 === 1) {
-				signed = "Min" as Signed.Signed;
-			} else {
-				signed = "Pos" as Signed.Signed;
-			}
-			rt.byteVecPush(out, { Low: 1, High: 300, Top: 65535 }[wide] & 0xff);
-			rt.byteVecPush(out, (({ Low: 1, High: 300, Top: 65535 }[wide] << 24) >> 24) & 0xff);
-			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(({ Low: 1, High: 300, Top: 65535 }[wide] << 16) >> 16));
-			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes({ Low: 1, High: 300, Top: 65535 }[wide] as rt.u64));
-			rt.byteVecPush(out, { Neg: -1, Min: -128, Pos: 100 }[signed] & 0xff);
-			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] & 0xffff));
-			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] >>> 0));
-			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] as rt.i64));
-			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(rt.u128Cast({ Neg: -1, Min: -128, Pos: 100 }[signed])));
 		}
+		b = _5;
+		_10 = rt.u8Rem(b, 3);
+		if (_10 === 0) {
+			wide = "Low" as Wide.Wide;
+		} else if (_10 === 1) {
+			wide = "High" as Wide.Wide;
+		} else {
+			wide = "Top" as Wide.Wide;
+		}
+		_13 = rt.u8Rem(b, 3);
+		if (_13 === 0) {
+			signed = "Neg" as Signed.Signed;
+		} else if (_13 === 1) {
+			signed = "Min" as Signed.Signed;
+		} else {
+			signed = "Pos" as Signed.Signed;
+		}
+		rt.byteVecPush(out, { Low: 1, High: 300, Top: 65535 }[wide] & 0xff);
+		rt.byteVecPush(out, (({ Low: 1, High: 300, Top: 65535 }[wide] << 24) >> 24) & 0xff);
+		rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(({ Low: 1, High: 300, Top: 65535 }[wide] << 16) >> 16));
+		rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes({ Low: 1, High: 300, Top: 65535 }[wide] as rt.u64));
+		rt.byteVecPush(out, { Neg: -1, Min: -128, Pos: 100 }[signed] & 0xff);
+		rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] & 0xffff));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] >>> 0));
+		rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] as rt.i64));
+		rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(rt.u128Cast({ Neg: -1, Min: -128, Pos: 100 }[signed])));
 	}
 }
 
@@ -569,20 +565,19 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 					while (true) {
 						if (!((_34 = iterStart2++) < iterEnd2)) {
 							continue l2;
-						} else {
-							j = _34;
-							rt.idx(data, i);
-							_39 = data[i];
+						}
+						j = _34;
+						rt.idx(data, i);
+						_39 = data[i];
+						rt.idx(data, j);
+						if (!(_39 === data[j])) {
 							rt.idx(data, j);
-							if (!(_39 === data[j])) {
-								rt.idx(data, j);
-								if (data[j] === 0) {
-									continue l2;
-								}
-							} else {
-								found = [i, j] as [rt.usize, rt.usize];
-								break b3;
+							if (data[j] === 0) {
+								continue l2;
 							}
+						} else {
+							found = [i, j] as [rt.usize, rt.usize];
+							break b3;
 						}
 					}
 				}
@@ -605,9 +600,8 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 					n = _65;
 					if (!rt.u64Gt(n, 100)) {
 						continue l6;
-					} else {
-						steps = 1;
 					}
+					steps = 1;
 				} else {
 					steps = 0;
 				}
@@ -650,22 +644,18 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 												branchLoops(data, out);
 												diverging(data, out);
 												return;
-											} else {
-												rt.byteVecPush(out, _136 & 0xff);
 											}
+											rt.byteVecPush(out, _136 & 0xff);
 										}
-									} else {
-										rt.byteVecPush(out, _124 & 0xff);
 									}
+									rt.byteVecPush(out, _124 & 0xff);
 								}
-							} else {
-								i3 = rt.i8Sub(i3, 4);
-								count = rt.u8Add(count, 1);
 							}
+							i3 = rt.i8Sub(i3, 4);
+							count = rt.u8Add(count, 1);
 						}
-					} else {
-						count = rt.u8Add(count, 1);
 					}
+					count = rt.u8Add(count, 1);
 				}
 			}
 		}
@@ -836,9 +826,8 @@ export function guardedReturn(data: Uint8Array): rt.u8 {
 			}
 		}
 		return 2;
-	} else {
-		return 3;
 	}
+	return 3;
 }
 
 /** A loop ending the function, left by `break` with values that never exist. */
@@ -859,20 +848,20 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 				args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
 				rt.panicFmt(["broken at ", args2[0]]);
 				return _0;
-			} else if (value === 252) {
+			}
+			if (value === 252) {
 				_19 = i;
 				rt.idx(data, _19);
 				bail(data[_19]);
 				return _0;
-			} else if (value === 0) {
-				return i & 0xff;
-			} else {
-				i = rt.usizeAdd(i, 1);
-				continue l0;
 			}
-		} else {
-			return 204;
+			if (value === 0) {
+				return i & 0xff;
+			}
+			i = rt.usizeAdd(i, 1);
+			continue l0;
 		}
+		return 204;
 	}
 }
 
@@ -898,14 +887,17 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 				args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
 				rt.panicFmt(["bound at ", args2[0]]);
 				return _0;
-			} else if (value === 240) {
+			}
+			if (value === 240) {
 				_22 = i;
 				rt.idx(data, _22);
 				bail(data[_22]);
 				return _0;
-			} else if (value === 0) {
+			}
+			if (value === 0) {
 				return i & 0xff;
-			} else if (value === 128) {
+			}
+			if (value === 128) {
 				l2: while (true) {
 					i = rt.usizeAdd(i, 1);
 					if (!(i >= data.length)) {
@@ -917,13 +909,11 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 					}
 					return i & 0xff;
 				}
-			} else {
-				i = rt.usizeAdd(i, 1);
-				continue l0;
 			}
-		} else {
-			return 187;
+			i = rt.usizeAdd(i, 1);
+			continue l0;
 		}
+		return 187;
 	}
 }
 
@@ -939,43 +929,42 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 	l0: while (true) {
 		if (!(rt.usizeAdd(i, 1) < data.length)) {
 			return;
-		} else {
-			w = rt.sliceRange(data, i, rt.usizeAdd(i, 2));
-			b1: {
-				i = rt.usizeAdd(i, 2);
-				if (w.length === 2) {
-					a = w[0];
-					b = w[1];
-					if (a > b) {
-						n = a;
-						while (true) {
-							if (!(n <= b)) {
-								n = rt.u8Sub(n, 1);
-								rt.byteVecPush(out, n);
-							} else {
-								break b1;
-							}
-						}
-					}
-				}
-				if (w.length >= 1) {
-					rt.byteVecPush(out, w[0]);
-				}
-			}
-			if (w.length === 2) {
-				if (rt.u8Rem(w[0], 3) === rt.u8Rem(w[1], 3)) {
-					n2 = w[0];
-					while (true) {
-						n2 = rt.u8Div(n2, 2);
-						rt.byteVecPush(out, n2);
-						if (n2 < 4) {
-							continue l0;
-						}
-					}
-				}
-			}
-			rt.byteVecPush(out, 170);
 		}
+		w = rt.sliceRange(data, i, rt.usizeAdd(i, 2));
+		b1: {
+			i = rt.usizeAdd(i, 2);
+			if (w.length === 2) {
+				a = w[0];
+				b = w[1];
+				if (a > b) {
+					n = a;
+					while (true) {
+						if (!(n <= b)) {
+							n = rt.u8Sub(n, 1);
+							rt.byteVecPush(out, n);
+						} else {
+							break b1;
+						}
+					}
+				}
+			}
+			if (w.length >= 1) {
+				rt.byteVecPush(out, w[0]);
+			}
+		}
+		if (w.length === 2) {
+			if (rt.u8Rem(w[0], 3) === rt.u8Rem(w[1], 3)) {
+				n2 = w[0];
+				while (true) {
+					n2 = rt.u8Div(n2, 2);
+					rt.byteVecPush(out, n2);
+					if (n2 < 4) {
+						continue l0;
+					}
+				}
+			}
+		}
+		rt.byteVecPush(out, 170);
 	}
 }
 
@@ -998,17 +987,15 @@ export function returnedLoop(data: Uint8Array): rt.u8 {
 					if (!(b === 0)) {
 						if (!(b > 240)) {
 							continue l2;
-						} else {
-							return b ^ (i & 0xff);
 						}
+						return b ^ (i & 0xff);
 					}
 				}
 				i = rt.usizeAdd(i, 1);
 				continue l0;
 			}
-		} else {
-			return 221;
 		}
+		return 221;
 	}
 }
 
@@ -1029,31 +1016,29 @@ export function firstRepeat(data: Uint8Array): rt.u8 {
 				if (!(j < data.length)) {
 					i = rt.usizeAdd(i, 1);
 					continue l0;
-				} else {
-					_14 = j;
-					rt.idx(data, _14);
-					if (!(data[_14] === 0)) {
-						_21 = i;
-						rt.idx(data, _21);
-						_20 = data[_21];
-						_25 = j;
-						rt.idx(data, _25);
-						if (!(_20 === data[_25])) {
-							j = rt.usizeAdd(j, 1);
-						} else {
-							_29 = j;
-							rt.idx(data, _29);
-							return data[_29] ^ (i & 0xff);
-						}
+				}
+				_14 = j;
+				rt.idx(data, _14);
+				if (!(data[_14] === 0)) {
+					_21 = i;
+					rt.idx(data, _21);
+					_20 = data[_21];
+					_25 = j;
+					rt.idx(data, _25);
+					if (!(_20 === data[_25])) {
+						j = rt.usizeAdd(j, 1);
 					} else {
-						i = rt.usizeAdd(j, 1);
-						continue l0;
+						_29 = j;
+						rt.idx(data, _29);
+						return data[_29] ^ (i & 0xff);
 					}
+				} else {
+					i = rt.usizeAdd(j, 1);
+					continue l0;
 				}
 			}
-		} else {
-			return 255;
 		}
+		return 255;
 	}
 }
 
@@ -1078,21 +1063,22 @@ export function tailBreak(data: Uint8Array): rt.u16 {
 			_11 = rt.u8Rem(b, 4);
 			if (_11 === 0) {
 				continue l0;
-			} else if (_11 === 1) {
+			}
+			if (_11 === 1) {
 				iterS = rt.sliceRange(data, i);
 				iterI = 0;
 				while (true) {
 					_18 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 					if (_18 === rt.DONE) {
 						continue l0;
-					} else {
-						c = _18;
-						if (c === b) {
-							return rt.u16Mul(c as rt.u16, 2);
-						}
+					}
+					c = _18;
+					if (c === b) {
+						return rt.u16Mul(c as rt.u16, 2);
 					}
 				}
-			} else if (_11 === 2) {
+			}
+			if (_11 === 2) {
 				if (b > 100) {
 					return rt.u16Add(b as rt.u16, i & 0xffff);
 				}
@@ -1108,9 +1094,8 @@ export function tailBreak(data: Uint8Array): rt.u16 {
 					continue l0;
 				}
 			}
-		} else {
-			return 256;
 		}
+		return 256;
 	}
 }
 
@@ -1156,12 +1141,10 @@ export function position$u8(items: Uint8Array, want: rt.u8): rt.usize {
 			if (!((items[_9] === want))) {
 				i = rt.usizeAdd(i, 1);
 				continue l0;
-			} else {
-				return i;
 			}
-		} else {
 			return i;
 		}
+		return i;
 	}
 }
 
@@ -1249,18 +1232,18 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 						b2 = shape_._1;
 						area = rt.i64Mul(rt.i32Sub(a.x, b2.x) as rt.i64, rt.i32Sub(a.y, b2.y) as rt.i64);
 						break b7;
-					} else if (shape_.width !== 0) {
+					}
+					if (shape_.width !== 0) {
 						if (!(shape_.corner.x > 0)) {
 							width2 = shape_.width;
 							height = shape_.height;
 							area = rt.i64Neg(rt.i64Mul(width2 as rt.i64, height as rt.i64));
 							break b7;
-						} else {
-							x = shape_.corner.x;
-							_74 = shape_.width as rt.i64;
-							area = rt.i64Mul(_74, x as rt.i64);
-							break b7;
 						}
+						x = shape_.corner.x;
+						_74 = shape_.width as rt.i64;
+						area = rt.i64Mul(_74, x as rt.i64);
+						break b7;
 					}
 				}
 				area = 0;
@@ -1291,37 +1274,36 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			_166 = rt.fmtFormat([args2[0]]);
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_166));
 			return;
-		} else {
-			b2: {
-				b = _33;
-				if (b === 0) {
-					class_ = 0;
-				} else if (b === 10 || b === 20 || b === 30) {
-					class_ = 2;
-				} else {
-					if (1 <= b) {
-						if (b <= 9) {
-							class_ = 1;
+		}
+		b2: {
+			b = _33;
+			if (b === 0) {
+				class_ = 0;
+			} else if (b === 10 || b === 20 || b === 30) {
+				class_ = 2;
+			} else {
+				if (1 <= b) {
+					if (b <= 9) {
+						class_ = 1;
+						break b2;
+					}
+				}
+				if (100 <= b) {
+					if (b < 200) {
+						if (rt.u8Rem(b, 2) === 0) {
+							class_ = 3;
 							break b2;
 						}
 					}
-					if (100 <= b) {
-						if (b < 200) {
-							if (rt.u8Rem(b, 2) === 0) {
-								class_ = 3;
-								break b2;
-							}
-						}
-					}
-					if (!(b >= 250)) {
-						class_ = 5;
-					} else {
-						class_ = 4;
-					}
+				}
+				if (!(b >= 250)) {
+					class_ = 5;
+				} else {
+					class_ = 4;
 				}
 			}
-			rt.byteVecPush(out, class_);
 		}
+		rt.byteVecPush(out, class_);
 	}
 }
 
@@ -1388,19 +1370,16 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 						if (_64 === rt.DONE) {
 							rt.byteVecExtendFromSlice(out, rt.byteVecView(tags));
 							return;
-						} else {
-							_70 = rt.optionUnwrapOr(rt.optionMap(_64, from$From_Dir_u8), 0);
-							rt.byteVecPush(tags, _70);
 						}
+						_70 = rt.optionUnwrapOr(rt.optionMap(_64, from$From_Dir_u8), 0);
+						rt.byteVecPush(tags, _70);
 					}
-				} else {
-					_59 = dir(_53);
-					parsed.push(_59);
 				}
+				_59 = dir(_53);
+				parsed.push(_59);
 			}
-		} else {
-			add(_8);
 		}
+		add(_8);
 	}
 }
 
@@ -1436,12 +1415,10 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 			_82 = rt.u8CheckedMul(_4, 2);
 			if (_82 !== undefined) {
 				return rt.u8Sub(_82, 1);
-			} else {
-				return undefined;
 			}
-		} else {
 			return undefined;
 		}
+		return undefined;
 	};
 	_30 = (a3: rt.u8): rt.Poll<rt.Result<rt.u8, rt.u8>> => {
 		let half!: rt.Result<rt.u8, Dir.Dir>;
@@ -1461,10 +1438,9 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 		_132 = half;
 		if (_132.ok) {
 			return rt.Ok(_132.value);
-		} else {
-			residual = _132;
-			return rt.Err(from$From_Dir_u8((residual as { ok: false; error: Dir.Dir }).error));
 		}
+		residual = _132;
+		return rt.Err(from$From_Dir_u8((residual as { ok: false; error: Dir.Dir }).error));
 	};
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 	b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);

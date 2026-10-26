@@ -513,15 +513,17 @@ impl Printer<'_> {
 				match ctor {
 					Ctor::Unit => {}
 					Ctor::Positional => {
+						// A private field's parameter is its name without the `#`.
+						let param = |name: &str| name.trim_start_matches('#').to_string();
 						let params: Vec<String> = (names.iter().zip(fields))
-							.map(|(name, field)| format!("{name}: {}", self.ty(&field.ty)))
+							.map(|(name, field)| format!("{}: {}", param(name), self.ty(&field.ty)))
 							.collect();
 						self.newline();
 						self.start();
 						self.write(&format!("constructor({}) {{\n", params.join(", ")));
 						for name in &names {
 							self.start();
-							self.write(&format!("{INDENT}this.{name} = {name};\n"));
+							self.write(&format!("{INDENT}this.{name} = {};\n", param(name)));
 						}
 						self.start();
 						self.write("}\n");
@@ -700,6 +702,21 @@ impl Printer<'_> {
 				self.expr(cond, 0);
 				self.write(") {\n");
 				self.block_body(then);
+				// After a `then` that never falls through, the `else` is the code that follows,
+				// unless it declares what the code after the `if` could clash with.
+				if crate::ts::diverges(then)
+					&& !els.is_empty()
+					&& !els
+						.iter()
+						.any(|s| matches!(s.kind, StmtKind::Decl { .. } | StmtKind::Declare { .. }))
+				{
+					self.start();
+					self.write("}\n");
+					for stmt in els {
+						self.stmt(stmt);
+					}
+					return;
+				}
 				let mut els = els;
 				loop {
 					match els.as_slice() {

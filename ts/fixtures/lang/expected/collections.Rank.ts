@@ -5,22 +5,20 @@ import * as rt from "./rt.ts";
 export function eq$PartialEq(self: Rank, other: Rank): boolean {
 	if (!({ Low: 0, Mid: 1, High: 2 }[self.tag] === { Low: 0, Mid: 1, High: 2 }[other.tag])) {
 		return false;
-	} else {
-		if (self.tag === "Mid") {
-			if (other.tag === "Mid") {
-				return self._0 === other._0;
-			}
-		} else if (self.tag === "High") {
-			if (other.tag === "High") {
-				if (!((self.x === other.x))) {
-					return false;
-				} else {
-					return self.y === other.y;
-				}
-			}
-		}
-		return true;
 	}
+	if (self.tag === "Mid") {
+		if (other.tag === "Mid") {
+			return self._0 === other._0;
+		}
+	} else if (self.tag === "High") {
+		if (other.tag === "High") {
+			if (!((self.x === other.x))) {
+				return false;
+			}
+			return self.y === other.y;
+		}
+	}
+	return true;
 }
 
 export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
@@ -44,9 +42,8 @@ export function cmp$Ord(self: Rank, other: Rank): rt.Ordering {
 			cmp = rt.cmp(self.x, other.x);
 			if (cmp === 0) {
 				return rt.cmp(self.y, other.y);
-			} else {
-				return cmp;
 			}
+			return cmp;
 		}
 	}
 	return rt.cmp({ Low: 0, Mid: 1, High: 2 }[self.tag], { Low: 0, Mid: 1, High: 2 }[other.tag]);

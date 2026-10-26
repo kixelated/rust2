@@ -26,9 +26,8 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 		_13 = value;
 		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Group, rt.usize]);
 		return _0;
-	} else {
-		return _6;
 	}
+	return _6;
 }
 
 export interface Group {
@@ -62,12 +61,10 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 				}
 			}
 			return rt.Ok({ subscribe, sequence, frameStart });
-		} else {
-			return _8;
 		}
-	} else {
-		return _3;
+		return _8;
 	}
+	return _3;
 }
 
 /** Encode this message body (without size prefix). */
@@ -90,12 +87,10 @@ export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Vers
 				}
 			}
 			return rt.Ok(undefined);
-		} else {
-			return _9;
 		}
-	} else {
-		return _4;
+		return _9;
 	}
+	return _4;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
@@ -111,16 +106,13 @@ export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: 
 			if (_49.ok) {
 				w.control = undefined;
 				return rt.Ok(undefined);
-			} else {
-				return _49;
 			}
-		} else {
-			Encoder.discard(w, prefix);
-			return rt.Err("TooLarge" as EncodeError.EncodeError);
+			return _49;
 		}
-	} else {
-		return _39;
+		Encoder.discard(w, prefix);
+		return rt.Err("TooLarge" as EncodeError.EncodeError);
 	}
+	return _39;
 }
 
 /** Decode the value from the front of the decoder. */

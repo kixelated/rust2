@@ -15,11 +15,11 @@ export function wide(b: rt.u8): rt.u64 {
 	_2 = rt.u8Rem(b, 3);
 	if (_2 === 0) {
 		return b as rt.u64;
-	} else if (_2 === 1) {
-		return rt.u64Shl(b as rt.u64, 50);
-	} else {
-		return rt.u64Sub(rt.u64Of(18446744073709551615n), b as rt.u64);
 	}
+	if (_2 === 1) {
+		return rt.u64Shl(b as rt.u64, 50);
+	}
+	return rt.u64Sub(rt.u64Of(18446744073709551615n), b as rt.u64);
 }
 
 export function rank(b: rt.u8, c: rt.u8): Rank.Rank {
@@ -27,11 +27,11 @@ export function rank(b: rt.u8, c: rt.u8): Rank.Rank {
 	_3 = rt.u8Rem(b, 3);
 	if (_3 === 0) {
 		return { tag: "Low" } as Rank.Rank;
-	} else if (_3 === 1) {
-		return { tag: "Mid", _0: rt.u8Rem(c, 4) } as Rank.Rank;
-	} else {
-		return { tag: "High", x: rt.u8Rem(c, 2), y: rt.u8Rem(c, 3) } as Rank.Rank;
 	}
+	if (_3 === 1) {
+		return { tag: "Mid", _0: rt.u8Rem(c, 4) } as Rank.Rank;
+	}
+	return { tag: "High", x: rt.u8Rem(c, 2), y: rt.u8Rem(c, 3) } as Rank.Rank;
 }
 
 export function rankByte(r: Rank.Rank): rt.u8 {
@@ -39,13 +39,13 @@ export function rankByte(r: Rank.Rank): rt.u8 {
 	let y!: rt.u8;
 	if (r.tag === "Low") {
 		return 0;
-	} else if (r.tag === "Mid") {
-		return 16 | r._0;
-	} else {
-		x = r.x;
-		y = r.y;
-		return 32 | ((x << 2) & 0xff) | y;
 	}
+	if (r.tag === "Mid") {
+		return 16 | r._0;
+	}
+	x = r.x;
+	y = r.y;
+	return 32 | ((x << 2) & 0xff) | y;
 }
 
 /** A `HashMap` by each kind of key, through a script of inserts, lookups, and removals. */
@@ -215,37 +215,36 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 							rt.hashClear(map);
 							rt.byteVecPush(out, rt.hashLen(map) & 0xff);
 							break b0;
-						} else {
-							rt.byteVecPush(out, _73[0]);
-							rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_73[1]));
 						}
-					}
-				} else {
-					i = _13;
-					rt.idx(data, i);
-					_19 = [rt.u8Rem(data[i], 16), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0) as rt.u16] as [rt.u8, rt.u16];
-					k = _19[0];
-					v = _19[1];
-					_31 = rt.u16Rem(v, 5);
-					if (_31 === 0) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(map, k), 238, (old2: rt.u16): rt.u8 => {
-							return old2 & 0xff;
-						}));
-					} else if (_31 === 1) {
-						rt.byteVecPush(out, rt.hashContains(map, k) ? 1 : 0);
-					} else if (_31 === 2) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(map, k), 221, (v4: rt.u16): rt.u8 => {
-							return v4 & 0xff;
-						}));
-					} else {
-						_48 = rt.u16Mul(v, 3);
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(map, k, _48), 204, (old: rt.u16): rt.u8 => {
-							return old & 0xff;
-						}));
+						rt.byteVecPush(out, _73[0]);
+						rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_73[1]));
 					}
 				}
+				i = _13;
+				rt.idx(data, i);
+				_19 = [rt.u8Rem(data[i], 16), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0) as rt.u16] as [rt.u8, rt.u16];
+				k = _19[0];
+				v = _19[1];
+				_31 = rt.u16Rem(v, 5);
+				if (_31 === 0) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(map, k), 238, (old2: rt.u16): rt.u8 => {
+						return old2 & 0xff;
+					}));
+				} else if (_31 === 1) {
+					rt.byteVecPush(out, rt.hashContains(map, k) ? 1 : 0);
+				} else if (_31 === 2) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(map, k), 221, (v4: rt.u16): rt.u8 => {
+						return v4 & 0xff;
+					}));
+				} else {
+					_48 = rt.u16Mul(v, 3);
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(map, k, _48), 204, (old: rt.u16): rt.u8 => {
+						return old & 0xff;
+					}));
+				}
 			}
-		} else if (_4 === 1) {
+		}
+		if (_4 === 1) {
 			map2 = rt.hashNew(rt.hashing(rt.hashInt, rt.u64Eq)) as rt.HashMap<rt.u64, rt.u8>;
 			iter3 = rt.iterEnumerate(rt.iterSlice(data));
 			while (true) {
@@ -263,26 +262,25 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 								rt.byteVecPush(out, rt.hashIndex(map2, _150));
 							}
 							break b0;
-						} else {
-							rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_129));
-							rt.byteVecPush(out, rt.hashIndex(map2, _129));
 						}
-					}
-				} else {
-					i2 = _97[0];
-					b = _97[1];
-					k2 = wide(rt.u8Rem(b, 12));
-					_105 = rt.u8Rem(rt.u8Div(b, 12), 4);
-					if (_105 === 0) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(map2, k2), 238));
-					} else if (_105 === 1) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(map2, k2), 221));
-					} else {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map2, k2, i2 & 0xff), 204));
+						rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_129));
+						rt.byteVecPush(out, rt.hashIndex(map2, _129));
 					}
 				}
+				i2 = _97[0];
+				b = _97[1];
+				k2 = wide(rt.u8Rem(b, 12));
+				_105 = rt.u8Rem(rt.u8Div(b, 12), 4);
+				if (_105 === 0) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(map2, k2), 238));
+				} else if (_105 === 1) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(map2, k2), 221));
+				} else {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map2, k2, i2 & 0xff), 204));
+				}
 			}
-		} else if (_4 === 2) {
+		}
+		if (_4 === 2) {
 			map3 = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
 			pairs = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
 			ranks = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
@@ -385,9 +383,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 																					rt.hashRetain(ranks, (r2: Rank.Rank, t17: Tally.Tally): boolean => {
 																						if (!(rt.u16Rem(t17.n, 2) === 0)) {
 																							return Rank.eq$PartialEq(r2, { tag: "Low" } as Rank.Rank);
-																						} else {
-																							return true;
 																						}
+																						return true;
 																					});
 																					_473 = rt.iterMap(rt.hashIter(ranks), (_224: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
 																						return [_224[0], _224[1].n] as [Rank.Rank, rt.u16];
@@ -399,204 +396,188 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 																						if (_479 === rt.DONE) {
 																							rt.byteVecPush(out, rt.hashLen(tuples) & 0xff);
 																							break b0;
-																						} else {
-																							rt.byteVecPush(out, rankByte(_479[0]));
-																							rt.byteVecPush(out, _479[1] & 0xff);
 																						}
+																						rt.byteVecPush(out, rankByte(_479[0]));
+																						rt.byteVecPush(out, _479[1] & 0xff);
 																					}
-																				} else {
-																					k5 = _416;
-																					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k5), 255, (t15: Tally.Tally): rt.u8 => {
-																						return t15.n & 0xff;
-																					}));
-																					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(extended, k5), 255, (t16: Tally.Tally): rt.u8 => {
-																						return t16.n & 0xff;
-																					}));
 																				}
+																				k5 = _416;
+																				rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k5), 255, (t15: Tally.Tally): rt.u8 => {
+																					return t15.n & 0xff;
+																				}));
+																				rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(extended, k5), 255, (t16: Tally.Tally): rt.u8 => {
+																					return t16.n & 0xff;
+																				}));
 																			}
-																		} else {
-																			_409.n = _409.n ^ 17;
 																		}
+																		_409.n = _409.n ^ 17;
 																	}
-																} else {
-																	b5 = _380;
-																	_387 = rt.u8Rem(b5, 8);
-																	_389 = b5 as rt.u16;
-																	rt.byteVecPush(out, claim(copy2, _387, _389));
 																}
+																b5 = _380;
+																_387 = rt.u8Rem(b5, 8);
+																_389 = b5 as rt.u16;
+																rt.byteVecPush(out, claim(copy2, _387, _389));
 															}
-														} else {
-															k4 = _364;
-															rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k4), 255, (t13: Tally.Tally): rt.u8 => {
-																return t13.n & 0xff;
-															}));
-															rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(copy2, k4), 255, (t14: Tally.Tally): rt.u8 => {
-																return t14.n & 0xff;
-															}));
 														}
+														k4 = _364;
+														rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k4), 255, (t13: Tally.Tally): rt.u8 => {
+															return t13.n & 0xff;
+														}));
+														rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(copy2, k4), 255, (t14: Tally.Tally): rt.u8 => {
+															return t14.n & 0xff;
+														}));
 													}
-												} else {
-													_356.n = rt.u16Add(_356.n, 1);
 												}
-											}
-										} else {
-											i4 = _286;
-											_294 = rt.usizeSub(i4, 1);
-											rt.idx(data, _294);
-											_293 = data[_294];
-											rt.idx(data, i4);
-											_292 = [_293, data[i4]] as [rt.u8, rt.u8];
-											a2 = _293;
-											b4 = _292[1];
-											_305 = rank(b4, a2);
-											t4 = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _305), (t9: Tally.Tally): void => {
-												t9.n = t9.n ^ 3;
-											}), (): Tally.Tally => {
-												return { n: b4 as rt.u16 };
-											});
-											t4.n = rt.u16WrappingAdd(t4.n, t4.n);
-											rt.idx(data, i4);
-											_313 = rank(data[i4], 0);
-											e = rt.entry(ranks, _313);
-											rt.byteVecPush(out, rankByte(rt.entryKey(e)));
-											rt.byteVecPush(out, rt.entryOrInsertWith(e, (k9: Rank.Rank): Tally.Tally => {
-												return { n: rankByte(k9) as rt.u16 };
-											}).n & 0xff);
-										}
-									}
-								} else {
-									p = _269[0];
-									t3 = _269[1];
-									rt.byteVecPush(out, p.a);
-									rt.byteVecPush(out, p.b & 0xff);
-									rt.byteVecPush(out, t3.n & 0xff);
-								}
-							}
-						} else {
-							k3 = _230[0];
-							v2 = _230[1];
-							rt.byteVecPush(out, k3);
-							rt.byteVecPush(out, v2);
-						}
-					}
-				} else {
-					i3 = _161;
-					_169 = rt.usizeSub(i3, 1);
-					rt.idx(data, _169);
-					_168 = data[_169];
-					rt.idx(data, i3);
-					_167 = [_168, data[i3]] as [rt.u8, rt.u8];
-					a = _168;
-					b3 = _167[1];
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map3, { _0: a }, b3), 204));
-					pair = { a: rt.u8Rem(a, 4), b: rt.u16Rem(b3 as rt.u16, 3) };
-					t = rt.entryOrInsertWith(rt.entry(pairs, pair), Tally.default$Default);
-					t.n = rt.u16Add(t.n, 1);
-					r = rank(a, b3);
-					_192 = rt.hashGet(ranks, r);
-					if (_192 !== undefined) {
-						_192.n = rt.u16Add(_192.n, 1);
-					} else {
-						rt.hashInsert(ranks, r, { n: i3 & 0xffff });
-					}
-					_203 = rt.u8Rem(a, 3);
-					_207 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_207 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _207);
-					}
-					t2 = [_203, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207]] as [rt.u8, string];
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(tuples, t2), 187));
-					if (rt.u8Rem(a, 2) === 0) {
-						rt.hashInsert(tuples, t2, a);
-					}
-				}
-			}
-		} else {
-			words = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
-			iterS2 = data;
-			iterI2 = 0;
-			while (true) {
-				_496 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_496 === rt.DONE) {
-					lens = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.usize>;
-					iter16 = rt.hashIter(words);
-					while (true) {
-						_517 = iter16.next();
-						if (_517 === rt.DONE) {
-							iter17 = rt.btreeIter(lens);
-							while (true) {
-								_529 = iter17.next();
-								if (_529 === rt.DONE) {
-									rt.byteVecPush(out, rt.iterSum(rt.iterMap(rt.hashDrain(words), (_2: [string, rt.ByteVec]): rt.usize => {
-										let v3!: rt.ByteVec;
-										v3 = _2[1];
-										return v3.length;
-									}), rt.usizeAdd, 0) & 0xff);
-									rt.byteVecPush(out, rt.hashLen(words) === 0 ? 1 : 0);
-									clashes = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
-									iter18 = rt.iterEnumerate(rt.iterSlice(data));
-									while (true) {
-										_555 = iter18.next();
-										if (_555 === rt.DONE) {
-											rt.hashRetain(clashes, (k7: Clash.Clash, t8: Tally.Tally): boolean => {
-												if (!(rt.u8Rem(k7._0, 3) !== 0)) {
-													return rt.u16Rem(t8.n, 2) === 0;
-												} else {
-													return true;
-												}
-											});
-											_583 = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
-												return k8._0;
-											});
-											kept = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _583, true);
-											rt.iterExtendBytes(out, rt.btreeKeys(kept));
-											copy3 = rt.hashClone(clashes, rt.copy, rt.copy);
-											rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
-											rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
-											break b0;
-										} else {
-											i5 = _555[0];
-											b7 = _555[1];
-											k6 = { _0: rt.u8Rem(b7, 8) };
-											_563 = rt.u8Rem(rt.u8Div(b7, 8), 4);
-											if (_563 === 0) {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(clashes, k6), 238, (t7: Tally.Tally): rt.u8 => {
-													return t7.n & 0xff;
-												}));
-											} else if (_563 === 1) {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(clashes, k6), 221, (t6: Tally.Tally): rt.u8 => {
-													return t6.n & 0xff;
-												}));
-											} else {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(clashes, k6, { n: i5 & 0xffff }), 204, (t5: Tally.Tally): rt.u8 => {
-													return t5.n & 0xff;
-												}));
+												_356.n = rt.u16Add(_356.n, 1);
 											}
 										}
+										i4 = _286;
+										_294 = rt.usizeSub(i4, 1);
+										rt.idx(data, _294);
+										_293 = data[_294];
+										rt.idx(data, i4);
+										_292 = [_293, data[i4]] as [rt.u8, rt.u8];
+										a2 = _293;
+										b4 = _292[1];
+										_305 = rank(b4, a2);
+										t4 = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _305), (t9: Tally.Tally): void => {
+											t9.n = t9.n ^ 3;
+										}), (): Tally.Tally => {
+											return { n: b4 as rt.u16 };
+										});
+										t4.n = rt.u16WrappingAdd(t4.n, t4.n);
+										rt.idx(data, i4);
+										_313 = rank(data[i4], 0);
+										e = rt.entry(ranks, _313);
+										rt.byteVecPush(out, rankByte(rt.entryKey(e)));
+										rt.byteVecPush(out, rt.entryOrInsertWith(e, (k9: Rank.Rank): Tally.Tally => {
+											return { n: rankByte(k9) as rt.u16 };
+										}).n & 0xff);
 									}
-								} else {
-									rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_529[0]));
-									rt.byteVecPush(out, _529[1] & 0xff);
 								}
+								p = _269[0];
+								t3 = _269[1];
+								rt.byteVecPush(out, p.a);
+								rt.byteVecPush(out, p.b & 0xff);
+								rt.byteVecPush(out, t3.n & 0xff);
 							}
-						} else {
-							_524 = _517[0];
-							_525 = _517[1].length;
-							rt.btreeInsert(lens, _524, _525);
 						}
+						k3 = _230[0];
+						v2 = _230[1];
+						rt.byteVecPush(out, k3);
+						rt.byteVecPush(out, v2);
 					}
+				}
+				i3 = _161;
+				_169 = rt.usizeSub(i3, 1);
+				rt.idx(data, _169);
+				_168 = data[_169];
+				rt.idx(data, i3);
+				_167 = [_168, data[i3]] as [rt.u8, rt.u8];
+				a = _168;
+				b3 = _167[1];
+				rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map3, { _0: a }, b3), 204));
+				pair = { a: rt.u8Rem(a, 4), b: rt.u16Rem(b3 as rt.u16, 3) };
+				t = rt.entryOrInsertWith(rt.entry(pairs, pair), Tally.default$Default);
+				t.n = rt.u16Add(t.n, 1);
+				r = rank(a, b3);
+				_192 = rt.hashGet(ranks, r);
+				if (_192 !== undefined) {
+					_192.n = rt.u16Add(_192.n, 1);
 				} else {
-					b6 = _496;
-					_502 = rt.usizeRem(b6 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_502 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _502);
-					}
-					word = ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_502];
-					rt.byteVecPush(rt.entryOrInsertWith(rt.entry(words, word), (): rt.ByteVec => {
-						return new rt.ByteVec();
-					}), b6);
+					rt.hashInsert(ranks, r, { n: i3 & 0xffff });
+				}
+				_203 = rt.u8Rem(a, 3);
+				_207 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+				if (!(_207 < 8)) {
+					rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _207);
+				}
+				t2 = [_203, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207]] as [rt.u8, string];
+				rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(tuples, t2), 187));
+				if (rt.u8Rem(a, 2) === 0) {
+					rt.hashInsert(tuples, t2, a);
 				}
 			}
+		}
+		words = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
+		iterS2 = data;
+		iterI2 = 0;
+		while (true) {
+			_496 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+			if (_496 === rt.DONE) {
+				lens = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.usize>;
+				iter16 = rt.hashIter(words);
+				while (true) {
+					_517 = iter16.next();
+					if (_517 === rt.DONE) {
+						iter17 = rt.btreeIter(lens);
+						while (true) {
+							_529 = iter17.next();
+							if (_529 === rt.DONE) {
+								rt.byteVecPush(out, rt.iterSum(rt.iterMap(rt.hashDrain(words), (_2: [string, rt.ByteVec]): rt.usize => {
+									let v3!: rt.ByteVec;
+									v3 = _2[1];
+									return v3.length;
+								}), rt.usizeAdd, 0) & 0xff);
+								rt.byteVecPush(out, rt.hashLen(words) === 0 ? 1 : 0);
+								clashes = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
+								iter18 = rt.iterEnumerate(rt.iterSlice(data));
+								while (true) {
+									_555 = iter18.next();
+									if (_555 === rt.DONE) {
+										rt.hashRetain(clashes, (k7: Clash.Clash, t8: Tally.Tally): boolean => {
+											if (!(rt.u8Rem(k7._0, 3) !== 0)) {
+												return rt.u16Rem(t8.n, 2) === 0;
+											}
+											return true;
+										});
+										_583 = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
+											return k8._0;
+										});
+										kept = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _583, true);
+										rt.iterExtendBytes(out, rt.btreeKeys(kept));
+										copy3 = rt.hashClone(clashes, rt.copy, rt.copy);
+										rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
+										rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
+										break b0;
+									}
+									i5 = _555[0];
+									b7 = _555[1];
+									k6 = { _0: rt.u8Rem(b7, 8) };
+									_563 = rt.u8Rem(rt.u8Div(b7, 8), 4);
+									if (_563 === 0) {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(clashes, k6), 238, (t7: Tally.Tally): rt.u8 => {
+											return t7.n & 0xff;
+										}));
+									} else if (_563 === 1) {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(clashes, k6), 221, (t6: Tally.Tally): rt.u8 => {
+											return t6.n & 0xff;
+										}));
+									} else {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(clashes, k6, { n: i5 & 0xffff }), 204, (t5: Tally.Tally): rt.u8 => {
+											return t5.n & 0xff;
+										}));
+									}
+								}
+							}
+							rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_529[0]));
+							rt.byteVecPush(out, _529[1] & 0xff);
+						}
+					}
+					_524 = _517[0];
+					_525 = _517[1].length;
+					rt.btreeInsert(lens, _524, _525);
+				}
+			}
+			b6 = _496;
+			_502 = rt.usizeRem(b6 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_502 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _502);
+			}
+			word = ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_502];
+			rt.byteVecPush(rt.entryOrInsertWith(rt.entry(words, word), (): rt.ByteVec => {
+				return new rt.ByteVec();
+			}), b6);
 		}
 	}
 }
@@ -624,16 +605,14 @@ export function claim(map: rt.HashMap<rt.u8, Tally.Tally>, k: rt.u8, n: rt.u16):
 	if (rt.entryOccupied(_4)) {
 		if (!(rt.u16Rem(rt.entryGet(_4).n, 2) === 0)) {
 			return rt.entryRemove(_4).n & 0xff;
-		} else {
-			e = _4;
-			t = rt.entryGet(e);
-			t.n = rt.u16Add(t.n, n);
-			return 1;
 		}
-	} else {
-		rt.entryOrInsert(_4, { n });
-		return 0;
+		e = _4;
+		t = rt.entryGet(e);
+		t.n = rt.u16Add(t.n, n);
+		return 1;
 	}
+	rt.entryOrInsert(_4, { n });
+	return 0;
 }
 
 /** `HashSet` and `BTreeSet`, each with the same script. */
@@ -708,27 +687,26 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 								return v5 & 0xff;
 							}));
 							break b0;
-						} else {
-							rt.byteVecPush(out, _62 & 0xff);
 						}
-					}
-				} else {
-					b = _10;
-					v = rt.u16Rem(b as rt.u16, 24);
-					_17 = rt.u8Rem(b, 3);
-					if (_17 === 0) {
-						rt.byteVecPush(out, rt.hashDelete(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeDelete(sorted, v) ? 1 : 0);
-					} else if (_17 === 1) {
-						rt.byteVecPush(out, rt.hashContains(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeContains(sorted, v) ? 1 : 0);
-					} else {
-						rt.byteVecPush(out, rt.hashAdd(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeAdd(sorted, v) ? 1 : 0);
+						rt.byteVecPush(out, _62 & 0xff);
 					}
 				}
+				b = _10;
+				v = rt.u16Rem(b as rt.u16, 24);
+				_17 = rt.u8Rem(b, 3);
+				if (_17 === 0) {
+					rt.byteVecPush(out, rt.hashDelete(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeDelete(sorted, v) ? 1 : 0);
+				} else if (_17 === 1) {
+					rt.byteVecPush(out, rt.hashContains(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeContains(sorted, v) ? 1 : 0);
+				} else {
+					rt.byteVecPush(out, rt.hashAdd(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeAdd(sorted, v) ? 1 : 0);
+				}
 			}
-		} else if (_4 === 1) {
+		}
+		if (_4 === 1) {
 			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
 			seen = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
 			iterS2 = data;
@@ -759,63 +737,56 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 										if (_151 === rt.DONE) {
 											rt.byteVecPush(out, rt.hashLen(dirs) & 0xff);
 											break b0;
-										} else {
-											_160 = rt.usizeRem(_151 as rt.usize, 3);
-											if (!(_160 < 3)) {
-												rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _160);
-											}
-											rt.byteVecPush(out, rt.hashAdd(dirs, ["Up" as Dir.Dir, "Top" as Dir.Dir, "Down" as Dir.Dir][_160]) ? 1 : 0);
 										}
+										_160 = rt.usizeRem(_151 as rt.usize, 3);
+										if (!(_160 < 3)) {
+											rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _160);
+										}
+										rt.byteVecPush(out, rt.hashAdd(dirs, ["Up" as Dir.Dir, "Top" as Dir.Dir, "Down" as Dir.Dir][_160]) ? 1 : 0);
 									}
 								}
 							}
-						} else {
-							rt.byteVecPush(out, _123._0);
 						}
+						rt.byteVecPush(out, _123._0);
 					}
-				} else {
-					b2 = _106;
-					rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
-					rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
 				}
+				b2 = _106;
+				rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
+				rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
 			}
-		} else {
-			words = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
-			iterS4 = data;
-			iterI4 = 0;
-			while (true) {
-				_175 = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
-				if (_175 === rt.DONE) {
-					iter7 = rt.btreeKeys(words);
-					while (true) {
-						_192 = iter7.next();
-						if (_192 === rt.DONE) {
-							_200 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u64 => {
-								return wide(_2);
-							});
-							wides = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true);
-							iter8 = rt.iterRev(rt.btreeKeys(wides));
-							while (true) {
-								_207 = iter8.next();
-								if (_207 === rt.DONE) {
-									break b0;
-								} else {
-									rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_207));
-								}
+		}
+		words = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
+		iterS4 = data;
+		iterI4 = 0;
+		while (true) {
+			_175 = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
+			if (_175 === rt.DONE) {
+				iter7 = rt.btreeKeys(words);
+				while (true) {
+					_192 = iter7.next();
+					if (_192 === rt.DONE) {
+						_200 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u64 => {
+							return wide(_2);
+						});
+						wides = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true);
+						iter8 = rt.iterRev(rt.btreeKeys(wides));
+						while (true) {
+							_207 = iter8.next();
+							if (_207 === rt.DONE) {
+								break b0;
 							}
-						} else {
-							rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_192));
-							rt.byteVecPush(out, 0);
+							rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_207));
 						}
 					}
-				} else {
-					_182 = rt.usizeRem(_175 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_182 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _182);
-					}
-					rt.btreeAdd(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_182]);
+					rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_192));
+					rt.byteVecPush(out, 0);
 				}
 			}
+			_182 = rt.usizeRem(_175 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_182 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _182);
+			}
+			rt.btreeAdd(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_182]);
 		}
 	}
 }
@@ -970,49 +941,46 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 											rt.byteVecExtendFromSlice(out, rt.byteVecView(within));
 											rt.iterExtendBytes(out, rt.btreeValues(map));
 											break b0;
-										} else {
-											rt.byteVecPush(out, _101);
 										}
+										rt.byteVecPush(out, _101);
 									}
-								} else {
-									rt.byteVecPush(out, _88[0] ^ _88[1]);
 								}
+								rt.byteVecPush(out, _88[0] ^ _88[1]);
 							}
-						} else {
-							rt.byteVecPush(out, _73[0]);
-							rt.byteVecPush(out, _73[1]);
 						}
-					}
-				} else {
-					i = _13;
-					rt.idx(data, i);
-					_19 = [rt.u8Rem(data[i], 32), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0)] as [rt.u8, rt.u8];
-					k = _19[0];
-					v = _19[1];
-					_30 = rt.u8Rem(v, 6);
-					if (_30 === 0) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeRemove(map, k), 238));
-					} else if (_30 === 1) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map), 221, (_219: [rt.u8, rt.u8]): rt.u8 => {
-							return _219[0] ^ _219[1];
-						}));
-					} else if (_30 === 2) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map, true), 220, (_216: [rt.u8, rt.u8]): rt.u8 => {
-							return _216[0] ^ _216[1];
-						}));
-					} else if (_30 === 3) {
-						_42 = rt.btreeGet(map, k);
-						if (_42 !== undefined) {
-							_50 = rt.u8WrappingAdd(_42, 1);
-							rt.btreeInsert(map, k, _50);
-						}
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeGet(map, k), 219));
-					} else {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(map, k, v), 204));
+						rt.byteVecPush(out, _73[0]);
+						rt.byteVecPush(out, _73[1]);
 					}
 				}
+				i = _13;
+				rt.idx(data, i);
+				_19 = [rt.u8Rem(data[i], 32), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0)] as [rt.u8, rt.u8];
+				k = _19[0];
+				v = _19[1];
+				_30 = rt.u8Rem(v, 6);
+				if (_30 === 0) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeRemove(map, k), 238));
+				} else if (_30 === 1) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map), 221, (_219: [rt.u8, rt.u8]): rt.u8 => {
+						return _219[0] ^ _219[1];
+					}));
+				} else if (_30 === 2) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map, true), 220, (_216: [rt.u8, rt.u8]): rt.u8 => {
+						return _216[0] ^ _216[1];
+					}));
+				} else if (_30 === 3) {
+					_42 = rt.btreeGet(map, k);
+					if (_42 !== undefined) {
+						_50 = rt.u8WrappingAdd(_42, 1);
+						rt.btreeInsert(map, k, _50);
+					}
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeGet(map, k), 219));
+				} else {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(map, k, v), 204));
+				}
 			}
-		} else if (_4 === 1) {
+		}
+		if (_4 === 1) {
 			ranks = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
 			pairs = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
 			wides = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u64, rt.u8>;
@@ -1043,57 +1011,53 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 												_274 = iter9.next();
 												if (_274 === rt.DONE) {
 													break b0;
-												} else {
-													rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_274[0]));
-													rt.byteVecPush(out, _274[1]);
 												}
+												rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_274[0]));
+												rt.byteVecPush(out, _274[1]);
 											}
-										} else {
-											rt.byteVecPush(out, rt.u8Shl(_255[0][0], 4) | _255[0][1]);
-											rt.byteVecPush(out, _255[1]);
 										}
+										rt.byteVecPush(out, rt.u8Shl(_255[0][0], 4) | _255[0][1]);
+										rt.byteVecPush(out, _255[1]);
 									}
-								} else {
-									rt.byteVecPush(out, rankByte(_240[0]));
-									rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_240[1].n));
 								}
-							}
-						} else {
-							b2 = _205;
-							r = rank(b2, rt.u8Div(b2, 3));
-							_212 = rt.entry(ranks, r);
-							if (!rt.entryOccupied(_212)) {
-								e = _212;
-								rt.byteVecPush(out, rankByte(rt.entryKey(e)));
-								rt.entryOrInsert(e, { n: b2 as rt.u16 });
-							} else if (!(rt.entryGet(_212).n > 256)) {
-								e3 = _212;
-								rt.byteVecPush(out, rt.entryInsert(e3, { n: 512 }).n & 0xff);
-							} else {
-								_230 = rt.entryRemoveEntry(_212);
-								rt.byteVecPush(out, rankByte(_230[0]));
+								rt.byteVecPush(out, rankByte(_240[0]));
+								rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_240[1].n));
 							}
 						}
+						b2 = _205;
+						r = rank(b2, rt.u8Div(b2, 3));
+						_212 = rt.entry(ranks, r);
+						if (!rt.entryOccupied(_212)) {
+							e = _212;
+							rt.byteVecPush(out, rankByte(rt.entryKey(e)));
+							rt.entryOrInsert(e, { n: b2 as rt.u16 });
+						} else if (!(rt.entryGet(_212).n > 256)) {
+							e3 = _212;
+							rt.byteVecPush(out, rt.entryInsert(e3, { n: 512 }).n & 0xff);
+						} else {
+							_230 = rt.entryRemoveEntry(_212);
+							rt.byteVecPush(out, rankByte(_230[0]));
+						}
 					}
-				} else {
-					i2 = _164;
-					_172 = rt.usizeSub(i2, 1);
-					rt.idx(data, _172);
-					_171 = data[_172];
-					rt.idx(data, i2);
-					_170 = [_171, data[i2]] as [rt.u8, rt.u8];
-					a = _171;
-					b = _170[1];
-					_182 = rank(a, b);
-					t = rt.entryOrInsertWith(rt.entry(ranks, _182), Tally.default$Default);
-					t.n = rt.u16WrappingAdd(t.n, b as rt.u16);
-					_188 = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)] as [rt.u8, rt.u8];
-					rt.btreeInsert(pairs, _188, a);
-					_196 = wide(a);
-					rt.entryOrInsert(rt.entry(wides, _196), b);
 				}
+				i2 = _164;
+				_172 = rt.usizeSub(i2, 1);
+				rt.idx(data, _172);
+				_171 = data[_172];
+				rt.idx(data, i2);
+				_170 = [_171, data[i2]] as [rt.u8, rt.u8];
+				a = _171;
+				b = _170[1];
+				_182 = rank(a, b);
+				t = rt.entryOrInsertWith(rt.entry(ranks, _182), Tally.default$Default);
+				t.n = rt.u16WrappingAdd(t.n, b as rt.u16);
+				_188 = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)] as [rt.u8, rt.u8];
+				rt.btreeInsert(pairs, _188, a);
+				_196 = wide(a);
+				rt.entryOrInsert(rt.entry(wides, _196), b);
 			}
-		} else if (_4 === 2) {
+		}
+		if (_4 === 2) {
 			_287 = rt.iterMap(rt.iterSlice(data), (_215: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
 				let b8!: rt.u8;
 				b8 = _215;
@@ -1106,114 +1070,106 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 				_294 = iter10.next();
 				if (_294 === rt.DONE) {
 					break b0;
-				} else {
-					rt.byteVecPush(out, _294[0]._0 ^ _294[1]._0);
 				}
+				rt.byteVecPush(out, _294[0]._0 ^ _294[1]._0);
 			}
-		} else {
-			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
-			words = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
-			iterS2 = data;
-			iterI2 = 0;
-			while (true) {
-				_307 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_307 === rt.DONE) {
-					iter12 = rt.btreeIter(nibbles);
-					while (true) {
-						_331 = iter12.next();
-						if (_331 === rt.DONE) {
-							iterStart2 = 1;
-							iterEnd2 = data.length;
-							while (true) {
-								if (!((_344 = iterStart2++) < iterEnd2)) {
-									_409 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
-										let b5!: rt.u8;
-										b5 = _2;
-										return [{ _0: b5 }, b5] as [Nibble.Nibble, rt.u8];
-									});
-									collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _409, true);
-									_412 = rt.iterMap(rt.iterSlice(data), (_213: rt.u8): Nibble.Nibble => {
-										return { _0: _213 };
-									});
-									keys = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _412, true);
-									_416 = rt.iterMap(rt.iterSlice(data), (_214: rt.u8): Nibble.Nibble => {
-										return { _0: _214 ^ 48 };
-									});
-									rt.btreeExtendKeys(keys, _416);
-									iter14 = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys));
-									while (true) {
-										_425 = iter14.next();
-										if (_425 === rt.DONE) {
-											rt.btreeRetain(words, (w: string, t3: Tally.Tally): boolean => {
-												if (!(rt.stringLen(w) > 1)) {
-													return t3.n > 1;
-												} else {
-													return true;
-												}
-											});
-											iter15 = rt.btreeIter(words);
-											while (true) {
-												_442 = iter15.next();
-												if (_442 === rt.DONE) {
-													break b0;
-												} else {
-													rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_442[0]));
-													rt.byteVecPush(out, _442[1].n & 0xff);
-												}
+		}
+		nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
+		words = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
+		iterS2 = data;
+		iterI2 = 0;
+		while (true) {
+			_307 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+			if (_307 === rt.DONE) {
+				iter12 = rt.btreeIter(nibbles);
+				while (true) {
+					_331 = iter12.next();
+					if (_331 === rt.DONE) {
+						iterStart2 = 1;
+						iterEnd2 = data.length;
+						while (true) {
+							if (!((_344 = iterStart2++) < iterEnd2)) {
+								_409 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
+									let b5!: rt.u8;
+									b5 = _2;
+									return [{ _0: b5 }, b5] as [Nibble.Nibble, rt.u8];
+								});
+								collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _409, true);
+								_412 = rt.iterMap(rt.iterSlice(data), (_213: rt.u8): Nibble.Nibble => {
+									return { _0: _213 };
+								});
+								keys = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _412, true);
+								_416 = rt.iterMap(rt.iterSlice(data), (_214: rt.u8): Nibble.Nibble => {
+									return { _0: _214 ^ 48 };
+								});
+								rt.btreeExtendKeys(keys, _416);
+								iter14 = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys));
+								while (true) {
+									_425 = iter14.next();
+									if (_425 === rt.DONE) {
+										rt.btreeRetain(words, (w: string, t3: Tally.Tally): boolean => {
+											if (!(rt.stringLen(w) > 1)) {
+												return t3.n > 1;
 											}
-										} else {
-											rt.byteVecPush(out, _425[0][0]._0);
-											rt.byteVecPush(out, _425[0][1]);
-											rt.byteVecPush(out, _425[1]._0);
+											return true;
+										});
+										iter15 = rt.btreeIter(words);
+										while (true) {
+											_442 = iter15.next();
+											if (_442 === rt.DONE) {
+												break b0;
+											}
+											rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_442[0]));
+											rt.byteVecPush(out, _442[1].n & 0xff);
 										}
 									}
-								} else {
-									i3 = _344;
-									_353 = rt.usizeSub(i3, 1);
-									rt.idx(data, _353);
-									_351 = { _0: data[_353] };
-									rt.idx(data, i3);
-									_350 = [_351, { _0: data[i3] }] as [Nibble.Nibble, Nibble.Nibble];
-									a2 = _351;
-									b4 = _350[1];
-									_365 = rt.usizeSub(i3, 1);
-									rt.idx(data, _365);
-									_364 = data[_365];
-									rt.idx(data, i3);
-									_363 = [_364, data[i3]] as [rt.u8, rt.u8];
-									x = _364;
-									y = _363[1];
-									o = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a2, b4)), (): rt.Ordering => {
-										return rt.cmp(y, x);
-									}, true);
-									rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1) === 0 ? 1 : 0) << 2) & 0xff));
-									if (o === -1) {
-										_401 = 1;
-									} else if (o === 0) {
-										_401 = 2;
-									} else {
-										_401 = 3;
-									}
-									rt.byteVecPush(out, _401);
-									rt.byteVecPush(out, rt.same(o, 1) ? 1 : 0);
+									rt.byteVecPush(out, _425[0][0]._0);
+									rt.byteVecPush(out, _425[0][1]);
+									rt.byteVecPush(out, _425[1]._0);
 								}
 							}
-						} else {
-							rt.byteVecPush(out, _331[0]._0);
-							rt.byteVecPush(out, _331[1]);
+							i3 = _344;
+							_353 = rt.usizeSub(i3, 1);
+							rt.idx(data, _353);
+							_351 = { _0: data[_353] };
+							rt.idx(data, i3);
+							_350 = [_351, { _0: data[i3] }] as [Nibble.Nibble, Nibble.Nibble];
+							a2 = _351;
+							b4 = _350[1];
+							_365 = rt.usizeSub(i3, 1);
+							rt.idx(data, _365);
+							_364 = data[_365];
+							rt.idx(data, i3);
+							_363 = [_364, data[i3]] as [rt.u8, rt.u8];
+							x = _364;
+							y = _363[1];
+							o = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a2, b4)), (): rt.Ordering => {
+								return rt.cmp(y, x);
+							}, true);
+							rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1) === 0 ? 1 : 0) << 2) & 0xff));
+							if (o === -1) {
+								_401 = 1;
+							} else if (o === 0) {
+								_401 = 2;
+							} else {
+								_401 = 3;
+							}
+							rt.byteVecPush(out, _401);
+							rt.byteVecPush(out, rt.same(o, 1) ? 1 : 0);
 						}
 					}
-				} else {
-					b3 = _307;
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(nibbles, { _0: b3 }, b3), 204));
-					_320 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_320 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _320);
-					}
-					t2 = rt.entryOrInsertWith(rt.entry(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_320]), Tally.default$Default);
-					t2.n = rt.u16Add(t2.n, 1);
+					rt.byteVecPush(out, _331[0]._0);
+					rt.byteVecPush(out, _331[1]);
 				}
 			}
+			b3 = _307;
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(nibbles, { _0: b3 }, b3), 204));
+			_320 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_320 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _320);
+			}
+			t2 = rt.entryOrInsertWith(rt.entry(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_320]), Tally.default$Default);
+			t2.n = rt.u16Add(t2.n, 1);
 		}
 	}
 }
@@ -1334,32 +1290,30 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 					rt.iterExtendBytes(out, rt.dequeIter(q2));
 					rt.byteVecPush(out, rt.dequeIndex(q2, b2));
 					return;
-				} else {
-					rt.byteVecPush(out, _83[0] ^ _83[1]);
 				}
+				rt.byteVecPush(out, _83[0] ^ _83[1]);
 			}
+		}
+		b = _7;
+		_12 = rt.u8Rem(b, 7);
+		if (_12 === 0) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopFront(q), 238));
+		} else if (_12 === 1) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopBack(q), 237));
+		} else if (_12 === 2) {
+			rt.dequePushFront(q, b);
+		} else if (_12 === 3) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q), 236));
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q, true), 235));
+			_36 = rt.usizeRem(b as rt.usize, 5);
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeGet(q, _36), 234));
 		} else {
-			b = _7;
-			_12 = rt.u8Rem(b, 7);
-			if (_12 === 0) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopFront(q), 238));
-			} else if (_12 === 1) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopBack(q), 237));
-			} else if (_12 === 2) {
-				rt.dequePushFront(q, b);
-			} else if (_12 === 3) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q), 236));
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q, true), 235));
-				_36 = rt.usizeRem(b as rt.usize, 5);
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeGet(q, _36), 234));
-			} else {
-				rt.dequePushBack(q, b);
-			}
-			_42 = [b, q.n & 0xff] as [rt.u8, rt.u8];
-			rt.dequePushBack(pairs, _42);
-			if (pairs.n > 3) {
-				rt.dequePopFront(pairs);
-			}
+			rt.dequePushBack(q, b);
+		}
+		_42 = [b, q.n & 0xff] as [rt.u8, rt.u8];
+		rt.dequePushBack(pairs, _42);
+		if (pairs.n > 3) {
+			rt.dequePopFront(pairs);
 		}
 	}
 }

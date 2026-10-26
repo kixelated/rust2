@@ -54,11 +54,10 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 											self.entries = _53;
 											self.cursor = 0;
 											break b4;
-										} else {
-											entry = _43;
-											if (entry.arc.strong > 0) {
-												live.push(entry);
-											}
+										}
+										entry = _43;
+										if (entry.arc.strong > 0) {
+											live.push(entry);
 										}
 									}
 								}
@@ -80,7 +79,8 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 							}
 						}
 					}
-				} else if (!((_8.arc === weak.arc))) {
+				}
+				if (!((_8.arc === weak.arc))) {
 					continue l0;
 				}
 			}
@@ -116,16 +116,15 @@ export function wake(self: WaiterList): void {
 			_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_6 === rt.DONE) {
 				return;
-			} else {
-				entry = _6;
-				_10 = rt.weakUpgrade(entry);
-				if (_10 !== undefined) {
-					unwind = 15;
-					waker = _10;
-					waker.value.wakeByRef();
-					unwind = 0;
-					rt.drop(waker);
-				}
+			}
+			entry = _6;
+			_10 = rt.weakUpgrade(entry);
+			if (_10 !== undefined) {
+				unwind = 15;
+				waker = _10;
+				waker.value.wakeByRef();
+				unwind = 0;
+				rt.drop(waker);
 			}
 		}
 	} catch (e) {

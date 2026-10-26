@@ -19,9 +19,8 @@ export function decode$Decode_Form(r: Decoder.Decoder, _2: Form.Form): rt.Result
 	_4 = Decoder.varint(r);
 	if (_4.ok) {
 		return rt.Ok({ _0: _4.value });
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
@@ -30,9 +29,8 @@ export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.F
 	_4 = Encoder.varint(w, self._0);
 	if (_4.ok) {
 		return rt.Ok(undefined);
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
@@ -41,9 +39,8 @@ export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: ver
 	_4 = Encoder.varint(w, self._0);
 	if (_4.ok) {
 		return rt.Ok(undefined);
-	} else {
-		return _4;
 	}
+	return _4;
 }
 
 //# sourceMappingURL=version.Version.ts.map

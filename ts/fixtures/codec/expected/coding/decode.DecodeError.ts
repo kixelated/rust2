@@ -9,46 +9,62 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	let args4!: rt.Fmt[];
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(__formatter, "short buffer");
-	} else if (self.tag === "Long") {
+	}
+	if (self.tag === "Long") {
 		return rt.fmtWriteStr(__formatter, "long buffer");
-	} else if (self.tag === "InvalidString") {
+	}
+	if (self.tag === "InvalidString") {
 		return rt.fmtWriteStr(__formatter, "invalid string");
-	} else if (self.tag === "InvalidMessage") {
+	}
+	if (self.tag === "InvalidMessage") {
 		const arg = ([([self._0] as [rt.u64])[0]] as [rt.u64])[0];
 		args2 = [(f: rt.Formatter) => rt.u64Display(arg, f)];
 		return rt.fmtWriteFmt(__formatter, ["invalid message: ", args2[0]]);
-	} else if (self.tag === "InvalidSubscribeLocation") {
+	}
+	if (self.tag === "InvalidSubscribeLocation") {
 		return rt.fmtWriteStr(__formatter, "invalid subscribe location");
-	} else if (self.tag === "InvalidValue") {
+	}
+	if (self.tag === "InvalidValue") {
 		return rt.fmtWriteStr(__formatter, "invalid value");
-	} else if (self.tag === "TooMany") {
+	}
+	if (self.tag === "TooMany") {
 		return rt.fmtWriteStr(__formatter, "too many");
-	} else if (self.tag === "BoundsExceeded") {
+	}
+	if (self.tag === "BoundsExceeded") {
 		return rt.fmtWriteStr(__formatter, "bounds exceeded");
-	} else if (self.tag === "ExpectedEnd") {
+	}
+	if (self.tag === "ExpectedEnd") {
 		return rt.fmtWriteStr(__formatter, "expected end");
-	} else if (self.tag === "MessageTooLarge") {
+	}
+	if (self.tag === "MessageTooLarge") {
 		args4 = [(f: rt.Formatter) => rt.usizeDisplay(self.size, f), (f: rt.Formatter) => rt.usizeDisplay(self.max, f)];
 		return rt.fmtWriteFmt(__formatter, ["message too large: ", args4[0], " bytes exceeds ", args4[1], " byte limit"]);
-	} else if (self.tag === "ExpectedData") {
-		return rt.fmtWriteStr(__formatter, "expected data");
-	} else if (self.tag === "Duplicate") {
-		return rt.fmtWriteStr(__formatter, "duplicate");
-	} else if (self.tag === "Missing") {
-		return rt.fmtWriteStr(__formatter, "missing");
-	} else if (self.tag === "Unsupported") {
-		return rt.fmtWriteStr(__formatter, "unsupported");
-	} else if (self.tag === "TrailingBytes") {
-		return rt.fmtWriteStr(__formatter, "trailing bytes");
-	} else if (self.tag === "Version") {
-		return rt.fmtWriteStr(__formatter, "unsupported version");
-	} else if (self.tag === "Session") {
-		return SessionError.fmt$Display(self._0, __formatter);
-	} else if (self.tag === "MalformedAuthToken") {
-		return rt.fmtWriteStr(__formatter, "malformed authorization token");
-	} else {
-		return rt.fmtWriteStr(__formatter, "multiple authorization tokens");
 	}
+	if (self.tag === "ExpectedData") {
+		return rt.fmtWriteStr(__formatter, "expected data");
+	}
+	if (self.tag === "Duplicate") {
+		return rt.fmtWriteStr(__formatter, "duplicate");
+	}
+	if (self.tag === "Missing") {
+		return rt.fmtWriteStr(__formatter, "missing");
+	}
+	if (self.tag === "Unsupported") {
+		return rt.fmtWriteStr(__formatter, "unsupported");
+	}
+	if (self.tag === "TrailingBytes") {
+		return rt.fmtWriteStr(__formatter, "trailing bytes");
+	}
+	if (self.tag === "Version") {
+		return rt.fmtWriteStr(__formatter, "unsupported version");
+	}
+	if (self.tag === "Session") {
+		return SessionError.fmt$Display(self._0, __formatter);
+	}
+	if (self.tag === "MalformedAuthToken") {
+		return rt.fmtWriteStr(__formatter, "malformed authorization token");
+	}
+	return rt.fmtWriteStr(__formatter, "multiple authorization tokens");
 }
 
 export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
@@ -69,54 +85,70 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	let _35!: rt.Fmt;
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
-	} else if (self.tag === "Long") {
+	}
+	if (self.tag === "Long") {
 		return rt.fmtWriteStr(f, "Long");
-	} else if (self.tag === "InvalidString") {
+	}
+	if (self.tag === "InvalidString") {
 		_7 = "InvalidString";
 		_8 = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8));
-	} else if (self.tag === "InvalidMessage") {
+	}
+	if (self.tag === "InvalidMessage") {
 		_11 = "InvalidMessage";
 		_12 = (f: rt.Formatter) => rt.u64Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _11), _12));
-	} else if (self.tag === "InvalidSubscribeLocation") {
+	}
+	if (self.tag === "InvalidSubscribeLocation") {
 		return rt.fmtWriteStr(f, "InvalidSubscribeLocation");
-	} else if (self.tag === "InvalidValue") {
+	}
+	if (self.tag === "InvalidValue") {
 		return rt.fmtWriteStr(f, "InvalidValue");
-	} else if (self.tag === "TooMany") {
+	}
+	if (self.tag === "TooMany") {
 		return rt.fmtWriteStr(f, "TooMany");
-	} else if (self.tag === "BoundsExceeded") {
+	}
+	if (self.tag === "BoundsExceeded") {
 		return rt.fmtWriteStr(f, "BoundsExceeded");
-	} else if (self.tag === "ExpectedEnd") {
+	}
+	if (self.tag === "ExpectedEnd") {
 		return rt.fmtWriteStr(f, "ExpectedEnd");
-	} else if (self.tag === "MessageTooLarge") {
+	}
+	if (self.tag === "MessageTooLarge") {
 		_21 = "MessageTooLarge";
 		_22 = "size";
 		_23 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
 		_24 = "max";
 		_25 = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _21), _22, _23), _24, _25));
-	} else if (self.tag === "ExpectedData") {
+	}
+	if (self.tag === "ExpectedData") {
 		return rt.fmtWriteStr(f, "ExpectedData");
-	} else if (self.tag === "Duplicate") {
+	}
+	if (self.tag === "Duplicate") {
 		return rt.fmtWriteStr(f, "Duplicate");
-	} else if (self.tag === "Missing") {
+	}
+	if (self.tag === "Missing") {
 		return rt.fmtWriteStr(f, "Missing");
-	} else if (self.tag === "Unsupported") {
+	}
+	if (self.tag === "Unsupported") {
 		return rt.fmtWriteStr(f, "Unsupported");
-	} else if (self.tag === "TrailingBytes") {
+	}
+	if (self.tag === "TrailingBytes") {
 		return rt.fmtWriteStr(f, "TrailingBytes");
-	} else if (self.tag === "Version") {
+	}
+	if (self.tag === "Version") {
 		return rt.fmtWriteStr(f, "Version");
-	} else if (self.tag === "Session") {
+	}
+	if (self.tag === "Session") {
 		_34 = "Session";
 		_35 = (f: rt.Formatter) => SessionError.fmt$Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _34), _35));
-	} else if (self.tag === "MalformedAuthToken") {
-		return rt.fmtWriteStr(f, "MalformedAuthToken");
-	} else {
-		return rt.fmtWriteStr(f, "MultipleAuthTokens");
 	}
+	if (self.tag === "MalformedAuthToken") {
+		return rt.fmtWriteStr(f, "MalformedAuthToken");
+	}
+	return rt.fmtWriteStr(f, "MultipleAuthTokens");
 }
 
 /** A decode error. */
@@ -145,9 +177,8 @@ export type DecodeError =
 export function complete(self: DecodeError): DecodeError {
 	if (self.tag === "Short") {
 		return { tag: "InvalidValue" } as DecodeError;
-	} else {
-		return self;
 	}
+	return self;
 }
 
 export function from$From_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): DecodeError {

@@ -2041,25 +2041,41 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if matches!(&failed, Expr::Lit(t) if t == "false") {
 			return;
 		}
-		let message = match self.assert_message(msg, operands, span) {
-			Some(message) => message,
+		let panic = match self.assert_panic(msg, operands, span) {
+			Some(panic) => panic,
 			None => return,
 		};
 		// An assert that always fails, such as a coroutine's after it returned.
 		if matches!(&failed, Expr::Lit(t) if t == "true") {
-			pre.push(StmtKind::Expr(Expr::rt("panic", vec![message])).at(self.b.t.loc(span)));
+			pre.push(StmtKind::Expr(panic).at(self.b.t.loc(span)));
 			self.emit(pre, None, false, out);
 			return;
 		}
 		pre.push(
 			StmtKind::If {
 				cond: failed,
-				then: vec![StmtKind::Expr(Expr::rt("panic", vec![message])).at(None)],
+				then: vec![StmtKind::Expr(panic).at(None)],
 				els: Vec::new(),
 			}
 			.at(self.b.t.loc(span)),
 		);
 		self.emit(pre, None, false, out);
+	}
+
+	/// The panic of an assert that fails: the runtime's own function for a coroutine
+	/// resumed out of turn, as rustc calls a lang item, else `rt.panic`.
+	fn assert_panic(&mut self, msg: &mir::AssertMessage<'tcx>, operands: Vec<Expr>, span: Span) -> Option<Expr> {
+		use mir::AssertKind;
+		use rustc_hir::{CoroutineDesugaring, CoroutineKind};
+		let async_fn = |kind: &CoroutineKind| matches!(kind, CoroutineKind::Desugared(CoroutineDesugaring::Async, _));
+		match msg {
+			AssertKind::ResumedAfterReturn(kind) if async_fn(kind) => Some(Expr::rt("asyncFnResumed", Vec::new())),
+			AssertKind::ResumedAfterPanic(kind) if async_fn(kind) => Some(Expr::rt("asyncFnResumedPanic", Vec::new())),
+			_ => {
+				let message = self.assert_message(msg, operands, span)?;
+				Some(Expr::rt("panic", vec![message]))
+			}
+		}
 	}
 
 	/// The message an assert panics with, as the runtime spells it.
@@ -2093,8 +2109,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			AssertKind::OverflowNeg(_) => text("attempt to negate with overflow"),
 			AssertKind::DivisionByZero(_) => text("attempt to divide by zero"),
 			AssertKind::RemainderByZero(_) => text("attempt to calculate the remainder with a divisor of zero"),
-			AssertKind::ResumedAfterReturn(_) => text("`async fn` resumed after completion"),
-			AssertKind::ResumedAfterPanic(_) => text("`async fn` resumed after panicking"),
 			_ => {
 				self.err(span, format!("an assert of `{msg:?}`"));
 				None

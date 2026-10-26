@@ -19,9 +19,8 @@ export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt
 export function eq$PartialEq(self: Point, other: Point): boolean {
 	if (!(self.x === other.x)) {
 		return false;
-	} else {
-		return self.y === other.y;
 	}
+	return self.y === other.y;
 }
 
 /** A `Copy` struct, which Rust copies where JS would share. */
