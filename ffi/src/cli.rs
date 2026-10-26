@@ -170,28 +170,37 @@ fn patches(root: &Path) -> Result<String, String> {
 	let table: toml::Table = text
 		.parse()
 		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
-	let mut patches = toml::Table::new();
-	for key in ["patch", "replace"] {
-		if let Some(value) = table.get(key) {
-			let mut value = value.clone();
-			absolute(&mut value, root);
-			patches.insert(key.to_string(), value);
-		}
-	}
-	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+	toml::to_string(&overrides(&table, root))
+		.map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
 }
 
-/// Make each `path` in a patch absolute, from the directory its manifest is in.
-fn absolute(value: &mut toml::Value, root: &Path) {
-	let toml::Value::Table(table) = value else {
-		return;
-	};
-	for (key, value) in table.iter_mut() {
-		match (key.as_str(), value) {
-			("path", toml::Value::String(path)) => *path = root.join(&*path).display().to_string(),
-			(_, value) => absolute(value, root),
+/// A manifest's `[patch.<source>]` and `[replace]` dependencies, each path made absolute
+/// from `root`, the manifest's directory.
+fn overrides(manifest: &toml::Table, root: &Path) -> toml::Table {
+	let mut overrides = manifest.clone();
+	overrides.retain(|key, _| key == "patch" || key == "replace");
+	let mut deps: Vec<&mut toml::Value> = Vec::new();
+	for (key, value) in overrides.iter_mut() {
+		let Some(table) = value.as_table_mut() else {
+			continue;
+		};
+		match key.as_str() {
+			// A table of dependencies for each source.
+			"patch" => deps.extend(
+				(table.iter_mut())
+					.filter_map(|(_, source)| source.as_table_mut())
+					.flat_map(|source| source.iter_mut().map(|(_, dep)| dep)),
+			),
+			_ => deps.extend(table.iter_mut().map(|(_, dep)| dep)),
 		}
 	}
+	// A dependency's own table: a bare string is a version requirement.
+	for dep in deps {
+		if let Some(toml::Value::String(path)) = dep.get_mut("path") {
+			*path = root.join(path.as_str()).display().to_string();
+		}
+	}
+	overrides
 }
 
 /// What a cargo subcommand prints for the package, run as the check resolves: from the
@@ -352,6 +361,21 @@ struct Target {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn absolutes_override_paths() {
+		let manifest: toml::Table = "[dependencies]\nx = { path = \"x\" }\n\n\
+			[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"real\" }\n\n\
+			[replace]\n\"a:1.0.0\" = { path = \"a\" }\n"
+			.parse()
+			.unwrap();
+		let expected: toml::Table =
+			"[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"/ws/real\" }\n\n\
+			[replace]\n\"a:1.0.0\" = { path = \"/ws/a\" }\n"
+				.parse()
+				.unwrap();
+		assert_eq!(overrides(&manifest, Path::new("/ws")), expected);
+	}
 
 	#[test]
 	fn reads_what_picks_a_resolution() {
