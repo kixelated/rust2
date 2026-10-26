@@ -178,8 +178,8 @@ Output is ranked correctness first, speed second, and bundle size third: the
 consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
 constructs such as brand casts and annotations are free. Readable output is not a goal.
 Speed is a browser's: `just ts bench` runs Chrome and Firefox, and Node and Bun only as
-stand-ins for V8 and JavaScriptCore, as Safari runs it; where Node disagrees with Chrome,
-Chrome decides.
+stand-ins for V8 and JavaScriptCore, as Safari runs it; where any engine disagrees with
+Chrome, Chrome decides.
 It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
 bundler's job. Types must be solid at the API boundary: the `roots` items and
 `printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
