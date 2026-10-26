@@ -1,7 +1,7 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness (apart from the [Nix comparison](#nix-builds)), its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
 Every build-speed change here states its effect with its numbers.
 
 ```bash
@@ -97,7 +97,25 @@ A cold edit or bump costs what `clean` does, so only the warm ones run.
 Each Nix build runs in a store of its own, which substitutes only from cache.nixos.org, so nothing the host or moq's cache built leaks in; before the timed build, it realises everything the build needs that does not compile Rust (toolchain, sources, vendored crates).
 That store runs its builds as this user in user namespaces, which makes their CPU time the `nix` process's own; Ubuntu reserves those namespaces for root unless `kernel.apparmor_restrict_unprivileged_userns` is 0.
 Evaluation is timed apart from the build, since crate2nix evaluates a derivation per crate.
-crate2nix takes cargo's release codegen units rather than its default of one; `crate2nix generate`, which a project commits, is timed but not counted.
+The report compares retired instructions, which barely move with machine load, and shows CPU time beside them.
+crate2nix takes cargo's release codegen units rather than its default of one, so the variants differ in caching and not in codegen; `crate2nix generate`, which a project commits, is timed but not counted.
+
+### Nix builds for moq
+
+Measured on 2026-10-25 on a busy 32-CPU host, in billions of instructions, at the pin in nix.toml:
+
+| scenario | crane | crane-mbx | crate2nix | cargo-mbx |
+| --- | ---: | ---: | ---: | ---: |
+| `clean` | 3681 | 3377 | 4736 | 3378 |
+| `second-package` | 5926 | 3945 | 5951 | 3924 |
+| `edit-hub` | 1365 | 1351 | 1008 | 1276 |
+| `lock-bump` | 3681 | 1123 | 672 | 1113 |
+| total | 14756 | 9894 | 12461 | 9692 |
+
+- A lockfile bump costs crane a full dependency rebuild; the per-crate caches rebuild hyper and the 12 crates above it, a fifth of crane's cost or less.
+- moq-cli shares 285 of its 548 compilations with moq-relay; the rest are crates or feature sets moq-relay does not build. crane shares none, and its dependency layer runs a `cargo check` of every dependency before building them.
+- mbx restoring 434 compilations costs about as much as crate2nix rebuilding the edit outright.
+- crate2nix's clean build costs 29% more, since it compiles build scripts and proc macros at opt-level 3 where cargo uses 0. With its own default of one codegen unit it fell to crane's cost (3695), and its edit and bump to 753 and 496: a lever for cargo too.
 
 ## Cranelift for moq's CI
 

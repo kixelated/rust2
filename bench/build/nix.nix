@@ -71,7 +71,8 @@ let
       buildRustCrate = pkgs.buildRustCrate.override {
         rustc = toolchain;
         cargo = toolchain;
-        # Cargo's release default, which the other ways build with; buildRustCrate's is 1.
+        # Cargo's release default, which the other variants build with, so they
+        # compare caching and not codegen. buildRustCrate's own is 1.
         defaultCodegenUnits = 16;
       };
       plan = pkgs.callPackage "${src}/Cargo.nix" {
