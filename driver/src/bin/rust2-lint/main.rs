@@ -18,6 +18,7 @@ extern crate rustc_span;
 
 mod mono;
 
+use std::path::Path;
 use std::process::{Command, ExitCode};
 
 use rust2_driver::{cargo, rustc};
@@ -30,6 +31,9 @@ const TOOL: &str = "rust2-lint";
 
 /// Carries the mono budget from the CLI to the wrapper.
 const BUDGET: &str = "RUST2_MONO_BUDGET";
+
+/// Set by cargo for a package its command selected, whose crates get the budget.
+const PRIMARY: &str = "CARGO_PRIMARY_PACKAGE";
 
 /// The mono budget without `--mono-budget`, in MIR statements: about 4% of moq-net's
 /// test target, and 3x its heaviest generic once `moq_clock::sim::run` only forwards.
@@ -89,7 +93,7 @@ fn cli(args: &[String]) -> Result<ExitCode, String> {
 	let status = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
 		.args(command)
 		.env("RUSTC_WRAPPER", exe)
-		.env("CARGO_TARGET_DIR", cargo::target_dir(TOOL, None)?)
+		.env("CARGO_TARGET_DIR", cargo::target_dir(TOOL, manifest(command))?)
 		.env(BUDGET, budget.to_string())
 		.status()
 		.map_err(|err| format!("running cargo: {err}"))?;
@@ -97,6 +101,19 @@ fn cli(args: &[String]) -> Result<ExitCode, String> {
 		true => ExitCode::SUCCESS,
 		false => ExitCode::FAILURE,
 	})
+}
+
+/// The `--manifest-path` the cargo command names, if any, before the args it passes on.
+fn manifest(command: &[String]) -> Option<&Path> {
+	let own = command.iter().position(|arg| arg == "--").unwrap_or(command.len());
+	let command = &command[..own];
+	command
+		.iter()
+		.enumerate()
+		.find_map(|(i, arg)| match arg.strip_prefix("--manifest-path")? {
+			"" => command.get(i + 1).map(Path::new),
+			value => value.strip_prefix('=').map(Path::new),
+		})
 }
 
 fn parse_budget(value: &str) -> Result<u64, String> {
@@ -115,7 +132,7 @@ fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
 		]
 		.map(String::from),
 	);
-	let budget = match std::env::var_os("CARGO_PRIMARY_PACKAGE") {
+	let budget = match std::env::var_os(PRIMARY) {
 		None => None,
 		Some(_) => {
 			let value = std::env::var(BUDGET)
@@ -135,13 +152,13 @@ struct Lint {
 
 impl Callbacks for Lint {
 	fn after_expansion<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
-		if let Some(budget) = self.budget {
-			// Cargo rebuilds the crate when the budget changes, as it does for `env!`.
-			let value = Symbol::intern(&budget.to_string());
-			tcx.sess
-				.env_depinfo
-				.borrow_mut()
-				.insert((Symbol::intern(BUDGET), Some(value)));
+		// Cargo rebuilds the crate when either changes, as it does for `env!`: a crate built
+		// unchecked as a dependency is checked once the command selects its package.
+		let primary = std::env::var(PRIMARY).ok();
+		let budget = self.budget.map(|budget| budget.to_string());
+		let mut env = tcx.sess.env_depinfo.borrow_mut();
+		for (var, value) in [(PRIMARY, primary), (BUDGET, budget)] {
+			env.insert((Symbol::intern(var), value.as_deref().map(Symbol::intern)));
 		}
 		Compilation::Continue
 	}

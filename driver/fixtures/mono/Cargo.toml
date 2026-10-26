@@ -1,5 +1,5 @@
 [workspace]
-members = ["exec", "misplaced", "user"]
+members = ["dependent", "exec", "misplaced", "user"]
 resolver = "3"
 
 [workspace.package]

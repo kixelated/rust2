@@ -1,4 +1,4 @@
-//! Calls each of `exec`'s generics with 20 closure types, behind a feature apiece.
+//! Calls each of `exec`'s generics 20 ways, behind a feature apiece.
 
 macro_rules! calls {
 	($($n:literal)*) => {
@@ -15,6 +15,11 @@ macro_rules! calls {
 		#[cfg(feature = "thin")]
 		pub fn thin() -> u64 {
 			0 $(+ exec::thin(|x| x + $n))*
+		}
+
+		#[cfg(feature = "uneven")]
+		pub fn uneven() -> u64 {
+			exec::uneven::<exec::Yes, 0>() $(+ exec::uneven::<exec::No, $n>())*
 		}
 	};
 }

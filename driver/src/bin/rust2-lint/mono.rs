@@ -2,21 +2,21 @@
 //!
 //! A generic costs the optimized MIR statements of every copy the crate instantiates,
 //! as rustc's own size estimate counts them, with its closures and async bodies: each is
-//! one more copy per copy of the function that defines it. A generic fails when that
-//! total exceeds its budget, unless each copy is thin enough to only forward.
+//! part of the copy of the function that defines it. A generic fails when that total
+//! exceeds its budget, unless every copy is thin enough to only forward.
 
 use rustc_ast::LitKind;
 use rustc_attr_ir::Attribute;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def::DefKind;
 use rustc_middle::mono::{CollectionMode, MonoItem};
-use rustc_middle::ty::{Instance, InstanceKind, TyCtxt};
+use rustc_middle::ty::{GenericArgsRef, Instance, InstanceKind, TyCtxt};
 use rustc_span::def_id::DefId;
 use rustc_span::{Span, Symbol};
 
 /// The statements a copy may cost and still only forward: pin a future and hand it to a
-/// non-generic body, as an executor's entry point does in about 60. A generic this thin
-/// passes whatever its copies total, since the only thinner fix is fewer callers.
+/// non-generic body, as an executor's entry point does in about 60. A generic whose every
+/// copy is this thin passes whatever they total, since the only thinner fix is fewer callers.
 pub const THIN: u64 = 100;
 
 /// How many callers an error names.
@@ -27,16 +27,18 @@ const ATTRIBUTE: [&str; 2] = ["rust2", "mono_budget"];
 
 /// What one generic's copies cost.
 #[derive(Default)]
-struct Cost {
-	/// Copies of each function, the generic and its closures, by `DefId`.
-	copies: FxHashMap<DefId, u64>,
-	/// MIR statements across every copy.
-	statements: u64,
+struct Cost<'tcx> {
+	/// The MIR statements of each copy, its closures' included, by the generic's arguments:
+	/// a closure's own arguments start with them.
+	copies: FxHashMap<GenericArgsRef<'tcx>, u64>,
 }
 
-impl Cost {
-	/// Copies of the generic: one per instantiation, even of a body inlined away.
-	fn copies(&self) -> u64 {
+impl Cost<'_> {
+	fn statements(&self) -> u64 {
+		self.copies.values().sum()
+	}
+
+	fn largest(&self) -> u64 {
 		self.copies.values().copied().max().unwrap_or(0)
 	}
 }
@@ -45,43 +47,42 @@ impl Cost {
 /// statements, or than its own attribute allows.
 pub fn check(tcx: TyCtxt<'_>, budget: u64) {
 	let instances = instances(tcx);
-	let mut costs: FxHashMap<DefId, Cost> = FxHashMap::default();
+	let mut costs: FxHashMap<DefId, Cost<'_>> = FxHashMap::default();
 	for &instance in &instances {
-		let def = instance.def_id();
-		let generic = tcx.typeck_root_def_id(def);
-		if !tcx.generics_of(generic).requires_monomorphization(tcx) {
+		let generic = tcx.typeck_root_def_id(instance.def_id());
+		let generics = tcx.generics_of(generic);
+		if !generics.requires_monomorphization(tcx) {
 			continue;
 		}
-		let cost = costs.entry(generic).or_default();
-		*cost.copies.entry(def).or_default() += 1;
-		cost.statements += tcx.size_estimate(instance) as u64;
+		let copy = instance.args.truncate_to(tcx, generics);
+		*costs.entry(generic).or_default().copies.entry(copy).or_default() += tcx.size_estimate(instance) as u64;
 	}
-	let mut over: Vec<(DefId, Cost, u64)> = costs
+	let mut over: Vec<(DefId, Cost<'_>, u64)> = costs
 		.into_iter()
-		.filter(|(_, cost)| cost.statements > THIN * cost.copies())
+		.filter(|(_, cost)| cost.largest() > THIN)
 		.filter_map(|(generic, cost)| {
 			let limit = match limit(tcx, generic) {
 				Some(Ok(limit)) => limit,
 				Some(Err(())) => return None,
 				None => budget,
 			};
-			(cost.statements > limit).then_some((generic, cost, limit))
+			(cost.statements() > limit).then_some((generic, cost, limit))
 		})
 		.collect();
 	if over.is_empty() {
 		return;
 	}
-	over.sort_by_key(|(generic, cost, _)| (std::cmp::Reverse(cost.statements), tcx.def_path_str(*generic)));
+	over.sort_by_cached_key(|(generic, cost, _)| (std::cmp::Reverse(cost.statements()), tcx.def_path_str(*generic)));
 	let callers = callers(tcx, &instances, over.iter().map(|(generic, _, _)| *generic).collect());
 	for (generic, cost, limit) in over {
-		let copies = cost.copies();
 		let mut err = tcx.dcx().struct_span_err(
 			tcx.def_span(generic),
 			format!(
-				"`{}` costs {} MIR statements in {copies} copies of {} each, over its mono budget of {limit}",
+				"`{}` costs {} MIR statements in {} copies of up to {} each, over its mono budget of {limit}",
 				tcx.def_path_str(generic),
-				cost.statements,
-				cost.statements / copies.max(1),
+				cost.statements(),
+				cost.copies.len(),
+				cost.largest(),
 			),
 		);
 		let mut callers: Vec<_> = callers.get(&generic).into_iter().flatten().collect();

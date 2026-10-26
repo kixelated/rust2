@@ -51,7 +51,7 @@ fn fat_generic_fails_at_its_span_with_its_callers() {
 	assert!(!failed.status.success(), "{err}");
 	// Its async body is its cost: the function alone only makes the future.
 	assert!(err.contains("error: `exec::fat` costs "), "{err}");
-	assert!(err.contains(" in 21 copies of "), "{err}");
+	assert!(err.contains(" in 21 copies of up to "), "{err}");
 	let at = format!(
 		"--> exec/src/lib.rs:{}:1",
 		line_of("exec/src/lib.rs", "pub async fn fat")
@@ -81,6 +81,33 @@ fn forwarder_and_own_budget_pass() {
 		],
 	);
 	assert!(output.status.success(), "{}", stderr(&output));
+}
+
+#[test]
+fn one_fat_copy_among_thin_ones_fails() {
+	// Only `uneven::<Yes, 0>` instantiates its closure, so the average copy is thin.
+	let build = ["--", "build", "--package", "user", "--features", "uneven"];
+	let output = lint(&target("uneven"), &[&["--mono-budget", "100"][..], &build].concat());
+	let err = stderr(&output);
+	assert!(!output.status.success(), "{err}");
+	assert!(err.contains("error: `exec::uneven` costs "), "{err}");
+	assert!(err.contains(" in 21 copies of up to "), "{err}");
+}
+
+#[test]
+fn a_dependency_is_checked_once_selected() {
+	let target = target("selected");
+	// `dependent` builds `user` with `fat`, unchecked.
+	let dependency = lint(
+		&target,
+		&["--mono-budget", "1000", "--", "build", "--package", "dependent"],
+	);
+	assert!(dependency.status.success(), "{}", stderr(&dependency));
+	let build = ["--", "build", "--package", "user", "--features", "fat"];
+	let selected = lint(&target, &[&["--mono-budget", "1000"][..], &build].concat());
+	let err = stderr(&selected);
+	assert!(!selected.status.success(), "{err}");
+	assert!(err.contains("error: `exec::fat` costs "), "{err}");
 }
 
 #[test]

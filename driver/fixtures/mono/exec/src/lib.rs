@@ -43,6 +43,32 @@ fn forwarded(f: &dyn Fn(u64) -> u64) -> u64 {
 	body!(f) + body!(f) + body!(f)
 }
 
+/// Thin but for the one copy whose `M` runs its closure.
+pub fn uneven<M: Maybe, const N: u64>() -> u64 {
+	M::call(|| body!(|i: u64| i + N) + body!(|i: u64| i) + body!(|i: u64| i))
+}
+
+/// Whether `uneven`'s closure runs, and so is instantiated.
+pub trait Maybe {
+	fn call<F: FnOnce() -> u64>(f: F) -> u64;
+}
+
+pub struct Yes;
+
+impl Maybe for Yes {
+	fn call<F: FnOnce() -> u64>(f: F) -> u64 {
+		f()
+	}
+}
+
+pub struct No;
+
+impl Maybe for No {
+	fn call<F: FnOnce() -> u64>(_: F) -> u64 {
+		0
+	}
+}
+
 /// Polls `future` once, which it must finish in.
 pub fn block<F: Future>(future: F) -> F::Output {
 	match pin!(future).poll(&mut Context::from_waker(Waker::noop())) {
