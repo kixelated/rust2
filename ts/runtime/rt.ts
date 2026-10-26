@@ -213,11 +213,6 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 	return index < s.length ? s[index] : undefined;
 }
 
-/** `to_vec` of `Copy` elements. */
-export function sliceToVec<T>(s: readonly T[]): T[] {
-	return s.map(copy);
-}
-
 /**
  * `&[u8]` and `&mut [u8]`: `length` bytes of `data` from `start`. It never changes, so a
  * split makes another, which costs an object where a `Uint8Array` view costs several
@@ -476,23 +471,6 @@ export function stringAsBytes(s: string): ByteSlice {
 /** `str::len`: its length in UTF-8 bytes. */
 export function stringLen(s: string): number {
 	return encoder.encode(s).length;
-}
-
-// Values
-
-/**
- * A copy of a `Copy` value. Objects stand for structs, tuples, and arrays, and Rust
- * copies those where JS would share them.
- */
-export function copy<T>(value: T): T {
-	if (typeof value !== "object" || value === null) return value;
-	if (value instanceof Uint8Array) return value.slice() as T;
-	// A shared reference, which nothing changes.
-	if (value instanceof ByteSlice) return value;
-	if (Array.isArray(value)) return value.map(copy) as T;
-	const out = Object.create(Object.getPrototypeOf(value));
-	for (const key of Object.keys(value)) out[key] = copy((value as Record<string, unknown>)[key]);
-	return out;
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.

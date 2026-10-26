@@ -282,7 +282,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.place_expr(*place, span, out);
 				match self.force_share || self.into_frozen && self.frozen(*place) {
 					true => value,
-					false => self.b.copied(value, ty),
+					false => self.b.t.copied(value, ty, span),
 				}
 			}
 			Operand::Move(place) => {
@@ -290,7 +290,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.place_expr(*place, span, out);
 				match self.into_frozen {
 					true => value,
-					false => self.b.copied(value, ty),
+					false => self.b.t.copied(value, ty, span),
 				}
 			}
 			Operand::Constant(c) => self.constant(c, span),

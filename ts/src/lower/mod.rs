@@ -8,6 +8,7 @@
 mod body;
 mod collections;
 mod consts;
+mod copy;
 mod drop;
 mod fmt;
 mod iter;
@@ -145,6 +146,8 @@ pub struct Translator<'a, 'tcx> {
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The drop glue made from each type's drop shim.
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
+	/// The function copying each `Copy` aggregate type.
+	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
@@ -211,6 +214,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			glued: Default::default(),
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
+			copy_shims: Default::default(),
 			held: false,
 		})
 	}

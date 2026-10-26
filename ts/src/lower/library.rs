@@ -509,7 +509,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				ty::Adt(adt, _) if int_range(ty) => {
 					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
 				}
-				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.copied(value, ty),
+				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.t.copied(value, ty, span),
 				_ => return None,
 			}
 		}
@@ -526,9 +526,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		("Option", "is_none") => args.pop()?.binary("===", Expr::undefined()),
 		("Option", "as_ref" | "as_mut") => args.pop()?,
 		("Option", "copied" | "cloned") => {
-			let inner = targ(gargs, 0);
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
+			let option = tcx.instantiate_bound_regions_with_erased(sig).output();
 			let value = args.pop()?;
-			b.copied(value, inner)
+			b.t.copied(value, option, span)
 		}
 
 		// Results.
@@ -602,7 +603,13 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let values = args;
 			match is_u8(elem) {
 				true => Expr::rt("byteSliceToByteVec", values),
-				false if b.t.is_copy(elem) => Expr::rt("sliceToVec", values),
+				false if b.t.is_copy(elem) => {
+					let slice = values.into_iter().next()?;
+					match b.t.copy_fn(elem, span) {
+						Some(copy) => slice.member("map").call(vec![copy]),
+						None => slice.member("slice").call(Vec::new()),
+					}
+				}
 				false => return None,
 			}
 		}
@@ -631,7 +638,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 							Expr::ident(name)
 						}
 					};
-					let item = b.copied(value, elem);
+					let item = b.t.copied(value, elem, span);
 					let item_ty = b.t.ty(elem, span);
 					Expr::ident("Array").member("from").call(vec![
 						Expr::Object(vec![(crate::ts::Key::Name("length".into()), n)]),
