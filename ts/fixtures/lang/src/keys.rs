@@ -76,6 +76,35 @@ impl PartialOrd for Skew {
 /// A `ne` of its own that disagrees with `eq`, which an `Option`'s `!=` never calls.
 struct Picky(u8);
 
+/// A key whose `Eq` and `Ord` panic, which a lookup that compares nothing never calls.
+struct Touchy(u8);
+
+impl Hash for Touchy {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+	}
+}
+
+impl PartialEq for Touchy {
+	fn eq(&self, _: &Self) -> bool {
+		panic!("compared {}", self.0)
+	}
+}
+
+impl Eq for Touchy {}
+
+impl PartialOrd for Touchy {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Touchy {
+	fn cmp(&self, _: &Self) -> Ordering {
+		panic!("ordered {}", self.0)
+	}
+}
+
 impl PartialEq for Picky {
 	fn eq(&self, other: &Self) -> bool {
 		self.0 == other.0
@@ -252,7 +281,6 @@ fn places(data: &[u8], out: &mut Vec<u8>) {
 	let mut hops: HashMap<Hop, u16> = HashMap::new();
 	let mut pairs: BTreeMap<Hop, (u8, u8)> = BTreeMap::new();
 	for (i, &b) in data.iter().enumerate() {
-		// Enough keys that the B-tree has more than one leaf.
 		let k = b % 97;
 		match b % 6 {
 			0 => *counts.entry(k).or_default() += 1,
@@ -295,6 +323,23 @@ fn places(data: &[u8], out: &mut Vec<u8>) {
 		p.0 = p.0.wrapping_add(b);
 		p.1 ^= p.0;
 	}
+	// More keys than a B-tree leaf holds, so an insert splits the leaf its place is in.
+	let mut tree: BTreeMap<u16, u16> = BTreeMap::new();
+	for j in 0..data.len() * 4 {
+		let b = data[j % data.len()];
+		let v = tree.entry((j as u16 * 37) ^ b as u16).or_insert(j as u16);
+		*v = v.wrapping_add(b as u16);
+	}
+	for (k, v) in &tree {
+		out.extend_from_slice(&k.to_be_bytes());
+		out.extend_from_slice(&v.to_be_bytes());
+	}
+	// An entry of an empty map compares no keys, so its place is had without one.
+	let mut touchy: BTreeMap<Touchy, u8> = BTreeMap::new();
+	*touchy.entry(Touchy(data.len() as u8)).or_insert_with(|| 7) += 1;
+	let mut hashy: HashMap<Touchy, u8> = HashMap::new();
+	*hashy.entry(Touchy(data.len() as u8)).or_default() += 2;
+	out.extend(touchy.values().chain(hashy.values()));
 	// A reference into a map, written by a closure, swapped whole, and moved.
 	let c = counts.entry(0).or_default();
 	let mut bump = || *c += 1;

@@ -9,6 +9,7 @@ import * as Never from "./keys.Never.ts";
 import * as Picky from "./keys.Picky.ts";
 import * as Side from "./keys.Side.ts";
 import * as Skew from "./keys.Skew.ts";
+import * as Touchy from "./keys.Touchy.ts";
 
 export function hop(b: rt.u8): Hop.Hop | undefined {
 	let _2!: rt.u8;
@@ -569,17 +570,30 @@ export function places(data: Uint8Array, out: rt.ByteVec): void {
 	let e4!: rt.Entry<Hop.Hop, rt.u16>;
 	let _139!: Hop.Hop;
 	let _144!: rt.u8;
+	let tree!: rt.BTreeMap<rt.u16, rt.u16>;
+	let _150!: rt.usize;
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
+	let _154!: rt.usize;
+	let j!: rt.usize;
+	let b2!: rt.u8;
+	let _159!: rt.usize;
+	let _167!: rt.u16;
+	let iter3!: rt.Iter<[rt.u16, rt.u16]>;
+	let _179!: [rt.u16, rt.u16] | rt.Done;
+	let touchy!: rt.BTreeMap<Touchy.Touchy, rt.u8>;
+	let hashy!: rt.HashMap<Touchy.Touchy, rt.u8>;
 	let bump!: () => void;
 	let spare!: rt.usize[];
-	let iter2!: rt.Iter<[rt.u8, rt.usize]>;
-	let _172!: [rt.u8, rt.usize] | rt.Done;
-	let iterStart!: rt.u8;
-	let iterEnd!: rt.u8;
-	let _188!: rt.u8;
-	let iter4!: rt.Range<rt.u64>;
-	let _204!: rt.u64 | rt.Done;
-	let iter5!: rt.Iter<[Hop.Hop, [rt.u8, rt.u8]]>;
-	let _221!: [Hop.Hop, [rt.u8, rt.u8]] | rt.Done;
+	let iter4!: rt.Iter<[rt.u8, rt.usize]>;
+	let _241!: [rt.u8, rt.usize] | rt.Done;
+	let iterStart2!: rt.u8;
+	let iterEnd2!: rt.u8;
+	let _257!: rt.u8;
+	let iter6!: rt.Range<rt.u64>;
+	let _273!: rt.u64 | rt.Done;
+	let iter7!: rt.Iter<[Hop.Hop, [rt.u8, rt.u8]]>;
+	let _290!: [Hop.Hop, [rt.u8, rt.u8]] | rt.Done;
 	counts = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.usize>;
 	wide = rt.hashNew() as rt.HashMap<rt.u8, rt.u64>;
 	hops = rt.hashNew(rt.hashing(Hop.hash$Hash_DefaultHasher, Hop.eq$PartialEq)) as rt.HashMap<Hop.Hop, rt.u16>;
@@ -588,56 +602,92 @@ export function places(data: Uint8Array, out: rt.ByteVec): void {
 	while (true) {
 		_11 = iter.next();
 		if (_11 === rt.DONE) {
-			const place15 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
-				return 0;
-			});
-			bump = (): void => {
-				place15.v = rt.usizeAdd(place15.v, 1);
-			};
-			bump();
-			spare = [data.length, 8];
-			const place16 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
-			const swapped = place16.v;
-			place16.v = spare[0];
-			spare[0] = swapped;
-			const place17 = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
-				return 0;
-			});
-			place17.v = rt.usizeAdd(place17.v, spare[0]);
-			iter2 = rt.btreeIter(counts);
+			tree = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u16, rt.u16>;
+			_150 = rt.usizeMul(data.length, 4);
+			iterStart = 0;
+			iterEnd = _150;
 			while (true) {
-				_172 = iter2.next();
-				if (_172 === rt.DONE) {
-					iterStart = 0;
-					iterEnd = 7;
+				if (!((_154 = iterStart++) < iterEnd)) {
+					iter3 = rt.btreeIter(tree);
 					while (true) {
-						if (!((_188 = iterStart++) < iterEnd)) {
-							iter4 = new rt.Range(0, 6, rt.u64Step);
+						_179 = iter3.next();
+						if (_179 === rt.DONE) {
+							touchy = rt.btreeNew(Touchy.cmp$Ord) as rt.BTreeMap<Touchy.Touchy, rt.u8>;
+							const place16 = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
+								return 7;
+							});
+							place16.v = rt.u8Add(place16.v, 1);
+							hashy = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
+							const place17 = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
+								return 0;
+							});
+							place17.v = rt.u8Add(place17.v, 2);
+							rt.iterExtendBytes(out, rt.iterChain(rt.btreeValues(touchy), rt.hashValues(hashy)));
+							const place18 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
+								return 0;
+							});
+							bump = (): void => {
+								place18.v = rt.usizeAdd(place18.v, 1);
+							};
+							bump();
+							spare = [data.length, 8];
+							const place19 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
+							const swapped = place19.v;
+							place19.v = spare[0];
+							spare[0] = swapped;
+							const place20 = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
+								return 0;
+							});
+							place20.v = rt.usizeAdd(place20.v, spare[0]);
+							iter4 = rt.btreeIter(counts);
 							while (true) {
-								_204 = iter4.next();
-								if (_204 === rt.DONE) {
-									iter5 = rt.btreeIter(pairs);
+								_241 = iter4.next();
+								if (_241 === rt.DONE) {
+									iterStart2 = 0;
+									iterEnd2 = 7;
 									while (true) {
-										_221 = iter5.next();
-										if (_221 === rt.DONE) {
-											return;
+										if (!((_257 = iterStart2++) < iterEnd2)) {
+											iter6 = new rt.Range(0, 6, rt.u64Step);
+											while (true) {
+												_273 = iter6.next();
+												if (_273 === rt.DONE) {
+													iter7 = rt.btreeIter(pairs);
+													while (true) {
+														_290 = iter7.next();
+														if (_290 === rt.DONE) {
+															return;
+														} else {
+															rt.byteVecPush(out, rt.u64Low(_290[0]._0) & 0xff);
+															rt.byteVecPush(out, _290[1][0]);
+															rt.byteVecPush(out, _290[1][1]);
+														}
+													}
+												} else {
+													rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(rt.optionUnwrapOr(rt.hashGet(hops, { _0: _273 }), 0)));
+												}
+											}
 										} else {
-											rt.byteVecPush(out, rt.u64Low(_221[0]._0) & 0xff);
-											rt.byteVecPush(out, _221[1][0]);
-											rt.byteVecPush(out, _221[1][1]);
+											rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.hashGet(wide, _257), 0)));
 										}
 									}
 								} else {
-									rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(rt.optionUnwrapOr(rt.hashGet(hops, { _0: _204 }), 0)));
+									rt.byteVecPush(out, _241[0]);
+									rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(_241[1] as rt.u32));
 								}
 							}
 						} else {
-							rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.hashGet(wide, _188), 0)));
+							rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_179[0]));
+							rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_179[1]));
 						}
 					}
 				} else {
-					rt.byteVecPush(out, _172[0]);
-					rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(_172[1] as rt.u32));
+					j = _154;
+					_159 = rt.usizeRem(j, data.length);
+					rt.idx(data, _159);
+					b2 = data[_159];
+					_167 = rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16;
+					const place15 = rt.entryOrInsertMut(rt.entry(tree, _167), j & 0xffff);
+					place15.v = rt.u16WrappingAdd(place15.v, b2 as rt.u16);
 				}
 			}
 		} else {

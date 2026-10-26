@@ -346,12 +346,14 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V): V | undefi
 	return undefined;
 }
 
-/** Add a hashed key that is not there yet. */
-function add<K, V>(m: HashMap<K, V>, key: K, value: V): void {
+/** Add a hashed key that is not there yet: its new slot. */
+function add<K, V>(m: HashMap<K, V>, key: K, value: V): Slot<K, V> {
 	m.o ??= new Map();
 	const hash = (m.h as Hashing<K>).hash(key);
-	m.o.set(hash, { k: key, v: value, next: m.o.get(hash) });
+	const s = { k: key, v: value, next: m.o.get(hash) };
+	m.o.set(hash, s);
 	m.n++;
+	return s;
 }
 
 /** `HashSet::insert`: whether `key` was not there yet. An equal key already there stays. */
@@ -1139,10 +1141,11 @@ function isHash<K, V>(m: HashMap<K, V> | BTreeMap<K, V>): m is HashMap<K, V> {
 export function entryOrInsertWith<K, V>(e: Entry<K, V>, make: (key: K) => V): V {
 	const m = e.m;
 	if (isHash(m)) {
-		const found = hashGet(m, e.k);
+		if (hashed(m, e.k)) return (slot(m, e.k) ?? add(m, e.k, make(e.k))).v;
+		const found = m.p.get(e.k);
 		if (found !== undefined) return found;
 		const value = make(e.k);
-		hashInsert(m, e.k, value);
+		m.p.set(e.k, value);
 		return value;
 	}
 	const l = leafOf(m, e.k);
@@ -1193,8 +1196,20 @@ export function entryGetMut<K, V>(e: Entry<K, V>): Place<V> {
  * `or_default`: its place, after inserting `make()`'s value if the map lacks the key.
  */
 export function entryOrInsertWithMut<K, V>(e: Entry<K, V>, make: (key: K) => V): Place<V> {
-	entryOrInsertWith(e, make);
-	return entryGetMut(e);
+	// The place comes from the one search, as Rust's comes from its entry: a second would
+	// compare keys where Rust compares none.
+	const m = e.m;
+	if (isHash(m)) {
+		if (hashed(m, e.k)) return slot(m, e.k) ?? add(m, e.k, make(e.k));
+		if (!m.p.has(e.k)) m.p.set(e.k, make(e.k));
+		return new AtKey(m.p, e.k);
+	}
+	const l = leafOf(m, e.k);
+	const i = search(l.k, e.k, m.c);
+	if (i >= 0) return new AtIndex(l.v, i);
+	insertAt(m, l, ~i, e.k, make(e.k));
+	// A split keeps the leaf's first half and moves the rest to the next leaf.
+	return ~i < l.k.length ? new AtIndex(l.v, ~i) : new AtIndex((l.next as Leaf<K, V>).v, ~i - l.k.length);
 }
 
 /** `Entry::or_insert` and `VacantEntry::insert` of a value JS copies: its place. */
