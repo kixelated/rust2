@@ -33,7 +33,7 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.u8, rt.ByteSlice];
 	const b: rt.u8 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 8));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 8);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u8Add(a, b);
@@ -152,7 +152,7 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.u16, rt.ByteSlice];
 	const b: rt.u16 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 16));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 16);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u16Add(a, b);
@@ -271,7 +271,7 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.u32, rt.ByteSlice];
 	const b: rt.u32 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 32);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u32Add(a, b);
@@ -390,7 +390,7 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.u64, rt.ByteSlice];
 	const b: rt.u64 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 64));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 64);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u64Add(a, b);
@@ -509,7 +509,7 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.u128, rt.ByteSlice];
 	const b: rt.u128 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 128));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 128);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u128Add(a, b);
@@ -628,7 +628,7 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.usize, rt.ByteSlice];
 	const b: rt.usize = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 32);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.usizeAdd(a, b);
@@ -747,7 +747,7 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.i8, rt.ByteSlice];
 	const b: rt.i8 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 8));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 8);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i8Add(a, b);
@@ -866,7 +866,7 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.i16, rt.ByteSlice];
 	const b: rt.i16 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 16));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 16);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i16Add(a, b);
@@ -985,7 +985,7 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.i32, rt.ByteSlice];
 	const b: rt.i32 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 32);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i32Add(a, b);
@@ -1104,7 +1104,7 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.i64, rt.ByteSlice];
 	const b: rt.i64 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 64));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 64);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i64Add(a, b);
@@ -1223,7 +1223,7 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.i128, rt.ByteSlice];
 	const b: rt.i128 = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 128));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 128);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i128Add(a, b);
@@ -1342,7 +1342,7 @@ export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice4 = rt.byteSliceRange(data, n);
 	[_38, rt.byteSliceRange(slice4, n2)] as [rt.isize, rt.ByteSlice];
 	const b: rt.isize = _38;
-	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
+	const shift: rt.u32 = rt.u32Rem(rt.optionUnwrapOr(rt.byteSliceFirst(rt.byteSliceRange(slice4, n2)), 0) as rt.u32, 2 * 32);
 	const _52: rt.u8 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.isizeAdd(a, b);
@@ -2219,6 +2219,8 @@ export function convert(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(rt.i32FromBeBytes(Uint8Array.of(d, c, b, a)))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(fromHalves(rt.u64Low(rt.u64Shr(wide, 32)), rt.u64Low(wide)))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.u64FromHalves((rt.u64Low(rt.u64Shr(wide, 40)) & 0xff) as rt.u32, (rt.u64Low(wide) & 0xffff) as rt.u32))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(2147483647)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(134217728)));
 }
 
 /** A `u64` from its high and low 32 bits, as moq-net's varints join them. */

@@ -423,9 +423,9 @@ pub(super) fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &st
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
 }
 
-/// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.
+/// Whether `ty` compares in JS as Rust's `Ord` does: an integer, a `bool`, or a `char`.
 fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+	matches!(ty.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_))
 }
 
 /// `iter.collect::<ty>()` of `item`s.

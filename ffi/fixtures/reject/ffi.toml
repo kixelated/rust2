@@ -2,3 +2,6 @@ package = "reject-fixture"
 prefix = "reject"
 # An exclusion leaves an item out, so nothing refuses it.
 exclude = ["Excluded"]
+
+# Another export, whose `Size` claims the same C name as this one's.
+[crates.dep-fixture]

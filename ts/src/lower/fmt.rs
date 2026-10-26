@@ -222,6 +222,8 @@ pub fn std_impl<'tcx>(
 			Int::of(ty)?.method(method, vec![value, f])
 		}
 		ty::Bool if text => rt("bool", vec![value, f]),
+		ty::Char if tr == Trait::Display => rt("charDisplay", vec![value, f]),
+		ty::Char if tr == Trait::Debug => rt("charDebug", vec![value, f]),
 		ty::Str if tr == Trait::Display => Expr::rt("fmtPad", vec![f, value]),
 		ty::Str if tr == Trait::Debug => rt("str", vec![value, f]),
 		ty::Tuple(tys) if tys.is_empty() && tr == Trait::Debug => rt("unit", vec![value, f]),

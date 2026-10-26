@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 /// The command line every driver takes:
-/// `--config <file> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]`.
+/// `--config <file> (--out <dir> | --census <path>) [--manifest-path <Cargo.toml>] [-- <cargo args>]`.
 pub struct Args {
 	/// The driver's config file, absolute.
 	pub config: PathBuf,
@@ -21,7 +21,7 @@ pub struct Args {
 pub enum Output {
 	/// Its output, into this directory.
 	Dir(PathBuf),
-	/// A census of what it refuses, to this file, instead.
+	/// A census of what it refuses, to this file or directory, as the driver says, instead.
 	Census(PathBuf),
 }
 

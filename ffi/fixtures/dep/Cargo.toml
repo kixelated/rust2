@@ -1,0 +1,20 @@
+[package]
+name = "dep-fixture"
+description = "Another export, whose types the api fixture names across crates"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Explicitly an rlib, which cargo metadata calls one.
+[lib]
+name = "dep"
+crate-type = ["rlib"]
+
+[features]
+# Doubles each area's size: the tests enable it on this crate directly, which the export
+# must build as the check did.
+doubled = []
+
+[lints]
+workspace = true

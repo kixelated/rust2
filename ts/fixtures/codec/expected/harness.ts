@@ -361,7 +361,7 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 					} else if (_48 === 1) {
 						_47 = value;
 					} else {
-						_47 = rt.u64Of(18446744073709551615n);
+						_47 = { hi: 0xffffffff, lo: 0xffffffff } as rt.u64;
 					}
 					result = Encoder.varintOpt(w, _47);
 				} else if (_33 === 5) {

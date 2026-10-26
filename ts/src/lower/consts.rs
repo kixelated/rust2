@@ -41,6 +41,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
+			ty::Char => match leaf(valtree) {
+				Some(scalar) => Expr::lit(scalar.to_u32().to_string()),
+				None => self.err(span, "a char constant without a value"),
+			},
 			ty::Ref(_, inner, _) => match inner.kind() {
 				ty::Str => {
 					let bytes: Vec<u8> = children(valtree)
