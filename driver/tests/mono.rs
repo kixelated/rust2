@@ -95,19 +95,32 @@ fn one_fat_copy_among_thin_ones_fails() {
 }
 
 #[test]
-fn a_dependency_is_checked_once_selected() {
-	let target = target("selected");
-	// `dependent` builds `user` with `fat`, unchecked.
-	let dependency = lint(
-		&target,
+fn a_local_dependency_is_checked() {
+	// `dependent` builds `user` with `fat` as a dependency, which a later command could
+	// select and cargo would not rebuild.
+	let output = lint(
+		&target("dependency"),
 		&["--mono-budget", "1000", "--", "build", "--package", "dependent"],
 	);
-	assert!(dependency.status.success(), "{}", stderr(&dependency));
-	let build = ["--", "build", "--package", "user", "--features", "fat"];
-	let selected = lint(&target, &[&["--mono-budget", "1000"][..], &build].concat());
-	let err = stderr(&selected);
-	assert!(!selected.status.success(), "{err}");
+	let err = stderr(&output);
+	assert!(!output.status.success(), "{err}");
 	assert!(err.contains("error: `exec::fat` costs "), "{err}");
+	assert!(err.contains("could not compile `user`"), "{err}");
+}
+
+#[test]
+fn a_repeated_build_is_fresh() {
+	let target = target("fresh");
+	// The budget is tracked only where it is checked, so no crate is dirty on a rerun.
+	let args = ["--mono-budget", "1000000", "--", "build", "--package", "dependent"];
+	for run in ["first", "second"] {
+		let output = lint(&target, &args);
+		let err = stderr(&output);
+		assert!(output.status.success(), "{err}");
+		if run == "second" {
+			assert!(!err.contains("Compiling"), "{err}");
+		}
+	}
 }
 
 #[test]

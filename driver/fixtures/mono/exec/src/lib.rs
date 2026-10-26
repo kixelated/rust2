@@ -1,25 +1,25 @@
 //! Generics that `user` instantiates once per closure type, each over a forwarder's size
 //! but for `thin`.
 
-use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::pin;
 use std::task::{Context, Poll, Waker};
 
+// Plain arithmetic, so the generics it instantiates from std stay thin: `exec` is checked
+// too, under the tests' small budgets.
 macro_rules! body {
 	($f:expr) => {{
-		let mut map = BTreeMap::new();
-		for i in 0..16 {
-			map.insert($f(i), i);
-		}
-		let mut total = 0;
-		for (k, v) in &map {
-			total += match k % 4 {
-				0 => k * v,
-				1 => k + v,
-				2 => k.saturating_sub(*v),
-				_ => k ^ v,
-			};
+		let mut total: u64 = 0;
+		let mut i: u64 = 0;
+		while i < 16 {
+			let k: u64 = $f(i);
+			total = total.wrapping_add(match k % 4 {
+				0 => k.wrapping_mul(i),
+				1 => k.wrapping_add(i),
+				2 => k.saturating_sub(i),
+				_ => k ^ i,
+			});
+			i += 1;
 		}
 		total
 	}};
@@ -27,12 +27,12 @@ macro_rules! body {
 
 /// Its cost is its async body's, not its own.
 pub async fn fat<F: Fn(u64) -> u64>(f: F) -> u64 {
-	body!(f) + body!(f) + body!(f)
+	body!(f) + body!(f) + body!(f) + body!(f) + body!(f)
 }
 
 #[cfg_attr(rust2, rust2::mono_budget(limit = 1_000_000, reason = "the fixture's exception"))]
 pub async fn budgeted<F: Fn(u64) -> u64>(f: F) -> u64 {
-	body!(f) + body!(f) + body!(f)
+	body!(f) + body!(f) + body!(f) + body!(f) + body!(f)
 }
 
 pub fn thin<F: Fn(u64) -> u64>(f: F) -> u64 {
@@ -40,12 +40,12 @@ pub fn thin<F: Fn(u64) -> u64>(f: F) -> u64 {
 }
 
 fn forwarded(f: &dyn Fn(u64) -> u64) -> u64 {
-	body!(f) + body!(f) + body!(f)
+	body!(f) + body!(f) + body!(f) + body!(f) + body!(f)
 }
 
 /// Thin but for the one copy whose `M` runs its closure.
 pub fn uneven<M: Maybe, const N: u64>() -> u64 {
-	M::call(|| body!(|i: u64| i + N) + body!(|i: u64| i) + body!(|i: u64| i))
+	M::call(|| body!(|i: u64| i + N) + body!(|i: u64| i) + body!(|i: u64| i) + body!(|i: u64| i) + body!(|i: u64| i))
 }
 
 /// Whether `uneven`'s closure runs, and so is instantiated.

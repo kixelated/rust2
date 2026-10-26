@@ -3,7 +3,7 @@
 //! The binary is two programs, as rust2-ts is. Run directly, it is the CLI: it runs a
 //! cargo command with itself as `RUSTC_WRAPPER`. Run by cargo as that wrapper, it is
 //! rustc, which compiles every crate as rustc would, checks its `rust2` attributes, and
-//! checks the mono budget of the packages the command selected.
+//! checks the mono budget of each local package's crates.
 
 #![feature(rustc_private)]
 
@@ -32,9 +32,6 @@ const TOOL: &str = "rust2-lint";
 /// Carries the mono budget from the CLI to the wrapper.
 const BUDGET: &str = "RUST2_MONO_BUDGET";
 
-/// Set by cargo for a package its command selected, whose crates get the budget.
-const PRIMARY: &str = "CARGO_PRIMARY_PACKAGE";
-
 /// The mono budget without `--mono-budget`, in MIR statements: about 4% of moq-net's
 /// test target, and 3x its heaviest generic once `moq_clock::sim::run` only forwards.
 const DEFAULT_BUDGET: u64 = 50_000;
@@ -44,8 +41,8 @@ fn usage() -> String {
 		"usage: {TOOL} [--mono-budget <statements>] -- <cargo command>
 
 Runs the cargo command, such as `test --no-run -p <package>`, with this binary as
-rustc, into its own target directory. A crate of a package the command selects fails
-to compile when a generic it instantiates costs more MIR statements, across every copy,
+rustc, into its own target directory. A crate of a local package, a workspace member
+or path dependency, fails to compile when a generic it instantiates costs more MIR statements, across every copy,
 than the mono budget ({DEFAULT_BUDGET} unless given) or the generic's own:
 
   #[cfg_attr(rust2, rust2::mono_budget(limit = <statements>, reason = \"<why>\"))]
@@ -132,9 +129,14 @@ fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
 		]
 		.map(String::from),
 	);
-	let budget = match std::env::var_os(PRIMARY) {
-		None => None,
-		Some(_) => {
+	// Cargo caps the lints of a package it does not build from local source, a registry or
+	// git dependency, whose generics its dependents answer for instead. Every local crate is
+	// checked, selected or not: cargo would reuse one built unchecked as a dependency once a
+	// later command selects it, since selection is no part of its fingerprint.
+	let local = !args.iter().any(|arg| arg.starts_with("--cap-lints"));
+	let budget = match local {
+		false => None,
+		true => {
 			let value = std::env::var(BUDGET)
 				.map_err(|_| format!("{BUDGET} is unset: run {TOOL} itself, not as RUSTC_WRAPPER"))?;
 			Some(parse_budget(&value)?)
@@ -146,19 +148,19 @@ fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
 /// Checks the crate's `rust2` attributes, and its mono budget once rustc has collected
 /// its mono items.
 struct Lint {
-	/// The crate-wide mono budget, for a package cargo's command selected.
+	/// The crate-wide mono budget, for a local package.
 	budget: Option<u64>,
 }
 
 impl Callbacks for Lint {
 	fn after_expansion<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
-		// Cargo rebuilds the crate when either changes, as it does for `env!`: a crate built
-		// unchecked as a dependency is checked once the command selects its package.
-		let primary = std::env::var(PRIMARY).ok();
-		let budget = self.budget.map(|budget| budget.to_string());
-		let mut env = tcx.sess.env_depinfo.borrow_mut();
-		for (var, value) in [(PRIMARY, primary), (BUDGET, budget)] {
-			env.insert((Symbol::intern(var), value.as_deref().map(Symbol::intern)));
+		if let Some(budget) = self.budget {
+			// Cargo rebuilds the crate when the budget changes, as it does for `env!`.
+			let value = Symbol::intern(&budget.to_string());
+			tcx.sess
+				.env_depinfo
+				.borrow_mut()
+				.insert((Symbol::intern(BUDGET), Some(value)));
 		}
 		Compilation::Continue
 	}
