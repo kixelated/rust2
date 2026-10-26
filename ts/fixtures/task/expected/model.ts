@@ -80,7 +80,7 @@ export class sumFuture {
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
-			l0: while (true) {
+			while (true) {
 				switch (bb0) {
 					case 0:
 						if (this.#state === 0) {
@@ -90,7 +90,7 @@ export class sumFuture {
 							this.#inner = Guard.new(rt.u32Add(this.#guard$2.id, 100), Log.clone$Clone(this.#guard$2.log));
 							this.#total = 0;
 							bb0 = 4;
-							continue l0;
+							continue;
 						}
 						if (this.#state === 1) {
 							rt.asyncFnResumed();
@@ -98,13 +98,13 @@ export class sumFuture {
 							rt.asyncFnResumedPanic();
 						} else {
 							bb0 = 7;
-							continue l0;
+							continue;
 						}
 					case 4:
 						unwind = 32;
 						this.#awaitee = new recvFuture(this.#rx$2);
 						bb0 = 7;
-						continue l0;
+						continue;
 					case 7:
 						unwind = 31;
 						const _11: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
@@ -125,7 +125,7 @@ export class sumFuture {
 									Log.note(this.#inner.log, _32);
 									this.#total = rt.u64Add(this.#total, value);
 									bb0 = 4;
-									continue l0;
+									continue;
 								}
 							} else {
 								unwind = 33;
@@ -1186,56 +1186,56 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 			unwind = 75;
 			const _126: rt.u32 | rt.Done = Countdown.next$Iterator(iter);
 			if (_126 === rt.DONE) {
-				unwind = 76;
-				rt.drop(iter);
-				const arg6 = ([sum_] as [rt.u32])[0];
-				const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg6, f)];
-				Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
-				unwind = 77;
-				rt.dropAll(rest);
-				unwind = 0;
-				rt.drop(head);
-				return;
+				break;
 			}
 			sum_ = rt.u32Add(sum_, _126);
 		}
+		unwind = 76;
+		rt.drop(iter);
+		const arg6 = ([sum_] as [rt.u32])[0];
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg6, f)];
+		Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
+		unwind = 77;
+		rt.dropAll(rest);
+		unwind = 0;
+		rt.drop(head);
 	} catch (e) {
-		b3: {
-			b4: {
-				b5: {
+		b4: {
+			b5: {
+				b6: {
 					if (unwind === 0) {
 						throw e;
 					}
 					if (unwind === 75) {
 						rt.drop(iter);
-						break b5;
+						break b6;
 					}
 					if (unwind === 76) {
-						break b5;
+						break b6;
 					}
 					if (unwind === 77) {
-						break b4;
+						break b5;
 					}
 					if (unwind === 78) {
 						rt.drop(_73);
 					} else if (unwind !== 79) {
 						if (unwind === 80) {
 							rt.drop(_57);
-							break b3;
+							break b4;
 						}
 						if (unwind === 81) {
 							rt.drop(_39);
-							break b3;
+							break b4;
 						}
 						if (unwind === 82) {
 							rt.drop(_24);
-							break b3;
+							break b4;
 						}
 						rt.drop(_11);
-						break b3;
+						break b4;
 					}
 					rt.drop(_70);
-					break b3;
+					break b4;
 				}
 				rt.dropAll(rest);
 			}
@@ -1378,28 +1378,26 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		if (!(_179 < 2)) {
 			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _179);
 		}
-		b3: {
-			if (count === 0) {
-				Log.note(log, rt.fmtFormat(["no turns"]));
-			} else if (!(count < 4)) {
-				Log.note(log, rt.fmtFormat(["many turns"]));
-			} else {
-				let left: rt.u32 = count;
-				while (true) {
-					turn = Guard.new(left, Log.clone$Clone(log));
-					if (!(left === 1)) {
-						unwind = 142;
-						Guard.note(turn, "turn");
-						const _199: rt.u32 = rt.u32Sub(left, 1);
-						unwind = 143;
-						left = _199;
-						rt.drop(turn);
-					} else {
-						rt.drop(turn);
-						break b3;
-					}
+		if (count === 0) {
+			Log.note(log, rt.fmtFormat(["no turns"]));
+		} else if (!(count < 4)) {
+			Log.note(log, rt.fmtFormat(["many turns"]));
+		} else {
+			let left: rt.u32 = count;
+			while (true) {
+				turn = Guard.new(left, Log.clone$Clone(log));
+				if (!(left === 1)) {
+					unwind = 142;
+					Guard.note(turn, "turn");
+					const _199: rt.u32 = rt.u32Sub(left, 1);
+					unwind = 143;
+					left = _199;
+					rt.drop(turn);
+				} else {
+					break;
 				}
 			}
+			rt.drop(turn);
 		}
 		unwind = 145;
 		rt.dropAll(spares);
@@ -1422,16 +1420,16 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		unwind = 0;
 		rt.dropAll(pair.slice(1, 2));
 	} catch (e) {
-		b5: {
-			b6: {
-				b7: {
-					b8: {
-						b9: {
-							b10: {
-								b11: {
-									b12: {
-										b13: {
-											b14: {
+		b6: {
+			b7: {
+				b8: {
+					b9: {
+						b10: {
+							b11: {
+								b12: {
+									b13: {
+										b14: {
+											b15: {
 												if (unwind === 0) {
 													throw e;
 												}
@@ -1440,41 +1438,41 @@ export function turns(log: Log.Log, count: rt.u32): void {
 												} else if (unwind !== 143) {
 													if (unwind === 144) {
 														rt.drop(_171);
-														break b14;
+														break b15;
 													}
 													if (unwind === 145) {
-														break b14;
+														break b15;
 													}
 													if (unwind === 146) {
-														break b13;
+														break b14;
 													}
 													if (unwind === 147) {
-														break b12;
+														break b13;
 													}
 													if (unwind === 148) {
 														rt.drop(_112);
-														break b11;
+														break b12;
 													}
 													if (unwind === 149) {
-														break b11;
+														break b12;
 													}
 													if (unwind === 150) {
-														break b10;
+														break b11;
 													}
 													if (unwind === 151) {
-														break b9;
+														break b10;
 													}
 													if (unwind === 152) {
-														break b8;
+														break b9;
 													}
 													if (unwind === 153) {
-														break b7;
+														break b8;
 													}
 													if (unwind === 154) {
 														rt.drop(_4);
-														break b5;
+														break b6;
 													}
-													break b6;
+													break b7;
 												}
 												rt.dropAll(spares);
 											}
@@ -1559,7 +1557,7 @@ export class drainFuture {
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
-			l0: while (true) {
+			while (true) {
 				switch (bb0) {
 					case 0:
 						if (this.#state === 0) {
@@ -1567,7 +1565,7 @@ export class drainFuture {
 							this.#depth$2 = this.#depth;
 							this.#total = 0;
 							bb0 = 1;
-							continue l0;
+							continue;
 						}
 						if (this.#state === 1) {
 							rt.asyncFnResumed();
@@ -1576,32 +1574,32 @@ export class drainFuture {
 						} else {
 							if (this.#state === 3) {
 								bb0 = 7;
-								continue l0;
+								continue;
 							}
 							if (this.#state === 4) {
 								bb0 = 15;
-								continue l0;
+								continue;
 							}
 							bb0 = 22;
-							continue l0;
+							continue;
 						}
 					case 1:
 						if (this.#depth$2 === 1) {
 							unwind = 36;
 							this.#awaitee = new recvFuture(this.#rx$2);
 							bb0 = 7;
-							continue l0;
+							continue;
 						}
 						if (this.#depth$2 === 4) {
 							unwind = 36;
 							this.#awaitee$2 = new level3Future(this.#rx$2);
 							bb0 = 15;
-							continue l0;
+							continue;
 						}
 						unwind = 36;
 						this.#awaitee$3 = new level15Future(this.#rx$2);
 						bb0 = 22;
-						continue l0;
+						continue;
 					case 22:
 						unwind = 33;
 						const _29: rt.Poll<rt.u64 | undefined> = this.#awaitee$3.poll(_2);
@@ -1610,7 +1608,7 @@ export class drainFuture {
 							next = _29;
 							rt.drop(this.#awaitee$3);
 							bb0 = 27;
-							continue l0;
+							continue;
 						}
 						this.#state = 5;
 						return rt.Pending;
@@ -1622,7 +1620,7 @@ export class drainFuture {
 							next = _18;
 							rt.drop(this.#awaitee$2);
 							bb0 = 27;
-							continue l0;
+							continue;
 						}
 						this.#state = 4;
 						return rt.Pending;
@@ -1634,7 +1632,7 @@ export class drainFuture {
 							next = _7;
 							rt.drop(this.#awaitee);
 							bb0 = 27;
-							continue l0;
+							continue;
 						}
 						this.#state = 3;
 						return rt.Pending;
@@ -1648,7 +1646,7 @@ export class drainFuture {
 						}
 						this.#total = rt.u64Add(this.#total, next);
 						bb0 = 1;
-						continue l0;
+						continue;
 				}
 			}
 		} catch (e) {

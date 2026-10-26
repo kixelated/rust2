@@ -8,17 +8,18 @@ export interface Evens {
 }
 
 export function next$Iterator(self: Evens): rt.u8 | rt.Done {
-	l0: while (true) {
+	while (true) {
 		const _2: rt.u8 | rt.Done = self.inner.next();
 		if (_2 !== rt.DONE) {
 			const b: rt.u8 = _2;
-			if (!(rt.u8Rem(b, 2) === 0)) {
-				continue l0;
+			if (rt.u8Rem(b, 2) === 0) {
+				return b;
 			}
-			return b;
+		} else {
+			break;
 		}
-		return rt.DONE;
 	}
+	return rt.DONE;
 }
 
 //# sourceMappingURL=iters.Evens.ts.map
