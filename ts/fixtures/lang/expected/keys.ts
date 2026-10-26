@@ -35,8 +35,7 @@ export function hop(b: rt.u8): Hop.Hop | undefined {
 		return { _0: rt.u64Shr(b as rt.u64, 2) };
 	}
 	if (_2 === 2) {
-		const _11: rt.u64 = b >> 2 as rt.u64;
-		return { _0: rt.u64Sub(rt.u64Of(18446744073709551615n), _11) };
+		return { _0: rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, b >> 2 as rt.u64) };
 	}
 	return { _0: rt.u64Shl(b as rt.u64, 50) };
 }
