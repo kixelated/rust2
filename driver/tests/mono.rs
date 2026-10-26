@@ -137,6 +137,25 @@ fn a_lint_cap_does_not_skip_the_check() {
 }
 
 #[test]
+fn a_locked_build_keeps_its_lock() {
+	// Outside the fixture, which has its lock already.
+	let package = target("locked");
+	std::fs::create_dir_all(package.join("src")).unwrap();
+	let manifest = "[package]\nname = \"locked\"\nedition = \"2024\"\n\n[workspace]\n";
+	std::fs::write(package.join("Cargo.toml"), manifest).unwrap();
+	std::fs::write(package.join("src").join("lib.rs"), "").unwrap();
+	let path = package.join("Cargo.toml");
+	let output = lint(
+		&package.join("target"),
+		&["--", "build", "--locked", "--manifest-path", path.to_str().unwrap()],
+	);
+	let err = stderr(&output);
+	assert!(!output.status.success(), "{err}");
+	assert!(err.contains("because --locked was passed"), "{err}");
+	assert!(!package.join("Cargo.lock").exists());
+}
+
+#[test]
 fn a_repeated_build_is_fresh() {
 	let target = target("fresh");
 	// The budget is tracked only where it is checked, so no crate is dirty on a rerun.

@@ -99,7 +99,7 @@ fn cli(args: &[String]) -> Result<ExitCode, String> {
 		.env("RUSTC_WRAPPER", exe)
 		.env("CARGO_TARGET_DIR", cargo::target_dir(TOOL, manifest(command))?)
 		.env(BUDGET, budget.to_string())
-		.env(LOCAL, local_packages(&program, manifest(command))?)
+		.env(LOCAL, local_packages(&program, resolution(command))?)
 		.status()
 		.map_err(|err| format!("running cargo: {err}"))?;
 	Ok(match status.success() {
@@ -119,6 +119,32 @@ fn manifest(command: &[String]) -> Option<&Path> {
 			"" => command.get(i + 1).map(Path::new),
 			value => value.strip_prefix('=').map(Path::new),
 		})
+}
+
+/// The cargo command's flags that decide how cargo finds and resolves the workspace,
+/// which its metadata must honor too: `--locked` must not let metadata write the lock.
+fn resolution(command: &[String]) -> Vec<&String> {
+	let own = command.iter().position(|arg| arg == "--").unwrap_or(command.len());
+	let mut args = command[..own].iter();
+	let mut flags = Vec::new();
+	while let Some(arg) = args.next() {
+		match arg.as_str() {
+			"--locked" | "--frozen" | "--offline" => flags.push(arg),
+			"--manifest-path" | "--config" | "-Z" => {
+				flags.push(arg);
+				flags.extend(args.next());
+			}
+			value
+				if ["--manifest-path=", "--config=", "-Z"]
+					.iter()
+					.any(|flag| value.starts_with(flag)) =>
+			{
+				flags.push(arg)
+			}
+			_ => {}
+		}
+	}
+	flags
 }
 
 fn parse_budget(value: &str) -> Result<u64, String> {
@@ -157,7 +183,7 @@ fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
 
 /// The directories of the packages cargo builds from local source, workspace members and
 /// path dependencies, which cargo metadata lists without a `source`.
-fn local_packages(program: &OsStr, manifest: Option<&Path>) -> Result<OsString, String> {
+fn local_packages(program: &OsStr, resolution: Vec<&String>) -> Result<OsString, String> {
 	#[derive(Deserialize)]
 	struct Metadata {
 		packages: Vec<Package>,
@@ -169,10 +195,8 @@ fn local_packages(program: &OsStr, manifest: Option<&Path>) -> Result<OsString, 
 	}
 	let mut cmd = Command::new(program);
 	// Every feature, so a path dependency only a feature enables is local too.
-	cmd.args(["metadata", "--format-version", "1", "--all-features"]);
-	if let Some(manifest) = manifest {
-		cmd.arg("--manifest-path").arg(manifest);
-	}
+	cmd.args(["metadata", "--format-version", "1", "--all-features"])
+		.args(resolution);
 	let output = cmd.output().map_err(|err| format!("running cargo metadata: {err}"))?;
 	if !output.status.success() {
 		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
