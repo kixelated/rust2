@@ -52,13 +52,15 @@ impl Crate<'_> {
 
 	/// Write the crate into `out`: `Cargo.toml`, `src/`, and `include/<prefix>.h`.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
-		// Cargo unifies in what the configured package enables in each other export.
+		// Each by the name its items' paths start with. Cargo unifies in what the configured
+		// package enables in each other export.
 		let dependencies: String = (self.exports.iter())
 			.map(|export| {
 				let mut features: Vec<String> = export.features.iter().map(|f| format!("{f:?}")).collect();
 				features.sort();
 				format!(
-					"{} = {{ path = {:?}, default-features = false, features = [{}] }}\n",
+					"{} = {{ package = {:?}, path = {:?}, default-features = false, features = [{}] }}\n",
+					export.krate,
 					export.name,
 					export.dir.display().to_string(),
 					features.join(", ")

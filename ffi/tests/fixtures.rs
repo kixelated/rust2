@@ -394,8 +394,10 @@ fn diamond() {
 	);
 }
 
-/// Another export is bound by its package, not its crate name: a dependency whose crate
-/// shares the export's name stands in for none.
+/// Another export is bound by the configured package's dependency on it, not its crate
+/// name or source: a used dependency whose crate shares an unused export's name stands
+/// in for none, and two exports of one crate name export by their dependency names,
+/// with their sources remapped.
 #[test]
 fn lookalike() {
 	let package = package("lookalike");
@@ -404,7 +406,7 @@ fn lookalike() {
 		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
 		std::fs::write(path, text).unwrap();
 	};
-	// Both libraries are crate `shared`, and only `other` is used.
+	// Both libraries are crate `shared`.
 	for name in ["exp", "other"] {
 		write(
 			&format!("{name}/Cargo.toml"),
@@ -414,7 +416,7 @@ fn lookalike() {
 		);
 		write(
 			&format!("{name}/src/lib.rs"),
-			"pub struct Size {\n\tpub width: u32,\n}\n",
+			"pub struct Size {\n\tpub width: u32,\n}\n\nimpl Size {\n\tpub fn new(width: u32) -> Self {\n\t\tSelf { width }\n\t}\n}\n",
 		);
 	}
 	write(
@@ -433,7 +435,40 @@ fn lookalike() {
 	assert!(!output.status.success(), "a lookalike stood in for the export");
 	let stderr = String::from_utf8_lossy(&output.stderr);
 	assert!(
-		stderr.contains("[crates.lookalike-exp] needs `lookalike` to use crate `shared`"),
+		stderr.contains(
+			"[crates.lookalike-exp] needs `lookalike` to use its dependency `exp`, and it uses 0 crates of it"
+		),
 		"{stderr}"
 	);
+
+	write(
+		"src/lib.rs",
+		"pub fn total(a: exp::Size, b: other::Size) -> u32 {\n\ta.width + b.width\n}\n",
+	);
+	write(
+		"ffi.toml",
+		"package = \"lookalike\"\n\n[crates.lookalike-exp]\n\n\
+		[crates.lookalike-exp.rename]\n\"Size\" = \"exp_size\"\n\n[crates.lookalike-other]\n",
+	);
+	let out = package.join("out");
+	let remap = format!("--remap-path-prefix={}=/src", package.display());
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(package.join("ffi.toml"))
+		.arg("--out")
+		.arg(&out)
+		.env("CARGO_TARGET_DIR", package.join("build"))
+		.env("RUSTFLAGS", remap)
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the export failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	run(cargo()
+		.args(["build", "--quiet", "--manifest-path"])
+		.arg(out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(package.join("glue")));
 }

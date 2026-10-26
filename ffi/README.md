@@ -13,8 +13,8 @@ the front end it shares with [rust2-ts](../ts/README.md) in [`driver/`](../drive
 rustc has checked the configured library, it walks every `pub` item reachable from the
 crate root and exports it by fixed rules, or refuses it with a compile error at its span.
 It walks each other package the config lists the same way, from the metadata of the
-crate the library builds with, so one library holds them all and an export names
-another's types across crates. `--out` writes a crate of `extern "C"` functions over the
+crate the library uses through its dependency on that package, so one library holds them
+all and an export names another's types across crates. `--out` writes a crate of `extern "C"` functions over the
 libraries, its runtime beside it, and the header in `include/<prefix>.h`; `cargo build`
 on that crate makes a static and a shared library. That crate enables each export's
 features as the check did, including `--features <export>/<feature>`; such a feature on a

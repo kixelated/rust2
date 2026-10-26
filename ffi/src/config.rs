@@ -63,12 +63,10 @@ impl Config {
 /// An export's package, as the CLI resolves it for the wrapper.
 pub struct Package {
 	pub name: String,
-	/// Its library's crate name.
+	/// The name Rust code calls its library by: the configured package's crate name, and
+	/// another's name as a dependency of it, which binds it to the crate rustc loaded.
 	pub krate: String,
 	pub dir: PathBuf,
-	/// Its library's root file, which binds it to the crate rustc loaded: another
-	/// package's crate may share its name.
-	pub root: PathBuf,
 	/// The features the generated crate enables in it, beyond what the configured
 	/// package's enable.
 	pub features: Vec<String>,
@@ -77,24 +75,18 @@ pub struct Package {
 impl Package {
 	/// One line of [`env::CRATES`].
 	pub fn line(&self) -> String {
-		let (dir, root) = (self.dir.display(), self.root.display());
-		format!(
-			"{}\t{}\t{dir}\t{root}\t{}\n",
-			self.name,
-			self.krate,
-			self.features.join(",")
-		)
+		let dir = self.dir.display();
+		format!("{}\t{}\t{dir}\t{}\n", self.name, self.krate, self.features.join(","))
 	}
 
 	/// The packages [`env::CRATES`] lists, a line each.
 	pub fn parse(lines: &str) -> Result<Vec<Self>, String> {
 		(lines.lines())
 			.map(|line| match line.split('\t').collect::<Vec<_>>()[..] {
-				[name, krate, dir, root, features] => Ok(Self {
+				[name, krate, dir, features] => Ok(Self {
 					name: name.to_string(),
 					krate: krate.to_string(),
 					dir: PathBuf::from(dir),
-					root: PathBuf::from(root),
 					features: features
 						.split(',')
 						.filter(|f| !f.is_empty())

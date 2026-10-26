@@ -120,15 +120,26 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		let Some(lib) = lib else {
 			return Err(format!("{name} has no library"));
 		};
+		let dir = package.manifest_path.parent().expect("a manifest path has a parent");
+		// Another export by the name the configured package depends on it by, unique among
+		// its dependencies: crates of two packages may share a name.
+		let krate = match package.name == top.name {
+			true => Some(lib.name.clone()),
+			false => (top.dependencies.iter())
+				.filter(|d| d.kind.is_none() && d.name == package.name && d.path.as_deref() == Some(dir))
+				.map(|d| d.rename.clone().unwrap_or_else(|| lib.name.clone()))
+				.min(),
+		};
+		let Some(krate) = krate else {
+			return Err(format!(
+				"{name} is not a dependency of {}, which names each export",
+				config.package
+			));
+		};
 		let package = config::Package {
 			name: name.clone(),
-			krate: lib.name.replace('-', "_"),
-			dir: package
-				.manifest_path
-				.parent()
-				.expect("a manifest path has a parent")
-				.into(),
-			root: lib.src_path.clone(),
+			krate: krate.replace('-', "_"),
+			dir: dir.into(),
 			features: features.get(name.as_str()).cloned().unwrap_or_default(),
 		};
 		lines.push_str(&package.line());
@@ -254,13 +265,14 @@ struct Dependency {
 	rename: Option<String>,
 	/// `dev` or `build`, or none for a normal dependency.
 	kind: Option<String>,
+	/// The package's directory, for a path dependency.
+	path: Option<PathBuf>,
 }
 
 #[derive(serde::Deserialize)]
 struct Target {
 	name: String,
 	kind: Vec<String>,
-	src_path: PathBuf,
 }
 
 #[cfg(test)]

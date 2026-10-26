@@ -178,35 +178,38 @@ impl Export {
 		for (
 			i,
 			config::Package {
-				name: package,
-				krate,
-				root,
-				..
+				name: package, krate, ..
 			},
 		) in self.crates.iter().enumerate()
 		{
-			// Bound by its root file: another package's crate may share its name.
-			let root = std::fs::canonicalize(root).ok();
 			let found: Vec<CrateNum> = match i {
 				0 => vec![LOCAL_CRATE],
-				_ => (tcx.crates(()).iter().copied())
-					.filter(|&cnum| {
-						tcx.crate_name(cnum).as_str() == krate && root.is_some() && root_file(tcx, cnum) == root
-					})
-					.collect(),
+				_ => {
+					// The artifact cargo passed for the dependency, which is the package's
+					// own: another package's crate may share its name and source.
+					let files = extern_files(tcx, krate);
+					(tcx.crates(()).iter().copied())
+						.filter(|&cnum| {
+							let source = tcx.used_crate_source(cnum);
+							let paths = [&source.rlib, &source.rmeta, &source.dylib];
+							(paths.into_iter().flatten())
+								.any(|path| canonical(path).is_some_and(|p| files.contains(&p)))
+						})
+						.collect()
+				}
 			};
 			// Rust loads only the crates a crate's code names.
 			let [cnum] = found[..] else {
 				tcx.dcx().err(format!(
-					"rust2-ffi: [crates.{package}] needs `{}` to use crate `{krate}` from {}, and it uses {} of them",
+					"rust2-ffi: [crates.{package}] needs `{}` to use its dependency `{krate}`, and it uses {} crates of it",
 					self.config.package,
-					self.crates[i].root.display(),
 					found.len()
 				));
 				return None;
 			};
 			crates.push(collect::Crate {
 				krate: cnum,
+				name: krate,
 				package,
 				// A census counts the whole API, whatever the config leaves out.
 				exclude: match self.output {
@@ -236,14 +239,21 @@ impl Export {
 	}
 }
 
-/// The root file another crate was compiled from, canonical, unless rustc remapped it.
-fn root_file(tcx: TyCtxt<'_>, cnum: CrateNum) -> Option<PathBuf> {
-	let span = tcx.def_span(cnum.as_def_id());
-	let file = tcx.sess.source_map().lookup_source_file(span.lo());
-	let rustc_span::FileName::Real(name) = &file.name else {
-		return None;
+/// The files `--extern <name>=<file>` passes, canonical.
+fn extern_files(tcx: TyCtxt<'_>, name: &str) -> Vec<PathBuf> {
+	let Some(entry) = tcx.sess.opts.externs.get(name) else {
+		return Vec::new();
 	};
-	std::fs::canonicalize(name.local_path()?).ok()
+	match &entry.location {
+		rustc_session::config::ExternLocation::ExactPaths(paths) => {
+			paths.iter().filter_map(|p| canonical(p.canonicalized())).collect()
+		}
+		rustc_session::config::ExternLocation::FoundInLibrarySearchDirectories => Vec::new(),
+	}
+}
+
+fn canonical(path: &Path) -> Option<PathBuf> {
+	std::fs::canonicalize(path).ok()
 }
 
 /// Where `span` starts, relative to the crate's directory when inside it.
