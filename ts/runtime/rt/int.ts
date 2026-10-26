@@ -571,8 +571,9 @@ export const isizeStep: Step<isize> = i32Step as never;
 // width and sign, which each type's own passes as literals. A type's own takes the
 // number path itself where it is hot, small enough for a JIT to inline: through the
 // shared function alone, V8 took up to 1.7x as long on the codec's frames. 64-bit limbs
-// compute on their halves where that is several times faster than bigints; the rest
-// goes through bigints.
+// compute on their halves where that is several times faster than bigints, reading a
+// number's halves without boxing it, as does a product of two numbers at 128 bits; the
+// rest goes through bigints.
 
 type Wide = number | Limbs;
 

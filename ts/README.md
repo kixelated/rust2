@@ -94,7 +94,8 @@ object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bit
 `hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
 makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators and
 comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
-is `rt.u64Low(x)`.
+is `rt.u64Low(x)`. From MIR, `((hi as u64) << 32) | lo as u64` of halves of at most 32
+bits is one call, `rt.u64FromHalves(hi, lo)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -285,7 +286,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   that log what each adaptor reads. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
-  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow,
+  with products of those values at 128 bits and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
@@ -312,9 +314,11 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
 (`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, the same
 frame headers decoded as they arrive a few bytes at a time, which prices a decode that
-comes up `Short` and retries, and iterator chains over bytes. Each runs four ways:
-natively, as wasm32 at moq-wasm's size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
-helpers in `bench/iter.ts`), and translated; every route's output must match
+comes up `Short` and retries, iterator chains over bytes, and timestamps converted between
+timescales as moq-net's `Timestamp::convert` does, whose products pass 2^53. Each runs four ways:
+natively, as wasm32 at moq-wasm's size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
+helpers in `bench/iter.ts`, and `bigint` in `bench/rescale.ts`, as moq's `js/hang`
+converts timescales), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new
