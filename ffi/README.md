@@ -41,15 +41,19 @@ export nothing of their own.
 | a struct whose fields are all `pub`, not `#[non_exhaustive]`, which map, with no `Drop` of its own | a record: a struct, copied across |
 | an enum whose fields map, with no `Drop` of its own | a C enum without fields, or a struct of a tag and a union |
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
+| a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
+| a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
 | `async fn`, or a return that implements `Future` | a future: `f` makes it, `f_poll` polls it, `f_future_free` drops it; a function that is not `async` runs at the call, as in Rust |
 | `poll_x`, when `x` exports as a future | left out: the future is its poll |
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `Duration` | `<prefix>_duration` |
+| `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
+| `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>` | `X` |
@@ -57,8 +61,10 @@ export nothing of their own.
 
 A record or enum holds only values and `Copy` handles: one with a field that does not map,
 or that holds itself, is an object instead, and the census lists it. A borrowed return is
-returned as a copy, so it must be `Clone` and hold no other handle, whose clone would be a
-new one. Everything else is refused, and the census counts why.
+returned as a clone, so it must be `Clone`, and a handle in it is a new handle to the
+clone. A handle outlives every call, so a signature may not lend an object's `'static`
+form what C lends for the call, nor return an object that borrows. Everything else is
+refused, and the census counts why.
 
 ## The C ABI
 
@@ -115,4 +121,4 @@ The `api` fixture covers each rule once. `tests/api.c` runs the same script as t
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
 then it breaks each runtime check, which must abort with its message. The `reject`
 fixture's expected errors are `fixtures/reject/expected.txt`. moq-net's `moq/moq.c`
-publishes and subscribes to a track in one process, polling each read.
+publishes and subscribes to a track in one process, polling each read, and makes an origin.

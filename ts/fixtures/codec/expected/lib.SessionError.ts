@@ -4,21 +4,21 @@ import * as rt from "./rt.ts";
 
 export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "ProtocolViolation") {
-		return __formatter.writeStr("protocol violation");
+		return rt.fmtWriteStr(__formatter, "protocol violation");
 	} else {
 		const _0 = self._0;
 		const value = [_0] as [rt.u16];
 		const __display0 = value[0];
-		return __formatter.writeFmt(["app code=", (f: rt.Formatter) => rt.u16.display(__display0, f)]);
+		return rt.fmtWriteFmt(__formatter, ["app code=", (f: rt.Formatter) => rt.u16Display(__display0, f)]);
 	}
 }
 
 export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "ProtocolViolation") {
-		return f.writeStr("ProtocolViolation");
+		return rt.fmtWriteStr(f, "ProtocolViolation");
 	} else {
 		const __self0 = self._0;
-		return f.debugTuple("App").field((f: rt.Formatter) => rt.u16.display(__self0, f)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "App"), (f: rt.Formatter) => rt.u16Display(__self0, f)));
 	}
 }
 

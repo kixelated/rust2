@@ -6,6 +6,9 @@ mod ts
 # The C exporter, its own workspace on the TypeScript driver's nightly: `just ffi <recipe>`.
 mod ffi
 
+# The drivers' shared front end and rust2-lint, its own workspace on the TypeScript driver's nightly: `just driver <recipe>`.
+mod driver
+
 # The UniFFI fork, in the root workspace: `just uniffi <recipe>`.
 mod uniffi
 
@@ -25,6 +28,7 @@ check:
     cargo clippy --locked --workspace --all-targets -- -D warnings
     just ts check
     just ffi check
+    just driver check
     just uniffi check
 
 # Run the tests.
@@ -32,6 +36,7 @@ test:
     bash .claude/hooks/direnv.test.sh
     just ts test
     just ffi test
+    just driver test
     just uniffi test
 
 # Measure Rust build time on the pinned corpus; see bench/build/README.md.
@@ -54,3 +59,4 @@ fix:
     cargo fmt --all
     just ts fix
     just ffi fix
+    just driver fix

@@ -15,15 +15,15 @@ Decided with the maintainer on 2026-10-25, from the spike
 the fork's paused feature quests into it. Split into quests as work starts, ranked by what the
 census refuses and what moq waits on:
 
-- **Rules the census asks for**: tuples as out parameters (`origin::Producer::new`, so an
-  origin can be made), `Path<'a>` exported as `Path<'static>`, `Range<u64>` and
-  `RangeBounds`, and the borrowed `info()` returns of non-`Copy` objects, whose clone is a new
-  handle.
-- **Several crates**: moq-native's sessions and the media crates hold moq-ffi's remaining API.
+- **Paths without a lifetime**: [moq-dev/moq#6843](https://github.com/moq-dev/moq/pull/6843)
+  makes `Path` owned. Once it lands, bump the moq pin: the census then exports `Path::new`,
+  `strip_prefix`, and `Relative::new`, and drops `AsPath` and the `borrow` methods from
+  [the exclude list](/ffi/moq/ffi.toml), refusing only `Path::from_static`'s `'static` borrow.
+- **Several crates**: moq-tokio's sessions and the media crates hold moq-ffi's remaining API.
   Export each with its own census, naming another export's types across crates, as
   moq-pattern's re-exports already need.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
-  Decide between exporting that poll, a generated thread that drives it, or moq-native's
+  Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.
 - **A contract symbol** per build, checked when bindings load, so a header and a library from
   different builds refuse to mix. It replaces the fork's namespaced contract and per-method

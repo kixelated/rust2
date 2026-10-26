@@ -2,12 +2,15 @@
 //! must match line for line.
 
 use std::future::Future;
+use std::ops::Bound;
 use std::pin::pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
-use api_lib::{Channel, Counter, Event, LIMIT, Log, Logger, Message, Node, Point, Shape, Stamp, Tally};
+use api_lib::{
+	Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Point, Registry, Shape, Stamp, Tally, Window,
+};
 use bytes::Bytes;
 
 /// Keeps even levels, as `tests/api.c`'s implementation does.
@@ -68,6 +71,60 @@ fn main() {
 	let label = c.into_label(Some(p));
 	println!("label {label:?}");
 
+	let (below, above) = Counter::new("s", 7).split(5);
+	println!(
+		"split {} {} {} {}",
+		below.name(),
+		below.get(),
+		above.name(),
+		above.get()
+	);
+	let (only,) = api_lib::only(Counter::new("o", 3));
+	println!("only {} {}", only.name(), only.get());
+	for b in [2, 0] {
+		match api_lib::divide(7, b) {
+			Ok((q, r)) => println!("divide {q} {r}"),
+			Err(e) => println!("divide err {e}"),
+		}
+	}
+
+	// Each lent counter is a new handle to a clone.
+	let mut registry = Registry::new(Counter::new("first", 1));
+	println!("last {}", registry.last().is_some());
+	registry.push(Counter::new("last", 2));
+	let mut first = registry.first.clone();
+	let _ = first.add(10);
+	println!("first {} lent {}", registry.first.get(), first.get());
+	let mut last = registry.last().unwrap().clone();
+	let _ = last.add(10);
+	println!("last {} lent {}", registry.last().unwrap().get(), last.get());
+
+	let name = Name::owned("a".to_string());
+	let mut joined = name.join(&Name::owned("b".to_string()));
+	println!("joined {} {joined:?} {}", joined.as_str(), joined == name);
+	joined.rename("c".to_string());
+	println!("renamed {}", joined.as_str());
+	let long = api_lib::longer(joined, &Name::owned("dd".to_string()));
+	println!("longer {}", long.as_str());
+
+	println!("total {}", api_lib::total(2..5));
+	let wide = api_lib::widen(2..5, 1);
+	println!("widen {} {}", wide.start, wide.end);
+	println!(
+		"count {} {} {} {} {}",
+		api_lib::count(2..5),
+		api_lib::count(2..=5),
+		api_lib::count(3..),
+		api_lib::count(..),
+		api_lib::count((Bound::Excluded(2), Bound::Included(4)))
+	);
+	println!("end {:?} {:?}", api_lib::end(3), api_lib::end(0));
+	let window = Window {
+		range: 2..8,
+		end: api_lib::end(5),
+	};
+	println!("window {} {} {window:?}", window.contains(4), window.contains(6));
+
 	println!("{}", api_lib::greet("x", Shape::Square));
 	println!("len {}", api_lib::len(b"abc"));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
@@ -116,6 +173,11 @@ fn main() {
 	let mut recv = pin!(channel.recv());
 	if let Poll::Ready(payload) = recv.as_mut().poll(&mut cx) {
 		println!("recv {}", String::from_utf8_lossy(&payload));
+	}
+	channel.send(Bytes::from_static(b"sized"));
+	let mut sized = pin!(channel.recv_sized());
+	if let Poll::Ready((payload, len)) = sized.as_mut().poll(&mut cx) {
+		println!("sized {} {len}", String::from_utf8_lossy(&payload));
 	}
 
 	let list = Node {

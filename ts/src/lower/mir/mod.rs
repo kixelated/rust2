@@ -184,6 +184,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	range_nexts: FxHashSet<Local>,
 	/// Their names, and their flags' names, which a switch on their variant tests.
 	range_flags: FxHashMap<String, String>,
+	/// The halves a `|` joins into a `u64`, by the local of the shift that is its left side.
+	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
+	/// Temporaries of those joins, whose assignments go unlowered.
+	joined: FxHashSet<Local>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -226,6 +230,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			next_names: FxHashSet::default(),
 			range_nexts: FxHashSet::default(),
 			range_flags: FxHashMap::default(),
+			halves: FxHashMap::default(),
+			joined: FxHashSet::default(),
 		};
 		fx.analyze();
 		fx
@@ -319,6 +325,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		self.find_next_results();
+		self.find_halves();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -639,6 +646,64 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An `Iterator::next` returns the item or `rt.DONE` too.
 		if self.next {
 			self.next_results.insert(mir::RETURN_PLACE);
+		}
+	}
+
+	/// Each `(hi as u64) << 32 | lo as u64` of halves of at most 32 bits, as moq's
+	/// `from_halves` writes it, which lowers to `rt.u64FromHalves(hi, lo)`: no shift that
+	/// boxes limbs past 2^53, and no `|` that unboxes them. Its shift and casts go
+	/// unlowered, so it reads the halves where the `|` is, which takes temporaries read
+	/// once, of halves nothing assigns again.
+	fn find_halves(&mut self) {
+		let mir: &'m mir::Body<'tcx> = self.mir;
+		let tcx = self.tcx;
+		let temp = |op: &Operand<'tcx>| match op {
+			Operand::Move(p) => p.as_local().filter(|&l| self.defs[l] == 1 && self.uses[l] == 1),
+			_ => None,
+		};
+		// A temporary's cast to `u64` from at most 32 unsigned bits (`usize` is 32), and
+		// what it casts.
+		let half = |op: &Operand<'tcx>| {
+			let local = temp(op)?;
+			let Some(Rvalue::Cast(mir::CastKind::IntToInt, from, _)) = self.def_rvalue(local) else {
+				return None;
+			};
+			let narrow =
+				matches!(from.ty(&mir.local_decls, tcx).kind(), ty::Uint(u) if u.bit_width().is_none_or(|b| b <= 32));
+			let fixed = match from {
+				Operand::Constant(_) => true,
+				Operand::Copy(p) | Operand::Move(p) => {
+					p.as_local().is_some_and(|l| !self.mutated[l]) && self.stable(*p)
+				}
+				_ => false,
+			};
+			(narrow && fixed).then_some((local, from))
+		};
+		let mut found = Vec::new();
+		for data in mir.basic_blocks.iter() {
+			for stmt in &data.statements {
+				let StatementKind::Assign(assign) = &stmt.kind else {
+					continue;
+				};
+				let Rvalue::BinaryOp(mir::BinOp::BitOr, ops) = &assign.1 else {
+					continue;
+				};
+				let Some(shift) = temp(&ops.0).filter(|_| ops.0.ty(&mir.local_decls, tcx) == tcx.types.u64) else {
+					continue;
+				};
+				let Some(Rvalue::BinaryOp(mir::BinOp::Shl, shifted)) = self.def_rvalue(shift) else {
+					continue;
+				};
+				if self.const_int(&shifted.1) == Some(32)
+					&& let (Some(hi), Some(lo)) = (half(&shifted.0), half(&ops.1))
+				{
+					found.push((shift, hi, lo));
+				}
+			}
+		}
+		for (shift, (cast_hi, hi), (cast_lo, lo)) in found {
+			self.halves.insert(shift, (hi, lo));
+			self.joined.extend([shift, cast_hi, cast_lo]);
 		}
 	}
 
@@ -1280,6 +1345,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	fn assign(&mut self, place: Place<'tcx>, rvalue: &Rvalue<'tcx>, span: Span, out: &mut Vec<Stmt>) {
 		if let Some(local) = place.as_local() {
+			if self.joined.contains(&local) {
+				return;
+			}
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
@@ -1344,7 +1412,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		) {
 			(false, _) => value,
 			(true, Rvalue::Aggregate(kind, _)) if matches!(**kind, mir::AggregateKind::Adt(_, v, ..) if v.as_u32() == 0) => {
-				Expr::Rt("DONE")
+				Expr::Rt("DONE".into())
 			}
 			(true, Rvalue::Aggregate(..)) => value,
 			(true, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _))
@@ -1998,7 +2066,7 @@ fn parts_of(value: &Expr) -> Option<Vec<Expr>> {
 			Some(items.clone())
 		}
 		Expr::Object(props) => Some(props.iter().map(|(_, v)| v.clone()).collect()),
-		Expr::New(f, items) if matches!(&**f, Expr::Rt("Range")) => Some(items.clone()),
+		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range") => Some(items.clone()),
 		_ => None,
 	}
 }
@@ -2093,8 +2161,8 @@ fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
 /// An `Option` as `Iterator::next` returns it: the item, or `rt.DONE` for `None`.
 pub fn done_of(option: Expr) -> Expr {
 	match option {
-		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE"),
-		option => Expr::Rt("iter").member("fromOption").call(vec![option]),
+		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE".into()),
+		option => Expr::rt("iterFromOption", vec![option]),
 	}
 }
 

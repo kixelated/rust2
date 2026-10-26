@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function clone$Clone(self: Tag): Tag {
-	return { bytes: rt.ByteVec.from(self.bytes.view()) };
+	return { bytes: rt.byteVecFrom(rt.byteVecView(self.bytes)) };
 }
 
 /** A `Clone` that is not `Copy`, which `cloned` calls for each item. */

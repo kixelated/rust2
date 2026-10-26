@@ -3,8 +3,8 @@
 ## Goal
 
 Research work with a named consumer that is not waiting on it yet: the
-TypeScript translator's spikes and features, the UniFFI fork's gated or
-speculative work, and the driver's build-rule lint.
+TypeScript translator's spikes and features, and the UniFFI fork's gated or
+speculative work.
 
 ## Plan
 
@@ -23,14 +23,12 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 - [Lower bodies from MIR](/quest/m2/ts-mir.md) - the MIR spike's prototype becomes the only lowering, and the THIR one goes
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
-- [Wide-integer fast paths](/quest/m2/ts-wide-fast.md) - a fused `from_halves` and an unboxed limb product, kept only if measured faster
+- [Wide-integer runtime off bigint](/quest/m2/ts-wide-bigint.md) - checked sums, 128-bit quotients, and comparisons with numbers stop going through `bigint`, kept only if measured faster
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
-- [Collections](/quest/m2/ts-collections.md) - maps, sets, and queues keep Rust's key semantics
-- [Tree-shakable runtime](/quest/m2/ts-runtime-shake.md) - `rt`'s adaptors and formatters become individually exported functions, kept only if no slower
+- [Collection keys and element references](/quest/m2/ts-keys.md) - `Arc<str>` and `Option` keys, borrowed lookups, and `&mut` to a value in a collection translate
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
-- [Monomorphization budget lint](/quest/m2/mono-budget.md) - rust2-driver fails a build whose generic instantiations exceed a budget, with the generic's span
 - [Nightly MSVC and macOS](/quest/m2/uniffi-ci-msvc-macos.md) - the C and C++ fixtures compile nightly with MSVC and Apple Clang, at C++17 and C++20, and without exceptions or RTTI
 - [Symlinked paths](/quest/m2/uniffi-symlink-path.md) - the fork builds when a consumer reaches it through a symlink, as on macOS's `/var`
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

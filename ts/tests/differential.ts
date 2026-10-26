@@ -28,7 +28,8 @@ const wasm = new Wasm(await WebAssembly.compile(await readFile(wasmPath)));
 
 function translated(input: Uint8Array): Outcome {
 	try {
-		return harness.run(input).view().slice();
+		const out = harness.run(input);
+		return out.data.slice(0, out.length);
 	} catch (err) {
 		if (err instanceof Error && err.name === "Panic") return { panic: err.message };
 		throw err;
@@ -96,12 +97,20 @@ for (let op = 0; op < 8; op++) {
 if (wideArg === "wide") {
 	// 2^k - 1, 2^k, and 2^k + 1 for each k where a limb, a safe number, or a sign ends,
 	// and values without that structure, whose quotients and remainders are not round.
-	const edges = new Set<bigint>([1_000_000n, 0x9e3779b97f4a7c15n, 0x0123456789abcdefn, 0xfedcba9876543210n]);
+	const edges = new Set<bigint>([
+		1_000_000n,
+		0x9e3779b97f4a7c15n,
+		0x0123456789abcdefn,
+		0xfedcba9876543210n,
+		// Safe integers whose halves carry when multiplied, and a negative one.
+		0x1d3c5b7a9f8e6dn,
+		-0x1b2a3c4d5e6f71n & 0xffffffffffffffffn,
+	]);
 	for (const k of [0n, 1n, 16n, 21n, 31n, 32n, 33n, 52n, 53n, 54n, 63n, 64n]) {
 		for (const delta of [-1n, 0n, 1n]) edges.add(((1n << k) + delta) & 0xffffffffffffffffn);
 	}
-	// Small negative numbers, and where negative safe numbers end, as signed values.
-	for (const k of [1n, 53n]) {
+	// Small negative numbers, -2^32, and where negative safe numbers end, as signed values.
+	for (const k of [1n, 32n, 53n]) {
 		for (const delta of [-1n, 0n, 1n]) edges.add((-(1n << k) + delta) & 0xffffffffffffffffn);
 	}
 	const values = [...edges];
@@ -126,7 +135,16 @@ if (wideArg === "wide") {
 			}
 			// Negating an `i64` and an `i128`.
 			cases.push(Uint8Array.of(12, 3, ...be(x)), Uint8Array.of(12, 4, ...be(x), ...be(y)));
+			// `x * y` and `x.checked_mul(y)` at 128 bits, extended in each type's sign: a product
+			// of two numbers, past 2^53, multiplies their halves.
+			const signs = (v: bigint) => (v >> 63n === 1n ? 0xffffffffffffffffn : 0n);
+			for (const kind of [2, 13]) {
+				cases.push(Uint8Array.of(4, kind, ...be(0n), ...be(x), ...be(0n), ...be(y)));
+				cases.push(Uint8Array.of(10, kind, ...be(signs(x)), ...be(x), ...be(signs(y)), ...be(y)));
+			}
 		}
+		// Conversions, and halves joined back.
+		cases.push(Uint8Array.of(14, 0, ...be(x), ...be(x)));
 		for (const y of [0n, 1n, 1n << 32n, 1n << 63n, 0xffffffffffffffffn]) {
 			for (const from of [3, 4, 9, 10]) {
 				// A cast to every type, and every format spec.

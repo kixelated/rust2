@@ -14,7 +14,7 @@ export function next$Iterator(self: Evens): rt.u8 | rt.Done {
 			return rt.DONE;
 		}
 		const b = next;
-		if (rt.u8.rem(b, 2) === 0) {
+		if (rt.u8Rem(b, 2) === 0) {
 			return b;
 		}
 	}

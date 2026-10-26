@@ -43,13 +43,21 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", Expr::undefined()),
 					}),
 					Some(Std::Poll) => tests.push(match variant_index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending")),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending")),
+						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
+						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
 					}),
 					Some(Std::Result) => tests.push(match variant_index.index() {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					}),
+					Some(Std::Entry) => {
+						tests.push(super::collections::entry_test(*adt_def, *variant_index, scrut.clone()))
+					}
+					Some(Std::Ordering) => tests.push(
+						scrut
+							.clone()
+							.binary("===", super::collections::ordering_variant(*variant_index)),
+					),
 					None if adt_def.did().is_local() => {
 						let info = self.t.adt(*adt_def, pat.span);
 						let name = Expr::Str(adt_def.variant(*variant_index).name.to_string());
