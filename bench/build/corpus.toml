@@ -3,10 +3,13 @@
 
 # `args` selects what each scenario builds. `leaf` and `hub` are the crate roots
 # the incremental scenarios edit: a crate nothing in the build depends on, and
-# one most of the build depends on. `pure` fails the run if any crate in the
-# build has a build script or links native code; `no-c` allows pure-Rust build
-# scripts but fails on native links and on the cc and cmake crates. `test` is
-# what the test scenarios pass to `cargo nextest run`; a corpus without it skips them.
+# one most of the build depends on. `sync` and `async` are the body edits: a file
+# and the line in it that opens the body of a sync or async function the build
+# calls; a corpus without one skips its scenario. `pure` fails the run if any
+# crate in the build has a build script or links native code; `no-c` allows
+# pure-Rust build scripts but fails on native links and on the cc and cmake
+# crates. `test` is what the test scenarios pass to `cargo nextest run`; a corpus
+# without it skips them.
 
 [[corpus]]
 name = "moq"
@@ -15,6 +18,9 @@ rev = "f36c8482066bb5704d02d7cf7ea5350f5f78e025"
 args = ["-p", "moq-relay"]
 leaf = "rs/moq-relay/src/lib.rs"
 hub = "rs/moq-net/src/lib.rs"
+# What moq-relay calls to drain a session at shutdown, and awaits to see it close.
+sync = ["rs/moq-net/src/goaway.rs", "pub fn send(self, goaway: Goaway) -> Result<()> {"]
+async = ["rs/moq-net/src/session.rs", "pub async fn closed(&self) -> Error {"]
 # The tests of every workspace crate moq-relay builds, under the profile moq's CI
 # uses. Not moq-auth's: its tests depend on its published self, so no package
 # spec names it alone. The versions pick the workspace crate over a published one.
@@ -70,8 +76,9 @@ pure = true
 # compared against; a variant without one is a base. `rustflags` replaces any
 # host rustflags the corpus configures (none do today). `subcommand` goes between
 # cargo and `build` or `check`. `corpora` and `scenarios` limit a variant to those
-# they list, which its base must run too. A variant without `scenarios` runs all
-# but the test scenarios, which only the levers worth their cost list.
+# they list, which its base must run too. A variant without `scenarios` runs
+# `check`, `build`, `edit-leaf`, and `edit-hub`; only the levers worth their cost
+# list the body edits and the test scenarios.
 
 [[variant]]
 name = "baseline"
@@ -136,7 +143,7 @@ toolchain = "nightly"
 name = "ra-jit-baseline"
 toolchain = "ra-jit"
 corpora = ["moq", "moq-pure-crypto"]
-scenarios = ["build", "edit-leaf", "edit-hub"]
+scenarios = ["build", "edit-leaf", "edit-hub", "edit-sync", "edit-async"]
 
 [[variant]]
 name = "ra-jit"
@@ -144,4 +151,4 @@ base = "ra-jit-baseline"
 toolchain = "ra-jit"
 subcommand = "ra-jit"
 corpora = ["moq", "moq-pure-crypto"]
-scenarios = ["build", "edit-leaf", "edit-hub"]
+scenarios = ["build", "edit-leaf", "edit-hub", "edit-sync", "edit-async"]
