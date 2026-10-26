@@ -56,6 +56,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | Rust | TypeScript |
 | --- | --- |
 | `bool`, `str`, `String` | `boolean`, `string` |
+| `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `struct` | a plain object, typed by an interface; a class if it may drop |
@@ -105,9 +106,9 @@ runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A pl
 becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
-width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
-Unicode tables, so a character newer than its Unicode version is escaped where Rust
-prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
+width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string or `char` escapes by the JS
+engine's Unicode tables, so a character newer than its Unicode version is escaped where
+Rust prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
@@ -277,7 +278,7 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 ## Not yet
 
-These fail translation: floats, `char`, statics, async blocks that borrow a number
+These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
 takes it, in an iterator, in an enum or generic `Drop` type, passed to a std function
 that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
@@ -312,10 +313,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `bench::run` and then with it as the first root, which must keep every line in order.
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
-- `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, formatting, methods on generic types, iterators, with closures
-  that log what each adaptor reads, and std's collections, over keys whose own `Hash`,
-  `Eq`, and `Ord` disagree with JS's. Its differential test runs through `caller.ts`, a
+- `lang` covers every integer width's arithmetic and casts, `char`s next to each
+  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates,
+  formatting, methods on generic types, iterators, with closures that log what each
+  adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
+  disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow,

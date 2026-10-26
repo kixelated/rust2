@@ -2,12 +2,14 @@
 
 import * as rt from "./rt.ts";
 import * as Clash from "./collections.Clash.ts";
+import * as Cloned from "./collections.Cloned.ts";
 import * as Dir from "./collections.Dir.ts";
 import * as Fussy from "./collections.Fussy.ts";
 import * as Nibble from "./collections.Nibble.ts";
 import * as Pair from "./collections.Pair.ts";
 import * as Rank from "./collections.Rank.ts";
 import * as Tally from "./collections.Tally.ts";
+import * as Bumped from "./iters.Bumped.ts";
 
 /** A 64-bit key: small, or past 2^53, where it is no longer a JS number. */
 export function wide(b: rt.u8): rt.u64 {
@@ -1005,6 +1007,63 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 		if (pairs.n > 3) {
 			rt.dequePopFront(pairs);
 		}
+	}
+}
+
+/** `vec![a, b]` and `vec![x; n]`, of bytes, numbers, `Copy` tuples, and types that clone. */
+export function vecs(data: Uint8Array, out: rt.ByteVec): void {
+	let name!: string;
+	const a: rt.u8 = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+	const b: rt.u8 = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
+	const n: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(data, 2), 0) as rt.usize, 5);
+	const _16: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(data));
+	if (_16.ok) {
+		const s: string = _16.value;
+		name = s;
+	} else {
+		name = "?";
+	}
+	rt.byteVecExtendFromSlice(out, rt.byteVecView(rt.byteVecFrom(Uint8Array.of(a, b, 66))));
+	const pairs: [rt.u8, rt.u16][] = [[a, b as rt.u16] as [rt.u8, rt.u16]];
+	pairs.push([b, a as rt.u16] as [rt.u8, rt.u16]);
+	const at = rt.idx(pairs, 0);
+	pairs[at][0] = pairs[at][0] ^ 255;
+	const iterS: [rt.u8, rt.u16][] = pairs;
+	let iterI: number = 0;
+	while (true) {
+		const _39: [rt.u8, rt.u16] | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_39 === rt.DONE) {
+			rt.byteVecPush(out, [name, "x", name].length & 0xff);
+			const one: Cloned.Cloned[] = [{ depth: a, name: name }];
+			const at2 = rt.idx(one, 0);
+			rt.byteVecPush(out, one[at2].depth);
+			rt.byteVecExtendFromSlice(out, rt.byteVecView(rt.byteVecOf(b, n)));
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem(rt.u16Mul(a as rt.u16, 257), n, undefined)), (w: rt.u16): rt.u8 => {
+				return rt.u16Shr(w, 4) & 0xff;
+			}));
+			const tuples: [rt.u8, rt.u8][] = rt.vecFromElem([a, b] as [rt.u8, rt.u8], n, rt.copy);
+			if (n > 0) {
+				const at3 = rt.idx(tuples, 0);
+				tuples[at3][0] = 238;
+			}
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(tuples), (t: [rt.u8, rt.u8]): rt.u8 => {
+				return t[0] ^ t[1];
+			}));
+			rt.byteVecPush(out, rt.vecFromElem(name, n, undefined).length & 0xff);
+			const cloned: Cloned.Cloned[] = rt.vecFromElem({ depth: 0, name }, n, Cloned.clone$Clone);
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(cloned), (c: Cloned.Cloned): rt.u8 => {
+				return c.depth;
+			}));
+			const _113: rt.Iter<Cloned.Cloned> = rt.iterSlice(cloned);
+			rt.byteVecPush(out, rt.iterAll(_113, (c2: Cloned.Cloned): boolean => {
+				return rt.stringLen(c2.name) === data.length;
+			}) ? 1 : 0);
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem({ _0: b }, n, Bumped.clone$Clone)), (o: Bumped.Bumped): rt.u8 => {
+				return o._0;
+			}));
+			return;
+		}
+		rt.byteVecPush(out, _39[0] ^ (_39[1] & 0xff));
 	}
 }
 

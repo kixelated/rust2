@@ -12,7 +12,7 @@ use rustc_span::Span;
 use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
-use crate::ts::{Expr, Stmt, StmtKind};
+use crate::ts::{Expr, Stmt};
 
 /// A standard library type with its own representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -297,7 +297,6 @@ fn keeps_operands(owner: &str, name: &str) -> bool {
 			)
 			| ("Vec", "push")
 			| ("Box", "new")
-			| ("boxed", "box_new")
 			| ("mem", "replace" | "take" | "swap")
 			| ("hint", "must_use")
 			| ("From", "from")
@@ -337,6 +336,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Array(..) => "array".into(),
 			ty::Str => "str".into(),
 			ty::Bool => "bool".into(),
+			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
 			_ => return None,
 		};
@@ -418,16 +418,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			if to == from {
 				return Some(value);
 			}
-			match (Int::of(to), Int::of(from)) {
-				(Some(_), Some(_)) => {
-					let operand = Operand {
-						expr: value,
-						value: None,
-					};
-					num::cast(b, operand, from, to, span)
-				}
-				_ => return None,
+			// Each `From` between integers and `char` keeps the value, as `as` then does.
+			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
+			if !scalar(to) || !scalar(from) {
+				return None;
 			}
+			let operand = Operand {
+				expr: value,
+				value: None,
+			};
+			num::cast(b, operand, from, to, span)
 		}
 		("Into", "into") => {
 			let (from, to) = (targ(gargs, 0), targ(gargs, 1));
@@ -435,6 +435,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let value = values.pop()?;
 			b.convert(value, from, to, span, out)
 		}
+		// A scalar value, but not a surrogate.
+		("char", "from_u32") => Expr::rt("charFromU32", args),
 		("TryFrom", "try_from") => {
 			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
@@ -599,8 +601,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				false => return None,
 			}
 		}
-		("slice", "into_vec") => {
-			// `vec![..]`: `<[T]>::into_vec(box_new([..]))`.
+		// A boxed slice's elements, and `vec![a, b]`'s array once `vec_literals` took the
+		// box away.
+		("slice", "into_vec") | ("boxed", "box_assume_init_into_vec_unsafe") => {
 			let elem = targ(gargs, 0);
 			let value = args.pop()?;
 			match is_u8(elem) {
@@ -608,30 +611,17 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				false => value,
 			}
 		}
-		("boxed", "box_new") | ("Box", "new") => args.pop()?,
+		("Box", "new") => args.pop()?,
+		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself.
 		("vec", "from_elem") => {
 			let elem = targ(gargs, 0);
-			let values = args;
+			let mut values = args;
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
-				false if b.t.is_copy(elem) => {
-					let [value, n] = <[Expr; 2]>::try_from(values).ok()?;
-					let value = match value.is_path() {
-						true => value,
-						false => {
-							let name = b.fresh("item");
-							out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
-							Expr::ident(name)
-						}
-					};
-					let item = b.copied(value, elem);
-					let item_ty = b.t.ty(elem, span);
-					Expr::ident("Array").member("from").call(vec![
-						Expr::Object(vec![(crate::ts::Key::Name("length".into()), n)]),
-						Expr::Arrow(Vec::new(), item_ty, vec![StmtKind::Return(Some(item.typed())).at(None)]),
-					])
+				false => {
+					values.push(super::collections::clone_fn(b, elem, span));
+					Expr::rt("vecFromElem", values)
 				}
-				false => return None,
 			}
 		}
 
@@ -900,6 +890,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
 				Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit("0")])

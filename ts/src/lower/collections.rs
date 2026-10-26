@@ -297,7 +297,7 @@ fn empty<'tcx>(b: &mut Body<'_, '_, 'tcx>, new: Expr, coll: Ty<'tcx>, span: Span
 fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span: Span) -> Option<Option<Expr>> {
 	let key = peel(b, key);
 	let primitive = match key.kind() {
-		ty::Bool | ty::Str => true,
+		ty::Bool | ty::Char | ty::Str => true,
 		ty::Int(_) | ty::Uint(_) => !Int::of(key)?.big(),
 		ty::Adt(..) if b.t.std_of(key) == Some(Std::String) => true,
 		ty::Adt(adt, _) if adt.did().is_local() && fieldless(*adt) => derived_eq(b, key),
@@ -654,7 +654,7 @@ fn discriminant<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, spa
 /// `Hash` do.
 fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
-		ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Str => true,
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty(),
 		ty::Adt(..) => matches!(b.t.std_of(ty), Some(Std::String | Std::Ordering)),
 		_ => false,
@@ -666,7 +666,7 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
-		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
@@ -693,7 +693,7 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 		{
 			int.func("eq")
 		}
-		ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
 		ty::Adt(..) if matches!(b.t.std_of(ty), Some(Std::String | Std::Ordering)) => Expr::Rt("same".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
@@ -713,7 +713,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
-		ty::Bool | ty::Int(_) | ty::Uint(_) => Expr::Rt("hashInt".into()),
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("hashInt".into()),
 		ty::Str => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt".into()),
@@ -730,7 +730,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 }
 
 /// `Clone::clone` of `ty`, as a function, or `undefined` where it is the value itself.
-fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+pub fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	if b.needs_copy(ty) && library::clone_copies(b.t, ty) {
 		return Expr::Rt("copy".into());
