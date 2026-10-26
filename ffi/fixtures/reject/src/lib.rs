@@ -97,3 +97,6 @@ pub fn retext<'a>(text: &mut Text<'a>, with: &'a str) {
 pub fn first(opaque: &Opaque) -> Option<&Opaque> {
 	Some(opaque)
 }
+
+/// Another crate's module, whose API is that crate's own export.
+pub use dep;

@@ -1,0 +1,13 @@
+[package]
+name = "dep-fixture"
+description = "Another crate, whose items the api fixture re-exports"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+name = "dep"
+
+[lints]
+workspace = true

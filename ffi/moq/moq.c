@@ -131,14 +131,33 @@ int main(void) {
 	moq_path *root = moq_origin_producer_root(origin);
 	CHECK(is(moq_path_as_str(root), ""));
 	moq_path_free(root);
-	moq_path *absolute = moq_origin_producer_absolute(origin, str("room/alice"));
+
+	/* Scoped beneath a root to the patterns moq-pattern parses, which moq-net re-exports. */
+	moq_pattern *alice = NULL;
+	moq_invalid_pattern invalid;
+	CHECK(moq_pattern_subtree(str("alice"), &alice, &invalid));
+	moq_patterns *patterns = moq_patterns_new();
+	CHECK(moq_patterns_insert(patterns, alice));
+	moq_pattern_free(alice);
+	moq_origin_producer *scoped = NULL;
+	CHECK(moq_origin_producer_scope(origin, str("room"), patterns, &scoped, &err));
+	moq_patterns_free(patterns);
+	root = moq_origin_producer_root(scoped);
+	CHECK(is(moq_path_as_str(root), "room"));
+	moq_path_free(root);
+	moq_path *absolute = moq_origin_producer_absolute(scoped, str("alice"));
 	CHECK(is(moq_path_as_str(absolute), "room/alice"));
 	moq_path_free(absolute);
-	moq_origin_consumer *reader = moq_origin_producer_consume(origin);
-	absolute = moq_origin_consumer_absolute(reader, str("room/bob"));
+	moq_patterns *allowed = moq_origin_producer_allowed(scoped);
+	CHECK(moq_patterns_matches(allowed, str("alice/cam")));
+	CHECK(!moq_patterns_matches(allowed, str("bob")));
+	moq_patterns_free(allowed);
+	moq_origin_consumer *reader = moq_origin_producer_consume(scoped);
+	absolute = moq_origin_consumer_absolute(reader, str("bob"));
 	CHECK(is(moq_path_as_str(absolute), "room/bob"));
 	moq_path_free(absolute);
 	moq_origin_consumer_free(reader);
+	moq_origin_producer_free(scoped);
 
 	/* A broadcast the origin creates is stamped with its path, which its info lends. */
 	moq_origin_publication *publication = NULL;

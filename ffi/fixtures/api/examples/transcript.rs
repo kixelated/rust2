@@ -9,7 +9,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
 use api_lib::{
-	Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Point, Registry, Shape, Stamp, Tally, Window,
+	Area, Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Point, Registry, Shape, Size, Stamp, Tally,
+	Window,
 };
 use bytes::Bytes;
 
@@ -190,6 +191,10 @@ fn main() {
 	tally.bump();
 	println!("tally {} {}", tally.bump(), tally == tally);
 	println!("both {}", api_lib::bump_both(&tally, &tally));
+
+	let area = api_lib::grow(&Area::new(Size { width: 2, height: 3 }), 1);
+	let size = area.size();
+	println!("area {} {} {}", size.width, size.height, area.pixels());
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());

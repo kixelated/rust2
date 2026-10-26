@@ -34,7 +34,9 @@ exclude = ["track::Producer::poll_closed"]
 
 Every `pub` item reachable from the crate root, by its shortest path, is exported or
 refused. `#[doc(hidden)]` items are no part of the API and are left out; type aliases
-export nothing of their own.
+export nothing of their own. Another crate's item that the API re-exports is exported at
+that path, as moq-net's `Patterns` is; another crate's type named but not re-exported is
+refused, and so is a re-exported module of another crate, whose API is its own.
 
 | Rust | C |
 | --- | --- |

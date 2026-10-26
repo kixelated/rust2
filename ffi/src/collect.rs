@@ -61,7 +61,7 @@ pub struct Collected {
 	pub aliases: Vec<String>,
 }
 
-/// How a local type is exported, once decided.
+/// How a type is exported, once decided.
 #[derive(Clone)]
 enum Decl {
 	Record(usize),
@@ -80,7 +80,7 @@ struct Collector<'tcx> {
 	hidden: Vec<String>,
 	excluded: Vec<(String, usize)>,
 	aliases: Vec<String>,
-	/// Local items the walk left out, and why: `excluded` or `doc(hidden)`.
+	/// Items the walk left out, and why: `excluded` or `doc(hidden)`.
 	left_out: rustc_data_structures::fx::FxHashMap<DefId, &'static str>,
 	/// The type parameters of the function being mapped that take a foreign
 	/// implementation, with the callback each takes.
@@ -217,18 +217,20 @@ impl<'tcx> Collector<'tcx> {
 					.first()
 					.and_then(|reexport| reexport.id())
 					.map_or_else(|| tcx.def_span(def_id), |id| tcx.def_span(id));
-				let Some(local) = def_id.as_local() else {
-					let krate = tcx.crate_name(def_id.krate);
-					self.refuse(
-						&path,
-						"use",
-						span,
-						vec![why("re-export of another crate's item", krate.to_string())],
-					);
-					continue;
-				};
 				match kind {
-					DefKind::Mod => queue.push_back((local, path)),
+					DefKind::Mod => match def_id.as_local() {
+						Some(local) => queue.push_back((local, path)),
+						// Another crate's module is that crate's own export.
+						None => {
+							let krate = tcx.crate_name(def_id.krate);
+							self.refuse(
+								&path,
+								"use",
+								span,
+								vec![why("re-export of another crate's module", krate.to_string())],
+							);
+						}
+					},
 					DefKind::TyAlias => self.aliases.push(path.join("::")),
 					DefKind::Macro(_) => self.refuse(&path, "macro", span, vec![why("macro", "")]),
 					DefKind::Static { .. } => self.refuse(&path, "static", span, vec![why("static", "")]),
@@ -1236,8 +1238,6 @@ impl<'tcx> Collector<'tcx> {
 						}
 						_ => return Err(why("Arc", strip_args(tcx, did))),
 					}
-				} else if !did.is_local() {
-					return Err(why("foreign type", strip_args(tcx, did)));
 				} else {
 					match self.decls.get(&did) {
 						Some(Decl::Record(i)) => Type::Record(*i),
@@ -1249,12 +1249,12 @@ impl<'tcx> Collector<'tcx> {
 						Some(Decl::Object(i)) => Type::Object(*i),
 						Some(Decl::Refused(_)) => return Err(why("refused type", tcx.def_path_str(did))),
 						Some(Decl::Callback(_)) | None => {
-							let construct = self
-								.left_out
-								.get(&did)
-								.copied()
-								.unwrap_or("type not reachable from the crate root");
-							return Err(why(construct, tcx.def_path_str(did)));
+							return Err(match self.left_out.get(&did) {
+								Some(construct) => why(construct, tcx.def_path_str(did)),
+								// Exported only where the crate's API re-exports it.
+								None if !did.is_local() => why("foreign type", strip_args(tcx, did)),
+								None => why("type not reachable from the crate root", tcx.def_path_str(did)),
+							});
 						}
 					}
 				}
