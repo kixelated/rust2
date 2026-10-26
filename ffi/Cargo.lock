@@ -7,6 +7,7 @@ name = "api-fixture"
 version = "0.0.0"
 dependencies = [
  "bytes",
+ "dep-fixture",
 ]
 
 [[package]]
@@ -14,6 +15,10 @@ name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
+
+[[package]]
+name = "dep-fixture"
+version = "0.0.0"
 
 [[package]]
 name = "equivalent"
@@ -70,6 +75,9 @@ dependencies = [
 [[package]]
 name = "reject-fixture"
 version = "0.0.0"
+dependencies = [
+ "dep-fixture",
+]
 
 [[package]]
 name = "rust2-driver"
@@ -85,6 +93,7 @@ version = "0.0.0"
 dependencies = [
  "rust2-driver",
  "serde",
+ "serde_json",
  "toml",
 ]
 

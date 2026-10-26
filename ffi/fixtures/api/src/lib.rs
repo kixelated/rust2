@@ -8,6 +8,8 @@ use std::task::{Poll, Waker};
 use std::time::Duration;
 
 use bytes::Bytes;
+// Another export's type, which this names rather than exports again.
+pub use dep::Size;
 
 /// The largest value a [`Counter`] reaches.
 pub const LIMIT: u64 = 1000;
@@ -480,4 +482,13 @@ pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 
 pub fn describe(event: &Event) -> String {
 	format!("{event:?}")
+}
+
+/// An area grown by `by` on each side: another export's types, across crates.
+pub fn grow(area: &dep::Area, by: u32) -> dep::Area {
+	let size = area.size();
+	dep::Area::new(Size {
+		width: size.width + by,
+		height: size.height + by,
+	})
 }

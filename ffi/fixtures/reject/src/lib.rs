@@ -134,3 +134,16 @@ impl Lease {
 		Lease(self.0)
 	}
 }
+
+/// `reject_size` in C, as another export's `Size` is: one prefix serves every export.
+pub struct Size {
+	pub bytes: u64,
+}
+
+/// Another export's type, which this one names.
+pub fn measure(size: dep::Size) -> dep::Area {
+	dep::Area::new(size)
+}
+
+/// Another crate's item that is no export, so nothing names it.
+pub use std::collections::HashSet;
