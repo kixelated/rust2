@@ -20,8 +20,10 @@ census refuses and what moq waits on:
   `strip_prefix`, and `Relative::new`, and drops `AsPath` and the `borrow` methods from
   [the exclude list](/ffi/moq/ffi.toml), refusing only `Path::from_static`'s `'static` borrow.
 - **Several crates**: moq-tokio's sessions and the media crates hold moq-ffi's remaining API.
-  Export each with its own census, naming another export's types across crates, as
-  moq-pattern's re-exports already need.
+  ✅ Each crate is its own export with its own census, and an export names another's types
+  across crates: moq-net's `Pattern`, `Patterns`, and `Instant` resolve to moq-pattern's and
+  moq-clock's exports, not to names at moq-net's re-export path. Still open: the library
+  layout, the C prefixes, and the headers.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
   Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.
