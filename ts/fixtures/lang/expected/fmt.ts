@@ -200,7 +200,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
-	let iter!: rt.Iter<rt.u8>;
+	let iter!: { s: Uint8Array; i: number };
 	let _9!: rt.u8 | rt.Done;
 	let s!: string;
 	let _15!: rt.usize;
@@ -220,12 +220,11 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	let _95!: rt.Result<rt.u8, rt.TryFromIntError>;
 	let v!: rt.u8;
 	let _104!: string;
-	let args9!: [rt.u8];
 	let e2!: rt.TryFromIntError;
 	let _116!: string;
-	iter = rt.iterSlice(rt.sliceRange(data, 0, rt.min(data.length, 3)));
+	iter = { s: rt.sliceRange(data, 0, rt.min(data.length, 3)), i: 0 };
 	while (true) {
-		_9 = iter.next();
+		_9 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		if (_9 === rt.DONE) {
 			_36 = rt.stringFromUtf8(rt.sliceToByteVec(data));
 			if (_36.ok) {
@@ -255,8 +254,7 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 			_95 = rt.u8TryFrom(rt.i32Sub(data.length | 0, 3));
 			if (_95.ok) {
 				v = _95.value;
-				args9 = [v] as [rt.u8];
-				const arg = args9[0];
+				const arg = ([v] as [rt.u8])[0];
 				_104 = rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(arg, f)]);
 				put(out, _104);
 			} else {
@@ -282,7 +280,6 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 export function nested(data: Uint8Array): Nested.Nested {
 	let at!: (a0: rt.usize) => rt.u8;
 	let _3!: string;
-	let _4!: string[];
 	let _5!: rt.usize;
 	let _6!: rt.usize;
 	let _10!: rt.usize;
@@ -311,8 +308,7 @@ export function nested(data: Uint8Array): Nested.Nested {
 	if (!(_5 < 14)) {
 		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _5);
 	}
-	_4 = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"];
-	_3 = _4[_5];
+	_3 = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"][_5];
 	_15 = { x: rt.i32Sub(at(1) as rt.i32, 128), y: -7 };
 	_23 = rt.u8Rem(at(2), 3);
 	if (_23 === 0) {
@@ -357,9 +353,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	let at!: (a0: rt.usize) => rt.u8;
 	let value!: Nested.Nested;
 	let _8!: string;
-	let args!: [Nested.Nested];
 	let _20!: string;
-	let args3!: [Nested.Nested];
 	let wide!: Wide.Wide;
 	let _30!: rt.u8;
 	let _33!: boolean;
@@ -382,7 +376,6 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	let _118!: Kind.Kind;
 	let _119!: rt.usize;
 	let _130!: string;
-	let args13!: [Kind.Kind[]];
 	let bytes!: Uint8Array;
 	let words!: rt.u16[];
 	let _148!: string;
@@ -397,12 +390,10 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
 	value = nested(data);
-	args = [value] as [Nested.Nested];
-	const arg = args[0];
+	const arg = ([value] as [Nested.Nested])[0];
 	_8 = rt.fmtFormat([(f: rt.Formatter) => Nested.fmt$Debug(arg, f)]);
 	put(out, _8);
-	args3 = [value] as [Nested.Nested];
-	const arg2 = args3[0];
+	const arg2 = ([value] as [Nested.Nested])[0];
 	_20 = rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Nested.fmt$Debug(arg2, f))]);
 	put(out, _20);
 	_30 = at(0);
@@ -435,8 +426,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	_117 = _118;
 	_112 = rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(kinds, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)), " ", (f: rt.Formatter) => Kind.fmt$Debug(_117, f)]);
 	put(out, _112);
-	args13 = [kinds] as [Kind.Kind[]];
-	const arg5 = args13[0];
+	const arg5 = ([kinds] as [Kind.Kind[]])[0];
 	_130 = rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.fmtList(arg5, f, (value: Kind.Kind, f: rt.Formatter) => Kind.fmt$Debug(value, f)))]);
 	put(out, _130);
 	bytes = data;
@@ -466,7 +456,6 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	let _27!: string;
 	let padded!: Padded.Padded;
 	let _33!: string;
-	let args3!: [Padded.Padded];
 	let manual!: Manual.Manual;
 	let _43!: rt.u8;
 	let _49!: rt.u16[];
@@ -480,10 +469,8 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	let _97!: rt.u8;
 	let _100!: rt.u8 | undefined;
 	let _113!: string;
-	let args9!: [Tup.Tup];
 	let fine!: Fails.Fails;
 	let _131!: string;
-	let args11!: [Fails.Fails];
 	let _143!: string;
 	let _148!: rt.u8;
 	let _152!: rt.u8;
@@ -496,8 +483,7 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 	_27 = rt.fmtToString((f: rt.Formatter) => Hex.fmt$Display(hex, f));
 	put(out, _27);
 	padded = { _0: "pad" };
-	args3 = [padded] as [Padded.Padded];
-	const arg = args3[0];
+	const arg = ([padded] as [Padded.Padded])[0];
 	_33 = rt.fmtFormat([(f: rt.Formatter) => Padded.fmt$Display(arg, f), "|", rt.fmtSpec({ align: ">", width: 6 }, (f: rt.Formatter) => Padded.fmt$Display(arg, f)), "|", rt.fmtSpec({ fill: "_", align: "^", width: 9 }, (f: rt.Formatter) => Padded.fmt$Display(arg, f)), "|", rt.fmtSpec({ width: 30 }, (f: rt.Formatter) => Padded.fmt$Display(arg, f)), "|"]);
 	put(out, _33);
 	_43 = at(1);
@@ -518,13 +504,11 @@ export function written(data: Uint8Array, out: rt.ByteVec): void {
 		_100 = at(5);
 	}
 	tup = { _0: _97, _1: _100 };
-	args9 = [tup] as [Tup.Tup];
-	const arg2 = args9[0];
+	const arg2 = ([tup] as [Tup.Tup])[0];
 	_113 = rt.fmtFormat([(f: rt.Formatter) => Tup.fmt$Debug(arg2, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Tup.fmt$Debug(arg2, f))]);
 	put(out, _113);
 	fine = { _0: at(6) & (~1 & 0xff) };
-	args11 = [fine] as [Fails.Fails];
-	const arg3 = args11[0];
+	const arg3 = ([fine] as [Fails.Fails])[0];
 	_131 = rt.fmtFormat([(f: rt.Formatter) => Fails.fmt$Display(arg3, f), " ", rt.fmtSpec({ align: ">", width: 9 }, (f: rt.Formatter) => Fails.fmt$Display(arg3, f))]);
 	put(out, _131);
 	_148 = at(7);
@@ -543,7 +527,6 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	let _60!: Pair.Pair;
 	let kind3!: string;
 	let _66!: rt.Arguments | undefined;
-	let args7!: [rt.u8];
 	let r!: rt.Result<rt.u8, Kind.Kind>;
 	let _94!: Uint8Array;
 	let _98!: string;
@@ -557,9 +540,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	let _127!: string;
 	let _129!: rt.u8;
 	let _132!: string;
-	let args9!: [rt.u8];
 	let _143!: string;
-	let args11!: [Fails.Fails];
 	let _148!: Fails.Fails;
 	let _155!: string;
 	let _157!: Fails.Fails;
@@ -574,7 +555,6 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	let buf!: Uint8Array;
 	let _202!: Uint8Array;
 	let _211!: string;
-	let args17!: [Uint8Array];
 	let r4!: rt.Result<rt.u8, rt.FromUtf8Error>;
 	let _221!: rt.Result<string, rt.FromUtf8Error>;
 	let s!: string;
@@ -586,10 +566,8 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 	let dest!: rt.usize;
 	let _244!: Uint8Array;
 	let _258!: string;
-	let args19!: [Uint8Array];
 	let r5!: rt.Result<rt.u8, rt.u8>;
 	let _274!: string;
-	let args21!: [rt.u8];
 	let _279!: rt.u8;
 	n = rt.optionUnwrapOr(rt.sliceFirst(rest), 0);
 	_7 = rt.u8Rem(kind, 19);
@@ -615,9 +593,8 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		_58 = { _0: n, _1: 1 };
 		_60 = { _0: n, _1: 1 };
 		if (Pair.eq$PartialEq(_58, _60)) {
+			const arg6 = ([n] as [rt.u8])[0];
 			kind3 = "!=";
-			args7 = [n] as [rt.u8];
-			const arg6 = args7[0];
 			_66 = ["same ", (f: rt.Formatter) => rt.u8Display(arg6, f)];
 			rt.assertFailed(kind3, (f: rt.Formatter) => Pair.fmt$Debug(_58, f), (f: rt.Formatter) => Pair.fmt$Debug(_60, f), _66);
 		}
@@ -650,16 +627,14 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		put(out, _119);
 	} else if (_7 === 10) {
 		missing = rt.sliceGet(rest, 200);
-		args9 = [n] as [rt.u8];
-		const arg5 = args9[0];
+		const arg5 = ([n] as [rt.u8])[0];
 		_132 = rt.fmtFormat(["missing ", (f: rt.Formatter) => rt.u8Display(arg5, f)]);
 		_129 = rt.optionExpect(missing, _132);
 		_127 = rt.fmtToString((f: rt.Formatter) => rt.u8Display(_129, f));
 		put(out, _127);
 	} else if (_7 === 11) {
 		_148 = { _0: n };
-		args11 = [_148] as [Fails.Fails];
-		const arg4 = args11[0];
+		const arg4 = ([_148] as [Fails.Fails])[0];
 		_143 = rt.fmtFormat([(f: rt.Formatter) => Fails.fmt$Display(arg4, f)]);
 		put(out, _143);
 	} else if (_7 === 12) {
@@ -683,8 +658,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		_202 = buf;
 		const part3 = rt.min(rest.length, 4);
 		rt.sliceCopyFromSlice(_202, rt.sliceRange(rest, 0, part3));
-		args17 = [buf] as [Uint8Array];
-		const arg3 = args17[0];
+		const arg3 = ([buf] as [Uint8Array])[0];
 		_211 = rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(arg3, f, rt.u8Display)]);
 		put(out, _211);
 	} else if (_7 === 16) {
@@ -707,8 +681,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		dest = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(rest, 1), 0) as rt.usize, 4);
 		_244 = buf2;
 		rt.sliceCopyWithin(_244, part, part2, dest);
-		args19 = [buf2] as [Uint8Array];
-		const arg2 = args19[0];
+		const arg2 = ([buf2] as [Uint8Array])[0];
 		_258 = rt.fmtFormat([(f: rt.Formatter) => rt.fmtList(arg2, f, rt.u8Display)]);
 		put(out, _258);
 	} else {
@@ -718,8 +691,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 			r5 = rt.Err(n);
 		}
 		_279 = rt.resultUnwrapErr(r5, rt.u8Display);
-		args21 = [_279] as [rt.u8];
-		const arg = args21[0];
+		const arg = ([_279] as [rt.u8])[0];
 		_274 = rt.fmtFormat([(f: rt.Formatter) => rt.u8Display(arg, f)]);
 		put(out, _274);
 	}

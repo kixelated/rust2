@@ -425,7 +425,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 /// Whether a `ty`'s JS value is the task's context: `&mut Context`, or the `ResumeTy` and
 /// `NonNull` an async body passes it in.
-fn context_like<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+pub(super) fn context_like<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = fx.tcx;
 	match ty.kind() {
 		ty::Ref(_, inner, _) => context_like(fx, *inner),

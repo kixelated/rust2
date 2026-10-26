@@ -47,7 +47,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let name = name.to_string();
 					self.next_names.insert(name);
 				}
-				(crate::lower::iter::next(self.b, iter_ty, recv), true)
+				if self.stepped_recv(&args[0].node).is_some() {
+					let it = self.path(recv, "iter", &mut pre);
+					(self.stepped_next(it), true)
+				} else {
+					(crate::lower::iter::next(self.b, iter_ty, recv), true)
+				}
 			}
 			ty::FnDef(def_id, gargs) => match self.intercept(def_id, gargs.skip_binder(), args, dest, span, &mut pre) {
 				Some(Some(done)) => done,
@@ -64,6 +69,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
+		};
+		let value = match dest.as_local() {
+			Some(local) if self.stepped.contains(&local) => self.stepped_make(value, span),
+			_ => value,
 		};
 		let value = match self.b.t.loc(span) {
 			Some(loc) if effect => Expr::Located(loc, Box::new(value)),

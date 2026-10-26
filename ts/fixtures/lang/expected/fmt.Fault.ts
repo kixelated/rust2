@@ -51,17 +51,14 @@ export type Fault =
 
 export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	let code!: rt.u16;
-	let args!: [rt.u16];
 	let size!: rt.usize;
 	let max!: rt.usize;
 	let pair!: Pair.Pair;
-	let args5!: [Pair.Pair];
 	if (self.tag === "Short") {
 		return rt.fmtPad(f, "short buffer");
 	} else if (self.tag === "Code") {
 		code = self._0;
-		args = [code] as [rt.u16];
-		const arg2 = args[0];
+		const arg2 = ([code] as [rt.u16])[0];
 		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16LowerHex(arg2, f))]);
 	} else if (self.tag === "TooLarge") {
 		size = self.size;
@@ -69,8 +66,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
 	} else {
 		pair = self._0;
-		args5 = [pair] as [Pair.Pair];
-		const arg = args5[0];
+		const arg = ([pair] as [Pair.Pair])[0];
 		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(arg, f)]);
 	}
 }

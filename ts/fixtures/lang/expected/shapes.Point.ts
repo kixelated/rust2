@@ -38,17 +38,13 @@ function new_(x: rt.i32, y: rt.i32): Point {
 
 /** Changes `self`, which a caller's copy must not see. */
 export function shift(self: Point, by: rt.i32): Point {
-	let _3!: rt.i32;
 	self = rt.copy(self);
-	_3 = rt.i32Add(self.x, by);
-	self.x = _3;
+	self.x = rt.i32Add(self.x, by);
 	return rt.copy(self);
 }
 
 export function bump(self: Point): void {
-	let _2!: rt.i32;
-	_2 = rt.i32Add(self.y, 1);
-	self.y = _2;
+	self.y = rt.i32Add(self.y, 1);
 }
 
 export { new_ as new };

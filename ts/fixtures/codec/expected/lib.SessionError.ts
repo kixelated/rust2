@@ -5,14 +5,12 @@ import * as rt from "./rt.ts";
 export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	let _02!: rt.u16;
 	let __display0!: rt.u16;
-	let args!: [rt.u16];
 	if (self.tag === "ProtocolViolation") {
 		return rt.fmtWriteStr(__formatter, "protocol violation");
 	} else {
 		_02 = self._0;
 		__display0 = ([_02] as [rt.u16])[0];
-		args = [__display0] as [rt.u16];
-		const arg = args[0];
+		const arg = ([__display0] as [rt.u16])[0];
 		return rt.fmtWriteFmt(__formatter, ["app code=", (f: rt.Formatter) => rt.u16Display(arg, f)]);
 	}
 }

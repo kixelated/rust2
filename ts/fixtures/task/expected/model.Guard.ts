@@ -52,9 +52,7 @@ export function finish(self: Guard, event: string): rt.u32 {
 
 export function drop$Drop(self: Guard): void {
 	let _4!: string;
-	let args!: [rt.u32];
-	args = [self.id] as [rt.u32];
-	const arg = args[0];
+	const arg = ([self.id] as [rt.u32])[0];
 	_4 = rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(arg, f), " drop"]);
 	Log.note(self.log, _4);
 }

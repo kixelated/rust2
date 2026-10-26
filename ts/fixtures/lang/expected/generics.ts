@@ -20,7 +20,6 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	let shape!: Wrap.Wrap<Shape.Shape>;
 	let _46!: string;
 	let _64!: string;
-	let args3!: [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>];
 	let _76!: Uint8Array;
 	let _91!: Uint8Array;
 	let _97!: Uint8Array;
@@ -61,8 +60,7 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	shape = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(point), width: at(5) as rt.u16, height: 3 } as Shape.Shape);
 	_46 = rt.fmtFormat([(f: rt.Formatter) => Wrap.fmt$Debug_Point(point, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_u8(byte, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f), " ", (f: rt.Formatter) => Wrap.fmt$Debug_Shape(shape, f)]);
 	put(out, _46);
-	args3 = [nested] as [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>];
-	const arg = args3[0];
+	const arg = ([nested] as [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>])[0];
 	_64 = rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(arg, f))]);
 	put(out, _64);
 	_76 = rt.u16ToBeBytes(Wrap.double$u8(byte));

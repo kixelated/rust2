@@ -45,12 +45,10 @@ export function need(self: Decoder): rt.usize {
 /** Record that a read wanted `more` bytes past the current position. */
 export function short(self: Decoder, more: rt.usize): DecodeError.DecodeError {
 	let need_!: rt.usize;
-	let _8!: rt.usize;
 	let _9!: rt.usize;
 	need_ = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
 	_9 = self.need;
-	_8 = rt.max(_9, need_);
-	self.need = _8;
+	self.need = rt.max(_9, need_);
 	return { tag: "Short" } as DecodeError.DecodeError;
 }
 

@@ -29,13 +29,9 @@ function new_(): Producer {
 export function send(self: Producer, value: rt.u64): void {
 	let waiters!: WaiterList.WaiterList;
 	let state!: rt.Mutex<State.State>;
-	let _10!: State.State;
-	let _13!: State.State;
 	state = self.state.value;
-	_10 = state.value;
-	_10.queue.push(value);
-	_13 = state.value;
-	waiters = WaiterList.take(_13.waiters);
+	state.value.queue.push(value);
+	waiters = WaiterList.take(state.value.waiters);
 	WaiterList.wake(waiters);
 }
 
@@ -46,11 +42,9 @@ export function consume(self: Producer): Consumer.Consumer {
 export function clone$Clone(self: Producer): Producer {
 	let _2!: State.State;
 	let _4!: rt.Mutex<State.State>;
-	let _8!: rt.usize;
 	_4 = self.state.value;
 	_2 = _4.value;
-	_8 = rt.usizeAdd(_2.producers, 1);
-	_2.producers = _8;
+	_2.producers = rt.usizeAdd(_2.producers, 1);
 	return new Producer({ state: rt.arcClone(self.state) });
 }
 
@@ -58,16 +52,12 @@ export function drop$Drop(self: Producer): void {
 	let waiters!: WaiterList.WaiterList;
 	let state!: rt.Mutex<State.State>;
 	let _7!: State.State;
-	let _9!: rt.usize;
-	let _17!: State.State;
 	state = self.state.value;
 	_7 = state.value;
-	_9 = rt.usizeSub(_7.producers, 1);
-	_7.producers = _9;
+	_7.producers = rt.usizeSub(_7.producers, 1);
 	if (!(state.value.producers > 0)) {
 		state.value.closed = true;
-		_17 = state.value;
-		waiters = WaiterList.take(_17.waiters);
+		waiters = WaiterList.take(state.value.waiters);
 		WaiterList.wake(waiters);
 	}
 }

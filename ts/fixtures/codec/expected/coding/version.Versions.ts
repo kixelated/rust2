@@ -69,14 +69,14 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 /** Encode the version list. */
 export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
 	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
-	let iter!: rt.Iter<Version.Version>;
+	let iter!: { s: Version.Version[]; i: number };
 	let _14!: Version.Version | rt.Done;
 	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
 	_4 = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		iter = rt.iterSlice(self._0);
+		iter = { s: self._0, i: 0 };
 		while (true) {
-			_14 = iter.next();
+			_14 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 			if (_14 === rt.DONE) {
 				return rt.Ok(undefined);
 			} else {
@@ -94,14 +94,14 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 /** Encode the version list. */
 export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
-	let iter!: rt.Iter<Version.Version>;
+	let iter!: { s: Version.Version[]; i: number };
 	let _14!: Version.Version | rt.Done;
 	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
 	_4 = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		iter = rt.iterSlice(self._0);
+		iter = { s: self._0, i: 0 };
 		while (true) {
-			_14 = iter.next();
+			_14 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 			if (_14 === rt.DONE) {
 				return rt.Ok(undefined);
 			} else {

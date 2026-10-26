@@ -15,7 +15,7 @@ import * as Wrapper from "./iters.Wrapper.ts";
 export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _4!: rt.u8;
 	let doubled!: rt.ByteVec;
-	let iter!: rt.Iter<rt.u16>;
+	let iter!: { s: rt.u16[]; i: number };
 	let _18!: rt.u16 | rt.Done;
 	let _25!: Uint8Array;
 	let iter2!: rt.Iter<[rt.usize, rt.u8]>;
@@ -58,13 +58,13 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				return rt.u8Rem(b11, 3) !== 0;
 			}));
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(doubled));
-			iter = rt.iterSlice(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
+			iter = { s: rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
 				let b12!: rt.u8;
 				b12 = _217;
 				return rt.thenSome(b12 < 100, rt.u16Mul(b12 as rt.u16, 200));
-			})));
+			})), i: 0 };
 			while (true) {
-				_18 = iter.next();
+				_18 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 				if (_18 === rt.DONE) {
 					break b0;
 				} else {
@@ -208,15 +208,15 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 	let words!: rt.ByteVec[];
 	let word!: rt.ByteVec;
-	let iter!: rt.Iter<rt.u8>;
+	let iter!: { s: Uint8Array; i: number };
 	let _6!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	let _13!: rt.ByteVec;
 	words = [];
 	word = new rt.ByteVec();
-	iter = rt.iterSlice(self);
+	iter = { s: self, i: 0 };
 	while (true) {
-		_6 = iter.next();
+		_6 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		if (_6 === rt.DONE) {
 			words.push(word);
 			return words;
@@ -463,7 +463,7 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	let _267!: rt.i64;
 	let _274!: rt.i64;
 	let _282!: Uint8Array;
-	let iter3!: rt.Iter<rt.u32>;
+	let iter3!: { s: rt.u32[]; i: number };
 	let _289!: rt.u32 | rt.Done;
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 	b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
@@ -558,9 +558,9 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					_274 = rt.i64Of(9007199254740992n);
 					_282 = rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(_265, rt.i64Add(rt.i64Neg(_274), 1), rt.i64Step)), 0));
 					rt.byteVecExtendFromSlice(out, _282);
-					iter3 = rt.iterSlice(rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8))));
+					iter3 = { s: rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8))), i: 0 };
 					while (true) {
-						_289 = iter3.next();
+						_289 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
 						if (_289 === rt.DONE) {
 							updates(a, b, data, out);
 							return;

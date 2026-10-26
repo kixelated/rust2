@@ -6,7 +6,6 @@ import * as SessionError from "../lib.SessionError.ts";
 
 export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	let __field0!: rt.u64;
-	let args!: [rt.u64];
 	let size!: rt.usize;
 	let max!: rt.usize;
 	let __displaySize!: rt.usize;
@@ -19,8 +18,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "invalid string");
 	} else if (self.tag === "InvalidMessage") {
 		__field0 = ([self._0] as [rt.u64])[0];
-		args = [__field0] as [rt.u64];
-		const arg = args[0];
+		const arg = ([__field0] as [rt.u64])[0];
 		return rt.fmtWriteFmt(__formatter, ["invalid message: ", (f: rt.Formatter) => rt.u64Display(arg, f)]);
 	} else if (self.tag === "InvalidSubscribeLocation") {
 		return rt.fmtWriteStr(__formatter, "invalid subscribe location");

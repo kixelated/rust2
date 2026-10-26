@@ -27,20 +27,13 @@ export class Consumer {
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	let state!: rt.Mutex<State.State>;
-	let _8!: rt.usize;
-	let _11!: State.State;
 	let value!: rt.u64;
 	let _16!: State.State;
 	let _18!: rt.usize;
-	let _19!: rt.usize;
-	let _27!: State.State;
 	state = self.state.value;
-	_8 = self.next;
-	_11 = state.value;
-	if (!(_8 < _11.queue.length)) {
+	if (!(self.next < state.value.queue.length)) {
 		if (!state.value.closed) {
-			_27 = state.value;
-			Waiter.register(waiter, _27.waiters);
+			Waiter.register(waiter, state.value.waiters);
 			return rt.Pending;
 		} else {
 			return undefined;
@@ -50,8 +43,7 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 		_18 = self.next;
 		const at = rt.idx(_16.queue, _18);
 		value = _16.queue[at];
-		_19 = rt.usizeAdd(self.next, 1);
-		self.next = _19;
+		self.next = rt.usizeAdd(self.next, 1);
 		return value;
 	}
 }

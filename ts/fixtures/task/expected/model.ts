@@ -75,39 +75,28 @@ export class sumFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _3!: rt.u32;
-		let _6!: Log.Log;
-		let _8!: rt.Future<rt.u64 | undefined>;
 		let _11!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
 		let value!: rt.u64;
-		let args!: [rt.u32];
 		let _32!: string;
-		let _43!: rt.u64;
 		let _47!: rt.u64;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
 			l0: while (true) {
 				switch (bb0) {
 					case 0:
-						_taskContext = _2;
 						if (this.state === 0) {
 							unwind = 33;
 							this.rx_ = this.rx;
 							this.guard_ = this.guard;
-							_3 = rt.u32Add(this.guard_.id, 100);
-							_6 = Log.clone$Clone(this.guard_.log);
-							this.inner_ = Guard.new(_3, _6);
+							this.inner_ = Guard.new(rt.u32Add(this.guard_.id, 100), Log.clone$Clone(this.guard_.log));
 							this.total_ = 0;
 							bb0 = 4;
 							continue l0;
 						} else if (this.state === 1) {
-							unwind = 0;
 							rt.panic("`async fn` resumed after completion");
 						} else if (this.state === 2) {
-							unwind = 0;
 							rt.panic("`async fn` resumed after panicking");
 						} else {
 							bb0 = 7;
@@ -115,13 +104,12 @@ export class sumFuture {
 						}
 					case 4:
 						unwind = 32;
-						_8 = Consumer.recv(this.rx_);
-						this.__awaitee_ = _8;
+						this.__awaitee_ = Consumer.recv(this.rx_);
 						bb0 = 7;
 						continue l0;
 					case 7:
 						unwind = 31;
-						_11 = this.__awaitee_.poll(_taskContext);
+						_11 = this.__awaitee_.poll(_2);
 						if (_11 !== rt.Pending) {
 							unwind = 32;
 							result = _11;
@@ -129,17 +117,12 @@ export class sumFuture {
 							if (result !== undefined) {
 								value = result;
 								if (!(value !== 99)) {
-									unwind = 32;
-									args = [this.guard_.id] as [rt.u32];
-									const arg = args[0];
+									const arg = ([this.guard_.id] as [rt.u32])[0];
 									rt.panicFmt(["g", (f: rt.Formatter) => rt.u32Display(arg, f), " poisoned"]);
 								} else {
-									unwind = 32;
 									_32 = rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(this.guard_.id, f), " got ", (f: rt.Formatter) => rt.u64Display(value, f)]);
 									Log.note(this.inner_.log, _32);
-									unwind = 32;
-									_43 = rt.u64Add(this.total_, value);
-									this.total_ = _43;
+									this.total_ = rt.u64Add(this.total_, value);
 									bb0 = 4;
 									continue l0;
 								}
@@ -340,19 +323,13 @@ export class blocksFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _3!: rt.u32;
-		let _6!: Log.Log;
-		let _8!: rt.u32;
-		let _11!: Log.Log;
 		let _18!: rt.u32;
 		let seen!: rt.Future<rt.u32>;
 		let _23!: rt.u32;
 		let _25!: string;
 		let _27!: string;
 		let _32!: rt.u32;
-		let _33!: rt.Future<rt.u32>;
 		let _35!: rt.Poll<rt.u32>;
-		let _48!: rt.Future<rt.u32>;
 		let _51!: rt.Poll<rt.u32>;
 		let _61!: string;
 		let _63!: string;
@@ -360,15 +337,12 @@ export class blocksFuture {
 		let _76!: Guard.Guard;
 		let _83!: Outer.Outer;
 		let third!: Guard.Guard;
-		let _97!: rt.Future<rt.u64>;
 		let _98!: rt.Poll<rt.u64>;
 		let result3!: rt.u64;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
 			b0: {
 				b1: {
-					_taskContext = _2;
 					if (this.state === 0) {
 						unwind = 76;
 						this._saved$5 = false;
@@ -381,14 +355,10 @@ export class blocksFuture {
 						this._saved$2 = true;
 						this.guard_ = this.guard;
 						this.moves_ = this.moves;
-						_3 = rt.u32Add(this.guard_.id, 200);
-						_6 = Log.clone$Clone(this.guard_.log);
-						this.first_ = Guard.new(_3, _6);
+						this.first_ = Guard.new(rt.u32Add(this.guard_.id, 200), Log.clone$Clone(this.guard_.log));
 						unwind = 75;
 						this._saved$4 = true;
-						_8 = rt.u32Add(this.guard_.id, 300);
-						_11 = Log.clone$Clone(this.guard_.log);
-						this.second_ = Guard.new(_8, _11);
+						this.second_ = Guard.new(rt.u32Add(this.guard_.id, 300), Log.clone$Clone(this.guard_.log));
 						unwind = 83;
 						this._saved$3 = true;
 						rt.drop(new blocksFuture$2(this.first_));
@@ -403,22 +373,20 @@ export class blocksFuture {
 						this.saved = this.guard_;
 						this._saved = this.tally_.n;
 						this._saved$6 = false;
-						_33 = seen;
-						this.__awaitee_ = _33;
+						this.__awaitee_ = seen;
 					} else if (this.state === 1) {
-						unwind = 0;
 						rt.panic("`async fn` resumed after completion");
 					} else if (this.state === 2) {
-						unwind = 0;
 						rt.panic("`async fn` resumed after panicking");
-					} else if (this.state === 3) {
-					} else if (this.state === 4) {
-						break b1;
-					} else {
-						break b0;
+					} else if (this.state !== 3) {
+						if (this.state === 4) {
+							break b1;
+						} else {
+							break b0;
+						}
 					}
 					unwind = 73;
-					_35 = this.__awaitee_.poll(_taskContext);
+					_35 = this.__awaitee_.poll(_2);
 					if (_35 !== rt.Pending) {
 						unwind = 81;
 						_32 = _35;
@@ -429,15 +397,14 @@ export class blocksFuture {
 						Guard.note(this.saved, _25);
 						unwind = 81;
 						this.mark_ = { n: 1 };
-						_48 = new blocksFuture$4(this.mark_);
-						this.___awaitee_ = _48;
+						this.___awaitee_ = new blocksFuture$4(this.mark_);
 					} else {
 						this.state = 3;
 						return rt.Pending;
 					}
 				}
 				unwind = 71;
-				_51 = this.___awaitee_.poll(_taskContext);
+				_51 = this.___awaitee_.poll(_2);
 				if (_51 !== rt.Pending) {
 					unwind = 81;
 					this.replaced_ = _51;
@@ -462,7 +429,6 @@ export class blocksFuture {
 					unwind = 67;
 					Guard.note(this.chosen_, "chosen");
 					if (this.moves_) {
-						unwind = 67;
 						this._saved$2 = false;
 						rt.drop(new blocksFuture$5(this.guard_));
 					}
@@ -470,15 +436,14 @@ export class blocksFuture {
 					this._saved$4 = false;
 					this._saved$3 = false;
 					this._saved$5 = false;
-					_97 = new blocksFuture$6(this.first_, this.second_, this.rx_);
-					this.___awaitee_$2 = _97;
+					this.___awaitee_$2 = new blocksFuture$6(this.first_, this.second_, this.rx_);
 				} else {
 					this.state = 4;
 					return rt.Pending;
 				}
 			}
 			unwind = 66;
-			_98 = this.___awaitee_$2.poll(_taskContext);
+			_98 = this.___awaitee_$2.poll(_2);
 			if (_98 !== rt.Pending) {
 				unwind = 67;
 				result3 = _98;
@@ -596,10 +561,8 @@ export class blocksFuture$2 {
 				this.state = 1;
 				return undefined;
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 		} catch (e) {
@@ -633,10 +596,8 @@ export class blocksFuture$3 {
 				this.state = 1;
 				return _0;
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 		} catch (e) {
@@ -702,10 +663,8 @@ export class blocksFuture$5 {
 				this.state = 1;
 				return undefined;
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 		} catch (e) {
@@ -792,35 +751,25 @@ export class blocksFuture$6 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _9!: rt.u32;
-		let _12!: Log.Log;
-		let _14!: rt.Future<rt.u64 | undefined>;
 		let _17!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
 		let _27!: rt.u64;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 30;
 				Guard.note(this.first, "reads");
 				Guard.note(this.second, "reads");
-				_9 = rt.u32Add(this.second.id, 100);
-				_12 = Log.clone$Clone(this.second.log);
-				this._held_ = Guard.new(_9, _12);
+				this._held_ = Guard.new(rt.u32Add(this.second.id, 100), Log.clone$Clone(this.second.log));
 				unwind = 21;
-				_14 = Consumer.recv(this.rx);
-				this.__awaitee_ = _14;
+				this.__awaitee_ = Consumer.recv(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 20;
-			_17 = this.__awaitee_.poll(_taskContext);
+			_17 = this.__awaitee_.poll(_2);
 			if (_17 !== rt.Pending) {
 				unwind = 21;
 				result = _17;
@@ -886,9 +835,7 @@ export function read(t: Tally.Tally): rt.u32 {
 
 /** `i`, noted as picked. */
 export function pick(log: Log.Log, i: rt.usize): rt.usize {
-	let args!: [rt.usize];
-	args = [i] as [rt.usize];
-	const arg = args[0];
+	const arg = ([i] as [rt.usize])[0];
 	Log.note(log, rt.fmtFormat(["pick ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]));
 	return i;
 }
@@ -912,11 +859,9 @@ export function turns(log: Log.Log, count: rt.u32): void {
 	let _34!: Guard.Guard;
 	let scoped!: rt.u32;
 	let _42!: Guard.Guard;
-	let args!: [rt.u32];
 	let boxed!: Guard.Guard;
 	let once!: rt.u32;
 	let finished!: rt.u32;
-	let args5!: [rt.u32];
 	let spares!: Guard.Guard[];
 	let _91!: Guard.Guard;
 	let _95!: Guard.Guard;
@@ -945,16 +890,14 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		_42 = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
 		scoped = _42.id;
 		rt.drop(_42);
-		args = [scoped] as [rt.u32];
-		const arg = args[0];
+		const arg = ([scoped] as [rt.u32])[0];
 		Log.note(log, rt.fmtFormat(["after ", (f: rt.Formatter) => rt.u32Display(arg, f)]));
 		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
 		unwind = 89;
 		once = boxed.id;
 		Log.note(log, rt.fmtFormat(["boxed ", (f: rt.Formatter) => rt.u32Display(once, f), " ", (f: rt.Formatter) => rt.u32Display(boxed.id, f)]));
 		finished = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
-		args5 = [finished] as [rt.u32];
-		const arg2 = args5[0];
+		const arg2 = ([finished] as [rt.u32])[0];
 		Log.note(log, rt.fmtFormat(["finished ", (f: rt.Formatter) => rt.u32Display(arg2, f)]));
 		_91 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
 		unwind = 88;
@@ -967,15 +910,12 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		}
 		b0: {
 			if (count === 0) {
-				unwind = 87;
 				Log.note(log, rt.fmtFormat(["no turns"]));
 			} else if (!(count < 4)) {
-				unwind = 87;
 				Log.note(log, rt.fmtFormat(["many turns"]));
 			} else {
 				left = count;
 				while (true) {
-					unwind = 87;
 					turn = Guard.new(left, Log.clone$Clone(log));
 					if (!(left === 1)) {
 						unwind = 86;
@@ -985,7 +925,6 @@ export function turns(log: Log.Log, count: rt.u32): void {
 						left = _119;
 						rt.drop(turn);
 					} else {
-						unwind = 87;
 						rt.drop(turn);
 						break b0;
 					}
@@ -1086,7 +1025,6 @@ export class drainFuture {
 		let unwind: number = 0;
 		try {
 			if (this.state === 0) {
-				unwind = 0;
 				rt.drop(this.rx);
 				return;
 			} else if (this.state === 3) {
@@ -1114,22 +1052,16 @@ export class drainFuture {
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
 		let next!: rt.u64 | undefined;
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _7!: rt.Poll<rt.u64 | undefined>;
-		let _15!: rt.Future<rt.u64 | undefined>;
 		let _18!: rt.Poll<rt.u64 | undefined>;
-		let _26!: rt.Future<rt.u64 | undefined>;
 		let _29!: rt.Poll<rt.u64 | undefined>;
-		let _39!: rt.u64;
 		let _40!: rt.u64;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
 			l0: while (true) {
 				switch (bb0) {
 					case 0:
-						_taskContext = _2;
 						if (this.state === 0) {
 							this.rx_ = this.rx;
 							this.depth_ = this.depth;
@@ -1137,10 +1069,8 @@ export class drainFuture {
 							bb0 = 1;
 							continue l0;
 						} else if (this.state === 1) {
-							unwind = 0;
 							rt.panic("`async fn` resumed after completion");
 						} else if (this.state === 2) {
-							unwind = 0;
 							rt.panic("`async fn` resumed after panicking");
 						} else if (this.state === 3) {
 							bb0 = 7;
@@ -1155,26 +1085,23 @@ export class drainFuture {
 					case 1:
 						if (this.depth_ === 1) {
 							unwind = 36;
-							_4 = Consumer.recv(this.rx_);
-							this.__awaitee_ = _4;
+							this.__awaitee_ = Consumer.recv(this.rx_);
 							bb0 = 7;
 							continue l0;
 						} else if (this.depth_ === 4) {
 							unwind = 36;
-							_15 = level3(this.rx_);
-							this.___awaitee_ = _15;
+							this.___awaitee_ = level3(this.rx_);
 							bb0 = 15;
 							continue l0;
 						} else {
 							unwind = 36;
-							_26 = level15(this.rx_);
-							this.___awaitee_$2 = _26;
+							this.___awaitee_$2 = level15(this.rx_);
 							bb0 = 22;
 							continue l0;
 						}
 					case 22:
 						unwind = 33;
-						_29 = this.___awaitee_$2.poll(_taskContext);
+						_29 = this.___awaitee_$2.poll(_2);
 						if (_29 !== rt.Pending) {
 							unwind = 36;
 							next = _29;
@@ -1187,7 +1114,7 @@ export class drainFuture {
 						}
 					case 15:
 						unwind = 34;
-						_18 = this.___awaitee_.poll(_taskContext);
+						_18 = this.___awaitee_.poll(_2);
 						if (_18 !== rt.Pending) {
 							unwind = 36;
 							next = _18;
@@ -1200,7 +1127,7 @@ export class drainFuture {
 						}
 					case 7:
 						unwind = 35;
-						_7 = this.__awaitee_.poll(_taskContext);
+						_7 = this.__awaitee_.poll(_2);
 						if (_7 !== rt.Pending) {
 							unwind = 36;
 							next = _7;
@@ -1220,8 +1147,7 @@ export class drainFuture {
 							return _40;
 						} else {
 							unwind = 36;
-							_39 = rt.u64Add(this.total_, next);
-							this.total_ = _39;
+							this.total_ = rt.u64Add(this.total_, next);
 							bb0 = 1;
 							continue l0;
 						}
@@ -1271,32 +1197,24 @@ export class level1Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = Consumer.recv(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = Consumer.recv(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1336,32 +1254,24 @@ export class level10Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level9(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level9(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1401,32 +1311,24 @@ export class level11Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level10(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level10(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1466,32 +1368,24 @@ export class level12Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level11(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level11(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1531,32 +1425,24 @@ export class level13Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level12(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level12(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1596,32 +1482,24 @@ export class level14Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level13(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level13(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1661,32 +1539,24 @@ export class level15Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level14(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level14(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1726,32 +1596,24 @@ export class level2Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level1(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level1(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1791,32 +1653,24 @@ export class level3Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level2(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level2(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1856,32 +1710,24 @@ export class level4Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level3(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level3(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1921,32 +1767,24 @@ export class level5Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level4(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level4(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -1986,32 +1824,24 @@ export class level6Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level5(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level5(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -2051,32 +1881,24 @@ export class level7Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level6(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level6(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -2116,32 +1938,24 @@ export class level8Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level7(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level7(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;
@@ -2181,32 +1995,24 @@ export class level9Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let _4!: rt.Future<rt.u64 | undefined>;
 		let _6!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
-				_4 = level8(this.rx);
-				this.__awaitee_ = _4;
+				this.__awaitee_ = level8(this.rx);
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_6 = this.__awaitee_.poll(_taskContext);
+			_6 = this.__awaitee_.poll(_2);
 			if (_6 !== rt.Pending) {
 				unwind = 12;
-				result = _6;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _6;
 			} else {
 				this.state = 3;
 				return rt.Pending;

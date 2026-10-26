@@ -105,11 +105,9 @@ export function takeU64(data: Uint8Array): [rt.u64, Uint8Array] {
 export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): void {
 	let _5!: string;
 	let _6!: string;
-	let args!: [DecodeError.DecodeError];
 	decodeError(out, err);
 	_5 = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f));
-	args = [err] as [DecodeError.DecodeError];
-	const arg = args[0];
+	const arg = ([err] as [DecodeError.DecodeError])[0];
 	_6 = rt.fmtFormat([(f: rt.Formatter) => DecodeError.fmt$Debug(arg, f)]);
 	putText(out, _5, _6);
 }
@@ -118,11 +116,9 @@ export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): voi
 export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): void {
 	let _5!: string;
 	let _6!: string;
-	let args!: [EncodeError.EncodeError];
 	encodeError(out, err);
 	_5 = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f));
-	args = [err] as [EncodeError.EncodeError];
-	const arg = args[0];
+	const arg = ([err] as [EncodeError.EncodeError])[0];
 	_6 = rt.fmtFormat([(f: rt.Formatter) => EncodeError.fmt$Debug(arg, f)]);
 	putText(out, _5, _6);
 }
@@ -216,7 +212,7 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let _15!: rt.usize;
 	let r!: Decoder.Decoder;
 	let _18!: Form.Form;
-	let iter!: rt.Iter<rt.u8>;
+	let iter!: { s: Uint8Array; i: number };
 	let _21!: rt.u8 | rt.Done;
 	let _26!: rt.Result<undefined, DecodeError.DecodeError>;
 	let err!: DecodeError.DecodeError;
@@ -232,9 +228,9 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				_13 = rt.sliceSplitAt(_9[1], _14);
 				_18 = form(selector);
 				r = Decoder.new(_13[1], _18);
-				iter = rt.iterSlice(_13[0]);
+				iter = { s: _13[0], i: 0 };
 				l1: while (true) {
-					_21 = iter.next();
+					_21 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 					if (_21 !== rt.DONE) {
 						_26 = decodeStep(r, _21, out);
 						if (_26.ok) {
@@ -373,7 +369,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let w!: Encoder.Encoder;
 	let _20!: Form.Form;
 	let prefixes!: Prefix.Prefix[];
-	let iter!: rt.Iter<rt.u8>;
+	let iter!: { s: Uint8Array; i: number };
 	let _24!: rt.u8 | rt.Done;
 	let step!: rt.u8;
 	let value!: rt.u64;
@@ -411,9 +407,9 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				_20 = form(selector);
 				w = Encoder.new(buf, _20);
 				prefixes = [];
-				iter = rt.iterSlice(_13[0]);
+				iter = { s: _13[0], i: 0 };
 				while (true) {
-					_24 = iter.next();
+					_24 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 					if (_24 === rt.DONE) {
 						while (true) {
 							_98 = prefixes.pop();
@@ -749,11 +745,8 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 	let _20!: rt.Result<string, rt.FromUtf8Error>;
 	let _26!: string;
 	let _28!: string;
-	let args!: [BoundsExceeded.BoundsExceeded];
 	let _38!: string;
-	let args3!: [DecodeError.DecodeError];
 	let _47!: string;
-	let args5!: [DecodeError.DecodeError];
 	_5 = rt.sliceSplitFirst(data);
 	b0: {
 		if (_5 !== undefined) {
@@ -780,19 +773,16 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 			} else if (_10 === 6) {
 				const arg = {};
 				_26 = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(arg, f));
-				args = [{}] as [BoundsExceeded.BoundsExceeded];
-				const arg2 = args[0];
+				const arg2 = ([{}] as [BoundsExceeded.BoundsExceeded])[0];
 				_28 = rt.fmtFormat([(f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f))]);
 				putText(out, _26, _28);
 				break b0;
 			} else {
 				err = { tag: "MalformedAuthToken" } as DecodeError.DecodeError;
 			}
-			args3 = [err] as [DecodeError.DecodeError];
-			const arg3 = args3[0];
+			const arg3 = ([err] as [DecodeError.DecodeError])[0];
 			_38 = rt.fmtFormat([(f: rt.Formatter) => DecodeError.fmt$Display(arg3, f), " ", rt.fmtSpec({ align: ">", width: 30 }, (f: rt.Formatter) => DecodeError.fmt$Display(arg3, f)), "|"]);
-			args5 = [err] as [DecodeError.DecodeError];
-			const arg4 = args5[0];
+			const arg4 = ([err] as [DecodeError.DecodeError])[0];
 			_47 = rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => DecodeError.fmt$Debug(arg4, f))]);
 			putText(out, _38, _47);
 			decodeFailed(out, err);

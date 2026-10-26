@@ -214,23 +214,17 @@ export function get$u8(self: Wrap<rt.u8>): rt.u8 {
 }
 
 export function bump$Point(self: Wrap<Point.Point>): rt.u8 {
-	let _2!: rt.u8;
-	_2 = rt.u8WrappingAdd(self.count, 1);
-	self.count = _2;
+	self.count = rt.u8WrappingAdd(self.count, 1);
 	return self.count;
 }
 
 export function bump$Vec_u16(self: Wrap<rt.u16[]>): rt.u8 {
-	let _2!: rt.u8;
-	_2 = rt.u8WrappingAdd(self.count, 1);
-	self.count = _2;
+	self.count = rt.u8WrappingAdd(self.count, 1);
 	return self.count;
 }
 
 export function bump$u8(self: Wrap<rt.u8>): rt.u8 {
-	let _2!: rt.u8;
-	_2 = rt.u8WrappingAdd(self.count, 1);
-	self.count = _2;
+	self.count = rt.u8WrappingAdd(self.count, 1);
 	return self.count;
 }
 

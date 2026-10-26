@@ -32,35 +32,27 @@ export class recvFuture {
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
 		let self!: Consumer.Consumer;
-		let _4!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
 		let _7!: rt.Poll<rt.u64 | undefined>;
-		let result!: rt.u64 | undefined;
-		let _taskContext!: rt.Context;
 		let unwind: number = 0;
 		try {
-			_taskContext = _2;
 			if (this.state === 0) {
 				unwind = 12;
 				self = this.self;
-				_4 = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+				this.__awaitee_ = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 					return Consumer.pollRecv(self, waiter);
 				});
-				this.__awaitee_ = _4;
 			} else if (this.state === 1) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after completion");
 			} else if (this.state === 2) {
-				unwind = 0;
 				rt.panic("`async fn` resumed after panicking");
 			}
 			unwind = 11;
-			_7 = Pending.poll$Future_recv_closure0_closure0(this.__awaitee_, _taskContext);
+			_7 = Pending.poll$Future_recv_closure0_closure0(this.__awaitee_, _2);
 			if (_7 !== rt.Pending) {
 				unwind = 12;
-				result = _7;
 				rt.drop(this.__awaitee_);
 				this.state = 1;
-				return result;
+				return _7;
 			} else {
 				this.state = 3;
 				return rt.Pending;

@@ -16,7 +16,7 @@ function new_(): WaiterList {
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	let weak!: rt.Weak<rt.Waker>;
-	let iter!: rt.Iter<rt.Weak<rt.Waker>>;
+	let iter!: { s: rt.Weak<rt.Waker>[]; i: number };
 	let _8!: rt.Weak<rt.Waker> | rt.Done;
 	let probes!: rt.usize;
 	let _23!: rt.usize;
@@ -25,14 +25,14 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	let _28!: rt.usize;
 	let _31!: rt.usize;
 	let live!: rt.Weak<rt.Waker>[];
-	let iter2!: rt.Iter<rt.Weak<rt.Waker>>;
+	let iter2!: { s: rt.Weak<rt.Waker>[]; i: number };
 	let _43!: rt.Weak<rt.Waker> | rt.Done;
 	let entry!: rt.Weak<rt.Waker>;
 	let _53!: rt.Weak<rt.Waker>[];
 	weak = new rt.Weak(waiter.shared);
-	iter = rt.iterSlice(self.entries);
+	iter = { s: self.entries, i: 0 };
 	l0: while (true) {
-		_8 = iter.next();
+		_8 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		b1: {
 			b2: {
 				if (_8 === rt.DONE) {
@@ -44,9 +44,9 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 									live = [];
 									const taken = self.entries;
 									self.entries = [];
-									iter2 = rt.iterSlice(taken);
+									iter2 = { s: taken, i: 0 };
 									while (true) {
-										_43 = iter2.next();
+										_43 = iter2.i < iter2.s.length ? iter2.s[iter2.i++] : rt.DONE;
 										if (_43 === rt.DONE) {
 											_53 = live;
 											self.entries = _53;
@@ -99,7 +99,7 @@ export function take(self: WaiterList): WaiterList {
 
 /** Wake every live waiter, draining the list. */
 export function wake(self: WaiterList): void {
-	let iter!: rt.Iter<rt.Weak<rt.Waker>>;
+	let iter!: { s: rt.Weak<rt.Waker>[]; i: number };
 	let _6!: rt.Weak<rt.Waker> | rt.Done;
 	let entry!: rt.Weak<rt.Waker>;
 	let _10!: rt.Arc<rt.Waker> | undefined;
@@ -109,13 +109,12 @@ export function wake(self: WaiterList): void {
 		self.cursor = 0;
 		const taken = self.entries;
 		self.entries = [];
-		iter = rt.iterSlice(taken);
+		iter = { s: taken, i: 0 };
 		while (true) {
-			_6 = iter.next();
+			_6 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 			if (_6 === rt.DONE) {
 				return;
 			} else {
-				unwind = 0;
 				entry = _6;
 				_10 = rt.weakUpgrade(entry);
 				if (_10 !== undefined) {

@@ -101,25 +101,19 @@ export function string(self: Encoder, v: string): rt.Result<undefined, EncodeErr
  * One byte is reserved, which most bodies fit, so they never move.
  */
 export function prefixVarint(self: Encoder): Prefix.Prefix {
-	let _7!: rt.ByteVec;
 	rt.byteVecPush(self.buf, 0);
-	_7 = self.buf;
-	return { body: _7.length, kind: "Varint" as PrefixKind.PrefixKind };
+	return { body: self.buf.length, kind: "Varint" as PrefixKind.PrefixKind };
 }
 
 /** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
 export function prefixU16(self: Encoder): Prefix.Prefix {
-	let _9!: rt.ByteVec;
 	rt.byteVecExtendFromSlice(self.buf, Uint8Array.of(0, 0));
-	_9 = self.buf;
-	return { body: _9.length, kind: "U16" as PrefixKind.PrefixKind };
+	return { body: self.buf.length, kind: "U16" as PrefixKind.PrefixKind };
 }
 
 /** The number of bytes written since `prefix` was reserved. */
 export function since(self: Encoder, prefix: Prefix.Prefix): rt.usize {
-	let _7!: rt.ByteVec;
-	_7 = self.buf;
-	return rt.usizeSub(_7.length, prefix.body);
+	return rt.usizeSub(self.buf.length, prefix.body);
 }
 
 /** Drop a reserved prefix and everything written since, as if neither was written. */
@@ -149,26 +143,19 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 	let _44!: Uint8Array;
 	let _56!: Uint8Array;
 	let _58!: rt.usize;
-	let _74!: rt.ByteVec;
 	let _75!: rt.ByteVec;
-	let _77!: rt.ByteVec;
-	let _78!: rt.ByteVec;
 	let _79!: rt.ByteVec;
-	let _81!: rt.ByteVec;
 	let _84!: rt.ByteVec;
 	body = prefix.body;
-	_74 = self.buf;
-	end = _74.length;
+	end = self.buf.length;
 	if (prefix.kind === "Varint") {
 		_23 = write(rt.usizeSub(end, body) as rt.u64, self.form, self.buf);
 		if (_23.ok) {
-			_77 = self.buf;
-			len = rt.usizeSub(_77.length, end);
+			len = rt.usizeSub(self.buf.length, end);
 			if (!(len === 1)) {
 				size2 = rt.bytes(9);
 				_44 = rt.sliceRange(size2, 0, len);
-				_81 = self.buf;
-				const slice4 = rt.byteVecView(_81);
+				const slice4 = rt.byteVecView(self.buf);
 				rt.sliceCopyFromSlice(_44, rt.sliceRange(slice4, end));
 				rt.byteVecTruncate(self.buf, rt.usizeSub(rt.usizeAdd(end, len), 1));
 				_58 = rt.usizeSub(rt.usizeAdd(body, len), 1);
@@ -180,8 +167,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 				const slice5 = rt.byteVecView(_84);
 				rt.sliceCopyFromSlice(rt.sliceRange(slice5, part2, part3), rt.sliceRange(size2, 0, len));
 			} else {
-				_78 = self.buf;
-				const slice2 = rt.byteVecView(_78);
+				const slice2 = rt.byteVecView(self.buf);
 				const at = rt.idx(slice2, end);
 				_35 = slice2[at];
 				_79 = self.buf;
