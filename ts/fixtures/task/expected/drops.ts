@@ -974,135 +974,132 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 142;
 		let iterStart: rt.u32 = 20;
 		const iterEnd: rt.u32 = 26;
-		while (true) {
-			if (!((_225 = iterStart++) < iterEnd)) {
-				const _236: Guard.Guard = guard(19);
-				rt.dequePushFront(queue, _236);
-				rt.dequeRetain(queue, (g: Guard.Guard): boolean => {
-					return rt.u32Rem(Guard.id(g), 3) !== 0;
-				}, rt.drop);
-				check(5);
-				rt.dequeTruncate(queue, 2, rt.drop);
-				const arg8 = ([queue.n] as [rt.usize])[0];
-				const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg8, f)];
-				Log.note(log, rt.fmtFormat(["queue ", args16[0]]));
-				rt.btreeClear(map, rt.drop, rt.drop);
-				rt.btreeClear(set, rt.drop);
-				check(6);
-				[rt.btreeLen(map), rt.btreeLen(set), queue.n] as [rt.usize, rt.usize, rt.usize];
-				const arg9 = rt.btreeLen(map);
-				const _280: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(arg9, f);
-				const arg10 = rt.btreeLen(set);
-				const args18: rt.Fmt[] = [_280, (f: rt.Formatter) => rt.usizeDisplay(arg10, f), (f: rt.Formatter) => rt.usizeDisplay(queue.n, f)];
-				Log.note(log, rt.fmtFormat(["left ", args18[0], " ", args18[1], " ", args18[2]]));
-				unwind = 144;
-				rt.dequeDrop(queue, rt.drop);
-				unwind = 147;
-				rt.btreeDrop(set, rt.drop);
-				unwind = 162;
-				rt.drop(removed);
-				unwind = 0;
-				_300 = false;
-				rt.btreeDrop(map, rt.drop, rt.drop);
-				return;
-			}
+		while ((_225 = iterStart++) < iterEnd) {
 			const _231: Guard.Guard = guard(_225);
 			rt.dequePushBack(queue, _231);
 		}
+		const _236: Guard.Guard = guard(19);
+		rt.dequePushFront(queue, _236);
+		rt.dequeRetain(queue, (g: Guard.Guard): boolean => {
+			return rt.u32Rem(Guard.id(g), 3) !== 0;
+		}, rt.drop);
+		check(5);
+		rt.dequeTruncate(queue, 2, rt.drop);
+		const arg8 = ([queue.n] as [rt.usize])[0];
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg8, f)];
+		Log.note(log, rt.fmtFormat(["queue ", args16[0]]));
+		rt.btreeClear(map, rt.drop, rt.drop);
+		rt.btreeClear(set, rt.drop);
+		check(6);
+		[rt.btreeLen(map), rt.btreeLen(set), queue.n] as [rt.usize, rt.usize, rt.usize];
+		const arg9 = rt.btreeLen(map);
+		const _280: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(arg9, f);
+		const arg10 = rt.btreeLen(set);
+		const args18: rt.Fmt[] = [_280, (f: rt.Formatter) => rt.usizeDisplay(arg10, f), (f: rt.Formatter) => rt.usizeDisplay(queue.n, f)];
+		Log.note(log, rt.fmtFormat(["left ", args18[0], " ", args18[1], " ", args18[2]]));
+		unwind = 144;
+		rt.dequeDrop(queue, rt.drop);
+		unwind = 147;
+		rt.btreeDrop(set, rt.drop);
+		unwind = 162;
+		rt.drop(removed);
+		unwind = 0;
+		_300 = false;
+		rt.btreeDrop(map, rt.drop, rt.drop);
 	} catch (e3) {
-		b4: {
-			b5: {
-				b6: {
-					b7: {
+		b5: {
+			b6: {
+				b7: {
+					b8: {
 						if (unwind === 0) {
 							throw e3;
 						}
 						if (unwind === 142) {
 							rt.dequeDrop(queue, rt.drop);
-							break b7;
+							break b8;
 						}
 						if (unwind === 143) {
 							rt.drop(_206);
-							break b7;
+							break b8;
 						}
 						if (unwind === 144) {
-							break b7;
+							break b8;
 						}
 						if (unwind === 145) {
 							rt.drop(e2.k);
-							break b6;
+							break b7;
 						}
 						if (unwind === 146) {
 							rt.drop(_94);
 						} else {
 							if (unwind === 147) {
-								break b6;
+								break b7;
 							}
 							if (unwind === 148) {
 								rt.drop(_64);
-								break b5;
+								break b6;
 							}
 							if (unwind === 149) {
-								break b4;
+								break b5;
 							}
 							if (unwind === 154) {
 								if (!_297) {
-									break b6;
+									break b7;
 								}
 								rt.drop(_160);
-								break b6;
+								break b7;
 							}
 							if (unwind === 156) {
 								if (!_298) {
-									break b6;
+									break b7;
 								}
 								rt.entryDrop(_138, rt.drop);
-								break b6;
+								break b7;
 							}
 							if (unwind === 158) {
 								if (!_299) {
-									break b6;
+									break b7;
 								}
 								rt.entryDrop(_127, rt.drop);
-								break b6;
+								break b7;
 							}
 							if (unwind !== 160) {
 								if (unwind === 162) {
-									break b5;
+									break b6;
 								}
 								if (unwind === 164) {
 									if (!_301) {
-										break b4;
+										break b5;
 									}
 									rt.drop(_38);
-									break b4;
+									break b5;
 								}
 								if (unwind === 166) {
 									if (!_302) {
-										break b4;
+										break b5;
 									}
 									rt.drop(_30);
-									break b4;
+									break b5;
 								}
 								if (unwind === 168) {
 									if (!_303) {
-										break b4;
+										break b5;
 									}
 									rt.drop(_22);
-									break b4;
+									break b5;
 								}
 								if (!_304) {
-									break b4;
+									break b5;
 								}
 								rt.drop(_14);
-								break b4;
+								break b5;
 							}
 						}
 						if (rt.entryOccupied(_80)) {
-							break b6;
+							break b7;
 						}
 						rt.entryDrop(_80, rt.drop);
-						break b6;
+						break b7;
 					}
 					rt.btreeDrop(set, rt.drop);
 				}
