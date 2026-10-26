@@ -47,20 +47,21 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 7`, panicking at the point `arg / 7 % 8` names, if any: what
+/// Run scenario `arg % 8`, panicking at the point `arg / 8 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 7 % 8;
+	let at = arg / 8 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 7 {
+	match arg % 8 {
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
+		7 => arcs(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -408,4 +409,56 @@ fn options(log: &Log, id: u32, at: u8) {
 	let never = false.then_some(guard(18));
 	log.note(format!("then_some {} {}", then.is_some(), never.is_some()));
 	check(5);
+}
+
+/// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and
+/// `min` of the operand they do not return, read by the keys' counts; and what
+/// `or_insert` drops of a value JS copies, which it returns a place for.
+fn arcs(log: &Log, id: u32, at: u8) {
+	let check = |point: u8| {
+		if point == at {
+			panic!("d{id} at {point}");
+		}
+	};
+	let count = |what: &str, key: &Arc<str>| log.note(format!("{what} {}", Arc::strong_count(key)));
+	let name: Arc<str> = Arc::from("name");
+	let other: Arc<str> = Arc::from("other");
+	let mut map = HashMap::new();
+	map.insert(name.clone(), 1u8);
+	map.insert(name.clone(), 2);
+	map.insert(other.clone(), 3);
+	count("insert", &name);
+	let mut tree = BTreeMap::new();
+	tree.insert(other.clone(), 1u8);
+	tree.insert(other.clone(), 2);
+	count("tree", &other);
+	check(1);
+	*map.entry(name.clone()).or_insert(0) += 1;
+	count("entry", &name);
+	map.remove(&name);
+	count("remove", &name);
+	tree.remove("other");
+	count("removed", &other);
+	check(2);
+	let max = name.clone().max(other.clone());
+	let min = name.clone().min(other.clone());
+	log.note(format!("max {} min {}", &*max, &*min));
+	count("name", &name);
+	count("other", &other);
+	drop((max, min));
+	check(3);
+	let mut tags = BTreeMap::new();
+	tags.insert(1u8, Held::One(Guard::new(id + 1, log.clone())));
+	if let Held::One(guard) = tags.entry(1).or_insert(Held::One(Guard::new(id + 2, log.clone()))) {
+		log.note(format!("tag {}", guard.id()));
+	}
+	tags.entry(2).or_insert(Held::Two(
+		Guard::new(id + 3, log.clone()),
+		Guard::new(id + 4, log.clone()),
+	));
+	log.note(format!("tags {}", tags.len()));
+	check(4);
+	drop(map);
+	count("dropped", &name);
+	count("dropped", &other);
 }

@@ -17,6 +17,7 @@
 import { panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterToArray, RangeInclusive } from "./iter.ts";
+import type { Arc } from "./task.ts";
 
 // Ordering
 
@@ -64,6 +65,36 @@ export function cmpTuple<T extends readonly unknown[], O extends Ordering | unde
 	};
 }
 
+/** `Ord::cmp` of `Option`s, or `PartialOrd::partial_cmp`, from their values': `None` first. */
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O {
+	return (a, b) => (a === undefined ? (b === undefined ? 0 : -1) : b === undefined ? 1 : cmp(a, b)) as O;
+}
+
+/** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp`: their values'. */
+export function cmpArc<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: Arc<T>, b: Arc<T>) => O {
+	return (a, b) => cmp(a.value, b.value);
+}
+
+/** `Ord::max`, by `cmp`: `b` unless `a` is greater, and the other drops. */
+export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
+	if (cmp(a, b) > 0) {
+		drop?.(b);
+		return a;
+	}
+	drop?.(a);
+	return b;
+}
+
+/** `Ord::min`, by `cmp`: `a` unless it is greater, and the other drops. */
+export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
+	if (cmp(a, b) > 0) {
+		drop?.(a);
+		return b;
+	}
+	drop?.(b);
+	return a;
+}
+
 /** `Ordering::reverse`. */
 export function orderingReverse(o: Ordering): Ordering {
 	return o === 0 ? 0 : o === 1 ? -1 : 1;
@@ -88,6 +119,19 @@ export function eqTuple<T extends readonly unknown[]>(fields: readonly ((a: neve
 		for (let i = 0; i < fields.length; i++) if (!(fields[i] as (a: unknown, b: unknown) => boolean)(a[i], b[i])) return false;
 		return true;
 	};
+}
+
+/** `PartialEq::eq` of `Option`s, from their values'. */
+export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean {
+	return (a, b) => (a === undefined || b === undefined ? a === b : eq(a, b));
+}
+
+/**
+ * `PartialEq::eq` of `Arc`s: their values', after, with `ident`, whether they are one
+ * `Arc`, which std checks first of a value that is `Eq`.
+ */
+export function eqArc<T>(eq: (a: T, b: T) => boolean, ident = false): (a: Arc<T>, b: Arc<T>) => boolean {
+	return (a, b) => (ident && a === b) || eq(a.value, b.value);
 }
 
 // Hashing
@@ -139,6 +183,19 @@ export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value
 	};
 }
 
+/** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
+export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void {
+	return (value, s) => {
+		mix(s, value === undefined ? 0 : 1);
+		if (value !== undefined) hash(value, s);
+	};
+}
+
+/** `Hash::hash` of an `Arc`: its value's. */
+export function hashArc<T>(hash: (value: T, s: Hasher) => void): (value: Arc<T>, s: Hasher) => void {
+	return (value, s) => hash(value.value, s);
+}
+
 /** `Hasher::finish`, as a JS map's key: a 30-bit integer, which V8 keeps unboxed. */
 export function hashFinish(s: Hasher): number {
 	return (s.h ^ (s.h >>> 15)) & 0x3fffffff;
@@ -170,6 +227,51 @@ function itself<T>(value: T): T {
 	return value;
 }
 
+/**
+ * A `&mut` to a value a collection holds that JS copies, such as a number, which no JS
+ * value can point at: where the value is, read and written through `v`.
+ */
+export interface Place<T> {
+	v: T;
+}
+
+/** The place of index `i` of `a`. */
+class AtIndex<T> implements Place<T> {
+	private readonly a: T[];
+	private readonly i: number;
+
+	constructor(a: T[], i: number) {
+		this.a = a;
+		this.i = i;
+	}
+
+	get v(): T {
+		return this.a[this.i];
+	}
+
+	set v(value: T) {
+		this.a[this.i] = value;
+	}
+}
+
+/** The place of `k`'s value in `m`, which holds it. */
+class AtKey<K, V> implements Place<V> {
+	private readonly m: Map<K, V>;
+	private readonly k: K;
+
+	constructor(m: Map<K, V>, k: K) {
+		this.m = m;
+		this.k = k;
+	}
+
+	get v(): V {
+		return this.m.get(this.k) as V;
+	}
+
+	set v(value: V) {
+		this.m.set(this.k, value);
+	}
+}
 
 // HashMap and HashSet
 
@@ -224,6 +326,12 @@ export function hashGet<K, V>(m: HashMap<K, V>, key: K): V | undefined {
 	return hashed(m, key) ? slot(m, key)?.v : m.p.get(key);
 }
 
+/** `HashMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
+export function hashGetMut<K, V>(m: HashMap<K, V>, key: K): Place<V> | undefined {
+	if (hashed(m, key)) return slot(m, key);
+	return m.p.has(key) ? new AtKey(m.p, key) : undefined;
+}
+
 export function hashContains<K, V>(m: HashMap<K, V>, key: K): boolean {
 	return hashed(m, key) ? slot(m, key) !== undefined : m.p.has(key);
 }
@@ -252,12 +360,14 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K
 	return undefined;
 }
 
-/** Add a hashed key that is not there yet. */
-function add<K, V>(m: HashMap<K, V>, key: K, value: V): void {
+/** Add a hashed key that is not there yet: its new slot. */
+function add<K, V>(m: HashMap<K, V>, key: K, value: V): Slot<K, V> {
 	m.o ??= new Map();
 	const hash = (m.h as Hashing<K>).hash(key);
-	m.o.set(hash, { k: key, v: value, next: m.o.get(hash) });
+	const s = { k: key, v: value, next: m.o.get(hash) };
+	m.o.set(hash, s);
 	m.n++;
+	return s;
 }
 
 /** `HashSet::insert`: whether `key` was not there yet. An equal key already there stays, and `key` drops. */
@@ -592,6 +702,13 @@ export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	return i < 0 ? undefined : l.v[i];
+}
+
+/** `BTreeMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
+export function btreeGetMut<K, V>(m: BTreeMap<K, V>, key: K): Place<V> | undefined {
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : new AtIndex(l.v, i);
 }
 
 /** `BTreeMap::get_key_value`, and `BTreeSet::get`, which return the equal key the map holds. */
@@ -1157,10 +1274,11 @@ function isHash<K, V>(m: HashMap<K, V> | BTreeMap<K, V>): m is HashMap<K, V> {
 export function entryOrInsertWith<K, V>(e: Entry<K, V>, make: (key: K) => V): V {
 	const m = e.m;
 	if (isHash(m)) {
-		const found = hashGet(m, e.k);
+		if (hashed(m, e.k)) return (slot(m, e.k) ?? add(m, e.k, make(e.k))).v;
+		const found = m.p.get(e.k);
 		if (found !== undefined) return found;
 		const value = make(e.k);
-		hashInsert(m, e.k, value);
+		m.p.set(e.k, value);
 		return value;
 	}
 	const l = leafOf(m, e.k);
@@ -1202,6 +1320,40 @@ export function entryKey<K, V>(e: Entry<K, V>): K {
 /** `OccupiedEntry::get` and `get_mut`. */
 export function entryGet<K, V>(e: Entry<K, V>): V {
 	return (isHash(e.m) ? hashGet(e.m, e.k) : btreeGet(e.m, e.k)) as V;
+}
+
+/** `OccupiedEntry::get_mut` and `into_mut` of a value JS copies: its place. */
+export function entryGetMut<K, V>(e: Entry<K, V>): Place<V> {
+	return (isHash(e.m) ? hashGetMut(e.m, e.k) : btreeGetMut(e.m, e.k)) as Place<V>;
+}
+
+/**
+ * `Entry::or_insert_with` and `or_insert_with_key` of a value JS copies, and
+ * `or_default`: its place, after inserting `make()`'s value if the map lacks the key.
+ */
+export function entryOrInsertWithMut<K, V>(e: Entry<K, V>, make: (key: K) => V): Place<V> {
+	// The place comes from the one search, as Rust's comes from its entry: a second would
+	// compare keys where Rust compares none.
+	const m = e.m;
+	if (isHash(m)) {
+		if (hashed(m, e.k)) return slot(m, e.k) ?? add(m, e.k, make(e.k));
+		if (!m.p.has(e.k)) m.p.set(e.k, make(e.k));
+		return new AtKey(m.p, e.k);
+	}
+	const l = leafOf(m, e.k);
+	const i = search(l.k, e.k, m.c);
+	if (i >= 0) return new AtIndex(l.v, i);
+	insertAt(m, l, ~i, e.k, make(e.k));
+	// A split keeps the leaf's first half and moves the rest to the next leaf.
+	return ~i < l.k.length ? new AtIndex(l.v, ~i) : new AtIndex((l.next as Leaf<K, V>).v, ~i - l.k.length);
+}
+
+/** `Entry::or_insert` and `VacantEntry::insert` of a value JS copies: its place, and `value` drops if one was there. */
+export function entryOrInsertMut<K, V>(e: Entry<K, V>, value: V, v?: (value: V) => void): Place<V> {
+	const occupied = v !== undefined && entryOccupied(e);
+	const place = entryOrInsertWithMut(e, () => value);
+	if (occupied) v(value);
+	return place;
 }
 
 /** `OccupiedEntry::insert`: the old value. */

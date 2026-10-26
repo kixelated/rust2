@@ -10,6 +10,22 @@ export function drop$Arc_Wrap_Pair_Held(value: rt.Arc<Wrap.Wrap<Pair.Pair<Held.H
 	rt.arcDrop(value, drop$Wrap_Pair_Held);
 }
 
+export function drop$Arc_str_Arc_str(_1: [rt.Arc<string>, rt.Arc<string>]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
 export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
@@ -41,6 +57,12 @@ export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
 }
 
 export function drop$Option_Box_Held(_1: Held.Held | undefined): void {
+	if (_1 !== undefined) {
+		drop$Held(_1);
+	}
+}
+
+export function drop$Option_Held(_1: Held.Held | undefined): void {
 	if (_1 !== undefined) {
 		drop$Held(_1);
 	}
