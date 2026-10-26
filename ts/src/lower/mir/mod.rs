@@ -2568,7 +2568,7 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 }
 
 /// Call `f` on each expression the statement holds directly, and in its blocks.
-fn visit_stmt(stmt: &Stmt, f: &mut impl FnMut(&Expr)) {
+fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 	match &stmt.kind {
 		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) | StmtKind::Decl { init: Some(e), .. } => {
 			f(e)
@@ -2602,7 +2602,7 @@ fn visit_stmt(stmt: &Stmt, f: &mut impl FnMut(&Expr)) {
 }
 
 /// Call `f` on `e` and every expression within it, arrow bodies included.
-fn visit_expr(e: &Expr, f: &mut impl FnMut(&Expr)) {
+fn visit_expr(e: &Expr, f: &mut dyn FnMut(&Expr)) {
 	f(e);
 	match e {
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
@@ -2627,7 +2627,7 @@ fn visit_expr(e: &Expr, f: &mut impl FnMut(&Expr)) {
 			visit_expr(a, f);
 			visit_expr(b, f);
 		}
-		Expr::Arrow(_, _, body) => body.iter().for_each(|s| visit_stmt(s, f)),
+		Expr::Arrow(_, _, body) => body.iter().for_each(|s| visit_stmt(s, &mut |e| visit_expr(e, f))),
 	}
 }
 
@@ -2970,4 +2970,46 @@ pub(super) fn small_range<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	matches!(ty.kind(), ty::Adt(adt, args)
 		if crate::lower::library::Std::of(tcx, adt.did()) == Some(crate::lower::library::Std::Range)
 			&& crate::lower::num::Int::of(args.type_at(0)).is_some_and(|i| !i.big()))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A variable an arrow reads below the top of one of its statements stays declared
+	/// where the arrow can see it, not at an assignment in a block the arrow is outside.
+	#[test]
+	fn declare_counts_arrow_reads() {
+		let found = || Expr::ident("found");
+		let assign = StmtKind::Expr(found().assign(Expr::lit("1"))).at(None);
+		let read = StmtKind::Return(Some(Expr::ident("f").call(vec![found()]))).at(None);
+		let arrow = Expr::Arrow(Vec::new(), Type::Builtin("number"), vec![read]);
+		let then = vec![assign, StmtKind::Break(None).at(None)];
+		let cond = Expr::ident("c");
+		let body = vec![
+			StmtKind::If {
+				cond,
+				then,
+				els: Vec::new(),
+			}
+			.at(None),
+		];
+		let ty = Type::Builtin("number");
+		let mut stmts = vec![
+			StmtKind::Declare {
+				name: "found".into(),
+				ty,
+			}
+			.at(None),
+			StmtKind::While {
+				label: None,
+				cond: Expr::lit("true"),
+				body,
+			}
+			.at(None),
+			StmtKind::Expr(arrow.call(Vec::new())).at(None),
+		];
+		declare_in_place(&mut stmts);
+		assert!(matches!(&stmts[0].kind, StmtKind::Declare { name, .. } if name == "found"));
+	}
 }

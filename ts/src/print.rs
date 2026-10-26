@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 use oxc_sourcemap::SourceMapBuilder;
 
-use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file};
+use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file, unique};
 use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Type};
 
 pub struct Printed {
@@ -513,17 +513,22 @@ impl Printer<'_> {
 				match ctor {
 					Ctor::Unit => {}
 					Ctor::Positional => {
-						// A private field's parameter is its name without the `#`.
-						let param = |name: &str| name.trim_start_matches('#').to_string();
-						let params: Vec<String> = (names.iter().zip(fields))
-							.map(|(name, field)| format!("{}: {}", param(name), self.ty(&field.ty)))
+						// Each field's parameter is its name without the `#`, escaped where
+						// strict code reserves it, and numbered where escaping made it another's.
+						let mut taken = HashSet::new();
+						let args: Vec<String> = names
+							.iter()
+							.map(|name| unique(&mut taken, &crate::lower::escape(name.trim_start_matches('#'))))
+							.collect();
+						let params: Vec<String> = (args.iter().zip(fields))
+							.map(|(arg, field)| format!("{arg}: {}", self.ty(&field.ty)))
 							.collect();
 						self.newline();
 						self.start();
 						self.write(&format!("constructor({}) {{\n", params.join(", ")));
-						for name in &names {
+						for (name, arg) in names.iter().zip(&args) {
 							self.start();
-							self.write(&format!("{INDENT}this.{name} = {};\n", param(name)));
+							self.write(&format!("{INDENT}this.{name} = {arg};\n"));
 						}
 						self.start();
 						self.write("}\n");

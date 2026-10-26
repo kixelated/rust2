@@ -395,7 +395,7 @@ export class blocksFuture {
 		let _40!: Guard.Guard;
 		let result2!: rt.usize;
 		let seen!: rt.Future<rt.u32>;
-		let _138!: Inner.Inner | undefined;
+		let _141!: Inner.Inner | undefined;
 		let unwind: number = 0;
 		try {
 			b0: {
@@ -465,17 +465,17 @@ export class blocksFuture {
 								this.#saved$2 = Guard.new(rt.u32Add(this.#guard$2.id, 930), Log.clone$Clone(this.#guard$2.log));
 								unwind = 120;
 								this.#saved$10 = true;
-								this.#awaitee$2 = new slotFuture(this.#rx$2);
+								this.#awaitee$2 = new slotFuture(this.#rx$2, this.#slots.length);
 							} else {
 								this.#state = 3;
 								return rt.Pending;
 							}
 						}
 						unwind = 118;
-						const _60: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
-						if (_60 !== rt.Pending) {
+						const _63: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
+						if (_63 !== rt.Pending) {
 							unwind = 139;
-							result2 = _60;
+							result2 = _63;
 							rt.drop(this.#awaitee$2);
 							if (!(result2 < 2)) {
 								rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
@@ -488,16 +488,16 @@ export class blocksFuture {
 							this.#saved$10 = false;
 							const arg = ([this.#waited] as [rt.u64])[0];
 							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-							const _75: string = rt.fmtFormat(["slot after ", args2[0]]);
+							const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
 							unwind = 117;
-							const _73: string = _75;
-							Guard.note(this.#slots[0], _73);
+							const _76: string = _78;
+							Guard.note(this.#slots[0], _76);
 							unwind = 137;
 							this.#tally = { n: this.#guard$2.id };
 							this.#saved$9 = true;
 							seen = new blocksFuture$3(rt.copy(this.#tally));
-							const _86: rt.u32 = rt.u32Add(this.#tally.n, 1000);
-							this.#tally.n = _86;
+							const _89: rt.u32 = rt.u32Add(this.#tally.n, 1000);
+							this.#tally.n = _89;
 							this.#saved$3 = this.#guard$2;
 							this.#saved$4 = this.#tally.n;
 							this.#saved$9 = false;
@@ -508,17 +508,17 @@ export class blocksFuture {
 						}
 					}
 					unwind = 115;
-					const _98: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-					if (_98 !== rt.Pending) {
+					const _101: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+					if (_101 !== rt.Pending) {
 						unwind = 137;
-						const _95: rt.u32 = _98;
+						const _98: rt.u32 = _101;
 						rt.drop(this.#awaitee$3);
 						const arg2 = this.#saved$4;
-						const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_95, f)];
-						const _90: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
+						const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
+						const _93: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
 						unwind = 114;
-						const _88: string = _90;
-						Guard.note(this.#saved$3, _88);
+						const _91: string = _93;
+						Guard.note(this.#saved$3, _91);
 						unwind = 137;
 						this.#mark = { n: 1 };
 						this.#awaitee$4 = new blocksFuture$4(this.#mark);
@@ -528,26 +528,26 @@ export class blocksFuture {
 					}
 				}
 				unwind = 113;
-				const _114: rt.Poll<rt.u32> = this.#awaitee$4.poll(_2);
-				if (_114 !== rt.Pending) {
+				const _117: rt.Poll<rt.u32> = this.#awaitee$4.poll(_2);
+				if (_117 !== rt.Pending) {
 					unwind = 137;
-					this.#replaced = _114;
+					this.#replaced = _117;
 					rt.drop(this.#awaitee$4);
 					const arg3 = this.#replaced;
-					const _133: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
+					const _136: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
 					const arg4 = this.#mark.n;
-					const args6: rt.Fmt[] = [_133, (f: rt.Formatter) => rt.u32Display(arg4, f)];
-					const _126: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
+					const args6: rt.Fmt[] = [_136, (f: rt.Formatter) => rt.u32Display(arg4, f)];
+					const _129: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
 					unwind = 112;
-					const _124: string = _126;
-					Guard.note(this.#guard$2, _124);
+					const _127: string = _129;
+					Guard.note(this.#guard$2, _127);
 					unwind = 111;
-					_138 = undefined;
-					const _139: Guard.Guard = Guard.new(rt.u32Add(this.#guard$2.id, 800), Log.clone$Clone(this.#guard$2.log));
+					_141 = undefined;
+					const _142: Guard.Guard = Guard.new(rt.u32Add(this.#guard$2.id, 800), Log.clone$Clone(this.#guard$2.log));
 					unwind = 137;
-					const _146: Outer.Outer = new Outer.Outer({ inner: _138, guard: _139 });
+					const _149: Outer.Outer = new Outer.Outer({ inner: _141, guard: _142 });
 					unwind = 110;
-					this.#nested = new Inner.Inner({ outer: _146 });
+					this.#nested = new Inner.Inner({ outer: _149 });
 					const third: Guard.Guard = Guard.new(rt.u32Add(this.#guard$2.id, 400), Log.clone$Clone(this.#guard$2.log));
 					if (!this.#moves$2) {
 						this.#chosen = third;
@@ -570,10 +570,10 @@ export class blocksFuture {
 				}
 			}
 			unwind = 108;
-			const _161: rt.Poll<rt.u64> = this.#awaitee$5.poll(_2);
-			if (_161 !== rt.Pending) {
+			const _164: rt.Poll<rt.u64> = this.#awaitee$5.poll(_2);
+			if (_164 !== rt.Pending) {
 				unwind = 109;
-				const result5: rt.u64 = _161;
+				const result5: rt.u64 = _164;
 				rt.drop(this.#awaitee$5);
 				unwind = 110;
 				rt.drop(this.#chosen);
@@ -624,7 +624,7 @@ export class blocksFuture {
 													break b15;
 												}
 												if (unwind === 111) {
-													rt.drop(_138);
+													rt.drop(_141);
 													break b14;
 												}
 												if (unwind === 112) {
@@ -1038,11 +1038,14 @@ export function consume(guard: Guard.Guard, v: rt.u64 | undefined): rt.u64 {
 
 export class slotFuture {
 	#state: number = 0;
-	#rx: Consumer.Consumer;
+	#_constructor: Consumer.Consumer;
+	#eval: rt.usize;
+	#eval$2!: rt.usize;
 	#awaitee!: rt.Future<rt.u64 | undefined>;
 
-	constructor(rx: Consumer.Consumer) {
-		this.#rx = rx;
+	constructor(_constructor: Consumer.Consumer, eval_: rt.usize) {
+		this.#_constructor = _constructor;
+		this.#eval = eval_;
 	}
 
 	[Symbol.dispose](): void {
@@ -1052,12 +1055,14 @@ export class slotFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.usize> {
-		let _18!: rt.usize;
+		let _19!: rt.usize;
 		let unwind: number = 0;
 		try {
 			if (this.#state === 0) {
 				unwind = 16;
-				this.#awaitee = new recvFuture(this.#rx);
+				const constructor: Consumer.Consumer = this.#_constructor;
+				this.#eval$2 = this.#eval;
+				this.#awaitee = new recvFuture(constructor);
 			} else if (this.#state === 1) {
 				rt.asyncFnResumed();
 			} else if (this.#state === 2) {
@@ -1070,12 +1075,12 @@ export class slotFuture {
 				const result: rt.u64 | undefined = _6;
 				rt.drop(this.#awaitee);
 				if (result === undefined) {
-					_18 = 0;
+					_19 = 0;
 				} else {
-					_18 = rt.usizeRem(rt.u64Low(result), 2);
+					_19 = rt.usizeRem(rt.u64Low(result), this.#eval$2);
 				}
 				this.#state = 1;
-				return _18;
+				return _19;
 			}
 			this.#state = 3;
 			return rt.Pending;
