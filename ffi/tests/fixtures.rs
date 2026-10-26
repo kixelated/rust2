@@ -196,29 +196,91 @@ fn feature_of_non_export() {
 	);
 }
 
+/// A one-function package named `name` in its own workspace, written into scratch.
+fn package(name: &str) -> PathBuf {
+	let package = scratch().join(name);
+	std::fs::create_dir_all(package.join("src")).unwrap();
+	let manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n");
+	std::fs::write(package.join("Cargo.toml"), manifest).unwrap();
+	std::fs::write(package.join("src/lib.rs"), "pub fn one() -> u32 {\n\t1\n}\n").unwrap();
+	std::fs::write(package.join("ffi.toml"), format!("package = \"{name}\"\n")).unwrap();
+	package
+}
+
+/// Run a census of the package whose config is `config` with these cargo args.
+fn census(config: &Path, cargo: &[&str]) -> Output {
+	let dir = config.parent().unwrap();
+	Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(config)
+		.arg("--census")
+		.arg(dir.join("census"))
+		.arg("--")
+		.args(cargo)
+		.env("CARGO_TARGET_DIR", dir.join("build"))
+		.output()
+		.expect("running rust2-ffi")
+}
+
 /// Finding the exports keeps to the check's `--locked`: it neither writes a lockfile the
 /// check then accepts, nor passes.
 #[test]
 fn locked() {
-	let package = scratch().join("locked");
-	std::fs::create_dir_all(package.join("src")).unwrap();
-	std::fs::write(
-		package.join("Cargo.toml"),
-		"[package]\nname = \"locked\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n",
-	)
-	.unwrap();
-	std::fs::write(package.join("src/lib.rs"), "pub fn one() -> u32 {\n\t1\n}\n").unwrap();
-	std::fs::write(package.join("ffi.toml"), "package = \"locked\"\n").unwrap();
+	let package = package("locked");
 	let _ = std::fs::remove_file(package.join("Cargo.lock"));
-	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
-		.arg("--config")
-		.arg(package.join("ffi.toml"))
-		.arg("--census")
-		.arg(package.join("census"))
-		.args(["--", "--locked"])
-		.env("CARGO_TARGET_DIR", package.join("build"))
-		.output()
-		.expect("running rust2-ffi");
+	let output = census(&package.join("ffi.toml"), &["--locked"]);
 	assert!(!output.status.success(), "a census without a lockfile passed --locked");
 	assert!(!package.join("Cargo.lock").exists(), "the lockfile was written");
+}
+
+/// A package reached through a symlinked directory is the same package, though cargo
+/// keeps the link in its paths.
+#[test]
+fn symlinked() {
+	let package = package("symlinked");
+	let link = scratch().join("symlinked-link");
+	if !link.exists() {
+		std::os::unix::fs::symlink(&package, &link).unwrap();
+	}
+	let output = census(&link.join("ffi.toml"), &[]);
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
+
+/// Another export is found among what the check builds on the host: a version only
+/// another platform depends on is no rival.
+#[test]
+fn other_platform() {
+	let package = package("platform");
+	for (dir, version) in [("unix", "1.0.0"), ("windows", "2.0.0")] {
+		let dep = package.join(dir);
+		std::fs::create_dir_all(dep.join("src")).unwrap();
+		let manifest = format!("[package]\nname = \"platform-dep\"\nversion = \"{version}\"\nedition = \"2024\"\n");
+		std::fs::write(dep.join("Cargo.toml"), manifest).unwrap();
+		std::fs::write(dep.join("src/lib.rs"), "pub struct Size {\n\tpub width: u32,\n}\n").unwrap();
+	}
+	let manifest = "[package]\nname = \"platform\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[target.'cfg(unix)'.dependencies]\nunix = { package = \"platform-dep\", path = \"unix\" }\n\n\
+		[target.'cfg(windows)'.dependencies]\nwindows = { package = \"platform-dep\", path = \"windows\" }\n\n\
+		[workspace]\nexclude = [\"unix\", \"windows\"]\n";
+	std::fs::write(package.join("Cargo.toml"), manifest).unwrap();
+	std::fs::write(
+		package.join("src/lib.rs"),
+		"#[cfg(unix)]\nuse unix as dep;\n#[cfg(windows)]\nuse windows as dep;\n\npub fn width(size: dep::Size) -> u32 {\n\tsize.width\n}\n",
+	)
+	.unwrap();
+	std::fs::write(
+		package.join("ffi.toml"),
+		"package = \"platform\"\n\n[crates.platform-dep]\n",
+	)
+	.unwrap();
+	let output = census(&package.join("ffi.toml"), &[]);
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
 }

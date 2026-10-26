@@ -63,6 +63,8 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		.current_dir(manifest.parent().expect("a manifest path has a parent"))
 		.args(["metadata", "--format-version", "1", "--manifest-path"])
 		.arg(manifest)
+		// The check's platform, the host: another's dependencies are no rival to an export.
+		.args(["--filter-platform", rustc_session::config::host_tuple()])
 		// As the check resolves: its features decide which optional dependencies it builds
 		// with, and its lockfile and network flags what cargo may change and fetch.
 		.args(picks.args())
@@ -74,7 +76,9 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 	let metadata: Metadata =
 		serde_json::from_slice(&output.stdout).map_err(|err| format!("reading cargo metadata: {err}"))?;
 	let manifest = std::fs::canonicalize(manifest).map_err(|err| format!("resolving {}: {err}", manifest.display()))?;
-	let top = (metadata.packages.iter()).find(|p| p.name == config.package && p.manifest_path == manifest);
+	// Cargo keeps a symlink's spelling of the path.
+	let top = (metadata.packages.iter())
+		.find(|p| p.name == config.package && std::fs::canonicalize(&p.manifest_path).is_ok_and(|p| p == manifest));
 	let Some(top) = top else {
 		return Err(format!(
 			"{} is not the package of {}",
