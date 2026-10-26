@@ -47,6 +47,9 @@ pub struct Crate<'a> {
 	pub abi: &'a Abi<'a>,
 	/// The exported packages, the configured one first, each a dependency of the crate.
 	pub exports: &'a [Package],
+	/// The configured workspace's `[patch]` and `[replace]` tables, which the crate's own
+	/// workspace resolves the exports with.
+	pub patch: &'a str,
 }
 
 impl Crate<'_> {
@@ -88,7 +91,9 @@ impl Crate<'_> {
 			{dependencies}\
 			bytes = \"1\"\n\
 			\n\
-			[workspace]\n",
+			[workspace]\n\
+			{patch}",
+			patch = self.patch,
 			package = self.exports[0].name,
 			packages = self.packages(),
 			lib = self.abi.prefix,

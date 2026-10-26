@@ -475,7 +475,7 @@ fn lookalike() {
 }
 
 /// Another export patched in for a registry dependency is bound by its resolved package,
-/// though the dependency names no path.
+/// though the dependency names no path, and the glue builds it patched in too.
 #[test]
 fn patched() {
 	let package = package("patched");
@@ -501,10 +501,25 @@ fn patched() {
 		"pub fn width(size: rust2_ffi_patched_dep::Size) -> u32 {\n\tsize.width\n}\n",
 	);
 	write("ffi.toml", "package = \"patched\"\n\n[crates.rust2-ffi-patched-dep]\n");
-	let output = census(&package.join("ffi.toml"), &["--offline"]).output().unwrap();
+	let out = package.join("out");
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(package.join("ffi.toml"))
+		.arg("--out")
+		.arg(&out)
+		.args(["--", "--offline"])
+		.env("CARGO_TARGET_DIR", package.join("build"))
+		.output()
+		.unwrap();
 	assert!(
 		output.status.success(),
-		"the census failed:\n{}",
+		"the export failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
+	// The glue's workspace patches the export in as the configured one does.
+	run(cargo()
+		.args(["build", "--quiet", "--offline", "--manifest-path"])
+		.arg(out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(package.join("glue")));
 }

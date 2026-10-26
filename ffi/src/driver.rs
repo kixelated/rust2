@@ -29,6 +29,8 @@ struct Export {
 	/// Each export's package: the configured package first, with the features rustc
 	/// compiles it with.
 	crates: Vec<config::Package>,
+	/// The configured workspace's patches, for the glue's workspace.
+	patch: String,
 }
 
 /// What the job writes.
@@ -75,7 +77,13 @@ impl Export {
 			.filter_map(|f| f.strip_suffix('"'))
 			.map(str::to_string)
 			.collect();
-		Ok(Some(Self { config, output, crates }))
+		let patch = std::env::var(config::env::PATCH).map_err(|_| format!("{} is unset", config::env::PATCH))?;
+		Ok(Some(Self {
+			config,
+			output,
+			crates,
+			patch,
+		}))
 	}
 }
 
@@ -157,6 +165,7 @@ impl Callbacks for Export {
 				let glue = glue::Crate {
 					abi: &abi,
 					exports: &self.crates,
+					patch: &self.patch,
 				};
 				glue.write(out)
 			}

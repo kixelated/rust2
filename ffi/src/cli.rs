@@ -34,7 +34,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		return Ok(ExitCode::SUCCESS);
 	};
 	let config = Config::load(&args.config)?;
-	let crates = crates(&args.manifest, &config, &args.cargo)?;
+	let (crates, patch) = crates(&args.manifest, &config, &args.cargo)?;
 	let output = match &args.output {
 		Output::Dir(out) => (config::env::OUT, out.as_os_str()),
 		Output::Census(census) => (config::env::CENSUS, census.as_os_str()),
@@ -50,6 +50,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		env: &[
 			(config::env::CONFIG, args.config.as_os_str()),
 			(config::env::CRATES, crates.as_ref()),
+			(config::env::PATCH, patch.as_ref()),
 			output,
 		],
 	}
@@ -57,8 +58,8 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 }
 
 /// Each export's package, as [`config::env::CRATES`] lists them: the configured package
-/// first.
-fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
+/// first. Then its workspace's patches, as [`config::env::PATCH`] has them.
+fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String, String), String> {
 	let picks = Picks::parse(cargo)?;
 	// On the host, so the resolved dependencies are the ones the check passes rustc.
 	let host = rustc_session::config::host_tuple();
@@ -158,7 +159,39 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		}
 		lines.push_str(&package.line());
 	}
-	Ok(lines)
+	Ok((lines, patches(&metadata.workspace_root)?))
+}
+
+/// The workspace's `[patch]` and `[replace]` tables, with each path absolute, so the
+/// glue's own workspace resolves the exports as the check does.
+fn patches(root: &Path) -> Result<String, String> {
+	let manifest = root.join("Cargo.toml");
+	let text = std::fs::read_to_string(&manifest).map_err(|err| format!("reading {}: {err}", manifest.display()))?;
+	let table: toml::Table = text
+		.parse()
+		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
+	let mut patches = toml::Table::new();
+	for key in ["patch", "replace"] {
+		if let Some(value) = table.get(key) {
+			let mut value = value.clone();
+			absolute(&mut value, root);
+			patches.insert(key.to_string(), value);
+		}
+	}
+	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+}
+
+/// Make each `path` in a patch absolute, from the directory its manifest is in.
+fn absolute(value: &mut toml::Value, root: &Path) {
+	let toml::Value::Table(table) = value else {
+		return;
+	};
+	for (key, value) in table.iter_mut() {
+		match (key.as_str(), value) {
+			("path", toml::Value::String(path)) => *path = root.join(&*path).display().to_string(),
+			(_, value) => absolute(value, root),
+		}
+	}
 }
 
 /// What a cargo subcommand prints for the package, run as the check resolves: from the
@@ -260,6 +293,7 @@ impl<'a> Picks<'a> {
 struct Metadata {
 	packages: Vec<Package>,
 	resolve: Resolve,
+	workspace_root: PathBuf,
 }
 
 #[derive(serde::Deserialize)]
