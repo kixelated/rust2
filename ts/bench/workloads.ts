@@ -5,8 +5,8 @@
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, or iterated. */
 	name: string;
-	op: "encode" | "decode" | "iterate" | "handoff";
-	/** Varints, frame headers, messages, items, or handoffs per call, which each time is divided by. */
+	op: "encode" | "decode" | "iterate" | "map" | "handoff";
+	/** Varints, frame headers, messages, items, keys, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -62,6 +62,11 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 	chains.forEach((chain, selector) => {
 		out.push({ name: `iter/${chain}`, op: "iterate", items: bytes.length, input: Uint8Array.of(6, selector, ...bytes) });
 	});
+
+	// A `BTreeMap` of each size, through `bench.rs`'s op 8: each key inserted, looked up, and removed.
+	for (const count of [16, 256, 4096]) {
+		out.push({ name: `btree/${count}`, op: "map", items: count, input: Uint8Array.of(8, 0, ...u64(BigInt(count))) });
+	}
 	return out;
 }
 

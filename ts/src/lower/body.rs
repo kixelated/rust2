@@ -2489,7 +2489,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					0 => base.member("value"),
 					_ => base.member("error"),
 				},
-				Some(library::Std::Box) => base,
+				Some(library::Std::Box | library::Std::Entry) => base,
 				Some(library::Std::Range) => base.member(adt.non_enum_variant().fields[field].name.as_str()),
 				None if adt.did().is_local() => {
 					let info = self.t.adt(*adt, span);
@@ -2575,6 +2575,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				(library::Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
+				(library::Std::Ordering, _) => super::collections::ordering_variant(adt.variant_index),
+				(library::Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
+				(library::Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(library::Std::RangeFull, _) => Expr::undefined(),
 				(library::Std::Range, _) => {
 					// A wide range steps past 2^53 through its type.

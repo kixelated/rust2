@@ -57,6 +57,12 @@ roots = [
     "replace_captured",
     "copied_closure",
     "one_sided",
+    "cleared",
+    "optional",
+    "byte_keys",
+    "removed",
+    "borrowed",
+    "raw_keys",
     "missing",
 ]
 printable = ["Meters"]
