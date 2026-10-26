@@ -3,7 +3,7 @@
 A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
 
 ```bash
-rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [--lower thir|mir] [-- cargo args]
+rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
@@ -27,10 +27,6 @@ ignore-macros = ["tracing::trace"]
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
 `just ts run ...` runs it from source on the pinned nightly.
-
-`--lower mir` lowers bodies from MIR instead of THIR: the prototype the MIR spike
-built, which the translator is moving to ([quest](/quest/m2/ts-mir.md)). The rest of
-this page describes the THIR lowering, the default, except where it says MIR.
 
 ## Census
 
@@ -75,7 +71,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
-| `async fn` | a function returning `rt.Future<T>`, around a generator |
+| `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
@@ -114,9 +110,10 @@ would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
 are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
-short-circuiting as std's are, and call their closures in the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
-array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
-counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
+short-circuiting as std's are, and call their closures in the same order and as often.
+An iterator over a slice, array, or `Vec`, or a small range, that only its `next` and
+moves read steps in place, as two variables: the array and an index into it, or the
+range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
 
@@ -145,16 +142,16 @@ calls a key's `Hash`, `Eq`, or `Ord`.
 Its iterators are `rt.Iter`s, so std's adaptors run over them.
 
 A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
-impl, an `Arc`'s count, or a waker. A variable drops at the end of its scope through a
-`finally`, so an early return, `?`, a panic, or a cancelled future drops it too, and a
-move leaves `undefined` where it was, which drops as nothing.
+impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
+elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.Panic`,
+runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
+panic drops matches native Rust's.
 
-An `async fn` returns a future without running anything: `rt.future(body, drop,
-...upvars)`, whose body is a module-level generator of what the function captured. Each
-`.await` polls in a loop around `yield`. A poll after the future returned panics, and
-dropping it cancels it: unpolled, it drops what it captured by value; suspended, its
-generator returns through the `finally` blocks that drop its locals and captures.
-`rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
+An `async fn` returns a future without running anything: an instance of a class of its
+own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
+arguments and the locals held across an `.await`, and its `poll` resumes at the state it
+stopped in. A poll after the future returned panics, and dropping it cancels it,
+dropping what its state holds. `rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
 microtask and yielding to a macrotask after 128 polls.
 
 A file's items follow the Rust source, whatever
@@ -240,23 +237,23 @@ they need.
   by their translated hash, chained by `Eq`. `VecDeque` is a ring buffer over an array
   whose length is a power of two.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
-  helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
+  helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
+  raw pointers, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
   nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
-- Bodies lower from MIR ([moving](/quest/m2/ts-mir.md)): drops are where drop
-  elaboration put them, exact by construction, with no `finally` per scope or
-  `undefined` left by a move, and a panic runs the cleanup blocks `-C panic=unwind`
-  MIR has, from a `catch`. Async bodies are the coroutine transform's state machines,
-  a class each. The MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)) ported
-  the whole lowering and measured it against THIR's: every fixture's differential test
-  passes either way, but MIR closes about 1,100 of the 1,400 drop refusals in moq-net's
-  census, runs an async handoff 1.4-5.5x faster at depths 1 to 16 in Node, Bun, and
-  Chrome, and runs the codec 2-12% slower than THIR, for 9% more gzip on the codec's
-  bundle and 35% on the async fixture's. Blocks become nested blocks, loops, and `if`s by Ramsey's
-  "Beyond Relooper", except a coroutine's resume function, which enters loops in the
-  middle and becomes a loop over a `switch` on the next block. Temporaries assigned
-  once and read once fold back into the expression that reads them unless that
+- Bodies lower from MIR, not THIR: drops are where drop elaboration put them, exact by
+  construction, with no `finally` per scope or `undefined` left by a move, and a panic
+  runs the cleanup blocks `-C panic=unwind` MIR has, from a `catch`. Async bodies are
+  the coroutine transform's state machines, a class each. Against the THIR lowering it
+  replaced, MIR closes about 1,100 of the 1,400 drop refusals in moq-net's census, and
+  runs `just ts bench`'s codec 1-8% faster at the geometric mean and the async handoff
+  1.4-5.5x faster at depths 1 to 16 in Node, Bun, and Chrome, for 5% more gzip on the
+  codec's bundle and 16% on the async fixture's
+  ([size](/quest/m2/ts-mir-size.md)). Blocks become nested blocks, loops, and `if`s by
+  Ramsey's "Beyond Relooper", except a coroutine's resume function, which enters loops
+  in the middle and becomes a loop over a `switch` on the next block. Temporaries
+  assigned once and read once fold back into the expression that reads them unless that
   would reorder an effect.
 
 ## Never
@@ -268,21 +265,20 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 ## Not yet
 
 These fail translation: floats, `char`, statics, async blocks that borrow a number
-mutably and async closures, values that drop as temporaries not moved whole, in a
-closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, passed to
-a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
-moved ahead of an `.await` in the same call or assignment, or in a collection
-([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be `undefined`, as
-`()` and `Option` can, a collection's `capacity`, looking up a key by another type it
-borrows as (`Arc<str>` by `str`), `Hasher::write` of bytes, the adaptors without a mapping in
-`src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
-`impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
-let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
+mutably and async closures, values that drop in a closure dropped without a call that
+takes it, in an iterator, in an enum or generic `Drop` type, passed to a std function
+that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
+collection ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
+`undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
+another type it borrows as (`Arc<str>` by `str`), `Hasher::write` of bytes, the adaptors
+without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
+own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!`, a `move` closure copying a mutable variable, `mem::swap`,
+`String` with `write!`, a copy of a closure that changes what it captured, `mem::swap`,
 `replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
-`MutexGuard`, a pinned reference, or a future through a reference, and std functions
-without a mapping in `src/lower/library.rs`.
+`MutexGuard`, a pinned reference, or a future through a reference, a `ControlFlow` other
+than the one `?` makes, a switch on or a field of another crate's type without a mapping,
+and std functions without a mapping in `src/lower/library.rs`.
 
 ## Tests
 
@@ -319,10 +315,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
-  those from MIR `expected-mir.txt`, and its expected census is `census.md`.
-
-The codec, lang, and task fixtures also run their differential tests from MIR
-(`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.
+  and its expected census is `census.md`.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
 rejects when a future panics as it drops. `tests/retain.ts` panics in a collection's

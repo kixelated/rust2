@@ -24,7 +24,6 @@ What moq-net still needs, by its census from MIR at the pinned revision:
   `map_err`), `pin!` (50 with `PinMacroHelper`), `poll_fn` (31), `future::pending`
   (5), and `Box::pin` (29, a boxed future that binds to hand-written TS at the
   boundary, per the [model](/quest/m2/ts-model.md)).
-- `?` inside a function that returns `Poll`, as `ready!(..)?` writes it: 284 sites.
 - Async closures.
 - kio's own API, reached across crates (`Pending`, `Consumer::poll`,
   `Waiter::poll_future`, `Tasks`), with the atomics, `OnceLock`, and coop budget behind
@@ -38,5 +37,4 @@ Public API: the translator's output for async code.
 
 ## Required
 
-- [Lower bodies from MIR](/quest/m2/ts-mir.md) - async bodies come from the coroutine transform
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - async bodies hold the values that drop it still refuses
