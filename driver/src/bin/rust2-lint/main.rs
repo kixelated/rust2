@@ -18,7 +18,8 @@ extern crate rustc_span;
 
 mod mono;
 
-use std::path::Path;
+use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use rust2_driver::{cargo, rustc};
@@ -26,11 +27,15 @@ use rustc_driver::{Callbacks, Compilation};
 use rustc_interface::interface::Compiler;
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
+use serde::Deserialize;
 
 const TOOL: &str = "rust2-lint";
 
 /// Carries the mono budget from the CLI to the wrapper.
 const BUDGET: &str = "RUST2_MONO_BUDGET";
+
+/// Carries the directories of the local packages, whose crates the wrapper checks.
+const LOCAL: &str = "RUST2_LOCAL_PACKAGES";
 
 /// The mono budget without `--mono-budget`, in MIR statements: about 4% of moq-net's
 /// test target, and 3x its heaviest generic once `moq_clock::sim::run` only forwards.
@@ -42,8 +47,9 @@ fn usage() -> String {
 
 Runs the cargo command, such as `test --no-run -p <package>`, with this binary as
 rustc, into its own target directory. A crate of a local package, a workspace member
-or path dependency, fails to compile when a generic it instantiates costs more MIR statements, across every copy,
-than the mono budget ({DEFAULT_BUDGET} unless given) or the generic's own:
+or path dependency, fails to compile when a generic it instantiates costs more MIR
+statements, across every copy, than the mono budget ({DEFAULT_BUDGET} unless given) or
+the generic's own:
 
   #[cfg_attr(rust2, rust2::mono_budget(limit = <statements>, reason = \"<why>\"))]
 
@@ -87,11 +93,13 @@ fn cli(args: &[String]) -> Result<ExitCode, String> {
 		}
 	};
 	let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
-	let status = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+	let program = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+	let status = Command::new(&program)
 		.args(command)
 		.env("RUSTC_WRAPPER", exe)
 		.env("CARGO_TARGET_DIR", cargo::target_dir(TOOL, manifest(command))?)
 		.env(BUDGET, budget.to_string())
+		.env(LOCAL, local_packages(&program, manifest(command))?)
 		.status()
 		.map_err(|err| format!("running cargo: {err}"))?;
 	Ok(match status.success() {
@@ -129,20 +137,54 @@ fn job(args: &mut Vec<String>) -> Result<Option<rustc::Job>, String> {
 		]
 		.map(String::from),
 	);
-	// Cargo caps the lints of a package it does not build from local source, a registry or
-	// git dependency, whose generics its dependents answer for instead. Every local crate is
-	// checked, selected or not: cargo would reuse one built unchecked as a dependency once a
-	// later command selects it, since selection is no part of its fingerprint.
-	let local = !args.iter().any(|arg| arg.starts_with("--cap-lints"));
-	let budget = match local {
+	let (Some(budget), Some(local)) = (std::env::var_os(BUDGET), std::env::var_os(LOCAL)) else {
+		return Err(format!(
+			"{BUDGET} or {LOCAL} is unset: run {TOOL} itself, not as RUSTC_WRAPPER"
+		));
+	};
+	// A registry or git dependency's generics are its dependents' to answer for. Every local
+	// crate is checked, selected or not: cargo would reuse one built unchecked as a
+	// dependency once a later command selects it, since selection is no part of its
+	// fingerprint.
+	let dir = std::env::var_os("CARGO_MANIFEST_DIR");
+	let checked = dir.is_some_and(|dir| std::env::split_paths(&local).any(|local| local == Path::new(&dir)));
+	let budget = match checked {
 		false => None,
-		true => {
-			let value = std::env::var(BUDGET)
-				.map_err(|_| format!("{BUDGET} is unset: run {TOOL} itself, not as RUSTC_WRAPPER"))?;
-			Some(parse_budget(&value)?)
-		}
+		true => Some(parse_budget(&budget.to_string_lossy())?),
 	};
 	Ok(Some(Box::new(Lint { budget })))
+}
+
+/// The directories of the packages cargo builds from local source, workspace members and
+/// path dependencies, which cargo metadata lists without a `source`.
+fn local_packages(program: &OsStr, manifest: Option<&Path>) -> Result<OsString, String> {
+	#[derive(Deserialize)]
+	struct Metadata {
+		packages: Vec<Package>,
+	}
+	#[derive(Deserialize)]
+	struct Package {
+		manifest_path: PathBuf,
+		source: Option<String>,
+	}
+	let mut cmd = Command::new(program);
+	// Every feature, so a path dependency only a feature enables is local too.
+	cmd.args(["metadata", "--format-version", "1", "--all-features"]);
+	if let Some(manifest) = manifest {
+		cmd.arg("--manifest-path").arg(manifest);
+	}
+	let output = cmd.output().map_err(|err| format!("running cargo metadata: {err}"))?;
+	if !output.status.success() {
+		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+	}
+	let metadata: Metadata =
+		serde_json::from_slice(&output.stdout).map_err(|err| format!("reading cargo metadata: {err}"))?;
+	let dirs = metadata
+		.packages
+		.into_iter()
+		.filter(|package| package.source.is_none())
+		.filter_map(|package| package.manifest_path.parent().map(Path::to_path_buf));
+	std::env::join_paths(dirs).map_err(|err| format!("joining package directories: {err}"))
 }
 
 /// Checks the crate's `rust2` attributes, and its mono budget once rustc has collected

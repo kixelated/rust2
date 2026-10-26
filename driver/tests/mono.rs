@@ -2,7 +2,7 @@
 //! instantiates each of `exec`'s generics with 20 closure types.
 
 use std::path::{Path, PathBuf};
-use std::process::Output;
+use std::process::{Command, Output};
 
 fn fixture() -> PathBuf {
 	PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join("mono")
@@ -18,14 +18,18 @@ fn target(name: &str) -> PathBuf {
 	}
 }
 
-/// Run rust2-lint in the fixture workspace with `args`, into the target directory `target`.
-fn lint(target: &Path, args: &[&str]) -> Output {
-	std::process::Command::new(env!("CARGO_BIN_EXE_rust2-lint"))
+/// rust2-lint in the fixture workspace with `args`, into the target directory `target`.
+fn command(target: &Path, args: &[&str]) -> Command {
+	let mut command = Command::new(env!("CARGO_BIN_EXE_rust2-lint"));
+	command
 		.args(args)
 		.current_dir(fixture())
-		.env("CARGO_TARGET_DIR", target)
-		.output()
-		.expect("running rust2-lint")
+		.env("CARGO_TARGET_DIR", target);
+	command
+}
+
+fn lint(target: &Path, args: &[&str]) -> Output {
+	command(target, args).output().expect("running rust2-lint")
 }
 
 fn stderr(output: &Output) -> String {
@@ -106,6 +110,30 @@ fn a_local_dependency_is_checked() {
 	assert!(!output.status.success(), "{err}");
 	assert!(err.contains("error: `exec::fat` costs "), "{err}");
 	assert!(err.contains("could not compile `user`"), "{err}");
+}
+
+#[test]
+fn a_lint_cap_does_not_skip_the_check() {
+	// Cargo caps a registry dependency's lints, but RUSTFLAGS can cap a local crate's too.
+	let output = command(
+		&target("cap"),
+		&[
+			"--mono-budget",
+			"1000",
+			"--",
+			"build",
+			"--package",
+			"user",
+			"--features",
+			"fat",
+		],
+	)
+	.env("RUSTFLAGS", "--cap-lints=warn")
+	.output()
+	.expect("running rust2-lint");
+	let err = stderr(&output);
+	assert!(!output.status.success(), "{err}");
+	assert!(err.contains("error: `exec::fat` costs "), "{err}");
 }
 
 #[test]
