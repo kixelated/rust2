@@ -80,6 +80,9 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 	// package beside it.
 	let tree = [
 		"tree",
+		// The check's package, not the workspace's default members.
+		"--package",
+		&config.package,
 		"--edges",
 		"normal",
 		"--target",
@@ -88,6 +91,9 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		"none",
 		"--format",
 		"{p}",
+		// Plain, whatever cargo's config says, so a repeat's `(*)` reads as one.
+		"--color",
+		"never",
 	];
 	let output = run_cargo(manifest, &tree, &picks)?;
 	let output = String::from_utf8(output).map_err(|err| format!("reading cargo tree: {err}"))?;

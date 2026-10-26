@@ -333,3 +333,63 @@ fn dev_features() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 }
+
+/// Another export is found in the checked package's own graph, read plainly: a root
+/// package that the workspace's default members leave out, under forced color, reaching
+/// an export twice.
+#[test]
+fn diamond() {
+	let package = package("diamond");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	// `left` and `right` both depend on the export `shared`, which depends on `leaf`.
+	for (name, deps) in [
+		("app", ""),
+		(
+			"left",
+			"shared = { package = \"diamond-shared\", path = \"../shared\" }\n",
+		),
+		(
+			"right",
+			"shared = { package = \"diamond-shared\", path = \"../shared\" }\n",
+		),
+		("shared", "leaf = { package = \"diamond-leaf\", path = \"../leaf\" }\n"),
+		("leaf", ""),
+	] {
+		write(
+			&format!("{name}/Cargo.toml"),
+			&format!(
+				"[package]\nname = \"diamond-{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[dependencies]\n{deps}"
+			),
+		);
+		write(
+			&format!("{name}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n",
+		);
+	}
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"diamond\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nleft = { package = \"diamond-left\", path = \"left\" }\n\
+		right = { package = \"diamond-right\", path = \"right\" }\n\
+		shared = { package = \"diamond-shared\", path = \"shared\" }\n\n\
+		[workspace]\nmembers = [\"app\", \"left\", \"right\", \"shared\", \"leaf\"]\ndefault-members = [\"app\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: shared::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"diamond\"\n\n[crates.diamond-shared]\n");
+	let output = census(&package.join("ffi.toml"), &[])
+		.env("CARGO_TERM_COLOR", "always")
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
