@@ -121,16 +121,30 @@ int main(void) {
 	moq_broadcast_producer_free(broadcast);
 
 	/* An origin and the driver that runs it, a tuple returned through two out pointers.
-	 * A broadcast it creates is stamped with its path, which its info lends as a new
-	 * handle to a clone. */
+	 * Its root, which it lends, is returned as a new handle to a clone. */
 	moq_origin_config *config = moq_origin_config_default();
 	moq_origin_producer *origin = NULL;
 	moq_origin_driver *driver = NULL;
 	moq_origin_producer_new(config, &origin, &driver);
 	moq_origin_config_free(config);
 	CHECK(origin != NULL && driver != NULL);
-	moq_broadcast_producer *created = NULL;
-	CHECK(moq_origin_producer_create_broadcast(origin, str("room/alice"), &created, &err));
+	moq_path *root = moq_origin_producer_root(origin);
+	CHECK(is(moq_path_as_str(root), ""));
+	moq_path_free(root);
+	moq_path *absolute = moq_origin_producer_absolute(origin, str("room/alice"));
+	CHECK(is(moq_path_as_str(absolute), "room/alice"));
+	moq_path_free(absolute);
+	moq_origin_consumer *reader = moq_origin_producer_consume(origin);
+	absolute = moq_origin_consumer_absolute(reader, str("room/bob"));
+	CHECK(is(moq_path_as_str(absolute), "room/bob"));
+	moq_path_free(absolute);
+	moq_origin_consumer_free(reader);
+
+	/* A broadcast the origin creates is stamped with its path, which its info lends. */
+	moq_origin_publication *publication = NULL;
+	CHECK(moq_origin_producer_create_broadcast(origin, str("room/alice"), &publication, &err));
+	moq_broadcast_producer *created = moq_origin_publication_broadcast(publication);
+	moq_origin_publication_free(publication);
 	moq_broadcast_info *stamped = moq_broadcast_producer_info(created);
 	moq_path *path = moq_broadcast_info_path(stamped);
 	CHECK(is(moq_path_as_str(path), "room/alice"));
