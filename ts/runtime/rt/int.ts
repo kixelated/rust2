@@ -573,10 +573,10 @@ export const isizeStep: Step<isize> = i32Step as never;
 // in numbers while its result does, and limbs past that. Each function takes the type's
 // width and sign, which each type's own passes as literals. A type's own takes the
 // number path itself where it is hot, small enough for a JIT to inline: through the
-// shared function alone, V8 took up to 1.7x as long on the codec's frames. 64-bit limbs
-// compute on their halves where that is several times faster than bigints, reading a
-// number's halves without boxing it, as does a product of two numbers at 128 bits; the
-// rest goes through bigints.
+// shared function alone, V8 took up to 1.7x as long on the codec's frames. Limbs compute
+// on their 32-bit words, several times faster than through bigints: sums, differences,
+// comparisons, casts, products of 64-bit values or of two numbers, and division by a
+// divisor below 2^32. The rest goes through bigints.
 
 type Wide = number | Limbs;
 
