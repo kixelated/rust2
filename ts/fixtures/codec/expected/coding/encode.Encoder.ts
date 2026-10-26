@@ -52,8 +52,7 @@ export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeErr
 	if (_3.ok) {
 		return rt.Ok(undefined);
 	} else {
-		const residual = rt.Err({});
-		return rt.Err(EncodeError.from$From_BoundsExceeded((residual as { ok: false; error: BoundsExceeded.BoundsExceeded }).error));
+		return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 	}
 }
 
@@ -173,8 +172,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 				return rt.Ok(undefined);
 			}
 		} else {
-			const residual2 = rt.Err({});
-			return rt.Err(EncodeError.from$From_BoundsExceeded((residual2 as { ok: false; error: BoundsExceeded.BoundsExceeded }).error));
+			return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 		}
 	} else {
 		_7 = rt.resultMapErr(rt.u16TryFrom(rt.usizeSub(end, body)), (_2: rt.TryFromIntError): EncodeError.EncodeError => {

@@ -388,13 +388,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						if from == to {
 							return done(value, false);
 						}
-						let value = self.path(value, "residual", out);
-						// The residual is an `Err`.
-						let err = crate::ts::Type::Object(vec![
-							("ok".into(), crate::ts::Type::Builtin("false")),
-							("error".into(), self.b.t.ty(from, span)),
-						]);
-						let error = Expr::As(Box::new(value), err).member("error");
+						let error = match value {
+							// Made in place: its error.
+							Expr::Call(f, mut items)
+								if matches!(&*f, Expr::Rt(n) if n == "Err") && items.len() == 1 =>
+							{
+								items.pop().expect("checked above")
+							}
+							value => {
+								let value = self.path(value, "residual", out);
+								// The residual is an `Err`.
+								let err = crate::ts::Type::Object(vec![
+									("ok".into(), crate::ts::Type::Builtin("false")),
+									("error".into(), self.b.t.ty(from, span)),
+								]);
+								Expr::As(Box::new(value), err).member("error")
+							}
+						};
 						let converted = self.b.convert(error, from, to, span, out);
 						done(Expr::rt("Err", vec![converted]), true)
 					}
