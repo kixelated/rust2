@@ -1024,7 +1024,7 @@ export function vecs(data: Uint8Array, out: rt.ByteVec): void {
 		name = "?";
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecView(rt.byteVecFrom(Uint8Array.of(a, b, 66))));
-	const pairs: [rt.u8, rt.u16][] = [[a, b as rt.u16] as [rt.u8, rt.u16]];
+	const pairs: [rt.u8, rt.u16][] = rt.sliceToVec([[a, b as rt.u16] as [rt.u8, rt.u16]]);
 	pairs.push([b, a as rt.u16] as [rt.u8, rt.u16]);
 	const at = rt.idx(pairs, 0);
 	pairs[at][0] = pairs[at][0] ^ 255;
@@ -1041,7 +1041,7 @@ export function vecs(data: Uint8Array, out: rt.ByteVec): void {
 			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem(rt.u16Mul(a as rt.u16, 257), n, undefined)), (w: rt.u16): rt.u8 => {
 				return rt.u16Shr(w, 4) & 0xff;
 			}));
-			const tuples: [rt.u8, rt.u8][] = rt.vecFromElem([a, b] as [rt.u8, rt.u8], n, rt.copy);
+			const tuples: [rt.u8, rt.u8][] = rt.vecFromElem(rt.copy([a, b] as [rt.u8, rt.u8]), n, rt.copy);
 			if (n > 0) {
 				const at3 = rt.idx(tuples, 0);
 				tuples[at3][0] = 238;
@@ -1058,8 +1058,35 @@ export function vecs(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecPush(out, rt.iterAll(_113, (c2: Cloned.Cloned): boolean => {
 				return rt.stringLen(c2.name) === data.length;
 			}) ? 1 : 0);
-			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem({ _0: b }, n, Bumped.clone$Clone)), (o: Bumped.Bumped): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem(rt.copy({ _0: b }), n, Bumped.clone$Clone)), (o: Bumped.Bumped): rt.u8 => {
 				return o._0;
+			}));
+			const pair: [rt.u8, rt.u8] = [a, b];
+			const held: Bumped.Bumped = { _0: a };
+			const listed: [rt.u8, rt.u8][] = rt.sliceToVec([pair, pair]);
+			const at4 = rt.idx(listed, 0);
+			listed[at4][0] = listed[at4][0] ^ 255;
+			const repeated: [rt.u8, rt.u8][] = rt.vecFromElem(rt.copy(pair), n, rt.copy);
+			const again: [rt.u8, rt.u8][] = rt.vecFromElem(rt.copy(pair), n, rt.copy);
+			const bumps: Bumped.Bumped[] = rt.vecFromElem(rt.copy(held), n, Bumped.clone$Clone);
+			const kept: Bumped.Bumped[] = rt.vecFromElem(rt.copy(held), n, Bumped.clone$Clone);
+			if (n > 0) {
+				const _137: rt.usize = rt.usizeSub(n, 1);
+				const at5 = rt.idx(repeated, _137);
+				repeated[at5][1] = repeated[at5][1] ^ 255;
+				const _141: rt.usize = rt.usizeSub(n, 1);
+				const at6 = rt.idx(bumps, _141);
+				bumps[at6]._0 = bumps[at6]._0 ^ 255;
+			}
+			const _147: rt.u8 = a;
+			const _148: rt.u8 = b;
+			const at7 = rt.idx(listed, 1);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_147, _148, listed[at7][0], a));
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterChain(rt.iterSlice(repeated), rt.iterSlice(again)), (t2: [rt.u8, rt.u8]): rt.u8 => {
+				return t2[1];
+			}));
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterChain(rt.iterSlice(bumps), rt.iterSlice(kept)), (o2: Bumped.Bumped): rt.u8 => {
+				return o2._0;
 			}));
 			return;
 		}

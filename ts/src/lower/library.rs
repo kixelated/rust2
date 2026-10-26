@@ -601,14 +601,19 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				false => return None,
 			}
 		}
-		// A boxed slice's elements, and `vec![a, b]`'s array once `vec_literals` took the
-		// box away.
+		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
+		// away. A `Copy` aggregate's operand may be shared with where it came from, which the
+		// vector must not change.
 		("slice", "into_vec") | ("boxed", "box_assume_init_into_vec_unsafe") => {
 			let elem = targ(gargs, 0);
 			let value = args.pop()?;
-			match is_u8(elem) {
-				true => Expr::rt("byteVecFrom", vec![value]),
-				false => value,
+			match (is_u8(elem), value) {
+				(true, value) => Expr::rt("byteVecFrom", vec![value]),
+				(false, value) if !b.needs_copy(elem) => value,
+				(false, Expr::Array(items)) => {
+					Expr::Array(items.into_iter().map(|item| owned(b, item, elem)).collect())
+				}
+				(false, value) => Expr::rt("sliceToVec", vec![value]),
 			}
 		}
 		("Box", "new") => args.pop()?,
@@ -619,6 +624,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
 				false => {
+					// The last element is `x` itself: a copy of a `Copy` aggregate, without its `Clone`.
+					let value = owned(b, values.remove(0), elem);
+					values.insert(0, value);
 					values.push(super::collections::clone_fn(b, elem, span));
 					Expr::rt("vecFromElem", values)
 				}
@@ -823,6 +831,22 @@ pub fn be_word(int: Int, values: Vec<Expr>) -> Expr {
 /// The `n`th type among a call's generic arguments, skipping lifetimes.
 pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 	gargs.types().nth(n).expect("a type argument")
+}
+
+/// `value`, a `ty`, as a value of its own: copied if it is a `Copy` aggregate that is not
+/// made right here.
+fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>) -> Expr {
+	fn made(e: &Expr) -> bool {
+		match e {
+			Expr::Array(_) | Expr::Object(_) | Expr::New(..) => true,
+			Expr::As(e, _) | Expr::Located(_, e) => made(e),
+			_ => false,
+		}
+	}
+	match made(&value) {
+		true => value,
+		false => b.copied(value, ty),
+	}
 }
 
 /// `rt.<of><Name>(args)`.

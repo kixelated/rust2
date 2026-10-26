@@ -722,4 +722,21 @@ pub fn vecs(data: &[u8], out: &mut Vec<u8>) {
 	// A `Copy` type's own `Clone` runs too.
 	let bumped = vec![Bumped(b); n];
 	out.extend(bumped.iter().map(|o| o.0));
+
+	// Each element is a copy of what it was given, apart from it and from each other.
+	let pair = (a, b);
+	let held = Bumped(a);
+	let mut listed = vec![pair, pair];
+	listed[0].0 ^= 0xff;
+	let mut repeated = vec![pair; n];
+	let again = vec![pair; n];
+	let mut bumps = vec![held; n];
+	let kept = vec![held; n];
+	if n > 0 {
+		repeated[n - 1].1 ^= 0xff;
+		bumps[n - 1].0 ^= 0xff;
+	}
+	out.extend_from_slice(&[pair.0, pair.1, listed[1].0, held.0]);
+	out.extend(repeated.iter().chain(&again).map(|t| t.1));
+	out.extend(bumps.iter().chain(&kept).map(|o| o.0));
 }
