@@ -474,41 +474,27 @@ fn lookalike() {
 		.arg(package.join("glue")));
 }
 
-/// Another export patched in for a registry dependency is bound by its resolved package,
-/// though the dependency names no path, and the glue builds it patched in too.
-#[test]
-fn patched() {
-	let package = package("patched");
-	let write = |path: &str, text: &str| {
-		let path = package.join(path);
+/// Writes each `(path, text)` into `dir`.
+fn write_all(dir: &Path, files: &[(&str, &str)]) {
+	for (path, text) in files {
+		let path = dir.join(path);
 		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
 		std::fs::write(path, text).unwrap();
-	};
-	write(
-		"dep/Cargo.toml",
-		"[package]\nname = \"rust2-ffi-patched-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n",
-	);
-	write("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n");
-	write(
-		"Cargo.toml",
-		"[package]\nname = \"patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
-		[dependencies]\nrust2-ffi-patched-dep = \"1\"\n\n\
-		[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\n\
-		[workspace]\nexclude = [\"dep\"]\n",
-	);
-	write(
-		"src/lib.rs",
-		"pub fn width(size: rust2_ffi_patched_dep::Size) -> u32 {\n\tsize.width\n}\n",
-	);
-	write("ffi.toml", "package = \"patched\"\n\n[crates.rust2-ffi-patched-dep]\n");
-	let out = package.join("out");
+	}
+}
+
+/// Export the package in `dir` with cargo `args`, then build its glue offline from
+/// here, with the lockfile the check resolved.
+fn export_and_build(dir: &Path, args: &[&str]) {
+	let out = dir.join("out");
 	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
 		.arg("--config")
-		.arg(package.join("ffi.toml"))
+		.arg(dir.join("ffi.toml"))
 		.arg("--out")
 		.arg(&out)
-		.args(["--", "--offline"])
-		.env("CARGO_TARGET_DIR", package.join("build"))
+		.arg("--")
+		.args(args)
+		.env("CARGO_TARGET_DIR", dir.join("build"))
 		.output()
 		.unwrap();
 	assert!(
@@ -516,12 +502,104 @@ fn patched() {
 		"the export failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
-	// The glue's workspace patches the export in as the configured one does.
+	std::fs::copy(dir.join("Cargo.lock"), out.join("Cargo.lock")).unwrap();
 	run(cargo()
 		.args(["build", "--quiet", "--offline", "--manifest-path"])
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
-		.arg(package.join("glue")));
+		.arg(dir.join("glue")));
+}
+
+/// Another export patched in for a registry dependency is bound by its resolved package,
+/// though the dependency names no path, and the glue builds it patched in too, though
+/// the dependency goes by its library's crate name.
+#[test]
+fn patched() {
+	let package = package("patched");
+	write_all(
+		&package,
+		&[
+			(
+				"dep/Cargo.toml",
+				"[package]\nname = \"rust2-ffi-patched-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n\n\
+			[lib]\nname = \"rust2_ffi_patched_core\"\n",
+			),
+			("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n"),
+			(
+				"Cargo.toml",
+				"[package]\nname = \"patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+			[dependencies]\nrust2-ffi-patched-dep = \"1\"\n\n\
+			[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\n\
+			[workspace]\nexclude = [\"dep\"]\n",
+			),
+			(
+				"src/lib.rs",
+				"pub fn width(size: rust2_ffi_patched_core::Size) -> u32 {\n\tsize.width\n}\n",
+			),
+			("ffi.toml", "package = \"patched\"\n\n[crates.rust2-ffi-patched-dep]\n"),
+		],
+	);
+	export_and_build(&package, &["--offline"]);
+}
+
+/// Another export the workspace `[replace]`s is carried by that `[replace]` alone, which
+/// cargo refuses beside a `[patch]` of it.
+#[test]
+fn replaced() {
+	let package = package("replaced");
+	// A git repository the dependency names, whose copy lacks the field the package reads.
+	let manifest = "[package]\nname = \"rust2-ffi-replaced-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n";
+	let git = package.join("git");
+	write_all(
+		&git,
+		&[
+			("Cargo.toml", manifest),
+			("src/lib.rs", "pub struct Size {\n\tpub height: u32,\n}\n"),
+		],
+	);
+	let _ = std::fs::remove_dir_all(git.join(".git"));
+	for args in [
+		&["init", "--quiet"][..],
+		&["add", "."],
+		&[
+			"-c",
+			"user.name=t",
+			"-c",
+			"user.email=t@t",
+			"commit",
+			"--quiet",
+			"-m",
+			"dep",
+		],
+	] {
+		run(Command::new("git").args(args).current_dir(&git));
+	}
+	let url = format!("file://{}", git.display());
+	write_all(
+		&package,
+		&[
+			("dep/Cargo.toml", manifest),
+			("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n"),
+			(
+				"Cargo.toml",
+				&format!(
+					"[package]\nname = \"replaced\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+				[dependencies]\nrust2-ffi-replaced-dep = {{ git = \"{url}\" }}\n\n\
+				[replace]\n\"{url}#rust2-ffi-replaced-dep@1.0.0\" = {{ path = \"dep\" }}\n\n\
+				[workspace]\nexclude = [\"dep\", \"git\"]\n"
+				),
+			),
+			(
+				"src/lib.rs",
+				"pub fn width(size: rust2_ffi_replaced_dep::Size) -> u32 {\n\tsize.width\n}\n",
+			),
+			(
+				"ffi.toml",
+				"package = \"replaced\"\n\n[crates.rust2-ffi-replaced-dep]\n",
+			),
+		],
+	);
+	export_and_build(&package, &[]);
 }
 
 /// Patches in cargo's config, which cargo reads only where the check runs, reach the glue

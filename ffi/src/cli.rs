@@ -172,10 +172,11 @@ fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
 		.parse()
 		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
 	let mut overrides = toml::Table::new();
-	if let Some(replace) = replace(&table, &metadata.workspace_root) {
+	let replace = replace(&table, &metadata.workspace_root).unwrap_or_default();
+	let patch = patch(metadata, top, &replace)?;
+	if !replace.is_empty() {
 		overrides.insert("replace".to_string(), replace.into());
 	}
-	let patch = patch(metadata, top)?;
 	if !patch.is_empty() {
 		overrides.insert("patch".to_string(), patch.into());
 	}
@@ -186,7 +187,7 @@ fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
 /// declared: the manifest, cargo's config, `--config`, or the environment. A dependency
 /// resolved to a package of another source than the one it names was patched; it is
 /// keyed by the URL of the source it names, which reads the same without that config.
-fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
+fn patch(metadata: &Metadata, top: &Package, replaced: &toml::Table) -> Result<toml::Table, String> {
 	let packages: BTreeMap<&str, &Package> = metadata.packages.iter().map(|p| (p.id.as_str(), p)).collect();
 	let nodes: BTreeMap<&str, &Node> = metadata.resolve.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
 	let mut patch = toml::Table::new();
@@ -203,10 +204,15 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 			let Some(resolved) = packages.get(dep.pkg.as_str()) else {
 				continue;
 			};
+			// The workspace's `[replace]` already carries it.
+			if replaced.keys().any(|spec| replaces(spec, resolved)) {
+				continue;
+			}
+			// Unrenamed, the edge is named by the library's crate name.
+			let lib = (resolved.targets.iter()).find(|t| t.kind.iter().any(|k| k.contains("lib") || k == "proc-macro"));
 			let named = (package.dependencies.iter()).find(|d| {
-				built(&d.kind)
-					&& d.name == resolved.name
-					&& d.rename.as_deref().unwrap_or(&d.name).replace('-', "_") == dep.name
+				let name = d.rename.as_deref().or(lib.map(|t| t.name.as_str()));
+				built(&d.kind) && d.name == resolved.name && name.map(|n| n.replace('-', "_")) == Some(dep.name.clone())
 			});
 			// A path dependency names no source to patch.
 			let Some(named) = named.and_then(|d| d.source.as_deref()) else {
@@ -252,6 +258,20 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 		}
 	}
 	Ok(patch)
+}
+
+/// Whether a `[replace]` key, a package ID spec such as `foo:1.0.0` or
+/// `https://github.com/rust-lang/crates.io-index#foo@1.0.0`, names `package`, which has
+/// the version it replaces.
+fn replaces(spec: &str, package: &Package) -> bool {
+	let spec = spec.rsplit_once('#').map_or(spec, |(_, spec)| spec);
+	match spec.split_once(['@', ':']) {
+		// A spec's version may name only its leading parts.
+		Some((name, version)) => {
+			name == package.name && (package.version == version || package.version.starts_with(&format!("{version}.")))
+		}
+		None => spec == package.name,
+	}
 }
 
 /// The `[patch]` key of a source as `cargo metadata` spells it.
