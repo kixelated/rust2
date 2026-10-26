@@ -1,8 +1,13 @@
+fixtures/dep/src/lib.rs:5:1: rust2-ffi: struct `dep::Size` and struct `reject_fixture::Size` are both `reject_size_free` in C
+	fixtures/reject/src/lib.rs:139:1: note: struct `reject_fixture::Size` is here
+fixtures/dep/src/lib.rs:5:1: rust2-ffi: struct `dep::Size` and struct `reject_fixture::Size` are both `reject_size` in C
+	fixtures/reject/src/lib.rs:139:1: note: struct `reject_fixture::Size` is here
 fixtures/reject/src/lib.rs:113:2: rust2-ffi: cannot export method `Text::replace`: 'static borrow `&'b str`; exclude it in the config to leave it out
 	fixtures/reject/src/lib.rs:113:17: note: `'b` is `'static`, as a handle outlives every call
 fixtures/reject/src/lib.rs:118:2: rust2-ffi: cannot export method `Text::later`: returned object that borrows `impl std::future::Future<Output = Text<'_>>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:125:1: rust2-ffi: cannot export fn `either`: reference inside a parameter `std::option::Option<&str>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:130:1: rust2-ffi: cannot export struct `Lease`: object no export returns; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:149:9: rust2-ffi: cannot export use `HashSet`: re-export of another crate's item `std`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:14:1: rust2-ffi: cannot export fn `map`: foreign type `std::collections::HashMap`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:19:1: rust2-ffi: cannot export fn `generic`: generic parameter `std::marker::Copy`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:26:1: rust2-ffi: cannot export fn `borrowing`: borrowing future from a function that is not async; exclude it in the config to leave it out
@@ -11,8 +16,8 @@ fixtures/reject/src/lib.rs:40:1: rust2-ffi: cannot export fn `peek`: reference t
 fixtures/reject/src/lib.rs:45:1: rust2-ffi: cannot export static `COUNT`: static; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:49:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:57:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:68:2: rust2-ffi: fn `audio::encoder_finish` and fn `audio_encoder::finish` are both `reject_audio_encoder_finish` in C
-	fixtures/reject/src/lib.rs:63:2: note: fn `audio_encoder::finish` is here
+fixtures/reject/src/lib.rs:68:2: rust2-ffi: fn `reject_fixture::audio::encoder_finish` and fn `reject_fixture::audio_encoder::finish` are both `reject_audio_encoder_finish` in C
+	fixtures/reject/src/lib.rs:63:2: note: fn `reject_fixture::audio_encoder::finish` is here
 fixtures/reject/src/lib.rs:6:1: rust2-ffi: cannot export struct `Wrap`: generic type; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:72:1: rust2-ffi: cannot export fn `letters`: Range `char`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:81:2: rust2-ffi: cannot export method `Text::new`: 'static borrow `&'a str`; exclude it in the config to leave it out

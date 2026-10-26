@@ -113,7 +113,7 @@ fn api() {
 fn relative_target() {
 	let dir = scratch().join("relative");
 	std::fs::create_dir_all(&dir).unwrap();
-	let census = dir.join("census.md");
+	let census = dir.join("census");
 	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
 		.arg("--config")
 		.arg(manifest_dir().join("fixtures/api/ffi.toml"))
@@ -128,7 +128,9 @@ fn relative_target() {
 		"the census failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
-	assert!(census.exists() && dir.join("build").exists());
+	// One census per export.
+	assert!(census.join("api-fixture.md").exists() && census.join("dep-fixture.md").exists());
+	assert!(dir.join("build").exists());
 }
 
 #[test]

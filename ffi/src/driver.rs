@@ -1,10 +1,12 @@
 //! The binary as rustc: plain for every crate but the configured one, whose API it also
-//! collects once rustc has checked it.
+//! collects once rustc has checked it, with the API of each other export it depends on.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use rustc_driver::{Callbacks, Compilation};
+use rustc_hir::def_id::{CrateNum, LOCAL_CRATE};
 use rustc_interface::interface::Compiler;
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Span;
@@ -26,13 +28,15 @@ struct Export {
 	output: Output,
 	/// The features rustc compiles the crate with, which the export's crate enables.
 	features: Vec<String>,
+	/// Each export's package, crate name, and directory: the configured package first.
+	crates: Vec<(String, String, PathBuf)>,
 }
 
 /// What the job writes.
 enum Output {
 	/// The export, into this directory.
 	Dir(PathBuf),
-	/// A census of the crate, to this file, instead of an export.
+	/// A census of each export, into this directory, instead of an export.
 	Census(PathBuf),
 }
 
@@ -67,10 +71,19 @@ impl Export {
 			.filter_map(|f| f.strip_suffix('"'))
 			.map(str::to_string)
 			.collect();
+		let crates = std::env::var(config::env::CRATES)
+			.map_err(|_| format!("{} is unset", config::env::CRATES))?
+			.lines()
+			.map(|line| match line.split('\t').collect::<Vec<_>>()[..] {
+				[package, krate, dir] => Ok((package.to_string(), krate.to_string(), PathBuf::from(dir))),
+				_ => Err(format!("{} holds a malformed line: {line}", config::env::CRATES)),
+			})
+			.collect::<Result<_, _>>()?;
 		Ok(Some(Self {
 			config,
 			output,
 			features,
+			crates,
 		}))
 	}
 }
@@ -80,56 +93,62 @@ impl Callbacks for Export {
 		if tcx.dcx().has_errors().is_some() {
 			return Compilation::Stop;
 		}
-		// A census counts the whole API, whatever the config leaves out.
-		let exclude = match self.output {
-			Output::Census(_) => &[][..],
-			Output::Dir(_) => &self.config.exclude[..],
+		let Some(crates) = self.crates(tcx) else {
+			return Compilation::Stop;
 		};
-		let collected = collect::collect(tcx, exclude);
-		let written = match &self.output {
-			Output::Census(path) => {
-				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
-				for path in abi.unused_renames() {
-					tcx.dcx()
-						.err(format!("rust2-ffi: rename `{path}` names nothing exported"));
-				}
-				let text = census::render(&self.config.package, &collected, &abi.clashes, &|span| at(tcx, span));
-				write(path, &text)
+		let collected = collect::collect(tcx, &crates);
+		// Each rename, by the Rust path it names, which starts with its crate's name.
+		let mut renames = BTreeMap::new();
+		for (report, (package, ..)) in collected.reports.iter().zip(&self.crates) {
+			for (path, name) in self.items(package).1 {
+				renames.insert(format!("{}::{path}", report.krate), name.clone());
 			}
+		}
+		let abi = Abi::new(&collected.api, &self.config.prefix(), &renames);
+		for key in abi.unused_renames() {
+			let (krate, path) = key.split_once("::").expect("a rename starts with its crate");
+			tcx.dcx().err(format!(
+				"rust2-ffi: rename `{path}` in {} names nothing exported",
+				self.table(&collected, krate)
+			));
+		}
+		let written = match &self.output {
+			Output::Census(dir) => collected.reports.iter().enumerate().try_for_each(|(i, report)| {
+				let text = census::render(&collected.api, report, i == 0, &abi.clashes, &|span| at(tcx, span));
+				write(&dir.join(format!("{}.md", report.package)), &text)
+			}),
 			Output::Dir(out) => {
-				for refusal in &collected.refusals {
-					let reasons: Vec<String> = refusal
-						.why
-						.iter()
-						.map(|why| match why.detail.is_empty() {
-							true => why.construct.to_string(),
-							false => format!("{} `{}`", why.construct, why.detail),
-						})
-						.collect();
-					let mut err = tcx.dcx().struct_span_err(
-						refusal.span,
-						format!(
-							"rust2-ffi: cannot export {} `{}`: {}; exclude it in the config to leave it out",
-							refusal.kind,
-							refusal.path,
-							reasons.join("; ")
-						),
-					);
-					for (span, note) in refusal.why.iter().filter_map(|why| why.note.as_ref()) {
-						err = err.with_span_note(*span, note.clone());
+				for report in &collected.reports {
+					let table = self.table(&collected, &report.krate);
+					for refusal in &report.refusals {
+						let reasons: Vec<String> = refusal
+							.why
+							.iter()
+							.map(|why| match why.detail.is_empty() {
+								true => why.construct.to_string(),
+								false => format!("{} `{}`", why.construct, why.detail),
+							})
+							.collect();
+						let mut err = tcx.dcx().struct_span_err(
+							refusal.span,
+							format!(
+								"rust2-ffi: cannot export {} `{}`: {}; exclude it in {table} to leave it out",
+								refusal.kind,
+								refusal.path,
+								reasons.join("; ")
+							),
+						);
+						for (span, note) in refusal.why.iter().filter_map(|why| why.note.as_ref()) {
+							err = err.with_span_note(*span, note.clone());
+						}
+						err.emit();
 					}
-					err.emit();
-				}
-				for (path, count) in &collected.excluded {
-					if *count == 0 {
-						tcx.dcx()
-							.err(format!("rust2-ffi: exclude `{path}` names nothing exported"));
+					for (path, count) in &report.excluded {
+						if *count == 0 {
+							tcx.dcx()
+								.err(format!("rust2-ffi: exclude `{path}` in {table} names nothing exported"));
+						}
 					}
-				}
-				let abi = Abi::new(&collected.api, &self.config.prefix(), &self.config.rename);
-				for path in abi.unused_renames() {
-					tcx.dcx()
-						.err(format!("rust2-ffi: rename `{path}` names nothing exported"));
 				}
 				for (name, (first, first_span), (second, second_span)) in &abi.clashes {
 					tcx.dcx()
@@ -144,14 +163,18 @@ impl Callbacks for Export {
 				if tcx.dcx().has_errors().is_some() {
 					return Compilation::Stop;
 				}
-				let header = c::header(&abi, &self.config.package);
-				let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+				let others: Vec<(String, PathBuf)> = (self.crates[1..].iter())
+					.map(|(package, _, dir)| (package.clone(), dir.clone()))
+					.collect();
+				let packages: Vec<&str> = self.crates.iter().map(|(package, ..)| package.as_str()).collect();
+				let header = c::header(&abi, &packages.join(", "));
 				let glue = glue::Crate {
 					abi: &abi,
 					header: &header,
 					package: &self.config.package,
-					manifest_dir: Path::new(&manifest_dir),
+					manifest_dir: &self.crates[0].2,
 					features: &self.features,
+					others: &others,
 				};
 				glue.write(out)
 			}
@@ -162,6 +185,57 @@ impl Callbacks for Export {
 		match tcx.dcx().has_errors() {
 			None => Compilation::Continue,
 			Some(_) => Compilation::Stop,
+		}
+	}
+}
+
+impl Export {
+	/// Each export's crate, or `None` after an error naming one that is not a dependency.
+	fn crates<'a>(&'a self, tcx: TyCtxt<'_>) -> Option<Vec<collect::Crate<'a>>> {
+		let mut crates = Vec::new();
+		for (i, (package, krate, _)) in self.crates.iter().enumerate() {
+			let found: Vec<CrateNum> = match i {
+				0 => vec![LOCAL_CRATE],
+				_ => (tcx.crates(()).iter().copied())
+					.filter(|&cnum| tcx.crate_name(cnum).as_str() == krate)
+					.collect(),
+			};
+			// Rust loads only the crates a crate's code names.
+			let [cnum] = found[..] else {
+				tcx.dcx().err(format!(
+					"rust2-ffi: [crates.{package}] needs `{}` to use exactly one crate `{krate}`, and it uses {}",
+					self.config.package,
+					found.len()
+				));
+				return None;
+			};
+			crates.push(collect::Crate {
+				krate: cnum,
+				package,
+				// A census counts the whole API, whatever the config leaves out.
+				exclude: match self.output {
+					Output::Census(_) => &[],
+					Output::Dir(_) => self.items(package).0,
+				},
+			});
+		}
+		Some(crates)
+	}
+
+	/// The config's `exclude` and `rename` for `package`.
+	fn items(&self, package: &str) -> (&[String], &BTreeMap<String, String>) {
+		match self.config.crates.get(package) {
+			Some(items) => (&items.exclude, &items.rename),
+			None => (&self.config.exclude, &self.config.rename),
+		}
+	}
+
+	/// Where the config says what to export from `krate`.
+	fn table(&self, collected: &collect::Collected, krate: &str) -> String {
+		match collected.reports.iter().position(|r| r.krate == krate) {
+			Some(0) => "the config".to_string(),
+			Some(i) => format!("the config's [crates.{}]", collected.reports[i].package),
+			None => unreachable!("every path starts with an exported crate"),
 		}
 	}
 }

@@ -19,11 +19,20 @@ census refuses and what moq waits on:
   makes `Path` owned. Once it lands, bump the moq pin: the census then exports `Path::new`,
   `strip_prefix`, and `Relative::new`, and drops `AsPath` and the `borrow` methods from
   [the exclude list](/ffi/moq/ffi.toml), refusing only `Path::from_static`'s `'static` borrow.
-- **Several crates**: moq-tokio's sessions and the media crates hold moq-ffi's remaining API.
-  ✅ Each crate is its own export with its own census, and an export names another's types
-  across crates: moq-net's `Pattern`, `Patterns`, and `Instant` resolve to moq-pattern's and
-  moq-clock's exports, not to names at moq-net's re-export path. Still open: the library
-  layout, the C prefixes, and the headers.
+- **Several crates**: moq-tokio's sessions and the media crates (hang, moq-mux) hold
+  moq-ffi's remaining API. Export them as moq-pattern and moq-clock already export beside
+  moq-net, each under `[crates.<package>]` in [the config](/ffi/moq/ffi.toml). The checked
+  package must build with every export, so this needs moq-ffi's remainder, or a crate
+  standing in for it, as that package. Decided with the maintainer:
+  - ✅ Each crate is its own export with its own census, and an export names another's
+    types across crates, not names at a re-export's path.
+  - ✅ One rustc session collects every export from metadata: one IR, one glue crate, one
+    library.
+  - ✅ One prefix per library, with names from each crate's root and clashes checked across
+    exports.
+  - ✅ One header, `include/<prefix>.h`.
+  - ✅ One `ffi.toml`, with a `[crates.<package>]` table per other export, and
+    `--census <dir>` writing `<package>.md` for each.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
   Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.

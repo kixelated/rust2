@@ -1,11 +1,12 @@
 //! The C ABI the IR becomes: every C name, and every function's C signature, decided
 //! once so the header and the Rust side agree.
 //!
-//! Names follow one rule: the prefix, then the item's path from the crate root, each
+//! Names follow one rule: the prefix, then the item's path from its crate's root, each
 //! segment in snake case, joined by `_`; a method's path goes through its type's. Joining
 //! loses where segments split (`audio_encoder::finish` and `audio::encoder_finish` are both
-//! `moq_audio_encoder_finish`), so every name is registered, and a second item claiming
-//! one is a compile error at both spans rather than a silent clash.
+//! `moq_audio_encoder_finish`), and every export shares the prefix, so every name is
+//! registered, and a second item claiming one is a compile error at both spans rather
+//! than a silent clash.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -69,7 +70,8 @@ pub struct Export {
 pub struct Abi<'a> {
 	pub api: &'a Api,
 	pub prefix: String,
-	/// C names for paths, in place of the rule's: an item's, and its methods' through it.
+	/// C names for Rust paths, each starting with its crate's name, in place of the
+	/// rule's: an item's, and its methods' through it.
 	rename: &'a BTreeMap<String, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
@@ -99,11 +101,11 @@ impl<'a> Abi<'a> {
 		abi
 	}
 
-	/// The C name for a path from the crate root.
+	/// The C name for a Rust path, which starts with its crate's name.
 	pub fn name(&self, path: &[String]) -> String {
 		let mut name = self.prefix.clone();
-		let mut rest = path;
-		for len in (1..=path.len()).rev() {
+		let mut rest = &path[1..];
+		for len in (2..=path.len()).rev() {
 			let key = path[..len].join("::");
 			if let Some(renamed) = self.rename.get(&key) {
 				self.renamed.borrow_mut().insert(key);

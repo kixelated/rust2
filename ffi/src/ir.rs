@@ -1,15 +1,13 @@
-//! The exported API, as each generator reads it: what the crate's `pub` items became,
-//! with no language's names or calling convention decided yet.
+//! The exported API, as each generator reads it: what the exported crates' `pub` items
+//! became, with no language's names or calling convention decided yet.
 //!
-//! Every item keeps its path from the crate root, so a generator names it by its own
-//! rule, and its span, so a generator refuses it with one.
+//! Every item keeps its Rust path, so a generator names it by its own rule, and its span,
+//! so a generator refuses it with one.
 
 use rustc_span::Span;
 
-/// A crate's exported API.
+/// The exported crates' API.
 pub struct Api {
-	/// The crate's name, as Rust code names it: `moq_net`.
-	pub krate: String,
 	pub records: Vec<Record>,
 	pub enums: Vec<Enum>,
 	pub objects: Vec<Object>,
@@ -18,7 +16,8 @@ pub struct Api {
 	pub constants: Vec<Constant>,
 }
 
-/// A path from the crate root: `["track", "Producer", "append_group"]`.
+/// A Rust path: its crate's name, then the path from that crate's root, such as
+/// `["moq_net", "track", "Producer", "append_group"]`.
 pub type Path = Vec<String>;
 
 /// A struct whose fields are all `pub`: a value, copied across.
