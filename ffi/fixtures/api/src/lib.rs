@@ -134,6 +134,14 @@ impl Counter {
 	}
 }
 
+/// An impl lifetime its type does not take is the call's, as a method's own is.
+impl<'a> Counter {
+	/// Whether the counter is named `name`, which borrows C's text for the call.
+	pub fn is(&self, name: &'a str) -> bool {
+		self.name == name
+	}
+}
+
 /// A tuple of one: its out pointer holds the counter, not the tuple.
 pub fn only(counter: Counter) -> (Counter,) {
 	(counter,)
@@ -199,6 +207,12 @@ pub fn longer<'a>(a: Name<'a>, b: &Name<'a>) -> Name<'a> {
 		true => b.clone(),
 		false => a,
 	}
+}
+
+/// A name of no text. A lifetime only the return takes is the caller's to pick, so the
+/// handle's `'static`.
+pub fn unnamed<'a>() -> Name<'a> {
+	Name(Cow::Borrowed(""))
 }
 
 /// The sum of a range.
