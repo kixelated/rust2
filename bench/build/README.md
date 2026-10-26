@@ -78,7 +78,7 @@ Recommended on 2026-10-25: moq's CI keeps building its tests with LLVM, since 42
 The `cranelift` variant's `build` numbers are for that abort build too.
 
 Even passing, it would save little where CI spends its time.
-CPU seconds from the [PR run](https://github.com/kixelated/rust2/actions/runs/40235946635) (4 CPUs; the control stayed within 3%):
+CPU seconds from the [PR run](https://github.com/kixelated/rust2/actions/runs/40235946635) (4 CPUs; an A/A control on that run stayed within 3%):
 
 | CI build | nightly | cranelift | change |
 | --- | ---: | ---: | ---: |

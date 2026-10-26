@@ -123,7 +123,6 @@ rustflags = "-Z cache-proc-macros"
 name = "nightly-control"
 base = "nightly"
 toolchain = "nightly"
-scenarios = ["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]
 
 # ra-jit keeps the workspace loaded in a daemon on rust-analyzer, and after an edit
 # compiles only the changed functions with Cranelift and splices them into the
