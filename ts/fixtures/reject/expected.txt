@@ -13,7 +13,6 @@ an assignment through a reference to `u32` at fixtures/reject/src/lib.rs:20:2
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:1
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:40:42
-`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:39:1
 an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:69:11
 `&mut Slot`: a JS value of `Slot` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:88:1
 `Boxed` is generic and implements `Drop`, which is not supported yet at fixtures/reject/src/lib.rs:98:10

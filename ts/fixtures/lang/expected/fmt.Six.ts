@@ -4,22 +4,8 @@ import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Six, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	let values!: rt.Fmt[];
-	let _5!: rt.Fmt[];
-	let _6!: rt.Fmt;
-	let _8!: rt.Fmt;
-	let _10!: rt.Fmt;
-	let _12!: rt.Fmt;
-	let _14!: rt.Fmt;
-	let _18!: rt.u8;
 	let _19!: string;
-	_6 = (f: rt.Formatter) => rt.u8Display(self._0, f);
-	_8 = (f: rt.Formatter) => rt.u8Display(self._1, f);
-	_10 = (f: rt.Formatter) => rt.u8Display(self._2, f);
-	_12 = (f: rt.Formatter) => rt.u8Display(self._3, f);
-	_14 = (f: rt.Formatter) => rt.u8Display(self._4, f);
-	_18 = self._5;
-	_5 = [_6, _8, _10, _12, _14, (f: rt.Formatter) => rt.u8Display(_18, f)];
-	values = _5;
+	values = [(f: rt.Formatter) => rt.u8Display(self._0, f), (f: rt.Formatter) => rt.u8Display(self._1, f), (f: rt.Formatter) => rt.u8Display(self._2, f), (f: rt.Formatter) => rt.u8Display(self._3, f), (f: rt.Formatter) => rt.u8Display(self._4, f), (f: rt.Formatter) => rt.u8Display(self._5, f)];
 	_19 = "Six";
 	return rt.fmtDebugTupleFields(f, _19, values);
 }

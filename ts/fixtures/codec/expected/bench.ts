@@ -66,10 +66,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 }
 
 export function encoded(result: rt.Result<undefined, EncodeError.EncodeError>, out: rt.ByteVec): void {
-	let err!: EncodeError.EncodeError;
 	if (!result.ok) {
-		err = result.error;
-		encodeError(out, err);
+		encodeError(out, result.error);
 	}
 }
 
@@ -87,20 +85,15 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 	let _6!: [rt.u64, Uint8Array];
 	let value!: rt.u64;
 	let w!: Encoder.Encoder;
-	let iter!: rt.Range<rt.usize>;
+	let iter!: { start: rt.usize; end: rt.usize };
 	let _17!: rt.Result<undefined, EncodeError.EncodeError>;
-	let _14Some!: boolean;
 	_6 = takeU64(data);
 	count = _6[0];
 	value = takeU64(_6[1])[0];
 	w = Encoder.new(out, form_);
-	iter = new rt.Range(0, rt.u64Low(count));
+	iter = { start: 0, end: rt.u64Low(count) };
 	l0: while (true) {
-		_14Some = iter.start < iter.end;
-		if (_14Some) {
-			iter.start++;
-		}
-		if (!_14Some) {
+		if (!(iter.start++ < iter.end)) {
 			return rt.Ok(undefined);
 		} else {
 			_17 = Encoder.varint(w, value);
@@ -162,7 +155,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	let _23!: [rt.i64, rt.usize];
 	let _24!: rt.i64;
 	let w!: Encoder.Encoder;
-	let iter!: rt.Range<rt.usize>;
+	let iter!: { start: rt.usize; end: rt.usize };
 	let _32!: rt.usize;
 	let n!: rt.usize;
 	let delta3!: rt.i64;
@@ -171,7 +164,6 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	let _45!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _48!: rt.u64;
 	let _51!: rt.Result<undefined, EncodeError.EncodeError>;
-	let _32Some!: boolean;
 	_6 = takeU64(data);
 	count = _6[0];
 	_9 = takeU64(_6[1]);
@@ -188,13 +180,9 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	delta2 = _24;
 	keyEvery2 = _23[1];
 	w = Encoder.new(out, Form.from$From_Version(version));
-	iter = new rt.Range(0, rt.u64Low(count));
+	iter = { start: 0, end: rt.u64Low(count) };
 	l0: while (true) {
-		_32Some = iter.start < iter.end;
-		if (_32Some) {
-			_32 = iter.start++;
-		}
-		if (!_32Some) {
+		if (!((_32 = iter.start++) < iter.end)) {
 			return rt.Ok(undefined);
 		} else {
 			b2: {

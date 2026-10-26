@@ -3,10 +3,8 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: rt.u8;
 	let _8!: string;
 	let _9!: rt.Fmt;
-	let __self1!: rt.ByteVec;
 	let _13!: string;
 	let _14!: string;
 	let _15!: rt.Fmt;
@@ -19,17 +17,15 @@ export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.
 	} else if (self.tag === "Bare") {
 		return rt.fmtWriteStr(f, "Bare");
 	} else if (self.tag === "One") {
-		__self0 = self._0;
 		_8 = "One";
-		_9 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_9 = (f: rt.Formatter) => rt.u8Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _8), _9));
 	} else {
-		__self1 = self.items;
 		_13 = "Many";
 		_14 = "count";
 		_15 = (f: rt.Formatter) => rt.u32Display(self.count, f);
 		_16 = "items";
-		_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(__self1), f, rt.u8Display);
+		_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 	}
 }

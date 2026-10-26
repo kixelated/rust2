@@ -5,11 +5,8 @@ import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import * as SessionError from "../lib.SessionError.ts";
 
 export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __field0!: rt.u64;
-	let size!: rt.usize;
-	let max!: rt.usize;
-	let __displaySize!: rt.usize;
-	let __displayMax!: rt.usize;
+	let args2!: rt.Fmt[];
+	let args4!: rt.Fmt[];
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(__formatter, "short buffer");
 	} else if (self.tag === "Long") {
@@ -17,9 +14,9 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	} else if (self.tag === "InvalidString") {
 		return rt.fmtWriteStr(__formatter, "invalid string");
 	} else if (self.tag === "InvalidMessage") {
-		__field0 = ([self._0] as [rt.u64])[0];
-		const arg = ([__field0] as [rt.u64])[0];
-		return rt.fmtWriteFmt(__formatter, ["invalid message: ", (f: rt.Formatter) => rt.u64Display(arg, f)]);
+		const arg = ([([self._0] as [rt.u64])[0]] as [rt.u64])[0];
+		args2 = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+		return rt.fmtWriteFmt(__formatter, ["invalid message: ", args2[0]]);
 	} else if (self.tag === "InvalidSubscribeLocation") {
 		return rt.fmtWriteStr(__formatter, "invalid subscribe location");
 	} else if (self.tag === "InvalidValue") {
@@ -31,11 +28,8 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	} else if (self.tag === "ExpectedEnd") {
 		return rt.fmtWriteStr(__formatter, "expected end");
 	} else if (self.tag === "MessageTooLarge") {
-		size = self.size;
-		max = self.max;
-		__displaySize = size;
-		__displayMax = max;
-		return rt.fmtWriteFmt(__formatter, ["message too large: ", (f: rt.Formatter) => rt.usizeDisplay(__displaySize, f), " bytes exceeds ", (f: rt.Formatter) => rt.usizeDisplay(__displayMax, f), " byte limit"]);
+		args4 = [(f: rt.Formatter) => rt.usizeDisplay(self.size, f), (f: rt.Formatter) => rt.usizeDisplay(self.max, f)];
+		return rt.fmtWriteFmt(__formatter, ["message too large: ", args4[0], " bytes exceeds ", args4[1], " byte limit"]);
 	} else if (self.tag === "ExpectedData") {
 		return rt.fmtWriteStr(__formatter, "expected data");
 	} else if (self.tag === "Duplicate") {
@@ -62,19 +56,15 @@ export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
 }
 
 export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: rt.FromUtf8Error;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let __self02!: rt.u64;
 	let _11!: string;
 	let _12!: rt.Fmt;
-	let __self1!: rt.usize;
 	let _21!: string;
 	let _22!: string;
 	let _23!: rt.Fmt;
 	let _24!: string;
 	let _25!: rt.Fmt;
-	let __self03!: SessionError.SessionError;
 	let _34!: string;
 	let _35!: rt.Fmt;
 	if (self.tag === "Short") {
@@ -82,14 +72,12 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	} else if (self.tag === "Long") {
 		return rt.fmtWriteStr(f, "Long");
 	} else if (self.tag === "InvalidString") {
-		__self0 = self._0;
 		_7 = "InvalidString";
-		_8 = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(__self0, f);
+		_8 = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8));
 	} else if (self.tag === "InvalidMessage") {
-		__self02 = self._0;
 		_11 = "InvalidMessage";
-		_12 = (f: rt.Formatter) => rt.u64Display(__self02, f);
+		_12 = (f: rt.Formatter) => rt.u64Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _11), _12));
 	} else if (self.tag === "InvalidSubscribeLocation") {
 		return rt.fmtWriteStr(f, "InvalidSubscribeLocation");
@@ -102,12 +90,11 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	} else if (self.tag === "ExpectedEnd") {
 		return rt.fmtWriteStr(f, "ExpectedEnd");
 	} else if (self.tag === "MessageTooLarge") {
-		__self1 = self.max;
 		_21 = "MessageTooLarge";
 		_22 = "size";
 		_23 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
 		_24 = "max";
-		_25 = (f: rt.Formatter) => rt.usizeDisplay(__self1, f);
+		_25 = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _21), _22, _23), _24, _25));
 	} else if (self.tag === "ExpectedData") {
 		return rt.fmtWriteStr(f, "ExpectedData");
@@ -122,9 +109,8 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	} else if (self.tag === "Version") {
 		return rt.fmtWriteStr(f, "Version");
 	} else if (self.tag === "Session") {
-		__self03 = self._0;
 		_34 = "Session";
-		_35 = (f: rt.Formatter) => SessionError.fmt$Debug(__self03, f);
+		_35 = (f: rt.Formatter) => SessionError.fmt$Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _34), _35));
 	} else if (self.tag === "MalformedAuthToken") {
 		return rt.fmtWriteStr(f, "MalformedAuthToken");

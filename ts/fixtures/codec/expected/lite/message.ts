@@ -41,15 +41,13 @@ export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0
 		_9 = Decoder.sub(r, _3.value);
 		if (_9.ok) {
 			body = _9.value;
-			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg2: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
+			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
 				} else {
-					return rt.Ok(msg2);
+					return rt.Ok(msg);
 				}
 			});
-			if (result.ok) {
-			}
 			if (result.ok) {
 				r.control = undefined;
 			}
@@ -76,15 +74,13 @@ export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0
 		_9 = Decoder.sub(r, _3.value);
 		if (_9.ok) {
 			body = _9.value;
-			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg2: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
+			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
 				} else {
-					return rt.Ok(msg2);
+					return rt.Ok(msg);
 				}
 			});
-			if (result.ok) {
-			}
 			if (result.ok) {
 				r.control = "Probe" as Control.Control;
 			}

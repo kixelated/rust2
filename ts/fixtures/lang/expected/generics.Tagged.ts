@@ -12,15 +12,13 @@ export function fmt$Debug_Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt
 	let _8!: rt.Fmt;
 	let _10!: string;
 	let _11!: rt.Fmt;
-	let _13!: Wrap.Wrap<rt.i16>[];
-	_5 = (f: rt.Formatter) => Either.fmt$Debug_u8_u16(self.key, f);
-	_8 = (f: rt.Formatter) => Wrap.fmt$Debug_i16(self.inner, f);
-	_13 = self.all;
 	_3 = "Tagged";
 	_4 = "key";
+	_5 = (f: rt.Formatter) => Either.fmt$Debug_u8_u16(self.key, f);
 	_7 = "inner";
+	_8 = (f: rt.Formatter) => Wrap.fmt$Debug_i16(self.inner, f);
 	_10 = "all";
-	_11 = (f: rt.Formatter) => rt.fmtList(_13, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f));
+	_11 = (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f));
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8), _10, _11));
 }
 

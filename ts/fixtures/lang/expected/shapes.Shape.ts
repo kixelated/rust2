@@ -4,11 +4,9 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self1!: Point.Point;
 	let _7!: string;
 	let _8!: rt.Fmt;
 	let _9!: rt.Fmt;
-	let __self2!: rt.u16;
 	let _14!: string;
 	let _15!: string;
 	let _16!: rt.Fmt;
@@ -19,20 +17,18 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
-		__self1 = self._1;
 		_7 = "Line";
 		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
-		_9 = (f: rt.Formatter) => Point.fmt$Debug(__self1, f);
+		_9 = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	} else {
-		__self2 = self.height;
 		_14 = "Rect";
 		_15 = "corner";
 		_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
 		_17 = "width";
 		_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
 		_19 = "height";
-		_20 = (f: rt.Formatter) => rt.u16Display(__self2, f);
+		_20 = (f: rt.Formatter) => rt.u16Display(self.height, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 	}
 }
@@ -45,10 +41,8 @@ export type Shape =
 
 /** A default method, monomorphized for each type. */
 export function describe$Area(self: Shape, out: rt.ByteVec): void {
-	let _7!: Uint8Array;
 	rt.byteVecPush(out, 4);
-	_7 = rt.u64ToBeBytes(area$Area(self));
-	rt.byteVecExtendFromSlice(out, _7);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area(self)));
 }
 
 export function area$Area(self: Shape): rt.u64 {

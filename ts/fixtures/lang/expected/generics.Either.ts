@@ -4,23 +4,19 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug_Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: Point.Point;
 	let _5!: string;
 	let _6!: rt.Fmt;
-	let __self02!: rt.u8;
 	let _9!: string;
 	let _10!: string;
 	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		__self0 = self._0;
 		_5 = "Left";
-		_6 = (f: rt.Formatter) => Point.fmt$Debug(__self0, f);
+		_6 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		__self02 = self.value;
 		_9 = "Right";
 		_10 = "value";
-		_11 = (f: rt.Formatter) => rt.u8Display(__self02, f);
+		_11 = (f: rt.Formatter) => rt.u8Display(self.value, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
 		return rt.fmtWriteStr(f, "Neither");
@@ -28,23 +24,19 @@ export function fmt$Debug_Point_u8(self: Either<Point.Point, rt.u8>, f: rt.Forma
 }
 
 export function fmt$Debug_u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: rt.u8;
 	let _5!: string;
 	let _6!: rt.Fmt;
-	let __self02!: Point.Point;
 	let _9!: string;
 	let _10!: string;
 	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		__self0 = self._0;
 		_5 = "Left";
-		_6 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_6 = (f: rt.Formatter) => rt.u8Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		__self02 = self.value;
 		_9 = "Right";
 		_10 = "value";
-		_11 = (f: rt.Formatter) => Point.fmt$Debug(__self02, f);
+		_11 = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
 		return rt.fmtWriteStr(f, "Neither");
@@ -52,23 +44,19 @@ export function fmt$Debug_u8_Point(self: Either<rt.u8, Point.Point>, f: rt.Forma
 }
 
 export function fmt$Debug_u8_u16(self: Either<rt.u8, rt.u16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: rt.u8;
 	let _5!: string;
 	let _6!: rt.Fmt;
-	let __self02!: rt.u16;
 	let _9!: string;
 	let _10!: string;
 	let _11!: rt.Fmt;
 	if (self.tag === "Left") {
-		__self0 = self._0;
 		_5 = "Left";
-		_6 = (f: rt.Formatter) => rt.u8Display(__self0, f);
+		_6 = (f: rt.Formatter) => rt.u8Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _5), _6));
 	} else if (self.tag === "Right") {
-		__self02 = self.value;
 		_9 = "Right";
 		_10 = "value";
-		_11 = (f: rt.Formatter) => rt.u16Display(__self02, f);
+		_11 = (f: rt.Formatter) => rt.u16Display(self.value, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.fmtDebugStruct(f, _9), _10, _11));
 	} else {
 		return rt.fmtWriteStr(f, "Neither");

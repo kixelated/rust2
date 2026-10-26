@@ -6,11 +6,9 @@ export function fmt$Debug(self: Pair, f: rt.Formatter): rt.Result<undefined, rt.
 	let _3!: string;
 	let _4!: rt.Fmt;
 	let _6!: rt.Fmt;
-	let _8!: rt.i64;
-	_4 = (f: rt.Formatter) => rt.u8Display(self._0, f);
-	_8 = self._1;
 	_3 = "Pair";
-	_6 = (f: rt.Formatter) => rt.i64Display(_8, f);
+	_4 = (f: rt.Formatter) => rt.u8Display(self._0, f);
+	_6 = (f: rt.Formatter) => rt.i64Display(self._1, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _3), _4), _6));
 }
 

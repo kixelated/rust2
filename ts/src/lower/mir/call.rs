@@ -39,15 +39,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				{
 					let name = name.to_string();
 					self.assigned[dest.local] = true;
-					self.range_next(name, recv, &mut pre);
+					let stepped = match &args[0].node {
+						Operand::Copy(p) | Operand::Move(p) => {
+							p.as_local().is_some_and(|b| self.stepped_borrows.contains_key(&b))
+						}
+						Operand::Constant(_) | Operand::RuntimeChecks(_) => false,
+					};
+					let read = self.uses[dest.local] > 1;
+					let held = self.range_next(name, recv, stepped, read, &mut pre);
 					self.emit(pre, None, false, out);
+					if let Some((flag, more)) = held {
+						self.hold_flag(flag, more);
+					}
 					return;
 				}
 				if let Some(name) = self.var(dest.local) {
 					let name = name.to_string();
 					self.next_names.insert(name);
 				}
-				if self.stepped_recv(&args[0].node).is_some() {
+				if self.stepped_array(&args[0].node) {
 					let it = self.path(recv, "iter", &mut pre);
 					(self.stepped_next(it), true)
 				} else {
@@ -288,7 +298,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				};
 				let ty = targ(0)?;
 				let value = self.operand(&args[0].node, span, out);
-				let value = self.path(value, "arg", out);
+				// The function reads it later, in a closure, where TypeScript no longer
+				// narrows a member of a union: a member is read now, into a name.
+				let value = match value {
+					Expr::Member(..) | Expr::Index(..) => {
+						let name = self.b.fresh("arg");
+						let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
+						self.emit(vec![stmt], None, false, out);
+						Expr::ident(name)
+					}
+					value => self.path(value, "arg", out),
+				};
 				done(self.b.fmt_value(tr, ty, value, span, out), false)
 			}
 			("Arguments", "from_str" | "from_str_nonconst") => {
@@ -432,11 +452,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// `name = recv.next()` of a range of numbers, stepped in place rather than through
 	/// `rt.Range`'s generic steps, into the item alone and a flag for whether there was
 	/// one: a number that is sometimes `rt.DONE` is slower in V8. Past the end, `name` is
-	/// left as it was, since only `Some` reads it.
-	fn range_next(&mut self, name: String, recv: Expr, out: &mut Vec<Stmt>) {
+	/// left as it was, since only `Some` reads it. A range only `next` reads (`stepped`)
+	/// steps past its end too, so the flag is one comparison, to hold back for the switch
+	/// that reads it; it assigns `name` only if something reads it (`read`).
+	fn range_next(
+		&mut self,
+		name: String,
+		recv: Expr,
+		stepped: bool,
+		read: bool,
+		out: &mut Vec<Stmt>,
+	) -> Option<(String, Expr)> {
 		let range = self.path(recv, "range", out);
 		let start = range.clone().member("start");
 		let flag = self.b.fresh(&format!("{name}Some"));
+		self.range_flags.insert(name.clone(), flag.clone());
+		if stepped {
+			let step = Expr::Postfix(Box::new(start), "++");
+			let item = match read {
+				true => Expr::ident(&name).assign(step),
+				false => step,
+			};
+			return Some((flag, item.binary("<", range.member("end"))));
+		}
 		let more = start.clone().binary("<", range.member("end"));
 		out.push(StmtKind::Expr(Expr::ident(&flag).assign(more)).at(None));
 		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
@@ -448,7 +486,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			.at(None),
 		);
-		self.range_flags.insert(name, flag);
+		None
 	}
 
 	/// The value at `place`, after setting `place` to `value`.

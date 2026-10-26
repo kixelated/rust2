@@ -4,37 +4,31 @@ import * as rt from "./rt.ts";
 import * as Pair from "./fmt.Pair.ts";
 
 export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let __self0!: rt.u16;
 	let _6!: string;
 	let _7!: rt.Fmt;
-	let __self1!: rt.usize;
 	let _11!: string;
 	let _12!: string;
 	let _13!: rt.Fmt;
 	let _14!: string;
 	let _15!: rt.Fmt;
-	let __self02!: Pair.Pair;
 	let _18!: string;
 	let _19!: rt.Fmt;
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
 	} else if (self.tag === "Code") {
-		__self0 = self._0;
 		_6 = "Code";
-		_7 = (f: rt.Formatter) => rt.u16Display(__self0, f);
+		_7 = (f: rt.Formatter) => rt.u16Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	} else if (self.tag === "TooLarge") {
-		__self1 = self.max;
 		_11 = "TooLarge";
 		_12 = "size";
 		_13 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
 		_14 = "max";
-		_15 = (f: rt.Formatter) => rt.usizeDisplay(__self1, f);
+		_15 = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	} else {
-		__self02 = self._0;
 		_18 = "At";
-		_19 = (f: rt.Formatter) => Pair.fmt$Debug(__self02, f);
+		_19 = (f: rt.Formatter) => Pair.fmt$Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _18), _19));
 	}
 }
@@ -50,24 +44,26 @@ export type Fault =
 	| { tag: "At"; _0: Pair.Pair };
 
 export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let code!: rt.u16;
-	let size!: rt.usize;
-	let max!: rt.usize;
-	let pair!: Pair.Pair;
+	let args2!: rt.Fmt[];
+	let args4!: rt.Fmt[];
+	let _20!: rt.Fmt;
+	let args6!: rt.Fmt[];
 	if (self.tag === "Short") {
 		return rt.fmtPad(f, "short buffer");
 	} else if (self.tag === "Code") {
-		code = self._0;
-		const arg2 = ([code] as [rt.u16])[0];
-		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16LowerHex(arg2, f))]);
+		const arg4 = ([self._0] as [rt.u16])[0];
+		args2 = [(f: rt.Formatter) => rt.u16LowerHex(arg4, f)];
+		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, args2[0])]);
 	} else if (self.tag === "TooLarge") {
-		size = self.size;
-		max = self.max;
-		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
+		const arg2 = self.size;
+		_20 = (f: rt.Formatter) => rt.usizeDisplay(arg2, f);
+		const arg3 = self.max;
+		args4 = [_20, (f: rt.Formatter) => rt.usizeDisplay(arg3, f)];
+		return rt.fmtWriteFmt(f, [args4[0], " bytes exceeds the ", args4[1], " byte limit"]);
 	} else {
-		pair = self._0;
-		const arg = ([pair] as [Pair.Pair])[0];
-		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(arg, f)]);
+		const arg = ([self._0] as [Pair.Pair])[0];
+		args6 = [(f: rt.Formatter) => Pair.fmt$Debug(arg, f)];
+		return rt.fmtWriteFmt(f, ["at ", args6[0]]);
 	}
 }
 

@@ -1,6 +1,7 @@
-//! Iterators over an array stepped in place: a slice's or a `Vec`'s iterator that only
-//! `next` reads, as a `for` loop's is, is the array and an index, `{ s, i }`, rather than
-//! an `rt.Iter`, which a bundler can't shake its adaptors from.
+//! Iterators stepped in place: a slice's or a `Vec`'s iterator, or a range of numbers,
+//! that only `next` reads, as a `for` loop's is, is an object of the array and an index,
+//! `{ s, i }`, or of the bounds, `{ start, end }`, rather than an `rt.Iter`, which a
+//! bundler can't shake its adaptors from.
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_middle::mir::{self, Local, Operand, Rvalue, StatementKind, TerminatorKind};
@@ -43,7 +44,10 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.local_decls
 			.indices()
 			.filter(|&l| !self.is_arg(l) && l != mir::RETURN_PLACE && self.defs[l] == 1)
-			.filter(|&l| array_iter(tcx, mir.local_decls[l].ty).is_some())
+			.filter(|&l| {
+				let ty = mir.local_decls[l].ty;
+				array_iter(tcx, ty).is_some() || super::small_range(tcx, ty)
+			})
 			.collect();
 		if iters.is_empty() {
 			return;
@@ -75,6 +79,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 							moves.push((from, to));
 						}
 					}
+					Rvalue::Aggregate(..) if let Some(to) = place.as_local() => {
+						made.insert(to);
+					}
 					_ => {}
 				}
 			}
@@ -100,9 +107,21 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					if maker
 						&& let Some(to) = destination.as_local()
 						&& let [arg] = &**args
-						&& array(tcx, arg.node.ty(&mir.local_decls, tcx))
 					{
-						made.insert(to);
+						match &arg.node {
+							// A range is its own iterator.
+							Operand::Move(from)
+								if let Some(from) = from.as_local()
+									&& super::small_range(tcx, mir.local_decls[from].ty) =>
+							{
+								*reads.entry(from).or_default() += 1;
+								moves.push((from, to));
+							}
+							op if array(tcx, op.ty(&mir.local_decls, tcx)) => {
+								made.insert(to);
+							}
+							_ => {}
+						}
 					}
 					if crate::lower::iter::is_next(tcx, def_id)
 						&& destination.as_local().is_some_and(|l| self.next_results.contains(&l))
@@ -147,29 +166,37 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		self.stepped = ok;
 	}
 
-	/// The iterator a `next` receiver `op` borrows, if it steps in place.
-	pub(super) fn stepped_recv(&self, op: &Operand<'tcx>) -> Option<Local> {
+	/// The array iterator a `next` receiver `op` borrows, if it steps in place. A range's
+	/// `next` steps one in place anyway.
+	pub(super) fn stepped_array(&self, op: &Operand<'tcx>) -> bool {
 		let (Operand::Copy(p) | Operand::Move(p)) = op else {
-			return None;
+			return false;
 		};
-		self.stepped_borrows.get(&p.as_local()?).copied()
+		p.as_local()
+			.and_then(|b| self.stepped_borrows.get(&b))
+			.is_some_and(|&l| array_iter(self.tcx, self.mir.local_decls[l].ty).is_some())
 	}
 
-	/// `{ s, i: 0 }`, from what `into_iter` or `iter` made: `rt.iterSlice(s)`.
+	/// An iterator stepped in place, from the `rt.Iter` its mapping makes: `{ s, i: 0 }`
+	/// from `rt.iterSlice(s)`, and `{ start, end }` from `new rt.Range(start, end)`. A
+	/// moved one is already made.
 	pub(super) fn stepped_make(&mut self, value: Expr, span: rustc_span::Span) -> Expr {
+		let rt = |f: &Expr, name: &str| matches!(f, Expr::Rt(n) if n == name);
+		let object = |fields: [(&str, Expr); 2]| {
+			Expr::Object(fields.into_iter().map(|(k, v)| (Key::Name(k.into()), v)).collect())
+		};
 		match value {
-			Expr::Call(f, mut args) if matches!(&*f, Expr::Rt(name) if name == "iterSlice") && args.len() == 1 => {
-				Expr::Object(vec![
-					(Key::Name("s".into()), args.pop().unwrap()),
-					(Key::Name("i".into()), Expr::lit("0")),
-				])
+			Expr::Call(f, mut args) if rt(&f, "iterSlice") && args.len() == 1 => {
+				object([("s", args.pop().unwrap()), ("i", Expr::lit("0"))])
 			}
+			Expr::New(f, args) if rt(&f, "Range") && args.len() == 2 => {
+				let [start, end] = <[Expr; 2]>::try_from(args).expect("checked above");
+				object([("start", start), ("end", end)])
+			}
+			Expr::Ident(_) => value,
 			// Refused already.
 			Expr::Lit(lit) if lit == "undefined" => Expr::undefined(),
-			_ => self.err(
-				span,
-				"an iterator stepped in place that its mapping didn't make from an array",
-			),
+			_ => self.err(span, "an iterator stepped in place that its mapping didn't make"),
 		}
 	}
 
@@ -184,16 +211,25 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		)
 	}
 
-	/// The type of a local stepped in place: its array and index.
+	/// The type of a local stepped in place: its array and index, or its bounds.
 	pub(super) fn stepped_ty(&mut self, local: Local) -> Option<Type> {
 		if !self.stepped.contains(&local) {
 			return None;
 		}
-		let item = array_iter(self.tcx, self.mir.local_decls[local].ty)?;
-		let array = self.b.t.ty(Ty::new_slice(self.tcx, item), self.span);
-		Some(Type::Object(vec![
-			("s".into(), array),
-			("i".into(), Type::Builtin("number")),
-		]))
+		let ty = self.mir.local_decls[local].ty;
+		let fields = match array_iter(self.tcx, ty) {
+			Some(item) => [
+				("s", self.b.t.ty(Ty::new_slice(self.tcx, item), self.span)),
+				("i", Type::Builtin("number")),
+			],
+			None => {
+				let ty::Adt(_, args) = ty.kind() else {
+					unreachable!("a range is a struct")
+				};
+				let bound = self.b.t.ty(args.type_at(0), self.span);
+				[("start", bound.clone()), ("end", bound)]
+			}
+		};
+		Some(Type::Object(fields.into_iter().map(|(k, t)| (k.into(), t)).collect()))
 	}
 }

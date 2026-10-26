@@ -110,15 +110,12 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 	let hi!: rt.u32;
 	let lo!: rt.u32;
 	let _5!: [rt.u32, rt.u32];
-	let _21!: Uint8Array;
-	let _32!: Uint8Array;
 	let a!: rt.u8;
 	let b!: rt.u8;
 	let c!: rt.u8;
 	let d!: rt.u8;
 	let _42!: Uint8Array;
 	let _48!: Uint8Array;
-	let _52!: Uint8Array;
 	_5 = toHalves(value);
 	b1: {
 		hi = _5[0];
@@ -131,15 +128,13 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 		}
 		if (hi === 0) {
 			if (lo < 16384) {
-				_21 = rt.u16ToBeBytes(16384 | (lo & 0xffff));
-				rt.byteVecExtendFromSlice(out, _21);
+				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(16384 | (lo & 0xffff)));
 				break b1;
 			}
 		}
 		if (hi === 0) {
 			if (lo < 1073741824) {
-				_32 = rt.u32ToBeBytes((2147483648 | lo) >>> 0);
-				rt.byteVecExtendFromSlice(out, _32);
+				rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes((2147483648 | lo) >>> 0));
 				break b1;
 			}
 		}
@@ -152,8 +147,7 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 			c = _42[2];
 			d = _42[3];
 			_48 = rt.u32ToBeBytes(lo);
-			_52 = Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]);
-			rt.byteVecExtendFromSlice(out, _52);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3]));
 		}
 	}
 	return rt.Ok(undefined);
@@ -168,15 +162,8 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 	let c!: rt.u8;
 	let d!: rt.u8;
 	let _10!: Uint8Array;
-	let _25!: Uint8Array;
-	let _35!: Uint8Array;
-	let _45!: Uint8Array;
-	let _54!: Uint8Array;
-	let _64!: Uint8Array;
 	let _78!: Uint8Array;
-	let _82!: Uint8Array;
 	let _87!: Uint8Array;
-	let _91!: Uint8Array;
 	_5 = toHalves(value);
 	hi = _5[0];
 	lo = _5[1];
@@ -194,22 +181,19 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 		}
 		if (hi === 0) {
 			if (lo < 16384) {
-				_25 = Uint8Array.of(128 | c, d);
-				rt.byteVecExtendFromSlice(out, _25);
+				rt.byteVecExtendFromSlice(out, Uint8Array.of(128 | c, d));
 				break b0;
 			}
 		}
 		if (hi === 0) {
 			if (lo < 2097152) {
-				_35 = Uint8Array.of(192 | b, c, d);
-				rt.byteVecExtendFromSlice(out, _35);
+				rt.byteVecExtendFromSlice(out, Uint8Array.of(192 | b, c, d));
 				break b0;
 			}
 		}
 		if (hi === 0) {
 			if (lo < 268435456) {
-				_45 = Uint8Array.of(224 | a, b, c, d);
-				rt.byteVecExtendFromSlice(out, _45);
+				rt.byteVecExtendFromSlice(out, Uint8Array.of(224 | a, b, c, d));
 				break b0;
 			}
 		}
@@ -217,20 +201,16 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 			if (!(hi < 1024)) {
 				if (!(hi < 16777216)) {
 					_87 = rt.u32ToBeBytes(hi);
-					_91 = Uint8Array.of(255, _87[0], _87[1], _87[2], _87[3], a, b, c, d);
-					rt.byteVecExtendFromSlice(out, _91);
+					rt.byteVecExtendFromSlice(out, Uint8Array.of(255, _87[0], _87[1], _87[2], _87[3], a, b, c, d));
 				} else {
 					_78 = rt.u32ToBeBytes(hi);
-					_82 = Uint8Array.of(254, _78[1], _78[2], _78[3], a, b, c, d);
-					rt.byteVecExtendFromSlice(out, _82);
+					rt.byteVecExtendFromSlice(out, Uint8Array.of(254, _78[1], _78[2], _78[3], a, b, c, d));
 				}
 			} else {
-				_64 = Uint8Array.of(248 | ((hi >>> 8) & 0xff), hi & 0xff, a, b, c, d);
-				rt.byteVecExtendFromSlice(out, _64);
+				rt.byteVecExtendFromSlice(out, Uint8Array.of(248 | ((hi >>> 8) & 0xff), hi & 0xff, a, b, c, d));
 			}
 		} else {
-			_54 = Uint8Array.of(240 | (hi & 0xff), a, b, c, d);
-			rt.byteVecExtendFromSlice(out, _54);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(240 | (hi & 0xff), a, b, c, d));
 		}
 	}
 }

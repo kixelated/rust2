@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 61
+- Refusals: 60
 - Function instances: 69
 - Generic functions no instance reached, lowered over their type parameters: 3
 
@@ -10,9 +10,9 @@
 | ---: | --- | --- |
 | 6 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
 | 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:1 |
-| 4 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:1 |
 | 4 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
+| 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:1 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:69:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:161:2 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:222:1 |
@@ -49,8 +49,8 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
-| 5 | `Option` | fixtures/reject/src/lib.rs:31:1 |
 | 5 | `f64` | fixtures/reject/src/lib.rs:6:1 |
+| 4 | `Option` | fixtures/reject/src/lib.rs:31:1 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:1 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:105:10 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:282:2 |
@@ -86,7 +86,7 @@ The type or module each refused type or path belongs to.
 
 | Count | Construct | Type or path | First |
 | ---: | --- | --- | --- |
-| 4 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:1 |
+| 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:1 |
 | 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:222:1 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:1 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:254:2 |
@@ -151,15 +151,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (4)</summary>
-
-- fixtures/reject/src/lib.rs:31:1: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
-- fixtures/reject/src/lib.rs:39:1: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
-- fixtures/reject/src/lib.rs:40:42: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
-- fixtures/reject/src/lib.rs:227:1: `Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined`
-
-</details>
-
 <details><summary>unsupported call to `_` (4)</summary>
 
 - fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
@@ -175,6 +166,14 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:10:1: unsupported type `char`
 - fixtures/reject/src/lib.rs:14:1: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:170:1: unsupported type `f64`
+
+</details>
+
+<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (3)</summary>
+
+- fixtures/reject/src/lib.rs:31:1: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:40:42: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:227:1: `Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined`
 
 </details>
 

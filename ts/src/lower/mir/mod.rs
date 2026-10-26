@@ -340,6 +340,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		self.find_next_results();
 		self.find_stepped();
+		self.unborrow_passed();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -381,6 +382,30 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.shared.insert(name.clone());
 				}
 				self.slots[local] = Slot::Var(name);
+			}
+		}
+	}
+
+	/// A local nothing changes whose one read is a shared borrow, itself read once, is
+	/// read once where the borrow is: it folds like a local nothing borrows, as an array
+	/// made to pass as a slice does.
+	fn unborrow_passed(&mut self) {
+		let mir = self.mir;
+		for data in mir.basic_blocks.iter() {
+			for stmt in &data.statements {
+				if let StatementKind::Assign(assign) = &stmt.kind
+					&& let (to, Rvalue::Ref(_, mir::BorrowKind::Shared, from)) = &**assign
+					&& let Some(to) = to.as_local()
+					&& let Some(from) = from.as_local()
+					&& self.borrowed[from]
+					&& !self.mutated[from]
+					&& self.uses[from] == 1
+					&& self.defs[to] == 1
+					&& self.uses[to] == 1
+					&& !self.borrowed[to]
+				{
+					self.borrowed[from] = false;
+				}
 			}
 		}
 	}
@@ -1220,6 +1245,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		});
 	}
 
+	/// Hold back `value`, the assignment of the flag `flag`, to fold into the switch that
+	/// reads it.
+	fn hold_flag(&mut self, flag: String, value: Expr) {
+		self.order += 1;
+		let mut reads = Vec::new();
+		reads_of(&value, &mut reads);
+		self.pending.push(Pending {
+			name: flag,
+			value,
+			order: self.order,
+			effect: true,
+			memory: true,
+			parts: None,
+			reads,
+			copy: false,
+			decl: false,
+		});
+	}
+
 	/// The parts of the pending aggregate `local`, each held back in its place, so the
 	/// expression that reads them keeps what they do and read in order.
 	fn take_parts(&mut self, op: &Operand<'tcx>) -> Option<Vec<Expr>> {
@@ -1457,6 +1501,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			self.force_share = true;
 		}
 		let value = self.rvalue(rvalue, place, span, &mut pre);
+		let value = match (value, place.as_local()) {
+			(Some(value), Some(local)) if self.stepped.contains(&local) => Some(self.stepped_make(value, span)),
+			(value, _) => value,
+		};
 		self.into_frozen = false;
 		self.force_share = false;
 		self.copy_on_flush = shares;
@@ -1636,10 +1684,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => None,
 		};
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
-			Some(Slot::Discr(Some((scrut, ty)))) => arms
-				.iter()
-				.map(|&(value, target)| (self.variant_test(&scrut, ty, value, span), target))
-				.collect(),
+			Some(Slot::Discr(Some((scrut, ty)))) => {
+				let tests: Vec<Expr> = arms
+					.iter()
+					.map(|&(value, _)| self.variant_test(&scrut, ty, value, span))
+					.collect();
+				// What one test reads that is held back folds into it; of several, all but
+				// the first may not run.
+				let conds = match tests.len() {
+					1 => self.fold_exprs(Vec::new(), tests, false, out),
+					_ => tests,
+				};
+				conds.into_iter().zip(arms.iter().map(|&(_, t)| t)).collect()
+			}
 			_ => {
 				let ty = discr.ty(&self.mir.local_decls, self.tcx);
 				let mut pre = Vec::new();

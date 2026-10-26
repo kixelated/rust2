@@ -12,13 +12,11 @@ export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatt
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Display);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Display);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -28,13 +26,11 @@ export function fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter): rt.Resul
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => Pair.fmt$Debug(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => Pair.fmt$Debug(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -44,13 +40,11 @@ export function fmt$Debug_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Re
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -60,13 +54,11 @@ export function fmt$Debug_Result_u8_Shape(self: Wrap<rt.Result<rt.u8, Shape.Shap
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f));
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f));
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -76,13 +68,11 @@ export function fmt$Debug_Shape(self: Wrap<Shape.Shape>, f: rt.Formatter): rt.Re
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => Shape.fmt$Debug(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => Shape.fmt$Debug(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -92,13 +82,11 @@ export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Res
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Display);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Display);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -108,13 +96,11 @@ export function fmt$Debug_Wrap_Pair(self: Wrap<Wrap<Pair.Pair>>, f: rt.Formatter
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => fmt$Debug_Pair(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => fmt$Debug_Pair(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -124,13 +110,11 @@ export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<un
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => rt.i16Display(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.i16Display(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -140,13 +124,11 @@ export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<unde
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.u8;
-	_5 = (f: rt.Formatter) => rt.u8Display(self.value, f);
-	_10 = self.count;
 	_3 = "Wrap";
 	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.u8Display(self.value, f);
 	_7 = "count";
-	_8 = (f: rt.Formatter) => rt.u8Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -259,18 +241,14 @@ export function area$Area_Shape(self: Wrap<Shape.Shape>): rt.u64 {
 
 /** A default method, monomorphized for each type. */
 export function describe$Area_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
-	let _7!: Uint8Array;
 	rt.byteVecPush(out, 0);
-	_7 = rt.u64ToBeBytes(area$Area_Meters(self));
-	rt.byteVecExtendFromSlice(out, _7);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area_Meters(self)));
 }
 
 /** A default method, monomorphized for each type. */
 export function describe$Area_Shape(self: Wrap<Shape.Shape>, out: rt.ByteVec): void {
-	let _7!: Uint8Array;
 	rt.byteVecPush(out, 4);
-	_7 = rt.u64ToBeBytes(area$Area_Shape(self));
-	rt.byteVecExtendFromSlice(out, _7);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area_Shape(self)));
 }
 
 //# sourceMappingURL=generics.Wrap.ts.map

@@ -78,7 +78,9 @@ export class sumFuture {
 		let _11!: rt.Poll<rt.u64 | undefined>;
 		let result!: rt.u64 | undefined;
 		let value!: rt.u64;
+		let args2!: rt.Fmt[];
 		let _32!: string;
+		let args4!: rt.Fmt[];
 		let _47!: rt.u64;
 		let unwind: number = 0;
 		try {
@@ -117,10 +119,13 @@ export class sumFuture {
 							if (result !== undefined) {
 								value = result;
 								if (!(value !== 99)) {
-									const arg = ([this.guard_.id] as [rt.u32])[0];
-									rt.panicFmt(["g", (f: rt.Formatter) => rt.u32Display(arg, f), " poisoned"]);
+									const arg2 = ([this.guard_.id] as [rt.u32])[0];
+									args2 = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
+									rt.panicFmt(["g", args2[0], " poisoned"]);
 								} else {
-									_32 = rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(this.guard_.id, f), " got ", (f: rt.Formatter) => rt.u64Display(value, f)]);
+									const arg = this.guard_.id;
+									args4 = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.u64Display(value, f)];
+									_32 = rt.fmtFormat(["g", args4[0], " got ", args4[1]]);
 									Log.note(this.inner_.log, _32);
 									this.total_ = rt.u64Add(this.total_, value);
 									bb0 = 4;
@@ -330,9 +335,12 @@ export class blocksFuture {
 		let _27!: string;
 		let _32!: rt.u32;
 		let _35!: rt.Poll<rt.u32>;
+		let args2!: rt.Fmt[];
 		let _51!: rt.Poll<rt.u32>;
 		let _61!: string;
 		let _63!: string;
+		let args4!: rt.Fmt[];
+		let _70!: rt.Fmt;
 		let _75!: Inner.Inner | undefined;
 		let _76!: Guard.Guard;
 		let _83!: Outer.Outer;
@@ -391,7 +399,9 @@ export class blocksFuture {
 						unwind = 81;
 						_32 = _35;
 						rt.drop(this.__awaitee_);
-						_27 = rt.fmtFormat(["tally ", (f: rt.Formatter) => rt.u32Display(this._saved, f), " then ", (f: rt.Formatter) => rt.u32Display(_32, f)]);
+						const arg = this._saved;
+						args2 = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.u32Display(_32, f)];
+						_27 = rt.fmtFormat(["tally ", args2[0], " then ", args2[1]]);
 						unwind = 72;
 						_25 = _27;
 						Guard.note(this.saved, _25);
@@ -409,7 +419,11 @@ export class blocksFuture {
 					unwind = 81;
 					this.replaced_ = _51;
 					rt.drop(this.___awaitee_);
-					_63 = rt.fmtFormat(["mark ", (f: rt.Formatter) => rt.u32Display(this.replaced_, f), " ", (f: rt.Formatter) => rt.u32Display(this.mark_.n, f)]);
+					const arg2 = this.replaced_;
+					_70 = (f: rt.Formatter) => rt.u32Display(arg2, f);
+					const arg3 = this.mark_.n;
+					args4 = [_70, (f: rt.Formatter) => rt.u32Display(arg3, f)];
+					_63 = rt.fmtFormat(["mark ", args4[0], " ", args4[1]]);
 					unwind = 70;
 					_61 = _63;
 					Guard.note(this.guard_, _61);
@@ -835,8 +849,10 @@ export function read(t: Tally.Tally): rt.u32 {
 
 /** `i`, noted as picked. */
 export function pick(log: Log.Log, i: rt.usize): rt.usize {
+	let args2!: rt.Fmt[];
 	const arg = ([i] as [rt.usize])[0];
-	Log.note(log, rt.fmtFormat(["pick ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]));
+	args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+	Log.note(log, rt.fmtFormat(["pick ", args2[0]]));
 	return i;
 }
 
@@ -859,9 +875,11 @@ export function turns(log: Log.Log, count: rt.u32): void {
 	let _34!: Guard.Guard;
 	let scoped!: rt.u32;
 	let _42!: Guard.Guard;
+	let args2!: rt.Fmt[];
 	let boxed!: Guard.Guard;
-	let once!: rt.u32;
-	let finished!: rt.u32;
+	let args4!: rt.Fmt[];
+	let _70!: rt.Fmt;
+	let args6!: rt.Fmt[];
 	let spares!: Guard.Guard[];
 	let _91!: Guard.Guard;
 	let _95!: Guard.Guard;
@@ -891,14 +909,18 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		scoped = _42.id;
 		rt.drop(_42);
 		const arg = ([scoped] as [rt.u32])[0];
-		Log.note(log, rt.fmtFormat(["after ", (f: rt.Formatter) => rt.u32Display(arg, f)]));
+		args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
 		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
 		unwind = 89;
-		once = boxed.id;
-		Log.note(log, rt.fmtFormat(["boxed ", (f: rt.Formatter) => rt.u32Display(once, f), " ", (f: rt.Formatter) => rt.u32Display(boxed.id, f)]));
-		finished = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
-		const arg2 = ([finished] as [rt.u32])[0];
-		Log.note(log, rt.fmtFormat(["finished ", (f: rt.Formatter) => rt.u32Display(arg2, f)]));
+		const arg2 = boxed.id;
+		_70 = (f: rt.Formatter) => rt.u32Display(arg2, f);
+		const arg3 = boxed.id;
+		args4 = [_70, (f: rt.Formatter) => rt.u32Display(arg3, f)];
+		Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
+		const arg4 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
+		args6 = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
+		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
 		_91 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
 		unwind = 88;
 		_95 = Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log));

@@ -37,11 +37,7 @@ export function u8(self: Encoder, v: rt.u8): void {
 
 /** Write a big-endian `u16`. */
 export function u16(self: Encoder, v: rt.u16): void {
-	let _6!: Uint8Array;
-	let _7!: rt.ByteVec;
-	_7 = self.buf;
-	_6 = rt.u16ToBeBytes(v);
-	rt.byteVecExtendFromSlice(_7, _6);
+	rt.byteVecExtendFromSlice(self.buf, rt.u16ToBeBytes(v));
 }
 
 /** Write a bool as a 0 or 1 byte. */
@@ -133,8 +129,6 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 	let end!: rt.usize;
 	let _7!: rt.Result<rt.u16, EncodeError.EncodeError>;
 	let size!: rt.u16;
-	let _16!: Uint8Array;
-	let _22!: Uint8Array;
 	let _23!: rt.Result<undefined, BoundsExceeded.BoundsExceeded>;
 	let len!: rt.usize;
 	let _35!: rt.u8;
@@ -191,9 +185,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			_75 = self.buf;
 			const part = rt.usizeSub(body, 2);
 			const slice_ = rt.byteVecView(_75);
-			_16 = rt.sliceRange(slice_, part, body);
-			_22 = rt.u16ToBeBytes(size);
-			rt.sliceCopyFromSlice(_16, _22);
+			rt.sliceCopyFromSlice(rt.sliceRange(slice_, part, body), rt.u16ToBeBytes(size));
 		} else {
 			return _7;
 		}

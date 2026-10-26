@@ -8,13 +8,11 @@ export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt
 	let _5!: rt.Fmt;
 	let _7!: string;
 	let _8!: rt.Fmt;
-	let _10!: rt.i32;
-	_5 = (f: rt.Formatter) => rt.i32Display(self.x, f);
-	_10 = self.y;
 	_3 = "Point";
 	_4 = "x";
+	_5 = (f: rt.Formatter) => rt.i32Display(self.x, f);
 	_7 = "y";
-	_8 = (f: rt.Formatter) => rt.i32Display(_10, f);
+	_8 = (f: rt.Formatter) => rt.i32Display(self.y, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 

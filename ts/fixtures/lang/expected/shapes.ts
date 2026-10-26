@@ -116,39 +116,32 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let _39!: rt.usize;
 	let iter!: rt.Iter<rt.i32>;
 	let _42!: rt.i32 | rt.Done;
-	let _49!: Uint8Array;
 	let a!: Point.Point;
 	let b!: Point.Point;
 	let old!: Point.Point;
 	let _66!: Point.Point;
-	let _70!: Uint8Array;
 	let _71!: rt.u8;
 	let _73!: rt.u8;
 	let n!: rt.u32;
 	let both!: [rt.u32, rt.u32];
-	let _85!: Uint8Array;
 	let word!: Uint8Array;
 	let converted!: rt.u32;
 	let _98!: rt.usize;
-	let _103!: Uint8Array;
 	let _107!: rt.usize;
 	let cell!: Uint8Array;
 	let source!: Uint8Array;
 	let returned!: Uint8Array;
 	let _122!: rt.usize;
-	let _127!: Uint8Array;
 	let _128!: rt.u8;
 	let _129!: rt.usize;
 	let _132!: rt.usize;
 	let marked!: boolean;
 	let opt!: Meters.Meters | undefined;
 	let taken!: Meters.Meters | undefined;
-	let _155!: Uint8Array;
 	let res!: rt.Result<Point.Point, rt.u8>;
 	let first!: Point.Point;
 	let fail!: rt.Result<rt.u8, Point.Point>;
 	let err!: Point.Point;
-	let _165!: Uint8Array;
 	p = Point.new(rt.optionUnwrapOr(rt.sliceFirst(data), 0) as rt.i32, 7);
 	q = rt.copy(p);
 	_9 = rt.i32Add(q.x, 100);
@@ -215,13 +208,11 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			old = old2;
 			_71 = a.x & 0xff;
 			_73 = b.x & 0xff;
-			_70 = Uint8Array.of(_71, _73, old.x & 0xff);
-			rt.byteVecExtendFromSlice(out, _70);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_71, _73, old.x & 0xff));
 			n = data.length as rt.u32;
 			both = [n, n] as [rt.u32, rt.u32];
 			n = 9;
-			_85 = rt.u32ToBeBytes(rt.u32Add(rt.u32Add(both[0], both[1]), n));
-			rt.byteVecExtendFromSlice(out, _85);
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(rt.u32Add(both[0], both[1]), n)));
 			word = Uint8Array.of(0, 0, 0, data.length & 0xff);
 			converted = rt.u32FromBeBytes(word);
 			_98 = 0;
@@ -233,8 +224,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			if (!(_107 < 4)) {
 				rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _107);
 			}
-			_103 = rt.u32ToBeBytes(rt.u32Add(converted, word[_107] as rt.u32));
-			rt.byteVecExtendFromSlice(out, _103);
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(converted, word[_107] as rt.u32)));
 			cell = Uint8Array.of(data.length & 0xff);
 			rt.byteVecPush(out, writeThenRead(rt.copy(cell), cell));
 			source = Uint8Array.of(data.length & 0xff);
@@ -253,8 +243,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			if (!(_132 < 1)) {
 				rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _132);
 			}
-			_127 = Uint8Array.of(_128, source[_132]);
-			rt.byteVecExtendFromSlice(out, _127);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_128, source[_132]));
 			rt.byteVecPush(out, copyThenWrite([data.length & 0xff, 0] as [rt.u8, rt.u8]));
 			marked = mark(out, 1) === 0;
 			mark(out, 2);
@@ -264,22 +253,19 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			opt = undefined;
 			taken = taken2;
 			rt.byteVecPush(out, opt === undefined ? 1 : 0);
-			_155 = rt.u64ToBeBytes(rt.optionMapOr(taken, 0, (m: Meters.Meters): rt.u64 => {
+			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionMapOr(taken, 0, (m: Meters.Meters): rt.u64 => {
 				return m._0;
-			}));
-			rt.byteVecExtendFromSlice(out, _155);
+			})));
 			res = rt.Ok(p);
 			first = rt.copy(rt.resultUnwrap(res, rt.u8Display));
 			first.x = 2;
 			fail = rt.Err(rt.copy(q));
 			err = rt.copy(rt.resultUnwrapErr(fail, rt.u8Display));
 			err.y = 3;
-			_165 = Uint8Array.of(first.x & 0xff, rt.resultUnwrap(res, rt.u8Display).x & 0xff, err.y & 0xff, rt.resultUnwrapErr(fail, rt.u8Display).y & 0xff);
-			rt.byteVecExtendFromSlice(out, _165);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(first.x & 0xff, rt.resultUnwrap(res, rt.u8Display).x & 0xff, err.y & 0xff, rt.resultUnwrapErr(fail, rt.u8Display).y & 0xff));
 			return;
 		} else {
-			_49 = rt.i32ToBeBytes(_42);
-			rt.byteVecExtendFromSlice(out, _49);
+			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(_42));
 		}
 	}
 }
@@ -353,15 +339,17 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	let sum!: rt.usize;
 	let _70!: rt.usize;
 	let _71!: rt.usize;
-	let iter!: rt.Range<rt.usize>;
+	let iter!: { start: rt.usize; end: rt.usize };
 	let _75!: rt.usize;
 	let len!: rt.usize;
-	let slice!: Uint8Array;
+	let _82!: Uint8Array;
 	let _83!: Uint8Array;
 	let _85!: rt.usize;
 	let _87!: rt.usize;
 	let text!: string;
-	let _75Some!: boolean;
+	let _102!: Shape.Shape;
+	let _103!: rt.usize;
+	let args2!: rt.Fmt[];
 	at = (i2: rt.usize): rt.u8 => {
 		return rt.optionUnwrapOr(rt.sliceGet(data, i2), 0);
 	};
@@ -400,19 +388,18 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	sum = 0;
 	_70 = mark(out, 12);
 	_71 = rt.usizeSub(mark(out, 13), 4);
-	iter = new rt.Range(_71, _70);
+	iter = { start: _71, end: _70 };
 	while (true) {
-		_75Some = iter.start < iter.end;
-		if (_75Some) {
-			_75 = iter.start++;
-		}
-		if (!_75Some) {
+		if (!((_75 = iter.start++) < iter.end)) {
 			len = data.length;
 			_83 = logged(data, out);
 			_85 = rt.min(mark(out, 14), len);
 			_87 = rt.usizeDiv(rt.min(mark(out, 15), len), 2);
-			slice = rt.sliceRange(_83, _87, _85);
-			text = rt.fmtFormat([(f: rt.Formatter) => Shape.fmt$Debug(rect, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(line, f), " ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f), " ", (f: rt.Formatter) => Point.fmt$Debug(read, f), " ", (f: rt.Formatter) => Moved.fmt$Debug(updated, f), " ", (f: rt.Formatter) => Shape.fmt$Debug(taken, f), " ", (f: rt.Formatter) => rt.usizeDisplay(_64, f), " ", (f: rt.Formatter) => rt.usizeDisplay(_63, f), " ", (f: rt.Formatter) => rt.usizeDisplay(sum, f), " ", (f: rt.Formatter) => rt.fmtList(slice, f, rt.u8Display)]);
+			_82 = rt.sliceRange(_83, _87, _85);
+			_102 = taken;
+			_103 = sum;
+			args2 = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(_102, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(_82, f, rt.u8Display)];
+			text = rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7], " ", args2[8], " ", args2[9]]);
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(text));
 			indexed(data, out);
 			return;
@@ -446,7 +433,6 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	let slots!: Uint8Array;
 	let _58!: rt.u8;
 	let _59!: rt.usize;
-	let _67!: Uint8Array;
 	let _68!: rt.u8;
 	let _71!: rt.usize;
 	at = (i: rt.usize): rt.u8 => {
@@ -493,17 +479,14 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	if (!(_71 < 2)) {
 		rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _71);
 	}
-	_67 = Uint8Array.of(first, second, called, _68, slots[_71], n);
-	rt.byteVecExtendFromSlice(out, _67);
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, _68, slots[_71], n));
 	rt.byteVecExtendFromSlice(out, bytes);
 }
 
 /** A vector of `b`, logging that it was made. */
 export function listed(out: rt.ByteVec, b: rt.u8): rt.ByteVec {
-	let _6!: Uint8Array;
 	rt.byteVecPush(out, 224);
-	_6 = Uint8Array.of(b, b ^ 1);
-	return rt.sliceToByteVec(_6);
+	return rt.sliceToByteVec(Uint8Array.of(b, b ^ 1));
 }
 
 /** `s`, logging that it was read. */
@@ -564,12 +547,6 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 	let _10!: rt.u8;
 	let signed!: Signed.Signed;
 	let _13!: rt.u8;
-	let _27!: Uint8Array;
-	let _34!: Uint8Array;
-	let _45!: Uint8Array;
-	let _52!: Uint8Array;
-	let _59!: Uint8Array;
-	let _66!: Uint8Array;
 	iter = { s: data, i: 0 };
 	while (true) {
 		_5 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
@@ -595,19 +572,13 @@ export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, { Low: 1, High: 300, Top: 65535 }[wide] & 0xff);
 			rt.byteVecPush(out, (({ Low: 1, High: 300, Top: 65535 }[wide] << 24) >> 24) & 0xff);
-			_27 = rt.i16ToBeBytes(({ Low: 1, High: 300, Top: 65535 }[wide] << 16) >> 16);
-			rt.byteVecExtendFromSlice(out, _27);
-			_34 = rt.u64ToBeBytes({ Low: 1, High: 300, Top: 65535 }[wide] as rt.u64);
-			rt.byteVecExtendFromSlice(out, _34);
+			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(({ Low: 1, High: 300, Top: 65535 }[wide] << 16) >> 16));
+			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes({ Low: 1, High: 300, Top: 65535 }[wide] as rt.u64));
 			rt.byteVecPush(out, { Neg: -1, Min: -128, Pos: 100 }[signed] & 0xff);
-			_45 = rt.u16ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] & 0xffff);
-			rt.byteVecExtendFromSlice(out, _45);
-			_52 = rt.u32ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] >>> 0);
-			rt.byteVecExtendFromSlice(out, _52);
-			_59 = rt.i64ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] as rt.i64);
-			rt.byteVecExtendFromSlice(out, _59);
-			_66 = rt.u128ToBeBytes(rt.u128Cast({ Neg: -1, Min: -128, Pos: 100 }[signed]));
-			rt.byteVecExtendFromSlice(out, _66);
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] & 0xffff));
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] >>> 0));
+			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes({ Neg: -1, Min: -128, Pos: 100 }[signed] as rt.i64));
+			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(rt.u128Cast({ Neg: -1, Min: -128, Pos: 100 }[signed])));
 		}
 	}
 }
@@ -621,12 +592,11 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let popped!: rt.u32;
 	let _5!: rt.u8 | undefined;
 	let top!: rt.u8;
-	let _17!: Uint8Array;
 	let found!: [rt.usize, rt.usize] | undefined;
-	let iter!: rt.Range<rt.usize>;
+	let iter!: { start: rt.usize; end: rt.usize };
 	let _24!: rt.usize;
 	let i!: rt.usize;
-	let iter2!: rt.Range<rt.usize>;
+	let iter2!: { start: rt.usize; end: rt.usize };
 	let _34!: rt.usize;
 	let j!: rt.usize;
 	let _39!: rt.u8;
@@ -635,7 +605,6 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let _49!: rt.usize;
 	let i2!: rt.usize;
 	let j2!: rt.usize;
-	let _57!: Uint8Array;
 	let n!: rt.u64;
 	let steps!: rt.u8;
 	let _65!: rt.u64;
@@ -648,19 +617,11 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let r!: rt.Range<rt.i32>;
 	let first!: rt.i32 | undefined;
 	let second!: rt.i32 | undefined;
-	let _114!: Uint8Array;
-	let _120!: Uint8Array;
-	let iter4!: rt.Range<rt.i32>;
+	let iter4!: { start: rt.i32; end: rt.i32 };
 	let _124!: rt.i32;
-	let iter5!: rt.Range<rt.i8>;
+	let iter5!: { start: rt.i8; end: rt.i8 };
 	let _136!: rt.i8;
-	let _147!: Uint8Array;
-	let _154!: Uint8Array;
 	let _158!: (a0: rt.u8) => rt.u8;
-	let _124Some!: boolean;
-	let _136Some!: boolean;
-	let _24Some!: boolean;
-	let _34Some!: boolean;
 	_158 = (x3: rt.u8): rt.u8 => {
 		while (true) {
 			if (!(x3 < 10)) {
@@ -685,25 +646,16 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 				continue l0;
 			}
 		}
-		_17 = rt.u32ToBeBytes(popped);
-		rt.byteVecExtendFromSlice(out, _17);
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(popped));
 		found = undefined;
-		iter = new rt.Range(0, data.length);
+		iter = { start: 0, end: data.length };
 		l2: while (true) {
-			_24Some = iter.start < iter.end;
-			if (_24Some) {
-				_24 = iter.start++;
-			}
 			b3: {
-				if (_24Some) {
+				if ((_24 = iter.start++) < iter.end) {
 					i = _24;
-					iter2 = new rt.Range(rt.usizeAdd(i, 1), data.length);
+					iter2 = { start: rt.usizeAdd(i, 1), end: data.length };
 					while (true) {
-						_34Some = iter2.start < iter2.end;
-						if (_34Some) {
-							_34 = iter2.start++;
-						}
-						if (!_34Some) {
+						if (!((_34 = iter2.start++) < iter2.end)) {
 							continue l2;
 						} else {
 							j = _34;
@@ -737,8 +689,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 			} else {
 				i2 = found[0];
 				j2 = found[1];
-				_57 = Uint8Array.of(i2 & 0xff, j2 & 0xff);
-				rt.byteVecExtendFromSlice(out, _57);
+				rt.byteVecExtendFromSlice(out, Uint8Array.of(i2 & 0xff, j2 & 0xff));
 			}
 			n = data.length as rt.u64;
 			l6: while (true) {
@@ -774,35 +725,22 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 								r.end = r.start;
 								second = r.start < r.end ? r.start++ : undefined;
 								if (first !== undefined) {
-									_114 = rt.i32ToBeBytes(first);
-									rt.byteVecExtendFromSlice(out, _114);
+									rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(first));
 								}
 								if (second !== undefined) {
-									_120 = rt.i32ToBeBytes(second);
-									rt.byteVecExtendFromSlice(out, _120);
+									rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(second));
 								}
-								iter4 = new rt.Range(lo, 2);
+								iter4 = { start: lo, end: 2 };
 								while (true) {
-									_124Some = iter4.start < iter4.end;
-									if (_124Some) {
-										_124 = iter4.start++;
-									}
-									if (!_124Some) {
-										iter5 = new rt.Range(rt.i8Sub(124, (lo << 24) >> 24), 127);
+									if (!((_124 = iter4.start++) < iter4.end)) {
+										iter5 = { start: rt.i8Sub(124, (lo << 24) >> 24), end: 127 };
 										while (true) {
-											_136Some = iter5.start < iter5.end;
-											if (_136Some) {
-												_136 = iter5.start++;
-											}
-											if (!_136Some) {
+											if (!((_136 = iter5.start++) < iter5.end)) {
 												rt.byteVecPush(out, firstRepeat(data));
-												_147 = rt.u16ToBeBytes(tailBreak(data));
-												rt.byteVecExtendFromSlice(out, _147);
+												rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(tailBreak(data)));
 												rt.byteVecPush(out, armLoop(data));
-												_154 = rt.u32ToBeBytes(position$u8(data, 0) as rt.u32);
-												rt.byteVecExtendFromSlice(out, _154);
-												const part = rt.u8Mul(data.length & 0xff, 7);
-												rt.byteVecPush(out, _158(part));
+												rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(position$u8(data, 0) as rt.u32));
+												rt.byteVecPush(out, _158(rt.u8Mul(data.length & 0xff, 7)));
 												drain(data, out);
 												rt.byteVecPush(out, returnedLoop(data));
 												branchLoops(data, out);
@@ -839,11 +777,13 @@ export function diverging(data: Uint8Array, out: rt.ByteVec): void {
 	let b!: rt.u8;
 	let _15!: (a0: rt.u8) => rt.u8;
 	_15 = (b2: rt.u8): rt.u8 => {
+		let args2!: rt.Fmt[];
 		if (!(b2 === 253)) {
 			return rt.u8Div(b2, 3);
 		} else {
 			const arg = ([b2] as [rt.u8])[0];
-			rt.panicFmt(["closure ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
+			args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+			rt.panicFmt(["closure ", args2[0]]);
 		}
 	};
 	head = rt.sliceRange(data, 0, rt.min(data.length, 2));
@@ -867,8 +807,10 @@ export function closureNever(b: rt.u8): rt.u8 {
 	let ptr!: (a0: rt.u8) => never;
 	let _4!: (a0: rt.u8) => never;
 	_2 = (b2: rt.u8): never => {
+		let args2!: rt.Fmt[];
 		const arg = ([b2] as [rt.u8])[0];
-		rt.panicFmt(["closure failed on ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8LowerHex(arg, f))]);
+		args2 = [(f: rt.Formatter) => rt.u8LowerHex(arg, f)];
+		rt.panicFmt(["closure failed on ", rt.fmtSpec({ alternate: true }, args2[0])]);
 	};
 	_4 = madeNever();
 	ptr = bail;
@@ -893,8 +835,10 @@ export function closureNever(b: rt.u8): rt.u8 {
 /** A closure that never returns, made by a function. */
 export function madeNever(): (a0: rt.u8) => never {
 	return (b: rt.u8): never => {
+		let args2!: rt.Fmt[];
 		const arg = ([b] as [rt.u8])[0];
-		rt.panicFmt(["made ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
+		args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+		rt.panicFmt(["made ", args2[0]]);
 	};
 }
 
@@ -903,19 +847,23 @@ export function madeNever(): (a0: rt.u8) => never {
  * never exists: given one, and given an `Option` of none, which then calls one.
  */
 export function genericNever(b: rt.u8, len: rt.usize): void {
+	let args2!: rt.Fmt[];
+	let args4!: rt.Fmt[];
 	if (!(b === 241)) {
 		if (!(b === 246)) {
 			if (b === 249) {
 				if (!(len > 1)) {
 					const arg2 = ([b] as [rt.u8])[0];
-					rt.panicFmt(["some ", (f: rt.Formatter) => rt.u8Display(arg2, f)]);
+					args4 = [(f: rt.Formatter) => rt.u8Display(arg2, f)];
+					rt.panicFmt(["some ", args4[0]]);
 				} else {
 					unwrapOrBail$never(undefined, b);
 				}
 			}
 		} else {
 			const arg = ([b] as [rt.u8])[0];
-			rt.panicFmt(["passed ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
+			args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+			rt.panicFmt(["passed ", args2[0]]);
 		}
 	} else {
 		bail(b);
@@ -937,21 +885,27 @@ export function unwrapOrBail$never(o: never | undefined, b: rt.u8): never {
 
 /** A function that never returns. */
 export function bail(b: rt.u8): never {
+	let args2!: rt.Fmt[];
 	const arg = ([b] as [rt.u8])[0];
-	rt.panicFmt(["failed on ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => rt.u8LowerHex(arg, f))]);
+	args2 = [(f: rt.Formatter) => rt.u8LowerHex(arg, f)];
+	rt.panicFmt(["failed on ", rt.fmtSpec({ alternate: true }, args2[0])]);
 }
 
 /** `return`, and `break` out of the function's labeled block, with values that never exist. */
 export function returnedNever(b: rt.u8, len: rt.usize): rt.u8 {
+	let args2!: rt.Fmt[];
+	let args4!: rt.Fmt[];
 	if (b === 247) {
 		const arg2 = ([b] as [rt.u8])[0];
-		rt.panicFmt(["returned ", (f: rt.Formatter) => rt.u8Display(arg2, f)]);
+		args2 = [(f: rt.Formatter) => rt.u8Display(arg2, f)];
+		rt.panicFmt(["returned ", args2[0]]);
 	} else if (b === 248) {
 		if (!(rt.usizeRem(len, 2) === 0)) {
 			bail(b);
 		} else {
 			const arg = ([b] as [rt.u8])[0];
-			rt.panicFmt(["then ", (f: rt.Formatter) => rt.u8Display(arg, f)]);
+			args4 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+			rt.panicFmt(["then ", args4[0]]);
 		}
 	} else if (!(b === 254)) {
 		return b ^ 17;
@@ -964,20 +918,16 @@ export function returnedNever(b: rt.u8, len: rt.usize): rt.u8 {
 export function guardedReturn(data: Uint8Array): rt.u8 {
 	let a!: rt.u8;
 	let b!: rt.u8;
-	let _13!: rt.u8;
-	let a2!: rt.u8;
 	if (!((data.length === 0))) {
 		if (data.length === 2) {
 			a = data[0];
 			b = data[1];
-			_13 = b;
-			if (a > _13) {
+			if (a > b) {
 				return rt.u8Sub(a, b);
 			}
 		}
 		if (data.length >= 1) {
-			a2 = data[0];
-			if (a2 > 128) {
+			if (data[0] > 128) {
 				return 1;
 			}
 		}
@@ -993,6 +943,7 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 	let i!: rt.usize;
 	let _6!: rt.usize;
 	let _7!: rt.usize;
+	let args2!: rt.Fmt[];
 	let _19!: rt.usize;
 	let _20!: rt.usize;
 	i = 0;
@@ -1006,7 +957,8 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 			const value = data[_6];
 			if (value === 251) {
 				const arg = ([i] as [rt.usize])[0];
-				rt.panicFmt(["broken at ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]);
+				args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+				rt.panicFmt(["broken at ", args2[0]]);
 				return _0;
 			} else if (value === 252) {
 				_19 = i;
@@ -1037,6 +989,7 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 	let i!: rt.usize;
 	let _8!: rt.usize;
 	let _9!: rt.usize;
+	let args2!: rt.Fmt[];
 	let _22!: rt.usize;
 	let _23!: rt.usize;
 	let _32!: rt.usize;
@@ -1052,7 +1005,8 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 			const value = data[_8];
 			if (value === 239) {
 				const arg = ([i] as [rt.usize])[0];
-				rt.panicFmt(["bound at ", (f: rt.Formatter) => rt.usizeDisplay(arg, f)]);
+				args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+				rt.panicFmt(["bound at ", args2[0]]);
 				return _0;
 			} else if (value === 240) {
 				_22 = i;
@@ -1095,7 +1049,6 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 	let w!: Uint8Array;
 	let a!: rt.u8;
 	let b!: rt.u8;
-	let _27!: rt.u8;
 	let n!: rt.u8;
 	let n2!: rt.u8;
 	i = 0;
@@ -1109,8 +1062,7 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 				if (w.length === 2) {
 					a = w[0];
 					b = w[1];
-					_27 = b;
-					if (a > _27) {
+					if (a > b) {
 						n = a;
 						while (true) {
 							if (!(n <= b)) {
@@ -1380,8 +1332,6 @@ export function drain(data: Uint8Array, out: rt.ByteVec): void {
 
 /** Patterns: slices, ranges, guards that bind, `@` bindings, and let chains. */
 export function patterns(data: Uint8Array, out: rt.ByteVec): void {
-	let first!: rt.u8;
-	let last!: rt.u8;
 	let iter!: { s: Uint8Array; i: number };
 	let _33!: rt.u8 | rt.Done;
 	let b!: rt.u8;
@@ -1397,29 +1347,22 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	let _79!: rt.i64;
 	let a!: Point.Point;
 	let b2!: Point.Point;
-	let _100!: Uint8Array;
 	let bytes!: Uint8Array;
 	let _107!: rt.usize;
-	let _116!: Shape.Shape[];
-	let _125!: Uint8Array;
 	let parsed!: rt.Result<rt.u8, Void.Void>;
 	let a2!: rt.u8;
 	let b3!: rt.u8;
-	let _138!: Uint8Array;
 	let _143!: string;
+	let args2!: rt.Fmt[];
 	if (!(data.length === 0)) {
 		if (!(data.length === 1)) {
 			if (!(data.length >= 2)) {
 				rt.unreachable(undefined);
+			} else if (!((data[0] === data[data.length - 1]))) {
+				rt.byteVecPush(out, data[0] ^ data[1]);
+				rt.byteVecPush(out, data.subarray(2, data.length - 0).length & 0xff);
 			} else {
-				first = data[0];
-				last = data[data.length - 1];
-				if (!((first === last))) {
-					rt.byteVecPush(out, data[0] ^ data[1]);
-					rt.byteVecPush(out, data.subarray(2, data.length - 0).length & 0xff);
-				} else {
-					rt.byteVecPush(out, 2);
-				}
+				rt.byteVecPush(out, 2);
 			}
 		} else {
 			rt.byteVecPush(out, data[0]);
@@ -1469,8 +1412,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 				}
 				area = 0;
 			}
-			_100 = rt.i64ToBeBytes(area);
-			rt.byteVecExtendFromSlice(out, _100);
+			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(area));
 			bytes = Uint8Array.of(data.length & 0xff, 1, 2);
 			_107 = 0;
 			if (!(_107 < 2)) {
@@ -1478,16 +1420,14 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			}
 			bytes.subarray(1, 3)[_107] = 9;
 			rt.byteVecExtendFromSlice(out, bytes);
-			_116 = [shape_, { tag: "Dot" } as Shape.Shape];
-			_125 = rt.u64ToBeBytes(rt.u64Add(total$Shape(_116, out), total$Meters([{ _0: 3 }, { _0: rt.u64Of(18446744073709551615n) }], out)));
-			rt.byteVecExtendFromSlice(out, _125);
+			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: rt.u64Of(18446744073709551615n) }], out))));
 			parsed = rt.Ok(data.length & 0xff);
 			a2 = (parsed as { ok: true; value: rt.u8 }).value;
 			b3 = (parsed as { ok: true; value: rt.u8 }).value;
-			_138 = Uint8Array.of(a2, b3, (parsed as { ok: true; value: rt.u8 }).value, early(a2));
-			rt.byteVecExtendFromSlice(out, _138);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(a2, b3, (parsed as { ok: true; value: rt.u8 }).value, early(a2)));
 			const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
-			_143 = rt.fmtFormat([(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))]);
+			args2 = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
+			_143 = rt.fmtFormat([args2[0]]);
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_143));
 			return;
 		} else {
@@ -1537,8 +1477,6 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	let add!: (a0: rt.u8) => void;
 	let iter!: { s: Uint8Array; i: number };
 	let _8!: rt.u8 | rt.Done;
-	let _18!: Uint8Array;
-	let _26!: Uint8Array;
 	let whole!: Uint8Array;
 	let _36!: rt.usize;
 	let parsed!: Array<Dir.Dir | undefined>;
@@ -1557,13 +1495,11 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	while (true) {
 		_8 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		if (_8 === rt.DONE) {
-			_18 = rt.u32ToBeBytes(sum);
-			rt.byteVecExtendFromSlice(out, _18);
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(sum));
 			const captured = data.length as rt.u32;
-			_26 = rt.u32ToBeBytes(apply$closures_closure1((v2: rt.u32): rt.u32 => {
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(apply$closures_closure1((v2: rt.u32): rt.u32 => {
 				return rt.u32Add(rt.u32Mul(v2, 3), captured);
-			}, sum));
-			rt.byteVecExtendFromSlice(out, _26);
+			}, sum)));
 			whole = Uint8Array.of(data.length & 0xff);
 			overwrite(whole);
 			_36 = 0;
@@ -1618,11 +1554,8 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 	let a!: rt.u8;
 	let parsed!: rt.Result<rt.u8, string>;
 	let mapped!: rt.Result<rt.u8, rt.u8>;
-	let _25!: Uint8Array;
-	let _29!: Uint8Array;
 	let _30!: rt.Result<string, rt.FromUtf8Error>;
 	let s!: string;
-	let _38!: Uint8Array;
 	_3 = (a2: rt.u8, b2: rt.u8): rt.u8 | undefined => {
 		let _4!: rt.u8 | undefined;
 		let _82!: rt.u8 | undefined;
@@ -1639,8 +1572,7 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 		}
 	};
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
-	const part = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
-	rt.byteVecPush(out, rt.optionUnwrapOr(_3(a, part), 255));
+	rt.byteVecPush(out, rt.optionUnwrapOr(_3(a, rt.optionUnwrapOr(rt.sliceGet(data, 1), 0)), 255));
 	if (a === 0) {
 		parsed = rt.Err("zero");
 	} else {
@@ -1652,18 +1584,15 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 		return rt.stringLen(e) & 0xff;
 	});
 	if (mapped.ok) {
-		_25 = Uint8Array.of(0, mapped.value);
-		rt.byteVecExtendFromSlice(out, _25);
+		rt.byteVecExtendFromSlice(out, Uint8Array.of(0, mapped.value));
 	} else {
-		_29 = Uint8Array.of(1, mapped.error);
-		rt.byteVecExtendFromSlice(out, _29);
+		rt.byteVecExtendFromSlice(out, Uint8Array.of(1, mapped.error));
 	}
 	_30 = rt.stringFromUtf8(rt.sliceToByteVec(data));
 	if (_30.ok) {
 		s = _30.value;
 		rt.byteVecPush(out, 1);
-		_38 = rt.u32ToBeBytes(rt.stringLen(s) as rt.u32);
-		rt.byteVecExtendFromSlice(out, _38);
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.stringLen(s) as rt.u32));
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	} else {
 		rt.byteVecPush(out, 0);
