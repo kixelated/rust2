@@ -364,7 +364,8 @@ fn shares(data: &[u8], out: &mut Vec<u8>) {
 	source.at.x = 9;
 	let read = moved_then_read(source.at, &mut source);
 	let by = moved_by(source.at, Mover { held: &mut source });
-	out.extend_from_slice(&[kept.at.x as u8, read as u8, by as u8, source.at.x as u8]);
+	let part = part_moved_then_read(source, &mut source.at);
+	out.extend_from_slice(&[kept.at.x as u8, read as u8, by as u8, part as u8, source.at.x as u8]);
 }
 
 /// A `Copy` struct holding another by value.
@@ -384,6 +385,14 @@ fn hold(at: Point) -> Held {
 fn moved_then_read(copy: Point, held: &mut Held) -> i32 {
 	held.at.x += 1;
 	copy.x
+}
+
+/// `copy.at.x`, read after `at` moves right by one, which a copy of what holds it doesn't
+/// see.
+#[inline(never)]
+fn part_moved_then_read(copy: Held, at: &mut Point) -> i32 {
+	at.x += 1;
+	copy.at.x
 }
 
 /// A mutable borrow of a `Held`, held by value.

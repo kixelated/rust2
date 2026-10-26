@@ -2298,15 +2298,17 @@ impl Fx<'_, '_, '_, '_> {
 
 impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Whether a value of `ty` can change a `part` in place: it holds a raw pointer, or a
-	/// mutable reference to or interior mutability around something that could hold one.
+	/// mutable reference to or interior mutability around something that could hold a
+	/// `part` or be part of one.
 	fn changes(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		use rustc_middle::ty::TypeVisitableExt;
 		let env = self.b.t.typing_env_pub();
+		let overlaps = |t: Ty<'tcx>| self.holds(t, part) || self.holds(part, t);
 		self.reaches(ty, |t| match t.kind() {
 			ty::RawPtr(..) => true,
-			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => overlaps(*inner),
 			// Inside a binder, as a function pointer's signature, only its kind tells.
-			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
+			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && overlaps(t),
 		})
 	}
 
