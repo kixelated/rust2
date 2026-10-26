@@ -410,3 +410,8 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 pub fn shifted(v: &mut [(u8, u8)]) {
 	v.copy_within(0..1, 1);
 }
+
+/// An `Arc`'s bytes would need a `ByteSlice` made inside it.
+pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
+	b
+}

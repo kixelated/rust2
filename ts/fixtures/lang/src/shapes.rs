@@ -378,6 +378,17 @@ fn indexed(data: &[u8], out: &mut Vec<u8>) {
 	}] += n;
 	out.extend_from_slice(&[first, second, called, f(1), slots[0], n]);
 	out.extend_from_slice(&bytes);
+	// An array of byte slices unsized to a slice of them.
+	let (head, tail) = data.split_at(data.len() / 2);
+	ends(&[head, tail], out);
+}
+
+/// Each part's length and first byte.
+#[inline(never)]
+fn ends(parts: &[&[u8]], out: &mut Vec<u8>) {
+	for part in parts {
+		out.extend_from_slice(&[part.len() as u8, part.first().copied().unwrap_or(0)]);
+	}
 }
 
 /// A vector of `b`, logging that it was made.

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 78
-- Function instances: 66
+- Refusals: 79
+- Function instances: 67
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -36,6 +36,7 @@
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:134:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:221:51 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
+| 1 | a coercion to `_` | fixtures/reject/src/lib.rs:416:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:310:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:285:13 |
@@ -62,7 +63,7 @@ The type or module each refused type or path belongs to.
 | 7 | `Option` | fixtures/reject/src/lib.rs:31:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:6:14 |
 | 6 | `u8` | fixtures/reject/src/lib.rs:80:10 |
-| 4 | `std::sync::Arc` | fixtures/reject/src/lib.rs:141:1 |
+| 5 | `std::sync::Arc` | fixtures/reject/src/lib.rs:141:1 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:321:6 |
@@ -124,6 +125,7 @@ The type or module each refused type or path belongs to.
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:134:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:221:51 |
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
+| 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:416:2 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | a field of `_` | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:316:48 |
 | 1 | a field of `_` | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:316:7 |
@@ -357,6 +359,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a cast from `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:11:2: a cast from `char`
+
+</details>
+
+<details><summary>a coercion to `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:416:2: a coercion to `std::sync::Arc<[u8]>`
 
 </details>
 

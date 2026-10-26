@@ -300,6 +300,21 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _68: rt.u8 = f(1);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(first, second, called, _68, slots[0], n)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
+	const _79: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(data, rt.usizeDiv(data.length, 2));
+	ends([_79[0], _79[1]], out);
+}
+
+/** Each part's length and first byte. */
+export function ends(parts: rt.ByteSlice[], out: rt.ByteVec): void {
+	const iterS: rt.ByteSlice[] = parts;
+	let iterI: number = 0;
+	while (true) {
+		const _5: rt.ByteSlice | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_5 === rt.DONE) {
+			return;
+		}
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_5.length & 0xff, rt.optionUnwrapOr(rt.byteSliceFirst(_5), 0))));
+	}
 }
 
 /** A vector of `b`, logging that it was made. */
