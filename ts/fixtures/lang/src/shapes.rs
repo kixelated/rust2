@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 use std::ops::ControlFlow;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
 
 use crate::fmt::Pair;
@@ -235,6 +235,186 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		err.y as u8,
 		fail.unwrap_err().y as u8,
 	]);
+
+	// An enum's and a `Poll`'s payload changes in place apart from a copy's.
+	let mut shape = shape(data);
+	let before = shape;
+	match &mut shape {
+		Shape::Dot => {}
+		Shape::Line(from, _) => from.x = 77,
+		Shape::Rect { corner, width, .. } => {
+			corner.y = 5;
+			*width = 6;
+		}
+	}
+	for shape in [before, shape] {
+		out.extend_from_slice(&match shape {
+			Shape::Dot => [0; 3],
+			Shape::Line(from, _) => [1, from.x as u8, from.y as u8],
+			Shape::Rect { corner, width, .. } => [corner.x as u8, corner.y as u8, width as u8],
+		});
+	}
+	let mut poll = match data.len() % 2 {
+		0 => Poll::Pending,
+		_ => Poll::Ready([data.len() as u8]),
+	};
+	let polled = poll;
+	if let Poll::Ready(ref mut bytes) = poll {
+		bytes[0] = 9;
+	}
+	for poll in [polled, poll] {
+		out.push(match poll {
+			Poll::Ready(bytes) => bytes[0],
+			Poll::Pending => 0xff,
+		});
+	}
+	shares(data, out);
+}
+
+/// A `Copy` struct holding a shared reference to a value that changes through it.
+#[derive(Clone, Copy)]
+struct Lens<'a> {
+	slot: &'a Mutex<u8>,
+	n: u8,
+}
+
+/// Adds one to what `slot` holds.
+fn bump(slot: &Mutex<u8>) {
+	let mut held = slot.lock().unwrap();
+	*held = held.wrapping_add(1);
+}
+
+/// `Copy` aggregates holding shared references: a copy has its own values, and shares
+/// what its references point at with the original's.
+fn shares(data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let slot = Mutex::new(a);
+	let other = Mutex::new(0);
+
+	let pair = (&slot, a);
+	let mut copy = pair;
+	copy.1 = copy.1.wrapping_add(1);
+	bump(copy.0);
+	bump(pair.0);
+	out.extend_from_slice(&[pair.1, copy.1]);
+
+	let refs = [&slot, &other];
+	let mut copy = refs;
+	bump(copy[0]);
+	copy[1] = &slot;
+	bump(copy[1]);
+	bump(refs[1]);
+
+	let held = Some((&slot, a));
+	let mut copy = held;
+	if let Some((held, ref mut n)) = copy {
+		bump(held);
+		*n = n.wrapping_add(2);
+	}
+	for held in [held, copy] {
+		out.push(held.map_or(0, |(_, n)| n));
+	}
+
+	let res: Result<(&Mutex<u8>, u8), u8> = if a % 2 == 0 { Ok((&slot, a)) } else { Err(a) };
+	let mut copy = res;
+	if let Ok((held, n)) = &mut copy {
+		bump(held);
+		*n = n.wrapping_add(3);
+	}
+	for r in [res, copy] {
+		out.push(match r {
+			Ok((_, n)) | Err(n) => n,
+		});
+	}
+
+	let lens = Lens { slot: &slot, n: a };
+	let mut copy = lens;
+	copy.n = copy.n.wrapping_add(4);
+	bump(copy.slot);
+	out.extend_from_slice(&[lens.n, copy.n]);
+	out.push(lens_bumped(lens));
+
+	// Copied out of a slice and a collection, each still points at the original.
+	for lens in [lens; 2].to_vec() {
+		bump(lens.slot);
+	}
+	let mut lenses = Vec::new();
+	lenses.push(lens);
+	lenses.extend([lens].iter());
+	for lens in lenses.iter().copied() {
+		bump(lens.slot);
+	}
+
+	let arc = Arc::new(a);
+	let flow: ControlFlow<&Arc<u8>, [u8; 1]> = match a % 3 {
+		0 => ControlFlow::Continue([a]),
+		_ => ControlFlow::Break(&arc),
+	};
+	out.push(same_arc(flow, &arc));
+
+	out.push(*slot.lock().unwrap());
+	out.push(*other.lock().unwrap());
+
+	// An argument copied into what a call returns, or read after the call changes its
+	// source through another argument, keeps its value.
+	let mut source = Held {
+		at: Point::new(a as i32, 0),
+	};
+	let kept = hold(source.at);
+	source.at.x = 9;
+	let read = moved_then_read(source.at, &mut source);
+	let by = moved_by(source.at, Mover { held: &mut source });
+	out.extend_from_slice(&[kept.at.x as u8, read as u8, by as u8, source.at.x as u8]);
+}
+
+/// A `Copy` struct holding another by value.
+#[derive(Clone, Copy)]
+struct Held {
+	at: Point,
+}
+
+/// `at`, held.
+#[inline(never)]
+fn hold(at: Point) -> Held {
+	Held { at }
+}
+
+/// `copy.x`, read after `held` moves right by one, which a copy of its point doesn't see.
+#[inline(never)]
+fn moved_then_read(copy: Point, held: &mut Held) -> i32 {
+	held.at.x += 1;
+	copy.x
+}
+
+/// A mutable borrow of a `Held`, held by value.
+struct Mover<'a> {
+	held: &'a mut Held,
+}
+
+/// `copy.x`, read after `by` moves what it holds right by one.
+#[inline(never)]
+fn moved_by(copy: Point, by: Mover) -> i32 {
+	by.held.at.y += 1;
+	by.held.at.x += 1;
+	copy.x
+}
+
+/// A `Lens` changed in place, which changes its slot too.
+fn lens_bumped(mut lens: Lens) -> u8 {
+	lens.n = lens.n.wrapping_add(5);
+	bump(lens.slot);
+	lens.n
+}
+
+/// Whether `flow` breaks with `arc` itself, after changing its own bytes in place.
+fn same_arc(mut flow: ControlFlow<&Arc<u8>, [u8; 1]>, arc: &Arc<u8>) -> u8 {
+	match flow {
+		ControlFlow::Continue(ref mut bytes) => {
+			bytes[0] = bytes[0].wrapping_add(1);
+			bytes[0]
+		}
+		ControlFlow::Break(p) => Arc::ptr_eq(p, arc) as u8,
+	}
 }
 
 /// `a`'s byte, after writing `b`'s.

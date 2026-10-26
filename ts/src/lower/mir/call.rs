@@ -103,7 +103,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let value = match dest.as_local() {
 			Some(local) if self.mutated[local] => {
 				let ty = self.mir.local_decls[local].ty;
-				self.b.copied(value, ty)
+				self.b.t.copied(value, ty, span)
 			}
 			_ => value,
 		};
