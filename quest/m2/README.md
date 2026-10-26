@@ -16,6 +16,11 @@ Decided with the maintainer on 2026-10-24: the translator's output ranks correct
 then speed, then the size of the consumer's final tree-shaken, minified JS; readability
 is not a goal, and types must be solid at the API boundary ([design](/ts/README.md#design)).
 
+Decided with the maintainer on 2026-10-26: the translator targets browsers. A native
+runtime such as Node or Bun calls Rust through [rust2-ffi](/ffi/README.md), so Node and
+Bun matter only as proxies for V8 and JavaScriptCore, and a speed call that splits them
+from the browsers goes to the browsers.
+
 The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 [m1](/quest/m1/README.md#plan) records why.
 

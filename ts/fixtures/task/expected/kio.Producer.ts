@@ -20,18 +20,14 @@ export class Producer {
 }
 
 function new_(): Producer {
-	let _2!: rt.u64[];
-	_2 = [];
-	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() })) });
+	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: [], closed: false, producers: 1, waiters: WaiterList.new() })) });
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
 export function send(self: Producer, value: rt.u64): void {
-	let waiters!: WaiterList.WaiterList;
-	let state!: rt.Mutex<State.State>;
-	state = self.state.value;
+	const state: rt.Mutex<State.State> = self.state.value;
 	state.value.queue.push(value);
-	waiters = WaiterList.take(state.value.waiters);
+	const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 	WaiterList.wake(waiters);
 }
 
@@ -40,24 +36,19 @@ export function consume(self: Producer): Consumer.Consumer {
 }
 
 export function clone$Clone(self: Producer): Producer {
-	let _2!: State.State;
-	let _4!: rt.Mutex<State.State>;
-	_4 = self.state.value;
-	_2 = _4.value;
+	const _4: rt.Mutex<State.State> = self.state.value;
+	const _2: State.State = _4.value;
 	_2.producers = rt.usizeAdd(_2.producers, 1);
 	return new Producer({ state: rt.arcClone(self.state) });
 }
 
 export function drop$Drop(self: Producer): void {
-	let waiters!: WaiterList.WaiterList;
-	let state!: rt.Mutex<State.State>;
-	let _7!: State.State;
-	state = self.state.value;
-	_7 = state.value;
+	const state: rt.Mutex<State.State> = self.state.value;
+	const _7: State.State = state.value;
 	_7.producers = rt.usizeSub(_7.producers, 1);
 	if (!(state.value.producers > 0)) {
 		state.value.closed = true;
-		waiters = WaiterList.take(state.value.waiters);
+		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 		WaiterList.wake(waiters);
 	}
 }

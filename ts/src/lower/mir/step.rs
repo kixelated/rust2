@@ -87,7 +87,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				}
 			}
 			match &data.terminator().kind {
-				TerminatorKind::Drop { place, .. } if let Some(local) = place.as_local() => {
+				// Counted as `uses` counts it: only a drop JS sees.
+				TerminatorKind::Drop { place, .. }
+					if let Some(local) = place.as_local()
+						&& self.b.t.drops(mir.local_decls[local].ty) =>
+				{
 					*reads.entry(local).or_default() += 1;
 				}
 				TerminatorKind::Call {
