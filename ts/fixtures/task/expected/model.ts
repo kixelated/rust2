@@ -1047,6 +1047,7 @@ export class drainFuture {
 		let unwind: number = 0;
 		try {
 			if (this.state === 0) {
+				unwind = 0;
 				rt.drop(this.rx);
 				return;
 			} else if (this.state === 3) {
@@ -1211,10 +1212,8 @@ export class level1Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1268,10 +1267,8 @@ export class level10Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1325,10 +1322,8 @@ export class level11Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1382,10 +1377,8 @@ export class level12Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1439,10 +1432,8 @@ export class level13Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1496,10 +1487,8 @@ export class level14Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1553,10 +1542,8 @@ export class level15Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1610,10 +1597,8 @@ export class level2Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1667,10 +1652,8 @@ export class level3Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1724,10 +1707,8 @@ export class level4Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1781,10 +1762,8 @@ export class level5Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1838,10 +1817,8 @@ export class level6Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1895,10 +1872,8 @@ export class level7Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -1952,10 +1927,8 @@ export class level8Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 
@@ -2009,10 +1982,8 @@ export class level9Future {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 

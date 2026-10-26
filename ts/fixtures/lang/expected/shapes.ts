@@ -1374,39 +1374,39 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	while (true) {
 		_33 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		if (_33 === rt.DONE) {
-			b6: {
+			b5: {
 				if (data.length >= 2) {
 					_56 = dir(data[0]);
 					if (_56 !== undefined) {
 						d = _56;
 						if (data[1] > 10) {
 							rt.byteVecPush(out, from$From_Dir_u8(d));
-							break b6;
+							break b5;
 						}
 					}
 				}
 				rt.byteVecPush(out, 238);
 			}
 			shape_ = shape(data);
-			b8: {
+			b7: {
 				if (shape_.tag !== "Dot") {
 					if (shape_.tag === "Line") {
 						a = shape_._0;
 						b2 = shape_._1;
 						area = rt.i64Mul(rt.i32Sub(a.x, b2.x) as rt.i64, rt.i32Sub(a.y, b2.y) as rt.i64);
-						break b8;
+						break b7;
 					} else if (shape_.width !== 0) {
 						if (!(shape_.corner.x > 0)) {
 							width2 = shape_.width;
 							height = shape_.height;
 							_79 = rt.i64Mul(width2 as rt.i64, height as rt.i64);
 							area = rt.i64Neg(_79);
-							break b8;
+							break b7;
 						} else {
 							x = shape_.corner.x;
 							_74 = shape_.width as rt.i64;
 							area = rt.i64Mul(_74, x as rt.i64);
-							break b8;
+							break b7;
 						}
 					}
 				}
@@ -1435,8 +1435,9 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 				b = _33;
 				if (b === 0) {
 					class_ = 0;
-					break b2;
-				} else if (!(b === 10 || b === 20 || b === 30)) {
+				} else if (b === 10 || b === 20 || b === 30) {
+					class_ = 2;
+				} else {
 					if (1 <= b) {
 						if (b <= 9) {
 							class_ = 1;
@@ -1453,13 +1454,10 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 					}
 					if (!(b >= 250)) {
 						class_ = 5;
-						break b2;
 					} else {
 						class_ = 4;
-						break b2;
 					}
 				}
-				class_ = 2;
 			}
 			rt.byteVecPush(out, class_);
 		}

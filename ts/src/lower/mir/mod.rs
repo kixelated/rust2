@@ -137,6 +137,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	mutated: IndexVec<Local, bool>,
 	/// The names of borrowed locals.
 	shared: FxHashSet<String>,
+	/// The names of locals whose own value nothing changes: a tuple, array, or enum or
+	/// struct of their own, never changed in place nor borrowed, so a call can't change
+	/// what their fields hold.
+	frozen_names: FxHashSet<String>,
 	/// `(value, overflowed)` pairs of checked arithmetic, whose `.1` is false once the value
 	/// is made, which panics where the assert would.
 	checked: FxHashSet<Local>,
@@ -213,6 +217,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			borrowed: IndexVec::from_elem_n(false, n),
 			mutated: IndexVec::from_elem_n(false, n),
 			shared: FxHashSet::default(),
+			frozen_names: FxHashSet::default(),
 			checked: FxHashSet::default(),
 			pending: Vec::new(),
 			order: 0,
@@ -380,6 +385,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let name = self.b.fresh(&base);
 				if self.borrowed[local] {
 					self.shared.insert(name.clone());
+				}
+				let owned = match mir.local_decls[local].ty.kind() {
+					ty::Tuple(_) | ty::Array(..) => true,
+					ty::Adt(adt, _) => {
+						adt.did().is_local()
+							|| matches!(
+								crate::lower::library::Std::of(self.tcx, adt.did()),
+								Some(crate::lower::library::Std::Option | crate::lower::library::Std::Result)
+							)
+					}
+					_ => false,
+				};
+				if owned && !self.is_arg(local) && !self.borrowed[local] && !self.mutated[local] {
+					self.frozen_names.insert(name.clone());
 				}
 				self.slots[local] = Slot::Var(name);
 			}
@@ -1014,9 +1033,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::Goto { target, .. } => vec![*target],
 			// An unreachable default is no edge: the last value takes its place.
 			TerminatorKind::SwitchInt { targets, .. } => {
-				let mut all = targets.all_targets().to_vec();
-				if self.unreachable.contains(&targets.otherwise()) && all.len() > 1 {
-					all.pop();
+				let (arms, default) = self.switch_targets(targets);
+				let mut all: Vec<BasicBlock> = Vec::new();
+				for bb in arms.into_iter().map(|(_, bb)| bb).chain([default]) {
+					if !all.contains(&bb) {
+						all.push(bb);
+					}
 				}
 				all
 			}
@@ -1033,6 +1055,51 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	// Locals
+
+	/// A switch's arms and default, each past blocks that do nothing but go on, without
+	/// the arms that go where the default does. An unreachable default leaves the last
+	/// arm as the default.
+	fn switch_targets(&self, targets: &mir::SwitchTargets) -> (Vec<(u128, BasicBlock)>, BasicBlock) {
+		let mut arms: Vec<(u128, BasicBlock)> = targets.iter().collect();
+		let mut default = targets.otherwise();
+		if self.unreachable.contains(&default)
+			&& let Some((_, last)) = arms.pop()
+		{
+			default = last;
+		}
+		let default = self.forward(default);
+		let returns = |bb: BasicBlock| matches!(self.mir.basic_blocks[bb].terminator().kind, TerminatorKind::Return);
+		arms.retain_mut(|(_, target)| {
+			*target = self.forward(*target);
+			*target != default && !(returns(*target) && returns(default) && self.empty(*target) && self.empty(default))
+		});
+		(arms, default)
+	}
+
+	/// Whether `bb` has no statement that does anything.
+	fn empty(&self, bb: BasicBlock) -> bool {
+		self.mir.basic_blocks[bb].statements.iter().enumerate().all(|(i, s)| {
+			matches!(
+				s.kind,
+				StatementKind::StorageDead(_) | StatementKind::StorageLive(_) | StatementKind::Nop
+			) || self.noops.contains(&(bb, i))
+		})
+	}
+
+	/// Where `bb` goes, past blocks that do nothing but go on.
+	fn forward(&self, mut bb: BasicBlock) -> BasicBlock {
+		for _ in 0..self.mir.basic_blocks.len() {
+			let data = &self.mir.basic_blocks[bb];
+			let TerminatorKind::Goto { target, .. } = data.terminator().kind else {
+				return bb;
+			};
+			if !self.empty(bb) || data.is_cleanup || self.redirect.contains_key(&bb) {
+				return bb;
+			}
+			bb = target;
+		}
+		bb
+	}
 
 	/// The JS name of a local held in a variable.
 	fn var(&self, local: Local) -> Option<&str> {
@@ -1108,6 +1175,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					None => seen_memory |= self.shared.contains(name.as_str()),
 				},
 				Read::Memory => seen_memory = true,
+				Read::Field(name) => seen_memory |= !self.frozen_names.contains(name.as_str()),
 				Read::Effect => seen_effect = true,
 			}
 		}
@@ -1293,6 +1361,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let effect = events.iter().any(|r| matches!(r, Read::Effect));
 			let memory = events.iter().any(|r| match r {
 				Read::Memory => true,
+				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
 				Read::Ident(name, _) => self.shared.contains(name.as_str()),
 				Read::Effect => false,
 			});
@@ -1671,14 +1740,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	fn switch(&mut self, discr: &Operand<'tcx>, targets: &mir::SwitchTargets, span: Span, out: &mut Vec<Stmt>) -> Exit {
-		let mut arms: Vec<(u128, BasicBlock)> = targets.iter().collect();
-		let mut default = targets.otherwise();
-		// An unreachable default leaves the last value as the default.
-		if self.unreachable.contains(&default)
-			&& let Some((_, last)) = arms.pop()
-		{
-			default = last;
-		}
+		let (arms, default) = self.switch_targets(targets);
 		let discr_local = match discr {
 			Operand::Copy(p) | Operand::Move(p) => p.as_local(),
 			_ => None,
@@ -1932,6 +1994,8 @@ enum Read {
 	Ident(String, bool),
 	/// Memory: a member or an element.
 	Memory,
+	/// A member or an element of a local's own value, by its name.
+	Field(String),
 	/// A call, which may do anything.
 	Effect,
 }
@@ -1953,6 +2017,14 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 	}
 }
 
+/// A read of a member or element of `base`.
+fn field(base: &Expr) -> Read {
+	match base {
+		Expr::Ident(name) => Read::Field(name.clone()),
+		_ => Read::Memory,
+	}
+}
+
 fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 	match e {
 		Expr::Ident(name) => reads.push(Read::Ident(name.clone(), lazy)),
@@ -1963,12 +2035,12 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 		Expr::Member(base, _) if matches!(&**base, Expr::Rt(_) | Expr::Sym(_)) => {}
 		Expr::Member(base, _) => {
 			scan(base, reads, lazy);
-			reads.push(Read::Memory);
+			reads.push(field(base));
 		}
 		Expr::Index(base, index) => {
 			scan(base, reads, lazy);
 			scan(index, reads, lazy);
-			reads.push(Read::Memory);
+			reads.push(field(base));
 		}
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			// A method's lookup reads no data the arguments could change: only its receiver.

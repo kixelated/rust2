@@ -83,7 +83,9 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 	let rtt!: rt.u64 | undefined;
 	let _13!: rt.Result<rt.u64, DecodeError.DecodeError>;
 	let val2!: rt.u64;
-	if (!(version === "Lite01" || version === "Lite02")) {
+	if (version === "Lite01" || version === "Lite02") {
+		return rt.Err({ tag: "Version" } as DecodeError.DecodeError);
+	} else {
 		_6 = Decoder.varint(r);
 		if (_6.ok) {
 			val = _6.value;
@@ -112,14 +114,15 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 			return _6;
 		}
 	}
-	return rt.Err({ tag: "Version" } as DecodeError.DecodeError);
 }
 
 /** Encode this message body (without size prefix). */
 export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	let _9!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _17!: rt.Result<undefined, EncodeError.EncodeError>;
-	if (!(version === "Lite01" || version === "Lite02")) {
+	if (version === "Lite01" || version === "Lite02") {
+		return rt.Err("Version" as EncodeError.EncodeError);
+	} else {
 		_9 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
 			return rt.u64Max(v, 1);
 		}), 0));
@@ -137,7 +140,6 @@ export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Vers
 			return _9;
 		}
 	}
-	return rt.Err("Version" as EncodeError.EncodeError);
 }
 
 //# sourceMappingURL=probe.Probe.ts.map

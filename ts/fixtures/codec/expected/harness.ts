@@ -210,10 +210,8 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let len!: rt.u8;
 	let _9!: [rt.u8, Uint8Array] | undefined;
 	let _13!: [Uint8Array, Uint8Array];
-	let _14!: rt.usize;
 	let _15!: rt.usize;
 	let r!: Decoder.Decoder;
-	let _18!: Form.Form;
 	let iter!: { s: Uint8Array; i: number };
 	let _21!: rt.u8 | rt.Done;
 	let _26!: rt.Result<undefined, DecodeError.DecodeError>;
@@ -226,10 +224,8 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			if (_9 !== undefined) {
 				len = _9[0];
 				_15 = _9[1].length;
-				_14 = rt.min(_15, len as rt.usize);
-				_13 = rt.sliceSplitAt(_9[1], _14);
-				_18 = form(selector);
-				r = Decoder.new(_13[1], _18);
+				_13 = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
+				r = Decoder.new(_13[1], form(selector));
 				iter = { s: _13[0], i: 0 };
 				l1: while (true) {
 					_21 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
@@ -363,7 +359,6 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let _9!: [rt.u8, Uint8Array] | undefined;
 	let values!: Uint8Array;
 	let _13!: [Uint8Array, Uint8Array];
-	let _14!: rt.usize;
 	let _15!: rt.usize;
 	let buf!: rt.ByteVec;
 	let w!: Encoder.Encoder;
@@ -397,8 +392,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			if (_9 !== undefined) {
 				len = _9[0];
 				_15 = _9[1].length;
-				_14 = rt.min(_15, len as rt.usize);
-				_13 = rt.sliceSplitAt(_9[1], _14);
+				_13 = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
 				values = _13[1];
 				buf = new rt.ByteVec();
 				_20 = form(selector);

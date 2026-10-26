@@ -23,10 +23,8 @@ export class recvFuture {
 	}
 
 	[Symbol.dispose](): void {
-		if (this.state !== 0) {
-			if (this.state === 3) {
-				rt.drop(this.__awaitee_);
-			}
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
 	}
 

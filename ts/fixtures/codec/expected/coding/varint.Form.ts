@@ -6,10 +6,11 @@ import type * as Version from "../lite/version.Version.ts";
 export type Form = { tag: "Quic" } | { tag: "LeadingOnes"; seven: boolean };
 
 export function from$From_Version(version: Version.Version): Form {
-	if (!(version === "Lite01" || version === "Lite02" || version === "Lite03" || version === "Lite04" || version === "Lite05" || version === "Lite06")) {
+	if (version === "Lite01" || version === "Lite02" || version === "Lite03" || version === "Lite04" || version === "Lite05" || version === "Lite06") {
+		return { tag: "Quic" } as Form;
+	} else {
 		return { tag: "LeadingOnes", seven: true } as Form;
 	}
-	return { tag: "Quic" } as Form;
 }
 
 //# sourceMappingURL=varint.Form.ts.map

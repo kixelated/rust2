@@ -18,13 +18,6 @@ export function run(input: Uint8Array): rt.ByteVec {
 	let _5!: [rt.u8, Uint8Array] | undefined;
 	let selector!: rt.u8;
 	let _9!: [rt.u8, Uint8Array] | undefined;
-	let _13!: Form.Form;
-	let _17!: Form.Form;
-	let _21!: Version.Version;
-	let _25!: Version.Version;
-	let _29!: Version.Version;
-	let _34!: Version.Version;
-	let _38!: Version.Version;
 	out = new rt.ByteVec();
 	_5 = rt.sliceSplitFirst(input);
 	if (_5 !== undefined) {
@@ -33,28 +26,21 @@ export function run(input: Uint8Array): rt.ByteVec {
 		if (_9 !== undefined) {
 			selector = _9[0];
 			if (op === 0) {
-				_13 = form(selector);
-				encoded(encodeVarints(_9[1], _13, out), out);
+				encoded(encodeVarints(_9[1], form(selector), out), out);
 			} else if (op === 1) {
-				_17 = form(selector);
-				decoded(decodeVarints(_9[1], _17, out), out);
+				decoded(decodeVarints(_9[1], form(selector), out), out);
 			} else if (op === 2) {
-				_21 = liteVersion(selector);
-				encoded(encodeFrames(_9[1], _21, out), out);
+				encoded(encodeFrames(_9[1], liteVersion(selector), out), out);
 			} else if (op === 3) {
-				_25 = liteVersion(selector);
-				decoded(decodeFrames(_9[1], _25, out), out);
+				decoded(decodeFrames(_9[1], liteVersion(selector), out), out);
 			} else if (op === 4) {
-				_29 = liteVersion(selector);
-				encoded(encodeGroup(_9[1], _29, out), out);
+				encoded(encodeGroup(_9[1], liteVersion(selector), out), out);
 			} else if (op === 6) {
 				iterate(selector, _9[1], out);
 			} else if (op === 7) {
-				_34 = liteVersion(selector);
-				decoded(decodeSplit(_9[1], _34, out), out);
+				decoded(decodeSplit(_9[1], liteVersion(selector), out), out);
 			} else {
-				_38 = liteVersion(selector);
-				decoded(decodeGroup(_9[1], _38, out), out);
+				decoded(decodeGroup(_9[1], liteVersion(selector), out), out);
 			}
 			return out;
 		} else {
