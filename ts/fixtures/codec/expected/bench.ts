@@ -40,6 +40,10 @@ export function run(input: Uint8Array): rt.ByteVec {
 		iterate(selector, data2, out);
 	} else if (op === 7) {
 		decoded(decodeSplit(data2, liteVersion(selector), out), out);
+	} else if (op === 8) {
+		ordered(data2, out);
+	} else if (op === 9) {
+		rescale(selector, data2, out);
 	} else {
 		decoded(decodeGroup(data2, liteVersion(selector), out), out);
 	}
@@ -231,6 +235,45 @@ export function encodeGroup(data: Uint8Array, version: Version.Version, out: rt.
 }
 
 /**
+ * A `BTreeMap` of `count` keys, at most 2^16: each inserted in a scattered order, looked
+ * up, summed over a quarter of the key space, and removed again. The sum of the values
+ * found.
+ */
+export function ordered(data: Uint8Array, out: rt.ByteVec): void {
+	const [count, ] = takeU64(data);
+	const count2 = rt.u64Low(rt.u64Min(count, 65536));
+	const key = (i: rt.u32): rt.u32 => {
+		return rt.u32Rem(rt.u32Mul(i, 40503), 1 << 16);
+	};
+	let map: rt.BTreeMap<rt.u32, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
+	const end = count2;
+	for (let i2 = 0; i2 < end; i2++) {
+		rt.btreeInsert(map, key(i2), i2);
+	}
+	let sum: rt.u64 = 0;
+	const end2 = count2;
+	for (let i3 = 0; i3 < end2; i3++) {
+		const value = rt.optionUnwrapOr(rt.btreeGet(map, key(rt.u32Sub(rt.u32Sub(count2, 1), i3))), 0) as rt.u64;
+		sum = rt.u64Add(sum, value);
+	}
+	const iter = rt.btreeRange(map, new rt.Range(1 << 14, 2 << 14));
+	while (true) {
+		const item = iter.next();
+		if (item === rt.DONE) {
+			break;
+		}
+		const v = item[1];
+		const value2 = v as rt.u64;
+		sum = rt.u64Add(sum, value2);
+	}
+	const end3 = count2;
+	for (let i4 = 0; i4 < end3; i4++) {
+		rt.btreeRemove(map, key(i4));
+	}
+	putU64(out, sum);
+}
+
+/**
  * One iterator chain over every byte, picked by `chain`, with closures that cost little
  * next to the iterator protocol they run through.
  */
@@ -279,6 +322,67 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 		putUsize(out, last);
+	}
+}
+
+/**
+ * Timestamps from one timescale to another, products past 2^53: moq-net's
+ * `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
+ * sooner. How many converted, how many overflowed, and the last converted.
+ */
+export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+	const [count, data2] = takeU64(data);
+	const [start, data3] = takeU64(data2);
+	const [step, data4] = takeU64(data3);
+	const [from, data5] = takeU64(data4);
+	const [to, ] = takeU64(data5);
+	let [converted, overflowed, last] = [0, 0, 0] as [rt.u64, rt.u64, rt.u64];
+	const end = rt.u64Low(count);
+	for (let i = 0; i < end; i++) {
+		const value = rt.u64Add(start, rt.u64Mul(i as rt.u64, step));
+		let scaled: rt.u64 | undefined;
+		if (selector === 0) {
+			const checkedMul = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
+			if (checkedMul !== undefined) {
+				const scaled2 = checkedMul;
+				scaled = bounded(rt.u128Div(scaled2, rt.u128Cast(from)));
+			} else {
+				scaled = undefined;
+			}
+		} else {
+			const map = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
+				return rt.u64Div(scaled3, from);
+			});
+			arms: {
+				if (map !== undefined) {
+					const v = map;
+					if (rt.u64Le(v, rt.u64Of(2305843009213693951n))) {
+						scaled = v;
+						break arms;
+					}
+				}
+				scaled = undefined;
+			}
+		}
+		if (scaled !== undefined) {
+			const v2 = scaled;
+			last = v2;
+			converted = rt.u64Add(converted, 1);
+		} else {
+			overflowed = rt.u64Add(overflowed, 1);
+		}
+	}
+	putU64(out, converted);
+	putU64(out, overflowed);
+	putU64(out, last);
+}
+
+/** `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp. */
+export function bounded(value: rt.u128): rt.u64 | undefined {
+	if (rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
+		return rt.u64Cast(value);
+	} else {
+		return undefined;
 	}
 }
 

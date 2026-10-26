@@ -50,6 +50,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Rvalue::ThreadLocalRef(_) => self.err(span, "thread locals are not supported"),
 			Rvalue::WrapUnsafeBinder(..) => self.err(span, "unsafe binders are not supported"),
 			Rvalue::Cast(kind, op, to) => self.cast(*kind, op, *to, span, out),
+			Rvalue::BinaryOp(BinOp::BitOr, ops)
+				if let Operand::Move(p) = &ops.0
+					&& let Some(&(hi, lo)) = p.as_local().and_then(|l| self.halves.get(&l)) =>
+			{
+				let hi = self.half(hi, span, out);
+				let lo = self.half(lo, span, out);
+				Expr::rt("u64FromHalves", vec![hi, lo])
+			}
 			Rvalue::BinaryOp(op, ops) => {
 				let (l, r) = &**ops;
 				let lty = l.ty(&self.mir.local_decls, tcx);
@@ -97,6 +105,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			Rvalue::Aggregate(kind, ops) => self.aggregate(kind, ops, ty, dest, span, out)?,
 		})
+	}
+
+	/// An unsigned integer of at most 32 bits, as a `u32`.
+	fn half(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let from = op.ty(&self.mir.local_decls, self.tcx);
+		let expr = self.operand(op, span, out);
+		let value = num::Operand {
+			expr,
+			value: self.const_int(op),
+		};
+		num::cast(self.b, value, from, self.tcx.types.u32, span)
 	}
 
 	/// The integer an operand has, if it is a constant one.
@@ -198,7 +217,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.map(|(i, d)| (i, int.fold(d as i128) as u128))
 					.collect();
 				match Std::of(tcx, adt.did()) {
-					Some(Std::Option | Std::Poll | Std::Result) => {
+					Some(Std::Option | Std::Poll | Std::Result | Std::Entry) => {
 						let scrut = self.path(scrut, "scrutinee", out);
 						let first = self.variant_test(&scrut, ty, discrs[0].1, span);
 						Expr::Cond(
@@ -207,6 +226,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							Box::new(int.lit(discrs[1].1 as i128)),
 						)
 					}
+					// The value is its discriminant.
+					Some(Std::Ordering) => scrut,
 					None if adt.did().is_local() => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -296,6 +317,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
+				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values, span),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {

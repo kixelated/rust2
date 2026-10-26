@@ -117,12 +117,7 @@ impl Check<'_> {
 	/// stale, so the package always recompiles.
 	pub fn run(&self) -> Result<ExitCode, String> {
 		let exe = std::env::current_exe().map_err(|err| format!("finding this executable: {err}"))?;
-		let target_dir = match std::env::var_os("CARGO_TARGET_DIR") {
-			// Absolute, as the caller meant it: cargo runs in the package's directory.
-			Some(dir) => absolute(Path::new(&dir))?,
-			// Apart from the workspace's own builds, which a different rustc would invalidate.
-			None => workspace_root(self.manifest)?.join("target").join(self.tool),
-		};
+		let target_dir = target_dir(self.tool, Some(self.manifest))?;
 		let package_dir = self.manifest.parent().expect("a manifest path has a parent");
 		let cargo = |subcommand: &str| {
 			let mut cmd = cargo();
@@ -170,6 +165,17 @@ impl Check<'_> {
 	}
 }
 
+/// Where `tool` builds, absolute: `CARGO_TARGET_DIR`, or its own directory in the target
+/// directory of the workspace `manifest`, or the current directory, belongs to.
+pub fn target_dir(tool: &str, manifest: Option<&Path>) -> Result<PathBuf, String> {
+	match std::env::var_os("CARGO_TARGET_DIR") {
+		// Absolute, as the caller meant it: cargo runs in the package's directory.
+		Some(dir) => absolute(Path::new(&dir)),
+		// Apart from the workspace's own builds, which a different rustc would invalidate.
+		None => Ok(workspace_root(manifest)?.join("target").join(tool)),
+	}
+}
+
 fn absolute(path: &Path) -> Result<PathBuf, String> {
 	std::path::absolute(path).map_err(|err| format!("resolving {}: {err}", path.display()))
 }
@@ -186,19 +192,14 @@ fn run_cargo(cmd: &mut Command) -> Result<(), String> {
 	}
 }
 
-/// The directory of the workspace `manifest` belongs to.
-fn workspace_root(manifest: &Path) -> Result<PathBuf, String> {
-	let output = cargo()
-		.args([
-			"locate-project",
-			"--workspace",
-			"--message-format",
-			"plain",
-			"--manifest-path",
-		])
-		.arg(manifest)
-		.output()
-		.map_err(|err| format!("running cargo: {err}"))?;
+/// The directory of the workspace `manifest`, or the current directory, belongs to.
+fn workspace_root(manifest: Option<&Path>) -> Result<PathBuf, String> {
+	let mut cmd = cargo();
+	cmd.args(["locate-project", "--workspace", "--message-format", "plain"]);
+	if let Some(manifest) = manifest {
+		cmd.arg("--manifest-path").arg(manifest);
+	}
+	let output = cmd.output().map_err(|err| format!("running cargo: {err}"))?;
 	if !output.status.success() {
 		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
 	}

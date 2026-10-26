@@ -12,7 +12,7 @@ $host[0] as $h
 	"# Build benchmark",
 	"",
 	"\($h.date) on \($h.cpu) (\($h.cpus) CPUs, \($h.memory)), \($h.os), runner `\($h.runner)`.",
-	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.ra_jit // "ra-jit missing"); \($h.hyperfine); \($h.mold); \($h.wild).",
+	"rust2 `\($h.rust2[:12])`; \($h.stable); \($h.nightly); \($h.ra_jit // "ra-jit missing"); \($h.nextest // "nextest missing"); \($h.hyperfine); \($h.mold); \($h.wild).",
 	"",
 	"Wall time in seconds: the trimmed mean (without the fastest and slowest run), and the mean ± standard deviation of every run.",
 	"The change against the variant's base compares trimmed means, so one slow run does not move it; CPU time and instructions are trimmed means too.",
@@ -35,7 +35,7 @@ $host[0] as $h
 				(.trimmed | secs),
 				"\(.mean | secs) ± \(.stddev // 0 | secs)",
 				(if $is_base then "base" else (.trimmed / $base.trimmed - 1 | pct) end),
-				(.cpu | secs),
+				(.cpu | secs) + if $is_base then "" else " (\(.cpu / $base.cpu - 1 | pct))" end,
 				(if .instructions == null then "n/a"
 					elif $is_base then "\(.instructions / 1e9 | fixed(1))G"
 					else (.instructions / $base.instructions - 1 | pct) end),
@@ -55,6 +55,13 @@ $host[0] as $h
 					+ (.ra_jit.cargo | to_entries | if length == 0 then "." else
 						", cargo the rest: " + (map("\(.value) × \(.key)") | join("; ")) + "." end)
 			)
+		),
+		(
+			$runs | map(select(.tests)) | select(length > 0)
+			| "",
+			"A test run runs every test, failing or not, so its times compare only alongside its failures:",
+			"",
+			(.[] | "- `\(.scenario)` \(.variant): \(.tests.failed) of \(.tests.run) tests failed (the most in one run).")
 		)
 	),
 	(
