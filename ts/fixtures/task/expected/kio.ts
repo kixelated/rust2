@@ -12,52 +12,52 @@ export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter)
 }
 
 export class recvFuture {
-	#state: number = 0;
-	#self: Consumer.Consumer;
-	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
+	state: number = 0;
+	self: Consumer.Consumer;
+	awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
 
 	constructor(self: Consumer.Consumer) {
-		this.#self = self;
+		this.self = self;
 	}
 
 	[Symbol.dispose](): void {
-		if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+		if (this.state === 3) {
+			rt.drop(this.awaitee);
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
 		let unwind: number = 0;
 		try {
-			if (this.#state === 0) {
+			if (this.state === 0) {
 				unwind = 12;
-				const self: Consumer.Consumer = this.#self;
-				this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+				const self: Consumer.Consumer = this.self;
+				this.awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 					return Consumer.pollRecv(self, waiter);
 				});
-			} else if (this.#state === 1) {
+			} else if (this.state === 1) {
 				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
+			} else if (this.state === 2) {
 				rt.asyncFnResumedPanic();
 			}
 			unwind = 11;
-			const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
+			const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.awaitee, _2);
 			if (_7 !== rt.Pending) {
 				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
+				rt.drop(this.awaitee);
+				this.state = 1;
 				return _7;
 			}
-			this.#state = 3;
+			this.state = 3;
 			return rt.Pending;
 		} catch (e) {
 			if (unwind === 0) {
 				throw e;
 			}
 			if (unwind === 11) {
-				rt.drop(this.#awaitee);
+				rt.drop(this.awaitee);
 			}
-			this.#state = 2;
+			this.state = 2;
 			throw e;
 		}
 	}

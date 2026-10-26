@@ -61,9 +61,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		alias: None,
 	});
 	let mut fields = Vec::new();
-	// Private, as only the class's own methods read its fields, which a minifier can then
-	// rename.
-	let state = t.program.field(sym, "#state".into());
+	let state = t.program.field(sym, "state".into());
 	fields.push(ts::Field {
 		id: state,
 		ty: Type::Builtin("number"),
@@ -81,7 +79,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	};
 	let mut upvars = Vec::new();
 	for (i, ty) in coroutine.upvar_tys().iter().enumerate() {
-		let name = format!("#{}", names.get(i).cloned().unwrap_or_else(|| format!("u{i}")));
+		let name = names.get(i).cloned().unwrap_or_else(|| format!("u{i}"));
 		let id = t.program.field(sym, name);
 		upvars.push(id);
 		let ty = t.ty(ty, span);
@@ -113,8 +111,8 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 			.debuginfo_name
 			.map(|n| n.as_str().trim_start_matches('_').to_string())
 		{
-			Some(name) if !name.is_empty() => format!("#{}", crate::lower::camel(&name)),
-			_ => "#saved".into(),
+			Some(name) if !name.is_empty() => crate::lower::camel(&name),
+			_ => "saved".into(),
 		};
 		let id = t.program.field(sym, name);
 		saved.push(id);

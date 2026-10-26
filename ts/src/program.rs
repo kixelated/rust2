@@ -156,9 +156,8 @@ impl Program {
 			}
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
-					let base = match taken.contains(&field.base) && !field.base.starts_with('#') {
-						// A name a class already defines: the field gives way. A private name
-						// can only clash with another field's, which `unique` numbers.
+					let base = match taken.contains(&field.base) {
+						// A name a class already defines: the field gives way.
 						true => format!("_{}", field.base),
 						false => field.base.clone(),
 					};

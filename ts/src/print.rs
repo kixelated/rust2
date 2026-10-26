@@ -513,17 +513,15 @@ impl Printer<'_> {
 				match ctor {
 					Ctor::Unit => {}
 					Ctor::Positional => {
-						// A private field's parameter is its name without the `#`.
-						let param = |name: &str| name.trim_start_matches('#').to_string();
 						let params: Vec<String> = (names.iter().zip(fields))
-							.map(|(name, field)| format!("{}: {}", param(name), self.ty(&field.ty)))
+							.map(|(name, field)| format!("{name}: {}", self.ty(&field.ty)))
 							.collect();
 						self.newline();
 						self.start();
 						self.write(&format!("constructor({}) {{\n", params.join(", ")));
 						for name in &names {
 							self.start();
-							self.write(&format!("{INDENT}this.{name} = {};\n", param(name)));
+							self.write(&format!("{INDENT}this.{name} = {name};\n"));
 						}
 						self.start();
 						self.write("}\n");
