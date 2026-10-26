@@ -278,6 +278,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// Count each local's reads and assignments, and decide how each lowers.
 	fn analyze(&mut self) {
 		let mir = self.mir;
+		self.find_ignored_sites();
 		self.find_noops();
 		let mut bounds = Vec::new();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
@@ -399,8 +400,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			self.slots[local] = slot;
 			// A temporary folded into what reads it is declared nowhere, so a type that can't
 			// tell its values apart is refused here. The signature types the parameters and
-			// the result.
-			if !self.is_arg(local) && local != mir::RETURN_PLACE {
+			// the result, and a left-out macro's code holds nothing.
+			if !self.is_arg(local) && local != mir::RETURN_PLACE && !self.in_ignored(self.local_span(local)) {
 				let held = match self.next_results.contains(&local) {
 					true => next_item(self.tcx, ty),
 					false => ty,
@@ -1130,13 +1131,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out
 	}
 
-	/// Send each block whose terminator an ignored macro made to the one block its code
-	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
-	fn skip_ignored_macros(&mut self) {
-		let mir = self.mir;
-		// Every left-out invocation's span, which its arguments' code is within too.
+	/// Every left-out macro invocation's span, which its arguments' code is within too.
+	fn find_ignored_sites(&mut self) {
 		let mut sites = Vec::new();
-		for data in mir.basic_blocks.iter() {
+		for data in self.mir.basic_blocks.iter() {
 			let spans = data.statements.iter().map(|s| s.source_info.span);
 			for span in spans.chain([data.terminator().source_info.span]) {
 				if let Some(site) = self.b.t.ignored_site(span)
@@ -1147,6 +1145,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		self.ignored_sites = sites;
+	}
+
+	/// Send each block whose terminator an ignored macro made to the one block its code
+	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
+	fn skip_ignored_macros(&mut self) {
+		let mir = self.mir;
 		let flags: IndexVec<BasicBlock, bool> = mir
 			.basic_blocks
 			.iter()
