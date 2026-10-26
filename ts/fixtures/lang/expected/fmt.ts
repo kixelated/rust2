@@ -133,47 +133,7 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	while (true) {
 		const _9: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_9 === rt.DONE) {
-			const _36: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(data));
-			if (_36.ok) {
-				const arg5 = _36.value;
-				const _48: rt.Fmt = (f: rt.Formatter) => rt.fmtStr(arg5, f);
-				const arg6 = _36.value;
-				const args4: rt.Fmt[] = [_48, (f: rt.Formatter) => rt.fmtPad(f, arg6)];
-				put(out, rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 4 }, args4[1])]));
-			} else {
-				const arg3 = _36.error;
-				const _61: rt.Fmt = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDisplay(arg3, f);
-				const arg4 = _36.error;
-				const args6: rt.Fmt[] = [_61, (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(arg4, f)];
-				put(out, rt.fmtFormat([args6[0], " ", args6[1], " ", rt.fmtSpec({ alternate: true }, args6[1]), " ", rt.fmtSpec({ align: ">", width: 80 }, args6[0])]));
-			}
-			const _66: rt.u8 | undefined = rt.sliceFirst(data);
-			b2: {
-				if (_66 !== undefined) {
-					if (rt.u8Rem(_66, 2) === 0) {
-						flag = true;
-						break b2;
-					}
-				}
-				flag = false;
-			}
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(flag, f), (f: rt.Formatter) => rt.fmtBool(flag, f), (f: rt.Formatter) => rt.fmtUnit(undefined, f), (f: rt.Formatter) => rt.fmtUnit(undefined, f)];
-			put(out, rt.fmtFormat([args8[0], " ", args8[1], " ", rt.fmtSpec({ align: ">", width: 6 }, args8[0]), " ", args8[2], " ", rt.fmtSpec({ alternate: true }, args8[3])]));
-			const _94: boolean = flag;
-			put(out, rt.fmtToString((f: rt.Formatter) => rt.fmtBool(_94, f)));
-			const _95: rt.Result<rt.u8, rt.TryFromIntError> = rt.u8TryFrom(rt.i32Sub(data.length | 0, 3));
-			if (_95.ok) {
-				const arg9 = ([_95.value] as [rt.u8])[0];
-				const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg9, f)];
-				put(out, rt.fmtFormat([args10[0]]));
-			} else {
-				const arg7 = _95.error;
-				const _122: rt.Fmt = (f: rt.Formatter) => rt.fmtTryFromIntErrorDisplay(arg7, f);
-				const arg8 = _95.error;
-				const args12: rt.Fmt[] = [_122, (f: rt.Formatter) => rt.fmtTryFromIntErrorDebug(arg8, f)];
-				put(out, rt.fmtFormat([args12[0], " ", args12[1], " ", rt.fmtSpec({ align: ">", width: 40 }, args12[0]), "|"]));
-			}
-			return;
+			break;
 		}
 		const _15: rt.usize = rt.usizeRem(_9 as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 		if (!(_15 < 14)) {
@@ -185,6 +145,46 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 		const arg2 = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"][_15];
 		const args2: rt.Fmt[] = [_31, (f: rt.Formatter) => rt.fmtStr(arg2, f)];
 		put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ width: 8 }, args2[0]), "|", rt.fmtSpec({ align: ">", width: 8 }, args2[0]), "|", rt.fmtSpec({ align: "^", width: 8 }, args2[0]), "|", rt.fmtSpec({ fill: "-", align: "<", width: 3 }, args2[0]), "|", args2[1], "|", rt.fmtSpec({ width: 12 }, args2[1]), "|", rt.fmtSpec({ alternate: true }, args2[1]), "|{", args2[0], "}"]));
+	}
+	const _36: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(data));
+	if (_36.ok) {
+		const arg5 = _36.value;
+		const _48: rt.Fmt = (f: rt.Formatter) => rt.fmtStr(arg5, f);
+		const arg6 = _36.value;
+		const args4: rt.Fmt[] = [_48, (f: rt.Formatter) => rt.fmtPad(f, arg6)];
+		put(out, rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 4 }, args4[1])]));
+	} else {
+		const arg3 = _36.error;
+		const _61: rt.Fmt = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDisplay(arg3, f);
+		const arg4 = _36.error;
+		const args6: rt.Fmt[] = [_61, (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(arg4, f)];
+		put(out, rt.fmtFormat([args6[0], " ", args6[1], " ", rt.fmtSpec({ alternate: true }, args6[1]), " ", rt.fmtSpec({ align: ">", width: 80 }, args6[0])]));
+	}
+	const _66: rt.u8 | undefined = rt.sliceFirst(data);
+	b3: {
+		if (_66 !== undefined) {
+			if (rt.u8Rem(_66, 2) === 0) {
+				flag = true;
+				break b3;
+			}
+		}
+		flag = false;
+	}
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(flag, f), (f: rt.Formatter) => rt.fmtBool(flag, f), (f: rt.Formatter) => rt.fmtUnit(undefined, f), (f: rt.Formatter) => rt.fmtUnit(undefined, f)];
+	put(out, rt.fmtFormat([args8[0], " ", args8[1], " ", rt.fmtSpec({ align: ">", width: 6 }, args8[0]), " ", args8[2], " ", rt.fmtSpec({ alternate: true }, args8[3])]));
+	const _94: boolean = flag;
+	put(out, rt.fmtToString((f: rt.Formatter) => rt.fmtBool(_94, f)));
+	const _95: rt.Result<rt.u8, rt.TryFromIntError> = rt.u8TryFrom(rt.i32Sub(data.length | 0, 3));
+	if (_95.ok) {
+		const arg9 = ([_95.value] as [rt.u8])[0];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg9, f)];
+		put(out, rt.fmtFormat([args10[0]]));
+	} else {
+		const arg7 = _95.error;
+		const _122: rt.Fmt = (f: rt.Formatter) => rt.fmtTryFromIntErrorDisplay(arg7, f);
+		const arg8 = _95.error;
+		const args12: rt.Fmt[] = [_122, (f: rt.Formatter) => rt.fmtTryFromIntErrorDebug(arg8, f)];
+		put(out, rt.fmtFormat([args12[0], " ", args12[1], " ", rt.fmtSpec({ align: ">", width: 40 }, args12[0]), "|"]));
 	}
 }
 

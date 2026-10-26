@@ -43,6 +43,8 @@ struct Shape {
 	idom: Vec<usize>,
 	/// Each node's dominator-tree children, in reverse postorder.
 	children: Vec<Vec<usize>>,
+	/// Whether each node is placed after the loop its dominator heads, which it leaves.
+	exit: Vec<bool>,
 	/// How many reachable predecessors reach each node by a forward edge.
 	forward: Vec<usize>,
 	/// Whether a back edge targets each node.
@@ -116,10 +118,6 @@ impl Shape {
 				}
 			}
 		}
-		let mut children = vec![Vec::new(); n];
-		for &node in order.iter().skip(1) {
-			children[idom[node]].push(node);
-		}
 		let dominates = |a: usize, mut b: usize| loop {
 			if a == b {
 				return true;
@@ -142,11 +140,63 @@ impl Shape {
 				}
 			}
 		}
+		// Each loop's nodes: what reaches a back edge's source without passing its header.
+		let mut body: Vec<Option<Vec<bool>>> = vec![None; n];
+		for &node in &order {
+			for &next in &g.succs[node] {
+				if rpo[next] > rpo[node] {
+					continue;
+				}
+				let nodes = body[next].get_or_insert_with(|| {
+					let mut nodes = vec![false; n];
+					nodes[next] = true;
+					nodes
+				});
+				let mut stack = vec![node];
+				while let Some(m) = stack.pop() {
+					if !std::mem::replace(&mut nodes[m], true) {
+						stack.extend(&preds[m]);
+					}
+				}
+			}
+		}
+		// The loop whose test each node is part of: its header, and the nodes after it
+		// that one way in and one way on lead to, up to its first branch.
+		let mut test = vec![usize::MAX; n];
+		for &h in &order {
+			let Some(b) = &body[h] else {
+				continue;
+			};
+			let mut node = h;
+			loop {
+				test[node] = h;
+				match g.succs[node].as_slice() {
+					&[next] if b[next] && !header[next] && preds[next].len() == 1 => node = next,
+					_ => break,
+				}
+			}
+		}
+		// Where a loop's test leaves it, what follows is placed after the loop, which a
+		// `break` leaves, rather than in the branch. Other ways out, often a `return` from
+		// within, stay where they leave.
+		let mut children = vec![Vec::new(); n];
+		let mut exit = vec![false; n];
+		for &node in order.iter().skip(1) {
+			let d = idom[node];
+			match test[d] {
+				h if h != usize::MAX && !body[h].as_ref().is_some_and(|b| b[node]) => {
+					children[h].push(node);
+					exit[node] = true;
+				}
+				_ => children[d].push(node),
+			}
+		}
 		Self {
 			rpo,
 			order,
 			idom,
 			children,
+			exit,
 			forward,
 			header,
 			reducible,
@@ -201,29 +251,48 @@ impl<L: Lower> Ramsey<'_, L> {
 
 	/// `x` and what it dominates.
 	fn tree(&mut self, x: usize, out: &mut Vec<Stmt>) {
-		// The merge nodes it dominates, the last in reverse postorder outermost.
-		let mut merges: Vec<usize> = self.shape.children[x]
+		// The nodes placed after its loop, and the merge nodes it dominates within it,
+		// the last in reverse postorder outermost.
+		let (mut exits, mut merges): (Vec<usize>, Vec<usize>) = self.shape.children[x]
 			.iter()
 			.copied()
-			.filter(|&c| self.shape.merge(c))
-			.collect();
+			.filter(|&c| self.shape.exit[c] || self.shape.merge(c))
+			.partition(|&c| self.shape.exit[c]);
+		exits.sort_by_key(|&c| std::cmp::Reverse(self.shape.rpo[c]));
 		merges.sort_by_key(|&c| std::cmp::Reverse(self.shape.rpo[c]));
 		match self.shape.header[x] {
-			true => {
-				let label = self.label(x, "l");
-				let mut body = Vec::new();
-				self.within(x, &merges, &mut body);
-				out.push(
-					StmtKind::While {
-						label: Some(label),
-						cond: Expr::lit("true"),
-						body,
-					}
-					.at(None),
-				);
-			}
+			true => self.after(x, &exits, &merges, out),
 			false => self.within(x, &merges, out),
 		}
+	}
+
+	/// `x`'s loop, in a block for each node placed after it.
+	fn after(&mut self, x: usize, exits: &[usize], merges: &[usize], out: &mut Vec<Stmt>) {
+		if let [y, rest @ ..] = exits {
+			let label = self.label(*y, "b");
+			let mut body = Vec::new();
+			self.after(x, rest, merges, &mut body);
+			out.push(
+				StmtKind::Block {
+					label: Some(label),
+					body,
+				}
+				.at(None),
+			);
+			self.tree(*y, out);
+			return;
+		}
+		let label = self.label(x, "l");
+		let mut body = Vec::new();
+		self.within(x, merges, &mut body);
+		out.push(
+			StmtKind::While {
+				label: Some(label),
+				cond: Expr::lit("true"),
+				body,
+			}
+			.at(None),
+		);
 	}
 
 	fn within(&mut self, x: usize, merges: &[usize], out: &mut Vec<Stmt>) {
@@ -262,7 +331,7 @@ impl<L: Lower> Ramsey<'_, L> {
 			self.lower.flush(out);
 			let label = self.label(to, "l");
 			out.push(StmtKind::Continue(Some(label)).at(None));
-		} else if self.shape.merge(to) {
+		} else if self.shape.merge(to) || self.shape.exit[to] {
 			self.lower.flush(out);
 			let label = self.label(to, "b");
 			out.push(StmtKind::Break(Some(label)).at(None));
@@ -386,6 +455,7 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 				if let Some(l) = label {
 					strip_tail(body, &StmtKind::Continue(Some(l.clone())));
 				}
+				strip_tail(body, &StmtKind::Continue(None));
 			}
 			StmtKind::If { then, els, .. } => {
 				simplify(then);
@@ -476,6 +546,137 @@ pub fn hoist_else(stmts: &mut Vec<Stmt>) {
 			_ => {}
 		}
 		i += 1;
+	}
+}
+
+/// Last, as the passes before match labeled jumps: a loop takes the label of a block that
+/// holds only it, a loop that starts by leaving when `c` holds runs `while (!c)`, and a
+/// jump to the innermost loop it is in names no label.
+pub fn tidy_loops(stmts: &mut Vec<Stmt>) {
+	adopt_labels(stmts);
+	simplify(stmts);
+	rotate(stmts);
+	unlabel(stmts, None, false);
+	simplify(stmts);
+}
+
+/// `b: { l: while (..) { .. break b .. } }` is `l: while (..) { .. break l .. }`.
+fn adopt_labels(stmts: &mut [Stmt]) {
+	for stmt in stmts.iter_mut() {
+		if let StmtKind::Block { label: Some(b), body } = &mut stmt.kind
+			&& let [loop_] = body.as_mut_slice()
+			&& let StmtKind::While { label, body, .. } = &mut loop_.kind
+		{
+			let l = label.get_or_insert_with(|| b.clone()).clone();
+			retarget(body, b, &l);
+			stmt.kind = std::mem::replace(&mut loop_.kind, StmtKind::Break(None));
+		}
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				adopt_labels(then);
+				adopt_labels(els);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => adopt_labels(body),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| adopt_labels(body));
+				adopt_labels(default);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				adopt_labels(body);
+				adopt_labels(handler);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Point each `break from` in `stmts` at `to`.
+fn retarget(stmts: &mut [Stmt], from: &str, to: &str) {
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::Break(Some(l)) if l == from => *l = to.to_string(),
+			StmtKind::If { then, els, .. } => {
+				retarget(then, from, to);
+				retarget(els, from, to);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => retarget(body, from, to),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| retarget(body, from, to));
+				retarget(default, from, to);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				retarget(body, from, to);
+				retarget(handler, from, to);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// `while (true) { if (c) break; .. }` is `while (!c) { .. }`, and
+/// `while (true) { if (c) { a } else break; .. }` is `while (c) { a .. }`.
+fn rotate(stmts: &mut [Stmt]) {
+	for stmt in stmts.iter_mut() {
+		if let StmtKind::While { label, cond, body } = &mut stmt.kind
+			&& matches!(cond, Expr::Lit(l) if l == "true")
+			&& let Some(StmtKind::If { cond: test, then, els }) = body.first_mut().map(|s| &mut s.kind)
+		{
+			let leaves = |stmts: &[Stmt]| {
+				matches!(stmts, [Stmt { kind: StmtKind::Break(target), .. }]
+					if target.is_none() || target == label)
+			};
+			if els.is_empty() && leaves(then) {
+				*cond = std::mem::replace(test, Expr::undefined()).not();
+				body.remove(0);
+			} else if leaves(els) {
+				*cond = std::mem::replace(test, Expr::undefined());
+				let then = std::mem::take(then);
+				body.splice(0..1, then);
+			}
+		}
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				rotate(then);
+				rotate(els);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => rotate(body),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| rotate(body));
+				rotate(default);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				rotate(body);
+				rotate(handler);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Drop the label of each jump to `innermost`, the loop `stmts` are in, which an
+/// unlabeled `break` in a `switch` would leave instead.
+fn unlabel(stmts: &mut [Stmt], innermost: Option<&str>, in_switch: bool) {
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::Continue(l) if l.is_some() && l.as_deref() == innermost => *l = None,
+			StmtKind::Break(l) if !in_switch && l.is_some() && l.as_deref() == innermost => *l = None,
+			StmtKind::If { then, els, .. } => {
+				unlabel(then, innermost, in_switch);
+				unlabel(els, innermost, in_switch);
+			}
+			StmtKind::Block { body, .. } => unlabel(body, innermost, in_switch),
+			// An unlabeled loop matches no jump's label.
+			StmtKind::While { label, body, .. } => unlabel(body, Some(label.as_deref().unwrap_or("")), false),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| unlabel(body, innermost, true));
+				unlabel(default, innermost, true);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				unlabel(body, innermost, in_switch);
+				unlabel(handler, innermost, in_switch);
+			}
+			_ => {}
+		}
 	}
 }
 
