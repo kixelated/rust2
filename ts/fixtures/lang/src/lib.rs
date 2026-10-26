@@ -13,6 +13,7 @@ mod generics;
 pub mod harness;
 mod ints;
 mod iters;
+mod keys;
 mod shapes;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]

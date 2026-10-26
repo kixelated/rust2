@@ -7,6 +7,7 @@ import { ints, strings, derived, written, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { adaptors, consumers, ranges, options, own, values } from "./iters.ts";
+import { keys } from "./keys.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 
 /** Run one case. */
@@ -18,7 +19,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input[0], input[1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 41);
+	const _14: rt.u8 = rt.u8Rem(op, 42);
 	if (_14 === 0) {
 		u8Op(kind, input.subarray(2, input.length - 0), out);
 	} else if (_14 === 1) {
@@ -116,6 +117,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (_14 === 38) {
 		flows(input.subarray(2, input.length - 0), out);
 	} else if (_14 === 39) {
+		keys(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 40) {
 		chars(kind, input.subarray(2, input.length - 0), out);
 	} else {
 		vecs(input.subarray(2, input.length - 0), out);
