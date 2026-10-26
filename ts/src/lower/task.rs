@@ -25,6 +25,17 @@ pub fn call<'tcx>(
 	let self_std = self_ty.and_then(std_of);
 	let e = match (owner, name) {
 		("Arc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
+		// An `Arc<str>` of a string, which JS shares as it is.
+		("From", "from")
+			if let [arc, from] = call.args.as_slice()
+				&& let ty::Adt(_, arc) = arc.expect_ty().kind()
+				&& self_std == Some(Std::Arc)
+				&& arc.type_at(0).is_str()
+				&& (from.expect_ty().peel_refs().is_str() || std_of(from.expect_ty()) == Some(Std::String)) =>
+		{
+			Expr::New(Box::new(Expr::Rt("Arc".into())), args)
+		}
+		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
 		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
 		("Arc", "strong_count") => first(args).member("strong"),
 		("Arc", "ptr_eq") => {
