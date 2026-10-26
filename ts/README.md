@@ -64,7 +64,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
@@ -81,6 +81,10 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
 `byteOffset` and `byteLength`, and copy it before transferring it.
+
+An `rt.ByteSlice` is a range of a `Uint8Array`: its `data`, from `start`, for `length`
+bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it gets as
+`rt.byteSliceView(slice)`, a view of it.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
@@ -240,6 +244,13 @@ they need.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
+- A `&[u8]` is an `rt.ByteSlice` rather than a `Uint8Array` view, since a view costs
+  several times what an object does to make in V8 and JavaScriptCore, and a varint's
+  decode splits its slice once to four times. `just ts bench` measured the codec's decode
+  workloads at 0.75 times the views' time in Chrome, 0.81-0.84 in Node, and 0.82-0.85 in
+  Bun at the geometric mean, over two runs whose A/A route measured within 0.05 of them,
+  and encode no slower. A chunk, `&[u8; N]`, is still a view
+  ([byte slices without objects](/quest/m2/ts-byte-views.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
