@@ -137,20 +137,29 @@ fn reject() {
 	let output = export("reject", &out);
 	assert!(!output.status.success(), "exporting reject succeeded");
 	let stderr = String::from_utf8_lossy(&output.stderr);
-	// Each error, at its span.
+	// Each error at its span, then each of its notes at its own.
 	let lines: Vec<&str> = stderr.lines().collect();
-	let mut errors: Vec<String> = lines
-		.iter()
-		.enumerate()
-		.filter(|(_, line)| line.starts_with("error: rust2-ffi:"))
-		.map(|(i, line)| {
-			let at = lines[i + 1..]
-				.iter()
-				.find_map(|l| l.trim_start().strip_prefix("--> "))
-				.unwrap_or("no span");
-			format!("{at}: {}", &line["error: ".len()..])
-		})
-		.collect();
+	let at = |i: usize| {
+		lines[i + 1..]
+			.iter()
+			.find_map(|l| l.trim_start().strip_prefix("--> "))
+			.unwrap_or("no span")
+	};
+	let mut errors: Vec<String> = Vec::new();
+	let mut ours = false;
+	for (i, line) in lines.iter().enumerate() {
+		if let Some(error) = line.strip_prefix("error: rust2-ffi:") {
+			errors.push(format!("{}: rust2-ffi:{error}", at(i)));
+			ours = true;
+		} else if line.starts_with("error") || line.starts_with("warning") {
+			ours = false;
+		} else if let Some(note) = line.strip_prefix("note: ")
+			&& ours
+		{
+			let error = errors.last_mut().expect("a note follows its error");
+			*error += &format!("\n\t{}: note: {note}", at(i));
+		}
+	}
 	errors.sort();
 	let expected = std::fs::read_to_string(manifest_dir().join("fixtures/reject/expected.txt")).unwrap();
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
