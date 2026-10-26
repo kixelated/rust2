@@ -33,6 +33,9 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Collection keys and element references](/quest/m2/ts-keys.md) - `Arc<str>` and `Option` keys, borrowed lookups, and `&mut` to a value in a collection translate
+- [Copy by type](/quest/m2/ts-copy.md) - copying a `Copy` aggregate shares its references instead of deep-copying them
+- [Translate char and vec![x]](/quest/m2/ts-char-vec.md) - `char` values and `vec![x]` translate, unblocking moq-net's refused sites
+- [Firefox in the TS benchmark](/quest/m2/ts-bench-firefox.md) - SpiderMonkey joins Chrome, Bun, and Node in `just ts bench`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Nightly MSVC and macOS](/quest/m2/uniffi-ci-msvc-macos.md) - the C and C++ fixtures compile nightly with MSVC and Apple Clang, at C++17 and C++20, and without exceptions or RTTI
 - [Symlinked paths](/quest/m2/uniffi-symlink-path.md) - the fork builds when a consumer reaches it through a symlink, as on macOS's `/var`
