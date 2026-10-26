@@ -8,13 +8,14 @@ replayed rust#156940's hash. The hash covers what a dependent can observe or
 codegen (public signatures, the auto traits and size of public opaque types such
 as an `async fn`'s future, and every body a dependent may codegen or inline),
 not span positions or MIR that only the defining crate codegens.
-If most edits keep it, the report recommends a follow-up quest: a
-`RUSTC_WRAPPER` that stops dependents from rebuilding when the hash holds.
+The report decides whether [the fork's early cutoff](/quest/m4/fork-cutoff.md)
+is worth building; it does not authorize a `RUSTC_WRAPPER`, since a wrapper
+cutoff is unsound.
 
 ## Plan
 
-Decided with the maintainer on 2026-10-25: measure first, and build the wrapper
-only if the numbers justify it.
+Decided with the maintainer on 2026-10-25: measure first, and build the
+cutoff, on a rustc and cargo fork, only if the numbers justify it.
 
 The [relink quest](/quest/m3/relink.md) records why upstream's hash rarely holds
 on moq: rmeta encodes every `async fn`'s coroutine MIR, and span positions are
@@ -28,7 +29,7 @@ Things to settle while measuring:
 - Which bodies a dependent may codegen or inline under each profile moq builds,
   since cross-crate inlining depends on the opt-level; those, `const` values,
   trait impls, and macros belong in the hash.
-- A two-crate differential test before the report recommends a wrapper: a body
+- A two-crate differential test before the report recommends the fork: a body
   edit the hash ignores, such as `pub async fn value() -> u32` returning 2
   instead of 1, must change what the dependent observes once relinked.
 - Count the moq-net edits that change the hash only through coroutine MIR: they
