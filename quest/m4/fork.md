@@ -7,7 +7,15 @@ toolchain so moq needs no code changes. This quest is the evidence ledger.
 Condition: the reasons to fork add up to enough to pay for maintaining one,
 which is the maintainer's call. Later reports append their data points here.
 
-## Reasons to fork
+## Plan
+
+- The fork carries its changes itself rather than working through upstream.
+- Measure each reason on moq's edits in the
+  [build-speed benchmark](/bench/build/README.md).
+- Code that follows the subset's rules (poll-first, thin generics) only gains
+  more; it is never required.
+
+### Reasons to fork
 
 Each names what the fork changes, the measured gain on moq, and its source.
 
@@ -23,7 +31,7 @@ Each names what the fork changes, the measured gain on moq, and its source.
   at most about 56% of the edit: the dependents' share of its critical path,
   minus the final link ([relink](/quest/m3/relink.md)).
 
-## Not reasons
+### Not reasons
 
 - **A drop-in `RUSTC_WRAPPER` cutoff**, declined on 2026-10-25
   ([kixelated/rust2#70](https://github.com/kixelated/rust2/pull/70)):
@@ -34,13 +42,5 @@ Each names what the fork changes, the measured gain on moq, and its source.
     goal is in progress;
   - its sound cutoff holds on 7% of moq-net edits
     ([kixelated/rust2#62](https://github.com/kixelated/rust2/pull/62)).
-
-## Plan
-
-- The fork carries its changes itself rather than working through upstream.
-- Measure each reason on moq's edits in the
-  [build-speed benchmark](/bench/build/README.md).
-- Code that follows the subset's rules (poll-first, thin generics) only gains
-  more; it is never required.
 
 Public API: none until the fork has a consumer.
