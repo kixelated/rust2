@@ -195,6 +195,8 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// Statements that change nothing: a swap through a temporary nothing else names, as
 	/// an async body moves its context at each `await`.
 	noops: FxHashSet<(BasicBlock, usize)>,
+	/// The lengths a bounds check compares with, of the slices whose `rt.idx` it is.
+	idx_of: FxHashMap<Local, Place<'tcx>>,
 	/// Each block's one predecessor, if it has one.
 	sole_pred: FxHashMap<BasicBlock, BasicBlock>,
 	/// What the cleanup variable holds as each block lowered so far leaves.
@@ -246,6 +248,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			stepped_borrows: FxHashMap::default(),
 			noops: FxHashSet::default(),
 			sole_pred: FxHashMap::default(),
+			idx_of: FxHashMap::default(),
 			unwind_out: FxHashMap::default(),
 		};
 		fx.analyze();
@@ -261,6 +264,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn analyze(&mut self) {
 		let mir = self.mir;
 		self.find_noops();
+		let mut bounds = Vec::new();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			if data.statements.iter().all(|s| {
 				matches!(
@@ -331,18 +335,35 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The assert after checked arithmetic reads `.1`, which lowering folds away.
 					let folded = matches!(cond, Operand::Move(p) | Operand::Copy(p)
 						if p.projection.len() == 1 && self.checked.contains(&p.local));
-					if !folded && !redundant(msg) {
+					if let mir::AssertKind::BoundsCheck { len, index } = &**msg {
+						// Counted once every length's definition is known.
+						bounds.push((cond, len, index));
+					} else if !folded && !redundant(msg) {
 						self.operand_use(cond);
-						// Only a bounds check's message shows its operands.
-						if let mir::AssertKind::BoundsCheck { len, index } = &**msg {
-							self.operand_use(len);
-							self.operand_use(index);
-						}
 					}
 				}
 				_ => {}
 			}
 		}
+		// A bounds check of a slice's length is `rt.idx` of the slice; others test their
+		// condition, and show their operands.
+		for (cond, len, index) in bounds {
+			if let Operand::Copy(l) | Operand::Move(l) = len
+				&& let Some(l) = l.as_local()
+				&& let Some(Rvalue::UnaryOp(mir::UnOp::PtrMetadata, Operand::Copy(slice) | Operand::Move(slice))) =
+					self.def_rvalue(l)
+				&& self.stable(*slice)
+			{
+				self.idx_of.insert(l, *slice);
+				self.place_use(*slice);
+				self.operand_use(index);
+				continue;
+			}
+			self.operand_use(cond);
+			self.operand_use(len);
+			self.operand_use(index);
+		}
+		self.drop_unread();
 		self.find_next_results();
 		self.find_stepped();
 		self.unborrow_passed();
@@ -401,6 +422,57 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.frozen_names.insert(name.clone());
 				}
 				self.slots[local] = Slot::Var(name);
+			}
+		}
+	}
+
+	/// Uncount the reads of what computes a local nothing reads without doing anything
+	/// else, as the test of an assert a runtime function checks for itself is.
+	fn drop_unread(&mut self) {
+		let mir = self.mir;
+		let mut computed: IndexVec<Local, Vec<&Rvalue<'tcx>>> =
+			IndexVec::from_elem_n(Vec::new(), mir.local_decls.len());
+		let mut pure = IndexVec::from_elem_n(true, mir.local_decls.len());
+		for (bb, data) in mir.basic_blocks.iter_enumerated() {
+			for (i, stmt) in data.statements.iter().enumerate() {
+				if self.noops.contains(&(bb, i)) {
+					continue;
+				}
+				if let StatementKind::Assign(assign) = &stmt.kind
+					&& let Some(local) = assign.0.as_local()
+				{
+					match &assign.1 {
+						r @ (Rvalue::BinaryOp(..) | Rvalue::UnaryOp(..) | Rvalue::Use(..)) => computed[local].push(r),
+						_ => pure[local] = false,
+					}
+				}
+			}
+			if let TerminatorKind::Call { destination, .. } = &data.terminator().kind {
+				pure[destination.local] = false;
+			}
+		}
+		let mut work: Vec<Local> = mir.local_decls.indices().collect();
+		while let Some(local) = work.pop() {
+			if self.uses[local] != 0 || !pure[local] || self.is_arg(local) || local == mir::RETURN_PLACE {
+				continue;
+			}
+			for rvalue in std::mem::take(&mut computed[local]) {
+				let ops: Vec<&Operand<'tcx>> = match rvalue {
+					Rvalue::BinaryOp(_, ops) => vec![&ops.0, &ops.1],
+					Rvalue::UnaryOp(_, op) | Rvalue::Use(op, _) => vec![op],
+					_ => unreachable!("collected above"),
+				};
+				for op in ops {
+					if let Operand::Copy(p) | Operand::Move(p) = op {
+						self.uses[p.local] -= 1;
+						for elem in p.projection {
+							if let mir::ProjectionElem::Index(index) = elem {
+								self.uses[index] -= 1;
+							}
+						}
+						work.push(p.local);
+					}
+				}
 			}
 		}
 	}
@@ -583,6 +655,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		if self.context_of_arg(local) {
 			return true;
+		}
+		// A number or a flag assigned once from a constant: the constant.
+		if let Rvalue::Use(Operand::Constant(_), _) = rvalue
+			&& !self.mutated[local]
+		{
+			let ty = mir.local_decls[local].ty;
+			return ty.is_bool() || crate::lower::num::Int::of(ty).is_some_and(|i| !i.big());
 		}
 		match (mir.local_decls[local].ty.kind(), rvalue) {
 			// A borrow: borrow checking keeps the place as it is but through the borrow,
@@ -1522,6 +1601,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
 						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
+						Rvalue::Use(op @ Operand::Constant(_), _) => self.operand(op, span, out),
 						// The task's context, wrapped.
 						Rvalue::Aggregate(_, ops) => match &ops[rustc_abi::FieldIdx::ZERO] {
 							Operand::Copy(p) | Operand::Move(p) => self.place_expr(*p, span, out),
@@ -1829,6 +1909,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return;
 		}
 		if redundant(msg) {
+			return;
+		}
+		if let mir::AssertKind::BoundsCheck { len, index } = msg
+			&& let Operand::Copy(l) | Operand::Move(l) = len
+			&& let Some(&slice) = l.as_local().and_then(|l| self.idx_of.get(&l))
+		{
+			let mut pre = Vec::new();
+			let slice = self.place_expr(slice, span, &mut pre);
+			let index = self.operand(index, span, &mut pre);
+			pre.push(StmtKind::Expr(Expr::rt("idx", vec![slice, index])).at(self.b.t.loc(span)));
+			self.emit(pre, None, false, out);
 			return;
 		}
 		let mut pre = Vec::new();

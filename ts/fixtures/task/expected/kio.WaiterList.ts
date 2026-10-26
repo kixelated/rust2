@@ -22,8 +22,6 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	let _23!: rt.usize;
 	let _24!: rt.Weak<rt.Waker>;
 	let _27!: rt.usize;
-	let _28!: rt.usize;
-	let _31!: rt.usize;
 	let live!: rt.Weak<rt.Waker>[];
 	let iter2!: { s: rt.Weak<rt.Waker>[]; i: number };
 	let _43!: rt.Weak<rt.Waker> | rt.Done;
@@ -67,9 +65,7 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 							_23 = self.cursor;
 							const at = rt.idx(self.entries, _23);
 							if (!(self.entries[at].arc.strong === 0)) {
-								_28 = rt.usizeAdd(self.cursor, 1);
-								_31 = self.entries.length;
-								self.cursor = rt.usizeRem(_28, _31);
+								self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
 								probes = rt.usizeSub(probes, 1);
 							} else {
 								_24 = weak;

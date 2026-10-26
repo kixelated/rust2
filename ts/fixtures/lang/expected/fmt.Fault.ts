@@ -69,7 +69,6 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 
 /** The fault `data` picks. */
 function new_(data: Uint8Array): Fault {
-	let _0!: Fault;
 	let at!: (a0: rt.usize) => rt.u8;
 	let _3!: rt.u8;
 	at = (i: rt.usize): rt.u8 => {
@@ -81,11 +80,9 @@ function new_(data: Uint8Array): Fault {
 	} else if (_3 === 1) {
 		return { tag: "Code", _0: (at(1) << 8) | at(2) } as Fault;
 	} else if (_3 === 2) {
-		_0 = { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize } as Fault;
-		return _0;
+		return { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize } as Fault;
 	} else {
-		_0 = { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } } as Fault;
-		return _0;
+		return { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } } as Fault;
 	}
 }
 

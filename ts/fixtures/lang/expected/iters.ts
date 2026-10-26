@@ -42,7 +42,6 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let rest!: rt.ByteVec;
 	let pairs!: Uint8Array[];
 	let copies!: Uint8Array[];
-	let _176!: rt.usize;
 	let iter4!: rt.Iter<Uint8Array>;
 	let _187!: Uint8Array | rt.Done;
 	let v2!: rt.u16[];
@@ -172,11 +171,7 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			copies = rt.iterToArray(rt.iterMap(rt.iterSlice(pairs), rt.copy));
 			if (!((copies.length === 0))) {
 				const at = rt.idx(copies, 0);
-				_176 = 0;
-				if (!(_176 < 2)) {
-					rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _176);
-				}
-				copies[at][_176] = 85;
+				copies[at][0] = 85;
 			}
 			iter4 = rt.iterChain(rt.iterSlice(pairs), rt.iterSlice(copies));
 			while (true) {
@@ -443,9 +438,6 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	let _234!: rt.RangeInclusive<rt.u64>;
 	let _237!: rt.usize;
 	let _244!: rt.u64;
-	let _265!: rt.i64;
-	let _267!: rt.i64;
-	let _274!: rt.i64;
 	let iter3!: { s: rt.u32[]; i: number };
 	let _289!: rt.u32 | rt.Done;
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
@@ -530,10 +522,7 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (_24: rt.u64): rt.u64 => {
 						return _24;
 					}), 0)));
-					_267 = rt.i64Of(9007199254740992n);
-					_265 = rt.i64Sub(rt.i64Neg(_267), 1);
-					_274 = rt.i64Of(9007199254740992n);
-					rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(_265, rt.i64Add(rt.i64Neg(_274), 1), rt.i64Step)), 0)));
+					rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Add(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Step)), 0)));
 					iter3 = { s: rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8))), i: 0 };
 					while (true) {
 						_289 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;

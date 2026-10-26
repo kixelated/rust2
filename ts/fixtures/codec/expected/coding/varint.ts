@@ -391,11 +391,7 @@ export function zigzag(signed: rt.i64): rt.u64 {
 
 /** The inverse of [`zigzag`]. */
 export function unzigzag(value: rt.u64): rt.i64 {
-	let _2!: rt.i64;
-	let _7!: rt.i64;
-	_2 = rt.i64Cast(rt.u64Shr(value, 1));
-	_7 = rt.i64Cast(rt.u64And(value, 1));
-	return rt.i64Xor(_2, rt.i64Neg(_7));
+	return rt.i64Xor(rt.i64Cast(rt.u64Shr(value, 1)), rt.i64Neg(rt.i64Cast(rt.u64And(value, 1))));
 }
 
 //# sourceMappingURL=varint.ts.map

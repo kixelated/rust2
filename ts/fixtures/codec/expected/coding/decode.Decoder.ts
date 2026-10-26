@@ -95,16 +95,10 @@ export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeErro
 /** Read a single byte. */
 export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
 	let _3!: rt.Result<Uint8Array, DecodeError.DecodeError>;
-	let _8!: rt.usize;
-	let _9!: rt.usize;
 	_3 = slice(self, 1);
 	if (_3.ok) {
-		_8 = 0;
-		_9 = _3.value.length;
-		if (!(_8 < _9)) {
-			rt.panic("index out of bounds: the len is " + _9 + " but the index is " + _8);
-		}
-		return rt.Ok(_3.value[_8]);
+		rt.idx(_3.value, 0);
+		return rt.Ok(_3.value[0]);
 	} else {
 		return _3;
 	}
@@ -114,24 +108,12 @@ export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
 export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
 	let _2!: rt.Result<Uint8Array, DecodeError.DecodeError>;
 	let _9!: rt.u8;
-	let _10!: rt.usize;
-	let _11!: rt.usize;
-	let _14!: rt.usize;
-	let _15!: rt.usize;
 	_2 = slice(self, 2);
 	if (_2.ok) {
-		_10 = 0;
-		_11 = _2.value.length;
-		if (!(_10 < _11)) {
-			rt.panic("index out of bounds: the len is " + _11 + " but the index is " + _10);
-		}
-		_9 = _2.value[_10];
-		_14 = 1;
-		_15 = _2.value.length;
-		if (!(_14 < _15)) {
-			rt.panic("index out of bounds: the len is " + _15 + " but the index is " + _14);
-		}
-		return rt.Ok((_9 << 8) | _2.value[_14]);
+		rt.idx(_2.value, 0);
+		_9 = _2.value[0];
+		rt.idx(_2.value, 1);
+		return rt.Ok((_9 << 8) | _2.value[1]);
 	} else {
 		return _2;
 	}

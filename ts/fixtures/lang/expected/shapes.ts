@@ -98,10 +98,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let pair!: [Point.Point, rt.u8];
 	let saved!: [Point.Point, rt.u8];
 	let grid!: Point.Point[];
-	let _17!: rt.usize;
 	let row!: Point.Point[];
 	let _20!: Point.Point;
-	let _21!: rt.usize;
 	let _25!: rt.i32;
 	let _26!: rt.i32;
 	let _27!: rt.i32;
@@ -110,10 +108,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let _30!: rt.i32;
 	let _31!: rt.i32;
 	let _32!: rt.i32;
-	let _33!: rt.usize;
 	let _35!: rt.i32;
-	let _36!: rt.usize;
-	let _39!: rt.usize;
 	let iter!: rt.Iter<rt.i32>;
 	let _42!: rt.i32 | rt.Done;
 	let a!: Point.Point;
@@ -126,15 +121,10 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let both!: [rt.u32, rt.u32];
 	let word!: Uint8Array;
 	let converted!: rt.u32;
-	let _98!: rt.usize;
-	let _107!: rt.usize;
 	let cell!: Uint8Array;
 	let source!: Uint8Array;
 	let returned!: Uint8Array;
-	let _122!: rt.usize;
 	let _128!: rt.u8;
-	let _129!: rt.usize;
-	let _132!: rt.usize;
 	let marked!: boolean;
 	let opt!: Meters.Meters | undefined;
 	let taken!: Meters.Meters | undefined;
@@ -156,18 +146,10 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	grid = Array.from({ length: 3 }, (): Point.Point => {
 		return rt.copy(item);
 	});
-	_17 = 1;
-	if (!(_17 < 3)) {
-		rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _17);
-	}
-	grid[_17].x = 9;
+	grid[1].x = 9;
 	row = rt.copy(grid);
 	_20 = rt.copy(q);
-	_21 = 2;
-	if (!(_21 < 3)) {
-		rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _21);
-	}
-	grid[_21] = rt.copy(_20);
+	grid[2] = rt.copy(_20);
 	_25 = p.x;
 	_26 = p.y;
 	_27 = q.x;
@@ -175,21 +157,9 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	_29 = r.x;
 	_30 = saved[0].y;
 	_31 = pair[0].y;
-	_33 = 1;
-	if (!(_33 < 3)) {
-		rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _33);
-	}
-	_32 = row[_33].x;
-	_36 = 2;
-	if (!(_36 < 3)) {
-		rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _36);
-	}
-	_35 = row[_36].x;
-	_39 = 2;
-	if (!(_39 < 3)) {
-		rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _39);
-	}
-	iter = rt.iterSlice([_25, _26, _27, _28, _29, _30, _31, _32, _35, grid[_39].x]);
+	_32 = row[1].x;
+	_35 = row[2].x;
+	iter = rt.iterSlice([_25, _26, _27, _28, _29, _30, _31, _32, _35, grid[2].x]);
 	while (true) {
 		_42 = iter.next();
 		if (_42 === rt.DONE) {
@@ -215,35 +185,15 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(rt.u32Add(both[0], both[1]), n)));
 			word = Uint8Array.of(0, 0, 0, data.length & 0xff);
 			converted = rt.u32FromBeBytes(word);
-			_98 = 0;
-			if (!(_98 < 4)) {
-				rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _98);
-			}
-			word[_98] = 9;
-			_107 = 0;
-			if (!(_107 < 4)) {
-				rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _107);
-			}
-			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(converted, word[_107] as rt.u32)));
+			word[0] = 9;
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(converted, word[0] as rt.u32)));
 			cell = Uint8Array.of(data.length & 0xff);
 			rt.byteVecPush(out, writeThenRead(rt.copy(cell), cell));
 			source = Uint8Array.of(data.length & 0xff);
 			returned = same(rt.copy(source));
-			_122 = 0;
-			if (!(_122 < 1)) {
-				rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _122);
-			}
-			source[_122] = 9;
-			_129 = 0;
-			if (!(_129 < 1)) {
-				rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _129);
-			}
-			_128 = returned[_129];
-			_132 = 0;
-			if (!(_132 < 1)) {
-				rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _132);
-			}
-			rt.byteVecExtendFromSlice(out, Uint8Array.of(_128, source[_132]));
+			source[0] = 9;
+			_128 = returned[0];
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_128, source[0]));
 			rt.byteVecPush(out, copyThenWrite([data.length & 0xff, 0] as [rt.u8, rt.u8]));
 			marked = mark(out, 1) === 0;
 			mark(out, 2);
@@ -272,18 +222,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 
 /** `a`'s byte, after writing `b`'s. */
 export function writeThenRead(a: Uint8Array, b: Uint8Array): rt.u8 {
-	let _3!: rt.usize;
-	let _5!: rt.usize;
-	_3 = 0;
-	if (!(_3 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _3);
-	}
-	b[_3] = 9;
-	_5 = 0;
-	if (!(_5 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _5);
-	}
-	return a[_5];
+	b[0] = 9;
+	return a[0];
 }
 
 /** A copy of `a` read after `a` changes in place, which it doesn't see. */
@@ -326,7 +266,6 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	let n!: Uint8Array;
 	let read!: Point.Point;
 	let _37!: rt.i32;
-	let _39!: rt.usize;
 	let _41!: rt.i32;
 	let base!: Moved.Moved;
 	let updated!: Moved.Moved;
@@ -365,11 +304,7 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 	_30 = mark(out, 7) & 0xff;
 	pair = { _0: _30, _1: _28 };
 	n = Uint8Array.of(at(2));
-	_39 = 0;
-	if (!(_39 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _39);
-	}
-	_37 = n[_39] as rt.i32;
+	_37 = n[0] as rt.i32;
 	_41 = increment(n) as rt.i32;
 	read = { x: _41, y: _37 };
 	base = { _0: at(4), _1: 0 };
@@ -424,17 +359,13 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	let _36!: Uint8Array;
 	let second!: rt.u8;
 	let _41!: Uint8Array;
-	let _44!: rt.usize;
-	let _46!: rt.usize;
 	let f!: (a0: rt.u8) => rt.u8;
 	let called!: rt.u8;
 	let _50!: (a0: rt.u8) => rt.u8;
 	let n!: rt.u8;
 	let slots!: Uint8Array;
 	let _58!: rt.u8;
-	let _59!: rt.usize;
 	let _68!: rt.u8;
-	let _71!: rt.usize;
 	at = (i: rt.usize): rt.u8 => {
 		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
@@ -455,12 +386,8 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	rt.sliceCopyWithin(_36, 3, _36.length, 0);
 	_41 = logged(bytes, out);
 	rt.byteVecPush(out, 230);
-	_44 = 1;
-	_46 = _41.length;
-	if (!(_44 < _46)) {
-		rt.panic("index out of bounds: the len is " + _46 + " but the index is " + _44);
-	}
-	second = _41[_44];
+	rt.idx(_41, 1);
+	second = _41[1];
 	f = halve;
 	_50 = f;
 	f = twice;
@@ -469,17 +396,9 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	slots = rt.bytes(2);
 	_58 = n;
 	n = rt.u8WrappingAdd(n, 1);
-	_59 = 0;
-	if (!(_59 < 2)) {
-		rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _59);
-	}
-	slots[_59] = rt.u8Add(slots[_59], _58);
+	slots[0] = rt.u8Add(slots[0], _58);
 	_68 = f(1);
-	_71 = 0;
-	if (!(_71 < 2)) {
-		rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _71);
-	}
-	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, _68, slots[_71], n));
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, _68, slots[0], n));
 	rt.byteVecExtendFromSlice(out, bytes);
 }
 
@@ -512,24 +431,9 @@ export function logged(data: Uint8Array, out: rt.ByteVec): Uint8Array {
 /** `n`'s byte, incremented. */
 export function increment(n: Uint8Array): rt.u8 {
 	let _2!: rt.u8;
-	let _4!: rt.usize;
-	let _6!: rt.usize;
-	let _8!: rt.usize;
-	_4 = 0;
-	if (!(_4 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _4);
-	}
-	_2 = rt.u8WrappingAdd(n[_4], 1);
-	_6 = 0;
-	if (!(_6 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _6);
-	}
-	n[_6] = _2;
-	_8 = 0;
-	if (!(_8 < 1)) {
-		rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _8);
-	}
-	return n[_8];
+	_2 = rt.u8WrappingAdd(n[0], 1);
+	n[0] = _2;
+	return n[0];
 }
 
 /** Changes `m`'s first field. */
@@ -600,9 +504,6 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let _34!: rt.usize;
 	let j!: rt.usize;
 	let _39!: rt.u8;
-	let _40!: rt.usize;
-	let _43!: rt.usize;
-	let _49!: rt.usize;
 	let i2!: rt.usize;
 	let j2!: rt.usize;
 	let n!: rt.u64;
@@ -613,7 +514,6 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 	let _84!: rt.u8 | rt.Done;
 	let i3!: rt.i8;
 	let lo!: rt.i32;
-	let _96!: rt.i32;
 	let r!: rt.Range<rt.i32>;
 	let first!: rt.i32 | undefined;
 	let second!: rt.i32 | undefined;
@@ -659,20 +559,11 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 							continue l2;
 						} else {
 							j = _34;
-							_40 = data.length;
-							if (!(i < _40)) {
-								rt.panic("index out of bounds: the len is " + _40 + " but the index is " + i);
-							}
+							rt.idx(data, i);
 							_39 = data[i];
-							_43 = data.length;
-							if (!(j < _43)) {
-								rt.panic("index out of bounds: the len is " + _43 + " but the index is " + j);
-							}
+							rt.idx(data, j);
 							if (!(_39 === data[j])) {
-								_49 = data.length;
-								if (!(j < _49)) {
-									rt.panic("index out of bounds: the len is " + _49 + " but the index is " + j);
-								}
+								rt.idx(data, j);
 								if (data[j] === 0) {
 									continue l2;
 								}
@@ -718,8 +609,7 @@ export function loops(data: Uint8Array, out: rt.ByteVec): void {
 						while (true) {
 							if (!(i3 > -3)) {
 								rt.byteVecPush(out, count);
-								_96 = rt.usizeRem(data.length, 4) | 0;
-								lo = rt.i32Neg(_96);
+								lo = rt.i32Neg(rt.usizeRem(data.length, 4) | 0);
 								r = new rt.Range(lo, rt.i32Add(lo, 3));
 								first = r.start < r.end ? r.start++ : undefined;
 								r.end = r.start;
@@ -942,18 +832,13 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 	let _0!: rt.u8;
 	let i!: rt.usize;
 	let _6!: rt.usize;
-	let _7!: rt.usize;
 	let args2!: rt.Fmt[];
 	let _19!: rt.usize;
-	let _20!: rt.usize;
 	i = 0;
 	l0: while (true) {
 		if (!(i >= data.length)) {
 			_6 = i;
-			_7 = data.length;
-			if (!(_6 < _7)) {
-				rt.panic("index out of bounds: the len is " + _7 + " but the index is " + _6);
-			}
+			rt.idx(data, _6);
 			const value = data[_6];
 			if (value === 251) {
 				const arg = ([i] as [rt.usize])[0];
@@ -962,10 +847,7 @@ export function brokenNever(data: Uint8Array): rt.u8 {
 				return _0;
 			} else if (value === 252) {
 				_19 = i;
-				_20 = data.length;
-				if (!(_19 < _20)) {
-					rt.panic("index out of bounds: the len is " + _20 + " but the index is " + _19);
-				}
+				rt.idx(data, _19);
 				bail(data[_19]);
 				return _0;
 			} else if (value === 0) {
@@ -988,20 +870,14 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 	let _0!: rt.u8;
 	let i!: rt.usize;
 	let _8!: rt.usize;
-	let _9!: rt.usize;
 	let args2!: rt.Fmt[];
 	let _22!: rt.usize;
-	let _23!: rt.usize;
 	let _32!: rt.usize;
-	let _33!: rt.usize;
 	i = 0;
 	l0: while (true) {
 		if (!(i >= data.length)) {
 			_8 = i;
-			_9 = data.length;
-			if (!(_8 < _9)) {
-				rt.panic("index out of bounds: the len is " + _9 + " but the index is " + _8);
-			}
+			rt.idx(data, _8);
 			const value = data[_8];
 			if (value === 239) {
 				const arg = ([i] as [rt.usize])[0];
@@ -1010,10 +886,7 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 				return _0;
 			} else if (value === 240) {
 				_22 = i;
-				_23 = data.length;
-				if (!(_22 < _23)) {
-					rt.panic("index out of bounds: the len is " + _23 + " but the index is " + _22);
-				}
+				rt.idx(data, _22);
 				bail(data[_22]);
 				return _0;
 			} else if (value === 0) {
@@ -1023,10 +896,7 @@ export function boundNever(data: Uint8Array, _out: rt.ByteVec): rt.u8 {
 					i = rt.usizeAdd(i, 1);
 					if (!(i >= data.length)) {
 						_32 = i;
-						_33 = data.length;
-						if (!(_32 < _33)) {
-							rt.panic("index out of bounds: the len is " + _33 + " but the index is " + _32);
-						}
+						rt.idx(data, _32);
 						if (!(data[_32] < 128)) {
 							continue l2;
 						}
@@ -1131,14 +1001,10 @@ export function firstRepeat(data: Uint8Array): rt.u8 {
 	let i!: rt.usize;
 	let j!: rt.usize;
 	let _14!: rt.usize;
-	let _15!: rt.usize;
 	let _20!: rt.u8;
 	let _21!: rt.usize;
-	let _22!: rt.usize;
 	let _25!: rt.usize;
-	let _26!: rt.usize;
 	let _29!: rt.usize;
-	let _30!: rt.usize;
 	i = 0;
 	l0: while (true) {
 		if (!(i >= data.length)) {
@@ -1149,30 +1015,18 @@ export function firstRepeat(data: Uint8Array): rt.u8 {
 					continue l0;
 				} else {
 					_14 = j;
-					_15 = data.length;
-					if (!(_14 < _15)) {
-						rt.panic("index out of bounds: the len is " + _15 + " but the index is " + _14);
-					}
+					rt.idx(data, _14);
 					if (!(data[_14] === 0)) {
 						_21 = i;
-						_22 = data.length;
-						if (!(_21 < _22)) {
-							rt.panic("index out of bounds: the len is " + _22 + " but the index is " + _21);
-						}
+						rt.idx(data, _21);
 						_20 = data[_21];
 						_25 = j;
-						_26 = data.length;
-						if (!(_25 < _26)) {
-							rt.panic("index out of bounds: the len is " + _26 + " but the index is " + _25);
-						}
+						rt.idx(data, _25);
 						if (!(_20 === data[_25])) {
 							j = rt.usizeAdd(j, 1);
 						} else {
 							_29 = j;
-							_30 = data.length;
-							if (!(_29 < _30)) {
-								rt.panic("index out of bounds: the len is " + _30 + " but the index is " + _29);
-							}
+							rt.idx(data, _29);
 							return data[_29] ^ (i & 0xff);
 						}
 					} else {
@@ -1192,7 +1046,6 @@ export function tailBreak(data: Uint8Array): rt.u16 {
 	let i!: rt.usize;
 	let b!: rt.u8;
 	let _7!: rt.usize;
-	let _8!: rt.usize;
 	let _11!: rt.u8;
 	let iter!: { s: Uint8Array; i: number };
 	let _18!: rt.u8 | rt.Done;
@@ -1202,10 +1055,7 @@ export function tailBreak(data: Uint8Array): rt.u16 {
 	l0: while (true) {
 		if (!(i >= data.length)) {
 			_7 = i;
-			_8 = data.length;
-			if (!(_7 < _8)) {
-				rt.panic("index out of bounds: the len is " + _8 + " but the index is " + _7);
-			}
+			rt.idx(data, _7);
 			b = data[_7];
 			i = rt.usizeAdd(i, 1);
 			_11 = rt.u8Rem(b, 4);
@@ -1251,9 +1101,7 @@ export function armLoop(data: Uint8Array): rt.u8 {
 	let k!: rt.usize;
 	let _3!: rt.u8 | undefined;
 	let _13!: rt.usize;
-	let _14!: rt.usize;
 	let _17!: rt.usize;
-	let _18!: rt.usize;
 	k = 0;
 	_3 = rt.sliceFirst(data);
 	if (_3 !== undefined) {
@@ -1264,18 +1112,12 @@ export function armLoop(data: Uint8Array): rt.u8 {
 	while (true) {
 		if (!(k >= data.length)) {
 			_13 = k;
-			_14 = data.length;
-			if (!(_13 < _14)) {
-				rt.panic("index out of bounds: the len is " + _14 + " but the index is " + _13);
-			}
+			rt.idx(data, _13);
 			if (!(data[_13] >= 128)) {
 				k = rt.usizeAdd(k, 1);
 			} else {
 				_17 = k;
-				_18 = data.length;
-				if (!(_17 < _18)) {
-					rt.panic("index out of bounds: the len is " + _18 + " but the index is " + _17);
-				}
+				rt.idx(data, _17);
 				return rt.u8Sub(data[_17], 128);
 			}
 		} else {
@@ -1288,15 +1130,11 @@ export function armLoop(data: Uint8Array): rt.u8 {
 export function position$u8(items: Uint8Array, want: rt.u8): rt.usize {
 	let i!: rt.usize;
 	let _9!: rt.usize;
-	let _10!: rt.usize;
 	i = 0;
 	l0: while (true) {
 		if (!(i === items.length)) {
 			_9 = i;
-			_10 = items.length;
-			if (!(_9 < _10)) {
-				rt.panic("index out of bounds: the len is " + _10 + " but the index is " + _9);
-			}
+			rt.idx(items, _9);
 			if (!((items[_9] === want))) {
 				i = rt.usizeAdd(i, 1);
 				continue l0;
@@ -1313,15 +1151,11 @@ export function position$u8(items: Uint8Array, want: rt.u8): rt.usize {
 export function drain(data: Uint8Array, out: rt.ByteVec): void {
 	let i!: rt.usize;
 	let _10!: rt.usize;
-	let _11!: rt.usize;
 	i = 0;
 	while (true) {
 		if (!(i >= data.length)) {
 			_10 = i;
-			_11 = data.length;
-			if (!(_10 < _11)) {
-				rt.panic("index out of bounds: the len is " + _11 + " but the index is " + _10);
-			}
+			rt.idx(data, _10);
 			rt.byteVecPush(out, data[_10] ^ 90);
 			i = rt.usizeAdd(i, 2);
 		} else {
@@ -1344,11 +1178,9 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	let _74!: rt.i64;
 	let width2!: rt.u16;
 	let height!: rt.u16;
-	let _79!: rt.i64;
 	let a!: Point.Point;
 	let b2!: Point.Point;
 	let bytes!: Uint8Array;
-	let _107!: rt.usize;
 	let parsed!: rt.Result<rt.u8, Void.Void>;
 	let a2!: rt.u8;
 	let b3!: rt.u8;
@@ -1399,8 +1231,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 						if (!(shape_.corner.x > 0)) {
 							width2 = shape_.width;
 							height = shape_.height;
-							_79 = rt.i64Mul(width2 as rt.i64, height as rt.i64);
-							area = rt.i64Neg(_79);
+							area = rt.i64Neg(rt.i64Mul(width2 as rt.i64, height as rt.i64));
 							break b7;
 						} else {
 							x = shape_.corner.x;
@@ -1414,11 +1245,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			}
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(area));
 			bytes = Uint8Array.of(data.length & 0xff, 1, 2);
-			_107 = 0;
-			if (!(_107 < 2)) {
-				rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _107);
-			}
-			bytes.subarray(1, 3)[_107] = 9;
+			bytes.subarray(1, 3)[0] = 9;
 			rt.byteVecExtendFromSlice(out, bytes);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: rt.u64Of(18446744073709551615n) }], out))));
 			parsed = rt.Ok(data.length & 0xff);
@@ -1476,7 +1303,6 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	let iter!: { s: Uint8Array; i: number };
 	let _8!: rt.u8 | rt.Done;
 	let whole!: Uint8Array;
-	let _36!: rt.usize;
 	let parsed!: Array<Dir.Dir | undefined>;
 	let iter2!: { s: Uint8Array; i: number };
 	let _41!: rt.u8 | rt.Done;
@@ -1500,11 +1326,7 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 			}, sum)));
 			whole = Uint8Array.of(data.length & 0xff);
 			overwrite(whole);
-			_36 = 0;
-			if (!(_36 < 1)) {
-				rt.panic("index out of bounds: the len is " + 1 + " but the index is " + _36);
-			}
-			rt.byteVecPush(out, whole[_36]);
+			rt.byteVecPush(out, whole[0]);
 			parsed = [];
 			iter2 = { s: data, i: 0 };
 			while (true) {

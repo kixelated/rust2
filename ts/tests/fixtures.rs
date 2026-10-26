@@ -254,6 +254,7 @@ fn shake(out: &Path) {
 			"Panic",
 			"checked",
 			"clamp",
+			"idx",
 			"max",
 			"panic",
 			"sliceRange",
