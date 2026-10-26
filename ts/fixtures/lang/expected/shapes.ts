@@ -245,8 +245,7 @@ export function order(data: Uint8Array, out: rt.ByteVec): void {
 			const _102: Shape.Shape = taken;
 			const _103: rt.usize = sum;
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(_102, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(_82, f, rt.u8Display)];
-			const text: string = rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7], " ", args2[8], " ", args2[9]]);
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(text));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7], " ", args2[8], " ", args2[9]])));
 			indexed(data, out);
 			return;
 		}
@@ -1049,8 +1048,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, Uint8Array.of(a2, b3, (parsed as { ok: true; value: rt.u8 }).value, early(a2)));
 			const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
-			const _166: string = rt.fmtFormat([args2[0]]);
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_166));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 			return;
 		}
 		b2: {

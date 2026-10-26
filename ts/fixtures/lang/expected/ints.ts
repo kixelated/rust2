@@ -1466,63 +1466,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_25 === 0) {
 			const v2: rt.u8 = v;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v2));
-			const _35: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v2, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_35));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v2, f))));
 		} else if (_25 === 1) {
 			const v3: rt.u16 = v as rt.u16;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v3));
-			const _45: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v3, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_45));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v3, f))));
 		} else if (_25 === 2) {
 			const v4: rt.u32 = v as rt.u32;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v4));
-			const _55: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v4, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_55));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v4, f))));
 		} else if (_25 === 3) {
 			const v5: rt.u64 = v as rt.u64;
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v5));
-			const _65: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v5, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_65));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v5, f))));
 		} else if (_25 === 4) {
 			const v6: rt.u128 = v as rt.u128;
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v6));
-			const _75: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v6, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_75));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v6, f))));
 		} else if (_25 === 5) {
 			const v7: rt.usize = v as rt.usize;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v7));
-			const _85: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v7, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_85));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v7, f))));
 		} else if (_25 === 6) {
 			const v8: rt.i8 = (v << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v8));
-			const _95: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v8, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_95));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v8, f))));
 		} else if (_25 === 7) {
 			const v9: rt.i16 = v as rt.i16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v9));
-			const _105: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v9, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_105));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v9, f))));
 		} else if (_25 === 8) {
 			const v10: rt.i32 = v as rt.i32;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v10));
-			const _115: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v10, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_115));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v10, f))));
 		} else if (_25 === 9) {
 			const v11: rt.i64 = v as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v11));
-			const _125: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v11, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_125));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v11, f))));
 		} else if (_25 === 10) {
 			const v12: rt.i128 = v as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v12));
-			const _135: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v12, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_135));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v12, f))));
 		} else {
 			const v13: rt.isize = v as rt.isize;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v13));
-			const _145: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v13, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_145));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v13, f))));
 		}
 	} else if (_5 === 1) {
 		const buf2: Uint8Array = rt.bytes(2);
@@ -1533,63 +1521,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_165 === 0) {
 			const v15: rt.u8 = v14 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v15));
-			const _175: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v15, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_175));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v15, f))));
 		} else if (_165 === 1) {
 			const v16: rt.u16 = v14;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v16));
-			const _185: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v16, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_185));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v16, f))));
 		} else if (_165 === 2) {
 			const v17: rt.u32 = v14 as rt.u32;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v17));
-			const _195: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v17, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_195));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v17, f))));
 		} else if (_165 === 3) {
 			const v18: rt.u64 = v14 as rt.u64;
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v18));
-			const _205: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v18, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_205));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v18, f))));
 		} else if (_165 === 4) {
 			const v19: rt.u128 = v14 as rt.u128;
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v19));
-			const _215: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v19, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_215));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v19, f))));
 		} else if (_165 === 5) {
 			const v20: rt.usize = v14 as rt.usize;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v20));
-			const _225: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v20, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_225));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v20, f))));
 		} else if (_165 === 6) {
 			const v21: rt.i8 = (v14 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v21));
-			const _235: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v21, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_235));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v21, f))));
 		} else if (_165 === 7) {
 			const v22: rt.i16 = (v14 << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v22));
-			const _245: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v22, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_245));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v22, f))));
 		} else if (_165 === 8) {
 			const v23: rt.i32 = v14 as rt.i32;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v23));
-			const _255: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v23, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_255));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v23, f))));
 		} else if (_165 === 9) {
 			const v24: rt.i64 = v14 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v24));
-			const _265: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v24, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_265));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v24, f))));
 		} else if (_165 === 10) {
 			const v25: rt.i128 = v14 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v25));
-			const _275: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v25, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_275));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v25, f))));
 		} else {
 			const v26: rt.isize = v14 as rt.isize;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v26));
-			const _285: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v26, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_285));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v26, f))));
 		}
 	} else if (_5 === 2) {
 		const buf3: Uint8Array = rt.bytes(4);
@@ -1600,63 +1576,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_305 === 0) {
 			const v28: rt.u8 = v27 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v28));
-			const _315: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v28, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_315));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v28, f))));
 		} else if (_305 === 1) {
 			const v29: rt.u16 = v27 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v29));
-			const _325: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v29, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_325));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v29, f))));
 		} else if (_305 === 2) {
 			const v30: rt.u32 = v27;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v30));
-			const _335: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v30, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_335));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v30, f))));
 		} else if (_305 === 3) {
 			const v31: rt.u64 = v27 as rt.u64;
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v31));
-			const _345: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v31, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_345));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v31, f))));
 		} else if (_305 === 4) {
 			const v32: rt.u128 = v27 as rt.u128;
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v32));
-			const _355: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v32, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_355));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v32, f))));
 		} else if (_305 === 5) {
 			const v33: rt.usize = v27 as rt.usize;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v33));
-			const _365: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v33, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_365));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v33, f))));
 		} else if (_305 === 6) {
 			const v34: rt.i8 = (v27 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v34));
-			const _375: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v34, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_375));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v34, f))));
 		} else if (_305 === 7) {
 			const v35: rt.i16 = (v27 << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v35));
-			const _385: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v35, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_385));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v35, f))));
 		} else if (_305 === 8) {
 			const v36: rt.i32 = v27 | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v36));
-			const _395: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v36, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_395));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v36, f))));
 		} else if (_305 === 9) {
 			const v37: rt.i64 = v27 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v37));
-			const _405: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v37, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_405));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v37, f))));
 		} else if (_305 === 10) {
 			const v38: rt.i128 = v27 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v38));
-			const _415: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v38, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_415));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v38, f))));
 		} else {
 			const v39: rt.isize = v27 | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v39));
-			const _425: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v39, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_425));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v39, f))));
 		}
 	} else if (_5 === 3) {
 		const buf4: Uint8Array = rt.bytes(8);
@@ -1667,63 +1631,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_445 === 0) {
 			const v41: rt.u8 = rt.u64Low(v40) & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v41));
-			const _455: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v41, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_455));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v41, f))));
 		} else if (_445 === 1) {
 			const v42: rt.u16 = rt.u64Low(v40) & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v42));
-			const _465: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v42, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_465));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v42, f))));
 		} else if (_445 === 2) {
 			const v43: rt.u32 = rt.u64Low(v40);
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v43));
-			const _475: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v43, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_475));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v43, f))));
 		} else if (_445 === 3) {
 			const v44: rt.u64 = v40;
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v44));
-			const _485: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v44, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_485));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v44, f))));
 		} else if (_445 === 4) {
 			const v45: rt.u128 = rt.u128Cast(v40);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v45));
-			const _495: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v45, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_495));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v45, f))));
 		} else if (_445 === 5) {
 			const v46: rt.usize = rt.u64Low(v40);
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v46));
-			const _505: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v46, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_505));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v46, f))));
 		} else if (_445 === 6) {
 			const v47: rt.i8 = (rt.u64Low(v40) << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v47));
-			const _515: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v47, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_515));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v47, f))));
 		} else if (_445 === 7) {
 			const v48: rt.i16 = (rt.u64Low(v40) << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v48));
-			const _525: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v48, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_525));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v48, f))));
 		} else if (_445 === 8) {
 			const v49: rt.i32 = rt.u64Low(v40) | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v49));
-			const _535: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v49, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_535));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v49, f))));
 		} else if (_445 === 9) {
 			const v50: rt.i64 = rt.i64Cast(v40);
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v50));
-			const _545: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v50, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_545));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v50, f))));
 		} else if (_445 === 10) {
 			const v51: rt.i128 = rt.i128Cast(v40);
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v51));
-			const _555: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v51, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_555));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v51, f))));
 		} else {
 			const v52: rt.isize = rt.u64Low(v40) | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v52));
-			const _565: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v52, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_565));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v52, f))));
 		}
 	} else if (_5 === 4) {
 		const buf5: Uint8Array = rt.bytes(16);
@@ -1734,63 +1686,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_585 === 0) {
 			const v54: rt.u8 = rt.u128Low(v53) & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v54));
-			const _595: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v54, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_595));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v54, f))));
 		} else if (_585 === 1) {
 			const v55: rt.u16 = rt.u128Low(v53) & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v55));
-			const _605: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v55, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_605));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v55, f))));
 		} else if (_585 === 2) {
 			const v56: rt.u32 = rt.u128Low(v53);
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v56));
-			const _615: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v56, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_615));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v56, f))));
 		} else if (_585 === 3) {
 			const v57: rt.u64 = rt.u64Cast(v53);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v57));
-			const _625: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v57, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_625));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v57, f))));
 		} else if (_585 === 4) {
 			const v58: rt.u128 = v53;
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v58));
-			const _635: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v58, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_635));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v58, f))));
 		} else if (_585 === 5) {
 			const v59: rt.usize = rt.u128Low(v53);
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v59));
-			const _645: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v59, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_645));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v59, f))));
 		} else if (_585 === 6) {
 			const v60: rt.i8 = (rt.u128Low(v53) << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v60));
-			const _655: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v60, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_655));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v60, f))));
 		} else if (_585 === 7) {
 			const v61: rt.i16 = (rt.u128Low(v53) << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v61));
-			const _665: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v61, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_665));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v61, f))));
 		} else if (_585 === 8) {
 			const v62: rt.i32 = rt.u128Low(v53) | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v62));
-			const _675: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v62, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_675));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v62, f))));
 		} else if (_585 === 9) {
 			const v63: rt.i64 = rt.i64Cast(v53);
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v63));
-			const _685: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v63, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_685));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v63, f))));
 		} else if (_585 === 10) {
 			const v64: rt.i128 = rt.i128Cast(v53);
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v64));
-			const _695: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v64, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_695));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v64, f))));
 		} else {
 			const v65: rt.isize = rt.u128Low(v53) | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v65));
-			const _705: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v65, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_705));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v65, f))));
 		}
 	} else if (_5 === 5) {
 		const buf6: Uint8Array = rt.bytes(4);
@@ -1801,63 +1741,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_725 === 0) {
 			const v67: rt.u8 = v66 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v67));
-			const _735: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v67, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_735));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v67, f))));
 		} else if (_725 === 1) {
 			const v68: rt.u16 = v66 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v68));
-			const _745: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v68, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_745));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v68, f))));
 		} else if (_725 === 2) {
 			const v69: rt.u32 = v66 as rt.u32;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v69));
-			const _755: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v69, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_755));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v69, f))));
 		} else if (_725 === 3) {
 			const v70: rt.u64 = v66 as rt.u64;
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v70));
-			const _765: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v70, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_765));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v70, f))));
 		} else if (_725 === 4) {
 			const v71: rt.u128 = v66 as rt.u128;
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v71));
-			const _775: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v71, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_775));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v71, f))));
 		} else if (_725 === 5) {
 			const v72: rt.usize = v66;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v72));
-			const _785: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v72, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_785));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v72, f))));
 		} else if (_725 === 6) {
 			const v73: rt.i8 = (v66 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v73));
-			const _795: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v73, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_795));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v73, f))));
 		} else if (_725 === 7) {
 			const v74: rt.i16 = (v66 << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v74));
-			const _805: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v74, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_805));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v74, f))));
 		} else if (_725 === 8) {
 			const v75: rt.i32 = v66 | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v75));
-			const _815: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v75, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_815));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v75, f))));
 		} else if (_725 === 9) {
 			const v76: rt.i64 = v66 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v76));
-			const _825: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v76, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_825));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v76, f))));
 		} else if (_725 === 10) {
 			const v77: rt.i128 = v66 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v77));
-			const _835: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v77, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_835));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v77, f))));
 		} else {
 			const v78: rt.isize = v66 | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v78));
-			const _845: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v78, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_845));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v78, f))));
 		}
 	} else if (_5 === 6) {
 		const buf7: Uint8Array = Uint8Array.of(0);
@@ -1868,63 +1796,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_865 === 0) {
 			const v80: rt.u8 = v79 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v80));
-			const _875: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v80, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_875));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v80, f))));
 		} else if (_865 === 1) {
 			const v81: rt.u16 = v79 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v81));
-			const _885: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v81, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_885));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v81, f))));
 		} else if (_865 === 2) {
 			const v82: rt.u32 = v79 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v82));
-			const _895: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v82, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_895));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v82, f))));
 		} else if (_865 === 3) {
 			const v83: rt.u64 = rt.u64Cast(v79);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v83));
-			const _905: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v83, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_905));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v83, f))));
 		} else if (_865 === 4) {
 			const v84: rt.u128 = rt.u128Cast(v79);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v84));
-			const _915: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v84, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_915));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v84, f))));
 		} else if (_865 === 5) {
 			const v85: rt.usize = v79 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v85));
-			const _925: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v85, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_925));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v85, f))));
 		} else if (_865 === 6) {
 			const v86: rt.i8 = v79;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v86));
-			const _935: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v86, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_935));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v86, f))));
 		} else if (_865 === 7) {
 			const v87: rt.i16 = v79 as rt.i16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v87));
-			const _945: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v87, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_945));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v87, f))));
 		} else if (_865 === 8) {
 			const v88: rt.i32 = v79 as rt.i32;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v88));
-			const _955: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v88, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_955));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v88, f))));
 		} else if (_865 === 9) {
 			const v89: rt.i64 = v79 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v89));
-			const _965: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v89, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_965));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v89, f))));
 		} else if (_865 === 10) {
 			const v90: rt.i128 = v79 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v90));
-			const _975: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v90, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_975));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v90, f))));
 		} else {
 			const v91: rt.isize = v79 as rt.isize;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v91));
-			const _985: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v91, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_985));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v91, f))));
 		}
 	} else if (_5 === 7) {
 		const buf8: Uint8Array = rt.bytes(2);
@@ -1935,63 +1851,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_1005 === 0) {
 			const v93: rt.u8 = v92 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v93));
-			const _1015: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v93, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1015));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v93, f))));
 		} else if (_1005 === 1) {
 			const v94: rt.u16 = v92 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v94));
-			const _1025: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v94, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1025));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v94, f))));
 		} else if (_1005 === 2) {
 			const v95: rt.u32 = v92 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v95));
-			const _1035: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v95, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1035));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v95, f))));
 		} else if (_1005 === 3) {
 			const v96: rt.u64 = rt.u64Cast(v92);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v96));
-			const _1045: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v96, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1045));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v96, f))));
 		} else if (_1005 === 4) {
 			const v97: rt.u128 = rt.u128Cast(v92);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v97));
-			const _1055: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v97, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1055));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v97, f))));
 		} else if (_1005 === 5) {
 			const v98: rt.usize = v92 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v98));
-			const _1065: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v98, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1065));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v98, f))));
 		} else if (_1005 === 6) {
 			const v99: rt.i8 = (v92 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v99));
-			const _1075: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v99, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1075));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v99, f))));
 		} else if (_1005 === 7) {
 			const v100: rt.i16 = v92;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v100));
-			const _1085: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v100, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1085));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v100, f))));
 		} else if (_1005 === 8) {
 			const v101: rt.i32 = v92 as rt.i32;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v101));
-			const _1095: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v101, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1095));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v101, f))));
 		} else if (_1005 === 9) {
 			const v102: rt.i64 = v92 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v102));
-			const _1105: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v102, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1105));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v102, f))));
 		} else if (_1005 === 10) {
 			const v103: rt.i128 = v92 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v103));
-			const _1115: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v103, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1115));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v103, f))));
 		} else {
 			const v104: rt.isize = v92 as rt.isize;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v104));
-			const _1125: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v104, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1125));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v104, f))));
 		}
 	} else if (_5 === 8) {
 		const buf9: Uint8Array = rt.bytes(4);
@@ -2002,63 +1906,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_1145 === 0) {
 			const v106: rt.u8 = v105 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v106));
-			const _1155: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v106, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1155));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v106, f))));
 		} else if (_1145 === 1) {
 			const v107: rt.u16 = v105 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v107));
-			const _1165: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v107, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1165));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v107, f))));
 		} else if (_1145 === 2) {
 			const v108: rt.u32 = v105 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v108));
-			const _1175: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v108, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1175));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v108, f))));
 		} else if (_1145 === 3) {
 			const v109: rt.u64 = rt.u64Cast(v105);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v109));
-			const _1185: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v109, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1185));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v109, f))));
 		} else if (_1145 === 4) {
 			const v110: rt.u128 = rt.u128Cast(v105);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v110));
-			const _1195: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v110, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1195));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v110, f))));
 		} else if (_1145 === 5) {
 			const v111: rt.usize = v105 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v111));
-			const _1205: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v111, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1205));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v111, f))));
 		} else if (_1145 === 6) {
 			const v112: rt.i8 = (v105 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v112));
-			const _1215: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v112, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1215));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v112, f))));
 		} else if (_1145 === 7) {
 			const v113: rt.i16 = (v105 << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v113));
-			const _1225: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v113, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1225));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v113, f))));
 		} else if (_1145 === 8) {
 			const v114: rt.i32 = v105;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v114));
-			const _1235: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v114, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1235));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v114, f))));
 		} else if (_1145 === 9) {
 			const v115: rt.i64 = v105 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v115));
-			const _1245: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v115, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1245));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v115, f))));
 		} else if (_1145 === 10) {
 			const v116: rt.i128 = v105 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v116));
-			const _1255: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v116, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1255));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v116, f))));
 		} else {
 			const v117: rt.isize = v105 as rt.isize;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v117));
-			const _1265: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v117, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1265));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v117, f))));
 		}
 	} else if (_5 === 9) {
 		const buf10: Uint8Array = rt.bytes(8);
@@ -2069,63 +1961,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_1285 === 0) {
 			const v119: rt.u8 = rt.i64Low(v118) & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v119));
-			const _1295: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v119, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1295));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v119, f))));
 		} else if (_1285 === 1) {
 			const v120: rt.u16 = rt.i64Low(v118) & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v120));
-			const _1305: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v120, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1305));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v120, f))));
 		} else if (_1285 === 2) {
 			const v121: rt.u32 = rt.i64Low(v118);
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v121));
-			const _1315: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v121, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1315));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v121, f))));
 		} else if (_1285 === 3) {
 			const v122: rt.u64 = rt.u64Cast(v118);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v122));
-			const _1325: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v122, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1325));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v122, f))));
 		} else if (_1285 === 4) {
 			const v123: rt.u128 = rt.u128Cast(v118);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v123));
-			const _1335: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v123, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1335));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v123, f))));
 		} else if (_1285 === 5) {
 			const v124: rt.usize = rt.i64Low(v118);
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v124));
-			const _1345: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v124, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1345));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v124, f))));
 		} else if (_1285 === 6) {
 			const v125: rt.i8 = (rt.i64Low(v118) << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v125));
-			const _1355: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v125, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1355));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v125, f))));
 		} else if (_1285 === 7) {
 			const v126: rt.i16 = (rt.i64Low(v118) << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v126));
-			const _1365: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v126, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1365));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v126, f))));
 		} else if (_1285 === 8) {
 			const v127: rt.i32 = rt.i64Low(v118) | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v127));
-			const _1375: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v127, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1375));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v127, f))));
 		} else if (_1285 === 9) {
 			const v128: rt.i64 = v118;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v128));
-			const _1385: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v128, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1385));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v128, f))));
 		} else if (_1285 === 10) {
 			const v129: rt.i128 = rt.i128Cast(v118);
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v129));
-			const _1395: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v129, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1395));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v129, f))));
 		} else {
 			const v130: rt.isize = rt.i64Low(v118) | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v130));
-			const _1405: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v130, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1405));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v130, f))));
 		}
 	} else if (_5 === 10) {
 		const buf11: Uint8Array = rt.bytes(16);
@@ -2136,63 +2016,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_1425 === 0) {
 			const v132: rt.u8 = rt.i128Low(v131) & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v132));
-			const _1435: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v132, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1435));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v132, f))));
 		} else if (_1425 === 1) {
 			const v133: rt.u16 = rt.i128Low(v131) & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v133));
-			const _1445: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v133, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1445));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v133, f))));
 		} else if (_1425 === 2) {
 			const v134: rt.u32 = rt.i128Low(v131);
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v134));
-			const _1455: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v134, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1455));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v134, f))));
 		} else if (_1425 === 3) {
 			const v135: rt.u64 = rt.u64Cast(v131);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v135));
-			const _1465: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v135, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1465));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v135, f))));
 		} else if (_1425 === 4) {
 			const v136: rt.u128 = rt.u128Cast(v131);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v136));
-			const _1475: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v136, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1475));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v136, f))));
 		} else if (_1425 === 5) {
 			const v137: rt.usize = rt.i128Low(v131);
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v137));
-			const _1485: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v137, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1485));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v137, f))));
 		} else if (_1425 === 6) {
 			const v138: rt.i8 = (rt.i128Low(v131) << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v138));
-			const _1495: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v138, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1495));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v138, f))));
 		} else if (_1425 === 7) {
 			const v139: rt.i16 = (rt.i128Low(v131) << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v139));
-			const _1505: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v139, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1505));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v139, f))));
 		} else if (_1425 === 8) {
 			const v140: rt.i32 = rt.i128Low(v131) | 0;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v140));
-			const _1515: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v140, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1515));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v140, f))));
 		} else if (_1425 === 9) {
 			const v141: rt.i64 = rt.i64Cast(v131);
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v141));
-			const _1525: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v141, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1525));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v141, f))));
 		} else if (_1425 === 10) {
 			const v142: rt.i128 = v131;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v142));
-			const _1535: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v142, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1535));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v142, f))));
 		} else {
 			const v143: rt.isize = rt.i128Low(v131) | 0;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v143));
-			const _1545: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v143, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1545));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v143, f))));
 		}
 	} else {
 		const buf12: Uint8Array = rt.bytes(4);
@@ -2203,63 +2071,51 @@ export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec):
 		if (_1565 === 0) {
 			const v145: rt.u8 = v144 & 0xff;
 			rt.byteVecExtendFromSlice(out, rt.u8ToBeBytes(v145));
-			const _1575: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(v145, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1575));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v145, f))));
 		} else if (_1565 === 1) {
 			const v146: rt.u16 = v144 & 0xffff;
 			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(v146));
-			const _1585: string = rt.fmtToString((f: rt.Formatter) => rt.u16Display(v146, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1585));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v146, f))));
 		} else if (_1565 === 2) {
 			const v147: rt.u32 = v144 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v147));
-			const _1595: string = rt.fmtToString((f: rt.Formatter) => rt.u32Display(v147, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1595));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v147, f))));
 		} else if (_1565 === 3) {
 			const v148: rt.u64 = rt.u64Cast(v144);
 			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(v148));
-			const _1605: string = rt.fmtToString((f: rt.Formatter) => rt.u64Display(v148, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1605));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v148, f))));
 		} else if (_1565 === 4) {
 			const v149: rt.u128 = rt.u128Cast(v144);
 			rt.byteVecExtendFromSlice(out, rt.u128ToBeBytes(v149));
-			const _1615: string = rt.fmtToString((f: rt.Formatter) => rt.u128Display(v149, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1615));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v149, f))));
 		} else if (_1565 === 5) {
 			const v150: rt.usize = v144 >>> 0;
 			rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v150));
-			const _1625: string = rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v150, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1625));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v150, f))));
 		} else if (_1565 === 6) {
 			const v151: rt.i8 = (v144 << 24) >> 24;
 			rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v151));
-			const _1635: string = rt.fmtToString((f: rt.Formatter) => rt.i8Display(v151, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1635));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v151, f))));
 		} else if (_1565 === 7) {
 			const v152: rt.i16 = (v144 << 16) >> 16;
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(v152));
-			const _1645: string = rt.fmtToString((f: rt.Formatter) => rt.i16Display(v152, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1645));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v152, f))));
 		} else if (_1565 === 8) {
 			const v153: rt.i32 = v144 as rt.i32;
 			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(v153));
-			const _1655: string = rt.fmtToString((f: rt.Formatter) => rt.i32Display(v153, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1655));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v153, f))));
 		} else if (_1565 === 9) {
 			const v154: rt.i64 = v144 as rt.i64;
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(v154));
-			const _1665: string = rt.fmtToString((f: rt.Formatter) => rt.i64Display(v154, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1665));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v154, f))));
 		} else if (_1565 === 10) {
 			const v155: rt.i128 = v144 as rt.i128;
 			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(v155));
-			const _1675: string = rt.fmtToString((f: rt.Formatter) => rt.i128Display(v155, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1675));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v155, f))));
 		} else {
 			const v156: rt.isize = v144;
 			rt.byteVecExtendFromSlice(out, rt.isizeToBeBytes(v156));
-			const _1685: string = rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v156, f));
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_1685));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v156, f))));
 		}
 	}
 }

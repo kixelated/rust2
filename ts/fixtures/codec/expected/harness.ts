@@ -216,8 +216,7 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 							putUsize(out, Decoder.remaining(r));
 							continue l1;
 						}
-						const err: DecodeError.DecodeError = _26.error;
-						decodeFailed(out, err);
+						decodeFailed(out, _26.error);
 						putUsize(out, Decoder.need(r));
 					}
 					rt.byteVecPush(out, Decoder.isEmpty(r) ? 1 : 0);
@@ -283,8 +282,7 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 	} else if (_5 === 6) {
 		const _49: rt.Result<string, DecodeError.DecodeError> = Decoder.string(r);
 		if (_49.ok) {
-			const s: string = _49.value;
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_49.value));
 		} else {
 			return _49;
 		}
@@ -387,8 +385,7 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 					} else if (_33 === 6) {
 						const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
 						if (_60.ok) {
-							const s: string = _60.value;
-							const _68: string = s;
+							const _68: string = _60.value;
 							result = Encoder.string(w, _68);
 						} else {
 							result = Encoder.string(w, "not utf-8");
@@ -470,8 +467,7 @@ export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 				encodeFailed(out, _14.error);
 			}
 		} else {
-			const err2: DecodeError.DecodeError = _8.error;
-			decodeFailed(out, err2);
+			decodeFailed(out, _8.error);
 		}
 	}
 }
@@ -495,8 +491,7 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 				encodeFailed(out, _14.error);
 			}
 		} else {
-			const err2: DecodeError.DecodeError = _8.error;
-			decodeFailed(out, err2);
+			decodeFailed(out, _8.error);
 		}
 	}
 }
@@ -520,8 +515,7 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 				encodeFailed(out, _14.error);
 			}
 		} else {
-			const err2: DecodeError.DecodeError = _8.error;
-			decodeFailed(out, err2);
+			decodeFailed(out, _8.error);
 		}
 	}
 }

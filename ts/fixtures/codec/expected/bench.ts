@@ -56,8 +56,7 @@ export function encoded(result: rt.Result<undefined, EncodeError.EncodeError>, o
 
 export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, out: rt.ByteVec): void {
 	if (!result.ok) {
-		const err: DecodeError.DecodeError = result.error;
-		decodeError(out, err);
+		decodeError(out, result.error);
 	}
 }
 
@@ -338,10 +337,9 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				return _210 === 255;
 			}) ? 1 : 0);
 		} else if (chain === 2) {
-			const odd: rt.ByteVec = rt.iterToByteVec(rt.iterFilter(rt.iterSlice(data), (_28: rt.u8): boolean => {
+			putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(data), (_28: rt.u8): boolean => {
 				return (_28 & 1) === 1;
-			}));
-			putUsize(out, odd.length);
+			})).length);
 		} else if (chain === 3) {
 			putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u32 => {
 				return _2 as rt.u32;

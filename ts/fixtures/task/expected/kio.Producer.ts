@@ -20,8 +20,7 @@ export class Producer {
 }
 
 function new_(): Producer {
-	const _2: rt.u64[] = [];
-	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() })) });
+	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: [], closed: false, producers: 1, waiters: WaiterList.new() })) });
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */

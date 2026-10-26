@@ -8,8 +8,7 @@ import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	const _2: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined> = poll;
-	return new Pending.Pending({ poll: _2, park: Park.default$Default() });
+	return new Pending.Pending({ poll, park: Park.default$Default() });
 }
 
 export class recvFuture {

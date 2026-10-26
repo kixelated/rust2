@@ -97,8 +97,7 @@ export function wake(self: WaiterList): void {
 			if (_6 === rt.DONE) {
 				return;
 			}
-			const entry: rt.Weak<rt.Waker> = _6;
-			const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(entry);
+			const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
 			if (_10 !== undefined) {
 				unwind = 15;
 				waker = _10;

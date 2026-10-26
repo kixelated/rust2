@@ -24,12 +24,10 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const meters: Wrap.Wrap<Meters.Meters> = new Wrap.Wrap({ value: { _0: at(3) as rt.u64 }, count: at(4) });
 	const shape: Wrap.Wrap<Shape.Shape> = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(point), width: at(5) as rt.u16, height: 3 } as Shape.Shape);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Point(point, f), (f: rt.Formatter) => Wrap.fmt$Debug_u8(byte, f), (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f), (f: rt.Formatter) => Wrap.fmt$Debug_Shape(shape, f)];
-	const _46: string = rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3]]);
-	put(out, _46);
+	put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3]]));
 	const arg = ([nested] as [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>])[0];
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(arg, f)];
-	const _64: string = rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]);
-	put(out, _64);
+	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
 	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(Wrap.double$u8(byte)));
 	rt.byteVecPush(out, Wrap.get$u8(byte));
 	rt.byteVecPush(out, Wrap.get$Pair(Wrap.get$Wrap_Pair(nested))._0);
@@ -45,8 +43,7 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const _126: rt.Fmt = (f: rt.Formatter) => Wrap.fmt$Debug_Pair(mapped, f);
 	const arg2 = Wrap.eq$PartialEq_Pair(mapped, _119);
 	const args6: rt.Fmt[] = [_126, (f: rt.Formatter) => rt.fmtBool(arg2, f)];
-	const _111: string = rt.fmtFormat([args6[0], " ", args6[1]]);
-	put(out, _111);
+	put(out, rt.fmtFormat([args6[0], " ", args6[1]]));
 	const iter: rt.Iter<Either.Either<rt.u8, Point.Point>> = rt.iterSlice([{ tag: "Left", _0: at(7) } as Either.Either<rt.u8, Point.Point>, { tag: "Right", value: Point.new(1, -1) } as Either.Either<rt.u8, Point.Point>, { tag: "Neither" } as Either.Either<rt.u8, Point.Point>]);
 	while (true) {
 		const _140: Either.Either<rt.u8, Point.Point> | rt.Done = iter.next();
@@ -60,15 +57,13 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 			const err: Wrap.Wrap<rt.Result<rt.u8, Shape.Shape>> = new Wrap.Wrap({ value: rt.Err({ tag: "Dot" } as Shape.Shape), count: 2 });
 			const _193: rt.u8 = rt.optionUnwrapOr(Wrap.get$Option_u8(none), some.count);
 			const args10: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Vec_u16(list, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(none, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(some, f), (f: rt.Formatter) => Wrap.fmt$Debug_Result_u8_Shape(err, f), (f: rt.Formatter) => rt.u8Display(_193, f)];
-			const _188: string = rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " ", args10[3], " ", args10[4]]);
-			put(out, _188);
+			put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " ", args10[3], " ", args10[4]]));
 			const tagged: Tagged.Tagged<Either.Either<rt.u8, rt.u16>, rt.i16> = new Tagged.Tagged({ key: { tag: "Right", value: 500 } as Either.Either<rt.u8, rt.u16>, inner: Wrap.new$i16(rt.i16Sub(at(8) as rt.i16, 100)), all: rt.sliceToVec([Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)]) });
 			[Tagged.first$Either_u8_u16_i16(tagged), tagged] as [Wrap.Wrap<rt.i16> | undefined, Tagged.Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>];
 			const _241: rt.Fmt = (f: rt.Formatter) => Tagged.fmt$Debug_Either_u8_u16_i16(tagged, f);
 			const arg5 = Tagged.first$Either_u8_u16_i16(tagged);
 			const args12: rt.Fmt[] = [_241, (f: rt.Formatter) => rt.fmtOption(arg5, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))];
-			const _232: string = rt.fmtFormat([args12[0], " ", args12[1]]);
-			put(out, _232);
+			put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
 			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(tagged.inner.value));
 			rt.byteVecPush(out, rt.optionUnwrapOr(Either.left$u8_u16(tagged.key), 0));
 			return;
@@ -82,8 +77,7 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 		const _163: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(arg3, f, rt.u8Display);
 		const arg4 = Either.left$Point_u8(flipped);
 		const args8: rt.Fmt[] = [_161, _162, _163, (f: rt.Formatter) => rt.fmtOption(arg4, f, (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f))];
-		const _148: string = rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[1]), " ", args8[2], " ", args8[3]]);
-		put(out, _148);
+		put(out, rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[1]), " ", args8[2], " ", args8[3]]));
 	}
 }
 

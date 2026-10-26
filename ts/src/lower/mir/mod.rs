@@ -317,7 +317,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match &term.kind {
 				TerminatorKind::SwitchInt { discr, .. } => self.operand_use(discr),
 				TerminatorKind::Return => self.uses[mir::RETURN_PLACE] += 1,
-				TerminatorKind::Drop { place, .. } => self.place_use(*place),
+				// A drop JS can't see reads nothing.
+				TerminatorKind::Drop { place, .. } => {
+					if self.b.t.drops(place.ty(&mir.local_decls, self.tcx).ty) {
+						self.place_use(*place);
+					}
+				}
 				TerminatorKind::Call {
 					func,
 					args,
