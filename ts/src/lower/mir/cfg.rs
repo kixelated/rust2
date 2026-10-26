@@ -141,8 +141,9 @@ impl Shape {
 			}
 		}
 		// Each loop's nodes: what reaches a back edge's source without passing its header.
+		// Only a reducible graph is placed as a tree.
 		let mut body: Vec<Option<Vec<bool>>> = vec![None; n];
-		for &node in &order {
+		for &node in order.iter().filter(|_| reducible) {
 			for &next in &g.succs[node] {
 				if rpo[next] > rpo[node] {
 					continue;

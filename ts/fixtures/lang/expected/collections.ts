@@ -727,7 +727,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			const _188: [rt.u8, rt.u8] = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)];
 			rt.btreeInsert(pairs, _188, a);
 			const _196: rt.u64 = wide(a);
-			rt.entryOrInsert(rt.entry(wides, _196), b);
+			rt.entryOrInsertMut(rt.entry(wides, _196), b);
 		}
 		const _197: Tally.Tally | undefined = rt.btreeGet(ranks, { tag: "Low" } as Rank.Rank);
 		if (_197 !== undefined) {
@@ -854,7 +854,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 				_401 = 3;
 			}
 			rt.byteVecPush(out, _401);
-			rt.byteVecPush(out, rt.same(o, 1) ? 1 : 0);
+			rt.byteVecPush(out, o === 1 ? 1 : 0);
 		}
 		const _409: rt.Iter<[Nibble.Nibble, rt.u8]> = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
 			const b5: rt.u8 = _2;

@@ -34,7 +34,8 @@ What still fails translation from MIR, by the census of moq-net at the pinned re
   that may drop what it holds or is given (161), which are `clear`, `retain`,
   `truncate`, `drain`, a `remove` of a key that drops, which drops the key the map
   held, and an `insert` or `entry` given a key that drops, such as a `Path`, which
-  drops that key if the map holds an equal one.
+  drops that key if the map holds an equal one. `insert` and `remove` on `Arc<str>`-keyed
+  maps need differential tests once these keys drop ([#77](https://github.com/kixelated/rust2/pull/77)).
 
 THIR's refusals that MIR's elaboration closes, for comparison: 657 drops of a value
 without glue, 280 temporaries that drop, 60 `for` loops, 112 moves out of other places,
