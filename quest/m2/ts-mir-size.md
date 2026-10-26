@@ -9,7 +9,7 @@ bytes minified and 9422 gzipped, and the async handoff's at most 10949 and 3458.
 ## Plan
 
 The codec's bundle is 29852 bytes minified and 9503 gzipped (+0.9% gzipped), and the
-async handoff's 15053 and 3713 (+37%, +7.4%), against THIR's numbers above, built from
+async handoff's 15053 and 3712 (+37%, +7.3%), against THIR's numbers above, built from
 the same fixtures. Each candidate is measured on the bench's sizes and timings before
 it lands.
 
