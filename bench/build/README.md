@@ -30,11 +30,15 @@ Bump a pin in its own change, since numbers on either side of it do not compare.
 - `build`: a clean debug `cargo build`, dependencies included.
 - `edit-leaf`: rebuild after a body edit in a crate nothing else in the build depends on.
 - `edit-hub`: the same edit in a crate most of the build depends on (moq-net in moq).
+- `edit-sync`: rebuild after an edit to the body of a sync function the build calls, in a module of the hub (moq: `goaway::Producer::send`, which moq-relay calls to drain a session).
+- `edit-async`: the same in an `async fn` (moq: `Session::closed`, which moq-relay awaits).
 - `test-build`: a clean build of the corpus's tests with `cargo nextest run --no-run`, as CI builds them with a cold cache.
 - `test-run`: run those tests, already built.
 - `test-edit`: rebuild the tests after the hub edit, as CI does when its compilation cache serves every dependency.
 
-An edit rewrites a marker function appended to the crate root, so every run changes code that reaches codegen.
+The leaf and hub edits rewrite a marker function appended to the crate root, which nothing calls; the body edits rewrite a statement at the top of the body.
+Either way every run changes code that reaches codegen and moves no other line.
+The body edits run only on a corpus that names them and only for the variants that list them: cargo rebuilds the same crates for them as for `edit-hub`, so they set apart only the levers that skip work inside an edit, such as ra-jit and relinking without rebuilding.
 The test scenarios run only on a corpus that names its tests (moq: every workspace crate `moq-relay` builds) and only for the variants that list them, since a test build costs more than `build`.
 They build without incremental compilation, as CI does.
 A test run runs every test even when some fail, and the report lists how many failed, since a failed test can end sooner than a passing one.
@@ -54,12 +58,13 @@ ra-jit works with one rustc only, so its base, `ra-jit-baseline`, is plain cargo
 Both run on the moq corpora only, since ra-jit needs a program to load, and skip `check`, which `cargo ra-jit` fails on moq.
 The daemon keeps working after a build returns, so each ra-jit run waits for it to go idle before and after, and none of its work overlaps another run.
 Its CPU time adds the daemon's, its peak RSS adds what the daemon holds, and its instructions read `n/a`; the report also says how many of its runs the daemon built, and why cargo built the rest.
-The edit marker is a function nothing calls: rustc recompiles its crate and every crate that depends on it, while ra-jit, when it builds the edit itself, compiles nothing, so its edit times are a lower bound.
+The leaf and hub markers are functions nothing calls: rustc recompiles their crate and every crate that depends on it, while ra-jit, when it builds the edit itself, compiles nothing, so its times there are a lower bound.
+The body edits are functions the program runs, which ra-jit compiles.
 
 ra-jit bugs seen on moq at the pinned rev, not reported upstream:
 
 - `cargo ra-jit check` with no build loaded reads every crate of the workspace, takes minutes and GBs, and fails on errors rustc does not report (`unresolved macro moq_clock::test` in moq-net's integration tests).
-- Async body edits in moq-net often go to cargo (2 of 3 by hand): "`new` is not compiled by ra-jit and rustc's copy is from before the edit: an instance of it does not compile".
+- Async body edits in moq-net go to cargo (every `edit-async` run): "`new` is not compiled by ra-jit and rustc's copy is from before the edit: an instance of it does not compile". The daemon then loads the workspace again: on CI such an edit took 55.7 s and 222 CPU-s, against plain cargo's 9.1 s and 12.3 CPU-s ([run](https://github.com/kixelated/rust2/actions/runs/40285528419)).
 - A fallback logs `Duplicate definition of identifier ... <cc::Build>::cargo_metadata` while compiling aws-lc-sys's build script.
 - On a library-only build such as regex, `cargo ra-jit build` returns after `cargo clean` without building anything.
 
