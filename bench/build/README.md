@@ -1,7 +1,7 @@
 # Build-speed benchmark
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
-It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness, its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
+It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness (apart from the [Nix comparison](#nix-builds)), its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
 Every build-speed change here states its effect with its numbers.
 
 ```bash
@@ -72,6 +72,56 @@ The report shows wall time (trimmed mean, and mean ± standard deviation), CPU t
 A busy host adds an occasional slow run, which on an edit of a few seconds can move a mean by over 10%, so the change against a base compares trimmed means, which drop each variant's fastest and slowest run; CPU time and instructions are trimmed means too.
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.
+
+## Nix builds
+
+`just bench-nix` measures moq's Nix release builds (`moq-relay`, then `moq-cli`) in CPU time, built each way they could share compilations:
+
+- `crane`: moq's flake as it is, a dependency layer and a workspace layer per package.
+- `crane-mbx`: the same packages with no dependency layer, every compilation going through mbx on a store mounted into the sandbox with `extra-sandbox-paths`, as nixpkgs' ccache support does.
+- `crate2nix`: a derivation per crate, from `crate2nix generate`, so the Nix store itself is the cache.
+- `cargo-mbx`: cargo through mbx outside Nix, as moq's CI builds today, with a fresh target directory per build.
+
+```bash
+just bench-nix                                 # every variant; takes hours
+just bench-nix --variant crane --variant crate2nix
+```
+
+[nix.toml](nix.toml) pins moq, the packages, the edit, and the lockfile bump; [nix.nix](nix.nix) holds the builds, with the toolchain, features, and `RUSTFLAGS` of moq's overlay throughout.
+Results land in `target/bench/nix/`, newest at `target/bench/nix/latest/report.md`.
+It runs nightly in CI, never on a pull request: it informs a choice rather than gating a change.
+
+Each variant runs four scenarios in order on a private Nix store and mbx store, so only the first is cold:
+
+- `clean`: the first package from nothing.
+- `second-package`: the second package, which shows what the two share.
+- `edit-hub`: the first package after the moq-net body edit the cargo scenarios make.
+- `lock-bump`: the first package after `cargo update` of one dependency, the edit reverted.
+
+A cold edit or bump costs what `clean` does, so only the warm ones run.
+Each Nix build runs in a store of its own, which substitutes only from cache.nixos.org, so nothing the host or moq's cache built leaks in; before the timed build, it realises everything the build needs that does not compile Rust (toolchain, sources, vendored crates).
+That store runs its builds as this user in user namespaces, which makes their CPU time the `nix` process's own; Ubuntu reserves those namespaces for root unless `kernel.apparmor_restrict_unprivileged_userns` is 0.
+Evaluation is timed apart from the build, since crate2nix evaluates a derivation per crate.
+The report compares retired instructions, which barely move with machine load, and shows CPU time beside them.
+crate2nix reads no Cargo profile, so nix.nix gives it moq's `[profile.release]`: one codegen unit, and fat LTO and symbol stripping on the linked packages. `crate2nix generate`, which a project commits, is timed but not counted.
+
+### Nix builds for moq
+
+Decided on 2026-10-26: moq explores crate2nix, and keeps its crane layers as they are.
+
+Measured on 2026-10-25 and 2026-10-26 on a busy 32-CPU host, in billions of instructions, at the pin in nix.toml:
+
+| scenario | crane | crane-mbx | crate2nix | cargo-mbx |
+| --- | ---: | ---: | ---: | ---: |
+| `clean` | 3681 | 3377 | 4672 | 3378 |
+| `second-package` | 5926 | 3945 | 6999 | 3924 |
+| `edit-hub` | 1365 | 1351 | 1509 | 1276 |
+| `lock-bump` | 3681 | 1123 | 1255 | 1113 |
+| total, evaluation included | 14756 | 9894 | 14538 | 9692 |
+
+- A lockfile bump costs crane a full dependency rebuild; the per-crate caches rebuild hyper and the 12 crates above it, about a third of crane's cost, most of it moq-relay's fat-LTO link.
+- moq-cli shares 285 of its 548 compilations with moq-relay; the rest are crates or feature sets moq-relay does not build. crane shares none, and its dependency layer runs a `cargo check` of every dependency before building them.
+- crate2nix costs 27% more than crane on a clean build and 18% more on the second package. Cargo compiles a dependency that only fat LTO reads to bitcode alone, and build scripts and proc macros at opt-level 0; buildRustCrate compiles every crate to machine code and bitcode at opt-level 3.
 
 ## Cranelift for moq's CI
 
