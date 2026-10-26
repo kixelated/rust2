@@ -615,7 +615,7 @@ pub fn generate_modulemap(
 /// This template is a bit different than others in that it stores internal state from the render
 /// process.  Make sure to only call `render()` once.
 #[derive(Template)]
-#[template(syntax = "swift", escape = "none", path = "Types.swift")]
+#[template(escape = "none", path = "swift/Types.swift")]
 pub struct TypeRenderer<'a> {
     config: &'a Config,
     ci: &'a ComponentInterface,
@@ -658,7 +658,7 @@ impl<'a> TypeRenderer<'a> {
 /// by the compiled Rust code. It gets wrapped into a higher-level API by the
 /// code from [`SwiftWrapper`].
 #[derive(Template)]
-#[template(syntax = "c", escape = "none", path = "BridgingHeaderTemplate.h")]
+#[template(escape = "none", path = "swift/BridgingHeaderTemplate.h")]
 pub struct BridgingHeader<'config, 'ci> {
     _config: &'config Config,
     ci: &'ci ComponentInterface,
@@ -680,7 +680,7 @@ impl<'config, 'ci> BridgingHeader<'config, 'ci> {
 /// job is to define the *name* of the Swift module that will contain the FFI functions
 /// so that it can be imported by the higher-level code in from [`SwiftWrapper`].
 #[derive(Template)]
-#[template(syntax = "c", escape = "none", path = "ModuleMapTemplate.modulemap")]
+#[template(escape = "none", path = "swift/ModuleMapTemplate.modulemap")]
 pub struct ModuleMap {
     module_name: String,
     header_filenames: Vec<String>,
@@ -700,7 +700,7 @@ impl ModuleMap {
 }
 
 #[derive(Template)]
-#[template(syntax = "swift", escape = "none", path = "wrapper.swift")]
+#[template(escape = "none", path = "swift/wrapper.swift")]
 pub struct SwiftWrapper<'a> {
     config: Config,
     ci: &'a ComponentInterface,

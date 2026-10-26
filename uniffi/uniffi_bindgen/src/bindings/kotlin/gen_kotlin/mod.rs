@@ -345,7 +345,7 @@ impl ImportRequirement {
 /// This template is a bit different than others in that it stores internal state from the render
 /// process.  Make sure to only call `render()` once.
 #[derive(Template)]
-#[template(syntax = "kt", escape = "none", path = "Types.kt")]
+#[template(escape = "none", path = "kotlin/Types.kt")]
 pub struct TypeRenderer<'a> {
     config: &'a Config,
     ci: KotlinCi<'a>,
@@ -379,7 +379,7 @@ impl<'a> TypeRenderer<'a> {
 }
 
 #[derive(Template)]
-#[template(syntax = "kt", escape = "none", path = "wrapper.kt")]
+#[template(escape = "none", path = "kotlin/wrapper.kt")]
 pub struct KotlinWrapper<'a> {
     config: &'a Config,
     ci: KotlinCi<'a>,
