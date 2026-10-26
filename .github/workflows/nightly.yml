@@ -40,7 +40,9 @@ jobs:
 
   uniffi-fixtures:
     name: UniFFI fixtures
-    runs-on: ubuntu-24.04-arm
+    # x86_64: nixpkgs marks Swift 6.3 broken on aarch64-linux, where it fails to link with
+    # gold. Swift 6.4 links with LLD and lifts the mark once it reaches nixpkgs-unstable.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
