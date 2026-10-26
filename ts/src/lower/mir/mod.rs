@@ -371,7 +371,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
 				Slot::Unit
-			} else if let Some(value) = self.unit_struct(local, ty) {
+			} else if let Some(value) = self.unassigned(local, ty) {
 				Slot::Alias(Some(value))
 			} else if self.alias(local) {
 				Slot::Alias(None)
@@ -614,11 +614,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields that nothing assigns, which MIR leaves unassigned since it
-	/// holds nothing: JS needs it made.
-	fn unit_struct(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
+	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made.
+	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
 		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
 			return None;
+		}
+		if let ty::Array(elem, len) = ty.kind()
+			&& len.try_to_target_usize(self.tcx) == Some(0)
+		{
+			return Some(match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
+				_ => Expr::As(Box::new(Expr::Array(Vec::new())), self.b.t.ty(ty, self.span)),
+			});
 		}
 		let ty::Adt(adt, _) = ty.kind() else {
 			return None;

@@ -21,7 +21,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 		return None;
 	}
 	let structural = match ty.kind() {
-		ty::Tuple(_) | ty::Closure(..) => true,
+		ty::Tuple(_) => true,
 		ty::Adt(adt, _) => adt.is_enum(),
 		_ => false,
 	};

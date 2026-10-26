@@ -1180,11 +1180,13 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	let height!: rt.u16;
 	let a!: Point.Point;
 	let b2!: Point.Point;
+	let either!: rt.Result<rt.u8, rt.u8>;
+	let v!: rt.u8;
 	let bytes!: Uint8Array;
 	let parsed!: rt.Result<rt.u8, Void.Void>;
 	let a2!: rt.u8;
 	let b3!: rt.u8;
-	let _143!: string;
+	let _166!: string;
 	let args2!: rt.Fmt[];
 	if (!(data.length === 0)) {
 		if (!(data.length === 1)) {
@@ -1244,6 +1246,18 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 				area = 0;
 			}
 			rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(area));
+			if (!(rt.usizeRem(data.length, 2) === 0)) {
+				either = rt.Err(160);
+			} else {
+				either = rt.Ok(data.length & 0xff);
+			}
+			if (either.ok) {
+				v = either.value;
+			} else {
+				v = either.error;
+			}
+			rt.byteVecPush(out, v);
+			rt.byteVecPush(out, rt.u8Add(Uint8Array.of().length & 0xff, rt.iterSum(rt.iterSlice(Uint8Array.of()), rt.u8Add, 0)));
 			bytes = Uint8Array.of(data.length & 0xff, 1, 2);
 			bytes.subarray(1, 3)[0] = 9;
 			rt.byteVecExtendFromSlice(out, bytes);
@@ -1254,8 +1268,8 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, Uint8Array.of(a2, b3, (parsed as { ok: true; value: rt.u8 }).value, early(a2)));
 			const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
 			args2 = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
-			_143 = rt.fmtFormat([args2[0]]);
-			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_143));
+			_166 = rt.fmtFormat([args2[0]]);
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_166));
 			return;
 		} else {
 			b2: {
@@ -1302,15 +1316,17 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	let add!: (a0: rt.u8) => void;
 	let iter!: { s: Uint8Array; i: number };
 	let _8!: rt.u8 | rt.Done;
+	let base!: rt.u32;
+	let n!: rt.u32;
 	let whole!: Uint8Array;
 	let parsed!: Array<Dir.Dir | undefined>;
 	let iter2!: { s: Uint8Array; i: number };
-	let _41!: rt.u8 | rt.Done;
-	let _47!: Dir.Dir | undefined;
+	let _53!: rt.u8 | rt.Done;
+	let _59!: Dir.Dir | undefined;
 	let tags!: rt.ByteVec;
 	let iter3!: { s: Array<Dir.Dir | undefined>; i: number };
-	let _52!: Dir.Dir | undefined | rt.Done;
-	let _58!: rt.u8;
+	let _64!: Dir.Dir | undefined | rt.Done;
+	let _70!: rt.u8;
 	sum = 0;
 	add = (v: rt.u8): void => {
 		sum = rt.u32Add(sum, v as rt.u32);
@@ -1320,33 +1336,40 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 		_8 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
 		if (_8 === rt.DONE) {
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(sum));
-			const captured = data.length as rt.u32;
+			base = data.length as rt.u32;
+			const captured = base;
 			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(apply$closures_closure1((v2: rt.u32): rt.u32 => {
 				return rt.u32Add(rt.u32Mul(v2, 3), captured);
 			}, sum)));
+			n = base;
+			const captured2 = n;
+			n = rt.u32Add(n, 10);
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32Add(((): rt.u32 => {
+				return rt.u32Add(captured2, 1);
+			})(), n)));
 			whole = Uint8Array.of(data.length & 0xff);
 			overwrite(whole);
 			rt.byteVecPush(out, whole[0]);
 			parsed = [];
 			iter2 = { s: data, i: 0 };
 			while (true) {
-				_41 = iter2.i < iter2.s.length ? iter2.s[iter2.i++] : rt.DONE;
-				if (_41 === rt.DONE) {
+				_53 = iter2.i < iter2.s.length ? iter2.s[iter2.i++] : rt.DONE;
+				if (_53 === rt.DONE) {
 					tags = new rt.ByteVec();
 					iter3 = { s: parsed, i: 0 };
 					while (true) {
-						_52 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
-						if (_52 === rt.DONE) {
+						_64 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
+						if (_64 === rt.DONE) {
 							rt.byteVecExtendFromSlice(out, rt.byteVecView(tags));
 							return;
 						} else {
-							_58 = rt.optionUnwrapOr(rt.optionMap(_52, from$From_Dir_u8), 0);
-							rt.byteVecPush(tags, _58);
+							_70 = rt.optionUnwrapOr(rt.optionMap(_64, from$From_Dir_u8), 0);
+							rt.byteVecPush(tags, _70);
 						}
 					}
 				} else {
-					_47 = dir(_41);
-					parsed.push(_47);
+					_59 = dir(_53);
+					parsed.push(_59);
 				}
 			}
 		} else {

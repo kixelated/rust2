@@ -141,6 +141,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !supported && let Some(sym) = super::mir::glue::shim(self, ty, span) {
 			return Some(super::mir::glue::call(sym, value));
 		}
+		if !supported && let ty::Closure(..) = ty.kind() {
+			// Its captures live in an arrow function's scope, where nothing outside can drop them.
+			self.err(
+				span,
+				"dropping a closure that owns a value that drops, which is not supported yet",
+			);
+			return None;
+		}
 		if !supported {
 			self.err(span, format!("dropping `{ty}`, which is not supported yet"));
 			return None;
