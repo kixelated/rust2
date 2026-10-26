@@ -9,6 +9,11 @@ still passing.
 
 ## Plan
 
+Decided with the maintainer on 2026-10-25: the quest also measures `u128` and `i128` as
+native JS `bigint`s instead of numbers and limbs, on the codec and timestamp workloads,
+bundle size included, and keeps whichever wins. `u64` and `i64` stay numbers below 2^53,
+since they already come near `bigint` there.
+
 The `time/u128` workloads, moq-net's `Timestamp::convert`, still take 8-12x the
 hand-written `bigint` route's time after products moved onto halves. What remains there,
 and elsewhere:
