@@ -302,16 +302,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// The types of a stepped local's variables: its array and index, or its bounds.
 	pub(super) fn stepped_tys(&mut self, local: Local) -> [Type; 2] {
 		let ty = self.mir.local_decls[local].ty;
+		let span = self.local_span(local);
 		match array_iter(self.tcx, ty) {
 			Some(item) => [
-				self.b.t.ty(Ty::new_slice(self.tcx, item), self.span),
+				self.b.t.held_ty(Ty::new_slice(self.tcx, item), span),
 				Type::Builtin("number"),
 			],
 			None => {
 				let ty::Adt(_, args) = ty.kind() else {
 					unreachable!("a range is a struct")
 				};
-				let bound = self.b.t.ty(args.type_at(0), self.span);
+				let bound = self.b.t.held_ty(args.type_at(0), span);
 				[bound.clone(), bound]
 			}
 		}

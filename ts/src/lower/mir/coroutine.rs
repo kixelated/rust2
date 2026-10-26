@@ -117,7 +117,8 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		let id = t.program.field(sym, name);
 		saved.push(id);
 		let ty = t.subst(args, field.ty);
-		let ty = t.ty(ty, span);
+		// A local held across an `.await`, refused as any variable is.
+		let ty = t.held_ty(ty, field.source_info.span);
 		fields.push(ts::Field {
 			id,
 			ty,

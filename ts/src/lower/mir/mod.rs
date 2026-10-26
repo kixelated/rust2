@@ -46,9 +46,12 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
+	let ret_span = fx.local_span(mir::RETURN_PLACE);
 	let ret = match (next, ret_ty.kind()) {
-		(true, ty::Adt(_, args)) => Type::Union(vec![fx.b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
-		_ => fx.b.t.ret_ty(ret_ty, span),
+		(true, ty::Adt(_, args)) => {
+			Type::Union(vec![fx.b.t.ty(args.type_at(0), ret_span), Type::Rt("Done", Vec::new())])
+		}
+		_ => fx.b.t.ret_ty(ret_ty, ret_span),
 	};
 	Some(ts::Function {
 		sym: 0,
@@ -275,6 +278,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// Count each local's reads and assignments, and decide how each lowers.
 	fn analyze(&mut self) {
 		let mir = self.mir;
+		self.find_ignored_sites();
 		self.find_noops();
 		let mut bounds = Vec::new();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
@@ -399,6 +403,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(String::new())
 			};
 			self.slots[local] = slot;
+			// A temporary folded into what reads it is declared nowhere, so a type that can't
+			// tell its values apart is refused here. The signature types the parameters and
+			// the result, and a left-out macro's code holds nothing.
+			if !self.is_arg(local) && local != mir::RETURN_PLACE && !self.in_ignored(self.local_span(local)) {
+				let held = match self.next_results.contains(&local) {
+					true => next_item(self.tcx, ty),
+					false => ty,
+				};
+				self.b.t.check_erased(held, self.local_span(local));
+			}
 		}
 		// Names: what debug info calls a local, else its number.
 		let mut named: FxHashMap<Local, rustc_span::Symbol> = FxHashMap::default();
@@ -652,7 +666,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		{
 			return Some(match elem.kind() {
 				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(Box::new(Expr::Array(Vec::new())), self.b.t.ty(ty, self.span)),
+				_ => Expr::As(
+					Box::new(Expr::Array(Vec::new())),
+					self.b.t.ty(ty, self.local_span(local)),
+				),
 			});
 		}
 		let ty::Adt(adt, _) = ty.kind() else {
@@ -661,7 +678,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !adt.is_struct() || !adt.did().is_local() || adt.all_fields().next().is_some() {
 			return None;
 		}
-		let info = self.b.t.adt(*adt, self.span);
+		let info = self.b.t.adt(*adt, self.local_span(local));
 		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
 	}
 
@@ -997,14 +1014,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		for local in self.mir.args_iter().skip(skip) {
 			let ty = match (&self.env, self.mir.local_decls[local].ty.kind()) {
-				(Env::Shim, ty::RawPtr(pointee, _)) => *pointee,
+				(Env::Shim, ty::RawPtr(pointee, _) | ty::Ref(_, pointee, _)) => *pointee,
 				(_, _) => self.mir.local_decls[local].ty,
 			};
 			let name = match &self.slots[local] {
 				Slot::Var(name) => name.clone(),
 				_ => self.b.fresh("_"),
 			};
-			let ty = self.b.t.ty(ty, self.span);
+			let ty = self.b.t.ty(ty, self.local_span(local));
 			params.push(Param { name, ty: Some(ty) });
 		}
 		params
@@ -1125,13 +1142,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out
 	}
 
-	/// Send each block whose terminator an ignored macro made to the one block its code
-	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
-	fn skip_ignored_macros(&mut self) {
-		let mir = self.mir;
-		// Every left-out invocation's span, which its arguments' code is within too.
+	/// Every left-out macro invocation's span, which its arguments' code is within too.
+	fn find_ignored_sites(&mut self) {
 		let mut sites = Vec::new();
-		for data in mir.basic_blocks.iter() {
+		for data in self.mir.basic_blocks.iter() {
 			let spans = data.statements.iter().map(|s| s.source_info.span);
 			for span in spans.chain([data.terminator().source_info.span]) {
 				if let Some(site) = self.b.t.ignored_site(span)
@@ -1142,6 +1156,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		self.ignored_sites = sites;
+	}
+
+	/// Send each block whose terminator an ignored macro made to the one block its code
+	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
+	fn skip_ignored_macros(&mut self) {
+		let mir = self.mir;
 		let flags: IndexVec<BasicBlock, bool> = mir
 			.basic_blocks
 			.iter()
@@ -1189,15 +1209,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local's declared type: the value's, for a checked pair.
 	fn decl_ty(&mut self, local: Local) -> Type {
 		let ty = self.mir.local_decls[local].ty;
-		if self.next_results.contains(&local)
-			&& let ty::Adt(adt, args) = ty.kind()
-		{
-			// `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
-			let item = match crate::lower::library::Std::of(self.tcx, adt.did()) {
-				Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
-				_ => args.type_at(0),
-			};
-			let item = self.b.t.ty(item, self.span);
+		if self.next_results.contains(&local) {
+			let item = self.b.t.held_ty(next_item(self.tcx, ty), self.local_span(local));
 			if self.range_nexts.contains(&local) {
 				return item;
 			}
@@ -1205,9 +1218,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
+			// A box's pointer is the box's contents in JS.
+			(_, ty::RawPtr(pointee, _)) if self.box_pointer(local) => *pointee,
 			_ => ty,
 		};
-		self.b.t.ty(ty, self.span)
+		self.b.t.held_ty(ty, self.local_span(local))
+	}
+
+	/// Where a local is declared, which a refusal of its type points at: for drop glue,
+	/// whose locals are std's, where the value drops.
+	pub(super) fn local_span(&self, local: Local) -> Span {
+		match self.env {
+			Env::Shim => self.span,
+			_ => self.mir.local_decls[local].source_info.span,
+		}
 	}
 
 	/// Where a terminator can go, without its unwinding.
@@ -2927,6 +2951,17 @@ fn inert(e: &Expr) -> bool {
 		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
+	}
+}
+
+/// The item a next result holds, as `ty`: `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
+fn next_item<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty::Adt(adt, args) = ty.kind() else {
+		unreachable!("checked by find_next_results")
+	};
+	match crate::lower::library::Std::of(tcx, adt.did()) {
+		Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
+		_ => args.type_at(0),
 	}
 }
 

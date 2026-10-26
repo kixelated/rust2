@@ -62,16 +62,6 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 	sum
 }
 
-pub enum Slot {
-	Empty,
-	Full(Noisy),
-}
-
-/// An enum's drop glue would switch on its variant.
-pub fn slot(s: Slot) -> bool {
-	matches!(s, Slot::Empty)
-}
-
 pub struct Boxed<T>(pub T);
 
 impl<T> Drop for Boxed<T> {

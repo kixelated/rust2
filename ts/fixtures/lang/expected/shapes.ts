@@ -120,7 +120,6 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			const swapped = a;
 			a = b;
 			b = swapped;
-			undefined;
 			const _66: Point.Point = Point.new(5, 6);
 			const old2 = a;
 			a = rt.copy(_66);
@@ -128,6 +127,15 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			const _71: rt.u8 = a.x & 0xff;
 			const _73: rt.u8 = b.x & 0xff;
 			rt.byteVecExtendFromSlice(out, Uint8Array.of(_71, _73, old.x & 0xff));
+			const boxed: Moved.Moved = { _0: data.length & 0xff, _1: 0 };
+			const _81: rt.u16 = rt.u16Add(boxed._1, 1);
+			const _198: Moved.Moved = boxed;
+			_198._1 = _81;
+			const _83: rt.u16 = rt.u16Add(boxed._1, 2);
+			const _195: Moved.Moved = boxed;
+			_195._1 = _83;
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(boxed._0));
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(boxed._1));
 			let n: rt.u32 = data.length as rt.u32;
 			const both: [rt.u32, rt.u32] = [n, n];
 			n = 9;
@@ -141,8 +149,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			const source: Uint8Array = Uint8Array.of(data.length & 0xff);
 			const returned: Uint8Array = same(rt.copy(source));
 			source[0] = 9;
-			const _128: rt.u8 = returned[0];
-			rt.byteVecExtendFromSlice(out, Uint8Array.of(_128, source[0]));
+			const _145: rt.u8 = returned[0];
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_145, source[0]));
 			rt.byteVecPush(out, copyThenWrite([data.length & 0xff, 0] as [rt.u8, rt.u8]));
 			const marked: boolean = mark(out, 1) === 0;
 			mark(out, 2);
@@ -1222,6 +1230,139 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	} else {
 		rt.byteVecPush(out, 0);
+	}
+}
+
+/** Steps a total by `x`: breaks with what it can't take, or continues with the new total. */
+export function step(total: rt.u16, x: rt.u8): rt.Result<rt.u16, rt.u8 | undefined> {
+	const _3: rt.u16 | undefined = rt.u16CheckedAdd(total, rt.u16Mul(x as rt.u16, 64));
+	if (!(x === 0)) {
+		if (_3 === undefined) {
+			return rt.Err(255);
+		}
+		if (!(_3 > 8192)) {
+			return rt.Ok(_3);
+		}
+		return rt.Err(x);
+	}
+	return rt.Err(undefined);
+}
+
+/** A step that may be pending, as a polled read is. */
+export function polled(x: rt.u8): rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>> {
+	const _2: rt.u8 = rt.u8Rem(x, 4);
+	if (_2 === 0) {
+		return rt.Pending;
+	}
+	if (_2 === 1) {
+		return rt.Err(x);
+	}
+	if (_2 === 2) {
+		return rt.Ok(rt.Err(undefined));
+	}
+	return rt.Ok(rt.Ok(undefined));
+}
+
+/**
+ * `ControlFlow`s made by hand rather than by `?`, and a value replaced through a
+ * `MutexGuard`.
+ */
+export function flows(data: Uint8Array, out: rt.ByteVec): void {
+	let result!: rt.Result<rt.u16, rt.u8>;
+	let option!: rt.u8 | undefined;
+	let _113!: boolean;
+	let total: rt.u16 = 0;
+	const iterS: Uint8Array = data;
+	let iterI: number = 0;
+	while (true) {
+		const _7: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_7 === rt.DONE) {
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(total));
+			const a: rt.u8 = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+			if (rt.u8Rem(a, 3) === 0) {
+				result = rt.Err(a);
+			} else {
+				result = rt.Ok(rt.u16Add(a as rt.u16, 256));
+			}
+			rt.byteVecPush(out, result.ok ? 1 : 0);
+			if (result.ok) {
+				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(result.value));
+			} else {
+				rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
+			}
+			if (rt.u8Rem(a, 5) === 0) {
+				option = undefined;
+			} else {
+				option = rt.u8Div(a, 5);
+			}
+			rt.byteVecPush(out, option === undefined ? 1 : 0);
+			if (option !== undefined) {
+				rt.byteVecPush(out, option);
+			} else {
+				rt.byteVecPush(out, 253);
+			}
+			const original: rt.Result<Uint8Array, undefined> = rt.Ok(Uint8Array.of(a, 1));
+			const copied: rt.Result<Uint8Array, undefined> = rt.copy(original);
+			if (copied.ok) {
+				const _83: rt.u8 = rt.u8WrappingAdd(copied.value[0], 1);
+				copied.value[0] = _83;
+			}
+			const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([original, rt.copy(copied)]);
+			while (true) {
+				const _93: rt.Result<Uint8Array, undefined> | rt.Done = iter2.next();
+				if (_93 === rt.DONE) {
+					const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined);
+					const iterS2: Uint8Array = data;
+					let iterI2: number = 0;
+					while (true) {
+						const _106: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+						if (_106 === rt.DONE) {
+							rt.byteVecPush(out, rt.optionUnwrapOr(slot.value, 252));
+							return;
+						}
+						const x2: rt.u8 = _106;
+						const held: rt.Mutex<rt.u8 | undefined> = slot;
+						const _114: rt.u8 | undefined = held.value;
+						b9: {
+							if (_114 !== undefined) {
+								if (_114 >= x2) {
+									_113 = true;
+									break b9;
+								}
+							}
+							_113 = false;
+						}
+						if (!_113) {
+							held.value = x2;
+						}
+					}
+				}
+				const flow3: rt.Result<Uint8Array, undefined> = _93;
+				if (flow3.ok) {
+					rt.byteVecExtendFromSlice(out, flow3.value);
+				}
+			}
+		}
+		const x: rt.u8 = _7;
+		const flow: rt.Result<rt.u16, rt.u8 | undefined> = step(total, x);
+		rt.byteVecExtendFromSlice(out, Uint8Array.of(!flow.ok ? 1 : 0, flow.ok ? 1 : 0));
+		if (flow.ok) {
+			total = flow.value;
+		} else if (flow.error === undefined) {
+			rt.byteVecPush(out, 254);
+		} else {
+			rt.byteVecPush(out, flow.error);
+		}
+		const _28: rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>> = polled(x);
+		if (_28 !== rt.Pending) {
+			if (_28.ok) {
+				rt.byteVecPush(out, rt.u8Add(2, !_28.value.ok ? 1 : 0));
+			} else {
+				rt.byteVecPush(out, _28.error);
+			}
+		} else {
+			rt.byteVecPush(out, 0);
+		}
 	}
 }
 
