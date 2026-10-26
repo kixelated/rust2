@@ -162,32 +162,23 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String,
 	Ok((lines, overrides(&metadata, top)?))
 }
 
-/// The `[patch]` and `[replace]` the glue's workspace resolves the exports by as the
-/// check did, wherever it builds, as TOML with each path absolute: the workspace's
-/// `[replace]`, and each patch cargo applied to what `top` builds with.
+/// The `[patch]` the glue's workspace resolves the exports by as the check did, wherever
+/// it builds, as TOML with each path absolute.
 fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
-	let manifest = metadata.workspace_root.join("Cargo.toml");
-	let text = std::fs::read_to_string(&manifest).map_err(|err| format!("reading {}: {err}", manifest.display()))?;
-	let table: toml::Table = text
-		.parse()
-		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
+	let patch = patch(metadata, top)?;
 	let mut overrides = toml::Table::new();
-	let replace = replace(&table, &metadata.workspace_root).unwrap_or_default();
-	let patch = patch(metadata, top, &replace)?;
-	if !replace.is_empty() {
-		overrides.insert("replace".to_string(), replace.into());
-	}
 	if !patch.is_empty() {
 		overrides.insert("patch".to_string(), patch.into());
 	}
-	toml::to_string(&overrides).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+	toml::to_string(&overrides).map_err(|err| format!("writing the patches: {err}"))
 }
 
 /// Each patch cargo applied in resolving what `top` builds with, wherever it was
 /// declared: the manifest, cargo's config, `--config`, or the environment. A dependency
-/// resolved to a package of another source than the one it names was patched; it is
+/// resolved to a package of another source than the one it names was patched, or
+/// `[replace]`d by a package of the same version, which a patch resolves to alike; it is
 /// keyed by the URL of the source it names, which reads the same without that config.
-fn patch(metadata: &Metadata, top: &Package, replaced: &toml::Table) -> Result<toml::Table, String> {
+fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 	let packages: BTreeMap<&str, &Package> = metadata.packages.iter().map(|p| (p.id.as_str(), p)).collect();
 	let nodes: BTreeMap<&str, &Node> = metadata.resolve.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
 	let mut patch = toml::Table::new();
@@ -204,10 +195,6 @@ fn patch(metadata: &Metadata, top: &Package, replaced: &toml::Table) -> Result<t
 			let Some(resolved) = packages.get(dep.pkg.as_str()) else {
 				continue;
 			};
-			// The workspace's `[replace]` already carries it.
-			if replaced.keys().any(|spec| replaces(spec, resolved)) {
-				continue;
-			}
 			// Unrenamed, the edge is named by the library's crate name.
 			let lib = (resolved.targets.iter()).find(|t| t.kind.iter().any(|k| k.contains("lib") || k == "proc-macro"));
 			let named = (package.dependencies.iter()).find(|d| {
@@ -260,20 +247,6 @@ fn patch(metadata: &Metadata, top: &Package, replaced: &toml::Table) -> Result<t
 	Ok(patch)
 }
 
-/// Whether a `[replace]` key, a package ID spec such as `foo:1.0.0` or
-/// `https://github.com/rust-lang/crates.io-index#foo@1.0.0`, names `package`, which has
-/// the version it replaces.
-fn replaces(spec: &str, package: &Package) -> bool {
-	let spec = spec.rsplit_once('#').map_or(spec, |(_, spec)| spec);
-	match spec.split_once(['@', ':']) {
-		// A spec's version may name only its leading parts.
-		Some((name, version)) => {
-			name == package.name && (package.version == version || package.version.starts_with(&format!("{version}.")))
-		}
-		None => spec == package.name,
-	}
-}
-
 /// The `[patch]` key of a source as `cargo metadata` spells it.
 fn patch_key(source: &str) -> Result<String, String> {
 	if source == "registry+https://github.com/rust-lang/crates.io-index" || source == "sparse+https://index.crates.io/"
@@ -290,19 +263,6 @@ fn patch_key(source: &str) -> Result<String, String> {
 		return Ok(url.split(['?', '#']).next().unwrap_or(url).to_string());
 	}
 	Err(format!("a patch of {source}, which the export's library cannot patch"))
-}
-
-/// A manifest's `[replace]` dependencies, each path made absolute from `root`, the
-/// manifest's directory.
-fn replace(manifest: &toml::Table, root: &Path) -> Option<toml::Table> {
-	let mut replace = manifest.get("replace")?.as_table()?.clone();
-	// A dependency's own table: a bare string is a version requirement.
-	for (_, dep) in replace.iter_mut() {
-		if let Some(toml::Value::String(path)) = dep.get_mut("path") {
-			*path = root.join(path.as_str()).display().to_string();
-		}
-	}
-	Some(replace)
 }
 
 /// What a cargo subcommand prints for the package, run as the check resolves: from the
@@ -404,7 +364,6 @@ impl<'a> Picks<'a> {
 struct Metadata {
 	packages: Vec<Package>,
 	resolve: Resolve,
-	workspace_root: PathBuf,
 }
 
 #[derive(serde::Deserialize)]
@@ -465,18 +424,6 @@ struct Target {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn absolutes_replace_paths() {
-		let manifest: toml::Table = "[dependencies]\nx = { path = \"x\" }\n\n\
-			[replace]\n\"a:1.0.0\" = { path = \"a\" }\n\"b:1.0.0\" = \"1\"\n"
-			.parse()
-			.unwrap();
-		let expected: toml::Table = "\"a:1.0.0\" = { path = \"/ws/a\" }\n\"b:1.0.0\" = \"1\"\n"
-			.parse()
-			.unwrap();
-		assert_eq!(replace(&manifest, Path::new("/ws")), Some(expected));
-	}
 
 	#[test]
 	fn reads_what_picks_a_resolution() {

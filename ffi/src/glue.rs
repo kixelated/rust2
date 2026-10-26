@@ -47,8 +47,8 @@ pub struct Crate<'a> {
 	pub abi: &'a Abi<'a>,
 	/// The exported packages, the configured one first, each a dependency of the crate.
 	pub exports: &'a [Package],
-	/// The `[patch]` and `[replace]` tables the crate's own workspace resolves the exports
-	/// with, as the check did.
+	/// The `[patch]` table the crate's own workspace resolves the exports with, as the
+	/// check did.
 	pub patch: &'a str,
 }
 

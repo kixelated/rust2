@@ -116,7 +116,7 @@ pub mod env {
 	pub const CENSUS: &str = "RUST2_FFI_CENSUS";
 	/// Each export's [`Package`](super::Package), a line each.
 	pub const CRATES: &str = "RUST2_FFI_CRATES";
-	/// The `[patch]` cargo applied to the configured package and its workspace's
-	/// `[replace]`, as TOML with each path absolute.
+	/// The `[patch]` resolving the configured package as cargo did, as TOML with each
+	/// path absolute.
 	pub const PATCH: &str = "RUST2_FFI_PATCH";
 }

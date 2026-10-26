@@ -19,7 +19,7 @@ libraries, its runtime beside it, and the header in `include/<prefix>.h`; `cargo
 on that crate makes a static and a shared library. That crate enables each export's
 features as the check did, including `--features <export>/<feature>`; such a feature on a
 dependency that is no export is an error. It resolves them as the check did, wherever it
-is built: its manifest carries the workspace's `[replace]`, and each patch cargo applied
+is built: its manifest carries, as a `[patch]`, each patch or `[replace]` cargo applied
 to what the library builds with, read off cargo's resolution, wherever it was declared
 (the manifest, cargo's config, `--config`, or the environment), keyed by its source's URL.
 

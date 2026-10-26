@@ -542,14 +542,15 @@ fn patched() {
 	export_and_build(&package, &["--offline"]);
 }
 
-/// Another export the workspace `[replace]`s is carried by that `[replace]` alone, which
-/// cargo refuses beside a `[patch]` of it.
+/// Another export the workspace `[replace]`s, by a spec naming no package, is carried as
+/// a `[patch]` of it, which resolves alike since a replacement keeps its version.
 #[test]
 fn replaced() {
 	let package = package("replaced");
-	// A git repository the dependency names, whose copy lacks the field the package reads.
+	// A git repository the dependency names, whose copy lacks the field the package reads,
+	// named for the package so the spec names it by its URL.
 	let manifest = "[package]\nname = \"rust2-ffi-replaced-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n";
-	let git = package.join("git");
+	let git = package.join("rust2-ffi-replaced-dep");
 	write_all(
 		&git,
 		&[
@@ -585,8 +586,8 @@ fn replaced() {
 				&format!(
 					"[package]\nname = \"replaced\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
 				[dependencies]\nrust2-ffi-replaced-dep = {{ git = \"{url}\" }}\n\n\
-				[replace]\n\"{url}#rust2-ffi-replaced-dep@1.0.0\" = {{ path = \"dep\" }}\n\n\
-				[workspace]\nexclude = [\"dep\", \"git\"]\n"
+				[replace]\n\"{url}#1.0.0\" = {{ path = \"dep\" }}\n\n\
+				[workspace]\nexclude = [\"dep\", \"rust2-ffi-replaced-dep\"]\n"
 				),
 			),
 			(
