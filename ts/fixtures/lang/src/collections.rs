@@ -7,6 +7,8 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use crate::iters::Bumped;
+
 /// A key whose `Eq`, `Hash`, and `Ord` see only its low nibble, so two keys can be equal
 /// while their bytes differ, and which sorts by that nibble, descending.
 #[derive(Clone, Copy)]
@@ -660,4 +662,81 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&drained);
 	out.extend(q.iter());
 	out.push(q[b]);
+}
+
+/// A value that counts how far it is cloned from the one `vec!` was given, which
+/// `vec![x; n]` clones for every element but the last, which is `x` itself.
+struct Cloned {
+	depth: u8,
+	name: String,
+}
+
+impl Clone for Cloned {
+	fn clone(&self) -> Self {
+		Cloned {
+			depth: self.depth + 1,
+			name: self.name.clone(),
+		}
+	}
+}
+
+/// `vec![a, b]` and `vec![x; n]`, of bytes, numbers, `Copy` tuples, and types that clone.
+pub fn vecs(data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let b = data.get(1).copied().unwrap_or(0);
+	let n = data.get(2).copied().unwrap_or(0) as usize % 5;
+	let name = match String::from_utf8(data.to_vec()) {
+		Ok(s) => s,
+		Err(_) => "?".to_string(),
+	};
+
+	let bytes = vec![a, b, 0x42];
+	out.extend_from_slice(&bytes);
+	let mut pairs = vec![(a, b as u16)];
+	pairs.push((b, a as u16));
+	pairs[0].0 ^= 0xff;
+	for (x, y) in &pairs {
+		out.push(x ^ *y as u8);
+	}
+	let names = vec![name.clone(), "x".to_string(), name.clone()];
+	out.push(names.len() as u8);
+	let one = vec![Cloned {
+		depth: a,
+		name: name.clone(),
+	}];
+	out.push(one[0].depth);
+
+	out.extend_from_slice(&vec![b; n]);
+	let wide = vec![a as u16 * 0x101; n];
+	out.extend(wide.iter().map(|w| (w >> 4) as u8));
+	let mut tuples = vec![(a, b); n];
+	if n > 0 {
+		tuples[0].0 = 0xee;
+	}
+	out.extend(tuples.iter().map(|t| t.0 ^ t.1));
+	let strings = vec![name.clone(); n];
+	out.push(strings.len() as u8);
+	let cloned = vec![Cloned { depth: 0, name }; n];
+	out.extend(cloned.iter().map(|c| c.depth));
+	out.push(cloned.iter().all(|c| c.name.len() == data.len()) as u8);
+	// A `Copy` type's own `Clone` runs too.
+	let bumped = vec![Bumped(b); n];
+	out.extend(bumped.iter().map(|o| o.0));
+
+	// Each element is a copy of what it was given, apart from it and from each other.
+	let pair = (a, b);
+	let held = Bumped(a);
+	let mut listed = vec![pair, pair];
+	listed[0].0 ^= 0xff;
+	let mut repeated = vec![pair; n];
+	let again = vec![pair; n];
+	let mut bumps = vec![held; n];
+	let kept = vec![held; n];
+	if n > 0 {
+		repeated[n - 1].1 ^= 0xff;
+		bumps[n - 1].0 ^= 0xff;
+	}
+	out.extend_from_slice(&[pair.0, pair.1, listed[1].0, held.0]);
+	out.extend(repeated.iter().chain(&again).map(|t| t.1));
+	out.extend(bumps.iter().chain(&kept).map(|o| o.0));
 }

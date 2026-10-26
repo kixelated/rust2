@@ -285,7 +285,7 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.iterFold(rt.iterSlice(data), 0, (acc: rt.u32, _34: rt.u8): rt.u32 => {
 			const b8: rt.u8 = _34;
 			const _510: rt.u32 = (acc << 3) >>> 0;
-			return rt.u32WrappingAdd(_510, (b8 as rt.u32 ^ acc) >>> 0);
+			return rt.u32WrappingAdd(_510, ((b8 as rt.u32) ^ acc) >>> 0);
 		})));
 		rt.iterForEach(rt.iterSlice(data), (_216: rt.u8): void => {
 			rt.byteVecPush(log, rotateFree$RotateFree_u8(_216));

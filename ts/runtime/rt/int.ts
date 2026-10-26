@@ -44,6 +44,8 @@ export type i16 = Num<"i16">;
 export type i32 = Num<"i32">;
 /** 32 bits, as on wasm32. */
 export type isize = Num<"isize">;
+/** Rust's `char`: a Unicode scalar value, which is at most 0x10ffff and no surrogate. */
+export type char = Num<"char">;
 /**
  * A `u64`: a number while it is a safe integer, at most 2^53 - 1, and its limbs past
  * that. Each value has one form, so two numbers compare with `===`, and a number never

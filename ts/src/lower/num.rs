@@ -346,9 +346,20 @@ pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tc
 
 /// `value as to`.
 pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to: Ty<'tcx>, span: Span) -> Expr {
+	// Only a `u8` casts to a `char`, whose scalar value it is.
+	if let (ty::Char, ty::Uint(ty::UintTy::U8)) = (to.kind(), from.kind()) {
+		return Expr::As(Box::new(value.expr), Type::Rt("char", Vec::new()));
+	}
 	let Some(target) = Int::of(to) else {
 		return b.err(span, format!("a cast to `{to}`"));
 	};
+	// A `char` is its scalar value, at most 0x10FFFF: it fits a type of more than 21 bits.
+	if let ty::Char = from.kind() {
+		return match target.bits > 21 {
+			true => Expr::As(Box::new(value.expr), target.ty()),
+			false => target.wrap(value.expr),
+		};
+	}
 	if let ty::Bool = from.kind() {
 		return Expr::Cond(Box::new(value.expr), Box::new(target.lit(1)), Box::new(target.lit(0)));
 	}
