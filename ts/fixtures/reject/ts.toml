@@ -11,7 +11,6 @@ roots = [
     "Noisy",
     "owning_closure",
     "each",
-    "slot",
     "boxed",
     "async_borrow",
     "async_closure",

@@ -1,6 +1,8 @@
 //! What the harness spawns and drives: a consumer loop holding guards across its awaits,
 //! the same loop under a stack of async functions, and the channels they read.
 
+use std::ops::ControlFlow;
+
 use crate::kio::{Consumer, Producer};
 use crate::log::Log;
 
@@ -77,6 +79,11 @@ impl Guard {
 	fn finish(self, event: &str) -> u32 {
 		self.note(event);
 		self.id
+	}
+
+	/// [`Self::finish`], moved out of its box: freeing the box must not drop it again.
+	fn unbox(self: Box<Self>, event: &str) -> u32 {
+		(*self).finish(event)
 	}
 }
 
@@ -270,8 +277,10 @@ fn pick(log: &Log, i: usize) -> usize {
 /// guards destructured in part: the one left in the array drops with it, after the other;
 /// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
 /// temporary to the end of the block; a `_` binding of an element, which evaluates its
-/// index and moves nothing; a boxed guard read twice, which a read leaves boxed; and a
-/// guard a method takes by value, which drops inside it.
+/// index and moves nothing; a boxed guard read twice, which a read leaves boxed; a guard
+/// a method takes by value, which drops inside it, once from a box; and a boxed array of
+/// guards that may be absent, which drops them in order, and a `Result` and a
+/// `ControlFlow` that may hold a guard, which rustc's glue drops.
 #[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
@@ -294,6 +303,26 @@ fn turns(log: &Log, count: u32) {
 	log.note(format!("boxed {once} {}", boxed.id));
 	let finished = Guard::new(count + 110, log.clone()).finish("finishing");
 	log.note(format!("finished {finished}"));
+	let unboxed = Box::new(Guard::new(count + 120, log.clone())).unbox("unboxing");
+	log.note(format!("unboxed {unboxed}"));
+	let stacked = match count % 2 {
+		0 => Some(Box::new([
+			Guard::new(count + 130, log.clone()),
+			Guard::new(count + 140, log.clone()),
+		])),
+		_ => None,
+	};
+	log.note(format!("stacked {}", stacked.is_some()));
+	let failed = match count % 2 {
+		0 => Err::<u32, _>(Guard::new(count + 150, log.clone())),
+		_ => Ok(count),
+	};
+	log.note(format!("failed {}", failed.is_err()));
+	let flow = match count % 3 {
+		0 => ControlFlow::Break(Guard::new(count + 160, log.clone())),
+		_ => ControlFlow::Continue(count),
+	};
+	log.note(format!("flow {}", flow.is_break()));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {
