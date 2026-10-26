@@ -149,6 +149,13 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 			dir: dir.into(),
 			features: features.get(name.as_str()).cloned().unwrap_or_default(),
 		};
+		if lines
+			.lines()
+			.filter_map(|l| l.split('\t').next())
+			.any(|n| n.replace('-', "_") == package.root())
+		{
+			return Err(format!("{name} is another export's name in snake case"));
+		}
 		lines.push_str(&package.line());
 	}
 	Ok(lines)

@@ -15,9 +15,8 @@ use crate::ir::{Access, Function, Mutability, Receiver, Traits, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.rs");
 
-/// The name the crate depends on an export by, the one its items' paths start with
-/// suffixed: the configured package's names for them may be `bytes` or `std`, which the
-/// crate names too.
+/// The name the crate depends on an export by, its root suffixed: an export may be
+/// named `bytes` or `std`, which the crate names too.
 fn dependency(krate: &str) -> String {
 	format!("{krate}_export")
 }
@@ -66,7 +65,7 @@ impl Crate<'_> {
 				features.sort();
 				format!(
 					"{} = {{ package = {:?}, path = {:?}, default-features = false, features = [{}] }}\n",
-					dependency(&export.krate),
+					dependency(&export.root()),
 					export.name,
 					export.dir.display().to_string(),
 					features.join(", ")

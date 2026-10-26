@@ -16,8 +16,8 @@ pub struct Api {
 	pub constants: Vec<Constant>,
 }
 
-/// A Rust path: its crate's name, then the path from that crate's root, such as
-/// `["moq_net", "track", "Producer", "append_group"]`.
+/// A Rust path: its export's package name in snake case, unique among the exports, then
+/// the path from that crate's root, such as `["moq_net", "track", "Producer", "append_group"]`.
 pub type Path = Vec<String>;
 
 /// A struct whose fields are all `pub`: a value, copied across.

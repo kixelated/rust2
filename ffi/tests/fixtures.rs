@@ -396,8 +396,9 @@ fn diamond() {
 
 /// Another export is bound by the configured package's dependency on it, not its crate
 /// name or source: a used dependency whose crate shares an unused export's name stands
-/// in for none, and two exports of one crate name export by their dependency names, one
-/// of them `bytes`, which the glue names too, with their sources remapped.
+/// in for none, and two exports of one crate name export, by names the configured package
+/// calls them that are its own crate name and `bytes`, which the glue names too, with
+/// their sources remapped.
 #[test]
 fn lookalike() {
 	let package = package("lookalike");
@@ -421,8 +422,8 @@ fn lookalike() {
 	}
 	write(
 		"Cargo.toml",
-		"[package]\nname = \"lookalike\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
-		[dependencies]\nexp = { package = \"lookalike-exp\", path = \"exp\" }\n\
+		"[package]\nname = \"lookalike\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[lib]\nname = \"shared\"\n\n\
+		[dependencies]\nshared = { package = \"lookalike-exp\", path = \"exp\" }\n\
 		bytes = { package = \"lookalike-other\", path = \"other\" }\n\n\
 		[workspace]\nexclude = [\"exp\", \"other\"]\n",
 	);
@@ -436,14 +437,14 @@ fn lookalike() {
 	let stderr = String::from_utf8_lossy(&output.stderr);
 	assert!(
 		stderr.contains(
-			"[crates.lookalike-exp] needs `lookalike` to use its dependency `exp`, and it uses 0 crates of it"
+			"[crates.lookalike-exp] needs `lookalike` to use its dependency `shared`, and it uses 0 crates of it"
 		),
 		"{stderr}"
 	);
 
 	write(
 		"src/lib.rs",
-		"pub fn total(a: exp::Size, b: bytes::Size) -> u32 {\n\ta.width + b.width\n}\n",
+		"pub fn total(a: shared::Size, b: bytes::Size) -> u32 {\n\ta.width + b.width\n}\n",
 	);
 	write(
 		"ffi.toml",

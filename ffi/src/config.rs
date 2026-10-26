@@ -63,8 +63,8 @@ impl Config {
 /// An export's package, as the CLI resolves it for the wrapper.
 pub struct Package {
 	pub name: String,
-	/// The name Rust code calls its library by: the configured package's crate name, and
-	/// another's name as a dependency of it, which binds it to the crate rustc loaded.
+	/// The name the configured package calls its library by, which binds another export
+	/// to the crate rustc loaded: the configured package's own crate name.
 	pub krate: String,
 	pub dir: PathBuf,
 	/// The features the generated crate enables in it, beyond what the configured
@@ -73,6 +73,13 @@ pub struct Package {
 }
 
 impl Package {
+	/// The first segment of its items' paths in the IR, which the glue depends on it by:
+	/// its name in snake case, unique among the exports, where the names the configured
+	/// package calls them by may coincide with each other and its own.
+	pub fn root(&self) -> String {
+		self.name.replace('-', "_")
+	}
+
 	/// One line of [`env::CRATES`].
 	pub fn line(&self) -> String {
 		let dir = self.dir.display();

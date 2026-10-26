@@ -59,8 +59,8 @@ pub struct Collected {
 /// An exported crate.
 pub struct Crate<'a> {
 	pub krate: CrateNum,
-	/// The name Rust code calls it by, the first segment of its items' paths in the IR.
-	pub name: &'a str,
+	/// The first segment of its items' paths in the IR.
+	pub root: String,
 	pub package: &'a str,
 	/// Paths from its root the config leaves out.
 	pub exclude: &'a [String],
@@ -69,8 +69,7 @@ pub struct Crate<'a> {
 /// What collection found in one exported crate, by paths from its root.
 pub struct Report {
 	pub package: String,
-	/// The name Rust code calls its crate by, the first segment of its items' paths in
-	/// the IR.
+	/// Its crate's root, the first segment of its items' paths in the IR.
 	pub krate: String,
 	pub refusals: Vec<Refusal>,
 	/// Records and enums exported as objects, since a field does not map: the first.
@@ -156,7 +155,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 				.iter()
 				.map(|c| Report {
 					package: c.package.to_string(),
-					krate: c.name.to_string(),
+					krate: c.root.clone(),
 					refusals: Vec::new(),
 					opaque: Vec::new(),
 					twins: Vec::new(),
@@ -227,7 +226,7 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// Every `pub` item reachable from each exported crate's root, breadth first so each
-	/// keeps its shortest path, which starts with the name Rust code calls its crate by.
+	/// keeps its shortest path, which starts with its crate's root.
 	fn walk(&mut self) {
 		let tcx = self.tcx;
 		for (i, krate) in self.crates.clone().into_iter().enumerate() {

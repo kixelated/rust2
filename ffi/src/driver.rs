@@ -209,7 +209,7 @@ impl Export {
 			};
 			crates.push(collect::Crate {
 				krate: cnum,
-				name: krate,
+				root: self.crates[i].root(),
 				package,
 				// A census counts the whole API, whatever the config leaves out.
 				exclude: match self.output {
