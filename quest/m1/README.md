@@ -18,6 +18,5 @@ are folded into the [exporter's](/quest/m1/ffi-export.md). The
 
 - [Waiting: publish the UniFFI fork](/quest/m1/uniffi-release.md) - the fork publishes to crates.io under `rust2-*` names, once the maintainer decides it should
 - [Exporter](/quest/m1/ffi-export.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
-- [Measure moq's fixed crane in the Nix benchmark](/quest/m1/bench-nix.md) - crane after moq's layering fixes beside the per-crate caches, so moq can choose how its Nix builds share compilations
 - [Land main through quest land](/quest/m1/land.md) - every queued PR lands as one tested batch through the shared gate
 - [Bump quest to quest land](/quest/m1/land-bump.md) - condition: kixelated/quest ships `quest land`; then bump the flake input

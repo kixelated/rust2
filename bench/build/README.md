@@ -107,6 +107,8 @@ crate2nix takes cargo's release codegen units rather than its default of one, so
 
 ### Nix builds for moq
 
+Decided on 2026-10-26: moq explores crate2nix, the cheapest on the edits and lockfile bumps CI repeats, and keeps its crane layers as they are.
+
 Measured on 2026-10-25 on a busy 32-CPU host, in billions of instructions, at the pin in nix.toml:
 
 | scenario | crane | crane-mbx | crate2nix | cargo-mbx |
