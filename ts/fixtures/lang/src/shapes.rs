@@ -1095,6 +1095,18 @@ pub fn flows(data: &[u8], out: &mut Vec<u8>) {
 		ControlFlow::Break(None) => out.push(0xfd),
 	}
 
+	// A copy holds its own copy of what it holds.
+	let original: ControlFlow<(), [u8; 2]> = ControlFlow::Continue([a, 1]);
+	let mut copied = original;
+	if let ControlFlow::Continue(ref mut v) = copied {
+		v[0] = v[0].wrapping_add(1);
+	}
+	for flow in [original, copied] {
+		if let ControlFlow::Continue(v) = flow {
+			out.extend_from_slice(&v);
+		}
+	}
+
 	let slot = Mutex::new(None);
 	for &x in data {
 		let mut held = slot.lock().unwrap();

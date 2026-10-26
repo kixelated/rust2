@@ -33,6 +33,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(
 					Std::Option
 					| Std::Result
+					| Std::ControlFlow
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex

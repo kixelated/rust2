@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 73
+- Refusals: 72
 - Function instances: 61
 - Generic functions no instance reached, lowered over their type parameters: 3
 
@@ -10,9 +10,9 @@
 | ---: | --- | --- |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 6 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
-| 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
 | 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 5 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
+| 4 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:59:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:133:2 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:159:20 |
@@ -80,7 +80,6 @@ The type or module each refused type or path belongs to.
 | 1 | `IntToFloat` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
-| 1 | `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:309:22 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:354:6 |
@@ -114,7 +113,6 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, which may drop a `_`, which is not supported yet | `HashSet::remove`, `std::collections::HashSet`, `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:379:9 |
-| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut Slot`, `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:144:2 |
@@ -175,16 +173,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (5)</summary>
-
-- fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:25:2: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:73:1: `&mut Slot`: a JS value of `Slot` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:90:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:120:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
-
-</details>
-
 <details><summary>unsupported call to `_` (5)</summary>
 
 - fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
@@ -202,6 +190,15 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:10:18: unsupported type `char`
 - fixtures/reject/src/lib.rs:14:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:142:51: unsupported type `f64`
+
+</details>
+
+<details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (4)</summary>
+
+- fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:25:2: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:90:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:120:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
 
 </details>
 

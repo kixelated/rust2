@@ -1008,7 +1008,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		for local in self.mir.args_iter().skip(skip) {
 			let ty = match (&self.env, self.mir.local_decls[local].ty.kind()) {
-				(Env::Shim, ty::RawPtr(pointee, _)) => *pointee,
+				(Env::Shim, ty::RawPtr(pointee, _) | ty::Ref(_, pointee, _)) => *pointee,
 				(_, _) => self.mir.local_decls[local].ty,
 			};
 			let name = match &self.slots[local] {

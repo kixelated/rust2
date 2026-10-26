@@ -1565,15 +1565,21 @@ export function flows(data: Uint8Array, out: rt.ByteVec): void {
 	let a!: rt.u8;
 	let result!: rt.Result<rt.u16, rt.u8>;
 	let option!: rt.u8 | undefined;
+	let original!: rt.Result<Uint8Array, undefined>;
+	let copied!: rt.Result<Uint8Array, undefined>;
+	let _83!: rt.u8;
+	let iter2!: rt.Iter<rt.Result<Uint8Array, undefined>>;
+	let _93!: rt.Result<Uint8Array, undefined> | rt.Done;
+	let flow3!: rt.Result<Uint8Array, undefined>;
 	let slot!: rt.Mutex<rt.u8 | undefined>;
 	let iterS2!: Uint8Array;
 	let iterI2!: number;
-	let _82!: rt.u8 | rt.Done;
+	let _106!: rt.u8 | rt.Done;
 	let x2!: rt.u8;
 	let held!: rt.Mutex<rt.u8 | undefined>;
-	let _89!: boolean;
-	let _90!: rt.u8 | undefined;
-	let _105!: rt.Mutex<rt.u8 | undefined>;
+	let _113!: boolean;
+	let _114!: rt.u8 | undefined;
+	let _129!: rt.Mutex<rt.u8 | undefined>;
 	total = 0;
 	iterS = data;
 	iterI = 0;
@@ -1604,30 +1610,47 @@ export function flows(data: Uint8Array, out: rt.ByteVec): void {
 			} else {
 				rt.byteVecPush(out, 253);
 			}
-			slot = new rt.Mutex(undefined);
-			iterS2 = data;
-			iterI2 = 0;
+			original = rt.Ok(Uint8Array.of(a, 1));
+			copied = rt.copy(original);
+			if (copied.ok) {
+				_83 = rt.u8WrappingAdd(copied.value[0], 1);
+				copied.value[0] = _83;
+			}
+			iter2 = rt.iterSlice([original, rt.copy(copied)]);
 			while (true) {
-				_82 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_82 === rt.DONE) {
-					_105 = slot;
-					rt.byteVecPush(out, rt.optionUnwrapOr(_105.value, 252));
-					return;
-				} else {
-					x2 = _82;
-					held = slot;
-					_90 = held.value;
-					b7: {
-						if (_90 !== undefined) {
-							if (_90 >= x2) {
-								_89 = true;
-								break b7;
+				_93 = iter2.next();
+				if (_93 === rt.DONE) {
+					slot = new rt.Mutex(undefined);
+					iterS2 = data;
+					iterI2 = 0;
+					while (true) {
+						_106 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+						if (_106 === rt.DONE) {
+							_129 = slot;
+							rt.byteVecPush(out, rt.optionUnwrapOr(_129.value, 252));
+							return;
+						} else {
+							x2 = _106;
+							held = slot;
+							_114 = held.value;
+							b9: {
+								if (_114 !== undefined) {
+									if (_114 >= x2) {
+										_113 = true;
+										break b9;
+									}
+								}
+								_113 = false;
+							}
+							if (!_113) {
+								held.value = x2;
 							}
 						}
-						_89 = false;
 					}
-					if (!_89) {
-						held.value = x2;
+				} else {
+					flow3 = _93;
+					if (flow3.ok) {
+						rt.byteVecExtendFromSlice(out, flow3.value);
 					}
 				}
 			}

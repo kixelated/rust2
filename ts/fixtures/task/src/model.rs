@@ -1,6 +1,8 @@
 //! What the harness spawns and drives: a consumer loop holding guards across its awaits,
 //! the same loop under a stack of async functions, and the channels they read.
 
+use std::ops::ControlFlow;
+
 use crate::kio::{Consumer, Producer};
 use crate::log::Log;
 
@@ -277,7 +279,8 @@ fn pick(log: &Log, i: usize) -> usize {
 /// temporary to the end of the block; a `_` binding of an element, which evaluates its
 /// index and moves nothing; a boxed guard read twice, which a read leaves boxed; a guard
 /// a method takes by value, which drops inside it, once from a box; and a boxed array of
-/// guards that may be absent, which drops them in order.
+/// guards that may be absent, which drops them in order, and a `Result` and a
+/// `ControlFlow` that may hold a guard, which rustc's glue drops.
 #[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
@@ -310,6 +313,16 @@ fn turns(log: &Log, count: u32) {
 		_ => None,
 	};
 	log.note(format!("stacked {}", stacked.is_some()));
+	let failed = match count % 2 {
+		0 => Err::<u32, _>(Guard::new(count + 150, log.clone())),
+		_ => Ok(count),
+	};
+	log.note(format!("failed {}", failed.is_err()));
+	let flow = match count % 3 {
+		0 => ControlFlow::Break(Guard::new(count + 160, log.clone())),
+		_ => ControlFlow::Continue(count),
+	};
+	log.note(format!("flow {}", flow.is_break()));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {
