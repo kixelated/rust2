@@ -29,9 +29,11 @@ const EDGES: [u32; 20] = [
 	u32::MAX,
 ];
 
-/// Chars `Debug` escapes, or writes as they are.
-const SHOWN: [char; 12] = [
-	'a', '\'', '"', '\\', '\n', '\0', '\u{7f}', 'é', '\u{301}', '\u{ad}', '\u{e000}', '😀',
+/// Chars `Debug` escapes, or writes as they are. The halfwidth katakana marks extend
+/// graphemes but print; the Hangul fillers are default-ignorable.
+const SHOWN: [char; 18] = [
+	'a', '\'', '"', '\\', '\n', '\0', '\u{7f}', 'é', '\u{301}', '\u{ad}', '\u{e000}', '😀', '\u{ff9e}', '\u{ff9f}',
+	'\u{115f}', '\u{1160}', '\u{3164}', '\u{ffa0}',
 ];
 
 /// The scalars to try: the edges, then each big-endian `u32` in `data`, zero-padded.

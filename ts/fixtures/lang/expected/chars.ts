@@ -150,7 +150,7 @@ export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ align: ">", width: 3 }, args2[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 4 }, args2[0]), "|", rt.fmtSpec({ align: "<", width: 2 }, args2[0])]));
 			}
 		}
-		const iter6: rt.Iter<rt.char> = rt.iterSlice([97, 39, 34, 92, 10, 0, 127, 233, 769, 173, 57344, 128512]);
+		const iter6: rt.Iter<rt.char> = rt.iterSlice([97, 39, 34, 92, 10, 0, 127, 233, 769, 173, 57344, 128512, 65438, 65439, 4447, 4448, 12644, 65440]);
 		while (true) {
 			const _161: rt.char | rt.Done = iter6.next();
 			if (_161 === rt.DONE) {
