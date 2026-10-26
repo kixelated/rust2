@@ -176,20 +176,45 @@ fn patches(root: &Path, dir: &Path, picks: &Picks<'_>) -> Result<String, String>
 			"cargo's config overrides {paths} by `paths`, which no manifest can, so the export's library would build them unpatched"
 		));
 	}
-	for (source, deps) in config
+	let patch = patches.entry("patch").or_insert_with(|| toml::Table::new().into());
+	let Some(patch) = patch.as_table_mut() else {
+		return Err(format!("{}: `patch` is not a table", manifest.display()));
+	};
+	for (key, deps) in config
 		.get("patch")
 		.and_then(toml::Value::as_table)
 		.into_iter()
 		.flatten()
 	{
-		let patch = patches.entry("patch").or_insert_with(|| toml::Table::new().into());
-		let into = (patch.as_table_mut()).map(|patch| patch.entry(source).or_insert_with(|| toml::Table::new().into()));
-		let (Some(toml::Value::Table(into)), Some(deps)) = (into, deps.as_table()) else {
-			return Err(format!("`patch.{source}` is not a table"));
+		// Into the manifest's table of the same source, however it spells it.
+		let source = source(key, &config);
+		let into = (patch.keys())
+			.find(|k| self::source(k, &config) == source)
+			.cloned()
+			.unwrap_or_else(|| key.clone());
+		let into = patch.entry(into).or_insert_with(|| toml::Table::new().into());
+		let (Some(into), Some(deps)) = (into.as_table_mut(), deps.as_table()) else {
+			return Err(format!("`patch.{key}` is not a table"));
 		};
 		into.extend(deps.clone());
 	}
+	if patch.is_empty() {
+		patches.remove("patch");
+	}
 	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+}
+
+/// The source a `[patch.<key>]` names, as cargo resolves it: crates.io's index or a
+/// configured registry's by name, and otherwise the URL itself.
+fn source(key: &str, config: &toml::Table) -> String {
+	if key == "crates-io" {
+		return "https://github.com/rust-lang/crates.io-index".to_string();
+	}
+	let index = (config.get("registries"))
+		.and_then(|registries| registries.get(key))
+		.and_then(|registry| registry.get("index"))
+		.and_then(toml::Value::as_str);
+	index.unwrap_or(key).to_string()
 }
 
 fn read_toml(path: &Path) -> Result<toml::Table, String> {
@@ -230,28 +255,37 @@ fn config(dir: &Path, picks: &Picks<'_>) -> Result<toml::Table, String> {
 		let table = match !value.is_empty() && file.exists() {
 			true => load(&file)?,
 			false => {
-				let table = value
-					.parse()
-					.map_err(|err| format!("parsing --config {value}: {err}"))?;
-				absolute(table, &dir)
+				let origin = format!("--config {value}");
+				let table = value.parse().map_err(|err| format!("parsing {origin}: {err}"))?;
+				expand(table, &dir, &dir, &origin)?
 			}
 		};
 		merge(&mut config, table);
 	}
-	config.retain(|key, _| key == "patch" || key == "paths");
+	config.retain(|key, _| matches!(key, "patch" | "paths" | "registries"));
 	Ok(config)
 }
 
-/// A cargo config file's values with its `include`s' merged in beneath them, in order,
-/// each patch's path absolute: from the directory holding the file's directory.
+/// A cargo config file's values, as [`expand`] has them: its `include`s from its own
+/// directory, and its patches' paths from the directory holding that.
 fn load(file: &Path) -> Result<toml::Table, String> {
-	let mut table = read_toml(file)?;
 	let dir = file.parent().expect("a file has a parent");
+	expand(
+		read_toml(file)?,
+		dir,
+		dir.parent().unwrap_or(dir),
+		&file.display().to_string(),
+	)
+}
+
+/// A config's values with its `include`s merged in beneath them, in order, each path in
+/// `dir`, and each patch's path made absolute from `root`. `origin` names it in errors.
+fn expand(mut table: toml::Table, dir: &Path, root: &Path, origin: &str) -> Result<toml::Table, String> {
 	let includes = match table.remove("include") {
 		None => Vec::new(),
 		Some(toml::Value::String(path)) => vec![toml::Value::String(path)],
 		Some(toml::Value::Array(includes)) => includes,
-		Some(_) => return Err(format!("{}: `include` is not a path or a list", file.display())),
+		Some(_) => return Err(format!("{origin}: `include` is not a path or a list")),
 	};
 	let mut config = toml::Table::new();
 	for include in includes {
@@ -264,7 +298,7 @@ fn load(file: &Path) -> Result<toml::Table, String> {
 			_ => (None, false),
 		};
 		let Some(path) = path else {
-			return Err(format!("{}: an `include` names no path: {include}", file.display()));
+			return Err(format!("{origin}: an `include` names no path: {include}"));
 		};
 		let path = dir.join(path);
 		if optional && !path.exists() {
@@ -272,17 +306,12 @@ fn load(file: &Path) -> Result<toml::Table, String> {
 		}
 		merge(&mut config, load(&path)?);
 	}
-	merge(&mut config, absolute(table, dir.parent().unwrap_or(dir)));
-	Ok(config)
-}
-
-/// A config's values with each patch's path made absolute from `root`. Cargo reads no
-/// `[replace]` from its config.
-fn absolute(mut table: toml::Table, root: &Path) -> toml::Table {
+	// Cargo reads no `[replace]` from its config.
 	if let Some(patch) = overrides(&table, root).remove("patch") {
 		table.insert("patch".to_string(), patch);
 	}
-	table
+	merge(&mut config, table);
+	Ok(config)
 }
 
 /// Merge `high` into `low` as cargo merges its config: tables key by key, arrays joined

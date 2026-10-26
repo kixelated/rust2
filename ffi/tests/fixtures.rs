@@ -527,7 +527,8 @@ fn patched() {
 /// Patches in cargo's config, which cargo reads only where the check runs, reach the glue
 /// as the check resolved them: an ancestor's file through its `include`, with paths from
 /// the directory holding its `.cargo`, outranking the manifest's patch of the same
-/// dependency, and a `--config` value, with paths from the package's directory.
+/// dependency under another spelling of its source, and a `--config` value's `include`,
+/// from the package's directory.
 #[test]
 fn config_patched() {
 	let root = scratch().join("config-patched");
@@ -565,10 +566,14 @@ fn config_patched() {
 		"[patch.crates-io]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
 	);
 	write(
+		"pkg/.cargo/cli.toml",
+		"[patch.crates-io]\nrust2-ffi-config-cli = { path = \"cli\" }\n",
+	);
+	write(
 		"pkg/Cargo.toml",
 		"[package]\nname = \"config-patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
 		[dependencies]\nrust2-ffi-config-cli = \"1\"\nrust2-ffi-config-dep = \"1\"\n\n\
-		[patch.crates-io]\nrust2-ffi-config-dep = { path = \"stale\" }\n\n\
+		[patch.'https://github.com/rust-lang/crates.io-index']\nrust2-ffi-config-dep = { path = \"stale\" }\n\n\
 		[workspace]\nexclude = [\"cli\", \"dep\", \"stale\"]\n",
 	);
 	write(
@@ -586,12 +591,7 @@ fn config_patched() {
 		.arg(root.join("pkg/ffi.toml"))
 		.arg("--out")
 		.arg(&out)
-		.args([
-			"--",
-			"--offline",
-			"--config",
-			"patch.crates-io.rust2-ffi-config-cli.path = \"cli\"",
-		])
+		.args(["--", "--offline", "--config", "include = [\".cargo/cli.toml\"]"])
 		.env("CARGO_TARGET_DIR", root.join("build"))
 		.output()
 		.unwrap();
