@@ -1,7 +1,7 @@
 //! The `ffi.toml` that says what to export.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -60,6 +60,44 @@ impl Config {
 	}
 }
 
+/// An export's package, as the CLI resolves it for the wrapper.
+pub struct Package {
+	pub name: String,
+	/// Its library's crate name.
+	pub krate: String,
+	pub dir: PathBuf,
+	/// The features the generated crate enables in it, beyond what the configured
+	/// package's enable.
+	pub features: Vec<String>,
+}
+
+impl Package {
+	/// One line of [`env::CRATES`].
+	pub fn line(&self) -> String {
+		let dir = self.dir.display();
+		format!("{}\t{}\t{dir}\t{}\n", self.name, self.krate, self.features.join(","))
+	}
+
+	/// The packages [`env::CRATES`] lists, a line each.
+	pub fn parse(lines: &str) -> Result<Vec<Self>, String> {
+		(lines.lines())
+			.map(|line| match line.split('\t').collect::<Vec<_>>()[..] {
+				[name, krate, dir, features] => Ok(Self {
+					name: name.to_string(),
+					krate: krate.to_string(),
+					dir: PathBuf::from(dir),
+					features: features
+						.split(',')
+						.filter(|f| !f.is_empty())
+						.map(str::to_string)
+						.collect(),
+				}),
+				_ => Err(format!("{} holds a malformed line: {line}", env::CRATES)),
+			})
+			.collect()
+	}
+}
+
 /// Environment variables the CLI hands the wrapper.
 pub mod env {
 	/// The `ffi.toml` path, absolute.
@@ -68,6 +106,6 @@ pub mod env {
 	pub const OUT: &str = "RUST2_FFI_OUT";
 	/// The directory to write each export's census into instead of exporting, absolute.
 	pub const CENSUS: &str = "RUST2_FFI_CENSUS";
-	/// Each export's package, crate name, and directory, a line each, tab-separated.
+	/// Each export's [`Package`](super::Package), a line each.
 	pub const CRATES: &str = "RUST2_FFI_CRATES";
 }

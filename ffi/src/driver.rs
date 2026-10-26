@@ -13,7 +13,7 @@ use rustc_span::Span;
 
 use crate::abi::Abi;
 use crate::config::{self, Config};
-use crate::{c, census, collect, glue};
+use crate::{census, collect, glue};
 
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
@@ -26,10 +26,9 @@ pub fn run(args: Vec<String>) -> ExitCode {
 struct Export {
 	config: Config,
 	output: Output,
-	/// The features rustc compiles the crate with, which the export's crate enables.
-	features: Vec<String>,
-	/// Each export's package, crate name, and directory: the configured package first.
-	crates: Vec<(String, String, PathBuf)>,
+	/// Each export's package: the configured package first, with the features rustc
+	/// compiles it with.
+	crates: Vec<config::Package>,
 }
 
 /// What the job writes.
@@ -64,27 +63,19 @@ impl Export {
 				));
 			}
 		};
-		let features = args
+		let crates = std::env::var(config::env::CRATES).map_err(|_| format!("{} is unset", config::env::CRATES))?;
+		let mut crates = config::Package::parse(&crates)?;
+		let Some(top) = crates.first_mut() else {
+			return Err(format!("{} lists no package", config::env::CRATES));
+		};
+		top.features = args
 			.windows(2)
 			.filter(|w| w[0] == "--cfg")
 			.filter_map(|w| w[1].strip_prefix("feature=\""))
 			.filter_map(|f| f.strip_suffix('"'))
 			.map(str::to_string)
 			.collect();
-		let crates = std::env::var(config::env::CRATES)
-			.map_err(|_| format!("{} is unset", config::env::CRATES))?
-			.lines()
-			.map(|line| match line.split('\t').collect::<Vec<_>>()[..] {
-				[package, krate, dir] => Ok((package.to_string(), krate.to_string(), PathBuf::from(dir))),
-				_ => Err(format!("{} holds a malformed line: {line}", config::env::CRATES)),
-			})
-			.collect::<Result<_, _>>()?;
-		Ok(Some(Self {
-			config,
-			output,
-			features,
-			crates,
-		}))
+		Ok(Some(Self { config, output, crates }))
 	}
 }
 
@@ -99,8 +90,8 @@ impl Callbacks for Export {
 		let collected = collect::collect(tcx, &crates);
 		// Each rename, by the Rust path it names, which starts with its crate's name.
 		let mut renames = BTreeMap::new();
-		for (report, (package, ..)) in collected.reports.iter().zip(&self.crates) {
-			for (path, name) in self.items(package).1 {
+		for (report, package) in collected.reports.iter().zip(&self.crates) {
+			for (path, name) in self.items(&package.name).1 {
 				renames.insert(format!("{}::{path}", report.krate), name.clone());
 			}
 		}
@@ -163,18 +154,9 @@ impl Callbacks for Export {
 				if tcx.dcx().has_errors().is_some() {
 					return Compilation::Stop;
 				}
-				let others: Vec<(String, PathBuf)> = (self.crates[1..].iter())
-					.map(|(package, _, dir)| (package.clone(), dir.clone()))
-					.collect();
-				let packages: Vec<&str> = self.crates.iter().map(|(package, ..)| package.as_str()).collect();
-				let header = c::header(&abi, &packages.join(", "));
 				let glue = glue::Crate {
 					abi: &abi,
-					header: &header,
-					package: &self.config.package,
-					manifest_dir: &self.crates[0].2,
-					features: &self.features,
-					others: &others,
+					exports: &self.crates,
 				};
 				glue.write(out)
 			}
@@ -193,7 +175,13 @@ impl Export {
 	/// Each export's crate, or `None` after an error naming one that is not a dependency.
 	fn crates<'a>(&'a self, tcx: TyCtxt<'_>) -> Option<Vec<collect::Crate<'a>>> {
 		let mut crates = Vec::new();
-		for (i, (package, krate, _)) in self.crates.iter().enumerate() {
+		for (
+			i,
+			config::Package {
+				name: package, krate, ..
+			},
+		) in self.crates.iter().enumerate()
+		{
 			let found: Vec<CrateNum> = match i {
 				0 => vec![LOCAL_CRATE],
 				_ => (tcx.crates(()).iter().copied())

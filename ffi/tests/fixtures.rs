@@ -28,14 +28,17 @@ fn run(cmd: &mut Command) -> Output {
 	output
 }
 
-/// Export the fixture `name` into `out`, returning what the exporter printed.
-fn export(name: &str, out: &Path) -> Output {
+/// Export the fixture `name` into `out` with these cargo args, returning what the
+/// exporter printed.
+fn export(name: &str, out: &Path, cargo: &[&str]) -> Output {
 	let fixture = manifest_dir().join("fixtures").join(name);
 	Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
 		.arg("--config")
 		.arg(fixture.join("ffi.toml"))
 		.arg("--out")
 		.arg(out)
+		.arg("--")
+		.args(cargo)
 		.env("CARGO_TARGET_DIR", scratch().join(name).join("build"))
 		.output()
 		.expect("running rust2-ffi")
@@ -44,7 +47,9 @@ fn export(name: &str, out: &Path) -> Output {
 #[test]
 fn api() {
 	let out = scratch().join("api").join("out");
-	let output = export("api", &out);
+	// A feature enabled on another export directly, which the C library must build with.
+	let features = ["--features", "dep-fixture/doubled"];
+	let output = export("api", &out, &features);
 	assert!(
 		output.status.success(),
 		"exporting failed:\n{}",
@@ -82,6 +87,7 @@ fn api() {
 			"--example",
 			"transcript",
 		])
+		.args(features)
 		.current_dir(manifest_dir()));
 	assert_eq!(
 		String::from_utf8_lossy(&c.stdout),
@@ -136,7 +142,7 @@ fn relative_target() {
 #[test]
 fn reject() {
 	let out = scratch().join("reject").join("out");
-	let output = export("reject", &out);
+	let output = export("reject", &out, &[]);
 	assert!(!output.status.success(), "exporting reject succeeded");
 	let stderr = String::from_utf8_lossy(&output.stderr);
 	// Each error at its span, then each of its notes at its own.
@@ -173,4 +179,19 @@ fn reject() {
 		return;
 	}
 	assert_eq!(errors.join("\n") + "\n", expected);
+}
+
+/// The C library builds a dependency with what the check enabled in it, so a feature
+/// enabled directly in one that is no export fails loud.
+#[test]
+fn feature_of_non_export() {
+	let out = scratch().join("feature").join("out");
+	let output = export("api", &out, &["--features", "bytes/std"]);
+	assert!(!output.status.success(), "exporting with bytes/std succeeded");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr
+			.contains("--features bytes/std: the export builds bytes with only the features api-fixture enables in it"),
+		"{stderr}"
+	);
 }

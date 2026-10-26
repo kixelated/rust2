@@ -1,5 +1,6 @@
 //! The command line: run cargo on the configured package with this binary as rustc.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -32,7 +33,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		return Ok(ExitCode::SUCCESS);
 	};
 	let config = Config::load(&args.config)?;
-	let crates = crates(&args.manifest, &config)?;
+	let crates = crates(&args.manifest, &config, &args.cargo)?;
 	let output = match &args.output {
 		Output::Dir(out) => (config::env::OUT, out.as_os_str()),
 		Output::Census(census) => (config::env::CENSUS, census.as_os_str()),
@@ -53,12 +54,17 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	.run()
 }
 
-/// Each export's package, crate name, and directory, as [`config::env::CRATES`] lists
-/// them: the configured package first.
-fn crates(manifest: &Path, config: &Config) -> Result<String, String> {
+/// Each export's package, as [`config::env::CRATES`] lists them: the configured package
+/// first.
+fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
+	let picks = Features::parse(cargo);
 	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+		// Cargo reads its config from where it runs, as the check does.
+		.current_dir(manifest.parent().expect("a manifest path has a parent"))
 		.args(["metadata", "--format-version", "1", "--manifest-path"])
 		.arg(manifest)
+		// The features the check picks decide which optional dependencies it builds with.
+		.args(picks.args())
 		.output()
 		.map_err(|err| format!("running cargo metadata: {err}"))?;
 	if !output.status.success() {
@@ -88,6 +94,7 @@ fn crates(manifest: &Path, config: &Config) -> Result<String, String> {
 			}
 		}
 	}
+	let features = picks.of_exports(top, config)?;
 	let mut lines = String::new();
 	for name in std::iter::once(&config.package).chain(config.crates.keys()) {
 		let mut found = (metadata.packages.iter()).filter(|p| p.name == *name && reached.contains(&&p.id));
@@ -101,14 +108,89 @@ fn crates(manifest: &Path, config: &Config) -> Result<String, String> {
 		if package.source.is_some() {
 			return Err(format!("{name} is not a path package, which the export can depend on"));
 		}
-		let lib = package.targets.iter().find(|t| t.kind.iter().any(|k| k == "lib"));
+		let lib = (package.targets.iter()).find(|t| t.kind.iter().any(|k| matches!(k.as_str(), "lib" | "rlib")));
 		let Some(lib) = lib else {
 			return Err(format!("{name} has no library"));
 		};
-		let dir = package.manifest_path.parent().expect("a manifest path has a parent");
-		lines.push_str(&format!("{name}\t{}\t{}\n", lib.name.replace('-', "_"), dir.display()));
+		let package = config::Package {
+			name: name.clone(),
+			krate: lib.name.replace('-', "_"),
+			dir: package
+				.manifest_path
+				.parent()
+				.expect("a manifest path has a parent")
+				.into(),
+			features: features.get(name.as_str()).cloned().unwrap_or_default(),
+		};
+		lines.push_str(&package.line());
 	}
 	Ok(lines)
+}
+
+/// The features the cargo args pick for the check.
+struct Features<'a> {
+	/// Each `--features` and `-F` names.
+	named: Vec<&'a str>,
+	/// `--all-features` and `--no-default-features`.
+	flags: Vec<&'a str>,
+}
+
+impl<'a> Features<'a> {
+	fn parse(cargo: &'a [String]) -> Self {
+		let mut picks = Self {
+			named: Vec::new(),
+			flags: Vec::new(),
+		};
+		let mut args = cargo.iter().map(String::as_str);
+		while let Some(arg) = args.next() {
+			let value = match arg {
+				"--all-features" | "--no-default-features" => {
+					picks.flags.push(arg);
+					continue;
+				}
+				"--features" | "-F" => args.next(),
+				_ => arg.strip_prefix("--features=").or_else(|| arg.strip_prefix("-F")),
+			};
+			let named = value.into_iter().flat_map(|v| v.split([',', ' ']));
+			picks.named.extend(named.filter(|f| !f.is_empty()));
+		}
+		picks
+	}
+
+	/// The same picks, as cargo args.
+	fn args(&self) -> Vec<String> {
+		let mut args: Vec<String> = self.flags.iter().map(|f| f.to_string()).collect();
+		if !self.named.is_empty() {
+			args.extend(["--features".to_string(), self.named.join(",")]);
+		}
+		args
+	}
+
+	/// The features named in another export directly, as `<dependency>/<feature>`, by
+	/// package. Cargo unifies in the rest through the configured package's own.
+	fn of_exports(&self, top: &'a Package, config: &Config) -> Result<BTreeMap<&'a str, Vec<String>>, String> {
+		let mut features: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+		for feature in &self.named {
+			let Some((key, name)) = feature.split_once('/') else {
+				continue;
+			};
+			let key = key.strip_suffix('?').unwrap_or(key);
+			let dep =
+				(top.dependencies.iter()).find(|d| d.kind.is_none() && d.rename.as_deref().unwrap_or(&d.name) == key);
+			// Cargo refuses a feature of no dependency.
+			let Some(dep) = dep else {
+				continue;
+			};
+			if !config.crates.contains_key(&dep.name) {
+				return Err(format!(
+					"--features {feature}: the export builds {} with only the features {} enables in it, unless it is an export too",
+					dep.name, config.package
+				));
+			}
+			features.entry(&dep.name).or_default().push(name.to_string());
+		}
+		Ok(features)
+	}
 }
 
 /// What `cargo metadata` says of the packages, and how they depend on each other.
@@ -148,6 +230,17 @@ struct Package {
 	source: Option<String>,
 	manifest_path: PathBuf,
 	targets: Vec<Target>,
+	dependencies: Vec<Dependency>,
+}
+
+#[derive(serde::Deserialize)]
+struct Dependency {
+	/// The package's name.
+	name: String,
+	/// The name the dependent calls it by, when not the package's.
+	rename: Option<String>,
+	/// `dev` or `build`, or none for a normal dependency.
+	kind: Option<String>,
 }
 
 #[derive(serde::Deserialize)]

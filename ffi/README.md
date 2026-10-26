@@ -16,7 +16,9 @@ It walks each other package the config lists the same way, from the metadata of 
 crate the library builds with, so one library holds them all and an export names
 another's types across crates. `--out` writes a crate of `extern "C"` functions over the
 libraries, its runtime beside it, and the header in `include/<prefix>.h`; `cargo build`
-on that crate makes a static and a shared library.
+on that crate makes a static and a shared library. That crate enables each export's
+features as the check did, including `--features <export>/<feature>`; such a feature on a
+dependency that is no export is an error.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.

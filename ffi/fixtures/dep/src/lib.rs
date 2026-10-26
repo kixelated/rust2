@@ -14,7 +14,13 @@ pub struct Area {
 }
 
 impl Area {
+	/// An area of `size`, doubled on each side with the `doubled` feature.
 	pub fn new(size: Size) -> Self {
+		let scale = if cfg!(feature = "doubled") { 2 } else { 1 };
+		let size = Size {
+			width: size.width * scale,
+			height: size.height * scale,
+		};
 		Self { size }
 	}
 
