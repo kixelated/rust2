@@ -77,9 +77,10 @@ mbx=$(dirname "$(dirname "$(readlink -f "$tools/bin/mbx")")")
 
 # Each Nix variant builds in a store of its own, so it starts from nothing and
 # substitutes nothing the host built. Builds run as this user, so their CPU time
-# is this process's children's.
+# is this process's children's, in a build directory of the store's own, since
+# the host's may belong to its daemon.
 store_args() { # variant
-    printf '%s\n' --store "$work/$1/store" --option substituters https://cache.nixos.org \
+    printf '%s\n' --store "$work/$1/store" --option build-dir "$work/$1/build" --option substituters https://cache.nixos.org \
         --option max-jobs "$(getconf _NPROCESSORS_ONLN)" --option cores 0 \
         --option extra-sandbox-paths "/mbx=$work/$1/mbx"
 }
@@ -221,7 +222,7 @@ run_variant() { # variant
     echo "bench-nix: $variant"
     [[ ! -e $work/$variant ]] || chmod -R u+w "$work/$variant"
     rm -rf "${work:?}/$variant"
-    mkdir -p "$work/$variant/mbx"
+    mkdir -p "$work/$variant/mbx" "$work/$variant/build"
     checkout
     if [[ $variant == cargo-mbx ]]; then
         step() { cargo_step "$1" "$2"; }

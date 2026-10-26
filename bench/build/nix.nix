@@ -65,24 +65,38 @@ let
     })
   ) crane;
 
-  # One derivation per crate, with crate2nix's generated build plan.
+  # One derivation per crate, with crate2nix's generated build plan. It reads no
+  # Cargo profile, so the packages take moq's `[profile.release]` here:
+  # buildRustCrate's one codegen unit already matches, and fat LTO and symbol
+  # stripping apply where cargo applies them, to the linked packages.
   crate2nix =
     let
       buildRustCrate = pkgs.buildRustCrate.override {
         rustc = toolchain;
         cargo = toolchain;
-        # Cargo's release default, which the other variants build with, so they
-        # compare caching and not codegen. buildRustCrate's own is 1.
-        defaultCodegenUnits = 16;
       };
+      release = [
+        "-C"
+        "lto=fat"
+        "-C"
+        "strip=symbols"
+      ];
       plan = pkgs.callPackage "${src}/Cargo.nix" {
         buildRustCrateForPkgs =
           _: crate:
-          buildRustCrate (crate // { extraRustcOpts = rustflags ++ (crate.extraRustcOpts or [ ]); });
+          buildRustCrate (
+            crate
+            // {
+              extraRustcOpts =
+                rustflags ++ lib.optionals (packages ? ${crate.crateName}) release ++ (crate.extraRustcOpts or [ ]);
+            }
+          );
       };
     in
+    # Like cargo's `--features`, these add to the package's defaults.
     lib.mapAttrs (
-      name: features: plan.workspaceMembers.${name}.build.override { inherit features; }
+      name: features:
+      plan.workspaceMembers.${name}.build.override { features = [ "default" ] ++ features; }
     ) packages;
 in
 {

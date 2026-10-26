@@ -50,7 +50,9 @@ $host[0] as $h
 	(["variant", "total CPU", "total instructions", "vs crane"] | row),
 	"| --- | ---: | ---: | ---: |",
 	(
-		def total($v; f): $results | map(select(.variant == $v) | (.build | f) + (.eval // {} | f // 0)) | add;
+		# A variant with no evaluation adds none; a measurement a phase lacks leaves the total unknown.
+		def total($v; f): $results | map(select(.variant == $v) | [(.build | f), (if .eval == null then 0 else .eval | f end)])
+			| flatten | if any(. == null) then null else add end;
 		total("crane"; .instructions) as $base
 		| $variants[] as $v
 		| [$v, (total($v; .cpu) | secs), (total($v; .instructions) | giga),
