@@ -155,7 +155,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			_ => {
 				let v = self.path(v, "item", out);
-				let item = self.b.copied(v, elem_ty);
+				let item = self.b.t.copied(v, elem_ty, span);
 				let item_ty = self.b.t.ty(elem_ty, span);
 				Expr::ident("Array").member("from").call(vec![
 					Expr::Object(vec![(Key::Name("length".into()), Expr::lit(n.to_string()))]),
