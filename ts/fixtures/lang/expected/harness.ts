@@ -11,122 +11,114 @@ import { copies, order, discriminants, loops, patterns, closures, library, flows
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let out!: rt.ByteVec;
-	let op!: rt.u8;
-	let kind!: rt.u8;
-	let _10!: [rt.u8, rt.u8];
-	let _14!: rt.u8;
-	let _28!: rt.u8;
-	let _36!: [rt.u8, Uint8Array] | undefined;
-	out = new rt.ByteVec();
+	const out: rt.ByteVec = new rt.ByteVec();
 	if (!(input.length >= 2)) {
 		return out;
-	} else {
-		_10 = [input[0], input[1]] as [rt.u8, rt.u8];
-		op = _10[0];
-		kind = _10[1];
-		_14 = rt.u8Rem(op, 40);
-		if (_14 === 0) {
-			u8Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 1) {
-			u16Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 2) {
-			u32Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 3) {
-			u64Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 4) {
-			u128Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 5) {
-			usizeOp(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 6) {
-			i8Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 7) {
-			i16Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 8) {
-			i32Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 9) {
-			i64Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 10) {
-			i128Op(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 11) {
-			isizeOp(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 12) {
-			_28 = rt.u8Rem(kind, 6);
-			if (_28 === 0) {
-				i8Neg(input.subarray(2, input.length - 0), out);
-			} else if (_28 === 1) {
-				i16Neg(input.subarray(2, input.length - 0), out);
-			} else if (_28 === 2) {
-				i32Neg(input.subarray(2, input.length - 0), out);
-			} else if (_28 === 3) {
-				i64Neg(input.subarray(2, input.length - 0), out);
-			} else if (_28 === 4) {
-				i128Neg(input.subarray(2, input.length - 0), out);
-			} else {
-				isizeNeg(input.subarray(2, input.length - 0), out);
-			}
-		} else if (_14 === 13) {
-			_36 = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
-			if (_36 === undefined) {
-				cast(kind, rt.u8Div(kind, 12), input.subarray(2, input.length - 0), out);
-			} else {
-				cast(kind, _36[0], _36[1], out);
-			}
-		} else if (_14 === 14) {
-			convert(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 15) {
-			copies(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 16) {
-			loops(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 17) {
-			patterns(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 18) {
-			closures(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 19) {
-			discriminants(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 20) {
-			library(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 21) {
-			ints(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 22) {
-			strings(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 23) {
-			derived(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 24) {
-			written(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 25) {
-			panics(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 26) {
-			methods(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 27) {
-			adaptors(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 28) {
-			consumers(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 29) {
-			ranges(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 30) {
-			options(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 31) {
-			own(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 32) {
-			values(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 33) {
-			order(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 34) {
-			hashMaps(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 35) {
-			sets(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 36) {
-			btreeMaps(kind, input.subarray(2, input.length - 0), out);
-		} else if (_14 === 37) {
-			deques(input.subarray(2, input.length - 0), out);
-		} else if (_14 === 38) {
-			flows(input.subarray(2, input.length - 0), out);
-		} else {
-			keys(kind, input.subarray(2, input.length - 0), out);
-		}
-		return out;
 	}
+	const _10: [rt.u8, rt.u8] = [input[0], input[1]];
+	const op: rt.u8 = _10[0];
+	const kind: rt.u8 = _10[1];
+	const _14: rt.u8 = rt.u8Rem(op, 40);
+	if (_14 === 0) {
+		u8Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 1) {
+		u16Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 2) {
+		u32Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 3) {
+		u64Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 4) {
+		u128Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 5) {
+		usizeOp(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 6) {
+		i8Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 7) {
+		i16Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 8) {
+		i32Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 9) {
+		i64Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 10) {
+		i128Op(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 11) {
+		isizeOp(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 12) {
+		const _28: rt.u8 = rt.u8Rem(kind, 6);
+		if (_28 === 0) {
+			i8Neg(input.subarray(2, input.length - 0), out);
+		} else if (_28 === 1) {
+			i16Neg(input.subarray(2, input.length - 0), out);
+		} else if (_28 === 2) {
+			i32Neg(input.subarray(2, input.length - 0), out);
+		} else if (_28 === 3) {
+			i64Neg(input.subarray(2, input.length - 0), out);
+		} else if (_28 === 4) {
+			i128Neg(input.subarray(2, input.length - 0), out);
+		} else {
+			isizeNeg(input.subarray(2, input.length - 0), out);
+		}
+	} else if (_14 === 13) {
+		const _36: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
+		if (_36 === undefined) {
+			cast(kind, rt.u8Div(kind, 12), input.subarray(2, input.length - 0), out);
+		} else {
+			cast(kind, _36[0], _36[1], out);
+		}
+	} else if (_14 === 14) {
+		convert(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 15) {
+		copies(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 16) {
+		loops(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 17) {
+		patterns(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 18) {
+		closures(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 19) {
+		discriminants(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 20) {
+		library(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 21) {
+		ints(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 22) {
+		strings(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 23) {
+		derived(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 24) {
+		written(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 25) {
+		panics(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 26) {
+		methods(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 27) {
+		adaptors(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 28) {
+		consumers(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 29) {
+		ranges(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 30) {
+		options(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 31) {
+		own(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 32) {
+		values(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 33) {
+		order(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 34) {
+		hashMaps(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 35) {
+		sets(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 36) {
+		btreeMaps(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 37) {
+		deques(input.subarray(2, input.length - 0), out);
+	} else if (_14 === 38) {
+		flows(input.subarray(2, input.length - 0), out);
+	} else {
+		keys(kind, input.subarray(2, input.length - 0), out);
+	}
+	return out;
 }
 
 //# sourceMappingURL=harness.ts.map

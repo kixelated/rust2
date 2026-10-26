@@ -11,316 +11,176 @@ import * as Tally from "./collections.Tally.ts";
 
 /** A 64-bit key: small, or past 2^53, where it is no longer a JS number. */
 export function wide(b: rt.u8): rt.u64 {
-	let _2!: rt.u8;
-	_2 = rt.u8Rem(b, 3);
+	const _2: rt.u8 = rt.u8Rem(b, 3);
 	if (_2 === 0) {
 		return b as rt.u64;
-	} else if (_2 === 1) {
-		return rt.u64Shl(b as rt.u64, 50);
-	} else {
-		return rt.u64Sub(rt.u64Of(18446744073709551615n), b as rt.u64);
 	}
+	if (_2 === 1) {
+		return rt.u64Shl(b as rt.u64, 50);
+	}
+	return rt.u64Sub(rt.u64Of(18446744073709551615n), b as rt.u64);
 }
 
 export function rank(b: rt.u8, c: rt.u8): Rank.Rank {
-	let _3!: rt.u8;
-	_3 = rt.u8Rem(b, 3);
+	const _3: rt.u8 = rt.u8Rem(b, 3);
 	if (_3 === 0) {
 		return { tag: "Low" } as Rank.Rank;
-	} else if (_3 === 1) {
-		return { tag: "Mid", _0: rt.u8Rem(c, 4) } as Rank.Rank;
-	} else {
-		return { tag: "High", x: rt.u8Rem(c, 2), y: rt.u8Rem(c, 3) } as Rank.Rank;
 	}
+	if (_3 === 1) {
+		return { tag: "Mid", _0: rt.u8Rem(c, 4) } as Rank.Rank;
+	}
+	return { tag: "High", x: rt.u8Rem(c, 2), y: rt.u8Rem(c, 3) } as Rank.Rank;
 }
 
 export function rankByte(r: Rank.Rank): rt.u8 {
-	let x!: rt.u8;
-	let y!: rt.u8;
 	if (r.tag === "Low") {
 		return 0;
-	} else if (r.tag === "Mid") {
-		return 16 | r._0;
-	} else {
-		x = r.x;
-		y = r.y;
-		return 32 | ((x << 2) & 0xff) | y;
 	}
+	if (r.tag === "Mid") {
+		return 16 | r._0;
+	}
+	const x: rt.u8 = r.x;
+	const y: rt.u8 = r.y;
+	return 32 | ((x << 2) & 0xff) | y;
 }
 
 /** A `HashMap` by each kind of key, through a script of inserts, lookups, and removals. */
 export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	let _4!: rt.u8;
-	let map!: rt.HashMap<rt.u8, rt.u16>;
-	let iter!: rt.Iter<rt.usize>;
-	let _13!: rt.usize | rt.Done;
-	let i!: rt.usize;
-	let k!: rt.u8;
-	let v!: rt.u16;
-	let _19!: [rt.u8, rt.u16];
-	let _31!: rt.u16;
-	let _48!: rt.u16;
-	let sorted!: rt.BTreeMap<rt.u8, rt.u16>;
-	let _67!: rt.Iter<[rt.u8, rt.u16]>;
-	let iter2!: rt.Iter<[rt.u8, rt.u16]>;
-	let _73!: [rt.u8, rt.u16] | rt.Done;
-	let map2!: rt.HashMap<rt.u64, rt.u8>;
-	let iter3!: rt.Iter<[rt.usize, rt.u8]>;
-	let _97!: [rt.usize, rt.u8] | rt.Done;
-	let i2!: rt.usize;
-	let b!: rt.u8;
-	let k2!: rt.u64;
-	let _105!: rt.u8;
-	let keys!: rt.BTreeSet<rt.u64>;
-	let _123!: rt.Iter<rt.u64>;
-	let iter4!: rt.Iter<rt.u64>;
-	let _129!: rt.u64 | rt.Done;
-	let _142!: rt.u8 | undefined;
-	let _150!: rt.u64;
-	let map3!: rt.HashMap<Nibble.Nibble, rt.u8>;
-	let pairs!: rt.HashMap<Pair.Pair, Tally.Tally>;
-	let ranks!: rt.HashMap<Rank.Rank, Tally.Tally>;
-	let tuples!: rt.HashMap<[rt.u8, string], rt.u8>;
-	let iterStart!: rt.usize;
-	let iterEnd!: rt.usize;
 	let _161!: rt.usize;
-	let i3!: rt.usize;
-	let a!: rt.u8;
-	let b3!: rt.u8;
-	let _167!: [rt.u8, rt.u8];
-	let _168!: rt.u8;
-	let _169!: rt.usize;
-	let pair!: Pair.Pair;
-	let t!: Tally.Tally;
-	let r!: Rank.Rank;
-	let _192!: Tally.Tally | undefined;
-	let t2!: [rt.u8, string];
-	let _203!: rt.u8;
-	let _207!: rt.usize;
-	let _225!: rt.Iter<[rt.u8, rt.u8]>;
-	let iter6!: rt.Iter<[rt.u8, rt.u8]>;
-	let _230!: [rt.u8, rt.u8] | rt.Done;
-	let k3!: rt.u8;
-	let v2!: rt.u8;
-	let key!: Pair.Pair;
-	let local!: Tally.Tally;
-	let before!: Tally.Tally;
-	let _246!: Tally.Tally | undefined;
-	let _265!: rt.Iter<[Pair.Pair, Tally.Tally]>;
-	let iter7!: rt.Iter<[Pair.Pair, Tally.Tally]>;
-	let _269!: [Pair.Pair, Tally.Tally] | rt.Done;
-	let p!: Pair.Pair;
-	let t3!: Tally.Tally;
-	let iterStart2!: rt.usize;
-	let iterEnd2!: rt.usize;
 	let _286!: rt.usize;
-	let i4!: rt.usize;
-	let a2!: rt.u8;
-	let b4!: rt.u8;
-	let _292!: [rt.u8, rt.u8];
-	let _293!: rt.u8;
-	let _294!: rt.usize;
-	let t4!: Tally.Tally;
-	let _305!: Rank.Rank;
-	let e!: rt.Entry<Rank.Rank, Tally.Tally>;
-	let _313!: Rank.Rank;
-	let copy!: rt.HashMap<Rank.Rank, Tally.Tally>;
-	let _327!: Tally.Tally | undefined;
-	let bytes!: rt.HashMap<rt.u8, Tally.Tally>;
-	let _348!: rt.Iter<[rt.u8, Tally.Tally]>;
-	let copy2!: rt.HashMap<rt.u8, Tally.Tally>;
-	let iter9!: rt.Iter<Tally.Tally>;
-	let _356!: Tally.Tally | rt.Done;
-	let iterStart3!: rt.u8;
-	let iterEnd3!: rt.u8;
 	let _364!: rt.u8;
-	let k4!: rt.u8;
-	let iterS!: Uint8Array;
-	let iterI!: number;
-	let _380!: rt.u8 | rt.Done;
-	let b5!: rt.u8;
-	let _387!: rt.u8;
-	let _389!: rt.u16;
-	let stamped!: rt.HashMap<rt.u8, Tally.Tally>;
-	let extended!: rt.HashMap<rt.u8, Tally.Tally>;
-	let iter12!: rt.Iter<Tally.Tally>;
-	let _409!: Tally.Tally | rt.Done;
-	let iterStart4!: rt.u8;
-	let iterEnd4!: rt.u8;
 	let _416!: rt.u8;
-	let k5!: rt.u8;
-	let _430!: (a0: Nibble.Nibble) => rt.u64;
-	let first!: rt.u8;
-	let h!: rt.Hasher;
-	let counted!: Tally.Tally;
-	let _448!: [rt.Hasher, Tally.Tally];
-	let _453!: rt.Hasher;
-	let _456!: rt.u16;
-	let want!: rt.Hasher;
-	let ranks2!: rt.BTreeMap<Rank.Rank, rt.u16>;
-	let _473!: rt.Iter<[Rank.Rank, rt.u16]>;
-	let iter14!: rt.Iter<[Rank.Rank, rt.u16]>;
-	let _479!: [Rank.Rank, rt.u16] | rt.Done;
-	let words!: rt.HashMap<string, rt.ByteVec>;
-	let iterS2!: Uint8Array;
-	let iterI2!: number;
-	let _496!: rt.u8 | rt.Done;
-	let b6!: rt.u8;
-	let word!: string;
-	let _502!: rt.usize;
-	let lens!: rt.BTreeMap<string, rt.usize>;
-	let iter16!: rt.Iter<[string, rt.ByteVec]>;
-	let _517!: [string, rt.ByteVec] | rt.Done;
-	let _524!: string;
-	let _525!: rt.usize;
-	let iter17!: rt.Iter<[string, rt.usize]>;
-	let _529!: [string, rt.usize] | rt.Done;
-	let clashes!: rt.HashMap<Clash.Clash, Tally.Tally>;
-	let iter18!: rt.Iter<[rt.usize, rt.u8]>;
-	let _555!: [rt.usize, rt.u8] | rt.Done;
-	let i5!: rt.usize;
-	let b7!: rt.u8;
-	let k6!: Clash.Clash;
-	let _563!: rt.u8;
-	let kept!: rt.BTreeSet<rt.u8>;
-	let _583!: rt.Iter<rt.u8>;
-	let copy3!: rt.HashMap<Clash.Clash, Tally.Tally>;
-	_430 = (n: Nibble.Nibble): rt.u64 => {
-		let h2!: rt.Hasher;
-		h2 = rt.hasher();
+	const _430: (a0: Nibble.Nibble) => rt.u64 = (n: Nibble.Nibble): rt.u64 => {
+		const h2: rt.Hasher = rt.hasher();
 		Nibble.hash$Hash_DefaultHasher(n, h2);
 		return rt.hashFinish(h2);
 	};
 	b0: {
-		_4 = rt.u8Rem(kind, 4);
+		const _4: rt.u8 = rt.u8Rem(kind, 4);
 		if (_4 === 0) {
-			map = rt.hashNew() as rt.HashMap<rt.u8, rt.u16>;
-			iter = rt.iterStepBy(new rt.Range(0, data.length), 2);
+			const map: rt.HashMap<rt.u8, rt.u16> = rt.hashNew() as rt.HashMap<rt.u8, rt.u16>;
+			const iter: rt.Iter<rt.usize> = rt.iterStepBy(new rt.Range(0, data.length), 2);
 			while (true) {
-				_13 = iter.next();
+				const _13: rt.usize | rt.Done = iter.next();
 				if (_13 === rt.DONE) {
 					rt.byteVecPush(out, rt.hashLen(map) & 0xff);
 					rt.byteVecPush(out, rt.hashLen(map) === 0 ? 1 : 0);
 					rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(rt.iterSum(rt.iterMap(rt.hashValues(map), (v5: rt.u16): rt.u16 => {
 						return rt.u16Rem(v5, 256);
 					}), rt.u16Add, 0)));
-					_67 = rt.iterMap(rt.hashIter(map), (_227: [rt.u8, rt.u16]): [rt.u8, rt.u16] => {
+					const _67: rt.Iter<[rt.u8, rt.u16]> = rt.iterMap(rt.hashIter(map), (_227: [rt.u8, rt.u16]): [rt.u8, rt.u16] => {
 						return [_227[0], _227[1]] as [rt.u8, rt.u16];
 					});
-					sorted = rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _67, true);
-					iter2 = rt.btreeIter(sorted);
+					const iter2: rt.Iter<[rt.u8, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _67, true));
 					while (true) {
-						_73 = iter2.next();
+						const _73: [rt.u8, rt.u16] | rt.Done = iter2.next();
 						if (_73 === rt.DONE) {
 							rt.hashClear(map);
 							rt.byteVecPush(out, rt.hashLen(map) & 0xff);
 							break b0;
-						} else {
-							rt.byteVecPush(out, _73[0]);
-							rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_73[1]));
 						}
-					}
-				} else {
-					i = _13;
-					rt.idx(data, i);
-					_19 = [rt.u8Rem(data[i], 16), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0) as rt.u16] as [rt.u8, rt.u16];
-					k = _19[0];
-					v = _19[1];
-					_31 = rt.u16Rem(v, 5);
-					if (_31 === 0) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(map, k), 238, (old2: rt.u16): rt.u8 => {
-							return old2 & 0xff;
-						}));
-					} else if (_31 === 1) {
-						rt.byteVecPush(out, rt.hashContains(map, k) ? 1 : 0);
-					} else if (_31 === 2) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(map, k), 221, (v4: rt.u16): rt.u8 => {
-							return v4 & 0xff;
-						}));
-					} else {
-						_48 = rt.u16Mul(v, 3);
-						rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(map, k, _48), 204, (old: rt.u16): rt.u8 => {
-							return old & 0xff;
-						}));
+						rt.byteVecPush(out, _73[0]);
+						rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_73[1]));
 					}
 				}
+				const i: rt.usize = _13;
+				rt.idx(data, i);
+				const _19: [rt.u8, rt.u16] = [rt.u8Rem(data[i], 16), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0) as rt.u16];
+				const k: rt.u8 = _19[0];
+				const v: rt.u16 = _19[1];
+				const _31: rt.u16 = rt.u16Rem(v, 5);
+				if (_31 === 0) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(map, k), 238, (old2: rt.u16): rt.u8 => {
+						return old2 & 0xff;
+					}));
+				} else if (_31 === 1) {
+					rt.byteVecPush(out, rt.hashContains(map, k) ? 1 : 0);
+				} else if (_31 === 2) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(map, k), 221, (v4: rt.u16): rt.u8 => {
+						return v4 & 0xff;
+					}));
+				} else {
+					const _48: rt.u16 = rt.u16Mul(v, 3);
+					rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(map, k, _48), 204, (old: rt.u16): rt.u8 => {
+						return old & 0xff;
+					}));
+				}
 			}
-		} else if (_4 === 1) {
-			map2 = rt.hashNew(rt.hashing(rt.hashInt, rt.u64Eq)) as rt.HashMap<rt.u64, rt.u8>;
-			iter3 = rt.iterEnumerate(rt.iterSlice(data));
+		}
+		if (_4 === 1) {
+			const map2: rt.HashMap<rt.u64, rt.u8> = rt.hashNew(rt.hashing(rt.hashInt, rt.u64Eq)) as rt.HashMap<rt.u64, rt.u8>;
+			const iter3: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(data));
 			while (true) {
-				_97 = iter3.next();
+				const _97: [rt.usize, rt.u8] | rt.Done = iter3.next();
 				if (_97 === rt.DONE) {
-					_123 = rt.hashKeys(map2);
-					keys = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _123, true);
-					iter4 = rt.btreeKeys(keys);
+					const _123: rt.Iter<rt.u64> = rt.hashKeys(map2);
+					const iter4: rt.Iter<rt.u64> = rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _123, true));
 					while (true) {
-						_129 = iter4.next();
+						const _129: rt.u64 | rt.Done = iter4.next();
 						if (_129 === rt.DONE) {
-							_142 = rt.sliceFirst(data);
+							const _142: rt.u8 | undefined = rt.sliceFirst(data);
 							if (_142 !== undefined) {
-								_150 = wide(rt.u8Rem(_142, 13));
+								const _150: rt.u64 = wide(rt.u8Rem(_142, 13));
 								rt.byteVecPush(out, rt.hashIndex(map2, _150));
 							}
 							break b0;
-						} else {
-							rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_129));
-							rt.byteVecPush(out, rt.hashIndex(map2, _129));
 						}
-					}
-				} else {
-					i2 = _97[0];
-					b = _97[1];
-					k2 = wide(rt.u8Rem(b, 12));
-					_105 = rt.u8Rem(rt.u8Div(b, 12), 4);
-					if (_105 === 0) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(map2, k2), 238));
-					} else if (_105 === 1) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(map2, k2), 221));
-					} else {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map2, k2, i2 & 0xff), 204));
+						rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_129));
+						rt.byteVecPush(out, rt.hashIndex(map2, _129));
 					}
 				}
+				const i2: rt.usize = _97[0];
+				const b: rt.u8 = _97[1];
+				const k2: rt.u64 = wide(rt.u8Rem(b, 12));
+				const _105: rt.u8 = rt.u8Rem(rt.u8Div(b, 12), 4);
+				if (_105 === 0) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(map2, k2), 238));
+				} else if (_105 === 1) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(map2, k2), 221));
+				} else {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map2, k2, i2 & 0xff), 204));
+				}
 			}
-		} else if (_4 === 2) {
-			map3 = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
-			pairs = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
-			ranks = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
-			tuples = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
-			iterStart = 1;
-			iterEnd = data.length;
+		}
+		if (_4 === 2) {
+			const map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+			const pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
+			const ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
+			const tuples: rt.HashMap<[rt.u8, string], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
+			let iterStart: rt.usize = 1;
+			const iterEnd: rt.usize = data.length;
 			while (true) {
 				if (!((_161 = iterStart++) < iterEnd)) {
-					_225 = rt.iterMap(rt.hashIter(map3), (_214: [Nibble.Nibble, rt.u8]): [rt.u8, rt.u8] => {
+					const _225: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.hashIter(map3), (_214: [Nibble.Nibble, rt.u8]): [rt.u8, rt.u8] => {
 						return [_214[0]._0, _214[1]] as [rt.u8, rt.u8];
 					});
-					iter6 = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _225, true));
+					const iter6: rt.Iter<[rt.u8, rt.u8]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _225, true));
 					while (true) {
-						_230 = iter6.next();
+						const _230: [rt.u8, rt.u8] | rt.Done = iter6.next();
 						if (_230 === rt.DONE) {
-							key = { a: 9, b: 9 };
-							local = { n: 7 };
+							const key: Pair.Pair = { a: 9, b: 9 };
+							const local: Tally.Tally = { n: 7 };
 							rt.hashInsert(pairs, key, rt.copy(local));
 							local.n = 8;
-							before = rt.copy(rt.hashIndex(pairs, key));
-							_246 = rt.hashGet(pairs, key);
+							const before: Tally.Tally = rt.copy(rt.hashIndex(pairs, key));
+							const _246: Tally.Tally | undefined = rt.hashGet(pairs, key);
 							if (_246 !== undefined) {
 								_246.n = rt.u16Add(_246.n, 2);
 							}
 							rt.byteVecPush(out, local.n & 0xff);
 							rt.byteVecPush(out, before.n & 0xff);
 							rt.byteVecPush(out, rt.hashIndex(pairs, key).n & 0xff);
-							_265 = rt.hashIter(pairs);
-							iter7 = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _265, true));
+							const _265: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.hashIter(pairs);
+							const iter7: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _265, true));
 							while (true) {
-								_269 = iter7.next();
+								const _269: [Pair.Pair, Tally.Tally] | rt.Done = iter7.next();
 								if (_269 === rt.DONE) {
-									iterStart2 = 1;
-									iterEnd2 = data.length;
+									let iterStart2: rt.usize = 1;
+									const iterEnd2: rt.usize = data.length;
 									while (true) {
 										if (!((_286 = iterStart2++) < iterEnd2)) {
-											copy = rt.hashClone(ranks, undefined, rt.copy);
-											_327 = rt.hashGet(copy, { tag: "Low" } as Rank.Rank);
+											const copy: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashClone(ranks, undefined, rt.copy);
+											const _327: Tally.Tally | undefined = rt.hashGet(copy, { tag: "Low" } as Rank.Rank);
 											if (_327 !== undefined) {
 												_327.n = 119;
 											}
@@ -331,272 +191,248 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 												return t11.n & 0xff;
 											}));
 											rt.byteVecPush(out, rt.optionMapOr(rt.hashRemoveEntry(copy, { tag: "Mid", _0: 1 } as Rank.Rank), 255, (_218: [Rank.Rank, Tally.Tally]): rt.u8 => {
-												let k10!: Rank.Rank;
-												let t12!: Tally.Tally;
-												k10 = _218[0];
-												t12 = _218[1];
+												const k10: Rank.Rank = _218[0];
+												const t12: Tally.Tally = _218[1];
 												return rankByte(k10) ^ (t12.n & 0xff);
 											}));
-											_348 = rt.iterMap(rt.iterSlice(data), (_223: rt.u8): [rt.u8, Tally.Tally] => {
-												let b8!: rt.u8;
-												b8 = _223;
+											const _348: rt.Iter<[rt.u8, Tally.Tally]> = rt.iterMap(rt.iterSlice(data), (_223: rt.u8): [rt.u8, Tally.Tally] => {
+												const b8: rt.u8 = _223;
 												return [rt.u8Rem(b8, 8), { n: b8 as rt.u16 }] as [rt.u8, Tally.Tally];
 											});
-											bytes = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>, _348);
-											copy2 = rt.hashClone(bytes, undefined, rt.copy);
-											iter9 = rt.hashValues(copy2);
+											const bytes: rt.HashMap<rt.u8, Tally.Tally> = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>, _348);
+											const copy2: rt.HashMap<rt.u8, Tally.Tally> = rt.hashClone(bytes, undefined, rt.copy);
+											const iter9: rt.Iter<Tally.Tally> = rt.hashValues(copy2);
 											while (true) {
-												_356 = iter9.next();
+												const _356: Tally.Tally | rt.Done = iter9.next();
 												if (_356 === rt.DONE) {
-													iterStart3 = 0;
-													iterEnd3 = 8;
+													let iterStart3: rt.u8 = 0;
+													const iterEnd3: rt.u8 = 8;
 													while (true) {
 														if (!((_364 = iterStart3++) < iterEnd3)) {
-															iterS = data;
-															iterI = 0;
+															const iterS: Uint8Array = data;
+															let iterI: number = 0;
 															while (true) {
-																_380 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+																const _380: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 																if (_380 === rt.DONE) {
-																	stamped = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
+																	const stamped: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
 																	stamp(stamped);
 																	stamp(stamped);
 																	rt.byteVecPush(out, rt.hashLen(stamped) & 0xff);
-																	extended = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
+																	const extended: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
 																	rt.hashExtend(extended, rt.iterMap(rt.hashIter(bytes), rt.copy));
-																	iter12 = rt.hashValues(extended);
+																	const iter12: rt.Iter<Tally.Tally> = rt.hashValues(extended);
 																	while (true) {
-																		_409 = iter12.next();
+																		const _409: Tally.Tally | rt.Done = iter12.next();
 																		if (_409 === rt.DONE) {
-																			iterStart4 = 0;
-																			iterEnd4 = 8;
+																			let iterStart4: rt.u8 = 0;
+																			const iterEnd4: rt.u8 = 8;
 																			while (true) {
 																				if (!((_416 = iterStart4++) < iterEnd4)) {
-																					first = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+																					const first: rt.u8 = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 																					rt.byteVecPush(out, rt.u64Eq(_430({ _0: first }), _430({ _0: first ^ 240 })) ? 1 : 0);
-																					_448 = [rt.hasher(), { n: first as rt.u16 }] as [rt.Hasher, Tally.Tally];
-																					h = _448[0];
-																					counted = rt.copy(_448[1]);
-																					_453 = countedHasher(h, counted);
-																					_456 = counted.n;
+																					const _448: [rt.Hasher, Tally.Tally] = [rt.hasher(), { n: first as rt.u16 }];
+																					const h: rt.Hasher = _448[0];
+																					const counted: Tally.Tally = rt.copy(_448[1]);
+																					const _453: rt.Hasher = countedHasher(h, counted);
+																					const _456: rt.u16 = counted.n;
 																					rt.hashInt(_456, _453);
-																					want = rt.hasher();
+																					const want: rt.Hasher = rt.hasher();
 																					rt.hashInt(rt.u16Add(first as rt.u16, 1), want);
 																					rt.byteVecPush(out, rt.u64Eq(rt.hashFinish(h), rt.hashFinish(want)) ? 1 : 0);
 																					rt.hashRetain(ranks, (r2: Rank.Rank, t17: Tally.Tally): boolean => {
 																						if (!(rt.u16Rem(t17.n, 2) === 0)) {
 																							return Rank.eq$PartialEq(r2, { tag: "Low" } as Rank.Rank);
-																						} else {
-																							return true;
 																						}
+																						return true;
 																					});
-																					_473 = rt.iterMap(rt.hashIter(ranks), (_224: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
+																					const _473: rt.Iter<[Rank.Rank, rt.u16]> = rt.iterMap(rt.hashIter(ranks), (_224: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
 																						return [_224[0], _224[1].n] as [Rank.Rank, rt.u16];
 																					});
-																					ranks2 = rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _473, true);
-																					iter14 = rt.btreeIter(ranks2);
+																					const iter14: rt.Iter<[Rank.Rank, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _473, true));
 																					while (true) {
-																						_479 = iter14.next();
+																						const _479: [Rank.Rank, rt.u16] | rt.Done = iter14.next();
 																						if (_479 === rt.DONE) {
 																							rt.byteVecPush(out, rt.hashLen(tuples) & 0xff);
 																							break b0;
-																						} else {
-																							rt.byteVecPush(out, rankByte(_479[0]));
-																							rt.byteVecPush(out, _479[1] & 0xff);
 																						}
+																						rt.byteVecPush(out, rankByte(_479[0]));
+																						rt.byteVecPush(out, _479[1] & 0xff);
 																					}
-																				} else {
-																					k5 = _416;
-																					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k5), 255, (t15: Tally.Tally): rt.u8 => {
-																						return t15.n & 0xff;
-																					}));
-																					rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(extended, k5), 255, (t16: Tally.Tally): rt.u8 => {
-																						return t16.n & 0xff;
-																					}));
 																				}
+																				const k5: rt.u8 = _416;
+																				rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k5), 255, (t15: Tally.Tally): rt.u8 => {
+																					return t15.n & 0xff;
+																				}));
+																				rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(extended, k5), 255, (t16: Tally.Tally): rt.u8 => {
+																					return t16.n & 0xff;
+																				}));
 																			}
-																		} else {
-																			_409.n = _409.n ^ 17;
 																		}
+																		_409.n = _409.n ^ 17;
 																	}
-																} else {
-																	b5 = _380;
-																	_387 = rt.u8Rem(b5, 8);
-																	_389 = b5 as rt.u16;
-																	rt.byteVecPush(out, claim(copy2, _387, _389));
 																}
+																const b5: rt.u8 = _380;
+																const _387: rt.u8 = rt.u8Rem(b5, 8);
+																const _389: rt.u16 = b5 as rt.u16;
+																rt.byteVecPush(out, claim(copy2, _387, _389));
 															}
-														} else {
-															k4 = _364;
-															rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k4), 255, (t13: Tally.Tally): rt.u8 => {
-																return t13.n & 0xff;
-															}));
-															rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(copy2, k4), 255, (t14: Tally.Tally): rt.u8 => {
-																return t14.n & 0xff;
-															}));
 														}
+														const k4: rt.u8 = _364;
+														rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(bytes, k4), 255, (t13: Tally.Tally): rt.u8 => {
+															return t13.n & 0xff;
+														}));
+														rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(copy2, k4), 255, (t14: Tally.Tally): rt.u8 => {
+															return t14.n & 0xff;
+														}));
 													}
-												} else {
-													_356.n = rt.u16Add(_356.n, 1);
 												}
-											}
-										} else {
-											i4 = _286;
-											_294 = rt.usizeSub(i4, 1);
-											rt.idx(data, _294);
-											_293 = data[_294];
-											rt.idx(data, i4);
-											_292 = [_293, data[i4]] as [rt.u8, rt.u8];
-											a2 = _293;
-											b4 = _292[1];
-											_305 = rank(b4, a2);
-											t4 = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _305), (t9: Tally.Tally): void => {
-												t9.n = t9.n ^ 3;
-											}), (): Tally.Tally => {
-												return { n: b4 as rt.u16 };
-											});
-											t4.n = rt.u16WrappingAdd(t4.n, t4.n);
-											rt.idx(data, i4);
-											_313 = rank(data[i4], 0);
-											e = rt.entry(ranks, _313);
-											rt.byteVecPush(out, rankByte(rt.entryKey(e)));
-											rt.byteVecPush(out, rt.entryOrInsertWith(e, (k9: Rank.Rank): Tally.Tally => {
-												return { n: rankByte(k9) as rt.u16 };
-											}).n & 0xff);
-										}
-									}
-								} else {
-									p = _269[0];
-									t3 = _269[1];
-									rt.byteVecPush(out, p.a);
-									rt.byteVecPush(out, p.b & 0xff);
-									rt.byteVecPush(out, t3.n & 0xff);
-								}
-							}
-						} else {
-							k3 = _230[0];
-							v2 = _230[1];
-							rt.byteVecPush(out, k3);
-							rt.byteVecPush(out, v2);
-						}
-					}
-				} else {
-					i3 = _161;
-					_169 = rt.usizeSub(i3, 1);
-					rt.idx(data, _169);
-					_168 = data[_169];
-					rt.idx(data, i3);
-					_167 = [_168, data[i3]] as [rt.u8, rt.u8];
-					a = _168;
-					b3 = _167[1];
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map3, { _0: a }, b3), 204));
-					pair = { a: rt.u8Rem(a, 4), b: rt.u16Rem(b3 as rt.u16, 3) };
-					t = rt.entryOrInsertWith(rt.entry(pairs, pair), Tally.default$Default);
-					t.n = rt.u16Add(t.n, 1);
-					r = rank(a, b3);
-					_192 = rt.hashGet(ranks, r);
-					if (_192 !== undefined) {
-						_192.n = rt.u16Add(_192.n, 1);
-					} else {
-						rt.hashInsert(ranks, r, { n: i3 & 0xffff });
-					}
-					_203 = rt.u8Rem(a, 3);
-					_207 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_207 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _207);
-					}
-					t2 = [_203, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207]] as [rt.u8, string];
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(tuples, t2), 187));
-					if (rt.u8Rem(a, 2) === 0) {
-						rt.hashInsert(tuples, t2, a);
-					}
-				}
-			}
-		} else {
-			words = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
-			iterS2 = data;
-			iterI2 = 0;
-			while (true) {
-				_496 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_496 === rt.DONE) {
-					lens = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.usize>;
-					iter16 = rt.hashIter(words);
-					while (true) {
-						_517 = iter16.next();
-						if (_517 === rt.DONE) {
-							iter17 = rt.btreeIter(lens);
-							while (true) {
-								_529 = iter17.next();
-								if (_529 === rt.DONE) {
-									rt.byteVecPush(out, rt.iterSum(rt.iterMap(rt.hashDrain(words), (_2: [string, rt.ByteVec]): rt.usize => {
-										let v3!: rt.ByteVec;
-										v3 = _2[1];
-										return v3.length;
-									}), rt.usizeAdd, 0) & 0xff);
-									rt.byteVecPush(out, rt.hashLen(words) === 0 ? 1 : 0);
-									clashes = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
-									iter18 = rt.iterEnumerate(rt.iterSlice(data));
-									while (true) {
-										_555 = iter18.next();
-										if (_555 === rt.DONE) {
-											rt.hashRetain(clashes, (k7: Clash.Clash, t8: Tally.Tally): boolean => {
-												if (!(rt.u8Rem(k7._0, 3) !== 0)) {
-													return rt.u16Rem(t8.n, 2) === 0;
-												} else {
-													return true;
-												}
-											});
-											_583 = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
-												return k8._0;
-											});
-											kept = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _583, true);
-											rt.iterExtendBytes(out, rt.btreeKeys(kept));
-											copy3 = rt.hashClone(clashes, rt.copy, rt.copy);
-											rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
-											rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
-											break b0;
-										} else {
-											i5 = _555[0];
-											b7 = _555[1];
-											k6 = { _0: rt.u8Rem(b7, 8) };
-											_563 = rt.u8Rem(rt.u8Div(b7, 8), 4);
-											if (_563 === 0) {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(clashes, k6), 238, (t7: Tally.Tally): rt.u8 => {
-													return t7.n & 0xff;
-												}));
-											} else if (_563 === 1) {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(clashes, k6), 221, (t6: Tally.Tally): rt.u8 => {
-													return t6.n & 0xff;
-												}));
-											} else {
-												rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(clashes, k6, { n: i5 & 0xffff }), 204, (t5: Tally.Tally): rt.u8 => {
-													return t5.n & 0xff;
-												}));
+												_356.n = rt.u16Add(_356.n, 1);
 											}
 										}
+										const i4: rt.usize = _286;
+										const _294: rt.usize = rt.usizeSub(i4, 1);
+										rt.idx(data, _294);
+										const _293: rt.u8 = data[_294];
+										rt.idx(data, i4);
+										const _292: [rt.u8, rt.u8] = [_293, data[i4]];
+										const a2: rt.u8 = _293;
+										const b4: rt.u8 = _292[1];
+										const _305: Rank.Rank = rank(b4, a2);
+										const t4: Tally.Tally = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _305), (t9: Tally.Tally): void => {
+											t9.n = t9.n ^ 3;
+										}), (): Tally.Tally => {
+											return { n: b4 as rt.u16 };
+										});
+										t4.n = rt.u16WrappingAdd(t4.n, t4.n);
+										rt.idx(data, i4);
+										const _313: Rank.Rank = rank(data[i4], 0);
+										const e: rt.Entry<Rank.Rank, Tally.Tally> = rt.entry(ranks, _313);
+										rt.byteVecPush(out, rankByte(rt.entryKey(e)));
+										rt.byteVecPush(out, rt.entryOrInsertWith(e, (k9: Rank.Rank): Tally.Tally => {
+											return { n: rankByte(k9) as rt.u16 };
+										}).n & 0xff);
 									}
-								} else {
-									rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_529[0]));
-									rt.byteVecPush(out, _529[1] & 0xff);
 								}
+								const p: Pair.Pair = _269[0];
+								const t3: Tally.Tally = _269[1];
+								rt.byteVecPush(out, p.a);
+								rt.byteVecPush(out, p.b & 0xff);
+								rt.byteVecPush(out, t3.n & 0xff);
 							}
-						} else {
-							_524 = _517[0];
-							_525 = _517[1].length;
-							rt.btreeInsert(lens, _524, _525);
 						}
+						const k3: rt.u8 = _230[0];
+						const v2: rt.u8 = _230[1];
+						rt.byteVecPush(out, k3);
+						rt.byteVecPush(out, v2);
 					}
+				}
+				const i3: rt.usize = _161;
+				const _169: rt.usize = rt.usizeSub(i3, 1);
+				rt.idx(data, _169);
+				const _168: rt.u8 = data[_169];
+				rt.idx(data, i3);
+				const _167: [rt.u8, rt.u8] = [_168, data[i3]];
+				const a: rt.u8 = _168;
+				const b3: rt.u8 = _167[1];
+				rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(map3, { _0: a }, b3), 204));
+				const pair: Pair.Pair = { a: rt.u8Rem(a, 4), b: rt.u16Rem(b3 as rt.u16, 3) };
+				const t: Tally.Tally = rt.entryOrInsertWith(rt.entry(pairs, pair), Tally.default$Default);
+				t.n = rt.u16Add(t.n, 1);
+				const r: Rank.Rank = rank(a, b3);
+				const _192: Tally.Tally | undefined = rt.hashGet(ranks, r);
+				if (_192 !== undefined) {
+					_192.n = rt.u16Add(_192.n, 1);
 				} else {
-					b6 = _496;
-					_502 = rt.usizeRem(b6 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_502 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _502);
-					}
-					word = ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_502];
-					rt.byteVecPush(rt.entryOrInsertWith(rt.entry(words, word), (): rt.ByteVec => {
-						return new rt.ByteVec();
-					}), b6);
+					rt.hashInsert(ranks, r, { n: i3 & 0xffff });
+				}
+				const _203: rt.u8 = rt.u8Rem(a, 3);
+				const _207: rt.usize = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+				if (!(_207 < 8)) {
+					rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _207);
+				}
+				const t2: [rt.u8, string] = [_203, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207]];
+				rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(tuples, t2), 187));
+				if (rt.u8Rem(a, 2) === 0) {
+					rt.hashInsert(tuples, t2, a);
 				}
 			}
+		}
+		const words: rt.HashMap<string, rt.ByteVec> = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
+		const iterS2: Uint8Array = data;
+		let iterI2: number = 0;
+		while (true) {
+			const _496: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+			if (_496 === rt.DONE) {
+				const lens: rt.BTreeMap<string, rt.usize> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.usize>;
+				const iter16: rt.Iter<[string, rt.ByteVec]> = rt.hashIter(words);
+				while (true) {
+					const _517: [string, rt.ByteVec] | rt.Done = iter16.next();
+					if (_517 === rt.DONE) {
+						const iter17: rt.Iter<[string, rt.usize]> = rt.btreeIter(lens);
+						while (true) {
+							const _529: [string, rt.usize] | rt.Done = iter17.next();
+							if (_529 === rt.DONE) {
+								rt.byteVecPush(out, rt.iterSum(rt.iterMap(rt.hashDrain(words), (_2: [string, rt.ByteVec]): rt.usize => {
+									return _2[1].length;
+								}), rt.usizeAdd, 0) & 0xff);
+								rt.byteVecPush(out, rt.hashLen(words) === 0 ? 1 : 0);
+								const clashes: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
+								const iter18: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(data));
+								while (true) {
+									const _555: [rt.usize, rt.u8] | rt.Done = iter18.next();
+									if (_555 === rt.DONE) {
+										rt.hashRetain(clashes, (k7: Clash.Clash, t8: Tally.Tally): boolean => {
+											if (!(rt.u8Rem(k7._0, 3) !== 0)) {
+												return rt.u16Rem(t8.n, 2) === 0;
+											}
+											return true;
+										});
+										const _583: rt.Iter<rt.u8> = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
+											return k8._0;
+										});
+										rt.iterExtendBytes(out, rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _583, true)));
+										const copy3: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashClone(clashes, rt.copy, rt.copy);
+										rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
+										rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
+										break b0;
+									}
+									const i5: rt.usize = _555[0];
+									const b7: rt.u8 = _555[1];
+									const k6: Clash.Clash = { _0: rt.u8Rem(b7, 8) };
+									const _563: rt.u8 = rt.u8Rem(rt.u8Div(b7, 8), 4);
+									if (_563 === 0) {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashRemove(clashes, k6), 238, (t7: Tally.Tally): rt.u8 => {
+											return t7.n & 0xff;
+										}));
+									} else if (_563 === 1) {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashGet(clashes, k6), 221, (t6: Tally.Tally): rt.u8 => {
+											return t6.n & 0xff;
+										}));
+									} else {
+										rt.byteVecPush(out, rt.optionMapOr(rt.hashInsert(clashes, k6, { n: i5 & 0xffff }), 204, (t5: Tally.Tally): rt.u8 => {
+											return t5.n & 0xff;
+										}));
+									}
+								}
+							}
+							rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_529[0]));
+							rt.byteVecPush(out, _529[1] & 0xff);
+						}
+					}
+					const _524: string = _517[0];
+					const _525: rt.usize = _517[1].length;
+					rt.btreeInsert(lens, _524, _525);
+				}
+			}
+			const b6: rt.u8 = _496;
+			const _502: rt.usize = rt.usizeRem(b6 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_502 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _502);
+			}
+			const word: string = ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_502];
+			rt.byteVecPush(rt.entryOrInsertWith(rt.entry(words, word), (): rt.ByteVec => {
+				return new rt.ByteVec();
+			}), b6);
 		}
 	}
 }
@@ -617,86 +453,43 @@ export function stamp(map: rt.HashMap<rt.u8, Tally.Tally>): rt.HashMap<rt.u8, Ta
 }
 
 export function claim(map: rt.HashMap<rt.u8, Tally.Tally>, k: rt.u8, n: rt.u16): rt.u8 {
-	let _4!: rt.Entry<rt.u8, Tally.Tally>;
-	let e!: rt.Entry<rt.u8, Tally.Tally>;
-	let t!: Tally.Tally;
-	_4 = rt.entry(map, k);
+	const _4: rt.Entry<rt.u8, Tally.Tally> = rt.entry(map, k);
 	if (rt.entryOccupied(_4)) {
 		if (!(rt.u16Rem(rt.entryGet(_4).n, 2) === 0)) {
 			return rt.entryRemove(_4).n & 0xff;
-		} else {
-			e = _4;
-			t = rt.entryGet(e);
-			t.n = rt.u16Add(t.n, n);
-			return 1;
 		}
-	} else {
-		rt.entryOrInsert(_4, { n });
-		return 0;
+		const e: rt.Entry<rt.u8, Tally.Tally> = _4;
+		const t: Tally.Tally = rt.entryGet(e);
+		t.n = rt.u16Add(t.n, n);
+		return 1;
 	}
+	rt.entryOrInsert(_4, { n });
+	return 0;
 }
 
 /** `HashSet` and `BTreeSet`, each with the same script. */
 export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	let _4!: rt.u8;
-	let hashed!: rt.HashSet<rt.u16>;
-	let sorted!: rt.BTreeSet<rt.u16>;
-	let iterS!: Uint8Array;
-	let iterI!: number;
-	let _10!: rt.u8 | rt.Done;
-	let b!: rt.u8;
-	let v!: rt.u16;
-	let _17!: rt.u8;
-	let iter2!: rt.Iter<rt.u16>;
-	let _62!: rt.u16 | rt.Done;
-	let firsts!: rt.u16[];
-	let nibbles!: rt.BTreeSet<Nibble.Nibble>;
-	let seen!: rt.HashSet<Nibble.Nibble>;
-	let iterS2!: Uint8Array;
-	let iterI2!: number;
-	let _106!: rt.u8 | rt.Done;
-	let b2!: rt.u8;
-	let iter4!: rt.Iter<Nibble.Nibble>;
-	let _123!: Nibble.Nibble | rt.Done;
-	let _129!: Nibble.Nibble | undefined;
-	let dirs!: rt.HashSet<Dir.Dir>;
-	let iterS3!: Uint8Array;
-	let iterI3!: number;
-	let _151!: rt.u8 | rt.Done;
-	let _160!: rt.usize;
-	let words!: rt.BTreeSet<string>;
-	let iterS4!: Uint8Array;
-	let iterI4!: number;
-	let _175!: rt.u8 | rt.Done;
-	let _182!: rt.usize;
-	let iter7!: rt.Iter<string>;
-	let _192!: string | rt.Done;
-	let wides!: rt.BTreeSet<rt.u64>;
-	let _200!: rt.Iter<rt.u64>;
-	let iter8!: rt.Iter<rt.u64>;
-	let _207!: rt.u64 | rt.Done;
 	b0: {
-		_4 = rt.u8Rem(kind, 3);
+		const _4: rt.u8 = rt.u8Rem(kind, 3);
 		if (_4 === 0) {
-			hashed = rt.hashNew() as rt.HashSet<rt.u16>;
-			sorted = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>;
-			iterS = data;
-			iterI = 0;
+			const hashed: rt.HashSet<rt.u16> = rt.hashNew() as rt.HashSet<rt.u16>;
+			const sorted: rt.BTreeSet<rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>;
+			const iterS: Uint8Array = data;
+			let iterI: number = 0;
 			while (true) {
-				_10 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+				const _10: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 				if (_10 === rt.DONE) {
 					rt.byteVecPush(out, rt.hashLen(hashed) & 0xff);
 					rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.hashKeys(hashed), (v2: rt.u16): boolean => {
 						return rt.u16Rem(v2, 2) === 1;
 					})) & 0xff);
-					iter2 = rt.iterRev(rt.btreeKeys(sorted));
+					const iter2: rt.Iter<rt.u16> = rt.iterRev(rt.btreeKeys(sorted));
 					while (true) {
-						_62 = iter2.next();
+						const _62: rt.u16 | rt.Done = iter2.next();
 						if (_62 === rt.DONE) {
 							rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeFirstKey(sorted), 255) & 0xff);
 							rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeFirstKey(sorted, true), 255) & 0xff);
-							firsts = rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12)));
-							rt.byteVecPush(out, firsts.length & 0xff);
+							rt.byteVecPush(out, rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12))).length & 0xff);
 							rt.hashRetain(hashed, (v3: rt.u16): boolean => {
 								return rt.u16Rem(v3, 3) !== 0;
 							});
@@ -708,40 +501,39 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 								return v5 & 0xff;
 							}));
 							break b0;
-						} else {
-							rt.byteVecPush(out, _62 & 0xff);
 						}
-					}
-				} else {
-					b = _10;
-					v = rt.u16Rem(b as rt.u16, 24);
-					_17 = rt.u8Rem(b, 3);
-					if (_17 === 0) {
-						rt.byteVecPush(out, rt.hashDelete(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeDelete(sorted, v) ? 1 : 0);
-					} else if (_17 === 1) {
-						rt.byteVecPush(out, rt.hashContains(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeContains(sorted, v) ? 1 : 0);
-					} else {
-						rt.byteVecPush(out, rt.hashAdd(hashed, v) ? 1 : 0);
-						rt.byteVecPush(out, rt.btreeAdd(sorted, v) ? 1 : 0);
+						rt.byteVecPush(out, _62 & 0xff);
 					}
 				}
+				const b: rt.u8 = _10;
+				const v: rt.u16 = rt.u16Rem(b as rt.u16, 24);
+				const _17: rt.u8 = rt.u8Rem(b, 3);
+				if (_17 === 0) {
+					rt.byteVecPush(out, rt.hashDelete(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeDelete(sorted, v) ? 1 : 0);
+				} else if (_17 === 1) {
+					rt.byteVecPush(out, rt.hashContains(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeContains(sorted, v) ? 1 : 0);
+				} else {
+					rt.byteVecPush(out, rt.hashAdd(hashed, v) ? 1 : 0);
+					rt.byteVecPush(out, rt.btreeAdd(sorted, v) ? 1 : 0);
+				}
 			}
-		} else if (_4 === 1) {
-			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
-			seen = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
-			iterS2 = data;
-			iterI2 = 0;
+		}
+		if (_4 === 1) {
+			const nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
+			const seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
+			const iterS2: Uint8Array = data;
+			let iterI2: number = 0;
 			while (true) {
-				_106 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+				const _106: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
 				if (_106 === rt.DONE) {
-					iter4 = rt.btreeKeys(nibbles);
+					const iter4: rt.Iter<Nibble.Nibble> = rt.btreeKeys(nibbles);
 					while (true) {
-						_123 = iter4.next();
+						const _123: Nibble.Nibble | rt.Done = iter4.next();
 						if (_123 === rt.DONE) {
 							while (true) {
-								_129 = rt.btreePopKey(nibbles, true);
+								const _129: Nibble.Nibble | undefined = rt.btreePopKey(nibbles, true);
 								if (_129 !== undefined) {
 									rt.byteVecPush(out, _129._0);
 									if (rt.usizeRem(rt.btreeLen(nibbles), 2) === 0) {
@@ -751,179 +543,80 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 									}
 								} else {
 									rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
-									dirs = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
-									iterS3 = data;
-									iterI3 = 0;
+									const dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
+									const iterS3: Uint8Array = data;
+									let iterI3: number = 0;
 									while (true) {
-										_151 = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
+										const _151: rt.u8 | rt.Done = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
 										if (_151 === rt.DONE) {
 											rt.byteVecPush(out, rt.hashLen(dirs) & 0xff);
 											break b0;
-										} else {
-											_160 = rt.usizeRem(_151 as rt.usize, 3);
-											if (!(_160 < 3)) {
-												rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _160);
-											}
-											rt.byteVecPush(out, rt.hashAdd(dirs, ["Up" as Dir.Dir, "Top" as Dir.Dir, "Down" as Dir.Dir][_160]) ? 1 : 0);
 										}
+										const _160: rt.usize = rt.usizeRem(_151 as rt.usize, 3);
+										if (!(_160 < 3)) {
+											rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _160);
+										}
+										rt.byteVecPush(out, rt.hashAdd(dirs, ["Up" as Dir.Dir, "Top" as Dir.Dir, "Down" as Dir.Dir][_160]) ? 1 : 0);
 									}
 								}
 							}
-						} else {
-							rt.byteVecPush(out, _123._0);
 						}
+						rt.byteVecPush(out, _123._0);
 					}
-				} else {
-					b2 = _106;
-					rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
-					rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
 				}
+				const b2: rt.u8 = _106;
+				rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
+				rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
 			}
-		} else {
-			words = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
-			iterS4 = data;
-			iterI4 = 0;
-			while (true) {
-				_175 = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
-				if (_175 === rt.DONE) {
-					iter7 = rt.btreeKeys(words);
-					while (true) {
-						_192 = iter7.next();
-						if (_192 === rt.DONE) {
-							_200 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u64 => {
-								return wide(_2);
-							});
-							wides = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true);
-							iter8 = rt.iterRev(rt.btreeKeys(wides));
-							while (true) {
-								_207 = iter8.next();
-								if (_207 === rt.DONE) {
-									break b0;
-								} else {
-									rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_207));
-								}
+		}
+		const words: rt.BTreeSet<string> = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
+		const iterS4: Uint8Array = data;
+		let iterI4: number = 0;
+		while (true) {
+			const _175: rt.u8 | rt.Done = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
+			if (_175 === rt.DONE) {
+				const iter7: rt.Iter<string> = rt.btreeKeys(words);
+				while (true) {
+					const _192: string | rt.Done = iter7.next();
+					if (_192 === rt.DONE) {
+						const _200: rt.Iter<rt.u64> = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u64 => {
+							return wide(_2);
+						});
+						const iter8: rt.Iter<rt.u64> = rt.iterRev(rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true)));
+						while (true) {
+							const _207: rt.u64 | rt.Done = iter8.next();
+							if (_207 === rt.DONE) {
+								break b0;
 							}
-						} else {
-							rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_192));
-							rt.byteVecPush(out, 0);
+							rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_207));
 						}
 					}
-				} else {
-					_182 = rt.usizeRem(_175 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_182 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _182);
-					}
-					rt.btreeAdd(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_182]);
+					rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_192));
+					rt.byteVecPush(out, 0);
 				}
 			}
+			const _182: rt.usize = rt.usizeRem(_175 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_182 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _182);
+			}
+			rt.btreeAdd(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_182]);
 		}
 	}
 }
 
 /** `BTreeMap`: ordered by the key's `Ord`, through inserts, removals, and ranges. */
 export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	let _4!: rt.u8;
-	let map!: rt.BTreeMap<rt.u8, rt.u8>;
-	let iter!: rt.Iter<rt.usize>;
-	let _13!: rt.usize | rt.Done;
-	let i!: rt.usize;
-	let k!: rt.u8;
-	let v!: rt.u8;
-	let _19!: [rt.u8, rt.u8];
-	let _30!: rt.u8;
-	let _42!: rt.u8 | undefined;
-	let _50!: rt.u8;
-	let iter2!: rt.Iter<[rt.u8, rt.u8]>;
-	let _73!: [rt.u8, rt.u8] | rt.Done;
-	let iter3!: rt.Iter<[rt.u8, rt.u8]>;
-	let _88!: [rt.u8, rt.u8] | rt.Done;
-	let iter4!: rt.Iter<rt.u8>;
-	let _101!: rt.u8 | rt.Done;
-	let lo!: rt.u8;
-	let hi!: rt.u8;
 	let within!: rt.ByteVec;
-	let _137!: rt.u8;
-	let _146!: rt.RangeInclusive<rt.u8>;
-	let ranks!: rt.BTreeMap<Rank.Rank, Tally.Tally>;
-	let pairs!: rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
-	let wides!: rt.BTreeMap<rt.u64, rt.u8>;
-	let iterStart!: rt.usize;
-	let iterEnd!: rt.usize;
 	let _164!: rt.usize;
-	let i2!: rt.usize;
-	let a!: rt.u8;
-	let b!: rt.u8;
-	let _170!: [rt.u8, rt.u8];
-	let _171!: rt.u8;
-	let _172!: rt.usize;
-	let t!: Tally.Tally;
-	let _182!: Rank.Rank;
-	let _188!: [rt.u8, rt.u8];
-	let _196!: rt.u64;
-	let _197!: Tally.Tally | undefined;
-	let iterS!: Uint8Array;
-	let iterI!: number;
-	let _205!: rt.u8 | rt.Done;
-	let b2!: rt.u8;
-	let r!: Rank.Rank;
-	let _212!: rt.Entry<Rank.Rank, Tally.Tally>;
-	let e!: rt.Entry<Rank.Rank, Tally.Tally>;
-	let _230!: [Rank.Rank, Tally.Tally];
-	let e3!: rt.Entry<Rank.Rank, Tally.Tally>;
-	let iter7!: rt.Iter<[Rank.Rank, Tally.Tally]>;
-	let _240!: [Rank.Rank, Tally.Tally] | rt.Done;
-	let iter8!: rt.Iter<[[rt.u8, rt.u8], rt.u8]>;
-	let _255!: [[rt.u8, rt.u8], rt.u8] | rt.Done;
-	let _269!: { start: rt.u64 };
-	let iter9!: rt.Iter<[rt.u64, rt.u8]>;
-	let _274!: [rt.u64, rt.u8] | rt.Done;
-	let map2!: rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>;
-	let _287!: rt.Iter<[Fussy.Fussy, Fussy.Fussy]>;
-	let copy!: rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>;
-	let iter10!: rt.Iter<[Fussy.Fussy, Fussy.Fussy]>;
-	let _294!: [Fussy.Fussy, Fussy.Fussy] | rt.Done;
-	let nibbles!: rt.BTreeMap<Nibble.Nibble, rt.u8>;
-	let words!: rt.BTreeMap<string, Tally.Tally>;
-	let iterS2!: Uint8Array;
-	let iterI2!: number;
-	let _307!: rt.u8 | rt.Done;
-	let b3!: rt.u8;
-	let t2!: Tally.Tally;
-	let _320!: rt.usize;
-	let iter12!: rt.Iter<[Nibble.Nibble, rt.u8]>;
-	let _331!: [Nibble.Nibble, rt.u8] | rt.Done;
-	let iterStart2!: rt.usize;
-	let iterEnd2!: rt.usize;
 	let _344!: rt.usize;
-	let i3!: rt.usize;
-	let a2!: Nibble.Nibble;
-	let b4!: Nibble.Nibble;
-	let _350!: [Nibble.Nibble, Nibble.Nibble];
-	let _351!: Nibble.Nibble;
-	let _353!: rt.usize;
-	let x!: rt.u8;
-	let y!: rt.u8;
-	let _363!: [rt.u8, rt.u8];
-	let _364!: rt.u8;
-	let _365!: rt.usize;
-	let o!: rt.Ordering;
 	let _401!: rt.u8;
-	let collected!: rt.BTreeMap<Nibble.Nibble, rt.u8>;
-	let _409!: rt.Iter<[Nibble.Nibble, rt.u8]>;
-	let keys!: rt.BTreeSet<Nibble.Nibble>;
-	let _412!: rt.Iter<Nibble.Nibble>;
-	let _416!: rt.Iter<Nibble.Nibble>;
-	let iter14!: rt.Iter<[[Nibble.Nibble, rt.u8], Nibble.Nibble]>;
-	let _425!: [[Nibble.Nibble, rt.u8], Nibble.Nibble] | rt.Done;
-	let iter15!: rt.Iter<[string, Tally.Tally]>;
-	let _442!: [string, Tally.Tally] | rt.Done;
 	b0: {
-		_4 = rt.u8Rem(kind, 4);
+		const _4: rt.u8 = rt.u8Rem(kind, 4);
 		if (_4 === 0) {
-			map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>;
-			iter = rt.iterStepBy(new rt.Range(0, data.length), 2);
+			const map: rt.BTreeMap<rt.u8, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>;
+			const iter: rt.Iter<rt.usize> = rt.iterStepBy(new rt.Range(0, data.length), 2);
 			while (true) {
-				_13 = iter.next();
+				const _13: rt.usize | rt.Done = iter.next();
 				if (_13 === rt.DONE) {
 					rt.byteVecPush(out, rt.optionMapOr(rt.btreeFirst(map), 255, (_223: [rt.u8, rt.u8]): rt.u8 => {
 						return _223[0];
@@ -931,34 +624,34 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 					rt.byteVecPush(out, rt.optionMapOr(rt.btreeFirst(map, true), 255, (_224: [rt.u8, rt.u8]): rt.u8 => {
 						return _224[0];
 					}));
-					iter2 = rt.btreeRange(map, new rt.Range(8, 24));
+					const iter2: rt.Iter<[rt.u8, rt.u8]> = rt.btreeRange(map, new rt.Range(8, 24));
 					while (true) {
-						_73 = iter2.next();
+						const _73: [rt.u8, rt.u8] | rt.Done = iter2.next();
 						if (_73 === rt.DONE) {
-							iter3 = rt.iterRev(rt.btreeRange(map, { start: 10 }));
+							const iter3: rt.Iter<[rt.u8, rt.u8]> = rt.iterRev(rt.btreeRange(map, { start: 10 }));
 							while (true) {
-								_88 = iter3.next();
+								const _88: [rt.u8, rt.u8] | rt.Done = iter3.next();
 								if (_88 === rt.DONE) {
-									iter4 = rt.iterMap(rt.btreeRange(map, { end: 6 }), (_229: [rt.u8, rt.u8]): rt.u8 => {
+									const iter4: rt.Iter<rt.u8> = rt.iterMap(rt.btreeRange(map, { end: 6 }), (_229: [rt.u8, rt.u8]): rt.u8 => {
 										return _229[1];
 									});
 									while (true) {
-										_101 = iter4.next();
+										const _101: rt.u8 | rt.Done = iter4.next();
 										if (_101 === rt.DONE) {
 											rt.iterExtendBytes(out, rt.btreeKeys(map));
 											rt.iterExtendBytes(out, rt.btreeValues(map));
 											rt.btreeRemove(map, 3);
 											rt.byteVecPush(out, rt.btreeLen(map) & 0xff);
 											rt.byteVecPush(out, rt.btreeContains(map, 3) ? 1 : 0);
-											lo = rt.u8Rem(rt.optionUnwrapOr(rt.sliceFirst(data), 0), 32);
-											hi = rt.u8Rem(rt.optionUnwrapOr(rt.sliceGet(data, 1), 0), 32);
-											_137 = rt.u8Rem(lo, 3);
+											const lo: rt.u8 = rt.u8Rem(rt.optionUnwrapOr(rt.sliceFirst(data), 0), 32);
+											const hi: rt.u8 = rt.u8Rem(rt.optionUnwrapOr(rt.sliceGet(data, 1), 0), 32);
+											const _137: rt.u8 = rt.u8Rem(lo, 3);
 											if (_137 === 0) {
 												within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, new rt.Range(lo, hi)), (_238: [rt.u8, rt.u8]): rt.u8 => {
 													return _238[0];
 												}));
 											} else if (_137 === 1) {
-												_146 = new rt.RangeInclusive(lo, hi, rt.u8Step);
+												const _146: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(lo, hi, rt.u8Step);
 												within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, _146), (_235: [rt.u8, rt.u8]): rt.u8 => {
 													return _235[0];
 												}));
@@ -970,250 +663,231 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 											rt.byteVecExtendFromSlice(out, rt.byteVecView(within));
 											rt.iterExtendBytes(out, rt.btreeValues(map));
 											break b0;
-										} else {
-											rt.byteVecPush(out, _101);
 										}
+										rt.byteVecPush(out, _101);
 									}
-								} else {
-									rt.byteVecPush(out, _88[0] ^ _88[1]);
 								}
+								rt.byteVecPush(out, _88[0] ^ _88[1]);
 							}
-						} else {
-							rt.byteVecPush(out, _73[0]);
-							rt.byteVecPush(out, _73[1]);
 						}
-					}
-				} else {
-					i = _13;
-					rt.idx(data, i);
-					_19 = [rt.u8Rem(data[i], 32), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0)] as [rt.u8, rt.u8];
-					k = _19[0];
-					v = _19[1];
-					_30 = rt.u8Rem(v, 6);
-					if (_30 === 0) {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeRemove(map, k), 238));
-					} else if (_30 === 1) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map), 221, (_219: [rt.u8, rt.u8]): rt.u8 => {
-							return _219[0] ^ _219[1];
-						}));
-					} else if (_30 === 2) {
-						rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map, true), 220, (_216: [rt.u8, rt.u8]): rt.u8 => {
-							return _216[0] ^ _216[1];
-						}));
-					} else if (_30 === 3) {
-						_42 = rt.btreeGet(map, k);
-						if (_42 !== undefined) {
-							_50 = rt.u8WrappingAdd(_42, 1);
-							rt.btreeInsert(map, k, _50);
-						}
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeGet(map, k), 219));
-					} else {
-						rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(map, k, v), 204));
+						rt.byteVecPush(out, _73[0]);
+						rt.byteVecPush(out, _73[1]);
 					}
 				}
+				const i: rt.usize = _13;
+				rt.idx(data, i);
+				const _19: [rt.u8, rt.u8] = [rt.u8Rem(data[i], 32), rt.optionUnwrapOr(rt.sliceGet(data, rt.usizeAdd(i, 1)), 0)];
+				const k: rt.u8 = _19[0];
+				const v: rt.u8 = _19[1];
+				const _30: rt.u8 = rt.u8Rem(v, 6);
+				if (_30 === 0) {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeRemove(map, k), 238));
+				} else if (_30 === 1) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map), 221, (_219: [rt.u8, rt.u8]): rt.u8 => {
+						return _219[0] ^ _219[1];
+					}));
+				} else if (_30 === 2) {
+					rt.byteVecPush(out, rt.optionMapOr(rt.btreePop(map, true), 220, (_216: [rt.u8, rt.u8]): rt.u8 => {
+						return _216[0] ^ _216[1];
+					}));
+				} else if (_30 === 3) {
+					const _42: rt.u8 | undefined = rt.btreeGet(map, k);
+					if (_42 !== undefined) {
+						const _50: rt.u8 = rt.u8WrappingAdd(_42, 1);
+						rt.btreeInsert(map, k, _50);
+					}
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeGet(map, k), 219));
+				} else {
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(map, k, v), 204));
+				}
 			}
-		} else if (_4 === 1) {
-			ranks = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
-			pairs = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
-			wides = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u64, rt.u8>;
-			iterStart = 1;
-			iterEnd = data.length;
+		}
+		if (_4 === 1) {
+			const ranks: rt.BTreeMap<Rank.Rank, Tally.Tally> = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
+			const pairs: rt.BTreeMap<[rt.u8, rt.u8], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
+			const wides: rt.BTreeMap<rt.u64, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u64, rt.u8>;
+			let iterStart: rt.usize = 1;
+			const iterEnd: rt.usize = data.length;
 			while (true) {
 				if (!((_164 = iterStart++) < iterEnd)) {
-					_197 = rt.btreeGet(ranks, { tag: "Low" } as Rank.Rank);
+					const _197: Tally.Tally | undefined = rt.btreeGet(ranks, { tag: "Low" } as Rank.Rank);
 					if (_197 !== undefined) {
 						_197.n = _197.n ^ 23130;
 					}
-					iterS = data;
-					iterI = 0;
+					const iterS: Uint8Array = data;
+					let iterI: number = 0;
 					while (true) {
-						_205 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+						const _205: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 						if (_205 === rt.DONE) {
-							iter7 = rt.btreeIter(ranks);
+							const iter7: rt.Iter<[Rank.Rank, Tally.Tally]> = rt.btreeIter(ranks);
 							while (true) {
-								_240 = iter7.next();
+								const _240: [Rank.Rank, Tally.Tally] | rt.Done = iter7.next();
 								if (_240 === rt.DONE) {
-									iter8 = rt.btreeIter(pairs);
+									const iter8: rt.Iter<[[rt.u8, rt.u8], rt.u8]> = rt.btreeIter(pairs);
 									while (true) {
-										_255 = iter8.next();
+										const _255: [[rt.u8, rt.u8], rt.u8] | rt.Done = iter8.next();
 										if (_255 === rt.DONE) {
-											_269 = { start: 4503599627370496 };
-											iter9 = rt.btreeRange(wides, _269);
+											const _269: { start: rt.u64 } = { start: 4503599627370496 };
+											const iter9: rt.Iter<[rt.u64, rt.u8]> = rt.btreeRange(wides, _269);
 											while (true) {
-												_274 = iter9.next();
+												const _274: [rt.u64, rt.u8] | rt.Done = iter9.next();
 												if (_274 === rt.DONE) {
 													break b0;
-												} else {
-													rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_274[0]));
-													rt.byteVecPush(out, _274[1]);
 												}
+												rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(_274[0]));
+												rt.byteVecPush(out, _274[1]);
 											}
-										} else {
-											rt.byteVecPush(out, rt.u8Shl(_255[0][0], 4) | _255[0][1]);
-											rt.byteVecPush(out, _255[1]);
 										}
+										rt.byteVecPush(out, rt.u8Shl(_255[0][0], 4) | _255[0][1]);
+										rt.byteVecPush(out, _255[1]);
 									}
-								} else {
-									rt.byteVecPush(out, rankByte(_240[0]));
-									rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_240[1].n));
 								}
-							}
-						} else {
-							b2 = _205;
-							r = rank(b2, rt.u8Div(b2, 3));
-							_212 = rt.entry(ranks, r);
-							if (!rt.entryOccupied(_212)) {
-								e = _212;
-								rt.byteVecPush(out, rankByte(rt.entryKey(e)));
-								rt.entryOrInsert(e, { n: b2 as rt.u16 });
-							} else if (!(rt.entryGet(_212).n > 256)) {
-								e3 = _212;
-								rt.byteVecPush(out, rt.entryInsert(e3, { n: 512 }).n & 0xff);
-							} else {
-								_230 = rt.entryRemoveEntry(_212);
-								rt.byteVecPush(out, rankByte(_230[0]));
+								rt.byteVecPush(out, rankByte(_240[0]));
+								rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_240[1].n));
 							}
 						}
+						const b2: rt.u8 = _205;
+						const r: Rank.Rank = rank(b2, rt.u8Div(b2, 3));
+						const _212: rt.Entry<Rank.Rank, Tally.Tally> = rt.entry(ranks, r);
+						if (!rt.entryOccupied(_212)) {
+							const e: rt.Entry<Rank.Rank, Tally.Tally> = _212;
+							rt.byteVecPush(out, rankByte(rt.entryKey(e)));
+							rt.entryOrInsert(e, { n: b2 as rt.u16 });
+						} else if (!(rt.entryGet(_212).n > 256)) {
+							const e3: rt.Entry<Rank.Rank, Tally.Tally> = _212;
+							rt.byteVecPush(out, rt.entryInsert(e3, { n: 512 }).n & 0xff);
+						} else {
+							const _230: [Rank.Rank, Tally.Tally] = rt.entryRemoveEntry(_212);
+							rt.byteVecPush(out, rankByte(_230[0]));
+						}
 					}
-				} else {
-					i2 = _164;
-					_172 = rt.usizeSub(i2, 1);
-					rt.idx(data, _172);
-					_171 = data[_172];
-					rt.idx(data, i2);
-					_170 = [_171, data[i2]] as [rt.u8, rt.u8];
-					a = _171;
-					b = _170[1];
-					_182 = rank(a, b);
-					t = rt.entryOrInsertWith(rt.entry(ranks, _182), Tally.default$Default);
-					t.n = rt.u16WrappingAdd(t.n, b as rt.u16);
-					_188 = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)] as [rt.u8, rt.u8];
-					rt.btreeInsert(pairs, _188, a);
-					_196 = wide(a);
-					rt.entryOrInsertMut(rt.entry(wides, _196), b);
 				}
+				const i2: rt.usize = _164;
+				const _172: rt.usize = rt.usizeSub(i2, 1);
+				rt.idx(data, _172);
+				const _171: rt.u8 = data[_172];
+				rt.idx(data, i2);
+				const _170: [rt.u8, rt.u8] = [_171, data[i2]];
+				const a: rt.u8 = _171;
+				const b: rt.u8 = _170[1];
+				const _182: Rank.Rank = rank(a, b);
+				const t: Tally.Tally = rt.entryOrInsertWith(rt.entry(ranks, _182), Tally.default$Default);
+				t.n = rt.u16WrappingAdd(t.n, b as rt.u16);
+				const _188: [rt.u8, rt.u8] = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)];
+				rt.btreeInsert(pairs, _188, a);
+				const _196: rt.u64 = wide(a);
+				rt.entryOrInsertMut(rt.entry(wides, _196), b);
 			}
-		} else if (_4 === 2) {
-			_287 = rt.iterMap(rt.iterSlice(data), (_215: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
-				let b8!: rt.u8;
-				b8 = _215;
+		}
+		if (_4 === 2) {
+			const _287: rt.Iter<[Fussy.Fussy, Fussy.Fussy]> = rt.iterMap(rt.iterSlice(data), (_215: rt.u8): [Fussy.Fussy, Fussy.Fussy] => {
+				const b8: rt.u8 = _215;
 				return [{ _0: b8 }, { _0: b8 ^ 90 }] as [Fussy.Fussy, Fussy.Fussy];
 			});
-			map2 = rt.btreeExtend(rt.btreeNew(Fussy.cmp$Ord) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, _287, true);
-			copy = rt.btreeClone(map2, Fussy.clone$Clone, Fussy.clone$Clone);
-			iter10 = rt.btreeIter(copy);
+			const iter10: rt.Iter<[Fussy.Fussy, Fussy.Fussy]> = rt.btreeIter(rt.btreeClone(rt.btreeExtend(rt.btreeNew(Fussy.cmp$Ord) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, _287, true), Fussy.clone$Clone, Fussy.clone$Clone));
 			while (true) {
-				_294 = iter10.next();
+				const _294: [Fussy.Fussy, Fussy.Fussy] | rt.Done = iter10.next();
 				if (_294 === rt.DONE) {
 					break b0;
-				} else {
-					rt.byteVecPush(out, _294[0]._0 ^ _294[1]._0);
 				}
+				rt.byteVecPush(out, _294[0]._0 ^ _294[1]._0);
 			}
-		} else {
-			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
-			words = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
-			iterS2 = data;
-			iterI2 = 0;
-			while (true) {
-				_307 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_307 === rt.DONE) {
-					iter12 = rt.btreeIter(nibbles);
-					while (true) {
-						_331 = iter12.next();
-						if (_331 === rt.DONE) {
-							iterStart2 = 1;
-							iterEnd2 = data.length;
-							while (true) {
-								if (!((_344 = iterStart2++) < iterEnd2)) {
-									_409 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
-										let b5!: rt.u8;
-										b5 = _2;
-										return [{ _0: b5 }, b5] as [Nibble.Nibble, rt.u8];
-									});
-									collected = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _409, true);
-									_412 = rt.iterMap(rt.iterSlice(data), (_213: rt.u8): Nibble.Nibble => {
-										return { _0: _213 };
-									});
-									keys = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _412, true);
-									_416 = rt.iterMap(rt.iterSlice(data), (_214: rt.u8): Nibble.Nibble => {
-										return { _0: _214 ^ 48 };
-									});
-									rt.btreeExtendKeys(keys, _416);
-									iter14 = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys));
-									while (true) {
-										_425 = iter14.next();
-										if (_425 === rt.DONE) {
-											rt.btreeRetain(words, (w: string, t3: Tally.Tally): boolean => {
-												if (!(rt.stringLen(w) > 1)) {
-													return t3.n > 1;
-												} else {
-													return true;
-												}
-											});
-											iter15 = rt.btreeIter(words);
-											while (true) {
-												_442 = iter15.next();
-												if (_442 === rt.DONE) {
-													break b0;
-												} else {
-													rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_442[0]));
-													rt.byteVecPush(out, _442[1].n & 0xff);
-												}
+		}
+		const nibbles: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
+		const words: rt.BTreeMap<string, Tally.Tally> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
+		const iterS2: Uint8Array = data;
+		let iterI2: number = 0;
+		while (true) {
+			const _307: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+			if (_307 === rt.DONE) {
+				const iter12: rt.Iter<[Nibble.Nibble, rt.u8]> = rt.btreeIter(nibbles);
+				while (true) {
+					const _331: [Nibble.Nibble, rt.u8] | rt.Done = iter12.next();
+					if (_331 === rt.DONE) {
+						let iterStart2: rt.usize = 1;
+						const iterEnd2: rt.usize = data.length;
+						while (true) {
+							if (!((_344 = iterStart2++) < iterEnd2)) {
+								const _409: rt.Iter<[Nibble.Nibble, rt.u8]> = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
+									const b5: rt.u8 = _2;
+									return [{ _0: b5 }, b5] as [Nibble.Nibble, rt.u8];
+								});
+								const collected: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _409, true);
+								const _412: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(data), (_213: rt.u8): Nibble.Nibble => {
+									return { _0: _213 };
+								});
+								const keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _412, true);
+								const _416: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(data), (_214: rt.u8): Nibble.Nibble => {
+									return { _0: _214 ^ 48 };
+								});
+								rt.btreeExtendKeys(keys, _416);
+								const iter14: rt.Iter<[[Nibble.Nibble, rt.u8], Nibble.Nibble]> = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys));
+								while (true) {
+									const _425: [[Nibble.Nibble, rt.u8], Nibble.Nibble] | rt.Done = iter14.next();
+									if (_425 === rt.DONE) {
+										rt.btreeRetain(words, (w: string, t3: Tally.Tally): boolean => {
+											if (!(rt.stringLen(w) > 1)) {
+												return t3.n > 1;
 											}
-										} else {
-											rt.byteVecPush(out, _425[0][0]._0);
-											rt.byteVecPush(out, _425[0][1]);
-											rt.byteVecPush(out, _425[1]._0);
+											return true;
+										});
+										const iter15: rt.Iter<[string, Tally.Tally]> = rt.btreeIter(words);
+										while (true) {
+											const _442: [string, Tally.Tally] | rt.Done = iter15.next();
+											if (_442 === rt.DONE) {
+												break b0;
+											}
+											rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_442[0]));
+											rt.byteVecPush(out, _442[1].n & 0xff);
 										}
 									}
-								} else {
-									i3 = _344;
-									_353 = rt.usizeSub(i3, 1);
-									rt.idx(data, _353);
-									_351 = { _0: data[_353] };
-									rt.idx(data, i3);
-									_350 = [_351, { _0: data[i3] }] as [Nibble.Nibble, Nibble.Nibble];
-									a2 = _351;
-									b4 = _350[1];
-									_365 = rt.usizeSub(i3, 1);
-									rt.idx(data, _365);
-									_364 = data[_365];
-									rt.idx(data, i3);
-									_363 = [_364, data[i3]] as [rt.u8, rt.u8];
-									x = _364;
-									y = _363[1];
-									o = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a2, b4)), (): rt.Ordering => {
-										return rt.cmp(y, x);
-									}, true);
-									rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1) === 0 ? 1 : 0) << 2) & 0xff));
-									if (o === -1) {
-										_401 = 1;
-									} else if (o === 0) {
-										_401 = 2;
-									} else {
-										_401 = 3;
-									}
-									rt.byteVecPush(out, _401);
-									rt.byteVecPush(out, o === 1 ? 1 : 0);
+									rt.byteVecPush(out, _425[0][0]._0);
+									rt.byteVecPush(out, _425[0][1]);
+									rt.byteVecPush(out, _425[1]._0);
 								}
 							}
-						} else {
-							rt.byteVecPush(out, _331[0]._0);
-							rt.byteVecPush(out, _331[1]);
+							const i3: rt.usize = _344;
+							const _353: rt.usize = rt.usizeSub(i3, 1);
+							rt.idx(data, _353);
+							const _351: Nibble.Nibble = { _0: data[_353] };
+							rt.idx(data, i3);
+							const _350: [Nibble.Nibble, Nibble.Nibble] = [_351, { _0: data[i3] }];
+							const a2: Nibble.Nibble = _351;
+							const b4: Nibble.Nibble = _350[1];
+							const _365: rt.usize = rt.usizeSub(i3, 1);
+							rt.idx(data, _365);
+							const _364: rt.u8 = data[_365];
+							rt.idx(data, i3);
+							const _363: [rt.u8, rt.u8] = [_364, data[i3]];
+							const x: rt.u8 = _364;
+							const y: rt.u8 = _363[1];
+							const o: rt.Ordering = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a2, b4)), (): rt.Ordering => {
+								return rt.cmp(y, x);
+							}, true);
+							rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1) === 0 ? 1 : 0) << 2) & 0xff));
+							if (o === -1) {
+								_401 = 1;
+							} else if (o === 0) {
+								_401 = 2;
+							} else {
+								_401 = 3;
+							}
+							rt.byteVecPush(out, _401);
+							rt.byteVecPush(out, o === 1 ? 1 : 0);
 						}
 					}
-				} else {
-					b3 = _307;
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(nibbles, { _0: b3 }, b3), 204));
-					_320 = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
-					if (!(_320 < 8)) {
-						rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _320);
-					}
-					t2 = rt.entryOrInsertWith(rt.entry(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_320]), Tally.default$Default);
-					t2.n = rt.u16Add(t2.n, 1);
+					rt.byteVecPush(out, _331[0]._0);
+					rt.byteVecPush(out, _331[1]);
 				}
 			}
+			const b3: rt.u8 = _307;
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(nibbles, { _0: b3 }, b3), 204));
+			const _320: rt.usize = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
+			if (!(_320 < 8)) {
+				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _320);
+			}
+			const t2: Tally.Tally = rt.entryOrInsertWith(rt.entry(words, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_320]), Tally.default$Default);
+			t2.n = rt.u16Add(t2.n, 1);
 		}
 	}
 }
@@ -1226,66 +900,38 @@ export function touch(q: rt.VecDeque<rt.u8>): rt.VecDeque<rt.u8> {
 
 /** `VecDeque`: a ring buffer, pushed and popped at both ends past its capacity. */
 export function deques(data: Uint8Array, out: rt.ByteVec): void {
-	let q!: rt.VecDeque<rt.u8>;
-	let pairs!: rt.VecDeque<[rt.u8, rt.u8]>;
-	let iterS!: Uint8Array;
-	let iterI!: number;
-	let _7!: rt.u8 | rt.Done;
-	let b!: rt.u8;
-	let _12!: rt.u8;
-	let _36!: rt.usize;
-	let _42!: [rt.u8, rt.u8];
-	let _71!: rt.usize;
-	let iter2!: rt.Iter<[rt.u8, rt.u8]>;
-	let _83!: [rt.u8, rt.u8] | rt.Done;
-	let drained!: rt.ByteVec;
-	let tallies!: rt.VecDeque<Tally.Tally>;
-	let _101!: rt.Iter<Tally.Tally>;
-	let copy!: rt.VecDeque<Tally.Tally>;
-	let _105!: Tally.Tally | undefined;
-	let _119!: rt.Iter<Tally.Tally>;
-	let _121!: Tally.Tally | undefined;
-	let _135!: rt.Iter<rt.u8>;
-	let _139!: rt.usize;
-	let a!: rt.usize;
-	let b2!: rt.usize;
-	let q2!: rt.VecDeque<rt.u8>;
-	let _171!: rt.Iter<rt.u8>;
 	let drained2!: rt.ByteVec;
-	let _174!: rt.usize;
-	let _181!: rt.RangeInclusive<rt.usize>;
-	q = rt.dequeNew() as rt.VecDeque<rt.u8>;
-	pairs = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
-	iterS = data;
-	iterI = 0;
+	const q: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
+	const pairs: rt.VecDeque<[rt.u8, rt.u8]> = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
+	const iterS: Uint8Array = data;
+	let iterI: number = 0;
 	while (true) {
-		_7 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		const _7: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_7 === rt.DONE) {
 			touch(q);
 			touch(q);
 			rt.byteVecPush(out, q.n & 0xff);
 			rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)));
 			if (!((q.n === 0))) {
-				_71 = rt.usizeDiv(q.n, 2);
+				const _71: rt.usize = rt.usizeDiv(q.n, 2);
 				rt.byteVecPush(out, rt.dequeIndex(q, _71));
 			}
 			rt.dequeRetain(q, (b3: rt.u8): boolean => {
 				return rt.u8Rem(b3, 2) === 0;
 			});
 			rt.iterExtendBytes(out, rt.dequeIter(q));
-			iter2 = rt.dequeIter(pairs);
+			const iter2: rt.Iter<[rt.u8, rt.u8]> = rt.dequeIter(pairs);
 			while (true) {
-				_83 = iter2.next();
+				const _83: [rt.u8, rt.u8] | rt.Done = iter2.next();
 				if (_83 === rt.DONE) {
-					drained = rt.iterToByteVec(rt.dequeDrain(q, undefined));
-					rt.byteVecExtendFromSlice(out, rt.byteVecView(drained));
+					rt.byteVecExtendFromSlice(out, rt.byteVecView(rt.iterToByteVec(rt.dequeDrain(q, undefined))));
 					rt.byteVecPush(out, q.n === 0 ? 1 : 0);
-					_101 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): Tally.Tally => {
+					const _101: rt.Iter<Tally.Tally> = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): Tally.Tally => {
 						return { n: _2 as rt.u16 };
 					});
-					tallies = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Tally.Tally>, _101);
-					copy = rt.dequeClone(tallies, rt.copy);
-					_105 = rt.dequeEnd(copy);
+					const tallies: rt.VecDeque<Tally.Tally> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Tally.Tally>, _101);
+					const copy: rt.VecDeque<Tally.Tally> = rt.dequeClone(tallies, rt.copy);
+					const _105: Tally.Tally | undefined = rt.dequeEnd(copy);
 					if (_105 !== undefined) {
 						_105.n = _105.n ^ 255;
 					}
@@ -1295,9 +941,9 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 					rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(copy), (t2: Tally.Tally): rt.u8 => {
 						return t2.n & 0xff;
 					}));
-					_119 = rt.dequeIter(tallies);
+					const _119: rt.Iter<Tally.Tally> = rt.dequeIter(tallies);
 					rt.dequeExtend(copy, rt.iterMap(_119, rt.copy));
-					_121 = rt.dequeEnd(copy, true);
+					const _121: Tally.Tally | undefined = rt.dequeEnd(copy, true);
 					if (_121 !== undefined) {
 						_121.n = _121.n ^ 255;
 					}
@@ -1307,23 +953,23 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 					rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(copy), (t4: Tally.Tally): rt.u8 => {
 						return t4.n & 0xff;
 					}));
-					_135 = rt.iterSlice(data);
+					const _135: rt.Iter<rt.u8> = rt.iterSlice(data);
 					rt.dequeExtend(q, _135);
-					_139 = rt.usizeDiv(q.n, 2);
+					const _139: rt.usize = rt.usizeDiv(q.n, 2);
 					rt.dequeInsert(q, _139, 66);
 					rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeRemove(q, 1), 233));
 					rt.dequeTruncate(q, 5);
 					rt.byteVecPush(out, rt.dequeContains(q, 66, rt.same) ? 1 : 0);
 					rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)));
-					a = rt.usizeRem(rt.optionUnwrapOr(rt.sliceFirst(data), 0) as rt.usize, 8);
-					b2 = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(data, 1), 0) as rt.usize, 8);
-					_171 = rt.iterSlice(data);
-					q2 = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _171);
-					_174 = rt.usizeRem(a, 4);
+					const a: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.sliceFirst(data), 0) as rt.usize, 8);
+					const b2: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(data, 1), 0) as rt.usize, 8);
+					const _171: rt.Iter<rt.u8> = rt.iterSlice(data);
+					const q2: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _171);
+					const _174: rt.usize = rt.usizeRem(a, 4);
 					if (_174 === 0) {
 						drained2 = rt.iterToByteVec(rt.dequeDrain(q2, new rt.Range(a, b2)));
 					} else if (_174 === 1) {
-						_181 = new rt.RangeInclusive(a, b2, rt.usizeStep);
+						const _181: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b2, rt.usizeStep);
 						drained2 = rt.iterToByteVec(rt.dequeDrain(q2, _181));
 					} else if (_174 === 2) {
 						drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { end: b2 }));
@@ -1334,32 +980,30 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 					rt.iterExtendBytes(out, rt.dequeIter(q2));
 					rt.byteVecPush(out, rt.dequeIndex(q2, b2));
 					return;
-				} else {
-					rt.byteVecPush(out, _83[0] ^ _83[1]);
 				}
+				rt.byteVecPush(out, _83[0] ^ _83[1]);
 			}
+		}
+		const b: rt.u8 = _7;
+		const _12: rt.u8 = rt.u8Rem(b, 7);
+		if (_12 === 0) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopFront(q), 238));
+		} else if (_12 === 1) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopBack(q), 237));
+		} else if (_12 === 2) {
+			rt.dequePushFront(q, b);
+		} else if (_12 === 3) {
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q), 236));
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q, true), 235));
+			const _36: rt.usize = rt.usizeRem(b as rt.usize, 5);
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeGet(q, _36), 234));
 		} else {
-			b = _7;
-			_12 = rt.u8Rem(b, 7);
-			if (_12 === 0) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopFront(q), 238));
-			} else if (_12 === 1) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopBack(q), 237));
-			} else if (_12 === 2) {
-				rt.dequePushFront(q, b);
-			} else if (_12 === 3) {
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q), 236));
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeEnd(q, true), 235));
-				_36 = rt.usizeRem(b as rt.usize, 5);
-				rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequeGet(q, _36), 234));
-			} else {
-				rt.dequePushBack(q, b);
-			}
-			_42 = [b, q.n & 0xff] as [rt.u8, rt.u8];
-			rt.dequePushBack(pairs, _42);
-			if (pairs.n > 3) {
-				rt.dequePopFront(pairs);
-			}
+			rt.dequePushBack(q, b);
+		}
+		const _42: [rt.u8, rt.u8] = [b, q.n & 0xff];
+		rt.dequePushBack(pairs, _42);
+		if (pairs.n > 3) {
+			rt.dequePopFront(pairs);
 		}
 	}
 }

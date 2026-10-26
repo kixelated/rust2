@@ -5,20 +5,13 @@ import * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 
 export function fmt$Debug_Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _3!: string;
-	let _4!: string;
-	let _5!: rt.Fmt;
-	let _7!: string;
-	let _8!: rt.Fmt;
-	let _10!: string;
-	let _11!: rt.Fmt;
-	_3 = "Tagged";
-	_4 = "key";
-	_5 = (f: rt.Formatter) => Either.fmt$Debug_u8_u16(self.key, f);
-	_7 = "inner";
-	_8 = (f: rt.Formatter) => Wrap.fmt$Debug_i16(self.inner, f);
-	_10 = "all";
-	_11 = (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f));
+	const _3: string = "Tagged";
+	const _4: string = "key";
+	const _5: rt.Fmt = (f: rt.Formatter) => Either.fmt$Debug_u8_u16(self.key, f);
+	const _7: string = "inner";
+	const _8: rt.Fmt = (f: rt.Formatter) => Wrap.fmt$Debug_i16(self.inner, f);
+	const _10: string = "all";
+	const _11: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f));
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8), _10, _11));
 }
 

@@ -5,9 +5,8 @@ import * as rt from "./rt.ts";
 export function eq$PartialEq(self: Name, other: Name): boolean {
 	if (!rt.eqArc(rt.same, true)(self.text, other.text)) {
 		return false;
-	} else {
-		return self.rank === other.rank;
 	}
+	return self.rank === other.rank;
 }
 
 export function hash$Hash_DefaultHasher(self: Name, state: rt.Hasher): void {
@@ -16,13 +15,11 @@ export function hash$Hash_DefaultHasher(self: Name, state: rt.Hasher): void {
 }
 
 export function cmp$Ord(self: Name, other: Name): rt.Ordering {
-	let cmp!: rt.Ordering;
-	cmp = rt.cmpArc(rt.cmpStr)(self.text, other.text);
+	const cmp: rt.Ordering = rt.cmpArc(rt.cmpStr)(self.text, other.text);
 	if (cmp === 0) {
 		return rt.cmpOption(rt.cmp)(self.rank, other.rank);
-	} else {
-		return cmp;
 	}
+	return cmp;
 }
 
 /** Text in an `Arc`, whose derived impls compare and hash it as the text. */

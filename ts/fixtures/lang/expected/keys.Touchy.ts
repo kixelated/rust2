@@ -12,16 +12,14 @@ export function hash$Hash_DefaultHasher(self: Touchy, state: rt.Hasher): void {
 }
 
 export function eq$PartialEq(self: Touchy, _2: Touchy): boolean {
-	let args2!: rt.Fmt[];
 	const arg = ([self._0] as [rt.u8])[0];
-	args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["compared ", args2[0]]);
 }
 
 export function cmp$Ord(self: Touchy, _2: Touchy): rt.Ordering {
-	let args2!: rt.Fmt[];
 	const arg = ([self._0] as [rt.u8])[0];
-	args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["ordered ", args2[0]]);
 }
 

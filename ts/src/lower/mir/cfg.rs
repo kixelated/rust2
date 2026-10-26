@@ -449,6 +449,36 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 	);
 }
 
+/// After a `then` that never falls through, the `else` is what follows the `if`. Every
+/// name a body declares is its own, so nothing moved out can clash. Last, as it leaves
+/// the jumps `simplify` strips no longer at the end of their block.
+pub fn hoist_else(stmts: &mut Vec<Stmt>) {
+	let mut i = 0;
+	while i < stmts.len() {
+		match &mut stmts[i].kind {
+			StmtKind::If { then, els, .. } => {
+				hoist_else(then);
+				hoist_else(els);
+				if !els.is_empty() && crate::ts::diverges(then) {
+					let els = std::mem::take(els);
+					stmts.splice(i + 1..i + 1, els);
+				}
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => hoist_else(body),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| hoist_else(body));
+				hoist_else(default);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				hoist_else(body);
+				hoist_else(handler);
+			}
+			_ => {}
+		}
+		i += 1;
+	}
+}
+
 /// Whether evaluating `e` does nothing but read.
 pub fn pure(e: &Expr) -> bool {
 	match e {

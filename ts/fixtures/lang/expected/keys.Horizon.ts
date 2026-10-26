@@ -6,9 +6,8 @@ import * as Hop from "./keys.Hop.ts";
 export function eq$PartialEq(self: Horizon, other: Horizon): boolean {
 	if (!(self.local === other.local)) {
 		return false;
-	} else {
-		return rt.eqOption(Hop.eq$PartialEq)(self.exclude, other.exclude);
 	}
+	return rt.eqOption(Hop.eq$PartialEq)(self.exclude, other.exclude);
 }
 
 export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
@@ -17,13 +16,11 @@ export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
 }
 
 export function cmp$Ord(self: Horizon, other: Horizon): rt.Ordering {
-	let cmp!: rt.Ordering;
-	cmp = rt.cmpOption(Hop.cmp$Ord)(self.exclude, other.exclude);
+	const cmp: rt.Ordering = rt.cmpOption(Hop.cmp$Ord)(self.exclude, other.exclude);
 	if (cmp === 0) {
 		return rt.cmp(self.local, other.local);
-	} else {
-		return cmp;
 	}
+	return cmp;
 }
 
 /** A key whose derived impls read an `Option`, as moq-net's `Horizon` does. */

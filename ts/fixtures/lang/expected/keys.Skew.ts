@@ -23,9 +23,8 @@ export function partialCmp$PartialOrd(self: Skew, other: Skew): rt.Ordering | un
 	}
 	if (!_3) {
 		return rt.cmp(other._0, self._0);
-	} else {
-		return undefined;
 	}
+	return undefined;
 }
 
 //# sourceMappingURL=keys.Skew.ts.map

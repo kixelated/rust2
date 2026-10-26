@@ -1,6 +1,6 @@
 # rust2-ts
 
-A rustc driver that translates a subset of Rust to TypeScript with source maps. No WASM: the output is plain ES modules that Node, Bun, and bundlers run as is.
+A rustc driver that translates a subset of Rust to TypeScript with source maps, for the browser. No WASM: the output is plain ES modules that bundlers take as is. A native runtime calls Rust through [rust2-ffi](/ffi/README.md) instead.
 
 ```bash
 rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.toml] [-- cargo args]
@@ -177,6 +177,8 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 Output is ranked correctness first, speed second, and bundle size third: the
 consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
 constructs such as brand casts and annotations are free. Readable output is not a goal.
+Speed is a browser's: `just ts bench` runs Node and Bun only as stand-ins for V8 and
+JavaScriptCore, as Safari runs it, and where Node disagrees with Chrome, Chrome decides.
 It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
 bundler's job. Types must be solid at the API boundary: the `roots` items and
 `printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
@@ -263,8 +265,8 @@ they need.
   the coroutine transform's state machines, a class each. Against the THIR lowering it
   replaced, MIR closes about 1,100 of the 1,400 drop refusals in moq-net's census, and
   runs `just ts bench`'s codec 2-6% faster at the geometric mean and the async handoff
-  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, for 4% more gzip on the
-  codec's bundle and 16% on the async fixture's
+  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, for 1% more gzip on the
+  codec's bundle and 9% on the async fixture's
   ([size](/quest/m2/ts-mir-size.md)). Blocks become nested blocks, loops, and `if`s by
   Ramsey's "Beyond Relooper", except a coroutine's resume function, which enters loops
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
