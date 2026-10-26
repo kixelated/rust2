@@ -2,6 +2,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # The fork builds in the root workspace, so its output lands in the root's target directory.
 target := env("CARGO_TARGET_DIR", parent_directory(source_directory()) / "target")
+# The install recipe's symlink to the repository.
+link := target / "install" / "link" / "rust2"
 dylib := if os() == "macos" { "dylib" } else { "so" }
 
 # List the UniFFI fork's commands.
@@ -37,8 +39,11 @@ cpp:
     ctest --test-dir {{ target }}/cpp-tests --output-on-failure
 
 # Install every generator without the lockfile, as a consumer's `cargo install` resolves it.
+# It installs through a symlink to the checkout at another depth, as macOS's /tmp is one.
 install:
-    cargo install --debug --force --root {{ target }}/install --path uniffi --features cli
-    cargo install --debug --force --root {{ target }}/install --path go/bindgen
-    cargo install --debug --force --root {{ target }}/install --path dart --features binary
-    cargo install --debug --force --root {{ target }}/install --path cpp/bindgen
+    mkdir -p {{ parent_directory(link) }}
+    ln -sfn {{ parent_directory(source_directory()) }} {{ link }}
+    cargo install --debug --force --root {{ target }}/install --path {{ link }}/uniffi/uniffi --features cli
+    cargo install --debug --force --root {{ target }}/install --path {{ link }}/uniffi/go/bindgen
+    cargo install --debug --force --root {{ target }}/install --path {{ link }}/uniffi/dart --features binary
+    cargo install --debug --force --root {{ target }}/install --path {{ link }}/uniffi/cpp/bindgen

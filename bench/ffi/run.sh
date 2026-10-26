@@ -199,9 +199,6 @@ results=$root/target/bench/ffi
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
 [[ -z $(find "$out" -mindepth 1 -print -quit 2>/dev/null) ]] || die "$out is not empty; pass a new --out"
 mkdir -p "$work" "$out/logs"
-# Physical paths: on macOS /var is a symlink, and askama resolves its templates
-# by a relative path that breaks across one.
-work=$(cd "$work" && pwd -P)
 # Every run shares the checkouts and builds under $work, and timings taken side
 # by side would measure each other, so runs take turns.
 exec 9>"$work/lock"

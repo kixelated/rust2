@@ -58,7 +58,7 @@ pub struct BuiltinTypes {
 }
 
 #[derive(Debug, Clone, Node, MapNode, Template)]
-#[template(syntax = "py", escape = "none", path = "Module.py")]
+#[template(escape = "none", path = "python/Module.py")]
 #[map_node(from(general::Namespace))]
 #[map_node(modules::map_namespace)]
 pub struct Module {
