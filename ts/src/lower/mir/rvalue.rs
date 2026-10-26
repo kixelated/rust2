@@ -50,6 +50,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Rvalue::ThreadLocalRef(_) => self.err(span, "thread locals are not supported"),
 			Rvalue::WrapUnsafeBinder(..) => self.err(span, "unsafe binders are not supported"),
 			Rvalue::Cast(kind, op, to) => self.cast(*kind, op, *to, span, out),
+			Rvalue::BinaryOp(BinOp::BitOr, ops)
+				if let Operand::Move(p) = &ops.0
+					&& let Some(&(hi, lo)) = p.as_local().and_then(|l| self.halves.get(&l)) =>
+			{
+				let hi = self.half(hi, span, out);
+				let lo = self.half(lo, span, out);
+				Expr::rt("u64FromHalves", vec![hi, lo])
+			}
 			Rvalue::BinaryOp(op, ops) => {
 				let (l, r) = &**ops;
 				let lty = l.ty(&self.mir.local_decls, tcx);
@@ -97,6 +105,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			Rvalue::Aggregate(kind, ops) => self.aggregate(kind, ops, ty, dest, span, out)?,
 		})
+	}
+
+	/// An unsigned integer of at most 32 bits, as a `u32`.
+	fn half(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let from = op.ty(&self.mir.local_decls, self.tcx);
+		let expr = self.operand(op, span, out);
+		let value = num::Operand {
+			expr,
+			value: self.const_int(op),
+		};
+		num::cast(self.b, value, from, self.tcx.types.u32, span)
 	}
 
 	/// The integer an operand has, if it is a constant one.

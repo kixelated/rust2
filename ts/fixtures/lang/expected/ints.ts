@@ -2805,6 +2805,13 @@ export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(0));
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64FromBeBytes(Uint8Array.of(d, c, b, a, a, b, c, d))));
 	rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(rt.i32FromBeBytes(Uint8Array.of(d, c, b, a))));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(fromHalves(rt.u64Low(rt.u64Shr(wide, 32)), rt.u64Low(wide))));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64FromHalves((rt.u64Low(rt.u64Shr(wide, 40)) & 0xff) as rt.u32, (rt.u64Low(wide) & 0xffff) as rt.u32)));
+}
+
+/** A `u64` from its high and low 32 bits, as moq-net's varints join them. */
+export function fromHalves(hi: rt.u32, lo: rt.u32): rt.u64 {
+	return rt.u64FromHalves(hi, lo);
 }
 
 //# sourceMappingURL=ints.ts.map

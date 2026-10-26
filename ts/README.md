@@ -92,7 +92,8 @@ object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bit
 `hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
 makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators and
 comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
-is `rt.u64Low(x)`.
+is `rt.u64Low(x)`. `((hi as u64) << 32) | lo as u64` of halves of at most 32 bits is
+one call, `rt.u64FromHalves(hi, lo)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -179,14 +180,20 @@ they need.
   numbers in locals, fields, and arguments. It ties unboxed halves on the codec and
   beats `bigint` there in Node, Bun, and Chrome: varint encode 13-65% faster, frame
   decode 8-32%, and message decode 22-31%, though Chrome's 8-byte varint decode is
-  25-45% slower. A loop of sums and comparisons past 2^32 measured 2-6x faster. Limbs
-  for every value allocate an object each, which costs what a `bigint` does in V8, so
-  they lost decode; unboxed halves would lower every value to two. Past 2^53 an
-  operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
-  than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
-  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
-  `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
-  brand would cast every literal, so a plain number passes for any type.
+  25-45% slower; joining a varint's halves in one call, `rt.u64FromHalves`, makes that
+  decode 1.05-1.2x faster in Chrome. A loop of sums and comparisons past 2^32 measured
+  2-6x faster. Limbs for every value allocate an object each, which costs what a
+  `bigint` does in V8, so they lost decode; unboxed halves would lower every value to
+  two. Past 2^53 an operation allocates limbs, and 128-bit arithmetic goes through
+  `bigint` inside the runtime, but a product multiplies 32-bit halves without boxing
+  either factor, at 128 bits when both are numbers. Converting timestamps between
+  timescales, products past 2^53 divided back down, measured 2.1-3.1x faster that way
+  than through boxed factors in `u64`, and 1.6-1.7x in `u128` as moq-net converts them:
+  1.4-2.1x `bigint`'s time in `u64`, and 8-12x in `u128`, whose division and
+  comparisons still go through `bigint`. The runtime adds 6 KB to the codec's bundle, 2
+  KB gzipped. Brands tell `u64` from `i64` and `u32` from `usize` at no cost, since
+  TypeScript erases them; a required brand would cast every literal, so a plain number
+  passes for any type.
 - A struct is a plain object, and each function of a type, trait impls included, is its
   own function in the type's module, so a caller's bundler drops every one it never
   calls: no bundler drops a class's unused methods or an object's unused properties. A struct that
@@ -305,7 +312,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `Eq`, and `Ord` disagree with JS's. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
-  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow,
+  with products of those values at 128 bits and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
@@ -330,10 +338,12 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
 (`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, the same
 frame headers decoded as they arrive a few bytes at a time, which prices a decode that
-comes up `Short` and retries, iterator chains over bytes, and a `BTreeMap` of 16, 256,
-and 4096 keys. Each runs four ways: natively, as wasm32 at moq-wasm's size-optimized
-profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator helpers in
-`bench/iter.ts`, and a sorted array in `bench/sorted.ts`), and translated; every route's output must match
+comes up `Short` and retries, iterator chains over bytes, a `BTreeMap` of 16, 256, and
+4096 keys, and timestamps converted between timescales as moq-net's `Timestamp::convert`
+does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
+helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
+`bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new

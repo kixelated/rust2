@@ -571,8 +571,9 @@ export const isizeStep: Step<isize> = i32Step as never;
 // width and sign, which each type's own passes as literals. A type's own takes the
 // number path itself where it is hot, small enough for a JIT to inline: through the
 // shared function alone, V8 took up to 1.7x as long on the codec's frames. 64-bit limbs
-// compute on their halves where that is several times faster than bigints; the rest
-// goes through bigints.
+// compute on their halves where that is several times faster than bigints, reading a
+// number's halves without boxing it, as does a product of two numbers at 128 bits; the
+// rest goes through bigints.
 
 type Wide = number | Limbs;
 
@@ -616,6 +617,23 @@ function high(h: number, signed: boolean): number {
 
 function halves(hi: number, lo: number): Limbs {
 	return { hi, lo } as Limbs;
+}
+
+/** The one form of a 64-bit value from its halves: `hi` in the type's sign, `lo` a uint32. */
+function join(hi: number, lo: number): Wide {
+	// Rounding keeps the order, so a value past the safe integers still tests past them.
+	const n = hi * TWO32 + lo;
+	return safe(n) ? n : halves(hi, lo);
+}
+
+/** A 64-bit value's high half, in the type's sign, read without boxing a number. */
+function hiOf(v: Wide): number {
+	return typeof v === "number" ? Math.floor(v / TWO32) : v.hi;
+}
+
+/** A 64-bit value's low half, a uint32. */
+function loOf(v: Wide): number {
+	return typeof v === "number" ? v >>> 0 : v.lo;
 }
 
 /** A value's limbs, from a safe integer wrapped into range. */
@@ -670,7 +688,7 @@ function add(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 		const lo = x.lo + y.lo;
 		const hi = x.hi + y.hi + (lo >= TWO32 ? 1 : 0);
 		if (hi !== high(hi, signed)) panic("attempt to add with overflow");
-		return one(halves(hi, lo >>> 0));
+		return join(hi, lo >>> 0);
 	}
 	return one(bigChecked(exact(x) + exact(y), bits, signed, "add"));
 }
@@ -683,44 +701,103 @@ function sub(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 		const lo = x.lo - y.lo;
 		const hi = x.hi - y.hi - (lo < 0 ? 1 : 0);
 		if (hi !== high(hi, signed)) panic("attempt to subtract with overflow");
-		return one(halves(hi, lo >>> 0));
+		return join(hi, lo >>> 0);
 	}
 	return one(bigChecked(exact(x) - exact(y), bits, signed, "subtract"));
 }
 
 function mul(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
+	const v = product(a, b, bits, signed);
+	if (v === undefined) panic("attempt to multiply with overflow");
+	return v;
+}
+
+/**
+ * `a * b`, or `undefined` past the type's range. Neither factor is boxed: 64-bit ones
+ * multiply by their halves, as do two safe integers at 128 bits.
+ */
+function product(a: Wide, b: Wide, bits: number, signed: boolean): Wide | undefined {
 	// `+ 0` turns -0 into 0.
 	if (typeof a === "number" && typeof b === "number" && safe(a * b)) return a * b + 0;
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
-	if (bits === 64 && !signed && (x.hi === 0 || y.hi === 0)) {
-		// One factor below 2^32: its product with the other's high half must be too.
-		const cross = x.hi * y.lo + x.lo * y.hi;
-		const lo = mul32(x.lo, y.lo);
-		const hi = mulHi + cross;
-		if (hi > 0xffffffff) panic("attempt to multiply with overflow");
-		return one(halves(hi, lo));
+	if (bits === 64) return product64(a, b, signed);
+	if (typeof a === "number" && typeof b === "number") return product128(a, b);
+	const v = exact(limbs(a, bits, signed)) * exact(limbs(b, bits, signed));
+	return fitsBig(v, bits, signed) ? one(box(v, bits, signed)) : undefined;
+}
+
+/** A 64-bit product on halves: of the magnitudes, then signed. */
+function product64(a: Wide, b: Wide, signed: boolean): Wide | undefined {
+	let xh = hiOf(a);
+	let xl = loOf(a);
+	let yh = hiOf(b);
+	let yl = loOf(b);
+	const negative = signed && xh < 0 !== yh < 0;
+	if (signed && xh < 0) {
+		xl = -xl >>> 0;
+		xh = (~xh + (xl === 0 ? 1 : 0)) >>> 0;
 	}
-	return one(bigChecked(exact(x) * exact(y), bits, signed, "multiply"));
+	if (signed && yh < 0) {
+		yl = -yl >>> 0;
+		yh = (~yh + (yl === 0 ? 1 : 0)) >>> 0;
+	}
+	// Two high halves pass 2^64. Otherwise one factor is below 2^32, and its product with
+	// the other's high half must be too: past 2^53 that sum rounds, but stays past it.
+	if (xh !== 0 && yh !== 0) return undefined;
+	const lo = mul32(xl, yl);
+	const hi = mulHi + xh * yl + xl * yh;
+	if (!signed) return hi > 0xffffffff ? undefined : join(hi, lo);
+	if (!negative) return hi > 0x7fffffff ? undefined : join(hi, lo);
+	if (hi > 0x80000000 || (hi === 0x80000000 && lo !== 0)) return undefined;
+	const nlo = -lo >>> 0;
+	return join((~hi + (nlo === 0 ? 1 : 0)) | 0, nlo);
+}
+
+/**
+ * The product of two safe integers past 2^53, as 128-bit limbs: of their magnitudes'
+ * halves, each partial product below 2^53 and so exact, then signed: negative only in an
+ * `i128`. Under 2^106, it fits either 128-bit type.
+ */
+function product128(a: number, b: number): Limbs {
+	const x = Math.abs(a);
+	const y = Math.abs(b);
+	const xh = Math.floor(x / TWO32);
+	const xl = x >>> 0;
+	const yh = Math.floor(y / TWO32);
+	const yl = y >>> 0;
+	const w0 = mul32(xl, yl);
+	const m1 = xh * yl;
+	const m2 = xl * yh;
+	const s1 = mulHi + (m1 >>> 0) + (m2 >>> 0);
+	const s2 = xh * yh + Math.floor(m1 / TWO32) + Math.floor(m2 / TWO32) + Math.floor(s1 / TWO32);
+	const w1 = s1 >>> 0;
+	const w2 = s2 >>> 0;
+	const w3 = Math.floor(s2 / TWO32);
+	if (a < 0 === b < 0) return { hi: w3, w2, w1, lo: w0 } as Limbs;
+	// Two's complement: each limb inverted, plus the carry out of those below it.
+	const lo = -w0 >>> 0;
+	const n1 = (~w1 + (lo === 0 ? 1 : 0)) >>> 0;
+	const n2 = (~w2 + (lo === 0 && n1 === 0 ? 1 : 0)) >>> 0;
+	const n3 = ~w3 + (lo === 0 && n1 === 0 && n2 === 0 ? 1 : 0);
+	return { hi: n3 | 0, w2: n2, w1: n1, lo } as Limbs;
 }
 
 function div(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	// Below 2^53, a quotient of doubles truncates to the exact one.
 	if (typeof a === "number" && typeof b === "number" && b !== 0) return Math.trunc(a / b) + 0;
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
-	if (bits === 64 && !signed && y.hi === 0 && y.lo !== 0) {
+	if (bits === 64 && !signed && typeof b === "number" && b !== 0 && b < TWO32) {
 		// Long division by a uint32 in 32- and 16-bit digits, every step exact.
-		const d = y.lo;
-		const qh = Math.floor(x.hi / d);
-		let r = x.hi - qh * d;
-		const t1 = r * 65536 + (x.lo >>> 16);
-		const q1 = Math.floor(t1 / d);
-		r = t1 - q1 * d;
-		const q2 = Math.floor((r * 65536 + (x.lo & 0xffff)) / d);
-		return one(halves(qh, (q1 * 65536 + q2) >>> 0));
+		const xh = hiOf(a);
+		const xl = loOf(a);
+		const qh = Math.floor(xh / b);
+		let r = xh - qh * b;
+		const t1 = r * 65536 + (xl >>> 16);
+		const q1 = Math.floor(t1 / b);
+		r = t1 - q1 * b;
+		const q2 = Math.floor((r * 65536 + (xl & 0xffff)) / b);
+		return join(qh, (q1 * 65536 + q2) >>> 0);
 	}
-	const d = exact(y);
+	const x = limbs(a, bits, signed);
+	const d = exact(limbs(b, bits, signed));
 	if (d === 0n) panic("attempt to divide by zero");
 	return one(bigChecked(exact(x) / d, bits, signed, "divide"));
 }
@@ -738,7 +815,7 @@ function neg(a: Wide, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	if (bits === 64 && signed && !(x.hi === -0x80000000 && x.lo === 0)) {
 		const lo = -x.lo >>> 0;
-		return one(halves((~x.hi + (lo === 0 ? 1 : 0)) | 0, lo));
+		return join((~x.hi + (lo === 0 ? 1 : 0)) | 0, lo);
 	}
 	return one(bigChecked(-exact(x), bits, signed, "negate"));
 }
@@ -749,8 +826,8 @@ function shl(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	if (bits !== 64) return one(box(exact(x) << BigInt(n), bits, signed));
 	if (n === 0) return one(x);
-	if (n < 32) return one(halves(high((x.hi << n) | (x.lo >>> (32 - n)), signed), (x.lo << n) >>> 0));
-	return one(halves(high(x.lo << (n - 32), signed), 0));
+	if (n < 32) return join(high((x.hi << n) | (x.lo >>> (32 - n)), signed), (x.lo << n) >>> 0);
+	return join(high(x.lo << (n - 32), signed), 0);
 }
 
 function shr(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
@@ -759,11 +836,11 @@ function shr(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
 	if (bits !== 64) return one(box((signed ? exact(a) : BigInt.asUintN(bits, exact(a))) >> BigInt(n), bits, signed));
 	if (n === 0) return one(a);
 	if (signed) {
-		if (n < 32) return one(halves(a.hi >> n, ((a.lo >>> n) | (a.hi << (32 - n))) >>> 0));
-		return one(halves(a.hi >> 31, (a.hi >> (n - 32)) >>> 0));
+		if (n < 32) return join(a.hi >> n, ((a.lo >>> n) | (a.hi << (32 - n))) >>> 0);
+		return join(a.hi >> 31, (a.hi >> (n - 32)) >>> 0);
 	}
-	if (n < 32) return one(halves(a.hi >>> n, ((a.lo >>> n) | (a.hi << (32 - n))) >>> 0));
-	return one(halves(0, a.hi >>> (n - 32)));
+	if (n < 32) return join(a.hi >>> n, ((a.lo >>> n) | (a.hi << (32 - n))) >>> 0);
+	return join(0, a.hi >>> (n - 32));
 }
 
 // The bitwise operators. On two safe integers, a type's own computes them a 32-bit half
@@ -785,42 +862,38 @@ function wordXor(a: number, b: number): number {
 function and(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	const y = limbs(b, bits, signed);
-	if (bits === 64) return one(halves(high(x.hi & y.hi, signed), (x.lo & y.lo) >>> 0));
+	if (bits === 64) return join(high(x.hi & y.hi, signed), (x.lo & y.lo) >>> 0);
 	return one(box(exact(x) & exact(y), bits, signed));
 }
 
 function or(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	const y = limbs(b, bits, signed);
-	if (bits === 64) return one(halves(high(x.hi | y.hi, signed), (x.lo | y.lo) >>> 0));
+	if (bits === 64) return join(high(x.hi | y.hi, signed), (x.lo | y.lo) >>> 0);
 	return one(box(exact(x) | exact(y), bits, signed));
 }
 
 function xor(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const x = limbs(a, bits, signed);
 	const y = limbs(b, bits, signed);
-	if (bits === 64) return one(halves(high(x.hi ^ y.hi, signed), (x.lo ^ y.lo) >>> 0));
+	if (bits === 64) return join(high(x.hi ^ y.hi, signed), (x.lo ^ y.lo) >>> 0);
 	return one(box(exact(x) ^ exact(y), bits, signed));
 }
 
 function not(a: Wide, bits: number, signed: boolean): Wide {
 	if (signed && typeof a === "number" && a !== MAX_SAFE) return -a - 1;
 	const x = limbs(a, bits, signed);
-	if (bits === 64) return one(halves(high(~x.hi, signed), ~x.lo >>> 0));
+	if (bits === 64) return join(high(~x.hi, signed), ~x.lo >>> 0);
 	return one(box(~exact(x), bits, signed));
 }
 
-/** Two values' sum, difference, or product, exactly. */
+/** Two values' sum or difference, exactly. */
 function sum(a: Wide, b: Wide, bits: number, signed: boolean): bigint {
 	return exact(limbs(a, bits, signed)) + exact(limbs(b, bits, signed));
 }
 
 function difference(a: Wide, b: Wide, bits: number, signed: boolean): bigint {
 	return exact(limbs(a, bits, signed)) - exact(limbs(b, bits, signed));
-}
-
-function product(a: Wide, b: Wide, bits: number, signed: boolean): bigint {
-	return exact(limbs(a, bits, signed)) * exact(limbs(b, bits, signed));
 }
 
 /** `v` if it is in range, or `undefined`. */
@@ -839,7 +912,7 @@ function wrappingAdd(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const y = limbs(b, bits, signed);
 	if (bits !== 64) return one(box(exact(x) + exact(y), bits, signed));
 	const lo = x.lo + y.lo;
-	return one(halves(high(x.hi + y.hi + (lo >= TWO32 ? 1 : 0), signed), lo >>> 0));
+	return join(high(x.hi + y.hi + (lo >= TWO32 ? 1 : 0), signed), lo >>> 0);
 }
 
 function wrappingSub(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
@@ -847,7 +920,7 @@ function wrappingSub(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const y = limbs(b, bits, signed);
 	if (bits !== 64) return one(box(exact(x) - exact(y), bits, signed));
 	const lo = x.lo - y.lo;
-	return one(halves(high(x.hi - y.hi - (lo < 0 ? 1 : 0), signed), lo >>> 0));
+	return join(high(x.hi - y.hi - (lo < 0 ? 1 : 0), signed), lo >>> 0);
 }
 
 /** The number of leading ones of `v`'s bits. */
@@ -874,7 +947,7 @@ function leadingOnes(a: Wide, bits: number, signed: boolean): number {
 function fromBeBytes(b: Uint8Array, bits: number, signed: boolean): Wide {
 	if (bits === 64) {
 		const hi = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
-		return one(halves(high(hi, signed), ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0));
+		return join(high(hi, signed), ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0);
 	}
 	// A 32-bit word at a time: one bigint step per word, not per byte.
 	let value = 0n;
@@ -928,7 +1001,7 @@ function of(value: number | bigint, bits: number, signed: boolean): Wide {
 /** `value as T`, from any integer. */
 function cast(value: number | Limbs, bits: number, signed: boolean): Wide {
 	if (typeof value === "number") return fits(value, signed) ? value : one(limbs(value, bits, signed));
-	if (bits === 64) return one(halves(high("w1" in value ? value.w1 : value.hi, signed), value.lo));
+	if (bits === 64) return join(high("w1" in value ? value.w1 : value.hi, signed), value.lo);
 	return one(box(exact(value), bits, signed));
 }
 
@@ -988,7 +1061,7 @@ export const u64CheckedAdd = (a: u64, b: u64): u64 | undefined => checkedOp(sum(
 /** `u64`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
 export const u64CheckedSub = (a: u64, b: u64): u64 | undefined => checkedOp(difference(a, b, 64, false), 64, false) as u64 | undefined;
 /** `u64`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
-export const u64CheckedMul = (a: u64, b: u64): u64 | undefined => checkedOp(product(a, b, 64, false), 64, false) as u64 | undefined;
+export const u64CheckedMul = (a: u64, b: u64): u64 | undefined => product(a, b, 64, false) as u64 | undefined;
 /** `u64`'s `saturating_add`: `a + b`, clamped to the type's range. */
 export const u64SaturatingAdd = (a: u64, b: u64): u64 => saturate(sum(a, b, 64, false), 64, false) as u64;
 /** `u64`'s `saturating_sub`: `a - b`, clamped to the type's range. */
@@ -1019,6 +1092,8 @@ export const u64Of = (value: number | bigint): u64 => of(value, 64, false) as u6
 export const u64Cast = (value: number | Limbs): u64 => (typeof value === "number" && fits(value, false) ? value : cast(value, 64, false)) as u64;
 /** The low 32 bits, as a uint32. */
 export const u64Low = (a: u64): number => low(a);
+/** `(hi as u64) << 32 | lo as u64`: a `u64` from its high and low 32 bits. */
+export const u64FromHalves = (hi: u32, lo: u32): u64 => join(hi, lo) as u64;
 /** `u64`'s `a == b`. */
 export const u64Eq = (a: u64, b: u64): boolean => eq(a, b);
 /** `u64`'s `a != b`. */
@@ -1076,7 +1151,7 @@ export const i64CheckedAdd = (a: i64, b: i64): i64 | undefined => checkedOp(sum(
 /** `i64`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
 export const i64CheckedSub = (a: i64, b: i64): i64 | undefined => checkedOp(difference(a, b, 64, true), 64, true) as i64 | undefined;
 /** `i64`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
-export const i64CheckedMul = (a: i64, b: i64): i64 | undefined => checkedOp(product(a, b, 64, true), 64, true) as i64 | undefined;
+export const i64CheckedMul = (a: i64, b: i64): i64 | undefined => product(a, b, 64, true) as i64 | undefined;
 /** `i64`'s `saturating_add`: `a + b`, clamped to the type's range. */
 export const i64SaturatingAdd = (a: i64, b: i64): i64 => saturate(sum(a, b, 64, true), 64, true) as i64;
 /** `i64`'s `saturating_sub`: `a - b`, clamped to the type's range. */
@@ -1162,7 +1237,7 @@ export const u128CheckedAdd = (a: u128, b: u128): u128 | undefined => checkedOp(
 /** `u128`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
 export const u128CheckedSub = (a: u128, b: u128): u128 | undefined => checkedOp(difference(a, b, 128, false), 128, false) as u128 | undefined;
 /** `u128`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
-export const u128CheckedMul = (a: u128, b: u128): u128 | undefined => checkedOp(product(a, b, 128, false), 128, false) as u128 | undefined;
+export const u128CheckedMul = (a: u128, b: u128): u128 | undefined => product(a, b, 128, false) as u128 | undefined;
 /** `u128`'s `saturating_add`: `a + b`, clamped to the type's range. */
 export const u128SaturatingAdd = (a: u128, b: u128): u128 => saturate(sum(a, b, 128, false), 128, false) as u128;
 /** `u128`'s `saturating_sub`: `a - b`, clamped to the type's range. */
@@ -1250,7 +1325,7 @@ export const i128CheckedAdd = (a: i128, b: i128): i128 | undefined => checkedOp(
 /** `i128`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
 export const i128CheckedSub = (a: i128, b: i128): i128 | undefined => checkedOp(difference(a, b, 128, true), 128, true) as i128 | undefined;
 /** `i128`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
-export const i128CheckedMul = (a: i128, b: i128): i128 | undefined => checkedOp(product(a, b, 128, true), 128, true) as i128 | undefined;
+export const i128CheckedMul = (a: i128, b: i128): i128 | undefined => product(a, b, 128, true) as i128 | undefined;
 /** `i128`'s `saturating_add`: `a + b`, clamped to the type's range. */
 export const i128SaturatingAdd = (a: i128, b: i128): i128 => saturate(sum(a, b, 128, true), 128, true) as i128;
 /** `i128`'s `saturating_sub`: `a - b`, clamped to the type's range. */

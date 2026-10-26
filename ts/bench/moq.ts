@@ -14,6 +14,7 @@ import { Cursor, Reader, Writer } from "moq/js/net/src/stream.ts";
 import * as Varint from "moq/js/net/src/varint.ts";
 
 import { iterate } from "./iter.ts";
+import { rescale } from "./rescale.ts";
 import { ordered } from "./sorted.ts";
 
 type Version = (typeof Lite)[keyof typeof Lite];
@@ -51,6 +52,8 @@ export function run(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
 			return decodeSplit(data, lite(selector));
 		case 8:
 			return ordered(data);
+		case 9:
+			return rescale(selector, data);
 		default:
 			throw new Error(`unknown workload ${op}`);
 	}

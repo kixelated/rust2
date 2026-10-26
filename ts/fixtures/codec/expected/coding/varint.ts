@@ -12,7 +12,7 @@ export function toHalves(value: rt.u64): [rt.u32, rt.u32] {
 
 /** The inverse of [`to_halves`]. */
 export function fromHalves(hi: rt.u32, lo: rt.u32): rt.u64 {
-	return rt.u64Or(rt.u64Shl(hi as rt.u64, 32), lo as rt.u64);
+	return rt.u64FromHalves(hi, lo);
 }
 
 /** The bytes `value` takes on the wire in `form`, or [`BoundsExceeded`] if it does not fit. */

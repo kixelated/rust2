@@ -41,6 +41,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 				decoded(decodeSplit(_9[1], liteVersion(selector), out), out);
 			} else if (op === 8) {
 				ordered(_9[1], out);
+			} else if (op === 9) {
+				rescale(selector, _9[1], out);
 			} else {
 				decoded(decodeGroup(_9[1], liteVersion(selector), out), out);
 			}
@@ -475,6 +477,93 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				}
 			}
 		}
+	}
+}
+
+/**
+ * Timestamps from one timescale to another, products past 2^53: moq-net's
+ * `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
+ * sooner. How many converted, how many overflowed, and the last converted.
+ */
+export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+	let count!: rt.u64;
+	let _6!: [rt.u64, Uint8Array];
+	let start!: rt.u64;
+	let _9!: [rt.u64, Uint8Array];
+	let step!: rt.u64;
+	let _12!: [rt.u64, Uint8Array];
+	let from!: rt.u64;
+	let _15!: [rt.u64, Uint8Array];
+	let to!: rt.u64;
+	let converted!: rt.u64;
+	let overflowed!: rt.u64;
+	let last!: rt.u64;
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
+	let _26!: rt.usize;
+	let value!: rt.u64;
+	let scaled!: rt.u64 | undefined;
+	let _36!: rt.u128 | undefined;
+	let _44!: rt.u64 | undefined;
+	_6 = takeU64(data);
+	count = _6[0];
+	_9 = takeU64(_6[1]);
+	start = _9[0];
+	_12 = takeU64(_9[1]);
+	step = _12[0];
+	_15 = takeU64(_12[1]);
+	from = _15[0];
+	to = takeU64(_15[1])[0];
+	converted = 0;
+	overflowed = 0;
+	last = 0;
+	iterStart = 0;
+	iterEnd = rt.u64Low(count);
+	while (true) {
+		if (!((_26 = iterStart++) < iterEnd)) {
+			putU64(out, converted);
+			putU64(out, overflowed);
+			putU64(out, last);
+			return;
+		} else {
+			b1: {
+				value = rt.u64Add(start, rt.u64Mul(_26 as rt.u64, step));
+				if (selector === 0) {
+					_36 = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
+					if (_36 === undefined) {
+						scaled = undefined;
+					} else {
+						scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
+					}
+				} else {
+					_44 = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
+						return rt.u64Div(scaled3, from);
+					});
+					if (_44 !== undefined) {
+						if (rt.u64Le(_44, rt.u64Of(2305843009213693951n))) {
+							scaled = _44;
+							break b1;
+						}
+					}
+					scaled = undefined;
+				}
+			}
+			if (scaled === undefined) {
+				overflowed = rt.u64Add(overflowed, 1);
+			} else {
+				last = scaled;
+				converted = rt.u64Add(converted, 1);
+			}
+		}
+	}
+}
+
+/** `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp. */
+export function bounded(value: rt.u128): rt.u64 | undefined {
+	if (!rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
+		return undefined;
+	} else {
+		return rt.u64Cast(value);
 	}
 }
 

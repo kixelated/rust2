@@ -193,4 +193,13 @@ pub fn convert(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&u64::from_be_bytes([d, c, b, a, a, b, c, d]).to_be_bytes());
 	let bytes = &[d, c, b, a];
 	out.extend_from_slice(&i32::from_be_bytes(*bytes).to_be_bytes());
+	// Halves joined back, which the runtime does in one call, of each width it takes.
+	out.extend_from_slice(&from_halves((wide >> 32) as u32, wide as u32).to_be_bytes());
+	let narrow = ((wide >> 40) as u8 as u64) << 32 | (wide as u16) as u64;
+	out.extend_from_slice(&narrow.to_be_bytes());
+}
+
+/// A `u64` from its high and low 32 bits, as moq-net's varints join them.
+fn from_halves(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
 }
