@@ -20,7 +20,9 @@ earlier version. What a revival has to answer:
 
 - **Most of the edit is rebuilding dependents:** 65% of the moq-net edit's
   critical path is crates rebuilt only because it changed. A public API hash
-  removes that ([relink](/quest/m3/relink.md)), with no new compiler.
+  could skip them ([relink](/quest/m3/relink.md)), but the
+  [semantic API hash replay](https://github.com/kixelated/rust2/pull/62) found
+  that a sound one holds on 18 of 250 non-test moq-net edits.
 - **What is left scales with the crate:** expansion, resolution, crate-wide
   analysis, and incremental I/O. A subset compiler would have to make these
   incremental per item, as Zig's compiler does, to win.
@@ -33,7 +35,6 @@ earlier version. What a revival has to answer:
   cost. The largest share of macro output is tracing's `macro_rules!`,
   re-expanded in full on every rebuild.
 - **Evidence to collect first:**
-  - the [semantic API hash](/quest/m3/api-cutoff.md) replay;
   - the [monomorphization budget](https://github.com/kixelated/rust2/pull/65) numbers.
 
 Public API: none.

@@ -42,6 +42,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 		decoded(decodeSplit(data2, liteVersion(selector), out), out);
 	} else if (op === 8) {
 		ordered(data2, out);
+	} else if (op === 9) {
+		rescale(selector, data2, out);
 	} else {
 		decoded(decodeGroup(data2, liteVersion(selector), out), out);
 	}
@@ -320,6 +322,67 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		}
 		putUsize(out, last);
+	}
+}
+
+/**
+ * Timestamps from one timescale to another, products past 2^53: moq-net's
+ * `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
+ * sooner. How many converted, how many overflowed, and the last converted.
+ */
+export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+	const [count, data2] = takeU64(data);
+	const [start, data3] = takeU64(data2);
+	const [step, data4] = takeU64(data3);
+	const [from, data5] = takeU64(data4);
+	const [to, ] = takeU64(data5);
+	let [converted, overflowed, last] = [0, 0, 0] as [rt.u64, rt.u64, rt.u64];
+	const end = rt.u64Low(count);
+	for (let i = 0; i < end; i++) {
+		const value = rt.u64Add(start, rt.u64Mul(i as rt.u64, step));
+		let scaled: rt.u64 | undefined;
+		if (selector === 0) {
+			const checkedMul = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
+			if (checkedMul !== undefined) {
+				const scaled2 = checkedMul;
+				scaled = bounded(rt.u128Div(scaled2, rt.u128Cast(from)));
+			} else {
+				scaled = undefined;
+			}
+		} else {
+			const map = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
+				return rt.u64Div(scaled3, from);
+			});
+			arms: {
+				if (map !== undefined) {
+					const v = map;
+					if (rt.u64Le(v, rt.u64Of(2305843009213693951n))) {
+						scaled = v;
+						break arms;
+					}
+				}
+				scaled = undefined;
+			}
+		}
+		if (scaled !== undefined) {
+			const v2 = scaled;
+			last = v2;
+			converted = rt.u64Add(converted, 1);
+		} else {
+			overflowed = rt.u64Add(overflowed, 1);
+		}
+	}
+	putU64(out, converted);
+	putU64(out, overflowed);
+	putU64(out, last);
+}
+
+/** `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp. */
+export function bounded(value: rt.u128): rt.u64 | undefined {
+	if (rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
+		return rt.u64Cast(value);
+	} else {
+		return undefined;
 	}
 }
 
