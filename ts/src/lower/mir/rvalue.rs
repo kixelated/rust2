@@ -118,16 +118,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		num::cast(self.b, value, from, self.tcx.types.u32, span)
 	}
 
-	/// The integer an operand has, if it is a constant one.
+	/// The integer an operand has, if it is a constant one, a named `const` included.
 	pub(super) fn const_int(&self, op: &Operand<'tcx>) -> Option<i128> {
 		let Operand::Constant(c) = op else {
 			return None;
 		};
-		let mir::Const::Val(mir::ConstValue::Scalar(rustc_middle::mir::interpret::Scalar::Int(int)), ty) = c.const_
-		else {
-			return None;
-		};
-		let i = Int::of(ty)?;
+		let i = Int::of(c.const_.ty())?;
+		let int = c.const_.try_eval_scalar_int(self.tcx, self.b.t.typing_env_pub())?;
 		let size = rustc_abi::Size::from_bits(i.bits);
 		Some(match i.signed {
 			true => int.to_int(size),

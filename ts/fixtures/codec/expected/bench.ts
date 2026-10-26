@@ -409,7 +409,7 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 					return rt.u64Div(scaled3, from);
 				});
 				if (_44 !== undefined) {
-					if (rt.u64Le(_44, rt.u64Of(2305843009213693951n))) {
+					if (rt.u64Le(_44, { hi: 0x1fffffff, lo: 0xffffffff } as rt.u64)) {
 						scaled = _44;
 						break b1;
 					}
@@ -428,7 +428,7 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 
 /** `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp. */
 export function bounded(value: rt.u128): rt.u64 | undefined {
-	if (!rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
+	if (!rt.u128Le(value, { hi: 0, w2: 0, w1: 0x1fffffff, lo: 0xffffffff } as rt.u128)) {
 		return undefined;
 	}
 	return rt.u64Cast(value);

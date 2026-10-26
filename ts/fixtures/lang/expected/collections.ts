@@ -18,7 +18,7 @@ export function wide(b: rt.u8): rt.u64 {
 	if (_2 === 1) {
 		return rt.u64Shl(b as rt.u64, 50);
 	}
-	return rt.u64Sub(rt.u64Of(18446744073709551615n), b as rt.u64);
+	return rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, b as rt.u64);
 }
 
 export function rank(b: rt.u8, c: rt.u8): Rank.Rank {

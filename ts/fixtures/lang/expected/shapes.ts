@@ -1049,7 +1049,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 			const bytes: Uint8Array = Uint8Array.of(data.length & 0xff, 1, 2);
 			bytes.subarray(1, 3)[0] = 9;
 			rt.byteVecExtendFromSlice(out, bytes);
-			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: rt.u64Of(18446744073709551615n) }], out))));
+			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }], out))));
 			const parsed: rt.Result<rt.u8, Void.Void> = rt.Ok(data.length & 0xff);
 			const a2: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;
 			const b3: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;

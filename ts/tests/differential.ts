@@ -142,6 +142,13 @@ if (wideArg === "wide") {
 				cases.push(Uint8Array.of(4, kind, ...be(0n), ...be(x), ...be(0n), ...be(y)));
 				cases.push(Uint8Array.of(10, kind, ...be(signs(x)), ...be(x), ...be(signs(y)), ...be(y)));
 			}
+			// `x:y / d` and `x:y % d` at 128 bits by a divisor below 2^32 in magnitude, which
+			// divides limbs by a number, extended in each type's sign: -1 overflows `i128::MIN`.
+			for (const d of [3n, 1_000_000n, 0xffffffffn, -1n, -0xffffffffn]) {
+				for (const kind of [3, 4]) {
+					for (const op of [4, 10]) cases.push(Uint8Array.of(op, kind, ...be(x), ...be(y), ...be(signs(d & 0xffffffffffffffffn)), ...be(d & 0xffffffffffffffffn)));
+				}
+			}
 		}
 		// Conversions, and halves joined back.
 		cases.push(Uint8Array.of(14, 0, ...be(x), ...be(x)));
