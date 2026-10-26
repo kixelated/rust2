@@ -149,8 +149,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					from_end: true,
 				} if byte_slice(ty) => {
 					let base = self.path(e, "slice", out);
-					let end = base.clone().member("length").binary("-", Expr::lit(to.to_string()));
-					e = Expr::rt("byteSliceRange", vec![base, Expr::lit(from.to_string()), end]);
+					let mut values = vec![base.clone(), Expr::lit(from.to_string())];
+					if to != 0 {
+						values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
+					}
+					e = Expr::rt("byteSliceRange", values);
 				}
 				ProjectionElem::Subslice { from, to, from_end } => {
 					let elem_ty = match ty.kind() {

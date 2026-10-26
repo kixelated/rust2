@@ -776,7 +776,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 				const _188: [rt.u8, rt.u8] = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)];
 				rt.btreeInsert(pairs, _188, a);
 				const _196: rt.u64 = wide(a);
-				rt.entryOrInsert(rt.entry(wides, _196), b);
+				rt.entryOrInsertMut(rt.entry(wides, _196), b);
 			}
 		}
 		if (_4 === 2) {
@@ -873,7 +873,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 								_401 = 3;
 							}
 							rt.byteVecPush(out, _401);
-							rt.byteVecPush(out, rt.same(o, 1) ? 1 : 0);
+							rt.byteVecPush(out, o === 1 ? 1 : 0);
 						}
 					}
 					rt.byteVecPush(out, _331[0]._0);

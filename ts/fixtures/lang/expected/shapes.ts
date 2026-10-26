@@ -980,7 +980,7 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.unreachable(undefined);
 			} else if (!((data.data[data.start] === data.data[data.start + (data.length - 1)]))) {
 				rt.byteVecPush(out, data.data[data.start] ^ data.data[data.start + 1]);
-				rt.byteVecPush(out, rt.byteSliceRange(data, 2, data.length - 0).length & 0xff);
+				rt.byteVecPush(out, rt.byteSliceRange(data, 2).length & 0xff);
 			} else {
 				rt.byteVecPush(out, 2);
 			}
