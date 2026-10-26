@@ -1,7 +1,8 @@
 //! Iterators, as `rt/iter.ts` gives them: std's iterators are `rt.Iter` objects whose
-//! adaptors are its methods, and whose `next` returns an item or `rt.DONE`. The crate's
-//! own `impl Iterator` keeps that protocol in its `next`, and joins std's adaptors through
-//! `rt.iter.from`.
+//! `next` returns an item or `rt.DONE`, and whose adaptors and consumers are runtime
+//! functions taking the iterator first: `rt.iterMap(it, f)`. The crate's own `impl
+//! Iterator` keeps that protocol in its `next`, and joins std's adaptors through
+//! `rt.iterFrom`.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, Instance, Ty, TypeVisitableExt};
@@ -125,20 +126,20 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 					name: it,
 					ty: Some(param_ty),
 				};
-				rt_iter("from").call(vec![value, Expr::Lambda(vec![param], Box::new(next))])
+				Expr::rt("iterFrom", vec![value, Expr::Lambda(vec![param], Box::new(next))])
 			}
 			None => value,
 		});
 	}
 	match ty.peel_refs().kind() {
-		ty::Slice(_) | ty::Array(..) => Some(rt_iter("slice").call(vec![value])),
+		ty::Slice(_) | ty::Array(..) => Some(Expr::rt("iterSlice", vec![value])),
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
-			Std::Vec => Some(rt_iter("slice").call(vec![library::vec_view(value, ty)])),
+			Std::Vec => Some(Expr::rt("iterSlice", vec![library::vec_view(value, ty)])),
 			Std::Option => {
 				option_ok(b, args.type_at(0), span);
-				Some(rt_iter("option").call(vec![value]))
+				Some(Expr::rt("iterOption", vec![value]))
 			}
-			_ => None,
+			_ => super::collections::into_iter(b, ty, value),
 		},
 		_ => None,
 	}
@@ -178,11 +179,6 @@ pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 	}
 }
 
-/// `rt.iter.<name>`.
-fn rt_iter(name: &str) -> Expr {
-	Expr::Rt("iter").member(name)
-}
-
 /// The mapping of a call on or to an iterator, if it is one.
 pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
@@ -202,13 +198,11 @@ pub fn call<'tcx>(
 	// Where iterators come from.
 	match (owner, name) {
 		("slice", "iter" | "iter_mut") => {
-			let values = b.args(args, out);
-			return Some(rt_iter("slice").call(values));
+			return Some(Expr::rt("iterSlice", b.args(args, out)));
 		}
 		("Option", "iter" | "iter_mut") => {
 			option_ok(b, targ(0)?, span);
-			let values = b.args(args, out);
-			return Some(rt_iter("option").call(values));
+			return Some(Expr::rt("iterOption", b.args(args, out)));
 		}
 		("IntoIterator", "into_iter") => {
 			let value = b.args(args, out).pop()?;
@@ -219,10 +213,10 @@ pub fn call<'tcx>(
 	match path.as_slice() {
 		["iter", "sources", "once", "once"] => {
 			no_drops(b, targ(0)?, span);
-			return Some(rt_iter("once").call(b.args(args, out)));
+			return Some(Expr::rt("iterOnce", b.args(args, out)));
 		}
-		["iter", "sources", "empty", "empty"] => return Some(rt_iter("empty").call(Vec::new())),
-		["iter", "sources", "from_fn", "from_fn"] => return Some(rt_iter("fromFn").call(b.args(args, out))),
+		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
+		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", b.args(args, out))),
 		_ => {}
 	}
 
@@ -239,9 +233,13 @@ pub fn call<'tcx>(
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
 		if item != vec_args.type_at(0) && b.needs_copy(vec_args.type_at(0)) {
-			items = items.member("map").call(vec![Expr::Rt("copy")]);
+			items = Expr::rt("iterMap", vec![items, Expr::Rt("copy".into())]);
 		}
-		return Some(rt_iter("extend").call(vec![v, items]));
+		let extend = match vec_args.type_at(0).kind() {
+			ty::Uint(ty::UintTy::U8) => "iterExtendBytes",
+			_ => "iterExtend",
+		};
+		return Some(Expr::rt(extend, vec![v, items]));
 	}
 
 	let self_ty = match (owner, name) {
@@ -270,7 +268,7 @@ pub fn call<'tcx>(
 			"next_back" => recv.member("nextBack").call(Vec::new()),
 			_ => recv.member("nthBackItem").call(rest),
 		};
-		return Some(rt_iter("toOption").call(vec![item]));
+		return Some(Expr::rt("iterToOption", vec![item]));
 	}
 	// The same object, borrowed.
 	if name == "by_ref" {
@@ -278,11 +276,20 @@ pub fn call<'tcx>(
 	}
 
 	let recv = into_iter(b, self_ty, recv, span)?;
-	let method = |name: &str, args: Vec<Expr>| Some(recv.clone().member(name).call(args));
+	// `rt.iter<Name>(recv, ...args)`, or `peekable<Name>` of a `Peekable`'s own.
+	let method = |name: &str, args: Vec<Expr>| {
+		let of = match owner {
+			"Peekable" => "peekable",
+			_ => "iter",
+		};
+		Some(Expr::rt_of(of, name).call([vec![recv.clone()], args].concat()))
+	};
 	match name {
 		"map" | "filter" | "filter_map" | "enumerate" | "rev" | "skip" | "take" | "skip_while" | "take_while"
 		| "map_while" | "step_by" | "inspect" | "fuse" | "peekable" | "count" | "any" | "all" | "find_map"
-		| "position" | "fold" | "for_each" | "len" => method(&super::camel(name), rest),
+		| "position" | "fold" | "for_each" => method(&super::camel(name), rest),
+		// `ExactSizeIterator::len` is each iterator's own.
+		"len" => Some(recv.member("len").call(rest)),
 		"last" | "nth" | "find" | "peek" | "next_if" => {
 			option_ok(b, item, span);
 			method(&super::camel(name), rest)
@@ -336,7 +343,7 @@ pub fn call<'tcx>(
 					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
 					method("map", vec![clone])
 				}
-				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy")]),
+				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy".into())]),
 				// A JS string is a value already.
 				_ if b.t.is_copy(*inner)
 					|| matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) =>
@@ -357,7 +364,7 @@ pub fn call<'tcx>(
 				"sum" => ("add", 0),
 				_ => ("mul", 1),
 			};
-			method(name, vec![Expr::Rt(int.rt()).member(op), int.lit(unit)])
+			method(name, vec![int.func(op), int.lit(unit)])
 		}
 		"collect" => collect(b, targ(1)?, item, recv, span),
 		_ => None,
@@ -426,8 +433,8 @@ fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, item: Ty<'tcx>, iter:
 	};
 	match Std::of(tcx, adt.did())? {
 		Std::Vec => Some(match args.type_at(0).kind() {
-			ty::Uint(ty::UintTy::U8) => iter.member("toByteVec").call(Vec::new()),
-			_ => iter.member("toArray").call(Vec::new()),
+			ty::Uint(ty::UintTy::U8) => Expr::rt("iterToByteVec", vec![iter]),
+			_ => Expr::rt("iterToArray", vec![iter]),
 		}),
 		// The values, collected as the `Ok` or `Some` type is, until the first `Err` or `None`.
 		std @ (Std::Result | Std::Option) => {
@@ -444,15 +451,15 @@ fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, item: Ty<'tcx>, iter:
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
 			};
-			let method = match std {
-				Std::Result => "collectResult",
-				_ => "collectOption",
+			let collect = match std {
+				Std::Result => "iterCollectResult",
+				_ => "iterCollectOption",
 			};
-			Some(
-				iter.member(method)
-					.call(vec![Expr::Lambda(vec![param], Box::new(values))]),
-			)
+			Some(Expr::rt(
+				collect,
+				vec![iter, Expr::Lambda(vec![param], Box::new(values))],
+			))
 		}
-		_ => None,
+		_ => super::collections::collect(b, ty, iter, span),
 	}
 }

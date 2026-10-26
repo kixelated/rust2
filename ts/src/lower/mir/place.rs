@@ -222,7 +222,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Std::Range | Std::RangeInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
-				Some(Std::Context | Std::NonNull) => base,
+				Some(Std::Context | Std::NonNull | Std::Entry) => base,
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant, span),
 				_ if transparent(self.b.t, ty) => base,
 				None if adt.did().is_local() => {
@@ -381,8 +381,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					Some(Std::Option) if matches!(scrut, Expr::Ident(n) if self.next_names.contains(n)) => {
 						match index.index() {
-							0 => scrut.clone().binary("===", Expr::Rt("DONE")),
-							_ => scrut.clone().binary("!==", Expr::Rt("DONE")),
+							0 => scrut.clone().binary("===", Expr::Rt("DONE".into())),
+							_ => scrut.clone().binary("!==", Expr::Rt("DONE".into())),
 						}
 					}
 					Some(Std::Option) => match index.index() {
@@ -390,8 +390,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", Expr::undefined()),
 					},
 					Some(Std::Poll) => match index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending")),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending")),
+						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
+						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
 					},
 					Some(Std::Result) => match index.index() {
 						0 => scrut.clone().member("ok"),
@@ -407,6 +407,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index, span),
+					Some(Std::Entry) => crate::lower::collections::entry_test(*adt, index, scrut.clone()),
+					Some(Std::Ordering) => scrut
+						.clone()
+						.binary("===", crate::lower::collections::ordering_variant(index)),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}

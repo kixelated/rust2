@@ -32,7 +32,7 @@ function new_(id: rt.u32, log: Log.Log): Guard {
 
 /** Log `event` as this guard's. */
 export function note(self: Guard, event: string): void {
-	Log.note(self.log, rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(self.id, f), " ", (f: rt.Formatter) => f.pad(event)]));
+	Log.note(self.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " ", (f: rt.Formatter) => rt.fmtPad(f, event)]));
 }
 
 /** Log `event`, then drop: `self`, taken by value, drops as the call returns. */
@@ -46,7 +46,7 @@ export function finish(self: Guard, event: string): rt.u32 {
 }
 
 export function drop$Drop(self: Guard): void {
-	Log.note(self.log, rt.fmt.format(["g", (f: rt.Formatter) => rt.u32.display(self.id, f), " drop"]));
+	Log.note(self.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " drop"]));
 }
 
 export { new_ as new };

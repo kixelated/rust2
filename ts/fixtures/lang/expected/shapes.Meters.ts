@@ -13,8 +13,8 @@ export function area$Area(self: Meters): rt.u64 {
 
 /** A default method, monomorphized for each type. */
 export function describe$Area(self: Meters, out: rt.ByteVec): void {
-	out.push(0xaa);
-	out.extendFromSlice(rt.u64.toBeBytes(self._0));
+	rt.byteVecPush(out, 0xaa);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(self._0));
 }
 
 //# sourceMappingURL=shapes.Meters.ts.map

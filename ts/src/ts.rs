@@ -26,8 +26,8 @@ pub enum Expr {
 	This,
 	/// A translated item, named at print time.
 	Sym(SymId),
-	/// A runtime helper: `rt.<name>`.
-	Rt(&'static str),
+	/// A runtime export: `rt.<name>`.
+	Rt(String),
 	/// Literal text, printed as is: `1`, `0x40`, `5n`, `true`, `undefined`.
 	Lit(String),
 	Str(String),
@@ -45,7 +45,7 @@ pub enum Expr {
 	Assign(Box<Expr>, Box<Expr>),
 	Arrow(Vec<Param>, Type, Vec<Stmt>),
 	/// An arrow function whose body is one expression, its return type inferred:
-	/// `(f: rt.Formatter) => f.pad(s)`.
+	/// `(f: rt.Formatter) => rt.fmtPad(f, s)`.
 	Lambda(Vec<Param>, Box<Expr>),
 	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
 	/// another integer type with the same value.
@@ -91,8 +91,16 @@ impl Expr {
 		Self::Call(Box::new(self), args)
 	}
 
-	pub fn rt(name: &'static str, args: Vec<Expr>) -> Self {
-		Self::Rt(name).call(args)
+	/// A call of the runtime function `rt.<name>`.
+	pub fn rt(name: impl Into<String>, args: Vec<Expr>) -> Self {
+		Self::Rt(name.into()).call(args)
+	}
+
+	/// The runtime function `name` of what `of` names: `rt.u8Add` for `("u8", "add")`.
+	pub fn rt_of(of: &str, name: &str) -> Self {
+		let mut chars = name.chars();
+		let first = chars.next().map(|c| c.to_ascii_uppercase()).into_iter();
+		Self::Rt(format!("{of}{}{}", first.collect::<String>(), chars.as_str()))
 	}
 
 	pub fn binary(self, op: &'static str, rhs: Expr) -> Self {
@@ -126,7 +134,7 @@ impl Expr {
 			Self::As(e, _) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) => *e,
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
-			Self::Call(f, args) if matches!(*f, Self::Rt("Ok" | "Err")) => {
+			Self::Call(f, args) if matches!(&*f, Self::Rt(name) if name == "Ok" || name == "Err") => {
 				Self::Call(f, args.into_iter().map(Self::typed).collect())
 			}
 			e => e,
@@ -139,12 +147,10 @@ impl Expr {
 		match self {
 			Self::Lit(_) | Self::Str(_) | Self::This | Self::Sym(_) | Self::Rt(_) => true,
 			Self::Located(_, e) => e.is_constant(),
-			// A wide integer literal past 2^53, `rt.u64.of(0xffffffffffffffffn)`, which makes
+			// A wide integer literal past 2^53, `rt.u64Of(0xffffffffffffffffn)`, which makes
 			// immutable limbs.
 			Self::Call(f, args) => match (&**f, args.as_slice()) {
-				(Self::Member(int, Key::Name(of)), [Self::Lit(_)]) => {
-					matches!(**int, Self::Rt("u64" | "i64" | "u128" | "i128")) && of == "of"
-				}
+				(Self::Rt(name), [Self::Lit(_)]) => matches!(name.as_str(), "u64Of" | "i64Of" | "u128Of" | "i128Of"),
 				_ => false,
 			},
 			_ => false,

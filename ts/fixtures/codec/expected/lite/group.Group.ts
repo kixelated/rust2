@@ -17,7 +17,7 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 		return rt.Err(decode.error);
 	}
 	const value = decode.value;
-	return rt.Ok([value, rt.usize.sub(buf.length, Decoder.remaining(r))]);
+	return rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 }
 
 export interface Group {

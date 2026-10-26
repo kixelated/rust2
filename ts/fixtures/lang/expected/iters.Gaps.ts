@@ -9,12 +9,12 @@ export interface Gaps {
 }
 
 export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
-	const get = rt.slice.get(self.data, self.at);
+	const get = rt.sliceGet(self.data, self.at);
 	if (get === undefined) {
 		return rt.DONE;
 	}
 	const b = get;
-	self.at = rt.usize.add(self.at, 1);
+	self.at = rt.usizeAdd(self.at, 1);
 	if (b === 0) {
 		return undefined;
 	}

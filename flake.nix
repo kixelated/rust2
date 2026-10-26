@@ -97,6 +97,36 @@
                 # The tests need node, tsc, and wasm builds: `just ts test` runs them.
                 doCheck = false;
               };
+          # The mono budget lint, on the same nightly for the same reasons.
+          rust2-lint =
+            (pkgs.makeRustPlatform {
+              cargo = tsToolchain;
+              rustc = tsToolchain;
+            }).buildRustPackage
+              {
+                pname = "rust2-lint";
+                version = "0.0.0";
+                src = pkgs.lib.fileset.toSource {
+                  root = ./driver;
+                  fileset = pkgs.lib.fileset.unions [
+                    ./driver/Cargo.toml
+                    ./driver/Cargo.lock
+                    ./driver/src
+                  ];
+                };
+                cargoLock.lockFile = ./driver/Cargo.lock;
+                cargoBuildFlags = [
+                  "--bin"
+                  "rust2-lint"
+                ];
+                RUSTFLAGS = "-C link-args=-Wl,-rpath,${tsToolchain}/lib";
+                nativeBuildInputs = [ pkgs.makeWrapper ];
+                postInstall = ''
+                  wrapProgram $out/bin/rust2-lint --set-default CARGO ${tsToolchain}/bin/cargo
+                '';
+                # `just driver test` runs the fixtures.
+                doCheck = false;
+              };
 
           # Every generator binary of the UniFFI fork, built once from its lockfile.
           uniffi =
@@ -150,6 +180,7 @@
           packages = {
             quest = quest-cli;
             ts = rust2-ts;
+            lint = rust2-lint;
             inherit uniffi;
             uniffi-bindgen = generator "uniffi-bindgen" [
               "uniffi-bindgen"
@@ -214,10 +245,11 @@
               flock
               nixfmt
               # The TypeScript driver's tests run and type-check its output, and bundle a
-              # caller with Bun to check that unused output shakes out.
+              # caller with Bun and esbuild to check that unused output shakes out.
               nodejs
               typescript
               bun
+              esbuild
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
           };

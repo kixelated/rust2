@@ -114,7 +114,7 @@ import * as Channel from "./model.Channel.ts";
 import { drain } from "./model.ts";
 import { polled, spawned } from ${JSON.stringify(join(import.meta.dir, "task.ts"))};
 
-const fixture = { Pending: rt.Pending, spawn: rt.spawn, u64: rt.u64, Channel, drain };
+const fixture = { Pending: rt.Pending, spawn: rt.spawn, Channel, drain };
 export const run = polled(fixture);
 export const spawn = spawned(fixture);
 `,
@@ -305,14 +305,15 @@ function render(): string {
 		`- moq: ${text(["git", "-C", checkout, "rev-parse", "HEAD"])}`,
 		...engines.map((e) => `- ${e.engine}`),
 		"",
-		"Each cell is nanoseconds per item (a varint, a frame header, a message, or a byte iterated): the median",
+		"Each cell is nanoseconds per item (a varint, a frame header, a message, a byte iterated, or a key): the median",
 		`of ${rounds} samples of at least ${sampleMs} ms, ± half their interquartile range. Each round runs`,
 		`the JS routes and workloads in a new random order, from seed ${seed}. \`native\` is a release`,
 		"build on the host, its workloads in a fixed order. `wasm` is the same",
 		"Rust at moq-wasm's size-optimized profile, run with its input already in memory;",
 		"copying the input in and the output out are timed apart. `hand-written` is moq's",
-		"`js/net`, called as its own benchmarks call it, and for `iter/` the same chain with ES",
-		"iterator helpers (`bench/iter.ts`). `A/A` is the translation loaded a second time: its",
+		"`js/net`, called as its own benchmarks call it, for `iter/` the same chain with ES",
+		"iterator helpers (`bench/iter.ts`), and for `btree/` a sorted array (`bench/sorted.ts`).",
+		"`A/A` is the translation loaded a second time: its",
 		"gap from `translated` is the noise. A `reads` decode is the frame headers above as they",
 		"arrive that many bytes at a time, so a header cut by a read comes up short and is",
 		"decoded again on the next: its gap from the whole decode is the error path's price.",

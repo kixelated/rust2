@@ -12,16 +12,16 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const fault = Fault.new(input.subarray(1));
 	const display: rt.Fmt = (f) => Fault.fmt$Display(fault, f);
 	const debug: rt.Fmt = (f) => Fault.fmt$Debug(fault, f);
-	const text = rt.fmt.format([
+	const text = rt.fmtFormat([
 		display,
 		"|",
-		rt.fmt.spec({ align: ">", width: 16 }, display),
+		rt.fmtSpec({ align: ">", width: 16 }, display),
 		"|",
 		debug,
 		"|",
-		rt.fmt.spec({ alternate: true }, debug),
+		rt.fmtSpec({ alternate: true }, debug),
 	]);
-	return rt.ByteVec.from(new TextEncoder().encode(text));
+	return rt.byteVecFrom(new TextEncoder().encode(text));
 }
 
 /** `shapes::loops` with each first byte that one of its cases of `!` takes, with one more byte and without. */

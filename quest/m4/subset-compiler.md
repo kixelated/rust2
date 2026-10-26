@@ -29,6 +29,6 @@ earlier version. What a revival has to answer:
 - **Evidence to collect first:**
   - the [semantic API hash](/quest/m3/api-cutoff.md) replay;
   - the [macro cost](/quest/m3/macro-cost.md) report;
-  - the [monomorphization budget](/quest/m2/mono-budget.md) numbers.
+  - the [monomorphization budget](https://github.com/kixelated/rust2/pull/65) numbers.
 
 Public API: none.

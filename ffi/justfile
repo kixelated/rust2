@@ -11,14 +11,12 @@ export PATH := if env("RUST2_TS_TOOLCHAIN", "") == "" { env("PATH") } else { env
 default:
     @just --list
 
-# Lint and format-check the exporter, its fixtures, and the shared driver front end.
+# Lint and format-check the exporter and its fixtures.
 check:
     cargo clippy --locked --all-targets -- -D warnings
     cargo fmt --all --check
     cargo shear
     cargo sort --workspace --check --no-format
-    cargo clippy --locked --manifest-path ../driver/Cargo.toml -- -D warnings
-    cargo fmt --manifest-path ../driver/Cargo.toml --check
 
 # Export each fixture, build it, and run its C test.
 test *args:
@@ -28,7 +26,6 @@ test *args:
 fix:
     cargo clippy --locked --fix --allow-staged --allow-dirty --all-targets
     cargo fmt --all
-    cargo fmt --manifest-path ../driver/Cargo.toml
     cargo shear --fix
     cargo sort --workspace --no-format
 
