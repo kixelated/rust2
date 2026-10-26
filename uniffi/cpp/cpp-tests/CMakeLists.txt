@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(binding-tests VERSION 1.0.0 LANGUAGES C CXX)
-set(CMAKE_CXX_STANDARD 17)
+# The bindings promise C++17; a cache entry so CI can also build at a newer standard.
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # The C backend's header promises C11.
