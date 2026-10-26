@@ -62,8 +62,11 @@ export nothing of their own.
 A record or enum holds only values and `Copy` handles: one with a field that does not map,
 or that holds itself, is an object instead, and the census lists it. A borrowed return is
 returned as a clone, so it must be `Clone`, and a handle in it is a new handle to the
-clone. A handle outlives every call, so a signature may not lend an object's `'static`
-form what C lends for the call, nor return an object that borrows. Everything else is
+clone. A handle outlives every call, so every lifetime an object takes is `'static`, as is
+every lifetime that must outlive one; any other lifetime is the call's. A signature may
+not lend C's borrow for one that is `'static`, nor return an object that borrows. A
+parameter is a reference only at its top, not inside an `Option` or `Box`, and an object
+no export C can call returns is refused, since C could never hold one. Everything else is
 refused, and the census counts why.
 
 ## The C ABI
@@ -120,5 +123,6 @@ nix develop .#bench --command just ffi bench  # frame writes, through the export
 The `api` fixture covers each rule once. `tests/api.c` runs the same script as the
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
 then it breaks each runtime check, which must abort with its message. The `reject`
-fixture's expected errors are `fixtures/reject/expected.txt`. moq-net's `moq/moq.c`
-publishes and subscribes to a track in one process, polling each read, and makes an origin.
+fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
+moq-net's `moq/moq.c` publishes and subscribes to a track in one process, polling each
+read, and makes an origin.

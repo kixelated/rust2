@@ -97,3 +97,40 @@ pub fn retext<'a>(text: &mut Text<'a>, with: &'a str) {
 pub fn first(opaque: &Opaque) -> Option<&Opaque> {
 	Some(opaque)
 }
+
+impl Opaque {
+	pub fn new() -> Self {
+		Self(0)
+	}
+}
+
+impl<'a> Text<'a> {
+	pub fn empty() -> Self {
+		Self("")
+	}
+
+	/// `'b` outlives the handle's `'a`, so it is `'static` too.
+	pub fn replace<'b: 'a>(&mut self, text: &'b str) {
+		self.0 = text;
+	}
+
+	/// What a future resolves to borrows its handle, as `view` does.
+	pub async fn later(&self) -> Text<'_> {
+		Text(self.0)
+	}
+}
+
+/// An optional borrow: C's value is lifted into an owned one, lent only as the parameter
+/// itself.
+pub fn either(text: Option<&str>) -> usize {
+	text.map_or(0, str::len)
+}
+
+/// An object no export returns but its own method, so C never holds one.
+pub struct Lease(u8);
+
+impl Lease {
+	pub fn split(&mut self) -> Lease {
+		Lease(self.0)
+	}
+}
