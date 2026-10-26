@@ -81,6 +81,14 @@ pub fn call<'tcx>(
 				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || !std_key(b, t) {
 					return Err(args);
 				}
+				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
+				// only while that is the default.
+				if name == "ne" && own_ne(b, t) {
+					return Ok(Some(b.err(
+						span,
+						format!("`<{t} as PartialEq>::ne` through a held type's own, which is not supported yet"),
+					)));
+				}
 				let eq = match (eq_fn(b, t, span), <[Expr; 2]>::try_from(args)) {
 					(Expr::Rt(same), Ok([l, r])) if same == "same" => l.binary("===", r),
 					(eq, Ok(args)) => eq.call(args.into()),
@@ -395,6 +403,24 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 
 fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
+}
+
+/// Whether `ty`, a std key, holds a type of the crate whose `PartialEq` overrides `ne`.
+fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	match ty.kind() {
+		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
+		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ne(b, inner),
+		ty::Adt(adt, _) if adt.did().is_local() => {
+			let ne = trait_fn(tcx, "PartialEq", "ne");
+			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
+				.ok()
+				.flatten()
+				.is_some_and(|instance| instance.def_id() != ne)
+		}
+		_ => false,
+	}
 }
 
 /// Whether `ty`'s `PartialEq` is derived, so it compares as JS compares its tags.
