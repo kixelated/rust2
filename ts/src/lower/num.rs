@@ -12,7 +12,7 @@ use rustc_middle::ty::{self, Ty};
 use rustc_span::Span;
 
 use super::body::Body;
-use crate::ts::{Expr, Type};
+use crate::ts::{Expr, Key, Type};
 
 /// An integer type, by width and signedness. `usize` and `isize` are 32 bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,13 +103,30 @@ impl Int {
 	}
 
 	/// A literal of this type spelled `text`, JS number digits of `value`. A wide value
-	/// past 2^53 is limbs, made from a bigint: `rt.u64Of(0xffffffffffffffffn)`.
+	/// past 2^53 is its limbs, written out as the runtime makes them, `{ hi: 0xffffffff,
+	/// lo: 0xffffffff } as rt.u64`: an object literal costs what a hoisted constant does,
+	/// where converting a bigint cost more than the arithmetic around it.
 	fn spelled(self, text: String, value: i128) -> Expr {
 		let safe = (1 - (1i128 << 53)..(1 << 53)).contains(&value) && (self.signed || value >= 0);
-		match safe {
-			true => Expr::lit(text),
-			false => self.method("of", vec![Expr::lit(format!("{text}n"))]),
+		if safe {
+			return Expr::lit(text);
 		}
+		let word = |i: u32| (value as u128 >> (32 * i)) as u32;
+		let hex = |negative: bool, w: u32| match w {
+			0 => Expr::lit("0"),
+			w => Expr::lit(format!("{}0x{w:x}", if negative { "-" } else { "" })),
+		};
+		let top = self.bits / 32 - 1;
+		let hi = match self.signed {
+			true => hex((word(top) as i32) < 0, (word(top) as i32).unsigned_abs()),
+			false => hex(false, word(top)),
+		};
+		let names: &[&str] = if top == 1 { &["lo"] } else { &["lo", "w1", "w2"] };
+		let mut fields = vec![(Key::Name("hi".into()), hi)];
+		for (i, name) in names.iter().enumerate().rev() {
+			fields.push((Key::Name((*name).into()), hex(false, word(i as u32))));
+		}
+		Expr::As(Box::new(Expr::Object(fields)), self.ty())
 	}
 
 	/// A call of the type's runtime function `name`: `rt.u8Add` for `add`.
@@ -240,8 +257,8 @@ pub fn binary<'tcx>(
 		let exact = !int.big()
 			&& match op {
 				BinOp::Add | BinOp::Sub | BinOp::Mul => value.abs() < (1 << 53),
-				// JS bitwise operators compute in 32-bit signed integers.
-				_ => (i32::MIN as i128..=i32::MAX as i128).contains(&value) && a >= 0 && c >= 0,
+				// JS bitwise operators read their operands as 32-bit signed integers.
+				_ => [a, c, value].iter().all(|v| (0..=i32::MAX as i128).contains(v)),
 			};
 		if !exact {
 			return int.lit(value);
