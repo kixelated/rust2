@@ -8,10 +8,8 @@ export interface Seq {
 }
 
 export function fmt$Debug(self: Seq, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _5!: rt.DebugList;
-	let _6!: rt.Iter<Pair.Pair>;
-	_5 = rt.fmtDebugList(f);
-	_6 = rt.iterSlice(self._0);
+	const _5: rt.DebugList = rt.fmtDebugList(f);
+	const _6: rt.Iter<Pair.Pair> = rt.iterSlice(self._0);
 	return rt.debugListFinish(rt.debugListEntries(_5, _6, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f)));
 }
 

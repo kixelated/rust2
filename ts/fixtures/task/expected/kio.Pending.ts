@@ -21,8 +21,7 @@ export class Pending<F> {
 }
 
 export function poll$Future_recv_closure0_closure0(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>, cx: rt.Context): rt.Poll<rt.u64 | undefined> {
-	let this_!: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
-	this_ = self;
+	const this_: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> = self;
 	return this_.poll(Park.hold(this_.park, cx));
 }
 

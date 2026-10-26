@@ -44,10 +44,8 @@ export function need(self: Decoder): rt.usize {
 
 /** Record that a read wanted `more` bytes past the current position. */
 export function short(self: Decoder, more: rt.usize): DecodeError.DecodeError {
-	let need_!: rt.usize;
-	let _9!: rt.usize;
-	need_ = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
-	_9 = self.need;
+	const need_: rt.usize = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
+	const _9: rt.usize = self.need;
 	self.need = rt.max(_9, need_);
 	return { tag: "Short" } as DecodeError.DecodeError;
 }
@@ -64,8 +62,7 @@ export function isEmpty(self: Decoder): boolean {
 
 /** Read `len` raw bytes. */
 export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	let _6!: [Uint8Array, Uint8Array] | undefined;
-	_6 = rt.sliceSplitAtChecked(self.buf, len);
+	const _6: [Uint8Array, Uint8Array] | undefined = rt.sliceSplitAtChecked(self.buf, len);
 	if (_6 !== undefined) {
 		self.buf = _6[1];
 		return rt.Ok(_6[0]);
@@ -82,8 +79,7 @@ export function rest(self: Decoder): Uint8Array {
 
 /** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
 export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeError.DecodeError> {
-	let _4!: rt.Result<Uint8Array, DecodeError.DecodeError>;
-	_4 = slice(self, len);
+	const _4: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, len);
 	if (_4.ok) {
 		return rt.Ok(new_(_4.value, self.form));
 	}
@@ -92,8 +88,7 @@ export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeErro
 
 /** Read a single byte. */
 export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
-	let _3!: rt.Result<Uint8Array, DecodeError.DecodeError>;
-	_3 = slice(self, 1);
+	const _3: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, 1);
 	if (_3.ok) {
 		rt.idx(_3.value, 0);
 		return rt.Ok(_3.value[0]);
@@ -103,12 +98,10 @@ export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
 
 /** Read a big-endian `u16`. */
 export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
-	let _2!: rt.Result<Uint8Array, DecodeError.DecodeError>;
-	let _9!: rt.u8;
-	_2 = slice(self, 2);
+	const _2: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, 2);
 	if (_2.ok) {
 		rt.idx(_2.value, 0);
-		_9 = _2.value[0];
+		const _9: rt.u8 = _2.value[0];
 		rt.idx(_2.value, 1);
 		return rt.Ok((_9 << 8) | _2.value[1]);
 	}
@@ -117,11 +110,9 @@ export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
 
 /** Read a byte that must be 0 or 1. */
 export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError> {
-	let _2!: rt.Result<rt.u8, DecodeError.DecodeError>;
-	let val!: rt.u8;
-	_2 = u8(self);
+	const _2: rt.Result<rt.u8, DecodeError.DecodeError> = u8(self);
 	if (_2.ok) {
-		val = _2.value;
+		const val: rt.u8 = _2.value;
 		if (val === 0) {
 			return rt.Ok(false);
 		}
@@ -136,15 +127,11 @@ export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError>
 /** Read a varint. */
 export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError> {
 	let _0!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	let _2!: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError>;
-	let _3!: Form.Form;
-	let value!: rt.u64;
-	let _13!: Uint8Array;
-	_13 = self.buf;
-	_3 = self.form;
-	_2 = read(_13, _3);
+	const _13: Uint8Array = self.buf;
+	const _3: Form.Form = self.form;
+	const _2: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> = read(_13, _3);
 	if (_2.ok) {
-		value = _2.value[0];
+		const value: rt.u64 = _2.value[0];
 		self.buf = _2.value[1];
 		_0 = rt.Ok(value);
 	} else if (_2.error.tag === "Short") {
@@ -157,8 +144,7 @@ export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError
 
 /** Read an optional varint: 0 is `None`, and `n + 1` is `Some(n)`. */
 export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeError.DecodeError> {
-	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	_3 = varint(self);
+	const _3: rt.Result<rt.u64, DecodeError.DecodeError> = varint(self);
 	if (_3.ok) {
 		return rt.Ok(rt.u64CheckedSub(_3.value, 1));
 	}
@@ -167,13 +153,10 @@ export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeEr
 
 /** Read a varint length, then that many raw bytes. */
 export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	let start!: Uint8Array;
-	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
-	let _6!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	start = self.buf;
-	_6 = varint(self);
+	const start: Uint8Array = self.buf;
+	const _6: rt.Result<rt.u64, DecodeError.DecodeError> = varint(self);
 	if (_6.ok) {
-		_3 = rt.resultMapErr(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
+		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = rt.resultMapErr(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
 			return { tag: "BoundsExceeded" } as DecodeError.DecodeError;
 		});
 		if (_3.ok) {
@@ -188,16 +171,13 @@ export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeEr
 
 /** Read a varint length, then that many bytes of UTF-8. */
 export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError> {
-	let _2!: rt.Result<string, rt.FromUtf8Error>;
-	let _5!: rt.Result<Uint8Array, DecodeError.DecodeError>;
-	let residual2!: rt.Result<never, rt.FromUtf8Error>;
-	_5 = bytes(self);
+	const _5: rt.Result<Uint8Array, DecodeError.DecodeError> = bytes(self);
 	if (_5.ok) {
-		_2 = rt.stringFromUtf8(rt.sliceToByteVec(_5.value));
+		const _2: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(_5.value));
 		if (_2.ok) {
 			return rt.Ok(_2.value);
 		}
-		residual2 = _2;
+		const residual2: rt.Result<never, rt.FromUtf8Error> = _2;
 		return rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
 	}
 	return _5;

@@ -10,21 +10,14 @@ import { copies, order, discriminants, loops, patterns, closures, library } from
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let out!: rt.ByteVec;
-	let op!: rt.u8;
-	let kind!: rt.u8;
-	let _10!: [rt.u8, rt.u8];
-	let _14!: rt.u8;
-	let _28!: rt.u8;
-	let _36!: [rt.u8, Uint8Array] | undefined;
-	out = new rt.ByteVec();
+	const out: rt.ByteVec = new rt.ByteVec();
 	if (!(input.length >= 2)) {
 		return out;
 	}
-	_10 = [input[0], input[1]] as [rt.u8, rt.u8];
-	op = _10[0];
-	kind = _10[1];
-	_14 = rt.u8Rem(op, 38);
+	const _10: [rt.u8, rt.u8] = [input[0], input[1]];
+	const op: rt.u8 = _10[0];
+	const kind: rt.u8 = _10[1];
+	const _14: rt.u8 = rt.u8Rem(op, 38);
 	if (_14 === 0) {
 		u8Op(kind, input.subarray(2, input.length - 0), out);
 	} else if (_14 === 1) {
@@ -50,7 +43,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	} else if (_14 === 11) {
 		isizeOp(kind, input.subarray(2, input.length - 0), out);
 	} else if (_14 === 12) {
-		_28 = rt.u8Rem(kind, 6);
+		const _28: rt.u8 = rt.u8Rem(kind, 6);
 		if (_28 === 0) {
 			i8Neg(input.subarray(2, input.length - 0), out);
 		} else if (_28 === 1) {
@@ -65,7 +58,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 			isizeNeg(input.subarray(2, input.length - 0), out);
 		}
 	} else if (_14 === 13) {
-		_36 = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
+		const _36: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
 		if (_36 === undefined) {
 			cast(kind, rt.u8Div(kind, 12), input.subarray(2, input.length - 0), out);
 		} else {

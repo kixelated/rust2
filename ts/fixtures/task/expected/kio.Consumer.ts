@@ -25,25 +25,20 @@ export class Consumer {
 
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	let state!: rt.Mutex<State.State>;
-	let value!: rt.u64;
-	let _16!: State.State;
-	let _18!: rt.usize;
-	state = self.state.value;
+	const state: rt.Mutex<State.State> = self.state.value;
 	if (!(self.next < state.value.queue.length)) {
 		if (!state.value.closed) {
 			Waiter.register(waiter, state.value.waiters);
 			return rt.Pending;
 		}
 		return undefined;
-	} else {
-		_16 = state.value;
-		_18 = self.next;
-		const at = rt.idx(_16.queue, _18);
-		value = _16.queue[at];
-		self.next = rt.usizeAdd(self.next, 1);
-		return value;
 	}
+	const _16: State.State = state.value;
+	const _18: rt.usize = self.next;
+	const at = rt.idx(_16.queue, _18);
+	const value: rt.u64 = _16.queue[at];
+	self.next = rt.usizeAdd(self.next, 1);
+	return value;
 }
 
 //# sourceMappingURL=kio.Consumer.ts.map

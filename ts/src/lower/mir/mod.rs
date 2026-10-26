@@ -201,8 +201,8 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	noops: FxHashSet<(BasicBlock, usize)>,
 	/// The lengths a bounds check compares with, of the slices whose `rt.idx` it is.
 	idx_of: FxHashMap<Local, Place<'tcx>>,
-	/// Each block's one predecessor, if it has one.
-	sole_pred: FxHashMap<BasicBlock, BasicBlock>,
+	/// Each block's predecessors, but itself.
+	preds: FxHashMap<BasicBlock, Vec<BasicBlock>>,
 	/// What the cleanup variable holds as each block lowered so far leaves.
 	unwind_out: FxHashMap<BasicBlock, Option<usize>>,
 	/// The halves a `|` joins into a `u64`, by the local of the shift that is its left side.
@@ -257,7 +257,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			stepped_vars: FxHashMap::default(),
 			stepped_into: FxHashMap::default(),
 			noops: FxHashSet::default(),
-			sole_pred: FxHashMap::default(),
+			preds: FxHashMap::default(),
 			idx_of: FxHashMap::default(),
 			unwind_out: FxHashMap::default(),
 			halves: FxHashMap::default(),
@@ -1052,19 +1052,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.collect(),
 			};
 		}
+		// The predecessors that are reached, as blocks only gone past are not.
+		let mut reached = vec![false; n];
+		let mut stack = vec![0];
+		while let Some(bb) = stack.pop() {
+			if !std::mem::replace(&mut reached[bb], true) {
+				stack.extend(&succs[bb]);
+			}
+		}
 		let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
-		for (from, tos) in succs.iter().enumerate() {
+		for (from, tos) in succs.iter().enumerate().filter(|&(from, _)| reached[from]) {
 			for &to in tos {
 				preds[to].push(from);
 			}
 		}
 		for (to, from) in preds.iter().enumerate() {
-			if let [from] = from[..]
-				&& from != to
-			{
-				self.sole_pred
-					.insert(BasicBlock::from_usize(to), BasicBlock::from_usize(from));
-			}
+			let from = from.iter().filter(|&&f| f != to).map(|&f| BasicBlock::from_usize(f));
+			self.preds.insert(BasicBlock::from_usize(to), from.collect());
 		}
 		let graph = cfg::Graph { succs };
 		let mut labels = self.labels;
@@ -1111,6 +1115,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
 			cfg::strip_return(&mut out);
 		}
+		cfg::hoist_else(&mut out);
+		declare_in_place(&mut out);
 		out
 	}
 
@@ -1634,10 +1640,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn block(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
 		let mir = self.mir;
 		let data = &mir.basic_blocks[bb];
-		// Entered only from its one predecessor, with the cleanup that left it.
+		// Entered with the cleanup every predecessor left with, once each is lowered.
 		if let Some(unwind) = &mut self.unwind
-			&& let Some(from) = self.sole_pred.get(&bb)
-			&& let Some(&known) = self.unwind_out.get(from)
+			&& let Some(preds) = self.preds.get(&bb)
+			&& let Some((first, rest)) = preds.split_first()
+			&& let Some(&known) = self.unwind_out.get(first)
+			&& rest.iter().all(|p| self.unwind_out.get(p) == Some(&known))
 		{
 			unwind.known = known;
 		}
@@ -2441,6 +2449,157 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 	}
 	// What is left of an assignment and does nothing.
 	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(e) if inert(e)));
+}
+
+/// Declare each variable declared up front at the assignment that first names it, where
+/// everything else that names it follows in the same block: no path reaches those without
+/// passing the assignment. `const` if nothing assigns it again.
+fn declare_in_place(stmts: &mut Vec<Stmt>) {
+	let declared: Vec<(String, Type)> = stmts
+		.iter()
+		.filter_map(|s| match &s.kind {
+			StmtKind::Declare { name, ty } => Some((name.clone(), ty.clone())),
+			_ => None,
+		})
+		.collect();
+	for (name, ty) in declared {
+		let total = list_names(stmts, &name);
+		let mut writes = 0;
+		stmts
+			.iter()
+			.for_each(|s| visit_stmt(s, &mut |e| writes += writes_of(e, &name)));
+		if total > 0 && place_declaration(stmts, &name, &ty, total, writes > 1) {
+			stmts.retain(|s| !matches!(&s.kind, StmtKind::Declare { name: n, .. } if *n == name));
+		}
+	}
+}
+
+/// Turn the statement that first names `name` into its declaration, if it assigns it and
+/// all `total` statements naming it follow in its block.
+fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mutable: bool) -> bool {
+	let Some(i) = stmts.iter().position(|s| stmt_names(s, name) > 0) else {
+		return false;
+	};
+	let assigns = matches!(&stmts[i].kind, StmtKind::Expr(Expr::Assign(target, value))
+		if matches!(&**target, Expr::Ident(n) if n == name) && expr_names(value, name) == 0);
+	if assigns {
+		if list_names(&stmts[i..], name) != total {
+			return false;
+		}
+		let StmtKind::Expr(Expr::Assign(_, value)) = std::mem::replace(&mut stmts[i].kind, StmtKind::Break(None))
+		else {
+			unreachable!("checked above")
+		};
+		stmts[i].kind = StmtKind::decl(mutable, name, Some(ty.clone()), Some(*value));
+		return true;
+	}
+	// Else everything naming it must be in one block of this statement.
+	if stmt_names(&stmts[i], name) != total {
+		return false;
+	}
+	let place =
+		|body: &mut Vec<Stmt>| list_names(body, name) == total && place_declaration(body, name, ty, total, mutable);
+	match &mut stmts[i].kind {
+		StmtKind::If { then, els, .. } => place(then) || place(els),
+		StmtKind::While { body, .. } | StmtKind::Block { body, .. } => place(body),
+		StmtKind::Catch { body, handler, .. } => place(body) || place(handler),
+		StmtKind::Switch { cases, default, .. } => cases.iter_mut().any(|(_, body)| place(body)) || place(default),
+		_ => false,
+	}
+}
+
+/// How many times the statements name `name`, read or assigned.
+fn list_names(stmts: &[Stmt], name: &str) -> usize {
+	stmts.iter().map(|s| stmt_names(s, name)).sum()
+}
+
+fn stmt_names(stmt: &Stmt, name: &str) -> usize {
+	let mut n = 0;
+	visit_stmt(stmt, &mut |e| n += expr_names(e, name));
+	n
+}
+
+fn expr_names(e: &Expr, name: &str) -> usize {
+	let mut n = 0;
+	visit_expr(e, &mut |e| n += matches!(e, Expr::Ident(i) if i == name) as usize);
+	n
+}
+
+/// How many times `e` itself assigns `name`.
+fn writes_of(e: &Expr, name: &str) -> usize {
+	let mut n = 0;
+	visit_expr(e, &mut |e| {
+		if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
+			&& matches!(&**target, Expr::Ident(i) if i == name)
+		{
+			n += 1;
+		}
+	});
+	n
+}
+
+/// Call `f` on each expression the statement holds directly, and in its blocks.
+fn visit_stmt(stmt: &Stmt, f: &mut impl FnMut(&Expr)) {
+	match &stmt.kind {
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) | StmtKind::Decl { init: Some(e), .. } => {
+			f(e)
+		}
+		StmtKind::If { cond, then, els } => {
+			f(cond);
+			then.iter().chain(els).for_each(|s| visit_stmt(s, f));
+		}
+		StmtKind::While { cond, body, .. } => {
+			f(cond);
+			body.iter().for_each(|s| visit_stmt(s, f));
+		}
+		StmtKind::Block { body, .. } => body.iter().for_each(|s| visit_stmt(s, f)),
+		StmtKind::Catch { body, handler, .. } => body.iter().chain(handler).for_each(|s| visit_stmt(s, f)),
+		StmtKind::Switch {
+			disc, cases, default, ..
+		} => {
+			f(disc);
+			for (value, body) in cases {
+				f(value);
+				body.iter().for_each(|s| visit_stmt(s, f));
+			}
+			default.iter().for_each(|s| visit_stmt(s, f));
+		}
+		StmtKind::Return(None)
+		| StmtKind::Decl { init: None, .. }
+		| StmtKind::Declare { .. }
+		| StmtKind::Break(_)
+		| StmtKind::Continue(_) => {}
+	}
+}
+
+/// Call `f` on `e` and every expression within it, arrow bodies included.
+fn visit_expr(e: &Expr, f: &mut impl FnMut(&Expr)) {
+	f(e);
+	match e {
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		Expr::Array(items) => items.iter().for_each(|e| visit_expr(e, f)),
+		Expr::Object(props) => props.iter().for_each(|(_, e)| visit_expr(e, f)),
+		Expr::Member(e, _)
+		| Expr::Unary(_, e)
+		| Expr::Located(_, e)
+		| Expr::As(e, _)
+		| Expr::Lambda(_, e)
+		| Expr::Postfix(e, _) => visit_expr(e, f),
+		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+			visit_expr(a, f);
+			visit_expr(b, f);
+		}
+		Expr::Call(callee, args) | Expr::New(callee, args) => {
+			visit_expr(callee, f);
+			args.iter().for_each(|e| visit_expr(e, f));
+		}
+		Expr::Cond(c, a, b) => {
+			visit_expr(c, f);
+			visit_expr(a, f);
+			visit_expr(b, f);
+		}
+		Expr::Arrow(_, _, body) => body.iter().for_each(|s| visit_stmt(s, f)),
+	}
 }
 
 /// The operands of an aggregate, from its expression.

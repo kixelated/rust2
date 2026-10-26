@@ -4,32 +4,22 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _7!: string;
-	let _8!: rt.Fmt;
-	let _9!: rt.Fmt;
-	let _14!: string;
-	let _15!: string;
-	let _16!: rt.Fmt;
-	let _17!: string;
-	let _18!: rt.Fmt;
-	let _19!: string;
-	let _20!: rt.Fmt;
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
 	}
 	if (self.tag === "Line") {
-		_7 = "Line";
-		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
-		_9 = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
+		const _7: string = "Line";
+		const _8: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
+		const _9: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	}
-	_14 = "Rect";
-	_15 = "corner";
-	_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
-	_17 = "width";
-	_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
-	_19 = "height";
-	_20 = (f: rt.Formatter) => rt.u16Display(self.height, f);
+	const _14: string = "Rect";
+	const _15: string = "corner";
+	const _16: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
+	const _17: string = "width";
+	const _18: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self.width, f);
+	const _19: string = "height";
+	const _20: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self.height, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 }
 
@@ -46,16 +36,14 @@ export function describe$Area(self: Shape, out: rt.ByteVec): void {
 }
 
 export function area$Area(self: Shape): rt.u64 {
-	let width!: rt.u16;
-	let height!: rt.u16;
 	if (self.tag === "Dot") {
 		return 0;
 	}
 	if (self.tag === "Line") {
 		return 0;
 	}
-	width = self.width;
-	height = self.height;
+	const width: rt.u16 = self.width;
+	const height: rt.u16 = self.height;
 	return rt.u64Mul(width as rt.u64, height as rt.u64);
 }
 

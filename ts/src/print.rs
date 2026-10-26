@@ -702,21 +702,6 @@ impl Printer<'_> {
 				self.expr(cond, 0);
 				self.write(") {\n");
 				self.block_body(then);
-				// After a `then` that never falls through, the `else` is the code that follows,
-				// unless it declares what the code after the `if` could clash with.
-				if crate::ts::diverges(then)
-					&& !els.is_empty()
-					&& !els
-						.iter()
-						.any(|s| matches!(s.kind, StmtKind::Decl { .. } | StmtKind::Declare { .. }))
-				{
-					self.start();
-					self.write("}\n");
-					for stmt in els {
-						self.stmt(stmt);
-					}
-					return;
-				}
 				let mut els = els;
 				loop {
 					match els.as_slice() {

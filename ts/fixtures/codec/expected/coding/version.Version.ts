@@ -15,8 +15,7 @@ export interface Version {
 
 /** Decode the version number. */
 export function decode$Decode_Form(r: Decoder.Decoder, _2: Form.Form): rt.Result<Version, DecodeError.DecodeError> {
-	let _4!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	_4 = Decoder.varint(r);
+	const _4: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 	if (_4.ok) {
 		return rt.Ok({ _0: _4.value });
 	}
@@ -25,8 +24,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, _2: Form.Form): rt.Result
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
 export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
-	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
-	_4 = Encoder.varint(w, self._0);
+	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0);
 	if (_4.ok) {
 		return rt.Ok(undefined);
 	}
@@ -35,8 +33,7 @@ export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.F
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
 export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
-	_4 = Encoder.varint(w, self._0);
+	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0);
 	if (_4.ok) {
 		return rt.Ok(undefined);
 	}

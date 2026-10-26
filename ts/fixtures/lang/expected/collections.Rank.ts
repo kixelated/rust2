@@ -32,14 +32,13 @@ export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
 }
 
 export function cmp$Ord(self: Rank, other: Rank): rt.Ordering {
-	let cmp!: rt.Ordering;
 	if (self.tag === "Mid") {
 		if (other.tag === "Mid") {
 			return rt.cmp(self._0, other._0);
 		}
 	} else if (self.tag === "High") {
 		if (other.tag === "High") {
-			cmp = rt.cmp(self.x, other.x);
+			const cmp: rt.Ordering = rt.cmp(self.x, other.x);
 			if (cmp === 0) {
 				return rt.cmp(self.y, other.y);
 			}

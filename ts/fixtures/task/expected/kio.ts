@@ -8,8 +8,7 @@ import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>;
-	_2 = poll;
+	const _2: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined> = poll;
 	return new Pending.Pending({ poll: _2, park: Park.default$Default() });
 }
 
@@ -29,13 +28,11 @@ export class recvFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let self!: Consumer.Consumer;
-		let _7!: rt.Poll<rt.u64 | undefined>;
 		let unwind: number = 0;
 		try {
 			if (this.#state === 0) {
 				unwind = 12;
-				self = this.#self;
+				const self: Consumer.Consumer = this.#self;
 				this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 					return Consumer.pollRecv(self, waiter);
 				});
@@ -45,7 +42,7 @@ export class recvFuture {
 				rt.asyncFnResumedPanic();
 			}
 			unwind = 11;
-			_7 = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
+			const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
 			if (_7 !== rt.Pending) {
 				unwind = 12;
 				rt.drop(this.#awaitee);

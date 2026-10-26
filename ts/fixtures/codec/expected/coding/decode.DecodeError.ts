@@ -5,8 +5,6 @@ import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import * as SessionError from "../lib.SessionError.ts";
 
 export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let args2!: rt.Fmt[];
-	let args4!: rt.Fmt[];
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(__formatter, "short buffer");
 	}
@@ -18,7 +16,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	}
 	if (self.tag === "InvalidMessage") {
 		const arg = ([([self._0] as [rt.u64])[0]] as [rt.u64])[0];
-		args2 = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
 		return rt.fmtWriteFmt(__formatter, ["invalid message: ", args2[0]]);
 	}
 	if (self.tag === "InvalidSubscribeLocation") {
@@ -37,7 +35,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "expected end");
 	}
 	if (self.tag === "MessageTooLarge") {
-		args4 = [(f: rt.Formatter) => rt.usizeDisplay(self.size, f), (f: rt.Formatter) => rt.usizeDisplay(self.max, f)];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(self.size, f), (f: rt.Formatter) => rt.usizeDisplay(self.max, f)];
 		return rt.fmtWriteFmt(__formatter, ["message too large: ", args4[0], " bytes exceeds ", args4[1], " byte limit"]);
 	}
 	if (self.tag === "ExpectedData") {
@@ -72,17 +70,6 @@ export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
 }
 
 export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _7!: string;
-	let _8!: rt.Fmt;
-	let _11!: string;
-	let _12!: rt.Fmt;
-	let _21!: string;
-	let _22!: string;
-	let _23!: rt.Fmt;
-	let _24!: string;
-	let _25!: rt.Fmt;
-	let _34!: string;
-	let _35!: rt.Fmt;
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
 	}
@@ -90,13 +77,13 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 		return rt.fmtWriteStr(f, "Long");
 	}
 	if (self.tag === "InvalidString") {
-		_7 = "InvalidString";
-		_8 = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(self._0, f);
+		const _7: string = "InvalidString";
+		const _8: rt.Fmt = (f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8));
 	}
 	if (self.tag === "InvalidMessage") {
-		_11 = "InvalidMessage";
-		_12 = (f: rt.Formatter) => rt.u64Display(self._0, f);
+		const _11: string = "InvalidMessage";
+		const _12: rt.Fmt = (f: rt.Formatter) => rt.u64Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _11), _12));
 	}
 	if (self.tag === "InvalidSubscribeLocation") {
@@ -115,11 +102,11 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 		return rt.fmtWriteStr(f, "ExpectedEnd");
 	}
 	if (self.tag === "MessageTooLarge") {
-		_21 = "MessageTooLarge";
-		_22 = "size";
-		_23 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
-		_24 = "max";
-		_25 = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
+		const _21: string = "MessageTooLarge";
+		const _22: string = "size";
+		const _23: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
+		const _24: string = "max";
+		const _25: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _21), _22, _23), _24, _25));
 	}
 	if (self.tag === "ExpectedData") {
@@ -141,8 +128,8 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 		return rt.fmtWriteStr(f, "Version");
 	}
 	if (self.tag === "Session") {
-		_34 = "Session";
-		_35 = (f: rt.Formatter) => SessionError.fmt$Debug(self._0, f);
+		const _34: string = "Session";
+		const _35: rt.Fmt = (f: rt.Formatter) => SessionError.fmt$Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _34), _35));
 	}
 	if (self.tag === "MalformedAuthToken") {

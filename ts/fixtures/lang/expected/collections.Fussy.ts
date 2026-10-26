@@ -12,14 +12,12 @@ export interface Fussy {
 }
 
 export function clone$Clone(self: Fussy): Fussy {
-	let args2!: rt.Fmt[];
 	if (!(rt.u8Rem(self._0, 7) === 0)) {
 		return { _0: self._0 };
-	} else {
-		const arg = ([self._0] as [rt.u8])[0];
-		args2 = [(f: rt.Formatter) => rt.u8Display(arg, f)];
-		rt.panicFmt(["cloning ", args2[0]]);
 	}
+	const arg = ([self._0] as [rt.u8])[0];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+	rt.panicFmt(["cloning ", args2[0]]);
 }
 
 //# sourceMappingURL=collections.Fussy.ts.map

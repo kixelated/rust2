@@ -15,8 +15,7 @@ export function hash$Hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
 }
 
 export function cmp$Ord(self: Pair, other: Pair): rt.Ordering {
-	let cmp!: rt.Ordering;
-	cmp = rt.cmp(self.a, other.a);
+	const cmp: rt.Ordering = rt.cmp(self.a, other.a);
 	if (cmp === 0) {
 		return rt.cmp(self.b, other.b);
 	}

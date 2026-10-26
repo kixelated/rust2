@@ -8,12 +8,10 @@ export interface Evens {
 }
 
 export function next$Iterator(self: Evens): rt.u8 | rt.Done {
-	let _2!: rt.u8 | rt.Done;
-	let b!: rt.u8;
 	l0: while (true) {
-		_2 = self.inner.next();
+		const _2: rt.u8 | rt.Done = self.inner.next();
 		if (_2 !== rt.DONE) {
-			b = _2;
+			const b: rt.u8 = _2;
 			if (!(rt.u8Rem(b, 2) === 0)) {
 				continue l0;
 			}

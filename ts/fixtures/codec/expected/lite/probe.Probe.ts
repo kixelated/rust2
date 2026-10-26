@@ -13,19 +13,13 @@ import type * as Control from "../stats.Control.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
-	let _0!: rt.Result<[Probe, rt.usize], DecodeError.DecodeError>;
-	let r!: Decoder.Decoder;
-	let value!: Probe;
-	let _6!: rt.Result<Probe, DecodeError.DecodeError>;
-	let val!: Probe;
-	let _13!: Probe;
-	r = Decoder.new(buf, Form.from$From_Version(version));
-	_6 = decode$Decode_Version(r, version);
+	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
+	const _6: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {
-		val = _6.value;
-		value = val;
-		_13 = value;
-		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Probe, rt.usize]);
+		const val: Probe = _6.value;
+		const value: Probe = val;
+		const _13: Probe = value;
+		const _0: rt.Result<[Probe, rt.usize], DecodeError.DecodeError> = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 		return _0;
 	}
 	return _6;
@@ -33,14 +27,11 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
 export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let prefix!: Prefix.Prefix;
-	let _39!: rt.Result<undefined, EncodeError.EncodeError>;
-	let _49!: rt.Result<undefined, EncodeError.EncodeError>;
-	prefix = Encoder.prefixVarint(w);
-	_39 = encodeMsg$Message(self, w, version);
+	const prefix: Prefix.Prefix = Encoder.prefixVarint(w);
+	const _39: rt.Result<undefined, EncodeError.EncodeError> = encodeMsg$Message(self, w, version);
 	if (_39.ok) {
 		if (!(Encoder.since(w, prefix) > 65535)) {
-			_49 = Encoder.fill(w, prefix);
+			const _49: rt.Result<undefined, EncodeError.EncodeError> = Encoder.fill(w, prefix);
 			if (_49.ok) {
 				w.control = "Probe" as Control.Control;
 				return rt.Ok(undefined);
@@ -74,17 +65,13 @@ export interface Probe {
 /** Decode a message body (without size prefix). */
 export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
 	let bitrate!: rt.u64 | undefined;
-	let _6!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	let val!: rt.u64;
 	let rtt!: rt.u64 | undefined;
-	let _13!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	let val2!: rt.u64;
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err({ tag: "Version" } as DecodeError.DecodeError);
 	}
-	_6 = Decoder.varint(r);
+	const _6: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 	if (_6.ok) {
-		val = _6.value;
+		const val: rt.u64 = _6.value;
 		if (val === 0) {
 			bitrate = undefined;
 		} else {
@@ -93,9 +80,9 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 		if (!Version.hasProbeRtt(version)) {
 			rtt = undefined;
 		} else {
-			_13 = Decoder.varint(r);
+			const _13: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 			if (_13.ok) {
-				val2 = _13.value;
+				const val2: rt.u64 = _13.value;
 				if (val2 === 0) {
 					rtt = undefined;
 				} else {
@@ -112,17 +99,15 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 
 /** Encode this message body (without size prefix). */
 export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	let _9!: rt.Result<undefined, EncodeError.EncodeError>;
-	let _17!: rt.Result<undefined, EncodeError.EncodeError>;
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version" as EncodeError.EncodeError);
 	}
-	_9 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
+	const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
 		return rt.u64Max(v, 1);
 	}), 0));
 	if (_9.ok) {
 		if (Version.hasProbeRtt(version)) {
-			_17 = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
+			const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
 				return rt.u64Max(v2, 1);
 			}), 0));
 			if (!_17.ok) {

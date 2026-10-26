@@ -3,13 +3,6 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _8!: string;
-	let _9!: rt.Fmt;
-	let _13!: string;
-	let _14!: string;
-	let _15!: rt.Fmt;
-	let _16!: string;
-	let _17!: rt.Fmt;
 	if (self.tag === "Empty") {
 		return rt.fmtWriteStr(f, "Empty");
 	}
@@ -20,15 +13,15 @@ export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.
 		return rt.fmtWriteStr(f, "Bare");
 	}
 	if (self.tag === "One") {
-		_8 = "One";
-		_9 = (f: rt.Formatter) => rt.u8Display(self._0, f);
+		const _8: string = "One";
+		const _9: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _8), _9));
 	}
-	_13 = "Many";
-	_14 = "count";
-	_15 = (f: rt.Formatter) => rt.u32Display(self.count, f);
-	_16 = "items";
-	_17 = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
+	const _13: string = "Many";
+	const _14: string = "count";
+	const _15: rt.Fmt = (f: rt.Formatter) => rt.u32Display(self.count, f);
+	const _16: string = "items";
+	const _17: rt.Fmt = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 }
 

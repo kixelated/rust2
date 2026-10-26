@@ -109,7 +109,10 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	let mut saved = IndexVec::new();
 	for field in layout.field_tys.iter() {
 		// rustc's own locals, such as `__awaitee`, start with `_`.
-		let name = match field.debuginfo_name.map(|n| n.as_str().trim_start_matches('_').to_string()) {
+		let name = match field
+			.debuginfo_name
+			.map(|n| n.as_str().trim_start_matches('_').to_string())
+		{
 			Some(name) if !name.is_empty() => format!("#{}", crate::lower::camel(&name)),
 			_ => "#saved".into(),
 		};
