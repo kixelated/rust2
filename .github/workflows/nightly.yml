@@ -160,7 +160,7 @@ jobs:
         run: nix develop --command just ffi census
 
       - name: Summarize
-        run: awk '/^## Refused items/ { exit } { print }' ffi/target/census/moq-net.md >> "$GITHUB_STEP_SUMMARY"
+        run: awk 'FNR == 1 { refused = 0 } /^## Refused items/ { refused = 1 } !refused' ffi/target/census/*.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

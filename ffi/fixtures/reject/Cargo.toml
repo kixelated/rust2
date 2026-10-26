@@ -6,5 +6,8 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 publish = false
 
+[dependencies]
+dep-fixture = { path = "../dep" }
+
 [lints]
 workspace = true

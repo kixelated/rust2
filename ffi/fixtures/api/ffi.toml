@@ -2,3 +2,7 @@ package = "api-fixture"
 prefix = "api"
 # The list's tail is not `Clone`, so its getter has no copy to return.
 exclude = ["Node::next"]
+
+# Exported into the same library: `grow` names its types.
+[crates.dep-fixture]
+exclude = ["HashSet"]

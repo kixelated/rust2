@@ -1,14 +1,16 @@
 //! The `ffi.toml` that says what to export.
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-/// What to export from one crate.
+/// What to export: one package's crate, and other packages' it depends on, into one
+/// library.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
-	/// The cargo package whose library is exported.
+	/// The cargo package whose library is checked, and exported first.
 	pub package: String,
 	/// The prefix of every C name, the package's name in snake case by default.
 	pub prefix: Option<String>,
@@ -20,18 +22,87 @@ pub struct Config {
 	/// makes clash: `"session::Stats" = "session_stats_snapshot"`. A type's methods are
 	/// named through its new name.
 	#[serde(default)]
-	pub rename: std::collections::BTreeMap<String, String>,
+	pub rename: BTreeMap<String, String>,
+	/// Other packages exported into the same library, each a dependency of `package`, by
+	/// name: an export names another's types across crates.
+	#[serde(default)]
+	pub crates: BTreeMap<String, Items>,
+}
+
+/// What leaves another export's items out, and renames them, as `exclude` and `rename`
+/// do the package's.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Items {
+	#[serde(default)]
+	pub exclude: Vec<String>,
+	#[serde(default)]
+	pub rename: BTreeMap<String, String>,
 }
 
 impl Config {
 	pub fn load(path: &Path) -> Result<Self, String> {
 		let text = std::fs::read_to_string(path).map_err(|err| format!("reading {}: {err}", path.display()))?;
-		toml::from_str(&text).map_err(|err| format!("parsing {}: {err}", path.display()))
+		let config: Self = toml::from_str(&text).map_err(|err| format!("parsing {}: {err}", path.display()))?;
+		if config.crates.contains_key(&config.package) {
+			return Err(format!(
+				"{}: [crates.{}] names the package itself, whose `exclude` and `rename` are top-level",
+				path.display(),
+				config.package
+			));
+		}
+		Ok(config)
 	}
 
 	/// The prefix of every C name.
 	pub fn prefix(&self) -> String {
 		self.prefix.clone().unwrap_or_else(|| self.package.replace('-', "_"))
+	}
+}
+
+/// An export's package, as the CLI resolves it for the wrapper.
+pub struct Package {
+	pub name: String,
+	/// The name the configured package calls its library by, which binds another export
+	/// to the crate rustc loaded: the configured package's own crate name.
+	pub krate: String,
+	pub dir: PathBuf,
+	/// The features the generated crate enables in it, beyond what the configured
+	/// package's enable.
+	pub features: Vec<String>,
+}
+
+impl Package {
+	/// The first segment of its items' paths in the IR, which the glue depends on it by:
+	/// its name in snake case, unique among the exports, where the names the configured
+	/// package calls them by may coincide with each other and its own.
+	pub fn root(&self) -> String {
+		self.name.replace('-', "_")
+	}
+
+	/// One line of [`env::CRATES`].
+	pub fn line(&self) -> String {
+		let dir = self.dir.display();
+		format!("{}\t{}\t{dir}\t{}\n", self.name, self.krate, self.features.join(","))
+	}
+
+	/// The packages [`env::CRATES`] lists, a line each.
+	pub fn parse(lines: &str) -> Result<Vec<Self>, String> {
+		(lines.lines())
+			.map(|line| match line.split('\t').collect::<Vec<_>>()[..] {
+				[name, krate, dir, features] => Ok(Self {
+					name: name.to_string(),
+					krate: krate.to_string(),
+					dir: PathBuf::from(dir),
+					features: features
+						.split(',')
+						.filter(|f| !f.is_empty())
+						.map(str::to_string)
+						.collect(),
+				}),
+				_ => Err(format!("{} holds a malformed line: {line}", env::CRATES)),
+			})
+			.collect()
 	}
 }
 
@@ -41,6 +112,11 @@ pub mod env {
 	pub const CONFIG: &str = "RUST2_FFI_CONFIG";
 	/// The output directory, absolute.
 	pub const OUT: &str = "RUST2_FFI_OUT";
-	/// Where to write a census instead of exporting, absolute.
+	/// The directory to write each export's census into instead of exporting, absolute.
 	pub const CENSUS: &str = "RUST2_FFI_CENSUS";
+	/// Each export's [`Package`](super::Package), a line each.
+	pub const CRATES: &str = "RUST2_FFI_CRATES";
+	/// The configured workspace's `[patch]` and `[replace]` tables, as TOML with each
+	/// path absolute.
+	pub const PATCH: &str = "RUST2_FFI_PATCH";
 }
