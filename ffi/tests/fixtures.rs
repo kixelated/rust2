@@ -393,3 +393,47 @@ fn diamond() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 }
+
+/// Another export is bound by its package, not its crate name: a dependency whose crate
+/// shares the export's name stands in for none.
+#[test]
+fn lookalike() {
+	let package = package("lookalike");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	// Both libraries are crate `shared`, and only `other` is used.
+	for name in ["exp", "other"] {
+		write(
+			&format!("{name}/Cargo.toml"),
+			&format!(
+				"[package]\nname = \"lookalike-{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[lib]\nname = \"shared\"\n"
+			),
+		);
+		write(
+			&format!("{name}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n",
+		);
+	}
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"lookalike\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nexp = { package = \"lookalike-exp\", path = \"exp\" }\n\
+		other = { package = \"lookalike-other\", path = \"other\" }\n\n\
+		[workspace]\nexclude = [\"exp\", \"other\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: other::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"lookalike\"\n\n[crates.lookalike-exp]\n");
+	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
+	assert!(!output.status.success(), "a lookalike stood in for the export");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("[crates.lookalike-exp] needs `lookalike` to use crate `shared`"),
+		"{stderr}"
+	);
+}

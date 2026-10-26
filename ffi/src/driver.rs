@@ -178,21 +178,29 @@ impl Export {
 		for (
 			i,
 			config::Package {
-				name: package, krate, ..
+				name: package,
+				krate,
+				root,
+				..
 			},
 		) in self.crates.iter().enumerate()
 		{
+			// Bound by its root file: another package's crate may share its name.
+			let root = std::fs::canonicalize(root).ok();
 			let found: Vec<CrateNum> = match i {
 				0 => vec![LOCAL_CRATE],
 				_ => (tcx.crates(()).iter().copied())
-					.filter(|&cnum| tcx.crate_name(cnum).as_str() == krate)
+					.filter(|&cnum| {
+						tcx.crate_name(cnum).as_str() == krate && root.is_some() && root_file(tcx, cnum) == root
+					})
 					.collect(),
 			};
 			// Rust loads only the crates a crate's code names.
 			let [cnum] = found[..] else {
 				tcx.dcx().err(format!(
-					"rust2-ffi: [crates.{package}] needs `{}` to use exactly one crate `{krate}`, and it uses {}",
+					"rust2-ffi: [crates.{package}] needs `{}` to use crate `{krate}` from {}, and it uses {} of them",
 					self.config.package,
+					self.crates[i].root.display(),
 					found.len()
 				));
 				return None;
@@ -226,6 +234,16 @@ impl Export {
 			None => unreachable!("every path starts with an exported crate"),
 		}
 	}
+}
+
+/// The root file another crate was compiled from, canonical, unless rustc remapped it.
+fn root_file(tcx: TyCtxt<'_>, cnum: CrateNum) -> Option<PathBuf> {
+	let span = tcx.def_span(cnum.as_def_id());
+	let file = tcx.sess.source_map().lookup_source_file(span.lo());
+	let rustc_span::FileName::Real(name) = &file.name else {
+		return None;
+	};
+	std::fs::canonicalize(name.local_path()?).ok()
 }
 
 /// Where `span` starts, relative to the crate's directory when inside it.

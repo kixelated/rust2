@@ -128,6 +128,7 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 				.parent()
 				.expect("a manifest path has a parent")
 				.into(),
+			root: lib.src_path.clone(),
 			features: features.get(name.as_str()).cloned().unwrap_or_default(),
 		};
 		lines.push_str(&package.line());
@@ -259,6 +260,7 @@ struct Dependency {
 struct Target {
 	name: String,
 	kind: Vec<String>,
+	src_path: PathBuf,
 }
 
 #[cfg(test)]

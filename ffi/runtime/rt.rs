@@ -228,7 +228,7 @@ fn thread() -> usize {
 }
 
 // SAFETY: the value moves between threads only by `take` or an exclusive borrow, and is
-// shared only by shared borrows, which the export takes only of `Sync` types.
+// shared across threads only by `borrow` and `borrow_arc`, which require `Sync`.
 unsafe impl<T: Send> Send for Object<T> {}
 // SAFETY: as above.
 unsafe impl<T: Send> Sync for Object<T> {}
@@ -291,7 +291,10 @@ impl<T> Object<T> {
 	///
 	/// # Safety
 	/// `handle` is a live handle of this type, kept alive through the borrow.
-	pub unsafe fn borrow<'a>(handle: *const c_void, what: &str) -> Shared<'a, T> {
+	pub unsafe fn borrow<'a>(handle: *const c_void, what: &str) -> Shared<'a, T>
+	where
+		T: Sync,
+	{
 		// SAFETY: the caller's contract.
 		let object = unsafe { Self::get(handle, what) };
 		object.acquire(what);
@@ -334,7 +337,10 @@ impl<T> Object<T> {
 	///
 	/// # Safety
 	/// `handle` is a live handle of this type.
-	pub unsafe fn borrow_arc(handle: *const c_void, what: &str) -> SharedArc<T> {
+	pub unsafe fn borrow_arc(handle: *const c_void, what: &str) -> SharedArc<T>
+	where
+		T: Sync,
+	{
 		// SAFETY: the caller's contract.
 		let object = unsafe { Self::arc(handle, what) };
 		object.acquire(what);
