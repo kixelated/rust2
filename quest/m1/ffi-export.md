@@ -34,8 +34,9 @@ census refuses and what moq waits on:
   - ✅ One `ffi.toml`, with a `[crates.<package>]` table per other export, and
     `--census <dir>` writing `<package>.md` for each.
   - Landed in [#76](https://github.com/kixelated/rust2/pull/76). Next, decided with the
-    maintainer on 2026-10-26: the glue also carries `[patch]` and `[replace]` from
-    `.cargo/config.toml`, as it already does from the workspace manifest. moq-clock is
+    maintainer on 2026-10-26: the glue also carries the `[patch]` tables cargo reads
+    from `.cargo/config.toml` (config has no `[replace]`), with cargo's precedence
+    between config and manifest and paths relative to the config file. moq-clock is
     merging into kio, so its export moves with it and its C names wait until then.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
   Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
