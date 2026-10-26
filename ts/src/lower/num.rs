@@ -257,8 +257,8 @@ pub fn binary<'tcx>(
 		let exact = !int.big()
 			&& match op {
 				BinOp::Add | BinOp::Sub | BinOp::Mul => value.abs() < (1 << 53),
-				// JS bitwise operators compute in 32-bit signed integers.
-				_ => (i32::MIN as i128..=i32::MAX as i128).contains(&value) && a >= 0 && c >= 0,
+				// JS bitwise operators read their operands as 32-bit signed integers.
+				_ => [a, c, value].iter().all(|v| (0..=i32::MAX as i128).contains(v)),
 			};
 		if !exact {
 			return int.lit(value);
