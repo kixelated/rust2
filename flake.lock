@@ -18,6 +18,27 @@
         "type": "github"
       }
     },
+    "mbx": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792405127,
+        "narHash": "sha256-bPAAaDjorIe/9V3sgnC85yOQVerd079HT6bOfB0WgFo=",
+        "owner": "jdx",
+        "repo": "mr-boxington",
+        "rev": "2ade2bc6b661f1b40a55cfa7083fa9a4efc9348d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jdx",
+        "ref": "v1.25.0",
+        "repo": "mr-boxington",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1792506237,
@@ -88,6 +109,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "mbx": "mbx",
         "nixpkgs": "nixpkgs",
         "quest": "quest",
         "ra-jit": "ra-jit",
