@@ -176,32 +176,49 @@ fn patches(root: &Path, dir: &Path, picks: &Picks<'_>) -> Result<String, String>
 			"cargo's config overrides {paths} by `paths`, which no manifest can, so the export's library would build them unpatched"
 		));
 	}
-	let patch = patches.entry("patch").or_insert_with(|| toml::Table::new().into());
-	let Some(patch) = patch.as_table_mut() else {
-		return Err(format!("{}: `patch` is not a table", manifest.display()));
+	let table = |table: Option<toml::Value>| match table {
+		Some(toml::Value::Table(table)) => table,
+		_ => toml::Table::new(),
 	};
-	for (key, deps) in config
-		.get("patch")
-		.and_then(toml::Value::as_table)
-		.into_iter()
-		.flatten()
-	{
-		// Into the manifest's table of the same source, however it spells it.
-		let source = source(key, &config);
-		let into = (patch.keys())
-			.find(|k| self::source(k, &config) == source)
-			.cloned()
-			.unwrap_or_else(|| key.clone());
-		let into = patch.entry(into).or_insert_with(|| toml::Table::new().into());
-		let (Some(into), Some(deps)) = (into.as_table_mut(), deps.as_table()) else {
-			return Err(format!("`patch.{key}` is not a table"));
-		};
-		into.extend(deps.clone());
-	}
-	if patch.is_empty() {
-		patches.remove("patch");
+	let manifest_patch = table(patches.remove("patch"));
+	let patch = combine(&manifest_patch, &table(config.get("patch").cloned()), &config)?;
+	if !patch.is_empty() {
+		patches.insert("patch".to_string(), patch.into());
 	}
 	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+}
+
+/// The `[patch]` cargo resolves from a manifest's and its config's, keyed by each
+/// source's URL, which needs no config to read: the config's dependency of a name
+/// outranks the manifest's of that name in the same source.
+fn combine(manifest: &toml::Table, patch: &toml::Table, config: &toml::Table) -> Result<toml::Table, String> {
+	let mut combined = by_source(patch, config)?;
+	for (url, deps) in by_source(manifest, config)? {
+		match combined.get_mut(&url) {
+			Some(toml::Value::Table(into)) => {
+				for (name, dep) in deps.as_table().into_iter().flatten() {
+					into.entry(name).or_insert_with(|| dep.clone());
+				}
+			}
+			_ => {
+				combined.insert(url, deps);
+			}
+		}
+	}
+	Ok(combined)
+}
+
+/// A `[patch]` keyed by each source's URL, where a later key of the same source replaces
+/// an earlier one's table whole, as cargo does.
+fn by_source(patch: &toml::Table, config: &toml::Table) -> Result<toml::Table, String> {
+	let mut by_source = toml::Table::new();
+	for (key, deps) in patch {
+		if !deps.is_table() {
+			return Err(format!("`patch.{key}` is not a table"));
+		}
+		by_source.insert(source(key, config), deps.clone());
+	}
+	Ok(by_source)
 }
 
 /// The source a `[patch.<key>]` names, as cargo resolves it: crates.io's index or a
@@ -542,6 +559,35 @@ mod tests {
 				.parse()
 				.unwrap();
 		assert_eq!(overrides(&manifest, Path::new("/ws")), expected);
+	}
+
+	#[test]
+	fn combines_patches_by_source() {
+		let index = "https://github.com/rust-lang/crates.io-index";
+		let config: toml::Table = format!(
+			"[registries.mirror]\nindex = \"{index}\"\n\n\
+			[registries.other]\nindex = \"https://example.com/index\"\n\n\
+			[patch.crates-io]\nlost = {{ path = \"/lost\" }}\n\n\
+			[patch.mirror]\na = {{ path = \"/config\" }}\n\n\
+			[patch.other]\nc = {{ path = \"/other\" }}\n"
+		)
+		.parse()
+		.unwrap();
+		let manifest: toml::Table =
+			format!("[patch.'{index}']\na = {{ path = \"/manifest\" }}\nb = {{ path = \"/manifest\" }}\n")
+				.parse()
+				.unwrap();
+		let patch = config["patch"].as_table().unwrap();
+		// A config's later table of a source, by key, replaces an earlier one whole, a config's
+		// dependency outranks the manifest's of its name, and only URLs name sources.
+		let expected: toml::Table = format!(
+			"[patch.'{index}']\na = {{ path = \"/config\" }}\nb = {{ path = \"/manifest\" }}\n\n\
+			[patch.'https://example.com/index']\nc = {{ path = \"/other\" }}\n"
+		)
+		.parse()
+		.unwrap();
+		let combined = combine(manifest["patch"].as_table().unwrap(), patch, &config).unwrap();
+		assert_eq!(combined, expected["patch"].as_table().unwrap().clone());
 	}
 
 	#[test]

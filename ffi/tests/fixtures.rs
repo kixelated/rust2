@@ -528,7 +528,8 @@ fn patched() {
 /// as the check resolved them: an ancestor's file through its `include`, with paths from
 /// the directory holding its `.cargo`, outranking the manifest's patch of the same
 /// dependency under another spelling of its source, and a `--config` value's `include`,
-/// from the package's directory.
+/// from the package's directory, which names that source by a registry only the config
+/// defines.
 #[test]
 fn config_patched() {
 	let root = scratch().join("config-patched");
@@ -563,11 +564,12 @@ fn config_patched() {
 	write(".cargo/config.toml", "include = [\"patch.toml\"]\n");
 	write(
 		".cargo/patch.toml",
-		"[patch.crates-io]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
+		"[patch.index]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
 	);
 	write(
 		"pkg/.cargo/cli.toml",
-		"[patch.crates-io]\nrust2-ffi-config-cli = { path = \"cli\" }\n",
+		"[registries.index]\nindex = \"https://github.com/rust-lang/crates.io-index\"\n\n\
+		[patch.index]\nrust2-ffi-config-cli = { path = \"cli\" }\n",
 	);
 	write(
 		"pkg/Cargo.toml",
