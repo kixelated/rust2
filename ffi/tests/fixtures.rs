@@ -207,19 +207,18 @@ fn package(name: &str) -> PathBuf {
 	package
 }
 
-/// Run a census of the package whose config is `config` with these cargo args.
-fn census(config: &Path, cargo: &[&str]) -> Output {
+/// A census of the package whose config is `config` with these cargo args, to run.
+fn census(config: &Path, cargo: &[&str]) -> Command {
 	let dir = config.parent().unwrap();
-	Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
-		.arg("--config")
+	let mut cmd = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"));
+	cmd.arg("--config")
 		.arg(config)
 		.arg("--census")
 		.arg(dir.join("census"))
 		.arg("--")
 		.args(cargo)
-		.env("CARGO_TARGET_DIR", dir.join("build"))
-		.output()
-		.expect("running rust2-ffi")
+		.env("CARGO_TARGET_DIR", dir.join("build"));
+	cmd
 }
 
 /// Finding the exports keeps to the check's `--locked`: it neither writes a lockfile the
@@ -228,7 +227,7 @@ fn census(config: &Path, cargo: &[&str]) -> Output {
 fn locked() {
 	let package = package("locked");
 	let _ = std::fs::remove_file(package.join("Cargo.lock"));
-	let output = census(&package.join("ffi.toml"), &["--locked"]);
+	let output = census(&package.join("ffi.toml"), &["--locked"]).output().unwrap();
 	assert!(!output.status.success(), "a census without a lockfile passed --locked");
 	assert!(!package.join("Cargo.lock").exists(), "the lockfile was written");
 }
@@ -242,7 +241,7 @@ fn symlinked() {
 	if !link.exists() {
 		std::os::unix::fs::symlink(&package, &link).unwrap();
 	}
-	let output = census(&link.join("ffi.toml"), &[]);
+	let output = census(&link.join("ffi.toml"), &[]).output().unwrap();
 	assert!(
 		output.status.success(),
 		"the census failed:\n{}",
@@ -250,8 +249,8 @@ fn symlinked() {
 	);
 }
 
-/// Another export is found among what the check builds on the host: a version only
-/// another platform depends on is no rival.
+/// Another export is found among what the check builds on the host, whatever target
+/// cargo's config names: a version only another platform depends on is no rival.
 #[test]
 fn other_platform() {
 	let package = package("platform");
@@ -277,7 +276,10 @@ fn other_platform() {
 		"package = \"platform\"\n\n[crates.platform-dep]\n",
 	)
 	.unwrap();
-	let output = census(&package.join("ffi.toml"), &[]);
+	let output = census(&package.join("ffi.toml"), &[])
+		.env("CARGO_BUILD_TARGET", "x86_64-pc-windows-msvc")
+		.output()
+		.unwrap();
 	assert!(
 		output.status.success(),
 		"the census failed:\n{}",

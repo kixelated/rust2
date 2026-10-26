@@ -13,7 +13,8 @@ const USAGE: &str = "usage: rust2-ffi --config <ffi.toml> (--out <dir> | --censu
 Exports the pub API of the library of the package that ffi.toml names, and of the other
 packages it lists, into one library: a crate in <dir> that builds the C ABI, with its C
 header in <dir>/include. The package's Cargo.toml is beside ffi.toml unless
---manifest-path says where. Cargo args, such as --features, are passed to `cargo check`.
+--manifest-path says where. Cargo args, such as --features, are passed to `cargo check`,
+on the host.
 
 --census writes a Markdown report per package, <dir>/<package>.md, of what exports and
 of every construct the export refuses, instead of exporting.";
@@ -42,8 +43,9 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		tool: "rust2-ffi",
 		manifest: &args.manifest,
 		package: &config.package,
-		// The host's: a C ABI is the platform's.
-		target: None,
+		// The host's, whatever cargo's config names: a C ABI is the platform's, and the
+		// exports are found on it.
+		target: Some(rustc_session::config::host_tuple()),
 		args: &args.cargo,
 		env: &[
 			(config::env::CONFIG, args.config.as_os_str()),
@@ -57,7 +59,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 /// Each export's package, as [`config::env::CRATES`] lists them: the configured package
 /// first.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
-	let picks = Picks::parse(cargo);
+	let picks = Picks::parse(cargo)?;
 	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
 		// Cargo reads its config from where it runs, as the check does.
 		.current_dir(manifest.parent().expect("a manifest path has a parent"))
@@ -141,7 +143,7 @@ struct Picks<'a> {
 }
 
 impl<'a> Picks<'a> {
-	fn parse(cargo: &'a [String]) -> Self {
+	fn parse(cargo: &'a [String]) -> Result<Self, String> {
 		let mut picks = Self {
 			named: Vec::new(),
 			flags: Vec::new(),
@@ -153,6 +155,8 @@ impl<'a> Picks<'a> {
 					picks.flags.push(arg);
 					continue;
 				}
+				"--target" => return Err("--target: the export builds for the host".to_string()),
+				_ if arg.starts_with("--target=") => return Err(format!("{arg}: the export builds for the host")),
 				"--config" => {
 					picks.flags.extend([Some(arg), args.next()].into_iter().flatten());
 					continue;
@@ -168,7 +172,7 @@ impl<'a> Picks<'a> {
 			let named = value.into_iter().flat_map(|v| v.split([',', ' ']));
 			picks.named.extend(named.filter(|f| !f.is_empty()));
 		}
-		picks
+		Ok(picks)
 	}
 
 	/// The same picks, as cargo args.
@@ -277,7 +281,11 @@ mod tests {
 			&["-F=a", "--features", "dep/b"],
 		] {
 			let cargo: Vec<String> = spelling.iter().map(|s| s.to_string()).collect();
-			assert_eq!(Picks::parse(&cargo).args(), ["--features", "a,dep/b"], "{spelling:?}");
+			assert_eq!(
+				Picks::parse(&cargo).unwrap().args(),
+				["--features", "a,dep/b"],
+				"{spelling:?}"
+			);
 		}
 		let cargo = [
 			"--all-features",
@@ -289,6 +297,13 @@ mod tests {
 		];
 		let cargo: Vec<String> = cargo.iter().map(|s| s.to_string()).collect();
 		let flags = ["--all-features", "--locked", "--config", "a=1", "--config=b=2"];
-		assert_eq!(Picks::parse(&cargo).args(), flags);
+		assert_eq!(Picks::parse(&cargo).unwrap().args(), flags);
+		for target in [
+			&["--target", "wasm32-unknown-unknown"][..],
+			&["--target=wasm32-unknown-unknown"],
+		] {
+			let cargo: Vec<String> = target.iter().map(|s| s.to_string()).collect();
+			assert!(Picks::parse(&cargo).is_err(), "{target:?}");
+		}
 	}
 }
