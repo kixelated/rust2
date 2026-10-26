@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 77
-- Function instances: 65
+- Refusals: 78
+- Function instances: 66
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -10,8 +10,8 @@
 | ---: | --- | --- |
 | 7 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
+| 6 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
-| 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 5 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:59:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:123:2 |
@@ -73,6 +73,7 @@ The type or module each refused type or path belongs to.
 | 2 | `Poll` | fixtures/reject/src/lib.rs:149:20 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:165:2 |
+| 2 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 | 2 | `std::string::String` | fixtures/reject/src/lib.rs:110:16 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:65:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:208:1 |
@@ -94,7 +95,6 @@ The type or module each refused type or path belongs to.
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:316:7 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:229:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:175:11 |
-| 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:170:2 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:134:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:90:2 |
@@ -151,6 +151,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:112:10 |
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:52:18 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:229:8 |
+| 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:411:4 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | unsupported type `_` | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
@@ -180,6 +181,17 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>unsupported call to `_` (6)</summary>
+
+- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
+- fixtures/reject/src/lib.rs:52:18: unsupported call to `std::mem::size_of_val::<Noisy>`
+- fixtures/reject/src/lib.rs:112:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
+- fixtures/reject/src/lib.rs:175:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
+- fixtures/reject/src/lib.rs:229:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
+- fixtures/reject/src/lib.rs:411:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
+
+</details>
+
 <details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (5)</summary>
 
 - fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
@@ -187,16 +199,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:80:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:110:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:403:29: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
-
-</details>
-
-<details><summary>unsupported call to `_` (5)</summary>
-
-- fixtures/reject/src/lib.rs:36:4: unsupported call to `std::slice::<impl [u8]>::sort`
-- fixtures/reject/src/lib.rs:52:18: unsupported call to `std::mem::size_of_val::<Noisy>`
-- fixtures/reject/src/lib.rs:112:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
-- fixtures/reject/src/lib.rs:175:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
-- fixtures/reject/src/lib.rs:229:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 
 </details>
 

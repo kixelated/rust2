@@ -48,6 +48,7 @@ roots = [
     "removed",
     "borrowed",
     "raw_keys",
+    "shifted",
     "missing",
 ]
 printable = ["Meters"]

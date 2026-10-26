@@ -302,17 +302,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
 			}
-			("slice", "copy_within") => {
+			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
+			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
 				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
 				let end = end.unwrap_or_else(|| s.clone().member("length"));
 				let dest = self.operand(&args[2].node, span, out);
-				let copy = match targ(0)?.kind() {
-					ty::Uint(ty::UintTy::U8) => "byteSliceCopyWithin",
-					_ => "sliceCopyWithin",
-				};
-				done(Expr::rt(copy, vec![s, start, end, dest]), true)
+				done(Expr::rt("byteSliceCopyWithin", vec![s, start, end, dest]), true)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {

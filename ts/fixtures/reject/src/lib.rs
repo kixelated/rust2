@@ -405,3 +405,8 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 		*v
 	})
 }
+
+/// JS's `copyWithin` would share each tuple, which Rust copies.
+pub fn shifted(v: &mut [(u8, u8)]) {
+	v.copy_within(0..1, 1);
+}

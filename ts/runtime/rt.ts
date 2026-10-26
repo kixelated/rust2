@@ -213,15 +213,6 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 	return index < s.length ? s[index] : undefined;
 }
 
-/** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds. */
-export function sliceCopyWithin<T>(s: T[], start: number, end: number, dest: number): void {
-	// `slice::range` checks the end first, then `range` reports the rest.
-	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
-	rangeCheck(s.length, start, end);
-	if (dest > s.length - (end - start)) panic("dest is out of bounds");
-	s.copyWithin(dest, start, end);
-}
-
 /** `to_vec` of `Copy` elements. */
 export function sliceToVec<T>(s: readonly T[]): T[] {
 	return s.map(copy);
