@@ -28,6 +28,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the bench's bundles shrink back to THIR's sizes, coroutine classes first
+- [Time the minified bundles](/quest/m2/ts-bench-minified.md) - `just ts bench` times what it measures for size, as consumers ship it
 - [Wide-integer runtime off bigint](/quest/m2/ts-wide-bigint.md) - checked sums, 128-bit quotients, and comparisons with numbers stop going through `bigint`, kept only if measured faster
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
