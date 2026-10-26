@@ -421,25 +421,25 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	let inclusive!: rt.RangeInclusive<rt.u8>;
 	let near!: rt.RangeInclusive<rt.u8>;
 	let low!: rt.RangeInclusive<rt.u8>;
-	let _107!: rt.usize;
-	let _119!: rt.u8;
+	let _113!: rt.usize;
+	let _125!: rt.u8;
 	let reversed!: rt.RangeInclusive<rt.u8>;
-	let _126!: rt.Iter<rt.u8>;
+	let _132!: rt.Iter<rt.u8>;
 	let counted!: rt.Iter<[rt.usize, rt.u8]>;
 	let i3!: rt.usize;
 	let n!: rt.u8;
-	let _143!: [rt.usize, rt.u8];
-	let _146!: rt.usize;
+	let _149!: [rt.usize, rt.u8];
+	let _152!: rt.usize;
 	let stepped!: rt.RangeInclusive<rt.u8>;
 	let wide!: rt.Range<rt.u64>;
 	let edge!: rt.u64;
 	let past!: rt.Range<rt.u64>;
-	let _217!: rt.usize;
-	let _234!: rt.RangeInclusive<rt.u64>;
-	let _237!: rt.usize;
-	let _244!: rt.u64;
+	let _223!: rt.usize;
+	let _240!: rt.RangeInclusive<rt.u64>;
+	let _243!: rt.usize;
+	let _250!: rt.u64;
 	let iter3!: { s: rt.u32[]; i: number };
-	let _289!: rt.u32 | rt.Done;
+	let _295!: rt.u32 | rt.Done;
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 	b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
 	range = new rt.Range(a, b);
@@ -466,6 +466,7 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					rt.byteVecPush(out, rt.rangeInclusiveStart(inclusive));
 					rt.byteVecPush(out, rt.rangeInclusiveEnd(inclusive));
 					rt.byteVecPush(out, rt.rangeInclusiveContains(inclusive, b) ? 1 : 0);
+					rt.byteVecPush(out, rt.rangeInclusiveContains(new rt.RangeInclusive(32, 127, rt.u64Step), a as rt.u64) ? 1 : 0);
 					near = new rt.RangeInclusive(rt.max(a, 200), 255, rt.u8Step);
 					rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(near, b as rt.usize), 238));
 					rt.byteVecPush(out, rt.rangeInclusiveStart(near));
@@ -473,21 +474,21 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					rt.byteVecPush(out, rt.rangeInclusiveContains(near, 255) ? 1 : 0);
 					rt.byteVecPush(out, rt.rangeInclusiveContains(near, 100) ? 1 : 0);
 					low = new rt.RangeInclusive(0, b, rt.u8Step);
-					_107 = rt.usizeRem(a as rt.usize, 16);
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterToOption(low.nthBackItem(_107)), 238));
+					_113 = rt.usizeRem(a as rt.usize, 16);
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterToOption(low.nthBackItem(_113)), 238));
 					rt.byteVecPush(out, rt.rangeInclusiveEnd(low));
-					_119 = rt.u8Div(b, 2);
-					rt.byteVecPush(out, rt.rangeInclusiveContains(low, _119) ? 1 : 0);
+					_125 = rt.u8Div(b, 2);
+					rt.byteVecPush(out, rt.rangeInclusiveContains(low, _125) ? 1 : 0);
 					reversed = new rt.RangeInclusive(a, b, rt.u8Step);
-					_126 = rt.iterRev(reversed);
-					rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(_126, a as rt.usize), 238));
+					_132 = rt.iterRev(reversed);
+					rt.byteVecPush(out, rt.optionUnwrapOr(rt.iterNth(_132, a as rt.usize), 238));
 					rt.byteVecPush(out, rt.rangeInclusiveEnd(reversed));
 					rt.byteVecPush(out, rt.rangeInclusiveContains(reversed, a) ? 1 : 0);
 					counted = rt.iterEnumerate(new rt.RangeInclusive(a, b, rt.u8Step));
-					_146 = rt.usizeDiv(b as rt.usize, 4);
-					_143 = rt.optionUnwrapOr(rt.iterNth(counted, _146), [221, 221] as [rt.usize, rt.u8]);
-					i3 = _143[0];
-					n = _143[1];
+					_152 = rt.usizeDiv(b as rt.usize, 4);
+					_149 = rt.optionUnwrapOr(rt.iterNth(counted, _152), [221, 221] as [rt.usize, rt.u8]);
+					i3 = _149[0];
+					n = _149[1];
 					rt.byteVecPush(out, i3 & 0xff);
 					rt.byteVecPush(out, n);
 					rt.byteVecPush(out, rt.optionMapOr(rt.iterToOption(counted.next()), 204, (_2: [rt.usize, rt.u8]): rt.u8 => {
@@ -509,14 +510,14 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(new rt.Range(0, a as rt.u64, rt.u64Step), rt.u64Add, 0)));
 					edge = rt.u64Add(rt.u64Sub(rt.u64Of(9007199254740992n), 2), rt.u64Rem(a as rt.u64, 4));
 					past = new rt.Range(edge, rt.u64Add(edge, 4), rt.u64Step);
-					_217 = rt.usizeRem(b as rt.usize, 3);
-					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(past, _217), 0)));
+					_223 = rt.usizeRem(b as rt.usize, 3);
+					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(past, _223), 0)));
 					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterToOption(past.nextBack()), 0)));
-					_234 = new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step);
-					_237 = rt.usizeRem(b as rt.usize, 5);
-					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(_234, _237), 0)));
-					_244 = rt.u64Rem(a as rt.u64, 3);
-					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub(rt.u64Of(18446744073709551615n), _244), rt.u64Of(18446744073709551615n), rt.u64Step), (n4: rt.u64): rt.u64 => {
+					_240 = new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step);
+					_243 = rt.usizeRem(b as rt.usize, 5);
+					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(_240, _243), 0)));
+					_250 = rt.u64Rem(a as rt.u64, 3);
+					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub(rt.u64Of(18446744073709551615n), _250), rt.u64Of(18446744073709551615n), rt.u64Step), (n4: rt.u64): rt.u64 => {
 						return rt.u64Rem(n4, 7);
 					}), rt.u64Add, 0)));
 					rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (_24: rt.u64): rt.u64 => {
@@ -525,12 +526,12 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 					rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Add(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Step)), 0)));
 					iter3 = { s: rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8))), i: 0 };
 					while (true) {
-						_289 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
-						if (_289 === rt.DONE) {
+						_295 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
+						if (_295 === rt.DONE) {
 							updates(a, b, data, out);
 							return;
 						} else {
-							rt.byteVecPush(out, _289 & 0xff);
+							rt.byteVecPush(out, _295 & 0xff);
 						}
 					}
 				} else {

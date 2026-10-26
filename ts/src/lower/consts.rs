@@ -100,6 +100,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Result, 0) => Expr::rt("Ok", values),
 						(Std::Result, _) => Expr::rt("Err", values),
+						// `start..=end`, not yet stepped past its end.
+						(Std::RangeInclusive, _)
+							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
+						{
+							values.pop();
+							let ty::Adt(_, args) = ty.kind() else {
+								unreachable!("matched above")
+							};
+							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
+							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
+						}
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
