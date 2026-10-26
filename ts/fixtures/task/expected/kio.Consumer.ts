@@ -6,7 +6,7 @@ import type * as State from "./kio.State.ts";
 import * as Waiter from "./kio.Waiter.ts";
 
 export function clone$Clone(self: Consumer): Consumer {
-	return new Consumer({ state: self.state.clone(), next: self.next });
+	return new Consumer({ state: rt.arcClone(self.state), next: self.next });
 }
 
 /** The receiving side of a channel: every value sent, in order. */
@@ -29,7 +29,7 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 	let state: rt.Mutex<State.State> = self.state.value;
 	if (self.next < state.value.queue.length) {
 		const value = rt.at(state.value.queue, self.next);
-		self.next = rt.usize.add(self.next, 1);
+		self.next = rt.usizeAdd(self.next, 1);
 		return value;
 	}
 	if (state.value.closed) {

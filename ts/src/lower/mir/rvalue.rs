@@ -84,7 +84,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				match op {
 					UnOp::Not | UnOp::Neg => num::unary(self.b, *op, value, aty, span),
 					UnOp::PtrMetadata => match aty.builtin_deref(true).map(|t| t.kind()) {
-						Some(ty::Str) => Expr::Rt("string").member("len").call(vec![value]),
+						Some(ty::Str) => Expr::rt("stringLen", vec![value]),
 						Some(ty::Slice(_)) => value.member("length"),
 						_ => self.err(span, format!("the metadata of `{aty}`")),
 					},
@@ -198,7 +198,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.map(|(i, d)| (i, int.fold(d as i128) as u128))
 					.collect();
 				match Std::of(tcx, adt.did()) {
-					Some(Std::Option | Std::Poll | Std::Result) => {
+					Some(Std::Option | Std::Poll | Std::Result | Std::Entry) => {
 						let scrut = self.path(scrut, "scrutinee", out);
 						let first = self.variant_test(&scrut, ty, discrs[0].1, span);
 						Expr::Cond(
@@ -207,6 +207,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							Box::new(int.lit(discrs[1].1 as i128)),
 						)
 					}
+					// The value is its discriminant.
+					Some(Std::Ordering) => scrut,
 					None if adt.did().is_local() => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -286,16 +288,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if let Some(std) = Std::of(tcx, def_id) {
 			return match (std, variant.index()) {
 				(Std::Option, 0) => Expr::undefined(),
-				(Std::Poll, 1) => Expr::Rt("Pending"),
+				(Std::Poll, 1) => Expr::Rt("Pending".into()),
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				(Std::Result, 0) => Expr::rt("Ok", values),
 				(Std::Result, _) => Expr::rt("Err", values),
-				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError")), Vec::new()),
+				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
 				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
+				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values, span),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {
@@ -304,9 +307,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					if let Some(int) = Int::of(gargs.type_at(0))
 						&& int.big()
 					{
-						values.push(Expr::Rt(int.rt()));
+						values.push(int.func("step"));
 					}
-					Expr::New(Box::new(Expr::Rt("Range")), values)
+					Expr::New(Box::new(Expr::Rt("Range".into())), values)
 				}
 				(Std::AssertKind, _) => match def.name.as_str() {
 					"Eq" => Expr::Str("==".into()),
@@ -326,7 +329,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.as_slice()
 		{
 			["marker", "PhantomData"] => return Expr::undefined(),
-			["iter", "sources", "empty", "Empty"] => return Expr::Rt("iter").member("empty").call(Vec::new()),
+			["iter", "sources", "empty", "Empty"] => return Expr::rt("iterEmpty", Vec::new()),
 			_ => {}
 		}
 		if !def_id.is_local() {

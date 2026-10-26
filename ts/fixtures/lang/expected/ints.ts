@@ -7,38 +7,38 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.u8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u8, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.u8FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u8, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(1);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.u8.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u8, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 8));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.u8FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.u8, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 8));
 	const put = (out2: rt.ByteVec, v: rt.u8): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(v as rt.u128));
-		out2.push(rt.u8.fromBeBytes(rt.u8.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
+		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.u8 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(v3 as rt.u128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v3 as rt.u128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.u8.add(a, b));
+		put(out, rt.u8Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.u8.sub(a, b));
+		put(out, rt.u8Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.u8.mul(a, b));
+		put(out, rt.u8Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.u8.div(a, b));
+		put(out, rt.u8Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.u8.rem(a, b));
+		put(out, rt.u8Rem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -46,45 +46,45 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.u8.shl(a, shift));
+		put(out, rt.u8Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.u8.shr(a, shift));
+		put(out, rt.u8Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a & 0xff);
 	} else if (value === 11) {
-		putOpt(out, rt.u8.checkedAdd(a, b));
+		putOpt(out, rt.u8CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.u8.checkedSub(a, b));
+		putOpt(out, rt.u8CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.u8.checkedMul(a, b));
+		putOpt(out, rt.u8CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.u8.saturatingAdd(a, b));
+		put(out, rt.u8SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.u8.saturatingSub(a, b));
+		put(out, rt.u8SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.u8.wrappingAdd(a, b));
+		put(out, rt.u8WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.u8.wrappingSub(a, b));
+		put(out, rt.u8WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u8.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u8LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u8.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u8LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.u8.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.u8WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.u8 = a;
-		x = rt.u8.add(x, b);
-		x = rt.u8.sub(x, 1);
-		x = rt.u8.mul(x, 2);
-		x = rt.u8.shr(x, 1);
-		x = rt.u8.shl(x, 1);
+		x = rt.u8Add(x, b);
+		x = rt.u8Sub(x, 1);
+		x = rt.u8Mul(x, 2);
+		x = rt.u8Shr(x, 1);
+		x = rt.u8Shl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -99,38 +99,38 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.u16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u16, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.u16FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u16, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(2);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.u16.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u16, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 16));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.u16FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.u16, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 16));
 	const put = (out2: rt.ByteVec, v: rt.u16): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(v as rt.u128));
-		out2.push(rt.u16.fromBeBytes(rt.u16.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
+		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.u16 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(v3 as rt.u128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v3 as rt.u128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.u16.add(a, b));
+		put(out, rt.u16Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.u16.sub(a, b));
+		put(out, rt.u16Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.u16.mul(a, b));
+		put(out, rt.u16Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.u16.div(a, b));
+		put(out, rt.u16Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.u16.rem(a, b));
+		put(out, rt.u16Rem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -138,45 +138,45 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.u16.shl(a, shift));
+		put(out, rt.u16Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.u16.shr(a, shift));
+		put(out, rt.u16Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a & 0xffff);
 	} else if (value === 11) {
-		putOpt(out, rt.u16.checkedAdd(a, b));
+		putOpt(out, rt.u16CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.u16.checkedSub(a, b));
+		putOpt(out, rt.u16CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.u16.checkedMul(a, b));
+		putOpt(out, rt.u16CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.u16.saturatingAdd(a, b));
+		put(out, rt.u16SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.u16.saturatingSub(a, b));
+		put(out, rt.u16SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.u16.wrappingAdd(a, b));
+		put(out, rt.u16WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.u16.wrappingSub(a, b));
+		put(out, rt.u16WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u16.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u16LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u16.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u16LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.u16.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.u16WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.u16 = a;
-		x = rt.u16.add(x, b);
-		x = rt.u16.sub(x, 1);
-		x = rt.u16.mul(x, 2);
-		x = rt.u16.shr(x, 1);
-		x = rt.u16.shl(x, 1);
+		x = rt.u16Add(x, b);
+		x = rt.u16Sub(x, 1);
+		x = rt.u16Mul(x, 2);
+		x = rt.u16Shr(x, 1);
+		x = rt.u16Shl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -191,38 +191,38 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.u32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u32, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.u32FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u32, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.u32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u32, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 32));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.u32FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.u32, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 32));
 	const put = (out2: rt.ByteVec, v: rt.u32): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(v as rt.u128));
-		out2.push(rt.u32.fromBeBytes(rt.u32.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
+		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.u32 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(v3 as rt.u128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v3 as rt.u128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.u32.add(a, b));
+		put(out, rt.u32Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.u32.sub(a, b));
+		put(out, rt.u32Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.u32.mul(a, b));
+		put(out, rt.u32Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.u32.div(a, b));
+		put(out, rt.u32Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.u32.rem(a, b));
+		put(out, rt.u32Rem(a, b));
 	} else if (value === 5) {
 		put(out, (a & b) >>> 0);
 	} else if (value === 6) {
@@ -230,45 +230,45 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, (a ^ b) >>> 0);
 	} else if (value === 8) {
-		put(out, rt.u32.shl(a, shift));
+		put(out, rt.u32Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.u32.shr(a, shift));
+		put(out, rt.u32Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a >>> 0);
 	} else if (value === 11) {
-		putOpt(out, rt.u32.checkedAdd(a, b));
+		putOpt(out, rt.u32CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.u32.checkedSub(a, b));
+		putOpt(out, rt.u32CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.u32.checkedMul(a, b));
+		putOpt(out, rt.u32CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.u32.saturatingAdd(a, b));
+		put(out, rt.u32SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.u32.saturatingSub(a, b));
+		put(out, rt.u32SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.u32.wrappingAdd(a, b));
+		put(out, rt.u32WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.u32.wrappingSub(a, b));
+		put(out, rt.u32WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u32.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u32.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u32LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.u32.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.u32WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.u32 = a;
-		x = rt.u32.add(x, b);
-		x = rt.u32.sub(x, 1);
-		x = rt.u32.mul(x, 2);
-		x = rt.u32.shr(x, 1);
-		x = rt.u32.shl(x, 1);
+		x = rt.u32Add(x, b);
+		x = rt.u32Sub(x, 1);
+		x = rt.u32Mul(x, 2);
+		x = rt.u32Shr(x, 1);
+		x = rt.u32Shl(x, 1);
 		const value2 = 1 << 3;
 		x = (x | value2) >>> 0;
 		x = (x ^ b) >>> 0;
@@ -283,88 +283,88 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.u64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u64, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.u64FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u64, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(8);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.u64.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u64, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 64));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.u64FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.u64, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 64));
 	const put = (out2: rt.ByteVec, v: rt.u64): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(rt.u128.cast(v)));
-		out2.push(rt.u64.eq(rt.u64.fromBeBytes(rt.u64.toBeBytes(v)), v) ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(rt.u128Cast(v)));
+		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v)), v) ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.u64 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(rt.u128.cast(v3)));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(rt.u128Cast(v3)));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.u64.add(a, b));
+		put(out, rt.u64Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.u64.sub(a, b));
+		put(out, rt.u64Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.u64.mul(a, b));
+		put(out, rt.u64Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.u64.div(a, b));
+		put(out, rt.u64Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.u64.rem(a, b));
+		put(out, rt.u64Rem(a, b));
 	} else if (value === 5) {
-		put(out, rt.u64.and(a, b));
+		put(out, rt.u64And(a, b));
 	} else if (value === 6) {
-		put(out, rt.u64.or(a, b));
+		put(out, rt.u64Or(a, b));
 	} else if (value === 7) {
-		put(out, rt.u64.xor(a, b));
+		put(out, rt.u64Xor(a, b));
 	} else if (value === 8) {
-		put(out, rt.u64.shl(a, shift));
+		put(out, rt.u64Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.u64.shr(a, shift));
+		put(out, rt.u64Shr(a, shift));
 	} else if (value === 10) {
-		put(out, rt.u64.not(a));
+		put(out, rt.u64Not(a));
 	} else if (value === 11) {
-		putOpt(out, rt.u64.checkedAdd(a, b));
+		putOpt(out, rt.u64CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.u64.checkedSub(a, b));
+		putOpt(out, rt.u64CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.u64.checkedMul(a, b));
+		putOpt(out, rt.u64CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.u64.saturatingAdd(a, b));
+		put(out, rt.u64SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.u64.saturatingSub(a, b));
+		put(out, rt.u64SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.u64.wrappingAdd(a, b));
+		put(out, rt.u64WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.u64.wrappingSub(a, b));
+		put(out, rt.u64WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u64.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u64LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u64.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u64LeadingZeros(a)));
 	} else if (value === 20) {
-		put(out, rt.u64.max(a, b));
+		put(out, rt.u64Max(a, b));
 	} else if (value === 21) {
-		put(out, rt.u64.min(a, b));
+		put(out, rt.u64Min(a, b));
 	} else if (value === 22) {
-		out.push(rt.u64.eq(a, b) ? 1 : 0);
-		out.push(rt.u64.lt(a, b) ? 1 : 0);
-		out.push(rt.u64.ge(a, b) ? 1 : 0);
-		out.push(rt.u64.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Lt(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Ge(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.u64 = a;
-		x = rt.u64.add(x, b);
-		x = rt.u64.sub(x, 1);
-		x = rt.u64.mul(x, 2);
-		x = rt.u64.shr(x, 1);
-		x = rt.u64.shl(x, 1);
-		x = rt.u64.or(x, 8);
-		x = rt.u64.xor(x, b);
-		const value2 = rt.u64.not(4);
-		x = rt.u64.and(x, value2);
+		x = rt.u64Add(x, b);
+		x = rt.u64Sub(x, 1);
+		x = rt.u64Mul(x, 2);
+		x = rt.u64Shr(x, 1);
+		x = rt.u64Shl(x, 1);
+		x = rt.u64Or(x, 8);
+		x = rt.u64Xor(x, b);
+		const value2 = rt.u64Not(4);
+		x = rt.u64And(x, value2);
 		put(out, x);
 	}
 }
@@ -374,89 +374,89 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.u128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u128, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.u128FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u128, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(16);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.u128.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.u128, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.u128FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.u128, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 128));
 	const put = (out2: rt.ByteVec, v: rt.u128): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(v));
-		out2.push(rt.u128.eq(rt.u128.fromBeBytes(rt.u128.toBeBytes(v)), v) ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v));
+		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v)), v) ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.u128 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(v3));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v3));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.u128.add(a, b));
+		put(out, rt.u128Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.u128.sub(a, b));
+		put(out, rt.u128Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.u128.mul(a, b));
+		put(out, rt.u128Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.u128.div(a, b));
+		put(out, rt.u128Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.u128.rem(a, b));
+		put(out, rt.u128Rem(a, b));
 	} else if (value === 5) {
-		put(out, rt.u128.and(a, b));
+		put(out, rt.u128And(a, b));
 	} else if (value === 6) {
-		put(out, rt.u128.or(a, b));
+		put(out, rt.u128Or(a, b));
 	} else if (value === 7) {
-		put(out, rt.u128.xor(a, b));
+		put(out, rt.u128Xor(a, b));
 	} else if (value === 8) {
-		put(out, rt.u128.shl(a, shift));
+		put(out, rt.u128Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.u128.shr(a, shift));
+		put(out, rt.u128Shr(a, shift));
 	} else if (value === 10) {
-		put(out, rt.u128.not(a));
+		put(out, rt.u128Not(a));
 	} else if (value === 11) {
-		putOpt(out, rt.u128.checkedAdd(a, b));
+		putOpt(out, rt.u128CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.u128.checkedSub(a, b));
+		putOpt(out, rt.u128CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.u128.checkedMul(a, b));
+		putOpt(out, rt.u128CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.u128.saturatingAdd(a, b));
+		put(out, rt.u128SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.u128.saturatingSub(a, b));
+		put(out, rt.u128SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.u128.wrappingAdd(a, b));
+		put(out, rt.u128WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.u128.wrappingSub(a, b));
+		put(out, rt.u128WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u128.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u128LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.u128.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.u128LeadingZeros(a)));
 	} else if (value === 20) {
-		put(out, rt.u128.max(a, b));
+		put(out, rt.u128Max(a, b));
 	} else if (value === 21) {
-		put(out, rt.u128.min(a, b));
+		put(out, rt.u128Min(a, b));
 	} else if (value === 22) {
-		out.push(rt.u128.eq(a, b) ? 1 : 0);
-		out.push(rt.u128.lt(a, b) ? 1 : 0);
-		out.push(rt.u128.ge(a, b) ? 1 : 0);
-		out.push(rt.u128.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, rt.u128Eq(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u128Lt(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u128Ge(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.u128WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.u128 = a;
-		x = rt.u128.add(x, b);
-		x = rt.u128.sub(x, 1);
-		x = rt.u128.mul(x, 2);
-		x = rt.u128.shr(x, 1);
-		x = rt.u128.shl(x, 1);
-		const value2 = rt.u128.shl(1, 3);
-		x = rt.u128.or(x, value2);
-		x = rt.u128.xor(x, b);
-		const value3 = rt.u128.not(rt.u128.shl(1, 2));
-		x = rt.u128.and(x, value3);
+		x = rt.u128Add(x, b);
+		x = rt.u128Sub(x, 1);
+		x = rt.u128Mul(x, 2);
+		x = rt.u128Shr(x, 1);
+		x = rt.u128Shl(x, 1);
+		const value2 = rt.u128Shl(1, 3);
+		x = rt.u128Or(x, value2);
+		x = rt.u128Xor(x, b);
+		const value3 = rt.u128Not(rt.u128Shl(1, 2));
+		x = rt.u128And(x, value3);
 		put(out, x);
 	}
 }
@@ -466,38 +466,38 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.usize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.usize, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.usizeFromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.usize, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.usize.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.usize, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 32));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.usizeFromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.usize, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 32));
 	const put = (out2: rt.ByteVec, v: rt.usize): void => {
-		out2.extendFromSlice(rt.u128.toBeBytes(v as rt.u128));
-		out2.push(rt.usize.fromBeBytes(rt.usize.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
+		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.usize | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.u128.toBeBytes(v3 as rt.u128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v3 as rt.u128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.usize.add(a, b));
+		put(out, rt.usizeAdd(a, b));
 	} else if (value === 1) {
-		put(out, rt.usize.sub(a, b));
+		put(out, rt.usizeSub(a, b));
 	} else if (value === 2) {
-		put(out, rt.usize.mul(a, b));
+		put(out, rt.usizeMul(a, b));
 	} else if (value === 3) {
-		put(out, rt.usize.div(a, b));
+		put(out, rt.usizeDiv(a, b));
 	} else if (value === 4) {
-		put(out, rt.usize.rem(a, b));
+		put(out, rt.usizeRem(a, b));
 	} else if (value === 5) {
 		put(out, (a & b) >>> 0);
 	} else if (value === 6) {
@@ -505,45 +505,45 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, (a ^ b) >>> 0);
 	} else if (value === 8) {
-		put(out, rt.usize.shl(a, shift));
+		put(out, rt.usizeShl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.usize.shr(a, shift));
+		put(out, rt.usizeShr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a >>> 0);
 	} else if (value === 11) {
-		putOpt(out, rt.usize.checkedAdd(a, b));
+		putOpt(out, rt.usizeCheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.usize.checkedSub(a, b));
+		putOpt(out, rt.usizeCheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.usize.checkedMul(a, b));
+		putOpt(out, rt.usizeCheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.usize.saturatingAdd(a, b));
+		put(out, rt.usizeSaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.usize.saturatingSub(a, b));
+		put(out, rt.usizeSaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.usize.wrappingAdd(a, b));
+		put(out, rt.usizeWrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.usize.wrappingSub(a, b));
+		put(out, rt.usizeWrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.usize.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.usizeLeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.usize.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.usizeLeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.usize.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.usizeWrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.usize = a;
-		x = rt.usize.add(x, b);
-		x = rt.usize.sub(x, 1);
-		x = rt.usize.mul(x, 2);
-		x = rt.usize.shr(x, 1);
-		x = rt.usize.shl(x, 1);
+		x = rt.usizeAdd(x, b);
+		x = rt.usizeSub(x, 1);
+		x = rt.usizeMul(x, 2);
+		x = rt.usizeShr(x, 1);
+		x = rt.usizeShl(x, 1);
 		const value2 = 1 << 3;
 		x = (x | value2) >>> 0;
 		x = (x ^ b) >>> 0;
@@ -558,38 +558,38 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.i8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i8, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.i8FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i8, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(1);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.i8.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i8, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 8));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.i8FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i8, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 8));
 	const put = (out2: rt.ByteVec, v: rt.i8): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(v as rt.i128));
-		out2.push(rt.i8.fromBeBytes(rt.i8.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
+		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.i8 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(v3 as rt.i128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v3 as rt.i128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.i8.add(a, b));
+		put(out, rt.i8Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.i8.sub(a, b));
+		put(out, rt.i8Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.i8.mul(a, b));
+		put(out, rt.i8Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.i8.div(a, b));
+		put(out, rt.i8Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.i8.rem(a, b));
+		put(out, rt.i8Rem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -597,45 +597,45 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.i8.shl(a, shift));
+		put(out, rt.i8Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.i8.shr(a, shift));
+		put(out, rt.i8Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a);
 	} else if (value === 11) {
-		putOpt(out, rt.i8.checkedAdd(a, b));
+		putOpt(out, rt.i8CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.i8.checkedSub(a, b));
+		putOpt(out, rt.i8CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.i8.checkedMul(a, b));
+		putOpt(out, rt.i8CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.i8.saturatingAdd(a, b));
+		put(out, rt.i8SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.i8.saturatingSub(a, b));
+		put(out, rt.i8SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.i8.wrappingAdd(a, b));
+		put(out, rt.i8WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.i8.wrappingSub(a, b));
+		put(out, rt.i8WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i8.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i8LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i8.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i8LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.i8.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.i8WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.i8 = a;
-		x = rt.i8.add(x, b);
-		x = rt.i8.sub(x, 1);
-		x = rt.i8.mul(x, 2);
-		x = rt.i8.shr(x, 1);
-		x = rt.i8.shl(x, 1);
+		x = rt.i8Add(x, b);
+		x = rt.i8Sub(x, 1);
+		x = rt.i8Mul(x, 2);
+		x = rt.i8Shr(x, 1);
+		x = rt.i8Shl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -650,38 +650,38 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.i16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i16, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.i16FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i16, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(2);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.i16.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i16, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 16));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.i16FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i16, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 16));
 	const put = (out2: rt.ByteVec, v: rt.i16): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(v as rt.i128));
-		out2.push(rt.i16.fromBeBytes(rt.i16.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
+		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.i16 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(v3 as rt.i128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v3 as rt.i128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.i16.add(a, b));
+		put(out, rt.i16Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.i16.sub(a, b));
+		put(out, rt.i16Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.i16.mul(a, b));
+		put(out, rt.i16Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.i16.div(a, b));
+		put(out, rt.i16Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.i16.rem(a, b));
+		put(out, rt.i16Rem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -689,45 +689,45 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.i16.shl(a, shift));
+		put(out, rt.i16Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.i16.shr(a, shift));
+		put(out, rt.i16Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a);
 	} else if (value === 11) {
-		putOpt(out, rt.i16.checkedAdd(a, b));
+		putOpt(out, rt.i16CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.i16.checkedSub(a, b));
+		putOpt(out, rt.i16CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.i16.checkedMul(a, b));
+		putOpt(out, rt.i16CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.i16.saturatingAdd(a, b));
+		put(out, rt.i16SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.i16.saturatingSub(a, b));
+		put(out, rt.i16SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.i16.wrappingAdd(a, b));
+		put(out, rt.i16WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.i16.wrappingSub(a, b));
+		put(out, rt.i16WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i16.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i16LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i16.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i16LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.i16.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.i16WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.i16 = a;
-		x = rt.i16.add(x, b);
-		x = rt.i16.sub(x, 1);
-		x = rt.i16.mul(x, 2);
-		x = rt.i16.shr(x, 1);
-		x = rt.i16.shl(x, 1);
+		x = rt.i16Add(x, b);
+		x = rt.i16Sub(x, 1);
+		x = rt.i16Mul(x, 2);
+		x = rt.i16Shr(x, 1);
+		x = rt.i16Shl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -742,38 +742,38 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.i32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i32, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.i32FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i32, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.i32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i32, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 32));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.i32FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i32, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 32));
 	const put = (out2: rt.ByteVec, v: rt.i32): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(v as rt.i128));
-		out2.push(rt.i32.fromBeBytes(rt.i32.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
+		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.i32 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(v3 as rt.i128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v3 as rt.i128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.i32.add(a, b));
+		put(out, rt.i32Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.i32.sub(a, b));
+		put(out, rt.i32Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.i32.mul(a, b));
+		put(out, rt.i32Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.i32.div(a, b));
+		put(out, rt.i32Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.i32.rem(a, b));
+		put(out, rt.i32Rem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -781,45 +781,45 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.i32.shl(a, shift));
+		put(out, rt.i32Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.i32.shr(a, shift));
+		put(out, rt.i32Shr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a);
 	} else if (value === 11) {
-		putOpt(out, rt.i32.checkedAdd(a, b));
+		putOpt(out, rt.i32CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.i32.checkedSub(a, b));
+		putOpt(out, rt.i32CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.i32.checkedMul(a, b));
+		putOpt(out, rt.i32CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.i32.saturatingAdd(a, b));
+		put(out, rt.i32SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.i32.saturatingSub(a, b));
+		put(out, rt.i32SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.i32.wrappingAdd(a, b));
+		put(out, rt.i32WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.i32.wrappingSub(a, b));
+		put(out, rt.i32WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i32.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i32LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i32.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i32LeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.i32.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.i32WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.i32 = a;
-		x = rt.i32.add(x, b);
-		x = rt.i32.sub(x, 1);
-		x = rt.i32.mul(x, 2);
-		x = rt.i32.shr(x, 1);
-		x = rt.i32.shl(x, 1);
+		x = rt.i32Add(x, b);
+		x = rt.i32Sub(x, 1);
+		x = rt.i32Mul(x, 2);
+		x = rt.i32Shr(x, 1);
+		x = rt.i32Shl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -834,88 +834,88 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.i64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i64, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.i64FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i64, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(8);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.i64.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i64, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 64));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.i64FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i64, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 64));
 	const put = (out2: rt.ByteVec, v: rt.i64): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(rt.i128.cast(v)));
-		out2.push(rt.i64.eq(rt.i64.fromBeBytes(rt.i64.toBeBytes(v)), v) ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(rt.i128Cast(v)));
+		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v)), v) ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.i64 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(rt.i128.cast(v3)));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(rt.i128Cast(v3)));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.i64.add(a, b));
+		put(out, rt.i64Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.i64.sub(a, b));
+		put(out, rt.i64Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.i64.mul(a, b));
+		put(out, rt.i64Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.i64.div(a, b));
+		put(out, rt.i64Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.i64.rem(a, b));
+		put(out, rt.i64Rem(a, b));
 	} else if (value === 5) {
-		put(out, rt.i64.and(a, b));
+		put(out, rt.i64And(a, b));
 	} else if (value === 6) {
-		put(out, rt.i64.or(a, b));
+		put(out, rt.i64Or(a, b));
 	} else if (value === 7) {
-		put(out, rt.i64.xor(a, b));
+		put(out, rt.i64Xor(a, b));
 	} else if (value === 8) {
-		put(out, rt.i64.shl(a, shift));
+		put(out, rt.i64Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.i64.shr(a, shift));
+		put(out, rt.i64Shr(a, shift));
 	} else if (value === 10) {
-		put(out, rt.i64.not(a));
+		put(out, rt.i64Not(a));
 	} else if (value === 11) {
-		putOpt(out, rt.i64.checkedAdd(a, b));
+		putOpt(out, rt.i64CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.i64.checkedSub(a, b));
+		putOpt(out, rt.i64CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.i64.checkedMul(a, b));
+		putOpt(out, rt.i64CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.i64.saturatingAdd(a, b));
+		put(out, rt.i64SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.i64.saturatingSub(a, b));
+		put(out, rt.i64SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.i64.wrappingAdd(a, b));
+		put(out, rt.i64WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.i64.wrappingSub(a, b));
+		put(out, rt.i64WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i64.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i64LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i64.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i64LeadingZeros(a)));
 	} else if (value === 20) {
-		put(out, rt.i64.max(a, b));
+		put(out, rt.i64Max(a, b));
 	} else if (value === 21) {
-		put(out, rt.i64.min(a, b));
+		put(out, rt.i64Min(a, b));
 	} else if (value === 22) {
-		out.push(rt.i64.eq(a, b) ? 1 : 0);
-		out.push(rt.i64.lt(a, b) ? 1 : 0);
-		out.push(rt.i64.ge(a, b) ? 1 : 0);
-		out.push(rt.i64.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, rt.i64Eq(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i64Lt(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i64Ge(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i64WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.i64 = a;
-		x = rt.i64.add(x, b);
-		x = rt.i64.sub(x, 1);
-		x = rt.i64.mul(x, 2);
-		x = rt.i64.shr(x, 1);
-		x = rt.i64.shl(x, 1);
-		x = rt.i64.or(x, 8);
-		x = rt.i64.xor(x, b);
-		const value2 = rt.i64.not(4);
-		x = rt.i64.and(x, value2);
+		x = rt.i64Add(x, b);
+		x = rt.i64Sub(x, 1);
+		x = rt.i64Mul(x, 2);
+		x = rt.i64Shr(x, 1);
+		x = rt.i64Shl(x, 1);
+		x = rt.i64Or(x, 8);
+		x = rt.i64Xor(x, b);
+		const value2 = rt.i64Not(4);
+		x = rt.i64And(x, value2);
 		put(out, x);
 	}
 }
@@ -925,89 +925,89 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.i128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i128, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.i128FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i128, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(16);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.i128.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i128, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.i128FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i128, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 128));
 	const put = (out2: rt.ByteVec, v: rt.i128): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(v));
-		out2.push(rt.i128.eq(rt.i128.fromBeBytes(rt.i128.toBeBytes(v)), v) ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v));
+		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v)), v) ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.i128 | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(v3));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v3));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.i128.add(a, b));
+		put(out, rt.i128Add(a, b));
 	} else if (value === 1) {
-		put(out, rt.i128.sub(a, b));
+		put(out, rt.i128Sub(a, b));
 	} else if (value === 2) {
-		put(out, rt.i128.mul(a, b));
+		put(out, rt.i128Mul(a, b));
 	} else if (value === 3) {
-		put(out, rt.i128.div(a, b));
+		put(out, rt.i128Div(a, b));
 	} else if (value === 4) {
-		put(out, rt.i128.rem(a, b));
+		put(out, rt.i128Rem(a, b));
 	} else if (value === 5) {
-		put(out, rt.i128.and(a, b));
+		put(out, rt.i128And(a, b));
 	} else if (value === 6) {
-		put(out, rt.i128.or(a, b));
+		put(out, rt.i128Or(a, b));
 	} else if (value === 7) {
-		put(out, rt.i128.xor(a, b));
+		put(out, rt.i128Xor(a, b));
 	} else if (value === 8) {
-		put(out, rt.i128.shl(a, shift));
+		put(out, rt.i128Shl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.i128.shr(a, shift));
+		put(out, rt.i128Shr(a, shift));
 	} else if (value === 10) {
-		put(out, rt.i128.not(a));
+		put(out, rt.i128Not(a));
 	} else if (value === 11) {
-		putOpt(out, rt.i128.checkedAdd(a, b));
+		putOpt(out, rt.i128CheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.i128.checkedSub(a, b));
+		putOpt(out, rt.i128CheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.i128.checkedMul(a, b));
+		putOpt(out, rt.i128CheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.i128.saturatingAdd(a, b));
+		put(out, rt.i128SaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.i128.saturatingSub(a, b));
+		put(out, rt.i128SaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.i128.wrappingAdd(a, b));
+		put(out, rt.i128WrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.i128.wrappingSub(a, b));
+		put(out, rt.i128WrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i128.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i128LeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.i128.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.i128LeadingZeros(a)));
 	} else if (value === 20) {
-		put(out, rt.i128.max(a, b));
+		put(out, rt.i128Max(a, b));
 	} else if (value === 21) {
-		put(out, rt.i128.min(a, b));
+		put(out, rt.i128Min(a, b));
 	} else if (value === 22) {
-		out.push(rt.i128.eq(a, b) ? 1 : 0);
-		out.push(rt.i128.lt(a, b) ? 1 : 0);
-		out.push(rt.i128.ge(a, b) ? 1 : 0);
-		out.push(rt.i128.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, rt.i128Eq(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i128Lt(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i128Ge(a, b) ? 1 : 0);
+		rt.byteVecPush(out, rt.i128WrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.i128 = a;
-		x = rt.i128.add(x, b);
-		x = rt.i128.sub(x, 1);
-		x = rt.i128.mul(x, 2);
-		x = rt.i128.shr(x, 1);
-		x = rt.i128.shl(x, 1);
-		const value2 = rt.i128.shl(1, 3);
-		x = rt.i128.or(x, value2);
-		x = rt.i128.xor(x, b);
-		const value3 = rt.i128.not(rt.i128.shl(1, 2));
-		x = rt.i128.and(x, value3);
+		x = rt.i128Add(x, b);
+		x = rt.i128Sub(x, 1);
+		x = rt.i128Mul(x, 2);
+		x = rt.i128Shr(x, 1);
+		x = rt.i128Shl(x, 1);
+		const value2 = rt.i128Shl(1, 3);
+		x = rt.i128Or(x, value2);
+		x = rt.i128Xor(x, b);
+		const value3 = rt.i128Not(rt.i128Shl(1, 2));
+		x = rt.i128And(x, value3);
 		put(out, x);
 	}
 }
@@ -1017,38 +1017,38 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, data3] = [rt.isize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.isize, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, data3] = [rt.isizeFromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.isize, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [b, data5] = [rt.isize.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.isize, Uint8Array];
-	const shift = rt.u32.rem(rt.option.unwrapOr(rt.slice.first(data5), 0) as rt.u32, rt.u32.mul(2, 32));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [b, data5] = [rt.isizeFromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.isize, Uint8Array];
+	const shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(data5), 0) as rt.u32, rt.u32Mul(2, 32));
 	const put = (out2: rt.ByteVec, v: rt.isize): void => {
-		out2.extendFromSlice(rt.i128.toBeBytes(v as rt.i128));
-		out2.push(rt.isize.fromBeBytes(rt.isize.toBeBytes(v)) === v ? 1 : 0);
+		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
+		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v)) === v ? 1 : 0);
 	};
 	const putOpt = (out3: rt.ByteVec, v2: rt.isize | undefined): void => {
 		if (v2 !== undefined) {
 			const v3 = v2;
-			out3.push(1);
-			out3.extendFromSlice(rt.i128.toBeBytes(v3 as rt.i128));
+			rt.byteVecPush(out3, 1);
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v3 as rt.i128));
 		} else {
-			out3.push(0);
+			rt.byteVecPush(out3, 0);
 		}
 	};
-	const value = rt.u8.rem(op, 24);
+	const value = rt.u8Rem(op, 24);
 	if (value === 0) {
-		put(out, rt.isize.add(a, b));
+		put(out, rt.isizeAdd(a, b));
 	} else if (value === 1) {
-		put(out, rt.isize.sub(a, b));
+		put(out, rt.isizeSub(a, b));
 	} else if (value === 2) {
-		put(out, rt.isize.mul(a, b));
+		put(out, rt.isizeMul(a, b));
 	} else if (value === 3) {
-		put(out, rt.isize.div(a, b));
+		put(out, rt.isizeDiv(a, b));
 	} else if (value === 4) {
-		put(out, rt.isize.rem(a, b));
+		put(out, rt.isizeRem(a, b));
 	} else if (value === 5) {
 		put(out, a & b);
 	} else if (value === 6) {
@@ -1056,45 +1056,45 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (value === 7) {
 		put(out, a ^ b);
 	} else if (value === 8) {
-		put(out, rt.isize.shl(a, shift));
+		put(out, rt.isizeShl(a, shift));
 	} else if (value === 9) {
-		put(out, rt.isize.shr(a, shift));
+		put(out, rt.isizeShr(a, shift));
 	} else if (value === 10) {
 		put(out, ~a);
 	} else if (value === 11) {
-		putOpt(out, rt.isize.checkedAdd(a, b));
+		putOpt(out, rt.isizeCheckedAdd(a, b));
 	} else if (value === 12) {
-		putOpt(out, rt.isize.checkedSub(a, b));
+		putOpt(out, rt.isizeCheckedSub(a, b));
 	} else if (value === 13) {
-		putOpt(out, rt.isize.checkedMul(a, b));
+		putOpt(out, rt.isizeCheckedMul(a, b));
 	} else if (value === 14) {
-		put(out, rt.isize.saturatingAdd(a, b));
+		put(out, rt.isizeSaturatingAdd(a, b));
 	} else if (value === 15) {
-		put(out, rt.isize.saturatingSub(a, b));
+		put(out, rt.isizeSaturatingSub(a, b));
 	} else if (value === 16) {
-		put(out, rt.isize.wrappingAdd(a, b));
+		put(out, rt.isizeWrappingAdd(a, b));
 	} else if (value === 17) {
-		put(out, rt.isize.wrappingSub(a, b));
+		put(out, rt.isizeWrappingSub(a, b));
 	} else if (value === 18) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.isize.leadingOnes(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.isizeLeadingOnes(a)));
 	} else if (value === 19) {
-		out.extendFromSlice(rt.u32.toBeBytes(rt.isize.leadingZeros(a)));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.isizeLeadingZeros(a)));
 	} else if (value === 20) {
 		put(out, rt.max(a, b));
 	} else if (value === 21) {
 		put(out, rt.min(a, b));
 	} else if (value === 22) {
-		out.push(a === b ? 1 : 0);
-		out.push(a < b ? 1 : 0);
-		out.push(a >= b ? 1 : 0);
-		out.push(rt.isize.wrappingSub(a, b) === 0 ? 1 : 0);
+		rt.byteVecPush(out, a === b ? 1 : 0);
+		rt.byteVecPush(out, a < b ? 1 : 0);
+		rt.byteVecPush(out, a >= b ? 1 : 0);
+		rt.byteVecPush(out, rt.isizeWrappingSub(a, b) === 0 ? 1 : 0);
 	} else {
 		let x: rt.isize = a;
-		x = rt.isize.add(x, b);
-		x = rt.isize.sub(x, 1);
-		x = rt.isize.mul(x, 2);
-		x = rt.isize.shr(x, 1);
-		x = rt.isize.shl(x, 1);
+		x = rt.isizeAdd(x, b);
+		x = rt.isizeSub(x, 1);
+		x = rt.isizeMul(x, 2);
+		x = rt.isizeShr(x, 1);
+		x = rt.isizeShl(x, 1);
 		const value2 = 1 << 3;
 		x = x | value2;
 		x = x ^ b;
@@ -1109,9 +1109,9 @@ export function i8Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(1);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.i8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i8, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.i8.neg(a) as rt.i128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.i8FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i8, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.i8Neg(a) as rt.i128));
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1119,9 +1119,9 @@ export function i16Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(2);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.i16.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i16, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.i16.neg(a) as rt.i128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.i16FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i16, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.i16Neg(a) as rt.i128));
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1129,9 +1129,9 @@ export function i32Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.i32.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i32, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.i32.neg(a) as rt.i128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.i32FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i32, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.i32Neg(a) as rt.i128));
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1139,9 +1139,9 @@ export function i64Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.i64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i64, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.i128.cast(rt.i64.neg(a))));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.i64FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i64, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.i128Cast(rt.i64Neg(a))));
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1149,9 +1149,9 @@ export function i128Neg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(16);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.i128.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.i128, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.i128.neg(a)));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.i128FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.i128, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.i128Neg(a)));
 }
 
 /** Negate, which overflows at the minimum. */
@@ -1159,697 +1159,697 @@ export function isizeNeg(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(4);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [a, ] = [rt.isize.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.isize, Uint8Array];
-	out.extendFromSlice(rt.i128.toBeBytes(rt.isize.neg(a) as rt.i128));
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [a, ] = [rt.isizeFromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.isize, Uint8Array];
+	rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(rt.isizeNeg(a) as rt.i128));
 }
 
 /** Cast a value of type `from` to type `to`, both indexes into the twelve types. */
 export function cast(from: rt.u8, to: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	const value = rt.u8.rem(from, 12);
+	const value = rt.u8Rem(from, 12);
 	if (value === 0) {
 		const data2 = data;
 		let buf: Uint8Array = rt.bytes(1);
 		const n = rt.min(data2.length, buf.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-		const v = ([rt.u8.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u8, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+		const v = ([rt.u8FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u8, Uint8Array])[0];
 		const out2 = out;
-		const value2 = rt.u8.rem(to, 12);
+		const value2 = rt.u8Rem(to, 12);
 		if (value2 === 0) {
 			const v2 = v;
-			out2.extendFromSlice(rt.u8.toBeBytes(v2));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v2, f))));
+			rt.byteVecExtendFromSlice(out2, rt.u8ToBeBytes(v2));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v2, f))));
 		} else if (value2 === 1) {
 			const v3 = v as rt.u16;
-			out2.extendFromSlice(rt.u16.toBeBytes(v3));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v3, f))));
+			rt.byteVecExtendFromSlice(out2, rt.u16ToBeBytes(v3));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v3, f))));
 		} else if (value2 === 2) {
 			const v4 = v as rt.u32;
-			out2.extendFromSlice(rt.u32.toBeBytes(v4));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v4, f))));
+			rt.byteVecExtendFromSlice(out2, rt.u32ToBeBytes(v4));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v4, f))));
 		} else if (value2 === 3) {
 			const v5 = v as rt.u64;
-			out2.extendFromSlice(rt.u64.toBeBytes(v5));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v5, f))));
+			rt.byteVecExtendFromSlice(out2, rt.u64ToBeBytes(v5));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v5, f))));
 		} else if (value2 === 4) {
 			const v6 = v as rt.u128;
-			out2.extendFromSlice(rt.u128.toBeBytes(v6));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v6, f))));
+			rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v6));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v6, f))));
 		} else if (value2 === 5) {
 			const v7 = v as rt.usize;
-			out2.extendFromSlice(rt.usize.toBeBytes(v7));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v7, f))));
+			rt.byteVecExtendFromSlice(out2, rt.usizeToBeBytes(v7));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v7, f))));
 		} else if (value2 === 6) {
 			const v8 = (v << 24) >> 24;
-			out2.extendFromSlice(rt.i8.toBeBytes(v8));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v8, f))));
+			rt.byteVecExtendFromSlice(out2, rt.i8ToBeBytes(v8));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v8, f))));
 		} else if (value2 === 7) {
 			const v9 = v as rt.i16;
-			out2.extendFromSlice(rt.i16.toBeBytes(v9));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v9, f))));
+			rt.byteVecExtendFromSlice(out2, rt.i16ToBeBytes(v9));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v9, f))));
 		} else if (value2 === 8) {
 			const v10 = v as rt.i32;
-			out2.extendFromSlice(rt.i32.toBeBytes(v10));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v10, f))));
+			rt.byteVecExtendFromSlice(out2, rt.i32ToBeBytes(v10));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v10, f))));
 		} else if (value2 === 9) {
 			const v11 = v as rt.i64;
-			out2.extendFromSlice(rt.i64.toBeBytes(v11));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v11, f))));
+			rt.byteVecExtendFromSlice(out2, rt.i64ToBeBytes(v11));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v11, f))));
 		} else if (value2 === 10) {
 			const v12 = v as rt.i128;
-			out2.extendFromSlice(rt.i128.toBeBytes(v12));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v12, f))));
+			rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v12));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v12, f))));
 		} else {
 			const v13 = v as rt.isize;
-			out2.extendFromSlice(rt.isize.toBeBytes(v13));
-			out2.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v13, f))));
+			rt.byteVecExtendFromSlice(out2, rt.isizeToBeBytes(v13));
+			rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v13, f))));
 		}
 	} else if (value === 1) {
 		const data3 = data;
 		let buf2: Uint8Array = rt.bytes(2);
 		const n2 = rt.min(data3.length, buf2.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data3, 0, n2));
-		const v14 = ([rt.u16.fromBeBytes(buf2), rt.slice.range(data3, n2)] as [rt.u16, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data3, 0, n2));
+		const v14 = ([rt.u16FromBeBytes(buf2), rt.sliceRange(data3, n2)] as [rt.u16, Uint8Array])[0];
 		const out3 = out;
-		const value3 = rt.u8.rem(to, 12);
+		const value3 = rt.u8Rem(to, 12);
 		if (value3 === 0) {
 			const v15 = v14 & 0xff;
-			out3.extendFromSlice(rt.u8.toBeBytes(v15));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v15, f))));
+			rt.byteVecExtendFromSlice(out3, rt.u8ToBeBytes(v15));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v15, f))));
 		} else if (value3 === 1) {
 			const v16 = v14;
-			out3.extendFromSlice(rt.u16.toBeBytes(v16));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v16, f))));
+			rt.byteVecExtendFromSlice(out3, rt.u16ToBeBytes(v16));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v16, f))));
 		} else if (value3 === 2) {
 			const v17 = v14 as rt.u32;
-			out3.extendFromSlice(rt.u32.toBeBytes(v17));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v17, f))));
+			rt.byteVecExtendFromSlice(out3, rt.u32ToBeBytes(v17));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v17, f))));
 		} else if (value3 === 3) {
 			const v18 = v14 as rt.u64;
-			out3.extendFromSlice(rt.u64.toBeBytes(v18));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v18, f))));
+			rt.byteVecExtendFromSlice(out3, rt.u64ToBeBytes(v18));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v18, f))));
 		} else if (value3 === 4) {
 			const v19 = v14 as rt.u128;
-			out3.extendFromSlice(rt.u128.toBeBytes(v19));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v19, f))));
+			rt.byteVecExtendFromSlice(out3, rt.u128ToBeBytes(v19));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v19, f))));
 		} else if (value3 === 5) {
 			const v20 = v14 as rt.usize;
-			out3.extendFromSlice(rt.usize.toBeBytes(v20));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v20, f))));
+			rt.byteVecExtendFromSlice(out3, rt.usizeToBeBytes(v20));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v20, f))));
 		} else if (value3 === 6) {
 			const v21 = (v14 << 24) >> 24;
-			out3.extendFromSlice(rt.i8.toBeBytes(v21));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v21, f))));
+			rt.byteVecExtendFromSlice(out3, rt.i8ToBeBytes(v21));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v21, f))));
 		} else if (value3 === 7) {
 			const v22 = (v14 << 16) >> 16;
-			out3.extendFromSlice(rt.i16.toBeBytes(v22));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v22, f))));
+			rt.byteVecExtendFromSlice(out3, rt.i16ToBeBytes(v22));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v22, f))));
 		} else if (value3 === 8) {
 			const v23 = v14 as rt.i32;
-			out3.extendFromSlice(rt.i32.toBeBytes(v23));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v23, f))));
+			rt.byteVecExtendFromSlice(out3, rt.i32ToBeBytes(v23));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v23, f))));
 		} else if (value3 === 9) {
 			const v24 = v14 as rt.i64;
-			out3.extendFromSlice(rt.i64.toBeBytes(v24));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v24, f))));
+			rt.byteVecExtendFromSlice(out3, rt.i64ToBeBytes(v24));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v24, f))));
 		} else if (value3 === 10) {
 			const v25 = v14 as rt.i128;
-			out3.extendFromSlice(rt.i128.toBeBytes(v25));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v25, f))));
+			rt.byteVecExtendFromSlice(out3, rt.i128ToBeBytes(v25));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v25, f))));
 		} else {
 			const v26 = v14 as rt.isize;
-			out3.extendFromSlice(rt.isize.toBeBytes(v26));
-			out3.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v26, f))));
+			rt.byteVecExtendFromSlice(out3, rt.isizeToBeBytes(v26));
+			rt.byteVecExtendFromSlice(out3, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v26, f))));
 		}
 	} else if (value === 2) {
 		const data4 = data;
 		let buf3: Uint8Array = rt.bytes(4);
 		const n3 = rt.min(data4.length, buf3.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf3, 0, n3), rt.slice.range(data4, 0, n3));
-		const v27 = ([rt.u32.fromBeBytes(buf3), rt.slice.range(data4, n3)] as [rt.u32, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf3, 0, n3), rt.sliceRange(data4, 0, n3));
+		const v27 = ([rt.u32FromBeBytes(buf3), rt.sliceRange(data4, n3)] as [rt.u32, Uint8Array])[0];
 		const out4 = out;
-		const value4 = rt.u8.rem(to, 12);
+		const value4 = rt.u8Rem(to, 12);
 		if (value4 === 0) {
 			const v28 = v27 & 0xff;
-			out4.extendFromSlice(rt.u8.toBeBytes(v28));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v28, f))));
+			rt.byteVecExtendFromSlice(out4, rt.u8ToBeBytes(v28));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v28, f))));
 		} else if (value4 === 1) {
 			const v29 = v27 & 0xffff;
-			out4.extendFromSlice(rt.u16.toBeBytes(v29));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v29, f))));
+			rt.byteVecExtendFromSlice(out4, rt.u16ToBeBytes(v29));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v29, f))));
 		} else if (value4 === 2) {
 			const v30 = v27;
-			out4.extendFromSlice(rt.u32.toBeBytes(v30));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v30, f))));
+			rt.byteVecExtendFromSlice(out4, rt.u32ToBeBytes(v30));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v30, f))));
 		} else if (value4 === 3) {
 			const v31 = v27 as rt.u64;
-			out4.extendFromSlice(rt.u64.toBeBytes(v31));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v31, f))));
+			rt.byteVecExtendFromSlice(out4, rt.u64ToBeBytes(v31));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v31, f))));
 		} else if (value4 === 4) {
 			const v32 = v27 as rt.u128;
-			out4.extendFromSlice(rt.u128.toBeBytes(v32));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v32, f))));
+			rt.byteVecExtendFromSlice(out4, rt.u128ToBeBytes(v32));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v32, f))));
 		} else if (value4 === 5) {
 			const v33 = v27 as rt.usize;
-			out4.extendFromSlice(rt.usize.toBeBytes(v33));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v33, f))));
+			rt.byteVecExtendFromSlice(out4, rt.usizeToBeBytes(v33));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v33, f))));
 		} else if (value4 === 6) {
 			const v34 = (v27 << 24) >> 24;
-			out4.extendFromSlice(rt.i8.toBeBytes(v34));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v34, f))));
+			rt.byteVecExtendFromSlice(out4, rt.i8ToBeBytes(v34));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v34, f))));
 		} else if (value4 === 7) {
 			const v35 = (v27 << 16) >> 16;
-			out4.extendFromSlice(rt.i16.toBeBytes(v35));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v35, f))));
+			rt.byteVecExtendFromSlice(out4, rt.i16ToBeBytes(v35));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v35, f))));
 		} else if (value4 === 8) {
 			const v36 = v27 | 0;
-			out4.extendFromSlice(rt.i32.toBeBytes(v36));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v36, f))));
+			rt.byteVecExtendFromSlice(out4, rt.i32ToBeBytes(v36));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v36, f))));
 		} else if (value4 === 9) {
 			const v37 = v27 as rt.i64;
-			out4.extendFromSlice(rt.i64.toBeBytes(v37));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v37, f))));
+			rt.byteVecExtendFromSlice(out4, rt.i64ToBeBytes(v37));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v37, f))));
 		} else if (value4 === 10) {
 			const v38 = v27 as rt.i128;
-			out4.extendFromSlice(rt.i128.toBeBytes(v38));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v38, f))));
+			rt.byteVecExtendFromSlice(out4, rt.i128ToBeBytes(v38));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v38, f))));
 		} else {
 			const v39 = v27 | 0;
-			out4.extendFromSlice(rt.isize.toBeBytes(v39));
-			out4.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v39, f))));
+			rt.byteVecExtendFromSlice(out4, rt.isizeToBeBytes(v39));
+			rt.byteVecExtendFromSlice(out4, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v39, f))));
 		}
 	} else if (value === 3) {
 		const data5 = data;
 		let buf4: Uint8Array = rt.bytes(8);
 		const n4 = rt.min(data5.length, buf4.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf4, 0, n4), rt.slice.range(data5, 0, n4));
-		const v40 = ([rt.u64.fromBeBytes(buf4), rt.slice.range(data5, n4)] as [rt.u64, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf4, 0, n4), rt.sliceRange(data5, 0, n4));
+		const v40 = ([rt.u64FromBeBytes(buf4), rt.sliceRange(data5, n4)] as [rt.u64, Uint8Array])[0];
 		const out5 = out;
-		const value5 = rt.u8.rem(to, 12);
+		const value5 = rt.u8Rem(to, 12);
 		if (value5 === 0) {
-			const v41 = rt.u64.low(v40) & 0xff;
-			out5.extendFromSlice(rt.u8.toBeBytes(v41));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v41, f))));
+			const v41 = rt.u64Low(v40) & 0xff;
+			rt.byteVecExtendFromSlice(out5, rt.u8ToBeBytes(v41));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v41, f))));
 		} else if (value5 === 1) {
-			const v42 = rt.u64.low(v40) & 0xffff;
-			out5.extendFromSlice(rt.u16.toBeBytes(v42));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v42, f))));
+			const v42 = rt.u64Low(v40) & 0xffff;
+			rt.byteVecExtendFromSlice(out5, rt.u16ToBeBytes(v42));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v42, f))));
 		} else if (value5 === 2) {
-			const v43 = rt.u64.low(v40);
-			out5.extendFromSlice(rt.u32.toBeBytes(v43));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v43, f))));
+			const v43 = rt.u64Low(v40);
+			rt.byteVecExtendFromSlice(out5, rt.u32ToBeBytes(v43));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v43, f))));
 		} else if (value5 === 3) {
 			const v44 = v40;
-			out5.extendFromSlice(rt.u64.toBeBytes(v44));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v44, f))));
+			rt.byteVecExtendFromSlice(out5, rt.u64ToBeBytes(v44));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v44, f))));
 		} else if (value5 === 4) {
-			const v45 = rt.u128.cast(v40);
-			out5.extendFromSlice(rt.u128.toBeBytes(v45));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v45, f))));
+			const v45 = rt.u128Cast(v40);
+			rt.byteVecExtendFromSlice(out5, rt.u128ToBeBytes(v45));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v45, f))));
 		} else if (value5 === 5) {
-			const v46 = rt.u64.low(v40);
-			out5.extendFromSlice(rt.usize.toBeBytes(v46));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v46, f))));
+			const v46 = rt.u64Low(v40);
+			rt.byteVecExtendFromSlice(out5, rt.usizeToBeBytes(v46));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v46, f))));
 		} else if (value5 === 6) {
-			const v47 = (rt.u64.low(v40) << 24) >> 24;
-			out5.extendFromSlice(rt.i8.toBeBytes(v47));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v47, f))));
+			const v47 = (rt.u64Low(v40) << 24) >> 24;
+			rt.byteVecExtendFromSlice(out5, rt.i8ToBeBytes(v47));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v47, f))));
 		} else if (value5 === 7) {
-			const v48 = (rt.u64.low(v40) << 16) >> 16;
-			out5.extendFromSlice(rt.i16.toBeBytes(v48));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v48, f))));
+			const v48 = (rt.u64Low(v40) << 16) >> 16;
+			rt.byteVecExtendFromSlice(out5, rt.i16ToBeBytes(v48));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v48, f))));
 		} else if (value5 === 8) {
-			const v49 = rt.u64.low(v40) | 0;
-			out5.extendFromSlice(rt.i32.toBeBytes(v49));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v49, f))));
+			const v49 = rt.u64Low(v40) | 0;
+			rt.byteVecExtendFromSlice(out5, rt.i32ToBeBytes(v49));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v49, f))));
 		} else if (value5 === 9) {
-			const v50 = rt.i64.cast(v40);
-			out5.extendFromSlice(rt.i64.toBeBytes(v50));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v50, f))));
+			const v50 = rt.i64Cast(v40);
+			rt.byteVecExtendFromSlice(out5, rt.i64ToBeBytes(v50));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v50, f))));
 		} else if (value5 === 10) {
-			const v51 = rt.i128.cast(v40);
-			out5.extendFromSlice(rt.i128.toBeBytes(v51));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v51, f))));
+			const v51 = rt.i128Cast(v40);
+			rt.byteVecExtendFromSlice(out5, rt.i128ToBeBytes(v51));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v51, f))));
 		} else {
-			const v52 = rt.u64.low(v40) | 0;
-			out5.extendFromSlice(rt.isize.toBeBytes(v52));
-			out5.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v52, f))));
+			const v52 = rt.u64Low(v40) | 0;
+			rt.byteVecExtendFromSlice(out5, rt.isizeToBeBytes(v52));
+			rt.byteVecExtendFromSlice(out5, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v52, f))));
 		}
 	} else if (value === 4) {
 		const data6 = data;
 		let buf5: Uint8Array = rt.bytes(16);
 		const n5 = rt.min(data6.length, buf5.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf5, 0, n5), rt.slice.range(data6, 0, n5));
-		const v53 = ([rt.u128.fromBeBytes(buf5), rt.slice.range(data6, n5)] as [rt.u128, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf5, 0, n5), rt.sliceRange(data6, 0, n5));
+		const v53 = ([rt.u128FromBeBytes(buf5), rt.sliceRange(data6, n5)] as [rt.u128, Uint8Array])[0];
 		const out6 = out;
-		const value6 = rt.u8.rem(to, 12);
+		const value6 = rt.u8Rem(to, 12);
 		if (value6 === 0) {
-			const v54 = rt.u128.low(v53) & 0xff;
-			out6.extendFromSlice(rt.u8.toBeBytes(v54));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v54, f))));
+			const v54 = rt.u128Low(v53) & 0xff;
+			rt.byteVecExtendFromSlice(out6, rt.u8ToBeBytes(v54));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v54, f))));
 		} else if (value6 === 1) {
-			const v55 = rt.u128.low(v53) & 0xffff;
-			out6.extendFromSlice(rt.u16.toBeBytes(v55));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v55, f))));
+			const v55 = rt.u128Low(v53) & 0xffff;
+			rt.byteVecExtendFromSlice(out6, rt.u16ToBeBytes(v55));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v55, f))));
 		} else if (value6 === 2) {
-			const v56 = rt.u128.low(v53);
-			out6.extendFromSlice(rt.u32.toBeBytes(v56));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v56, f))));
+			const v56 = rt.u128Low(v53);
+			rt.byteVecExtendFromSlice(out6, rt.u32ToBeBytes(v56));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v56, f))));
 		} else if (value6 === 3) {
-			const v57 = rt.u64.cast(v53);
-			out6.extendFromSlice(rt.u64.toBeBytes(v57));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v57, f))));
+			const v57 = rt.u64Cast(v53);
+			rt.byteVecExtendFromSlice(out6, rt.u64ToBeBytes(v57));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v57, f))));
 		} else if (value6 === 4) {
 			const v58 = v53;
-			out6.extendFromSlice(rt.u128.toBeBytes(v58));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v58, f))));
+			rt.byteVecExtendFromSlice(out6, rt.u128ToBeBytes(v58));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v58, f))));
 		} else if (value6 === 5) {
-			const v59 = rt.u128.low(v53);
-			out6.extendFromSlice(rt.usize.toBeBytes(v59));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v59, f))));
+			const v59 = rt.u128Low(v53);
+			rt.byteVecExtendFromSlice(out6, rt.usizeToBeBytes(v59));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v59, f))));
 		} else if (value6 === 6) {
-			const v60 = (rt.u128.low(v53) << 24) >> 24;
-			out6.extendFromSlice(rt.i8.toBeBytes(v60));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v60, f))));
+			const v60 = (rt.u128Low(v53) << 24) >> 24;
+			rt.byteVecExtendFromSlice(out6, rt.i8ToBeBytes(v60));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v60, f))));
 		} else if (value6 === 7) {
-			const v61 = (rt.u128.low(v53) << 16) >> 16;
-			out6.extendFromSlice(rt.i16.toBeBytes(v61));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v61, f))));
+			const v61 = (rt.u128Low(v53) << 16) >> 16;
+			rt.byteVecExtendFromSlice(out6, rt.i16ToBeBytes(v61));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v61, f))));
 		} else if (value6 === 8) {
-			const v62 = rt.u128.low(v53) | 0;
-			out6.extendFromSlice(rt.i32.toBeBytes(v62));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v62, f))));
+			const v62 = rt.u128Low(v53) | 0;
+			rt.byteVecExtendFromSlice(out6, rt.i32ToBeBytes(v62));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v62, f))));
 		} else if (value6 === 9) {
-			const v63 = rt.i64.cast(v53);
-			out6.extendFromSlice(rt.i64.toBeBytes(v63));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v63, f))));
+			const v63 = rt.i64Cast(v53);
+			rt.byteVecExtendFromSlice(out6, rt.i64ToBeBytes(v63));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v63, f))));
 		} else if (value6 === 10) {
-			const v64 = rt.i128.cast(v53);
-			out6.extendFromSlice(rt.i128.toBeBytes(v64));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v64, f))));
+			const v64 = rt.i128Cast(v53);
+			rt.byteVecExtendFromSlice(out6, rt.i128ToBeBytes(v64));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v64, f))));
 		} else {
-			const v65 = rt.u128.low(v53) | 0;
-			out6.extendFromSlice(rt.isize.toBeBytes(v65));
-			out6.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v65, f))));
+			const v65 = rt.u128Low(v53) | 0;
+			rt.byteVecExtendFromSlice(out6, rt.isizeToBeBytes(v65));
+			rt.byteVecExtendFromSlice(out6, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v65, f))));
 		}
 	} else if (value === 5) {
 		const data7 = data;
 		let buf6: Uint8Array = rt.bytes(4);
 		const n6 = rt.min(data7.length, buf6.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf6, 0, n6), rt.slice.range(data7, 0, n6));
-		const v66 = ([rt.usize.fromBeBytes(buf6), rt.slice.range(data7, n6)] as [rt.usize, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf6, 0, n6), rt.sliceRange(data7, 0, n6));
+		const v66 = ([rt.usizeFromBeBytes(buf6), rt.sliceRange(data7, n6)] as [rt.usize, Uint8Array])[0];
 		const out7 = out;
-		const value7 = rt.u8.rem(to, 12);
+		const value7 = rt.u8Rem(to, 12);
 		if (value7 === 0) {
 			const v67 = v66 & 0xff;
-			out7.extendFromSlice(rt.u8.toBeBytes(v67));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v67, f))));
+			rt.byteVecExtendFromSlice(out7, rt.u8ToBeBytes(v67));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v67, f))));
 		} else if (value7 === 1) {
 			const v68 = v66 & 0xffff;
-			out7.extendFromSlice(rt.u16.toBeBytes(v68));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v68, f))));
+			rt.byteVecExtendFromSlice(out7, rt.u16ToBeBytes(v68));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v68, f))));
 		} else if (value7 === 2) {
 			const v69 = v66 as rt.u32;
-			out7.extendFromSlice(rt.u32.toBeBytes(v69));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v69, f))));
+			rt.byteVecExtendFromSlice(out7, rt.u32ToBeBytes(v69));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v69, f))));
 		} else if (value7 === 3) {
 			const v70 = v66 as rt.u64;
-			out7.extendFromSlice(rt.u64.toBeBytes(v70));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v70, f))));
+			rt.byteVecExtendFromSlice(out7, rt.u64ToBeBytes(v70));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v70, f))));
 		} else if (value7 === 4) {
 			const v71 = v66 as rt.u128;
-			out7.extendFromSlice(rt.u128.toBeBytes(v71));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v71, f))));
+			rt.byteVecExtendFromSlice(out7, rt.u128ToBeBytes(v71));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v71, f))));
 		} else if (value7 === 5) {
 			const v72 = v66;
-			out7.extendFromSlice(rt.usize.toBeBytes(v72));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v72, f))));
+			rt.byteVecExtendFromSlice(out7, rt.usizeToBeBytes(v72));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v72, f))));
 		} else if (value7 === 6) {
 			const v73 = (v66 << 24) >> 24;
-			out7.extendFromSlice(rt.i8.toBeBytes(v73));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v73, f))));
+			rt.byteVecExtendFromSlice(out7, rt.i8ToBeBytes(v73));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v73, f))));
 		} else if (value7 === 7) {
 			const v74 = (v66 << 16) >> 16;
-			out7.extendFromSlice(rt.i16.toBeBytes(v74));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v74, f))));
+			rt.byteVecExtendFromSlice(out7, rt.i16ToBeBytes(v74));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v74, f))));
 		} else if (value7 === 8) {
 			const v75 = v66 | 0;
-			out7.extendFromSlice(rt.i32.toBeBytes(v75));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v75, f))));
+			rt.byteVecExtendFromSlice(out7, rt.i32ToBeBytes(v75));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v75, f))));
 		} else if (value7 === 9) {
 			const v76 = v66 as rt.i64;
-			out7.extendFromSlice(rt.i64.toBeBytes(v76));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v76, f))));
+			rt.byteVecExtendFromSlice(out7, rt.i64ToBeBytes(v76));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v76, f))));
 		} else if (value7 === 10) {
 			const v77 = v66 as rt.i128;
-			out7.extendFromSlice(rt.i128.toBeBytes(v77));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v77, f))));
+			rt.byteVecExtendFromSlice(out7, rt.i128ToBeBytes(v77));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v77, f))));
 		} else {
 			const v78 = v66 | 0;
-			out7.extendFromSlice(rt.isize.toBeBytes(v78));
-			out7.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v78, f))));
+			rt.byteVecExtendFromSlice(out7, rt.isizeToBeBytes(v78));
+			rt.byteVecExtendFromSlice(out7, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v78, f))));
 		}
 	} else if (value === 6) {
 		const data8 = data;
 		let buf7: Uint8Array = rt.bytes(1);
 		const n7 = rt.min(data8.length, buf7.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf7, 0, n7), rt.slice.range(data8, 0, n7));
-		const v79 = ([rt.i8.fromBeBytes(buf7), rt.slice.range(data8, n7)] as [rt.i8, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf7, 0, n7), rt.sliceRange(data8, 0, n7));
+		const v79 = ([rt.i8FromBeBytes(buf7), rt.sliceRange(data8, n7)] as [rt.i8, Uint8Array])[0];
 		const out8 = out;
-		const value8 = rt.u8.rem(to, 12);
+		const value8 = rt.u8Rem(to, 12);
 		if (value8 === 0) {
 			const v80 = v79 & 0xff;
-			out8.extendFromSlice(rt.u8.toBeBytes(v80));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v80, f))));
+			rt.byteVecExtendFromSlice(out8, rt.u8ToBeBytes(v80));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v80, f))));
 		} else if (value8 === 1) {
 			const v81 = v79 & 0xffff;
-			out8.extendFromSlice(rt.u16.toBeBytes(v81));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v81, f))));
+			rt.byteVecExtendFromSlice(out8, rt.u16ToBeBytes(v81));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v81, f))));
 		} else if (value8 === 2) {
 			const v82 = v79 >>> 0;
-			out8.extendFromSlice(rt.u32.toBeBytes(v82));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v82, f))));
+			rt.byteVecExtendFromSlice(out8, rt.u32ToBeBytes(v82));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v82, f))));
 		} else if (value8 === 3) {
-			const v83 = rt.u64.cast(v79);
-			out8.extendFromSlice(rt.u64.toBeBytes(v83));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v83, f))));
+			const v83 = rt.u64Cast(v79);
+			rt.byteVecExtendFromSlice(out8, rt.u64ToBeBytes(v83));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v83, f))));
 		} else if (value8 === 4) {
-			const v84 = rt.u128.cast(v79);
-			out8.extendFromSlice(rt.u128.toBeBytes(v84));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v84, f))));
+			const v84 = rt.u128Cast(v79);
+			rt.byteVecExtendFromSlice(out8, rt.u128ToBeBytes(v84));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v84, f))));
 		} else if (value8 === 5) {
 			const v85 = v79 >>> 0;
-			out8.extendFromSlice(rt.usize.toBeBytes(v85));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v85, f))));
+			rt.byteVecExtendFromSlice(out8, rt.usizeToBeBytes(v85));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v85, f))));
 		} else if (value8 === 6) {
 			const v86 = v79;
-			out8.extendFromSlice(rt.i8.toBeBytes(v86));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v86, f))));
+			rt.byteVecExtendFromSlice(out8, rt.i8ToBeBytes(v86));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v86, f))));
 		} else if (value8 === 7) {
 			const v87 = v79 as rt.i16;
-			out8.extendFromSlice(rt.i16.toBeBytes(v87));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v87, f))));
+			rt.byteVecExtendFromSlice(out8, rt.i16ToBeBytes(v87));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v87, f))));
 		} else if (value8 === 8) {
 			const v88 = v79 as rt.i32;
-			out8.extendFromSlice(rt.i32.toBeBytes(v88));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v88, f))));
+			rt.byteVecExtendFromSlice(out8, rt.i32ToBeBytes(v88));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v88, f))));
 		} else if (value8 === 9) {
 			const v89 = v79 as rt.i64;
-			out8.extendFromSlice(rt.i64.toBeBytes(v89));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v89, f))));
+			rt.byteVecExtendFromSlice(out8, rt.i64ToBeBytes(v89));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v89, f))));
 		} else if (value8 === 10) {
 			const v90 = v79 as rt.i128;
-			out8.extendFromSlice(rt.i128.toBeBytes(v90));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v90, f))));
+			rt.byteVecExtendFromSlice(out8, rt.i128ToBeBytes(v90));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v90, f))));
 		} else {
 			const v91 = v79 as rt.isize;
-			out8.extendFromSlice(rt.isize.toBeBytes(v91));
-			out8.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v91, f))));
+			rt.byteVecExtendFromSlice(out8, rt.isizeToBeBytes(v91));
+			rt.byteVecExtendFromSlice(out8, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v91, f))));
 		}
 	} else if (value === 7) {
 		const data9 = data;
 		let buf8: Uint8Array = rt.bytes(2);
 		const n8 = rt.min(data9.length, buf8.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf8, 0, n8), rt.slice.range(data9, 0, n8));
-		const v92 = ([rt.i16.fromBeBytes(buf8), rt.slice.range(data9, n8)] as [rt.i16, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf8, 0, n8), rt.sliceRange(data9, 0, n8));
+		const v92 = ([rt.i16FromBeBytes(buf8), rt.sliceRange(data9, n8)] as [rt.i16, Uint8Array])[0];
 		const out9 = out;
-		const value9 = rt.u8.rem(to, 12);
+		const value9 = rt.u8Rem(to, 12);
 		if (value9 === 0) {
 			const v93 = v92 & 0xff;
-			out9.extendFromSlice(rt.u8.toBeBytes(v93));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v93, f))));
+			rt.byteVecExtendFromSlice(out9, rt.u8ToBeBytes(v93));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v93, f))));
 		} else if (value9 === 1) {
 			const v94 = v92 & 0xffff;
-			out9.extendFromSlice(rt.u16.toBeBytes(v94));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v94, f))));
+			rt.byteVecExtendFromSlice(out9, rt.u16ToBeBytes(v94));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v94, f))));
 		} else if (value9 === 2) {
 			const v95 = v92 >>> 0;
-			out9.extendFromSlice(rt.u32.toBeBytes(v95));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v95, f))));
+			rt.byteVecExtendFromSlice(out9, rt.u32ToBeBytes(v95));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v95, f))));
 		} else if (value9 === 3) {
-			const v96 = rt.u64.cast(v92);
-			out9.extendFromSlice(rt.u64.toBeBytes(v96));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v96, f))));
+			const v96 = rt.u64Cast(v92);
+			rt.byteVecExtendFromSlice(out9, rt.u64ToBeBytes(v96));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v96, f))));
 		} else if (value9 === 4) {
-			const v97 = rt.u128.cast(v92);
-			out9.extendFromSlice(rt.u128.toBeBytes(v97));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v97, f))));
+			const v97 = rt.u128Cast(v92);
+			rt.byteVecExtendFromSlice(out9, rt.u128ToBeBytes(v97));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v97, f))));
 		} else if (value9 === 5) {
 			const v98 = v92 >>> 0;
-			out9.extendFromSlice(rt.usize.toBeBytes(v98));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v98, f))));
+			rt.byteVecExtendFromSlice(out9, rt.usizeToBeBytes(v98));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v98, f))));
 		} else if (value9 === 6) {
 			const v99 = (v92 << 24) >> 24;
-			out9.extendFromSlice(rt.i8.toBeBytes(v99));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v99, f))));
+			rt.byteVecExtendFromSlice(out9, rt.i8ToBeBytes(v99));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v99, f))));
 		} else if (value9 === 7) {
 			const v100 = v92;
-			out9.extendFromSlice(rt.i16.toBeBytes(v100));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v100, f))));
+			rt.byteVecExtendFromSlice(out9, rt.i16ToBeBytes(v100));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v100, f))));
 		} else if (value9 === 8) {
 			const v101 = v92 as rt.i32;
-			out9.extendFromSlice(rt.i32.toBeBytes(v101));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v101, f))));
+			rt.byteVecExtendFromSlice(out9, rt.i32ToBeBytes(v101));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v101, f))));
 		} else if (value9 === 9) {
 			const v102 = v92 as rt.i64;
-			out9.extendFromSlice(rt.i64.toBeBytes(v102));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v102, f))));
+			rt.byteVecExtendFromSlice(out9, rt.i64ToBeBytes(v102));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v102, f))));
 		} else if (value9 === 10) {
 			const v103 = v92 as rt.i128;
-			out9.extendFromSlice(rt.i128.toBeBytes(v103));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v103, f))));
+			rt.byteVecExtendFromSlice(out9, rt.i128ToBeBytes(v103));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v103, f))));
 		} else {
 			const v104 = v92 as rt.isize;
-			out9.extendFromSlice(rt.isize.toBeBytes(v104));
-			out9.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v104, f))));
+			rt.byteVecExtendFromSlice(out9, rt.isizeToBeBytes(v104));
+			rt.byteVecExtendFromSlice(out9, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v104, f))));
 		}
 	} else if (value === 8) {
 		const data10 = data;
 		let buf9: Uint8Array = rt.bytes(4);
 		const n9 = rt.min(data10.length, buf9.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf9, 0, n9), rt.slice.range(data10, 0, n9));
-		const v105 = ([rt.i32.fromBeBytes(buf9), rt.slice.range(data10, n9)] as [rt.i32, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf9, 0, n9), rt.sliceRange(data10, 0, n9));
+		const v105 = ([rt.i32FromBeBytes(buf9), rt.sliceRange(data10, n9)] as [rt.i32, Uint8Array])[0];
 		const out10 = out;
-		const value10 = rt.u8.rem(to, 12);
+		const value10 = rt.u8Rem(to, 12);
 		if (value10 === 0) {
 			const v106 = v105 & 0xff;
-			out10.extendFromSlice(rt.u8.toBeBytes(v106));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v106, f))));
+			rt.byteVecExtendFromSlice(out10, rt.u8ToBeBytes(v106));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v106, f))));
 		} else if (value10 === 1) {
 			const v107 = v105 & 0xffff;
-			out10.extendFromSlice(rt.u16.toBeBytes(v107));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v107, f))));
+			rt.byteVecExtendFromSlice(out10, rt.u16ToBeBytes(v107));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v107, f))));
 		} else if (value10 === 2) {
 			const v108 = v105 >>> 0;
-			out10.extendFromSlice(rt.u32.toBeBytes(v108));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v108, f))));
+			rt.byteVecExtendFromSlice(out10, rt.u32ToBeBytes(v108));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v108, f))));
 		} else if (value10 === 3) {
-			const v109 = rt.u64.cast(v105);
-			out10.extendFromSlice(rt.u64.toBeBytes(v109));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v109, f))));
+			const v109 = rt.u64Cast(v105);
+			rt.byteVecExtendFromSlice(out10, rt.u64ToBeBytes(v109));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v109, f))));
 		} else if (value10 === 4) {
-			const v110 = rt.u128.cast(v105);
-			out10.extendFromSlice(rt.u128.toBeBytes(v110));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v110, f))));
+			const v110 = rt.u128Cast(v105);
+			rt.byteVecExtendFromSlice(out10, rt.u128ToBeBytes(v110));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v110, f))));
 		} else if (value10 === 5) {
 			const v111 = v105 >>> 0;
-			out10.extendFromSlice(rt.usize.toBeBytes(v111));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v111, f))));
+			rt.byteVecExtendFromSlice(out10, rt.usizeToBeBytes(v111));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v111, f))));
 		} else if (value10 === 6) {
 			const v112 = (v105 << 24) >> 24;
-			out10.extendFromSlice(rt.i8.toBeBytes(v112));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v112, f))));
+			rt.byteVecExtendFromSlice(out10, rt.i8ToBeBytes(v112));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v112, f))));
 		} else if (value10 === 7) {
 			const v113 = (v105 << 16) >> 16;
-			out10.extendFromSlice(rt.i16.toBeBytes(v113));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v113, f))));
+			rt.byteVecExtendFromSlice(out10, rt.i16ToBeBytes(v113));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v113, f))));
 		} else if (value10 === 8) {
 			const v114 = v105;
-			out10.extendFromSlice(rt.i32.toBeBytes(v114));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v114, f))));
+			rt.byteVecExtendFromSlice(out10, rt.i32ToBeBytes(v114));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v114, f))));
 		} else if (value10 === 9) {
 			const v115 = v105 as rt.i64;
-			out10.extendFromSlice(rt.i64.toBeBytes(v115));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v115, f))));
+			rt.byteVecExtendFromSlice(out10, rt.i64ToBeBytes(v115));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v115, f))));
 		} else if (value10 === 10) {
 			const v116 = v105 as rt.i128;
-			out10.extendFromSlice(rt.i128.toBeBytes(v116));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v116, f))));
+			rt.byteVecExtendFromSlice(out10, rt.i128ToBeBytes(v116));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v116, f))));
 		} else {
 			const v117 = v105 as rt.isize;
-			out10.extendFromSlice(rt.isize.toBeBytes(v117));
-			out10.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v117, f))));
+			rt.byteVecExtendFromSlice(out10, rt.isizeToBeBytes(v117));
+			rt.byteVecExtendFromSlice(out10, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v117, f))));
 		}
 	} else if (value === 9) {
 		const data11 = data;
 		let buf10: Uint8Array = rt.bytes(8);
 		const n10 = rt.min(data11.length, buf10.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf10, 0, n10), rt.slice.range(data11, 0, n10));
-		const v118 = ([rt.i64.fromBeBytes(buf10), rt.slice.range(data11, n10)] as [rt.i64, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf10, 0, n10), rt.sliceRange(data11, 0, n10));
+		const v118 = ([rt.i64FromBeBytes(buf10), rt.sliceRange(data11, n10)] as [rt.i64, Uint8Array])[0];
 		const out11 = out;
-		const value11 = rt.u8.rem(to, 12);
+		const value11 = rt.u8Rem(to, 12);
 		if (value11 === 0) {
-			const v119 = rt.i64.low(v118) & 0xff;
-			out11.extendFromSlice(rt.u8.toBeBytes(v119));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v119, f))));
+			const v119 = rt.i64Low(v118) & 0xff;
+			rt.byteVecExtendFromSlice(out11, rt.u8ToBeBytes(v119));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v119, f))));
 		} else if (value11 === 1) {
-			const v120 = rt.i64.low(v118) & 0xffff;
-			out11.extendFromSlice(rt.u16.toBeBytes(v120));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v120, f))));
+			const v120 = rt.i64Low(v118) & 0xffff;
+			rt.byteVecExtendFromSlice(out11, rt.u16ToBeBytes(v120));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v120, f))));
 		} else if (value11 === 2) {
-			const v121 = rt.i64.low(v118);
-			out11.extendFromSlice(rt.u32.toBeBytes(v121));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v121, f))));
+			const v121 = rt.i64Low(v118);
+			rt.byteVecExtendFromSlice(out11, rt.u32ToBeBytes(v121));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v121, f))));
 		} else if (value11 === 3) {
-			const v122 = rt.u64.cast(v118);
-			out11.extendFromSlice(rt.u64.toBeBytes(v122));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v122, f))));
+			const v122 = rt.u64Cast(v118);
+			rt.byteVecExtendFromSlice(out11, rt.u64ToBeBytes(v122));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v122, f))));
 		} else if (value11 === 4) {
-			const v123 = rt.u128.cast(v118);
-			out11.extendFromSlice(rt.u128.toBeBytes(v123));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v123, f))));
+			const v123 = rt.u128Cast(v118);
+			rt.byteVecExtendFromSlice(out11, rt.u128ToBeBytes(v123));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v123, f))));
 		} else if (value11 === 5) {
-			const v124 = rt.i64.low(v118);
-			out11.extendFromSlice(rt.usize.toBeBytes(v124));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v124, f))));
+			const v124 = rt.i64Low(v118);
+			rt.byteVecExtendFromSlice(out11, rt.usizeToBeBytes(v124));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v124, f))));
 		} else if (value11 === 6) {
-			const v125 = (rt.i64.low(v118) << 24) >> 24;
-			out11.extendFromSlice(rt.i8.toBeBytes(v125));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v125, f))));
+			const v125 = (rt.i64Low(v118) << 24) >> 24;
+			rt.byteVecExtendFromSlice(out11, rt.i8ToBeBytes(v125));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v125, f))));
 		} else if (value11 === 7) {
-			const v126 = (rt.i64.low(v118) << 16) >> 16;
-			out11.extendFromSlice(rt.i16.toBeBytes(v126));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v126, f))));
+			const v126 = (rt.i64Low(v118) << 16) >> 16;
+			rt.byteVecExtendFromSlice(out11, rt.i16ToBeBytes(v126));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v126, f))));
 		} else if (value11 === 8) {
-			const v127 = rt.i64.low(v118) | 0;
-			out11.extendFromSlice(rt.i32.toBeBytes(v127));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v127, f))));
+			const v127 = rt.i64Low(v118) | 0;
+			rt.byteVecExtendFromSlice(out11, rt.i32ToBeBytes(v127));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v127, f))));
 		} else if (value11 === 9) {
 			const v128 = v118;
-			out11.extendFromSlice(rt.i64.toBeBytes(v128));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v128, f))));
+			rt.byteVecExtendFromSlice(out11, rt.i64ToBeBytes(v128));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v128, f))));
 		} else if (value11 === 10) {
-			const v129 = rt.i128.cast(v118);
-			out11.extendFromSlice(rt.i128.toBeBytes(v129));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v129, f))));
+			const v129 = rt.i128Cast(v118);
+			rt.byteVecExtendFromSlice(out11, rt.i128ToBeBytes(v129));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v129, f))));
 		} else {
-			const v130 = rt.i64.low(v118) | 0;
-			out11.extendFromSlice(rt.isize.toBeBytes(v130));
-			out11.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v130, f))));
+			const v130 = rt.i64Low(v118) | 0;
+			rt.byteVecExtendFromSlice(out11, rt.isizeToBeBytes(v130));
+			rt.byteVecExtendFromSlice(out11, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v130, f))));
 		}
 	} else if (value === 10) {
 		const data12 = data;
 		let buf11: Uint8Array = rt.bytes(16);
 		const n11 = rt.min(data12.length, buf11.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf11, 0, n11), rt.slice.range(data12, 0, n11));
-		const v131 = ([rt.i128.fromBeBytes(buf11), rt.slice.range(data12, n11)] as [rt.i128, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf11, 0, n11), rt.sliceRange(data12, 0, n11));
+		const v131 = ([rt.i128FromBeBytes(buf11), rt.sliceRange(data12, n11)] as [rt.i128, Uint8Array])[0];
 		const out12 = out;
-		const value12 = rt.u8.rem(to, 12);
+		const value12 = rt.u8Rem(to, 12);
 		if (value12 === 0) {
-			const v132 = rt.i128.low(v131) & 0xff;
-			out12.extendFromSlice(rt.u8.toBeBytes(v132));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v132, f))));
+			const v132 = rt.i128Low(v131) & 0xff;
+			rt.byteVecExtendFromSlice(out12, rt.u8ToBeBytes(v132));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v132, f))));
 		} else if (value12 === 1) {
-			const v133 = rt.i128.low(v131) & 0xffff;
-			out12.extendFromSlice(rt.u16.toBeBytes(v133));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v133, f))));
+			const v133 = rt.i128Low(v131) & 0xffff;
+			rt.byteVecExtendFromSlice(out12, rt.u16ToBeBytes(v133));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v133, f))));
 		} else if (value12 === 2) {
-			const v134 = rt.i128.low(v131);
-			out12.extendFromSlice(rt.u32.toBeBytes(v134));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v134, f))));
+			const v134 = rt.i128Low(v131);
+			rt.byteVecExtendFromSlice(out12, rt.u32ToBeBytes(v134));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v134, f))));
 		} else if (value12 === 3) {
-			const v135 = rt.u64.cast(v131);
-			out12.extendFromSlice(rt.u64.toBeBytes(v135));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v135, f))));
+			const v135 = rt.u64Cast(v131);
+			rt.byteVecExtendFromSlice(out12, rt.u64ToBeBytes(v135));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v135, f))));
 		} else if (value12 === 4) {
-			const v136 = rt.u128.cast(v131);
-			out12.extendFromSlice(rt.u128.toBeBytes(v136));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v136, f))));
+			const v136 = rt.u128Cast(v131);
+			rt.byteVecExtendFromSlice(out12, rt.u128ToBeBytes(v136));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v136, f))));
 		} else if (value12 === 5) {
-			const v137 = rt.i128.low(v131);
-			out12.extendFromSlice(rt.usize.toBeBytes(v137));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v137, f))));
+			const v137 = rt.i128Low(v131);
+			rt.byteVecExtendFromSlice(out12, rt.usizeToBeBytes(v137));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v137, f))));
 		} else if (value12 === 6) {
-			const v138 = (rt.i128.low(v131) << 24) >> 24;
-			out12.extendFromSlice(rt.i8.toBeBytes(v138));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v138, f))));
+			const v138 = (rt.i128Low(v131) << 24) >> 24;
+			rt.byteVecExtendFromSlice(out12, rt.i8ToBeBytes(v138));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v138, f))));
 		} else if (value12 === 7) {
-			const v139 = (rt.i128.low(v131) << 16) >> 16;
-			out12.extendFromSlice(rt.i16.toBeBytes(v139));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v139, f))));
+			const v139 = (rt.i128Low(v131) << 16) >> 16;
+			rt.byteVecExtendFromSlice(out12, rt.i16ToBeBytes(v139));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v139, f))));
 		} else if (value12 === 8) {
-			const v140 = rt.i128.low(v131) | 0;
-			out12.extendFromSlice(rt.i32.toBeBytes(v140));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v140, f))));
+			const v140 = rt.i128Low(v131) | 0;
+			rt.byteVecExtendFromSlice(out12, rt.i32ToBeBytes(v140));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v140, f))));
 		} else if (value12 === 9) {
-			const v141 = rt.i64.cast(v131);
-			out12.extendFromSlice(rt.i64.toBeBytes(v141));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v141, f))));
+			const v141 = rt.i64Cast(v131);
+			rt.byteVecExtendFromSlice(out12, rt.i64ToBeBytes(v141));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v141, f))));
 		} else if (value12 === 10) {
 			const v142 = v131;
-			out12.extendFromSlice(rt.i128.toBeBytes(v142));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v142, f))));
+			rt.byteVecExtendFromSlice(out12, rt.i128ToBeBytes(v142));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v142, f))));
 		} else {
-			const v143 = rt.i128.low(v131) | 0;
-			out12.extendFromSlice(rt.isize.toBeBytes(v143));
-			out12.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v143, f))));
+			const v143 = rt.i128Low(v131) | 0;
+			rt.byteVecExtendFromSlice(out12, rt.isizeToBeBytes(v143));
+			rt.byteVecExtendFromSlice(out12, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v143, f))));
 		}
 	} else {
 		const data13 = data;
 		let buf12: Uint8Array = rt.bytes(4);
 		const n12 = rt.min(data13.length, buf12.length);
-		rt.slice.copyFromSlice(rt.slice.range(buf12, 0, n12), rt.slice.range(data13, 0, n12));
-		const v144 = ([rt.isize.fromBeBytes(buf12), rt.slice.range(data13, n12)] as [rt.isize, Uint8Array])[0];
+		rt.sliceCopyFromSlice(rt.sliceRange(buf12, 0, n12), rt.sliceRange(data13, 0, n12));
+		const v144 = ([rt.isizeFromBeBytes(buf12), rt.sliceRange(data13, n12)] as [rt.isize, Uint8Array])[0];
 		const out13 = out;
-		const value13 = rt.u8.rem(to, 12);
+		const value13 = rt.u8Rem(to, 12);
 		if (value13 === 0) {
 			const v145 = v144 & 0xff;
-			out13.extendFromSlice(rt.u8.toBeBytes(v145));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u8.display(v145, f))));
+			rt.byteVecExtendFromSlice(out13, rt.u8ToBeBytes(v145));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u8Display(v145, f))));
 		} else if (value13 === 1) {
 			const v146 = v144 & 0xffff;
-			out13.extendFromSlice(rt.u16.toBeBytes(v146));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u16.display(v146, f))));
+			rt.byteVecExtendFromSlice(out13, rt.u16ToBeBytes(v146));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u16Display(v146, f))));
 		} else if (value13 === 2) {
 			const v147 = v144 >>> 0;
-			out13.extendFromSlice(rt.u32.toBeBytes(v147));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u32.display(v147, f))));
+			rt.byteVecExtendFromSlice(out13, rt.u32ToBeBytes(v147));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u32Display(v147, f))));
 		} else if (value13 === 3) {
-			const v148 = rt.u64.cast(v144);
-			out13.extendFromSlice(rt.u64.toBeBytes(v148));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u64.display(v148, f))));
+			const v148 = rt.u64Cast(v144);
+			rt.byteVecExtendFromSlice(out13, rt.u64ToBeBytes(v148));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u64Display(v148, f))));
 		} else if (value13 === 4) {
-			const v149 = rt.u128.cast(v144);
-			out13.extendFromSlice(rt.u128.toBeBytes(v149));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.u128.display(v149, f))));
+			const v149 = rt.u128Cast(v144);
+			rt.byteVecExtendFromSlice(out13, rt.u128ToBeBytes(v149));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.u128Display(v149, f))));
 		} else if (value13 === 5) {
 			const v150 = v144 >>> 0;
-			out13.extendFromSlice(rt.usize.toBeBytes(v150));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.usize.display(v150, f))));
+			rt.byteVecExtendFromSlice(out13, rt.usizeToBeBytes(v150));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(v150, f))));
 		} else if (value13 === 6) {
 			const v151 = (v144 << 24) >> 24;
-			out13.extendFromSlice(rt.i8.toBeBytes(v151));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i8.display(v151, f))));
+			rt.byteVecExtendFromSlice(out13, rt.i8ToBeBytes(v151));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i8Display(v151, f))));
 		} else if (value13 === 7) {
 			const v152 = (v144 << 16) >> 16;
-			out13.extendFromSlice(rt.i16.toBeBytes(v152));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i16.display(v152, f))));
+			rt.byteVecExtendFromSlice(out13, rt.i16ToBeBytes(v152));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i16Display(v152, f))));
 		} else if (value13 === 8) {
 			const v153 = v144 as rt.i32;
-			out13.extendFromSlice(rt.i32.toBeBytes(v153));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i32.display(v153, f))));
+			rt.byteVecExtendFromSlice(out13, rt.i32ToBeBytes(v153));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i32Display(v153, f))));
 		} else if (value13 === 9) {
 			const v154 = v144 as rt.i64;
-			out13.extendFromSlice(rt.i64.toBeBytes(v154));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i64.display(v154, f))));
+			rt.byteVecExtendFromSlice(out13, rt.i64ToBeBytes(v154));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i64Display(v154, f))));
 		} else if (value13 === 10) {
 			const v155 = v144 as rt.i128;
-			out13.extendFromSlice(rt.i128.toBeBytes(v155));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.i128.display(v155, f))));
+			rt.byteVecExtendFromSlice(out13, rt.i128ToBeBytes(v155));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.i128Display(v155, f))));
 		} else {
 			const v156 = v144;
-			out13.extendFromSlice(rt.isize.toBeBytes(v156));
-			out13.extendFromSlice(rt.string.asBytes(rt.fmt.toString((f: rt.Formatter) => rt.isize.display(v156, f))));
+			rt.byteVecExtendFromSlice(out13, rt.isizeToBeBytes(v156));
+			rt.byteVecExtendFromSlice(out13, rt.stringAsBytes(rt.fmtToString((f: rt.Formatter) => rt.isizeDisplay(v156, f))));
 		}
 	}
 }
@@ -1859,55 +1859,55 @@ export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	const data2 = data;
 	let buf: Uint8Array = rt.bytes(8);
 	const n = rt.min(data2.length, buf.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf, 0, n), rt.slice.range(data2, 0, n));
-	const [wide, data3] = [rt.u64.fromBeBytes(buf), rt.slice.range(data2, n)] as [rt.u64, Uint8Array];
+	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data2, 0, n));
+	const [wide, data3] = [rt.u64FromBeBytes(buf), rt.sliceRange(data2, n)] as [rt.u64, Uint8Array];
 	const data4 = data3;
 	let buf2: Uint8Array = rt.bytes(4);
 	const n2 = rt.min(data4.length, buf2.length);
-	rt.slice.copyFromSlice(rt.slice.range(buf2, 0, n2), rt.slice.range(data4, 0, n2));
-	const [signed, ] = [rt.i32.fromBeBytes(buf2), rt.slice.range(data4, n2)] as [rt.i32, Uint8Array];
-	out.push(rt.u8.tryFrom(wide).ok ? 1 : 0);
-	const tryFrom = rt.u32.tryFrom(wide);
+	rt.sliceCopyFromSlice(rt.sliceRange(buf2, 0, n2), rt.sliceRange(data4, 0, n2));
+	const [signed, ] = [rt.i32FromBeBytes(buf2), rt.sliceRange(data4, n2)] as [rt.i32, Uint8Array];
+	rt.byteVecPush(out, rt.u8TryFrom(wide).ok ? 1 : 0);
+	const tryFrom = rt.u32TryFrom(wide);
 	if (tryFrom.ok) {
 		const v = tryFrom.value;
-		out.extendFromSlice(rt.u32.toBeBytes(v));
+		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(v));
 	} else {
-		out.push(0xff);
+		rt.byteVecPush(out, 0xff);
 	}
-	const tryFrom2 = rt.usize.tryFrom(signed);
+	const tryFrom2 = rt.usizeTryFrom(signed);
 	if (tryFrom2.ok) {
 		const v2 = tryFrom2.value;
-		out.extendFromSlice(rt.usize.toBeBytes(v2));
+		rt.byteVecExtendFromSlice(out, rt.usizeToBeBytes(v2));
 	} else {
-		out.push(0xfe);
+		rt.byteVecPush(out, 0xfe);
 	}
-	const tryFrom3 = rt.i8.tryFrom(signed);
+	const tryFrom3 = rt.i8TryFrom(signed);
 	if (tryFrom3.ok) {
 		const v3 = tryFrom3.value;
-		out.extendFromSlice(rt.i8.toBeBytes(v3));
+		rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes(v3));
 	} else {
-		out.push(0xfd);
+		rt.byteVecPush(out, 0xfd);
 	}
-	const widened = (rt.u64.low(wide) & 0xffff) as rt.u64;
+	const widened = (rt.u64Low(wide) & 0xffff) as rt.u64;
 	const into = signed as rt.i64;
-	out.extendFromSlice(rt.u64.toBeBytes(widened));
-	out.extendFromSlice(rt.i64.toBeBytes(into));
-	out.push(rt.u8.add(true ? 1 : 0, false ? 1 : 0));
-	const toBeBytes = rt.u32.toBeBytes(signed >>> 0);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(widened));
+	rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(into));
+	rt.byteVecPush(out, rt.u8Add(true ? 1 : 0, false ? 1 : 0));
+	const toBeBytes = rt.u32ToBeBytes(signed >>> 0);
 	const a = toBeBytes[0];
 	const b = toBeBytes[1];
 	const c = toBeBytes[2];
 	const d = toBeBytes[3];
-	out.extendFromSlice(rt.i8.toBeBytes((a << 24) >> 24));
-	out.extendFromSlice(rt.u16.toBeBytes((a << 8) | b));
-	out.extendFromSlice(rt.i16.toBeBytes((((a << 8) | b) << 16) >> 16));
-	out.extendFromSlice(rt.u32.toBeBytes(((a << 24) | (b << 16) | (c << 8) | d) >>> 0));
-	out.extendFromSlice(rt.u32.toBeBytes(((b & 0x3f) << 16) | (c << 8) | d));
-	out.extendFromSlice(rt.i32.toBeBytes((a << 24) | (c << 8) | d));
-	out.extendFromSlice(rt.u32.toBeBytes(0));
-	out.extendFromSlice(rt.u64.toBeBytes(rt.u64.fromBeBytes(Uint8Array.of(d, c, b, a, a, b, c, d))));
+	rt.byteVecExtendFromSlice(out, rt.i8ToBeBytes((a << 24) >> 24));
+	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes((a << 8) | b));
+	rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes((((a << 8) | b) << 16) >> 16));
+	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(((a << 24) | (b << 16) | (c << 8) | d) >>> 0));
+	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(((b & 0x3f) << 16) | (c << 8) | d));
+	rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes((a << 24) | (c << 8) | d));
+	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(0));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64FromBeBytes(Uint8Array.of(d, c, b, a, a, b, c, d))));
 	const bytes = Uint8Array.of(d, c, b, a);
-	out.extendFromSlice(rt.i32.toBeBytes(rt.i32.fromBeBytes(bytes)));
+	rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(rt.i32FromBeBytes(bytes)));
 }
 
 //# sourceMappingURL=ints.ts.map

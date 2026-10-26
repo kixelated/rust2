@@ -252,10 +252,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
 				let end = end.unwrap_or_else(|| s.clone().member("length"));
 				let dest = self.operand(&args[2].node, span, out);
-				done(
-					Expr::Rt("slice").member("copyWithin").call(vec![s, start, end, dest]),
-					true,
-				)
+				done(Expr::rt("sliceCopyWithin", vec![s, start, end, dest]), true)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
@@ -330,7 +327,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 								None => values.clone().index(Expr::lit(index.to_string())),
 							};
 							parts.push(match spec.object() {
-								Some(spec) => Expr::Rt("fmt").member("spec").call(vec![spec, value]),
+								Some(spec) => Expr::rt("fmtSpec", vec![spec, value]),
 								None => value,
 							});
 						}
@@ -393,7 +390,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let items = self.operand(&args[1].node, span, out);
 				let items = self.items(items, iter_ty, span)?;
 				let debug = self.b.fmt_fn(fmt::Trait::Debug, targ(0)?, span);
-				done(list.member("entries").call(vec![items, debug]), true)
+				done(Expr::rt("debugListEntries", vec![list, items, debug]), true)
 			}
 			_ => None,
 		}
@@ -509,7 +506,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
-				Some(Some((Expr::Rt("slice").member("range").call(values), true)))
+				Some(Some((Expr::rt("sliceRange", values), true)))
 			}
 		}
 	}
@@ -613,8 +610,8 @@ pub fn control_flow_test<'tcx>(
 	let continues = variant.index() == 0;
 	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
 		return match continues {
-			true => scrut.clone().binary("!==", Expr::Rt("DONE")),
-			false => scrut.clone().binary("===", Expr::Rt("DONE")),
+			true => scrut.clone().binary("!==", Expr::Rt("DONE".into())),
+			false => scrut.clone().binary("===", Expr::Rt("DONE".into())),
 		};
 	}
 	match residual(fx.tcx, ty) {

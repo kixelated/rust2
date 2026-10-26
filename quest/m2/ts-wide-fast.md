@@ -12,7 +12,7 @@ differential sweep still passing.
 From [#26](https://github.com/kixelated/rust2/pull/26)'s follow-ups:
 
 - A fused `from_halves`: Chrome's 8-byte varint decode is 25-45% slower than
-  `bigint`'s, since it goes through `rt.u64.or(rt.u64.shl(hi, 32), lo)`.
+  `bigint`'s, since it goes through `rt.u64Or(rt.u64Shl(hi, 32), lo)`.
 - A product of two numbers past 2^53 boxes both factors into limbs before
   multiplying; multiplying their halves directly would cut the allocations
   `rescale` measures.

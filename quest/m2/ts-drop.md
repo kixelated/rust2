@@ -30,6 +30,11 @@ What still fails translation from MIR, by the census of moq-net at the pinned re
   `library.rs` refuses any operand that drops, even one a mapping always keeps;
   it should name the operands each mapping may discard instead.
 - A generic type that implements `Drop` (11).
+- A collection holding a value that drops (279): dropping it (118), and the methods
+  that may drop what it holds or is given (161), which are `clear`, `retain`,
+  `truncate`, `drain`, a `remove` of a key that drops, which drops the key the map
+  held, and an `insert` or `entry` given a key that drops, such as a `Path`, which
+  drops that key if the map holds an equal one.
 
 THIR's refusals that MIR's elaboration closes, for comparison: 657 drops of a value
 without glue, 280 temporaries that drop, 60 `for` loops, 112 moves out of other places,

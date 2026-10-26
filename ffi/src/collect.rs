@@ -88,6 +88,9 @@ struct Collector<'tcx> {
 	opaque: Vec<(String, Why)>,
 	twins: Vec<String>,
 	bytes: Option<DefId>,
+	/// `std::ops::Bound`, and `std::ops::RangeBounds`, which names it.
+	bound: Option<DefId>,
+	range_bounds: Option<DefId>,
 	api: Api,
 }
 
@@ -103,6 +106,18 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, exclude: &[String]) -> Collected {
 				.find(|child| child.ident.as_str() == "Bytes")
 				.and_then(|child| child.res.opt_def_id())
 		});
+	let range_bounds = tcx.get_diagnostic_item(rustc_span::Symbol::intern("RangeBounds"));
+	// `RangeBounds::start_bound` returns a `Bound`, which has no diagnostic item of its own.
+	let bound = range_bounds.and_then(|tr| {
+		let start = tcx
+			.associated_items(tr)
+			.in_definition_order()
+			.find(|item| item.name().as_str() == "start_bound")?;
+		match tcx.fn_sig(start.def_id).skip_binder().skip_binder().output().kind() {
+			ty::Adt(adt, _) => Some(adt.did()),
+			_ => None,
+		}
+	});
 	let mut c = Collector {
 		tcx,
 		items: Vec::new(),
@@ -116,6 +131,8 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, exclude: &[String]) -> Collected {
 		opaque: Vec::new(),
 		twins: Vec::new(),
 		bytes,
+		bound,
+		range_bounds,
 		api: Api {
 			// The library's name, which may not be the package's.
 			krate: tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string(),
@@ -233,15 +250,16 @@ impl<'tcx> Collector<'tcx> {
 	fn declare(&mut self) {
 		let tcx = self.tcx;
 		for (def_id, _) in self.items.clone() {
-			let generic = || {
-				tcx.generics_of(def_id)
-					.own_params
-					.iter()
-					.any(|p| p.name != rustc_span::kw::SelfUpper)
-			};
+			let params = &tcx.generics_of(def_id).own_params;
+			let generic = params.iter().any(|p| p.name != rustc_span::kw::SelfUpper);
+			let lifetimes = params
+				.iter()
+				.all(|p| matches!(p.kind, ty::GenericParamDefKind::Lifetime));
 			let decl = match tcx.def_kind(def_id) {
 				DefKind::Union => Decl::Refused(why("union", "")),
-				DefKind::Struct | DefKind::Enum | DefKind::Trait if generic() => Decl::Refused(why("generic type", "")),
+				// Held by a handle that outlives any call, it is the form that borrows nothing.
+				DefKind::Struct | DefKind::Enum if generic && lifetimes => self.object(def_id),
+				DefKind::Struct | DefKind::Enum | DefKind::Trait if generic => Decl::Refused(why("generic type", "")),
 				// A value is copied across and lowered into memory C frees, so its own `Drop`
 				// would run when Rust lets go of it, not when C does.
 				DefKind::Struct | DefKind::Enum if tcx.adt_destructor(def_id).is_some() => self.object(def_id),
@@ -311,12 +329,14 @@ impl<'tcx> Collector<'tcx> {
 					*i = api.objects.len();
 					let sync = implements(tcx, def_id, sym::Sync);
 					let copy = implements(tcx, def_id, sym::Copy);
+					let lifetimes = tcx.generics_of(def_id).own_counts().lifetimes;
 					api.objects.push(Object {
 						path,
 						span,
 						docs,
 						sync,
 						copy,
+						lifetimes,
 						methods: Vec::new(),
 						traits: Traits::default(),
 					});
@@ -511,7 +531,7 @@ impl<'tcx> Collector<'tcx> {
 	/// A getter for each `pub` field of a struct exported as an object, returning a copy.
 	fn getters(&mut self, def_id: DefId, path: &[String]) -> Vec<Function> {
 		let tcx = self.tcx;
-		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
+		let identity = statics(tcx, def_id);
 		let mut getters = Vec::new();
 		for field in &tcx.adt_def(def_id).non_enum_variant().fields {
 			if !field.vis.is_public() {
@@ -549,7 +569,10 @@ impl<'tcx> Collector<'tcx> {
 		let tcx = self.tcx;
 		let mut methods = Vec::new();
 		let mut refused = Vec::new();
-		let self_ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+		let self_ty = tcx
+			.type_of(def_id)
+			.instantiate(tcx, statics(tcx, def_id))
+			.skip_norm_wip();
 		for &imp in tcx.inherent_impls(def_id) {
 			for item in tcx.associated_items(imp).in_definition_order() {
 				let (ty::AssocKind::Fn { name, .. } | ty::AssocKind::Const { name, .. }) = item.kind else {
@@ -688,6 +711,7 @@ impl<'tcx> Collector<'tcx> {
 			GenericArgKind::Lifetime(region) => !region.is_static(),
 			_ => false,
 		});
+		errs.extend(self.borrows(sig.skip_binder()));
 		let sig = tcx.instantiate_bound_regions_with_erased(sig);
 		let normalize = |ty: Ty<'tcx>| {
 			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
@@ -745,11 +769,10 @@ impl<'tcx> Collector<'tcx> {
 			future = true;
 		}
 		let (ok, err) = match output.kind() {
-			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => (
-				self.ty(args.type_at(0), Pos::Return),
-				Some(self.ty(args.type_at(1), Pos::Return)),
-			),
-			_ => (self.ty(output, Pos::Return), None),
+			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
+				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
+			}
+			_ => (self.ret(output), None),
 		};
 		let ok = ok.map_err(|why| errs.push(why)).ok();
 		let err = match err {
@@ -778,23 +801,22 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The generic arguments a function is exported with: its parent's own (a trait's
-	/// `Self`), its lifetimes erased, and each type parameter by the rules in
-	/// [`Self::choose`].
+	/// `Self`), an impl's lifetimes `'static` as its type's are, its own lifetimes as they
+	/// are, and each type parameter by the rules in [`Self::choose`].
 	fn instantiate(&self, def_id: DefId, self_ty: Option<Ty<'tcx>>) -> Result<ty::GenericArgsRef<'tcx>, Vec<Why>> {
 		let tcx = self.tcx;
 		let generics = tcx.generics_of(def_id);
 		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
-		if !generics.requires_monomorphization(tcx) {
-			return Ok(identity);
-		}
 		let mut errs = Vec::new();
 		let mut args: Vec<ty::GenericArg<'tcx>> = identity.to_vec();
 		let parent = generics.parent_count;
 		// A trait method's `Self` stays a parameter: the trait is the callback.
 		let _ = self_ty;
-		for (i, arg) in identity.iter().enumerate().skip(parent) {
+		for (i, arg) in identity.iter().enumerate() {
 			match arg.kind() {
-				GenericArgKind::Lifetime(_) => args[i] = tcx.lifetimes.re_erased.into(),
+				GenericArgKind::Lifetime(_) if i < parent => args[i] = tcx.lifetimes.re_static.into(),
+				_ if i < parent => {}
+				GenericArgKind::Lifetime(_) => {}
 				GenericArgKind::Const(_) => errs.push(why("const generic", "")),
 				GenericArgKind::Type(param) => match self.choose(def_id, param) {
 					Ok(ty) => args[i] = ty.into(),
@@ -829,16 +851,26 @@ impl<'tcx> Collector<'tcx> {
 			.filter_map(|clause| clause.as_trait_clause())
 			.filter(|pred| pred.self_ty().skip_binder() == param)
 			.collect();
+		// A parameter that must outlive the call cannot borrow what C lends for it.
+		let outlives = identity.clauses.iter().any(|clause| {
+			clause
+				.skip_norm_wip()
+				.as_type_outlives_clause()
+				.is_some_and(|pred| pred.skip_binder().0 == param)
+		});
 		let mut candidates = Vec::new();
 		for bound in &bounds {
 			let tr = bound.def_id();
+			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
-				let target = bound.skip_binder().trait_ref.args.type_at(1);
-				candidates.push(match target.kind() {
-					ty::Str => Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, target),
-					ty::Slice(_) => Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, target),
-					_ => target,
-				});
+				let target = target();
+				match target.kind() {
+					ty::Str | ty::Slice(_) if outlives => {}
+					ty::Str | ty::Slice(_) => candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target)),
+					_ => candidates.push(target),
+				}
+			} else if Some(tr) == self.range_bounds {
+				candidates.extend(self.bounds(target()));
 			}
 		}
 		if let Some(string) = tcx.lang_items().string() {
@@ -935,6 +967,81 @@ impl<'tcx> Collector<'tcx> {
 		let projection = Ty::new_projection(tcx, ty::IsRigid::No, output, [ty]);
 		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
 			.ok()
+	}
+
+	/// Why a signature's borrows cannot cross: a handle outlives every call, so each object
+	/// it takes or returns is the `'static` form of its type, which may borrow neither what
+	/// C lends for the call nor a lifetime its other arguments borrow with. A returned
+	/// object may take only a lifetime the objects it is given take, which are `'static`.
+	fn borrows(&self, sig: ty::FnSig<'tcx>) -> Vec<Why> {
+		let mut errs = Vec::new();
+		let mut objects = Vec::new();
+		let mut borrows = Vec::new();
+		for &input in sig.inputs() {
+			let (held, lent) = self.lifetimes(input);
+			if lent.iter().any(|r| r.is_static()) {
+				errs.push(why("'static borrow", input.to_string()));
+			}
+			objects.extend(held);
+			borrows.extend(lent);
+		}
+		if objects.iter().any(|r| !r.is_static() && borrows.contains(r)) {
+			errs.push(why("borrow tied to an object's lifetime", ""));
+		}
+		let (held, _) = self.lifetimes(sig.output());
+		if held.iter().any(|r| !r.is_static() && !objects.contains(r)) {
+			errs.push(why("returned object that borrows", sig.output().to_string()));
+		}
+		errs
+	}
+
+	/// The lifetimes in `ty`: those its objects take, then those it borrows with.
+	fn lifetimes(&self, ty: Ty<'tcx>) -> (Vec<ty::Region<'tcx>>, Vec<ty::Region<'tcx>>) {
+		let mut held = Vec::new();
+		let mut lent = Vec::new();
+		for ty in ty.walk().filter_map(|arg| arg.as_type()) {
+			match ty.kind() {
+				ty::Ref(region, ..) => lent.push(*region),
+				ty::Adt(adt, args) if matches!(self.decls.get(&adt.did()), Some(Decl::Object(_))) => {
+					held.extend(args.regions())
+				}
+				_ => {}
+			}
+		}
+		(held, lent)
+	}
+
+	/// What a function returns: a tuple's elements each, or else one value.
+	fn ret(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
+		let ty::Tuple(list) = ty.kind() else {
+			return self.ty(ty, Pos::Return);
+		};
+		if list.is_empty() {
+			return Ok(Type::Unit);
+		}
+		let mut elements = Vec::new();
+		for element in list.iter() {
+			match self.ty(element, Pos::Return)? {
+				Type::Unit => return Err(why("unit in a tuple", ty.to_string())),
+				element => elements.push(element),
+			}
+		}
+		Ok(Type::Tuple(elements))
+	}
+
+	/// `(Bound<T>, Bound<T>)`, which a `RangeBounds<T>` parameter takes.
+	fn bounds(&self, int: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let bound = Ty::new_adt(tcx, tcx.adt_def(self.bound?), tcx.mk_args(&[int.into()]));
+		Some(Ty::new_tup(tcx, &[bound, bound]))
+	}
+
+	/// The integer a `Bound` holds.
+	fn bound_of(&self, ty: Ty<'tcx>) -> Option<Int> {
+		match ty.kind() {
+			ty::Adt(adt, args) if Some(adt.did()) == self.bound => int(args.type_at(0)),
+			_ => None,
+		}
 	}
 
 	/// Whether `ty` holds an object that is not `Copy`, which a copy would duplicate.
@@ -1056,20 +1163,22 @@ impl<'tcx> Collector<'tcx> {
 					ty::Slice(elem) if *elem == tcx.types.u8 => Type::Slice,
 					ty::Slice(elem) => return Err(why("slice", elem.to_string())),
 					ty::Dynamic(..) => return Err(why("trait object", inner.to_string())),
-					_ => self.ty(*inner, Pos::Behind)?,
+					_ => self.ty(
+						*inner,
+						match pos {
+							Pos::Return | Pos::Returned => Pos::Returned,
+							_ => Pos::Behind,
+						},
+					)?,
 				};
 				let mutability = match m {
 					ty::Mutability::Not => Mutability::Not,
 					ty::Mutability::Mut => Mutability::Mut,
 				};
 				match (&inner_ty, pos, mutability) {
-					// Returned as a copy: plain data reads the same either way, and so does a
-					// `Copy` handle's value, but a clone of another handle is a new one.
-					(_, Pos::Return, _) if self.holds_handle(*inner) => {
-						return Err(why("borrowed object return", inner.to_string()));
-					}
-					(Type::Str | Type::Slice, Pos::Return, _) => {}
-					(_, Pos::Return, _) if !self.is_clone(*inner) => {
+					// Returned as a clone: a handle in it is a new handle to its clone.
+					(Type::Str | Type::Slice, Pos::Return | Pos::Returned, _) => {}
+					(_, Pos::Return | Pos::Returned, _) if !self.is_clone(*inner) => {
 						return Err(why("borrowed return that is not Clone", inner.to_string()));
 					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
@@ -1097,6 +1206,10 @@ impl<'tcx> Collector<'tcx> {
 					Type::Bytes
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
 					Type::Duration
+				} else if tcx.lang_items().range_struct() == Some(did) {
+					Type::Range(int(args.type_at(0)).ok_or_else(|| why("Range", args.type_at(0).to_string()))?)
+				} else if Some(did) == self.bound {
+					Type::Bound(int(args.type_at(0)).ok_or_else(|| why("Bound", args.type_at(0).to_string()))?)
 				} else if tcx.is_diagnostic_item(sym::Option, did) {
 					let inner = self.ty(args.type_at(0), pos.inner())?;
 					// C has one `None` per option, so it cannot hold one inside another, even
@@ -1146,7 +1259,15 @@ impl<'tcx> Collector<'tcx> {
 					}
 				}
 			}
-			ty::Tuple(_) => return Err(why("tuple", "")),
+			ty::Tuple(list) => match list.as_slice() {
+				[start, end]
+					if start == end
+						&& let Some(int) = self.bound_of(*start) =>
+				{
+					Type::Bounds(int)
+				}
+				_ => return Err(why("tuple", "")),
+			},
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
 			ty::Dynamic(..) => return Err(why("trait object", ty.to_string())),
@@ -1178,7 +1299,9 @@ enum Pos {
 	Param,
 	Return,
 	Field,
-	/// Inside another type: an `Option`, a `Box`, or behind a reference.
+	/// Inside what a function returns: an `Option`, a `Box`, or behind a reference.
+	Returned,
+	/// Inside another type.
 	Behind,
 }
 
@@ -1203,11 +1326,13 @@ fn foreign_return(ty: &Type) -> bool {
 }
 
 impl Pos {
-	/// The position of a type inside an `Option` or `Box` here: a field's stays a field's.
+	/// The position of a type inside an `Option` or `Box` here: a field's stays a field's,
+	/// and a return's is still returned.
 	fn inner(self) -> Pos {
 		match self {
 			Pos::Field => Pos::Field,
-			_ => Pos::Behind,
+			Pos::Return | Pos::Returned => Pos::Returned,
+			Pos::Param | Pos::Behind => Pos::Behind,
 		}
 	}
 }
@@ -1273,6 +1398,14 @@ fn implements(tcx: TyCtxt<'_>, def_id: DefId, item: rustc_span::Symbol) -> bool 
 		.infer_ctxt()
 		.build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
+}
+
+/// A type's own generic arguments as it is exported: its lifetimes `'static`.
+fn statics<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId) -> ty::GenericArgsRef<'tcx> {
+	ty::GenericArgs::for_item(tcx, def_id, |param, _| match param.kind {
+		ty::GenericParamDefKind::Lifetime => tcx.lifetimes.re_static.into(),
+		_ => tcx.mk_param_from_def(param),
+	})
 }
 
 /// A type's path without generic arguments.

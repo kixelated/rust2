@@ -1,4 +1,4 @@
 package = "api-fixture"
 prefix = "api"
-# A copy of the list's tail would be a new handle, so its getter is refused.
+# The list's tail is not `Clone`, so its getter has no copy to return.
 exclude = ["Node::next"]

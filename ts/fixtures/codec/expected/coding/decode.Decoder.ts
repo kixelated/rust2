@@ -44,7 +44,7 @@ export function need(self: Decoder): rt.usize {
 
 /** Record that a read wanted `more` bytes past the current position. */
 export function short(self: Decoder, more: rt.usize): DecodeError.DecodeError {
-	const need_ = rt.usize.saturatingAdd(rt.usize.sub(self.len, self.buf.length), more);
+	const need_ = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
 	self.need = rt.max(self.need, need_);
 	return { tag: "Short" };
 }
@@ -61,7 +61,7 @@ export function isEmpty(self: Decoder): boolean {
 
 /** Read `len` raw bytes. */
 export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	const splitAtChecked = rt.slice.splitAtChecked(self.buf, len);
+	const splitAtChecked = rt.sliceSplitAtChecked(self.buf, len);
 	if (splitAtChecked === undefined) {
 		return rt.Err(short(self, len));
 	}
@@ -130,7 +130,7 @@ export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError
 		self.buf = rest_;
 		return rt.Ok(value);
 	} else if (!read_.ok && read_.error.tag === "Short") {
-		return rt.Err(short(self, rt.usize.add(self.buf.length, 1)));
+		return rt.Err(short(self, rt.usizeAdd(self.buf.length, 1)));
 	} else {
 		const err = read_.error;
 		return rt.Err(err);
@@ -143,7 +143,7 @@ export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeEr
 	if (!varint_.ok) {
 		return rt.Err(varint_.error);
 	}
-	return rt.Ok(rt.u64.checkedSub(varint_.value, 1));
+	return rt.Ok(rt.u64CheckedSub(varint_.value, 1));
 }
 
 /** Read a varint length, then that many raw bytes. */
@@ -153,14 +153,14 @@ export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeEr
 	if (!varint_.ok) {
 		return rt.Err(varint_.error);
 	}
-	const mapErr = rt.result.mapErr(rt.usize.tryFrom(varint_.value), (_: rt.TryFromIntError): DecodeError.DecodeError => {
+	const mapErr = rt.resultMapErr(rt.usizeTryFrom(varint_.value), (_: rt.TryFromIntError): DecodeError.DecodeError => {
 		return { tag: "BoundsExceeded" };
 	});
 	if (!mapErr.ok) {
 		return rt.Err(mapErr.error);
 	}
 	const len = mapErr.value;
-	return rt.result.inspectErr(slice(self, len), (_2: DecodeError.DecodeError): void => {
+	return rt.resultInspectErr(slice(self, len), (_2: DecodeError.DecodeError): void => {
 		self.buf = start;
 	});
 }
@@ -171,7 +171,7 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 	if (!bytes_.ok) {
 		return rt.Err(bytes_.error);
 	}
-	const fromUtf8 = rt.string.fromUtf8(rt.slice.toByteVec(bytes_.value));
+	const fromUtf8 = rt.stringFromUtf8(rt.sliceToByteVec(bytes_.value));
 	if (!fromUtf8.ok) {
 		return rt.Err(DecodeError.from$From_FromUtf8Error(fromUtf8.error));
 	}
