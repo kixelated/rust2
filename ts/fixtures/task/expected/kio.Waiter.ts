@@ -20,13 +20,11 @@ export class Waiter {
 }
 
 function new_(waker: rt.Waker): Waiter {
-	let shared!: rt.Arc<rt.Waker>;
-	let _5!: rt.Waker;
 	let unwind: number = 0;
 	try {
 		unwind = 4;
-		shared = new rt.Arc(waker.clone());
-		_5 = waker;
+		const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
+		const _5: rt.Waker = waker;
 		return new Waiter({ waker: _5, shared });
 	} catch (e) {
 		if (unwind === 0) {

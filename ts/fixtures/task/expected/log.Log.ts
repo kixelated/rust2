@@ -25,32 +25,24 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	let _4!: string[];
-	let _6!: rt.Mutex<string[]>;
-	_6 = self._0.value;
-	_4 = _6.value;
+	const _6: rt.Mutex<string[]> = self._0.value;
+	const _4: string[] = _6.value;
 	_4.push(event);
 }
 
 /** Every event so far, one per line. */
 export function text(self: Log): rt.ByteVec {
-	let events!: rt.Mutex<string[]>;
-	let out!: rt.ByteVec;
-	let iter!: rt.Iter<string>;
-	let _13!: string | rt.Done;
-	let _19!: Uint8Array;
-	events = self._0.value;
-	out = new rt.ByteVec();
-	iter = rt.iterSlice(events.value);
+	const events: rt.Mutex<string[]> = self._0.value;
+	const out: rt.ByteVec = new rt.ByteVec();
+	const iter: rt.Iter<string> = rt.iterSlice(events.value);
 	while (true) {
-		_13 = iter.next();
+		const _13: string | rt.Done = iter.next();
 		if (_13 === rt.DONE) {
 			return out;
-		} else {
-			_19 = rt.stringAsBytes(_13);
-			rt.byteVecExtendFromSlice(out, _19);
-			rt.byteVecPush(out, 10);
 		}
+		const _19: Uint8Array = rt.stringAsBytes(_13);
+		rt.byteVecExtendFromSlice(out, _19);
+		rt.byteVecPush(out, 10);
 	}
 }
 

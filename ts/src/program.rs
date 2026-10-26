@@ -156,10 +156,14 @@ impl Program {
 			}
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
-					let base = match taken.contains(&field.base) {
+					let base = match field.base.strip_prefix('#') {
+						// The one private name JS forbids.
+						Some("constructor") => "#_constructor".to_string(),
+						// Any other can only clash with another field's, which `unique` numbers.
+						Some(_) => field.base.clone(),
 						// A name a class already defines: the field gives way.
-						true => format!("_{}", field.base),
-						false => field.base.clone(),
+						None if taken.contains(&field.base) => format!("_{}", field.base),
+						None => field.base.clone(),
 					};
 					field.name = unique(&mut taken, &base);
 				}
@@ -215,7 +219,7 @@ enum Scope {
 }
 
 /// `base`, or the first of `base$2`, `base$3`, and on that is not taken.
-fn unique(taken: &mut HashSet<String>, base: &str) -> String {
+pub(crate) fn unique(taken: &mut HashSet<String>, base: &str) -> String {
 	let mut name = base.to_string();
 	let mut n = 2;
 	while taken.contains(&name) {

@@ -21,7 +21,6 @@ export class Channel {
 }
 
 export function open(): Channel {
-	let _0!: Channel;
 	let producer!: Producer.Producer;
 	let consumer_!: Consumer.Consumer;
 	let producers!: Producer.Producer[];
@@ -38,7 +37,7 @@ export function open(): Channel {
 		unwind = 6;
 		_10 = false;
 		producers.push(producer);
-		_0 = new Channel({ producers, consumer: consumer_ });
+		const _0: Channel = new Channel({ producers, consumer: consumer_ });
 		_10 = false;
 		return _0;
 	} catch (e) {
@@ -67,40 +66,33 @@ export function consumer(self: Channel): Consumer.Consumer {
 
 /** Send `value` through the first producer, if one is open. */
 export function send(self: Channel, value: rt.u64): boolean {
-	let _3!: Producer.Producer | undefined;
-	_3 = rt.sliceFirst(self.producers);
+	const _3: Producer.Producer | undefined = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
 		return false;
-	} else {
-		Producer.send(_3, value);
-		return true;
 	}
+	Producer.send(_3, value);
+	return true;
 }
 
 /** Drop the last producer, if one is open: the last closes the channel. */
 export function close(self: Channel): boolean {
-	let _2!: Producer.Producer | undefined;
-	_2 = self.producers.pop();
+	const _2: Producer.Producer | undefined = self.producers.pop();
 	if (_2 === undefined) {
 		return false;
-	} else {
-		rt.drop(_2);
-		return true;
 	}
+	rt.drop(_2);
+	return true;
 }
 
 /** Open another producer, if one is open to clone. */
 export function cloneProducer(self: Channel): boolean {
-	let clone!: Producer.Producer;
-	let _3!: Producer.Producer | undefined;
-	_3 = rt.sliceFirst(self.producers);
+	const _3: Producer.Producer | undefined = rt.sliceFirst(self.producers);
 	if (_3 === undefined) {
 		return false;
-	} else {
-		clone = Producer.clone$Clone(_3);
-		self.producers.push(clone);
-		return true;
 	}
+	const clone: Producer.Producer = Producer.clone$Clone(_3);
+	self.producers.push(clone);
+	return true;
 }
 
 //# sourceMappingURL=model.Channel.ts.map

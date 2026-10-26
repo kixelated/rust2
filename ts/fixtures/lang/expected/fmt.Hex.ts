@@ -8,17 +8,14 @@ export interface Hex {
 }
 
 export function fmt$Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let args2!: rt.Fmt[];
-	let args4!: rt.Fmt[];
 	if (!rt.fmtAlternate(f)) {
 		const arg2 = ([self._0] as [rt.u32])[0];
-		args4 = [(f: rt.Formatter) => rt.u32LowerHex(arg2, f)];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32LowerHex(arg2, f)];
 		return rt.fmtWriteFmt(f, [args4[0]]);
-	} else {
-		const arg = ([self._0] as [rt.u32])[0];
-		args2 = [(f: rt.Formatter) => rt.u32LowerHex(arg, f)];
-		return rt.fmtWriteFmt(f, [rt.fmtSpec({ alternate: true }, args2[0])]);
 	}
+	const arg = ([self._0] as [rt.u32])[0];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32LowerHex(arg, f)];
+	return rt.fmtWriteFmt(f, [rt.fmtSpec({ alternate: true }, args2[0])]);
 }
 
 export function fmt$Debug(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {

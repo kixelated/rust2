@@ -3,12 +3,9 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _3!: string;
-	let _4!: rt.Fmt;
-	let _6!: rt.Fmt;
-	_3 = "Moved";
-	_4 = (f: rt.Formatter) => rt.u8Display(self._0, f);
-	_6 = (f: rt.Formatter) => rt.u16Display(self._1, f);
+	const _3: string = "Moved";
+	const _4: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self._0, f);
+	const _6: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self._1, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _3), _4), _6));
 }
 

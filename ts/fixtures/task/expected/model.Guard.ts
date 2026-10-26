@@ -25,23 +25,20 @@ function new_(id: rt.u32, log: Log.Log): Guard {
 
 /** Log `event` as this guard's. */
 export function note(self: Guard, event: string): void {
-	let _5!: string;
-	let args2!: rt.Fmt[];
 	const arg = self.id;
-	args2 = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.fmtPad(f, event)];
-	_5 = rt.fmtFormat(["g", args2[0], " ", args2[1]]);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.fmtPad(f, event)];
+	const _5: string = rt.fmtFormat(["g", args2[0], " ", args2[1]]);
 	Log.note(self.log, _5);
 }
 
 /** Log `event`, then drop: `self`, taken by value, drops as the call returns. */
 export function finish(self: Guard, event: string): rt.u32 {
-	let _0!: rt.u32;
 	let unwind: number = 0;
 	try {
 		unwind = 4;
 		note(self, event);
 		unwind = 0;
-		_0 = self.id;
+		const _0: rt.u32 = self.id;
 		rt.drop(self);
 		return _0;
 	} catch (e) {
@@ -55,11 +52,10 @@ export function finish(self: Guard, event: string): rt.u32 {
 
 /** [`Self::finish`], moved out of its box: freeing the box must not drop it again. */
 export function unbox(self: Guard, event: string): rt.u32 {
-	let _0!: rt.u32;
 	let unwind: number = 0;
 	try {
 		unwind = 5;
-		_0 = finish(self, event);
+		const _0: rt.u32 = finish(self, event);
 		unwind = 0;
 		return _0;
 	} catch (e) {
@@ -71,11 +67,9 @@ export function unbox(self: Guard, event: string): rt.u32 {
 }
 
 export function drop$Drop(self: Guard): void {
-	let _4!: string;
-	let args2!: rt.Fmt[];
 	const arg = ([self.id] as [rt.u32])[0];
-	args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
-	_4 = rt.fmtFormat(["g", args2[0], " drop"]);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+	const _4: string = rt.fmtFormat(["g", args2[0], " drop"]);
 	Log.note(self.log, _4);
 }
 
