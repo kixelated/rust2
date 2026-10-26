@@ -65,6 +65,8 @@ pub(super) fn decode_with<T: Message>(
 ) -> Result<T, DecodeError> {
 	let size = decode_size(r, T::MAX_SIZE)?;
 	let mut body = r.sub(size)?;
+	// Left out with its arguments, whose `Option<()>` has no JS value.
+	tracing::trace!(empty = (size == 0).then_some(()).is_some(), "body");
 
 	// The body is complete, so running short inside it is malformed, not a wait for more.
 	let result = decode(&mut body)

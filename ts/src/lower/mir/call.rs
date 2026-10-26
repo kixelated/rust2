@@ -10,7 +10,7 @@ use rustc_span::{Span, Spanned};
 
 use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
-use crate::lower::library::{self, Std};
+use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
@@ -232,6 +232,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if library::std_path(tcx, def_id).is_empty() {
 			return None;
 		}
+		// A box's own `Drop` frees its memory, once drop elaboration dropped or moved out
+		// what it holds: nothing JS sees.
+		let drop_trait = tcx
+			.trait_of_assoc(def_id)
+			.or_else(|| tcx.trait_impl_of_assoc(def_id).map(|imp| tcx.impl_trait_id(imp)));
+		if drop_trait.is_some_and(|tr| tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Drop))
+			&& self
+				.b
+				.t
+				.self_ty(Instance::new_raw(def_id, gargs))
+				.is_some_and(|ty| self.b.t.std_of(ty) == Some(Std::Box))
+		{
+			return Some(Some((Expr::undefined(), false)));
+		}
 		let (owner, name) = library::key(tcx, def_id)?;
 		let targ = |n: usize| gargs.types().nth(n);
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
@@ -271,6 +285,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
+			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
+			// the place it borrows, as an index does.
+			("DerefMut", "deref_mut")
+				if let ty::Ref(_, pointee, _) = dest.ty(&self.mir.local_decls, tcx).ty.kind()
+					&& self.b.t.object_kind(*pointee).is_none()
+					&& let Some(local) = dest.as_local()
+					&& self.defs[local] == 1
+					&& matches!(self.slots[local], Slot::Var(_)) =>
+			{
+				let place = self.call_def(def_id, gargs, args, span, out);
+				if !place.is_path() {
+					return done(place, true);
+				}
+				self.materialize(&place, out);
+				self.slots[local] = Slot::Alias(Some(place));
+				Some(None)
+			}
 			("slice", "copy_within") => {
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
@@ -709,25 +740,16 @@ fn int_named(name: &str) -> Option<Int> {
 	Some(Int { bits, signed, pointer })
 }
 
-/// The residual a `ControlFlow` breaks with: what `?` was applied to.
-fn residual<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Std> {
-	let ty::Adt(_, args) = ty.kind() else {
-		return None;
-	};
-	match args.type_at(0).kind() {
-		ty::Adt(adt, _) => Std::of(tcx, adt.did()),
-		_ => None,
+/// How a `ControlFlow` type is represented.
+fn flow<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Flow {
+	match ty.kind() {
+		ty::Adt(_, args) => Flow::of(tcx, args),
+		_ => unreachable!("checked by the caller"),
 	}
 }
 
 /// The test that `scrut`, a `ControlFlow`, is `Continue` (variant 0) or `Break`.
-pub fn control_flow_test<'tcx>(
-	fx: &mut Fx<'_, '_, '_, 'tcx>,
-	scrut: &Expr,
-	ty: Ty<'tcx>,
-	variant: VariantIdx,
-	span: Span,
-) -> Expr {
+pub fn control_flow_test<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, scrut: &Expr, ty: Ty<'tcx>, variant: VariantIdx) -> Expr {
 	let continues = variant.index() == 0;
 	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
 		return match continues {
@@ -735,35 +757,24 @@ pub fn control_flow_test<'tcx>(
 			false => scrut.clone().binary("===", Expr::Rt("DONE".into())),
 		};
 	}
-	match residual(fx.tcx, ty) {
-		Some(Std::Result) => match continues {
-			true => scrut.clone().member("ok"),
-			false => scrut.clone().member("ok").not(),
-		},
-		Some(Std::Option) => match continues {
-			true => scrut.clone().binary("!==", Expr::undefined()),
-			false => scrut.clone().binary("===", Expr::undefined()),
-		},
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
-	}
+	flow(fx.tcx, ty).test(scrut.clone(), continues)
 }
 
-/// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s residual, which is the
-/// value `?` was applied to.
+/// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s, which for `?` is the
+/// value it was applied to.
 pub fn control_flow_field<'tcx>(
 	fx: &mut Fx<'_, '_, '_, 'tcx>,
 	base: Expr,
 	ty: Ty<'tcx>,
 	variant: Option<VariantIdx>,
-	span: Span,
 ) -> Expr {
 	let continues = variant.is_none_or(|v| v.index() == 0);
-	match (residual(fx.tcx, ty), continues) {
-		(Some(Std::Result), true) => base.member("value"),
-		(Some(Std::Result), false) => base,
-		(Some(Std::Option), true) => base,
-		(Some(Std::Option), false) => Expr::undefined(),
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
+	match (flow(fx.tcx, ty), continues) {
+		(Flow::Result | Flow::Other, true) => base.member("value"),
+		(Flow::Result, false) => base,
+		(Flow::Other, false) => base.member("error"),
+		(Flow::Option, true) => base,
+		(Flow::Option, false) => Expr::undefined(),
 	}
 }
 
@@ -773,14 +784,13 @@ pub fn control_flow<'tcx>(
 	ty: Ty<'tcx>,
 	variant: VariantIdx,
 	mut values: Vec<Expr>,
-	span: Span,
 ) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
-	match (residual(fx.tcx, ty), variant.index()) {
-		(Some(Std::Result), 0) => Expr::rt("Ok", vec![value]),
-		(Some(Std::Result), _) => value,
-		(Some(Std::Option), 0) => value,
-		(Some(Std::Option), _) => Expr::undefined(),
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
+	match (flow(fx.tcx, ty), variant.index()) {
+		(Flow::Result | Flow::Other, 0) => Expr::rt("Ok", vec![value]),
+		(Flow::Result, _) => value,
+		(Flow::Other, _) => Expr::rt("Err", vec![value]),
+		(Flow::Option, 0) => value,
+		(Flow::Option, _) => Expr::undefined(),
 	}
 }

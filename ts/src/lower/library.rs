@@ -64,7 +64,7 @@ pub enum Std {
 	RangeInclusive,
 	/// `rt.Peekable`, an iterator with `peek`.
 	Peekable,
-	/// What `?` branches on, as MIR spells it: the value it was applied to.
+	/// What `?` branches on, as MIR spells it, and what else makes one: see [`Flow`].
 	ControlFlow,
 	/// `..end`, `start..`, and `..`, as MIR makes them to slice by: `{ end }`, `{ start }`,
 	/// and `undefined`.
@@ -180,6 +180,44 @@ impl Std {
 				"Entry" | "OccupiedEntry" | "VacantEntry",
 			] => Some(Self::Entry),
 			_ => None,
+		}
+	}
+}
+
+/// How a `ControlFlow<B, C>` is represented. What `?` branches on is the value it was
+/// applied to, which breaks with what can only be its `Err` or `None`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Flow {
+	/// Breaking with a `Result<!, E>`: the `rt.Result<C, E>` `?` was applied to.
+	Result,
+	/// Breaking with an `Option<!>`: the `C | undefined` `?` was applied to.
+	Option,
+	/// Any other: an `rt.Result<C, B>`, `Ok` to continue and `Err` to break.
+	Other,
+}
+
+impl Flow {
+	/// The representation of a `ControlFlow` with `args`, its break's type first.
+	pub fn of<'tcx>(tcx: TyCtxt<'tcx>, args: GenericArgsRef<'tcx>) -> Self {
+		let ty::Adt(adt, residual) = args.type_at(0).kind() else {
+			return Self::Other;
+		};
+		let uninhabited =
+			|t: Ty<'tcx>| t.is_never() || matches!(t.kind(), ty::Adt(e, _) if e.is_enum() && e.variants().is_empty());
+		match Std::of(tcx, adt.did()) {
+			Some(Std::Result) if uninhabited(residual.type_at(0)) => Self::Result,
+			Some(Std::Option) if uninhabited(residual.type_at(0)) => Self::Option,
+			_ => Self::Other,
+		}
+	}
+
+	/// The test that `value`, a `ControlFlow` represented so, continues, or breaks.
+	pub fn test(self, value: Expr, continues: bool) -> Expr {
+		match (self, continues) {
+			(Self::Result | Self::Other, true) => value.member("ok"),
+			(Self::Result | Self::Other, false) => value.member("ok").not(),
+			(Self::Option, true) => value.binary("!==", Expr::undefined()),
+			(Self::Option, false) => value.binary("===", Expr::undefined()),
 		}
 	}
 }
@@ -514,6 +552,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			Expr::rt_of("result", method).call(values)
 		}
 		("Result", "unwrap_or") => rt2(args, "result", "unwrapOr"),
+
+		("ControlFlow", "is_continue" | "is_break") => Flow::of(tcx, gargs).test(args.pop()?, name == "is_continue"),
 
 		// Ranges, which are their own iterators.
 		// An integer range wraps within its type's bounds where std's `nth` does.
