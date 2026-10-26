@@ -15,16 +15,15 @@ Decided with the maintainer on 2026-10-25, from the spike
 the fork's paused feature quests into it. Split into quests as work starts, ranked by what the
 census refuses and what moq waits on:
 
-- **Paths borrowed from their handle**: moq-net's `root`, `absolute`, and
-  `origin::Request::path` return a `Path<'_>` that borrows `&self`, so the census refuses them.
-  [moq-dev/moq#6808](https://github.com/moq-dev/moq/pull/6808) returns the `PathOwned` they
-  already hold or build. Once it lands, bump the moq pin and drop their seven entries from
-  [the exclude list](/ffi/moq/ffi.toml).
-- **Several crates**: moq-native's sessions and the media crates hold moq-ffi's remaining API.
+- **Paths without a lifetime**: [moq-dev/moq#6843](https://github.com/moq-dev/moq/pull/6843)
+  makes `Path` owned. Once it lands, bump the moq pin: the census then exports `Path::new`,
+  `strip_prefix`, and `Relative::new`, and drops `AsPath` and the `borrow` methods from
+  [the exclude list](/ffi/moq/ffi.toml), refusing only `Path::from_static`'s `'static` borrow.
+- **Several crates**: moq-tokio's sessions and the media crates hold moq-ffi's remaining API.
   Export each with its own census, naming another export's types across crates, as
   moq-pattern's re-exports already need.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
-  Decide between exporting that poll, a generated thread that drives it, or moq-native's
+  Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.
 - **A contract symbol** per build, checked when bindings load, so a header and a library from
   different builds refuse to mix. It replaces the fork's namespaced contract and per-method
