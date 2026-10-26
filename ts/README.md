@@ -10,7 +10,10 @@ It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
 `wasm32-unknown-unknown`. Every crate compiles as rustc would; the configured library is
 also translated, after type and borrow checking, starting from its roots and following
 what they reach. A construct outside the subset is a compile error with its span, and
-then nothing is written.
+then nothing is written. A type without a JS value is refused where a value of it is made
+or received, such as a parameter, a field, or a call, rather than again at each variable
+holding one; any variable or temporary that holds a type whose JS value is ambiguous, such
+as `Option<()>`, is refused at its own span.
 
 ```toml
 # ts.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -60,6 +63,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
+| `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
@@ -283,9 +287,9 @@ own `impl Iterator` with `next_back`, `len`, or another provided method of its o
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
 `String` with `write!`, a copy of a closure that changes what it captured, `mem::swap`,
 `replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
-`MutexGuard`, a pinned reference, or a future through a reference, a `ControlFlow` other
-than the one `?` makes, a switch on or a field of another crate's type without a mapping,
-and std functions without a mapping in `src/lower/library.rs`.
+`MutexGuard`, a pinned reference, or a future through a reference, a switch on or a
+field of another crate's type without a mapping, and std functions without a mapping in
+`src/lower/library.rs`.
 
 ## Tests
 

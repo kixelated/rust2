@@ -192,8 +192,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				_ => self.err(span, format!("unsupported pointer coercion {coercion:?}")),
 			},
-			// A box's pointer is its contents in JS.
-			CastKind::BoxDerefTransmute => self.operand(op, span, out),
+			// A box's pointer is its contents in JS, which a read shares: the pointer's
+			// type is `Copy`, but what it points to is not copied.
+			CastKind::BoxDerefTransmute => match op {
+				Operand::Copy(place) | Operand::Move(place) => self.place_expr(*place, span, out),
+				Operand::Constant(_) | Operand::RuntimeChecks(_) => self.operand(op, span, out),
+			},
 			// An async body's context passes through `ResumeTy` and `NonNull`.
 			CastKind::Transmute if context_like(self, from) && context_like(self, to) => self.operand(op, span, out),
 			_ => self.err(span, format!("a `{kind:?}` cast from `{from}` to `{to}`")),
@@ -318,7 +322,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
-				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values, span),
+				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {
 						unreachable!("a range is a struct")
@@ -437,7 +441,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return Expr::undefined();
 		};
 		let sig = tcx.instantiate_bound_regions_with_erased(args.as_closure().sig());
-		let ret = self.b.t.ret_ty(sig.output(), span);
+		let ret = self
+			.b
+			.t
+			.ret_ty(sig.output(), mir.local_decls[mir::RETURN_PLACE].source_info.span);
 		let mut inner = Fx::new(&mut *self.b, &mir, Env::Closure(captures), span);
 		let params = inner.params();
 		let body = inner.lower();

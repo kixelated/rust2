@@ -121,6 +121,9 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let _66!: Point.Point;
 	let _71!: rt.u8;
 	let _73!: rt.u8;
+	let boxed!: Moved.Moved;
+	let _81!: rt.u16;
+	let _83!: rt.u16;
 	let n!: rt.u32;
 	let both!: [rt.u32, rt.u32];
 	let word!: Uint8Array;
@@ -128,7 +131,7 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let cell!: Uint8Array;
 	let source!: Uint8Array;
 	let returned!: Uint8Array;
-	let _128!: rt.u8;
+	let _145!: rt.u8;
 	let marked!: boolean;
 	let opt!: Meters.Meters | undefined;
 	let taken!: Meters.Meters | undefined;
@@ -136,6 +139,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 	let first!: Point.Point;
 	let fail!: rt.Result<rt.u8, Point.Point>;
 	let err!: Point.Point;
+	let _195!: Moved.Moved;
+	let _198!: Moved.Moved;
 	p = Point.new(rt.optionUnwrapOr(rt.sliceFirst(data), 0) as rt.i32, 7);
 	q = rt.copy(p);
 	_9 = rt.i32Add(q.x, 100);
@@ -175,7 +180,6 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			const swapped = a;
 			a = b;
 			b = swapped;
-			undefined;
 			_66 = Point.new(5, 6);
 			const old2 = a;
 			a = rt.copy(_66);
@@ -183,6 +187,15 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			_71 = a.x & 0xff;
 			_73 = b.x & 0xff;
 			rt.byteVecExtendFromSlice(out, Uint8Array.of(_71, _73, old.x & 0xff));
+			boxed = { _0: data.length & 0xff, _1: 0 };
+			_81 = rt.u16Add(boxed._1, 1);
+			_198 = boxed;
+			_198._1 = _81;
+			_83 = rt.u16Add(boxed._1, 2);
+			_195 = boxed;
+			_195._1 = _83;
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(boxed._0));
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(boxed._1));
 			n = data.length as rt.u32;
 			both = [n, n] as [rt.u32, rt.u32];
 			n = 9;
@@ -196,8 +209,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			source = Uint8Array.of(data.length & 0xff);
 			returned = same(rt.copy(source));
 			source[0] = 9;
-			_128 = returned[0];
-			rt.byteVecExtendFromSlice(out, Uint8Array.of(_128, source[0]));
+			_145 = returned[0];
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(_145, source[0]));
 			rt.byteVecPush(out, copyThenWrite([data.length & 0xff, 0] as [rt.u8, rt.u8]));
 			marked = mark(out, 1) === 0;
 			mark(out, 2);
@@ -1502,6 +1515,144 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	} else {
 		rt.byteVecPush(out, 0);
+	}
+}
+
+/** Steps a total by `x`: breaks with what it can't take, or continues with the new total. */
+export function step(total: rt.u16, x: rt.u8): rt.Result<rt.u16, rt.u8 | undefined> {
+	let _3!: rt.u16 | undefined;
+	_3 = rt.u16CheckedAdd(total, rt.u16Mul(x as rt.u16, 64));
+	if (!(x === 0)) {
+		if (_3 === undefined) {
+			return rt.Err(255);
+		} else if (!(_3 > 8192)) {
+			return rt.Ok(_3);
+		} else {
+			return rt.Err(x);
+		}
+	} else {
+		return rt.Err(undefined);
+	}
+}
+
+/** A step that may be pending, as a polled read is. */
+export function polled(x: rt.u8): rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>> {
+	let _2!: rt.u8;
+	_2 = rt.u8Rem(x, 4);
+	if (_2 === 0) {
+		return rt.Pending;
+	} else if (_2 === 1) {
+		return rt.Err(x);
+	} else if (_2 === 2) {
+		return rt.Ok(rt.Err(undefined));
+	} else {
+		return rt.Ok(rt.Ok(undefined));
+	}
+}
+
+/**
+ * `ControlFlow`s made by hand rather than by `?`, and a value replaced through a
+ * `MutexGuard`.
+ */
+export function flows(data: Uint8Array, out: rt.ByteVec): void {
+	let total!: rt.u16;
+	let iterS!: Uint8Array;
+	let iterI!: number;
+	let _7!: rt.u8 | rt.Done;
+	let x!: rt.u8;
+	let flow!: rt.Result<rt.u16, rt.u8 | undefined>;
+	let _28!: rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>>;
+	let a!: rt.u8;
+	let result!: rt.Result<rt.u16, rt.u8>;
+	let option!: rt.u8 | undefined;
+	let slot!: rt.Mutex<rt.u8 | undefined>;
+	let iterS2!: Uint8Array;
+	let iterI2!: number;
+	let _82!: rt.u8 | rt.Done;
+	let x2!: rt.u8;
+	let held!: rt.Mutex<rt.u8 | undefined>;
+	let _89!: boolean;
+	let _90!: rt.u8 | undefined;
+	let _105!: rt.Mutex<rt.u8 | undefined>;
+	total = 0;
+	iterS = data;
+	iterI = 0;
+	while (true) {
+		_7 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_7 === rt.DONE) {
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(total));
+			a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
+			if (rt.u8Rem(a, 3) === 0) {
+				result = rt.Err(a);
+			} else {
+				result = rt.Ok(rt.u16Add(a as rt.u16, 256));
+			}
+			rt.byteVecPush(out, result.ok ? 1 : 0);
+			if (result.ok) {
+				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(result.value));
+			} else {
+				rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
+			}
+			if (rt.u8Rem(a, 5) === 0) {
+				option = undefined;
+			} else {
+				option = rt.u8Div(a, 5);
+			}
+			rt.byteVecPush(out, option === undefined ? 1 : 0);
+			if (option !== undefined) {
+				rt.byteVecPush(out, option);
+			} else {
+				rt.byteVecPush(out, 253);
+			}
+			slot = new rt.Mutex(undefined);
+			iterS2 = data;
+			iterI2 = 0;
+			while (true) {
+				_82 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+				if (_82 === rt.DONE) {
+					_105 = slot;
+					rt.byteVecPush(out, rt.optionUnwrapOr(_105.value, 252));
+					return;
+				} else {
+					x2 = _82;
+					held = slot;
+					_90 = held.value;
+					b7: {
+						if (_90 !== undefined) {
+							if (_90 >= x2) {
+								_89 = true;
+								break b7;
+							}
+						}
+						_89 = false;
+					}
+					if (!_89) {
+						held.value = x2;
+					}
+				}
+			}
+		} else {
+			x = _7;
+			flow = step(total, x);
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(!flow.ok ? 1 : 0, flow.ok ? 1 : 0));
+			if (flow.ok) {
+				total = flow.value;
+			} else if (flow.error === undefined) {
+				rt.byteVecPush(out, 254);
+			} else {
+				rt.byteVecPush(out, flow.error);
+			}
+			_28 = polled(x);
+			if (_28 !== rt.Pending) {
+				if (_28.ok) {
+					rt.byteVecPush(out, rt.u8Add(2, !_28.value.ok ? 1 : 0));
+				} else {
+					rt.byteVecPush(out, _28.error);
+				}
+			} else {
+				rt.byteVecPush(out, 0);
+			}
+		}
 	}
 }
 

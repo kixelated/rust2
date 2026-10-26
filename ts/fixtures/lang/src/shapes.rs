@@ -1,5 +1,10 @@
 //! Control flow, patterns, aggregates, closures, and traits.
 
+use std::convert::Infallible;
+use std::ops::ControlFlow;
+use std::sync::Mutex;
+use std::task::Poll;
+
 use crate::fmt::Pair;
 
 /// A `Copy` struct, which Rust copies where JS would share.
@@ -173,6 +178,14 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	std::mem::swap(&mut a, &mut b);
 	let old = std::mem::replace(&mut a, Point::new(5, 6));
 	out.extend_from_slice(&[a.x as u8, b.x as u8, old.x as u8]);
+
+	// A box is its contents: a write through it, or through a borrow of it, changes them.
+	let mut boxed = Box::new(Moved(data.len() as u8, 0));
+	boxed.1 += 1;
+	let held = &mut boxed;
+	held.1 += 2;
+	out.extend_from_slice(&[boxed.0]);
+	out.extend_from_slice(&boxed.1.to_be_bytes());
 
 	// A tuple keeps the values it was made of, though the variable they came from changes.
 	let mut n = data.len() as u32;
@@ -1019,4 +1032,75 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 		}
 		Err(_) => out.push(0),
 	}
+}
+
+/// Steps a total by `x`: breaks with what it can't take, or continues with the new total.
+fn step(total: u16, x: u8) -> ControlFlow<Option<u8>, u16> {
+	match total.checked_add(u16::from(x) * 0x40) {
+		_ if x == 0 => ControlFlow::Break(None),
+		Some(n) if n > 0x2000 => ControlFlow::Break(Some(x)),
+		Some(n) => ControlFlow::Continue(n),
+		None => ControlFlow::Break(Some(0xff)),
+	}
+}
+
+/// A step that may be pending, as a polled read is.
+fn polled(x: u8) -> Poll<Result<ControlFlow<()>, u8>> {
+	match x % 4 {
+		0 => Poll::Pending,
+		1 => Poll::Ready(Err(x)),
+		2 => Poll::Ready(Ok(ControlFlow::Break(()))),
+		_ => Poll::Ready(Ok(ControlFlow::Continue(()))),
+	}
+}
+
+/// `ControlFlow`s made by hand rather than by `?`, and a value replaced through a
+/// `MutexGuard`.
+pub fn flows(data: &[u8], out: &mut Vec<u8>) {
+	let mut total = 0u16;
+	for &x in data {
+		let flow = step(total, x);
+		out.extend_from_slice(&[flow.is_break() as u8, flow.is_continue() as u8]);
+		match flow {
+			ControlFlow::Continue(n) => total = n,
+			ControlFlow::Break(Some(b)) => out.push(b),
+			ControlFlow::Break(None) => out.push(0xfe),
+		}
+		match polled(x) {
+			Poll::Pending => out.push(0),
+			Poll::Ready(Err(e)) => out.push(e),
+			Poll::Ready(Ok(flow)) => out.push(2 + flow.is_break() as u8),
+		}
+	}
+	out.extend_from_slice(&total.to_be_bytes());
+
+	// The two shapes `?` branches on, made by hand.
+	let a = data.first().copied().unwrap_or(0);
+	let result: ControlFlow<Result<Infallible, u8>, u16> = match a % 3 {
+		0 => ControlFlow::Break(Err(a)),
+		_ => ControlFlow::Continue(u16::from(a) + 0x100),
+	};
+	out.push(result.is_continue() as u8);
+	match result {
+		ControlFlow::Continue(n) => out.extend_from_slice(&n.to_be_bytes()),
+		ControlFlow::Break(Err(e)) => out.push(e),
+	}
+	let option: ControlFlow<Option<Infallible>, u8> = match a % 5 {
+		0 => ControlFlow::Break(None),
+		_ => ControlFlow::Continue(a / 5),
+	};
+	out.push(option.is_break() as u8);
+	match option {
+		ControlFlow::Continue(n) => out.push(n),
+		ControlFlow::Break(None) => out.push(0xfd),
+	}
+
+	let slot = Mutex::new(None);
+	for &x in data {
+		let mut held = slot.lock().unwrap();
+		if !matches!(*held, Some(h) if h >= x) {
+			*held = Some(x);
+		}
+	}
+	out.push(slot.lock().unwrap().unwrap_or(0xfc));
 }

@@ -46,9 +46,12 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
+	let ret_span = fx.local_span(mir::RETURN_PLACE);
 	let ret = match (next, ret_ty.kind()) {
-		(true, ty::Adt(_, args)) => Type::Union(vec![fx.b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
-		_ => fx.b.t.ret_ty(ret_ty, span),
+		(true, ty::Adt(_, args)) => {
+			Type::Union(vec![fx.b.t.ty(args.type_at(0), ret_span), Type::Rt("Done", Vec::new())])
+		}
+		_ => fx.b.t.ret_ty(ret_ty, ret_span),
 	};
 	Some(ts::Function {
 		sym: 0,
@@ -394,6 +397,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(String::new())
 			};
 			self.slots[local] = slot;
+			// A temporary folded into what reads it is declared nowhere, so a type that can't
+			// tell its values apart is refused here. The signature types the parameters and
+			// the result.
+			if !self.is_arg(local) && local != mir::RETURN_PLACE {
+				let held = match self.next_results.contains(&local) {
+					true => next_item(self.tcx, ty),
+					false => ty,
+				};
+				self.b.t.check_erased(held, self.local_span(local));
+			}
 		}
 		// Names: what debug info calls a local, else its number.
 		let mut named: FxHashMap<Local, rustc_span::Symbol> = FxHashMap::default();
@@ -647,7 +660,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		{
 			return Some(match elem.kind() {
 				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(Box::new(Expr::Array(Vec::new())), self.b.t.ty(ty, self.span)),
+				_ => Expr::As(
+					Box::new(Expr::Array(Vec::new())),
+					self.b.t.ty(ty, self.local_span(local)),
+				),
 			});
 		}
 		let ty::Adt(adt, _) = ty.kind() else {
@@ -656,7 +672,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !adt.is_struct() || !adt.did().is_local() || adt.all_fields().next().is_some() {
 			return None;
 		}
-		let info = self.b.t.adt(*adt, self.span);
+		let info = self.b.t.adt(*adt, self.local_span(local));
 		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
 	}
 
@@ -999,7 +1015,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(name) => name.clone(),
 				_ => self.b.fresh("_"),
 			};
-			let ty = self.b.t.ty(ty, self.span);
+			let ty = self.b.t.ty(ty, self.local_span(local));
 			params.push(Param { name, ty: Some(ty) });
 		}
 		params
@@ -1178,15 +1194,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local's declared type: the value's, for a checked pair.
 	fn decl_ty(&mut self, local: Local) -> Type {
 		let ty = self.mir.local_decls[local].ty;
-		if self.next_results.contains(&local)
-			&& let ty::Adt(adt, args) = ty.kind()
-		{
-			// `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
-			let item = match crate::lower::library::Std::of(self.tcx, adt.did()) {
-				Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
-				_ => args.type_at(0),
-			};
-			let item = self.b.t.ty(item, self.span);
+		if self.next_results.contains(&local) {
+			let item = self.b.t.held_ty(next_item(self.tcx, ty), self.local_span(local));
 			if self.range_nexts.contains(&local) {
 				return item;
 			}
@@ -1194,9 +1203,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
+			// A box's pointer is the box's contents in JS.
+			(_, ty::RawPtr(pointee, _)) if self.box_pointer(local) => *pointee,
 			_ => ty,
 		};
-		self.b.t.ty(ty, self.span)
+		self.b.t.held_ty(ty, self.local_span(local))
+	}
+
+	/// Where a local is declared, which a refusal of its type points at: for drop glue,
+	/// whose locals are std's, where the value drops.
+	pub(super) fn local_span(&self, local: Local) -> Span {
+		match self.env {
+			Env::Shim => self.span,
+			_ => self.mir.local_decls[local].source_info.span,
+		}
 	}
 
 	/// Where a terminator can go, without its unwinding.
@@ -2749,6 +2769,17 @@ fn inert(e: &Expr) -> bool {
 		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
+	}
+}
+
+/// The item a next result holds, as `ty`: `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
+fn next_item<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty::Adt(adt, args) = ty.kind() else {
+		unreachable!("checked by find_next_results")
+	};
+	match crate::lower::library::Std::of(tcx, adt.did()) {
+		Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
+		_ => args.type_at(0),
 	}
 }
 

@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 69
+- Refusals: 73
 - Function instances: 61
 - Generic functions no instance reached, lowered over their type parameters: 3
 
@@ -8,14 +8,14 @@
 
 | Count | Construct | First |
 | ---: | --- | --- |
+| 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:15 |
 | 6 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
-| 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:1 |
+| 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:13 |
 | 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
-| 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
-| 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:1 |
+| 5 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:59:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:133:2 |
-| 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:159:1 |
+| 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:159:20 |
 | 2 | a field of `_` | fixtures/reject/src/lib.rs:326:7 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:218:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:204:23 |
@@ -57,20 +57,20 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
-| 5 | `f64` | fixtures/reject/src/lib.rs:6:1 |
-| 4 | `Option` | fixtures/reject/src/lib.rs:31:1 |
+| 7 | `Option` | fixtures/reject/src/lib.rs:31:15 |
+| 6 | `f64` | fixtures/reject/src/lib.rs:6:14 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
-| 4 | `u32` | fixtures/reject/src/lib.rs:19:1 |
+| 4 | `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 4 | `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:198:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:133:2 |
-| 2 | `Poll` | fixtures/reject/src/lib.rs:159:1 |
-| 2 | `char` | fixtures/reject/src/lib.rs:10:1 |
+| 2 | `Poll` | fixtures/reject/src/lib.rs:159:20 |
+| 2 | `char` | fixtures/reject/src/lib.rs:10:18 |
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
-| 2 | `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
+| 2 | `std::string::String` | fixtures/reject/src/lib.rs:120:16 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:75:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:218:1 |
@@ -82,7 +82,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
 | 1 | `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:309:22 |
-| 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:1 |
+| 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 | 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:231:51 |
 | 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:204:23 |
@@ -101,13 +101,13 @@ The type or module each refused type or path belongs to.
 
 | Count | Construct | Type or path | First |
 | ---: | --- | --- | --- |
-| 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:1 |
-| 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:159:1 |
-| 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:1 |
+| 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:15 |
+| 3 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:14 |
+| 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:159:20 |
+| 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:13 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
 | 2 | an iterator that owns `_`, which drops, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:133:2 |
-| 2 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:336:6 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | `Boxed` | fixtures/reject/src/lib.rs:75:1 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:371:6 |
@@ -115,7 +115,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:379:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut Slot`, `Slot` | fixtures/reject/src/lib.rs:73:1 |
-| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
+| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:16 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:231:51 |
@@ -148,10 +148,21 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:52:18 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:239:8 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:36:4 |
-| 1 | unsupported type `_` | `char` | fixtures/reject/src/lib.rs:10:1 |
-| 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:1 |
+| 1 | unsupported type `_` | `char` | fixtures/reject/src/lib.rs:10:18 |
+| 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:16 |
 
 ## Spans
+
+<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (6)</summary>
+
+- fixtures/reject/src/lib.rs:31:15: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:32:2: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:40:2: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:40:42: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:164:19: `Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:336:2: `Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
+
+</details>
 
 <details><summary>an assignment through a reference to `_` (6)</summary>
 
@@ -166,11 +177,11 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (5)</summary>
 
-- fixtures/reject/src/lib.rs:19:1: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:24:1: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:19:13: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:25:2: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:73:1: `&mut Slot`: a JS value of `Slot` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:90:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:120:1: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:120:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
 
 </details>
 
@@ -184,20 +195,13 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>unsupported type `_` (4)</summary>
+<details><summary>unsupported type `_` (5)</summary>
 
-- fixtures/reject/src/lib.rs:6:1: unsupported type `f64`
-- fixtures/reject/src/lib.rs:10:1: unsupported type `char`
-- fixtures/reject/src/lib.rs:14:1: unsupported type `dyn std::ops::Fn(u8) -> u8`
-- fixtures/reject/src/lib.rs:142:1: unsupported type `f64`
-
-</details>
-
-<details><summary>`_` is not supported: its `None` and `Some` would both be `undefined` (3)</summary>
-
-- fixtures/reject/src/lib.rs:31:1: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
-- fixtures/reject/src/lib.rs:40:42: `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined`
-- fixtures/reject/src/lib.rs:164:1: `Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined`
+- fixtures/reject/src/lib.rs:6:14: unsupported type `f64`
+- fixtures/reject/src/lib.rs:6:25: unsupported type `f64`
+- fixtures/reject/src/lib.rs:10:18: unsupported type `char`
+- fixtures/reject/src/lib.rs:14:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
+- fixtures/reject/src/lib.rs:142:51: unsupported type `f64`
 
 </details>
 
@@ -219,7 +223,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_` is not supported: it would be pending two ways with one value (2)</summary>
 
-- fixtures/reject/src/lib.rs:159:1: `Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value
+- fixtures/reject/src/lib.rs:159:20: `Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value
 - fixtures/reject/src/lib.rs:169:54: `Poll<std::task::Poll<u8>>` is not supported: it would be pending two ways with one value
 
 </details>

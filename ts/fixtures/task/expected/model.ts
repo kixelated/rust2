@@ -1296,8 +1296,9 @@ export function pick(log: Log.Log, i: rt.usize): rt.usize {
  * guards destructured in part: the one left in the array drops with it, after the other;
  * a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
  * temporary to the end of the block; a `_` binding of an element, which evaluates its
- * index and moves nothing; a boxed guard read twice, which a read leaves boxed; and a
- * guard a method takes by value, which drops inside it.
+ * index and moves nothing; a boxed guard read twice, which a read leaves boxed; a guard
+ * a method takes by value, which drops inside it, once from a box; and a boxed array of
+ * guards that may be absent, which drops them in order.
  */
 export function turns(log: Log.Log, count: rt.u32): void {
 	let pair!: Guard.Guard[];
@@ -1314,30 +1315,35 @@ export function turns(log: Log.Log, count: rt.u32): void {
 	let args4!: rt.Fmt[];
 	let _70!: rt.Fmt;
 	let args6!: rt.Fmt[];
+	let args8!: rt.Fmt[];
+	let stacked!: Guard.Guard[] | undefined;
+	let _112!: Guard.Guard;
+	let _116!: Guard.Guard;
+	let args10!: rt.Fmt[];
 	let spares!: Guard.Guard[];
-	let _91!: Guard.Guard;
-	let _95!: Guard.Guard;
-	let _99!: rt.usize;
+	let _133!: Guard.Guard;
+	let _137!: Guard.Guard;
+	let _141!: rt.usize;
 	let left!: rt.u32;
 	let turn!: Guard.Guard;
-	let _119!: rt.u32;
+	let _161!: rt.u32;
 	let unwind: number = 0;
 	try {
 		_4 = Guard.new(rt.u32Add(count, 10), Log.clone$Clone(log));
-		unwind = 94;
+		unwind = 124;
 		_8 = Guard.new(rt.u32Add(count, 20), Log.clone$Clone(log));
-		unwind = 93;
+		unwind = 123;
 		pair = [_4, _8];
 		kept = pair[0];
 		Guard.note(kept, "kept");
 		pinned = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
-		unwind = 92;
+		unwind = 122;
 		Guard.note(pinned, "pinned");
 		held = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
-		unwind = 91;
+		unwind = 121;
 		Guard.note(held, "borrowed");
 		_34 = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
-		unwind = 90;
+		unwind = 120;
 		Guard.note(_34, "extended");
 		_42 = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
 		scoped = _42.id;
@@ -1346,7 +1352,7 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
 		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
-		unwind = 89;
+		unwind = 119;
 		const arg2 = boxed.id;
 		_70 = (f: rt.Formatter) => rt.u32Display(arg2, f);
 		const arg3 = boxed.id;
@@ -1355,16 +1361,32 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		const arg4 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
 		args6 = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
 		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
-		_91 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
-		unwind = 88;
-		_95 = Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log));
-		unwind = 87;
-		spares = [_91, _95];
-		_99 = pick(log, rt.usizeRem(count as rt.usize, 2));
-		if (!(_99 < 2)) {
-			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _99);
+		const arg5 = ([Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing")] as [rt.u32])[0];
+		args8 = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
+		Log.note(log, rt.fmtFormat(["unboxed ", args8[0]]));
+		if (rt.u32Rem(count, 2) === 0) {
+			_112 = Guard.new(rt.u32Add(count, 130), Log.clone$Clone(log));
+			unwind = 118;
+			_116 = Guard.new(rt.u32Add(count, 140), Log.clone$Clone(log));
+			unwind = 119;
+			stacked = [_112, _116];
+		} else {
+			stacked = undefined;
 		}
-		b0: {
+		unwind = 117;
+		const arg6 = ([stacked !== undefined] as [boolean])[0];
+		args10 = [(f: rt.Formatter) => rt.fmtBool(arg6, f)];
+		Log.note(log, rt.fmtFormat(["stacked ", args10[0]]));
+		_133 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
+		unwind = 116;
+		_137 = Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log));
+		unwind = 115;
+		spares = [_133, _137];
+		_141 = pick(log, rt.usizeRem(count as rt.usize, 2));
+		if (!(_141 < 2)) {
+			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _141);
+		}
+		b1: {
 			if (count === 0) {
 				Log.note(log, rt.fmtFormat(["no turns"]));
 			} else if (!(count < 4)) {
@@ -1374,68 +1396,78 @@ export function turns(log: Log.Log, count: rt.u32): void {
 				while (true) {
 					turn = Guard.new(left, Log.clone$Clone(log));
 					if (!(left === 1)) {
-						unwind = 86;
+						unwind = 114;
 						Guard.note(turn, "turn");
-						_119 = rt.u32Sub(left, 1);
-						unwind = 87;
-						left = _119;
+						_161 = rt.u32Sub(left, 1);
+						unwind = 115;
+						left = _161;
 						rt.drop(turn);
 					} else {
 						rt.drop(turn);
-						break b0;
+						break b1;
 					}
 				}
 			}
 		}
-		unwind = 89;
+		unwind = 117;
 		rt.dropAll(spares);
-		unwind = 90;
+		unwind = 119;
+		rt.dropAll(stacked);
+		unwind = 120;
 		rt.drop(boxed);
-		unwind = 91;
+		unwind = 121;
 		rt.drop(_34);
-		unwind = 92;
+		unwind = 122;
 		rt.drop(held);
-		unwind = 93;
+		unwind = 123;
 		rt.drop(pinned);
-		unwind = 96;
+		unwind = 126;
 		rt.drop(kept);
 		unwind = 0;
 		rt.dropAll(pair.slice(1, 2));
 	} catch (e) {
-		b2: {
-			b3: {
-				b4: {
-					b5: {
-						b6: {
-							b7: {
-								b8: {
-									if (unwind === 0) {
-										throw e;
-									}
-									if (unwind === 86) {
-										rt.drop(turn);
-									} else if (unwind !== 87) {
-										if (unwind === 88) {
-											rt.drop(_91);
-											break b8;
-										} else if (unwind === 89) {
-											break b8;
-										} else if (unwind === 90) {
-											break b7;
-										} else if (unwind === 91) {
-											break b6;
-										} else if (unwind === 92) {
-											break b5;
-										} else if (unwind === 93) {
-											break b4;
-										} else if (unwind === 94) {
-											rt.drop(_4);
-											break b2;
-										} else {
-											break b3;
+		b3: {
+			b4: {
+				b5: {
+					b6: {
+						b7: {
+							b8: {
+								b9: {
+									b10: {
+										if (unwind === 0) {
+											throw e;
 										}
+										if (unwind === 114) {
+											rt.drop(turn);
+										} else if (unwind !== 115) {
+											if (unwind === 116) {
+												rt.drop(_133);
+												break b10;
+											} else if (unwind === 117) {
+												break b10;
+											} else if (unwind === 118) {
+												rt.drop(_112);
+												break b9;
+											} else if (unwind === 119) {
+												break b9;
+											} else if (unwind === 120) {
+												break b8;
+											} else if (unwind === 121) {
+												break b7;
+											} else if (unwind === 122) {
+												break b6;
+											} else if (unwind === 123) {
+												break b5;
+											} else if (unwind === 124) {
+												rt.drop(_4);
+												break b3;
+											} else {
+												break b4;
+											}
+										}
+										rt.dropAll(spares);
 									}
-									rt.dropAll(spares);
+									rt.dropAll(stacked);
 								}
 								rt.drop(boxed);
 							}

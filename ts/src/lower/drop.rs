@@ -131,11 +131,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.drops(ty) {
 			return None;
 		}
+		// An array or `Vec`, or one in an `Option` or a box, which is it or `undefined`.
+		if let Some(elem) = self.elements(ty)
+			&& self.disposable(elem)
+		{
+			return Some(Expr::rt("dropAll", vec![value]));
+		}
 		let supported = match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Vec) if self.disposable(args.type_at(0)) => {
-					return Some(Expr::rt("dropAll", vec![value]));
-				}
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
 				Some(Std::Waker) => true,
 				Some(_) => false,
@@ -146,7 +149,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			ty::Array(elem, _) if self.disposable(*elem) => return Some(Expr::rt("dropAll", vec![value])),
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		};
@@ -167,6 +169,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return None;
 		}
 		Some(Expr::rt("drop", vec![value]))
+	}
+
+	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
+	/// whose JS value is the array or `undefined`.
+	fn elements(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		match ty.kind() {
+			ty::Array(elem, _) => Some(*elem),
+			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
+				Std::Vec => Some(args.type_at(0)),
+				Std::Option | Std::Box | Std::Pin => self.elements(args.type_at(0)),
+				_ => None,
+			},
+			_ => None,
+		}
 	}
 
 	/// Give a class whose own fields or `Drop` impl drop its drop glue up front, so JS

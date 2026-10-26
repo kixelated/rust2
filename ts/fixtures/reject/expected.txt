@@ -1,17 +1,20 @@
 a root must not be generic at fixtures/reject/src/lib.rs:142:1
 no item `missing` in the crate
 a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:140:1
-unsupported type `f64` at fixtures/reject/src/lib.rs:6:1
+unsupported type `f64` at fixtures/reject/src/lib.rs:6:14
 a scalar constant of type `f64` at fixtures/reject/src/lib.rs:7:2
 arithmetic on `f64` at fixtures/reject/src/lib.rs:7:2
-unsupported type `char` at fixtures/reject/src/lib.rs:10:1
+unsupported type `f64` at fixtures/reject/src/lib.rs:6:25
+unsupported type `char` at fixtures/reject/src/lib.rs:10:18
 a cast from `char` at fixtures/reject/src/lib.rs:11:2
-unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:14:1
-`&mut u32`: a JS value of `u32` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:19:1
+unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:14:16
+`&mut u32`: a JS value of `u32` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:19:13
 an assignment through a reference to `u32` at fixtures/reject/src/lib.rs:20:2
-`&mut u32`: a JS value of `u32` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:24:1
-`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:1
+`&mut u32`: a JS value of `u32` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:25:11
+`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:32:2
+`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:31:15
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:36:4
+`Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:40:2
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:40:42
 unsupported call to `std::mem::size_of_val::<Noisy>` at fixtures/reject/src/lib.rs:52:18
 dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:54:1
@@ -31,15 +34,15 @@ hex `Debug`, as in `{:x?}`, is not supported at fixtures/reject/src/lib.rs:113:3
 a width or precision from an argument, as in `{:1$}`, is not supported at fixtures/reject/src/lib.rs:114:15
 a width or precision from an argument, as in `{:1$}`, is not supported at fixtures/reject/src/lib.rs:114:3
 `Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:115:12
-`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:120:1
+`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:120:16
 unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:122:10
 a constant of type `&u8` at fixtures/reject/src/lib.rs:128:2
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:133:2
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:137:2
 dropping `std::sync::Arc<&Noisy>`, which is not supported yet at fixtures/reject/src/lib.rs:151:1
 an assignment through a reference to `std::sync::Arc<u8>` at fixtures/reject/src/lib.rs:155:2
-`Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:159:1
-`Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:164:1
+`Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:159:20
+`Option<std::task::Poll<()>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:164:19
 `Poll<std::task::Poll<u8>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:169:54
 an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:175:2
 an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:180:2
@@ -58,6 +61,7 @@ a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:
 a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:326:7
 a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:326:48
 `HashMap::clear` of `std::collections::HashMap<u8, Noisy>`, which may drop what it holds, which is not supported yet at fixtures/reject/src/lib.rs:331:6
+`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:336:2
 `std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:336:6
 hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:341:52
 comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:341:52

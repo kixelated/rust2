@@ -78,6 +78,11 @@ impl Guard {
 		self.note(event);
 		self.id
 	}
+
+	/// [`Self::finish`], moved out of its box: freeing the box must not drop it again.
+	fn unbox(self: Box<Self>, event: &str) -> u32 {
+		(*self).finish(event)
+	}
 }
 
 impl Drop for Guard {
@@ -270,8 +275,9 @@ fn pick(log: &Log, i: usize) -> usize {
 /// guards destructured in part: the one left in the array drops with it, after the other;
 /// a pinned box of one, which drops it; `ref` bindings, which borrow a variable and keep a
 /// temporary to the end of the block; a `_` binding of an element, which evaluates its
-/// index and moves nothing; a boxed guard read twice, which a read leaves boxed; and a
-/// guard a method takes by value, which drops inside it.
+/// index and moves nothing; a boxed guard read twice, which a read leaves boxed; a guard
+/// a method takes by value, which drops inside it, once from a box; and a boxed array of
+/// guards that may be absent, which drops them in order.
 #[expect(clippy::toplevel_ref_arg, reason = "the `ref` bindings are under test")]
 fn turns(log: &Log, count: u32) {
 	let pair = [Guard::new(count + 10, log.clone()), Guard::new(count + 20, log.clone())];
@@ -294,6 +300,16 @@ fn turns(log: &Log, count: u32) {
 	log.note(format!("boxed {once} {}", boxed.id));
 	let finished = Guard::new(count + 110, log.clone()).finish("finishing");
 	log.note(format!("finished {finished}"));
+	let unboxed = Box::new(Guard::new(count + 120, log.clone())).unbox("unboxing");
+	log.note(format!("unboxed {unboxed}"));
+	let stacked = match count % 2 {
+		0 => Some(Box::new([
+			Guard::new(count + 130, log.clone()),
+			Guard::new(count + 140, log.clone()),
+		])),
+		_ => None,
+	};
+	log.note(format!("stacked {}", stacked.is_some()));
 	let spares = [Guard::new(count + 70, log.clone()), Guard::new(count + 80, log.clone())];
 	let _ = spares[pick(log, count as usize % 2)];
 	match count {
