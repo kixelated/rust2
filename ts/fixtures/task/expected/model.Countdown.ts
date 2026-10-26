@@ -23,9 +23,8 @@ export function next$Iterator(self: Countdown): rt.u32 | rt.Done {
 		self.left = rt.u32Sub(self.left, 1);
 		Guard.note(self.guard, "count");
 		return self.left;
-	} else {
-		return rt.DONE;
 	}
+	return rt.DONE;
 }
 
 //# sourceMappingURL=model.Countdown.ts.map

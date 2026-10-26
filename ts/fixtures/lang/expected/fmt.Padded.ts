@@ -8,8 +8,7 @@ export interface Padded {
 }
 
 export function fmt$Display(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _3!: rt.usize | undefined;
-	_3 = rt.fmtWidth(f);
+	const _3: rt.usize | undefined = rt.fmtWidth(f);
 	if (_3 !== undefined) {
 		if (_3 > 20) {
 			return rt.fmtWriteStr(f, "wide");

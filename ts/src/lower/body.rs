@@ -139,8 +139,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let ty::InstanceKind::Item(did) = instance.def
 			&& did.is_local()
 		{
-			let sym = self.t.instance(instance);
 			let values: Vec<Expr> = args.into_iter().map(Expr::typed).collect();
+			// An `async fn` that only makes its future: the future, made here.
+			if let Some(class) = super::mir::coroutine::of_async_fn(self.t, instance, span) {
+				return Expr::New(Box::new(Expr::Sym(class)), values);
+			}
+			let sym = self.t.instance(instance);
 			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {

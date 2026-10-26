@@ -126,7 +126,7 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 		Guard::new(guard.id + 910, guard.log.clone()),
 		Guard::new(guard.id + 920, guard.log.clone()),
 	];
-	slots[slot(&mut rx).await] = Guard::new(guard.id + 930, guard.log.clone());
+	slots[slot(&mut rx, slots.len()).await] = Guard::new(guard.id + 930, guard.log.clone());
 	slots[0].note(&format!("slot after {waited}"));
 	let mut tally = Tally { n: guard.id };
 	let seen = async move { read(tally) };
@@ -177,10 +177,11 @@ fn consume(guard: Guard, v: Option<u64>) -> u64 {
 	u64::from(guard.finish("consumed")) + v.unwrap_or(0)
 }
 
-/// The slot the next value picks.
-async fn slot(rx: &mut Consumer) -> usize {
-	match rx.recv().await {
-		Some(v) => v as usize % 2,
+/// The slot the next value picks, of `eval`. Its captures take names a class or strict
+/// code reserves.
+async fn slot(constructor: &mut Consumer, eval: usize) -> usize {
+	match constructor.recv().await {
+		Some(v) => v as usize % eval,
 		None => 0,
 	}
 }

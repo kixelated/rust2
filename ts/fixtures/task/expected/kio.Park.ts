@@ -26,14 +26,13 @@ export class Park {
  */
 export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
 	let reuse!: boolean;
-	let _10!: Waiter.Waiter | undefined;
 	if (self._0 === undefined) {
 		reuse = false;
 	} else {
 		reuse = cx.willWake(self._0.waker);
 	}
 	if (!reuse) {
-		_10 = Waiter.new(cx.clone());
+		const _10: Waiter.Waiter | undefined = Waiter.new(cx.clone());
 		rt.drop(self._0);
 		self._0 = _10;
 	}

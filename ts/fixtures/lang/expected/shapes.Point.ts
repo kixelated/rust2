@@ -3,25 +3,19 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	let _3!: string;
-	let _4!: string;
-	let _5!: rt.Fmt;
-	let _7!: string;
-	let _8!: rt.Fmt;
-	_3 = "Point";
-	_4 = "x";
-	_5 = (f: rt.Formatter) => rt.i32Display(self.x, f);
-	_7 = "y";
-	_8 = (f: rt.Formatter) => rt.i32Display(self.y, f);
+	const _3: string = "Point";
+	const _4: string = "x";
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.i32Display(self.x, f);
+	const _7: string = "y";
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.i32Display(self.y, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function eq$PartialEq(self: Point, other: Point): boolean {
 	if (!(self.x === other.x)) {
 		return false;
-	} else {
-		return self.y === other.y;
 	}
+	return self.y === other.y;
 }
 
 /** A `Copy` struct, which Rust copies where JS would share. */
