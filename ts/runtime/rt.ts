@@ -230,11 +230,6 @@ export function sliceToByteVec(s: Uint8Array): ByteVec {
 	return byteVecFrom(s);
 }
 
-/** `to_vec` of `Copy` elements. */
-export function sliceToVec<T>(s: readonly T[]): T[] {
-	return s.map(copy);
-}
-
 const SLAB = 8192;
 let slab = /* @__PURE__ */ new ArrayBuffer(SLAB);
 let slabUsed = 0;
@@ -388,21 +383,6 @@ export function stringAsBytes(s: string): Uint8Array {
 /** `str::len`: its length in UTF-8 bytes. */
 export function stringLen(s: string): number {
 	return encoder.encode(s).length;
-}
-
-// Values
-
-/**
- * A copy of a `Copy` value. Objects stand for structs, tuples, and arrays, and Rust
- * copies those where JS would share them.
- */
-export function copy<T>(value: T): T {
-	if (typeof value !== "object" || value === null) return value;
-	if (value instanceof Uint8Array) return value.slice() as T;
-	if (Array.isArray(value)) return value.map(copy) as T;
-	const out = Object.create(Object.getPrototypeOf(value));
-	for (const key of Object.keys(value)) out[key] = copy((value as Record<string, unknown>)[key]);
-	return out;
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.
