@@ -2,25 +2,17 @@
 //!
 //! A type drops if dropping it does something JS can see: runs a `Drop` impl, counts an
 //! `Arc` down, or drops a waker. Such a value has `[Symbol.dispose]`, which a class gets
-//! as drop glue: its `Drop` impl, then each field in order. A variable drops at the end
-//! of its scope through a `finally`, so an early exit, a panic, or a cancelled future
-//! drops it too. A move leaves `undefined` in the place it left, which drops as nothing,
-//! so a variable moved on only some paths still drops on the others.
+//! as drop glue: its `Drop` impl, then each field in order. Where each value drops is
+//! MIR's: drop elaboration put a terminator at each drop, with a flag wherever a value is
+//! moved on some paths only.
 
 use rustc_middle::ty::{self, AdtDef, Instance, Ty, TypeVisitableExt};
 use rustc_span::Span;
 
-use super::body::Body;
 use super::library::Std;
 use super::{Adt, AdtRepr, Translator};
 use crate::program::{SymKind, Symbol};
-use crate::ts::{self, Expr, Stmt, StmtKind, Target, Type};
-
-/// A variable its scope drops when it ends.
-pub struct Owned<'tcx> {
-	pub name: String,
-	pub ty: Ty<'tcx>,
-}
+use crate::ts::{self, Expr, Stmt, StmtKind, Type};
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Whether dropping a `ty` does something JS can see.
@@ -41,6 +33,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(
 					Std::Option
 					| Std::Result
+					| Std::ControlFlow
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
@@ -139,11 +132,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.drops(ty) {
 			return None;
 		}
+		// An array or `Vec`, or one in an `Option` or a box, which is it or `undefined`.
+		if let Some(elem) = self.elements(ty)
+			&& self.disposable(elem)
+		{
+			return Some(Expr::rt("dropAll", vec![value]));
+		}
 		let supported = match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Vec) if self.disposable(args.type_at(0)) => {
-					return Some(Expr::rt("dropAll", vec![value]));
-				}
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
 				Some(Std::Waker) => true,
 				Some(_) => false,
@@ -154,22 +150,40 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			ty::Array(elem, _) if self.disposable(*elem) => return Some(Expr::rt("dropAll", vec![value])),
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		};
-		// A MIR lowering drops an enum or tuple by the glue rustc builds for it.
-		if !supported
-			&& self.mir
-			&& let Some(sym) = super::mir::glue::shim(self, ty, span)
-		{
+		// An enum or tuple drops by the glue rustc builds for it.
+		if !supported && let Some(sym) = super::mir::glue::shim(self, ty, span) {
 			return Some(super::mir::glue::call(sym, value));
+		}
+		if !supported && let ty::Closure(..) = ty.kind() {
+			// Its captures live in an arrow function's scope, where nothing outside can drop them.
+			self.err(
+				span,
+				"dropping a closure that owns a value that drops, which is not supported yet",
+			);
+			return None;
 		}
 		if !supported {
 			self.err(span, format!("dropping `{ty}`, which is not supported yet"));
 			return None;
 		}
 		Some(Expr::rt("drop", vec![value]))
+	}
+
+	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
+	/// whose JS value is the array or `undefined`.
+	fn elements(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		match ty.kind() {
+			ty::Array(elem, _) => Some(*elem),
+			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
+				Std::Vec => Some(args.type_at(0)),
+				Std::Option | Std::Box | Std::Pin => self.elements(args.type_at(0)),
+				_ => None,
+			},
+			_ => None,
+		}
 	}
 
 	/// Give a class whose own fields or `Drop` impl drop its drop glue up front, so JS
@@ -241,123 +255,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			body,
 			loc: None,
 			doc: None,
-			generator: false,
 		});
-	}
-}
-
-impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
-	/// Start a scope: the variables bound until it closes drop when it does.
-	pub fn open_scope(&mut self) {
-		self.scopes.push(Vec::new());
-	}
-
-	/// Drop `name`, a `ty`, when the innermost scope closes, if JS would see it drop.
-	pub fn own(&mut self, name: &str, ty: Ty<'tcx>) {
-		if !self.t.drops(ty) {
-			return;
-		}
-		if let Some(scope) = self.scopes.last_mut() {
-			scope.push(Owned {
-				name: name.to_string(),
-				ty,
-			});
-		}
-	}
-
-	/// Stop dropping `name` here: it moved somewhere that drops it itself.
-	pub fn disown(&mut self, name: &str) {
-		for scope in &mut self.scopes {
-			scope.retain(|owned| owned.name != name);
-		}
-	}
-
-	/// Whether the innermost scope drops anything yet.
-	pub fn scope_owns(&self) -> bool {
-		self.scopes.last().is_some_and(|scope| !scope.is_empty())
-	}
-
-	/// Close the innermost scope, whose statements are `out[start..]`: each variable it
-	/// drops is dropped in a `finally` around the statements after its declaration, the
-	/// last declared innermost, or around them all for a parameter.
-	pub fn close_scope(&mut self, out: &mut Vec<Stmt>, start: usize, span: Span) {
-		let owned = self.scopes.pop().unwrap_or_default();
-		for owned in owned.into_iter().rev() {
-			let Some(dropped) = self.t.drop_value(Expr::ident(&owned.name), owned.ty, span) else {
-				continue;
-			};
-			let moved = self.moved.contains(&owned.name);
-			let mut at = start;
-			for (i, stmt) in out.iter_mut().enumerate().skip(start) {
-				if let StmtKind::Decl {
-					mutable, target, init, ..
-				} = &mut stmt.kind
-					&& declares(target, &owned.name)
-				{
-					*mutable |= moved;
-					// The `finally` may run before anything assigns it.
-					init.get_or_insert_with(|| Expr::lit("undefined!"));
-					at = i + 1;
-					break;
-				}
-			}
-			// What the declaration moved from is cleared before anything can throw.
-			while out.get(at).is_some_and(clears) {
-				at += 1;
-			}
-			let body = out.split_off(at);
-			let dropped = StmtKind::Expr(dropped).at(None);
-			match body.is_empty() {
-				true => out.push(dropped),
-				false => out.push(
-					StmtKind::Try {
-						body,
-						finally: vec![dropped],
-					}
-					.at(None),
-				),
-			}
-		}
-	}
-
-	/// The value of the place `place`, a `ty` that drops, moved out: the place is left
-	/// `undefined`, so whatever drops it later drops nothing.
-	pub fn move_out(&mut self, place: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
-		let base = match &place {
-			Expr::Ident(name) => name.clone(),
-			_ => "moved".into(),
-		};
-		match &place {
-			Expr::Ident(name) => {
-				self.moved.insert(name.clone());
-			}
-			Expr::Member(..) if place.is_path() => {}
-			_ => return self.err(span, "a move out of a place that is no variable or field"),
-		}
-		let name = self.fresh(&base);
-		out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
-		self.clear(place, out);
-		Expr::ident(name)
-	}
-
-	/// Leave `undefined` in `place`, whose value moved.
-	pub fn clear(&mut self, place: Expr, out: &mut Vec<Stmt>) {
-		if let Expr::Ident(name) = &place {
-			self.moved.insert(name.clone());
-		}
-		out.push(StmtKind::Expr(place.assign(Expr::lit("undefined!"))).at(None));
-	}
-}
-
-/// Whether `stmt` leaves a moved-out place `undefined`.
-fn clears(stmt: &Stmt) -> bool {
-	matches!(&stmt.kind, StmtKind::Expr(Expr::Assign(_, value)) if matches!(&**value, Expr::Lit(text) if text == "undefined!"))
-}
-
-/// Whether `target` declares `name`.
-fn declares(target: &Target, name: &str) -> bool {
-	match target {
-		Target::Name(n) => n == name,
-		Target::Array(items) => items.iter().flatten().any(|t| declares(t, name)),
 	}
 }

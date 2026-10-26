@@ -11,15 +11,15 @@ export interface Nibble {
 }
 
 export function eq$PartialEq(self: Nibble, other: Nibble): boolean {
-	return (self._0 & 0xf) === (other._0 & 0xf);
+	return (self._0 & 15) === (other._0 & 15);
 }
 
 export function hash$Hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
-	rt.hashInt(self._0 & 0xf, state);
+	rt.hashInt(self._0 & 15, state);
 }
 
 export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
-	return rt.cmp(other._0 & 0xf, self._0 & 0xf);
+	return rt.cmp(other._0 & 15, self._0 & 15);
 }
 
 //# sourceMappingURL=collections.Nibble.ts.map

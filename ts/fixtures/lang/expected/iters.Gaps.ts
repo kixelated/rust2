@@ -9,16 +9,20 @@ export interface Gaps {
 }
 
 export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
-	const get = rt.sliceGet(self.data, self.at);
-	if (get === undefined) {
+	let b!: rt.u8;
+	let _3!: rt.u8 | undefined;
+	_3 = rt.sliceGet(self.data, self.at);
+	if (_3 !== undefined) {
+		b = _3;
+		self.at = rt.usizeAdd(self.at, 1);
+		if (!(b === 0)) {
+			return b;
+		} else {
+			return undefined;
+		}
+	} else {
 		return rt.DONE;
 	}
-	const b = get;
-	self.at = rt.usizeAdd(self.at, 1);
-	if (b === 0) {
-		return undefined;
-	}
-	return b;
 }
 
 //# sourceMappingURL=iters.Gaps.ts.map

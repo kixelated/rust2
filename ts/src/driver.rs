@@ -19,11 +19,9 @@ pub fn run(args: Vec<String>) -> ExitCode {
 		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
 		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
 		// can catch a panic and go on.
-		if job.as_ref().is_some_and(|job| job.mir) {
+		if job.is_some() {
 			args.push("-Zub-checks=no".into());
-			if std::env::var_os("RUST2_TS_ABORT").is_none() {
-				args.push("-Cpanic=unwind".into());
-			}
+			args.push("-Cpanic=unwind".into());
 		}
 		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
@@ -33,8 +31,6 @@ pub fn run(args: Vec<String>) -> ExitCode {
 struct Translate {
 	config: Config,
 	output: Output,
-	/// Whether bodies lower from MIR rather than THIR.
-	mir: bool,
 }
 
 /// What the job writes.
@@ -69,30 +65,23 @@ impl Translate {
 				));
 			}
 		};
-		let mir = match std::env::var(config::env::LOWER).as_deref() {
-			Ok("mir") => true,
-			Ok("thir") | Err(_) => false,
-			Ok(other) => return Err(format!("{} must be thir or mir, not {other}", config::env::LOWER)),
-		};
-		Ok(Some(Self { config, output, mir }))
+		Ok(Some(Self { config, output }))
 	}
 }
 
 impl Callbacks for Translate {
 	fn after_expansion<'tcx>(&mut self, _compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation {
-		// Copy each body's THIR before borrow checking steals it.
-		let bodies = lower::Bodies::collect(tcx);
 		tcx.ensure_ok().analysis(());
 		if tcx.dcx().has_errors().is_some() {
 			return Compilation::Stop;
 		}
 		// Only a program rustc accepts is translated.
 		let written = match &self.output {
-			Output::Dir(out) => match lower::translate(tcx, &self.config, &bodies, self.mir) {
+			Output::Dir(out) => match lower::translate(tcx, &self.config) {
 				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out),
 				_ => Ok(()),
 			},
-			Output::Census(path) => match lower::census(tcx, &self.config, &bodies, self.mir) {
+			Output::Census(path) => match lower::census(tcx, &self.config) {
 				Some(census) => program::write_file(path, &census.render(&self.config.package)),
 				None => Ok(()),
 			},

@@ -3,7 +3,11 @@
 import * as rt from "./rt.ts";
 
 export function eq$PartialEq(self: Pair, other: Pair): boolean {
-	return self.a === other.a && self.b === other.b;
+	if (!(self.a === other.a)) {
+		return false;
+	} else {
+		return self.b === other.b;
+	}
 }
 
 export function hash$Hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
@@ -12,12 +16,12 @@ export function hash$Hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
 }
 
 export function cmp$Ord(self: Pair, other: Pair): rt.Ordering {
-	const cmp = rt.cmp(self.a, other.a);
+	let cmp!: rt.Ordering;
+	cmp = rt.cmp(self.a, other.a);
 	if (cmp === 0) {
 		return rt.cmp(self.b, other.b);
 	} else {
-		const cmp2 = cmp;
-		return cmp2;
+		return cmp;
 	}
 }
 

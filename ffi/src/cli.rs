@@ -27,7 +27,7 @@ pub fn run(args: &[String]) -> ExitCode {
 }
 
 fn try_run(args: &[String]) -> Result<ExitCode, String> {
-	let Some(args) = Args::parse(args, USAGE, &[])? else {
+	let Some(args) = Args::parse(args, USAGE)? else {
 		return Ok(ExitCode::SUCCESS);
 	};
 	let config = Config::load(&args.config)?;

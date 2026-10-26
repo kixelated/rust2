@@ -26,6 +26,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Env::Plain | Env::Shim => {}
 			}
 		}
+		if let Some(value) = self.stepped_value(local) {
+			return value;
+		}
 		match &self.slots[local] {
 			Slot::Var(name) => Expr::ident(name),
 			// A value of type `!`, as a generic instantiated at `!` reads: native code never
@@ -223,7 +226,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
-				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant, span),
+				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) => base,
 				None if adt.did().is_local() => {
 					let info = self.b.t.adt(*adt, span);
@@ -406,7 +409,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							AdtRepr::Struct { .. } => self.err(span, format!("a switch on `{ty}`")),
 						}
 					}
-					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index, span),
+					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index),
 					Some(Std::Entry) => crate::lower::collections::entry_test(*adt, index, scrut.clone()),
 					Some(Std::Ordering) => scrut
 						.clone()

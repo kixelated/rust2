@@ -113,7 +113,8 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		let id = t.program.field(sym, name);
 		saved.push(id);
 		let ty = t.subst(args, field.ty);
-		let ty = t.ty(ty, span);
+		// A local held across an `.await`, refused as any variable is.
+		let ty = t.held_ty(ty, field.source_info.span);
 		fields.push(ts::Field {
 			id,
 			ty,
@@ -154,7 +155,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	});
 	if let Some(mir) = super::instance_mir(t, instance, span) {
 		let ret = mir.return_ty();
-		let mut b = Body::detached(t, args, ret);
+		let mut b = Body::new(t, args);
 		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 		let params = fx.params();
 		let body = fx.lower();
@@ -167,7 +168,6 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 			body,
 			loc,
 			doc: None,
-			generator: false,
 		});
 	}
 	// `[Symbol.dispose]`: the drop, by the state it is in.
@@ -190,7 +190,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 				t.typing_env_pub(),
 				EarlyBinder::bind(tcx, drop),
 			);
-			let mut b = Body::detached(t, args, tcx.types.unit);
+			let mut b = Body::new(t, args);
 			let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 			fx.lower()
 		}
@@ -203,7 +203,6 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		body,
 		loc: None,
 		doc: None,
-		generator: false,
 	});
 	info
 }

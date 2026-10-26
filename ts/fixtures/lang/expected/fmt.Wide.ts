@@ -3,9 +3,13 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Wide, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const names = ["a", "b", "c", "d", "e", "f"];
-	const values = [(f: rt.Formatter) => rt.u8Display(self.a, f), (f: rt.Formatter) => rt.u16Display(self.b, f), (f: rt.Formatter) => rt.u32Display(self.c, f), (f: rt.Formatter) => rt.u64Display(self.d, f), (f: rt.Formatter) => rt.i8Display(self.e, f), (f: rt.Formatter) => rt.fmtBool(self.f, f)];
-	return rt.fmtDebugStructFields(f, "Wide", names, values);
+	let names!: string[];
+	let values!: rt.Fmt[];
+	let _20!: string;
+	names = ["a", "b", "c", "d", "e", "f"];
+	values = [(f: rt.Formatter) => rt.u8Display(self.a, f), (f: rt.Formatter) => rt.u16Display(self.b, f), (f: rt.Formatter) => rt.u32Display(self.c, f), (f: rt.Formatter) => rt.u64Display(self.d, f), (f: rt.Formatter) => rt.i8Display(self.e, f), (f: rt.Formatter) => rt.fmtBool(self.f, f)];
+	_20 = "Wide";
+	return rt.fmtDebugStructFields(f, _20, names, values);
 }
 
 /** Past five fields, derived `Debug` takes the fields as slices. */

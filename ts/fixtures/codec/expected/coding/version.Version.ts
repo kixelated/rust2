@@ -14,30 +14,36 @@ export interface Version {
 }
 
 /** Decode the version number. */
-export function decode$Decode_Form(r: Decoder.Decoder, _: Form.Form): rt.Result<Version, DecodeError.DecodeError> {
-	const varint = Decoder.varint(r);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
+export function decode$Decode_Form(r: Decoder.Decoder, _2: Form.Form): rt.Result<Version, DecodeError.DecodeError> {
+	let _4!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	_4 = Decoder.varint(r);
+	if (_4.ok) {
+		return rt.Ok({ _0: _4.value });
+	} else {
+		return _4;
 	}
-	return rt.Ok({ _0: varint.value });
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint = Encoder.varint(w, self._0);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
+export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
+	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
+	_4 = Encoder.varint(w, self._0);
+	if (_4.ok) {
+		return rt.Ok(undefined);
+	} else {
+		return _4;
 	}
-	return rt.Ok(undefined);
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint = Encoder.varint(w, self._0);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
+export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
+	_4 = Encoder.varint(w, self._0);
+	if (_4.ok) {
+		return rt.Ok(undefined);
+	} else {
+		return _4;
 	}
-	return rt.Ok(undefined);
 }
 
 //# sourceMappingURL=version.Version.ts.map

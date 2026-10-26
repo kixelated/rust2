@@ -8,7 +8,11 @@ export interface Seq {
 }
 
 export function fmt$Debug(self: Seq, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugListFinish(rt.debugListEntries(rt.fmtDebugList(f), self._0, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f)));
+	let _5!: rt.DebugList;
+	let _6!: rt.Iter<Pair.Pair>;
+	_5 = rt.fmtDebugList(f);
+	_6 = rt.iterSlice(self._0);
+	return rt.debugListFinish(rt.debugListEntries(_5, _6, (value: Pair.Pair, f: rt.Formatter) => Pair.fmt$Debug(value, f)));
 }
 
 //# sourceMappingURL=fmt.Seq.ts.map

@@ -46,21 +46,11 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-pub fn make() -> Noisy {
-	Noisy(1)
-}
-
-/// The temporary drops at the end of the statement, which nothing in JS marks.
-pub fn temporary() -> u8 {
-	make().0
-}
-
-/// Dropping the closure would drop what it captured.
+/// Dropping the closure would drop what it captured, which lives in an arrow function.
 pub fn owning_closure() -> u8 {
-	let n = make();
-	let f = move || drop(n);
-	f();
-	0
+	let n = Noisy(1);
+	let f = move || std::mem::size_of_val(&n) as u8;
+	f()
 }
 
 /// Each element drops at the end of its iteration, and the rest on a `break`.
@@ -70,21 +60,6 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 		sum += n.0;
 	}
 	sum
-}
-
-/// The part the pattern skips drops at the end of the function, which nothing marks.
-pub fn destructured((a, _): (Noisy, Noisy)) -> u8 {
-	a.0
-}
-
-pub enum Slot {
-	Empty,
-	Full(Noisy),
-}
-
-/// An enum's drop glue would switch on its variant.
-pub fn slot(s: Slot) -> bool {
-	matches!(s, Slot::Empty)
 }
 
 pub struct Boxed<T>(pub T);
@@ -137,19 +112,6 @@ pub fn written(s: &mut String, n: u8) {
 	let _ = write!(s, "{n}");
 }
 
-pub fn captured() -> u8 {
-	let mut n = 1;
-	let f = move || n + 1;
-	n += 10;
-	f() + n
-}
-
-pub fn or_bindings(x: Result<u8, u8>) -> u8 {
-	match x {
-		Ok(v) | Err(v) => v,
-	}
-}
-
 static COUNT: u8 = 0;
 
 pub fn statics() -> u8 {
@@ -178,41 +140,6 @@ pub fn shared_borrow(n: &Noisy) -> usize {
 	std::sync::Arc::strong_count(&a)
 }
 
-/// `n` would wait out the `.await` where no scope drops it if the future is cancelled.
-pub async fn held_across(n: Noisy) -> u8 {
-	consume(n, async { 1u8 }.await)
-}
-
-fn consume(n: Noisy, v: u8) -> u8 {
-	drop(n);
-	v
-}
-
-/// The skipped element drops at the end of the statement, which nothing marks.
-pub fn skipped() -> u8 {
-	let [kept, _] = [make(), make()];
-	kept.0
-}
-
-/// `n` would wait out the `.await` in the index where no scope drops it on a cancel.
-pub async fn assigned(n: Noisy) -> u8 {
-	let mut slots = [make(), make()];
-	slots[index().await] = n;
-	slots[0].0
-}
-
-async fn index() -> usize {
-	1
-}
-
-/// `Some(..)` leaves the payload in the temporary, which drops after the `match`.
-pub fn unnamed() -> u8 {
-	match Some(make()) {
-		Some(..) => 1,
-		None => 0,
-	}
-}
-
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
 pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 	*dst = src;
@@ -228,35 +155,14 @@ pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
 	matches!(p, None)
 }
 
-/// The payload of the `Some` that fails the test drops after the `if let`.
-#[allow(clippy::redundant_pattern_matching, reason = "the `if let` is under test")]
-pub fn unmatched() -> u8 {
-	if let None = Some(make()) { 1 } else { 0 }
-}
-
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
 pub async fn pending_output() -> std::task::Poll<u8> {
 	std::task::Poll::Pending
 }
 
-/// The temporary drops after the `match`, which nothing marks.
-#[allow(clippy::match_like_matches_macro, reason = "the `match` is under test")]
-pub fn tested() -> u8 {
-	let matched = match Some(make()) {
-		Some(_) => 1,
-		None => 0,
-	};
-	matched + 1
-}
-
 /// A `Pin` is its pointer in JS: replacing the `Arc` would reach every clone.
 pub fn replace_pinned(dst: &mut std::pin::Pin<std::sync::Arc<u8>>, src: std::pin::Pin<std::sync::Arc<u8>>) {
 	*dst = src;
-}
-
-/// The box drops its `Noisy` at the end of the statement, which nothing marks.
-pub fn boxed_field() -> u8 {
-	Box::new(make()).0
 }
 
 /// A guard is its mutex in JS: replacing it would copy the other mutex's value in.
@@ -369,34 +275,9 @@ pub fn counted() -> usize {
 	(0..2).map(Noisy).count()
 }
 
-/// An iterator that drops, after the loop.
-pub struct Countdown(pub Noisy);
-
-impl Iterator for Countdown {
-	type Item = u8;
-
-	fn next(&mut self) -> Option<u8> {
-		None
-	}
-}
-
-pub fn looped(c: Countdown) -> u8 {
-	let mut n = 0;
-	for i in c {
-		n += i;
-	}
-	n
-}
-
 /// `unwrap_or` drops its fallback when the option holds a value.
 pub fn fallback(a: Option<Noisy>, b: Noisy) -> Noisy {
 	a.unwrap_or(b)
-}
-
-/// `rest` moves the tail out of `pair`, which would still drop it.
-pub fn rest_moved(pair: [Noisy; 2]) -> u8 {
-	let [first, rest @ ..] = pair;
-	first.0 + rest[0].0
 }
 
 /// `rest` borrows the tail of `items` mutably, but a JS array has no views.
@@ -410,12 +291,6 @@ pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
-}
-
-/// `[n; 0]` drops `n` at once, which no element of the array would.
-pub fn repeated(n: Noisy) -> usize {
-	let empty = [n; 0];
-	empty.len()
 }
 
 /// A reference copied into a closure holds its referent's object: replacing through it

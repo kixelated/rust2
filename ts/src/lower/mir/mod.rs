@@ -1,4 +1,4 @@
-//! Function bodies from MIR: the spike's prototype, beside the THIR lowering in `body`.
+//! Function bodies, from MIR.
 //!
 //! MIR is each body's control-flow graph after borrow checking. Every drop is a
 //! terminator where drop elaboration put it, with a flag wherever a value is moved on
@@ -7,8 +7,8 @@
 //! with each temporary that is assigned once and read once folded back into the
 //! expression that reads it, unless that would reorder an effect.
 //!
-//! Library calls go through the THIR lowering's mappings, which take their arguments
-//! lowered: a detached `Body` holds the names, and its translator everything else.
+//! Library calls go through the mappings in `library`, which take their arguments
+//! lowered: a `Body` holds the names, and its translator everything else.
 
 mod call;
 mod cfg;
@@ -16,6 +16,7 @@ pub mod coroutine;
 pub mod glue;
 mod place;
 mod rvalue;
+mod step;
 mod unwind;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
@@ -41,13 +42,16 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		super::iter::check_impl(t, def_id);
 	}
 	let ret_ty = mir.return_ty();
-	let mut b = Body::detached(t, instance.args, ret_ty);
+	let mut b = Body::new(t, instance.args);
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
+	let ret_span = fx.local_span(mir::RETURN_PLACE);
 	let ret = match (next, ret_ty.kind()) {
-		(true, ty::Adt(_, args)) => Type::Union(vec![fx.b.t.ty(args.type_at(0), span), Type::Rt("Done", Vec::new())]),
-		_ => fx.b.t.ret_ty(ret_ty, span),
+		(true, ty::Adt(_, args)) => {
+			Type::Union(vec![fx.b.t.ty(args.type_at(0), ret_span), Type::Rt("Done", Vec::new())])
+		}
+		_ => fx.b.t.ret_ty(ret_ty, ret_span),
 	};
 	Some(ts::Function {
 		sym: 0,
@@ -56,7 +60,6 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		body,
 		loc: None,
 		doc: None,
-		generator: false,
 	})
 }
 
@@ -137,6 +140,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	mutated: IndexVec<Local, bool>,
 	/// The names of borrowed locals.
 	shared: FxHashSet<String>,
+	/// The names of locals whose own value nothing changes: a tuple, array, or enum or
+	/// struct of their own, never changed in place nor borrowed, so a call can't change
+	/// what their fields hold.
+	frozen_names: FxHashSet<String>,
 	/// `(value, overflowed)` pairs of checked arithmetic, whose `.1` is false once the value
 	/// is made, which panics where the assert would.
 	checked: FxHashSet<Local>,
@@ -184,6 +191,23 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	range_nexts: FxHashSet<Local>,
 	/// Their names, and their flags' names, which a switch on their variant tests.
 	range_flags: FxHashMap<String, String>,
+	/// Iterators over an array stepped in place, by `step`.
+	stepped: FxHashSet<Local>,
+	/// The borrows `next` steps them by, and what each borrows.
+	stepped_borrows: FxHashMap<Local, Local>,
+	/// The two variables each holds its fields in, by `step`.
+	stepped_vars: FxHashMap<Local, [String; 2]>,
+	/// Those moved into another, which shares its variables.
+	stepped_into: FxHashMap<Local, Local>,
+	/// Statements that change nothing: a swap through a temporary nothing else names, as
+	/// an async body moves its context at each `await`.
+	noops: FxHashSet<(BasicBlock, usize)>,
+	/// The lengths a bounds check compares with, of the slices whose `rt.idx` it is.
+	idx_of: FxHashMap<Local, Place<'tcx>>,
+	/// Each block's one predecessor, if it has one.
+	sole_pred: FxHashMap<BasicBlock, BasicBlock>,
+	/// What the cleanup variable holds as each block lowered so far leaves.
+	unwind_out: FxHashMap<BasicBlock, Option<usize>>,
 	/// The halves a `|` joins into a `u64`, by the local of the shift that is its left side.
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
@@ -206,6 +230,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			borrowed: IndexVec::from_elem_n(false, n),
 			mutated: IndexVec::from_elem_n(false, n),
 			shared: FxHashSet::default(),
+			frozen_names: FxHashSet::default(),
 			checked: FxHashSet::default(),
 			pending: Vec::new(),
 			order: 0,
@@ -230,6 +255,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			next_names: FxHashSet::default(),
 			range_nexts: FxHashSet::default(),
 			range_flags: FxHashMap::default(),
+			stepped: FxHashSet::default(),
+			stepped_borrows: FxHashMap::default(),
+			stepped_vars: FxHashMap::default(),
+			stepped_into: FxHashMap::default(),
+			noops: FxHashSet::default(),
+			sole_pred: FxHashMap::default(),
+			idx_of: FxHashMap::default(),
+			unwind_out: FxHashMap::default(),
 			halves: FxHashMap::default(),
 			joined: FxHashSet::default(),
 		};
@@ -245,6 +278,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// Count each local's reads and assignments, and decide how each lowers.
 	fn analyze(&mut self) {
 		let mir = self.mir;
+		self.find_ignored_sites();
+		self.find_noops();
+		let mut bounds = Vec::new();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			if data.statements.iter().all(|s| {
 				matches!(
@@ -256,6 +292,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.unreachable.insert(bb);
 			}
 			for (i, stmt) in data.statements.iter().enumerate() {
+				if self.noops.contains(&(bb, i)) {
+					continue;
+				}
 				match &stmt.kind {
 					StatementKind::Assign(assign) => {
 						let (place, rvalue) = &**assign;
@@ -312,25 +351,44 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The assert after checked arithmetic reads `.1`, which lowering folds away.
 					let folded = matches!(cond, Operand::Move(p) | Operand::Copy(p)
 						if p.projection.len() == 1 && self.checked.contains(&p.local));
-					if !folded && !redundant(msg) {
+					if let mir::AssertKind::BoundsCheck { len, index } = &**msg {
+						// Counted once every length's definition is known.
+						bounds.push((cond, len, index));
+					} else if !folded && !redundant(msg) {
 						self.operand_use(cond);
-						// Only a bounds check's message shows its operands.
-						if let mir::AssertKind::BoundsCheck { len, index } = &**msg {
-							self.operand_use(len);
-							self.operand_use(index);
-						}
 					}
 				}
 				_ => {}
 			}
 		}
+		// A bounds check of a slice's length is `rt.idx` of the slice; others test their
+		// condition, and show their operands.
+		for (cond, len, index) in bounds {
+			if let Operand::Copy(l) | Operand::Move(l) = len
+				&& let Some(l) = l.as_local()
+				&& let Some(Rvalue::UnaryOp(mir::UnOp::PtrMetadata, Operand::Copy(slice) | Operand::Move(slice))) =
+					self.def_rvalue(l)
+				&& self.stable(*slice)
+			{
+				self.idx_of.insert(l, *slice);
+				self.place_use(*slice);
+				self.operand_use(index);
+				continue;
+			}
+			self.operand_use(cond);
+			self.operand_use(len);
+			self.operand_use(index);
+		}
+		self.drop_unread();
 		self.find_next_results();
+		self.find_stepped();
+		self.unborrow_passed();
 		self.find_halves();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
 				Slot::Unit
-			} else if let Some(value) = self.unit_struct(local, ty) {
+			} else if let Some(value) = self.unassigned(local, ty) {
 				Slot::Alias(Some(value))
 			} else if self.alias(local) {
 				Slot::Alias(None)
@@ -340,6 +398,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(String::new())
 			};
 			self.slots[local] = slot;
+			// A temporary folded into what reads it is declared nowhere, so a type that can't
+			// tell its values apart is refused here. The signature types the parameters and
+			// the result, and a left-out macro's code holds nothing.
+			if !self.is_arg(local) && local != mir::RETURN_PLACE && !self.in_ignored(self.local_span(local)) {
+				let held = match self.next_results.contains(&local) {
+					true => next_item(self.tcx, ty),
+					false => ty,
+				};
+				self.b.t.check_erased(held, self.local_span(local));
+			}
 		}
 		// Names: what debug info calls a local, else its number.
 		let mut named: FxHashMap<Local, rustc_span::Symbol> = FxHashMap::default();
@@ -366,7 +434,141 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.borrowed[local] {
 					self.shared.insert(name.clone());
 				}
+				if self.stepped.contains(&local) {
+					self.name_stepped(local, &base);
+				}
+				let owned = match mir.local_decls[local].ty.kind() {
+					ty::Tuple(_) | ty::Array(..) => true,
+					ty::Adt(adt, _) => {
+						adt.did().is_local()
+							|| matches!(
+								crate::lower::library::Std::of(self.tcx, adt.did()),
+								Some(crate::lower::library::Std::Option | crate::lower::library::Std::Result)
+							)
+					}
+					_ => false,
+				};
+				if owned && !self.is_arg(local) && !self.borrowed[local] && !self.mutated[local] {
+					self.frozen_names.insert(name.clone());
+				}
 				self.slots[local] = Slot::Var(name);
+			}
+		}
+		self.share_stepped();
+	}
+
+	/// Uncount the reads of what computes a local nothing reads without doing anything
+	/// else, as the test of an assert a runtime function checks for itself is.
+	fn drop_unread(&mut self) {
+		let mir = self.mir;
+		let mut computed: IndexVec<Local, Vec<&Rvalue<'tcx>>> =
+			IndexVec::from_elem_n(Vec::new(), mir.local_decls.len());
+		let mut pure = IndexVec::from_elem_n(true, mir.local_decls.len());
+		for (bb, data) in mir.basic_blocks.iter_enumerated() {
+			for (i, stmt) in data.statements.iter().enumerate() {
+				if self.noops.contains(&(bb, i)) {
+					continue;
+				}
+				if let StatementKind::Assign(assign) = &stmt.kind
+					&& let Some(local) = assign.0.as_local()
+				{
+					match &assign.1 {
+						// One that can throw is lowered even unread, so it keeps its reads.
+						r @ (Rvalue::BinaryOp(..) | Rvalue::UnaryOp(..) | Rvalue::Use(..))
+							if !rvalue::effect(r, self) =>
+						{
+							computed[local].push(r)
+						}
+						_ => pure[local] = false,
+					}
+				}
+			}
+			if let TerminatorKind::Call { destination, .. } = &data.terminator().kind {
+				pure[destination.local] = false;
+			}
+		}
+		let mut work: Vec<Local> = mir.local_decls.indices().collect();
+		while let Some(local) = work.pop() {
+			if self.uses[local] != 0 || !pure[local] || self.is_arg(local) || local == mir::RETURN_PLACE {
+				continue;
+			}
+			for rvalue in std::mem::take(&mut computed[local]) {
+				let ops: Vec<&Operand<'tcx>> = match rvalue {
+					Rvalue::BinaryOp(_, ops) => vec![&ops.0, &ops.1],
+					Rvalue::UnaryOp(_, op) | Rvalue::Use(op, _) => vec![op],
+					_ => unreachable!("collected above"),
+				};
+				for op in ops {
+					if let Operand::Copy(p) | Operand::Move(p) = op {
+						self.uses[p.local] -= 1;
+						for elem in p.projection {
+							if let mir::ProjectionElem::Index(index) = elem {
+								self.uses[index] -= 1;
+							}
+						}
+						work.push(p.local);
+					}
+				}
+			}
+		}
+	}
+
+	/// A local nothing changes whose one read is a shared borrow, itself read once, is
+	/// read once where the borrow is: it folds like a local nothing borrows, as an array
+	/// made to pass as a slice does.
+	fn unborrow_passed(&mut self) {
+		let mir = self.mir;
+		for data in mir.basic_blocks.iter() {
+			for stmt in &data.statements {
+				if let StatementKind::Assign(assign) = &stmt.kind
+					&& let (to, Rvalue::Ref(_, mir::BorrowKind::Shared, from)) = &**assign
+					&& let Some(to) = to.as_local()
+					&& let Some(from) = from.as_local()
+					&& self.borrowed[from]
+					&& !self.mutated[from]
+					&& self.uses[from] == 1
+					&& self.defs[to] == 1
+					&& self.uses[to] == 1
+					&& !self.borrowed[to]
+				{
+					self.borrowed[from] = false;
+				}
+			}
+		}
+	}
+
+	/// Find the swaps `t = move x; x = move t;` through a `t` nothing else names.
+	fn find_noops(&mut self) {
+		use rustc_middle::mir::visit::{PlaceContext, Visitor};
+		struct Mentions(IndexVec<Local, u32>);
+		impl<'tcx> Visitor<'tcx> for Mentions {
+			fn visit_local(&mut self, local: Local, cx: PlaceContext, _: mir::Location) {
+				if !matches!(cx, PlaceContext::NonUse(_)) {
+					self.0[local] += 1;
+				}
+			}
+		}
+		let mir = self.mir;
+		let mut mentions = Mentions(IndexVec::from_elem_n(0, mir.local_decls.len()));
+		mentions.visit_body(mir);
+		let moved = |stmt: &mir::Statement<'tcx>| match &stmt.kind {
+			StatementKind::Assign(assign) => match &assign.1 {
+				Rvalue::Use(Operand::Move(from), _) => Some((assign.0.as_local()?, from.as_local()?)),
+				_ => None,
+			},
+			_ => None,
+		};
+		for (bb, data) in mir.basic_blocks.iter_enumerated() {
+			for (i, pair) in data.statements.windows(2).enumerate() {
+				if let (Some((t, x)), Some((x2, t2))) = (moved(&pair[0]), moved(&pair[1]))
+					&& x == x2
+					&& t == t2
+					&& t != x
+					&& mentions.0[t] == 2
+				{
+					self.noops.insert((bb, i));
+					self.noops.insert((bb, i + 1));
+				}
 			}
 		}
 	}
@@ -448,11 +650,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields that nothing assigns, which MIR leaves unassigned since it
-	/// holds nothing: JS needs it made.
-	fn unit_struct(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
+	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made.
+	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
 		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
 			return None;
+		}
+		if let ty::Array(elem, len) = ty.kind()
+			&& len.try_to_target_usize(self.tcx) == Some(0)
+		{
+			return Some(match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
+				_ => Expr::As(
+					Box::new(Expr::Array(Vec::new())),
+					self.b.t.ty(ty, self.local_span(local)),
+				),
+			});
 		}
 		let ty::Adt(adt, _) = ty.kind() else {
 			return None;
@@ -460,7 +673,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !adt.is_struct() || !adt.did().is_local() || adt.all_fields().next().is_some() {
 			return None;
 		}
-		let info = self.b.t.adt(*adt, self.span);
+		let info = self.b.t.adt(*adt, self.local_span(local));
 		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
 	}
 
@@ -487,6 +700,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let Some(rvalue) = self.def_rvalue(local) else {
 			return false;
 		};
+		if self.context_of_arg(local) {
+			return true;
+		}
+		// A number or a flag assigned once from a constant: the constant.
+		if let Rvalue::Use(Operand::Constant(_), _) = rvalue
+			&& !self.mutated[local]
+		{
+			let ty = mir.local_decls[local].ty;
+			return ty.is_bool() || crate::lower::num::Int::of(ty).is_some_and(|i| !i.big());
+		}
 		match (mir.local_decls[local].ty.kind(), rvalue) {
 			// A borrow: borrow checking keeps the place as it is but through the borrow,
 			// unless the path to it goes through a reference held in a field or element,
@@ -526,6 +749,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			_ => false,
 		}
+	}
+
+	/// Whether `local` is the task's context an async body is resumed with, as it passes it
+	/// on: a parameter nothing assigns, or a local assigned it once, in another type that
+	/// is the context in JS too.
+	fn context_of_arg(&self, local: Local) -> bool {
+		if self.borrowed[local] || self.mutated[local] || !rvalue::context_like(self, self.mir.local_decls[local].ty) {
+			return false;
+		}
+		if self.is_arg(local) {
+			return self.defs[local] == 0;
+		}
+		if self.defs[local] != 1 {
+			return false;
+		}
+		let from = match self.def_rvalue(local) {
+			Some(
+				Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)
+				| Rvalue::Cast(mir::CastKind::Transmute, Operand::Copy(p) | Operand::Move(p), _),
+			) => p,
+			Some(Rvalue::Aggregate(_, ops)) if ops.len() == 1 => match &ops[rustc_abi::FieldIdx::ZERO] {
+				Operand::Copy(p) | Operand::Move(p) => p,
+				Operand::Constant(_) | Operand::RuntimeChecks(_) => return false,
+			},
+			_ => return false,
+		};
+		from.as_local().is_some_and(|from| self.context_of_arg(from))
 	}
 
 	/// Whether `place` is a field of a closure's environment, which stays put for the call.
@@ -759,14 +1009,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		for local in self.mir.args_iter().skip(skip) {
 			let ty = match (&self.env, self.mir.local_decls[local].ty.kind()) {
-				(Env::Shim, ty::RawPtr(pointee, _)) => *pointee,
+				(Env::Shim, ty::RawPtr(pointee, _) | ty::Ref(_, pointee, _)) => *pointee,
 				(_, _) => self.mir.local_decls[local].ty,
 			};
 			let name = match &self.slots[local] {
 				Slot::Var(name) => name.clone(),
 				_ => self.b.fresh("_"),
 			};
-			let ty = self.b.t.ty(ty, self.span);
+			let ty = self.b.t.ty(ty, self.local_span(local));
 			params.push(Param { name, ty: Some(ty) });
 		}
 		params
@@ -819,6 +1069,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.collect(),
 			};
 		}
+		let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
+		for (from, tos) in succs.iter().enumerate() {
+			for &to in tos {
+				preds[to].push(from);
+			}
+		}
+		for (to, from) in preds.iter().enumerate() {
+			if let [from] = from[..]
+				&& from != to
+			{
+				self.sole_pred
+					.insert(BasicBlock::from_usize(to), BasicBlock::from_usize(from));
+			}
+		}
 		let graph = cfg::Graph { succs };
 		let mut labels = self.labels;
 		let body = cfg::structure(&graph, self, &mut labels);
@@ -830,7 +1094,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if self.is_arg(local) || !self.assigned[local] {
 				continue;
 			}
-			if let Slot::Var(name) = self.slots[local].clone() {
+			if let Some(vars) = self.stepped_vars.get(&local).cloned() {
+				// Declared once, by the local that shares them.
+				if self.stepped_root(local) != local {
+					continue;
+				}
+				for (name, ty) in vars.into_iter().zip(self.stepped_tys(local)) {
+					out.push(StmtKind::Declare { name, ty }.at(None));
+				}
+			} else if let Slot::Var(name) = self.slots[local].clone() {
 				let ty = self.decl_ty(local);
 				out.push(StmtKind::Declare { name, ty }.at(None));
 			}
@@ -849,17 +1121,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out.extend(entry);
 		out.extend(body);
 		drop_self_assignments(&mut out);
+		let mut caught = Vec::new();
+		handler_reads(&out, &mut caught);
+		return_in_place(&mut out, &caught.into_iter().collect());
 		prune_unread(&mut out);
+		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
+			cfg::strip_return(&mut out);
+		}
 		out
 	}
 
-	/// Send each block whose terminator an ignored macro made to the one block its code
-	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
-	fn skip_ignored_macros(&mut self) {
-		let mir = self.mir;
-		// Every left-out invocation's span, which its arguments' code is within too.
+	/// Every left-out macro invocation's span, which its arguments' code is within too.
+	fn find_ignored_sites(&mut self) {
 		let mut sites = Vec::new();
-		for data in mir.basic_blocks.iter() {
+		for data in self.mir.basic_blocks.iter() {
 			let spans = data.statements.iter().map(|s| s.source_info.span);
 			for span in spans.chain([data.terminator().source_info.span]) {
 				if let Some(site) = self.b.t.ignored_site(span)
@@ -870,6 +1145,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		self.ignored_sites = sites;
+	}
+
+	/// Send each block whose terminator an ignored macro made to the one block its code
+	/// leaves to. Such a macro evaluates to `()`, so its code has one way out.
+	fn skip_ignored_macros(&mut self) {
+		let mir = self.mir;
 		let flags: IndexVec<BasicBlock, bool> = mir
 			.basic_blocks
 			.iter()
@@ -917,15 +1198,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local's declared type: the value's, for a checked pair.
 	fn decl_ty(&mut self, local: Local) -> Type {
 		let ty = self.mir.local_decls[local].ty;
-		if self.next_results.contains(&local)
-			&& let ty::Adt(adt, args) = ty.kind()
-		{
-			// `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
-			let item = match crate::lower::library::Std::of(self.tcx, adt.did()) {
-				Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
-				_ => args.type_at(0),
-			};
-			let item = self.b.t.ty(item, self.span);
+		if self.next_results.contains(&local) {
+			let item = self.b.t.held_ty(next_item(self.tcx, ty), self.local_span(local));
 			if self.range_nexts.contains(&local) {
 				return item;
 			}
@@ -933,9 +1207,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
+			// A box's pointer is the box's contents in JS.
+			(_, ty::RawPtr(pointee, _)) if self.box_pointer(local) => *pointee,
 			_ => ty,
 		};
-		self.b.t.ty(ty, self.span)
+		self.b.t.held_ty(ty, self.local_span(local))
+	}
+
+	/// Where a local is declared, which a refusal of its type points at: for drop glue,
+	/// whose locals are std's, where the value drops.
+	pub(super) fn local_span(&self, local: Local) -> Span {
+		match self.env {
+			Env::Shim => self.span,
+			_ => self.mir.local_decls[local].source_info.span,
+		}
 	}
 
 	/// Where a terminator can go, without its unwinding.
@@ -944,9 +1229,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::Goto { target, .. } => vec![*target],
 			// An unreachable default is no edge: the last value takes its place.
 			TerminatorKind::SwitchInt { targets, .. } => {
-				let mut all = targets.all_targets().to_vec();
-				if self.unreachable.contains(&targets.otherwise()) && all.len() > 1 {
-					all.pop();
+				let (arms, default) = self.switch_targets(targets);
+				let mut all: Vec<BasicBlock> = Vec::new();
+				for bb in arms.into_iter().map(|(_, bb)| bb).chain([default]) {
+					if !all.contains(&bb) {
+						all.push(bb);
+					}
 				}
 				all
 			}
@@ -963,6 +1251,51 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	// Locals
+
+	/// A switch's arms and default, each past blocks that do nothing but go on, without
+	/// the arms that go where the default does. An unreachable default leaves the last
+	/// arm as the default.
+	fn switch_targets(&self, targets: &mir::SwitchTargets) -> (Vec<(u128, BasicBlock)>, BasicBlock) {
+		let mut arms: Vec<(u128, BasicBlock)> = targets.iter().collect();
+		let mut default = targets.otherwise();
+		if self.unreachable.contains(&default)
+			&& let Some((_, last)) = arms.pop()
+		{
+			default = last;
+		}
+		let default = self.forward(default);
+		let returns = |bb: BasicBlock| matches!(self.mir.basic_blocks[bb].terminator().kind, TerminatorKind::Return);
+		arms.retain_mut(|(_, target)| {
+			*target = self.forward(*target);
+			*target != default && !(returns(*target) && returns(default) && self.empty(*target) && self.empty(default))
+		});
+		(arms, default)
+	}
+
+	/// Whether `bb` has no statement that does anything.
+	fn empty(&self, bb: BasicBlock) -> bool {
+		self.mir.basic_blocks[bb].statements.iter().enumerate().all(|(i, s)| {
+			matches!(
+				s.kind,
+				StatementKind::StorageDead(_) | StatementKind::StorageLive(_) | StatementKind::Nop
+			) || self.noops.contains(&(bb, i))
+		})
+	}
+
+	/// Where `bb` goes, past blocks that do nothing but go on.
+	fn forward(&self, mut bb: BasicBlock) -> BasicBlock {
+		for _ in 0..self.mir.basic_blocks.len() {
+			let data = &self.mir.basic_blocks[bb];
+			let TerminatorKind::Goto { target, .. } = data.terminator().kind else {
+				return bb;
+			};
+			if !self.empty(bb) || data.is_cleanup || self.redirect.contains_key(&bb) {
+				return bb;
+			}
+			bb = target;
+		}
+		bb
+	}
 
 	/// The JS name of a local held in a variable.
 	fn var(&self, local: Local) -> Option<&str> {
@@ -1038,6 +1371,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					None => seen_memory |= self.shared.contains(name.as_str()),
 				},
 				Read::Memory => seen_memory = true,
+				Read::Field(name) => seen_memory |= !self.frozen_names.contains(name.as_str()),
 				Read::Effect => seen_effect = true,
 			}
 		}
@@ -1175,6 +1509,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		});
 	}
 
+	/// Hold back `value`, the assignment of the flag `flag`, to fold into the switch that
+	/// reads it.
+	fn hold_flag(&mut self, flag: String, value: Expr) {
+		self.order += 1;
+		let mut reads = Vec::new();
+		reads_of(&value, &mut reads);
+		self.pending.push(Pending {
+			name: flag,
+			value,
+			order: self.order,
+			effect: true,
+			memory: true,
+			parts: None,
+			reads,
+			copy: false,
+			decl: false,
+		});
+	}
+
 	/// The parts of the pending aggregate `local`, each held back in its place, so the
 	/// expression that reads them keeps what they do and read in order.
 	fn take_parts(&mut self, op: &Operand<'tcx>) -> Option<Vec<Expr>> {
@@ -1204,6 +1557,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let effect = events.iter().any(|r| matches!(r, Read::Effect));
 			let memory = events.iter().any(|r| match r {
 				Read::Memory => true,
+				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
 				Read::Ident(name, _) => self.shared.contains(name.as_str()),
 				Read::Effect => false,
 			});
@@ -1244,6 +1598,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		parts: Option<Vec<Expr>>,
 		out: &mut Vec<Stmt>,
 	) {
+		if self.stepped_vars.contains_key(&local) {
+			self.set_stepped(local, value, out);
+			return;
+		}
 		match self.slots[local].clone() {
 			Slot::Var(name) => {
 				if self.uses[local] == 0 {
@@ -1300,12 +1658,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn block(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
 		let mir = self.mir;
 		let data = &mir.basic_blocks[bb];
+		// Entered only from its one predecessor, with the cleanup that left it.
+		if let Some(unwind) = &mut self.unwind
+			&& let Some(from) = self.sole_pred.get(&bb)
+			&& let Some(&known) = self.unwind_out.get(from)
+		{
+			unwind.known = known;
+		}
 		self.set_unwind(data.terminator(), out);
-		for stmt in &data.statements {
-			if !self.in_ignored(stmt.source_info.span) {
+		for (i, stmt) in data.statements.iter().enumerate() {
+			if !self.in_ignored(stmt.source_info.span) && !self.noops.contains(&(bb, i)) {
 				self.statement(stmt, out);
 			}
 		}
+		let known = self.unwind.as_ref().and_then(|u| u.known);
+		self.unwind_out.insert(bb, known);
 		if let Some(&to) = self.redirect.get(&bb) {
 			return Exit::Goto(to.as_usize());
 		}
@@ -1358,9 +1725,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
 						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
+						Rvalue::Use(op @ Operand::Constant(_), _) => self.operand(op, span, out),
+						// The task's context, wrapped.
+						Rvalue::Aggregate(_, ops) => match &ops[rustc_abi::FieldIdx::ZERO] {
+							Operand::Copy(p) | Operand::Move(p) => self.place_expr(*p, span, out),
+							_ => unreachable!("checked by context_of_arg"),
+						},
 						_ => unreachable!("an alias is a borrow or a copy of one"),
 					};
-					self.materialize(&target, out);
+					// Read once, it folds in what it reads that is held back, like any other read.
+					if self.uses[local] > 1 {
+						self.materialize(&target, out);
+					}
 					self.slots[local] = Slot::Alias(Some(target));
 					return;
 				}
@@ -1398,6 +1774,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			self.force_share = true;
 		}
 		let value = self.rvalue(rvalue, place, span, &mut pre);
+		let value = match (value, place.as_local()) {
+			(Some(value), Some(local)) if self.stepped.contains(&local) => Some(self.stepped_make(value, span)),
+			(value, _) => value,
+		};
 		self.into_frozen = false;
 		self.force_share = false;
 		self.copy_on_flush = shares;
@@ -1564,23 +1944,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	fn switch(&mut self, discr: &Operand<'tcx>, targets: &mir::SwitchTargets, span: Span, out: &mut Vec<Stmt>) -> Exit {
-		let mut arms: Vec<(u128, BasicBlock)> = targets.iter().collect();
-		let mut default = targets.otherwise();
-		// An unreachable default leaves the last value as the default.
-		if self.unreachable.contains(&default)
-			&& let Some((_, last)) = arms.pop()
-		{
-			default = last;
-		}
+		let (arms, default) = self.switch_targets(targets);
 		let discr_local = match discr {
 			Operand::Copy(p) | Operand::Move(p) => p.as_local(),
 			_ => None,
 		};
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
-			Some(Slot::Discr(Some((scrut, ty)))) => arms
-				.iter()
-				.map(|&(value, target)| (self.variant_test(&scrut, ty, value, span), target))
-				.collect(),
+			Some(Slot::Discr(Some((scrut, ty)))) => {
+				let tests: Vec<Expr> = arms
+					.iter()
+					.map(|&(value, _)| self.variant_test(&scrut, ty, value, span))
+					.collect();
+				// What one test reads that is held back folds into it; of several, all but
+				// the first may not run.
+				let conds = match tests.len() {
+					1 => self.fold_exprs(Vec::new(), tests, false, out),
+					_ => tests,
+				};
+				conds.into_iter().zip(arms.iter().map(|&(_, t)| t)).collect()
+			}
 			_ => {
 				let ty = discr.ty(&self.mir.local_decls, self.tcx);
 				let mut pre = Vec::new();
@@ -1651,6 +2033,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return;
 		}
 		if redundant(msg) {
+			return;
+		}
+		if let mir::AssertKind::BoundsCheck { len, index } = msg
+			&& let Operand::Copy(l) | Operand::Move(l) = len
+			&& let Some(&slice) = l.as_local().and_then(|l| self.idx_of.get(&l))
+		{
+			let mut pre = Vec::new();
+			let slice = self.place_expr(slice, span, &mut pre);
+			let index = self.operand(index, span, &mut pre);
+			pre.push(StmtKind::Expr(Expr::rt("idx", vec![slice, index])).at(self.b.t.loc(span)));
+			self.emit(pre, None, false, out);
 			return;
 		}
 		let mut pre = Vec::new();
@@ -1816,6 +2209,8 @@ enum Read {
 	Ident(String, bool),
 	/// Memory: a member or an element.
 	Memory,
+	/// A member or an element of a local's own value, by its name.
+	Field(String),
 	/// A call, which may do anything.
 	Effect,
 }
@@ -1837,22 +2232,30 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 	}
 }
 
+/// A read of a member or element of `base`.
+fn field(base: &Expr) -> Read {
+	match base {
+		Expr::Ident(name) => Read::Field(name.clone()),
+		_ => Read::Memory,
+	}
+}
+
 fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 	match e {
 		Expr::Ident(name) => reads.push(Read::Ident(name.clone(), lazy)),
-		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		Expr::Array(items) => items.iter().for_each(|e| scan(e, reads, lazy)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| scan(e, reads, lazy)),
 		// The runtime's and the program's own items never change.
 		Expr::Member(base, _) if matches!(&**base, Expr::Rt(_) | Expr::Sym(_)) => {}
 		Expr::Member(base, _) => {
 			scan(base, reads, lazy);
-			reads.push(Read::Memory);
+			reads.push(field(base));
 		}
 		Expr::Index(base, index) => {
 			scan(base, reads, lazy);
 			scan(index, reads, lazy);
-			reads.push(Read::Memory);
+			reads.push(field(base));
 		}
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			// A method's lookup reads no data the arguments could change: only its receiver.
@@ -1879,9 +2282,16 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 			scan(b, reads, true);
 		}
 		Expr::Assign(target, value) => {
-			// A variable assigned is not read; a place's base and index are, before the value.
-			if !matches!(**target, Expr::Ident(_)) {
-				scan(target, reads, lazy);
+			// A variable assigned is not read; a place's base and index are, before the value,
+			// but not the place itself.
+			match &**target {
+				Expr::Ident(_) => {}
+				Expr::Member(base, _) => scan(base, reads, lazy),
+				Expr::Index(base, index) => {
+					scan(base, reads, lazy);
+					scan(index, reads, lazy);
+				}
+				target => scan(target, reads, lazy),
 			}
 			scan(value, reads, lazy);
 			reads.push(Read::Effect);
@@ -1907,7 +2317,7 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			*e = value.clone();
 			true
 		}
-		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => false,
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => false,
 		Expr::Array(items) => items.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Object(props) => props.iter_mut().any(|(_, e)| subst(e, name, value)),
 		Expr::Member(base, _) => subst(base, name, value),
@@ -1968,17 +2378,7 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			}
 			default.iter().for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::Try { body, finally } => body.iter().chain(finally).for_each(|s| scan_reads(s, out)),
 		StmtKind::Catch { body, handler, .. } => body.iter().chain(handler).for_each(|s| scan_reads(s, out)),
-		StmtKind::ForRange { start, end, body, .. } => {
-			reads_of(start, out);
-			reads_of(end, out);
-			body.iter().for_each(|s| scan_reads(s, out));
-		}
-		StmtKind::ForOf { iter, body, .. } => {
-			reads_of(iter, out);
-			body.iter().for_each(|s| scan_reads(s, out));
-		}
 		_ => {}
 	}
 }
@@ -1986,7 +2386,7 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 fn reads_of(e: &Expr, out: &mut Vec<String>) {
 	match e {
 		Expr::Ident(name) => out.push(name.clone()),
-		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+		Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		Expr::Array(items) => items.iter().for_each(|e| reads_of(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| reads_of(e, out)),
 		Expr::Member(base, _) => reads_of(base, out),
@@ -2041,10 +2441,6 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
-			}
-			StmtKind::Try { body, finally } => {
-				strip_assignments(body, unread);
-				strip_assignments(finally, unread);
 			}
 			StmtKind::Catch { body, handler, .. } => {
 				strip_assignments(body, unread);
@@ -2194,13 +2590,175 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
 			}
-			StmtKind::Try { body, finally } => {
-				drop_self_assignments(body);
-				drop_self_assignments(finally);
-			}
 			StmtKind::Catch { body, handler, .. } => {
 				drop_self_assignments(body);
 				drop_self_assignments(handler);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Return values in place throughout `stmts`, given the names cleanups read.
+fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
+	sink_return(stmts);
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				return_in_place(then, caught);
+				return_in_place(els, caught);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => return_in_place(body, caught),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
+				return_in_place(default, caught);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				return_in_place(body, caught);
+				return_in_place(handler, caught);
+			}
+			_ => {}
+		}
+	}
+	while return_assigned(stmts, caught) {}
+}
+
+/// `x = v; ...; return x;` at the end of `stmts` as `...; return v;`, where moving `v`
+/// past the statements between changes nothing (there are none, or `v` is a constant or a
+/// name none of them assigns) and no cleanup reads `x`; whether it was.
+fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
+	let Some(Stmt {
+		kind: StmtKind::Return(Some(Expr::Ident(name))),
+		..
+	}) = stmts.last()
+	else {
+		return false;
+	};
+	// A cleanup reading it would run after its assignment, were the statements between to
+	// throw.
+	if caught.contains(name) {
+		return false;
+	}
+	let name = name.clone();
+	let assigns = |e: &Expr, to: &str| matches!(e, Expr::Assign(t, _) if matches!(&**t, Expr::Ident(n) if n == to));
+	let mut at = None;
+	for i in (0..stmts.len() - 1).rev() {
+		let StmtKind::Expr(e) = &stmts[i].kind else {
+			return false;
+		};
+		if assigns(e, &name) {
+			at = Some(i);
+			break;
+		}
+		let mut reads = Vec::new();
+		reads_of(e, &mut reads);
+		if reads.contains(&name) {
+			return false;
+		}
+	}
+	let Some(at) = at else {
+		return false;
+	};
+	let StmtKind::Expr(Expr::Assign(_, value)) = &stmts[at].kind else {
+		unreachable!("found above")
+	};
+	let between = &stmts[at + 1..stmts.len() - 1];
+	let moves = between.is_empty()
+		|| value.is_constant()
+		|| matches!(&**value, Expr::Ident(n) if between.iter().all(|s| !matches!(&s.kind, StmtKind::Expr(e) if assigns(e, n))));
+	if !moves {
+		return false;
+	}
+	let StmtKind::Expr(Expr::Assign(_, value)) = stmts.remove(at).kind else {
+		unreachable!("found above")
+	};
+	let last = stmts.last_mut().expect("the return");
+	last.kind = StmtKind::Return(Some(*value));
+	true
+}
+
+/// The names read in each catch handler in `stmts`.
+fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
+	for stmt in stmts {
+		match &stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				handler_reads(then, out);
+				handler_reads(els, out);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => handler_reads(body, out),
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter().for_each(|(_, body)| handler_reads(body, out));
+				handler_reads(default, out);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				handler_reads(body, out);
+				handler.iter().for_each(|s| scan_reads(s, out));
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Move a `return x;` that follows an `if` or a labeled block into each way out of it, so
+/// each can return what it assigns `x` in place.
+fn sink_return(stmts: &mut Vec<Stmt>) {
+	while stmts.len() >= 2
+		&& matches!(
+			stmts.last().map(|s| &s.kind),
+			Some(StmtKind::Return(Some(Expr::Ident(_))))
+		) {
+		let ret = stmts.pop().expect("checked above");
+		let last = stmts.last_mut().expect("checked above");
+		match &mut last.kind {
+			StmtKind::If { then, els, .. } => {
+				for branch in [then, els] {
+					if !crate::ts::diverges(branch) {
+						branch.push(ret.clone());
+					}
+				}
+				return;
+			}
+			StmtKind::Block {
+				label: Some(label),
+				body,
+			} => {
+				let label = label.clone();
+				breaks_to_return(body, &label, &ret);
+				if !crate::ts::diverges(body) {
+					body.push(ret);
+				}
+				let StmtKind::Block { body, .. } = stmts.pop().expect("checked above").kind else {
+					unreachable!("matched above")
+				};
+				stmts.extend(body);
+			}
+			_ => {
+				stmts.push(ret);
+				return;
+			}
+		}
+	}
+}
+
+/// Replace each `break label;` in `stmts` with `ret`.
+fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::Break(Some(l)) if l == label => *stmt = ret.clone(),
+			StmtKind::If { then, els, .. } => {
+				breaks_to_return(then, label, ret);
+				breaks_to_return(els, label, ret);
+			}
+			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => breaks_to_return(body, label, ret),
+			StmtKind::Switch { cases, default, .. } => {
+				cases
+					.iter_mut()
+					.for_each(|(_, body)| breaks_to_return(body, label, ret));
+				breaks_to_return(default, label, ret);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				breaks_to_return(body, label, ret);
+				breaks_to_return(handler, label, ret);
 			}
 			_ => {}
 		}
@@ -2215,6 +2773,17 @@ fn inert(e: &Expr) -> bool {
 		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
+	}
+}
+
+/// The item a next result holds, as `ty`: `Option<Item>`, or `?`'s `ControlFlow<_, Item>`.
+fn next_item<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty::Adt(adt, args) = ty.kind() else {
+		unreachable!("checked by find_next_results")
+	};
+	match crate::lower::library::Std::of(tcx, adt.did()) {
+		Some(crate::lower::library::Std::ControlFlow) => args.type_at(1),
+		_ => args.type_at(0),
 	}
 }
 

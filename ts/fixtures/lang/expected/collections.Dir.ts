@@ -9,7 +9,13 @@ import * as rt from "./rt.ts";
 export type Dir = "Up" | "Top" | "Down";
 
 export function rising(self: Dir): boolean {
-	return self !== "Down";
+	let _2!: boolean;
+	if (self === "Down") {
+		_2 = true;
+	} else {
+		_2 = false;
+	}
+	return !_2;
 }
 
 export function eq$PartialEq(self: Dir, other: Dir): boolean {

@@ -10,7 +10,7 @@ use rustc_span::{Span, Spanned};
 
 use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
-use crate::lower::library::{self, Args, Std};
+use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
@@ -39,15 +39,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				{
 					let name = name.to_string();
 					self.assigned[dest.local] = true;
-					self.range_next(name, recv, &mut pre);
+					let stepped = match &args[0].node {
+						Operand::Copy(p) | Operand::Move(p) => {
+							p.as_local().is_some_and(|b| self.stepped_borrows.contains_key(&b))
+						}
+						Operand::Constant(_) | Operand::RuntimeChecks(_) => false,
+					};
+					let read = self.uses[dest.local] > 1;
+					let held = self.range_next(name, recv, stepped, read, &mut pre);
 					self.emit(pre, None, false, out);
+					if let Some((flag, more)) = held {
+						self.hold_flag(flag, more);
+					}
 					return;
 				}
 				if let Some(name) = self.var(dest.local) {
 					let name = name.to_string();
 					self.next_names.insert(name);
 				}
-				(crate::lower::iter::next(self.b, iter_ty, recv), true)
+				if self.stepped_array(&args[0].node) {
+					(self.stepped_next(&recv), true)
+				} else {
+					(crate::lower::iter::next(self.b, iter_ty, recv), true)
+				}
 			}
 			ty::FnDef(def_id, gargs) => match self.intercept(def_id, gargs.skip_binder(), args, dest, span, &mut pre) {
 				Some(Some(done)) => done,
@@ -64,6 +78,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
+		};
+		let value = match dest.as_local() {
+			Some(local) if self.stepped.contains(&local) => self.stepped_make(value, span),
+			_ => value,
 		};
 		let value = match self.b.t.loc(span) {
 			Some(loc) if effect => Expr::Located(loc, Box::new(value)),
@@ -150,9 +168,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			};
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
-				return self
-					.b
-					.call_def(inner, inner_args.skip_binder(), Args::Values(values), span, out);
+				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
 			let f = self.operand(&callee.node, span, out);
 			return f.call(values);
@@ -168,7 +184,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		let values = self.operands(args, span, out);
-		self.b.call_def(def_id, gargs, Args::Values(values), span, out)
+		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
 	/// Refuse a `&mut` to a value JS copies, passed on whole to code that could write
@@ -206,6 +222,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tcx = self.tcx;
 		if library::std_path(tcx, def_id).is_empty() {
 			return None;
+		}
+		// A box's own `Drop` frees its memory, once drop elaboration dropped or moved out
+		// what it holds: nothing JS sees.
+		let drop_trait = tcx
+			.trait_of_assoc(def_id)
+			.or_else(|| tcx.trait_impl_of_assoc(def_id).map(|imp| tcx.impl_trait_id(imp)));
+		if drop_trait.is_some_and(|tr| tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Drop))
+			&& self
+				.b
+				.t
+				.self_ty(Instance::new_raw(def_id, gargs))
+				.is_some_and(|ty| self.b.t.std_of(ty) == Some(Std::Box))
+		{
+			return Some(Some((Expr::undefined(), false)));
 		}
 		let (owner, name) = library::key(tcx, def_id)?;
 		let targ = |n: usize| gargs.types().nth(n);
@@ -246,6 +276,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
+			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
+			// the place it borrows, as an index does.
+			("DerefMut", "deref_mut")
+				if let ty::Ref(_, pointee, _) = dest.ty(&self.mir.local_decls, tcx).ty.kind()
+					&& self.b.t.object_kind(*pointee).is_none()
+					&& let Some(local) = dest.as_local()
+					&& self.defs[local] == 1
+					&& matches!(self.slots[local], Slot::Var(_)) =>
+			{
+				let place = self.call_def(def_id, gargs, args, span, out);
+				if !place.is_path() {
+					return done(place, true);
+				}
+				self.materialize(&place, out);
+				self.slots[local] = Slot::Alias(Some(place));
+				Some(None)
+			}
 			("slice", "copy_within") => {
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
@@ -272,23 +319,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// `format_args!`, as MIR builds it: each argument a function writing its value,
 			// and a template of literal pieces and placeholders.
 			("Argument", name) if name.starts_with("new_") || name == "from_usize" => {
-				let tr = match name {
-					"new_display" => fmt::Trait::Display,
-					"new_debug" => fmt::Trait::Debug,
-					"new_lower_hex" => fmt::Trait::LowerHex,
-					"new_upper_hex" => fmt::Trait::UpperHex,
-					"from_usize" => {
-						self.err(span, format!("{} is not supported", fmt::FROM_ARGUMENT));
-						return done(Expr::undefined(), false);
-					}
-					other => {
-						self.err(span, format!("formatting by `{other}` is not supported"));
+				let tr = match fmt::argument(name) {
+					Ok(tr) => tr,
+					Err(construct) => {
+						self.err(span, format!("{construct} is not supported"));
 						return done(Expr::undefined(), false);
 					}
 				};
 				let ty = targ(0)?;
 				let value = self.operand(&args[0].node, span, out);
-				let value = self.path(value, "arg", out);
+				// The function reads it later, in a closure, where TypeScript no longer
+				// narrows a member of a union: a member is read now, into a name.
+				let value = match value {
+					Expr::Member(..) | Expr::Index(..) => {
+						let name = self.b.fresh("arg");
+						let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
+						self.emit(vec![stmt], None, false, out);
+						Expr::ident(name)
+					}
+					value => self.path(value, "arg", out),
+				};
 				done(self.b.fmt_value(tr, ty, value, span, out), false)
 			}
 			("Arguments", "from_str" | "from_str_nonconst") => {
@@ -361,20 +411,42 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				match (self.b.t.std_of(to), to.kind(), residual.kind()) {
+				// What a `Result` residual goes into: a `Result`, or one that is ready, which
+				// is the same value.
+				let result = match (self.b.t.std_of(to), to.kind()) {
+					(Some(Std::Result), _) => Some(to),
+					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
+						let inner = poll_args.type_at(0);
+						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
+					}
+					_ => None,
+				};
+				match (self.b.t.std_of(to), result.map(|r| r.kind()), residual.kind()) {
 					(Some(Std::Option), ..) => done(Expr::undefined(), false),
-					(Some(Std::Result), ty::Adt(_, to_args), ty::Adt(_, from_args)) => {
+					(_, Some(ty::Adt(_, to_args)), ty::Adt(_, from_args))
+						if self.b.t.std_of(residual) == Some(Std::Result) =>
+					{
 						let (from, to) = (from_args.type_at(1), to_args.type_at(1));
 						if from == to {
 							return done(value, false);
 						}
-						let value = self.path(value, "residual", out);
-						// The residual is an `Err`.
-						let err = crate::ts::Type::Object(vec![
-							("ok".into(), crate::ts::Type::Builtin("false")),
-							("error".into(), self.b.t.ty(from, span)),
-						]);
-						let error = Expr::As(Box::new(value), err).member("error");
+						let error = match value {
+							// Made in place: its error.
+							Expr::Call(f, mut items)
+								if matches!(&*f, Expr::Rt(n) if n == "Err") && items.len() == 1 =>
+							{
+								items.pop().expect("checked above")
+							}
+							value => {
+								let value = self.path(value, "residual", out);
+								// The residual is an `Err`.
+								let err = crate::ts::Type::Object(vec![
+									("ok".into(), crate::ts::Type::Builtin("false")),
+									("error".into(), self.b.t.ty(from, span)),
+								]);
+								Expr::As(Box::new(value), err).member("error")
+							}
+						};
 						let converted = self.b.convert(error, from, to, span, out);
 						done(Expr::rt("Err", vec![converted]), true)
 					}
@@ -432,12 +504,34 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// `name = recv.next()` of a range of numbers, stepped in place rather than through
 	/// `rt.Range`'s generic steps, into the item alone and a flag for whether there was
 	/// one: a number that is sometimes `rt.DONE` is slower in V8. Past the end, `name` is
-	/// left as it was, since only `Some` reads it.
-	fn range_next(&mut self, name: String, recv: Expr, out: &mut Vec<Stmt>) {
-		let range = self.path(recv, "range", out);
-		let start = range.clone().member("start");
+	/// left as it was, since only `Some` reads it. A range only `next` reads (`stepped`)
+	/// steps past its end too, so the flag is one comparison, to hold back for the switch
+	/// that reads it; it assigns `name` only if something reads it (`read`).
+	fn range_next(
+		&mut self,
+		name: String,
+		recv: Expr,
+		stepped: bool,
+		read: bool,
+		out: &mut Vec<Stmt>,
+	) -> Option<(String, Expr)> {
+		let range = match recv {
+			Expr::Object(_) => recv,
+			recv => self.path(recv, "range", out),
+		};
+		let start = super::step::stepped_field(&range, "start");
+		let end = super::step::stepped_field(&range, "end");
 		let flag = self.b.fresh(&format!("{name}Some"));
-		let more = start.clone().binary("<", range.member("end"));
+		self.range_flags.insert(name.clone(), flag.clone());
+		if stepped {
+			let step = Expr::Postfix(Box::new(start), "++");
+			let item = match read {
+				true => Expr::ident(&name).assign(step),
+				false => step,
+			};
+			return Some((flag, item.binary("<", end)));
+		}
+		let more = start.clone().binary("<", end);
 		out.push(StmtKind::Expr(Expr::ident(&flag).assign(more)).at(None));
 		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
 		out.push(
@@ -448,7 +542,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			.at(None),
 		);
-		self.range_flags.insert(name, flag);
+		None
 	}
 
 	/// The value at `place`, after setting `place` to `value`.
@@ -588,25 +682,16 @@ fn int_named(name: &str) -> Option<Int> {
 	Some(Int { bits, signed, pointer })
 }
 
-/// The residual a `ControlFlow` breaks with: what `?` was applied to.
-fn residual<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Std> {
-	let ty::Adt(_, args) = ty.kind() else {
-		return None;
-	};
-	match args.type_at(0).kind() {
-		ty::Adt(adt, _) => Std::of(tcx, adt.did()),
-		_ => None,
+/// How a `ControlFlow` type is represented.
+fn flow<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Flow {
+	match ty.kind() {
+		ty::Adt(_, args) => Flow::of(tcx, args),
+		_ => unreachable!("checked by the caller"),
 	}
 }
 
 /// The test that `scrut`, a `ControlFlow`, is `Continue` (variant 0) or `Break`.
-pub fn control_flow_test<'tcx>(
-	fx: &mut Fx<'_, '_, '_, 'tcx>,
-	scrut: &Expr,
-	ty: Ty<'tcx>,
-	variant: VariantIdx,
-	span: Span,
-) -> Expr {
+pub fn control_flow_test<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, scrut: &Expr, ty: Ty<'tcx>, variant: VariantIdx) -> Expr {
 	let continues = variant.index() == 0;
 	if matches!(scrut, Expr::Ident(n) if fx.next_names.contains(n)) {
 		return match continues {
@@ -614,35 +699,24 @@ pub fn control_flow_test<'tcx>(
 			false => scrut.clone().binary("===", Expr::Rt("DONE".into())),
 		};
 	}
-	match residual(fx.tcx, ty) {
-		Some(Std::Result) => match continues {
-			true => scrut.clone().member("ok"),
-			false => scrut.clone().member("ok").not(),
-		},
-		Some(Std::Option) => match continues {
-			true => scrut.clone().binary("!==", Expr::undefined()),
-			false => scrut.clone().binary("===", Expr::undefined()),
-		},
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
-	}
+	flow(fx.tcx, ty).test(scrut.clone(), continues)
 }
 
-/// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s residual, which is the
-/// value `?` was applied to.
+/// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s, which for `?` is the
+/// value it was applied to.
 pub fn control_flow_field<'tcx>(
 	fx: &mut Fx<'_, '_, '_, 'tcx>,
 	base: Expr,
 	ty: Ty<'tcx>,
 	variant: Option<VariantIdx>,
-	span: Span,
 ) -> Expr {
 	let continues = variant.is_none_or(|v| v.index() == 0);
-	match (residual(fx.tcx, ty), continues) {
-		(Some(Std::Result), true) => base.member("value"),
-		(Some(Std::Result), false) => base,
-		(Some(Std::Option), true) => base,
-		(Some(Std::Option), false) => Expr::undefined(),
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
+	match (flow(fx.tcx, ty), continues) {
+		(Flow::Result | Flow::Other, true) => base.member("value"),
+		(Flow::Result, false) => base,
+		(Flow::Other, false) => base.member("error"),
+		(Flow::Option, true) => base,
+		(Flow::Option, false) => Expr::undefined(),
 	}
 }
 
@@ -652,14 +726,13 @@ pub fn control_flow<'tcx>(
 	ty: Ty<'tcx>,
 	variant: VariantIdx,
 	mut values: Vec<Expr>,
-	span: Span,
 ) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
-	match (residual(fx.tcx, ty), variant.index()) {
-		(Some(Std::Result), 0) => Expr::rt("Ok", vec![value]),
-		(Some(Std::Result), _) => value,
-		(Some(Std::Option), 0) => value,
-		(Some(Std::Option), _) => Expr::undefined(),
-		_ => fx.err(span, format!("`{ty}` other than from `?`")),
+	match (flow(fx.tcx, ty), variant.index()) {
+		(Flow::Result | Flow::Other, 0) => Expr::rt("Ok", vec![value]),
+		(Flow::Result, _) => value,
+		(Flow::Other, _) => Expr::rt("Err", vec![value]),
+		(Flow::Option, 0) => value,
+		(Flow::Option, _) => Expr::undefined(),
 	}
 }

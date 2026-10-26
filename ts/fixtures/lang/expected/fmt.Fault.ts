@@ -4,18 +4,32 @@ import * as rt from "./rt.ts";
 import * as Pair from "./fmt.Pair.ts";
 
 export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _6!: string;
+	let _7!: rt.Fmt;
+	let _11!: string;
+	let _12!: string;
+	let _13!: rt.Fmt;
+	let _14!: string;
+	let _15!: rt.Fmt;
+	let _18!: string;
+	let _19!: rt.Fmt;
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
 	} else if (self.tag === "Code") {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Code"), (f: rt.Formatter) => rt.u16Display(__self0, f)));
+		_6 = "Code";
+		_7 = (f: rt.Formatter) => rt.u16Display(self._0, f);
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	} else if (self.tag === "TooLarge") {
-		const __self02 = self.size;
-		const __self1 = self.max;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "TooLarge"), "size", (f: rt.Formatter) => rt.usizeDisplay(__self02, f)), "max", (f: rt.Formatter) => rt.usizeDisplay(__self1, f)));
+		_11 = "TooLarge";
+		_12 = "size";
+		_13 = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
+		_14 = "max";
+		_15 = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	} else {
-		const __self03 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "At"), (f: rt.Formatter) => Pair.fmt$Debug(__self03, f)));
+		_18 = "At";
+		_19 = (f: rt.Formatter) => Pair.fmt$Debug(self._0, f);
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _18), _19));
 	}
 }
 
@@ -30,35 +44,45 @@ export type Fault =
 	| { tag: "At"; _0: Pair.Pair };
 
 export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let args2!: rt.Fmt[];
+	let args4!: rt.Fmt[];
+	let _20!: rt.Fmt;
+	let args6!: rt.Fmt[];
 	if (self.tag === "Short") {
 		return rt.fmtPad(f, "short buffer");
 	} else if (self.tag === "Code") {
-		const code = self._0;
-		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, (f: rt.Formatter) => rt.u16LowerHex(code, f))]);
+		const arg4 = ([self._0] as [rt.u16])[0];
+		args2 = [(f: rt.Formatter) => rt.u16LowerHex(arg4, f)];
+		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, args2[0])]);
 	} else if (self.tag === "TooLarge") {
-		const size = self.size;
-		const max = self.max;
-		return rt.fmtWriteFmt(f, [(f: rt.Formatter) => rt.usizeDisplay(size, f), " bytes exceeds the ", (f: rt.Formatter) => rt.usizeDisplay(max, f), " byte limit"]);
+		const arg2 = self.size;
+		_20 = (f: rt.Formatter) => rt.usizeDisplay(arg2, f);
+		const arg3 = self.max;
+		args4 = [_20, (f: rt.Formatter) => rt.usizeDisplay(arg3, f)];
+		return rt.fmtWriteFmt(f, [args4[0], " bytes exceeds the ", args4[1], " byte limit"]);
 	} else {
-		const pair = self._0;
-		return rt.fmtWriteFmt(f, ["at ", (f: rt.Formatter) => Pair.fmt$Debug(pair, f)]);
+		const arg = ([self._0] as [Pair.Pair])[0];
+		args6 = [(f: rt.Formatter) => Pair.fmt$Debug(arg, f)];
+		return rt.fmtWriteFmt(f, ["at ", args6[0]]);
 	}
 }
 
 /** The fault `data` picks. */
 function new_(data: Uint8Array): Fault {
-	const at = (i: rt.usize): rt.u8 => {
+	let at!: (a0: rt.usize) => rt.u8;
+	let _3!: rt.u8;
+	at = (i: rt.usize): rt.u8 => {
 		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
 	};
-	const value = rt.u8Rem(at(0), 4);
-	if (value === 0) {
-		return { tag: "Short" };
-	} else if (value === 1) {
-		return { tag: "Code", _0: (at(1) << 8) | at(2) };
-	} else if (value === 2) {
-		return { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize };
+	_3 = rt.u8Rem(at(0), 4);
+	if (_3 === 0) {
+		return { tag: "Short" } as Fault;
+	} else if (_3 === 1) {
+		return { tag: "Code", _0: (at(1) << 8) | at(2) } as Fault;
+	} else if (_3 === 2) {
+		return { tag: "TooLarge", size: (((((at(1) as rt.usize)) << 24) >>> 0) | at(2) as rt.usize) >>> 0, max: at(3) as rt.usize } as Fault;
 	} else {
-		return { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } };
+		return { tag: "At", _0: { _0: at(1), _1: rt.i64Shl((at(2) << 24) >> 24 as rt.i64, 40) } } as Fault;
 	}
 }
 

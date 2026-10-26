@@ -22,7 +22,23 @@ export function fmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Re
 }
 
 export function fmt$Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.fmtWriteStr(f, self === "BoundsExceeded" ? "BoundsExceeded" : self === "TooLarge" ? "TooLarge" : self === "Short" ? "Short" : self === "InvalidState" ? "InvalidState" : self === "TooMany" ? "TooMany" : self === "Version" ? "Version" : "Unsupported");
+	let _3!: string;
+	if (self === "BoundsExceeded") {
+		_3 = "BoundsExceeded";
+	} else if (self === "TooLarge") {
+		_3 = "TooLarge";
+	} else if (self === "Short") {
+		_3 = "Short";
+	} else if (self === "InvalidState") {
+		_3 = "InvalidState";
+	} else if (self === "TooMany") {
+		_3 = "TooMany";
+	} else if (self === "Version") {
+		_3 = "Version";
+	} else {
+		_3 = "Unsupported";
+	}
+	return rt.fmtWriteStr(f, _3);
 }
 
 /** An error that occurs during encoding. */
@@ -35,8 +51,8 @@ export type EncodeError =
 	| "Version"
 	| "Unsupported";
 
-export function from$From_BoundsExceeded(_: BoundsExceeded.BoundsExceeded): EncodeError {
-	return "BoundsExceeded";
+export function from$From_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): EncodeError {
+	return "BoundsExceeded" as EncodeError;
 }
 
 //# sourceMappingURL=encode.EncodeError.ts.map

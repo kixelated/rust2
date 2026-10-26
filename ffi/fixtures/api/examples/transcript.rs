@@ -64,6 +64,7 @@ fn main() {
 	}
 	c.rename("d");
 	println!("name {}", c.name());
+	println!("is d {}", c.is("d"));
 	let mut copy = c.clone();
 	let _ = copy.add(1);
 	println!("clone {} original {}", copy.get(), c.get());
@@ -106,6 +107,7 @@ fn main() {
 	println!("renamed {}", joined.as_str());
 	let long = api_lib::longer(joined, &Name::owned("dd".to_string()));
 	println!("longer {}", long.as_str());
+	println!("unnamed [{}]", api_lib::unnamed().as_str());
 
 	println!("total {}", api_lib::total(2..5));
 	let wide = api_lib::widen(2..5, 1);

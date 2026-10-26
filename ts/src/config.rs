@@ -38,6 +38,4 @@ pub mod env {
 	pub const OUT: &str = "RUST2_TS_OUT";
 	/// Where to write a census instead of translating, absolute.
 	pub const CENSUS: &str = "RUST2_TS_CENSUS";
-	/// What bodies lower from: `thir`, the default, or `mir`.
-	pub const LOWER: &str = "RUST2_TS_LOWER";
 }

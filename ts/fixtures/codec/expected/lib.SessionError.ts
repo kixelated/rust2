@@ -3,22 +3,25 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let args2!: rt.Fmt[];
 	if (self.tag === "ProtocolViolation") {
 		return rt.fmtWriteStr(__formatter, "protocol violation");
 	} else {
-		const _0 = self._0;
-		const value = [_0] as [rt.u16];
-		const __display0 = value[0];
-		return rt.fmtWriteFmt(__formatter, ["app code=", (f: rt.Formatter) => rt.u16Display(__display0, f)]);
+		const arg = ([([self._0] as [rt.u16])[0]] as [rt.u16])[0];
+		args2 = [(f: rt.Formatter) => rt.u16Display(arg, f)];
+		return rt.fmtWriteFmt(__formatter, ["app code=", args2[0]]);
 	}
 }
 
 export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _6!: string;
+	let _7!: rt.Fmt;
 	if (self.tag === "ProtocolViolation") {
 		return rt.fmtWriteStr(f, "ProtocolViolation");
 	} else {
-		const __self0 = self._0;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "App"), (f: rt.Formatter) => rt.u16Display(__self0, f)));
+		_6 = "App";
+		_7 = (f: rt.Formatter) => rt.u16Display(self._0, f);
+		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	}
 }
 
