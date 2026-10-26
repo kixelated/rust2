@@ -33,3 +33,7 @@ impl Area {
 		u64::from(self.size.width) * u64::from(self.size.height)
 	}
 }
+
+/// Another crate's item that is no export, which each export re-exporting it refuses or
+/// excludes on its own.
+pub use std::collections::HashSet;

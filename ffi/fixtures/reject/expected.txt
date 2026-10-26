@@ -1,3 +1,4 @@
+fixtures/dep/src/lib.rs:39:9: rust2-ffi: cannot export use `HashSet`: re-export of another crate's item `std`; exclude it in the config's [crates.dep-fixture] to leave it out
 fixtures/dep/src/lib.rs:5:1: rust2-ffi: struct `dep::Size` and struct `reject_fixture::Size` are both `reject_size_free` in C
 	fixtures/reject/src/lib.rs:139:1: note: struct `reject_fixture::Size` is here
 fixtures/dep/src/lib.rs:5:1: rust2-ffi: struct `dep::Size` and struct `reject_fixture::Size` are both `reject_size` in C

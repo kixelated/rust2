@@ -227,8 +227,9 @@ impl<'tcx> Collector<'tcx> {
 	/// keeps its shortest path, which starts with the crate's name.
 	fn walk(&mut self) {
 		let tcx = self.tcx;
-		let mut seen = rustc_data_structures::fx::FxHashSet::default();
 		for krate in self.crates.clone() {
+			// Per export: two may re-export one item, and each refuses or excludes it.
+			let mut seen = rustc_data_structures::fx::FxHashSet::default();
 			let mut queue = VecDeque::from([(krate.as_def_id(), vec![tcx.crate_name(krate).to_string()])]);
 			while let Some((module, path)) = queue.pop_front() {
 				let children = match module.as_local() {

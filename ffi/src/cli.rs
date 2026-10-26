@@ -149,7 +149,8 @@ impl<'a> Features<'a> {
 					continue;
 				}
 				"--features" | "-F" => args.next(),
-				_ => arg.strip_prefix("--features=").or_else(|| arg.strip_prefix("-F")),
+				_ => (arg.strip_prefix("--features="))
+					.or_else(|| arg.strip_prefix("-F").map(|v| v.strip_prefix('=').unwrap_or(v))),
 			};
 			let named = value.into_iter().flat_map(|v| v.split([',', ' ']));
 			picks.named.extend(named.filter(|f| !f.is_empty()));
@@ -247,4 +248,29 @@ struct Dependency {
 struct Target {
 	name: String,
 	kind: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn reads_each_spelling_of_features() {
+		for spelling in [
+			&["--features", "a,dep/b"][..],
+			&["--features=a dep/b"],
+			&["-F", "a", "-F", "dep/b"],
+			&["-Fa,dep/b"],
+			&["-F=a", "--features", "dep/b"],
+		] {
+			let cargo: Vec<String> = spelling.iter().map(|s| s.to_string()).collect();
+			assert_eq!(
+				Features::parse(&cargo).args(),
+				["--features", "a,dep/b"],
+				"{spelling:?}"
+			);
+		}
+		let cargo = ["--all-features".to_string(), "--locked".to_string()];
+		assert_eq!(Features::parse(&cargo).args(), ["--all-features"]);
+	}
 }

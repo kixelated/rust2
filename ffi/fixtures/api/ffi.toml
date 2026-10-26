@@ -5,3 +5,4 @@ exclude = ["Node::next"]
 
 # Exported into the same library: `grow` names its types.
 [crates.dep-fixture]
+exclude = ["HashSet"]
