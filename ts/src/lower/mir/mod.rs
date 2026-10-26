@@ -1230,6 +1230,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		cfg::hoist_else(&mut out);
 		declare_in_place(&mut out);
+		cfg::tidy_loops(&mut out);
 		out
 	}
 
