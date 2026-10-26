@@ -1230,7 +1230,7 @@ impl<'a> Gen<'a> {
             if let Some(err) = &err {
                 cb_doc.push(format!(
                     "`error` is NULL on success, or freed with `{}_free`.",
-                    err.c
+                    err.snake
                 ));
             }
             if let Some(free) = &ret_free {
@@ -1322,7 +1322,7 @@ impl<'a> Gen<'a> {
             let out = if ret.is_some() { " and sets `out`" } else { "" };
             notes.push(format!(
                 "Returns NULL on success{out}, or an error the caller frees with `{}_free`.",
-                err.c
+                err.snake
             ));
         }
         if let Some(free) = &ret_free {
