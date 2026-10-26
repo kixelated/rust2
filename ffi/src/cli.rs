@@ -57,13 +57,14 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 /// Each export's package, as [`config::env::CRATES`] lists them: the configured package
 /// first.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
-	let picks = Features::parse(cargo);
+	let picks = Picks::parse(cargo);
 	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
 		// Cargo reads its config from where it runs, as the check does.
 		.current_dir(manifest.parent().expect("a manifest path has a parent"))
 		.args(["metadata", "--format-version", "1", "--manifest-path"])
 		.arg(manifest)
-		// The features the check picks decide which optional dependencies it builds with.
+		// As the check resolves: its features decide which optional dependencies it builds
+		// with, and its lockfile and network flags what cargo may change and fetch.
 		.args(picks.args())
 		.output()
 		.map_err(|err| format!("running cargo metadata: {err}"))?;
@@ -127,15 +128,15 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 	Ok(lines)
 }
 
-/// The features the cargo args pick for the check.
-struct Features<'a> {
-	/// Each `--features` and `-F` names.
+/// What the cargo args pick for how the check resolves its dependencies.
+struct Picks<'a> {
+	/// Each feature `--features` and `-F` name.
 	named: Vec<&'a str>,
-	/// `--all-features` and `--no-default-features`.
+	/// The other args that pick a resolution: feature, lockfile, network, and `--config`.
 	flags: Vec<&'a str>,
 }
 
-impl<'a> Features<'a> {
+impl<'a> Picks<'a> {
 	fn parse(cargo: &'a [String]) -> Self {
 		let mut picks = Self {
 			named: Vec::new(),
@@ -144,7 +145,15 @@ impl<'a> Features<'a> {
 		let mut args = cargo.iter().map(String::as_str);
 		while let Some(arg) = args.next() {
 			let value = match arg {
-				"--all-features" | "--no-default-features" => {
+				"--all-features" | "--no-default-features" | "--locked" | "--frozen" | "--offline" => {
+					picks.flags.push(arg);
+					continue;
+				}
+				"--config" => {
+					picks.flags.extend([Some(arg), args.next()].into_iter().flatten());
+					continue;
+				}
+				_ if arg.starts_with("--config=") => {
 					picks.flags.push(arg);
 					continue;
 				}
@@ -255,7 +264,7 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn reads_each_spelling_of_features() {
+	fn reads_what_picks_a_resolution() {
 		for spelling in [
 			&["--features", "a,dep/b"][..],
 			&["--features=a dep/b"],
@@ -264,13 +273,18 @@ mod tests {
 			&["-F=a", "--features", "dep/b"],
 		] {
 			let cargo: Vec<String> = spelling.iter().map(|s| s.to_string()).collect();
-			assert_eq!(
-				Features::parse(&cargo).args(),
-				["--features", "a,dep/b"],
-				"{spelling:?}"
-			);
+			assert_eq!(Picks::parse(&cargo).args(), ["--features", "a,dep/b"], "{spelling:?}");
 		}
-		let cargo = ["--all-features".to_string(), "--locked".to_string()];
-		assert_eq!(Features::parse(&cargo).args(), ["--all-features"]);
+		let cargo = [
+			"--all-features",
+			"--locked",
+			"--config",
+			"a=1",
+			"--config=b=2",
+			"--quiet",
+		];
+		let cargo: Vec<String> = cargo.iter().map(|s| s.to_string()).collect();
+		let flags = ["--all-features", "--locked", "--config", "a=1", "--config=b=2"];
+		assert_eq!(Picks::parse(&cargo).args(), flags);
 	}
 }

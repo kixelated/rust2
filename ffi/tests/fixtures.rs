@@ -195,3 +195,30 @@ fn feature_of_non_export() {
 		"{stderr}"
 	);
 }
+
+/// Finding the exports keeps to the check's `--locked`: it neither writes a lockfile the
+/// check then accepts, nor passes.
+#[test]
+fn locked() {
+	let package = scratch().join("locked");
+	std::fs::create_dir_all(package.join("src")).unwrap();
+	std::fs::write(
+		package.join("Cargo.toml"),
+		"[package]\nname = \"locked\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n",
+	)
+	.unwrap();
+	std::fs::write(package.join("src/lib.rs"), "pub fn one() -> u32 {\n\t1\n}\n").unwrap();
+	std::fs::write(package.join("ffi.toml"), "package = \"locked\"\n").unwrap();
+	let _ = std::fs::remove_file(package.join("Cargo.lock"));
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(package.join("ffi.toml"))
+		.arg("--census")
+		.arg(package.join("census"))
+		.args(["--", "--locked"])
+		.env("CARGO_TARGET_DIR", package.join("build"))
+		.output()
+		.expect("running rust2-ffi");
+	assert!(!output.status.success(), "a census without a lockfile passed --locked");
+	assert!(!package.join("Cargo.lock").exists(), "the lockfile was written");
+}
