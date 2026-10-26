@@ -15,35 +15,78 @@ function new_(): WaiterList {
 }
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
-	const weak = new rt.Weak(waiter.shared);
-	for (const entry of self.entries) {
-		if (entry.arc === weak.arc) {
-			return;
-		}
-	}
-	let probes: rt.usize = rt.min(self.entries.length, 2);
-	while (probes > 0) {
-		if (rt.at(self.entries, self.cursor).arc.strong === 0) {
-			const value = weak;
-			self.entries[rt.idx(self.entries, self.cursor)] = value;
-			return;
-		}
-		self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
-		probes = rt.usizeSub(probes, 1);
-	}
-	if (self.entries.length >= 4) {
-		let live: rt.Weak<rt.Waker>[] = [];
-		const taken = self.entries;
-		self.entries = [];
-		for (const entry2 of taken) {
-			if (entry2.arc.strong > 0) {
-				live.push(entry2);
+	let weak!: rt.Weak<rt.Waker>;
+	let iterS!: rt.Weak<rt.Waker>[];
+	let iterI!: number;
+	let _8!: rt.Weak<rt.Waker> | rt.Done;
+	let probes!: rt.usize;
+	let _23!: rt.usize;
+	let _24!: rt.Weak<rt.Waker>;
+	let _27!: rt.usize;
+	let live!: rt.Weak<rt.Waker>[];
+	let iterS2!: rt.Weak<rt.Waker>[];
+	let iterI2!: number;
+	let _43!: rt.Weak<rt.Waker> | rt.Done;
+	let entry!: rt.Weak<rt.Waker>;
+	let _53!: rt.Weak<rt.Waker>[];
+	weak = new rt.Weak(waiter.shared);
+	iterS = self.entries;
+	iterI = 0;
+	l0: while (true) {
+		_8 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		b1: {
+			b2: {
+				if (_8 === rt.DONE) {
+					probes = rt.min(self.entries.length, 2);
+					while (true) {
+						if (!(probes > 0)) {
+							b4: {
+								if (self.entries.length >= 4) {
+									live = [];
+									const taken = self.entries;
+									self.entries = [];
+									iterS2 = taken;
+									iterI2 = 0;
+									while (true) {
+										_43 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+										if (_43 === rt.DONE) {
+											_53 = live;
+											self.entries = _53;
+											self.cursor = 0;
+											break b4;
+										} else {
+											entry = _43;
+											if (entry.arc.strong > 0) {
+												live.push(entry);
+											}
+										}
+									}
+								}
+							}
+							self.entries.push(weak);
+							break b1;
+						} else {
+							_23 = self.cursor;
+							const at = rt.idx(self.entries, _23);
+							if (!(self.entries[at].arc.strong === 0)) {
+								self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
+								probes = rt.usizeSub(probes, 1);
+							} else {
+								_24 = weak;
+								_27 = self.cursor;
+								const at2 = rt.idx(self.entries, _27);
+								self.entries[at2] = _24;
+								break b2;
+							}
+						}
+					}
+				} else if (!((_8.arc === weak.arc))) {
+					continue l0;
+				}
 			}
 		}
-		self.entries = live;
-		self.cursor = 0;
+		return;
 	}
-	self.entries.push(weak);
 }
 
 /** Drain every entry into a new list, leaving this one empty. */
@@ -56,19 +99,41 @@ export function take(self: WaiterList): WaiterList {
 
 /** Wake every live waiter, draining the list. */
 export function wake(self: WaiterList): void {
-	self.cursor = 0;
-	const taken = self.entries;
-	self.entries = [];
-	for (const entry of taken) {
-		const upgrade = rt.weakUpgrade(entry);
-		if (upgrade !== undefined) {
-			const waker = upgrade;
-			try {
-				waker.value.wakeByRef();
-			} finally {
-				rt.drop(waker);
+	let iterS!: rt.Weak<rt.Waker>[];
+	let iterI!: number;
+	let _6!: rt.Weak<rt.Waker> | rt.Done;
+	let entry!: rt.Weak<rt.Waker>;
+	let _10!: rt.Arc<rt.Waker> | undefined;
+	let waker!: rt.Arc<rt.Waker>;
+	let unwind: number = 0;
+	try {
+		self.cursor = 0;
+		const taken = self.entries;
+		self.entries = [];
+		iterS = taken;
+		iterI = 0;
+		while (true) {
+			_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_6 === rt.DONE) {
+				return;
+			} else {
+				entry = _6;
+				_10 = rt.weakUpgrade(entry);
+				if (_10 !== undefined) {
+					unwind = 15;
+					waker = _10;
+					waker.value.wakeByRef();
+					unwind = 0;
+					rt.drop(waker);
+				}
 			}
 		}
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(waker);
+		throw e;
 	}
 }
 

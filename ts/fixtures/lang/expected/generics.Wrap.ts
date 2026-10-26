@@ -7,43 +7,137 @@ import * as Point from "./shapes.Point.ts";
 import * as Shape from "./shapes.Shape.ts";
 
 export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Display)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Display);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => Pair.fmt$Debug(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => Pair.fmt$Debug(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => Point.fmt$Debug(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Result_u8_Shape(self: Wrap<rt.Result<rt.u8, Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f))), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f));
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Shape(self: Wrap<Shape.Shape>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => Shape.fmt$Debug(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => Shape.fmt$Debug(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Display)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Display);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Wrap_Pair(self: Wrap<Wrap<Pair.Pair>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => fmt$Debug_Pair(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => fmt$Debug_Pair(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => rt.i16Display(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.i16Display(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Wrap"), "value", (f: rt.Formatter) => rt.u8Display(self.value, f)), "count", (f: rt.Formatter) => rt.u8Display(self.count, f)));
+	let _3!: string;
+	let _4!: string;
+	let _5!: rt.Fmt;
+	let _7!: string;
+	let _8!: rt.Fmt;
+	_3 = "Wrap";
+	_4 = "value";
+	_5 = (f: rt.Formatter) => rt.u8Display(self.value, f);
+	_7 = "count";
+	_8 = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function eq$PartialEq_Pair(self: Wrap<Pair.Pair>, other: Wrap<Pair.Pair>): boolean {
-	return self.count === other.count && Pair.eq$PartialEq(self.value, other.value);
+	if (!(self.count === other.count)) {
+		return false;
+	} else {
+		return Pair.eq$PartialEq(self.value, other.value);
+	}
 }
 
 /** A generic struct, with methods on every instance, on some, and on one. */
@@ -62,11 +156,11 @@ export function new$Option_u8(value: rt.u8 | undefined): Wrap<rt.u8 | undefined>
 }
 
 export function new$Pair(value: Pair.Pair): Wrap<Pair.Pair> {
-	return new Wrap({ value: rt.copy(value), count: 0 });
+	return new Wrap({ value, count: 0 });
 }
 
 export function new$Point(value: Point.Point): Wrap<Point.Point> {
-	return new Wrap({ value: rt.copy(value), count: 0 });
+	return new Wrap({ value, count: 0 });
 }
 
 export function new$Shape(value: Shape.Shape): Wrap<Shape.Shape> {
@@ -74,7 +168,7 @@ export function new$Shape(value: Shape.Shape): Wrap<Shape.Shape> {
 }
 
 export function new$Wrap_Pair(value: Wrap<Pair.Pair>): Wrap<Wrap<Pair.Pair>> {
-	return new Wrap({ value: rt.copy(value), count: 0 });
+	return new Wrap({ value, count: 0 });
 }
 
 export function new$i16(value: rt.i16): Wrap<rt.i16> {
@@ -117,7 +211,7 @@ export function bump$u8(self: Wrap<rt.u8>): rt.u8 {
 }
 
 export function intoInner$Point(self: Wrap<Point.Point>): Point.Point {
-	return rt.copy(self.value);
+	return self.value;
 }
 
 /** A method with its own type parameter. */

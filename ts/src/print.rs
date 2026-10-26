@@ -7,7 +7,7 @@ use std::path::{Component, Path, PathBuf};
 use oxc_sourcemap::SourceMapBuilder;
 
 use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file};
-use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Target, Type};
+use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Type};
 
 pub struct Printed {
 	pub code: String,
@@ -317,20 +317,7 @@ impl Refs {
 					self.expr(program, cond);
 					self.stmts(program, body);
 				}
-				StmtKind::ForRange { start, end, body, .. } => {
-					self.expr(program, start);
-					self.expr(program, end);
-					self.stmts(program, body);
-				}
-				StmtKind::ForOf { iter, body, .. } => {
-					self.expr(program, iter);
-					self.stmts(program, body);
-				}
 				StmtKind::Block { body, .. } => self.stmts(program, body),
-				StmtKind::Try { body, finally } => {
-					self.stmts(program, body);
-					self.stmts(program, finally);
-				}
 				StmtKind::Catch { body, handler, .. } => {
 					self.stmts(program, body);
 					self.stmts(program, handler);
@@ -354,7 +341,7 @@ impl Refs {
 
 	fn expr(&mut self, program: &Program, e: &Expr) {
 		match e {
-			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 			Expr::Sym(id) => self.use_sym(program, *id, true),
 			Expr::Array(es) => es.iter().for_each(|e| self.expr(program, e)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| self.expr(program, e)),
@@ -597,21 +584,16 @@ impl Printer<'_> {
 		self.start();
 		self.mark(f.loc);
 		let name = self.program.syms[f.sym].name.clone();
-		let star = if f.generator { "*" } else { "" };
 		match (module, &self.program.syms[f.sym].alias) {
 			(true, Some(alias)) => {
 				self.aliases.push((name.clone(), alias.clone()));
-				self.write(&format!("function{star} {name}("));
+				self.write(&format!("function {name}("));
 			}
-			(true, None) => self.write(&format!("export function{star} {name}(")),
-			(false, _) => self.write(&format!("{star}{name}(")),
+			(true, None) => self.write(&format!("export function {name}(")),
+			(false, _) => self.write(&format!("{name}(")),
 		}
 		self.params(&f.params);
-		let mut ret = self.ty(&f.ret);
-		if f.generator {
-			self.uses_rt = true;
-			ret = format!("Generator<undefined, {ret}, rt.Context>");
-		}
+		let ret = self.ty(&f.ret);
 		self.write(&format!("): {ret} {{\n"));
 		self.block_body(&f.body);
 		self.start();
@@ -643,27 +625,6 @@ impl Printer<'_> {
 
 	fn local<'n>(&'n self, name: &'n str) -> &'n str {
 		self.renames.get(name).map_or(name, String::as_str)
-	}
-
-	fn target(&mut self, target: &Target) {
-		match target {
-			Target::Name(name) => {
-				let name = self.local(name).to_string();
-				self.write(&name);
-			}
-			Target::Array(items) => {
-				self.write("[");
-				for (i, item) in items.iter().enumerate() {
-					if i > 0 {
-						self.write(", ");
-					}
-					if let Some(item) = item {
-						self.target(item);
-					}
-				}
-				self.write("]");
-			}
-		}
 	}
 
 	fn params(&mut self, params: &[Param]) {
@@ -709,12 +670,13 @@ impl Printer<'_> {
 			}
 			StmtKind::Decl {
 				mutable,
-				target,
+				name,
 				ty,
 				init,
 			} => {
 				self.write(if *mutable { "let " } else { "const " });
-				self.target(target);
+				let name = self.local(name).to_string();
+				self.write(&name);
 				if let Some(ty) = ty {
 					let ty = self.ty(ty);
 					self.write(&format!(": {ty}"));
@@ -777,54 +739,10 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
-			StmtKind::ForRange {
-				label,
-				name,
-				start,
-				end,
-				inclusive,
-				body,
-			} => {
-				self.label(label);
-				let name = self.local(name).to_string();
-				self.write(&format!("for (let {name} = "));
-				self.expr(start, 2);
-				let op = if *inclusive { "<=" } else { "<" };
-				self.write(&format!("; {name} {op} "));
-				self.expr(end, 13);
-				self.write(&format!("; {name}++) {{\n"));
-				self.block_body(body);
-				self.start();
-				self.write("}\n");
-			}
-			StmtKind::ForOf {
-				label,
-				name,
-				iter,
-				body,
-			} => {
-				self.label(label);
-				let name = self.local(name).to_string();
-				self.write(&format!("for (const {name} of "));
-				self.expr(iter, 2);
-				self.write(") {\n");
-				self.block_body(body);
-				self.start();
-				self.write("}\n");
-			}
 			StmtKind::Block { label, body } => {
 				self.label(label);
 				self.write("{\n");
 				self.block_body(body);
-				self.start();
-				self.write("}\n");
-			}
-			StmtKind::Try { body, finally } => {
-				self.write("try {\n");
-				self.block_body(body);
-				self.start();
-				self.write("} finally {\n");
-				self.block_body(finally);
 				self.start();
 				self.write("}\n");
 			}
@@ -1013,7 +931,6 @@ impl Printer<'_> {
 					self.write("}");
 				}
 			}
-			Expr::Yield => self.write("yield"),
 			Expr::Lambda(params, body) => {
 				self.write("(");
 				self.params(params);
@@ -1171,7 +1088,7 @@ fn binary_prec(op: &str) -> u8 {
 
 fn prec(e: &Expr) -> u8 {
 	match e {
-		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) | Expr::Yield => 3,
+		Expr::Assign(..) | Expr::Arrow(..) | Expr::Lambda(..) => 3,
 		Expr::Cond(..) => 4,
 		Expr::Binary(_, op, _) => binary_prec(op),
 		Expr::As(..) => 12,
@@ -1209,8 +1126,8 @@ pub fn quote(s: &str) -> String {
 fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 	for stmt in stmts {
 		match &stmt.kind {
-			StmtKind::Decl { target, init, .. } => {
-				collect_target(target, out);
+			StmtKind::Decl { name, init, .. } => {
+				out.push(name.clone());
 				if let Some(init) = init {
 					collect_expr_locals(init, out);
 				}
@@ -1225,24 +1142,7 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_expr_locals(cond, out);
 				collect_locals(body, out);
 			}
-			StmtKind::ForRange {
-				name, start, end, body, ..
-			} => {
-				out.push(name.clone());
-				collect_expr_locals(start, out);
-				collect_expr_locals(end, out);
-				collect_locals(body, out);
-			}
-			StmtKind::ForOf { name, iter, body, .. } => {
-				out.push(name.clone());
-				collect_expr_locals(iter, out);
-				collect_locals(body, out);
-			}
 			StmtKind::Block { body, .. } => collect_locals(body, out),
-			StmtKind::Try { body, finally } => {
-				collect_locals(body, out);
-				collect_locals(finally, out);
-			}
 			StmtKind::Catch { body, name, handler } => {
 				collect_locals(body, out);
 				out.push(name.clone());
@@ -1262,13 +1162,6 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 			StmtKind::Throw(e) => collect_expr_locals(e, out),
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
-	}
-}
-
-fn collect_target(target: &Target, out: &mut Vec<String>) {
-	match target {
-		Target::Name(name) => out.push(name.clone()),
-		Target::Array(items) => items.iter().flatten().for_each(|t| collect_target(t, out)),
 	}
 }
 
@@ -1300,6 +1193,6 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(b, out);
 			collect_expr_locals(c, out);
 		}
-		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) | Expr::Yield => {}
+		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 	}
 }

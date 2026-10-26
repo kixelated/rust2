@@ -3,7 +3,9 @@
 import * as rt from "../rt.ts";
 import * as EncodeError from "../coding/encode.EncodeError.ts";
 import type * as Prefix from "../coding/encode.Prefix.ts";
+import type * as PrefixKind from "../coding/encode.PrefixKind.ts";
 import { write } from "../coding/varint.ts";
+import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import type * as Form from "../coding/varint.Form.ts";
 import type * as Control from "../stats.Control.ts";
 
@@ -45,37 +47,42 @@ export function bool(self: Encoder, v: boolean): void {
 
 /** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
 export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError.EncodeError> {
-	const write_ = write(v, self.form, self.buf);
-	if (!write_.ok) {
-		return rt.Err(EncodeError.from$From_BoundsExceeded(write_.error));
+	let _3!: rt.Result<undefined, BoundsExceeded.BoundsExceeded>;
+	_3 = write(v, self.form, self.buf);
+	if (_3.ok) {
+		return rt.Ok(undefined);
+	} else {
+		return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 	}
-	return rt.Ok(write_.value);
 }
 
 /** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
 export function varintOpt(self: Encoder, v: rt.u64 | undefined): rt.Result<undefined, EncodeError.EncodeError> {
-	let v2: rt.u64;
-	if (v !== undefined) {
-		const v3 = v;
-		const okOr = rt.optionOkOr(rt.u64CheckedAdd(v3, 1), "TooLarge" as EncodeError.EncodeError);
-		if (!okOr.ok) {
-			return rt.Err(okOr.error);
-		}
-		v2 = okOr.value;
-	} else {
+	let v2!: rt.u64;
+	let _6!: rt.Result<rt.u64, EncodeError.EncodeError>;
+	if (v === undefined) {
 		v2 = 0;
+	} else {
+		_6 = rt.optionOkOr(rt.u64CheckedAdd(v, 1), "TooLarge" as EncodeError.EncodeError);
+		if (_6.ok) {
+			v2 = _6.value;
+		} else {
+			return _6;
+		}
 	}
 	return varint(self, v2);
 }
 
 /** Write a varint length, then the raw bytes. */
 export function bytes(self: Encoder, v: Uint8Array): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint_ = varint(self, v.length as rt.u64);
-	if (!varint_.ok) {
-		return rt.Err(varint_.error);
+	let _3!: rt.Result<undefined, EncodeError.EncodeError>;
+	_3 = varint(self, v.length as rt.u64);
+	if (_3.ok) {
+		slice(self, v);
+		return rt.Ok(undefined);
+	} else {
+		return _3;
 	}
-	slice(self, v);
-	return rt.Ok(undefined);
 }
 
 /** Write a varint length, then the UTF-8 bytes. */
@@ -90,13 +97,13 @@ export function string(self: Encoder, v: string): rt.Result<undefined, EncodeErr
  */
 export function prefixVarint(self: Encoder): Prefix.Prefix {
 	rt.byteVecPush(self.buf, 0);
-	return { body: self.buf.length, kind: "Varint" };
+	return { body: self.buf.length, kind: "Varint" as PrefixKind.PrefixKind };
 }
 
 /** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
 export function prefixU16(self: Encoder): Prefix.Prefix {
 	rt.byteVecExtendFromSlice(self.buf, Uint8Array.of(0, 0));
-	return { body: self.buf.length, kind: "U16" };
+	return { body: self.buf.length, kind: "U16" as PrefixKind.PrefixKind };
 }
 
 /** The number of bytes written since `prefix` was reserved. */
@@ -106,42 +113,80 @@ export function since(self: Encoder, prefix: Prefix.Prefix): rt.usize {
 
 /** Drop a reserved prefix and everything written since, as if neither was written. */
 export function discard(self: Encoder, prefix: Prefix.Prefix): void {
-	const start = prefix.kind === "Varint" ? rt.usizeSub(prefix.body, 1) : rt.usizeSub(prefix.body, 2);
+	let start!: rt.usize;
+	if (prefix.kind === "Varint") {
+		start = rt.usizeSub(prefix.body, 1);
+	} else {
+		start = rt.usizeSub(prefix.body, 2);
+	}
 	rt.byteVecTruncate(self.buf, start);
 }
 
 /** Size a reserved prefix to everything written since. */
 export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined, EncodeError.EncodeError> {
-	const body = prefix.body;
-	const end = self.buf.length;
-	if (prefix.kind === "U16") {
-		const mapErr = rt.resultMapErr(rt.u16TryFrom(rt.usizeSub(end, body)), (_: rt.TryFromIntError): EncodeError.EncodeError => {
-			return "TooLarge";
-		});
-		if (!mapErr.ok) {
-			return rt.Err(mapErr.error);
+	let body!: rt.usize;
+	let end!: rt.usize;
+	let _7!: rt.Result<rt.u16, EncodeError.EncodeError>;
+	let size!: rt.u16;
+	let _23!: rt.Result<undefined, BoundsExceeded.BoundsExceeded>;
+	let len!: rt.usize;
+	let _35!: rt.u8;
+	let _39!: rt.usize;
+	let size2!: Uint8Array;
+	let _44!: Uint8Array;
+	let _56!: Uint8Array;
+	let _58!: rt.usize;
+	let _75!: rt.ByteVec;
+	let _79!: rt.ByteVec;
+	let _84!: rt.ByteVec;
+	body = prefix.body;
+	end = self.buf.length;
+	if (prefix.kind === "Varint") {
+		_23 = write(rt.usizeSub(end, body) as rt.u64, self.form, self.buf);
+		if (_23.ok) {
+			len = rt.usizeSub(self.buf.length, end);
+			if (!(len === 1)) {
+				size2 = rt.bytes(9);
+				_44 = rt.sliceRange(size2, 0, len);
+				const slice4 = rt.byteVecView(self.buf);
+				rt.sliceCopyFromSlice(_44, rt.sliceRange(slice4, end));
+				rt.byteVecTruncate(self.buf, rt.usizeSub(rt.usizeAdd(end, len), 1));
+				_58 = rt.usizeSub(rt.usizeAdd(body, len), 1);
+				_56 = rt.byteVecView(self.buf);
+				rt.sliceCopyWithin(_56, body, end, _58);
+				_84 = self.buf;
+				const part2 = rt.usizeSub(body, 1);
+				const part3 = rt.usizeAdd(rt.usizeSub(body, 1), len);
+				const slice5 = rt.byteVecView(_84);
+				rt.sliceCopyFromSlice(rt.sliceRange(slice5, part2, part3), rt.sliceRange(size2, 0, len));
+			} else {
+				const slice2 = rt.byteVecView(self.buf);
+				const at = rt.idx(slice2, end);
+				_35 = slice2[at];
+				_79 = self.buf;
+				_39 = rt.usizeSub(body, 1);
+				const slice3 = rt.byteVecView(_79);
+				const at2 = rt.idx(slice3, _39);
+				slice3[at2] = _35;
+				rt.byteVecTruncate(self.buf, end);
+				return rt.Ok(undefined);
+			}
+		} else {
+			return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 		}
-		const size = mapErr.value;
-		rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(self.buf), rt.usizeSub(body, 2), body), rt.u16ToBeBytes(size));
 	} else {
-		const write_ = write(rt.usizeSub(end, body) as rt.u64, self.form, self.buf);
-		if (!write_.ok) {
-			return rt.Err(EncodeError.from$From_BoundsExceeded(write_.error));
+		_7 = rt.resultMapErr(rt.u16TryFrom(rt.usizeSub(end, body)), (_2: rt.TryFromIntError): EncodeError.EncodeError => {
+			return "TooLarge" as EncodeError.EncodeError;
+		});
+		if (_7.ok) {
+			size = _7.value;
+			_75 = self.buf;
+			const part = rt.usizeSub(body, 2);
+			const slice_ = rt.byteVecView(_75);
+			rt.sliceCopyFromSlice(rt.sliceRange(slice_, part, body), rt.u16ToBeBytes(size));
+		} else {
+			return _7;
 		}
-		const len = rt.usizeSub(self.buf.length, end);
-		if (len === 1) {
-			const value = rt.at(rt.byteVecView(self.buf), end);
-			const slice_ = rt.byteVecView(self.buf);
-			const index = rt.usizeSub(body, 1);
-			slice_[rt.idx(slice_, index)] = value;
-			rt.byteVecTruncate(self.buf, end);
-			return rt.Ok(undefined);
-		}
-		let size2: Uint8Array = rt.bytes(9);
-		rt.sliceCopyFromSlice(rt.sliceRange(size2, 0, len), rt.sliceRange(rt.byteVecView(self.buf), end));
-		rt.byteVecTruncate(self.buf, rt.usizeSub(rt.usizeAdd(end, len), 1));
-		rt.sliceCopyWithin(rt.byteVecView(self.buf), body, end, rt.usizeSub(rt.usizeAdd(body, len), 1));
-		rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(self.buf), rt.usizeSub(body, 1), rt.usizeAdd(rt.usizeSub(body, 1), len)), rt.sliceRange(size2, 0, len));
 	}
 	return rt.Ok(undefined);
 }

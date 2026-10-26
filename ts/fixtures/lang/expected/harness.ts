@@ -10,113 +10,118 @@ import { copies, order, discriminants, loops, patterns, closures, library } from
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let out: rt.ByteVec = new rt.ByteVec();
+	let out!: rt.ByteVec;
+	let op!: rt.u8;
+	let kind!: rt.u8;
+	let _10!: [rt.u8, rt.u8];
+	let _14!: rt.u8;
+	let _28!: rt.u8;
+	let _36!: [rt.u8, Uint8Array] | undefined;
+	out = new rt.ByteVec();
 	if (!(input.length >= 2)) {
 		return out;
-	}
-	const op = input[0];
-	const kind = input[1];
-	const data = input.subarray(2, input.length - 0);
-	const [op2, kind2] = [op, kind] as [rt.u8, rt.u8];
-	const value = rt.u8Rem(op2, 38);
-	if (value === 0) {
-		u8Op(kind2, data, out);
-	} else if (value === 1) {
-		u16Op(kind2, data, out);
-	} else if (value === 2) {
-		u32Op(kind2, data, out);
-	} else if (value === 3) {
-		u64Op(kind2, data, out);
-	} else if (value === 4) {
-		u128Op(kind2, data, out);
-	} else if (value === 5) {
-		usizeOp(kind2, data, out);
-	} else if (value === 6) {
-		i8Op(kind2, data, out);
-	} else if (value === 7) {
-		i16Op(kind2, data, out);
-	} else if (value === 8) {
-		i32Op(kind2, data, out);
-	} else if (value === 9) {
-		i64Op(kind2, data, out);
-	} else if (value === 10) {
-		i128Op(kind2, data, out);
-	} else if (value === 11) {
-		isizeOp(kind2, data, out);
-	} else if (value === 12) {
-		const value2 = rt.u8Rem(kind2, 6);
-		if (value2 === 0) {
-			i8Neg(data, out);
-		} else if (value2 === 1) {
-			i16Neg(data, out);
-		} else if (value2 === 2) {
-			i32Neg(data, out);
-		} else if (value2 === 3) {
-			i64Neg(data, out);
-		} else if (value2 === 4) {
-			i128Neg(data, out);
-		} else {
-			isizeNeg(data, out);
-		}
-	} else if (value === 13) {
-		const splitFirst = rt.sliceSplitFirst(data);
-		if (splitFirst !== undefined) {
-			const to = splitFirst[0];
-			const data2 = splitFirst[1];
-			cast(kind2, to, data2, out);
-		} else {
-			cast(kind2, rt.u8Div(kind2, 12), data, out);
-		}
-	} else if (value === 14) {
-		convert(data, out);
-	} else if (value === 15) {
-		copies(data, out);
-	} else if (value === 16) {
-		loops(data, out);
-	} else if (value === 17) {
-		patterns(data, out);
-	} else if (value === 18) {
-		closures(data, out);
-	} else if (value === 19) {
-		discriminants(data, out);
-	} else if (value === 20) {
-		library(data, out);
-	} else if (value === 21) {
-		ints(kind2, data, out);
-	} else if (value === 22) {
-		strings(data, out);
-	} else if (value === 23) {
-		derived(data, out);
-	} else if (value === 24) {
-		written(data, out);
-	} else if (value === 25) {
-		panics(kind2, data, out);
-	} else if (value === 26) {
-		methods(data, out);
-	} else if (value === 27) {
-		adaptors(kind2, data, out);
-	} else if (value === 28) {
-		consumers(kind2, data, out);
-	} else if (value === 29) {
-		ranges(data, out);
-	} else if (value === 30) {
-		options(data, out);
-	} else if (value === 31) {
-		own(data, out);
-	} else if (value === 32) {
-		values(data, out);
-	} else if (value === 33) {
-		order(data, out);
-	} else if (value === 34) {
-		hashMaps(kind2, data, out);
-	} else if (value === 35) {
-		sets(kind2, data, out);
-	} else if (value === 36) {
-		btreeMaps(kind2, data, out);
 	} else {
-		deques(data, out);
+		_10 = [input[0], input[1]] as [rt.u8, rt.u8];
+		op = _10[0];
+		kind = _10[1];
+		_14 = rt.u8Rem(op, 38);
+		if (_14 === 0) {
+			u8Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 1) {
+			u16Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 2) {
+			u32Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 3) {
+			u64Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 4) {
+			u128Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 5) {
+			usizeOp(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 6) {
+			i8Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 7) {
+			i16Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 8) {
+			i32Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 9) {
+			i64Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 10) {
+			i128Op(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 11) {
+			isizeOp(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 12) {
+			_28 = rt.u8Rem(kind, 6);
+			if (_28 === 0) {
+				i8Neg(input.subarray(2, input.length - 0), out);
+			} else if (_28 === 1) {
+				i16Neg(input.subarray(2, input.length - 0), out);
+			} else if (_28 === 2) {
+				i32Neg(input.subarray(2, input.length - 0), out);
+			} else if (_28 === 3) {
+				i64Neg(input.subarray(2, input.length - 0), out);
+			} else if (_28 === 4) {
+				i128Neg(input.subarray(2, input.length - 0), out);
+			} else {
+				isizeNeg(input.subarray(2, input.length - 0), out);
+			}
+		} else if (_14 === 13) {
+			_36 = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
+			if (_36 === undefined) {
+				cast(kind, rt.u8Div(kind, 12), input.subarray(2, input.length - 0), out);
+			} else {
+				cast(kind, _36[0], _36[1], out);
+			}
+		} else if (_14 === 14) {
+			convert(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 15) {
+			copies(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 16) {
+			loops(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 17) {
+			patterns(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 18) {
+			closures(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 19) {
+			discriminants(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 20) {
+			library(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 21) {
+			ints(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 22) {
+			strings(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 23) {
+			derived(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 24) {
+			written(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 25) {
+			panics(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 26) {
+			methods(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 27) {
+			adaptors(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 28) {
+			consumers(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 29) {
+			ranges(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 30) {
+			options(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 31) {
+			own(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 32) {
+			values(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 33) {
+			order(input.subarray(2, input.length - 0), out);
+		} else if (_14 === 34) {
+			hashMaps(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 35) {
+			sets(kind, input.subarray(2, input.length - 0), out);
+		} else if (_14 === 36) {
+			btreeMaps(kind, input.subarray(2, input.length - 0), out);
+		} else {
+			deques(input.subarray(2, input.length - 0), out);
+		}
+		return out;
 	}
-	return out;
 }
 
 //# sourceMappingURL=harness.ts.map

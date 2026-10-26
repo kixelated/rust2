@@ -17,63 +17,67 @@ import type * as Version from "./lite/version.Version.ts";
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
-	let out: rt.ByteVec = new rt.ByteVec();
-	const splitFirst = rt.sliceSplitFirst(input);
-	if (splitFirst === undefined) {
+	let out!: rt.ByteVec;
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let _8!: rt.u8;
+	out = new rt.ByteVec();
+	_5 = rt.sliceSplitFirst(input);
+	if (_5 !== undefined) {
+		_8 = rt.u8Rem(_5[0], 9);
+		if (_8 === 0) {
+			decodeScript(_5[1], out);
+		} else if (_8 === 1) {
+			encodeScript(_5[1], out);
+		} else if (_8 === 2) {
+			zigzag(_5[1], out);
+		} else if (_8 === 3) {
+			sizes(_5[1], out);
+		} else if (_8 === 4) {
+			roundtrip$Versions(_5[1], out);
+		} else if (_8 === 5) {
+			roundtripLite$Group(_5[1], out);
+		} else if (_8 === 6) {
+			roundtripLite$Probe(_5[1], out);
+		} else if (_8 === 7) {
+			encodeMessages(_5[1], out);
+		} else {
+			errors(_5[1], out);
+		}
+		return out;
+	} else {
 		return out;
 	}
-	const op = splitFirst[0];
-	const data = splitFirst[1];
-	const value = rt.u8Rem(op, 9);
-	if (value === 0) {
-		decodeScript(data, out);
-	} else if (value === 1) {
-		encodeScript(data, out);
-	} else if (value === 2) {
-		zigzag(data, out);
-	} else if (value === 3) {
-		sizes(data, out);
-	} else if (value === 4) {
-		roundtrip$Versions(data, out);
-	} else if (value === 5) {
-		roundtripLite$Group(data, out);
-	} else if (value === 6) {
-		roundtripLite$Probe(data, out);
-	} else if (value === 7) {
-		encodeMessages(data, out);
-	} else {
-		errors(data, out);
-	}
-	return out;
 }
 
 export function form(selector: rt.u8): Form.Form {
-	const value = rt.u8Rem(selector, 3);
-	if (value === 0) {
-		return { tag: "Quic" };
-	} else if (value === 1) {
-		return { tag: "LeadingOnes", seven: false };
+	let _2!: rt.u8;
+	_2 = rt.u8Rem(selector, 3);
+	if (_2 === 0) {
+		return { tag: "Quic" } as Form.Form;
+	} else if (_2 === 1) {
+		return { tag: "LeadingOnes", seven: false } as Form.Form;
 	} else {
-		return { tag: "LeadingOnes", seven: true };
+		return { tag: "LeadingOnes", seven: true } as Form.Form;
 	}
 }
 
 export function liteVersion(selector: rt.u8): Version.Version {
-	const value = rt.u8Rem(selector, 7);
-	if (value === 0) {
-		return "Lite01";
-	} else if (value === 1) {
-		return "Lite02";
-	} else if (value === 2) {
-		return "Lite03";
-	} else if (value === 3) {
-		return "Lite04";
-	} else if (value === 4) {
-		return "Lite05";
-	} else if (value === 5) {
-		return "Lite06";
+	let _2!: rt.u8;
+	_2 = rt.u8Rem(selector, 7);
+	if (_2 === 0) {
+		return "Lite01" as Version.Version;
+	} else if (_2 === 1) {
+		return "Lite02" as Version.Version;
+	} else if (_2 === 2) {
+		return "Lite03" as Version.Version;
+	} else if (_2 === 3) {
+		return "Lite04" as Version.Version;
+	} else if (_2 === 4) {
+		return "Lite05" as Version.Version;
+	} else if (_2 === 5) {
+		return "Lite06" as Version.Version;
 	} else {
-		return "Lite07";
+		return "Lite07" as Version.Version;
 	}
 }
 
@@ -87,22 +91,38 @@ export function putUsize(out: rt.ByteVec, value: rt.usize): void {
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
 export function takeU64(data: Uint8Array): [rt.u64, Uint8Array] {
-	let buf: Uint8Array = rt.bytes(8);
-	const n = rt.min(data.length, 8);
+	let buf!: Uint8Array;
+	let n!: rt.usize;
+	buf = rt.bytes(8);
+	n = rt.min(data.length, 8);
 	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data, 0, n));
-	return [rt.u64FromBeBytes(buf), rt.sliceRange(data, n)];
+	return [rt.u64FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.u64, Uint8Array];
 }
 
 /** A decode error's code, then its text. */
 export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): void {
+	let _5!: string;
+	let _6!: string;
+	let args2!: rt.Fmt[];
 	decodeError(out, err);
-	putText(out, rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f)), rt.fmtFormat([(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)]));
+	_5 = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f));
+	const arg = ([err] as [DecodeError.DecodeError])[0];
+	args2 = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg, f)];
+	_6 = rt.fmtFormat([args2[0]]);
+	putText(out, _5, _6);
 }
 
 /** An encode error's code, then its text. */
 export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): void {
+	let _5!: string;
+	let _6!: string;
+	let args2!: rt.Fmt[];
 	encodeError(out, err);
-	putText(out, rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f)), rt.fmtFormat([(f: rt.Formatter) => EncodeError.fmt$Debug(err, f)]));
+	_5 = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f));
+	const arg = ([err] as [EncodeError.EncodeError])[0];
+	args2 = [(f: rt.Formatter) => EncodeError.fmt$Debug(arg, f)];
+	_6 = rt.fmtFormat([args2[0]]);
+	putText(out, _5, _6);
 }
 
 /** An error's thiserror `Display` and derived `Debug`, which callers see. */
@@ -114,7 +134,7 @@ export function putText(out: rt.ByteVec, display: string, debug: string): void {
 }
 
 export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void {
-	rt.byteVecPush(out, 0xee);
+	rt.byteVecPush(out, 238);
 	if (err.tag === "Short") {
 		rt.byteVecPush(out, 0);
 	} else if (err.tag === "Long") {
@@ -122,9 +142,8 @@ export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void
 	} else if (err.tag === "InvalidString") {
 		rt.byteVecPush(out, 2);
 	} else if (err.tag === "InvalidMessage") {
-		const id = err._0;
 		rt.byteVecPush(out, 3);
-		putU64(out, id);
+		putU64(out, err._0);
 	} else if (err.tag === "InvalidSubscribeLocation") {
 		rt.byteVecPush(out, 4);
 	} else if (err.tag === "InvalidValue") {
@@ -136,11 +155,9 @@ export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void
 	} else if (err.tag === "ExpectedEnd") {
 		rt.byteVecPush(out, 8);
 	} else if (err.tag === "MessageTooLarge") {
-		const size_ = err.size;
-		const max = err.max;
 		rt.byteVecPush(out, 9);
-		putUsize(out, size_);
-		putUsize(out, max);
+		putUsize(out, err.size);
+		putUsize(out, err.max);
 	} else if (err.tag === "ExpectedData") {
 		rt.byteVecPush(out, 10);
 	} else if (err.tag === "Duplicate") {
@@ -163,8 +180,24 @@ export function decodeError(out: rt.ByteVec, err: DecodeError.DecodeError): void
 }
 
 export function encodeError(out: rt.ByteVec, err: EncodeError.EncodeError): void {
-	rt.byteVecPush(out, 0xef);
-	rt.byteVecPush(out, err === "BoundsExceeded" ? 0 : err === "TooLarge" ? 1 : err === "Short" ? 2 : err === "InvalidState" ? 3 : err === "TooMany" ? 4 : err === "Version" ? 5 : 6);
+	let _5!: rt.u8;
+	rt.byteVecPush(out, 239);
+	if (err === "BoundsExceeded") {
+		_5 = 0;
+	} else if (err === "TooLarge") {
+		_5 = 1;
+	} else if (err === "Short") {
+		_5 = 2;
+	} else if (err === "InvalidState") {
+		_5 = 3;
+	} else if (err === "TooMany") {
+		_5 = 4;
+	} else if (err === "Version") {
+		_5 = 5;
+	} else {
+		_5 = 6;
+	}
+	rt.byteVecPush(out, _5);
 }
 
 /**
@@ -172,113 +205,148 @@ export function encodeError(out: rt.ByteVec, err: EncodeError.EncodeError): void
  * `data[1]` bytes after the form selector, and the wire is everything after it.
  */
 export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const data2 = splitFirst[1];
-	const splitFirst2 = rt.sliceSplitFirst(data2);
-	if (splitFirst2 === undefined) {
-		return;
-	}
-	const len = splitFirst2[0];
-	const data3 = splitFirst2[1];
-	const [script, wire] = rt.sliceSplitAt(data3, rt.min(data3.length, len as rt.usize));
-	let r: Decoder.Decoder = Decoder.new(wire, form(selector));
-	for (const item of script) {
-		const step = item;
-		const decodeStep_ = decodeStep(r, step, out);
-		if (decodeStep_.ok) {
-			rt.byteVecPush(out, 0);
-		} else {
-			const err = decodeStep_.error;
-			decodeFailed(out, err);
-			putUsize(out, Decoder.need(r));
-			break;
+	let selector!: rt.u8;
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let len!: rt.u8;
+	let _9!: [rt.u8, Uint8Array] | undefined;
+	let _13!: [Uint8Array, Uint8Array];
+	let _15!: rt.usize;
+	let r!: Decoder.Decoder;
+	let iterS!: Uint8Array;
+	let iterI!: number;
+	let _21!: rt.u8 | rt.Done;
+	let _26!: rt.Result<undefined, DecodeError.DecodeError>;
+	let err!: DecodeError.DecodeError;
+	_5 = rt.sliceSplitFirst(data);
+	b0: {
+		if (_5 !== undefined) {
+			selector = _5[0];
+			_9 = rt.sliceSplitFirst(_5[1]);
+			if (_9 !== undefined) {
+				len = _9[0];
+				_15 = _9[1].length;
+				_13 = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
+				r = Decoder.new(_13[1], form(selector));
+				iterS = _13[0];
+				iterI = 0;
+				l1: while (true) {
+					_21 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+					if (_21 !== rt.DONE) {
+						_26 = decodeStep(r, _21, out);
+						if (_26.ok) {
+							rt.byteVecPush(out, 0);
+							putUsize(out, Decoder.remaining(r));
+							continue l1;
+						} else {
+							err = _26.error;
+							decodeFailed(out, err);
+							putUsize(out, Decoder.need(r));
+						}
+					}
+					rt.byteVecPush(out, Decoder.isEmpty(r) ? 1 : 0);
+					break b0;
+				}
+			}
 		}
-		putUsize(out, Decoder.remaining(r));
 	}
-	rt.byteVecPush(out, Decoder.isEmpty(r) ? 1 : 0);
 }
 
 export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const value = rt.u8Rem(step, 10);
-	if (value === 0) {
-		const arg = out;
-		const u8 = Decoder.u8(r);
-		if (!u8.ok) {
-			return rt.Err(u8.error);
-		}
-		rt.byteVecPush(arg, u8.value);
-	} else if (value === 1) {
-		const arg2 = out;
-		const u16 = Decoder.u16(r);
-		if (!u16.ok) {
-			return rt.Err(u16.error);
-		}
-		rt.byteVecExtendFromSlice(arg2, rt.u16ToBeBytes(u16.value));
-	} else if (value === 2) {
-		const arg3 = out;
-		const bool = Decoder.bool(r);
-		if (!bool.ok) {
-			return rt.Err(bool.error);
-		}
-		rt.byteVecPush(arg3, bool.value ? 1 : 0);
-	} else if (value === 3) {
-		const arg4 = out;
-		const varint = Decoder.varint(r);
-		if (!varint.ok) {
-			return rt.Err(varint.error);
-		}
-		putU64(arg4, varint.value);
-	} else if (value === 4) {
-		const varintOpt = Decoder.varintOpt(r);
-		if (!varintOpt.ok) {
-			return rt.Err(varintOpt.error);
-		}
-		if (varintOpt.value !== undefined) {
-			const v = varintOpt.value;
-			rt.byteVecPush(out, 1);
-			putU64(out, v);
+	let _5!: rt.u8;
+	let _7!: rt.Result<rt.u8, DecodeError.DecodeError>;
+	let _15!: rt.Result<rt.u16, DecodeError.DecodeError>;
+	let _21!: rt.Result<boolean, DecodeError.DecodeError>;
+	let _26!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	let _31!: rt.Result<rt.u64 | undefined, DecodeError.DecodeError>;
+	let val5!: rt.u64 | undefined;
+	let v!: rt.u64;
+	let _40!: rt.Result<Uint8Array, DecodeError.DecodeError>;
+	let s!: string;
+	let _49!: rt.Result<string, DecodeError.DecodeError>;
+	let _57!: rt.Result<Uint8Array, DecodeError.DecodeError>;
+	let sub!: Decoder.Decoder;
+	let _67!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
+	let _76!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	_5 = rt.u8Rem(step, 10);
+	if (_5 === 0) {
+		_7 = Decoder.u8(r);
+		if (_7.ok) {
+			rt.byteVecPush(out, _7.value);
 		} else {
-			rt.byteVecPush(out, 0);
+			return _7;
 		}
-	} else if (value === 5) {
-		const bytes = Decoder.bytes(r);
-		if (!bytes.ok) {
-			return rt.Err(bytes.error);
+	} else if (_5 === 1) {
+		_15 = Decoder.u16(r);
+		if (_15.ok) {
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_15.value));
+		} else {
+			return _15;
 		}
-		const bytes2 = bytes.value;
-		putUsize(out, bytes2.length);
-		rt.byteVecExtendFromSlice(out, bytes2);
-	} else if (value === 6) {
-		const string = Decoder.string(r);
-		if (!string.ok) {
-			return rt.Err(string.error);
+	} else if (_5 === 2) {
+		_21 = Decoder.bool(r);
+		if (_21.ok) {
+			rt.byteVecPush(out, _21.value ? 1 : 0);
+		} else {
+			return _21;
 		}
-		const s = string.value;
-		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
-	} else if (value === 7) {
-		const slice = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
-		if (!slice.ok) {
-			return rt.Err(slice.error);
+	} else if (_5 === 3) {
+		_26 = Decoder.varint(r);
+		if (_26.ok) {
+			putU64(out, _26.value);
+		} else {
+			return _26;
 		}
-		const slice2 = slice.value;
-		rt.byteVecExtendFromSlice(out, slice2);
-	} else if (value === 8) {
-		const sub = Decoder.sub(r, rt.u8Div(step, 10) as rt.usize);
-		if (!sub.ok) {
-			return rt.Err(sub.error);
+	} else if (_5 === 4) {
+		_31 = Decoder.varintOpt(r);
+		if (_31.ok) {
+			val5 = _31.value;
+			if (val5 === undefined) {
+				rt.byteVecPush(out, 0);
+			} else {
+				v = val5;
+				rt.byteVecPush(out, 1);
+				putU64(out, v);
+			}
+		} else {
+			return _31;
 		}
-		let sub2: Decoder.Decoder = sub.value;
-		const arg5 = out;
-		const varint2 = Decoder.varint(sub2);
-		if (!varint2.ok) {
-			return rt.Err(varint2.error);
+	} else if (_5 === 5) {
+		_40 = Decoder.bytes(r);
+		if (_40.ok) {
+			putUsize(out, _40.value.length);
+			rt.byteVecExtendFromSlice(out, _40.value);
+		} else {
+			return _40;
 		}
-		putU64(arg5, varint2.value);
-		putUsize(out, Decoder.rest(sub2).length);
+	} else if (_5 === 6) {
+		_49 = Decoder.string(r);
+		if (_49.ok) {
+			s = _49.value;
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+		} else {
+			return _49;
+		}
+	} else if (_5 === 7) {
+		_57 = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
+		if (_57.ok) {
+			rt.byteVecExtendFromSlice(out, _57.value);
+		} else {
+			return _57;
+		}
+	} else if (_5 === 8) {
+		_67 = Decoder.sub(r, rt.u8Div(step, 10) as rt.usize);
+		if (_67.ok) {
+			sub = _67.value;
+			_76 = Decoder.varint(sub);
+			if (_76.ok) {
+				putU64(out, _76.value);
+				putUsize(out, Decoder.rest(sub).length);
+			} else {
+				return _76;
+			}
+		} else {
+			return _67;
+		}
 	} else {
 		putUsize(out, Decoder.rest(r).length);
 	}
@@ -287,295 +355,418 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 
 /** Write primitives as a script says, taking each value from the data that follows. */
 export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const data2 = splitFirst[1];
-	const splitFirst2 = rt.sliceSplitFirst(data2);
-	if (splitFirst2 === undefined) {
-		return;
-	}
-	const len = splitFirst2[0];
-	const data3 = splitFirst2[1];
-	let [script, values] = rt.sliceSplitAt(data3, rt.min(data3.length, len as rt.usize));
-	let buf: rt.ByteVec = new rt.ByteVec();
-	let w: Encoder.Encoder = Encoder.new(buf, form(selector));
-	let prefixes: Prefix.Prefix[] = [];
-	for (const item of script) {
-		const step = item;
-		const [value, rest] = takeU64(values);
-		values = rest;
-		let result: rt.Result<undefined, EncodeError.EncodeError>;
-		const value2 = rt.u8Rem(step, 10);
-		if (value2 === 0) {
-			Encoder.u8(w, rt.u64Low(value) & 0xff);
-			result = rt.Ok(undefined);
-		} else if (value2 === 1) {
-			Encoder.u16(w, rt.u64Low(value) & 0xffff);
-			result = rt.Ok(undefined);
-		} else if (value2 === 2) {
-			Encoder.bool(w, rt.u64And(value, 1) === 1);
-			result = rt.Ok(undefined);
-		} else if (value2 === 3) {
-			result = Encoder.varint(w, value);
-		} else if (value2 === 4) {
-			const arg = w;
-			const value3 = rt.u64Rem(value, 3);
-			result = Encoder.varintOpt(arg, value3 === 0 ? undefined : value3 === 1 ? value : rt.u64Of(18446744073709551615n));
-		} else if (value2 === 5) {
-			result = Encoder.bytes(w, rt.sliceRange(rt.u64ToBeBytes(value), 0, rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize));
-		} else if (value2 === 6) {
-			const fromUtf8 = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
-			if (fromUtf8.ok) {
-				const s = fromUtf8.value;
-				result = Encoder.string(w, s);
-			} else {
-				result = Encoder.string(w, "not utf-8");
+	let selector!: rt.u8;
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let len!: rt.u8;
+	let _9!: [rt.u8, Uint8Array] | undefined;
+	let values!: Uint8Array;
+	let _13!: [Uint8Array, Uint8Array];
+	let _15!: rt.usize;
+	let buf!: rt.ByteVec;
+	let w!: Encoder.Encoder;
+	let _20!: Form.Form;
+	let prefixes!: Prefix.Prefix[];
+	let iterS!: Uint8Array;
+	let iterI!: number;
+	let _24!: rt.u8 | rt.Done;
+	let step!: rt.u8;
+	let value!: rt.u64;
+	let _30!: [rt.u64, Uint8Array];
+	let result!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _33!: rt.u8;
+	let _47!: rt.u64 | undefined;
+	let _48!: rt.u64;
+	let _51!: Uint8Array;
+	let _53!: Uint8Array;
+	let _60!: rt.Result<string, rt.FromUtf8Error>;
+	let s!: string;
+	let _68!: string;
+	let _74!: Prefix.Prefix;
+	let _79!: Prefix.Prefix | undefined;
+	let prefix!: Prefix.Prefix;
+	let _88!: Prefix.Prefix | undefined;
+	let _98!: Prefix.Prefix | undefined;
+	let _102!: rt.Result<undefined, EncodeError.EncodeError>;
+	_5 = rt.sliceSplitFirst(data);
+	b0: {
+		if (_5 !== undefined) {
+			selector = _5[0];
+			_9 = rt.sliceSplitFirst(_5[1]);
+			if (_9 !== undefined) {
+				len = _9[0];
+				_15 = _9[1].length;
+				_13 = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
+				values = _13[1];
+				buf = new rt.ByteVec();
+				_20 = form(selector);
+				w = Encoder.new(buf, _20);
+				prefixes = [];
+				iterS = _13[0];
+				iterI = 0;
+				while (true) {
+					_24 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+					if (_24 === rt.DONE) {
+						while (true) {
+							_98 = prefixes.pop();
+							if (_98 !== undefined) {
+								_102 = Encoder.fill(w, _98);
+								if (!_102.ok) {
+									encodeFailed(out, _102.error);
+								}
+							} else {
+								putUsize(out, buf.length);
+								rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+								break b0;
+							}
+						}
+					} else {
+						step = _24;
+						_30 = takeU64(values);
+						value = _30[0];
+						values = _30[1];
+						_33 = rt.u8Rem(step, 10);
+						if (_33 === 0) {
+							Encoder.u8(w, rt.u64Low(value) & 0xff);
+							result = rt.Ok(undefined);
+						} else if (_33 === 1) {
+							Encoder.u16(w, rt.u64Low(value) & 0xffff);
+							result = rt.Ok(undefined);
+						} else if (_33 === 2) {
+							Encoder.bool(w, rt.u64And(value, 1) === 1);
+							result = rt.Ok(undefined);
+						} else if (_33 === 3) {
+							result = Encoder.varint(w, value);
+						} else if (_33 === 4) {
+							_48 = rt.u64Rem(value, 3);
+							if (_48 === 0) {
+								_47 = undefined;
+							} else if (_48 === 1) {
+								_47 = value;
+							} else {
+								_47 = rt.u64Of(18446744073709551615n);
+							}
+							result = Encoder.varintOpt(w, _47);
+						} else if (_33 === 5) {
+							const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
+							_53 = rt.u64ToBeBytes(value);
+							_51 = rt.sliceRange(_53, 0, part);
+							result = Encoder.bytes(w, _51);
+						} else if (_33 === 6) {
+							_60 = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
+							if (_60.ok) {
+								s = _60.value;
+								_68 = s;
+								result = Encoder.string(w, _68);
+							} else {
+								result = Encoder.string(w, "not utf-8");
+							}
+						} else if (_33 === 7) {
+							if (rt.u64Rem(value, 2) === 0) {
+								_74 = Encoder.prefixVarint(w);
+							} else {
+								_74 = Encoder.prefixU16(w);
+							}
+							prefixes.push(_74);
+							result = rt.Ok(undefined);
+						} else if (_33 === 8) {
+							_79 = prefixes.pop();
+							if (_79 === undefined) {
+								result = rt.Ok(undefined);
+							} else {
+								prefix = _79;
+								putUsize(out, Encoder.since(w, prefix));
+								result = Encoder.fill(w, prefix);
+							}
+						} else {
+							_88 = prefixes.pop();
+							if (_88 !== undefined) {
+								Encoder.discard(w, _88);
+							}
+							result = rt.Ok(undefined);
+						}
+						if (!result.ok) {
+							encodeFailed(out, result.error);
+						}
+					}
+				}
 			}
-		} else if (value2 === 7) {
-			prefixes.push(rt.u64Rem(value, 2) === 0 ? Encoder.prefixVarint(w) : Encoder.prefixU16(w));
-			result = rt.Ok(undefined);
-		} else if (value2 === 8) {
-			const pop = prefixes.pop();
-			if (pop !== undefined) {
-				const prefix = pop;
-				putUsize(out, Encoder.since(w, prefix));
-				result = Encoder.fill(w, prefix);
-			} else {
-				result = rt.Ok(undefined);
-			}
-		} else {
-			const pop2 = prefixes.pop();
-			if (pop2 !== undefined) {
-				const prefix2 = pop2;
-				Encoder.discard(w, prefix2);
-			}
-			result = rt.Ok(undefined);
 		}
-		if (!result.ok) {
-			const err = result.error;
-			encodeFailed(out, err);
-		}
 	}
-	while (true) {
-		const pop3 = prefixes.pop();
-		if (pop3 !== undefined) {
-			const prefix3 = pop3;
-			const fill = Encoder.fill(w, prefix3);
-			if (!fill.ok) {
-				const err2 = fill.error;
-				encodeFailed(out, err2);
-			}
-		} else {
-			break;
-		}
-	}
-	putUsize(out, buf.length);
-	rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 }
 
 export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
-	const [value, ] = takeU64(data);
-	const signed = rt.i64Cast(value);
+	let value!: rt.u64;
+	let signed!: rt.i64;
+	value = takeU64(data)[0];
+	signed = rt.i64Cast(value);
 	putU64(out, varint_zigzag(signed));
 	putU64(out, rt.u64Cast(unzigzag(value)));
 	putU64(out, rt.u64Cast(unzigzag(varint_zigzag(signed))));
 }
 
 export function sizes(data: Uint8Array, out: rt.ByteVec): void {
-	const [value, ] = takeU64(data);
-	for (let selector = 0; selector < 3; selector++) {
-		const size_ = size(value, form(selector));
-		if (size_.ok) {
-			const size2 = size_.value;
-			putUsize(out, size2);
+	let value!: rt.u64;
+	let iterStart!: rt.u8;
+	let iterEnd!: rt.u8;
+	let _9!: rt.u8;
+	let _13!: rt.Result<rt.usize, BoundsExceeded.BoundsExceeded>;
+	value = takeU64(data)[0];
+	iterStart = 0;
+	iterEnd = 3;
+	while (true) {
+		if (!((_9 = iterStart++) < iterEnd)) {
+			return;
 		} else {
-			rt.byteVecPush(out, 0xff);
+			_13 = size(value, form(_9));
+			if (_13.ok) {
+				putUsize(out, _13.value);
+			} else {
+				rt.byteVecPush(out, 255);
+			}
 		}
 	}
 }
 
 /** Decode a `T` from the wire, then encode what came out. */
 export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const wire = splitFirst[1];
-	const form_ = form(selector);
-	const decodeSlice = Versions.decodeSlice$Decode_Form(wire, form_);
-	if (decodeSlice.ok) {
-		const value = decodeSlice.value[0];
-		const used = decodeSlice.value[1];
-		putUsize(out, used);
-		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Versions.encode$Encode_Form(value, Encoder.new(buf, form_), form_);
-		if (encode.ok) {
-			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let form_!: Form.Form;
+	let _8!: rt.Result<[Versions.Versions, rt.usize], DecodeError.DecodeError>;
+	let value!: Versions.Versions;
+	let buf!: rt.ByteVec;
+	let _14!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _17!: Encoder.Encoder;
+	let err2!: DecodeError.DecodeError;
+	_5 = rt.sliceSplitFirst(data);
+	if (_5 !== undefined) {
+		form_ = form(_5[0]);
+		_8 = Versions.decodeSlice$Decode_Form(_5[1], form_);
+		if (_8.ok) {
+			value = _8.value[0];
+			putUsize(out, _8.value[1]);
+			buf = new rt.ByteVec();
+			_17 = Encoder.new(buf, form_);
+			_14 = Versions.encode$Encode_Form(value, _17, form_);
+			if (_14.ok) {
+				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+			} else {
+				encodeFailed(out, _14.error);
+			}
 		} else {
-			const err = encode.error;
-			encodeFailed(out, err);
+			err2 = _8.error;
+			decodeFailed(out, err2);
 		}
-	} else {
-		const err2 = decodeSlice.error;
-		decodeFailed(out, err2);
 	}
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
 export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const wire = splitFirst[1];
-	const version = liteVersion(selector);
-	const decodeSlice = Group.decodeSlice$Decode_Version(wire, version);
-	if (decodeSlice.ok) {
-		const value = decodeSlice.value[0];
-		const used = decodeSlice.value[1];
-		putUsize(out, used);
-		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Group.encode$Encode_Version(value, Encoder.new(buf, Form.from$From_Version(version)), version);
-		if (encode.ok) {
-			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let version!: Version.Version;
+	let _8!: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError>;
+	let value!: Group.Group;
+	let buf!: rt.ByteVec;
+	let _14!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _17!: Encoder.Encoder;
+	let _19!: Form.Form;
+	let err2!: DecodeError.DecodeError;
+	_5 = rt.sliceSplitFirst(data);
+	if (_5 !== undefined) {
+		version = liteVersion(_5[0]);
+		_8 = Group.decodeSlice$Decode_Version(_5[1], version);
+		if (_8.ok) {
+			value = _8.value[0];
+			putUsize(out, _8.value[1]);
+			buf = new rt.ByteVec();
+			_19 = Form.from$From_Version(version);
+			_17 = Encoder.new(buf, _19);
+			_14 = Group.encode$Encode_Version(value, _17, version);
+			if (_14.ok) {
+				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+			} else {
+				encodeFailed(out, _14.error);
+			}
 		} else {
-			const err = encode.error;
-			encodeFailed(out, err);
+			err2 = _8.error;
+			decodeFailed(out, err2);
 		}
-	} else {
-		const err2 = decodeSlice.error;
-		decodeFailed(out, err2);
 	}
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
 export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const wire = splitFirst[1];
-	const version = liteVersion(selector);
-	const decodeSlice = Probe.decodeSlice$Decode_Version(wire, version);
-	if (decodeSlice.ok) {
-		const value = decodeSlice.value[0];
-		const used = decodeSlice.value[1];
-		putUsize(out, used);
-		let buf: rt.ByteVec = new rt.ByteVec();
-		const encode = Probe.encode$Encode_Version(value, Encoder.new(buf, Form.from$From_Version(version)), version);
-		if (encode.ok) {
-			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let version!: Version.Version;
+	let _8!: rt.Result<[Probe.Probe, rt.usize], DecodeError.DecodeError>;
+	let value!: Probe.Probe;
+	let buf!: rt.ByteVec;
+	let _14!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _17!: Encoder.Encoder;
+	let _19!: Form.Form;
+	let err2!: DecodeError.DecodeError;
+	_5 = rt.sliceSplitFirst(data);
+	if (_5 !== undefined) {
+		version = liteVersion(_5[0]);
+		_8 = Probe.decodeSlice$Decode_Version(_5[1], version);
+		if (_8.ok) {
+			value = _8.value[0];
+			putUsize(out, _8.value[1]);
+			buf = new rt.ByteVec();
+			_19 = Form.from$From_Version(version);
+			_17 = Encoder.new(buf, _19);
+			_14 = Probe.encode$Encode_Version(value, _17, version);
+			if (_14.ok) {
+				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+			} else {
+				encodeFailed(out, _14.error);
+			}
 		} else {
-			const err = encode.error;
-			encodeFailed(out, err);
+			err2 = _8.error;
+			decodeFailed(out, err2);
 		}
-	} else {
-		const err2 = decodeSlice.error;
-		decodeFailed(out, err2);
 	}
 }
 
 /** Encode messages built from the data, at a lite version. */
 export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const data2 = splitFirst[1];
-	const version = liteVersion(selector);
-	const [subscribe, data3] = takeU64(data2);
-	const [sequence, data4] = takeU64(data3);
-	const [frameStart, data5] = takeU64(data4);
-	const [bitrate, data6] = takeU64(data5);
-	const [rtt, ] = takeU64(data6);
-	const group = { subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) };
-	encodeMessage$Group(group, version, out);
-	const probe = { bitrate: rt.u64CheckedSub(bitrate, 1), rtt: rt.thenSome(rt.u64Rem(rtt, 3) !== 0, rtt) };
-	encodeMessage$Probe(probe, version, out);
-	const versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
-	let buf: rt.ByteVec = new rt.ByteVec();
-	const encode = Versions.encode$Encode_Version(versions, Encoder.new(buf, Form.from$From_Version(version)), version);
-	if (encode.ok) {
-		rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
-	} else {
-		const err = encode.error;
-		encodeFailed(out, err);
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let version!: Version.Version;
+	let subscribe!: rt.u64;
+	let _10!: [rt.u64, Uint8Array];
+	let sequence!: rt.u64;
+	let _13!: [rt.u64, Uint8Array];
+	let frameStart!: rt.u64;
+	let _16!: [rt.u64, Uint8Array];
+	let bitrate!: rt.u64;
+	let _19!: [rt.u64, Uint8Array];
+	let rtt!: rt.u64;
+	let versions!: Versions.Versions;
+	let buf!: rt.ByteVec;
+	let _40!: rt.Result<undefined, EncodeError.EncodeError>;
+	let _43!: Encoder.Encoder;
+	let _45!: Form.Form;
+	_5 = rt.sliceSplitFirst(data);
+	if (_5 !== undefined) {
+		version = liteVersion(_5[0]);
+		_10 = takeU64(_5[1]);
+		subscribe = _10[0];
+		_13 = takeU64(_10[1]);
+		sequence = _13[0];
+		_16 = takeU64(_13[1]);
+		frameStart = _16[0];
+		_19 = takeU64(_16[1]);
+		bitrate = _19[0];
+		rtt = takeU64(_19[1])[0];
+		encodeMessage$Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
+		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: rt.thenSome(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
+		versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
+		buf = new rt.ByteVec();
+		_45 = Form.from$From_Version(version);
+		_43 = Encoder.new(buf, _45);
+		_40 = Versions.encode$Encode_Version(versions, _43, version);
+		if (_40.ok) {
+			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+		} else {
+			encodeFailed(out, _40.error);
+		}
 	}
 }
 
 export function encodeMessage$Group(msg: Group.Group, version: Version.Version, out: rt.ByteVec): void {
-	let buf: rt.ByteVec = new rt.ByteVec();
-	let w: Encoder.Encoder = Encoder.new(buf, Form.from$From_Version(version));
-	const encode = Group.encode$Encode_Version(msg, w, version);
-	if (encode.ok) {
+	let buf!: rt.ByteVec;
+	let w!: Encoder.Encoder;
+	let _7!: Form.Form;
+	let _8!: rt.Result<undefined, EncodeError.EncodeError>;
+	buf = new rt.ByteVec();
+	_7 = Form.from$From_Version(version);
+	w = Encoder.new(buf, _7);
+	_8 = Group.encode$Encode_Version(msg, w, version);
+	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
 		rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 	} else {
-		const err = encode.error;
-		encodeFailed(out, err);
+		encodeFailed(out, _8.error);
 	}
 }
 
 export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, out: rt.ByteVec): void {
-	let buf: rt.ByteVec = new rt.ByteVec();
-	let w: Encoder.Encoder = Encoder.new(buf, Form.from$From_Version(version));
-	const encode = Probe.encode$Encode_Version(msg, w, version);
-	if (encode.ok) {
+	let buf!: rt.ByteVec;
+	let w!: Encoder.Encoder;
+	let _7!: Form.Form;
+	let _8!: rt.Result<undefined, EncodeError.EncodeError>;
+	buf = new rt.ByteVec();
+	_7 = Form.from$From_Version(version);
+	w = Encoder.new(buf, _7);
+	_8 = Probe.encode$Encode_Version(msg, w, version);
+	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
 		rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 	} else {
-		const err = encode.error;
-		encodeFailed(out, err);
+		encodeFailed(out, _8.error);
 	}
 }
 
 /** Each error the codec can return, built from the data, as callers see it. */
 export function errors(data: Uint8Array, out: rt.ByteVec): void {
-	const splitFirst = rt.sliceSplitFirst(data);
-	if (splitFirst === undefined) {
-		return;
-	}
-	const selector = splitFirst[0];
-	const data2 = splitFirst[1];
-	const [value, ] = takeU64(data2);
-	let err: DecodeError.DecodeError;
-	const value2 = rt.u8Rem(selector, 8);
-	if (value2 === 0) {
-		err = { tag: "InvalidMessage", _0: value };
-	} else if (value2 === 1) {
-		err = { tag: "MessageTooLarge", size: rt.u64Low(value), max: rt.u64Low(rt.u64Shr(value, 32)) };
-	} else if (value2 === 2) {
-		err = { tag: "Session", _0: { tag: "App", _0: rt.u64Low(value) & 0xffff } as SessionError.SessionError };
-	} else if (value2 === 3) {
-		err = { tag: "Session", _0: { tag: "ProtocolViolation" } as SessionError.SessionError };
-	} else if (value2 === 4) {
-		const fromUtf8 = rt.stringFromUtf8(rt.sliceToByteVec(data2));
-		if (fromUtf8.ok) {
-			err = { tag: "Missing" };
-		} else {
-			const e = fromUtf8.error;
-			err = { tag: "InvalidString", _0: e };
+	let selector!: rt.u8;
+	let _5!: [rt.u8, Uint8Array] | undefined;
+	let value!: rt.u64;
+	let err!: DecodeError.DecodeError;
+	let _10!: rt.u8;
+	let _20!: rt.Result<string, rt.FromUtf8Error>;
+	let _26!: string;
+	let _28!: string;
+	let args2!: rt.Fmt[];
+	let _38!: string;
+	let args4!: rt.Fmt[];
+	let _47!: string;
+	let args6!: rt.Fmt[];
+	_5 = rt.sliceSplitFirst(data);
+	b0: {
+		if (_5 !== undefined) {
+			selector = _5[0];
+			value = takeU64(_5[1])[0];
+			_10 = rt.u8Rem(selector, 8);
+			if (_10 === 0) {
+				err = { tag: "InvalidMessage", _0: value } as DecodeError.DecodeError;
+			} else if (_10 === 1) {
+				err = { tag: "MessageTooLarge", size: rt.u64Low(value), max: rt.u64Low(rt.u64Shr(value, 32)) } as DecodeError.DecodeError;
+			} else if (_10 === 2) {
+				err = { tag: "Session", _0: { tag: "App", _0: rt.u64Low(value) & 0xffff } as SessionError.SessionError } as DecodeError.DecodeError;
+			} else if (_10 === 3) {
+				err = { tag: "Session", _0: { tag: "ProtocolViolation" } as SessionError.SessionError } as DecodeError.DecodeError;
+			} else if (_10 === 4) {
+				_20 = rt.stringFromUtf8(rt.sliceToByteVec(_5[1]));
+				if (_20.ok) {
+					err = { tag: "Missing" } as DecodeError.DecodeError;
+				} else {
+					err = { tag: "InvalidString", _0: _20.error } as DecodeError.DecodeError;
+				}
+			} else if (_10 === 5) {
+				err = DecodeError.from$From_BoundsExceeded({});
+			} else if (_10 === 6) {
+				const arg = {};
+				_26 = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(arg, f));
+				const arg2 = ([{}] as [BoundsExceeded.BoundsExceeded])[0];
+				args2 = [(f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f)];
+				_28 = rt.fmtFormat([args2[0], " ", rt.fmtSpec({ alternate: true }, args2[0])]);
+				putText(out, _26, _28);
+				break b0;
+			} else {
+				err = { tag: "MalformedAuthToken" } as DecodeError.DecodeError;
+			}
+			const arg3 = ([err] as [DecodeError.DecodeError])[0];
+			args4 = [(f: rt.Formatter) => DecodeError.fmt$Display(arg3, f)];
+			_38 = rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 30 }, args4[0]), "|"]);
+			const arg4 = ([err] as [DecodeError.DecodeError])[0];
+			args6 = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg4, f)];
+			_47 = rt.fmtFormat([rt.fmtSpec({ alternate: true }, args6[0])]);
+			putText(out, _38, _47);
+			decodeFailed(out, err);
 		}
-	} else if (value2 === 5) {
-		err = DecodeError.from$From_BoundsExceeded({});
-	} else if (value2 === 6) {
-		const bounds = {};
-		putText(out, rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(bounds, f)), rt.fmtFormat([(f: rt.Formatter) => BoundsExceeded.fmt$Debug(bounds, f), " ", rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => BoundsExceeded.fmt$Debug(bounds, f))]));
-		return;
-	} else {
-		err = { tag: "MalformedAuthToken" };
 	}
-	putText(out, rt.fmtFormat([(f: rt.Formatter) => DecodeError.fmt$Display(err, f), " ", rt.fmtSpec({ align: ">", width: 30 }, (f: rt.Formatter) => DecodeError.fmt$Display(err, f)), "|"]), rt.fmtFormat([rt.fmtSpec({ alternate: true }, (f: rt.Formatter) => DecodeError.fmt$Debug(err, f))]));
-	decodeFailed(out, err);
 }
 
 //# sourceMappingURL=harness.ts.map

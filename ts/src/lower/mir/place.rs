@@ -26,6 +26,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Env::Plain | Env::Shim => {}
 			}
 		}
+		if let Some(value) = self.stepped_value(local) {
+			return value;
+		}
 		match &self.slots[local] {
 			Slot::Var(name) => Expr::ident(name),
 			// A value of type `!`, as a generic instantiated at `!` reads: native code never

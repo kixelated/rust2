@@ -8,16 +8,14 @@ export interface Padded {
 }
 
 export function fmt$Display(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const width = rt.fmtWidth(f);
-	arms: {
-		if (width !== undefined) {
-			const width2 = width;
-			if (width2 > 20) {
-				return rt.fmtWriteStr(f, "wide");
-			}
+	let _3!: rt.usize | undefined;
+	_3 = rt.fmtWidth(f);
+	if (_3 !== undefined) {
+		if (_3 > 20) {
+			return rt.fmtWriteStr(f, "wide");
 		}
-		return rt.fmtPad(f, self._0);
 	}
+	return rt.fmtPad(f, self._0);
 }
 
 //# sourceMappingURL=fmt.Padded.ts.map

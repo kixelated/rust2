@@ -11,7 +11,7 @@ export interface Clash {
 	_0: rt.u8;
 }
 
-export function hash$Hash_DefaultHasher(_self: Clash, _: rt.Hasher): void {
+export function hash$Hash_DefaultHasher(_self: Clash, _2: rt.Hasher): void {
 }
 
 //# sourceMappingURL=collections.Clash.ts.map

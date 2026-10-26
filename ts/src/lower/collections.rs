@@ -11,20 +11,20 @@ use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
 use super::body::Body;
-use super::library::{self, Args, Call, Std};
+use super::library::{self, Call, Std};
 use super::num::Int;
 use crate::ts::{Expr, Stmt};
 
 /// A call of a standard library function on these types, or its arguments back if it is
 /// none of theirs.
-pub fn call<'tcx, 'x>(
+pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
 	owner: &str,
 	name: &str,
-	args: Args<'x>,
+	mut args: Vec<Expr>,
 	out: &mut Vec<Stmt>,
-) -> Result<Option<Expr>, Args<'x>> {
+) -> Result<Option<Expr>, Vec<Expr>> {
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let self_ty = call.args.types().next();
@@ -45,7 +45,7 @@ pub fn call<'tcx, 'x>(
 					return Err(args);
 				}
 				let f = cmp_fn(b, t, span);
-				return Ok(Some(f.call(b.args(args, out))));
+				return Ok(Some(f.call(args)));
 			}
 			("Hash", "hash", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
@@ -55,20 +55,20 @@ pub fn call<'tcx, 'x>(
 					return Err(args);
 				};
 				let f = hash_fn(b, t, hasher, span);
-				return Ok(Some(f.call(b.args(args, out))));
+				return Ok(Some(f.call(args)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
 				if !matches!(t.kind(), ty::Tuple(tys) if !tys.is_empty()) && b.t.std_of(t) != Some(Std::Ordering) {
 					return Err(args);
 				}
-				let eq = eq_fn(b, t, span).call(b.args(args, out));
+				let eq = eq_fn(b, t, span).call(args);
 				return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 			}
 			("Hasher", _, Some(Std::Hasher), _) => return Ok(Some(hasher_call(b, name, args, span, out))),
 			// The discriminant derived `Hash` and `Ord` read of an enum.
 			("intrinsics", "discriminant_value", ..) if let Some(t) = self_ty => {
-				let value = b.args(args, out).pop();
+				let value = args.pop();
 				return Ok(value.map(|value| discriminant(b, t, value, span)));
 			}
 			_ => return Err(args),
@@ -90,10 +90,10 @@ pub fn call<'tcx, 'x>(
 	}
 	let e = match std {
 		Std::HashMap | Std::HashSet => hash(b, coll, call, owner, name, args, out),
-		Std::BTreeMap | Std::BTreeSet => btree(b, coll, call, owner, name, args, out),
+		Std::BTreeMap | Std::BTreeSet => btree(b, coll, call, owner, name, args),
 		Std::VecDeque => deque(b, coll, call, owner, name, args, out),
-		Std::Entry => entry(b, coll, name, args, span, out),
-		Std::Ordering => ordering(b, name, args, span, out),
+		Std::Entry => entry(b, coll, name, args, span),
+		Std::Ordering => ordering(name, args),
 		Std::Hasher if matches!(name, "new" | "default") => Some(Expr::rt("hasher", vec![])),
 		_ => return Err(args),
 	};
@@ -217,14 +217,14 @@ fn hash<'tcx>(
 	call: &Call<'tcx>,
 	owner: &str,
 	name: &str,
-	args: Args<'_>,
+	args: Vec<Expr>,
 	out: &mut Vec<Stmt>,
 ) -> Option<Expr> {
 	let span = call.span;
 	let set = b.t.std_of(coll) == Some(Std::HashSet);
 	let key = arg(coll, 0);
 	let value = if set { None } else { Some(arg(coll, 1)) };
-	let mut values = b.args(args, out);
+	let mut values = args;
 	let e = match (owner, name) {
 		(_, "new" | "with_capacity") | ("Default", "default") => {
 			discard(values, out);
@@ -358,14 +358,13 @@ fn btree<'tcx>(
 	call: &Call<'tcx>,
 	owner: &str,
 	name: &str,
-	args: Args<'_>,
-	out: &mut Vec<Stmt>,
+	args: Vec<Expr>,
 ) -> Option<Expr> {
 	let span = call.span;
 	let set = b.t.std_of(coll) == Some(Std::BTreeSet);
 	let key = arg(coll, 0);
 	let value = if set { None } else { Some(arg(coll, 1)) };
-	let mut values = b.args(args, out);
+	let mut values = args;
 	let last = |mut values: Vec<Expr>| {
 		values.push(Expr::lit("true"));
 		values
@@ -446,12 +445,12 @@ fn deque<'tcx>(
 	call: &Call<'tcx>,
 	owner: &str,
 	name: &str,
-	args: Args<'_>,
+	args: Vec<Expr>,
 	out: &mut Vec<Stmt>,
 ) -> Option<Expr> {
 	let span = call.span;
 	let item = arg(coll, 0);
-	let mut values = b.args(args, out);
+	let mut values = args;
 	let back = |mut values: Vec<Expr>| {
 		values.push(Expr::lit("true"));
 		values
@@ -533,16 +532,9 @@ fn extend_source<'tcx>(
 }
 
 /// A method of an `Entry`, `OccupiedEntry`, or `VacantEntry`.
-fn entry<'tcx>(
-	b: &mut Body<'_, '_, 'tcx>,
-	coll: Ty<'tcx>,
-	name: &str,
-	args: Args<'_>,
-	span: Span,
-	out: &mut Vec<Stmt>,
-) -> Option<Expr> {
+fn entry<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, name: &str, args: Vec<Expr>, span: Span) -> Option<Expr> {
 	let value = arg(coll, 1);
-	let mut values = b.args(args, out);
+	let mut values = args;
 	let e = match name {
 		"or_insert" => Expr::rt("entryOrInsert", values),
 		// A vacant entry's.
@@ -588,9 +580,7 @@ pub fn ordering_variant(index: rustc_abi::VariantIdx) -> Expr {
 }
 
 /// `Ordering`'s methods, on its discriminant.
-fn ordering(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
-	let _ = span;
-	let mut values = b.args(args, out);
+fn ordering(name: &str, mut values: Vec<Expr>) -> Option<Expr> {
 	let zero = || Expr::lit("0");
 	let e = match name {
 		"is_eq" => values.pop()?.binary("===", zero()),
@@ -611,8 +601,8 @@ fn ordering(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, ou
 }
 
 /// `Hasher`'s methods: writing an integer or a string, and `finish`.
-fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Args<'_>, span: Span, out: &mut Vec<Stmt>) -> Expr {
-	let mut values = b.args(args, out);
+fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Vec<Expr>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	let mut values = args;
 	// The runtime takes the value first, so a hasher that is not a path evaluates first.
 	if let [state, value] = values.as_mut_slice()
 		&& !state.is_path()

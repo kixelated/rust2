@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	rt.unreachable(self);
+export function fmt$Debug(_self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	rt.unreachable(undefined);
 }
 
 /** An enum without variants: no value of it exists. */

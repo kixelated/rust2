@@ -879,6 +879,18 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 		Shape::Line(a, b) => (a.x - b.x) as i64 * (a.y - b.y) as i64,
 	};
 	out.extend_from_slice(&area.to_be_bytes());
+	// One binding from either side of an or-pattern.
+	let either: Result<u8, u8> = if data.len() % 2 == 0 {
+		Ok(data.len() as u8)
+	} else {
+		Err(0xa0)
+	};
+	match either {
+		Ok(v) | Err(v) => out.push(v),
+	}
+	// An empty repeat, which MIR never assigns since it holds nothing.
+	let none = [data.len() as u8; 0];
+	out.push(none.len() as u8 + none.iter().sum::<u8>());
 	// A rest pattern borrowing bytes changes them where they are.
 	let mut bytes = [data.len() as u8, 1, 2];
 	let [_, tail @ ..] = &mut bytes;
@@ -931,6 +943,11 @@ pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let base = data.len() as u32;
 	let scale = move |v: u32| v * 3 + base;
 	out.extend_from_slice(&apply(scale, sum).to_be_bytes());
+	// A `move` closure copies what it captured, which a later change to the original misses.
+	let mut n = base;
+	let copied = move || n + 1;
+	n += 10;
+	out.extend_from_slice(&(copied() + n).to_be_bytes());
 
 	// A closure writing a whole array through a reference it captured changes the caller's.
 	let mut whole = [data.len() as u8];
@@ -977,6 +994,21 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 	match mapped {
 		Ok(n) => out.extend_from_slice(&[0, n]),
 		Err(n) => out.extend_from_slice(&[1, n]),
+	}
+
+	// `?` in a function that returns a `Poll`, converting the error.
+	let ready = |a: u8| -> std::task::Poll<Result<u8, u8>> {
+		let half: Result<u8, Dir> = match dir(a) {
+			Some(d) if a % 2 == 1 => Err(d),
+			_ => Ok(a / 2),
+		};
+		let n = half?;
+		std::task::Poll::Ready(Ok(n))
+	};
+	match ready(b) {
+		std::task::Poll::Ready(Ok(n)) => out.extend_from_slice(&[2, n]),
+		std::task::Poll::Ready(Err(e)) => out.extend_from_slice(&[3, e]),
+		std::task::Poll::Pending => out.push(4),
 	}
 
 	match String::from_utf8(data.to_vec()) {

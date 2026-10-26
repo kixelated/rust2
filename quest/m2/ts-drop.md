@@ -45,7 +45,3 @@ before each call that can panic and wraps its body in a `try`; measure any chang
 the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for values that drop.
-
-## Required
-
-- [Lower bodies from MIR](/quest/m2/ts-mir.md) - drops come from MIR's elaboration

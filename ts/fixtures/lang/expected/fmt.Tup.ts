@@ -8,10 +8,14 @@ export interface Tup {
 }
 
 export function fmt$Debug(self: Tup, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	if (self._1 !== undefined) {
-		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)), (f: rt.Formatter) => rt.fmtOption(self._1, f, rt.u8Display)));
+	let _7!: rt.DebugTuple;
+	let _15!: rt.DebugTuple;
+	if (self._1 === undefined) {
+		_15 = rt.fmtDebugTuple(f, "Tup");
+		return rt.debugTupleFinishNonExhaustive(rt.debugTupleField(_15, (f: rt.Formatter) => rt.u8Display(self._0, f)));
 	} else {
-		return rt.debugTupleFinishNonExhaustive(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)));
+		_7 = rt.fmtDebugTuple(f, "Tup");
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(_7, (f: rt.Formatter) => rt.u8Display(self._0, f)), (f: rt.Formatter) => rt.fmtOption(self._1, f, rt.u8Display)));
 	}
 }
 
