@@ -134,9 +134,11 @@ arguments. Types are translated once, generically, so a function of a generic ty
 instance's, declaring the instance it takes as `self`:
 `fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
 type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
-and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
-array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
-would share the object.
+and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, enum, tuple,
+or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
+it, since JS would share the object: by a function of `lib.ts` made for its type, such
+as `copy$Point`, which copies what it holds by value and shares what it holds by
+reference.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and

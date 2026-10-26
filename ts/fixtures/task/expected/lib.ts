@@ -2,6 +2,11 @@
 
 import * as rt from "./rt.ts";
 import type * as Guard from "./model.Guard.ts";
+import type * as Tally from "./model.Tally.ts";
+
+export function copy$Tally(v: Tally.Tally): Tally.Tally {
+	return { n: v.n };
+}
 
 export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {

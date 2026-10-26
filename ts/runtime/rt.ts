@@ -230,11 +230,6 @@ export function sliceToByteVec(s: Uint8Array): ByteVec {
 	return byteVecFrom(s);
 }
 
-/** `to_vec` of `Copy` elements. */
-export function sliceToVec<T>(s: readonly T[]): T[] {
-	return s.map(copy);
-}
-
 /** `vec![value; n]`: `n - 1` clones of `value`, in order, then `value` itself; `clone` is `undefined` where a clone is the value. */
 export function vecFromElem<T>(value: T, n: number, clone: ((value: T) => T) | undefined): T[] {
 	const v: T[] = [];
@@ -401,21 +396,6 @@ export function stringLen(s: string): number {
 /** `char::from_u32`: `n`, unless it is a surrogate or past the last char. */
 export function charFromU32(n: u32): char | undefined {
 	return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? undefined : (n as char);
-}
-
-// Values
-
-/**
- * A copy of a `Copy` value. Objects stand for structs, tuples, and arrays, and Rust
- * copies those where JS would share them.
- */
-export function copy<T>(value: T): T {
-	if (typeof value !== "object" || value === null) return value;
-	if (value instanceof Uint8Array) return value.slice() as T;
-	if (Array.isArray(value)) return value.map(copy) as T;
-	const out = Object.create(Object.getPrototypeOf(value));
-	for (const key of Object.keys(value)) out[key] = copy((value as Record<string, unknown>)[key]);
-	return out;
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.
