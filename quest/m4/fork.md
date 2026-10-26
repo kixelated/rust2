@@ -23,13 +23,17 @@ Each names what the fork changes, the measured gain on moq, and its source.
   debuginfo locations out of the generic and inline bodies dependents compile
   (for example, in a side table), keep the SVH and DefIndex stable when the API
   hash holds (as in [rust-lang/rust#158844](https://github.com/rust-lang/rust/issues/158844)),
-  and have cargo skip those dependents, including under pipelining
-  ([rust-lang/cargo#17439](https://github.com/rust-lang/cargo/issues/17439)).
-  Gain: a sound cutoff holds on about 65 of 250 non-test moq-net edits in dev
-  (26%), up from 18 (7%), but on only 7 of 84 async edits
-  ([kixelated/rust2#62](https://github.com/kixelated/rust2/pull/62)). Each saves
-  at most about 56% of the edit: the dependents' share of its critical path,
-  minus the final link ([relink](/quest/m3/relink.md)).
+  check at link that a skipped dependent's undefined symbols still resolve when
+  share-generics exports change, and have cargo skip those dependents, including
+  under pipelining ([rust-lang/cargo#17439](https://github.com/rust-lang/cargo/issues/17439)).
+  Gain: the replay estimates a cutoff holds on about 65 of 250 non-test moq-net
+  edits in dev (26%), up from a sound 18 (7%), but on only 7 of 84 async edits
+  ([kixelated/rust2#62](https://github.com/kixelated/rust2/pull/62)). The
+  estimate approximates the side table with `debug = 0` and
+  `-Z location-detail=none`, which no differential test covers, so the fork's
+  semantics need their own before this counts as sound. Each skip saves at most
+  about 56% of the edit: the dependents' share of its critical path, minus the
+  final link ([relink](/quest/m3/relink.md)).
 
 ### Not reasons
 
