@@ -381,9 +381,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				match (self.b.t.std_of(to), to.kind(), residual.kind()) {
+				// What a `Result` residual goes into: a `Result`, or one that is ready, which
+				// is the same value.
+				let result = match (self.b.t.std_of(to), to.kind()) {
+					(Some(Std::Result), _) => Some(to),
+					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
+						let inner = poll_args.type_at(0);
+						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
+					}
+					_ => None,
+				};
+				match (self.b.t.std_of(to), result.map(|r| r.kind()), residual.kind()) {
 					(Some(Std::Option), ..) => done(Expr::undefined(), false),
-					(Some(Std::Result), ty::Adt(_, to_args), ty::Adt(_, from_args)) => {
+					(_, Some(ty::Adt(_, to_args)), ty::Adt(_, from_args))
+						if self.b.t.std_of(residual) == Some(Std::Result) =>
+					{
 						let (from, to) = (from_args.type_at(1), to_args.type_at(1));
 						if from == to {
 							return done(value, false);

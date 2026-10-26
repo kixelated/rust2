@@ -979,6 +979,21 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 		Err(n) => out.extend_from_slice(&[1, n]),
 	}
 
+	// `?` in a function that returns a `Poll`, converting the error.
+	let ready = |a: u8| -> std::task::Poll<Result<u8, u8>> {
+		let half: Result<u8, Dir> = match dir(a) {
+			Some(d) if a % 2 == 1 => Err(d),
+			_ => Ok(a / 2),
+		};
+		let n = half?;
+		std::task::Poll::Ready(Ok(n))
+	};
+	match ready(b) {
+		std::task::Poll::Ready(Ok(n)) => out.extend_from_slice(&[2, n]),
+		std::task::Poll::Ready(Err(e)) => out.extend_from_slice(&[3, e]),
+		std::task::Poll::Pending => out.push(4),
+	}
+
 	match String::from_utf8(data.to_vec()) {
 		Ok(s) => {
 			out.push(1);

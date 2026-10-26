@@ -1372,9 +1372,12 @@ export function apply$closures_closure1(f: (a0: rt.u32) => rt.u32, v: rt.u32): r
 export function library(data: Uint8Array, out: rt.ByteVec): void {
 	let _3!: (a0: rt.u8, a1: rt.u8) => rt.u8 | undefined;
 	let a!: rt.u8;
+	let b!: rt.u8;
 	let parsed!: rt.Result<rt.u8, string>;
 	let mapped!: rt.Result<rt.u8, rt.u8>;
-	let _30!: rt.Result<string, rt.FromUtf8Error>;
+	let _30!: (a0: rt.u8) => rt.Poll<rt.Result<rt.u8, rt.u8>>;
+	let _32!: rt.Poll<rt.Result<rt.u8, rt.u8>>;
+	let _45!: rt.Result<string, rt.FromUtf8Error>;
 	let s!: string;
 	_3 = (a2: rt.u8, b2: rt.u8): rt.u8 | undefined => {
 		let _4!: rt.u8 | undefined;
@@ -1391,26 +1394,60 @@ export function library(data: Uint8Array, out: rt.ByteVec): void {
 			return undefined;
 		}
 	};
+	_30 = (a3: rt.u8): rt.Poll<rt.Result<rt.u8, rt.u8>> => {
+		let half!: rt.Result<rt.u8, Dir.Dir>;
+		let _43!: Dir.Dir | undefined;
+		let _132!: rt.Result<rt.u8, Dir.Dir>;
+		let residual!: rt.Result<never, Dir.Dir>;
+		_43 = dir(a3);
+		b0: {
+			if (_43 !== undefined) {
+				if (rt.u8Rem(a3, 2) === 1) {
+					half = rt.Err(_43);
+					break b0;
+				}
+			}
+			half = rt.Ok(rt.u8Div(a3, 2));
+		}
+		_132 = half;
+		if (_132.ok) {
+			return rt.Ok(_132.value);
+		} else {
+			residual = _132;
+			return rt.Err(from$From_Dir_u8((residual as { ok: false; error: Dir.Dir }).error));
+		}
+	};
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
-	rt.byteVecPush(out, rt.optionUnwrapOr(_3(a, rt.optionUnwrapOr(rt.sliceGet(data, 1), 0)), 255));
+	b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
+	rt.byteVecPush(out, rt.optionUnwrapOr(_3(a, b), 255));
 	if (a === 0) {
 		parsed = rt.Err("zero");
 	} else {
 		parsed = rt.Ok(a);
 	}
-	mapped = rt.resultMapErr(rt.resultMap(parsed, (n3: rt.u8): rt.u8 => {
-		return rt.u8Div(n3, 2);
-	}), (e: string): rt.u8 => {
-		return rt.stringLen(e) & 0xff;
+	mapped = rt.resultMapErr(rt.resultMap(parsed, (n5: rt.u8): rt.u8 => {
+		return rt.u8Div(n5, 2);
+	}), (e2: string): rt.u8 => {
+		return rt.stringLen(e2) & 0xff;
 	});
 	if (mapped.ok) {
 		rt.byteVecExtendFromSlice(out, Uint8Array.of(0, mapped.value));
 	} else {
 		rt.byteVecExtendFromSlice(out, Uint8Array.of(1, mapped.error));
 	}
-	_30 = rt.stringFromUtf8(rt.sliceToByteVec(data));
-	if (_30.ok) {
-		s = _30.value;
+	_32 = _30(b);
+	if (_32 !== rt.Pending) {
+		if (_32.ok) {
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(2, _32.value));
+		} else {
+			rt.byteVecExtendFromSlice(out, Uint8Array.of(3, _32.error));
+		}
+	} else {
+		rt.byteVecPush(out, 4);
+	}
+	_45 = rt.stringFromUtf8(rt.sliceToByteVec(data));
+	if (_45.ok) {
+		s = _45.value;
 		rt.byteVecPush(out, 1);
 		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.stringLen(s) as rt.u32));
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
