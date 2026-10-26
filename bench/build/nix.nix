@@ -10,17 +10,16 @@
   mbxStore,
 }:
 let
-  # Only crane's variants evaluate moq's flake, which copies the whole checkout.
-  moq = builtins.getFlake "path:${src}";
   system = builtins.currentSystem;
-  # moq's own nixpkgs and rust-overlay, from its lockfile.
+  # moq's own nixpkgs, rust-overlay, and crane, from its lockfile.
   lock = builtins.fromJSON (builtins.readFile "${src}/flake.lock");
-  input = name: builtins.fetchTree lock.nodes.${lock.nodes.root.inputs.${name}}.locked;
-  pkgs = import (input "nixpkgs") {
+  locked = name: lock.nodes.${lock.nodes.root.inputs.${name}}.locked;
+  pkgs = import (builtins.fetchTree (locked "nixpkgs")) {
     inherit system;
-    overlays = [ (import (input "rust-overlay")) ];
+    overlays = [ (import (builtins.fetchTree (locked "rust-overlay"))) ];
   };
   inherit (pkgs) lib;
+  crane' = with locked "crane"; builtins.getFlake "github:${owner}/${repo}/${rev}";
 
   # The toolchain moq's overlay builds with, which pins the same channel.
   channel = (lib.importTOML "${src}/rust-toolchain.toml").toolchain.channel;
@@ -37,20 +36,21 @@ let
     "force-frame-pointers=yes"
   ];
 
-  # crane as moq builds it.
-  crane = lib.mapAttrs (name: _: moq.packages.${system}.${name}) packages;
+  # crane as moq builds it: its flake's overlay, keyed by cargo package.
+  moq = pkgs.extend (import "${src}/nix/overlay.nix" { crane = crane'; });
+  crane = lib.mapAttrs (name: _: moq.${name}) packages;
 
   # crane with no dependency layer: every compilation goes through mbx, on a
-  # store outside the sandbox. `cargo` on PATH is mbx's shim.
-  mbxCargo = pkgs.runCommand "mbx-cargo" { } ''
-    mkdir -p $out/bin
-    ln -s ${builtins.storePath mbx}/libexec/mbx/cargo $out/bin/cargo
-  '';
+  # store outside the sandbox. `cargo` on PATH is mbx's shim, which finds the
+  # real cargo after its own directory, so that directory goes on PATH as is.
   craneMbx = lib.mapAttrs (
     _: drv:
     drv.overrideAttrs (old: {
       cargoArtifacts = null;
-      nativeBuildInputs = [ mbxCargo ] ++ old.nativeBuildInputs;
+      preConfigure = ''
+        export PATH=${builtins.storePath mbx}/libexec/mbx:$PATH
+      ''
+      + (old.preConfigure or "");
       # mbx would move a target directory it finds into its store.
       CARGO_TARGET_DIR = "target";
       MBX_CACHE_DIR = mbxStore;
@@ -73,16 +73,16 @@ let
         cargo = toolchain;
         # Cargo's release default, which the other ways build with; buildRustCrate's is 1.
         defaultCodegenUnits = 16;
-        defaultCrateOverrides = pkgs.defaultCrateOverrides // overrides;
       };
-      # Crates whose build scripts need more than nixpkgs' overrides give them.
-      overrides = { };
       plan = pkgs.callPackage "${src}/Cargo.nix" {
         buildRustCrateForPkgs =
-          _: crate: buildRustCrate (crate // { extraRustcOpts = rustflags ++ (crate.extraRustcOpts or [ ]); });
+          _: crate:
+          buildRustCrate (crate // { extraRustcOpts = rustflags ++ (crate.extraRustcOpts or [ ]); });
       };
     in
-    lib.mapAttrs (name: features: plan.workspaceMembers.${name}.build.override { inherit features; }) packages;
+    lib.mapAttrs (
+      name: features: plan.workspaceMembers.${name}.build.override { inherit features; }
+    ) packages;
 in
 {
   inherit

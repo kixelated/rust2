@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Measures moq's Nix release builds, built each way nix.nix offers, in CPU time.
+# Measures moq's Nix release builds in CPU time, built each way nix.nix offers.
 # Usage and output are described in README.md.
 set -euo pipefail
 
 bench=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd "$bench/../.." && pwd)
 
-# The build-bench shell carries hyperfine and crate2nix.
+# The build-bench shell carries hyperfine, taplo, and cargo.
 if [[ -z ${RUST2_BENCH_NIGHTLY:-} ]]; then
     exec nix develop "$root#build-bench" --command "$bench/nix.sh" "$@"
 fi
@@ -50,7 +50,7 @@ mapfile -t packages < <(field '.packages[]')
 mapfile -t bump < <(field '.bump[]')
 hub=$(field .hub)
 
-# Private to this script, so a `just bench` running beside it keeps its checkout.
+# Apart from run.sh's, so a `just bench` beside this run keeps its checkout.
 work=/var/tmp/rust2-bench-$(id -un)/nix
 results=$root/target/bench/nix
 out=${out:-$results/$(date -u +%Y%m%dT%H%M%SZ)}
@@ -59,7 +59,7 @@ mkdir -p "$work" "$out/raw" "$out/logs"
 out=$(cd "$out" && pwd)
 src=$work/src
 
-# As in run.sh: none of the caller's cargo or rustc settings reach the builds.
+# As in run.sh: none of the caller's cargo, rustc, or mbx settings reach the builds.
 caller_vars=("${!CARGO@}" "${!RUSTC@}" "${!RUSTDOC@}" "${!RUSTUP@}" "${!MBX@}")
 for name in RUSTFLAGS CI TF_BUILD; do
     [[ -z ${!name+set} ]] || caller_vars+=("$name")
@@ -75,10 +75,9 @@ PATH=$tools/bin:$PATH
 # mbx's own store path, which the Nix builds take as an input.
 mbx=$(dirname "$(dirname "$(readlink -f "$tools/bin/mbx")")")
 
-# Every Nix variant builds in a store of its own under the work directory, so a
-# run starts from nothing and nothing the host built is substituted. Builds run
-# as this user, so their CPU time is this process's children's. Each runs on
-# every core, with cargo's release codegen units.
+# Each Nix variant builds in a store of its own, so it starts from nothing and
+# substitutes nothing the host built. Builds run as this user, so their CPU time
+# is this process's children's.
 store_args() { # variant
     printf '%s\n' --store "$work/$1/store" --option substituters https://cache.nixos.org \
         --option max-jobs "$(getconf _NPROCESSORS_ONLN)" --option cores 0 \
@@ -121,12 +120,33 @@ checkout() {
     git -C "$src" clean -qfdx
 }
 
-# Times one command, appending hyperfine's measurement to the step's record.
+# Times one command with hyperfine, its output in the log. hyperfine runs a
+# command without a shell, so one redirects it.
 time_cmd() { # json log command...
-    local json=$1 log=$2
+    local json=$1 log=$2 cmd
     shift 2
-    hyperfine --style none --runs 1 --output "$log" --export-json "$json" "$(printf '%q ' "$@")" >/dev/null ||
+    cmd="$(printf '%q ' "$@") >$(printf '%q' "$log") 2>&1"
+    hyperfine --style none --runs 1 --export-json "$json" "bash -c $(printf '%q' "$cmd")" >/dev/null ||
         { tail -60 "$log" >&2 && die "failed: $*"; }
+}
+
+# One hyperfine measurement, as the results record it.
+measurement() { # hyperfine.json
+    jq -c '.results[0].measurements[0]
+        | {wall: .time_wall_clock.value, cpu: .time_cpu.value, instructions: .instructions.value, rss: .memory_peak_resident.value}' "$1"
+}
+
+# Appends one step's result. `compiled` counts the compilations that ran the
+# compiler and `restored` those a cache served, each as the variant can tell.
+record() { # variant scenario package derivations compiled restored eval build
+    jq -n -c --arg variant "$1" --arg scenario "$2" --arg package "$3" \
+        --argjson derivations "$4" --argjson compiled "$5" --argjson restored "$6" --argjson eval "$7" --argjson build "$8" \
+        '{$variant, $scenario, $package, $eval, $build, $derivations, $compiled, $restored}' >>"$out/results.jsonl"
+}
+
+# The compilations an mbx build report says ran the compiler, and those it restored.
+mbx_counts() { # report.json
+    jq -r '"\(.misses + .unconsulted) \(.hits)"' "$1"
 }
 
 # The derivations that compile Rust: crane's, and crate2nix's one per crate.
@@ -136,13 +156,14 @@ measured() { # closure.json
 
 # One step of a Nix variant: evaluate, realise what the build needs but does not
 # measure (toolchain, sources, vendored crates), then time the build.
-nix_step() { # variant scenario attr
-    local variant=$1 scenario=$2 attr=$3 drv tag=$1.$2
+nix_step() { # variant scenario package attr
+    local variant=$1 scenario=$2 package=$3 attr=$4 drv output compiled restored=null tag=$1.$2
     local -a nixo args measured prereqs built
     mapfile -t nixo < <(store_args "$variant")
     mapfile -t args < <(eval_args)
     time_cmd "$out/raw/$tag.eval.json" "$out/logs/$tag.eval.log" nix "${nixo[@]}" eval --raw "${args[@]}" "$attr.drvPath"
-    drv=$(nix "${nixo[@]}" eval --raw "${args[@]}" "$attr.drvPath")
+    drv=$(<"$out/logs/$tag.eval.log")
+    [[ $drv == /nix/store/*.drv ]] || die "$variant $scenario evaluated to $drv"
     nix "${nixo[@]}" derivation show -r "$drv" >"$work/closure.json"
     mapfile -t measured < <(measured "$work/closure.json")
     mapfile -t prereqs < <(jq -r --args '
@@ -150,60 +171,68 @@ nix_step() { # variant scenario attr
         | [$ARGS.positional[] | $d[.].inputs.drvs | to_entries[] | select(.key | IN($ARGS.positional[]) | not)
             | "/nix/store/\(.key)^\(.value.outputs | join(","))"]
         | unique[]' "${measured[@]}" <"$work/closure.json")
-    nix "${nixo[@]}" build --no-link "${prereqs[@]}" >"$out/logs/$tag.prereqs.log" 2>&1 ||
-        { tail -40 "$out/logs/$tag.prereqs.log" >&2 && die "$variant failed to realise what $scenario needs"; }
-    # What the build will run, of the derivations that compile Rust.
-    mapfile -t built < <(nix "${nixo[@]}" build --dry-run --json "$drv^out" 2>&1 >/dev/null |
+    if ((${#prereqs[@]})); then
+        nix "${nixo[@]}" build --no-link "${prereqs[@]}" >"$out/logs/$tag.prereqs.log" 2>&1 ||
+            { tail -40 "$out/logs/$tag.prereqs.log" >&2 && die "$variant failed to realise what $scenario needs"; }
+    fi
+    # The derivations that compile Rust which the build will run.
+    mapfile -t built < <(nix "${nixo[@]}" build --dry-run "$drv^out" 2>&1 |
         sed -n 's|^  /nix/store/\(.*\.drv\)$|\1|p' | grep -Fx -f <(printf '%s\n' "${measured[@]}") || true)
     time_cmd "$out/raw/$tag.build.json" "$out/logs/$tag.build.log" nix "${nixo[@]}" build --no-link -L "$drv^out"
-    jq -n -c --arg variant "$variant" --arg scenario "$scenario" --arg attr "$attr" \
-        --argjson derivations "${#built[@]}" \
-        --argjson compiled "$(grep -cE '^[^>]*> +(Compiling|Checking) |^[^>]*> Building ' "$out/logs/$tag.build.log" || true)" \
-        --slurpfile eval "$out/raw/$tag.eval.json" --slurpfile build "$out/raw/$tag.build.json" \
-        --slurpfile mbx <(if [[ $variant == crane-mbx ]]; then
-            cat "$(nix "${nixo[@]}" build --no-link --print-out-paths "$drv^out" | sed 's|^/|'"$work/$variant/store"'/|')/share/mbx/report.json"
-        fi) '
-        def m: .[0].results[0] | {wall: .mean, cpu: (.user + .system), rss: .memory_usage_byte[0]};
-        {$variant, $scenario, $attr, eval: ($eval | m), build: ($build | m), $derivations, $compiled,
-            mbx: ($mbx[0] // null | if . then {hits, misses} else null end)}' >>"$out/results.jsonl"
+    case $variant in
+        crane) compiled=$(grep -cE '^[^>]*> +(Compiling|Checking) ' "$out/logs/$tag.build.log" || true) ;;
+        crate2nix) compiled=${#built[@]} ;;
+        crane-mbx)
+            output=$(nix "${nixo[@]}" build --no-link --print-out-paths "$drv^out")
+            read -r compiled restored < <(mbx_counts "$work/$variant/store$output/share/mbx/report.json")
+            ;;
+    esac
+    record "$variant" "$scenario" "$package" "${#built[@]}" "$compiled" "$restored" \
+        "$(measurement "$out/raw/$tag.eval.json")" "$(measurement "$out/raw/$tag.build.json")"
 }
 
 # One step of cargo with mbx: a fresh target directory, as a CI job starts with,
 # on the store earlier steps filled.
 cargo_step() { # scenario package
-    local scenario=$1 package=$2 tag=cargo-mbx.$1
-    rm -rf "$CARGO_TARGET_DIR"
+    local scenario=$1 package=$2 tag=cargo-mbx.$1 compiled restored
+    rm -rf "$CARGO_TARGET_DIR" "$MBX_STATS_REPORT"
     (
         cd "$src"
         time_cmd "$out/raw/$tag.build.json" "$out/logs/$tag.build.log" \
             mbx build --release --locked --offline -p "$package" --features "$(jq -r --arg p "$package" '.[$p] | join(",")' <<<"$features")"
     )
-    jq -n -c --arg scenario "$scenario" --arg attr "$package" \
-        --argjson compiled "$(grep -cE '^ +Compiling ' "$out/logs/$tag.build.log" || true)" \
-        --slurpfile build "$out/raw/$tag.build.json" --slurpfile mbx "$MBX_STATS_REPORT" '
-        def m: .[0].results[0] | {wall: .mean, cpu: (.user + .system), rss: .memory_usage_byte[0]};
-        {variant: "cargo-mbx", $scenario, $attr, eval: null, build: ($build | m), derivations: null, $compiled,
-            mbx: ($mbx[0] | {hits, misses})}' >>"$out/results.jsonl"
+    read -r compiled restored < <(mbx_counts "$MBX_STATS_REPORT")
+    record cargo-mbx "$scenario" "$package" null "$compiled" "$restored" null "$(measurement "$out/raw/$tag.build.json")"
+}
+
+# crate2nix's build plan for the checkout. A project commits it, so its time is
+# recorded apart from the builds.
+generate() {
+    local lock tag
+    git -C "$src" diff --quiet -- Cargo.lock && lock=pinned || lock=bumped
+    tag=crate2nix.generate-$lock
+    (cd "$src" && time_cmd "$out/raw/$tag.json" "$out/logs/$tag.log" crate2nix generate)
+    measurement "$out/raw/$tag.json" | jq -c --arg lock "$lock" '{$lock} + .' >>"$out/generate.jsonl"
 }
 
 # Runs every scenario for one variant, from an empty store.
 run_variant() { # variant
-    local variant=$1 first=${packages[0]} second=${packages[1]} step
+    local variant=$1 first=${packages[0]} second=${packages[1]} attr
     echo "bench-nix: $variant"
-    chmod -R u+w "$work/$variant" 2>/dev/null || true
+    [[ ! -e $work/$variant ]] || chmod -R u+w "$work/$variant"
     rm -rf "${work:?}/$variant"
     mkdir -p "$work/$variant/mbx"
     checkout
     if [[ $variant == cargo-mbx ]]; then
         step() { cargo_step "$1" "$2"; }
-        # The toolchain, features, and flags of the Nix builds, as a CI job would set them.
+        # The toolchain, features, and flags of the Nix builds, set as a CI job would.
         export MBX_CACHE_DIR=$work/$variant/mbx MBX_GC_AUTO=0 MBX_STATS_REPORT=$work/$variant/report.json \
-            CARGO_TARGET_DIR=$work/$variant/target PATH=$toolchain/bin:$mbx/bin:$PATH RUSTFLAGS=$rustflags CI=true
+            CARGO_TARGET_DIR=$work/$variant/target PATH=$toolchain/bin:$PATH RUSTFLAGS=$rustflags CI=true
         (cd "$src" && cargo fetch --locked -q)
     else
         nix copy --no-check-sigs --to "$work/$variant/store" "$mbx"
-        local attr=${variant/crane-mbx/craneMbx}
-        step() { nix_step "$variant" "$1" "$attr.$2"; }
+        attr=${variant/crane-mbx/craneMbx}
+        step() { nix_step "$variant" "$1" "$2" "$attr.$2"; }
     fi
     [[ $variant != crate2nix ]] || generate
     step clean "$first"
@@ -215,17 +244,9 @@ run_variant() { # variant
     [[ $variant != crate2nix ]] || generate
     [[ $variant != cargo-mbx ]] || (cd "$src" && cargo fetch --locked -q)
     step lock-bump "$first"
-    unset -f step
-}
-
-# crate2nix's build plan for the checkout. A project commits it, so its time is
-# recorded but not measured as a build.
-generate() {
-    local lock tag
-    git -C "$src" diff --quiet -- Cargo.lock && lock=pinned || lock=bumped
-    tag=crate2nix.generate-$lock
-    (cd "$src" && time_cmd "$out/raw/$tag.json" "$out/logs/$tag.log" crate2nix generate)
-    jq -c --arg lock "$lock" '.results[0] | {$lock, wall: .mean, cpu: (.user + .system)}' "$out/raw/$tag.json" >>"$out/generate.jsonl"
+    # A store holds gigabytes, more than a CI runner has free for four.
+    chmod -R u+w "$work/$variant"
+    rm -rf "${work:?}/$variant"
 }
 
 record_host
@@ -235,7 +256,7 @@ toolchain=$(nix build --no-link --print-out-paths "${eval_args[@]}" toolchain)
 features=$(nix eval --json "${eval_args[@]}" packages)
 rustflags=$(nix eval --raw "${eval_args[@]}" rustflags --apply toString)
 for variant in "${variants[@]}"; do
-    # A subshell, so one variant's environment stays out of the next.
+    # A subshell keeps one variant's environment out of the next.
     (run_variant "$variant")
 done
 jq -n -r -f "$bench/nix-report.jq" --slurpfile host "$out/host.json" --slurpfile results "$out/results.jsonl" \

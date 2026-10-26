@@ -62,6 +62,37 @@ A busy host adds an occasional slow run, which on an edit of a few seconds can m
 Instructions barely move with machine load, so they are the signal on a busy machine, where wall time is only a smoke test; they read `n/a` where the host exposes no performance counters.
 No threshold is set: the numbers inform a decision, they do not gate one.
 
+## Nix builds
+
+`just bench-nix` measures moq's Nix release builds (`moq-relay`, then `moq-cli`) in CPU time, built each way they could share compilations:
+
+- `crane`: moq's flake as it is, a dependency layer and a workspace layer per package.
+- `crane-mbx`: the same packages with no dependency layer, every compilation going through mbx on a store mounted into the sandbox with `extra-sandbox-paths`, as nixpkgs' ccache support does.
+- `crate2nix`: a derivation per crate, from `crate2nix generate`, so the Nix store itself is the cache.
+- `cargo-mbx`: cargo through mbx outside Nix, as moq's CI builds today, with a fresh target directory per build.
+
+```bash
+just bench-nix                                 # every variant; takes hours
+just bench-nix --variant crane --variant crate2nix
+```
+
+[nix.toml](nix.toml) pins moq, the packages, the edit, and the lockfile bump; [nix.nix](nix.nix) holds the builds, with the toolchain, features, and `RUSTFLAGS` of moq's overlay throughout.
+Results land in `target/bench/nix/`, newest at `target/bench/nix/latest/report.md`.
+It runs nightly in CI, never on a pull request: it informs a choice rather than gating a change.
+
+Each variant runs four scenarios in order on a private Nix store and mbx store, so only the first is cold:
+
+- `clean`: the first package from nothing.
+- `second-package`: the second package, which shows what the two share.
+- `edit-hub`: the first package after the moq-net body edit the cargo scenarios make.
+- `lock-bump`: the first package after `cargo update` of one dependency, the edit reverted.
+
+A cold edit or bump costs what `clean` does, so only the warm ones run.
+Each Nix build runs in a store of its own, which substitutes only from cache.nixos.org, so nothing the host or moq's cache built leaks in; before the timed build, it realises everything the build needs that does not compile Rust (toolchain, sources, vendored crates).
+That store runs its builds as this user in user namespaces, which makes their CPU time the `nix` process's own; Ubuntu reserves those namespaces for root unless `kernel.apparmor_restrict_unprivileged_userns` is 0.
+Evaluation is timed apart from the build, since crate2nix evaluates a derivation per crate.
+crate2nix takes cargo's release codegen units rather than its default of one; `crate2nix generate`, which a project commits, is timed but not counted.
+
 ## Attribution
 
 After the timed variants, one nightly build per corpus (clean, then each edit) records cargo's build analysis log with section timings and rustc's self-profile.
