@@ -1,6 +1,6 @@
 //! The command line: run cargo on the configured package with this binary as rustc.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -60,27 +60,13 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 /// first.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
 	let picks = Picks::parse(cargo)?;
-	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
-		// Cargo reads its config from where it runs, as the check does.
-		.current_dir(manifest.parent().expect("a manifest path has a parent"))
-		.args(["metadata", "--format-version", "1", "--manifest-path"])
-		.arg(manifest)
-		// The check's platform, the host: another's dependencies are no rival to an export.
-		.args(["--filter-platform", rustc_session::config::host_tuple()])
-		// As the check resolves: its features decide which optional dependencies it builds
-		// with, and its lockfile and network flags what cargo may change and fetch.
-		.args(picks.args())
-		.output()
-		.map_err(|err| format!("running cargo metadata: {err}"))?;
-	if !output.status.success() {
-		return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-	}
-	let metadata: Metadata =
-		serde_json::from_slice(&output.stdout).map_err(|err| format!("reading cargo metadata: {err}"))?;
-	let manifest = std::fs::canonicalize(manifest).map_err(|err| format!("resolving {}: {err}", manifest.display()))?;
+	let output = run_cargo(manifest, &["metadata", "--format-version", "1"], &picks)?;
+	let metadata: Metadata = serde_json::from_slice(&output).map_err(|err| format!("reading cargo metadata: {err}"))?;
+	let canonical =
+		std::fs::canonicalize(manifest).map_err(|err| format!("resolving {}: {err}", manifest.display()))?;
 	// Cargo keeps a symlink's spelling of the path.
 	let top = (metadata.packages.iter())
-		.find(|p| p.name == config.package && std::fs::canonicalize(&p.manifest_path).is_ok_and(|p| p == manifest));
+		.find(|p| p.name == config.package && std::fs::canonicalize(&p.manifest_path).is_ok_and(|p| p == canonical));
 	let Some(top) = top else {
 		return Err(format!(
 			"{} is not the package of {}",
@@ -88,33 +74,42 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 			manifest.display()
 		));
 	};
-	// What the configured package's library builds with: a workspace may hold another
-	// version of a package beside it.
-	let mut reached = vec![&top.id];
-	let mut next = 0;
-	while let Some(&id) = reached.get(next) {
-		next += 1;
-		let node = metadata.resolve.nodes.iter().find(|n| n.id == *id);
-		for dep in node.into_iter().flat_map(|n| &n.deps) {
-			if dep.dep_kinds.iter().any(|k| k.kind.is_none()) && !reached.contains(&&dep.pkg) {
-				reached.push(&dep.pkg);
-			}
-		}
-	}
+	// What the library builds with on the host, each package as `<name> v<version>`, then
+	// its directory in parentheses for a path package. Metadata's graph would also hold
+	// what dev-dependencies' features add, and a workspace may hold another version of a
+	// package beside it.
+	let tree = [
+		"tree",
+		"--edges",
+		"normal",
+		"--target",
+		rustc_session::config::host_tuple(),
+		"--prefix",
+		"none",
+		"--format",
+		"{p}",
+	];
+	let output = run_cargo(manifest, &tree, &picks)?;
+	let output = String::from_utf8(output).map_err(|err| format!("reading cargo tree: {err}"))?;
+	let reached: BTreeSet<&str> = output.lines().map(|line| line.trim_end_matches(" (*)")).collect();
 	let features = picks.of_exports(top, config)?;
 	let mut lines = String::new();
 	for name in std::iter::once(&config.package).chain(config.crates.keys()) {
-		let mut found = (metadata.packages.iter()).filter(|p| p.name == *name && reached.contains(&&p.id));
-		let (Some(package), None) = (found.next(), found.next()) else {
+		let mut found = reached.iter().filter(|p| p.split(' ').next() == Some(name.as_str()));
+		let (Some(&found), None) = (found.next(), found.next()) else {
 			return Err(format!(
 				"{name} is not exactly one package that {} builds with",
 				config.package
 			));
 		};
 		// The glue depends on each by path, so it builds the crate the export checked.
-		if package.source.is_some() {
+		let package = (metadata.packages.iter()).find(|p| {
+			let dir = p.manifest_path.parent().expect("a manifest path has a parent");
+			p.source.is_none() && found == format!("{} v{} ({})", p.name, p.version, dir.display())
+		});
+		let Some(package) = package else {
 			return Err(format!("{name} is not a path package, which the export can depend on"));
-		}
+		};
 		let lib = (package.targets.iter()).find(|t| t.kind.iter().any(|k| matches!(k.as_str(), "lib" | "rlib")));
 		let Some(lib) = lib else {
 			return Err(format!("{name} has no library"));
@@ -132,6 +127,23 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		lines.push_str(&package.line());
 	}
 	Ok(lines)
+}
+
+/// What a cargo subcommand prints for the package, run as the check resolves: from the
+/// package's directory, where cargo reads its config, with the check's picks.
+fn run_cargo(manifest: &Path, subcommand: &[&str], picks: &Picks<'_>) -> Result<Vec<u8>, String> {
+	let output = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+		.current_dir(manifest.parent().expect("a manifest path has a parent"))
+		.args(subcommand)
+		.arg("--manifest-path")
+		.arg(manifest)
+		.args(picks.args())
+		.output()
+		.map_err(|err| format!("running cargo {}: {err}", subcommand[0]))?;
+	match output.status.success() {
+		true => Ok(output.stdout),
+		false => Err(String::from_utf8_lossy(&output.stderr).into_owned()),
+	}
 }
 
 /// What the cargo args pick for how the check resolves its dependencies.
@@ -211,40 +223,16 @@ impl<'a> Picks<'a> {
 	}
 }
 
-/// What `cargo metadata` says of the packages, and how they depend on each other.
+/// What `cargo metadata` says of the packages.
 #[derive(serde::Deserialize)]
 struct Metadata {
 	packages: Vec<Package>,
-	resolve: Resolve,
-}
-
-#[derive(serde::Deserialize)]
-struct Resolve {
-	nodes: Vec<Node>,
-}
-
-#[derive(serde::Deserialize)]
-struct Node {
-	id: String,
-	deps: Vec<Dep>,
-}
-
-#[derive(serde::Deserialize)]
-struct Dep {
-	pkg: String,
-	dep_kinds: Vec<DepKind>,
-}
-
-#[derive(serde::Deserialize)]
-struct DepKind {
-	/// `dev` or `build`, or none for a normal dependency.
-	kind: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
 struct Package {
-	id: String,
 	name: String,
+	version: String,
 	source: Option<String>,
 	manifest_path: PathBuf,
 	targets: Vec<Target>,

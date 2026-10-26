@@ -286,3 +286,50 @@ fn other_platform() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 }
+
+/// Another export is found among what the library builds with: a version only a
+/// dev-dependency's features pull in is no rival.
+#[test]
+fn dev_features() {
+	let package = package("dev");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	for (dir, version) in [("exp1", "1.0.0"), ("exp2", "2.0.0")] {
+		write(
+			&format!("{dir}/Cargo.toml"),
+			&format!("[package]\nname = \"dev-exp\"\nversion = \"{version}\"\nedition = \"2024\"\n"),
+		);
+		write(
+			&format!("{dir}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n",
+		);
+	}
+	write(
+		"route/Cargo.toml",
+		"[package]\nname = \"dev-route\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nexp2 = { package = \"dev-exp\", path = \"../exp2\", optional = true }\n\n\
+		[features]\nextra = [\"dep:exp2\"]\n",
+	);
+	write("route/src/lib.rs", "");
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"dev\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nexp = { package = \"dev-exp\", path = \"exp1\" }\nroute = { package = \"dev-route\", path = \"route\" }\n\n\
+		[dev-dependencies]\nroute = { package = \"dev-route\", path = \"route\", features = [\"extra\"] }\n\n\
+		[workspace]\nexclude = [\"exp1\", \"exp2\", \"route\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: exp::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"dev\"\n\n[crates.dev-exp]\n");
+	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
