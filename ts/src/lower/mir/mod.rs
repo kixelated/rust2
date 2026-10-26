@@ -459,7 +459,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& let Some(local) = assign.0.as_local()
 				{
 					match &assign.1 {
-						r @ (Rvalue::BinaryOp(..) | Rvalue::UnaryOp(..) | Rvalue::Use(..)) => computed[local].push(r),
+						// One that can throw is lowered even unread, so it keeps its reads.
+						r @ (Rvalue::BinaryOp(..) | Rvalue::UnaryOp(..) | Rvalue::Use(..))
+							if !rvalue::effect(r, self) =>
+						{
+							computed[local].push(r)
+						}
 						_ => pure[local] = false,
 					}
 				}

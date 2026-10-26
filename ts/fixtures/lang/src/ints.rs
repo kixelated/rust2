@@ -30,7 +30,7 @@ macro_rules! ops {
 				}
 				None => out.push(0),
 			};
-			match op % 24 {
+			match op % 25 {
 				0 => put(out, a + b),
 				1 => put(out, a - b),
 				2 => put(out, a * b),
@@ -59,6 +59,13 @@ macro_rules! ops {
 					out.push((a >= b) as u8);
 					// Against a literal, which a wide value equals only in one form.
 					out.push((a.wrapping_sub(b) == 0) as u8);
+				}
+				23 => {
+					// Products nothing reads still overflow, of a sum that does too.
+					let x = a + b;
+					let _ = x * b;
+					let _ = (x - b) * a;
+					out.push(1);
 				}
 				_ => {
 					// Compound assignment, with constants folded beside variables.

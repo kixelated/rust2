@@ -18,6 +18,7 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.u8;
+	let x2!: rt.u8;
 	_50 = (out2: rt.ByteVec, v: rt.u8): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
 		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v)) === v ? 1 : 0);
@@ -47,7 +48,7 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.u8, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 8));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u8Add(a, b);
 		_50(out, part16);
@@ -113,19 +114,24 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.u8WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.u8Add(a, b);
+		rt.u8Mul(x, b);
+		rt.u8Mul(rt.u8Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.u8Add(x, b);
-		x = rt.u8Sub(x, 1);
-		x = rt.u8Mul(x, 2);
-		x = x >> 1;
-		x = (x << 1) & 0xff;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & (~(1 << 2) & 0xff);
-		x = rt.u8Rem(x, 7);
-		x = rt.u8Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.u8Add(x2, b);
+		x2 = rt.u8Sub(x2, 1);
+		x2 = rt.u8Mul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1) & 0xff;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & (~(1 << 2) & 0xff);
+		x2 = rt.u8Rem(x2, 7);
+		x2 = rt.u8Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -145,6 +151,7 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.u16 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.u16;
+	let x2!: rt.u16;
 	_50 = (out2: rt.ByteVec, v: rt.u16): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
 		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v)) === v ? 1 : 0);
@@ -174,7 +181,7 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.u16, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 16));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u16Add(a, b);
 		_50(out, part16);
@@ -240,19 +247,24 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.u16WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.u16Add(a, b);
+		rt.u16Mul(x, b);
+		rt.u16Mul(rt.u16Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.u16Add(x, b);
-		x = rt.u16Sub(x, 1);
-		x = rt.u16Mul(x, 2);
-		x = x >> 1;
-		x = (x << 1) & 0xffff;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & (~(1 << 2) & 0xffff);
-		x = rt.u16Rem(x, 7);
-		x = rt.u16Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.u16Add(x2, b);
+		x2 = rt.u16Sub(x2, 1);
+		x2 = rt.u16Mul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1) & 0xffff;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & (~(1 << 2) & 0xffff);
+		x2 = rt.u16Rem(x2, 7);
+		x2 = rt.u16Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -272,6 +284,7 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.u32 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.u32;
+	let x2!: rt.u32;
 	_50 = (out2: rt.ByteVec, v: rt.u32): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
 		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v)) === v ? 1 : 0);
@@ -301,7 +314,7 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.u32, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u32Add(a, b);
 		_50(out, part16);
@@ -367,19 +380,24 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.u32WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.u32Add(a, b);
+		rt.u32Mul(x, b);
+		rt.u32Mul(rt.u32Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.u32Add(x, b);
-		x = rt.u32Sub(x, 1);
-		x = rt.u32Mul(x, 2);
-		x = x >>> 1;
-		x = (x << 1) >>> 0;
-		x = (x | (1 << 3)) >>> 0;
-		x = (x ^ b) >>> 0;
-		x = (x & (~(1 << 2) >>> 0)) >>> 0;
-		x = rt.u32Rem(x, 7);
-		x = rt.u32Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.u32Add(x2, b);
+		x2 = rt.u32Sub(x2, 1);
+		x2 = rt.u32Mul(x2, 2);
+		x2 = x2 >>> 1;
+		x2 = (x2 << 1) >>> 0;
+		x2 = (x2 | (1 << 3)) >>> 0;
+		x2 = (x2 ^ b) >>> 0;
+		x2 = (x2 & (~(1 << 2) >>> 0)) >>> 0;
+		x2 = rt.u32Rem(x2, 7);
+		x2 = rt.u32Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -399,6 +417,7 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.u64 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.u64;
+	let x2!: rt.u64;
 	_50 = (out2: rt.ByteVec, v: rt.u64): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(rt.u128Cast(v)));
 		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v)), v) ? 1 : 0);
@@ -428,7 +447,7 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.u64, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 64));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u64Add(a, b);
 		_50(out, part16);
@@ -494,19 +513,24 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u64Lt(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Ge(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.u64Add(a, b);
+		rt.u64Mul(x, b);
+		rt.u64Mul(rt.u64Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.u64Add(x, b);
-		x = rt.u64Sub(x, 1);
-		x = rt.u64Mul(x, 2);
-		x = rt.u64Shr(x, 1);
-		x = rt.u64Shl(x, 1);
-		x = rt.u64Or(x, 8);
-		x = rt.u64Xor(x, b);
-		x = rt.u64And(x, rt.u64Not(4));
-		x = rt.u64Rem(x, 7);
-		x = rt.u64Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.u64Add(x2, b);
+		x2 = rt.u64Sub(x2, 1);
+		x2 = rt.u64Mul(x2, 2);
+		x2 = rt.u64Shr(x2, 1);
+		x2 = rt.u64Shl(x2, 1);
+		x2 = rt.u64Or(x2, 8);
+		x2 = rt.u64Xor(x2, b);
+		x2 = rt.u64And(x2, rt.u64Not(4));
+		x2 = rt.u64Rem(x2, 7);
+		x2 = rt.u64Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -526,6 +550,7 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.u128 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.u128;
+	let x2!: rt.u128;
 	_50 = (out2: rt.ByteVec, v: rt.u128): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v));
 		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v)), v) ? 1 : 0);
@@ -555,7 +580,7 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.u128, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 128));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.u128Add(a, b);
 		_50(out, part16);
@@ -621,19 +646,24 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u128Lt(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.u128Ge(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.u128WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.u128Add(a, b);
+		rt.u128Mul(x, b);
+		rt.u128Mul(rt.u128Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.u128Add(x, b);
-		x = rt.u128Sub(x, 1);
-		x = rt.u128Mul(x, 2);
-		x = rt.u128Shr(x, 1);
-		x = rt.u128Shl(x, 1);
-		x = rt.u128Or(x, rt.u128Shl(1, 3));
-		x = rt.u128Xor(x, b);
-		x = rt.u128And(x, rt.u128Not(rt.u128Shl(1, 2)));
-		x = rt.u128Rem(x, 7);
-		x = rt.u128Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.u128Add(x2, b);
+		x2 = rt.u128Sub(x2, 1);
+		x2 = rt.u128Mul(x2, 2);
+		x2 = rt.u128Shr(x2, 1);
+		x2 = rt.u128Shl(x2, 1);
+		x2 = rt.u128Or(x2, rt.u128Shl(1, 3));
+		x2 = rt.u128Xor(x2, b);
+		x2 = rt.u128And(x2, rt.u128Not(rt.u128Shl(1, 2)));
+		x2 = rt.u128Rem(x2, 7);
+		x2 = rt.u128Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -653,6 +683,7 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.usize | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.usize;
+	let x2!: rt.usize;
 	_50 = (out2: rt.ByteVec, v: rt.usize): void => {
 		rt.byteVecExtendFromSlice(out2, rt.u128ToBeBytes(v as rt.u128));
 		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v)) === v ? 1 : 0);
@@ -682,7 +713,7 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.usize, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.usizeAdd(a, b);
 		_50(out, part16);
@@ -748,19 +779,24 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.usizeWrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.usizeAdd(a, b);
+		rt.usizeMul(x, b);
+		rt.usizeMul(rt.usizeSub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.usizeAdd(x, b);
-		x = rt.usizeSub(x, 1);
-		x = rt.usizeMul(x, 2);
-		x = x >>> 1;
-		x = (x << 1) >>> 0;
-		x = (x | (1 << 3)) >>> 0;
-		x = (x ^ b) >>> 0;
-		x = (x & (~(1 << 2) >>> 0)) >>> 0;
-		x = rt.usizeRem(x, 7);
-		x = rt.usizeDiv(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.usizeAdd(x2, b);
+		x2 = rt.usizeSub(x2, 1);
+		x2 = rt.usizeMul(x2, 2);
+		x2 = x2 >>> 1;
+		x2 = (x2 << 1) >>> 0;
+		x2 = (x2 | (1 << 3)) >>> 0;
+		x2 = (x2 ^ b) >>> 0;
+		x2 = (x2 & (~(1 << 2) >>> 0)) >>> 0;
+		x2 = rt.usizeRem(x2, 7);
+		x2 = rt.usizeDiv(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -780,6 +816,7 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.i8 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.i8;
+	let x2!: rt.i8;
 	_50 = (out2: rt.ByteVec, v: rt.i8): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
 		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v)) === v ? 1 : 0);
@@ -809,7 +846,7 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.i8, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 8));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i8Add(a, b);
 		_50(out, part16);
@@ -875,19 +912,24 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.i8WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.i8Add(a, b);
+		rt.i8Mul(x, b);
+		rt.i8Mul(rt.i8Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.i8Add(x, b);
-		x = rt.i8Sub(x, 1);
-		x = rt.i8Mul(x, 2);
-		x = x >> 1;
-		x = (x << 1 << 24) >> 24;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & ~(1 << 2);
-		x = rt.i8Rem(x, 7);
-		x = rt.i8Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.i8Add(x2, b);
+		x2 = rt.i8Sub(x2, 1);
+		x2 = rt.i8Mul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1 << 24) >> 24;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & ~(1 << 2);
+		x2 = rt.i8Rem(x2, 7);
+		x2 = rt.i8Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -907,6 +949,7 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.i16 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.i16;
+	let x2!: rt.i16;
 	_50 = (out2: rt.ByteVec, v: rt.i16): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
 		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v)) === v ? 1 : 0);
@@ -936,7 +979,7 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.i16, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 16));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i16Add(a, b);
 		_50(out, part16);
@@ -1002,19 +1045,24 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.i16WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.i16Add(a, b);
+		rt.i16Mul(x, b);
+		rt.i16Mul(rt.i16Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.i16Add(x, b);
-		x = rt.i16Sub(x, 1);
-		x = rt.i16Mul(x, 2);
-		x = x >> 1;
-		x = (x << 1 << 16) >> 16;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & ~(1 << 2);
-		x = rt.i16Rem(x, 7);
-		x = rt.i16Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.i16Add(x2, b);
+		x2 = rt.i16Sub(x2, 1);
+		x2 = rt.i16Mul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1 << 16) >> 16;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & ~(1 << 2);
+		x2 = rt.i16Rem(x2, 7);
+		x2 = rt.i16Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -1034,6 +1082,7 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.i32 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.i32;
+	let x2!: rt.i32;
 	_50 = (out2: rt.ByteVec, v: rt.i32): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
 		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v)) === v ? 1 : 0);
@@ -1063,7 +1112,7 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.i32, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i32Add(a, b);
 		_50(out, part16);
@@ -1129,19 +1178,24 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.i32WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.i32Add(a, b);
+		rt.i32Mul(x, b);
+		rt.i32Mul(rt.i32Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.i32Add(x, b);
-		x = rt.i32Sub(x, 1);
-		x = rt.i32Mul(x, 2);
-		x = x >> 1;
-		x = (x << 1) | 0;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & ~(1 << 2);
-		x = rt.i32Rem(x, 7);
-		x = rt.i32Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.i32Add(x2, b);
+		x2 = rt.i32Sub(x2, 1);
+		x2 = rt.i32Mul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1) | 0;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & ~(1 << 2);
+		x2 = rt.i32Rem(x2, 7);
+		x2 = rt.i32Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -1161,6 +1215,7 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.i64 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.i64;
+	let x2!: rt.i64;
 	_50 = (out2: rt.ByteVec, v: rt.i64): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(rt.i128Cast(v)));
 		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v)), v) ? 1 : 0);
@@ -1190,7 +1245,7 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.i64, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 64));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i64Add(a, b);
 		_50(out, part16);
@@ -1256,19 +1311,24 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.i64Lt(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.i64Ge(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.i64WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.i64Add(a, b);
+		rt.i64Mul(x, b);
+		rt.i64Mul(rt.i64Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.i64Add(x, b);
-		x = rt.i64Sub(x, 1);
-		x = rt.i64Mul(x, 2);
-		x = rt.i64Shr(x, 1);
-		x = rt.i64Shl(x, 1);
-		x = rt.i64Or(x, 8);
-		x = rt.i64Xor(x, b);
-		x = rt.i64And(x, rt.i64Not(4));
-		x = rt.i64Rem(x, 7);
-		x = rt.i64Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.i64Add(x2, b);
+		x2 = rt.i64Sub(x2, 1);
+		x2 = rt.i64Mul(x2, 2);
+		x2 = rt.i64Shr(x2, 1);
+		x2 = rt.i64Shl(x2, 1);
+		x2 = rt.i64Or(x2, 8);
+		x2 = rt.i64Xor(x2, b);
+		x2 = rt.i64And(x2, rt.i64Not(4));
+		x2 = rt.i64Rem(x2, 7);
+		x2 = rt.i64Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -1288,6 +1348,7 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.i128 | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.i128;
+	let x2!: rt.i128;
 	_50 = (out2: rt.ByteVec, v: rt.i128): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v));
 		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v)), v) ? 1 : 0);
@@ -1317,7 +1378,7 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.i128, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 128));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.i128Add(a, b);
 		_50(out, part16);
@@ -1383,19 +1444,24 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.i128Lt(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.i128Ge(a, b) ? 1 : 0);
 		rt.byteVecPush(out, rt.i128WrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.i128Add(a, b);
+		rt.i128Mul(x, b);
+		rt.i128Mul(rt.i128Sub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.i128Add(x, b);
-		x = rt.i128Sub(x, 1);
-		x = rt.i128Mul(x, 2);
-		x = rt.i128Shr(x, 1);
-		x = rt.i128Shl(x, 1);
-		x = rt.i128Or(x, rt.i128Shl(1, 3));
-		x = rt.i128Xor(x, b);
-		x = rt.i128And(x, rt.i128Not(rt.i128Shl(1, 2)));
-		x = rt.i128Rem(x, 7);
-		x = rt.i128Div(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.i128Add(x2, b);
+		x2 = rt.i128Sub(x2, 1);
+		x2 = rt.i128Mul(x2, 2);
+		x2 = rt.i128Shr(x2, 1);
+		x2 = rt.i128Shl(x2, 1);
+		x2 = rt.i128Or(x2, rt.i128Shl(1, 3));
+		x2 = rt.i128Xor(x2, b);
+		x2 = rt.i128And(x2, rt.i128Not(rt.i128Shl(1, 2)));
+		x2 = rt.i128Rem(x2, 7);
+		x2 = rt.i128Div(x2, 3);
+		_50(out, x2);
 	}
 }
 
@@ -1415,6 +1481,7 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _51!: (a0: rt.ByteVec, a1: rt.isize | undefined) => void;
 	let _52!: rt.u8;
 	let x!: rt.isize;
+	let x2!: rt.isize;
 	_50 = (out2: rt.ByteVec, v: rt.isize): void => {
 		rt.byteVecExtendFromSlice(out2, rt.i128ToBeBytes(v as rt.i128));
 		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v)) === v ? 1 : 0);
@@ -1444,7 +1511,7 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	[_38, rt.sliceRange(slice2, n2)] as [rt.isize, Uint8Array];
 	b = _38;
 	shift = rt.u32Rem(rt.optionUnwrapOr(rt.sliceFirst(rt.sliceRange(slice2, n2)), 0) as rt.u32, rt.u32Mul(2, 32));
-	_52 = rt.u8Rem(op, 24);
+	_52 = rt.u8Rem(op, 25);
 	if (_52 === 0) {
 		const part16 = rt.isizeAdd(a, b);
 		_50(out, part16);
@@ -1510,19 +1577,24 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, a < b ? 1 : 0);
 		rt.byteVecPush(out, a >= b ? 1 : 0);
 		rt.byteVecPush(out, rt.isizeWrappingSub(a, b) === 0 ? 1 : 0);
+	} else if (_52 === 23) {
+		x = rt.isizeAdd(a, b);
+		rt.isizeMul(x, b);
+		rt.isizeMul(rt.isizeSub(x, b), a);
+		rt.byteVecPush(out, 1);
 	} else {
-		x = a;
-		x = rt.isizeAdd(x, b);
-		x = rt.isizeSub(x, 1);
-		x = rt.isizeMul(x, 2);
-		x = x >> 1;
-		x = (x << 1) | 0;
-		x = x | (1 << 3);
-		x = x ^ b;
-		x = x & ~(1 << 2);
-		x = rt.isizeRem(x, 7);
-		x = rt.isizeDiv(x, 3);
-		_50(out, x);
+		x2 = a;
+		x2 = rt.isizeAdd(x2, b);
+		x2 = rt.isizeSub(x2, 1);
+		x2 = rt.isizeMul(x2, 2);
+		x2 = x2 >> 1;
+		x2 = (x2 << 1) | 0;
+		x2 = x2 | (1 << 3);
+		x2 = x2 ^ b;
+		x2 = x2 & ~(1 << 2);
+		x2 = rt.isizeRem(x2, 7);
+		x2 = rt.isizeDiv(x2, 3);
+		_50(out, x2);
 	}
 }
 
