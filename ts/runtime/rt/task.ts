@@ -14,10 +14,10 @@ export function drop(value: unknown): void {
 	if (dispose !== undefined) dispose.call(value);
 }
 
-/** Drop every element of `values`, in order. */
-export function dropAll(values: readonly unknown[] | undefined): void {
+/** Drop every element of `values`, in order, by `f` if it has no `[Symbol.dispose]`. */
+export function dropAll<T>(values: readonly T[] | undefined, f: (value: T) => void = drop): void {
 	if (values === undefined) return;
-	for (const value of values) drop(value);
+	for (const value of values) f(value);
 }
 
 // Shared ownership
@@ -34,6 +34,14 @@ export class Arc<T> implements Disposable {
 	[Symbol.dispose](): void {
 		if (--this.strong === 0) drop(this.value);
 	}
+}
+
+/**
+ * Drop `arc`, whose value has no `[Symbol.dispose]` that drops it: the last one drops it
+ * by `f`, or not at all without one, as a borrow.
+ */
+export function arcDrop<T>(arc: Arc<T>, f?: (value: T) => void): void {
+	if (--arc.strong === 0) f?.(arc.value);
 }
 
 /** `Arc::clone`: the same value, counted once more. */

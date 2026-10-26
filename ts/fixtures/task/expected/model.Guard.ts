@@ -19,8 +19,16 @@ export class Guard {
 	}
 }
 
-function new_(id: rt.u32, log: Log.Log): Guard {
-	return new Guard({ id, log });
+function new_(id_: rt.u32, log_: Log.Log): Guard {
+	return new Guard({ id: id_, log: log_ });
+}
+
+export function id(self: Guard): rt.u32 {
+	return self.id;
+}
+
+export function log(self: Guard): Log.Log {
+	return self.log;
 }
 
 /** Log `event` as this guard's. */

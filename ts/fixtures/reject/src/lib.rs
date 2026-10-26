@@ -62,18 +62,6 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 	sum
 }
 
-pub struct Boxed<T>(pub T);
-
-impl<T> Drop for Boxed<T> {
-	fn drop(&mut self) {}
-}
-
-/// A generic `Drop` impl has an instance per type.
-pub fn boxed() -> u8 {
-	let b = Boxed(1u8);
-	b.0
-}
-
 /// The async block's generator would change its own copy of `n`.
 pub fn async_borrow() -> u8 {
 	let mut n = 1u8;
@@ -132,12 +120,6 @@ pub struct Meters(pub u64);
 pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f64
-}
-
-/// An `Arc` of a borrow is the borrowed value in JS: dropping the last one would drop it.
-pub fn shared_borrow(n: &Noisy) -> usize {
-	let a = std::sync::Arc::new(n);
-	std::sync::Arc::strong_count(&a)
 }
 
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.

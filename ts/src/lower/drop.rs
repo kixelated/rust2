@@ -12,7 +12,7 @@ use rustc_span::Span;
 use super::library::Std;
 use super::{Adt, AdtRepr, Translator};
 use crate::program::{SymKind, Symbol};
-use crate::ts::{self, Expr, Stmt, StmtKind, Type};
+use crate::ts::{self, Expr, Param, Stmt, StmtKind, Type};
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Whether dropping a `ty` does something JS can see.
@@ -85,21 +85,38 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// Whether whatever holds a `ty` can drop it without knowing its type, through the
-	/// `[Symbol.dispose]` its JS value has, as an `Arc` and a generic class's glue do.
-	fn disposable(&mut self, ty: Ty<'tcx>) -> bool {
+	/// `[Symbol.dispose]` its JS value has, as an `Arc` and a generic class's glue do. A
+	/// class whose glue that needs is given it.
+	fn disposable(&mut self, ty: Ty<'tcx>, span: Span) -> bool {
 		if !self.drops(ty) {
 			return self.inert(ty);
 		}
 		match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
+					self.disposable(args.type_at(0), span)
+				}
 				Some(_) => false,
-				None => adt.is_struct() && args.types().all(|t| self.disposable(t)),
+				// A generic `Drop` impl has an instance per type, which one class's glue can't call.
+				None if adt.is_struct() && !self.generic_dtor(*adt) => {
+					if !args.types().all(|t| self.disposable(t, span)) {
+						return false;
+					}
+					let info = self.adt(*adt, span);
+					self.glue(*adt, &info, span);
+					true
+				}
+				None => false,
 			},
 			ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		}
+	}
+
+	/// Whether `adt` is generic and implements `Drop`.
+	fn generic_dtor(&self, adt: AdtDef<'tcx>) -> bool {
+		adt.has_dtor(self.tcx) && self.tcx.generics_of(adt.did()).requires_monomorphization(self.tcx)
 	}
 
 	/// Whether dropping a `ty` through its JS value's `[Symbol.dispose]` does nothing. A
@@ -133,43 +150,97 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return None;
 		}
 		// An array or `Vec`, or one in an `Option` or a box, which is it or `undefined`.
-		if let Some(elem) = self.elements(ty)
-			&& self.disposable(elem)
-		{
-			return Some(Expr::rt("dropAll", vec![value]));
+		if let Some(elem) = self.elements(ty) {
+			let mut args = vec![value];
+			if !self.disposable(elem, span) {
+				args.push(self.drop_fn(elem, span)?);
+			}
+			return Some(Expr::rt("dropAll", args));
 		}
-		let supported = match ty.kind() {
-			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => self.disposable(args.type_at(0)),
-				Some(Std::Waker) => true,
-				Some(_) => false,
-				None if adt.is_struct() => {
-					let info = self.adt(*adt, span);
-					self.glue(*adt, &info, span);
-					args.types().all(|t| self.disposable(t))
+		if self.disposable(ty, span) {
+			return Some(Expr::rt("drop", vec![value]));
+		}
+		if let ty::Adt(adt, args) = ty.kind()
+			&& let Some(std) = Std::of(self.tcx, adt.did())
+		{
+			// What drops each key, value, or item, or `undefined` for one that drops nothing.
+			let each = |t: &mut Self, n: usize| match t.drops(args.type_at(n)) {
+				true => t.drop_fn(args.type_at(n), span),
+				false => Some(Expr::undefined()),
+			};
+			let (name, args) = match std {
+				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
+				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
+				Std::Box | Std::Pin => return self.drop_value(value, args.type_at(0), span),
+				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
+				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
+				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
+				Std::BTreeSet => ("btreeDrop", vec![value, each(self, 0)?]),
+				Std::VecDeque => ("dequeDrop", vec![value, each(self, 0)?]),
+				_ => ("", vec![value]),
+			};
+			if !name.is_empty() {
+				let mut args = args;
+				while args.len() > 1 && matches!(args.last(), Some(Expr::Lit(l)) if l == "undefined") {
+					args.pop();
 				}
-				None => false,
-			},
-			ty::Coroutine(..) | ty::Param(_) => true,
+				return Some(Expr::rt(name, args));
+			}
+			return self.drop_glue_call(args.into_iter().next()?, ty, span);
+		}
+		self.drop_glue_call(value, ty, span)
+	}
+
+	/// `value`, a `ty`, dropped by its glue: rustc's, for the crate's types, tuples, and
+	/// std's enums.
+	fn drop_glue_call(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		let rustc = match ty.kind() {
+			ty::Tuple(_) => true,
+			ty::Adt(adt, _) => adt.is_enum() || adt.did().is_local(),
+			ty::Closure(..) => {
+				// Its captures live in an arrow function's scope, where nothing outside can drop them.
+				self.err(
+					span,
+					"dropping a closure that owns a value that drops, which is not supported yet",
+				);
+				return None;
+			}
 			_ => false,
 		};
-		// An enum or tuple drops by the glue rustc builds for it.
-		if !supported && let Some(sym) = super::mir::glue::shim(self, ty, span) {
+		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
 			return Some(super::mir::glue::call(sym, value));
 		}
-		if !supported && let ty::Closure(..) = ty.kind() {
-			// Its captures live in an arrow function's scope, where nothing outside can drop them.
-			self.err(
-				span,
-				"dropping a closure that owns a value that drops, which is not supported yet",
-			);
+		// A census lowers a generic function over its type parameters, where only an
+		// instance can say what the glue is.
+		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
+			return Some(Expr::rt("drop", vec![value]));
+		}
+		self.err(span, format!("dropping `{ty}`, which is not supported yet"));
+		None
+	}
+
+	/// A function dropping a `ty`, or `None` if JS would see nothing drop or translation
+	/// refused it: `rt.drop` for a value with `[Symbol.dispose]`, or else its glue.
+	pub fn drop_fn(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		if !self.drops(ty) {
 			return None;
 		}
-		if !supported {
-			self.err(span, format!("dropping `{ty}`, which is not supported yet"));
-			return None;
+		if self.disposable(ty, span) {
+			return Some(Expr::Rt("drop".into()));
 		}
-		Some(Expr::rt("drop", vec![value]))
+		// Over type parameters, as a generic class's glue is, a function of its own.
+		if ty.has_param() || ty.has_aliases() {
+			let param = Param {
+				name: "value".into(),
+				ty: Some(self.ty(ty, span)),
+			};
+			let body = self.drop_value(Expr::ident("value"), ty, span)?;
+			return Some(Expr::Lambda(vec![param], Box::new(body)));
+		}
+		if let ty::Closure(..) = ty.kind() {
+			return self.drop_glue_call(Expr::undefined(), ty, span);
+		}
+		super::mir::glue::shim(self, ty, span).map(Expr::Sym)
 	}
 
 	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
@@ -202,34 +273,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.glued.insert(adt.did()) {
 			return;
 		}
-		// An enum that drops is refused where it drops: its glue would switch on its variant.
+		// An enum drops by rustc's glue, which switches on its variant, and a generic `Drop`
+		// impl has an instance per type: each instance drops by glue of its own.
 		let AdtRepr::Struct { fields, .. } = &info.repr else {
-			if adt.has_dtor(tcx) {
-				self.err(
-					span,
-					format!(
-						"`{}` is an enum that implements `Drop`, which is not supported yet",
-						tcx.def_path_str(adt.did())
-					),
-				);
-			}
 			return;
 		};
+		if self.generic_dtor(adt) {
+			return;
+		}
 		let mut body: Vec<Stmt> = Vec::new();
 		if let Some(dtor) = adt.destructor(tcx) {
-			match tcx.generics_of(adt.did()).requires_monomorphization(tcx) {
-				true => self.err(
-					span,
-					format!(
-						"`{}` is generic and implements `Drop`, which is not supported yet",
-						tcx.def_path_str(adt.did())
-					),
-				),
-				false => {
-					let sym = self.instance(Instance::mono(tcx, dtor.did));
-					body.push(StmtKind::Expr(Expr::Sym(sym).call(vec![Expr::This])).at(None));
-				}
-			}
+			let sym = self.instance(Instance::mono(tcx, dtor.did));
+			body.push(StmtKind::Expr(Expr::Sym(sym).call(vec![Expr::This])).at(None));
 		}
 		for (field, &id) in adt.non_enum_variant().fields.iter().zip(fields) {
 			let ty = tcx.type_of(field.did).instantiate_identity().skip_norm_wip();

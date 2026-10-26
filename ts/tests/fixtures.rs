@@ -389,10 +389,11 @@ import * as Log from "./log.Log.ts";
 import * as Channel from "./model.Channel.ts";
 import * as Guard from "./model.Guard.ts";
 import {{ blocks, drain, sum }} from "./model.ts";
+import * as drops from "./drops.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks }};
+const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops }};
 export const run = harness(fixture);
 export const unwind = harness(fixture, true);
 "#

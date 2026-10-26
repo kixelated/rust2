@@ -309,6 +309,20 @@ export function hashKey<K>(m: HashSet<K>, key: K, take = false): K | undefined {
 	return key;
 }
 
+/** Drop `m`: each key by `k` and each value by `v`, of those that drop, entry by entry. */
+export function hashDrop<K, V>(m: HashMap<K, V>, k: ((key: K) => void) | undefined, v?: (value: V) => void): void {
+	for (const [key, value] of m.p) {
+		k?.(key);
+		v?.(value);
+	}
+	for (const first of m.o?.values() ?? []) {
+		for (let s: Slot<K, V> | undefined = first; s !== undefined; s = s.next) {
+			k?.(s.k);
+			v?.(s.v);
+		}
+	}
+}
+
 export function hashClear<K, V>(m: HashMap<K, V>): void {
 	m.p.clear();
 	m.o = undefined;
@@ -799,6 +813,16 @@ export function btreePopKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefine
 	return btreePop(m, last)?.[0];
 }
 
+/** Drop `m`: each key by `k` and each value by `v`, of those that drop, in key order. */
+export function btreeDrop<K, V>(m: BTreeMap<K, V>, k: ((key: K) => void) | undefined, v?: (value: V) => void): void {
+	for (let l: Leaf<K, V> | undefined = end(m, false); l !== undefined; l = l.next) {
+		for (let i = 0; i < l.k.length; i++) {
+			k?.(l.k[i]);
+			v?.(l.v[i]);
+		}
+	}
+}
+
 export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
 	m.t = leaf();
 	m.h = 0;
@@ -1178,6 +1202,11 @@ export function dequeIndex<T>(q: VecDeque<T>, i: number): T {
 export function dequeSet<T>(q: VecDeque<T>, i: number, item: T): void {
 	if (i >= q.n) panic("out of bounds access");
 	q.b[at(q, i)] = item;
+}
+
+/** Drop `q`: each item by `f`, front to back. */
+export function dequeDrop<T>(q: VecDeque<T>, f: (item: T) => void): void {
+	for (let i = 0; i < q.n; i++) f(q.b[at(q, i)] as T);
 }
 
 export function dequeClear<T>(q: VecDeque<T>): void {
