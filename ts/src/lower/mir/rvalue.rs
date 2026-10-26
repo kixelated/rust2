@@ -217,7 +217,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.map(|(i, d)| (i, int.fold(d as i128) as u128))
 					.collect();
 				match Std::of(tcx, adt.did()) {
-					Some(Std::Option | Std::Poll | Std::Result) => {
+					Some(Std::Option | Std::Poll | Std::Result | Std::Entry) => {
 						let scrut = self.path(scrut, "scrutinee", out);
 						let first = self.variant_test(&scrut, ty, discrs[0].1, span);
 						Expr::Cond(
@@ -226,6 +226,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							Box::new(int.lit(discrs[1].1 as i128)),
 						)
 					}
+					// The value is its discriminant.
+					Some(Std::Ordering) => scrut,
 					None if adt.did().is_local() => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -315,6 +317,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
+				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values, span),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {

@@ -5,8 +5,8 @@
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, iterated, or converted. */
 	name: string;
-	op: "encode" | "decode" | "iterate" | "convert" | "handoff";
-	/** Varints, frame headers, messages, items, timestamps, or handoffs per call, which each time is divided by. */
+	op: "encode" | "decode" | "iterate" | "map" | "convert" | "handoff";
+	/** Varints, frame headers, messages, items, keys, timestamps, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -63,8 +63,13 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 		out.push({ name: `iter/${chain}`, op: "iterate", items: bytes.length, input: Uint8Array.of(6, selector, ...bytes) });
 	});
 
+	// A `BTreeMap` of each size, through `bench.rs`'s op 8: each key inserted, looked up, and removed.
+	for (const count of [16, 256, 4096]) {
+		out.push({ name: `btree/${count}`, op: "map", items: count, input: Uint8Array.of(8, 0, ...u64(BigInt(count))) });
+	}
+
 	// Microseconds since moq's 2020 epoch, a frame apart at 30 fps, to 90 kHz and back:
-	// each product passes 2^53 and each quotient is back under it. `bench.rs`'s op 8 converts
+	// each product passes 2^53 and each quotient is back under it. `bench.rs`'s op 9 converts
 	// them as moq-net's `Timestamp::convert` does in `u128`, then in `u64`.
 	const count = 1024;
 	const start = 190_000_000_000_000n;
@@ -75,7 +80,7 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 			["micros-to-90k", micros],
 			["90k-to-micros", ninety],
 		] as const) {
-			const input = Uint8Array.of(8, selector, ...[BigInt(count), ...params].flatMap(u64));
+			const input = Uint8Array.of(9, selector, ...[BigInt(count), ...params].flatMap(u64));
 			out.push({ name: `time/${type}/${name}`, op: "convert", items: count, input });
 		}
 	}

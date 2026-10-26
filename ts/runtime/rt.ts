@@ -7,6 +7,7 @@
 
 import { type TryFromIntError, u8Display, usizeDisplay } from "./rt/int.ts";
 
+export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/task.ts";

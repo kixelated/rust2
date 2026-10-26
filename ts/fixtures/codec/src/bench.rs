@@ -2,8 +2,11 @@
 //! benchmarks: `js/net/bench/varint.ts` and `lite-varint.ts`. The first input byte picks
 //! the workload and the second its wire format; an encode's output is the matching
 //! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
-//! writes them, op 7 decodes frame headers as they arrive a few bytes at a time, and op 8
-//! converts timestamps between timescales.
+//! writes them, op 7 decodes frame headers as they arrive a few bytes at a time, op 8
+//! keeps a `BTreeMap`, as moq-net's model keeps its state, and op 9 converts timestamps
+//! between timescales.
+
+use std::collections::BTreeMap;
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
 use crate::harness::{decode_error, encode_error, form, lite_version, put_u64, put_usize, take_u64};
@@ -27,7 +30,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		4 => encoded(encode_group(data, lite_version(selector), &mut out), &mut out),
 		6 => iterate(selector, data, &mut out),
 		7 => decoded(decode_split(data, lite_version(selector), &mut out), &mut out),
-		8 => rescale(selector, data, &mut out),
+		8 => ordered(data, &mut out),
+		9 => rescale(selector, data, &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -173,6 +177,31 @@ fn encode_group(data: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Resul
 		frame_start: 0,
 	};
 	group.encode(&mut Encoder::new(out, version.into()), version)
+}
+
+/// A `BTreeMap` of `count` keys, at most 2^16: each inserted in a scattered order, looked
+/// up, summed over a quarter of the key space, and removed again. The sum of the values
+/// found.
+fn ordered(data: &[u8], out: &mut Vec<u8>) {
+	let (count, _) = take_u64(data);
+	let count = count.min(1 << 16) as u32;
+	// An odd multiplier scatters the keys below 2^16 without repeating one.
+	let key = |i: u32| (i * 40503) % (1 << 16);
+	let mut map = BTreeMap::new();
+	for i in 0..count {
+		map.insert(key(i), i);
+	}
+	let mut sum = 0u64;
+	for i in 0..count {
+		sum += map.get(&key(count - 1 - i)).copied().unwrap_or(0) as u64;
+	}
+	for (_, &v) in map.range(1 << 14..2 << 14) {
+		sum += v as u64;
+	}
+	for i in 0..count {
+		map.remove(&key(i));
+	}
+	put_u64(out, sum);
 }
 
 /// One iterator chain over every byte, picked by `chain`, with closures that cost little
