@@ -1229,6 +1229,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		cfg::hoist_else(&mut out);
 		declare_in_place(&mut out);
+		cfg::tidy_loops(&mut out);
 		out
 	}
 
@@ -2314,8 +2315,14 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Whether a value of `ty` could hold a `part`: holds its type, or hides what it holds.
 	fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		// An array and a slice of its element share storage through an unsizing coercion.
+		let storage = |t: Ty<'tcx>| match t.kind() {
+			ty::Array(elem, _) => Ty::new_slice(self.tcx, *elem),
+			_ => t,
+		};
+		let part = storage(part);
 		self.reaches(ty, |t| {
-			t == part
+			storage(t) == part
 				|| matches!(
 					t.kind(),
 					ty::Dynamic(..) | ty::Alias(..) | ty::Param(_) | ty::Closure(..) | ty::Coroutine(..)

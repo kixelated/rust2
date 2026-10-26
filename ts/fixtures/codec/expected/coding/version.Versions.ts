@@ -37,7 +37,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 		while (true) {
 			const _12: rt.u64 | rt.Done = iter.next();
 			if (_12 === rt.DONE) {
-				return rt.Ok({ _0: vs });
+				break;
 			}
 			const _15: rt.Result<Version.Version, DecodeError.DecodeError> = Version.decode$Decode_Form(r, version);
 			if (_15.ok) {
@@ -46,6 +46,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 				return _15;
 			}
 		}
+		return rt.Ok({ _0: vs });
 	}
 	return _3;
 }
@@ -59,13 +60,14 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 		while (true) {
 			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_14 === rt.DONE) {
-				return rt.Ok(undefined);
+				break;
 			}
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Form(_14, w, version);
 			if (!_18.ok) {
 				return _18;
 			}
 		}
+		return rt.Ok(undefined);
 	}
 	return _4;
 }
@@ -79,13 +81,14 @@ export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, versio
 		while (true) {
 			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_14 === rt.DONE) {
-				return rt.Ok(undefined);
+				break;
 			}
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Version(_14, w, version);
 			if (!_18.ok) {
 				return _18;
 			}
 		}
+		return rt.Ok(undefined);
 	}
 	return _4;
 }
