@@ -2,7 +2,7 @@
 
 `just bench` measures Rust build time on the pinned projects and build configurations in [corpus.toml](corpus.toml).
 It runs nightly in CI ([bench.yml](../../.github/workflows/bench.yml)), and on a PR that changes this harness (apart from the [Nix comparison](#nix-builds)), its workflow, the `build-bench` shell, or the `bench-ra-jit` package.
-A later push to that PR reruns it only if it changes one of those since the PR's last benched head.
+A later push to that PR reruns it only if it changes one of those since the PR's last benched head, so a docs-only push costs no bench time.
 Every build-speed change here states its effect with its numbers.
 
 ```bash
