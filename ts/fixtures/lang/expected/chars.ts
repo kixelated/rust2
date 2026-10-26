@@ -68,90 +68,80 @@ export function class_(c: rt.char): rt.u8 {
 }
 
 export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	b0: {
-		const _4: rt.u8 = rt.u8Rem(kind, 4);
-		if (_4 === 0) {
-			const iterS: rt.u32[] = scalars(data);
-			let iterI: number = 0;
-			while (true) {
-				const _10: rt.u32 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-				if (_10 === rt.DONE) {
-					break b0;
-				}
-				const _14: rt.char | undefined = rt.charFromU32(_10);
-				if (_14 === undefined) {
-					rt.byteVecPush(out, 255);
-				} else {
-					const c: rt.char = _14;
-					rt.byteVecPush(out, class_(c));
-					rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(c as rt.u32));
-				}
+	const _4: rt.u8 = rt.u8Rem(kind, 4);
+	if (_4 === 0) {
+		const iterS: rt.u32[] = scalars(data);
+		let iterI: number = 0;
+		while (true) {
+			const _10: rt.u32 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_10 === rt.DONE) {
+				break;
+			}
+			const _14: rt.char | undefined = rt.charFromU32(_10);
+			if (_14 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const c: rt.char = _14;
+				rt.byteVecPush(out, class_(c));
+				rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(c as rt.u32));
 			}
 		}
-		if (_4 === 1) {
-			const iterS2: rt.u32[] = scalars(data);
-			let iterI2: number = 0;
-			while (true) {
-				const _27: rt.u32 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_27 === rt.DONE) {
-					break b0;
-				}
-				const n2: rt.u32 = _27;
-				const c2: rt.char = rt.optionUnwrapOr(rt.charFromU32(n2), (n2 & 0xff) as rt.char);
-				rt.byteVecPush(out, c2 & 0xff);
-				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(c2 & 0xffff));
-				rt.byteVecPush(out, ((c2 << 24) >> 24) & 0xff);
-				rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes((c2 << 16) >> 16));
-				rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(c2 as rt.i32));
-				rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(c2 as rt.u64));
-				rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(c2 as rt.i128));
-				rt.byteVecPush(out, ((n2 & 0xff) as rt.char) & 0xff);
-				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(((c2 as rt.u32) & 0xff) as rt.u16));
+	} else if (_4 === 1) {
+		const iterS2: rt.u32[] = scalars(data);
+		let iterI2: number = 0;
+		while (true) {
+			const _27: rt.u32 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+			if (_27 === rt.DONE) {
+				break;
 			}
+			const n2: rt.u32 = _27;
+			const c2: rt.char = rt.optionUnwrapOr(rt.charFromU32(n2), (n2 & 0xff) as rt.char);
+			rt.byteVecPush(out, c2 & 0xff);
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(c2 & 0xffff));
+			rt.byteVecPush(out, ((c2 << 24) >> 24) & 0xff);
+			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes((c2 << 16) >> 16));
+			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(c2 as rt.i32));
+			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(c2 as rt.u64));
+			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(c2 as rt.i128));
+			rt.byteVecPush(out, ((n2 & 0xff) as rt.char) & 0xff);
+			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(((c2 as rt.u32) & 0xff) as rt.u16));
 		}
-		if (_4 === 2) {
-			const cs: rt.char[] = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(scalars(data)), (a0: rt.u32): rt.char | undefined => {
-				return rt.charFromU32(a0);
-			}));
-			const sorted: rt.BTreeSet<rt.char> = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.char>;
-			const seen: rt.HashSet<rt.char> = rt.hashNew() as rt.HashSet<rt.char>;
-			const iter3: rt.Iter<[rt.usize, rt.char]> = rt.iterEnumerate(rt.iterSlice(cs));
-			while (true) {
-				const _88: [rt.usize, rt.char] | rt.Done = iter3.next();
-				if (_88 === rt.DONE) {
-					const iter4: rt.Iter<rt.char> = rt.btreeKeys(sorted);
-					while (true) {
-						const _128: rt.char | rt.Done = iter4.next();
-						if (_128 === rt.DONE) {
-							break b0;
-						}
-						rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(_128 as rt.u32));
-					}
-				}
-				const i: rt.usize = _88[0];
-				const c3: rt.char = _88[1];
-				const _96: rt.usize = rt.usizeRem(rt.usizeAdd(rt.usizeMul(i, 7), 3), cs.length);
-				const at = rt.idx(cs, _96);
-				const d: rt.char = cs[at];
-				rt.byteVecPush(out, (c3 < d ? 1 : 0) | (((c3 === d ? 1 : 0) << 1) & 0xff) | (((c3 >= 122 ? 1 : 0) << 2) & 0xff));
-				rt.byteVecPush(out, rt.hashAdd(seen, c3) ? 1 : 0);
-				rt.btreeAdd(sorted, c3);
+	} else if (_4 === 2) {
+		const cs: rt.char[] = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(scalars(data)), (a0: rt.u32): rt.char | undefined => {
+			return rt.charFromU32(a0);
+		}));
+		const sorted: rt.BTreeSet<rt.char> = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.char>;
+		const seen: rt.HashSet<rt.char> = rt.hashNew() as rt.HashSet<rt.char>;
+		const iter3: rt.Iter<[rt.usize, rt.char]> = rt.iterEnumerate(rt.iterSlice(cs));
+		while (true) {
+			const _88: [rt.usize, rt.char] | rt.Done = iter3.next();
+			if (_88 === rt.DONE) {
+				break;
 			}
+			const i: rt.usize = _88[0];
+			const c3: rt.char = _88[1];
+			const _96: rt.usize = rt.usizeRem(rt.usizeAdd(rt.usizeMul(i, 7), 3), cs.length);
+			const at = rt.idx(cs, _96);
+			const d: rt.char = cs[at];
+			rt.byteVecPush(out, (c3 < d ? 1 : 0) | (((c3 === d ? 1 : 0) << 1) & 0xff) | (((c3 >= 122 ? 1 : 0) << 2) & 0xff));
+			rt.byteVecPush(out, rt.hashAdd(seen, c3) ? 1 : 0);
+			rt.btreeAdd(sorted, c3);
 		}
+		const iter4: rt.Iter<rt.char> = rt.btreeKeys(sorted);
+		while (true) {
+			const _128: rt.char | rt.Done = iter4.next();
+			if (_128 === rt.DONE) {
+				break;
+			}
+			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(_128 as rt.u32));
+		}
+	} else {
 		const iterS3: rt.u32[] = scalars(data);
 		let iterI3: number = 0;
 		while (true) {
 			const _140: rt.u32 | rt.Done = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
 			if (_140 === rt.DONE) {
-				const iter6: rt.Iter<rt.char> = rt.iterSlice([97, 39, 34, 92, 10, 0, 127, 233, 769, 173, 57344, 128512]);
-				while (true) {
-					const _161: rt.char | rt.Done = iter6.next();
-					if (_161 === rt.DONE) {
-						break b0;
-					}
-					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDebug(_161, f), (f: rt.Formatter) => rt.fmtCharDisplay(_161, f)];
-					put(out, rt.fmtFormat([args4[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args4[0]), "|", args4[1]]));
-				}
+				break;
 			}
 			const _144: rt.char | undefined = rt.charFromU32(_140);
 			if (_144 !== undefined) {
@@ -159,6 +149,15 @@ export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDisplay(arg, f)];
 				put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ align: ">", width: 3 }, args2[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 4 }, args2[0]), "|", rt.fmtSpec({ align: "<", width: 2 }, args2[0])]));
 			}
+		}
+		const iter6: rt.Iter<rt.char> = rt.iterSlice([97, 39, 34, 92, 10, 0, 127, 233, 769, 173, 57344, 128512]);
+		while (true) {
+			const _161: rt.char | rt.Done = iter6.next();
+			if (_161 === rt.DONE) {
+				break;
+			}
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDebug(_161, f), (f: rt.Formatter) => rt.fmtCharDisplay(_161, f)];
+			put(out, rt.fmtFormat([args4[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args4[0]), "|", args4[1]]));
 		}
 	}
 }
