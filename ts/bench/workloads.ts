@@ -3,10 +3,10 @@
 // reads what its encode wrote, and a split decode reads it as it arrives over a stream.
 
 export interface Workload {
-	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, or iterated. */
+	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, iterated, or converted. */
 	name: string;
-	op: "encode" | "decode" | "iterate" | "handoff";
-	/** Varints, frame headers, messages, items, or handoffs per call, which each time is divided by. */
+	op: "encode" | "decode" | "iterate" | "convert" | "handoff";
+	/** Varints, frame headers, messages, items, timestamps, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -62,6 +62,23 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 	chains.forEach((chain, selector) => {
 		out.push({ name: `iter/${chain}`, op: "iterate", items: bytes.length, input: Uint8Array.of(6, selector, ...bytes) });
 	});
+
+	// Microseconds since moq's 2020 epoch, a frame apart at 30 fps, to 90 kHz and back:
+	// each product passes 2^53 and each quotient is back under it. `bench.rs`'s op 8 converts
+	// them as moq-net's `Timestamp::convert` does in `u128`, then in `u64`.
+	const count = 1024;
+	const start = 190_000_000_000_000n;
+	const micros = [start, 33_333n, 1_000_000n, 90_000n];
+	const ninety = [(start * 90_000n) / 1_000_000n, 3_000n, 90_000n, 1_000_000n];
+	for (const [selector, type] of ["u128", "u64"].entries()) {
+		for (const [name, params] of [
+			["micros-to-90k", micros],
+			["90k-to-micros", ninety],
+		] as const) {
+			const input = Uint8Array.of(8, selector, ...[BigInt(count), ...params].flatMap(u64));
+			out.push({ name: `time/${type}/${name}`, op: "convert", items: count, input });
+		}
+	}
 	return out;
 }
 

@@ -1908,6 +1908,14 @@ export function convert(data: Uint8Array, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.u64FromBeBytes(Uint8Array.of(d, c, b, a, a, b, c, d))));
 	const bytes = Uint8Array.of(d, c, b, a);
 	rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(rt.i32FromBeBytes(bytes)));
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(fromHalves(rt.u64Low(rt.u64Shr(wide, 32)), rt.u64Low(wide))));
+	const narrow = rt.u64Or(rt.u64Shl((rt.u64Low(rt.u64Shr(wide, 40)) & 0xff) as rt.u64, 32), (rt.u64Low(wide) & 0xffff) as rt.u64);
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(narrow));
+}
+
+/** A `u64` from its high and low 32 bits, as moq-net's varints join them. */
+export function fromHalves(hi: rt.u32, lo: rt.u32): rt.u64 {
+	return rt.u64Or(rt.u64Shl(hi as rt.u64, 32), lo as rt.u64);
 }
 
 //# sourceMappingURL=ints.ts.map
