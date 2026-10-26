@@ -71,6 +71,9 @@ macro_rules! ops {
 					x |= 1 << 3;
 					x ^= b;
 					x &= !(1 << 2);
+					// By a constant, whose overflow check a signed type folds.
+					x %= 7;
+					x /= 3;
 					put(out, x);
 				}
 			}

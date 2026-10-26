@@ -123,6 +123,8 @@ export function u8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & (~(1 << 2) & 0xff);
+		x = rt.u8Rem(x, 7);
+		x = rt.u8Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -248,6 +250,8 @@ export function u16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & (~(1 << 2) & 0xffff);
+		x = rt.u16Rem(x, 7);
+		x = rt.u16Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -373,6 +377,8 @@ export function u32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = (x | (1 << 3)) >>> 0;
 		x = (x ^ b) >>> 0;
 		x = (x & (~(1 << 2) >>> 0)) >>> 0;
+		x = rt.u32Rem(x, 7);
+		x = rt.u32Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -498,6 +504,8 @@ export function u64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.u64Or(x, 8);
 		x = rt.u64Xor(x, b);
 		x = rt.u64And(x, rt.u64Not(4));
+		x = rt.u64Rem(x, 7);
+		x = rt.u64Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -623,6 +631,8 @@ export function u128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.u128Or(x, rt.u128Shl(1, 3));
 		x = rt.u128Xor(x, b);
 		x = rt.u128And(x, rt.u128Not(rt.u128Shl(1, 2)));
+		x = rt.u128Rem(x, 7);
+		x = rt.u128Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -748,6 +758,8 @@ export function usizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = (x | (1 << 3)) >>> 0;
 		x = (x ^ b) >>> 0;
 		x = (x & (~(1 << 2) >>> 0)) >>> 0;
+		x = rt.usizeRem(x, 7);
+		x = rt.usizeDiv(x, 3);
 		_50(out, x);
 	}
 }
@@ -873,6 +885,8 @@ export function i8Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & ~(1 << 2);
+		x = rt.i8Rem(x, 7);
+		x = rt.i8Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -998,6 +1012,8 @@ export function i16Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & ~(1 << 2);
+		x = rt.i16Rem(x, 7);
+		x = rt.i16Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -1123,6 +1139,8 @@ export function i32Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & ~(1 << 2);
+		x = rt.i32Rem(x, 7);
+		x = rt.i32Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -1248,6 +1266,8 @@ export function i64Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.i64Or(x, 8);
 		x = rt.i64Xor(x, b);
 		x = rt.i64And(x, rt.i64Not(4));
+		x = rt.i64Rem(x, 7);
+		x = rt.i64Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -1373,6 +1393,8 @@ export function i128Op(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = rt.i128Or(x, rt.i128Shl(1, 3));
 		x = rt.i128Xor(x, b);
 		x = rt.i128And(x, rt.i128Not(rt.i128Shl(1, 2)));
+		x = rt.i128Rem(x, 7);
+		x = rt.i128Div(x, 3);
 		_50(out, x);
 	}
 }
@@ -1498,6 +1520,8 @@ export function isizeOp(op: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		x = x | (1 << 3);
 		x = x ^ b;
 		x = x & ~(1 << 2);
+		x = rt.isizeRem(x, 7);
+		x = rt.isizeDiv(x, 3);
 		_50(out, x);
 	}
 }
