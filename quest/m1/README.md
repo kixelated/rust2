@@ -18,7 +18,6 @@ are folded into the [exporter's](/quest/m1/ffi-export.md). The
 
 - [Waiting: publish the UniFFI fork](/quest/m1/uniffi-release.md) - the fork publishes to crates.io under `rust2-*` names, once the maintainer decides it should
 - [Exporter](/quest/m1/ffi-export.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
-- [The exporter refuses what it can't export](/quest/m1/ffi-refuse.md) - `Option<&T>` parameters, unconstrained impl lifetimes, and unreachable objects work or are refused with a span
 - [Nix builds in the build benchmark](/quest/m1/bench-nix.md) - moq's Nix release builds measured across crane, crane with mbx, crate2nix, and cargo with mbx, so moq can choose how they share compilations
 - [Land main through quest land](/quest/m1/land.md) - every queued PR lands as one tested batch through the shared gate
 - [Bump quest to quest land](/quest/m1/land-bump.md) - condition: kixelated/quest ships `quest land`; then bump the flake input

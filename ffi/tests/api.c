@@ -90,6 +90,7 @@ static int script(void) {
 	}
 	api_counter_rename(c, str("d"));
 	print("name ", api_counter_name(c), "\n");
+	printf("is d %s\n", api_counter_is(c, str("d")) ? "true" : "false");
 	api_counter *copy = api_counter_clone(c);
 	api_counter_add(copy, 1, NULL, NULL);
 	printf("clone %llu original %llu\n", (unsigned long long)api_counter_get(copy),
@@ -170,6 +171,9 @@ static int script(void) {
 	api_name_free(longest);
 	api_name_free(dd);
 	api_name_free(joined);
+	api_name *unnamed = api_unnamed();
+	print("unnamed [", api_name_as_str(unnamed), "]\n");
+	api_name_free(unnamed);
 
 	printf("total %llu\n", (unsigned long long)api_total((api_range_u64){.start = 2, .end = 5}));
 	api_range_u64 wide = api_widen((api_range_u64){.start = 2, .end = 5}, 1);

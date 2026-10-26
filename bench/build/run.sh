@@ -23,20 +23,33 @@ Usage: just bench [OPTIONS]
 Options:
   --corpus NAME    Measure only this corpus (repeatable; default: all)
   --variant NAME   Measure only this variant (repeatable; default: all)
-  --runs N         Timed runs per scenario (default: 5 for edit-leaf and edit-hub, else 3)
+  --runs N         Timed runs per scenario (default: 5 for the edit-* scenarios, else 3)
   --no-attribute   Skip the nightly build that attributes where the time goes
   --out DIR        Write results to this new or empty directory
                    (default: target/bench/results/<UTC time>)
 EOF
 }
 
-# The incremental scenarios rewrite one marker function in a crate root, so every
-# run is a real body edit that reaches codegen.
+# The incremental scenarios rewrite one marker, so every run is a real edit that
+# reaches codegen: a function appended to a crate root or, given the line that
+# opens a function's body, a statement at the top of that body. A rewrite moves
+# no other line.
 if [[ ${1:-} == edit ]]; then
     file=$2
+    line=${3:-}
     [[ -f $file ]] || die "edit target $file does not exist"
     sed -i '/__rust2_bench_edit/d' "$file"
-    printf '#[doc = "rust2 bench edit"] pub fn __rust2_bench_edit() -> u64 { %s }\n' "$(date +%s%N)" >>"$file"
+    if [[ -z $line ]]; then
+        printf '#[doc = "rust2 bench edit"] pub fn __rust2_bench_edit() -> u64 { %s }\n' "$(date +%s%N)" >>"$file"
+        exit 0
+    fi
+    # A statement, not a binding, so an async body holds nothing new across an await.
+    awk -v line="$line" -v stmt="std::hint::black_box($(date +%s%N)_u64); // __rust2_bench_edit" '
+        { print; text = $0; sub(/^[ \t]+/, "", text) }
+        text == line { found++; print stmt }
+        END { exit found != 1 }' "$file" >"$file.rust2-bench" ||
+        { rm -f "$file.rust2-bench" && die "$file has no single line \`$line\`"; }
+    mv "$file.rust2-bench" "$file"
     exit 0
 fi
 
@@ -75,7 +88,7 @@ done
 
 config=$(taplo get -f "$bench/corpus.toml" -o json)
 # Every scenario in the order it runs, and those a variant without a `scenarios` list runs.
-scenarios='["check", "build", "edit-leaf", "edit-hub", "test-build", "test-run", "test-edit"]'
+scenarios='["check", "build", "edit-leaf", "edit-hub", "edit-sync", "edit-async", "test-build", "test-run", "test-edit"]'
 build_scenarios='["check", "build", "edit-leaf", "edit-hub"]'
 mapfile -t all_corpora < <(jq -r '.corpus[].name' <<<"$config")
 mapfile -t all_variants < <(jq -r '.variant[].name' <<<"$config")
@@ -371,13 +384,11 @@ summarize_runs() { # corpus scenario variant
 # which goes first each round, so drift over a long job spreads across all of
 # them instead of favoring whichever ran last.
 bench_corpus() { # corpus dir
-    local corpus=$1 dir=$2 leaf hub scenario file prepare n i j variant
-    local -a args test present active scenario_names cmd
+    local corpus=$1 dir=$2 scenario prepare n i j variant
+    local -a args test present active scenario_names cmd edit
     mapfile -t args < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .args[]' <<<"$config")
     mapfile -t test < <(jq -r --arg n "$corpus" '.corpus[] | select(.name == $n) | .test // [] | .[]' <<<"$config")
     mapfile -t scenario_names < <(jq -r '.[]' <<<"$scenarios")
-    leaf=$(field corpus "$corpus" .leaf)
-    hub=$(field corpus "$corpus" .hub)
 
     present=()
     for variant in "${variants[@]}"; do
@@ -435,12 +446,14 @@ bench_corpus() { # corpus dir
                 ;;
         esac
         if [[ $scenario == edit-* || $scenario == test-edit ]]; then
-            file=$hub
-            [[ $scenario != edit-leaf ]] || file=$leaf
-            [[ -n $file ]] || continue
-            prepare=$(printf '%q ' "$bench/run.sh" edit "$file")
-            # Add the marker and build it, so each timed run is a body edit.
-            "$bench/run.sh" edit "$dir/$file"
+            # The file the scenario edits and, for a body edit, the line that opens the body.
+            mapfile -t edit < <(jq -r --arg n "$corpus" --arg s "$scenario" '.corpus[] | select(.name == $n)
+                | {"edit-leaf": .leaf, "edit-hub": .hub, "edit-sync": .sync, "edit-async": .async, "test-edit": .hub}[$s]
+                | strings, arrays[]' <<<"$config")
+            ((${#edit[@]})) || continue
+            prepare=$(printf '%q ' "$bench/run.sh" edit "${edit[@]}")
+            # Add the marker and build it, so each timed run is an edit.
+            "$bench/run.sh" edit "$dir/${edit[0]}" "${edit[@]:1}"
             for variant in "${active[@]}"; do
                 (
                     use_variant "$corpus" "$variant"

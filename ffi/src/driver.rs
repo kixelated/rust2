@@ -106,7 +106,7 @@ impl Callbacks for Export {
 							false => format!("{} `{}`", why.construct, why.detail),
 						})
 						.collect();
-					tcx.dcx().span_err(
+					let mut err = tcx.dcx().struct_span_err(
 						refusal.span,
 						format!(
 							"rust2-ffi: cannot export {} `{}`: {}; exclude it in the config to leave it out",
@@ -115,6 +115,10 @@ impl Callbacks for Export {
 							reasons.join("; ")
 						),
 					);
+					for (span, note) in refusal.why.iter().filter_map(|why| why.note.as_ref()) {
+						err = err.with_span_note(*span, note.clone());
+					}
+					err.emit();
 				}
 				for (path, count) in &collected.excluded {
 					if *count == 0 {
