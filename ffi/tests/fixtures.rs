@@ -528,8 +528,8 @@ fn patched() {
 /// as the check resolved them: an ancestor's file through its `include`, with paths from
 /// the directory holding its `.cargo`, outranking the manifest's patch of the same
 /// dependency under another spelling of its source, and a `--config` value's `include`,
-/// from the package's directory, which names that source by a registry only the config
-/// defines.
+/// from the package's directory. Both name that source by a registry only the config
+/// defines, whose index the environment overrides.
 #[test]
 fn config_patched() {
 	let root = scratch().join("config-patched");
@@ -564,12 +564,12 @@ fn config_patched() {
 	write(".cargo/config.toml", "include = [\"patch.toml\"]\n");
 	write(
 		".cargo/patch.toml",
-		"[patch.index]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
+		"[registries.index]\nindex = \"https://example.com/index\"\n\n\
+		[patch.index]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
 	);
 	write(
 		"pkg/.cargo/cli.toml",
-		"[registries.index]\nindex = \"https://github.com/rust-lang/crates.io-index\"\n\n\
-		[patch.index]\nrust2-ffi-config-cli = { path = \"cli\" }\n",
+		"[patch.index]\nrust2-ffi-config-cli = { path = \"cli\" }\n",
 	);
 	write(
 		"pkg/Cargo.toml",
@@ -595,6 +595,11 @@ fn config_patched() {
 		.arg(&out)
 		.args(["--", "--offline", "--config", "include = [\".cargo/cli.toml\"]"])
 		.env("CARGO_TARGET_DIR", root.join("build"))
+		// What the check resolves `index` by, outranking its config.
+		.env(
+			"CARGO_REGISTRIES_INDEX_INDEX",
+			"https://github.com/rust-lang/crates.io-index",
+		)
 		.output()
 		.unwrap();
 	assert!(

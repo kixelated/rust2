@@ -58,7 +58,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 }
 
 /// Each export's package, as [`config::env::CRATES`] lists them: the configured package
-/// first. Then its workspace's patches, as [`config::env::PATCH`] has them.
+/// first. Then the patches it resolved with, as [`config::env::PATCH`] has them.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String, String), String> {
 	let picks = Picks::parse(cargo)?;
 	// On the host, so the resolved dependencies are the ones the check passes rustc.
@@ -159,219 +159,130 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String,
 		}
 		lines.push_str(&package.line());
 	}
-	let dir = manifest.parent().expect("a manifest path has a parent");
-	Ok((lines, patches(&metadata.workspace_root, dir, &picks)?))
+	Ok((lines, overrides(&metadata, top)?))
 }
 
-/// The workspace's `[patch]` and `[replace]` tables, and the `[patch]` of cargo's config
-/// where the check runs, in `dir`, which outranks the workspace's a dependency at a time:
-/// each path absolute, so the glue's own workspace, built from anywhere, resolves the
-/// exports as the check does.
-fn patches(root: &Path, dir: &Path, picks: &Picks<'_>) -> Result<String, String> {
-	let manifest = root.join("Cargo.toml");
-	let mut patches = overrides(&read_toml(&manifest)?, root);
-	let config = config(dir, picks)?;
-	if let Some(paths) = config.get("paths") {
-		return Err(format!(
-			"cargo's config overrides {paths} by `paths`, which no manifest can, so the export's library would build them unpatched"
-		));
+/// The `[patch]` and `[replace]` the glue's workspace resolves the exports by as the
+/// check did, wherever it builds, as TOML with each path absolute: the workspace's
+/// `[replace]`, and each patch cargo applied to what `top` builds with.
+fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
+	let manifest = metadata.workspace_root.join("Cargo.toml");
+	let text = std::fs::read_to_string(&manifest).map_err(|err| format!("reading {}: {err}", manifest.display()))?;
+	let table: toml::Table = text
+		.parse()
+		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
+	let mut overrides = toml::Table::new();
+	if let Some(replace) = replace(&table, &metadata.workspace_root) {
+		overrides.insert("replace".to_string(), replace.into());
 	}
-	let table = |table: Option<toml::Value>| match table {
-		Some(toml::Value::Table(table)) => table,
-		_ => toml::Table::new(),
-	};
-	let manifest_patch = table(patches.remove("patch"));
-	let patch = combine(&manifest_patch, &table(config.get("patch").cloned()), &config)?;
+	let patch = patch(metadata, top)?;
 	if !patch.is_empty() {
-		patches.insert("patch".to_string(), patch.into());
+		overrides.insert("patch".to_string(), patch.into());
 	}
-	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+	toml::to_string(&overrides).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
 }
 
-/// The `[patch]` cargo resolves from a manifest's and its config's, keyed by each
-/// source's URL, which needs no config to read: the config's dependency of a name
-/// outranks the manifest's of that name in the same source.
-fn combine(manifest: &toml::Table, patch: &toml::Table, config: &toml::Table) -> Result<toml::Table, String> {
-	let mut combined = by_source(patch, config)?;
-	for (url, deps) in by_source(manifest, config)? {
-		match combined.get_mut(&url) {
-			Some(toml::Value::Table(into)) => {
-				for (name, dep) in deps.as_table().into_iter().flatten() {
-					into.entry(name).or_insert_with(|| dep.clone());
+/// Each patch cargo applied in resolving what `top` builds with, wherever it was
+/// declared: the manifest, cargo's config, `--config`, or the environment. A dependency
+/// resolved to a package of another source than the one it names was patched; it is
+/// keyed by the URL of the source it names, which reads the same without that config.
+fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
+	let packages: BTreeMap<&str, &Package> = metadata.packages.iter().map(|p| (p.id.as_str(), p)).collect();
+	let nodes: BTreeMap<&str, &Node> = metadata.resolve.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+	let mut patch = toml::Table::new();
+	let mut seen = BTreeSet::new();
+	let mut queue = vec![top.id.as_str()];
+	while let Some(id) = queue.pop() {
+		let (true, Some(package), Some(node)) = (seen.insert(id), packages.get(id), nodes.get(id)) else {
+			continue;
+		};
+		// What the library builds, not what tests do.
+		let built = |kind: &Option<String>| kind.as_deref() != Some("dev");
+		for dep in node.deps.iter().filter(|d| d.dep_kinds.iter().any(|k| built(&k.kind))) {
+			queue.push(&dep.pkg);
+			let Some(resolved) = packages.get(dep.pkg.as_str()) else {
+				continue;
+			};
+			let named = (package.dependencies.iter()).find(|d| {
+				built(&d.kind)
+					&& d.name == resolved.name
+					&& d.rename.as_deref().unwrap_or(&d.name).replace('-', "_") == dep.name
+			});
+			// A path dependency names no source to patch.
+			let Some(named) = named.and_then(|d| d.source.as_deref()) else {
+				continue;
+			};
+			// A git package's source adds the commit it resolved to.
+			let source = resolved.source.as_deref().map(|s| s.split('#').next().unwrap_or(s));
+			if source == Some(named) {
+				continue;
+			}
+			let replacement = match resolved.source.as_deref() {
+				None => {
+					let dir = resolved.manifest_path.parent().expect("a manifest path has a parent");
+					toml::toml! { path = (dir.display().to_string()) }
+				}
+				Some(git) if git.starts_with("git+") => {
+					let (url, rev) = git["git+".len()..].split_once('#').unwrap_or((git, ""));
+					let url = url.split('?').next().unwrap_or(url);
+					toml::toml! { git = url rev = rev }
+				}
+				Some(other) => {
+					return Err(format!(
+						"{} {} is patched in from {other}, which the export's library cannot patch in",
+						resolved.name, resolved.version
+					));
+				}
+			};
+			let key = patch_key(named)?;
+			let into = patch.entry(key).or_insert_with(|| toml::Table::new().into());
+			let into = into.as_table_mut().expect("a patch's source is a table");
+			match into.get(&resolved.name) {
+				Some(toml::Value::Table(existing)) if *existing == replacement => {}
+				// Two versions of one package patched in from one source.
+				Some(_) => {
+					let mut renamed = replacement;
+					renamed.insert("package".to_string(), resolved.name.clone().into());
+					into.insert(format!("{}-{}", resolved.name, resolved.version), renamed.into());
+				}
+				None => {
+					into.insert(resolved.name.clone(), replacement.into());
 				}
 			}
-			_ => {
-				combined.insert(url, deps);
-			}
 		}
 	}
-	Ok(combined)
+	Ok(patch)
 }
 
-/// A `[patch]` keyed by each source's URL, where a later key of the same source replaces
-/// an earlier one's table whole, as cargo does.
-fn by_source(patch: &toml::Table, config: &toml::Table) -> Result<toml::Table, String> {
-	let mut by_source = toml::Table::new();
-	for (key, deps) in patch {
-		if !deps.is_table() {
-			return Err(format!("`patch.{key}` is not a table"));
-		}
-		by_source.insert(source(key, config), deps.clone());
+/// The `[patch]` key of a source as `cargo metadata` spells it.
+fn patch_key(source: &str) -> Result<String, String> {
+	if source == "registry+https://github.com/rust-lang/crates.io-index" || source == "sparse+https://index.crates.io/"
+	{
+		return Ok("crates-io".to_string());
 	}
-	Ok(by_source)
+	if let Some(url) = source.strip_prefix("registry+") {
+		return Ok(url.to_string());
+	}
+	if source.starts_with("sparse+") {
+		return Ok(source.to_string());
+	}
+	if let Some(url) = source.strip_prefix("git+") {
+		return Ok(url.split(['?', '#']).next().unwrap_or(url).to_string());
+	}
+	Err(format!("a patch of {source}, which the export's library cannot patch"))
 }
 
-/// The source a `[patch.<key>]` names, as cargo resolves it: crates.io's index or a
-/// configured registry's by name, and otherwise the URL itself.
-fn source(key: &str, config: &toml::Table) -> String {
-	if key == "crates-io" {
-		return "https://github.com/rust-lang/crates.io-index".to_string();
-	}
-	let index = (config.get("registries"))
-		.and_then(|registries| registries.get(key))
-		.and_then(|registry| registry.get("index"))
-		.and_then(toml::Value::as_str);
-	index.unwrap_or(key).to_string()
-}
-
-fn read_toml(path: &Path) -> Result<toml::Table, String> {
-	let text = std::fs::read_to_string(path).map_err(|err| format!("reading {}: {err}", path.display()))?;
-	text.parse().map_err(|err| format!("parsing {}: {err}", path.display()))
-}
-
-/// The `[patch]` and `paths` of cargo's config as cargo reads it in `dir`, each patch's
-/// path absolute: `$CARGO_HOME`'s file, then each directory's from the root down to
-/// `dir`, then each `--config` value, each outranking the last.
-fn config(dir: &Path, picks: &Picks<'_>) -> Result<toml::Table, String> {
-	// Cargo walks the directory it runs in, symlinks resolved.
-	let dir = std::fs::canonicalize(dir).map_err(|err| format!("resolving {}: {err}", dir.display()))?;
-	let home = match std::env::var_os("CARGO_HOME") {
-		Some(home) => Some(dir.join(home)),
-		None => std::env::home_dir().map(|home| home.join(".cargo")),
-	};
-	let mut dirs: Vec<PathBuf> = dir.ancestors().map(|d| d.join(".cargo")).collect();
-	dirs.reverse();
-	if let Some(home) = home.filter(|home| !dirs.contains(home)) {
-		dirs.insert(0, home);
-	}
-	let mut config = toml::Table::new();
-	for dir in dirs {
-		// The name without `.toml` wins where both are.
-		let file = ["config", "config.toml"]
-			.into_iter()
-			.map(|name| dir.join(name))
-			.find(|f| f.is_file());
-		if let Some(file) = file {
-			merge(&mut config, load(&file)?);
-		}
-	}
-	for value in picks.configs() {
-		// A value naming a file is that file, and otherwise a TOML key and value, whose
-		// paths are from where cargo runs.
-		let file = dir.join(value);
-		let table = match !value.is_empty() && file.exists() {
-			true => load(&file)?,
-			false => {
-				let origin = format!("--config {value}");
-				let table = value.parse().map_err(|err| format!("parsing {origin}: {err}"))?;
-				expand(table, &dir, &dir, &origin)?
-			}
-		};
-		merge(&mut config, table);
-	}
-	config.retain(|key, _| matches!(key, "patch" | "paths" | "registries"));
-	Ok(config)
-}
-
-/// A cargo config file's values, as [`expand`] has them: its `include`s from its own
-/// directory, and its patches' paths from the directory holding that.
-fn load(file: &Path) -> Result<toml::Table, String> {
-	let dir = file.parent().expect("a file has a parent");
-	expand(
-		read_toml(file)?,
-		dir,
-		dir.parent().unwrap_or(dir),
-		&file.display().to_string(),
-	)
-}
-
-/// A config's values with its `include`s merged in beneath them, in order, each path in
-/// `dir`, and each patch's path made absolute from `root`. `origin` names it in errors.
-fn expand(mut table: toml::Table, dir: &Path, root: &Path, origin: &str) -> Result<toml::Table, String> {
-	let includes = match table.remove("include") {
-		None => Vec::new(),
-		Some(toml::Value::String(path)) => vec![toml::Value::String(path)],
-		Some(toml::Value::Array(includes)) => includes,
-		Some(_) => return Err(format!("{origin}: `include` is not a path or a list")),
-	};
-	let mut config = toml::Table::new();
-	for include in includes {
-		let (path, optional) = match &include {
-			toml::Value::String(path) => (Some(path.as_str()), false),
-			toml::Value::Table(table) => (
-				table.get("path").and_then(toml::Value::as_str),
-				table.get("optional").and_then(toml::Value::as_bool).unwrap_or(false),
-			),
-			_ => (None, false),
-		};
-		let Some(path) = path else {
-			return Err(format!("{origin}: an `include` names no path: {include}"));
-		};
-		let path = dir.join(path);
-		if optional && !path.exists() {
-			continue;
-		}
-		merge(&mut config, load(&path)?);
-	}
-	// Cargo reads no `[replace]` from its config.
-	if let Some(patch) = overrides(&table, root).remove("patch") {
-		table.insert("patch".to_string(), patch);
-	}
-	merge(&mut config, table);
-	Ok(config)
-}
-
-/// Merge `high` into `low` as cargo merges its config: tables key by key, arrays joined
-/// with `high`'s last, and any other value `high`'s.
-fn merge(low: &mut toml::Table, high: toml::Table) {
-	for (key, high) in high {
-		match (low.get_mut(&key), high) {
-			(Some(toml::Value::Table(low)), toml::Value::Table(high)) => merge(low, high),
-			(Some(toml::Value::Array(low)), toml::Value::Array(high)) => low.extend(high),
-			(_, high) => {
-				low.insert(key, high);
-			}
-		}
-	}
-}
-
-/// A manifest's `[patch.<source>]` and `[replace]` dependencies, each path made absolute
-/// from `root`, the manifest's directory.
-fn overrides(manifest: &toml::Table, root: &Path) -> toml::Table {
-	let mut overrides = manifest.clone();
-	overrides.retain(|key, _| key == "patch" || key == "replace");
-	let mut deps: Vec<&mut toml::Value> = Vec::new();
-	for (key, value) in overrides.iter_mut() {
-		let Some(table) = value.as_table_mut() else {
-			continue;
-		};
-		match key.as_str() {
-			// A table of dependencies for each source.
-			"patch" => deps.extend(
-				(table.iter_mut())
-					.filter_map(|(_, source)| source.as_table_mut())
-					.flat_map(|source| source.iter_mut().map(|(_, dep)| dep)),
-			),
-			_ => deps.extend(table.iter_mut().map(|(_, dep)| dep)),
-		}
-	}
+/// A manifest's `[replace]` dependencies, each path made absolute from `root`, the
+/// manifest's directory.
+fn replace(manifest: &toml::Table, root: &Path) -> Option<toml::Table> {
+	let mut replace = manifest.get("replace")?.as_table()?.clone();
 	// A dependency's own table: a bare string is a version requirement.
-	for dep in deps {
+	for (_, dep) in replace.iter_mut() {
 		if let Some(toml::Value::String(path)) = dep.get_mut("path") {
 			*path = root.join(path.as_str()).display().to_string();
 		}
 	}
-	overrides
+	Some(replace)
 }
 
 /// What a cargo subcommand prints for the package, run as the check resolves: from the
@@ -430,19 +341,6 @@ impl<'a> Picks<'a> {
 			picks.named.extend(named.filter(|f| !f.is_empty()));
 		}
 		Ok(picks)
-	}
-
-	/// Each `--config` value, in order.
-	fn configs(&self) -> Vec<&'a str> {
-		let mut values = Vec::new();
-		let mut flags = self.flags.iter().copied();
-		while let Some(flag) = flags.next() {
-			match flag {
-				"--config" => values.extend(flags.next()),
-				_ => values.extend(flag.strip_prefix("--config=")),
-			}
-		}
-		values
 	}
 
 	/// The same picks, as cargo args.
@@ -534,6 +432,8 @@ struct Dependency {
 	rename: Option<String>,
 	/// `dev` or `build`, or none for a normal dependency.
 	kind: Option<String>,
+	/// The source it names, such as `registry+<url>`, or none for a path dependency.
+	source: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -547,63 +447,15 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn absolutes_override_paths() {
+	fn absolutes_replace_paths() {
 		let manifest: toml::Table = "[dependencies]\nx = { path = \"x\" }\n\n\
-			[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"real\" }\n\n\
-			[replace]\n\"a:1.0.0\" = { path = \"a\" }\n"
+			[replace]\n\"a:1.0.0\" = { path = \"a\" }\n\"b:1.0.0\" = \"1\"\n"
 			.parse()
 			.unwrap();
-		let expected: toml::Table =
-			"[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"/ws/real\" }\n\n\
-			[replace]\n\"a:1.0.0\" = { path = \"/ws/a\" }\n"
-				.parse()
-				.unwrap();
-		assert_eq!(overrides(&manifest, Path::new("/ws")), expected);
-	}
-
-	#[test]
-	fn combines_patches_by_source() {
-		let index = "https://github.com/rust-lang/crates.io-index";
-		let config: toml::Table = format!(
-			"[registries.mirror]\nindex = \"{index}\"\n\n\
-			[registries.other]\nindex = \"https://example.com/index\"\n\n\
-			[patch.crates-io]\nlost = {{ path = \"/lost\" }}\n\n\
-			[patch.mirror]\na = {{ path = \"/config\" }}\n\n\
-			[patch.other]\nc = {{ path = \"/other\" }}\n"
-		)
-		.parse()
-		.unwrap();
-		let manifest: toml::Table =
-			format!("[patch.'{index}']\na = {{ path = \"/manifest\" }}\nb = {{ path = \"/manifest\" }}\n")
-				.parse()
-				.unwrap();
-		let patch = config["patch"].as_table().unwrap();
-		// A config's later table of a source, by key, replaces an earlier one whole, a config's
-		// dependency outranks the manifest's of its name, and only URLs name sources.
-		let expected: toml::Table = format!(
-			"[patch.'{index}']\na = {{ path = \"/config\" }}\nb = {{ path = \"/manifest\" }}\n\n\
-			[patch.'https://example.com/index']\nc = {{ path = \"/other\" }}\n"
-		)
-		.parse()
-		.unwrap();
-		let combined = combine(manifest["patch"].as_table().unwrap(), patch, &config).unwrap();
-		assert_eq!(combined, expected["patch"].as_table().unwrap().clone());
-	}
-
-	#[test]
-	fn merges_config_as_cargo() {
-		let mut low: toml::Table = "[patch.crates-io]\na = { path = \"low\", features = [\"x\"] }\nb = \"1\"\n"
+		let expected: toml::Table = "\"a:1.0.0\" = { path = \"/ws/a\" }\n\"b:1.0.0\" = \"1\"\n"
 			.parse()
 			.unwrap();
-		let high: toml::Table = "[patch.crates-io]\na = { path = \"high\", features = [\"y\"] }\nc = \"2\"\n"
-			.parse()
-			.unwrap();
-		merge(&mut low, high);
-		let expected: toml::Table =
-			"[patch.crates-io]\na = { path = \"high\", features = [\"x\", \"y\"] }\nb = \"1\"\nc = \"2\"\n"
-				.parse()
-				.unwrap();
-		assert_eq!(low, expected);
+		assert_eq!(replace(&manifest, Path::new("/ws")), Some(expected));
 	}
 
 	#[test]
@@ -633,7 +485,6 @@ mod tests {
 		let cargo: Vec<String> = cargo.iter().map(|s| s.to_string()).collect();
 		let flags = ["--all-features", "--locked", "--config", "a=1", "--config=b=2"];
 		assert_eq!(Picks::parse(&cargo).unwrap().args(), flags);
-		assert_eq!(Picks::parse(&cargo).unwrap().configs(), ["a=1", "b=2"]);
 		for target in [
 			&["--target", "wasm32-unknown-unknown"][..],
 			&["--target=wasm32-unknown-unknown"],
