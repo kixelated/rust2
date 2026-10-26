@@ -628,9 +628,12 @@ fn extend_source<'tcx>(
 		_ => elems[0],
 	};
 	let borrowed = owner == "Extend" && library::targ(call.args, 1) != stored;
-	Some(match borrowed && elems.iter().any(|&t| b.needs_copy(t)) {
-		true => Expr::rt("iterMap", vec![items, Expr::Rt("copy".into())]),
-		false => items,
+	if !borrowed || !elems.iter().any(|&t| b.t.needs_copy(t)) {
+		return Some(items);
+	}
+	Some(match b.t.copy_fn(stored, call.span) {
+		Some(copy) => Expr::rt("iterMap", vec![items, copy]),
+		None => items,
 	})
 }
 
@@ -888,8 +891,10 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 /// `Clone::clone` of `ty`, as a function, or `undefined` where it is the value itself.
 fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
-	if b.needs_copy(ty) && library::clone_copies(b.t, ty) {
-		return Expr::Rt("copy".into());
+	if library::clone_copies(b.t, ty)
+		&& let Some(copy) = b.t.copy_fn(ty, span)
+	{
+		return copy;
 	}
 	if (b.t.is_copy(ty) && library::clone_copies(b.t, ty)) || b.t.std_of(ty) == Some(Std::String) {
 		return Expr::undefined();
