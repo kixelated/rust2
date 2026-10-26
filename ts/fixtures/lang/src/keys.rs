@@ -73,6 +73,20 @@ impl PartialOrd for Skew {
 	}
 }
 
+/// A `ne` of its own that disagrees with `eq`, which an `Option`'s `!=` never calls.
+struct Picky(u8);
+
+impl PartialEq for Picky {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 == other.0
+	}
+
+	#[allow(clippy::partialeq_ne_impl)]
+	fn ne(&self, other: &Self) -> bool {
+		self.0 > other.0
+	}
+}
+
 /// Strings whose UTF-8 order differs from their UTF-16 order past U+FFFF.
 const WORDS: [&str; 6] = ["", "a", "ab", "\u{e000}", "\u{ffff}", "\u{10000}"];
 
@@ -170,6 +184,11 @@ fn options(data: &[u8], out: &mut Vec<u8>) {
 		let (m, n) = (Arc::new(Skew(c % 4)), Arc::new(Skew(d % 4)));
 		out.push(partial(p.partial_cmp(&q)) | partial(u.partial_cmp(&v)) << 2 | partial(m.partial_cmp(&n)) << 4);
 		out.push(order(p.cmp(&q)) | order(u.cmp(&v)) << 2 | order(m.cmp(&n)) << 4);
+		// An `Option`'s `!=` is `!eq`, under a tuple and an `Arc` too.
+		let (g, h) = (Some(Picky(c % 3)), Some(Picky(d % 3)));
+		let (j, k) = ((Some(Picky(c % 3)), c % 2), (Some(Picky(d % 3)), d % 2));
+		let (r, s) = (Arc::new(Some(Picky(c % 3))), Arc::new(Some(Picky(d % 3))));
+		out.push((g != h) as u8 | ((j != k) as u8) << 1 | ((r != s) as u8) << 2);
 		let key = (
 			c % 3,
 			Horizon {

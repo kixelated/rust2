@@ -405,13 +405,14 @@ fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
 }
 
-/// Whether `ty`, a std key, holds a type of the crate whose `PartialEq` overrides `ne`.
+/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples
+/// and `Arc`s, but not an `Option`, whose `ne` is `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
-		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ne(b, inner),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
 		ty::Adt(adt, _) if adt.did().is_local() => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
