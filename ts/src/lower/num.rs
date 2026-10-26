@@ -104,7 +104,7 @@ impl Int {
 
 	/// A literal of this type spelled `text`, JS number digits of `value`. A wide value
 	/// past 2^53 is limbs, made from a bigint: `rt.u64Of(0xffffffffffffffffn)`.
-	pub fn spelled(self, text: String, value: i128) -> Expr {
+	fn spelled(self, text: String, value: i128) -> Expr {
 		let safe = (1 - (1i128 << 53)..(1 << 53)).contains(&value) && (self.signed || value >= 0);
 		match safe {
 			true => Expr::lit(text),

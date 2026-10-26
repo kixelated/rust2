@@ -129,7 +129,7 @@ if (wideArg === "wide") {
 			const u = i % 3 === 0 ? x : values[(i * 7) % values.length];
 			const v = values[(i * 13 + 5) % values.length];
 			const shift = shifts[i++ % shifts.length];
-			for (let kind = 0; kind < 24; kind++) {
+			for (let kind = 0; kind < 25; kind++) {
 				for (const op of [3, 9]) cases.push(Uint8Array.of(op, kind, ...be(x), ...be(y), shift));
 				for (const op of [4, 10]) cases.push(Uint8Array.of(op, kind, ...be(x), ...be(y), ...be(u), ...be(v), shift));
 			}

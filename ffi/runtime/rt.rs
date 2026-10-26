@@ -234,8 +234,11 @@ unsafe impl<T: Send> Send for Object<T> {}
 unsafe impl<T: Send> Sync for Object<T> {}
 
 impl<T> Object<T> {
-	/// A new handle owning `value`.
-	pub fn new(value: T) -> *const c_void {
+	/// A new handle owning `value`, which may outlive any borrow, so `value` holds none.
+	pub fn new(value: T) -> *const c_void
+	where
+		T: 'static,
+	{
 		Arc::into_raw(Arc::new(Self {
 			state: AtomicUsize::new(0),
 			depth: UnsafeCell::new(0),

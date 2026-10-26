@@ -9,20 +9,21 @@ import type * as Control from "../stats.Control.ts";
 
 /** Read a lite message's varint size prefix, refusing one past `max`. */
 export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usize, DecodeError.DecodeError> {
-	const varint = Decoder.varint(r);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	const size = varint.value;
-	const tryFrom = rt.usizeTryFrom(size);
-	arms: {
-		if (tryFrom.ok) {
-			const size2 = tryFrom.value;
-			if (size2 <= max) {
-				return rt.Ok(size2);
+	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	let size!: rt.u64;
+	let _8!: rt.Result<rt.usize, rt.TryFromIntError>;
+	_3 = Decoder.varint(r);
+	if (_3.ok) {
+		size = _3.value;
+		_8 = rt.usizeTryFrom(size);
+		if (_8.ok) {
+			if (_8.value <= max) {
+				return rt.Ok(_8.value);
 			}
 		}
-		return rt.Err({ tag: "MessageTooLarge", size: rt.resultUnwrapOr(rt.usizeTryFrom(size), 4294967295), max });
+		return rt.Err({ tag: "MessageTooLarge", size: rt.resultUnwrapOr(rt.usizeTryFrom(size), 4294967295), max } as DecodeError.DecodeError);
+	} else {
+		return _3;
 	}
 }
 
@@ -31,27 +32,32 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
  * [`Message::decode_msg`], for a body whose bounds come from the session.
  */
 export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
-	const decodeSize_ = decodeSize(r, 65535);
-	if (!decodeSize_.ok) {
-		return rt.Err(decodeSize_.error);
-	}
-	const size = decodeSize_.value;
-	const sub = Decoder.sub(r, size);
-	if (!sub.ok) {
-		return rt.Err(sub.error);
-	}
-	let body: Decoder.Decoder = sub.value;
-	const result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
-		if (Decoder.isEmpty(body)) {
-			return rt.Ok(msg);
+	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
+	let body!: Decoder.Decoder;
+	let _9!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
+	let result!: rt.Result<Group.Group, DecodeError.DecodeError>;
+	_3 = decodeSize(r, 65535);
+	if (_3.ok) {
+		_9 = Decoder.sub(r, _3.value);
+		if (_9.ok) {
+			body = _9.value;
+			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
+				if (!Decoder.isEmpty(body)) {
+					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
+				} else {
+					return rt.Ok(msg);
+				}
+			});
+			if (result.ok) {
+				r.control = undefined;
+			}
+			return result;
 		} else {
-			return rt.Err({ tag: "Long" });
+			return _9;
 		}
-	});
-	if (result.ok) {
-		r.control = undefined;
+	} else {
+		return _3;
 	}
-	return result;
 }
 
 /**
@@ -59,27 +65,32 @@ export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0
  * [`Message::decode_msg`], for a body whose bounds come from the session.
  */
 export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
-	const decodeSize_ = decodeSize(r, 65535);
-	if (!decodeSize_.ok) {
-		return rt.Err(decodeSize_.error);
-	}
-	const size = decodeSize_.value;
-	const sub = Decoder.sub(r, size);
-	if (!sub.ok) {
-		return rt.Err(sub.error);
-	}
-	let body: Decoder.Decoder = sub.value;
-	const result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
-		if (Decoder.isEmpty(body)) {
-			return rt.Ok(msg);
+	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
+	let body!: Decoder.Decoder;
+	let _9!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
+	let result!: rt.Result<Probe.Probe, DecodeError.DecodeError>;
+	_3 = decodeSize(r, 65535);
+	if (_3.ok) {
+		_9 = Decoder.sub(r, _3.value);
+		if (_9.ok) {
+			body = _9.value;
+			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
+				if (!Decoder.isEmpty(body)) {
+					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
+				} else {
+					return rt.Ok(msg);
+				}
+			});
+			if (result.ok) {
+				r.control = "Probe" as Control.Control;
+			}
+			return result;
 		} else {
-			return rt.Err({ tag: "Long" });
+			return _9;
 		}
-	});
-	if (result.ok) {
-		r.control = "Probe" as Control.Control;
+	} else {
+		return _3;
 	}
-	return result;
 }
 
 //# sourceMappingURL=message.ts.map

@@ -51,9 +51,9 @@ edits under moq's dev profile (17 of 169 on PR branches, 1 of 81 squash merges):
 - On stock rustc the cutoff must also keep every DefIndex, which a dependent's
   rmeta encodes raw, and patch the SVH, or the next crate fails with E0460.
 
-When the flags land, measure with an edit the hash can cut off: the benchmark's
-marker function is public and appended to the crate root, whose module span is
-the whole file, so it always changes the hash. A private sync body edit in a
-submodule is the case it is built for.
+When the flags land, measure on the benchmark's `edit-sync`, a body edit the
+hash can cut off: the `edit-hub` marker is public and appended to the crate
+root, whose module span is the whole file, so it always changes the hash.
+`edit-async` is the case the replay says it misses.
 
 Public API: a benchmark variant.

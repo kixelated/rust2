@@ -50,8 +50,6 @@ pub enum Expr {
 	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
 	/// another integer type with the same value.
 	As(Box<Expr>, Type),
-	/// `yield`, which a generator resumes from with the next `rt.Context`.
-	Yield,
 	Located(Loc, Box<Expr>),
 }
 
@@ -124,10 +122,6 @@ impl Expr {
 		}
 	}
 
-	pub fn and(self, rhs: Expr) -> Self {
-		self.binary("&&", rhs)
-	}
-
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
@@ -186,7 +180,7 @@ pub enum StmtKind {
 	Expr(Expr),
 	Decl {
 		mutable: bool,
-		target: Target,
+		name: String,
 		ty: Option<Type>,
 		init: Option<Expr>,
 	},
@@ -201,32 +195,12 @@ pub enum StmtKind {
 		cond: Expr,
 		body: Vec<Stmt>,
 	},
-	/// `for (let name = start; name < end; name++)`, or `<=` if `inclusive`.
-	ForRange {
-		label: Option<String>,
-		name: String,
-		start: Expr,
-		end: Expr,
-		inclusive: bool,
-		body: Vec<Stmt>,
-	},
-	ForOf {
-		label: Option<String>,
-		name: String,
-		iter: Expr,
-		body: Vec<Stmt>,
-	},
 	Block {
 		label: Option<String>,
 		body: Vec<Stmt>,
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
-	/// `try { body } finally { finally }`: what `finally` drops is dropped on every exit.
-	Try {
-		body: Vec<Stmt>,
-		finally: Vec<Stmt>,
-	},
 	/// `try { body } catch (name) { handler }`.
 	Catch {
 		body: Vec<Stmt>,
@@ -263,19 +237,11 @@ impl StmtKind {
 		};
 		Self::Decl {
 			mutable,
-			target: Target::Name(name.into()),
+			name: name.into(),
 			ty,
 			init,
 		}
 	}
-}
-
-/// What a declaration binds: a name, or an array destructured into names.
-#[derive(Clone, Debug)]
-pub enum Target {
-	Name(String),
-	/// `[a, , [b, c]]`; `None` skips an element.
-	Array(Vec<Option<Target>>),
 }
 
 impl Stmt {
@@ -284,7 +250,7 @@ impl Stmt {
 		match &self.kind {
 			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) | StmtKind::Throw(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
-			StmtKind::Block { label: None, body } | StmtKind::Try { body, .. } => diverges(body),
+			StmtKind::Block { label: None, body } => diverges(body),
 			StmtKind::While {
 				label,
 				cond: Expr::Lit(cond),
@@ -304,59 +270,14 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::Break(Some(target)) => Some(target.as_str()) == label,
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
-		StmtKind::Try { body, finally } => breaks_out(body, label, nested) || breaks_out(finally, label, nested),
 		StmtKind::Catch { body, handler, .. } => breaks_out(body, label, nested) || breaks_out(handler, label, nested),
 		// An unlabeled `break` in a case leaves the switch.
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| breaks_out(body, label, true)) || breaks_out(default, label, true)
 		}
-		StmtKind::While { body, .. } | StmtKind::ForRange { body, .. } | StmtKind::ForOf { body, .. } => {
-			breaks_out(body, label, true)
-		}
+		StmtKind::While { body, .. } => breaks_out(body, label, true),
 		_ => false,
 	})
-}
-
-/// Whether `stmts` name the local `name` anywhere, their closures included.
-pub fn mentions(stmts: &[Stmt], name: &str) -> bool {
-	let expr = |e: &Expr| e.mentions(name);
-	stmts.iter().any(|stmt| match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => expr(e),
-		StmtKind::Decl { init, .. } => init.as_ref().is_some_and(expr),
-		StmtKind::Catch { body, handler, .. } => mentions(body, name) || mentions(handler, name),
-		StmtKind::Switch {
-			disc, cases, default, ..
-		} => {
-			expr(disc) || cases.iter().any(|(test, body)| expr(test) || mentions(body, name)) || mentions(default, name)
-		}
-		StmtKind::Declare { .. } => false,
-		StmtKind::If { cond, then, els } => expr(cond) || mentions(then, name) || mentions(els, name),
-		StmtKind::While { cond, body, .. } => expr(cond) || mentions(body, name),
-		StmtKind::ForRange { start, end, body, .. } => expr(start) || expr(end) || mentions(body, name),
-		StmtKind::ForOf { iter, body, .. } => expr(iter) || mentions(body, name),
-		StmtKind::Block { body, .. } => mentions(body, name),
-		StmtKind::Try { body, finally } => mentions(body, name) || mentions(finally, name),
-		StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => false,
-	})
-}
-
-impl Expr {
-	fn mentions(&self, name: &str) -> bool {
-		match self {
-			Self::Ident(ident) => ident == name,
-			Self::This | Self::Sym(_) | Self::Rt(_) | Self::Lit(_) | Self::Str(_) | Self::Yield => false,
-			Self::Array(es) => es.iter().any(|e| e.mentions(name)),
-			Self::Object(props) => props.iter().any(|(_, e)| e.mentions(name)),
-			Self::Member(e, _) | Self::Unary(_, e) | Self::Postfix(e, _) | Self::Located(_, e) | Self::As(e, _) => {
-				e.mentions(name)
-			}
-			Self::Index(a, b) | Self::Binary(a, _, b) | Self::Assign(a, b) => a.mentions(name) || b.mentions(name),
-			Self::Call(f, args) | Self::New(f, args) => f.mentions(name) || args.iter().any(|e| e.mentions(name)),
-			Self::Cond(a, b, c) => a.mentions(name) || b.mentions(name) || c.mentions(name),
-			Self::Arrow(_, _, body) => mentions(body, name),
-			Self::Lambda(_, body) => body.mentions(name),
-		}
-	}
 }
 
 /// Whether control never falls off the end of `stmts`.
@@ -391,9 +312,6 @@ pub struct Function {
 	pub body: Vec<Stmt>,
 	pub loc: Option<Loc>,
 	pub doc: Option<String>,
-	/// An async body, run as a generator: `function*`, returning `Generator<undefined,
-	/// ret, rt.Context>`.
-	pub generator: bool,
 }
 
 #[derive(Clone, Debug)]

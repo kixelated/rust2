@@ -10,17 +10,14 @@ use crate::config::{self, Config};
 /// holds exactly, and its `cfg`s are the browser's.
 const TARGET: &str = "wasm32-unknown-unknown";
 
-const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [--lower thir|mir] [-- <cargo args>]
+const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]
 
 Translates the library of the package that ts.toml names to TypeScript in <dir>. The
 package's Cargo.toml is beside ts.toml unless --manifest-path says where. Cargo args,
 such as --features, are passed to `cargo check`.
 
 --census writes a Markdown report of every construct translation refuses in the library,
-reached from each of its items as if each were a root, instead of translating it.
-
---lower picks what function bodies lower from: THIR, the default, or MIR, the spike's
-prototype.";
+reached from each of its items as if each were a root, instead of translating it.";
 
 pub fn run(args: &[String]) -> ExitCode {
 	match try_run(args) {
@@ -33,7 +30,7 @@ pub fn run(args: &[String]) -> ExitCode {
 }
 
 fn try_run(args: &[String]) -> Result<ExitCode, String> {
-	let Some(args) = Args::parse(args, USAGE, &["--lower"])? else {
+	let Some(args) = Args::parse(args, USAGE)? else {
 		return Ok(ExitCode::SUCCESS);
 	};
 	let config = Config::load(&args.config)?;
@@ -41,13 +38,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		Output::Dir(out) => (config::env::OUT, out.as_os_str()),
 		Output::Census(census) => (config::env::CENSUS, census.as_os_str()),
 	};
-	let mut env = vec![(config::env::CONFIG, args.config.as_os_str()), output];
-	for (_, lower) in &args.options {
-		if !matches!(lower.as_str(), "thir" | "mir") {
-			return Err(format!("--lower takes thir or mir, not {lower}\n\n{USAGE}"));
-		}
-		env.push((config::env::LOWER, lower.as_ref()));
-	}
+	let env = [(config::env::CONFIG, args.config.as_os_str()), output];
 	Check {
 		tool: "rust2-ts",
 		manifest: &args.manifest,

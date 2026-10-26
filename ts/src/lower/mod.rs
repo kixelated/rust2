@@ -14,14 +14,12 @@ mod iter;
 mod library;
 mod mir;
 mod num;
-mod pat;
 mod task;
 
 use std::collections::VecDeque;
 
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_middle::thir::{ExprId, Thir};
 use rustc_middle::ty::{
 	self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv,
 };
@@ -32,38 +30,9 @@ use crate::config::Config;
 use crate::program::{Program, Source, SymKind, Symbol};
 use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 
-/// Each function's THIR, copied before borrow checking steals it.
-pub struct Bodies<'tcx> {
-	map: rustc_data_structures::fx::FxHashMap<LocalDefId, (Thir<'tcx>, ExprId)>,
-	/// No body: what a MIR lowering's library calls see, which pass their arguments lowered.
-	empty: Thir<'tcx>,
-}
-
-impl<'tcx> Bodies<'tcx> {
-	pub fn collect(tcx: TyCtxt<'tcx>) -> Self {
-		let mut map = rustc_data_structures::fx::FxHashMap::default();
-		for def_id in tcx.hir_body_owners() {
-			if !matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn | DefKind::Closure) {
-				continue;
-			}
-			let Ok((thir, expr)) = tcx.thir_body(def_id) else {
-				continue;
-			};
-			// Constant evaluation during type checking may have built this body's MIR
-			// already; translating it then fails with a span instead.
-			if !thir.is_stolen() {
-				map.insert(def_id, (thir.borrow().clone(), expr));
-			}
-		}
-		let empty = Thir::new(rustc_middle::thir::BodyTy::Const(tcx.types.unit));
-		Self { map, empty }
-	}
-}
-
 /// Translate what the config's roots reach, or `None` after reporting why not.
-pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Program> {
-	let mut t = Translator::new(tcx, config, bodies, None)?;
-	t.mir = mir;
+pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
+	let mut t = Translator::new(tcx, config, None)?;
 	for root in &config.roots {
 		t.root(root);
 	}
@@ -80,9 +49,8 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>
 
 /// Every construct translation refuses in the crate, reached from each of its items
 /// as if each were a root.
-pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, mir: bool) -> Option<Census> {
-	let mut t = Translator::new(tcx, config, bodies, Some(Vec::new()))?;
-	t.mir = mir;
+pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
+	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
 	for def_id in tcx.hir_crate_items(()).definitions() {
 		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) {
 			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
@@ -155,7 +123,6 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config, bodies: &Bodies<'tcx>, m
 
 pub struct Translator<'a, 'tcx> {
 	pub tcx: TyCtxt<'tcx>,
-	bodies: &'a Bodies<'tcx>,
 	config: &'a Config,
 	pub program: Program,
 	instances: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, SymId>,
@@ -176,11 +143,9 @@ pub struct Translator<'a, 'tcx> {
 	drops_cycle: bool,
 	/// The classes given drop glue.
 	glued: rustc_data_structures::fx::FxHashSet<DefId>,
-	/// Whether bodies lower from MIR, the spike's prototype, rather than THIR.
-	pub mir: bool,
-	/// The drop glue made from each type's drop shim, by a MIR lowering.
+	/// The drop glue made from each type's drop shim.
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
-	/// The class of each coroutine instance a MIR lowering made.
+	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 }
 
@@ -220,12 +185,7 @@ pub struct Erased {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	fn new(
-		tcx: TyCtxt<'tcx>,
-		config: &'a Config,
-		bodies: &'a Bodies<'tcx>,
-		refusals: Option<Vec<(Span, String)>>,
-	) -> Option<Self> {
+	fn new(tcx: TyCtxt<'tcx>, config: &'a Config, refusals: Option<Vec<(Span, String)>>) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
 				"rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number",
@@ -234,7 +194,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		Some(Self {
 			tcx,
-			bodies,
 			config,
 			program: Program::default(),
 			instances: Default::default(),
@@ -248,7 +207,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			drops_open: Default::default(),
 			drops_cycle: false,
 			glued: Default::default(),
-			mir: false,
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
 		})
@@ -317,11 +275,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	pub fn typing_env_pub(&self) -> TypingEnv<'tcx> {
 		self.typing_env()
-	}
-
-	/// A closure's THIR and body expression.
-	pub fn body(&self, def_id: LocalDefId) -> Option<(&'a Thir<'tcx>, ExprId)> {
-		self.bodies.map.get(&def_id).map(|(thir, expr)| (thir, *expr))
 	}
 
 	fn root(&mut self, path: &str) {
@@ -1117,27 +1070,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("unsupported function `{}`", tcx.def_path_str(def_id)));
 			return;
 		};
-		let Some(local) = def_id.as_local() else {
+		if !def_id.is_local() {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
-		};
-		let function = match self.mir {
-			true => mir::function(self, instance),
-			false => {
-				let Some((thir, expr)) = self.bodies.map.get(&local) else {
-					self.err(
-						span,
-						format!(
-							"no body for `{}`: constant evaluation consumed it",
-							tcx.def_path_str(def_id)
-						),
-					);
-					return;
-				};
-				body::function(self, instance, thir, *expr)
-			}
-		};
-		let Some(mut function) = function else {
+		}
+		let Some(mut function) = mir::function(self, instance) else {
 			return;
 		};
 		function.sym = sym;
@@ -1175,22 +1112,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			span = data.call_site;
 		}
 		None
-	}
-
-	/// Whether invocations of the macro that made `span` are left out.
-	pub fn ignored_macro(&self, mut span: Span) -> bool {
-		// Walk out through the macros this one was expanded inside.
-		while span.from_expansion() {
-			let data = span.ctxt().outer_expn_data();
-			if let Some(def_id) = data.macro_def_id {
-				let path = self.tcx.def_path_str(def_id);
-				if self.config.ignore_macros.contains(&path) {
-					return true;
-				}
-			}
-			span = data.call_site;
-		}
-		false
 	}
 }
 

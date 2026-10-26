@@ -11,13 +11,23 @@ import type * as version_Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Form(buf: Uint8Array, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
-	let r: Decoder.Decoder = Decoder.new(buf, version);
-	const decode = decode$Decode_Form(r, version);
-	if (!decode.ok) {
-		return rt.Err(decode.error);
+	let _0!: rt.Result<[Versions, rt.usize], DecodeError.DecodeError>;
+	let r!: Decoder.Decoder;
+	let value!: Versions;
+	let _6!: rt.Result<Versions, DecodeError.DecodeError>;
+	let val!: Versions;
+	let _13!: Versions;
+	r = Decoder.new(buf, version);
+	_6 = decode$Decode_Form(r, version);
+	if (_6.ok) {
+		val = _6.value;
+		value = val;
+		_13 = value;
+		_0 = rt.Ok([_13, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Versions, rt.usize]);
+		return _0;
+	} else {
+		return _6;
 	}
-	const value = decode.value;
-	return rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 }
 
 /** A list of versions in preferred order. */
@@ -27,52 +37,87 @@ export interface Versions {
 
 /** Decode the version list. */
 export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.Result<Versions, DecodeError.DecodeError> {
-	const varint = Decoder.varint(r);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	const count = varint.value;
-	let vs: Version.Version[] = [];
-	const end = count;
-	for (const _ of new rt.Range(0, end, rt.u64Step)) {
-		const decode = Version.decode$Decode_Form(r, version);
-		if (!decode.ok) {
-			return rt.Err(decode.error);
+	let _3!: rt.Result<rt.u64, DecodeError.DecodeError>;
+	let count!: rt.u64;
+	let vs!: Version.Version[];
+	let iter!: rt.Range<rt.u64>;
+	let _12!: rt.u64 | rt.Done;
+	let _15!: rt.Result<Version.Version, DecodeError.DecodeError>;
+	_3 = Decoder.varint(r);
+	if (_3.ok) {
+		count = _3.value;
+		vs = [];
+		iter = new rt.Range(0, count, rt.u64Step);
+		while (true) {
+			_12 = iter.next();
+			if (_12 === rt.DONE) {
+				return rt.Ok({ _0: vs });
+			} else {
+				_15 = Version.decode$Decode_Form(r, version);
+				if (_15.ok) {
+					vs.push(_15.value);
+				} else {
+					return _15;
+				}
+			}
 		}
-		const v = decode.value;
-		vs.push(rt.copy(v));
+	} else {
+		return _3;
 	}
-	return rt.Ok({ _0: vs });
 }
 
 /** Encode the version list. */
 export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint = Encoder.varint(w, self._0.length as rt.u64);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	for (const v of self._0) {
-		const encode = Version.encode$Encode_Form(v, w, version);
-		if (!encode.ok) {
-			return rt.Err(encode.error);
+	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
+	let iterS!: Version.Version[];
+	let iterI!: number;
+	let _14!: Version.Version | rt.Done;
+	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
+	_4 = Encoder.varint(w, self._0.length as rt.u64);
+	if (_4.ok) {
+		iterS = self._0;
+		iterI = 0;
+		while (true) {
+			_14 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_14 === rt.DONE) {
+				return rt.Ok(undefined);
+			} else {
+				_18 = Version.encode$Encode_Form(_14, w, version);
+				if (!_18.ok) {
+					return _18;
+				}
+			}
 		}
+	} else {
+		return _4;
 	}
-	return rt.Ok(undefined);
 }
 
 /** Encode the version list. */
 export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
-	const varint = Encoder.varint(w, self._0.length as rt.u64);
-	if (!varint.ok) {
-		return rt.Err(varint.error);
-	}
-	for (const v of self._0) {
-		const encode = Version.encode$Encode_Version(v, w, version);
-		if (!encode.ok) {
-			return rt.Err(encode.error);
+	let _4!: rt.Result<undefined, EncodeError.EncodeError>;
+	let iterS!: Version.Version[];
+	let iterI!: number;
+	let _14!: Version.Version | rt.Done;
+	let _18!: rt.Result<undefined, EncodeError.EncodeError>;
+	_4 = Encoder.varint(w, self._0.length as rt.u64);
+	if (_4.ok) {
+		iterS = self._0;
+		iterI = 0;
+		while (true) {
+			_14 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_14 === rt.DONE) {
+				return rt.Ok(undefined);
+			} else {
+				_18 = Version.encode$Encode_Version(_14, w, version);
+				if (!_18.ok) {
+					return _18;
+				}
+			}
 		}
+	} else {
+		return _4;
 	}
-	return rt.Ok(undefined);
 }
 
 export function from$From_Versions(vs: Version.Version[]): Versions {

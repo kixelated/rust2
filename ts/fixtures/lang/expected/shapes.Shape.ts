@@ -4,17 +4,32 @@ import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
 export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	let _7!: string;
+	let _8!: rt.Fmt;
+	let _9!: rt.Fmt;
+	let _14!: string;
+	let _15!: string;
+	let _16!: rt.Fmt;
+	let _17!: string;
+	let _18!: rt.Fmt;
+	let _19!: string;
+	let _20!: rt.Fmt;
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
 	} else if (self.tag === "Line") {
-		const __self0 = self._0;
-		const __self1 = self._1;
-		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Line"), (f: rt.Formatter) => Point.fmt$Debug(__self0, f)), (f: rt.Formatter) => Point.fmt$Debug(__self1, f)));
+		_7 = "Line";
+		_8 = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
+		_9 = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	} else {
-		const __self02 = self.corner;
-		const __self12 = self.width;
-		const __self2 = self.height;
-		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Rect"), "corner", (f: rt.Formatter) => Point.fmt$Debug(__self02, f)), "width", (f: rt.Formatter) => rt.u16Display(__self12, f)), "height", (f: rt.Formatter) => rt.u16Display(__self2, f)));
+		_14 = "Rect";
+		_15 = "corner";
+		_16 = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
+		_17 = "width";
+		_18 = (f: rt.Formatter) => rt.u16Display(self.width, f);
+		_19 = "height";
+		_20 = (f: rt.Formatter) => rt.u16Display(self.height, f);
+		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 	}
 }
 
@@ -31,13 +46,15 @@ export function describe$Area(self: Shape, out: rt.ByteVec): void {
 }
 
 export function area$Area(self: Shape): rt.u64 {
+	let width!: rt.u16;
+	let height!: rt.u16;
 	if (self.tag === "Dot") {
 		return 0;
 	} else if (self.tag === "Line") {
 		return 0;
 	} else {
-		const width = self.width;
-		const height = self.height;
+		width = self.width;
+		height = self.height;
 		return rt.u64Mul(width as rt.u64, height as rt.u64);
 	}
 }

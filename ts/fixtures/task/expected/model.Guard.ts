@@ -20,33 +20,46 @@ export class Guard {
 }
 
 function new_(id: rt.u32, log: Log.Log): Guard {
-	try {
-		const arg = id;
-		const log2 = log;
-		log = undefined!;
-		return new Guard({ id: arg, log: log2 });
-	} finally {
-		rt.drop(log);
-	}
+	return new Guard({ id, log });
 }
 
 /** Log `event` as this guard's. */
 export function note(self: Guard, event: string): void {
-	Log.note(self.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " ", (f: rt.Formatter) => rt.fmtPad(f, event)]));
+	let _5!: string;
+	let args2!: rt.Fmt[];
+	const arg = self.id;
+	args2 = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.fmtPad(f, event)];
+	_5 = rt.fmtFormat(["g", args2[0], " ", args2[1]]);
+	Log.note(self.log, _5);
 }
 
 /** Log `event`, then drop: `self`, taken by value, drops as the call returns. */
 export function finish(self: Guard, event: string): rt.u32 {
+	let _0!: rt.u32;
+	let unwind: number = 0;
 	try {
+		unwind = 4;
 		note(self, event);
-		return self.id;
-	} finally {
+		unwind = 0;
+		_0 = self.id;
 		rt.drop(self);
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(self);
+		throw e;
 	}
 }
 
 export function drop$Drop(self: Guard): void {
-	Log.note(self.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(self.id, f), " drop"]));
+	let _4!: string;
+	let args2!: rt.Fmt[];
+	const arg = ([self.id] as [rt.u32])[0];
+	args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+	_4 = rt.fmtFormat(["g", args2[0], " drop"]);
+	Log.note(self.log, _4);
 }
 
 export { new_ as new };

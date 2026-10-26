@@ -395,10 +395,6 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| simplify(body));
 				simplify(default);
 			}
-			StmtKind::Try { body, finally } => {
-				simplify(body);
-				simplify(finally);
-			}
 			StmtKind::Catch { body, handler, .. } => {
 				simplify(body);
 				simplify(handler);
@@ -478,13 +474,23 @@ fn strip_tail(stmts: &mut Vec<Stmt>, jump: &StmtKind) {
 			strip_tail(els, jump);
 		}
 		StmtKind::Block { body, .. } => strip_tail(body, jump),
+		// Falling off the `try` goes past its `catch`.
+		StmtKind::Catch { body, .. } => strip_tail(body, jump),
 		_ => {}
 	}
+}
+
+/// Drop the `return;`s a function returning nothing ends with.
+pub fn strip_return(stmts: &mut Vec<Stmt>) {
+	strip_tail(stmts, &StmtKind::Return(None));
+	simplify(stmts);
+	simplify(stmts);
 }
 
 fn same_jump(a: &StmtKind, b: &StmtKind) -> bool {
 	match (a, b) {
 		(StmtKind::Break(x), StmtKind::Break(y)) | (StmtKind::Continue(x), StmtKind::Continue(y)) => x == y,
+		(StmtKind::Return(None), StmtKind::Return(None)) => true,
 		_ => false,
 	}
 }
@@ -494,11 +500,7 @@ fn targets(stmts: &[Stmt], label: &str) -> bool {
 	stmts.iter().any(|stmt| match &stmt.kind {
 		StmtKind::Break(Some(l)) | StmtKind::Continue(Some(l)) => l == label,
 		StmtKind::If { then, els, .. } => targets(then, label) || targets(els, label),
-		StmtKind::Block { body, .. }
-		| StmtKind::While { body, .. }
-		| StmtKind::ForRange { body, .. }
-		| StmtKind::ForOf { body, .. } => targets(body, label),
-		StmtKind::Try { body, finally } => targets(body, label) || targets(finally, label),
+		StmtKind::Block { body, .. } | StmtKind::While { body, .. } => targets(body, label),
 		StmtKind::Catch { body, handler, .. } => targets(body, label) || targets(handler, label),
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| targets(body, label)) || targets(default, label)

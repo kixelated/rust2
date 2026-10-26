@@ -104,12 +104,23 @@ pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 /// dropping the block must not drop; a copy, which a later change to the original must
 /// not reach; a mutable borrow the block replaces whole, which the caller must see; a
 /// move on one path only; and a move the block only borrows, which drops when the block
-/// returns or is cancelled. Between them, a value of two types that hold each other.
+/// returns or is cancelled. Between them, a value of two types that hold each other, and
+/// guards held across awaits that read values first.
 pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let first = Guard::new(guard.id + 200, guard.log.clone());
 	let second = Guard::new(guard.id + 300, guard.log.clone());
 	drop(async { first.note("borrowed") });
 	turns(&guard.log, guard.id % 5);
+	temporaries(&guard.log, guard.id);
+	// A guard passed beside an await waits it out, as does one assigned to the slot an
+	// await picks: a cancel drops both.
+	let waited = consume(Guard::new(guard.id + 900, guard.log.clone()), rx.recv().await);
+	let mut slots = [
+		Guard::new(guard.id + 910, guard.log.clone()),
+		Guard::new(guard.id + 920, guard.log.clone()),
+	];
+	slots[slot(&mut rx).await] = Guard::new(guard.id + 930, guard.log.clone());
+	slots[0].note(&format!("slot after {waited}"));
 	let mut tally = Tally { n: guard.id };
 	let seen = async move { read(tally) };
 	tally.n += 1000;
@@ -152,6 +163,79 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 
 struct Mark {
 	n: u32,
+}
+
+/// `v`, or 0, plus the id of `guard`, which it drops.
+fn consume(guard: Guard, v: Option<u64>) -> u64 {
+	u64::from(guard.finish("consumed")) + v.unwrap_or(0)
+}
+
+/// The slot the next value picks.
+async fn slot(rx: &mut Consumer) -> usize {
+	match rx.recv().await {
+		Some(v) => v as usize % 2,
+		None => 0,
+	}
+}
+
+/// Guards no binding holds to the end of the scope, each dropping where Rust drops it: a
+/// temporary at the end of its statement, a scrutinee after its `match` or `if let`, a
+/// boxed temporary, the part a parameter's pattern skips at the end of the call, the rest
+/// a pattern moves out of an array, an empty repeat at once, a closure's captures in its
+/// call, and an iterator's after its loop.
+#[expect(clippy::redundant_pattern_matching, reason = "the `if let` is under test")]
+fn temporaries(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	log.note(format!("temporary {}", guard(1000).id));
+	let matched = match Some(guard(1010)) {
+		Some(..) => 1,
+		None => 0,
+	};
+	if let None = Some(guard(1020)) {
+		log.note(format!("unmatched"));
+	}
+	log.note(format!("boxed temporary {} {matched}", Box::new(guard(1030)).id));
+	log.note(format!("skipped {}", first((guard(1040), guard(1050)))));
+	let [head, rest @ ..] = [guard(1060), guard(1070), guard(1080)];
+	head.note("head");
+	rest[1].note("rest");
+	let empty = [guard(1090); 0];
+	log.note(format!("empty {}", empty.len()));
+	let once = guard(1100);
+	let finish = move || once.finish("closure");
+	log.note(format!("closed {}", finish()));
+	let mut sum = 0;
+	for n in (Countdown {
+		left: 2,
+		guard: guard(1110),
+	}) {
+		sum += n;
+	}
+	log.note(format!("counted {sum}"));
+}
+
+/// The id of the first guard, which it drops; the second drops as the call returns.
+fn first((a, _): (Guard, Guard)) -> u32 {
+	a.finish("first")
+}
+
+/// Counts down, holding a guard the loop drops after its last turn.
+struct Countdown {
+	left: u32,
+	guard: Guard,
+}
+
+impl Iterator for Countdown {
+	type Item = u32;
+
+	fn next(&mut self) -> Option<u32> {
+		if self.left == 0 {
+			return None;
+		}
+		self.left -= 1;
+		self.guard.note("count");
+		Some(self.left)
+	}
 }
 
 /// Drops through `guard`, and `Inner` through it: deciding `Outer` first must not leave

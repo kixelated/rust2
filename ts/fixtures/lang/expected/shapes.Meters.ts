@@ -13,7 +13,7 @@ export function area$Area(self: Meters): rt.u64 {
 
 /** A default method, monomorphized for each type. */
 export function describe$Area(self: Meters, out: rt.ByteVec): void {
-	rt.byteVecPush(out, 0xaa);
+	rt.byteVecPush(out, 170);
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(self._0));
 }
 

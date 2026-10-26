@@ -3,6 +3,7 @@
 import * as rt from "./rt.ts";
 import * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
+import * as Countdown from "./model.Countdown.ts";
 import * as Guard from "./model.Guard.ts";
 import * as Inner from "./model.Inner.ts";
 import type * as Mark from "./model.Mark.ts";
@@ -14,61 +15,168 @@ import type * as Tally from "./model.Tally.ts";
  * each await beside the one it was given. It panics on 99.
  */
 export function sum(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
-	return rt.future(sumBody, sumDrop, rx, guard);
+	return new sumFuture(rx, guard);
 }
 
-export function* sumBody(_taskContext: rt.Context, rx: Consumer.Consumer, guard: Guard.Guard): Generator<undefined, rt.u64, rt.Context> {
-	let rx2: Consumer.Consumer = rx;
-	rx = undefined!;
-	try {
-		const guard2 = guard;
-		guard = undefined!;
-		try {
-			const inner = Guard.new(rt.u32Add(guard2.id, 100), Log.clone$Clone(guard2.log));
-			try {
-				let total: rt.u64 = 0;
-				while (true) {
-					let option: rt.u64 | undefined;
-					let __awaitee: rt.Future<rt.u64 | undefined> = Consumer.recv(rx2);
-					try {
-						while (true) {
-							const poll = __awaitee.poll(_taskContext);
-							if (poll !== rt.Pending) {
-								const result = poll;
-								option = result;
-								break;
-							}
-							_taskContext = yield;
-						}
-					} finally {
-						rt.drop(__awaitee);
-					}
-					if (option !== undefined) {
-						const value = option;
-						if (value === 99) {
-							rt.panicFmt(["g", (f: rt.Formatter) => rt.u32Display(guard2.id, f), " poisoned"]);
-						}
-						Log.note(inner.log, rt.fmtFormat(["g", (f: rt.Formatter) => rt.u32Display(guard2.id, f), " got ", (f: rt.Formatter) => rt.u64Display(value, f)]));
-						total = rt.u64Add(total, value);
-					} else {
-						break;
-					}
-				}
-				return total;
-			} finally {
-				rt.drop(inner);
-			}
-		} finally {
-			rt.drop(guard2);
-		}
-	} finally {
-		rt.drop(rx2);
+export class sumFuture {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	guard: Guard.Guard;
+	rx_!: Consumer.Consumer;
+	guard_!: Guard.Guard;
+	inner_!: Guard.Guard;
+	total_!: rt.u64;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
+		this.rx = rx;
+		this.guard = guard;
 	}
-}
 
-export function sumDrop(rx: Consumer.Consumer, guard: Guard.Guard): void {
-	rt.drop(rx);
-	rt.drop(guard);
+	[Symbol.dispose](): void {
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 17;
+				rt.drop(this.rx);
+				unwind = 0;
+				rt.drop(this.guard);
+			} else if (this.state === 3) {
+				unwind = 10;
+				rt.drop(this.__awaitee_);
+				unwind = 12;
+				rt.drop(this.inner_);
+				unwind = 13;
+				rt.drop(this.guard_);
+				unwind = 0;
+				rt.drop(this.rx_);
+			}
+		} catch (e) {
+			b0: {
+				b1: {
+					if (unwind === 0) {
+						throw e;
+					}
+					if (unwind === 10) {
+						rt.drop(this.inner_);
+					} else if (unwind !== 12) {
+						if (unwind === 13) {
+							break b1;
+						} else {
+							rt.drop(this.guard);
+							break b0;
+						}
+					}
+					rt.drop(this.guard_);
+				}
+				rt.drop(this.rx_);
+			}
+			throw e;
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let _11!: rt.Poll<rt.u64 | undefined>;
+		let result!: rt.u64 | undefined;
+		let value!: rt.u64;
+		let args2!: rt.Fmt[];
+		let _32!: string;
+		let args4!: rt.Fmt[];
+		let _47!: rt.u64;
+		let unwind: number = 0;
+		try {
+			let bb0: number = 0;
+			l0: while (true) {
+				switch (bb0) {
+					case 0:
+						if (this.state === 0) {
+							unwind = 33;
+							this.rx_ = this.rx;
+							this.guard_ = this.guard;
+							this.inner_ = Guard.new(rt.u32Add(this.guard_.id, 100), Log.clone$Clone(this.guard_.log));
+							this.total_ = 0;
+							bb0 = 4;
+							continue l0;
+						} else if (this.state === 1) {
+							rt.panic("`async fn` resumed after completion");
+						} else if (this.state === 2) {
+							rt.panic("`async fn` resumed after panicking");
+						} else {
+							bb0 = 7;
+							continue l0;
+						}
+					case 4:
+						unwind = 32;
+						this.__awaitee_ = Consumer.recv(this.rx_);
+						bb0 = 7;
+						continue l0;
+					case 7:
+						unwind = 31;
+						_11 = this.__awaitee_.poll(_2);
+						if (_11 !== rt.Pending) {
+							unwind = 32;
+							result = _11;
+							rt.drop(this.__awaitee_);
+							if (result !== undefined) {
+								value = result;
+								if (!(value !== 99)) {
+									const arg2 = ([this.guard_.id] as [rt.u32])[0];
+									args2 = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
+									rt.panicFmt(["g", args2[0], " poisoned"]);
+								} else {
+									const arg = this.guard_.id;
+									args4 = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.u64Display(value, f)];
+									_32 = rt.fmtFormat(["g", args4[0], " got ", args4[1]]);
+									Log.note(this.inner_.log, _32);
+									this.total_ = rt.u64Add(this.total_, value);
+									bb0 = 4;
+									continue l0;
+								}
+							} else {
+								unwind = 33;
+								_47 = this.total_;
+								rt.drop(this.inner_);
+								unwind = 34;
+								rt.drop(this.guard_);
+								unwind = 35;
+								rt.drop(this.rx_);
+								this.state = 1;
+								return _47;
+							}
+						} else {
+							this.state = 3;
+							return rt.Pending;
+						}
+				}
+			}
+		} catch (e) {
+			b1: {
+				b2: {
+					b3: {
+						if (unwind === 0) {
+							throw e;
+						}
+						if (unwind === 31) {
+							rt.drop(this.__awaitee_);
+						} else if (unwind !== 32) {
+							if (unwind === 33) {
+								break b3;
+							} else if (unwind === 34) {
+								break b2;
+							} else {
+								break b1;
+							}
+						}
+						rt.drop(this.inner_);
+					}
+					rt.drop(this.guard_);
+				}
+				rt.drop(this.rx_);
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
 }
 
 /**
@@ -76,224 +184,1097 @@ export function sumDrop(rx: Consumer.Consumer, guard: Guard.Guard): void {
  * dropping the block must not drop; a copy, which a later change to the original must
  * not reach; a mutable borrow the block replaces whole, which the caller must see; a
  * move on one path only; and a move the block only borrows, which drops when the block
- * returns or is cancelled. Between them, a value of two types that hold each other.
+ * returns or is cancelled. Between them, a value of two types that hold each other, and
+ * guards held across awaits that read values first.
  */
 export function blocks(rx: Consumer.Consumer, guard: Guard.Guard, moves: boolean): rt.Future<rt.u64> {
-	return rt.future(blocksBody, blocksDrop, rx, guard, moves);
+	return new blocksFuture(rx, guard, moves);
 }
 
-export function* blocksBody(_taskContext: rt.Context, rx: Consumer.Consumer, guard: Guard.Guard, moves: boolean): Generator<undefined, rt.u64, rt.Context> {
-	let rx2: Consumer.Consumer = rx;
-	rx = undefined!;
-	try {
-		let guard2 = guard;
-		guard = undefined!;
-		try {
-			const moves2 = moves;
-			let first = Guard.new(rt.u32Add(guard2.id, 200), Log.clone$Clone(guard2.log));
-			try {
-				let second = Guard.new(rt.u32Add(guard2.id, 300), Log.clone$Clone(guard2.log));
-				try {
-					rt.drop(rt.future(blocksBody$2, undefined, first));
-					turns(guard2.log, rt.u32Rem(guard2.id, 5));
-					let tally: Tally.Tally = { n: guard2.id };
-					let seen = rt.future(blocksBody$3, undefined, rt.copy(tally));
-					try {
-						tally.n = rt.u32Add(tally.n, 1000);
-						const arg2 = guard2;
-						const arg = tally.n;
-						let value: rt.u32;
-						const seen2 = seen;
-						seen = undefined!;
-						let __awaitee: rt.Future<rt.u32> = seen2;
-						try {
-							while (true) {
-								const poll = __awaitee.poll(_taskContext);
-								if (poll !== rt.Pending) {
-									const result = poll;
-									value = result;
-									break;
-								}
-								_taskContext = yield;
-							}
-						} finally {
-							rt.drop(__awaitee);
-						}
-						Guard.note(arg2, rt.fmtFormat(["tally ", (f: rt.Formatter) => rt.u32Display(arg, f), " then ", (f: rt.Formatter) => rt.u32Display(value, f)]));
-						let mark: Mark.Mark = { n: 1 };
-						let replaced: rt.u32;
-						let __awaitee2: rt.Future<rt.u32> = rt.future(blocksBody$4, undefined, mark);
-						try {
-							while (true) {
-								const poll2 = __awaitee2.poll(_taskContext);
-								if (poll2 !== rt.Pending) {
-									const result2 = poll2;
-									replaced = result2;
-									break;
-								}
-								_taskContext = yield;
-							}
-						} finally {
-							rt.drop(__awaitee2);
-						}
-						Guard.note(guard2, rt.fmtFormat(["mark ", (f: rt.Formatter) => rt.u32Display(replaced, f), " ", (f: rt.Formatter) => rt.u32Display(mark.n, f)]));
-						let cycle = new Outer.Outer({ inner: undefined, guard: Guard.new(rt.u32Add(guard2.id, 800), Log.clone$Clone(guard2.log)) });
-						try {
-							const cycle2 = cycle;
-							cycle = undefined!;
-							const _nested = new Inner.Inner({ outer: cycle2 });
-							try {
-								let third = Guard.new(rt.u32Add(guard2.id, 400), Log.clone$Clone(guard2.log));
-								try {
-									let chosen: Guard.Guard = undefined!;
-									try {
-										if (moves2) {
-											const third2 = third;
-											third = undefined!;
-											chosen = third2;
-										} else {
-											const third3 = third;
-											third = undefined!;
-											chosen = third3;
-										}
-										Guard.note(chosen, "chosen");
-										if (moves2) {
-											const guard22 = guard2;
-											guard2 = undefined!;
-											rt.drop(rt.future(blocksBody$5, blocksDrop$2, guard22));
-										}
-										const first2 = first;
-										first = undefined!;
-										const second2 = second;
-										second = undefined!;
-										const rx22 = rx2;
-										rx2 = undefined!;
-										let read_ = rt.future(blocksBody$6, blocksDrop$3, first2, second2, rx22);
-										try {
-											const read2 = read_;
-											read_ = undefined!;
-											let __awaitee4: rt.Future<rt.u64> = read2;
-											try {
-												while (true) {
-													const poll4 = __awaitee4.poll(_taskContext);
-													if (poll4 !== rt.Pending) {
-														const result4 = poll4;
-														return result4;
-													}
-													_taskContext = yield;
-												}
-											} finally {
-												rt.drop(__awaitee4);
-											}
-										} finally {
-											rt.drop(read_);
-										}
-									} finally {
-										rt.drop(chosen);
-									}
-								} finally {
-									rt.drop(third);
-								}
-							} finally {
-								rt.drop(_nested);
-							}
-						} finally {
-							rt.drop(cycle);
-						}
-					} finally {
-						rt.drop(seen);
-					}
-				} finally {
-					rt.drop(second);
-				}
-			} finally {
-				rt.drop(first);
-			}
-		} finally {
-			rt.drop(guard2);
-		}
-	} finally {
-		rt.drop(rx2);
+export class blocksFuture {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	guard: Guard.Guard;
+	moves: boolean;
+	rx_!: Consumer.Consumer;
+	guard_!: Guard.Guard;
+	moves_!: boolean;
+	first_!: Guard.Guard;
+	second_!: Guard.Guard;
+	waited_!: rt.u64;
+	saved!: Guard.Guard;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+	slots_!: Guard.Guard[];
+	_saved!: Guard.Guard;
+	___awaitee_!: rt.Future<rt.usize>;
+	tally_!: Tally.Tally;
+	_saved$2!: Guard.Guard;
+	_saved$3!: rt.u32;
+	___awaitee_$2!: rt.Future<rt.u32>;
+	mark_!: Mark.Mark;
+	replaced_!: rt.u32;
+	___awaitee_$3!: rt.Future<rt.u32>;
+	_nested_!: Inner.Inner;
+	chosen_!: Guard.Guard;
+	___awaitee_$4!: rt.Future<rt.u64>;
+	_saved$4!: boolean;
+	_saved$5!: boolean;
+	_saved$6!: boolean;
+	_saved$7!: boolean;
+	_saved$8!: boolean;
+	_saved$9!: boolean;
+	_saved$10!: boolean;
+
+	constructor(rx: Consumer.Consumer, guard: Guard.Guard, moves: boolean) {
+		this.rx = rx;
+		this.guard = guard;
+		this.moves = moves;
 	}
-}
 
-export function blocksDrop(rx: Consumer.Consumer, guard: Guard.Guard, _moves: boolean): void {
-	rt.drop(rx);
-	rt.drop(guard);
-}
-
-export function* blocksBody$2(_taskContext2: rt.Context, first: Guard.Guard): Generator<undefined, void, rt.Context> {
-	Guard.note(first, "borrowed");
-}
-
-export function* blocksBody$3(_taskContext3: rt.Context, tally: Tally.Tally): Generator<undefined, rt.u32, rt.Context> {
-	return read(rt.copy(tally));
-}
-
-export function* blocksBody$4(_taskContext4: rt.Context, mark: Mark.Mark): Generator<undefined, rt.u32, rt.Context> {
-	Object.assign(mark, { n: 2 });
-	return mark.n;
-}
-
-export function* blocksBody$5(_taskContext5: rt.Context, guard2: Guard.Guard): Generator<undefined, void, rt.Context> {
-	try {
-		Guard.note(guard2, "moved");
-	} finally {
-		rt.drop(guard2);
-	}
-}
-
-export function blocksDrop$2(guard2: Guard.Guard): void {
-	rt.drop(guard2);
-}
-
-export function* blocksBody$6(_taskContext6: rt.Context, first: Guard.Guard, second: Guard.Guard, rx2: Consumer.Consumer): Generator<undefined, rt.u64, rt.Context> {
-	try {
+	[Symbol.dispose](): void {
+		let unwind: number = 0;
 		try {
-			try {
-				Guard.note(first, "reads");
-				Guard.note(second, "reads");
-				const _held = Guard.new(rt.u32Add(second.id, 100), Log.clone$Clone(second.log));
-				try {
-					let option: rt.u64 | undefined;
-					let __awaitee3: rt.Future<rt.u64 | undefined> = Consumer.recv(rx2);
-					try {
-						while (true) {
-							const poll3 = __awaitee3.poll(_taskContext6);
-							if (poll3 !== rt.Pending) {
-								const result3 = poll3;
-								option = result3;
-								break;
-							}
-							_taskContext6 = yield;
-						}
-					} finally {
-						rt.drop(__awaitee3);
-					}
-					if (option !== undefined) {
-						const value2 = option;
-						return value2;
+			b0: {
+				b1: {
+					if (this.state === 0) {
+						unwind = 82;
+						rt.drop(this.rx);
+						unwind = 0;
+						rt.drop(this.guard);
+						return;
+					} else if (this.state === 3) {
+						unwind = 56;
+						rt.drop(this.__awaitee_);
+						unwind = 57;
+						rt.drop(this.saved);
+						this._saved$10 = false;
+						break b0;
+					} else if (this.state === 4) {
+						unwind = 51;
+						rt.drop(this.___awaitee_);
+						unwind = 52;
+						rt.drop(this._saved);
+						this._saved$9 = false;
+						break b1;
+					} else if (this.state === 5) {
+						unwind = 47;
+						rt.drop(this.___awaitee_$2);
+					} else if (this.state === 6) {
+						unwind = 44;
+						rt.drop(this.___awaitee_$3);
+					} else if (this.state === 7) {
+						unwind = 37;
+						rt.drop(this.___awaitee_$4);
+						unwind = 40;
+						rt.drop(this.chosen_);
+						unwind = 42;
+						rt.drop(this._nested_);
 					} else {
-						return 0;
+						return;
 					}
-				} finally {
-					rt.drop(_held);
+					this._saved$8 = false;
 				}
-			} finally {
-				rt.drop(first);
+				unwind = 55;
+				rt.dropAll(this.slots_);
 			}
-		} finally {
-			rt.drop(second);
+			if (this._saved$5) {
+				unwind = 60;
+				rt.drop(this.second_);
+			}
+			this._saved$5 = false;
+			if (this._saved$6) {
+				unwind = 61;
+				rt.drop(this.first_);
+			}
+			this._saved$6 = false;
+			if (this._saved$4) {
+				unwind = 62;
+				rt.drop(this.guard_);
+			}
+			this._saved$4 = false;
+			if (this._saved$7) {
+				unwind = 0;
+				rt.drop(this.rx_);
+			}
+			this._saved$7 = false;
+		} catch (e) {
+			b8: {
+				b9: {
+					b10: {
+						b11: {
+							b12: {
+								b13: {
+									b14: {
+										b15: {
+											b16: {
+												b17: {
+													b18: {
+														b19: {
+															if (unwind === 0) {
+																throw e;
+															}
+															if (unwind === 37) {
+																rt.drop(this.chosen_);
+																break b18;
+															} else if (unwind === 40) {
+																break b18;
+															} else if (unwind === 42) {
+																break b17;
+															} else if (unwind === 44) {
+																break b16;
+															} else if (unwind === 47) {
+																break b15;
+															} else if (unwind === 51) {
+																rt.drop(this._saved);
+																break b19;
+															} else if (unwind === 52) {
+																break b19;
+															} else if (unwind === 55) {
+																break b13;
+															} else if (unwind === 56) {
+																rt.drop(this.saved);
+															} else if (unwind !== 57) {
+																if (unwind === 60) {
+																	break b11;
+																} else if (unwind === 61) {
+																	break b10;
+																} else if (unwind === 62) {
+																	break b9;
+																} else {
+																	rt.drop(this.guard);
+																	break b8;
+																}
+															}
+															this._saved$10 = false;
+															break b12;
+														}
+														this._saved$9 = false;
+														break b14;
+													}
+													rt.drop(this._nested_);
+												}
+											}
+										}
+										this._saved$8 = false;
+									}
+									rt.dropAll(this.slots_);
+								}
+							}
+							if (this._saved$5) {
+								rt.drop(this.second_);
+							}
+						}
+						this._saved$5 = false;
+						if (this._saved$6) {
+							rt.drop(this.first_);
+						}
+					}
+					this._saved$6 = false;
+					if (this._saved$4) {
+						rt.drop(this.guard_);
+					}
+				}
+				this._saved$4 = false;
+				if (this._saved$7) {
+					rt.drop(this.rx_);
+				}
+				this._saved$7 = false;
+			}
+			throw e;
 		}
-	} finally {
-		rt.drop(rx2);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let _18!: rt.u32;
+		let _32!: rt.Poll<rt.u64 | undefined>;
+		let result!: rt.u64 | undefined;
+		let _40!: Guard.Guard;
+		let _46!: Guard.Guard;
+		let _60!: rt.Poll<rt.usize>;
+		let result2!: rt.usize;
+		let _73!: string;
+		let _75!: string;
+		let args2!: rt.Fmt[];
+		let seen!: rt.Future<rt.u32>;
+		let _86!: rt.u32;
+		let _88!: string;
+		let _90!: string;
+		let _95!: rt.u32;
+		let _98!: rt.Poll<rt.u32>;
+		let args4!: rt.Fmt[];
+		let _114!: rt.Poll<rt.u32>;
+		let _124!: string;
+		let _126!: string;
+		let args6!: rt.Fmt[];
+		let _133!: rt.Fmt;
+		let _138!: Inner.Inner | undefined;
+		let _139!: Guard.Guard;
+		let _146!: Outer.Outer;
+		let third!: Guard.Guard;
+		let _161!: rt.Poll<rt.u64>;
+		let result5!: rt.u64;
+		let unwind: number = 0;
+		try {
+			b0: {
+				b1: {
+					b2: {
+						b3: {
+							if (this.state === 0) {
+								unwind = 132;
+								this._saved$7 = false;
+								this._saved$4 = false;
+								this._saved$6 = false;
+								this._saved$5 = false;
+								this._saved$10 = false;
+								this._saved$9 = false;
+								this._saved$8 = false;
+								this._saved$7 = true;
+								this.rx_ = this.rx;
+								this._saved$4 = true;
+								this.guard_ = this.guard;
+								this.moves_ = this.moves;
+								this.first_ = Guard.new(rt.u32Add(this.guard_.id, 200), Log.clone$Clone(this.guard_.log));
+								unwind = 131;
+								this._saved$6 = true;
+								this.second_ = Guard.new(rt.u32Add(this.guard_.id, 300), Log.clone$Clone(this.guard_.log));
+								unwind = 142;
+								this._saved$5 = true;
+								rt.drop(new blocksFuture$2(this.first_));
+								_18 = rt.u32Rem(this.guard_.id, 5);
+								turns(this.guard_.log, _18);
+								temporaries(this.guard_.log, this.guard_.id);
+								unwind = 130;
+								this.saved = Guard.new(rt.u32Add(this.guard_.id, 900), Log.clone$Clone(this.guard_.log));
+								unwind = 128;
+								this._saved$10 = true;
+								this.__awaitee_ = Consumer.recv(this.rx_);
+							} else if (this.state === 1) {
+								rt.panic("`async fn` resumed after completion");
+							} else if (this.state === 2) {
+								rt.panic("`async fn` resumed after panicking");
+							} else if (this.state !== 3) {
+								if (this.state === 4) {
+									break b3;
+								} else if (this.state === 5) {
+									break b2;
+								} else if (this.state === 6) {
+									break b1;
+								} else {
+									break b0;
+								}
+							}
+							unwind = 125;
+							_32 = this.__awaitee_.poll(_2);
+							if (_32 !== rt.Pending) {
+								unwind = 126;
+								result = _32;
+								rt.drop(this.__awaitee_);
+								this._saved$10 = false;
+								this.waited_ = consume(this.saved, result);
+								unwind = 142;
+								this._saved$10 = false;
+								_40 = Guard.new(rt.u32Add(this.guard_.id, 910), Log.clone$Clone(this.guard_.log));
+								unwind = 124;
+								_46 = Guard.new(rt.u32Add(this.guard_.id, 920), Log.clone$Clone(this.guard_.log));
+								unwind = 122;
+								this.slots_ = [_40, _46];
+								this._saved = Guard.new(rt.u32Add(this.guard_.id, 930), Log.clone$Clone(this.guard_.log));
+								unwind = 120;
+								this._saved$9 = true;
+								this.___awaitee_ = slot(this.rx_);
+							} else {
+								this.state = 3;
+								return rt.Pending;
+							}
+						}
+						unwind = 118;
+						_60 = this.___awaitee_.poll(_2);
+						if (_60 !== rt.Pending) {
+							unwind = 139;
+							result2 = _60;
+							rt.drop(this.___awaitee_);
+							if (!(result2 < 2)) {
+								rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
+							}
+							unwind = 44;
+							rt.drop(this.slots_[result2]);
+							unwind = 123;
+							this._saved$9 = false;
+							this.slots_[result2] = this._saved;
+							this._saved$9 = false;
+							const arg = ([this.waited_] as [rt.u64])[0];
+							args2 = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+							_75 = rt.fmtFormat(["slot after ", args2[0]]);
+							unwind = 117;
+							_73 = _75;
+							Guard.note(this.slots_[0], _73);
+							unwind = 137;
+							this.tally_ = { n: this.guard_.id };
+							this._saved$8 = true;
+							seen = new blocksFuture$3(rt.copy(this.tally_));
+							_86 = rt.u32Add(this.tally_.n, 1000);
+							this.tally_.n = _86;
+							this._saved$2 = this.guard_;
+							this._saved$3 = this.tally_.n;
+							this._saved$8 = false;
+							this.___awaitee_$2 = seen;
+						} else {
+							this.state = 4;
+							return rt.Pending;
+						}
+					}
+					unwind = 115;
+					_98 = this.___awaitee_$2.poll(_2);
+					if (_98 !== rt.Pending) {
+						unwind = 137;
+						_95 = _98;
+						rt.drop(this.___awaitee_$2);
+						const arg2 = this._saved$3;
+						args4 = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_95, f)];
+						_90 = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
+						unwind = 114;
+						_88 = _90;
+						Guard.note(this._saved$2, _88);
+						unwind = 137;
+						this.mark_ = { n: 1 };
+						this.___awaitee_$3 = new blocksFuture$4(this.mark_);
+					} else {
+						this.state = 5;
+						return rt.Pending;
+					}
+				}
+				unwind = 113;
+				_114 = this.___awaitee_$3.poll(_2);
+				if (_114 !== rt.Pending) {
+					unwind = 137;
+					this.replaced_ = _114;
+					rt.drop(this.___awaitee_$3);
+					const arg3 = this.replaced_;
+					_133 = (f: rt.Formatter) => rt.u32Display(arg3, f);
+					const arg4 = this.mark_.n;
+					args6 = [_133, (f: rt.Formatter) => rt.u32Display(arg4, f)];
+					_126 = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
+					unwind = 112;
+					_124 = _126;
+					Guard.note(this.guard_, _124);
+					unwind = 111;
+					_138 = undefined;
+					_139 = Guard.new(rt.u32Add(this.guard_.id, 800), Log.clone$Clone(this.guard_.log));
+					unwind = 137;
+					_146 = new Outer.Outer({ inner: _138, guard: _139 });
+					unwind = 110;
+					this._nested_ = new Inner.Inner({ outer: _146 });
+					third = Guard.new(rt.u32Add(this.guard_.id, 400), Log.clone$Clone(this.guard_.log));
+					if (!this.moves_) {
+						this.chosen_ = third;
+					} else {
+						this.chosen_ = third;
+					}
+					unwind = 109;
+					Guard.note(this.chosen_, "chosen");
+					if (this.moves_) {
+						this._saved$4 = false;
+						rt.drop(new blocksFuture$5(this.guard_));
+					}
+					unwind = 109;
+					this._saved$6 = false;
+					this._saved$5 = false;
+					this._saved$7 = false;
+					this.___awaitee_$4 = new blocksFuture$6(this.first_, this.second_, this.rx_);
+				} else {
+					this.state = 6;
+					return rt.Pending;
+				}
+			}
+			unwind = 108;
+			_161 = this.___awaitee_$4.poll(_2);
+			if (_161 !== rt.Pending) {
+				unwind = 109;
+				result5 = _161;
+				rt.drop(this.___awaitee_$4);
+				unwind = 110;
+				rt.drop(this.chosen_);
+				unwind = 137;
+				rt.drop(this._nested_);
+				unwind = 142;
+				this._saved$8 = false;
+				rt.dropAll(this.slots_);
+				this._saved$5 = false;
+				this._saved$6 = false;
+				if (this._saved$4) {
+					unwind = 133;
+					rt.drop(this.guard_);
+				}
+				this._saved$4 = false;
+				this._saved$7 = false;
+				this.state = 1;
+				return result5;
+			} else {
+				this.state = 7;
+				return rt.Pending;
+			}
+		} catch (e) {
+			b8: {
+				b9: {
+					b10: {
+						b11: {
+							b12: {
+								b13: {
+									b14: {
+										b15: {
+											b16: {
+												if (unwind === 0) {
+													throw e;
+												}
+												if (unwind === 44) {
+													this._saved$9 = false;
+													this.slots_[result2] = this._saved;
+													break b13;
+												} else if (unwind === 108) {
+													rt.drop(this.___awaitee_$4);
+													break b16;
+												} else if (unwind === 109) {
+													break b16;
+												} else if (unwind === 110) {
+													break b15;
+												} else if (unwind === 111) {
+													rt.drop(_138);
+													break b14;
+												} else if (unwind === 112) {
+													break b14;
+												} else if (unwind === 113) {
+													rt.drop(this.___awaitee_$3);
+													break b14;
+												} else if (unwind === 114) {
+													break b14;
+												} else if (unwind === 115) {
+													rt.drop(this.___awaitee_$2);
+													break b14;
+												} else if (unwind === 117) {
+													break b12;
+												} else if (unwind === 118) {
+													rt.drop(this.___awaitee_);
+													break b13;
+												} else if (unwind === 120) {
+													rt.drop(this._saved);
+													this._saved$9 = false;
+													break b12;
+												} else if (unwind === 122) {
+													this._saved$9 = false;
+													break b12;
+												} else if (unwind === 123) {
+													break b12;
+												} else if (unwind === 124) {
+													rt.drop(_40);
+													break b11;
+												} else if (unwind === 125) {
+													rt.drop(this.__awaitee_);
+												} else if (unwind !== 126) {
+													if (unwind === 128) {
+														rt.drop(this.saved);
+														this._saved$10 = false;
+														break b11;
+													} else if (unwind === 130) {
+														this._saved$10 = false;
+														break b11;
+													} else if (unwind === 131) {
+														break b10;
+													} else if (unwind === 132) {
+														break b9;
+													} else if (unwind === 133) {
+														break b8;
+													} else if (unwind === 137) {
+														break b14;
+													} else if (unwind === 139) {
+														break b13;
+													} else {
+														break b11;
+													}
+												}
+												if (this._saved$10) {
+													rt.drop(this.saved);
+												}
+												this._saved$10 = false;
+												break b11;
+											}
+											rt.drop(this.chosen_);
+										}
+										rt.drop(this._nested_);
+									}
+									if (this._saved$8) {
+										rt.drop(seen);
+									}
+									this._saved$8 = false;
+									break b12;
+								}
+								if (this._saved$9) {
+									rt.drop(this._saved);
+								}
+								this._saved$9 = false;
+							}
+							rt.dropAll(this.slots_);
+						}
+						if (this._saved$5) {
+							rt.drop(this.second_);
+						}
+					}
+					this._saved$5 = false;
+					if (this._saved$6) {
+						rt.drop(this.first_);
+					}
+				}
+				this._saved$6 = false;
+				if (this._saved$4) {
+					rt.drop(this.guard_);
+				}
+			}
+			this._saved$4 = false;
+			if (this._saved$7) {
+				rt.drop(this.rx_);
+			}
+			this._saved$7 = false;
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
-export function blocksDrop$3(first: Guard.Guard, second: Guard.Guard, rx2: Consumer.Consumer): void {
-	rt.drop(first);
-	rt.drop(second);
-	rt.drop(rx2);
+export class blocksFuture$2 {
+	state: number = 0;
+	first: Guard.Guard;
+
+	constructor(first: Guard.Guard) {
+		this.first = first;
+	}
+
+	[Symbol.dispose](): void {
+	}
+
+	poll(_2: rt.Context): rt.Poll<undefined> {
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 3;
+				Guard.note(this.first, "borrowed");
+				this.state = 1;
+				return undefined;
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else {
+				rt.panic("`async fn` resumed after panicking");
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
+}
+
+export class blocksFuture$3 {
+	state: number = 0;
+	tally: Tally.Tally;
+
+	constructor(tally: Tally.Tally) {
+		this.tally = tally;
+	}
+
+	[Symbol.dispose](): void {
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u32> {
+		let _0!: rt.Poll<rt.u32>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 3;
+				_0 = read(this.tally);
+				this.state = 1;
+				return _0;
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else {
+				rt.panic("`async fn` resumed after panicking");
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
+}
+
+export class blocksFuture$4 {
+	state: number = 0;
+	mark: Mark.Mark;
+
+	constructor(mark: Mark.Mark) {
+		this.mark = mark;
+	}
+
+	[Symbol.dispose](): void {
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u32> {
+		let _0!: rt.Poll<rt.u32>;
+		let _3!: Mark.Mark;
+		let _4!: Mark.Mark;
+		if (this.state === 0) {
+			_3 = { n: 2 };
+			_4 = this.mark;
+			Object.assign(_4, _3);
+			_0 = this.mark.n;
+			this.state = 1;
+			return _0;
+		} else {
+			rt.panic("`async fn` resumed after completion");
+		}
+	}
+}
+
+export class blocksFuture$5 {
+	state: number = 0;
+	guard: Guard.Guard;
+
+	constructor(guard: Guard.Guard) {
+		this.guard = guard;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 0) {
+			rt.drop(this.guard);
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<undefined> {
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 4;
+				Guard.note(this.guard, "moved");
+				unwind = 5;
+				rt.drop(this.guard);
+				this.state = 1;
+				return undefined;
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else {
+				rt.panic("`async fn` resumed after panicking");
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 4) {
+				rt.drop(this.guard);
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
+}
+
+export class blocksFuture$6 {
+	state: number = 0;
+	first: Guard.Guard;
+	second: Guard.Guard;
+	rx: Consumer.Consumer;
+	_held_!: Guard.Guard;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(first: Guard.Guard, second: Guard.Guard, rx: Consumer.Consumer) {
+		this.first = first;
+		this.second = second;
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 22;
+				rt.drop(this.first);
+				unwind = 21;
+				rt.drop(this.second);
+				unwind = 0;
+				rt.drop(this.rx);
+			} else if (this.state === 3) {
+				unwind = 8;
+				rt.drop(this.__awaitee_);
+				unwind = 10;
+				rt.drop(this._held_);
+				unwind = 14;
+				rt.drop(this.first);
+				unwind = 13;
+				rt.drop(this.second);
+				unwind = 0;
+				rt.drop(this.rx);
+			}
+		} catch (e) {
+			b0: {
+				b1: {
+					b2: {
+						if (unwind === 0) {
+							throw e;
+						}
+						if (unwind === 8) {
+							rt.drop(this._held_);
+							break b1;
+						} else if (unwind === 10) {
+							break b1;
+						} else if (unwind === 13) {
+							break b2;
+						} else if (unwind === 14) {
+							rt.drop(this.second);
+							break b2;
+						} else if (unwind !== 21) {
+							rt.drop(this.second);
+						}
+						rt.drop(this.rx);
+						break b0;
+					}
+					rt.drop(this.rx);
+					break b0;
+				}
+				rt.drop(this.first);
+				rt.drop(this.second);
+				rt.drop(this.rx);
+			}
+			throw e;
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let _17!: rt.Poll<rt.u64 | undefined>;
+		let result!: rt.u64 | undefined;
+		let _27!: rt.u64;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 30;
+				Guard.note(this.first, "reads");
+				Guard.note(this.second, "reads");
+				this._held_ = Guard.new(rt.u32Add(this.second.id, 100), Log.clone$Clone(this.second.log));
+				unwind = 21;
+				this.__awaitee_ = Consumer.recv(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 20;
+			_17 = this.__awaitee_.poll(_2);
+			if (_17 !== rt.Pending) {
+				unwind = 21;
+				result = _17;
+				rt.drop(this.__awaitee_);
+				if (result === undefined) {
+					_27 = 0;
+				} else {
+					_27 = result;
+				}
+				unwind = 30;
+				rt.drop(this._held_);
+				unwind = 24;
+				rt.drop(this.first);
+				unwind = 23;
+				rt.drop(this.second);
+				unwind = 22;
+				rt.drop(this.rx);
+				this.state = 1;
+				return _27;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			b2: {
+				b3: {
+					b4: {
+						if (unwind === 0) {
+							throw e;
+						}
+						if (unwind === 20) {
+							rt.drop(this.__awaitee_);
+							break b4;
+						} else if (unwind === 21) {
+							break b4;
+						} else if (unwind === 22) {
+							break b2;
+						} else if (unwind !== 23) {
+							if (unwind === 24) {
+								rt.drop(this.second);
+							} else {
+								break b3;
+							}
+						}
+						rt.drop(this.rx);
+						break b2;
+					}
+					rt.drop(this._held_);
+				}
+				rt.drop(this.first);
+				rt.drop(this.second);
+				rt.drop(this.rx);
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
+}
+
+/** `v`, or 0, plus the id of `guard`, which it drops. */
+export function consume(guard: Guard.Guard, v: rt.u64 | undefined): rt.u64 {
+	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, rt.optionUnwrapOr(v, 0));
+}
+
+/** The slot the next value picks. */
+export function slot(rx: Consumer.Consumer): rt.Future<rt.usize> {
+	return new slotFuture(rx);
+}
+
+export class slotFuture {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.usize> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let result!: rt.u64 | undefined;
+		let _18!: rt.usize;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 16;
+				this.__awaitee_ = Consumer.recv(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 15;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 16;
+				result = _6;
+				rt.drop(this.__awaitee_);
+				if (result === undefined) {
+					_18 = 0;
+				} else {
+					_18 = rt.usizeRem(rt.u64Low(result), 2);
+				}
+				this.state = 1;
+				return _18;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 15) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
+	}
+}
+
+/**
+ * Guards no binding holds to the end of the scope, each dropping where Rust drops it: a
+ * temporary at the end of its statement, a scrutinee after its `match` or `if let`, a
+ * boxed temporary, the part a parameter's pattern skips at the end of the call, the rest
+ * a pattern moves out of an array, an empty repeat at once, a closure's captures in its
+ * call, and an iterator's after its loop.
+ */
+export function temporaries(log: Log.Log, id: rt.u32): void {
+	let guard!: (a0: rt.u32) => Guard.Guard;
+	let _7!: string;
+	let _11!: Guard.Guard;
+	let args2!: rt.Fmt[];
+	let matched!: rt.i32;
+	let _19!: Guard.Guard | undefined;
+	let _24!: Guard.Guard | undefined;
+	let _35!: string;
+	let _39!: Guard.Guard;
+	let args4!: rt.Fmt[];
+	let _57!: Guard.Guard;
+	let _60!: Guard.Guard;
+	let args6!: rt.Fmt[];
+	let head!: Guard.Guard;
+	let rest!: Guard.Guard[];
+	let _69!: Guard.Guard[];
+	let _70!: Guard.Guard;
+	let _73!: Guard.Guard;
+	let _76!: Guard.Guard;
+	let args8!: rt.Fmt[];
+	let args10!: rt.Fmt[];
+	let sum_!: rt.u32;
+	let iter!: Countdown.Countdown;
+	let _126!: rt.u32 | rt.Done;
+	let args12!: rt.Fmt[];
+	let unwind: number = 0;
+	try {
+		guard = (n2: rt.u32): Guard.Guard => {
+			return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
+		};
+		_11 = guard(1000);
+		unwind = 83;
+		const arg = ([_11.id] as [rt.u32])[0];
+		args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		_7 = rt.fmtFormat(["temporary ", args2[0]]);
+		unwind = 0;
+		rt.drop(_11);
+		Log.note(log, _7);
+		_19 = guard(1010);
+		if (_19 === undefined) {
+			matched = 0;
+		} else {
+			matched = 1;
+		}
+		unwind = 0;
+		rt.drop(_19);
+		_24 = guard(1020);
+		if (_24 === undefined) {
+			unwind = 82;
+			Log.note(log, rt.fmtFormat(["unmatched"]));
+			unwind = 0;
+			rt.drop(_24);
+		} else {
+			rt.drop(_24);
+		}
+		unwind = 0;
+		_39 = guard(1030);
+		unwind = 81;
+		const arg2 = _39.id;
+		args4 = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.i32Display(matched, f)];
+		_35 = rt.fmtFormat(["boxed temporary ", args4[0], " ", args4[1]]);
+		unwind = 0;
+		rt.drop(_39);
+		Log.note(log, _35);
+		_57 = guard(1040);
+		unwind = 80;
+		_60 = guard(1050);
+		unwind = 0;
+		const arg3 = ([first([_57, _60] as [Guard.Guard, Guard.Guard])] as [rt.u32])[0];
+		args6 = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+		Log.note(log, rt.fmtFormat(["skipped ", args6[0]]));
+		_70 = guard(1060);
+		unwind = 79;
+		_73 = guard(1070);
+		unwind = 78;
+		_76 = guard(1080);
+		unwind = 76;
+		_69 = [_70, _73, _76];
+		head = _69[0];
+		rest = _69.slice(1, 3);
+		Guard.note(head, "head");
+		Guard.note(rest[1], "rest");
+		rt.drop(guard(1090));
+		const arg4 = ([([] as Guard.Guard[]).length] as [rt.usize])[0];
+		args8 = [(f: rt.Formatter) => rt.usizeDisplay(arg4, f)];
+		Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
+		const captured = guard(1100);
+		const arg5 = ([((): rt.u32 => {
+			return Guard.finish(captured, "closure");
+		})()] as [rt.u32])[0];
+		args10 = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
+		Log.note(log, rt.fmtFormat(["closed ", args10[0]]));
+		sum_ = 0;
+		iter = new Countdown.Countdown({ left: 2, guard: guard(1110) });
+		while (true) {
+			unwind = 75;
+			_126 = Countdown.next$Iterator(iter);
+			if (_126 === rt.DONE) {
+				unwind = 76;
+				rt.drop(iter);
+				const arg6 = ([sum_] as [rt.u32])[0];
+				args12 = [(f: rt.Formatter) => rt.u32Display(arg6, f)];
+				Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
+				unwind = 77;
+				rt.dropAll(rest);
+				unwind = 0;
+				rt.drop(head);
+				return;
+			} else {
+				sum_ = rt.u32Add(sum_, _126);
+			}
+		}
+	} catch (e) {
+		b3: {
+			b4: {
+				b5: {
+					if (unwind === 0) {
+						throw e;
+					}
+					if (unwind === 75) {
+						rt.drop(iter);
+						break b5;
+					} else if (unwind === 76) {
+						break b5;
+					} else if (unwind === 77) {
+						break b4;
+					} else if (unwind === 78) {
+						rt.drop(_73);
+					} else if (unwind !== 79) {
+						if (unwind === 80) {
+							rt.drop(_57);
+							break b3;
+						} else if (unwind === 81) {
+							rt.drop(_39);
+							break b3;
+						} else if (unwind === 82) {
+							rt.drop(_24);
+							break b3;
+						} else {
+							rt.drop(_11);
+							break b3;
+						}
+					}
+					rt.drop(_70);
+					break b3;
+				}
+				rt.dropAll(rest);
+			}
+			rt.drop(head);
+		}
+		throw e;
+	}
+}
+
+/** The id of the first guard, which it drops; the second drops as the call returns. */
+export function first(_1: [Guard.Guard, Guard.Guard]): rt.u32 {
+	let _0!: rt.u32;
+	let unwind: number = 0;
+	try {
+		unwind = 5;
+		_0 = Guard.finish(_1[0], "first");
+		unwind = 0;
+		rt.drop(_1[1]);
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
 }
 
 export function read(t: Tally.Tally): rt.u32 {
@@ -302,7 +1283,10 @@ export function read(t: Tally.Tally): rt.u32 {
 
 /** `i`, noted as picked. */
 export function pick(log: Log.Log, i: rt.usize): rt.usize {
-	Log.note(log, rt.fmtFormat(["pick ", (f: rt.Formatter) => rt.usizeDisplay(i, f)]));
+	let args2!: rt.Fmt[];
+	const arg = ([i] as [rt.usize])[0];
+	args2 = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+	Log.note(log, rt.fmtFormat(["pick ", args2[0]]));
 	return i;
 }
 
@@ -316,85 +1300,156 @@ export function pick(log: Log.Log, i: rt.usize): rt.usize {
  * guard a method takes by value, which drops inside it.
  */
 export function turns(log: Log.Log, count: rt.u32): void {
-	const pair = [Guard.new(rt.u32Add(count, 10), Log.clone$Clone(log)), Guard.new(rt.u32Add(count, 20), Log.clone$Clone(log))];
+	let pair!: Guard.Guard[];
+	let _4!: Guard.Guard;
+	let _8!: Guard.Guard;
+	let kept!: Guard.Guard;
+	let pinned!: Guard.Guard;
+	let held!: Guard.Guard;
+	let _34!: Guard.Guard;
+	let scoped!: rt.u32;
+	let _42!: Guard.Guard;
+	let args2!: rt.Fmt[];
+	let boxed!: Guard.Guard;
+	let args4!: rt.Fmt[];
+	let _70!: rt.Fmt;
+	let args6!: rt.Fmt[];
+	let spares!: Guard.Guard[];
+	let _91!: Guard.Guard;
+	let _95!: Guard.Guard;
+	let _99!: rt.usize;
+	let left!: rt.u32;
+	let turn!: Guard.Guard;
+	let _119!: rt.u32;
+	let unwind: number = 0;
 	try {
-		const kept = pair[0];
-		pair[0] = undefined!;
-		try {
-			Guard.note(kept, "kept");
-			const pinned = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
-			try {
-				Guard.note(pinned, "pinned");
-				const held = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
-				try {
-					const borrowed = held;
-					Guard.note(borrowed, "borrowed");
-					const extended = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
-					try {
-						Guard.note(extended, "extended");
-						let value: rt.u32;
-						const inner = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
-						try {
-							value = inner.id;
-						} finally {
-							rt.drop(inner);
-						}
-						const scoped = value;
-						Log.note(log, rt.fmtFormat(["after ", (f: rt.Formatter) => rt.u32Display(scoped, f)]));
-						const boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
-						try {
-							const once = boxed.id;
-							Log.note(log, rt.fmtFormat(["boxed ", (f: rt.Formatter) => rt.u32Display(once, f), " ", (f: rt.Formatter) => rt.u32Display(boxed.id, f)]));
-							const finished = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
-							Log.note(log, rt.fmtFormat(["finished ", (f: rt.Formatter) => rt.u32Display(finished, f)]));
-							const spares = [Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log)), Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log))];
-							try {
-								const index = pick(log, rt.usizeRem(count as rt.usize, 2));
-								spares[rt.idx(spares, index)];
-								arms: {
-									if (count === 0) {
-										Log.note(log, "no turns");
-										break arms;
-									}
-									const n = count;
-									if (n < 4) {
-										let left: rt.u32 = n;
-										while (true) {
-											const turn = Guard.new(left, Log.clone$Clone(log));
-											try {
-												if (left === 1) {
-													break;
-												}
-												Guard.note(turn, "turn");
-												left = rt.u32Sub(left, 1);
-											} finally {
-												rt.drop(turn);
-											}
-										}
-										break arms;
-									}
-									Log.note(log, "many turns");
-								}
-							} finally {
-								rt.dropAll(spares);
-							}
-						} finally {
-							rt.drop(boxed);
-						}
-					} finally {
-						rt.drop(extended);
-					}
-				} finally {
-					rt.drop(held);
-				}
-			} finally {
-				rt.drop(pinned);
-			}
-		} finally {
-			rt.drop(kept);
+		_4 = Guard.new(rt.u32Add(count, 10), Log.clone$Clone(log));
+		unwind = 94;
+		_8 = Guard.new(rt.u32Add(count, 20), Log.clone$Clone(log));
+		unwind = 93;
+		pair = [_4, _8];
+		kept = pair[0];
+		Guard.note(kept, "kept");
+		pinned = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
+		unwind = 92;
+		Guard.note(pinned, "pinned");
+		held = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
+		unwind = 91;
+		Guard.note(held, "borrowed");
+		_34 = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
+		unwind = 90;
+		Guard.note(_34, "extended");
+		_42 = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
+		scoped = _42.id;
+		rt.drop(_42);
+		const arg = ([scoped] as [rt.u32])[0];
+		args2 = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
+		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
+		unwind = 89;
+		const arg2 = boxed.id;
+		_70 = (f: rt.Formatter) => rt.u32Display(arg2, f);
+		const arg3 = boxed.id;
+		args4 = [_70, (f: rt.Formatter) => rt.u32Display(arg3, f)];
+		Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
+		const arg4 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
+		args6 = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
+		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
+		_91 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
+		unwind = 88;
+		_95 = Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log));
+		unwind = 87;
+		spares = [_91, _95];
+		_99 = pick(log, rt.usizeRem(count as rt.usize, 2));
+		if (!(_99 < 2)) {
+			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _99);
 		}
-	} finally {
-		rt.dropAll(pair);
+		b0: {
+			if (count === 0) {
+				Log.note(log, rt.fmtFormat(["no turns"]));
+			} else if (!(count < 4)) {
+				Log.note(log, rt.fmtFormat(["many turns"]));
+			} else {
+				left = count;
+				while (true) {
+					turn = Guard.new(left, Log.clone$Clone(log));
+					if (!(left === 1)) {
+						unwind = 86;
+						Guard.note(turn, "turn");
+						_119 = rt.u32Sub(left, 1);
+						unwind = 87;
+						left = _119;
+						rt.drop(turn);
+					} else {
+						rt.drop(turn);
+						break b0;
+					}
+				}
+			}
+		}
+		unwind = 89;
+		rt.dropAll(spares);
+		unwind = 90;
+		rt.drop(boxed);
+		unwind = 91;
+		rt.drop(_34);
+		unwind = 92;
+		rt.drop(held);
+		unwind = 93;
+		rt.drop(pinned);
+		unwind = 96;
+		rt.drop(kept);
+		unwind = 0;
+		rt.dropAll(pair.slice(1, 2));
+	} catch (e) {
+		b2: {
+			b3: {
+				b4: {
+					b5: {
+						b6: {
+							b7: {
+								b8: {
+									if (unwind === 0) {
+										throw e;
+									}
+									if (unwind === 86) {
+										rt.drop(turn);
+									} else if (unwind !== 87) {
+										if (unwind === 88) {
+											rt.drop(_91);
+											break b8;
+										} else if (unwind === 89) {
+											break b8;
+										} else if (unwind === 90) {
+											break b7;
+										} else if (unwind === 91) {
+											break b6;
+										} else if (unwind === 92) {
+											break b5;
+										} else if (unwind === 93) {
+											break b4;
+										} else if (unwind === 94) {
+											rt.drop(_4);
+											break b2;
+										} else {
+											break b3;
+										}
+									}
+									rt.dropAll(spares);
+								}
+								rt.drop(boxed);
+							}
+							rt.drop(_34);
+						}
+						rt.drop(held);
+					}
+					rt.drop(pinned);
+				}
+				rt.drop(kept);
+			}
+			rt.dropAll(pair.slice(1, 2));
+		}
+		throw e;
 	}
 }
 
@@ -403,392 +1458,1002 @@ export function turns(log: Log.Log, count: rt.u32): void {
  * deep: 1, 4, or 16.
  */
 export function drain(rx: Consumer.Consumer, depth: rt.u32): rt.Future<rt.u64> {
-	return rt.future(drainBody, drainDrop, rx, depth);
+	return new drainFuture(rx, depth);
 }
 
-export function* drainBody(_taskContext: rt.Context, rx: Consumer.Consumer, depth: rt.u32): Generator<undefined, rt.u64, rt.Context> {
-	let rx2: Consumer.Consumer = rx;
-	rx = undefined!;
-	try {
-		const depth2 = depth;
-		let total: rt.u64 = 0;
-		while (true) {
-			let next: rt.u64 | undefined;
-			if (depth2 === 1) {
-				let __awaitee: rt.Future<rt.u64 | undefined> = Consumer.recv(rx2);
-				try {
-					while (true) {
-						const poll = __awaitee.poll(_taskContext);
-						if (poll !== rt.Pending) {
-							const result = poll;
-							next = result;
-							break;
-						}
-						_taskContext = yield;
-					}
-				} finally {
-					rt.drop(__awaitee);
-				}
-			} else if (depth2 === 4) {
-				let __awaitee2: rt.Future<rt.u64 | undefined> = level3(rx2);
-				try {
-					while (true) {
-						const poll2 = __awaitee2.poll(_taskContext);
-						if (poll2 !== rt.Pending) {
-							const result2 = poll2;
-							next = result2;
-							break;
-						}
-						_taskContext = yield;
-					}
-				} finally {
-					rt.drop(__awaitee2);
-				}
+export class drainFuture {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	depth: rt.u32;
+	rx_!: Consumer.Consumer;
+	depth_!: rt.u32;
+	total_!: rt.u64;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+	___awaitee_!: rt.Future<rt.u64 | undefined>;
+	___awaitee_$2!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer, depth: rt.u32) {
+		this.rx = rx;
+		this.depth = depth;
+	}
+
+	[Symbol.dispose](): void {
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 0;
+				rt.drop(this.rx);
+				return;
+			} else if (this.state === 3) {
+				unwind = 19;
+				rt.drop(this.__awaitee_);
+			} else if (this.state === 4) {
+				unwind = 17;
+				rt.drop(this.___awaitee_);
+			} else if (this.state === 5) {
+				unwind = 15;
+				rt.drop(this.___awaitee_$2);
 			} else {
-				let __awaitee3: rt.Future<rt.u64 | undefined> = level15(rx2);
-				try {
-					while (true) {
-						const poll3 = __awaitee3.poll(_taskContext);
-						if (poll3 !== rt.Pending) {
-							const result3 = poll3;
-							next = result3;
-							break;
-						}
-						_taskContext = yield;
-					}
-				} finally {
-					rt.drop(__awaitee3);
-				}
+				return;
 			}
-			if (next !== undefined) {
-				const value = next;
-				total = rt.u64Add(total, value);
-			} else {
-				break;
+			unwind = 0;
+			rt.drop(this.rx_);
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
 			}
+			rt.drop(this.rx_);
+			throw e;
 		}
-		return total;
-	} finally {
-		rt.drop(rx2);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let next!: rt.u64 | undefined;
+		let _7!: rt.Poll<rt.u64 | undefined>;
+		let _18!: rt.Poll<rt.u64 | undefined>;
+		let _29!: rt.Poll<rt.u64 | undefined>;
+		let _40!: rt.u64;
+		let unwind: number = 0;
+		try {
+			let bb0: number = 0;
+			l0: while (true) {
+				switch (bb0) {
+					case 0:
+						if (this.state === 0) {
+							this.rx_ = this.rx;
+							this.depth_ = this.depth;
+							this.total_ = 0;
+							bb0 = 1;
+							continue l0;
+						} else if (this.state === 1) {
+							rt.panic("`async fn` resumed after completion");
+						} else if (this.state === 2) {
+							rt.panic("`async fn` resumed after panicking");
+						} else if (this.state === 3) {
+							bb0 = 7;
+							continue l0;
+						} else if (this.state === 4) {
+							bb0 = 15;
+							continue l0;
+						} else {
+							bb0 = 22;
+							continue l0;
+						}
+					case 1:
+						if (this.depth_ === 1) {
+							unwind = 36;
+							this.__awaitee_ = Consumer.recv(this.rx_);
+							bb0 = 7;
+							continue l0;
+						} else if (this.depth_ === 4) {
+							unwind = 36;
+							this.___awaitee_ = level3(this.rx_);
+							bb0 = 15;
+							continue l0;
+						} else {
+							unwind = 36;
+							this.___awaitee_$2 = level15(this.rx_);
+							bb0 = 22;
+							continue l0;
+						}
+					case 22:
+						unwind = 33;
+						_29 = this.___awaitee_$2.poll(_2);
+						if (_29 !== rt.Pending) {
+							unwind = 36;
+							next = _29;
+							rt.drop(this.___awaitee_$2);
+							bb0 = 27;
+							continue l0;
+						} else {
+							this.state = 5;
+							return rt.Pending;
+						}
+					case 15:
+						unwind = 34;
+						_18 = this.___awaitee_.poll(_2);
+						if (_18 !== rt.Pending) {
+							unwind = 36;
+							next = _18;
+							rt.drop(this.___awaitee_);
+							bb0 = 27;
+							continue l0;
+						} else {
+							this.state = 4;
+							return rt.Pending;
+						}
+					case 7:
+						unwind = 35;
+						_7 = this.__awaitee_.poll(_2);
+						if (_7 !== rt.Pending) {
+							unwind = 36;
+							next = _7;
+							rt.drop(this.__awaitee_);
+							bb0 = 27;
+							continue l0;
+						} else {
+							this.state = 3;
+							return rt.Pending;
+						}
+					case 27:
+						if (next === undefined) {
+							unwind = 37;
+							_40 = this.total_;
+							rt.drop(this.rx_);
+							this.state = 1;
+							return _40;
+						} else {
+							unwind = 36;
+							this.total_ = rt.u64Add(this.total_, next);
+							bb0 = 1;
+							continue l0;
+						}
+				}
+			}
+		} catch (e) {
+			b1: {
+				if (unwind === 0) {
+					throw e;
+				}
+				if (unwind === 33) {
+					rt.drop(this.___awaitee_$2);
+				} else if (unwind === 34) {
+					rt.drop(this.___awaitee_);
+				} else if (unwind === 35) {
+					rt.drop(this.__awaitee_);
+				} else if (unwind !== 36) {
+					break b1;
+				}
+				rt.drop(this.rx_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
-export function drainDrop(rx: Consumer.Consumer, _depth: rt.u32): void {
-	rt.drop(rx);
-}
-
 export function level1(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level1Body, undefined, rx);
+	return new level1Future(rx);
 }
 
-export function* level1Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = Consumer.recv(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level1Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = Consumer.recv(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level10(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level10Body, undefined, rx);
+	return new level10Future(rx);
 }
 
-export function* level10Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level9(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level10Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level9(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level11(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level11Body, undefined, rx);
+	return new level11Future(rx);
 }
 
-export function* level11Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level10(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level11Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level10(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level12(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level12Body, undefined, rx);
+	return new level12Future(rx);
 }
 
-export function* level12Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level11(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level12Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level11(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level13(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level13Body, undefined, rx);
+	return new level13Future(rx);
 }
 
-export function* level13Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level12(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level13Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level12(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level14(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level14Body, undefined, rx);
+	return new level14Future(rx);
 }
 
-export function* level14Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level13(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level14Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level13(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level15(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level15Body, undefined, rx);
+	return new level15Future(rx);
 }
 
-export function* level15Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level14(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level15Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level14(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level2(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level2Body, undefined, rx);
+	return new level2Future(rx);
 }
 
-export function* level2Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level1(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level2Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level1(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level3(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level3Body, undefined, rx);
+	return new level3Future(rx);
 }
 
-export function* level3Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level2(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level3Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level2(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level4(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level4Body, undefined, rx);
+	return new level4Future(rx);
 }
 
-export function* level4Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level3(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level4Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level3(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level5(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level5Body, undefined, rx);
+	return new level5Future(rx);
 }
 
-export function* level5Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level4(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level5Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level4(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level6(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level6Body, undefined, rx);
+	return new level6Future(rx);
 }
 
-export function* level6Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level5(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level6Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level5(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level7(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level7Body, undefined, rx);
+	return new level7Future(rx);
 }
 
-export function* level7Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level6(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level7Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level6(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level8(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level8Body, undefined, rx);
+	return new level8Future(rx);
 }
 
-export function* level8Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level7(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level8Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level7(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 
 export function level9(rx: Consumer.Consumer): rt.Future<rt.u64 | undefined> {
-	return rt.future(level9Body, undefined, rx);
+	return new level9Future(rx);
 }
 
-export function* level9Body(_taskContext: rt.Context, rx: Consumer.Consumer): Generator<undefined, rt.u64 | undefined, rt.Context> {
-	const rx2 = rx;
-	let __awaitee: rt.Future<rt.u64 | undefined> = level8(rx2);
-	try {
-		while (true) {
-			const poll = __awaitee.poll(_taskContext);
-			if (poll !== rt.Pending) {
-				const result = poll;
-				return result;
-			}
-			_taskContext = yield;
+export class level9Future {
+	state: number = 0;
+	rx: Consumer.Consumer;
+	__awaitee_!: rt.Future<rt.u64 | undefined>;
+
+	constructor(rx: Consumer.Consumer) {
+		this.rx = rx;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.state === 3) {
+			rt.drop(this.__awaitee_);
 		}
-	} finally {
-		rt.drop(__awaitee);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
+		let _6!: rt.Poll<rt.u64 | undefined>;
+		let unwind: number = 0;
+		try {
+			if (this.state === 0) {
+				unwind = 12;
+				this.__awaitee_ = level8(this.rx);
+			} else if (this.state === 1) {
+				rt.panic("`async fn` resumed after completion");
+			} else if (this.state === 2) {
+				rt.panic("`async fn` resumed after panicking");
+			}
+			unwind = 11;
+			_6 = this.__awaitee_.poll(_2);
+			if (_6 !== rt.Pending) {
+				unwind = 12;
+				rt.drop(this.__awaitee_);
+				this.state = 1;
+				return _6;
+			} else {
+				this.state = 3;
+				return rt.Pending;
+			}
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 11) {
+				rt.drop(this.__awaitee_);
+			}
+			this.state = 2;
+			throw e;
+		}
 	}
 }
 

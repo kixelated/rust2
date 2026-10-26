@@ -247,6 +247,10 @@ pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	out.push(*inclusive.start());
 	out.push(*inclusive.end());
 	out.push(inclusive.contains(&b) as u8);
+	// Of constants, which is itself a constant.
+	const LOW: u64 = 0x20;
+	const HIGH: u64 = 0x7f;
+	out.push((LOW..=HIGH).contains(&u64::from(a)) as u8);
 	// `nth` past the end, or past the type's last value, leaves the range as std's does.
 	let mut near = a.max(200)..=255;
 	out.push(near.nth(b as usize).unwrap_or(0xee));
