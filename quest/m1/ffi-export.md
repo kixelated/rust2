@@ -19,20 +19,13 @@ census refuses and what moq waits on:
   makes `Path` owned. Once it lands, bump the moq pin: the census then exports `Path::new`,
   `strip_prefix`, and `Relative::new`, and drops `AsPath` and the `borrow` methods from
   [the exclude list](/ffi/moq/ffi.toml), refusing only `Path::from_static`'s `'static` borrow.
-- **Several crates**: moq-tokio's sessions and the media crates (hang, moq-mux) hold
-  moq-ffi's remaining API. Export them as moq-pattern and moq-clock already export beside
-  moq-net, each under `[crates.<package>]` in [the config](/ffi/moq/ffi.toml). The checked
-  package must build with every export, so this needs moq-ffi's remainder, or a crate
-  standing in for it, as that package. Decided with the maintainer:
-  - ✅ Each crate is its own export with its own census, and an export names another's
-    types across crates, not names at a re-export's path.
-  - ✅ One rustc session collects every export from metadata: one IR, one glue crate, one
-    library.
-  - ✅ One prefix per library, with names from each crate's root and clashes checked across
-    exports.
-  - ✅ One header, `include/<prefix>.h`.
-  - ✅ One `ffi.toml`, with a `[crates.<package>]` table per other export, and
-    `--census <dir>` writing `<package>.md` for each.
+- **Several crates**: moq-net, moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export
+  into one library through an empty package standing in for moq-ffi's remainder, which
+  `just ffi standin` writes; moq-ffi takes its place once it shrinks to that remainder.
+  Left:
+  - moq-clock's C names (`moq_now`, `moq_origin`) wait for its merge into kio.
+  - A field and a method of one name, such as moq-tokio's `Backoff::initial`, claim one C
+    name that `rename` cannot split, so [the config](/ffi/moq/ffi.toml) excludes both.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
   Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.

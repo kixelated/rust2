@@ -34,6 +34,13 @@ Each names what the fork changes, the measured gain on moq, and its source.
   semantics need their own before this counts as sound. Each skip saves at most
   about 56% of the edit: the dependents' share of its critical path, minus the
   final link ([relink](/quest/m3/relink.md)).
+- **Cargo's resolved config, with each value's origin.** Expose the merged
+  `[patch]` cargo resolves with, or have `cargo metadata` report the patches it
+  applied. Stable cargo has no way to read either (`cargo config get` is unstable,
+  [rust-lang/cargo#9301](https://github.com/rust-lang/cargo/issues/9301)), so
+  rust2-ffi reimplements config discovery, `include`, merging, and relative paths
+  to carry config patches into its generated crate, and drifts when cargo's rules
+  change. Gain: no build speed; it deletes about 100 lines of `ffi/src/cli.rs`.
 
 ### Not reasons
 

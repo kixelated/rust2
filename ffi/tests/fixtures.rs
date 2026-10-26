@@ -523,3 +523,87 @@ fn patched() {
 		.arg("--target-dir")
 		.arg(package.join("glue")));
 }
+
+/// Patches in cargo's config, which cargo reads only where the check runs, reach the glue
+/// as the check resolved them: an ancestor's file through its `include`, with paths from
+/// the directory holding its `.cargo`, outranking the manifest's patch of the same
+/// dependency, and a `--config` value, with paths from the package's directory.
+#[test]
+fn config_patched() {
+	let root = scratch().join("config-patched");
+	let write = |path: &str, text: &str| {
+		let path = root.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	let dep = |dir: &str, name: &str, item: &str| {
+		write(
+			&format!("{dir}/Cargo.toml"),
+			&format!("[package]\nname = \"{name}\"\nversion = \"1.0.0\"\nedition = \"2024\"\n"),
+		);
+		write(&format!("{dir}/src/lib.rs"), item);
+	};
+	dep(
+		"pkg/dep",
+		"rust2-ffi-config-dep",
+		"pub struct Size {\n\tpub width: u32,\n}\n",
+	);
+	// What the manifest patches in, which lacks the field the package reads.
+	dep(
+		"pkg/stale",
+		"rust2-ffi-config-dep",
+		"pub struct Size {\n\tpub height: u32,\n}\n",
+	);
+	dep(
+		"pkg/cli",
+		"rust2-ffi-config-cli",
+		"pub struct Margin {\n\tpub width: u32,\n}\n",
+	);
+	write(".cargo/config.toml", "include = [\"patch.toml\"]\n");
+	write(
+		".cargo/patch.toml",
+		"[patch.crates-io]\nrust2-ffi-config-dep = { path = \"pkg/dep\" }\n",
+	);
+	write(
+		"pkg/Cargo.toml",
+		"[package]\nname = \"config-patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nrust2-ffi-config-cli = \"1\"\nrust2-ffi-config-dep = \"1\"\n\n\
+		[patch.crates-io]\nrust2-ffi-config-dep = { path = \"stale\" }\n\n\
+		[workspace]\nexclude = [\"cli\", \"dep\", \"stale\"]\n",
+	);
+	write(
+		"pkg/src/lib.rs",
+		"pub fn width(size: rust2_ffi_config_dep::Size, cli: rust2_ffi_config_cli::Margin) -> u32 {\n\
+		\tsize.width + cli.width\n}\n",
+	);
+	write(
+		"pkg/ffi.toml",
+		"package = \"config-patched\"\n\n[crates.rust2-ffi-config-cli]\n\n[crates.rust2-ffi-config-dep]\n",
+	);
+	let out = root.join("out");
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(root.join("pkg/ffi.toml"))
+		.arg("--out")
+		.arg(&out)
+		.args([
+			"--",
+			"--offline",
+			"--config",
+			"patch.crates-io.rust2-ffi-config-cli.path = \"cli\"",
+		])
+		.env("CARGO_TARGET_DIR", root.join("build"))
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the export failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	// Built from here, where none of that config is read.
+	run(cargo()
+		.args(["build", "--quiet", "--offline", "--manifest-path"])
+		.arg(out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(root.join("glue")));
+}

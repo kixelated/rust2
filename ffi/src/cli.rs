@@ -159,19 +159,144 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String,
 		}
 		lines.push_str(&package.line());
 	}
-	Ok((lines, patches(&metadata.workspace_root)?))
+	let dir = manifest.parent().expect("a manifest path has a parent");
+	Ok((lines, patches(&metadata.workspace_root, dir, &picks)?))
 }
 
-/// The workspace's `[patch]` and `[replace]` tables, with each path absolute, so the
-/// glue's own workspace resolves the exports as the check does.
-fn patches(root: &Path) -> Result<String, String> {
+/// The workspace's `[patch]` and `[replace]` tables, and the `[patch]` of cargo's config
+/// where the check runs, in `dir`, which outranks the workspace's a dependency at a time:
+/// each path absolute, so the glue's own workspace, built from anywhere, resolves the
+/// exports as the check does.
+fn patches(root: &Path, dir: &Path, picks: &Picks<'_>) -> Result<String, String> {
 	let manifest = root.join("Cargo.toml");
-	let text = std::fs::read_to_string(&manifest).map_err(|err| format!("reading {}: {err}", manifest.display()))?;
-	let table: toml::Table = text
-		.parse()
-		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
-	toml::to_string(&overrides(&table, root))
-		.map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+	let mut patches = overrides(&read_toml(&manifest)?, root);
+	let config = config(dir, picks)?;
+	if let Some(paths) = config.get("paths") {
+		return Err(format!(
+			"cargo's config overrides {paths} by `paths`, which no manifest can, so the export's library would build them unpatched"
+		));
+	}
+	for (source, deps) in config
+		.get("patch")
+		.and_then(toml::Value::as_table)
+		.into_iter()
+		.flatten()
+	{
+		let patch = patches.entry("patch").or_insert_with(|| toml::Table::new().into());
+		let into = (patch.as_table_mut()).map(|patch| patch.entry(source).or_insert_with(|| toml::Table::new().into()));
+		let (Some(toml::Value::Table(into)), Some(deps)) = (into, deps.as_table()) else {
+			return Err(format!("`patch.{source}` is not a table"));
+		};
+		into.extend(deps.clone());
+	}
+	toml::to_string(&patches).map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+}
+
+fn read_toml(path: &Path) -> Result<toml::Table, String> {
+	let text = std::fs::read_to_string(path).map_err(|err| format!("reading {}: {err}", path.display()))?;
+	text.parse().map_err(|err| format!("parsing {}: {err}", path.display()))
+}
+
+/// The `[patch]` and `paths` of cargo's config as cargo reads it in `dir`, each patch's
+/// path absolute: `$CARGO_HOME`'s file, then each directory's from the root down to
+/// `dir`, then each `--config` value, each outranking the last.
+fn config(dir: &Path, picks: &Picks<'_>) -> Result<toml::Table, String> {
+	// Cargo walks the directory it runs in, symlinks resolved.
+	let dir = std::fs::canonicalize(dir).map_err(|err| format!("resolving {}: {err}", dir.display()))?;
+	let home = match std::env::var_os("CARGO_HOME") {
+		Some(home) => Some(dir.join(home)),
+		None => std::env::home_dir().map(|home| home.join(".cargo")),
+	};
+	let mut dirs: Vec<PathBuf> = dir.ancestors().map(|d| d.join(".cargo")).collect();
+	dirs.reverse();
+	if let Some(home) = home.filter(|home| !dirs.contains(home)) {
+		dirs.insert(0, home);
+	}
+	let mut config = toml::Table::new();
+	for dir in dirs {
+		// The name without `.toml` wins where both are.
+		let file = ["config", "config.toml"]
+			.into_iter()
+			.map(|name| dir.join(name))
+			.find(|f| f.is_file());
+		if let Some(file) = file {
+			merge(&mut config, load(&file)?);
+		}
+	}
+	for value in picks.configs() {
+		// A value naming a file is that file, and otherwise a TOML key and value, whose
+		// paths are from where cargo runs.
+		let file = dir.join(value);
+		let table = match !value.is_empty() && file.exists() {
+			true => load(&file)?,
+			false => {
+				let table = value
+					.parse()
+					.map_err(|err| format!("parsing --config {value}: {err}"))?;
+				absolute(table, &dir)
+			}
+		};
+		merge(&mut config, table);
+	}
+	config.retain(|key, _| key == "patch" || key == "paths");
+	Ok(config)
+}
+
+/// A cargo config file's values with its `include`s' merged in beneath them, in order,
+/// each patch's path absolute: from the directory holding the file's directory.
+fn load(file: &Path) -> Result<toml::Table, String> {
+	let mut table = read_toml(file)?;
+	let dir = file.parent().expect("a file has a parent");
+	let includes = match table.remove("include") {
+		None => Vec::new(),
+		Some(toml::Value::String(path)) => vec![toml::Value::String(path)],
+		Some(toml::Value::Array(includes)) => includes,
+		Some(_) => return Err(format!("{}: `include` is not a path or a list", file.display())),
+	};
+	let mut config = toml::Table::new();
+	for include in includes {
+		let (path, optional) = match &include {
+			toml::Value::String(path) => (Some(path.as_str()), false),
+			toml::Value::Table(table) => (
+				table.get("path").and_then(toml::Value::as_str),
+				table.get("optional").and_then(toml::Value::as_bool).unwrap_or(false),
+			),
+			_ => (None, false),
+		};
+		let Some(path) = path else {
+			return Err(format!("{}: an `include` names no path: {include}", file.display()));
+		};
+		let path = dir.join(path);
+		if optional && !path.exists() {
+			continue;
+		}
+		merge(&mut config, load(&path)?);
+	}
+	merge(&mut config, absolute(table, dir.parent().unwrap_or(dir)));
+	Ok(config)
+}
+
+/// A config's values with each patch's path made absolute from `root`. Cargo reads no
+/// `[replace]` from its config.
+fn absolute(mut table: toml::Table, root: &Path) -> toml::Table {
+	if let Some(patch) = overrides(&table, root).remove("patch") {
+		table.insert("patch".to_string(), patch);
+	}
+	table
+}
+
+/// Merge `high` into `low` as cargo merges its config: tables key by key, arrays joined
+/// with `high`'s last, and any other value `high`'s.
+fn merge(low: &mut toml::Table, high: toml::Table) {
+	for (key, high) in high {
+		match (low.get_mut(&key), high) {
+			(Some(toml::Value::Table(low)), toml::Value::Table(high)) => merge(low, high),
+			(Some(toml::Value::Array(low)), toml::Value::Array(high)) => low.extend(high),
+			(_, high) => {
+				low.insert(key, high);
+			}
+		}
+	}
 }
 
 /// A manifest's `[patch.<source>]` and `[replace]` dependencies, each path made absolute
@@ -259,6 +384,19 @@ impl<'a> Picks<'a> {
 			picks.named.extend(named.filter(|f| !f.is_empty()));
 		}
 		Ok(picks)
+	}
+
+	/// Each `--config` value, in order.
+	fn configs(&self) -> Vec<&'a str> {
+		let mut values = Vec::new();
+		let mut flags = self.flags.iter().copied();
+		while let Some(flag) = flags.next() {
+			match flag {
+				"--config" => values.extend(flags.next()),
+				_ => values.extend(flag.strip_prefix("--config=")),
+			}
+		}
+		values
 	}
 
 	/// The same picks, as cargo args.
@@ -378,6 +516,22 @@ mod tests {
 	}
 
 	#[test]
+	fn merges_config_as_cargo() {
+		let mut low: toml::Table = "[patch.crates-io]\na = { path = \"low\", features = [\"x\"] }\nb = \"1\"\n"
+			.parse()
+			.unwrap();
+		let high: toml::Table = "[patch.crates-io]\na = { path = \"high\", features = [\"y\"] }\nc = \"2\"\n"
+			.parse()
+			.unwrap();
+		merge(&mut low, high);
+		let expected: toml::Table =
+			"[patch.crates-io]\na = { path = \"high\", features = [\"x\", \"y\"] }\nb = \"1\"\nc = \"2\"\n"
+				.parse()
+				.unwrap();
+		assert_eq!(low, expected);
+	}
+
+	#[test]
 	fn reads_what_picks_a_resolution() {
 		for spelling in [
 			&["--features", "a,dep/b"][..],
@@ -404,6 +558,7 @@ mod tests {
 		let cargo: Vec<String> = cargo.iter().map(|s| s.to_string()).collect();
 		let flags = ["--all-features", "--locked", "--config", "a=1", "--config=b=2"];
 		assert_eq!(Picks::parse(&cargo).unwrap().args(), flags);
+		assert_eq!(Picks::parse(&cargo).unwrap().configs(), ["a=1", "b=2"]);
 		for target in [
 			&["--target", "wasm32-unknown-unknown"][..],
 			&["--target=wasm32-unknown-unknown"],

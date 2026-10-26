@@ -1,6 +1,7 @@
-/* moq-net's exported C API against the real library: a broadcast's track, published
- * and subscribed to in one process, with every read polled as a future, and an origin.
- * moq-pattern and moq-clock export into the same library, and moq-net names their types.
+/* moq's exported C API against the real library: a broadcast's track, published and
+ * subscribed to in one process, with every read polled as a future, and an origin.
+ * moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export into the same library, and
+ * each names the others' types.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -182,6 +183,34 @@ int main(void) {
 	moq_broadcast_producer_free(created);
 	moq_origin_driver_free(driver);
 	moq_origin_producer_free(origin);
+
+	/* moq-mux reads an OpusHead into hang's catalog config: 44.1 kHz in, stereo, which
+	 * the catalog lists at the decoder's 48 kHz, keeping the head as its description. */
+	static const uint8_t head[] = {'O', 'p', 'u', 's', 'H', 'e', 'a', 'd', 1, 2, 0x38, 0x01, 0x44, 0xac, 0, 0, 0, 0, 0};
+	moq_catalog_audio_config *audio = NULL;
+	moq_mux_error *mux_err = NULL;
+	CHECK(moq_codec_opus_audio_config((moq_buf){.ptr = head, .len = sizeof head}, &audio, &mux_err));
+	CHECK(moq_catalog_audio_config_sample_rate(audio) == 48000);
+	CHECK(moq_catalog_audio_config_channel_count(audio) == 2);
+	moq_catalog_audio_codec codec = moq_catalog_audio_config_codec(audio);
+	CHECK(codec.tag == MOQ_CATALOG_AUDIO_CODEC_OPUS);
+	moq_catalog_audio_codec_free(&codec);
+	moq_buf description = moq_catalog_audio_config_description(audio);
+	CHECK(description.len == sizeof head && memcmp(description.ptr, head, sizeof head) == 0);
+	moq_buf_free(description);
+	moq_catalog_audio_config_free(audio);
+	/* A truncated head is moq-mux's error. */
+	CHECK(!moq_codec_opus_audio_config((moq_buf){.ptr = head, .len = 8}, &audio, &mux_err));
+	CHECK(mux_err != NULL);
+	moq_buf message = moq_mux_error_to_string(mux_err);
+	CHECK(message.len > 0);
+	moq_buf_free(message);
+	moq_mux_error_free(mux_err);
+
+	/* moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with. */
+	moq_connect_error unauthorized = MOQ_CONNECT_ERROR_UNAUTHORIZED;
+	CHECK(moq_connect_error_is_auth(&unauthorized));
+	CHECK(is(moq_connect_error_to_string(&unauthorized), "unauthorized"));
 
 	if (failures == 0) {
 		printf("ok\n");

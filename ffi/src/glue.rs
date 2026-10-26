@@ -102,6 +102,7 @@ impl Crate<'_> {
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
+			dependencies: self.exports.iter().map(|export| dependency(&export.root())).collect(),
 			out: String::new(),
 		};
 		generator.lib();
@@ -116,6 +117,8 @@ struct Gen<'a> {
 	abi: &'a Abi<'a>,
 	/// The exported packages, for the docs.
 	packages: String,
+	/// The name the crate depends on each export by.
+	dependencies: Vec<String>,
 	out: String,
 }
 
@@ -305,6 +308,12 @@ impl Gen<'_> {
 		self.line("#![allow(dead_code, reason = \"the runtime serves every API\")]\n");
 		self.line("mod rt;\n");
 		self.line("use std::ffi::c_void;\n");
+		// An export may export nothing and only enable features in the others, as a
+		// package standing in for a binding crate does, which cargo would call unused.
+		for dependency in self.dependencies.clone() {
+			self.line(format!("use {dependency} as _;"));
+		}
+		self.line("");
 
 		let p = self.abi.prefix.clone();
 		self.line(format!(
