@@ -73,38 +73,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		self.call_def(from_fn.def_id, args, vec![value], span, out)
 	}
 
-	pub fn needs_copy(&self, ty: Ty<'tcx>) -> bool {
-		if !self.t.is_copy(ty) {
-			return false;
-		}
-		self.mutable_aggregate(ty)
-	}
-
-	/// Whether values of `ty` are JS objects that Rust code can change in place.
-	fn mutable_aggregate(&self, ty: Ty<'tcx>) -> bool {
-		match ty.kind() {
-			ty::Tuple(tys) => !tys.is_empty(),
-			ty::Array(..) => true,
-			ty::Adt(adt, args) => match library::Std::of(self.t.tcx, adt.did()) {
-				// The runtime's methods hand out the payload itself.
-				Some(library::Std::Option | library::Std::Result | library::Std::ControlFlow) => {
-					args.types().any(|t| self.mutable_aggregate(t))
-				}
-				Some(_) => false,
-				None => adt.is_struct() && !adt.non_enum_variant().fields.is_empty(),
-			},
-			_ => false,
-		}
-	}
-
-	/// `value`, copied if `ty` is a `Copy` aggregate.
-	pub fn copied(&mut self, value: Expr, ty: Ty<'tcx>) -> Expr {
-		match self.needs_copy(ty) {
-			true => Expr::rt("copy", vec![value]),
-			false => value,
-		}
-	}
-
 	/// A call of `def_id` with `gargs`, from wherever it resolves.
 	pub fn call_def(
 		&mut self,
