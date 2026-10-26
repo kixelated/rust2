@@ -64,7 +64,7 @@ The body edits are functions the program runs, which ra-jit compiles.
 ra-jit bugs seen on moq at the pinned rev, not reported upstream:
 
 - `cargo ra-jit check` with no build loaded reads every crate of the workspace, takes minutes and GBs, and fails on errors rustc does not report (`unresolved macro moq_clock::test` in moq-net's integration tests).
-- Async body edits in moq-net go to cargo (every `edit-async` run): "`new` is not compiled by ra-jit and rustc's copy is from before the edit: an instance of it does not compile". The daemon then loads the workspace again, so such an edit costs ra-jit many times plain cargo's CPU time.
+- Async body edits in moq-net go to cargo (every `edit-async` run): "`new` is not compiled by ra-jit and rustc's copy is from before the edit: an instance of it does not compile". The daemon then loads the workspace again: on CI such an edit took 55.7 s and 222 CPU-s, against plain cargo's 9.1 s and 12.3 CPU-s ([run](https://github.com/kixelated/rust2/actions/runs/40285528419)).
 - A fallback logs `Duplicate definition of identifier ... <cc::Build>::cargo_metadata` while compiling aws-lc-sys's build script.
 - On a library-only build such as regex, `cargo ra-jit build` returns after `cargo clean` without building anything.
 
