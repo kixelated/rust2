@@ -76,6 +76,38 @@ impl PartialOrd for Skew {
 /// A `ne` of its own that disagrees with `eq`, which an `Option`'s `!=` never calls.
 struct Picky(u8);
 
+/// A fieldless enum whose own `Eq` and `Hash` find `Up` and `Top` equal, which their JS
+/// tags are not, through an `Option` in a key.
+#[derive(Clone, Copy)]
+enum Way {
+	Up,
+	Top,
+	Down,
+}
+
+impl PartialEq for Way {
+	fn eq(&self, other: &Self) -> bool {
+		matches!(self, Way::Down) == matches!(other, Way::Down)
+	}
+}
+
+impl Eq for Way {}
+
+impl Hash for Way {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		matches!(self, Way::Down).hash(state);
+	}
+}
+
+fn way(b: u8) -> Option<Way> {
+	match b % 4 {
+		0 => None,
+		1 => Some(Way::Up),
+		2 => Some(Way::Top),
+		_ => Some(Way::Down),
+	}
+}
+
 /// A key whose `Eq` and `Ord` panic, which a lookup that compares nothing never calls.
 struct Touchy(u8);
 
@@ -195,6 +227,7 @@ pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 fn options(data: &[u8], out: &mut Vec<u8>) {
 	let mut hashed: HashMap<(u8, Horizon), u8> = HashMap::new();
 	let mut sorted: BTreeMap<(u8, Horizon), u8> = BTreeMap::new();
+	let mut ways: HashMap<(Option<Way>, bool), u8> = HashMap::new();
 	for i in 1..data.len() {
 		let (c, d) = (data[i - 1], data[i]);
 		let (a, b) = (hop(c), hop(d));
@@ -227,6 +260,9 @@ fn options(data: &[u8], out: &mut Vec<u8>) {
 		);
 		out.push(hashed.insert(key, i as u8).unwrap_or(0xcc));
 		out.push(sorted.insert(key, i as u8).unwrap_or(0xcc));
+		out.push(ways.insert((way(c), c < 128), i as u8).unwrap_or(0xcc));
+		out.push(ways.get(&(way(d), d < 128)).copied().unwrap_or(0xdd));
+		out.push(ways.len() as u8);
 		out.push(hashed.contains_key(&(
 			d % 3,
 			Horizon {
