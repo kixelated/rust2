@@ -6,6 +6,7 @@ import { ints, strings, derived, written, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { adaptors, consumers, ranges, options, own, values } from "./iters.ts";
+import { keys } from "./keys.ts";
 import { copies, order, discriminants, loops, patterns, closures, library } from "./shapes.ts";
 
 /** Run one case. */
@@ -24,7 +25,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 		_10 = [input[0], input[1]] as [rt.u8, rt.u8];
 		op = _10[0];
 		kind = _10[1];
-		_14 = rt.u8Rem(op, 38);
+		_14 = rt.u8Rem(op, 39);
 		if (_14 === 0) {
 			u8Op(kind, input.subarray(2, input.length - 0), out);
 		} else if (_14 === 1) {
@@ -117,8 +118,10 @@ export function run(input: Uint8Array): rt.ByteVec {
 			sets(kind, input.subarray(2, input.length - 0), out);
 		} else if (_14 === 36) {
 			btreeMaps(kind, input.subarray(2, input.length - 0), out);
-		} else {
+		} else if (_14 === 37) {
 			deques(input.subarray(2, input.length - 0), out);
+		} else {
+			keys(kind, input.subarray(2, input.length - 0), out);
 		}
 		return out;
 	}

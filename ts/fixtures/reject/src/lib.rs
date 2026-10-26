@@ -385,3 +385,11 @@ pub fn raw_keys() -> usize {
 	let map: std::collections::HashMap<Raw, u8> = std::collections::HashMap::new();
 	map.len()
 }
+
+/// A reference to a value a map holds that JS copies, passed on, where no `rt.Place` follows it.
+pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
+	map.get_mut(&1).map_or(0, |v| {
+		*v += 1;
+		*v
+	})
+}

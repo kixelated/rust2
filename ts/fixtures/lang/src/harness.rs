@@ -1,7 +1,7 @@
 //! The entry point both sides of the differential test run. The first byte picks a
 //! case and the rest is its input.
 
-use crate::{collections, fmt, generics, ints, iters, shapes};
+use crate::{collections, fmt, generics, ints, iters, keys, shapes};
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
 /// [`fmt::Fault`], which the translated side prints from TypeScript in `caller.ts`.
@@ -19,7 +19,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 38 {
+	match op % 39 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -67,7 +67,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		34 => collections::hash_maps(kind, data, &mut out),
 		35 => collections::sets(kind, data, &mut out),
 		36 => collections::btree_maps(kind, data, &mut out),
-		_ => collections::deques(data, &mut out),
+		37 => collections::deques(data, &mut out),
+		_ => keys::keys(kind, data, &mut out),
 	}
 	out
 }

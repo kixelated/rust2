@@ -14,6 +14,7 @@
 import { panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, RangeInclusive } from "./iter.ts";
+import type { Arc } from "./task.ts";
 
 // Ordering
 
@@ -61,6 +62,26 @@ export function cmpTuple<T extends readonly unknown[], O extends Ordering | unde
 	};
 }
 
+/** `Ord::cmp` of `Option`s, or `PartialOrd::partial_cmp`, from their values': `None` first. */
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O {
+	return (a, b) => (a === undefined ? (b === undefined ? 0 : -1) : b === undefined ? 1 : cmp(a, b)) as O;
+}
+
+/** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp`: their values'. */
+export function cmpArc<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: Arc<T>, b: Arc<T>) => O {
+	return (a, b) => cmp(a.value, b.value);
+}
+
+/** `Ord::max`, by `cmp`: `b` unless `a` is greater. */
+export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering): T {
+	return cmp(a, b) > 0 ? a : b;
+}
+
+/** `Ord::min`, by `cmp`: `a` unless it is greater. */
+export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering): T {
+	return cmp(a, b) > 0 ? b : a;
+}
+
 /** `Ordering::reverse`. */
 export function orderingReverse(o: Ordering): Ordering {
 	return o === 0 ? 0 : o === 1 ? -1 : 1;
@@ -85,6 +106,19 @@ export function eqTuple<T extends readonly unknown[]>(fields: readonly ((a: neve
 		for (let i = 0; i < fields.length; i++) if (!(fields[i] as (a: unknown, b: unknown) => boolean)(a[i], b[i])) return false;
 		return true;
 	};
+}
+
+/** `PartialEq::eq` of `Option`s, from their values'. */
+export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean {
+	return (a, b) => (a === undefined || b === undefined ? a === b : eq(a, b));
+}
+
+/**
+ * `PartialEq::eq` of `Arc`s: their values', after, with `ident`, whether they are one
+ * `Arc`, which std checks first of a value that is `Eq`.
+ */
+export function eqArc<T>(eq: (a: T, b: T) => boolean, ident = false): (a: Arc<T>, b: Arc<T>) => boolean {
+	return (a, b) => (ident && a === b) || eq(a.value, b.value);
 }
 
 // Hashing
@@ -136,6 +170,19 @@ export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value
 	};
 }
 
+/** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
+export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void {
+	return (value, s) => {
+		mix(s, value === undefined ? 0 : 1);
+		if (value !== undefined) hash(value, s);
+	};
+}
+
+/** `Hash::hash` of an `Arc`: its value's. */
+export function hashArc<T>(hash: (value: T, s: Hasher) => void): (value: Arc<T>, s: Hasher) => void {
+	return (value, s) => hash(value.value, s);
+}
+
 /** `Hasher::finish`, as a JS map's key: a 30-bit integer, which V8 keeps unboxed. */
 export function hashFinish(s: Hasher): number {
 	return (s.h ^ (s.h >>> 15)) & 0x3fffffff;
@@ -167,6 +214,51 @@ function itself<T>(value: T): T {
 	return value;
 }
 
+/**
+ * A `&mut` to a value a collection holds that JS copies, such as a number, which no JS
+ * value can point at: where the value is, read and written through `v`.
+ */
+export interface Place<T> {
+	v: T;
+}
+
+/** The place of index `i` of `a`. */
+class AtIndex<T> implements Place<T> {
+	private readonly a: T[];
+	private readonly i: number;
+
+	constructor(a: T[], i: number) {
+		this.a = a;
+		this.i = i;
+	}
+
+	get v(): T {
+		return this.a[this.i];
+	}
+
+	set v(value: T) {
+		this.a[this.i] = value;
+	}
+}
+
+/** The place of `k`'s value in `m`, which holds it. */
+class AtKey<K, V> implements Place<V> {
+	private readonly m: Map<K, V>;
+	private readonly k: K;
+
+	constructor(m: Map<K, V>, k: K) {
+		this.m = m;
+		this.k = k;
+	}
+
+	get v(): V {
+		return this.m.get(this.k) as V;
+	}
+
+	set v(value: V) {
+		this.m.set(this.k, value);
+	}
+}
 
 // HashMap and HashSet
 
@@ -219,6 +311,12 @@ export function hashLen<K, V>(m: HashMap<K, V>): number {
 
 export function hashGet<K, V>(m: HashMap<K, V>, key: K): V | undefined {
 	return hashed(m, key) ? slot(m, key)?.v : m.p.get(key);
+}
+
+/** `HashMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
+export function hashGetMut<K, V>(m: HashMap<K, V>, key: K): Place<V> | undefined {
+	if (hashed(m, key)) return slot(m, key);
+	return m.p.has(key) ? new AtKey(m.p, key) : undefined;
 }
 
 export function hashContains<K, V>(m: HashMap<K, V>, key: K): boolean {
@@ -543,6 +641,13 @@ export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	return i < 0 ? undefined : l.v[i];
+}
+
+/** `BTreeMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
+export function btreeGetMut<K, V>(m: BTreeMap<K, V>, key: K): Place<V> | undefined {
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : new AtIndex(l.v, i);
 }
 
 /** `BTreeMap::get_key_value`, and `BTreeSet::get`, which return the equal key the map holds. */
@@ -1076,6 +1181,25 @@ export function entryKey<K, V>(e: Entry<K, V>): K {
 /** `OccupiedEntry::get` and `get_mut`. */
 export function entryGet<K, V>(e: Entry<K, V>): V {
 	return (isHash(e.m) ? hashGet(e.m, e.k) : btreeGet(e.m, e.k)) as V;
+}
+
+/** `OccupiedEntry::get_mut` and `into_mut` of a value JS copies: its place. */
+export function entryGetMut<K, V>(e: Entry<K, V>): Place<V> {
+	return (isHash(e.m) ? hashGetMut(e.m, e.k) : btreeGetMut(e.m, e.k)) as Place<V>;
+}
+
+/**
+ * `Entry::or_insert_with` and `or_insert_with_key` of a value JS copies, and
+ * `or_default`: its place, after inserting `make()`'s value if the map lacks the key.
+ */
+export function entryOrInsertWithMut<K, V>(e: Entry<K, V>, make: (key: K) => V): Place<V> {
+	entryOrInsertWith(e, make);
+	return entryGetMut(e);
+}
+
+/** `Entry::or_insert` and `VacantEntry::insert` of a value JS copies: its place. */
+export function entryOrInsertMut<K, V>(e: Entry<K, V>, value: V): Place<V> {
+	return entryOrInsertWithMut(e, () => value);
 }
 
 /** `OccupiedEntry::insert`: the old value. */

@@ -1090,7 +1090,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 					_188 = [rt.u8Rem(a, 4), rt.u8Rem(b, 4)] as [rt.u8, rt.u8];
 					rt.btreeInsert(pairs, _188, a);
 					_196 = wide(a);
-					rt.entryOrInsert(rt.entry(wides, _196), b);
+					rt.entryOrInsertMut(rt.entry(wides, _196), b);
 				}
 			}
 		} else if (_4 === 2) {
@@ -1195,7 +1195,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 										_401 = 3;
 									}
 									rt.byteVecPush(out, _401);
-									rt.byteVecPush(out, rt.same(o, 1) ? 1 : 0);
+									rt.byteVecPush(out, o === 1 ? 1 : 0);
 								}
 							}
 						} else {

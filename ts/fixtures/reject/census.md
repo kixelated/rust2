@@ -1,15 +1,15 @@
 # Census of `reject-fixture`
 
-- Refusals: 69
-- Function instances: 61
+- Refusals: 72
+- Function instances: 62
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 6 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
-| 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:1 |
+| 7 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:20:2 |
+| 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:19:1 |
 | 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:36:4 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:1 |
 | 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:31:1 |
@@ -29,6 +29,7 @@
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:371:6 |
 | 1 | `_` of `_`, which may drop a `_`, which is not supported yet | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | fixtures/reject/src/lib.rs:331:6 |
+| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | fixtures/reject/src/lib.rs:391:6 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:379:9 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:231:51 |
@@ -57,18 +58,18 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
+| 6 | `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 5 | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 4 | `Option` | fixtures/reject/src/lib.rs:31:1 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:1 |
-| 4 | `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
+| 3 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:198:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:133:2 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:159:1 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:1 |
-| 2 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
 | 2 | `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
@@ -104,7 +105,9 @@ The type or module each refused type or path belongs to.
 | 3 | `_` is not supported: its `None` and `Some` would both be `undefined` | `Option` | fixtures/reject/src/lib.rs:31:1 |
 | 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:159:1 |
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u32`, `u32` | fixtures/reject/src/lib.rs:19:1 |
+| 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
+| 2 | an assignment through a reference to `_` | `u8` | fixtures/reject/src/lib.rs:91:3 |
 | 2 | an iterator that owns `_`, which drops, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:133:2 |
 | 2 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
@@ -113,10 +116,10 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:371:6 |
 | 1 | `_` of `_`, which may drop a `_`, which is not supported yet | `HashSet::remove`, `std::collections::HashSet`, `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
+| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | `std::option::Option` | fixtures/reject/src/lib.rs:391:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:379:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut Slot`, `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
-| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:90:10 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:231:51 |
 | 1 | a cast from `_` | `char` | fixtures/reject/src/lib.rs:11:2 |
@@ -129,7 +132,6 @@ The type or module each refused type or path belongs to.
 | 1 | an assignment through a reference to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:155:2 |
 | 1 | an assignment through a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:180:2 |
 | 1 | an assignment through a reference to `_` | `u32` | fixtures/reject/src/lib.rs:20:2 |
-| 1 | an assignment through a reference to `_` | `u8` | fixtures/reject/src/lib.rs:91:3 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:218:1 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:272:1 |
 | 1 | an iterator that owns `_`, which drops, which is not supported yet | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
@@ -153,7 +155,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>an assignment through a reference to `_` (6)</summary>
+<details><summary>an assignment through a reference to `_` (7)</summary>
 
 - fixtures/reject/src/lib.rs:20:2: an assignment through a reference to `u32`
 - fixtures/reject/src/lib.rs:91:3: an assignment through a reference to `u8`
@@ -161,16 +163,18 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:175:2: an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>`
 - fixtures/reject/src/lib.rs:180:2: an assignment through a reference to `std::sync::MutexGuard<'_, u8>`
 - fixtures/reject/src/lib.rs:303:2: an assignment through a reference to `std::pin::Pin<&mut Noisy>`
+- fixtures/reject/src/lib.rs:392:3: an assignment through a reference to `u8`
 
 </details>
 
-<details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (5)</summary>
+<details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it (6)</summary>
 
 - fixtures/reject/src/lib.rs:19:1: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:24:1: `&mut u32`: a JS value of `u32` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:73:1: `&mut Slot`: a JS value of `Slot` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:90:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:120:1: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:391:18: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 
 </details>
 
@@ -303,6 +307,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` of `_`, which may drop what it holds, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:331:6: `HashMap::clear` of `std::collections::HashMap<u8, Noisy>`, which may drop what it holds, which is not supported yet
+
+</details>
+
+<details><summary>`_`, a mutable reference to a value a map holds, kept other than to read and write it (1)</summary>
+
+- fixtures/reject/src/lib.rs:391:6: `std::option::Option<&mut u8>`, a mutable reference to a value a map holds, kept other than to read and write it
 
 </details>
 
