@@ -10,7 +10,7 @@ static int streq(const char *a, const char *b) {
 }
 
 /* The value a map holds for `key`, or NULL. */
-static const char *lookup(const capi_string_string_map *map, const char *key) {
+static const char *lookup(const CapiStringStringMap *map, const char *key) {
     size_t i;
     for (i = 0; i < map->len; i++) {
         if (streq(map->keys[i], key)) {
@@ -21,7 +21,7 @@ static const char *lookup(const capi_string_string_map *map, const char *key) {
 }
 
 static void defaults(void) {
-    capi_item item = capi_item_default();
+    CapiItem item = capi_item_default();
     CHECK(item.name == NULL);
     CHECK(item.count == 7);
     CHECK(streq(item.title, "untitled \"draft\""));
@@ -45,16 +45,16 @@ static void records(void) {
     const char *label_keys[] = {"k1", "k2"};
     const char *label_values[] = {"v1", "v2"};
     const char *point_keys[] = {"p"};
-    const capi_point point_values[] = {{5, 6}};
+    const CapiPoint point_values[] = {{5, 6}};
     const uint64_t values[] = {10, 20, 30};
-    capi_optional_u32 maybes[2];
-    capi_point path[2];
-    capi_point target;
-    capi_bytes extra;
-    capi_store *owner = capi_store_new("owner");
-    capi_item item = capi_item_default();
-    capi_item *echo;
-    capi_string_string_map labels;
+    CapiOptionalU32 maybes[2];
+    CapiPoint path[2];
+    CapiPoint target;
+    CapiBytes extra;
+    CapiStore *owner = capi_store_new("owner");
+    CapiItem item = capi_item_default();
+    CapiItem *echo;
+    CapiStringStringMap labels;
     char *owner_name;
 
     maybes[0].has_value = true;
@@ -155,7 +155,7 @@ static void records(void) {
 }
 
 static void enums(void) {
-    capi_shape *shape = capi_make_shape(0);
+    CapiShape *shape = capi_make_shape(0);
     CHECK(shape->tag == CAPI_SHAPE_DOT);
     capi_shape_free(shape);
 
@@ -175,10 +175,10 @@ static void enums(void) {
 
 static void scalars(void) {
     static const uint8_t data[] = {1, 2, 3};
-    capi_bytes payload;
-    capi_optional_u64 value;
-    capi_optional_color color;
-    capi_point point;
+    CapiBytes payload;
+    CapiOptionalU64 value;
+    CapiOptionalColor color;
+    CapiPoint point;
     char *text;
 
     payload.data = data;
@@ -210,8 +210,8 @@ static void scalars(void) {
 }
 
 static void errors(void) {
-    capi_error *error;
-    capi_flat_error *flat;
+    CapiError *error;
+    CapiFlatError *flat;
 
     CHECK(capi_fail(0) == NULL);
 
@@ -247,17 +247,18 @@ static void errors(void) {
 }
 
 static void objects(void) {
-    capi_store *store = NULL;
-    capi_store *fork;
-    capi_store *renamed;
-    capi_store *filled;
-    capi_error *error;
-    capi_item item;
-    capi_item items[2];
-    capi_item_list list;
-    capi_item *got = NULL;
-    capi_string_list *names;
-    capi_optional_u64 limit;
+    CapiStore *store = NULL;
+    CapiStore *fork;
+    CapiStore *renamed;
+    CapiStore *filled;
+    CapiError *error;
+    CapiItem item;
+    CapiItem items[2];
+    CapiItemList list;
+    CapiItem *got = NULL;
+    CapiStringList *names;
+    CapiStoreStats *stats;
+    CapiOptionalU64 limit;
     uint32_t index;
     char *text;
 
@@ -328,6 +329,11 @@ static void objects(void) {
     CHECK(capi_store_total(store, fork, NULL) == 4);
     CHECK(capi_store_total(store, fork, renamed) == 6);
 
+    /* The method and the record it returns differ only in case. */
+    stats = capi_store_stats(store);
+    CHECK(stats->items == 2 && stats->queued == 0);
+    capi_store_stats_free(stats);
+
     capi_store_clear(store);
     CHECK(capi_store_len(store) == 0 && capi_store_len(fork) == 2);
 
@@ -349,7 +355,7 @@ static void objects(void) {
 
 typedef struct {
     test_latch *done;
-    capi_error *error;
+    CapiError *error;
     uint64_t value;
     char *text;
     /* For the blocking-free test. */
@@ -364,21 +370,21 @@ static void on_sum(void *user_data, uint64_t value) {
     test_latch_signal(r->done);
 }
 
-static void on_greet(void *user_data, capi_error *error, char *value) {
+static void on_greet(void *user_data, CapiError *error, char *value) {
     result *r = (result *)user_data;
     r->error = error;
     r->text = value;
     test_latch_signal(r->done);
 }
 
-static void on_next(void *user_data, capi_error *error, uint64_t value) {
+static void on_next(void *user_data, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
     r->error = error;
     r->value = value;
     test_latch_signal(r->done);
 }
 
-static void on_next_slow(void *user_data, capi_error *error, uint64_t value) {
+static void on_next_slow(void *user_data, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
     (void)error;
     r->value = value;
@@ -389,9 +395,9 @@ static void on_next_slow(void *user_data, capi_error *error, uint64_t value) {
 
 static void async_calls(void) {
     const uint64_t values[] = {10, 20, 30};
-    capi_u64_list list;
-    capi_store *store = capi_store_new("async");
-    capi_task *task;
+    CapiU64List list;
+    CapiStore *store = capi_store_new("async");
+    CapiTask *task;
     result r;
 
     memset(&r, 0, sizeof r);

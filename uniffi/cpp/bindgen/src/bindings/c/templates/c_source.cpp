@@ -86,13 +86,13 @@ private:
 
 } // namespace {{ namespace }}::c_detail
 
-struct {{ ns }}_task {
+struct {{ ty }}Task {
     std::shared_ptr<::{{ namespace }}::c_detail::TaskState> state;
     // Destroying it cancels the Rust future, which is a no-op once it completed.
     ::uniffi::FutureContinuation continuation;
 };
 
-struct {{ ns }}_work {
+struct {{ ty }}Work {
     ::uniffi::AsyncTask task;
 };
 
@@ -107,7 +107,7 @@ namespace {{ namespace }}::c_detail {
 // Delivers a future's output to `deliver` on the dispatcher, never on the calling thread,
 // so a callback cannot run before the call that started it returns its task.
 template <typename Future, typename Deliver>
-::{{ ns }}_task *spawn(Future future, Deliver deliver) {
+::{{ ty }}Task *spawn(Future future, Deliver deliver) {
     auto state = std::make_shared<TaskState>();
     auto executor = [](::uniffi::AsyncTask task) {
         return ::uniffi::detail::dispatch_async(std::move(task));
@@ -117,12 +117,12 @@ template <typename Future, typename Deliver>
         auto continuation = std::move(future).then(executor, [state, deliver]() {
             state->run(deliver);
         });
-        return new ::{{ ns }}_task{std::move(state), std::move(continuation)};
+        return new ::{{ ty }}Task{std::move(state), std::move(continuation)};
     } else {
         auto continuation = std::move(future).then(executor, [state, deliver](Output output) {
             state->run([&] { deliver(std::move(output)); });
         });
-        return new ::{{ ns }}_task{std::move(state), std::move(continuation)};
+        return new ::{{ ty }}Task{std::move(state), std::move(continuation)};
     }
 }
 
@@ -130,7 +130,7 @@ template <typename Future, typename Deliver>
 
 } // namespace {{ namespace }}::c_detail
 
-void {{ ns }}_task_free({{ ns }}_task *task) {
+void {{ ns }}_task_free({{ ty }}Task *task) {
     if (!task) {
         return;
     }
@@ -138,7 +138,7 @@ void {{ ns }}_task_free({{ ns }}_task *task) {
     delete task;
 }
 
-void {{ ns }}_work_run({{ ns }}_work *work) {
+void {{ ns }}_work_run({{ ty }}Work *work) {
     if (!work) {
         ::{{ namespace }}::c_detail::fail("{{ ns }}_work_run: work must not be NULL");
     }
@@ -147,14 +147,14 @@ void {{ ns }}_work_run({{ ns }}_work *work) {
     task();
 }
 
-void {{ ns }}_set_dispatcher(const {{ ns }}_dispatcher *dispatcher) {
+void {{ ns }}_set_dispatcher(const {{ ty }}Dispatcher *dispatcher) {
     if (!dispatcher || !dispatcher->dispatch || !dispatcher->shutdown) {
         ::{{ namespace }}::c_detail::fail("{{ ns }}_set_dispatcher: dispatch and shutdown must not be NULL");
     }
-    const {{ ns }}_dispatcher copy = *dispatcher;
+    const {{ ty }}Dispatcher copy = *dispatcher;
     ::uniffi::set_async_dispatcher(
         [copy](::uniffi::AsyncTask task) {
-            auto *work = new {{ ns }}_work{std::move(task)};
+            auto *work = new {{ ty }}Work{std::move(task)};
             if (copy.dispatch(copy.user_data, work)) {
                 return true;
             }
