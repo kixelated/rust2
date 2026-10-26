@@ -298,11 +298,6 @@ pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::Rang
 	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
 }
 
-/// Each value `clear` takes out would drop, which the runtime leaves to JS's collector.
-pub fn cleared(map: &mut std::collections::HashMap<u8, Noisy>) {
-	map.clear();
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -312,18 +307,6 @@ pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 pub fn byte_keys() -> usize {
 	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
 	map.len()
-}
-
-#[derive(PartialEq, Eq, Hash)]
-pub struct Loud(pub u8);
-
-impl Drop for Loud {
-	fn drop(&mut self) {}
-}
-
-/// `remove` drops the key the set held.
-pub fn removed(set: &mut std::collections::HashSet<Loud>, key: &Loud) -> bool {
-	set.remove(key)
 }
 
 /// A key whose `Hash` and `Eq` agree with a `u8`'s, but which is a JS object.

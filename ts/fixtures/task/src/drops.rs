@@ -3,6 +3,8 @@
 //! types that implement `Drop`. Each step logs every drop, so the log shows the order,
 //! and a step that panics shows what unwinding dropped.
 
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use crate::kio::Consumer;
@@ -45,17 +47,19 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 4`, panicking at the point `arg / 4 % 8` names, if any: what
+/// Run scenario `arg % 6`, panicking at the point `arg / 6 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 4 % 8;
+	let at = arg / 6 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 4 {
+	match arg % 6 {
+		4 => ordered(log, id, at),
+		5 => hashed(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -197,4 +201,167 @@ impl Held {
 	fn is_some(&self) -> bool {
 		!matches!(self, Held::Empty)
 	}
+}
+
+/// A key that logs its own drop, compared, ordered, and hashed by its id alone.
+pub struct Key {
+	id: u32,
+	log: Log,
+}
+
+impl Drop for Key {
+	fn drop(&mut self) {
+		self.log.note(format!("k{} drop", self.id));
+	}
+}
+
+impl PartialEq for Key {
+	fn eq(&self, other: &Self) -> bool {
+		self.id == other.id
+	}
+}
+
+impl Eq for Key {}
+
+impl PartialOrd for Key {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Key {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		self.id.cmp(&other.id)
+	}
+}
+
+impl Hash for Key {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.id.hash(state);
+	}
+}
+
+/// What ordered collections drop of what they are given or hold, in order: a key
+/// `insert` and `entry` find there already, the key `remove` takes out, the value
+/// `or_insert` is given, and what `retain`, `truncate`, and `clear` discard.
+fn ordered(log: &Log, id: u32, at: u8) {
+	let key = |n: u32| Key {
+		id: id + n,
+		log: log.clone(),
+	};
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let check = |point: u8| {
+		if point == at {
+			panic!("d{id} at {point}");
+		}
+	};
+	let mut map = BTreeMap::new();
+	map.insert(key(1), guard(1));
+	map.insert(key(2), guard(2));
+	map.insert(key(3), guard(3));
+	let old = map.insert(key(1), guard(4));
+	log.note(format!("replaced {}", old.is_some()));
+	drop(old);
+	check(1);
+	let removed = map.remove(&key(2));
+	log.note(format!("removed {}", removed.is_some()));
+	match map.entry(key(3)) {
+		btree_map::Entry::Occupied(e) => log.note(format!("occupied {}", e.remove().id())),
+		btree_map::Entry::Vacant(_) => log.note(format!("vacant")),
+	}
+	if let btree_map::Entry::Vacant(e) = map.entry(key(5)) {
+		log.note(format!("left {}", e.key().id));
+	}
+	check(2);
+	let kept = map.entry(key(1)).or_insert(guard(6)).id();
+	let added = map.entry(key(7)).or_insert(guard(7)).id();
+	log.note(format!("or_insert {kept} {added}"));
+	map.insert(key(8), guard(8));
+	map.retain(|k, _| k.id % 2 == 0);
+	check(3);
+	let mut set = BTreeSet::new();
+	set.insert(key(10));
+	set.insert(key(11));
+	log.note(format!("again {}", set.insert(key(10))));
+	log.note(format!("gone {}", set.remove(&key(11))));
+	set.insert(key(12));
+	check(4);
+	let mut queue = VecDeque::new();
+	for n in 20..26 {
+		queue.push_back(guard(n));
+	}
+	queue.push_front(guard(19));
+	queue.retain(|g| g.id() % 3 != 0);
+	check(5);
+	queue.truncate(2);
+	log.note(format!("queue {}", queue.len()));
+	map.clear();
+	set.clear();
+	check(6);
+	log.note(format!("left {} {} {}", map.len(), set.len(), queue.len()));
+}
+
+/// The same of hash collections, whose order of drops std leaves unspecified: each key
+/// and value logs to a sink, and the log reads how much it holds, in an order it ignores.
+fn hashed(log: &Log, id: u32, at: u8) {
+	let sink = Log::new();
+	let key = |n: u32| Key {
+		id: id + n,
+		log: sink.clone(),
+	};
+	let guard = |n: u32| Guard::new(id + n, sink.clone());
+	let tally = |what: &str| {
+		let text = sink.text();
+		let sum: u32 = text.iter().map(|&b| u32::from(b)).sum();
+		log.note(format!("{what}: {} {sum}", text.len()));
+	};
+	let check = |point: u8| {
+		if point == at {
+			tally("panic");
+			panic!("d{id} at {point}");
+		}
+	};
+	let mut map = HashMap::new();
+	map.insert(key(1), guard(1));
+	map.insert(key(2), guard(2));
+	map.insert(key(3), guard(3));
+	let old = map.insert(key(1), guard(4));
+	tally("insert");
+	drop(old);
+	check(1);
+	let removed = map.remove(&key(2));
+	tally("remove");
+	drop(removed);
+	match map.entry(key(3)) {
+		hash_map::Entry::Occupied(e) => drop(e.remove()),
+		hash_map::Entry::Vacant(_) => log.note(format!("vacant")),
+	}
+	if let hash_map::Entry::Vacant(e) = map.entry(key(5)) {
+		log.note(format!("left {}", e.key().id));
+	}
+	tally("entry");
+	check(2);
+	let kept = map.entry(key(1)).or_insert(guard(6)).id();
+	let added = map.entry(key(7)).or_insert(guard(7)).id();
+	log.note(format!("or_insert {kept} {added}"));
+	tally("or_insert");
+	map.insert(key(8), guard(8));
+	map.retain(|k, _| k.id % 2 == 0);
+	tally("retain");
+	check(3);
+	let mut set = HashSet::new();
+	set.insert(key(10));
+	set.insert(key(11));
+	log.note(format!("again {}", set.insert(key(10))));
+	log.note(format!("gone {}", set.remove(&key(11))));
+	set.insert(key(12));
+	set.retain(|k| k.id % 2 == 1);
+	tally("set");
+	check(4);
+	map.clear();
+	tally("clear");
+	check(5);
+	drop(set);
+	drop(map);
+	tally("end");
 }

@@ -10,10 +10,13 @@
 //
 // No key, value, or item is ever `undefined`, which the translator refuses, so
 // `undefined` is a missing one.
+//
+// A function that may drop a key, value, or item std's would, rather than return or keep
+// it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
 import { panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, RangeInclusive } from "./iter.ts";
+import { DONE, type Done, Iter, iterToArray, RangeInclusive } from "./iter.ts";
 
 // Ordering
 
@@ -231,8 +234,8 @@ export function hashIndex<K, V>(m: HashMap<K, V>, key: K): V {
 	return hashGet(m, key) as V;
 }
 
-/** `HashMap::insert`: the old value, if any. An equal key already there stays. */
-export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V): V | undefined {
+/** `HashMap::insert`: the old value, if any. An equal key already there stays, and `key` drops. */
+export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined {
 	if (!hashed(m, key)) {
 		const old = m.p.get(key);
 		m.p.set(key, value);
@@ -242,6 +245,7 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V): V | undefi
 	if (found !== undefined) {
 		const old = found.v;
 		found.v = value;
+		k?.(key);
 		return old;
 	}
 	add(m, key, value);
@@ -256,9 +260,12 @@ function add<K, V>(m: HashMap<K, V>, key: K, value: V): void {
 	m.n++;
 }
 
-/** `HashSet::insert`: whether `key` was not there yet. An equal key already there stays. */
-export function hashAdd<K>(m: HashSet<K>, key: K): boolean {
-	if (hashContains(m, key)) return false;
+/** `HashSet::insert`: whether `key` was not there yet. An equal key already there stays, and `key` drops. */
+export function hashAdd<K>(m: HashSet<K>, key: K, k?: (key: K) => void): boolean {
+	if (hashContains(m, key)) {
+		k?.(key);
+		return false;
+	}
 	if (hashed(m, key)) add(m, key, undefined);
 	else m.p.set(key, undefined);
 	return true;
@@ -286,19 +293,25 @@ export function hashRemoveEntry<K, V>(m: HashMap<K, V>, key: K): [K, V] | undefi
 	return undefined;
 }
 
-/** `HashMap::remove`: the value there, if any. */
-export function hashRemove<K, V>(m: HashMap<K, V>, key: K): V | undefined {
+/** `HashMap::remove`: the value there, if any, whose key drops. */
+export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void): V | undefined {
 	if (!hashed(m, key)) {
 		const old = m.p.get(key);
 		m.p.delete(key);
 		return old;
 	}
-	return hashRemoveEntry(m, key)?.[1];
+	const entry = hashRemoveEntry(m, key);
+	if (entry === undefined) return undefined;
+	k?.(entry[0]);
+	return entry[1];
 }
 
-/** `HashSet::remove`: whether `key` was there. */
-export function hashDelete<K>(m: HashSet<K>, key: K): boolean {
-	return hashed(m, key) ? hashRemoveEntry(m, key) !== undefined : m.p.delete(key);
+/** `HashSet::remove`: whether `key` was there. The key it held drops. */
+export function hashDelete<K>(m: HashSet<K>, key: K, k?: (key: K) => void): boolean {
+	if (!hashed(m, key)) return m.p.delete(key);
+	const entry = hashRemoveEntry(m, key);
+	if (entry !== undefined) k?.(entry[0]);
+	return entry !== undefined;
 }
 
 /** `HashSet::get`, and `HashSet::take` if `take`: the equal key the set holds. */
@@ -323,18 +336,32 @@ export function hashDrop<K, V>(m: HashMap<K, V>, k: ((key: K) => void) | undefin
 	}
 }
 
-export function hashClear<K, V>(m: HashMap<K, V>): void {
+/** `clear`, which drops each entry and leaves the map empty even if a drop panics. */
+export function hashClear<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): void {
+	if (k !== undefined || v !== undefined) {
+		try {
+			hashDrop(m, k, v);
+		} finally {
+			hashClear(m);
+		}
+		return;
+	}
 	m.p.clear();
 	m.o = undefined;
 	m.n = 0;
 }
 
 /**
- * `retain`, which keeps each entry `f` returns true for. Each entry goes as `f` rejects
- * it, so a panic in `f` leaves the map whole, as std's.
+ * `retain`, which keeps each entry `f` returns true for. Each entry goes, and drops, as
+ * `f` rejects it, so a panic in `f` leaves the map whole, as std's.
  */
-export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => boolean): void {
-	for (const [k, v] of m.p) if (!f(k, v)) m.p.delete(k);
+export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
+	for (const [key, value] of m.p) {
+		if (f(key, value)) continue;
+		m.p.delete(key);
+		k?.(key);
+		v?.(value);
+	}
 	if (m.o === undefined) return;
 	for (const [hash, first] of m.o) {
 		let prev: Slot<K, V> | undefined;
@@ -347,6 +374,8 @@ export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => bool
 			if (prev !== undefined) prev.next = s.next;
 			else if (s.next !== undefined) m.o.set(hash, s.next);
 			else m.o.delete(hash);
+			k?.(s.k);
+			v?.(s.v);
 		}
 	}
 }
@@ -425,15 +454,21 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
 	return out;
 }
 
-/** `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`. */
-export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>): HashMap<K, V> {
-	for (let item = items.next(); item !== DONE; item = items.next()) hashInsert(m, item[0], item[1]);
+/**
+ * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`. Of
+ * equal keys, the first stays and each later one drops, then the value it replaced.
+ */
+export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void): HashMap<K, V> {
+	for (let item = items.next(); item !== DONE; item = items.next()) {
+		const old = hashInsert(m, item[0], item[1], k);
+		if (old !== undefined) v?.(old);
+	}
 	return m;
 }
 
-/** `extend` of a set with keys, and `collect` into one through `hashNew`. */
-export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>): HashSet<K> {
-	for (let key = keys.next(); key !== DONE; key = keys.next()) hashAdd(m, key);
+/** `extend` of a set with keys, and `collect` into one through `hashNew`: a key already there drops. */
+export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void): HashSet<K> {
+	for (let key = keys.next(); key !== DONE; key = keys.next()) hashAdd(m, key, k);
 	return m;
 }
 
@@ -578,14 +613,15 @@ export function btreeIndex<K, V>(m: BTreeMap<K, V>, key: K): V {
 	return l.v[i];
 }
 
-/** `BTreeMap::insert`: the old value, if any. An equal key already there stays. */
-export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V): V | undefined {
+/** `BTreeMap::insert`: the old value, if any. An equal key already there stays, and `key` drops. */
+export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	if (i < 0) {
 		insertAt(m, l, ~i, key, value);
 		return undefined;
 	}
+	k?.(key);
 	const old = l.v[i];
 	l.v[i] = value;
 	return old;
@@ -615,11 +651,14 @@ function take<T>(a: T[], i: number): void {
 	a.pop();
 }
 
-/** `BTreeSet::insert`: whether `key` was not there yet. An equal key already there stays. */
-export function btreeAdd<K>(m: BTreeSet<K>, key: K): boolean {
+/** `BTreeSet::insert`: whether `key` was not there yet. An equal key already there stays, and `key` drops. */
+export function btreeAdd<K>(m: BTreeSet<K>, key: K, k?: (key: K) => void): boolean {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	if (i >= 0) return false;
+	if (i >= 0) {
+		k?.(key);
+		return false;
+	}
 	insertAt(m, l, ~i, key, undefined);
 	return true;
 }
@@ -643,21 +682,27 @@ export function btreeRemoveEntry<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | unde
 	return entry;
 }
 
-export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
+/** `BTreeMap::remove`: the value there, if any, whose key drops. */
+export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K, k?: (key: K) => void): V | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	if (i < 0) return undefined;
+	const held = l.k[i];
 	const value = l.v[i];
 	removeAt(m, l, i);
+	k?.(held);
 	return value;
 }
 
-/** `BTreeSet::remove`: whether `key` was there. */
-export function btreeDelete<K>(m: BTreeSet<K>, key: K): boolean {
+/** `BTreeSet::remove`: whether `key` was there. The key it held drops. */
+export function btreeDelete<K>(m: BTreeSet<K>, key: K, k?: (key: K) => void): boolean {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	if (i >= 0) removeAt(m, l, i);
-	return i >= 0;
+	if (i < 0) return false;
+	const held = l.k[i];
+	removeAt(m, l, i);
+	k?.(held);
+	return true;
 }
 
 /**
@@ -823,7 +868,14 @@ export function btreeDrop<K, V>(m: BTreeMap<K, V>, k: ((key: K) => void) | undef
 	}
 }
 
-export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
+/** `clear`, which leaves the map empty and then drops each entry in key order. */
+export function btreeClear<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): void {
+	if (k !== undefined || v !== undefined) {
+		const old: BTreeMap<K, V> = { t: m.t, h: m.h, n: m.n, c: m.c, r: m.r };
+		btreeClear(m);
+		btreeDrop(old, k, v);
+		return;
+	}
 	m.t = leaf();
 	m.h = 0;
 	m.n = 0;
@@ -831,19 +883,28 @@ export function btreeClear<K, V>(m: BTreeMap<K, V>): void {
 }
 
 /**
- * `retain`, which visits the keys in order and keeps each entry `f` returns true for. A
- * panic in `f` leaves the entries from the one it panicked on, as std's.
+ * `retain`, which visits the keys in order and keeps each entry `f` returns true for,
+ * dropping each other one as `f` rejects it. A panic in `f` leaves the entries from the
+ * one it panicked on, as std's.
  */
-export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => boolean): void {
+export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
 	const [keys, values] = flatten(m);
 	let kept = 0;
 	let i = 0;
 	try {
-		for (; i < keys.length; i++) {
-			if (!f(keys[i], values[i])) continue;
-			keys[kept] = keys[i];
-			values[kept] = values[i];
+		while (i < keys.length) {
+			const key = keys[i];
+			const value = values[i];
+			if (!f(key, value)) {
+				i++;
+				k?.(key);
+				v?.(value);
+				continue;
+			}
+			keys[kept] = key;
+			values[kept] = value;
 			kept++;
+			i++;
 		}
 	} finally {
 		if (kept < i) {
@@ -990,29 +1051,55 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, numb
 }
 
 /**
- * `extend` of a map with `[key, value]`s, which keeps an equal key already there, and with
- * `last`, `collect` and `from` into an empty one, which keep the last of equal keys.
+ * `extend` of a map with `[key, value]`s, which keeps an equal key already there and drops
+ * the one given, then the value it replaced. With `last`, `collect` and `from` into an
+ * empty one, which keep the last of equal keys: std's sorts every entry by key, stably,
+ * and then drops each but the last of equal keys in that order.
  */
-export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last = false): BTreeMap<K, V> {
+export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last = false, k?: (key: K) => void, v?: (value: V) => void): BTreeMap<K, V> {
+	if (last && (k !== undefined || v !== undefined)) {
+		const sorted = iterToArray(items).sort((a, b) => m.c(a[0], b[0]));
+		for (let i = 0; i < sorted.length; i++) {
+			if (i + 1 < sorted.length && m.c(sorted[i][0], sorted[i + 1][0]) === 0) {
+				k?.(sorted[i][0]);
+				v?.(sorted[i][1]);
+				continue;
+			}
+			btreeInsert(m, sorted[i][0], sorted[i][1]);
+		}
+		return m;
+	}
 	for (let item = items.next(); item !== DONE; item = items.next()) {
 		const l = leafOf(m, item[0]);
 		const i = search(l.k, item[0], m.c);
 		if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
 		else {
+			const old = l.v[i];
 			if (last) l.k[i] = item[0];
+			else k?.(item[0]);
 			l.v[i] = item[1];
+			if (!last) v?.(old);
 		}
 	}
 	return m;
 }
 
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
-export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false): BTreeSet<K> {
+export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void): BTreeSet<K> {
+	if (last && k !== undefined) {
+		const sorted = iterToArray(keys).sort(m.c);
+		for (let i = 0; i < sorted.length; i++) {
+			if (i + 1 < sorted.length && m.c(sorted[i], sorted[i + 1]) === 0) k(sorted[i]);
+			else btreeAdd(m, sorted[i]);
+		}
+		return m;
+	}
 	for (let key = keys.next(); key !== DONE; key = keys.next()) {
 		const l = leafOf(m, key);
 		const i = search(l.k, key, m.c);
 		if (i < 0) insertAt(m, l, ~i, key, undefined);
 		else if (last) l.k[i] = key;
+		else k?.(key);
 	}
 	return m;
 }
@@ -1043,11 +1130,23 @@ export function btreeClone<K, V>(m: BTreeMap<K, V>, key: (k: K) => K = itself, v
 export interface Entry<K, V> {
 	readonly m: HashMap<K, V> | BTreeMap<K, V>;
 	readonly k: K;
+	/**
+	 * Whether it is occupied, once read: the map stays as it was until the entry is
+	 * consumed, and a drop after that, of a variant moved out, reads it again.
+	 */
+	o: boolean | undefined;
 }
 
-/** `entry`. */
-export function entry<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K): Entry<K, V> {
-	return { m, k: key };
+/** `entry`: `key` drops at once if the map holds an equal one, which the entry finds. */
+export function entry<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K, k?: (key: K) => void): Entry<K, V> {
+	const e: Entry<K, V> = { m, k: key, o: undefined };
+	if (k !== undefined && entryOccupied(e)) k(key);
+	return e;
+}
+
+/** Drop `e`, an `Entry`: a vacant one holds the key it was given. */
+export function entryDrop<K, V>(e: Entry<K, V>, k: (key: K) => void): void {
+	if (!entryOccupied(e)) k(e.k);
 }
 
 function isHash<K, V>(m: HashMap<K, V> | BTreeMap<K, V>): m is HashMap<K, V> {
@@ -1072,14 +1171,17 @@ export function entryOrInsertWith<K, V>(e: Entry<K, V>, make: (key: K) => V): V 
 	return value;
 }
 
-/** `Entry::or_insert`: the value there, or else `value`, inserted. */
-export function entryOrInsert<K, V>(e: Entry<K, V>, value: V): V {
-	return entryOrInsertWith(e, () => value);
+/** `Entry::or_insert`: the value there, and `value` drops, or else `value`, inserted. */
+export function entryOrInsert<K, V>(e: Entry<K, V>, value: V, v?: (value: V) => void): V {
+	if (v === undefined || !entryOccupied(e)) return entryOrInsertWith(e, () => value);
+	const found = entryGet(e);
+	v(value);
+	return found;
 }
 
 /** Whether `e` is `Entry::Occupied`: whether the map holds its key. */
 export function entryOccupied<K, V>(e: Entry<K, V>): boolean {
-	return isHash(e.m) ? hashContains(e.m, e.k) : btreeContains(e.m, e.k);
+	return (e.o ??= isHash(e.m) ? hashContains(e.m, e.k) : btreeContains(e.m, e.k));
 }
 
 /** `Entry::and_modify`: `f` of the value there, if any, which is never `undefined`. */
@@ -1112,14 +1214,16 @@ export function entryRemoveEntry<K, V>(e: Entry<K, V>): [K, V] {
 	return (isHash(e.m) ? hashRemoveEntry(e.m, e.k) : btreeRemoveEntry(e.m, e.k)) as [K, V];
 }
 
-/** `OccupiedEntry::remove`. */
-export function entryRemove<K, V>(e: Entry<K, V>): V {
-	return entryRemoveEntry(e)[1];
+/** `OccupiedEntry::remove`, whose key drops. */
+export function entryRemove<K, V>(e: Entry<K, V>, k?: (key: K) => void): V {
+	const [key, value] = entryRemoveEntry(e);
+	k?.(key);
+	return value;
 }
 
 /** `first_entry`, and with `last`, `last_entry`: an occupied entry, if the map has one. */
 export function btreeFirstEntry<K, V>(m: BTreeMap<K, V>, last = false): Entry<K, V> | undefined {
-	return m.n === 0 ? undefined : { m, k: btreeFirstKey(m, last) as K };
+	return m.n === 0 ? undefined : { m, k: btreeFirstKey(m, last) as K, o: true };
 }
 
 // VecDeque
@@ -1209,22 +1313,32 @@ export function dequeDrop<T>(q: VecDeque<T>, f: (item: T) => void): void {
 	for (let i = 0; i < q.n; i++) f(q.b[at(q, i)] as T);
 }
 
-export function dequeClear<T>(q: VecDeque<T>): void {
+/** `clear`, which leaves the deque empty and then drops each item, front to back. */
+export function dequeClear<T>(q: VecDeque<T>, f?: (item: T) => void): void {
+	const old: VecDeque<T> = { b: q.b, h: q.h, n: q.n };
 	q.b = [];
 	q.h = 0;
 	q.n = 0;
+	if (f !== undefined) dequeDrop(old, f);
 }
 
-/** `truncate`: the first `len` items, if there are more. */
-export function dequeTruncate<T>(q: VecDeque<T>, len: number): void {
+/** `truncate`: the first `len` items, if there are more, and then each other drops in order. */
+export function dequeTruncate<T>(q: VecDeque<T>, len: number, f?: (item: T) => void): void {
+	if (f === undefined || q.n <= len) {
+		while (q.n > len) dequePopBack(q);
+		return;
+	}
+	const cut: T[] = [];
+	for (let i = len; i < q.n; i++) cut.push(q.b[at(q, i)] as T);
 	while (q.n > len) dequePopBack(q);
+	for (const item of cut) f(item);
 }
 
 /**
  * `retain`, which visits the items in order and keeps each `f` returns true for. It swaps
  * each kept item into place, as std's does, so a panic in `f` leaves every item.
  */
-export function dequeRetain<T>(q: VecDeque<T>, f: (item: T) => boolean): void {
+export function dequeRetain<T>(q: VecDeque<T>, f: (item: T) => boolean, drop?: (item: T) => void): void {
 	let kept = 0;
 	for (let i = 0; i < q.n; i++) {
 		const item = q.b[at(q, i)] as T;
@@ -1232,7 +1346,7 @@ export function dequeRetain<T>(q: VecDeque<T>, f: (item: T) => boolean): void {
 		q.b[at(q, i)] = q.b[at(q, kept)];
 		q.b[at(q, kept++)] = item;
 	}
-	dequeTruncate(q, kept);
+	dequeTruncate(q, kept, drop);
 }
 
 /** `contains`, by `eq`. */

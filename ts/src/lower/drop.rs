@@ -164,8 +164,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			&& let Some(std) = Std::of(self.tcx, adt.did())
 		{
 			// What drops each key, value, or item, or `undefined` for one that drops nothing.
-			let each = |t: &mut Self, n: usize| match t.drops(args.type_at(n)) {
-				true => t.drop_fn(args.type_at(n), span),
+			// A type argument by its index among the types, past an entry's lifetime.
+			let arg = |n: usize| args.types().nth(n).expect("a type argument");
+			let each = |t: &mut Self, n: usize| match t.drops(arg(n)) {
+				true => t.drop_fn(arg(n), span),
 				false => Some(Expr::undefined()),
 			};
 			let (name, args) = match std {
@@ -177,6 +179,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
 				Std::BTreeSet => ("btreeDrop", vec![value, each(self, 0)?]),
 				Std::VecDeque => ("dequeDrop", vec![value, each(self, 0)?]),
+				// A vacant entry holds the key it was given; an occupied one dropped it as
+				// `entry` found the map's.
+				Std::Entry => match self.tcx.item_name(adt.did()).as_str() {
+					"VacantEntry" => return self.drop_value(value.member("k"), arg(0), span),
+					"OccupiedEntry" => return None,
+					_ => ("entryDrop", vec![value, each(self, 0)?]),
+				},
 				_ => ("", vec![value]),
 			};
 			if !name.is_empty() {
