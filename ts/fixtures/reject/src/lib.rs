@@ -7,10 +7,6 @@ pub fn float(a: f64) -> f64 {
 	a * 2.0
 }
 
-pub fn character(c: char) -> u32 {
-	c as u32
-}
-
 pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }

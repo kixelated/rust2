@@ -18,6 +18,7 @@ mod place;
 mod rvalue;
 mod step;
 mod unwind;
+mod vec;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
@@ -72,7 +73,10 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 		return None;
 	}
 	let body = tcx.optimized_mir(def_id).clone();
-	Some(instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body)))
+	let mut body =
+		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
+	vec::literals(tcx, &mut body);
+	Some(body)
 }
 
 /// What `_1` is.
@@ -720,7 +724,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.mutated[local]
 		{
 			let ty = mir.local_decls[local].ty;
-			return ty.is_bool() || crate::lower::num::Int::of(ty).is_some_and(|i| !i.big());
+			return ty.is_bool() || ty.is_char() || crate::lower::num::Int::of(ty).is_some_and(|i| !i.big());
 		}
 		match (mir.local_decls[local].ty.kind(), rvalue) {
 			// A borrow: borrow checking keeps the place as it is but through the borrow,
@@ -2104,6 +2108,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							0 => value.clone().not(),
 							_ => value.clone(),
 						},
+						ty::Char => value.clone().binary("===", Expr::lit(v.to_string())),
 						_ => match super::num::Int::of(ty) {
 							Some(int) => {
 								let lit = int.lit(int.fold(v as i128));

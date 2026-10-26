@@ -37,7 +37,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Share a held-back read across a call](/quest/m2/ts-shared-read.md) - `leading-ones` decode recovers what #83's copy fix cost
 - [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
 - [Translate derived == through references and slice index writes](/quest/m2/ts-ref-shapes.md) - two refused shapes #83's tests hit
-- [Translate char and vec![x]](/quest/m2/ts-char-vec.md) - `char` values and `vec![x]` translate, unblocking moq-net's refused sites
 - [Firefox in the TS benchmark](/quest/m2/ts-bench-firefox.md) - SpiderMonkey joins Chrome, Bun, and Node in `just ts bench`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Symlinked paths](/quest/m2/uniffi-symlink-path.md) - the fork builds when a consumer reaches it through a symlink, as on macOS's `/var`

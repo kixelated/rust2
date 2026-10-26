@@ -135,6 +135,10 @@ export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
 	return [v[0], copy$Tally(v[1])];
 }
 
+export function copy$u8_u16(v: [rt.u8, rt.u16]): [rt.u8, rt.u16] {
+	return [v[0], v[1]];
+}
+
 export function copy$u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	return [v[0], v[1]];
 }

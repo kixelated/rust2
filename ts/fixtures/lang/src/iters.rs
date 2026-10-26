@@ -585,7 +585,7 @@ struct Wrapper<T>(T);
 
 /// A `Copy` type whose `Clone` does more than copy.
 #[derive(Copy)]
-struct Bumped(u8);
+pub struct Bumped(pub u8);
 
 impl Clone for Bumped {
 	fn clone(&self) -> Self {
