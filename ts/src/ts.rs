@@ -125,7 +125,8 @@ impl Expr {
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
-			Self::As(e, _) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) => *e,
+			// Limbs keep theirs, which the brand of their type requires.
+			Self::As(e, ty) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) && !wide(&ty) => *e,
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
 			Self::Call(f, args) if matches!(&*f, Self::Rt(name) if name == "Ok" || name == "Err") => {
@@ -141,12 +142,11 @@ impl Expr {
 		match self {
 			Self::Lit(_) | Self::Str(_) | Self::This | Self::Sym(_) | Self::Rt(_) => true,
 			Self::Located(_, e) => e.is_constant(),
-			// A wide integer literal past 2^53, `rt.u64Of(0xffffffffffffffffn)`, which makes
-			// immutable limbs.
-			Self::Call(f, args) => match (&**f, args.as_slice()) {
-				(Self::Rt(name), [Self::Lit(_)]) => matches!(name.as_str(), "u64Of" | "i64Of" | "u128Of" | "i128Of"),
-				_ => false,
-			},
+			// A wide integer literal past 2^53, `{ hi: 0xffffffff, lo: 0xffffffff } as rt.u64`:
+			// immutable limbs, which compare by value.
+			Self::As(e, ty) if wide(ty) => {
+				matches!(&**e, Self::Object(fields) if fields.iter().all(|(_, v)| matches!(v, Self::Lit(_))))
+			}
 			_ => false,
 		}
 	}
@@ -161,6 +161,11 @@ impl Expr {
 			e => e.is_constant(),
 		}
 	}
+}
+
+/// Whether `ty` is a 64- or 128-bit integer type, whose values past 2^53 are limbs.
+fn wide(ty: &Type) -> bool {
+	matches!(ty, Type::Rt("u64" | "i64" | "u128" | "i128", _))
 }
 
 #[derive(Clone, Debug)]

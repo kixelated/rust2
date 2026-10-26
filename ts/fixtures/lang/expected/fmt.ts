@@ -212,7 +212,7 @@ export function nested(data: Uint8Array): Nested.Nested {
 		_22 = { tag: "Rect", corner: { x: 0, y: 0 }, width: at(3) as rt.u16, height: 9 } as Shape.Shape;
 	}
 	const _35: rt.ByteVec = rt.sliceToByteVec(rt.sliceRange(data, 0, rt.min(data.length, 4)));
-	const _40: Pair.Pair[] = [{ _0: at(4), _1: -1 }, { _0: 2, _1: rt.i64Of(-9223372036854775808n) }].map(copy$Pair);
+	const _40: Pair.Pair[] = [{ _0: at(4), _1: -1 }, { _0: 2, _1: { hi: -0x80000000, lo: 0 } as rt.i64 }].map(copy$Pair);
 	if (!(rt.u8Rem(at(5), 2) === 0)) {
 		_49 = undefined;
 	} else {
@@ -251,9 +251,7 @@ export function derived(data: Uint8Array, out: rt.ByteVec): void {
 	const arg2 = ([value] as [Nested.Nested])[0];
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => Nested.fmt$Debug(arg2, f)];
 	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
-	const _30: rt.u8 = at(0);
-	const _33: boolean = at(1) > 10;
-	const wide: Wide.Wide = { a: _30, b: 300, c: 70000, d: rt.u64Of(18446744073709551615n), e: -1, f: _33 };
+	const wide: Wide.Wide = { a: at(0), b: 300, c: 70000, d: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, e: -1, f: at(1) > 10 };
 	const six: Six.Six = { _0: at(0), _1: 1, _2: 2, _3: 3, _4: 4, _5: at(1) };
 	const _56: rt.Fmt = (f: rt.Formatter) => Wide.fmt$Debug(wide, f);
 	const _57: rt.Fmt = (f: rt.Formatter) => Six.fmt$Debug(six, f);

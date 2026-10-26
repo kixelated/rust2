@@ -285,7 +285,7 @@ export function consumers(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(rt.iterFold(rt.iterSlice(data), 0, (acc: rt.u32, _34: rt.u8): rt.u32 => {
 			const b8: rt.u8 = _34;
 			const _510: rt.u32 = (acc << 3) >>> 0;
-			return rt.u32WrappingAdd(_510, (b8 as rt.u32 ^ acc) >>> 0);
+			return rt.u32WrappingAdd(_510, ((b8 as rt.u32) ^ acc) >>> 0);
 		})));
 		rt.iterForEach(rt.iterSlice(data), (_216: rt.u8): void => {
 			rt.byteVecPush(log, rotateFree$RotateFree_u8(_216));
@@ -401,7 +401,7 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	})) & 0xff);
 	rt.byteVecPush(out, rt.rangeIsEmpty(wide) ? 1 : 0);
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(new rt.Range(0, a as rt.u64, rt.u64Step), rt.u64Add, 0)));
-	const edge: rt.u64 = rt.u64Add(rt.u64Sub(rt.u64Of(9007199254740992n), 2), rt.u64Rem(a as rt.u64, 4));
+	const edge: rt.u64 = rt.u64Add(rt.u64Sub({ hi: 0x200000, lo: 0 } as rt.u64, 2), rt.u64Rem(a as rt.u64, 4));
 	const past: rt.Range<rt.u64> = new rt.Range(edge, rt.u64Add(edge, 4), rt.u64Step);
 	const _223: rt.usize = rt.usizeRem(b as rt.usize, 3);
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(past, _223), 0)));
@@ -409,14 +409,13 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	const _240: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step);
 	const _243: rt.usize = rt.usizeRem(b as rt.usize, 5);
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterNth(_240, _243), 0)));
-	const _250: rt.u64 = rt.u64Rem(a as rt.u64, 3);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub(rt.u64Of(18446744073709551615n), _250), rt.u64Of(18446744073709551615n), rt.u64Step), (n4: rt.u64): rt.u64 => {
+	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Rem(a as rt.u64, 3)), { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Step), (n4: rt.u64): rt.u64 => {
 		return rt.u64Rem(n4, 7);
 	}), rt.u64Add, 0)));
 	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(rt.optionUnwrapOr(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (_24: rt.u64): rt.u64 => {
 		return _24;
 	}), 0)));
-	rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Add(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Step)), 0)));
+	rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Add(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Step)), 0)));
 	const iterS: rt.u32[] = rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)));
 	let iterI: number = 0;
 	while (true) {
