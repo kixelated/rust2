@@ -58,8 +58,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.next_names.insert(name);
 				}
 				if self.stepped_array(&args[0].node) {
-					let it = self.path(recv, "iter", &mut pre);
-					(self.stepped_next(it), true)
+					(self.stepped_next(&recv), true)
 				} else {
 					(crate::lower::iter::next(self.b, iter_ty, recv), true)
 				}
@@ -485,8 +484,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		read: bool,
 		out: &mut Vec<Stmt>,
 	) -> Option<(String, Expr)> {
-		let range = self.path(recv, "range", out);
-		let start = range.clone().member("start");
+		let range = match recv {
+			Expr::Object(_) => recv,
+			recv => self.path(recv, "range", out),
+		};
+		let start = super::step::stepped_field(&range, "start");
+		let end = super::step::stepped_field(&range, "end");
 		let flag = self.b.fresh(&format!("{name}Some"));
 		self.range_flags.insert(name.clone(), flag.clone());
 		if stepped {
@@ -495,9 +498,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				true => Expr::ident(&name).assign(step),
 				false => step,
 			};
-			return Some((flag, item.binary("<", range.member("end"))));
+			return Some((flag, item.binary("<", end)));
 		}
-		let more = start.clone().binary("<", range.member("end"));
+		let more = start.clone().binary("<", end);
 		out.push(StmtKind::Expr(Expr::ident(&flag).assign(more)).at(None));
 		let step = Expr::ident(&name).assign(Expr::Postfix(Box::new(start), "++"));
 		out.push(

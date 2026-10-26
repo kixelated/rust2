@@ -81,7 +81,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let pairs!: rt.HashMap<Pair.Pair, Tally.Tally>;
 	let ranks!: rt.HashMap<Rank.Rank, Tally.Tally>;
 	let tuples!: rt.HashMap<[rt.u8, string], rt.u8>;
-	let iter5!: { start: rt.usize; end: rt.usize };
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
 	let _161!: rt.usize;
 	let i3!: rt.usize;
 	let a!: rt.u8;
@@ -110,7 +111,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _269!: [Pair.Pair, Tally.Tally] | rt.Done;
 	let p!: Pair.Pair;
 	let t3!: Tally.Tally;
-	let iter8!: { start: rt.usize; end: rt.usize };
+	let iterStart2!: rt.usize;
+	let iterEnd2!: rt.usize;
 	let _286!: rt.usize;
 	let i4!: rt.usize;
 	let a2!: rt.u8;
@@ -129,10 +131,12 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let copy2!: rt.HashMap<rt.u8, Tally.Tally>;
 	let iter9!: rt.Iter<Tally.Tally>;
 	let _356!: Tally.Tally | rt.Done;
-	let iter10!: { start: rt.u8; end: rt.u8 };
+	let iterStart3!: rt.u8;
+	let iterEnd3!: rt.u8;
 	let _364!: rt.u8;
 	let k4!: rt.u8;
-	let iter11!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _380!: rt.u8 | rt.Done;
 	let b5!: rt.u8;
 	let _387!: rt.u8;
@@ -141,7 +145,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let extended!: rt.HashMap<rt.u8, Tally.Tally>;
 	let iter12!: rt.Iter<Tally.Tally>;
 	let _409!: Tally.Tally | rt.Done;
-	let iter13!: { start: rt.u8; end: rt.u8 };
+	let iterStart4!: rt.u8;
+	let iterEnd4!: rt.u8;
 	let _416!: rt.u8;
 	let k5!: rt.u8;
 	let _430!: (a0: Nibble.Nibble) => rt.u64;
@@ -157,7 +162,8 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let iter14!: rt.Iter<[Rank.Rank, rt.u16]>;
 	let _479!: [Rank.Rank, rt.u16] | rt.Done;
 	let words!: rt.HashMap<string, rt.ByteVec>;
-	let iter15!: { s: Uint8Array; i: number };
+	let iterS2!: Uint8Array;
+	let iterI2!: number;
 	let _496!: rt.u8 | rt.Done;
 	let b6!: rt.u8;
 	let word!: string;
@@ -281,9 +287,10 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			pairs = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
 			ranks = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
 			tuples = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
-			iter5 = { start: 1, end: data.length };
+			iterStart = 1;
+			iterEnd = data.length;
 			while (true) {
-				if (!((_161 = iter5.start++) < iter5.end)) {
+				if (!((_161 = iterStart++) < iterEnd)) {
 					_225 = rt.iterMap(rt.hashIter(map3), (_214: [Nibble.Nibble, rt.u8]): [rt.u8, rt.u8] => {
 						return [_214[0]._0, _214[1]] as [rt.u8, rt.u8];
 					});
@@ -308,9 +315,10 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 							while (true) {
 								_269 = iter7.next();
 								if (_269 === rt.DONE) {
-									iter8 = { start: 1, end: data.length };
+									iterStart2 = 1;
+									iterEnd2 = data.length;
 									while (true) {
-										if (!((_286 = iter8.start++) < iter8.end)) {
+										if (!((_286 = iterStart2++) < iterEnd2)) {
 											copy = rt.hashClone(ranks, undefined, rt.copy);
 											_327 = rt.hashGet(copy, { tag: "Low" } as Rank.Rank);
 											if (_327 !== undefined) {
@@ -340,12 +348,14 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 											while (true) {
 												_356 = iter9.next();
 												if (_356 === rt.DONE) {
-													iter10 = { start: 0, end: 8 };
+													iterStart3 = 0;
+													iterEnd3 = 8;
 													while (true) {
-														if (!((_364 = iter10.start++) < iter10.end)) {
-															iter11 = { s: data, i: 0 };
+														if (!((_364 = iterStart3++) < iterEnd3)) {
+															iterS = data;
+															iterI = 0;
 															while (true) {
-																_380 = iter11.i < iter11.s.length ? iter11.s[iter11.i++] : rt.DONE;
+																_380 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 																if (_380 === rt.DONE) {
 																	stamped = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
 																	stamp(stamped);
@@ -357,9 +367,10 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 																	while (true) {
 																		_409 = iter12.next();
 																		if (_409 === rt.DONE) {
-																			iter13 = { start: 0, end: 8 };
+																			iterStart4 = 0;
+																			iterEnd4 = 8;
 																			while (true) {
-																				if (!((_416 = iter13.start++) < iter13.end)) {
+																				if (!((_416 = iterStart4++) < iterEnd4)) {
 																					first = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 																					rt.byteVecPush(out, rt.u64Eq(_430({ _0: first }), _430({ _0: first ^ 240 })) ? 1 : 0);
 																					_448 = [rt.hasher(), { n: first as rt.u16 }] as [rt.Hasher, Tally.Tally];
@@ -502,9 +513,10 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		} else {
 			words = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
-			iter15 = { s: data, i: 0 };
+			iterS2 = data;
+			iterI2 = 0;
 			while (true) {
-				_496 = iter15.i < iter15.s.length ? iter15.s[iter15.i++] : rt.DONE;
+				_496 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
 				if (_496 === rt.DONE) {
 					lens = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.usize>;
 					iter16 = rt.hashIter(words);
@@ -629,7 +641,8 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _4!: rt.u8;
 	let hashed!: rt.HashSet<rt.u16>;
 	let sorted!: rt.BTreeSet<rt.u16>;
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _10!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	let v!: rt.u16;
@@ -639,18 +652,21 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let firsts!: rt.u16[];
 	let nibbles!: rt.BTreeSet<Nibble.Nibble>;
 	let seen!: rt.HashSet<Nibble.Nibble>;
-	let iter3!: { s: Uint8Array; i: number };
+	let iterS2!: Uint8Array;
+	let iterI2!: number;
 	let _106!: rt.u8 | rt.Done;
 	let b2!: rt.u8;
 	let iter4!: rt.Iter<Nibble.Nibble>;
 	let _123!: Nibble.Nibble | rt.Done;
 	let _129!: Nibble.Nibble | undefined;
 	let dirs!: rt.HashSet<Dir.Dir>;
-	let iter5!: { s: Uint8Array; i: number };
+	let iterS3!: Uint8Array;
+	let iterI3!: number;
 	let _151!: rt.u8 | rt.Done;
 	let _160!: rt.usize;
 	let words!: rt.BTreeSet<string>;
-	let iter6!: { s: Uint8Array; i: number };
+	let iterS4!: Uint8Array;
+	let iterI4!: number;
 	let _175!: rt.u8 | rt.Done;
 	let _182!: rt.usize;
 	let iter7!: rt.Iter<string>;
@@ -664,9 +680,10 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		if (_4 === 0) {
 			hashed = rt.hashNew() as rt.HashSet<rt.u16>;
 			sorted = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>;
-			iter = { s: data, i: 0 };
+			iterS = data;
+			iterI = 0;
 			while (true) {
-				_10 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+				_10 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 				if (_10 === rt.DONE) {
 					rt.byteVecPush(out, rt.hashLen(hashed) & 0xff);
 					rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.hashKeys(hashed), (v2: rt.u16): boolean => {
@@ -714,9 +731,10 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		} else if (_4 === 1) {
 			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
 			seen = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
-			iter3 = { s: data, i: 0 };
+			iterS2 = data;
+			iterI2 = 0;
 			while (true) {
-				_106 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
+				_106 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
 				if (_106 === rt.DONE) {
 					iter4 = rt.btreeKeys(nibbles);
 					while (true) {
@@ -734,9 +752,10 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 								} else {
 									rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
 									dirs = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
-									iter5 = { s: data, i: 0 };
+									iterS3 = data;
+									iterI3 = 0;
 									while (true) {
-										_151 = iter5.i < iter5.s.length ? iter5.s[iter5.i++] : rt.DONE;
+										_151 = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
 										if (_151 === rt.DONE) {
 											rt.byteVecPush(out, rt.hashLen(dirs) & 0xff);
 											break b0;
@@ -762,9 +781,10 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}
 		} else {
 			words = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
-			iter6 = { s: data, i: 0 };
+			iterS4 = data;
+			iterI4 = 0;
 			while (true) {
-				_175 = iter6.i < iter6.s.length ? iter6.s[iter6.i++] : rt.DONE;
+				_175 = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
 				if (_175 === rt.DONE) {
 					iter7 = rt.btreeKeys(words);
 					while (true) {
@@ -827,7 +847,8 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	let ranks!: rt.BTreeMap<Rank.Rank, Tally.Tally>;
 	let pairs!: rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
 	let wides!: rt.BTreeMap<rt.u64, rt.u8>;
-	let iter5!: { start: rt.usize; end: rt.usize };
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
 	let _164!: rt.usize;
 	let i2!: rt.usize;
 	let a!: rt.u8;
@@ -840,7 +861,8 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	let _188!: [rt.u8, rt.u8];
 	let _196!: rt.u64;
 	let _197!: Tally.Tally | undefined;
-	let iter6!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _205!: rt.u8 | rt.Done;
 	let b2!: rt.u8;
 	let r!: Rank.Rank;
@@ -862,14 +884,16 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	let _294!: [Fussy.Fussy, Fussy.Fussy] | rt.Done;
 	let nibbles!: rt.BTreeMap<Nibble.Nibble, rt.u8>;
 	let words!: rt.BTreeMap<string, Tally.Tally>;
-	let iter11!: { s: Uint8Array; i: number };
+	let iterS2!: Uint8Array;
+	let iterI2!: number;
 	let _307!: rt.u8 | rt.Done;
 	let b3!: rt.u8;
 	let t2!: Tally.Tally;
 	let _320!: rt.usize;
 	let iter12!: rt.Iter<[Nibble.Nibble, rt.u8]>;
 	let _331!: [Nibble.Nibble, rt.u8] | rt.Done;
-	let iter13!: { start: rt.usize; end: rt.usize };
+	let iterStart2!: rt.usize;
+	let iterEnd2!: rt.usize;
 	let _344!: rt.usize;
 	let i3!: rt.usize;
 	let a2!: Nibble.Nibble;
@@ -992,16 +1016,18 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 			ranks = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
 			pairs = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
 			wides = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u64, rt.u8>;
-			iter5 = { start: 1, end: data.length };
+			iterStart = 1;
+			iterEnd = data.length;
 			while (true) {
-				if (!((_164 = iter5.start++) < iter5.end)) {
+				if (!((_164 = iterStart++) < iterEnd)) {
 					_197 = rt.btreeGet(ranks, { tag: "Low" } as Rank.Rank);
 					if (_197 !== undefined) {
 						_197.n = _197.n ^ 23130;
 					}
-					iter6 = { s: data, i: 0 };
+					iterS = data;
+					iterI = 0;
 					while (true) {
-						_205 = iter6.i < iter6.s.length ? iter6.s[iter6.i++] : rt.DONE;
+						_205 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 						if (_205 === rt.DONE) {
 							iter7 = rt.btreeIter(ranks);
 							while (true) {
@@ -1087,17 +1113,19 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		} else {
 			nibbles = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 			words = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
-			iter11 = { s: data, i: 0 };
+			iterS2 = data;
+			iterI2 = 0;
 			while (true) {
-				_307 = iter11.i < iter11.s.length ? iter11.s[iter11.i++] : rt.DONE;
+				_307 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
 				if (_307 === rt.DONE) {
 					iter12 = rt.btreeIter(nibbles);
 					while (true) {
 						_331 = iter12.next();
 						if (_331 === rt.DONE) {
-							iter13 = { start: 1, end: data.length };
+							iterStart2 = 1;
+							iterEnd2 = data.length;
 							while (true) {
-								if (!((_344 = iter13.start++) < iter13.end)) {
+								if (!((_344 = iterStart2++) < iterEnd2)) {
 									_409 = rt.iterMap(rt.iterSlice(data), (_2: rt.u8): [Nibble.Nibble, rt.u8] => {
 										let b5!: rt.u8;
 										b5 = _2;
@@ -1200,7 +1228,8 @@ export function touch(q: rt.VecDeque<rt.u8>): rt.VecDeque<rt.u8> {
 export function deques(data: Uint8Array, out: rt.ByteVec): void {
 	let q!: rt.VecDeque<rt.u8>;
 	let pairs!: rt.VecDeque<[rt.u8, rt.u8]>;
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _7!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	let _12!: rt.u8;
@@ -1227,9 +1256,10 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 	let _181!: rt.RangeInclusive<rt.usize>;
 	q = rt.dequeNew() as rt.VecDeque<rt.u8>;
 	pairs = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
-	iter = { s: data, i: 0 };
+	iterS = data;
+	iterI = 0;
 	while (true) {
-		_7 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+		_7 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_7 === rt.DONE) {
 			touch(q);
 			touch(q);

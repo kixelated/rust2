@@ -212,7 +212,8 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let _13!: [Uint8Array, Uint8Array];
 	let _15!: rt.usize;
 	let r!: Decoder.Decoder;
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _21!: rt.u8 | rt.Done;
 	let _26!: rt.Result<undefined, DecodeError.DecodeError>;
 	let err!: DecodeError.DecodeError;
@@ -226,9 +227,10 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				_15 = _9[1].length;
 				_13 = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
 				r = Decoder.new(_13[1], form(selector));
-				iter = { s: _13[0], i: 0 };
+				iterS = _13[0];
+				iterI = 0;
 				l1: while (true) {
-					_21 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+					_21 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 					if (_21 !== rt.DONE) {
 						_26 = decodeStep(r, _21, out);
 						if (_26.ok) {
@@ -364,7 +366,8 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 	let w!: Encoder.Encoder;
 	let _20!: Form.Form;
 	let prefixes!: Prefix.Prefix[];
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _24!: rt.u8 | rt.Done;
 	let step!: rt.u8;
 	let value!: rt.u64;
@@ -398,9 +401,10 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				_20 = form(selector);
 				w = Encoder.new(buf, _20);
 				prefixes = [];
-				iter = { s: _13[0], i: 0 };
+				iterS = _13[0];
+				iterI = 0;
 				while (true) {
-					_24 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+					_24 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 					if (_24 === rt.DONE) {
 						while (true) {
 							_98 = prefixes.pop();
@@ -502,13 +506,15 @@ export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
 
 export function sizes(data: Uint8Array, out: rt.ByteVec): void {
 	let value!: rt.u64;
-	let iter!: { start: rt.u8; end: rt.u8 };
+	let iterStart!: rt.u8;
+	let iterEnd!: rt.u8;
 	let _9!: rt.u8;
 	let _13!: rt.Result<rt.usize, BoundsExceeded.BoundsExceeded>;
 	value = takeU64(data)[0];
-	iter = { start: 0, end: 3 };
+	iterStart = 0;
+	iterEnd = 3;
 	while (true) {
-		if (!((_9 = iter.start++) < iter.end)) {
+		if (!((_9 = iterStart++) < iterEnd)) {
 			return;
 		} else {
 			_13 = size(value, form(_9));

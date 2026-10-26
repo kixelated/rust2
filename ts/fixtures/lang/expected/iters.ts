@@ -15,7 +15,8 @@ import * as Wrapper from "./iters.Wrapper.ts";
 export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	let _4!: rt.u8;
 	let doubled!: rt.ByteVec;
-	let iter!: { s: rt.u16[]; i: number };
+	let iterS!: rt.u16[];
+	let iterI!: number;
 	let _18!: rt.u16 | rt.Done;
 	let iter2!: rt.Iter<[rt.usize, rt.u8]>;
 	let _32!: [rt.usize, rt.u8] | rt.Done;
@@ -55,13 +56,14 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				return rt.u8Rem(b11, 3) !== 0;
 			}));
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(doubled));
-			iter = { s: rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
+			iterS = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
 				let b12!: rt.u8;
 				b12 = _217;
 				return rt.thenSome(b12 < 100, rt.u16Mul(b12 as rt.u16, 200));
-			})), i: 0 };
+			}));
+			iterI = 0;
 			while (true) {
-				_18 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+				_18 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 				if (_18 === rt.DONE) {
 					break b0;
 				} else {
@@ -199,15 +201,17 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 	let words!: rt.ByteVec[];
 	let word!: rt.ByteVec;
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _6!: rt.u8 | rt.Done;
 	let b!: rt.u8;
 	let _13!: rt.ByteVec;
 	words = [];
 	word = new rt.ByteVec();
-	iter = { s: self, i: 0 };
+	iterS = self;
+	iterI = 0;
 	while (true) {
-		_6 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+		_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_6 === rt.DONE) {
 			words.push(word);
 			return words;
@@ -438,7 +442,8 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 	let _240!: rt.RangeInclusive<rt.u64>;
 	let _243!: rt.usize;
 	let _250!: rt.u64;
-	let iter3!: { s: rt.u32[]; i: number };
+	let iterS!: rt.u32[];
+	let iterI!: number;
 	let _295!: rt.u32 | rt.Done;
 	a = rt.optionUnwrapOr(rt.sliceFirst(data), 0);
 	b = rt.optionUnwrapOr(rt.sliceGet(data, 1), 0);
@@ -524,9 +529,10 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 						return _24;
 					}), 0)));
 					rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Add(rt.i64Neg(rt.i64Of(9007199254740992n)), 1), rt.i64Step)), 0)));
-					iter3 = { s: rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8))), i: 0 };
+					iterS = rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)));
+					iterI = 0;
 					while (true) {
-						_295 = iter3.i < iter3.s.length ? iter3.s[iter3.i++] : rt.DONE;
+						_295 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 						if (_295 === rt.DONE) {
 							updates(a, b, data, out);
 							return;
@@ -554,7 +560,8 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 	let _7!: rt.u8;
 	let whole!: rt.Range<rt.u8>;
 	let _14!: rt.Range<rt.u8>;
-	let iter!: { start: rt.u8; end: rt.u8 };
+	let iterStart!: rt.u8;
+	let iterEnd!: rt.u8;
 	let _29!: rt.u8;
 	let i!: rt.u8;
 	let _33!: rt.u8;
@@ -573,9 +580,10 @@ export function updates(a: rt.u8, b: rt.u8, data: Uint8Array, out: rt.ByteVec): 
 	_14 = rt.rangeClone(base);
 	whole = new rt.Range(_14.start, _14.end);
 	rt.byteVecExtendFromSlice(out, Uint8Array.of(made.start, _7, whole.start, whole.end));
-	iter = { start: rt.u8Div(a, 2), end: base.end };
+	iterStart = rt.u8Div(a, 2);
+	iterEnd = base.end;
 	while (true) {
-		if (!((_29 = iter.start++) < iter.end)) {
+		if (!((_29 = iterStart++) < iterEnd)) {
 			rt.byteVecPush(out, base.end);
 			len = data.length;
 			_41 = [rt.min(b as rt.usize, len), rt.min(a as rt.usize, len)] as [rt.usize, rt.usize];

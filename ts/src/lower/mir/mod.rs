@@ -192,6 +192,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	stepped: FxHashSet<Local>,
 	/// The borrows `next` steps them by, and what each borrows.
 	stepped_borrows: FxHashMap<Local, Local>,
+	/// The two variables each holds its fields in, by `step`.
+	stepped_vars: FxHashMap<Local, [String; 2]>,
+	/// Those moved into another, which shares its variables.
+	stepped_into: FxHashMap<Local, Local>,
 	/// Statements that change nothing: a swap through a temporary nothing else names, as
 	/// an async body moves its context at each `await`.
 	noops: FxHashSet<(BasicBlock, usize)>,
@@ -246,6 +250,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			range_flags: FxHashMap::default(),
 			stepped: FxHashSet::default(),
 			stepped_borrows: FxHashMap::default(),
+			stepped_vars: FxHashMap::default(),
+			stepped_into: FxHashMap::default(),
 			noops: FxHashSet::default(),
 			sole_pred: FxHashMap::default(),
 			idx_of: FxHashMap::default(),
@@ -407,6 +413,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.borrowed[local] {
 					self.shared.insert(name.clone());
 				}
+				if self.stepped.contains(&local) {
+					self.name_stepped(local, &base);
+				}
 				let owned = match mir.local_decls[local].ty.kind() {
 					ty::Tuple(_) | ty::Array(..) => true,
 					ty::Adt(adt, _) => {
@@ -424,6 +433,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.slots[local] = Slot::Var(name);
 			}
 		}
+		self.share_stepped();
 	}
 
 	/// Uncount the reads of what computes a local nothing reads without doing anything
@@ -997,7 +1007,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if self.is_arg(local) || !self.assigned[local] {
 				continue;
 			}
-			if let Slot::Var(name) = self.slots[local].clone() {
+			if let Some(vars) = self.stepped_vars.get(&local).cloned() {
+				// Declared once, by the local that shares them.
+				if self.stepped_root(local) != local {
+					continue;
+				}
+				for (name, ty) in vars.into_iter().zip(self.stepped_tys(local)) {
+					out.push(StmtKind::Declare { name, ty }.at(None));
+				}
+			} else if let Slot::Var(name) = self.slots[local].clone() {
 				let ty = self.decl_ty(local);
 				out.push(StmtKind::Declare { name, ty }.at(None));
 			}
@@ -1089,9 +1107,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// A local's declared type: the value's, for a checked pair.
 	fn decl_ty(&mut self, local: Local) -> Type {
-		if let Some(ty) = self.stepped_ty(local) {
-			return ty;
-		}
 		let ty = self.mir.local_decls[local].ty;
 		if self.next_results.contains(&local)
 			&& let ty::Adt(adt, args) = ty.kind()
@@ -1489,6 +1504,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		parts: Option<Vec<Expr>>,
 		out: &mut Vec<Stmt>,
 	) {
+		if self.stepped_vars.contains_key(&local) {
+			self.set_stepped(local, value, out);
+			return;
+		}
 		match self.slots[local].clone() {
 			Slot::Var(name) => {
 				if self.uses[local] == 0 {

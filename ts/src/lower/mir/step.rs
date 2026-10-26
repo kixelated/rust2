@@ -1,7 +1,8 @@
 //! Iterators stepped in place: a slice's or a `Vec`'s iterator, or a range of numbers,
-//! that only `next` reads, as a `for` loop's is, is an object of the array and an index,
-//! `{ s, i }`, or of the bounds, `{ start, end }`, rather than an `rt.Iter`, which a
-//! bundler can't shake its adaptors from.
+//! that only `next` reads, as a `for` loop's is, is two variables, of the array and an
+//! index or of the bounds, rather than an `rt.Iter`, which a bundler can't shake its
+//! adaptors from. Variables, not an object of both: V8 took up to 1.25x as long over a
+//! `BTreeMap` stepping an object's fields.
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_middle::mir::{self, Local, Operand, Rvalue, StatementKind, TerminatorKind};
@@ -9,7 +10,7 @@ use rustc_middle::ty::{self, Ty, TyCtxt};
 
 use super::Fx;
 use crate::lower::library::{self, Std};
-use crate::ts::{Expr, Key, Type};
+use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
 /// The item type of a slice's or a `Vec`'s iterator, if `ty` is one.
 fn array_iter<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
@@ -163,7 +164,22 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				self.stepped_borrows.insert(b, from);
 			}
 		}
+		// One moved into another and read nowhere else shares its variables: the other is
+		// assigned only by the move, so neither is live while the other is.
+		for &(from, to) in &moves {
+			if ok.contains(&from) && self.uses[from] == 1 {
+				self.stepped_into.insert(from, to);
+			}
+		}
 		self.stepped = ok;
+	}
+
+	/// The local whose variables `local` holds its fields in: the last it is moved into.
+	pub(super) fn stepped_root(&self, mut local: Local) -> Local {
+		while let Some(&to) = self.stepped_into.get(&local) {
+			local = to;
+		}
+		local
 	}
 
 	/// The array iterator a `next` receiver `op` borrows, if it steps in place. A range's
@@ -175,6 +191,74 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		p.as_local()
 			.and_then(|b| self.stepped_borrows.get(&b))
 			.is_some_and(|&l| array_iter(self.tcx, self.mir.local_decls[l].ty).is_some())
+	}
+
+	/// The keys of `local`'s fields: its array and index, or its bounds.
+	fn stepped_keys(&self, local: Local) -> [&'static str; 2] {
+		match array_iter(self.tcx, self.mir.local_decls[local].ty) {
+			Some(_) => ["s", "i"],
+			None => ["start", "end"],
+		}
+	}
+
+	/// Name the two variables `local` holds its fields in, unless it shares another's. A
+	/// read of either counts as one of memory, since `next` changes them in place.
+	pub(super) fn name_stepped(&mut self, local: Local, base: &str) {
+		if self.stepped_root(local) != local {
+			return;
+		}
+		let vars = self.stepped_keys(local).map(|key| {
+			let mut suffix = key.to_string();
+			suffix[..1].make_ascii_uppercase();
+			let name = self.b.fresh(&format!("{base}{suffix}"));
+			self.shared.insert(name.clone());
+			name
+		});
+		self.stepped_vars.insert(local, vars);
+	}
+
+	/// Give each stepped local that shares its variables those of the local it shares.
+	pub(super) fn share_stepped(&mut self) {
+		for &local in &self.stepped {
+			let root = self.stepped_root(local);
+			if root != local {
+				let vars = self.stepped_vars[&root].clone();
+				self.stepped_vars.insert(local, vars);
+			}
+		}
+	}
+
+	/// `local` read whole, if it is stepped in place: an object of its variables, which
+	/// [`Self::set_stepped`] and [`stepped_field`] take apart again.
+	pub(super) fn stepped_value(&self, local: Local) -> Option<Expr> {
+		let vars = self.stepped_vars.get(&local)?;
+		let keys = self.stepped_keys(local);
+		let fields = keys.into_iter().zip(vars);
+		Some(Expr::Object(
+			fields.map(|(k, v)| (Key::Name(k.into()), Expr::ident(v))).collect(),
+		))
+	}
+
+	/// Assign `local`'s variables the fields of `value`, as [`Self::stepped_make`] made it.
+	pub(super) fn set_stepped(&mut self, local: Local, value: Expr, out: &mut Vec<Stmt>) {
+		let value = match value {
+			Expr::Located(_, value) => *value,
+			value => value,
+		};
+		// Anything else is refused already.
+		let Expr::Object(fields) = value else {
+			return;
+		};
+		self.assigned[local] = true;
+		let vars = self.stepped_vars[&local].clone();
+		for ((_, value), var) in fields.into_iter().zip(vars) {
+			// A move from a local that shares the variables.
+			if matches!(&value, Expr::Ident(name) if *name == var) {
+				continue;
+			}
+			let stmt = StmtKind::Expr(Expr::ident(&var).assign(value)).at(None);
+			self.emit(vec![stmt], Some(&var), false, out);
+		}
 	}
 
 	/// An iterator stepped in place, from the `rt.Iter` its mapping makes: `{ s, i: 0 }`
@@ -193,7 +277,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				let [start, end] = <[Expr; 2]>::try_from(args).expect("checked above");
 				object([("start", start), ("end", end)])
 			}
-			Expr::Ident(_) => value,
+			Expr::Object(_) => value,
 			// Refused already.
 			Expr::Lit(lit) if lit == "undefined" => Expr::undefined(),
 			_ => self.err(span, "an iterator stepped in place that its mapping didn't make"),
@@ -201,9 +285,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 
 	/// The next item of `it`, stepped in place, or `rt.DONE`.
-	pub(super) fn stepped_next(&self, it: Expr) -> Expr {
-		let s = it.clone().member("s");
-		let i = it.member("i");
+	pub(super) fn stepped_next(&self, it: &Expr) -> Expr {
+		let s = stepped_field(it, "s");
+		let i = stepped_field(it, "i");
 		Expr::Cond(
 			Box::new(i.clone().binary("<", s.clone().member("length"))),
 			Box::new(s.index(Expr::Postfix(Box::new(i), "++"))),
@@ -211,25 +295,34 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		)
 	}
 
-	/// The type of a local stepped in place: its array and index, or its bounds.
-	pub(super) fn stepped_ty(&mut self, local: Local) -> Option<Type> {
-		if !self.stepped.contains(&local) {
-			return None;
-		}
+	/// The types of a stepped local's variables: its array and index, or its bounds.
+	pub(super) fn stepped_tys(&mut self, local: Local) -> [Type; 2] {
 		let ty = self.mir.local_decls[local].ty;
-		let fields = match array_iter(self.tcx, ty) {
+		match array_iter(self.tcx, ty) {
 			Some(item) => [
-				("s", self.b.t.ty(Ty::new_slice(self.tcx, item), self.span)),
-				("i", Type::Builtin("number")),
+				self.b.t.ty(Ty::new_slice(self.tcx, item), self.span),
+				Type::Builtin("number"),
 			],
 			None => {
 				let ty::Adt(_, args) = ty.kind() else {
 					unreachable!("a range is a struct")
 				};
 				let bound = self.b.t.ty(args.type_at(0), self.span);
-				[("start", bound.clone()), ("end", bound)]
+				[bound.clone(), bound]
 			}
-		};
-		Some(Type::Object(fields.into_iter().map(|(k, t)| (k.into(), t)).collect()))
+		}
+	}
+}
+
+/// The field `key` of an iterator stepped in place: its variable, from the object
+/// [`Fx::stepped_value`] reads it as.
+pub(super) fn stepped_field(it: &Expr, key: &str) -> Expr {
+	match it {
+		Expr::Object(fields) => fields
+			.iter()
+			.find(|(k, _)| matches!(k, Key::Name(n) if n == key))
+			.map(|(_, v)| v.clone())
+			.expect("a stepped iterator's field"),
+		it => it.clone().member(key),
 	}
 }

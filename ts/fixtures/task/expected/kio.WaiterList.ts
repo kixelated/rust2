@@ -16,21 +16,24 @@ function new_(): WaiterList {
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	let weak!: rt.Weak<rt.Waker>;
-	let iter!: { s: rt.Weak<rt.Waker>[]; i: number };
+	let iterS!: rt.Weak<rt.Waker>[];
+	let iterI!: number;
 	let _8!: rt.Weak<rt.Waker> | rt.Done;
 	let probes!: rt.usize;
 	let _23!: rt.usize;
 	let _24!: rt.Weak<rt.Waker>;
 	let _27!: rt.usize;
 	let live!: rt.Weak<rt.Waker>[];
-	let iter2!: { s: rt.Weak<rt.Waker>[]; i: number };
+	let iterS2!: rt.Weak<rt.Waker>[];
+	let iterI2!: number;
 	let _43!: rt.Weak<rt.Waker> | rt.Done;
 	let entry!: rt.Weak<rt.Waker>;
 	let _53!: rt.Weak<rt.Waker>[];
 	weak = new rt.Weak(waiter.shared);
-	iter = { s: self.entries, i: 0 };
+	iterS = self.entries;
+	iterI = 0;
 	l0: while (true) {
-		_8 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+		_8 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		b1: {
 			b2: {
 				if (_8 === rt.DONE) {
@@ -42,9 +45,10 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 									live = [];
 									const taken = self.entries;
 									self.entries = [];
-									iter2 = { s: taken, i: 0 };
+									iterS2 = taken;
+									iterI2 = 0;
 									while (true) {
-										_43 = iter2.i < iter2.s.length ? iter2.s[iter2.i++] : rt.DONE;
+										_43 = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
 										if (_43 === rt.DONE) {
 											_53 = live;
 											self.entries = _53;
@@ -95,7 +99,8 @@ export function take(self: WaiterList): WaiterList {
 
 /** Wake every live waiter, draining the list. */
 export function wake(self: WaiterList): void {
-	let iter!: { s: rt.Weak<rt.Waker>[]; i: number };
+	let iterS!: rt.Weak<rt.Waker>[];
+	let iterI!: number;
 	let _6!: rt.Weak<rt.Waker> | rt.Done;
 	let entry!: rt.Weak<rt.Waker>;
 	let _10!: rt.Arc<rt.Waker> | undefined;
@@ -105,9 +110,10 @@ export function wake(self: WaiterList): void {
 		self.cursor = 0;
 		const taken = self.entries;
 		self.entries = [];
-		iter = { s: taken, i: 0 };
+		iterS = taken;
+		iterI = 0;
 		while (true) {
-			_6 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+			_6 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 			if (_6 === rt.DONE) {
 				return;
 			} else {

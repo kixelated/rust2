@@ -73,15 +73,17 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 	let _6!: [rt.u64, Uint8Array];
 	let value!: rt.u64;
 	let w!: Encoder.Encoder;
-	let iter!: { start: rt.usize; end: rt.usize };
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
 	let _17!: rt.Result<undefined, EncodeError.EncodeError>;
 	_6 = takeU64(data);
 	count = _6[0];
 	value = takeU64(_6[1])[0];
 	w = Encoder.new(out, form_);
-	iter = { start: 0, end: rt.u64Low(count) };
+	iterStart = 0;
+	iterEnd = rt.u64Low(count);
 	l0: while (true) {
-		if (!(iter.start++ < iter.end)) {
+		if (!(iterStart++ < iterEnd)) {
 			return rt.Ok(undefined);
 		} else {
 			_17 = Encoder.varint(w, value);
@@ -143,7 +145,8 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	let _23!: [rt.i64, rt.usize];
 	let _24!: rt.i64;
 	let w!: Encoder.Encoder;
-	let iter!: { start: rt.usize; end: rt.usize };
+	let iterStart!: rt.usize;
+	let iterEnd!: rt.usize;
 	let _32!: rt.usize;
 	let n!: rt.usize;
 	let delta3!: rt.i64;
@@ -168,9 +171,10 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	delta2 = _24;
 	keyEvery2 = _23[1];
 	w = Encoder.new(out, Form.from$From_Version(version));
-	iter = { start: 0, end: rt.u64Low(count) };
+	iterStart = 0;
+	iterEnd = rt.u64Low(count);
 	l0: while (true) {
-		if (!((_32 = iter.start++) < iter.end)) {
+		if (!((_32 = iterStart++) < iterEnd)) {
 			return rt.Ok(undefined);
 		} else {
 			b2: {
@@ -350,12 +354,14 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 	let count2!: rt.u32;
 	let _10!: (a0: rt.u32) => rt.u32;
 	let map!: rt.BTreeMap<rt.u32, rt.u32>;
-	let iter!: { start: rt.u32; end: rt.u32 };
+	let iterStart!: rt.u32;
+	let iterEnd!: rt.u32;
 	let _15!: rt.u32;
 	let i!: rt.u32;
 	let _21!: rt.u32;
 	let sum!: rt.u64;
-	let iter2!: { start: rt.u32; end: rt.u32 };
+	let iterStart2!: rt.u32;
+	let iterEnd2!: rt.u32;
 	let _28!: rt.u32;
 	let i2!: rt.u32;
 	let _38!: rt.u32;
@@ -363,7 +369,8 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 	let _49!: rt.Range<rt.u32>;
 	let iter3!: rt.Iter<[rt.u32, rt.u32]>;
 	let _57!: [rt.u32, rt.u32] | rt.Done;
-	let iter4!: { start: rt.u32; end: rt.u32 };
+	let iterStart3!: rt.u32;
+	let iterEnd3!: rt.u32;
 	let _66!: rt.u32;
 	let _73!: rt.u32;
 	_10 = (i4: rt.u32): rt.u32 => {
@@ -371,21 +378,24 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 	};
 	count2 = rt.u64Low(rt.u64Min(takeU64(data)[0], 65536));
 	map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
-	iter = { start: 0, end: count2 };
+	iterStart = 0;
+	iterEnd = count2;
 	while (true) {
-		if (!((_15 = iter.start++) < iter.end)) {
+		if (!((_15 = iterStart++) < iterEnd)) {
 			sum = 0;
-			iter2 = { start: 0, end: count2 };
+			iterStart2 = 0;
+			iterEnd2 = count2;
 			while (true) {
-				if (!((_28 = iter2.start++) < iter2.end)) {
+				if (!((_28 = iterStart2++) < iterEnd2)) {
 					_49 = new rt.Range(1 << 14, 2 << 14);
 					iter3 = rt.btreeRange(map, _49);
 					while (true) {
 						_57 = iter3.next();
 						if (_57 === rt.DONE) {
-							iter4 = { start: 0, end: count2 };
+							iterStart3 = 0;
+							iterEnd3 = count2;
 							while (true) {
-								if (!((_66 = iter4.start++) < iter4.end)) {
+								if (!((_66 = iterStart3++) < iterEnd3)) {
 									putU64(out, sum);
 									return;
 								} else {

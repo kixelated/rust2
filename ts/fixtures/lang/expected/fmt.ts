@@ -224,7 +224,8 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
-	let iter!: { s: Uint8Array; i: number };
+	let iterS!: Uint8Array;
+	let iterI!: number;
 	let _9!: rt.u8 | rt.Done;
 	let _15!: rt.usize;
 	let _25!: string;
@@ -249,9 +250,10 @@ export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	let _116!: string;
 	let args12!: rt.Fmt[];
 	let _122!: rt.Fmt;
-	iter = { s: rt.sliceRange(data, 0, rt.min(data.length, 3)), i: 0 };
+	iterS = rt.sliceRange(data, 0, rt.min(data.length, 3));
+	iterI = 0;
 	while (true) {
-		_9 = iter.i < iter.s.length ? iter.s[iter.i++] : rt.DONE;
+		_9 = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
 		if (_9 === rt.DONE) {
 			_36 = rt.stringFromUtf8(rt.sliceToByteVec(data));
 			if (_36.ok) {
