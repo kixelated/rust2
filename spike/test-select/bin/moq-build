@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Usage: moq-build MOQ OUT TARGET JSON
+# Build every test target CI's full selection builds, in moq's dev shell, with
+# rust2-callgraph as rustc. Cargo's JSON messages go to JSON.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+moq=$(realpath "$1") out=$(realpath -m "$2") target=$(realpath -m "$3") json=$4
+features="moq-video/capture moq-audio/capture moq-audio/playback moq-cli/play moq-cli/openh264 moq-tokio/webrtc"
+exec nix develop "$moq" --command "$here/graph" "$moq" "$out" "$target" \
+	test --no-run --locked --workspace --exclude moq-net-fuzz --exclude moq-quic-fuzz --tests \
+	--features "$features" -j "${JOBS:-8}" --message-format=json >"$json"

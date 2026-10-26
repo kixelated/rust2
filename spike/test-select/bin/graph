@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Usage: graph ROOT OUT TARGET_DIR <cargo args...>
+# Build with rust2-callgraph as rustc, writing workspace graphs under OUT.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+root=$(cd "$1" && pwd)
+mkdir -p "$2" "$3"
+out=$(cd "$2" && pwd)
+target=$(cd "$3" && pwd)
+shift 3
+export PATH="/nix/store/i222nr66l2r3xfahzfpp1m6mawvhxyl2-rust-default-1.101.0-nightly-2026-10-15/bin:$PATH"
+export RUST2_CALLGRAPH_ROOT="${GRAPH_ROOT:-$root}" RUST2_CALLGRAPH_OUT="$out"
+export RUSTC_WRAPPER="${GRAPH_WRAPPER:-$here/../callgraph/target/release/rust2-callgraph}"
+export CARGO_TARGET_DIR="$target" CARGO_INCREMENTAL=0
+cd "$root"
+exec cargo "$@"

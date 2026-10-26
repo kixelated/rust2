@@ -1,0 +1,13 @@
+[package]
+name = "rust2-callgraph"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+[dependencies]
+rust2-driver = { path = "../../../driver" }
+
+[workspace]
