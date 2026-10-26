@@ -240,7 +240,7 @@ pub fn std_impl<'tcx>(
 		}
 		ty::Array(elem, _) | ty::Slice(elem) if tr == Trait::Debug => {
 			let item = b.fmt_fn(tr, *elem, span);
-			rt("list", vec![value, f, item])
+			rt("list", vec![library::elements(value, ty), f, item])
 		}
 		// A `&dyn Debug` is already a function writing its value.
 		ty::Dynamic(preds, ..) if preds.principal_def_id().and_then(|did| Trait::of(tcx, did)) == Some(tr) => {
@@ -252,7 +252,7 @@ pub fn std_impl<'tcx>(
 			(Std::Box, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
-				rt("list", vec![library::vec_view(value, ty), f, item])
+				rt("list", vec![library::elements(value, ty), f, item])
 			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);

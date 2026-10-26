@@ -187,6 +187,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.b.fmt_value(tr, from, value, span, out)
 				}
 				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
+				// An array's bytes, as a slice of all of it.
+				PointerCoercion::Unsize if to.walk().any(|arg| arg.as_type().is_some_and(super::place::byte_slice)) => {
+					match to.builtin_deref(true) {
+						Some(pointee) if super::place::byte_slice(pointee) => {
+							let value = self.operand(op, span, out);
+							Expr::rt("byteSliceFrom", vec![value])
+						}
+						_ => self.err(span, format!("a coercion to `{to}`")),
+					}
+				}
 				PointerCoercion::Unsize | PointerCoercion::ReifyFnPointer(_) | PointerCoercion::ClosureFnPointer(_) => {
 					self.operand(op, span, out)
 				}

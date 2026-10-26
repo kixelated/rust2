@@ -116,21 +116,41 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ProjectionElem::Downcast(..) => {}
 				ProjectionElem::Index(index) => {
 					let i = self.local_expr(index, span);
-					e = e.index(i);
+					e = match byte_slice(ty) {
+						true => {
+							let base = self.path(e, "slice", out);
+							byte_at(base, i)
+						}
+						false => e.index(i),
+					};
 				}
 				ProjectionElem::ConstantIndex {
 					offset,
 					min_length: _,
 					from_end,
 				} => {
-					e = match from_end {
-						false => e.index(Expr::lit(offset.to_string())),
-						true => {
-							let base = self.path(e, "slice", out);
-							let len = base.clone().member("length");
-							base.index(len.binary("-", Expr::lit(offset.to_string())))
-						}
+					let base = match from_end || byte_slice(ty) {
+						true => self.path(e, "slice", out),
+						false => e,
 					};
+					let i = match from_end {
+						false => Expr::lit(offset.to_string()),
+						true => base.clone().member("length").binary("-", Expr::lit(offset.to_string())),
+					};
+					e = match byte_slice(ty) {
+						true => byte_at(base, i),
+						false => base.index(i),
+					};
+				}
+				// A slice pattern's rest: `[a, rest @ ..]`.
+				ProjectionElem::Subslice {
+					from,
+					to,
+					from_end: true,
+				} if byte_slice(ty) => {
+					let base = self.path(e, "slice", out);
+					let end = base.clone().member("length").binary("-", Expr::lit(to.to_string()));
+					e = Expr::rt("byteSliceRange", vec![base, Expr::lit(from.to_string()), end]);
 				}
 				ProjectionElem::Subslice { from, to, from_end } => {
 					let elem_ty = match ty.kind() {
@@ -538,7 +558,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					},
 					ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
 						let items = bytes.iter().map(|b| Expr::lit(b.to_string())).collect();
-						Expr::ident("Uint8Array").member("of").call(items)
+						Expr::rt(
+							"byteSliceFrom",
+							vec![Expr::ident("Uint8Array").member("of").call(items)],
+						)
 					}
 					_ => self.err(span, format!("a slice constant of type `{ty}`")),
 				}
@@ -595,6 +618,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				.to_vec(),
 		)
 	}
+}
+
+/// Whether `ty` is `[u8]`, which is an `rt.ByteSlice`.
+pub fn byte_slice(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+}
+
+/// Byte `i` of `slice`, an `rt.ByteSlice` that reading twice reads the same.
+pub fn byte_at(slice: Expr, i: Expr) -> Expr {
+	let at = match &i {
+		Expr::Lit(text) if text == "0" => slice.clone().member("start"),
+		_ => slice.clone().member("start").binary("+", i),
+	};
+	slice.member("data").index(at)
 }
 
 /// Whether `ty` is a struct of one field that JS represents as that field: a wrapper

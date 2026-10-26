@@ -575,26 +575,33 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			Expr::rt("thenSome", values)
 		}
 
-		// Slices.
+		// Slices, whose byte functions take an `rt.ByteSlice`.
 		("slice", "len") => args.pop()?.member("length"),
 		("slice", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
-		("slice", "split_first") => rt2(args, "slice", "splitFirst"),
-		("slice", "split_at") => rt2(args, "slice", "splitAt"),
-		("slice", "split_at_checked") => rt2(args, "slice", "splitAtChecked"),
-		("slice", "first") => rt2(args, "slice", "first"),
-		("slice", "get") if Int::of(targ(gargs, 1)).is_some() => rt2(args, "slice", "get"),
+		("slice", "split_first" | "split_at" | "split_at_checked" | "first" | "get")
+			if name != "get" || Int::of(targ(gargs, 1)).is_some() =>
+		{
+			let of = match is_u8(targ(gargs, 0)) {
+				true => "byteSlice",
+				false => "slice",
+			};
+			rt2(args, of, &super::camel(&name))
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
 			values.push(Expr::lit(n.to_string()));
-			Expr::rt("sliceSplitFirstChunk", values)
+			match is_u8(targ(gargs, 0)) {
+				true => Expr::rt("byteSliceSplitFirstChunk", values),
+				false => Expr::rt("sliceSplitFirstChunk", values),
+			}
 		}
-		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "slice", "copyFromSlice"),
+		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "byteSlice", "copyFromSlice"),
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
 			let values = args;
 			match is_u8(elem) {
-				true => Expr::rt("sliceToByteVec", values),
+				true => Expr::rt("byteSliceToByteVec", values),
 				false if b.t.is_copy(elem) => Expr::rt("sliceToVec", values),
 				false => return None,
 			}
@@ -604,7 +611,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let elem = targ(gargs, 0);
 			let value = args.pop()?;
 			match is_u8(elem) {
-				true => Expr::rt("byteVecFrom", vec![value]),
+				true => Expr::rt("byteSliceToByteVec", vec![value]),
 				false => value,
 			}
 		}
@@ -872,14 +879,32 @@ fn primitive(ty: Ty<'_>) -> bool {
 	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
 }
 
-/// A `Vec`'s elements as a slice: a view of a byte vector, or the array itself.
+/// A `Vec`'s elements as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
 pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
 	let elem = match ty.peel_refs().kind() {
 		ty::Adt(_, args) => args.type_at(0),
 		_ => ty,
 	};
 	match elem.kind() {
-		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecView", vec![v]),
+		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecSlice", vec![v]),
+		_ => v,
+	}
+}
+
+/// The elements of a slice, array, or `Vec`, a `ty`, as a JS array or `Uint8Array`: a
+/// view of a byte slice's or byte vector's, which the runtime's iterators and formatting
+/// index.
+pub fn elements(v: Expr, ty: Ty<'_>) -> Expr {
+	match ty.peel_refs().kind() {
+		ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt("byteSliceView", vec![v]),
+		ty::Adt(_, args)
+			if args
+				.types()
+				.next()
+				.is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) =>
+		{
+			Expr::rt("byteVecView", vec![v])
+		}
 		_ => v,
 	}
 }
@@ -901,9 +926,10 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
 		ty::Ref(_, inner, _) => match inner.kind() {
-			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
-				Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit("0")])
-			}
+			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt(
+				"byteSliceFrom",
+				vec![Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit("0")])],
+			),
 			ty::Slice(_) => Expr::Array(Vec::new()),
 			ty::Str => Expr::Str(String::new()),
 			_ => return None,
