@@ -212,6 +212,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
 	joined: FxHashSet<Local>,
+	/// `Option`s of a `&mut` to a value a map holds that JS copies, as `get_mut` returns
+	/// it: its `rt.Place` or `undefined`, which is only tested, unwrapped, or taken apart
+	/// into a reference that reads and writes through it.
+	place_opts: FxHashSet<Local>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -265,6 +269,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			unwind_out: FxHashMap::default(),
 			halves: FxHashMap::default(),
 			joined: FxHashSet::default(),
+			place_opts: FxHashSet::default(),
 		};
 		fx.analyze();
 		fx
@@ -334,20 +339,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					..
 				} => {
 					self.operand_use(func);
-					// A callee given nothing that changes memory can't change an argument's
-					// source while it runs.
-					let alone = !std::iter::once(func)
-						.chain(args.iter().map(|a| &a.node))
-						.any(|op| self.reaches_mutable(op.ty(&mir.local_decls, self.tcx)));
 					let result = destination.ty(&mir.local_decls, self.tcx).ty;
 					for arg in args.iter() {
 						self.operand_use(&arg.node);
 						if let Operand::Copy(p) | Operand::Move(p) = &arg.node
 							&& let Some(local) = p.as_local()
 						{
+							// A callee given nothing that can change what the argument is can't
+							// change its source while it runs.
+							let part = mir.local_decls[local].ty;
+							let alone = !std::iter::once(func)
+								.chain(args.iter().map(|a| &a.node))
+								.any(|op| self.changes(op.ty(&mir.local_decls, self.tcx), part));
 							self.arg_use[local] = true;
 							self.arg_alone[local] = alone;
-							self.arg_kept[local] = holds(result, mir.local_decls[local].ty);
+							self.arg_kept[local] = self.holds(result, part);
 						}
 					}
 					self.def(*destination);
@@ -389,6 +395,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.find_stepped();
 		self.unborrow_passed();
 		self.find_halves();
+		self.find_place_opts();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -904,6 +911,91 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// The `Option`s of places `get_mut` returns that are only tested, unwrapped, or taken
+	/// apart into a reference that reads its place in place: no other code sees a place.
+	fn find_place_opts(&mut self) {
+		use rustc_middle::mir::visit::{MutatingUseContext, NonMutatingUseContext, PlaceContext, Visitor};
+		struct Uses<'tcx> {
+			local: Local,
+			at: Vec<(Place<'tcx>, PlaceContext, mir::Location)>,
+		}
+		impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
+			fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, at: mir::Location) {
+				if place.local == self.local {
+					self.at.push((*place, cx, at));
+				}
+			}
+		}
+		let mir: &'m mir::Body<'tcx> = self.mir;
+		let tcx = self.tcx;
+		let callee = |func: &Operand<'tcx>| match *func.ty(&mir.local_decls, tcx).kind() {
+			ty::FnDef(def_id, gargs) => Some((def_id, gargs.skip_binder())),
+			_ => None,
+		};
+		for data in mir.basic_blocks.iter() {
+			let TerminatorKind::Call {
+				func,
+				destination,
+				fn_span,
+				..
+			} = &data.terminator().kind
+			else {
+				continue;
+			};
+			let Some(local) = destination.as_local() else {
+				continue;
+			};
+			let option = self.b.t.std_of(mir.local_decls[local].ty) == Some(crate::lower::library::Std::Option);
+			let Some((def_id, gargs)) = callee(func) else {
+				continue;
+			};
+			let call = crate::lower::library::Call {
+				def_id,
+				args: self.b.subst(gargs),
+				span: *fn_span,
+			};
+			if !option || self.defs[local] != 1 || !crate::lower::collections::place_call(self.b, &call) {
+				continue;
+			}
+			let mut uses = Uses { local, at: Vec::new() };
+			uses.visit_body(mir);
+			let ok = uses
+				.at
+				.iter()
+				.all(|&(place, cx, at)| match (place.projection.as_slice(), cx) {
+					(
+						_,
+						PlaceContext::NonUse(_) | PlaceContext::NonMutatingUse(NonMutatingUseContext::PlaceMention),
+					) => true,
+					([], PlaceContext::NonMutatingUse(NonMutatingUseContext::Inspect)) => true,
+					// Its one definition, by the call.
+					([], PlaceContext::MutatingUse(MutatingUseContext::Call)) => true,
+					// Unwrapped by value, into a reference to the same place.
+					([], PlaceContext::NonMutatingUse(NonMutatingUseContext::Move | NonMutatingUseContext::Copy)) => {
+						let term = mir.basic_blocks[at.block].terminator();
+						matches!(&term.kind, TerminatorKind::Call { func, args, .. }
+						if matches!(args.first().map(|a| &a.node), Some(Operand::Move(p) | Operand::Copy(p)) if *p == place)
+							&& callee(func).and_then(|(d, _)| crate::lower::library::key(tcx, d))
+								.is_some_and(|(o, n)| o == "Option" && matches!(n.as_str(), "expect" | "unwrap")))
+					}
+					// `Some`'s reference, into a local that reads it in place.
+					(
+						[mir::ProjectionElem::Downcast(_, v), mir::ProjectionElem::Field(f, _)],
+						PlaceContext::NonMutatingUse(NonMutatingUseContext::Move | NonMutatingUseContext::Copy),
+					) if v.as_u32() == 1 && f.as_u32() == 0 => {
+						let stmt = mir.basic_blocks[at.block].statements.get(at.statement_index);
+						matches!(stmt.map(|s| &s.kind), Some(StatementKind::Assign(assign))
+						if matches!(&assign.1, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _) if *p == place)
+							&& assign.0.as_local().is_some_and(|to| self.alias(to)))
+					}
+					_ => false,
+				});
+			if ok {
+				self.place_opts.insert(local);
+			}
+		}
+	}
+
 	/// Each `(hi as u64) << 32 | lo as u64` of halves of at most 32 bits, as moq's
 	/// `from_halves` writes it, which lowers to `rt.u64FromHalves(hi, lo)`: no shift that
 	/// boxes limbs past 2^53, and no `|` that unboxes them. Its shift and casts go
@@ -1034,13 +1126,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for local in self.mir.args_iter() {
 			let ty = self.mir.local_decls[local].ty;
 			if self.mutated[local]
-				&& self.b.needs_copy(ty)
 				&& let Slot::Var(name) = &self.slots[local]
+				&& let Some(copy) = self.b.t.copy_fn(ty, self.local_span(local))
 			{
 				let name = name.clone();
-				entry.push(
-					StmtKind::Expr(Expr::ident(&name).assign(Expr::rt("copy", vec![Expr::ident(&name)]))).at(None),
-				);
+				entry.push(StmtKind::Expr(Expr::ident(&name).assign(copy.call(vec![Expr::ident(&name)]))).at(None));
 			}
 		}
 		// A closure that captures nothing holds nothing, so MIR never assigns it: JS needs
@@ -1139,6 +1229,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		cfg::hoist_else(&mut out);
 		declare_in_place(&mut out);
+		cfg::tidy_loops(&mut out);
 		out
 	}
 
@@ -1215,6 +1306,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				return item;
 			}
 			return Type::Union(vec![item, Type::Rt("Done", Vec::new())]);
+		}
+		if self.place_opts.contains(&local)
+			&& let ty::Adt(_, args) = ty.kind()
+			&& let ty::Ref(_, value, _) = args.type_at(0).kind()
+		{
+			let value = self.b.t.ty(*value, self.span);
+			return Type::Union(vec![Type::Rt("Place", vec![value]), Type::Builtin("undefined")]);
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
@@ -1439,12 +1537,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	fn flush_one(&mut self, p: Pending, out: &mut Vec<Stmt>) {
-		if let Some(local) = self.local_named(&p.name) {
+		let local = self.local_named(&p.name);
+		if let Some(local) = local {
 			self.assigned[local] = true;
 		}
-		let value = match p.copy {
-			true => Expr::rt("copy", vec![p.value]),
-			false => p.value,
+		let value = match (p.copy, local) {
+			(true, Some(local)) => self
+				.b
+				.t
+				.copied(p.value, self.mir.local_decls[local].ty, self.local_span(local)),
+			_ => p.value,
 		};
 		out.push(match p.decl {
 			true => StmtKind::decl(false, p.name, None, Some(value)).at(None),
@@ -1736,6 +1838,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							None => self.place_expr(*p, span, out),
 						},
 						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
+						// `Some`'s place, which the reference reads and writes through.
+						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) if self.place_opts.contains(&p.local) => {
+							self.place_expr(*p, span, out).member("v")
+						}
 						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Use(op @ Operand::Constant(_), _) => self.operand(op, span, out),
@@ -1780,7 +1886,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				&& matches!(rvalue, Rvalue::Use(Operand::Copy(p), _)
 					if !self.frozen(*p)
 						&& (own(*p) && !self.borrowed[p.local] || self.arg_alone[l])
-						&& self.b.needs_copy(p.ty(&self.mir.local_decls, self.tcx).ty))
+						&& self.b.t.needs_copy(p.ty(&self.mir.local_decls, self.tcx).ty))
 		});
 		if shares {
 			self.into_frozen = true;
@@ -2192,32 +2298,58 @@ impl Fx<'_, '_, '_, '_> {
 }
 
 impl<'tcx> Fx<'_, '_, '_, 'tcx> {
-	/// Whether a value of `ty` can change memory: it holds a mutable reference, a raw
-	/// pointer, or something with interior mutability.
-	fn reaches_mutable(&self, ty: Ty<'tcx>) -> bool {
+	/// Whether a value of `ty` can change a `part` in place: it holds a raw pointer, or a
+	/// mutable reference to or interior mutability around something that could hold a
+	/// `part` or be part of one.
+	fn changes(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		use rustc_middle::ty::TypeVisitableExt;
 		let env = self.b.t.typing_env_pub();
-		ty.walk().any(|arg| {
-			arg.as_type().is_some_and(|t| {
-				matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut) | ty::RawPtr(..))
-					// Inside a binder, as a function pointer's signature, only its kind tells.
-					|| !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env)
-			})
+		let overlaps = |t: Ty<'tcx>| self.holds(t, part) || self.holds(part, t);
+		self.reaches(ty, |t| match t.kind() {
+			ty::RawPtr(..) => true,
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => overlaps(*inner),
+			// Inside a binder, as a function pointer's signature, only its kind tells.
+			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && overlaps(t),
 		})
 	}
-}
 
-/// Whether a value of `ty` could hold a `part`: contains its type, or hides what it holds.
-fn holds<'tcx>(ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
-	ty.walk().any(|arg| {
-		arg.as_type().is_some_and(|t| {
-			t == part
+	/// Whether a value of `ty` could hold a `part`: holds its type, or hides what it holds.
+	fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		// An array and a slice of its element share storage through an unsizing coercion.
+		let storage = |t: Ty<'tcx>| match t.kind() {
+			ty::Array(elem, _) => Ty::new_slice(self.tcx, *elem),
+			_ => t,
+		};
+		let part = storage(part);
+		self.reaches(ty, |t| {
+			storage(t) == part
 				|| matches!(
 					t.kind(),
 					ty::Dynamic(..) | ty::Alias(..) | ty::Param(_) | ty::Closure(..) | ty::Coroutine(..)
 				)
 		})
-	})
+	}
+
+	/// Whether `f` holds for any type a value of `ty` holds: its type arguments, which are
+	/// what std's types hold, and the fields of the crate's own types.
+	fn reaches(&self, ty: Ty<'tcx>, mut f: impl FnMut(Ty<'tcx>) -> bool) -> bool {
+		let mut seen = FxHashSet::default();
+		let mut stack = vec![ty];
+		while let Some(ty) = stack.pop() {
+			for t in ty.walk().filter_map(|arg| arg.as_type()) {
+				if f(t) {
+					return true;
+				}
+				if let ty::Adt(adt, args) = t.kind()
+					&& adt.did().is_local()
+					&& seen.insert(t)
+				{
+					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)));
+				}
+			}
+		}
+		false
+	}
 }
 
 /// Whether `place` is part of its local's own value, rather than reached through a

@@ -11,7 +11,7 @@ use std::fmt::Write;
 
 use anyhow::{bail, Context, Result};
 use askama::Template;
-use heck::{ToShoutySnakeCase, ToSnakeCase};
+use heck::{ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use uniffi_bindgen::{
     interface::{
         AsType, Callable, DefaultValue, Enum, Field, Literal, Object, Radix, Record, Type,
@@ -33,6 +33,8 @@ pub(crate) struct Bindings {
 #[template(syntax = "cpp", escape = "none", path = "c_header.h")]
 struct Header<'a> {
     ns: &'a str,
+    /// The namespace in CamelCase, which starts the runtime's type names.
+    ty: &'a str,
     guard: String,
     /// The namespaces whose headers declare the external types this one uses.
     includes: Vec<String>,
@@ -43,6 +45,7 @@ struct Header<'a> {
 #[template(syntax = "cpp", escape = "none", path = "c_source.cpp")]
 struct Source<'a> {
     ns: &'a str,
+    ty: &'a str,
     namespace: &'a str,
     objects: &'a str,
     externals: &'a str,
@@ -66,7 +69,7 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
 
     let mut objects = String::new();
     for obj in ci.object_definitions() {
-        let c = prefixed(&gen.ns, obj.name());
+        let c = type_name(&prefixed(&gen.ns, obj.name()));
         let class = CppCodeOracle.class_name(obj.name());
         writeln!(
             objects,
@@ -80,8 +83,10 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
     gen.render_converters(&mut converters, &mut externals)?;
 
     let ns = gen.ns.clone();
+    let ty = type_name(&ns);
     let header = Header {
         ns: &ns,
+        ty: &ty,
         guard: format!("UNIFFI_{}_H", ns.to_shouty_snake_case()),
         includes: gen.external_namespaces(),
         body: header.trim_end(),
@@ -90,6 +95,7 @@ pub(crate) fn generate(ci: &ComponentInterface, config: &Config) -> Result<Bindi
     .context("rendering the C header failed")?;
     let source = Source {
         ns: &ns,
+        ty: &ty,
         namespace: ci.namespace(),
         objects: objects.trim_end(),
         externals: externals.trim_end(),
@@ -127,8 +133,10 @@ enum Kind {
 struct CType {
     ty: Type,
     kind: Kind,
-    /// The C type name: the scalar, or the struct or enum name.
+    /// The C type name: the scalar, or the struct or enum name in CamelCase.
     c: String,
+    /// The snake-case prefix of the functions this type gets, such as its `_free`.
+    snake: String,
     /// The C++ type the bindings use, relative to their namespace.
     cpp: String,
     /// Unique per type; names the converters.
@@ -212,13 +220,42 @@ impl CType {
         }
     }
 
+    /// This type with its C name qualified from the global namespace, for the converters: they
+    /// sit in the crate's C++ namespace, whose classes share the C types' CamelCase names.
+    fn qualified(&self) -> CType {
+        let mut ct = self.clone();
+        ct.kind = match ct.kind {
+            Kind::Optional(inner) => Kind::Optional(Box::new(inner.qualified())),
+            Kind::OptionalValue(inner) => Kind::OptionalValue(Box::new(inner.qualified())),
+            Kind::List(inner) => Kind::List(Box::new(inner.qualified())),
+            Kind::Map(key, value) => {
+                Kind::Map(Box::new(key.qualified()), Box::new(value.qualified()))
+            }
+            kind => kind,
+        };
+        if !ct.snake.is_empty() {
+            ct.c = format!("::{}", ct.c);
+        }
+        ct
+    }
+
+    /// The uniffi item this type renders, for errors.
+    fn item(&self) -> String {
+        match &self.ty {
+            Type::Record { name, .. } => format!("record `{name}`"),
+            Type::Enum { name, .. } => format!("enum `{name}`"),
+            Type::Object { name, .. } => format!("object `{name}`"),
+            _ => format!("type `{}`", self.cpp),
+        }
+    }
+
     /// The function that frees a returned value, when the caller owns an allocation.
     fn free_fn(&self, ns: &str) -> Option<String> {
         match &self.kind {
             Kind::Scalar | Kind::FlatEnum | Kind::OptionalValue(_) => None,
             Kind::String => Some(format!("{ns}_string_free")),
             Kind::Optional(inner) => inner.free_fn(ns),
-            _ => Some(format!("{}_free", self.c)),
+            _ => Some(format!("{}_free", self.snake)),
         }
     }
 
@@ -252,8 +289,9 @@ fn c_name(name: &str) -> String {
     name.to_snake_case()
 }
 
-/// The C name of a type or function: its name in snake case, prefixed with the snake-case
-/// namespace unless it already is, since every crate's C API shares one global scope.
+/// The snake-case C name of a function, or the base of a type's: its name in snake case,
+/// prefixed with the snake-case namespace unless it already is, since every crate's C API shares
+/// one global scope.
 fn prefixed(ns: &str, name: &str) -> String {
     let c = c_name(name);
     if c.starts_with(&format!("{ns}_")) {
@@ -261,6 +299,11 @@ fn prefixed(ns: &str, name: &str) -> String {
     } else {
         format!("{ns}_{c}")
     }
+}
+
+/// The C name of a type, from its snake-case name: CamelCase, so it never meets a function's.
+fn type_name(snake: &str) -> String {
+    snake.to_upper_camel_case()
 }
 
 fn c_field_name(field: &Field, index: usize) -> String {
@@ -290,8 +333,9 @@ struct Gen<'a> {
     ns: String,
     /// Every type a converter is emitted for, by canonical name.
     types: BTreeMap<String, CType>,
-    /// Every global C identifier, to refuse a collision instead of emitting one.
-    names: BTreeSet<String>,
+    /// Every global C identifier and the item that claimed it, to refuse a collision instead of
+    /// emitting one.
+    names: BTreeMap<String, String>,
     /// The crates whose types this one uses, each checked once for C support.
     externals: BTreeSet<String>,
 }
@@ -303,7 +347,7 @@ impl<'a> Gen<'a> {
             config,
             ns: ci.namespace().to_snake_case(),
             types: BTreeMap::new(),
-            names: BTreeSet::new(),
+            names: BTreeMap::new(),
             externals: BTreeSet::new(),
         }
     }
@@ -319,9 +363,10 @@ impl<'a> Gen<'a> {
             .collect()
     }
 
-    fn claim(&mut self, name: &str) -> Result<()> {
-        if !self.names.insert(name.to_string()) {
-            bail!("the C backend would emit `{name}` twice; rename one of the uniffi items");
+    /// Registers `name` for `item`, which describes the uniffi item the name renders.
+    fn claim(&mut self, name: &str, item: &str) -> Result<()> {
+        if let Some(other) = self.names.insert(name.to_string(), item.to_string()) {
+            bail!("the C backend names both {other} and {item} `{name}`; rename one of them");
         }
         Ok(())
     }
@@ -418,9 +463,12 @@ impl<'a> Gen<'a> {
         }
         let ns = self.ns.clone();
         let named = |name: &str| {
-            let c = prefixed(&ns, name);
-            let slug = c.strip_prefix(&format!("{ns}_")).unwrap_or(&c).to_string();
-            (c, slug)
+            let snake = prefixed(&ns, name);
+            let slug = snake
+                .strip_prefix(&format!("{ns}_"))
+                .unwrap_or(&snake)
+                .to_string();
+            (snake, slug)
         };
         let scalar = |c: &str, slug: &str| (Kind::Scalar, c.to_string(), slug.to_string());
 
@@ -504,10 +552,16 @@ impl<'a> Gen<'a> {
             }
         };
 
+        // Scalars and strings keep their C spelling; every other type is named from its snake case.
+        let (c, snake) = match kind {
+            Kind::Scalar | Kind::String | Kind::Optional(_) => (c, String::new()),
+            _ => (type_name(&c), c),
+        };
         let ct = CType {
             ty: ty.clone(),
             kind,
             c,
+            snake,
             cpp,
             canon: canon.clone(),
             slug,
@@ -535,11 +589,12 @@ impl<'a> Gen<'a> {
         let ct = CType {
             ty: ty.clone(),
             kind: own.kind,
-            c: own.c.clone(),
+            c: own.c,
+            snake: own.snake.clone(),
             cpp,
             canon: canon.clone(),
             // The whole C name, so a compound of it never matches one of a local namesake.
-            slug: own.c,
+            slug: own.snake,
             external: Some((ext.namespace().to_string(), own.canon)),
         };
         self.types.insert(canon, ct.clone());
@@ -549,16 +604,19 @@ impl<'a> Gen<'a> {
     fn render(&mut self, h: &mut String, s: &mut String) -> Result<()> {
         let ns = self.ns.clone();
         for name in [
-            "task",
             "task_free",
-            "work",
             "work_run",
-            "dispatcher",
             "set_dispatcher",
             "shutdown_dispatcher",
             "string_free",
         ] {
-            self.claim(&format!("{ns}_{name}"))?;
+            self.claim(&format!("{ns}_{name}"), &format!("the runtime's `{name}`"))?;
+        }
+        for name in ["task", "work", "dispatcher"] {
+            self.claim(
+                &type_name(&format!("{ns}_{name}")),
+                &format!("the runtime's `{name}`"),
+            )?;
         }
 
         // Register every reachable type before rendering any of them.
@@ -593,7 +651,7 @@ impl<'a> Gen<'a> {
                     | Kind::List(_)
                     | Kind::Map(..)
             ) {
-                self.claim(&ct.c)?;
+                self.claim(&ct.c, &ct.item())?;
                 writeln!(forwards, "typedef struct {0} {0};", ct.c)?;
             }
         }
@@ -675,6 +733,7 @@ impl<'a> Gen<'a> {
                 self.ci.namespace(),
                 filters::fn_name(func.name()).unwrap()
             );
+            self.claim(&name, &format!("function `{}`", func.name()))?;
             self.render_callable(h, s, func, &name, None, &call)?;
         }
 
@@ -688,12 +747,15 @@ impl<'a> Gen<'a> {
 
     fn render_flat_enum(&mut self, h: &mut String, ct: &CType) -> Result<()> {
         let e = self.enum_def(&ct.ty)?;
-        self.claim(&ct.c)?;
+        self.claim(&ct.c, &ct.item())?;
         h.push_str(&doc(e.docstring(), 0));
         writeln!(h, "typedef enum {} {{", ct.c)?;
         for (i, variant) in e.variants().iter().enumerate() {
-            let constant = variant_constant(&ct.c, variant.name());
-            self.claim(&constant)?;
+            let constant = variant_constant(&ct.snake, variant.name());
+            self.claim(
+                &constant,
+                &format!("variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&doc(variant.docstring(), 4));
             let comma = if i + 1 < e.variants().len() { "," } else { "" };
             writeln!(h, "    {constant}{comma}")?;
@@ -797,8 +859,8 @@ impl<'a> Gen<'a> {
         self.render_free(h, s, ct, "this record's fields and the record")?;
 
         if rec.fields().iter().any(|f| f.default_value().is_some()) {
-            let name = format!("{}_default", ct.c);
-            self.claim(&name)?;
+            let name = format!("{}_default", ct.snake);
+            self.claim(&name, &format!("the defaults of {}", ct.item()))?;
             h.push_str(&line_doc(
                 "A record with every defaulted field set and the rest zeroed, to fill in before passing it.",
             ));
@@ -840,7 +902,7 @@ impl<'a> Gen<'a> {
                     | Kind::List(_)
                     | Kind::Map(..) => None,
                     Kind::Record if self.has_default(&ct.ty)? => {
-                        Some(format!("{}_default()", ct.c))
+                        Some(format!("{}_default()", ct.snake))
                     }
                     Kind::Record => None,
                     _ => bail!("the C backend cannot render a default `{}`", ct.cpp),
@@ -864,7 +926,7 @@ impl<'a> Gen<'a> {
             Literal::Int(value, ..) => Some(format!("{value}LL")),
             Literal::Float(value, _) => Some(value.clone()),
             Literal::Enum(variant, _) if matches!(ct.kind, Kind::FlatEnum) => {
-                Some(variant_constant(&ct.c, variant))
+                Some(variant_constant(&ct.snake, variant))
             }
             _ => bail!(
                 "the C backend cannot render the default {literal:?} for `{}`",
@@ -884,14 +946,17 @@ impl<'a> Gen<'a> {
     fn render_data_enum(&mut self, h: &mut String, s: &mut String, ct: &CType) -> Result<()> {
         let e = self.enum_def(&ct.ty)?;
         let error = self.ci.is_used_as_error(e);
-        let tag = format!("{}_tag", ct.c);
-        self.claim(&tag)?;
+        let tag = format!("{}Tag", ct.c);
+        self.claim(&tag, &format!("the tag of {}", ct.item()))?;
 
         h.push_str(&line_doc(&format!("Which variant a `{}` holds.", ct.c)));
         writeln!(h, "typedef enum {tag} {{")?;
         for (i, variant) in e.variants().iter().enumerate() {
-            let constant = variant_constant(&ct.c, variant.name());
-            self.claim(&constant)?;
+            let constant = variant_constant(&ct.snake, variant.name());
+            self.claim(
+                &constant,
+                &format!("variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&doc(variant.docstring(), 4));
             let comma = if i + 1 < e.variants().len() { "," } else { "" };
             writeln!(h, "    {constant}{comma}")?;
@@ -911,12 +976,15 @@ impl<'a> Gen<'a> {
                     variant.name()
                 );
             }
-            let fields = format!("{}_{member}", ct.c);
-            self.claim(&fields)?;
+            let fields = type_name(&format!("{}_{member}", ct.snake));
+            self.claim(
+                &fields,
+                &format!("the fields of variant `{}::{}`", e.name(), variant.name()),
+            )?;
             h.push_str(&line_doc(&format!(
                 "The fields of a `{}` holding `{}`.",
                 ct.c,
-                variant_constant(&ct.c, variant.name())
+                variant_constant(&ct.snake, variant.name())
             )));
             writeln!(h, "typedef struct {fields} {{")?;
             for (i, field) in variant.fields().iter().enumerate() {
@@ -954,8 +1022,8 @@ impl<'a> Gen<'a> {
 
         if error {
             self.render_free(h, s, ct, "this error")?;
-            let name = format!("{}_message", ct.c);
-            self.claim(&name)?;
+            let name = format!("{}_message", ct.snake);
+            self.claim(&name, &format!("the message of {}", ct.item()))?;
             h.push_str(&line_doc("The error's message, owned by the error."));
             writeln!(h, "const char *{name}(const {} *error);\n", ct.c)?;
             writeln!(
@@ -978,8 +1046,8 @@ impl<'a> Gen<'a> {
         ct: &CType,
         what: &str,
     ) -> Result<()> {
-        let name = format!("{}_free", ct.c);
-        self.claim(&name)?;
+        let name = format!("{}_free", ct.snake);
+        self.claim(&name, &format!("the release function of {}", ct.item()))?;
         h.push_str(&line_doc(&format!(
             "Frees {what}, as returned by this API; NULL is ignored."
         )));
@@ -995,7 +1063,8 @@ impl<'a> Gen<'a> {
     }
 
     fn render_object(&mut self, h: &mut String, s: &mut String, obj: &Object) -> Result<()> {
-        let c = prefixed(&self.ns, obj.name());
+        let snake = prefixed(&self.ns, obj.name());
+        let c = type_name(&snake);
         let class = CppCodeOracle.class_name(obj.name());
         let namespace = self.ci.namespace();
 
@@ -1005,8 +1074,11 @@ impl<'a> Gen<'a> {
             writeln!(h, "{}", doc(Some(docstring), 0))?;
         }
 
-        let free = format!("{c}_free");
-        self.claim(&free)?;
+        let free = format!("{snake}_free");
+        self.claim(
+            &free,
+            &format!("the release function of object `{}`", obj.name()),
+        )?;
         h.push_str(&line_doc(&format!(
             "Releases this `{c}` handle; NULL is ignored. Other handles to the same object stay valid."
         )));
@@ -1014,26 +1086,34 @@ impl<'a> Gen<'a> {
         writeln!(s, "void {free}({c} *self) {{\n    delete self;\n}}\n")?;
 
         for ctor in obj.constructors() {
+            let item = format!("constructor `{}::{}`", obj.name(), ctor.name());
             let (name, call) = if ctor.is_primary_constructor() {
-                (format!("{c}_new"), format!("::{namespace}::{class}::init"))
+                (
+                    format!("{snake}_new"),
+                    format!("::{namespace}::{class}::init"),
+                )
             } else {
                 (
-                    format!("{c}_{}", c_name(ctor.name())),
+                    format!("{snake}_{}", c_name(ctor.name())),
                     format!("::{namespace}::{class}::{}", ctor.name()),
                 )
             };
+            self.claim(&name, &item)?;
             self.render_callable(h, s, ctor, &name, None, &call)?;
         }
 
         for method in obj.methods() {
-            let name = format!("{c}_{}", c_name(method.name()));
+            let item = format!("method `{}::{}`", obj.name(), method.name());
+            let name = format!("{snake}_{}", c_name(method.name()));
             let call = format!("self->inner->{}", filters::fn_name(method.name()).unwrap());
+            self.claim(&name, &item)?;
             self.render_callable(h, s, method, &name, Some(&c), &call)?;
         }
         Ok(())
     }
 
-    /// Renders one function, constructor, or method. `call` names the C++ callee.
+    /// Renders one function, constructor, or method, after the caller claimed its `name`.
+    /// `call` names the C++ callee.
     fn render_callable(
         &mut self,
         h: &mut String,
@@ -1045,7 +1125,6 @@ impl<'a> Gen<'a> {
     ) -> Result<()> {
         let namespace = self.ci.namespace().to_string();
         let ns = self.ns.clone();
-        self.claim(name)?;
 
         let mut params = Vec::new();
         let mut checks = String::new();
@@ -1134,8 +1213,8 @@ impl<'a> Gen<'a> {
                     );
                 }
             }
-            let callback = format!("{name}_callback");
-            self.claim(&callback)?;
+            let callback = type_name(&format!("{name}_callback"));
+            self.claim(&callback, &format!("the callback of `{name}`"))?;
 
             let mut cb_params = vec!["void *user_data".to_string()];
             if let Some(err) = &err {
@@ -1151,7 +1230,7 @@ impl<'a> Gen<'a> {
             if let Some(err) = &err {
                 cb_doc.push(format!(
                     "`error` is NULL on success, or freed with `{}_free`.",
-                    err.c
+                    err.snake
                 ));
             }
             if let Some(free) = &ret_free {
@@ -1190,7 +1269,11 @@ impl<'a> Gen<'a> {
                 }
             };
 
-            let signature = format!("{ns}_task *{name}({})", params.join(", "));
+            let signature = format!(
+                "{} *{name}({})",
+                type_name(&format!("{ns}_task")),
+                params.join(", ")
+            );
             notes.push(
                 "Calls `callback` once on the dispatcher, unless the returned task is freed first."
                     .into(),
@@ -1239,7 +1322,7 @@ impl<'a> Gen<'a> {
             let out = if ret.is_some() { " and sets `out`" } else { "" };
             notes.push(format!(
                 "Returns NULL on success{out}, or an error the caller frees with `{}_free`.",
-                err.c
+                err.snake
             ));
         }
         if let Some(free) = &ret_free {
@@ -1271,8 +1354,9 @@ impl<'a> Gen<'a> {
     /// Declares every converter, then defines them, so their order does not matter. An external
     /// type's converters forward to its own crate's, which `externals` declares.
     fn render_converters(&self, out: &mut String, externals: &mut String) -> Result<()> {
+        let types: Vec<CType> = self.types.values().map(CType::qualified).collect();
         let mut by_namespace: BTreeMap<&str, String> = BTreeMap::new();
-        for ct in self.types.values() {
+        for ct in &types {
             if let Some((namespace, canon)) = &ct.external {
                 let decls = by_namespace.entry(namespace).or_default();
                 let field = ct.field();
@@ -1303,7 +1387,7 @@ impl<'a> Gen<'a> {
             )?;
         }
 
-        for ct in self.types.values() {
+        for ct in &types {
             let field = ct.field();
             writeln!(
                 out,
@@ -1328,7 +1412,7 @@ impl<'a> Gen<'a> {
             )?;
         }
         out.push('\n');
-        for ct in self.types.values() {
+        for ct in &types {
             self.render_converter(out, ct)?;
         }
         Ok(())
@@ -1377,7 +1461,7 @@ impl<'a> Gen<'a> {
                         ct.cpp,
                         CppCodeOracle.enum_variant_name(variant.name(), self.config.enum_style())
                     );
-                    let constant = variant_constant(&ct.c, variant.name());
+                    let constant = variant_constant(&ct.snake, variant.name());
                     writeln!(
                         to_cases,
                         "    case {cpp_variant}:\n        return {constant};"
@@ -1584,7 +1668,7 @@ impl<'a> Gen<'a> {
         let mut from_cases = String::new();
         let mut free_cases = String::new();
         for (index, variant) in e.variants().iter().enumerate() {
-            let constant = variant_constant(&ct.c, variant.name());
+            let constant = variant_constant(&ct.snake, variant.name());
             let cpp_variant = format!(
                 "{}::{}",
                 ct.cpp,
@@ -1690,11 +1774,12 @@ fn pointer(ty: &str) -> String {
     }
 }
 
-/// The constant naming one variant of a C enum, like `MOQ_TRANSPORT_QUIC`.
-fn variant_constant(c: &str, variant: &str) -> String {
+/// The constant naming one variant of a C enum, from the enum's snake-case name, like
+/// `MOQ_TRANSPORT_QUIC`.
+fn variant_constant(snake: &str, variant: &str) -> String {
     format!(
         "{}_{}",
-        c.to_shouty_snake_case(),
+        snake.to_shouty_snake_case(),
         variant.to_shouty_snake_case()
     )
 }

@@ -11,12 +11,12 @@
 
 #define QUEUE_CAPACITY 64
 
-static capi_work *queue[QUEUE_CAPACITY];
+static CapiWork *queue[QUEUE_CAPACITY];
 static size_t queued;
 static bool accepting = true;
 static int shutdowns;
 
-static bool dispatch(void *user_data, capi_work *work) {
+static bool dispatch(void *user_data, CapiWork *work) {
     CHECK(user_data == &queued);
     if (!accepting) {
         return false;
@@ -28,7 +28,7 @@ static bool dispatch(void *user_data, capi_work *work) {
 
 /* Runs the oldest queued work. */
 static void run_one(void) {
-    capi_work *work;
+    CapiWork *work;
     CHECK(queued > 0);
     work = queue[0];
     queued--;
@@ -56,8 +56,8 @@ static void stop(void *user_data) {
 typedef struct {
     int calls;
     uint64_t value;
-    capi_error *error;
-    capi_task *task;
+    CapiError *error;
+    CapiTask *task;
 } result;
 
 static void on_sum(void *user_data, uint64_t value) {
@@ -66,7 +66,7 @@ static void on_sum(void *user_data, uint64_t value) {
     r->value = value;
 }
 
-static void on_next(void *user_data, capi_error *error, uint64_t value) {
+static void on_next(void *user_data, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
     r->calls++;
     r->error = error;
@@ -89,9 +89,9 @@ static void on_sum_free(void *user_data, uint64_t value) {
 
 int main(void) {
     const uint64_t values[] = {1, 2, 3};
-    capi_u64_list list;
-    capi_dispatcher dispatcher;
-    capi_store *store;
+    CapiU64List list;
+    CapiDispatcher dispatcher;
+    CapiStore *store;
     result r;
 
     dispatcher.dispatch = dispatch;

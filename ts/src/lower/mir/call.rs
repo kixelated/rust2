@@ -90,6 +90,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !pre.is_empty() {
 			self.emit(pre, None, false, out);
 		}
+		let value = match *fn_ty.kind() {
+			ty::FnDef(def_id, gargs) if self.place_result(def_id, gargs.skip_binder(), args, span) => {
+				match self.hold_place(dest, value, span, out) {
+					Some(value) => value,
+					None => return,
+				}
+			}
+			_ => value,
+		};
 		// What an `Iterator::next` returns, by the protocol, unless a `next` made it already.
 		let value = match dest.as_local() {
 			Some(rustc_middle::mir::RETURN_PLACE)
@@ -103,7 +112,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let value = match dest.as_local() {
 			Some(local) if self.mutated[local] => {
 				let ty = self.mir.local_decls[local].ty;
-				self.b.copied(value, ty)
+				self.b.t.copied(value, ty, span)
 			}
 			_ => value,
 		};
@@ -465,6 +474,55 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::rt("debugListEntries", vec![list, items, debug]), true)
 			}
 			_ => None,
+		}
+	}
+
+	/// Whether a call returns the `rt.Place` of a value a map holds that JS copies, or an
+	/// `Option` of one: a map's mapping, or `expect` or `unwrap` of such an `Option`.
+	fn place_result(
+		&self,
+		def_id: rustc_hir::def_id::DefId,
+		gargs: GenericArgsRef<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		span: Span,
+	) -> bool {
+		let call = library::Call {
+			def_id,
+			args: self.b.subst(gargs),
+			span,
+		};
+		if crate::lower::collections::place_call(self.b, &call) {
+			return true;
+		}
+		let unwrap = library::key(self.tcx, def_id)
+			.is_some_and(|(o, n)| o == "Option" && matches!(n.as_str(), "expect" | "unwrap"));
+		unwrap
+			&& matches!(args.first().map(|a| &a.node), Some(Operand::Move(p) | Operand::Copy(p))
+				if p.as_local().is_some_and(|l| self.place_opts.contains(&l)))
+	}
+
+	/// The value of a call that returns a place, for its destination: a reference, which
+	/// reads and writes through the place held in a constant, and `None` once it is one; an
+	/// `Option` only tested and taken apart; or else a refusal, since no other code takes a
+	/// place for a reference.
+	fn hold_place(&mut self, dest: Place<'tcx>, value: Expr, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let ty = dest.ty(&self.mir.local_decls, self.tcx).ty;
+		match dest.as_local() {
+			Some(local) if self.uses[local] == 0 => Some(value),
+			Some(local)
+				if matches!(ty.kind(), ty::Ref(..))
+					&& self.defs[local] == 1
+					&& matches!(self.slots[local], Slot::Var(_)) =>
+			{
+				let place = self.path(value, "place", out);
+				self.slots[local] = Slot::Alias(Some(place.member("v")));
+				None
+			}
+			Some(local) if self.place_opts.contains(&local) => Some(value),
+			_ => Some(self.err(
+				span,
+				format!("`{ty}`, a mutable reference to a value a map holds, kept other than to read and write it"),
+			)),
 		}
 	}
 
