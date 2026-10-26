@@ -53,6 +53,23 @@ export function finish(self: Guard, event: string): rt.u32 {
 	}
 }
 
+/** [`Self::finish`], moved out of its box: freeing the box must not drop it again. */
+export function unbox(self: Guard, event: string): rt.u32 {
+	let _0!: rt.u32;
+	let unwind: number = 0;
+	try {
+		unwind = 5;
+		_0 = finish(self, event);
+		unwind = 0;
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		throw e;
+	}
+}
+
 export function drop$Drop(self: Guard): void {
 	let _4!: string;
 	let args2!: rt.Fmt[];

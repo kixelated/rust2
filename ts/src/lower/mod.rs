@@ -147,6 +147,8 @@ pub struct Translator<'a, 'tcx> {
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
+	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
+	held: bool,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -209,6 +211,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			glued: Default::default(),
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
+			held: false,
 		})
 	}
 
@@ -646,6 +649,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(info) = self.adts.get(&adt.did()) {
 			return info.clone();
 		}
+		// Its fields' types are refused where they are written, whatever reached it.
+		let held = std::mem::replace(&mut self.held, false);
+		let info = self.define(adt, span);
+		self.held = held;
+		info
+	}
+
+	fn define(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
 		let tcx = self.tcx;
 		let did = adt.did();
 		let repr = match () {
@@ -876,9 +887,71 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			_ if self.deferred(ty) => Type::Builtin("unknown"),
 			_ => {
-				self.err(span, format!("unsupported type `{ty}`"));
+				self.unrepresented(span, format!("unsupported type `{ty}`"));
 				Type::Builtin("unknown")
 			}
+		}
+	}
+
+	/// The TypeScript type of a variable that holds a `ty`. It refuses no type without a JS
+	/// value, which is refused where a value of it is made or received: a parameter, a
+	/// field, a call, or a constant.
+	pub fn held_ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
+		let held = std::mem::replace(&mut self.held, true);
+		let ts = self.ty(ty, span);
+		self.held = held;
+		ts
+	}
+
+	/// Refuse a type without a JS value, unless typing a variable.
+	fn unrepresented(&mut self, span: Span, msg: String) {
+		if !self.held {
+			self.err(span, msg);
+		}
+	}
+
+	/// Refuse each type in `ty` whose JS value can't tell two of its values apart, as an
+	/// `Option` of what can already be `undefined`.
+	pub fn check_erased(&mut self, ty: Ty<'tcx>, span: Span) {
+		let mut msgs: Vec<String> = Vec::new();
+		for part in ty.walk().filter_map(|arg| arg.as_type()) {
+			if let Some(msg) = self.erasure_conflict(part)
+				&& !msgs.contains(&msg)
+			{
+				msgs.push(msg);
+			}
+		}
+		for msg in msgs {
+			self.err(span, msg);
+		}
+	}
+
+	/// Why a `ty`'s JS value, not looking inside its arguments, can't tell two of its
+	/// values apart, if it can't.
+	fn erasure_conflict(&self, ty: Ty<'tcx>) -> Option<String> {
+		let ty::Adt(adt, args) = ty.kind() else {
+			return None;
+		};
+		match library::Std::of(self.tcx, adt.did())? {
+			library::Std::Option => {
+				let inner = args.type_at(0);
+				self.erases_to(inner).undefined.then(|| {
+					format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`")
+				})
+			}
+			library::Std::Poll => {
+				let inner = args.type_at(0);
+				self.erases_to(inner)
+					.pending
+					.then(|| format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"))
+			}
+			library::Std::ControlFlow if library::Flow::of(self.tcx, args) == library::Flow::Option => {
+				let inner = args.type_at(1);
+				self.erases_to(inner)
+					.undefined
+					.then(|| format!("`{ty}` is not supported: its break and its continue would both be `undefined`"))
+			}
+			_ => None,
 		}
 	}
 
@@ -905,13 +978,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return match std {
 				library::Std::Option => {
 					let inner = args.type_at(0);
-					if self.erases_to(inner).undefined {
-						self.err(
-							span,
-							format!(
-								"`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`"
-							),
-						);
+					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
+						self.err(span, msg);
 					}
 					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
 				}
@@ -949,14 +1017,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {
-					let inner = args.type_at(0);
-					if self.erases_to(inner).pending {
-						self.err(
-							span,
-							format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"),
-						);
+					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
+						self.err(span, msg);
 					}
-					Type::Rt("Poll", vec![self.ty(inner, span)])
+					Type::Rt("Poll", vec![self.ty(args.type_at(0), span)])
 				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
@@ -991,20 +1055,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				library::Std::Ordering => Type::Rt("Ordering", vec![]),
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
-				// The value `?` was applied to, which MIR branches on as this.
-				library::Std::ControlFlow => match (self.std_of(args.type_at(0)), args.type_at(0).kind()) {
-					(Some(library::Std::Result), ty::Adt(_, residual)) => Type::Rt(
-						"Result",
-						vec![self.ty(args.type_at(1), span), self.ty(residual.type_at(1), span)],
-					),
-					(Some(library::Std::Option), _) => {
-						Type::Union(vec![self.ty(args.type_at(1), span), Type::Builtin("undefined")])
+				library::Std::ControlFlow => {
+					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
+						self.err(span, msg);
 					}
-					_ => {
-						self.err(span, format!("`{}` other than from `?`", Ty::new_adt(tcx, adt, args)));
-						Type::Builtin("unknown")
+					let (residual, value) = (args.type_at(0), args.type_at(1));
+					match library::Flow::of(tcx, args) {
+						library::Flow::Result => {
+							let ty::Adt(_, residual) = residual.kind() else {
+								unreachable!("a `Result` residual")
+							};
+							Type::Rt("Result", vec![self.ty(value, span), self.ty(residual.type_at(1), span)])
+						}
+						library::Flow::Option => Type::Union(vec![self.ty(value, span), Type::Builtin("undefined")]),
+						library::Flow::Other => Type::Rt("Result", vec![self.ty(value, span), self.ty(residual, span)]),
 					}
-				},
+				}
 			};
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1014,7 +1080,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
 		if !adt.did().is_local() {
-			self.err(
+			self.unrepresented(
 				span,
 				format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())),
 			);
@@ -1055,6 +1121,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					pending: true,
 					..self.erases_to(args.type_at(0))
 				},
+				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
+					Erased {
+						undefined: true,
+						..self.erases_to(args.type_at(1))
+					}
+				}
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),

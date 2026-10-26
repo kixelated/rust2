@@ -33,12 +33,14 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
  */
 export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
 	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
+	let size!: rt.usize;
 	let body!: Decoder.Decoder;
 	let _9!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
 	let result!: rt.Result<Group.Group, DecodeError.DecodeError>;
 	_3 = decodeSize(r, 65535);
 	if (_3.ok) {
-		_9 = Decoder.sub(r, _3.value);
+		size = _3.value;
+		_9 = Decoder.sub(r, size);
 		if (_9.ok) {
 			body = _9.value;
 			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
@@ -66,12 +68,14 @@ export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0
  */
 export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0: Decoder.Decoder) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
 	let _3!: rt.Result<rt.usize, DecodeError.DecodeError>;
+	let size!: rt.usize;
 	let body!: Decoder.Decoder;
 	let _9!: rt.Result<Decoder.Decoder, DecodeError.DecodeError>;
 	let result!: rt.Result<Probe.Probe, DecodeError.DecodeError>;
 	_3 = decodeSize(r, 65535);
 	if (_3.ok) {
-		_9 = Decoder.sub(r, _3.value);
+		size = _3.value;
+		_9 = Decoder.sub(r, size);
 		if (_9.ok) {
 			body = _9.value;
 			result = rt.resultAndThen(rt.resultMapErr(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
