@@ -396,8 +396,8 @@ fn diamond() {
 
 /// Another export is bound by the configured package's dependency on it, not its crate
 /// name or source: a used dependency whose crate shares an unused export's name stands
-/// in for none, and two exports of one crate name export by their dependency names,
-/// with their sources remapped.
+/// in for none, and two exports of one crate name export by their dependency names, one
+/// of them `bytes`, which the glue names too, with their sources remapped.
 #[test]
 fn lookalike() {
 	let package = package("lookalike");
@@ -423,12 +423,12 @@ fn lookalike() {
 		"Cargo.toml",
 		"[package]\nname = \"lookalike\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
 		[dependencies]\nexp = { package = \"lookalike-exp\", path = \"exp\" }\n\
-		other = { package = \"lookalike-other\", path = \"other\" }\n\n\
+		bytes = { package = \"lookalike-other\", path = \"other\" }\n\n\
 		[workspace]\nexclude = [\"exp\", \"other\"]\n",
 	);
 	write(
 		"src/lib.rs",
-		"pub fn width(size: other::Size) -> u32 {\n\tsize.width\n}\n",
+		"pub fn width(size: bytes::Size) -> u32 {\n\tsize.width\n}\n",
 	);
 	write("ffi.toml", "package = \"lookalike\"\n\n[crates.lookalike-exp]\n");
 	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
@@ -443,7 +443,7 @@ fn lookalike() {
 
 	write(
 		"src/lib.rs",
-		"pub fn total(a: exp::Size, b: other::Size) -> u32 {\n\ta.width + b.width\n}\n",
+		"pub fn total(a: exp::Size, b: bytes::Size) -> u32 {\n\ta.width + b.width\n}\n",
 	);
 	write(
 		"ffi.toml",
@@ -471,4 +471,39 @@ fn lookalike() {
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
 		.arg(package.join("glue")));
+}
+
+/// Another export patched in for a registry dependency is bound by its resolved package,
+/// though the dependency names no path.
+#[test]
+fn patched() {
+	let package = package("patched");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	write(
+		"dep/Cargo.toml",
+		"[package]\nname = \"rust2-ffi-patched-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n",
+	);
+	write("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n");
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nrust2-ffi-patched-dep = \"1\"\n\n\
+		[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\n\
+		[workspace]\nexclude = [\"dep\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: rust2_ffi_patched_dep::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"patched\"\n\n[crates.rust2-ffi-patched-dep]\n");
+	let output = census(&package.join("ffi.toml"), &["--offline"]).output().unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
 }

@@ -15,6 +15,13 @@ use crate::ir::{Access, Function, Mutability, Receiver, Traits, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.rs");
 
+/// The name the crate depends on an export by, the one its items' paths start with
+/// suffixed: the configured package's names for them may be `bytes` or `std`, which the
+/// crate names too.
+fn dependency(krate: &str) -> String {
+	format!("{krate}_export")
+}
+
 /// The Rust spelling of a type a callback's method takes or returns.
 fn rust(ty: &Type) -> String {
 	match ty {
@@ -52,15 +59,14 @@ impl Crate<'_> {
 
 	/// Write the crate into `out`: `Cargo.toml`, `src/`, and `include/<prefix>.h`.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
-		// Each by the name its items' paths start with. Cargo unifies in what the configured
-		// package enables in each other export.
+		// Cargo unifies in what the configured package enables in each other export.
 		let dependencies: String = (self.exports.iter())
 			.map(|export| {
 				let mut features: Vec<String> = export.features.iter().map(|f| format!("{f:?}")).collect();
 				features.sort();
 				format!(
 					"{} = {{ package = {:?}, path = {:?}, default-features = false, features = [{}] }}\n",
-					export.krate,
+					dependency(&export.krate),
 					export.name,
 					export.dir.display().to_string(),
 					features.join(", ")
@@ -115,8 +121,9 @@ impl Gen<'_> {
 		self.out.push('\n');
 	}
 
+	/// A Rust path, through the crate's dependency on its export.
 	fn path(&self, path: &[String]) -> String {
-		path.join("::")
+		format!("::{}", dependency(&path[0])) + &path[1..].iter().map(|s| format!("::{s}")).collect::<String>()
 	}
 
 	/// An object's Rust type: its lifetimes `'static`, as the handle holds it.

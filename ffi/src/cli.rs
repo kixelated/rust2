@@ -60,7 +60,13 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 /// first.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, String> {
 	let picks = Picks::parse(cargo)?;
-	let output = run_cargo(manifest, &["metadata", "--format-version", "1"], &picks)?;
+	// On the host, so the resolved dependencies are the ones the check passes rustc.
+	let host = rustc_session::config::host_tuple();
+	let output = run_cargo(
+		manifest,
+		&["metadata", "--format-version", "1", "--filter-platform", host],
+		&picks,
+	)?;
 	let metadata: Metadata = serde_json::from_slice(&output).map_err(|err| format!("reading cargo metadata: {err}"))?;
 	let canonical =
 		std::fs::canonicalize(manifest).map_err(|err| format!("resolving {}: {err}", manifest.display()))?;
@@ -123,11 +129,12 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<String, 
 		let dir = package.manifest_path.parent().expect("a manifest path has a parent");
 		// Another export by the name the configured package depends on it by, unique among
 		// its dependencies: crates of two packages may share a name.
-		let krate = match package.name == top.name {
+		let node = metadata.resolve.nodes.iter().find(|n| n.id == top.id);
+		let krate = match package.id == top.id {
 			true => Some(lib.name.clone()),
-			false => (top.dependencies.iter())
-				.filter(|d| d.kind.is_none() && d.name == package.name && d.path.as_deref() == Some(dir))
-				.map(|d| d.rename.clone().unwrap_or_else(|| lib.name.clone()))
+			false => (node.into_iter().flat_map(|n| &n.deps))
+				.filter(|d| d.pkg == package.id && d.dep_kinds.iter().any(|k| k.kind.is_none()))
+				.map(|d| d.name.clone())
 				.min(),
 		};
 		let Some(krate) = krate else {
@@ -241,14 +248,42 @@ impl<'a> Picks<'a> {
 	}
 }
 
-/// What `cargo metadata` says of the packages.
+/// What `cargo metadata` says of the packages, and how they depend on each other.
 #[derive(serde::Deserialize)]
 struct Metadata {
 	packages: Vec<Package>,
+	resolve: Resolve,
+}
+
+#[derive(serde::Deserialize)]
+struct Resolve {
+	nodes: Vec<Node>,
+}
+
+#[derive(serde::Deserialize)]
+struct Node {
+	id: String,
+	deps: Vec<Dep>,
+}
+
+/// A resolved dependency.
+#[derive(serde::Deserialize)]
+struct Dep {
+	/// The name the dependent calls its library by.
+	name: String,
+	pkg: String,
+	dep_kinds: Vec<DepKind>,
+}
+
+#[derive(serde::Deserialize)]
+struct DepKind {
+	/// `dev` or `build`, or none for a normal dependency.
+	kind: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
 struct Package {
+	id: String,
 	name: String,
 	version: String,
 	source: Option<String>,
@@ -265,8 +300,6 @@ struct Dependency {
 	rename: Option<String>,
 	/// `dev` or `build`, or none for a normal dependency.
 	kind: Option<String>,
-	/// The package's directory, for a path dependency.
-	path: Option<PathBuf>,
 }
 
 #[derive(serde::Deserialize)]
