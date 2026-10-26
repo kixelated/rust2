@@ -386,6 +386,11 @@ pub fn raw_keys() -> usize {
 	map.len()
 }
 
+/// `max` drops the operand it doesn't return, which the runtime's leaves undropped.
+pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<str> {
+	a.max(b)
+}
+
 /// A reference to a value a map holds that JS copies, passed on, where no `rt.Place` follows it.
 pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	map.get_mut(&1).map_or(0, |v| {

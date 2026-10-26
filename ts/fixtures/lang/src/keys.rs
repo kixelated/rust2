@@ -53,6 +53,26 @@ impl PartialEq for Never {
 	}
 }
 
+/// An `Ord` by value whose `PartialOrd` disagrees: reversed, and unordered between odd
+/// values, so a `partial_cmp` that calls `cmp` shows.
+#[derive(PartialEq, Eq)]
+struct Skew(u8);
+
+impl Ord for Skew {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.0.cmp(&other.0)
+	}
+}
+
+impl PartialOrd for Skew {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		match self.0 % 2 == 1 && other.0 % 2 == 1 {
+			true => None,
+			false => Some(other.0.cmp(&self.0)),
+		}
+	}
+}
+
 /// Strings whose UTF-8 order differs from their UTF-16 order past U+FFFF.
 const WORDS: [&str; 6] = ["", "a", "ab", "\u{e000}", "\u{ffff}", "\u{10000}"];
 
@@ -105,6 +125,10 @@ fn order(o: Ordering) -> u8 {
 	}
 }
 
+fn partial(o: Option<Ordering>) -> u8 {
+	o.map_or(0, order)
+}
+
 /// The index of the first of `keys` that borrows as `q`.
 fn find<K: Borrow<Q>, Q: PartialEq + ?Sized>(keys: &[K], q: &Q) -> u8 {
 	for (i, k) in keys.iter().enumerate() {
@@ -140,6 +164,12 @@ fn options(data: &[u8], out: &mut Vec<u8>) {
 		out.push((x == y) as u8 | ((s == t) as u8) << 1 | ((s.as_ref() != t.as_ref()) as u8) << 2);
 		let pairs = (a.map(|h| (h.0, d as u64)), b.map(|h| (h.0, c as u64)));
 		out.push((pairs.0.max(pairs.1) == pairs.1) as u8);
+		// `partial_cmp` through an `Option`, a tuple, and an `Arc` is the held type's.
+		let (p, q) = (Some(Skew(c % 4)), Some(Skew(d % 4)));
+		let (u, v) = ((Skew(c % 4), c), (Skew(d % 4), d));
+		let (m, n) = (Arc::new(Skew(c % 4)), Arc::new(Skew(d % 4)));
+		out.push(partial(p.partial_cmp(&q)) | partial(u.partial_cmp(&v)) << 2 | partial(m.partial_cmp(&n)) << 4);
+		out.push(order(p.cmp(&q)) | order(u.cmp(&v)) << 2 | order(m.cmp(&n)) << 4);
 		let key = (
 			c % 3,
 			Horizon {
@@ -172,8 +202,10 @@ fn arcs(data: &[u8], out: &mut Vec<u8>) {
 	for i in 1..data.len() {
 		let (a, b) = (name(data[i - 1]), name(data[i]));
 		out.push(order(a.text.cmp(&b.text)) | order(a.cmp(&b)) << 2);
-		let max = a.text.clone().max(b.text.clone());
-		out.push((a.text == b.text) as u8 | (a.eq(&b) as u8) << 1 | ((max == b.text) as u8) << 2);
+		// Of equal operands, `max` returns the second and `min` the first.
+		let (max, min) = ((&a.text).max(&b.text), (&a.text).min(&b.text));
+		out.push(Arc::ptr_eq(max, &b.text) as u8 | (Arc::ptr_eq(min, &a.text) as u8) << 1);
+		out.push((a.text == b.text) as u8 | (a.eq(&b) as u8) << 1 | ((*max == b.text) as u8) << 2);
 		out.push((hash_of(&a.text) == hash_of(&b.text)) as u8 | ((hash_of(&a) == hash_of(&b)) as u8) << 1);
 		let text: &str = a.text.borrow();
 		out.push((text == b.text.as_ref()) as u8);

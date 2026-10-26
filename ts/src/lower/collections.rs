@@ -44,7 +44,7 @@ pub fn call<'tcx>(
 				if !std_key(b, t) {
 					return Err(args);
 				}
-				let f = cmp_fn(b, t, span);
+				let f = cmp_fn(b, t, name == "partial_cmp", span);
 				return Ok(Some(f.call(args)));
 			}
 			("Hash", "hash", ..) if let Some(t) = self_ty => {
@@ -62,8 +62,17 @@ pub fn call<'tcx>(
 				if !std_key(b, t) || Int::of(t).is_some() {
 					return Err(args);
 				}
+				// The runtime's returns one operand and leaves the other undropped.
+				if let Some(operand) = self_ty
+					&& b.t.drops(operand)
+				{
+					return Ok(Some(b.err(
+						span,
+						format!("passing `{operand}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+					)));
+				}
 				let mut values = args;
-				values.push(cmp_fn(b, t, span));
+				values.push(cmp_fn(b, t, false, span));
 				return Ok(Some(Expr::rt(if name == "max" { "ordMax" } else { "ordMin" }, values)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
@@ -496,7 +505,7 @@ fn btree<'tcx>(
 
 /// An empty B-tree of type `coll`, ordered by its keys' `Ord`.
 fn btree_new<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, span: Span) -> Expr {
-	let cmp = cmp_fn(b, arg(coll, 0), span);
+	let cmp = cmp_fn(b, arg(coll, 0), false, span);
 	empty(b, Expr::rt("btreeNew", vec![cmp]), coll, span)
 }
 
@@ -751,8 +760,9 @@ fn arc_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Arc)).then(|| arg(ty, 0))
 }
 
-/// `Ord::cmp` of `ty`, as a function: the runtime's for a std type, or the crate's.
-fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+/// `Ord::cmp` of `ty` as a function, or `PartialOrd::partial_cmp` if `partial`: the
+/// runtime's for a std type, which calls the same of what it holds, or the crate's.
+fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
@@ -761,11 +771,17 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::String) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
-			let fns = tys.iter().map(|t| cmp_fn(b, t, span)).collect();
+			let fns = tys.iter().map(|t| cmp_fn(b, t, partial, span)).collect();
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
 		}
-		ty::Adt(..) if let Some(inner) = option_of(b, ty) => Expr::rt("cmpOption", vec![cmp_fn(b, inner, span)]),
-		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, span)]),
+		ty::Adt(..) if let Some(inner) = option_of(b, ty) => {
+			Expr::rt("cmpOption", vec![cmp_fn(b, inner, partial, span)])
+		}
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
+		ty::Adt(adt, _) if adt.did().is_local() && partial => {
+			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
+			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
+		}
 		ty::Adt(adt, _) if adt.did().is_local() => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 72
-- Function instances: 62
+- Refusals: 73
+- Function instances: 63
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -20,6 +20,7 @@
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:218:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:204:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:198:2 |
+| 2 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:290:4 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:110:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:112:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:111:3 |
@@ -29,7 +30,7 @@
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:371:6 |
 | 1 | `_` of `_`, which may drop a `_`, which is not supported yet | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | fixtures/reject/src/lib.rs:331:6 |
-| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | fixtures/reject/src/lib.rs:391:6 |
+| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | fixtures/reject/src/lib.rs:396:6 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:379:9 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:231:51 |
@@ -48,7 +49,6 @@
 | 1 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:54:1 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:341:52 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:113:3 |
-| 1 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:290:4 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:108:3 |
 | 1 | the `-` flag of a format spec is not supported | fixtures/reject/src/lib.rs:109:3 |
 
@@ -65,6 +65,7 @@ The type or module each refused type or path belongs to.
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:1 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 3 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
+| 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:198:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:133:2 |
@@ -72,7 +73,6 @@ The type or module each refused type or path belongs to.
 | 2 | `char` | fixtures/reject/src/lib.rs:10:1 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
 | 2 | `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
-| 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:75:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:218:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:272:1 |
@@ -81,6 +81,7 @@ The type or module each refused type or path belongs to.
 | 1 | `IntToFloat` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
+| 1 | `Ord` | fixtures/reject/src/lib.rs:391:4 |
 | 1 | `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:309:22 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:1 |
@@ -116,7 +117,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:371:6 |
 | 1 | `_` of `_`, which may drop a `_`, which is not supported yet | `HashSet::remove`, `std::collections::HashSet`, `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
-| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | `std::option::Option` | fixtures/reject/src/lib.rs:391:6 |
+| 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | `std::option::Option` | fixtures/reject/src/lib.rs:396:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:379:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut Slot`, `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
@@ -144,6 +145,7 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:198:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:252:2 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `std::option::Option`, `Option::unwrap_or` | fixtures/reject/src/lib.rs:290:4 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `std::sync::Arc`, `Ord::max` | fixtures/reject/src/lib.rs:391:4 |
 | 1 | replacing the value behind a reference to `_` | `[u8; 1]` | fixtures/reject/src/lib.rs:309:22 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:185:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:122:10 |
@@ -163,7 +165,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:175:2: an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>`
 - fixtures/reject/src/lib.rs:180:2: an assignment through a reference to `std::sync::MutexGuard<'_, u8>`
 - fixtures/reject/src/lib.rs:303:2: an assignment through a reference to `std::pin::Pin<&mut Noisy>`
-- fixtures/reject/src/lib.rs:392:3: an assignment through a reference to `u8`
+- fixtures/reject/src/lib.rs:397:3: an assignment through a reference to `u8`
 
 </details>
 
@@ -174,7 +176,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:73:1: `&mut Slot`: a JS value of `Slot` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:90:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:120:1: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:391:18: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
+- fixtures/reject/src/lib.rs:396:18: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 
 </details>
 
@@ -256,6 +258,13 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>passing `_`, which drops, to `_`, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:290:4: passing `std::option::Option<Noisy>`, which drops, to `Option::unwrap_or`, which is not supported yet
+- fixtures/reject/src/lib.rs:391:4: passing `std::sync::Arc<str>`, which drops, to `Ord::max`, which is not supported yet
+
+</details>
+
 <details><summary>`Binary` formatting, as in `{:b}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:110:3: `Binary` formatting, as in `{:b}`, is not supported
@@ -312,7 +321,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_`, a mutable reference to a value a map holds, kept other than to read and write it (1)</summary>
 
-- fixtures/reject/src/lib.rs:391:6: `std::option::Option<&mut u8>`, a mutable reference to a value a map holds, kept other than to read and write it
+- fixtures/reject/src/lib.rs:396:6: `std::option::Option<&mut u8>`, a mutable reference to a value a map holds, kept other than to read and write it
 
 </details>
 
@@ -421,12 +430,6 @@ The type or module each refused type or path belongs to.
 <details><summary>hex `Debug`, as in `{:x?}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:113:3: hex `Debug`, as in `{:x?}`, is not supported
-
-</details>
-
-<details><summary>passing `_`, which drops, to `_`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:290:4: passing `std::option::Option<Noisy>`, which drops, to `Option::unwrap_or`, which is not supported yet
 
 </details>
 
