@@ -111,6 +111,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
+						(Std::Ordering, _) => super::collections::ordering_variant(variant),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}

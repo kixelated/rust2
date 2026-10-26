@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 62
-- Function instances: 51
+- Refusals: 69
+- Function instances: 61
 - Generic functions no instance reached, lowered over their type parameters: 3
 
 ## By construct
@@ -24,7 +24,12 @@
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:112:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:111:3 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:115:3 |
+| 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | fixtures/reject/src/lib.rs:336:6 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | fixtures/reject/src/lib.rs:75:1 |
+| 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:371:6 |
+| 1 | `_` of `_`, which may drop a `_`, which is not supported yet | fixtures/reject/src/lib.rs:354:6 |
+| 1 | `_` of `_`, which may drop what it holds, which is not supported yet | fixtures/reject/src/lib.rs:331:6 |
+| 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:379:9 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:144:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:231:51 |
 | 1 | a cast from `_` | fixtures/reject/src/lib.rs:11:2 |
@@ -37,8 +42,10 @@
 | 1 | a width or precision from an argument, as in `{:1$}`, is not supported | fixtures/reject/src/lib.rs:114:3 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:100:2 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
+| 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:341:52 |
 | 1 | dropping `_`, which is not supported yet | fixtures/reject/src/lib.rs:151:1 |
 | 1 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:54:1 |
+| 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:341:52 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:113:3 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:290:4 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:108:3 |
@@ -52,24 +59,31 @@ The type or module each refused type or path belongs to.
 | ---: | --- | --- |
 | 5 | `f64` | fixtures/reject/src/lib.rs:6:1 |
 | 4 | `Option` | fixtures/reject/src/lib.rs:31:1 |
+| 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:19:1 |
-| 3 | `u8` | fixtures/reject/src/lib.rs:90:10 |
+| 4 | `u8` | fixtures/reject/src/lib.rs:90:10 |
+| 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
+| 2 | `HashMap` | fixtures/reject/src/lib.rs:331:6 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:198:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:133:2 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:159:1 |
 | 2 | `char` | fixtures/reject/src/lib.rs:10:1 |
+| 2 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:175:2 |
 | 2 | `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
-| 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 1 | `Boxed` | fixtures/reject/src/lib.rs:75:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:218:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:272:1 |
+| 1 | `HashSet` | fixtures/reject/src/lib.rs:354:6 |
+| 1 | `Hasher` | fixtures/reject/src/lib.rs:379:9 |
 | 1 | `IntToFloat` | fixtures/reject/src/lib.rs:144:2 |
+| 1 | `Loud` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
 | 1 | `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:309:22 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:14:1 |
+| 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:354:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:231:51 |
 | 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:204:23 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:225:14 |
@@ -77,7 +91,6 @@ The type or module each refused type or path belongs to.
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:326:48 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:326:7 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:239:8 |
-| 1 | `std::option::Option` | fixtures/reject/src/lib.rs:290:4 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:185:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:36:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:180:2 |
@@ -95,7 +108,12 @@ The type or module each refused type or path belongs to.
 | 2 | an iterator that owns `_`, which drops, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:59:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:133:2 |
 | 2 | unsupported type `_` | `f64` | fixtures/reject/src/lib.rs:6:1 |
+| 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:336:6 |
 | 1 | `_` is generic and implements `Drop`, which is not supported yet | `Boxed` | fixtures/reject/src/lib.rs:75:1 |
+| 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:371:6 |
+| 1 | `_` of `_`, which may drop a `_`, which is not supported yet | `HashSet::remove`, `std::collections::HashSet`, `Loud` | fixtures/reject/src/lib.rs:354:6 |
+| 1 | `_` of `_`, which may drop what it holds, which is not supported yet | `HashMap::clear`, `std::collections::HashMap` | fixtures/reject/src/lib.rs:331:6 |
+| 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:379:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut Slot`, `Slot` | fixtures/reject/src/lib.rs:73:1 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:120:1 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:90:10 |
@@ -116,9 +134,11 @@ The type or module each refused type or path belongs to.
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:272:1 |
 | 1 | an iterator that owns `_`, which drops, which is not supported yet | `Noisy` | fixtures/reject/src/lib.rs:285:20 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
+| 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:341:52 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:204:23 |
 | 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:225:14 |
 | 1 | dropping `_`, which is not supported yet | `std::sync::Arc` | fixtures/reject/src/lib.rs:151:1 |
+| 1 | hashing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:341:52 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:198:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:252:2 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `std::option::Option`, `Option::unwrap_or` | fixtures/reject/src/lib.rs:290:4 |
@@ -256,9 +276,39 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` holds `_`, which is `undefined` as `None` is, which is not supported (1)</summary>
+
+- fixtures/reject/src/lib.rs:336:6: `std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported
+
+</details>
+
 <details><summary>`_` is generic and implements `Drop`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:75:1: `Boxed` is generic and implements `Drop`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of `_` by `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:371:6: `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of `_`, which may drop a `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:354:6: `HashSet::remove` of `std::collections::HashSet<Loud>`, which may drop a `Loud`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of `_`, which may drop what it holds, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:331:6: `HashMap::clear` of `std::collections::HashMap<u8, Noisy>`, which may drop what it holds, which is not supported yet
+
+</details>
+
+<details><summary>`_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:379:9: `Hasher::write`, which is not supported yet
 
 </details>
 
@@ -334,6 +384,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:341:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
+
+</details>
+
 <details><summary>dropping `_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:151:1: dropping `std::sync::Arc<&Noisy>`, which is not supported yet
@@ -343,6 +399,12 @@ The type or module each refused type or path belongs to.
 <details><summary>dropping a closure that owns a value that drops, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:54:1: dropping a closure that owns a value that drops, which is not supported yet
+
+</details>
+
+<details><summary>hashing `_` as a key, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:341:52: hashing `std::vec::Vec<u8>` as a key, which is not supported yet
 
 </details>
 

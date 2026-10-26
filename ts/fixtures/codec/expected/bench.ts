@@ -39,6 +39,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 				iterate(selector, _9[1], out);
 			} else if (op === 7) {
 				decoded(decodeSplit(_9[1], liteVersion(selector), out), out);
+			} else if (op === 8) {
+				ordered(_9[1], out);
 			} else {
 				decoded(decodeGroup(_9[1], liteVersion(selector), out), out);
 			}
@@ -337,6 +339,78 @@ export function encodeGroup(data: Uint8Array, version: Version.Version, out: rt.
 	group = { subscribe: _6[0], sequence: takeU64(_6[1])[0], frameStart: 0 };
 	_12 = Encoder.new(out, Form.from$From_Version(version));
 	return Group.encode$Encode_Version(group, _12, version);
+}
+
+/**
+ * A `BTreeMap` of `count` keys, at most 2^16: each inserted in a scattered order, looked
+ * up, summed over a quarter of the key space, and removed again. The sum of the values
+ * found.
+ */
+export function ordered(data: Uint8Array, out: rt.ByteVec): void {
+	let count2!: rt.u32;
+	let _10!: (a0: rt.u32) => rt.u32;
+	let map!: rt.BTreeMap<rt.u32, rt.u32>;
+	let iter!: { start: rt.u32; end: rt.u32 };
+	let _15!: rt.u32;
+	let i!: rt.u32;
+	let _21!: rt.u32;
+	let sum!: rt.u64;
+	let iter2!: { start: rt.u32; end: rt.u32 };
+	let _28!: rt.u32;
+	let i2!: rt.u32;
+	let _38!: rt.u32;
+	let _42!: rt.u32;
+	let _49!: rt.Range<rt.u32>;
+	let iter3!: rt.Iter<[rt.u32, rt.u32]>;
+	let _57!: [rt.u32, rt.u32] | rt.Done;
+	let iter4!: { start: rt.u32; end: rt.u32 };
+	let _66!: rt.u32;
+	let _73!: rt.u32;
+	_10 = (i4: rt.u32): rt.u32 => {
+		return rt.u32Rem(rt.u32Mul(i4, 40503), 1 << 16);
+	};
+	count2 = rt.u64Low(rt.u64Min(takeU64(data)[0], 65536));
+	map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
+	iter = { start: 0, end: count2 };
+	while (true) {
+		if (!((_15 = iter.start++) < iter.end)) {
+			sum = 0;
+			iter2 = { start: 0, end: count2 };
+			while (true) {
+				if (!((_28 = iter2.start++) < iter2.end)) {
+					_49 = new rt.Range(1 << 14, 2 << 14);
+					iter3 = rt.btreeRange(map, _49);
+					while (true) {
+						_57 = iter3.next();
+						if (_57 === rt.DONE) {
+							iter4 = { start: 0, end: count2 };
+							while (true) {
+								if (!((_66 = iter4.start++) < iter4.end)) {
+									putU64(out, sum);
+									return;
+								} else {
+									_73 = _10(_66);
+									rt.btreeRemove(map, _73);
+								}
+							}
+						} else {
+							sum = rt.u64Add(sum, _57[1] as rt.u64);
+						}
+					}
+				} else {
+					i2 = _28;
+					_42 = rt.u32Sub(count2, 1);
+					const part = rt.u32Sub(_42, i2);
+					_38 = _10(part);
+					sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
+				}
+			}
+		} else {
+			i = _15;
+			_21 = _10(i);
+			rt.btreeInsert(map, _21, i);
+		}
+	}
 }
 
 /**

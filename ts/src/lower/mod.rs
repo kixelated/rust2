@@ -6,6 +6,7 @@
 //! a type is a module-level one taking `self` first, so a bundler drops what goes unused.
 
 mod body;
+mod collections;
 mod consts;
 mod drop;
 mod fmt;
@@ -806,7 +807,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Pin
 					| library::Std::Range
 					| library::Std::RangeInclusive
-					| library::Std::Peekable,
+					| library::Std::Peekable
+					| library::Std::HashMap
+					| library::Std::HashSet
+					| library::Std::BTreeMap
+					| library::Std::BTreeSet
+					| library::Std::VecDeque
+					| library::Std::Entry
+					| library::Std::Hasher,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -963,6 +971,26 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Peekable", vec![self.item_ty(item, span)])
 				}
 				library::Std::Infallible => Type::Builtin("never"),
+				// The key and value types, or the item type, without the hasher or allocator.
+				library::Std::HashMap
+				| library::Std::BTreeMap
+				| library::Std::Entry
+				| library::Std::HashSet
+				| library::Std::BTreeSet
+				| library::Std::VecDeque => {
+					let (name, n) = match std {
+						library::Std::HashMap => ("HashMap", 2),
+						library::Std::BTreeMap => ("BTreeMap", 2),
+						library::Std::Entry => ("Entry", 2),
+						library::Std::HashSet => ("HashSet", 1),
+						library::Std::BTreeSet => ("BTreeSet", 1),
+						_ => ("VecDeque", 1),
+					};
+					let tys: Vec<Ty<'tcx>> = args.types().take(n).collect();
+					Type::Rt(name, tys.into_iter().map(|t| self.ty(t, span)).collect())
+				}
+				library::Std::Ordering => Type::Rt("Ordering", vec![]),
+				library::Std::Hasher => Type::Rt("Hasher", vec![]),
 				// The value `?` was applied to, which MIR branches on as this.
 				library::Std::ControlFlow => match (self.std_of(args.type_at(0)), args.type_at(0).kind()) {
 					(Some(library::Std::Result), ty::Adt(_, residual)) => Type::Rt(

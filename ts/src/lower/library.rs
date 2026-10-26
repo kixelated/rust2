@@ -77,6 +77,20 @@ pub enum Std {
 	NonNull,
 	/// No value: `never`.
 	Infallible,
+	/// `rt.HashMap`, and `rt.HashSet`, a map to `undefined`.
+	HashMap,
+	HashSet,
+	/// `rt.BTreeMap`, and `rt.BTreeSet`, a map to `undefined`.
+	BTreeMap,
+	BTreeSet,
+	/// `rt.VecDeque`, a ring buffer.
+	VecDeque,
+	/// `rt.Entry`: a map's `Entry`, `OccupiedEntry`, or `VacantEntry`.
+	Entry,
+	/// `rt.Ordering`: its discriminant, -1, 0, or 1.
+	Ordering,
+	/// `rt.Hasher`: `DefaultHasher`, which hash collections hash their keys with.
+	Hasher,
 }
 
 impl Std {
@@ -106,6 +120,11 @@ impl Std {
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
+			(rustc_span::Symbol::intern("HashSet"), Self::HashSet),
+			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
+			(rustc_span::Symbol::intern("BTreeSet"), Self::BTreeSet),
+			(rustc_span::Symbol::intern("VecDeque"), Self::VecDeque),
 		] {
 			if tcx.is_diagnostic_item(item, did) {
 				return Some(std);
@@ -150,6 +169,16 @@ impl Std {
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
 			["convert", "Infallible"] => Some(Self::Infallible),
+			["cmp", "Ordering"] => Some(Self::Ordering),
+			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
+			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
+			| [
+				"collections",
+				"btree",
+				"map",
+				"entry",
+				"Entry" | "OccupiedEntry" | "VacantEntry",
+			] => Some(Self::Entry),
 			_ => None,
 		}
 	}
@@ -298,7 +327,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	let (owner, name) = key(tcx, call.def_id)?;
 	let span = call.span;
 	let gargs = call.args;
-	let mut args = match super::task::call(b, call, &owner, &name, args) {
+	let args = match super::task::call(b, call, &owner, &name, args) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let mut args = match super::collections::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
