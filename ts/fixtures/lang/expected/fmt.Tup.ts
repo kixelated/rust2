@@ -9,9 +9,9 @@ export interface Tup {
 
 export function fmt$Debug(self: Tup, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self._1 !== undefined) {
-		return f.debugTuple("Tup").field((f: rt.Formatter) => rt.u8.display(self._0, f)).field((f: rt.Formatter) => rt.fmt.option(self._1, f, rt.u8.display)).finish();
+		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)), (f: rt.Formatter) => rt.fmtOption(self._1, f, rt.u8Display)));
 	} else {
-		return f.debugTuple("Tup").field((f: rt.Formatter) => rt.u8.display(self._0, f)).finishNonExhaustive();
+		return rt.debugTupleFinishNonExhaustive(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)));
 	}
 }
 

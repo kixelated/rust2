@@ -2,7 +2,11 @@
 //! benchmarks: `js/net/bench/varint.ts` and `lite-varint.ts`. The first input byte picks
 //! the workload and the second its wire format; an encode's output is the matching
 //! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
-//! writes them, and op 7 decodes frame headers as they arrive a few bytes at a time.
+//! writes them, op 7 decodes frame headers as they arrive a few bytes at a time, op 8
+//! keeps a `BTreeMap`, as moq-net's model keeps its state, and op 9 converts timestamps
+//! between timescales.
+
+use std::collections::BTreeMap;
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
 use crate::harness::{decode_error, encode_error, form, lite_version, put_u64, put_usize, take_u64};
@@ -26,6 +30,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		4 => encoded(encode_group(data, lite_version(selector), &mut out), &mut out),
 		6 => iterate(selector, data, &mut out),
 		7 => decoded(decode_split(data, lite_version(selector), &mut out), &mut out),
+		8 => ordered(data, &mut out),
+		9 => rescale(selector, data, &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -173,6 +179,31 @@ fn encode_group(data: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Resul
 	group.encode(&mut Encoder::new(out, version.into()), version)
 }
 
+/// A `BTreeMap` of `count` keys, at most 2^16: each inserted in a scattered order, looked
+/// up, summed over a quarter of the key space, and removed again. The sum of the values
+/// found.
+fn ordered(data: &[u8], out: &mut Vec<u8>) {
+	let (count, _) = take_u64(data);
+	let count = count.min(1 << 16) as u32;
+	// An odd multiplier scatters the keys below 2^16 without repeating one.
+	let key = |i: u32| (i * 40503) % (1 << 16);
+	let mut map = BTreeMap::new();
+	for i in 0..count {
+		map.insert(key(i), i);
+	}
+	let mut sum = 0u64;
+	for i in 0..count {
+		sum += map.get(&key(count - 1 - i)).copied().unwrap_or(0) as u64;
+	}
+	for (_, &v) in map.range(1 << 14..2 << 14) {
+		sum += v as u64;
+	}
+	for i in 0..count {
+		map.remove(&key(i));
+	}
+	put_u64(out, sum);
+}
+
 /// One iterator chain over every byte, picked by `chain`, with closures that cost little
 /// next to the iterator protocol they run through.
 fn iterate(chain: u8, data: &[u8], out: &mut Vec<u8>) {
@@ -197,6 +228,53 @@ fn iterate(chain: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			put_usize(out, last);
 		}
+	}
+}
+
+/// Timestamps from one timescale to another, products past 2^53: moq-net's
+/// `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
+/// sooner. How many converted, how many overflowed, and the last converted.
+fn rescale(selector: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (count, data) = take_u64(data);
+	let (start, data) = take_u64(data);
+	let (step, data) = take_u64(data);
+	let (from, data) = take_u64(data);
+	let (to, _) = take_u64(data);
+	let (mut converted, mut overflowed, mut last) = (0, 0, 0);
+	for i in 0..count as usize {
+		let value = start + i as u64 * step;
+		let scaled = match selector {
+			0 => match (value as u128).checked_mul(to as u128) {
+				Some(scaled) => bounded(scaled / from as u128),
+				None => None,
+			},
+			_ => match value.checked_mul(to).map(|scaled| scaled / from) {
+				Some(v) if v <= MAX_TIMESTAMP => Some(v),
+				_ => None,
+			},
+		};
+		match scaled {
+			Some(v) => {
+				last = v;
+				converted += 1;
+			}
+			None => overflowed += 1,
+		}
+	}
+	put_u64(out, converted);
+	put_u64(out, overflowed);
+	put_u64(out, last);
+}
+
+/// moq-net's largest timestamp.
+const MAX_TIMESTAMP: u64 = (1 << 61) - 1;
+
+/// `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp.
+const fn bounded(value: u128) -> Option<u64> {
+	if value <= MAX_TIMESTAMP as u128 {
+		Some(value as u64)
+	} else {
+		None
 	}
 }
 

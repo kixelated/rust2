@@ -114,7 +114,18 @@ impl Header<'_> {
 			));
 		}
 
+		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
+			let bound = abi.rt("bound");
+			let upper = bound.to_uppercase();
+			self.line(format!(
+				"/* What a range's start or end bound does: nothing, include its value, or exclude it. */\ntypedef enum {bound} {{\n\t{upper}_UNBOUNDED = 0,\n\t{upper}_INCLUDED = 1,\n\t{upper}_EXCLUDED = 2,\n}} {bound};\n"
+			));
+		}
+
 		// Value structs, each after the values it holds.
+		for name in abi.ranges.keys() {
+			self.value(&Ty::Struct(name.clone()));
+		}
 		for name in abi.options.keys() {
 			self.value(&Ty::Struct(name.clone()));
 		}
@@ -237,6 +248,20 @@ impl Header<'_> {
 			return;
 		};
 		if !self.defined.insert(name.clone()) {
+			return;
+		}
+		if let Some(ty) = abi.ranges.get(name) {
+			let fields = match ty {
+				Type::Range(int) => format!("\t{int} start;\n\t{int} end;", int = c_int(*int)),
+				Type::Bound(int) => format!("\t{} kind;\n\t{} value;", abi.rt("bound"), c_int(*int)),
+				Type::Bounds(int) => {
+					let bound = abi.range(&Type::Bound(*int));
+					self.value(&Ty::Struct(bound.clone()));
+					format!("\t{bound} start;\n\t{bound} end;")
+				}
+				other => unreachable!("{other:?} is no range"),
+			};
+			self.line(format!("typedef struct {name} {{\n{fields}\n}} {name};\n"));
 			return;
 		}
 		if let Some(inner) = abi.options.get(name) {

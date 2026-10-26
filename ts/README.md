@@ -51,8 +51,8 @@ Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.
 and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`, and ownership
-and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collections in
+`rt/collections.ts`, and ownership and async in `rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -66,8 +66,10 @@ and async in `rt/task.ts`.
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place |
-| an iterator | `rt.Iter<Item>`, whose adaptors are its methods: `v.iter().map(f)` |
+| an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
+| `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
+| `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
@@ -92,30 +94,31 @@ which costs nothing at run time.
 A wider integer is a `number` up to 2^53 - 1 in magnitude, and past that an immutable
 object of 32-bit limbs, `{ hi, lo }`, with `w2` and `w1` between them at 128 bits and
 `hi` signed in a signed type. Each value has one form, so `x === 0` is exact; a caller
-makes one past 2^53 with `rt.u64.of(18446744073709551615n)`. Its other operators and
-comparisons are runtime calls, `rt.u64.add(a, b)` and `rt.u64.lt(a, b)`, and `x as u32`
-is `rt.u64.low(x)`.
+makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators and
+comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
+is `rt.u64Low(x)`. From MIR, `((hi as u64) << 32) | lo as u64` of halves of at most 32
+bits is one call, `rt.u64FromHalves(hi, lo)`.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
 runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
 becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
-and such functions: `f.writeFmt(["code=", (f) => rt.u16.display(code, f)])`. A `&dyn
+and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
 width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string escapes by the JS engine's
 Unicode tables, so a character newer than its Unicode version is escaped where Rust
 prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmt.toString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmt.format([(f) => DecodeError.fmt$Debug(err, f)])`, after
+would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
+`rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
-are `rt.Iter` methods, lazy and short-circuiting as std's are, and call their closures in
-the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
+are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
+short-circuiting as std's are, and call their closures in the same order and as often. A `for` loop reads an iterator by that protocol, a slice,
 array, `Vec`, or `slice.iter()` with `for ... of`, and a range written in place with a
 counter. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
-std's adaptors through `rt.iter.from`. A caller calls `next()` for one item, or iterates
+std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
@@ -132,6 +135,15 @@ type by its own name, which a caller writes `Decoder.Decoder`, and a function wh
 and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, tuple, or
 array, or an `Option` or `Result` holding one, is copied where Rust copies it, since JS
 would share the object.
+
+A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
+number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
+finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
+`Eq`; a B-tree orders every key by its translated `Ord`. A hash map iterates in an order
+of the runtime's, mostly insertion order, which std leaves unspecified, as it does
+`DefaultHasher`'s values, which are the runtime's own too. So is how often the runtime
+calls a key's `Hash`, `Eq`, or `Ord`.
+Its iterators are `rt.Iter`s, so std's adaptors run over them.
 
 A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
 impl, an `Arc`'s count, or a waker. A variable drops at the end of its scope through a
@@ -171,14 +183,20 @@ they need.
   numbers in locals, fields, and arguments. It ties unboxed halves on the codec and
   beats `bigint` there in Node, Bun, and Chrome: varint encode 13-65% faster, frame
   decode 8-32%, and message decode 22-31%, though Chrome's 8-byte varint decode is
-  25-45% slower. A loop of sums and comparisons past 2^32 measured 2-6x faster. Limbs
-  for every value allocate an object each, which costs what a `bigint` does in V8, so
-  they lost decode; unboxed halves would lower every value to two. Past 2^53 an
-  operation allocates limbs: a product past 2^53 divided back down is 1.5-1.9x slower
-  than `bigint`, and 128-bit arithmetic there goes through `bigint` inside the runtime.
-  The runtime adds 6 KB to the codec's bundle, 2 KB gzipped. Brands tell `u64` from
-  `i64` and `u32` from `usize` at no cost, since TypeScript erases them; a required
-  brand would cast every literal, so a plain number passes for any type.
+  25-45% slower; joining a varint's halves in one call, `rt.u64FromHalves`, makes that
+  decode 1.05-1.2x faster in Chrome. A loop of sums and comparisons past 2^32 measured
+  2-6x faster. Limbs for every value allocate an object each, which costs what a
+  `bigint` does in V8, so they lost decode; unboxed halves would lower every value to
+  two. Past 2^53 an operation allocates limbs, and 128-bit arithmetic goes through
+  `bigint` inside the runtime, but a product multiplies 32-bit halves without boxing
+  either factor, at 128 bits when both are numbers. Converting timestamps between
+  timescales, products past 2^53 divided back down, measured 2.1-3.1x faster that way
+  than through boxed factors in `u64`, and 1.6-1.7x in `u128` as moq-net converts them:
+  1.4-2.1x `bigint`'s time in `u64`, and 8-12x in `u128`, whose division and
+  comparisons still go through `bigint`. The runtime adds 6 KB to the codec's bundle, 2
+  KB gzipped. Brands tell `u64` from `i64` and `u32` from `usize` at no cost, since
+  TypeScript erases them; a required brand would cast every literal, so a plain number
+  passes for any type.
 - A struct is a plain object, and each function of a type, trait impls included, is its
   own function in the type's module, so a caller's bundler drops every one it never
   calls: no bundler drops a class's unused methods or an object's unused properties. A struct that
@@ -187,8 +205,8 @@ they need.
   the root types over free functions: all three within noise in Node, Bun, and Chrome.
   A caller of moq-net's translation that decodes a group header bundles to 26.5 KB
   minified and 8.3 KB gzipped, against 32.3 and 9.5 KB as classes; one that encodes
-  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB. Without the runtime, which does not
-  shake yet, gzip is 30% and 56% smaller. The facade was the largest,
+  one, to 22.5 and 7.5 KB against 31.6 and 9.5 KB, each with the whole runtime, which
+  did not shake then. The facade was the largest,
   since its methods keep every function they call. RxJS, Zod Mini, Valibot, Effect,
   and date-fns made the same move for the same reason.
 - A type's functions are a module of their own, which callers import whole and call as
@@ -198,6 +216,20 @@ they need.
   type's module (`export * as Decoder`) still shakes in Bun and Rollup but not in
   esbuild ([evanw/esbuild#1420](https://github.com/evanw/esbuild/issues/1420)), which
   keeps the whole module: 10.2 KB gzipped against 8.3 for the decoding caller.
+- The runtime is free functions too, flat exports of `rt.ts` named for what they act on
+  (`rt.u64Add`, `rt.iterMap`, `rt.fmtPad`), so a bundler drops every one translated code
+  never calls. `rt.ts` re-exports its parts with `export *`, since esbuild keeps a whole
+  `export * as` namespace. A method stays only where a call dispatches on its receiver:
+  an iterator's `next`, a future's `poll`, a waker's, and `[Symbol.dispose]`. Each
+  integer type's functions pass their bounds or width to shared helpers, with a wide
+  type's number fast path inline in its own: through the shared helper alone, V8 took
+  up to 1.7x as long on frame encode. A caller of moq-net's translation that decodes a
+  group header bundles to 6.9 KB minified and 2.2 KB gzipped, against 21.6 and 6.9 KB
+  with the runtime's namespaces and methods; one that reads a varint, to 4.7 and 1.5 KB
+  against 19.4 and 6.2. `just ts bench` measured it within noise of them in Node, Bun,
+  and Chrome: 1.01, 0.97, and 1.00 times their time at the geometric mean, where the
+  A/A route measured 1.00, 0.97, and 0.99. The whole runtime, every export kept, is 52
+  KB minified against 36.
 - A generic type is one interface, class, or union, the type TS callers name, and a
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
@@ -205,6 +237,15 @@ they need.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
+- A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
+  leaves hold the keys and values and link to their neighbors, which iterators walk from
+  either end, and its branches hold each child's lower bound. A node's slots shift in a
+  loop, which beat `splice` 2-3x at these sizes. On `just ts bench`'s `btree/` workloads
+  it takes 0.5-0.8x the time two sorted arrays did, from 16 keys to 4096, in Node, Bun,
+  and Chrome; 64 keys a node measured best of 16 to 128. A hash map's JS primitive keys
+  are a JS `Map`'s, the engine's own hash table; its other keys go into a second `Map`
+  by their translated hash, chained by `Eq`. `VecDeque` is a ring buffer over an array
+  whose length is a power of two.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors have no THIR to lower, ES helpers lack most of them
   (`rev`, `zip`, `peekable`), and a `next` returning an item or `rt.DONE` allocates
@@ -237,8 +278,11 @@ These fail translation: floats, `char`, statics, async blocks that borrow a numb
 mutably and async closures, values that drop as temporaries not moved whole, in a
 closure's captures, in an iterator, in an enum, tuple, or generic `Drop` type, passed to
 a std function that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or
-moved ahead of an `.await` in the same call or assignment ([Drop](/quest/m2/ts-drop.md)), iterators of std's collections and the adaptors without
-a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
+moved ahead of an `.await` in the same call or assignment, or in a collection
+([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be `undefined`, as
+`()` and `Option` can, a collection's `capacity`, looking up a key by another type it
+borrows as (`Arc<str>` by `str`), `Hasher::write` of bytes, the adaptors without a mapping in
+`src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an own
 `impl Iterator` with `next_back`, `len`, or another provided method of its own, `while
 let` or `match` on the `next` of an iterator of `Option`, or-patterns that bind, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
@@ -267,11 +311,13 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, control flow, patterns,
-  `Copy` aggregates, formatting, methods on generic types, and iterators, with closures
-  that log what each adaptor reads. Its differential test runs through `caller.ts`, a
+  `Copy` aggregates, formatting, methods on generic types, iterators, with closures
+  that log what each adaptor reads, and std's collections, over keys whose own `Hash`,
+  `Eq`, and `Ord` disagree with JS's. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
-  where the runtime switches between numbers and limbs, and its limbs carry and borrow.
+  where the runtime switches between numbers and limbs, and its limbs carry and borrow,
+  with products of those values at 128 bits and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
@@ -287,7 +333,8 @@ The codec, lang, and task fixtures also run their differential tests from MIR
 (`codec_mir`, `lang_mir`, and `task_mir`), without snapshots.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
-rejects when a future panics as it drops.
+rejects when a future panics as it drops. `tests/retain.ts` panics in a collection's
+`retain` at each item, and `retain_unwinds` checks that it leaves what std's leaves.
 
 ## Bench
 
@@ -298,9 +345,12 @@ nix develop .#bench --command just ts bench  # report to target/bench/report.md
 The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks time
 (`js/net/bench/varint.ts` and `lite-varint.ts`), at the pinned moq revision, the same
 frame headers decoded as they arrive a few bytes at a time, which prices a decode that
-comes up `Short` and retries, and iterator chains over bytes. Each runs four ways:
-natively, as wasm32 at moq-wasm's size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, and ES iterator
-helpers in `bench/iter.ts`), and translated; every route's output must match
+comes up `Short` and retries, iterator chains over bytes, a `BTreeMap` of 16, 256, and
+4096 keys, and timestamps converted between timescales as moq-net's `Timestamp::convert`
+does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
+helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
+`bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
 native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new

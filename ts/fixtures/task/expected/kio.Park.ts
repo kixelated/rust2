@@ -37,7 +37,7 @@ export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
 		rt.drop(self._0);
 		self._0 = value;
 	}
-	return rt.option.unwrap(self._0);
+	return rt.optionUnwrap(self._0);
 }
 
 //# sourceMappingURL=kio.Park.ts.map

@@ -78,6 +78,20 @@ pub enum Std {
 	NonNull,
 	/// No value: `never`.
 	Infallible,
+	/// `rt.HashMap`, and `rt.HashSet`, a map to `undefined`.
+	HashMap,
+	HashSet,
+	/// `rt.BTreeMap`, and `rt.BTreeSet`, a map to `undefined`.
+	BTreeMap,
+	BTreeSet,
+	/// `rt.VecDeque`, a ring buffer.
+	VecDeque,
+	/// `rt.Entry`: a map's `Entry`, `OccupiedEntry`, or `VacantEntry`.
+	Entry,
+	/// `rt.Ordering`: its discriminant, -1, 0, or 1.
+	Ordering,
+	/// `rt.Hasher`: `DefaultHasher`, which hash collections hash their keys with.
+	Hasher,
 }
 
 impl Std {
@@ -107,6 +121,11 @@ impl Std {
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
+			(rustc_span::Symbol::intern("HashSet"), Self::HashSet),
+			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
+			(rustc_span::Symbol::intern("BTreeSet"), Self::BTreeSet),
+			(rustc_span::Symbol::intern("VecDeque"), Self::VecDeque),
 		] {
 			if tcx.is_diagnostic_item(item, did) {
 				return Some(std);
@@ -151,6 +170,16 @@ impl Std {
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
 			["convert", "Infallible"] => Some(Self::Infallible),
+			["cmp", "Ordering"] => Some(Self::Ordering),
+			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
+			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
+			| [
+				"collections",
+				"btree",
+				"map",
+				"entry",
+				"Entry" | "OccupiedEntry" | "VacantEntry",
+			] => Some(Self::Entry),
 			_ => None,
 		}
 	}
@@ -309,6 +338,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		Ok(e) => return e,
 		Err(args) => args,
 	};
+	let args = match super::collections::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
 	let dropping = match keeps_operands(&owner, &name) {
 		true => None,
 		false => dropping_operand(b, call),
@@ -461,12 +494,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let value = values.into_iter().next()?;
 			match ty.kind() {
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) && is_u8(args.type_at(0)) => {
-					Expr::Rt("ByteVec")
-						.member("from")
-						.call(vec![value.method("view", vec![])])
+					Expr::rt("byteVecFrom", vec![Expr::rt("byteVecView", vec![value])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
-				ty::Adt(..) if int_range(ty) => value.method("clone", vec![]),
+				ty::Adt(adt, _) if int_range(ty) => {
+					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
+				}
 				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.copied(value, ty),
 				_ => return None,
 			}
@@ -514,7 +547,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			};
 			let mut values = b.args(args, out);
 			values.push(b.fmt_fn(fmt::Trait::Debug, shown, span));
-			Expr::Rt("result").member(method).call(values)
+			Expr::rt_of("result", method).call(values)
 		}
 		("Result", "unwrap_or") => rt2(b, args, out, "result", "unwrapOr"),
 
@@ -522,16 +555,15 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		// An integer range wraps within its type's bounds where std's `nth` does.
 		("RangeInclusive", "new") if range => {
 			let mut values = b.args(args, out);
-			values.extend(self_ty().and_then(Int::of).map(|int| Expr::Rt(int.rt())));
-			Expr::New(Box::new(Expr::Rt("RangeInclusive")), values)
+			values.extend(self_ty().and_then(Int::of).map(|int| int.func("step")));
+			Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 		}
 		// JS compares integers as Rust does, and other endpoints by identity.
 		("Range" | "RangeInclusive", "start" | "end" | "is_empty" | "contains")
 			if range && (matches!(name.as_str(), "start" | "end") || self_ty().and_then(Int::of).is_some()) =>
 		{
-			let mut values = b.args(args, out);
-			let recv = values.remove(0);
-			recv.method(&super::camel(&name), values)
+			let of = range_of(inherent_std(tcx, call.def_id)?)?;
+			Expr::rt_of(of, &super::camel(&name)).call(b.args(args, out))
 		}
 
 		("bool", "then_some") => {
@@ -551,7 +583,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = b.args(args, out);
 			values.push(Expr::lit(n.to_string()));
-			Expr::Rt("slice").member("splitFirstChunk").call(values)
+			Expr::rt("sliceSplitFirstChunk", values)
 		}
 		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(b, args, out, "slice", "copyFromSlice"),
 		("slice", "copy_within") if is_u8(targ(gargs, 0)) => {
@@ -573,14 +605,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let mut values = vec![s, start, end];
 			b.after(&mut values, pre, out);
 			values.push(dest);
-			Expr::Rt("slice").member("copyWithin").call(values)
+			Expr::rt("sliceCopyWithin", values)
 		}
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
 			let values = b.args(args, out);
 			match is_u8(elem) {
-				true => Expr::Rt("slice").member("toByteVec").call(values),
-				false if b.t.is_copy(elem) => Expr::Rt("slice").member("toVec").call(values),
+				true => Expr::rt("sliceToByteVec", values),
+				false if b.t.is_copy(elem) => Expr::rt("sliceToVec", values),
 				false => return None,
 			}
 		}
@@ -589,7 +621,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let elem = targ(gargs, 0);
 			let value = b.args(args, out).pop()?;
 			match is_u8(elem) {
-				true => Expr::Rt("ByteVec").member("from").call(vec![value]),
+				true => Expr::rt("byteVecFrom", vec![value]),
 				false => value,
 			}
 		}
@@ -622,11 +654,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 
 		// Vectors.
 		("Vec", "new") => match is_u8(targ(gargs, 0)) {
-			true => Expr::New(Box::new(Expr::Rt("ByteVec")), Vec::new()),
+			true => Expr::New(Box::new(Expr::Rt("ByteVec".into())), Vec::new()),
 			false => Expr::Array(Vec::new()),
 		},
 		("Vec", "with_capacity") => match is_u8(targ(gargs, 0)) {
-			true => Expr::New(Box::new(Expr::Rt("ByteVec")), b.args(args, out)),
+			true => Expr::New(Box::new(Expr::Rt("ByteVec".into())), b.args(args, out)),
 			false => {
 				b.args(args, out);
 				Expr::Array(Vec::new())
@@ -634,23 +666,23 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		},
 		("Vec", "push") => {
 			let mut values = b.args(args, out);
-			let v = values.remove(0);
-			v.method("push", values)
+			match is_u8(targ(gargs, 0)) {
+				true => Expr::rt("byteVecPush", values),
+				false => {
+					let v = values.remove(0);
+					v.method("push", values)
+				}
+			}
 		}
-		("Vec", "pop") => b.args(args, out).pop()?.method("pop", vec![]),
+		("Vec", "pop") => match is_u8(targ(gargs, 0)) {
+			true => Expr::rt("byteVecPop", b.args(args, out)),
+			false => b.args(args, out).pop()?.method("pop", vec![]),
+		},
 		("Vec", "len") => b.args(args, out).pop()?.member("length"),
 		("Vec", "is_empty") => b.args(args, out).pop()?.member("length").binary("===", Expr::lit("0")),
-		("Vec", "truncate") if is_u8(targ(gargs, 0)) => {
-			let mut values = b.args(args, out);
-			let v = values.remove(0);
-			v.method("truncate", values)
-		}
-		("Vec", "clear") if is_u8(targ(gargs, 0)) => b.args(args, out).pop()?.method("clear", vec![]),
-		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => {
-			let mut values = b.args(args, out);
-			let v = values.remove(0);
-			v.method("extendFromSlice", values)
-		}
+		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", b.args(args, out)),
+		("Vec", "clear") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecClear", b.args(args, out)),
+		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecExtendFromSlice", b.args(args, out)),
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = b.args(args, out).pop()?;
 			vec_view(v, targ(gargs, 0))
@@ -705,18 +737,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 					let [base] = base;
 					let mut values = vec![base, start];
 					values.extend(end);
-					Expr::Rt("slice").member("range").call(values)
+					Expr::rt("sliceRange", values)
 				}
 			}
 		}
 
 		// Strings.
-		("String", "as_bytes") => Expr::Rt("string").member("asBytes").call(b.args(args, out)),
-		("String", "from_utf8") => Expr::Rt("string").member("fromUtf8").call(b.args(args, out)),
-		("str", "as_bytes") => Expr::Rt("string").member("asBytes").call(b.args(args, out)),
-		("str", "len") => Expr::Rt("string").member("len").call(b.args(args, out)),
+		("String" | "str", "as_bytes") => Expr::rt("stringAsBytes", b.args(args, out)),
+		("String", "from_utf8") => Expr::rt("stringFromUtf8", b.args(args, out)),
+		("String" | "str", "len") => Expr::rt("stringLen", b.args(args, out)),
 		("String", "as_str") => b.args(args, out).pop()?,
-		("String", "len") => Expr::Rt("string").member("len").call(b.args(args, out)),
 		("String", "new") => Expr::Str(String::new()),
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
 			b.args(args, out).pop()?
@@ -754,7 +784,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 		// Panics, which format their message as std does.
 		("panicking", "panic_fmt") => {
 			let message = b.args(args, out).pop()?;
-			Expr::rt("panic", vec![literal(&message).map_or(message, Expr::Str)])
+			match literal(&message) {
+				Some(s) => Expr::rt("panic", vec![Expr::Str(s)]),
+				None => Expr::rt("panicFmt", vec![message]),
+			}
 		}
 		("panicking", "panic") | ("rt", "begin_panic") => Expr::rt("panic", b.args(args, out)),
 		("panicking", "panic_explicit") => Expr::rt("panic", vec![Expr::Str("explicit panic".into())]),
@@ -765,7 +798,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			if name == "unreachable_display" {
 				message.insert(0, Expr::Str("internal error: entered unreachable code: ".into()));
 			}
-			Expr::rt("panic", vec![Expr::Array(message)])
+			Expr::rt("panicFmt", vec![Expr::Array(message)])
 		}
 		// `assert_eq!` and `assert_ne!`: the operator, both sides, and any message.
 		("panicking", "assert_failed") => {
@@ -785,7 +818,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let parts = b.args(args, out).pop()?;
 			match literal(&parts) {
 				Some(s) => Expr::Str(s),
-				None => Expr::Rt("fmt").member("format").call(vec![parts]),
+				None => Expr::rt("fmtFormat", vec![parts]),
 			}
 		}
 		("Display" | "Debug" | "LowerHex" | "UpperHex", "fmt") => {
@@ -800,49 +833,50 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
 				_ => {
 					let value = b.fmt_value(fmt::Trait::Display, ty, value, span, out);
-					Expr::Rt("fmt").member("toString").call(vec![value])
+					Expr::rt("fmtToString", vec![value])
 				}
 			}
 		}
 		("Formatter", "write_fmt") => {
 			let [f, parts] = <[Expr; 2]>::try_from(b.args(args, out)).ok()?;
 			match literal(&parts) {
-				Some(s) => f.method("writeStr", vec![Expr::Str(s)]),
-				None => f.method("writeFmt", vec![parts]),
+				Some(s) => Expr::rt("fmtWriteStr", vec![f, Expr::Str(s)]),
+				None => Expr::rt("fmtWriteFmt", vec![f, parts]),
 			}
 		}
+		// Each takes its receiver first: `rt.fmtPad(f, s)`, `rt.debugStructField(b, name, value)`.
 		("Formatter", "write_str" | "pad" | "alternate" | "width" | "debug_struct" | "debug_tuple" | "debug_list")
 		| ("DebugStruct" | "DebugTuple", "field" | "finish" | "finish_non_exhaustive")
 		| ("DebugList", "entry" | "finish" | "finish_non_exhaustive") => {
-			let mut values = b.args(args, out);
-			let recv = values.remove(0);
-			recv.method(&super::camel(&name), values)
+			let of = match owner.as_str() {
+				"Formatter" => "fmt",
+				"DebugStruct" => "debugStruct",
+				"DebugTuple" => "debugTuple",
+				_ => "debugList",
+			};
+			Expr::rt_of(of, &super::camel(&name)).call(b.args(args, out))
 		}
 		// Derived `Debug`: `debug_struct_field2_finish(f, name, "a", &a, "b", &b)`.
-		("Formatter", "debug_struct_fields_finish") => {
-			let mut values = b.args(args, out);
-			let f = values.remove(0);
-			f.method("debugStructFields", values)
-		}
-		("Formatter", "debug_tuple_fields_finish") => {
-			let mut values = b.args(args, out);
-			let f = values.remove(0);
-			f.method("debugTupleFields", values)
-		}
+		("Formatter", "debug_struct_fields_finish") => Expr::rt("fmtDebugStructFields", b.args(args, out)),
+		("Formatter", "debug_tuple_fields_finish") => Expr::rt("fmtDebugTupleFields", b.args(args, out)),
 		("Formatter", n) if n.starts_with("debug_struct_field") || n.starts_with("debug_tuple_field") => {
 			let mut values = b.args(args, out).into_iter();
 			let (f, type_name) = (values.next()?, values.next()?);
 			let structure = n.starts_with("debug_struct");
-			let mut builder = f.method(if structure { "debugStruct" } else { "debugTuple" }, vec![type_name]);
+			let (of, start) = match structure {
+				true => ("debugStruct", "fmtDebugStruct"),
+				false => ("debugTuple", "fmtDebugTuple"),
+			};
+			let mut builder = Expr::rt(start, vec![f, type_name]);
 			let values: Vec<Expr> = values.collect();
 			let fields = match structure {
 				true => values.chunks(2).map(<[Expr]>::to_vec).collect::<Vec<_>>(),
 				false => values.into_iter().map(|v| vec![v]).collect(),
 			};
 			for field in fields {
-				builder = builder.method("field", field);
+				builder = Expr::rt_of(of, "field").call([vec![builder], field].concat());
 			}
-			builder.method("finish", vec![])
+			Expr::rt_of(of, "finish").call(vec![builder])
 		}
 		("DebugList", "entries") => {
 			let Args::Thir(ids) = args else {
@@ -851,7 +885,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Args<'_>,
 			let list = b.operand(ids[0], out);
 			let items = items(b, ids[1], out)?;
 			let debug = b.fmt_fn(fmt::Trait::Debug, targ(gargs, 0), span);
-			list.method("entries", vec![items, debug])
+			Expr::rt("debugListEntries", vec![list, items, debug])
 		}
 		_ => return super::iter::call(b, call, &owner, &name, args, out),
 	};
@@ -917,16 +951,19 @@ pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 	gargs.types().nth(n).expect("a type argument")
 }
 
-/// `rt.<namespace>.<name>(args)`.
-fn rt2<'tcx>(
-	b: &mut Body<'_, '_, 'tcx>,
-	args: Args<'_>,
-	out: &mut Vec<Stmt>,
-	namespace: &'static str,
-	name: &str,
-) -> Expr {
+/// `rt.<of><Name>(args)`.
+fn rt2<'tcx>(b: &mut Body<'_, '_, 'tcx>, args: Args<'_>, out: &mut Vec<Stmt>, of: &str, name: &str) -> Expr {
 	let values = b.args(args, out);
-	Expr::Rt(namespace).member(name).call(values)
+	Expr::rt_of(of, name).call(values)
+}
+
+/// What the runtime's functions of a std range type start with.
+fn range_of(std: Std) -> Option<&'static str> {
+	match std {
+		Std::Range => Some("range"),
+		Std::RangeInclusive => Some("rangeInclusive"),
+		_ => None,
+	}
 }
 
 fn int_named(name: &str) -> Option<Int> {
@@ -959,7 +996,7 @@ pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
 		_ => ty,
 	};
 	match elem.kind() {
-		ty::Uint(ty::UintTy::U8) => v.method("view", vec![]),
+		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecView", vec![v]),
 		_ => v,
 	}
 }
@@ -1080,7 +1117,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
 			Std::Option => Expr::undefined(),
 			Std::Vec => match args.type_at(0).kind() {
-				ty::Uint(ty::UintTy::U8) => Expr::New(Box::new(Expr::Rt("ByteVec")), Vec::new()),
+				ty::Uint(ty::UintTy::U8) => Expr::New(Box::new(Expr::Rt("ByteVec".into())), Vec::new()),
 				_ => Expr::Array(Vec::new()),
 			},
 			Std::String => Expr::Str(String::new()),

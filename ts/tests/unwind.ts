@@ -46,7 +46,8 @@ const want = native.stdout.toString().trimEnd().split("\n");
 let failures = 0;
 let panics = 0;
 scripts.forEach((script, i) => {
-	const got = hex(caller.unwind(script).view());
+	const out = caller.unwind(script);
+	const got = hex(out.data.subarray(0, out.length));
 	if (want[i].includes(hex(Buffer.from("panic ")))) panics++;
 	if (got !== want[i]) {
 		failures++;

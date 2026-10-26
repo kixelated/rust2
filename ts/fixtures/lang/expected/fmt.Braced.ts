@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 
 export function fmt$Debug(_self: Braced, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return f.writeStr("Braced");
+	return rt.fmtWriteStr(f, "Braced");
 }
 
 export function eq$PartialEq(_self: Braced, _other: Braced): boolean {

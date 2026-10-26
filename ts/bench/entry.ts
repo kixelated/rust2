@@ -58,7 +58,7 @@ async function main() {
 	const wasm = new Wasm(await WebAssembly.compile(await load("bench.wasm")));
 	// The A/A route is the translation again, loaded as its own module: its spread from the
 	// first is the measurement's noise.
-	const translated = (out: { view(): Uint8Array }) => out.view();
+	const translated = (out: { data: Uint8Array; length: number }) => out.data.subarray(0, out.length);
 	const routes = [
 		await route("hand-written", "moq.js", (out: Uint8Array) => out),
 		await route("translated", "translated.js", translated),
