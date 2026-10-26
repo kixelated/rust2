@@ -257,11 +257,6 @@ pub fn counted() -> usize {
 	(0..2).map(Noisy).count()
 }
 
-/// `unwrap_or` drops its fallback when the option holds a value.
-pub fn fallback(a: Option<Noisy>, b: Noisy) -> Noisy {
-	a.unwrap_or(b)
-}
-
 /// `rest` borrows the tail of `items` mutably, but a JS array has no views.
 pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
 	if let [_, rest @ ..] = items {

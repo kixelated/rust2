@@ -47,19 +47,20 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 6`, panicking at the point `arg / 6 % 8` names, if any: what
+/// Run scenario `arg % 7`, panicking at the point `arg / 7 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 6 % 8;
+	let at = arg / 7 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 6 {
+	match arg % 7 {
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
+		6 => options(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -364,4 +365,47 @@ fn hashed(log: &Log, id: u32, at: u8) {
 	drop(set);
 	drop(map);
 	tally("end");
+}
+
+/// What std's functions on `Option`, `Result`, and `bool` drop of what they are given
+/// rather than return: an unused error or fallback, after any closure they call.
+fn options(log: &Log, id: u32, at: u8) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let check = |point: u8| {
+		if point == at {
+			panic!("d{id} at {point}");
+		}
+	};
+	let some = Some(guard(1)).ok_or(guard(2));
+	let none = if at > 8 { Some(guard(0)) } else { None }.ok_or(guard(3));
+	log.note(format!("ok_or {} {}", some.is_ok(), none.is_ok()));
+	check(1);
+	let ok = Ok::<Guard, Guard>(guard(4)).ok();
+	let err = Err::<Guard, Guard>(guard(5)).ok();
+	let flipped = Ok::<Guard, Guard>(guard(6)).err();
+	log.note(format!("ok {} {} {}", ok.is_some(), err.is_some(), flipped.is_some()));
+	check(2);
+	let kept = Some(guard(7)).unwrap_or(guard(8));
+	let fallback = None.unwrap_or(guard(9));
+	let value = Ok::<Guard, Guard>(guard(10)).unwrap_or(guard(11));
+	let error = Err::<Guard, Guard>(guard(12)).unwrap_or(guard(13));
+	log.note(format!(
+		"unwrap_or {} {} {} {}",
+		kept.id(),
+		fallback.id(),
+		value.id(),
+		error.id()
+	));
+	check(3);
+	let mapped = Some(id).map_or(guard(14), |n| {
+		log.note(format!("mapped"));
+		Guard::new(n + 15, log.clone())
+	});
+	let unmapped = None.map_or(guard(16), |n: u32| Guard::new(n, log.clone()));
+	log.note(format!("map_or {} {}", mapped.id(), unmapped.id()));
+	check(4);
+	let then = (at % 2 == 0).then_some(guard(17));
+	let never = false.then_some(guard(18));
+	log.note(format!("then_some {} {}", then.is_some(), never.is_some()));
+	check(5);
 }

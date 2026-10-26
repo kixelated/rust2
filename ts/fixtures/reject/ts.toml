@@ -34,7 +34,6 @@ roots = [
     "fused",
     "drained",
     "counted",
-    "fallback",
     "rest_mut",
     "replace_pinned_ref",
     "replace_captured",

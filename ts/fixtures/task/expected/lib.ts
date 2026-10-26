@@ -62,6 +62,14 @@ export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
 	}
 }
 
+export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>): void {
+	if (_1.ok) {
+		rt.drop(_1.value);
+	} else {
+		rt.drop(_1.error);
+	}
+}
+
 export function drop$Result_u32_Guard(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);

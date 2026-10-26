@@ -50,20 +50,19 @@ a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@f
 unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:211:8
 an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:252:4
 an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:257:20
-passing `std::option::Option<Noisy>`, which drops, to `Option::unwrap_or`, which is not supported yet at fixtures/reject/src/lib.rs:262:4
-a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:267:13
-an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:275:2
-replacing the value behind a reference to `[u8; 1]` at fixtures/reject/src/lib.rs:281:22
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:292:14
-a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:298:7
-a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:298:48
-`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:303:2
-`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:303:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:308:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:308:52
-`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:326:6
+a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:262:13
+an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:270:2
+replacing the value behind a reference to `[u8; 1]` at fixtures/reject/src/lib.rs:276:22
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:287:14
+a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:293:7
+a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:293:48
+`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:298:2
+`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:298:6
+hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:303:52
+comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:303:52
+`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:321:6
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:170:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:190:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:224:2
 an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:244:1
-`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:334:9
+`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:329:9

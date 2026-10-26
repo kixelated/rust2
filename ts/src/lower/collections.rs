@@ -110,7 +110,7 @@ pub fn call<'tcx>(
 			format!("`{owner}::{name}` of `{coll}`, which may drop what it holds, which is not supported yet"),
 		)));
 	}
-	let Some(mut droppers) = droppers(b, coll, lost, span) else {
+	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
 		return Ok(Some(Expr::undefined()));
 	};
 	if droppers.is_empty() {
@@ -127,23 +127,6 @@ pub fn call<'tcx>(
 		}
 		e => e,
 	}))
-}
-
-/// What drops each of `coll`'s type arguments `lost`, or `undefined` for one that drops
-/// nothing, up to the last that drops; `None` if translation refused one.
-fn droppers<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, lost: &[usize], span: Span) -> Option<Vec<Expr>> {
-	let mut droppers = Vec::new();
-	for &n in lost {
-		let ty = arg(coll, n);
-		droppers.push(match b.t.drops(ty) {
-			true => b.t.drop_fn(ty, span)?,
-			false => Expr::undefined(),
-		});
-	}
-	while matches!(droppers.last(), Some(Expr::Lit(l)) if l == "undefined") {
-		droppers.pop();
-	}
-	Some(droppers)
 }
 
 /// What a method of a collection of type `std` may drop rather than return or keep, as the
@@ -830,7 +813,7 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, span:
 	}
 	// A map or set drops the duplicates it is given.
 	if let Some(lost) = discarded(std, "From", "from") {
-		values.extend(droppers(b, ty, lost, span)?);
+		values.extend(b.t.droppers(lost.iter().map(|&n| arg(ty, n)), span)?);
 	}
 	Some(Expr::rt(extend, values))
 }

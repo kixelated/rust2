@@ -62,14 +62,21 @@ function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
 	panicFmt([message, ": ", (f) => debug(value, f)]);
 }
 
-/** `Result::ok`: the value, or `undefined` for an error. */
-export function resultOk<T, E>(r: Result<T, E>): T | undefined {
-	return r.ok ? r.value : undefined;
+// A function that may drop an operand std's would, rather than return it, takes what
+// drops it, and drops it where std's does: as it returns, after any closure it calls.
+
+/** `Result::ok`: the value, or `undefined` for an error, which drops. */
+export function resultOk<T, E>(r: Result<T, E>, drop?: (error: E) => void): T | undefined {
+	if (r.ok) return r.value;
+	drop?.(r.error);
+	return undefined;
 }
 
-/** `Result::err`: the error, or `undefined` for a value. */
-export function resultErr<T, E>(r: Result<T, E>): E | undefined {
-	return r.ok ? undefined : r.error;
+/** `Result::err`: the error, or `undefined` for a value, which drops. */
+export function resultErr<T, E>(r: Result<T, E>, drop?: (value: T) => void): E | undefined {
+	if (!r.ok) return r.error;
+	drop?.(r.value);
+	return undefined;
 }
 
 /** `Result::map`. */
@@ -93,9 +100,14 @@ export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void): 
 	return r;
 }
 
-/** `Result::unwrap_or`. */
-export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T): T {
-	return r.ok ? r.value : fallback;
+/** `Result::unwrap_or`: the value, and the fallback drops, or else the fallback, and the error drops. */
+export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T, value?: (value: T) => void, error?: (error: E) => void): T {
+	if (r.ok) {
+		value?.(fallback);
+		return r.value;
+	}
+	error?.(r.error);
+	return fallback;
 }
 
 /** `unwrap`, which shows the error with `debug`. */
@@ -123,20 +135,30 @@ export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undef
 	return o === undefined ? undefined : f(o);
 }
 
-/** `Option::unwrap_or`. */
-export function optionUnwrapOr<T>(o: T | undefined, fallback: T): T {
-	return o === undefined ? fallback : o;
+/** `Option::unwrap_or`: the value, and the fallback drops, or else the fallback. */
+export function optionUnwrapOr<T>(o: T | undefined, fallback: T, drop?: (value: T) => void): T {
+	if (o === undefined) return fallback;
+	drop?.(fallback);
+	return o;
 }
 
 // `f` decides `U`, since a literal fallback would infer a literal type.
-/** `Option::map_or`. */
-export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U): U {
-	return o === undefined ? fallback : f(o);
+/** `Option::map_or`: `f` of the value, and the fallback drops, or else the fallback, and `f` drops. */
+export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U, drop?: (value: U) => void, dropF?: (f: (value: T) => U) => void): U {
+	if (o === undefined) {
+		dropF?.(f);
+		return fallback;
+	}
+	const mapped = f(o);
+	drop?.(fallback);
+	return mapped;
 }
 
-/** `Option::ok_or`. */
-export function optionOkOr<T, E>(o: T | undefined, error: E): Result<T, E> {
-	return o === undefined ? Err(error) : Ok(o);
+/** `Option::ok_or`: the value, and the error drops, or else the error. */
+export function optionOkOr<T, E>(o: T | undefined, error: E, drop?: (error: E) => void): Result<T, E> {
+	if (o === undefined) return Err(error);
+	drop?.(error);
+	return Ok(o);
 }
 
 /** `Option::unwrap`: the value, or a panic. */
@@ -151,9 +173,11 @@ export function optionExpect<T>(o: T | undefined, message: string): T {
 	return o;
 }
 
-/** `bool::then_some`: `value` if `cond`, which is evaluated either way. */
-export function thenSome<T>(cond: boolean, value: T): T | undefined {
-	return cond ? value : undefined;
+/** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined {
+	if (cond) return value;
+	drop?.(value);
+	return undefined;
 }
 
 // Slices, which are `Uint8Array` views for bytes and arrays otherwise.

@@ -252,6 +252,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		super::mir::glue::shim(self, ty, span).map(Expr::Sym)
 	}
 
+	/// What drops each of `tys`, as a runtime function takes them after its own arguments:
+	/// `undefined` for one that drops nothing, up to the last that drops. `None` if
+	/// translation refused one.
+	pub fn droppers(&mut self, tys: impl IntoIterator<Item = Ty<'tcx>>, span: Span) -> Option<Vec<Expr>> {
+		let mut droppers = Vec::new();
+		let mut used = 0;
+		for ty in tys {
+			match self.drops(ty) {
+				true => {
+					droppers.push(self.drop_fn(ty, span)?);
+					used = droppers.len();
+				}
+				false => droppers.push(Expr::undefined()),
+			}
+		}
+		droppers.truncate(used);
+		Some(droppers)
+	}
+
 	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
 	/// whose JS value is the array or `undefined`.
 	fn elements(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
