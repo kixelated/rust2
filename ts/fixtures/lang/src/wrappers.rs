@@ -125,6 +125,13 @@ pub fn wrappers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				put_u64(out, *k);
 			}
 			out.push(map.range(..a).count() as u8);
+			// Exhausted by wrapping either way, an inclusive range holds nothing.
+			let mut top = (u64::MAX - a % 2)..=u64::MAX;
+			while top.next().is_some() {}
+			let mut bottom = 0..=(b % 2);
+			while bottom.next_back().is_some() {}
+			out.push(map.range(top).count() as u8);
+			out.push(map.range(bottom).count() as u8);
 			let above = map.split_off(&b);
 			for (k, v) in map.iter().chain(above.iter()) {
 				put_u64(out, *k);

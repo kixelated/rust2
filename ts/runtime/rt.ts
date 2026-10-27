@@ -356,7 +356,11 @@ function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 			let j = mid;
 			let k = lo;
 			try {
-				while (i < left.length && j < hi) s[k++] = less(s[j], left[i]) ? s[j++] : left[i++];
+				// `k` moves only once `less` returns, so a panic leaves no slot written twice.
+				while (i < left.length && j < hi) {
+					s[k] = less(s[j], left[i]) ? s[j++] : left[i++];
+					k++;
+				}
 			} finally {
 				while (i < left.length) s[k++] = left[i++];
 			}

@@ -1300,9 +1300,9 @@ export type Bounds<K> =
 /** `RangeBounds`: the start, the end, and whether the end is in the range, as `..=end`'s is. */
 function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefined, boolean] {
 	if (r === undefined) return [undefined, undefined, false];
-	// Exhausted, an inclusive range ends before its end, as its `end_bound` says. A field
-	// test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
-	if ("exhausted" in r) return [{ key: r.lo }, { key: r.hi }, !r.exhausted];
+	// Exhausted by wrapping, an inclusive range excludes its start, as its `end_bound` says.
+	// A field test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
+	if ("exhausted" in r) return [{ key: r.lo }, { key: r.exhausted ? r.lo : r.hi }, !r.exhausted];
 	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, "inclusive" in r];
 }
 

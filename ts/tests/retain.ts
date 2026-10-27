@@ -103,3 +103,24 @@ for (let n = 0; n <= 6; n++) {
 		}
 	}
 }
+
+// Past one insertion-sorted run, so a comparator panics in merges too, at each of its calls.
+for (const n of [17, 40, 70]) {
+	const unsorted = [...Array(n).keys()].map((i) => ((n - i) * 7) % 31);
+	const want = unsorted.slice().sort().join();
+	for (let p = 0, thrown = true; thrown; p++) {
+		const sorted = unsorted.slice();
+		let calls = 0;
+		thrown = false;
+		try {
+			rt.sliceSortBy(sorted, (a, b) => {
+				if (calls++ === p) throw new Thrown();
+				return rt.cmp(a, b);
+			});
+		} catch (err) {
+			if (!(err instanceof Thrown)) throw err;
+			thrown = true;
+		}
+		if (sorted.slice().sort().join() !== want) throw new Error(`sort of ${n} panicking at ${p}: ${sorted}`);
+	}
+}
