@@ -70,6 +70,14 @@ impl Guard {
 		Self { id, log }
 	}
 
+	pub fn id(&self) -> u32 {
+		self.id
+	}
+
+	pub fn log(&self) -> &Log {
+		&self.log
+	}
+
 	/// Log `event` as this guard's.
 	fn note(&self, event: &str) {
 		self.log.note(format!("g{} {event}", self.id));

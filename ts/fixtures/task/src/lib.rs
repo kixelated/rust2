@@ -1,6 +1,8 @@
 //! A kio-shaped channel and the async code moq builds on it, exercised against native
 //! Rust: laziness, poll and wake order, and every drop, including a future's on cancel.
 //!
+//! `drops` holds values that drop in what std holds them in.
+//!
 //! `kio` trims moq's kio to what its futures hinge on: a `Waiter` holding the task's
 //! waker behind an `Arc` that `WaiterList`s hold weakly, `wait`, and a channel whose
 //! last producer closes it on drop. `model` holds the async functions. `exec` is a
@@ -10,6 +12,7 @@
 //! bench` times. None of `exec`, `harness`, and `bench` is translated.
 
 pub mod bench;
+pub mod drops;
 pub mod exec;
 pub mod harness;
 pub mod kio;

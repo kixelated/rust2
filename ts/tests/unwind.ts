@@ -31,7 +31,7 @@ for (let i = 0; i < count; i++) {
 	const steps = 4 + (next() % 20);
 	const script = new Uint8Array(steps * 2);
 	for (let s = 0; s < steps; s++) {
-		script[2 * s] = next() % 11;
+		script[2 * s] = next() % 13;
 		// A send of 99 panics the `sum` reading it.
 		script[2 * s + 1] = next() % 4 === 0 ? 99 : next() % 256;
 	}

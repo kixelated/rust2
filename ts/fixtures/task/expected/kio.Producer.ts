@@ -14,8 +14,17 @@ export class Producer {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
-		rt.drop(this.state);
+		let dropped: number = 0;
+		try {
+			drop$Drop(this);
+			dropped = 1;
+			rt.drop(this.state);
+		} catch (e) {
+			if (dropped < 1) {
+				rt.drop(this.state);
+			}
+			throw e;
+		}
 	}
 }
 

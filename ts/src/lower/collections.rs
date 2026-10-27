@@ -62,17 +62,13 @@ pub fn call<'tcx>(
 				if !std_key(b, t) || Int::of(t).is_some() {
 					return Err(args);
 				}
-				// The runtime's returns one operand and leaves the other undropped.
-				if let Some(operand) = self_ty
-					&& b.t.drops(operand)
-				{
-					return Ok(Some(b.err(
-						span,
-						format!("passing `{operand}`, which drops, to `{owner}::{name}`, which is not supported yet"),
-					)));
-				}
 				let mut values = args;
 				values.push(cmp_fn(b, t, false, span));
+				// What drops the operand it does not return.
+				let Some(droppers) = b.t.droppers(self_ty, span) else {
+					return Ok(Some(Expr::undefined()));
+				};
+				values.extend(droppers);
 				return Ok(Some(Expr::rt(if name == "max" { "ordMax" } else { "ordMin" }, values)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
@@ -148,36 +144,59 @@ pub fn call<'tcx>(
 		Std::Hasher if matches!(name, "new" | "default") => Some(Expr::rt("hasher", vec![])),
 		_ => return Err(args),
 	};
-	if e.is_some()
-		&& let Some(lost) = discarded(std, coll, owner, name)
-		&& b.t.drops(lost)
-	{
-		let what = match lost == coll {
-			true => "what it holds".to_string(),
-			false => format!("a `{lost}`"),
-		};
+	let Some(e) = e else {
+		return Ok(None);
+	};
+	// The runtime drops what std's would rather than return or keep, given what drops it.
+	let Some(lost) = discarded(std, owner, name) else {
+		return Ok(Some(e));
+	};
+	if lost.is_empty() && b.t.drops(coll) {
 		return Ok(Some(b.err(
 			span,
-			format!("`{owner}::{name}` of `{coll}`, which may drop {what}, which is not supported yet"),
+			format!("`{owner}::{name}` of `{coll}`, which may drop what it holds, which is not supported yet"),
 		)));
 	}
-	Ok(e)
+	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
+		return Ok(Some(Expr::undefined()));
+	};
+	if droppers.is_empty() {
+		return Ok(Some(e));
+	}
+	// `extend` comes before `last`, which only `from` sets.
+	if owner == "Extend" && matches!(std, Std::BTreeMap | Std::BTreeSet) {
+		droppers.insert(0, Expr::lit("false"));
+	}
+	Ok(Some(match e {
+		Expr::Call(f, mut args) => {
+			args.extend(droppers);
+			Expr::Call(f, args)
+		}
+		e => e,
+	}))
 }
 
-/// What a method of `coll` may drop rather than return or keep, which the runtime would
-/// leave to JS's collector: the key `insert` and `entry` are given if an equal one is
-/// there already, the key `remove` takes out, the value `or_insert` is given if one is,
-/// or anything `coll` holds.
-fn discarded<'tcx>(std: Std, coll: Ty<'tcx>, owner: &str, name: &str) -> Option<Ty<'tcx>> {
-	let map = matches!(std, Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet);
-	match (owner, name) {
-		(_, "insert" | "entry" | "remove") if map => Some(arg(coll, 0)),
-		(_, "remove") if std == Std::Entry => Some(arg(coll, 0)),
-		(_, "or_insert") if std == Std::Entry => Some(arg(coll, 1)),
-		("Extend", _) | ("From", _) if map => Some(coll),
-		(_, "clear" | "retain" | "retain_mut" | "truncate" | "drain" | "into_keys" | "into_values") => Some(coll),
-		_ => None,
-	}
+/// What a method of a collection of type `std` may drop rather than return or keep, as the
+/// indices of the collection's type arguments whose runtime function takes what drops each,
+/// after its own arguments: the key `insert` and `entry` are given if an equal one is there
+/// already, and the value `insert` is given if the key's `Hash`, `Eq`, or `Ord` panics,
+/// the key `remove` takes out, the value `or_insert` is given if one is, the key an
+/// `or_insert_with` keeps if its closure panics, and what `clear`, `retain`, `truncate`,
+/// `extend`, and `from` discard. An empty list is what an iterator owns, which is refused.
+fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
+	let map = matches!(std, Std::HashMap | Std::BTreeMap);
+	let set = matches!(std, Std::HashSet | Std::BTreeSet);
+	Some(match (owner, name) {
+		(_, "insert") if map => &[0, 1],
+		(_, "insert" | "entry" | "remove") if map || set => &[0],
+		(_, "remove" | "or_insert_with" | "or_insert_with_key" | "or_default") if std == Std::Entry => &[0],
+		(_, "or_insert") if std == Std::Entry => &[1],
+		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if map => &[0, 1],
+		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if set => &[0],
+		(_, "clear" | "retain" | "retain_mut" | "truncate") if std == Std::VecDeque => &[0],
+		(_, "drain" | "into_keys" | "into_values") => &[],
+		_ => return None,
+	})
 }
 
 /// The type a lookup of a map or set takes its key as: the `Q` of `get<Q>` where
@@ -946,17 +965,14 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, span:
 		Std::VecDeque => (deque_new(b, ty, span), "dequeExtend"),
 		_ => return None,
 	};
-	// A map or set drops the duplicates it is given.
-	if std != Std::VecDeque && b.t.drops(ty) {
-		return Some(b.err(
-			span,
-			format!("collecting into `{ty}`, which may drop a duplicate, which is not supported yet"),
-		));
-	}
 	let mut values = vec![target, iter];
 	// A B-tree's `collect` keeps the last of equal keys, as std's sorted bulk build does.
-	if matches!(b.t.std_of(ty), Some(Std::BTreeMap | Std::BTreeSet)) {
+	if matches!(std, Std::BTreeMap | Std::BTreeSet) {
 		values.push(Expr::lit("true"));
+	}
+	// A map or set drops the duplicates it is given.
+	if let Some(lost) = discarded(std, "From", "from") {
+		values.extend(b.t.droppers(lost.iter().map(|&n| arg(ty, n)), span)?);
 	}
 	Some(Expr::rt(extend, values))
 }
