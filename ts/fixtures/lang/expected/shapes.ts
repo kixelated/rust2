@@ -139,7 +139,7 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 	word[0] = 9;
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u32Add(converted, word[0] as rt.u32))));
 	const cell: Uint8Array = Uint8Array.of(data.length & 0xff);
-	rt.byteVecPush(out, writeThenRead(copy$u8s(cell), cell));
+	rt.byteVecPush(out, writeThenRead(copy$u8s(cell), rt.byteSliceFrom(cell)));
 	const source: Uint8Array = Uint8Array.of(data.length & 0xff);
 	const returned: Uint8Array = same(copy$u8s(source));
 	source[0] = 9;
@@ -199,7 +199,8 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const polled_: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
 	if (poll !== rt.Pending) {
-		poll[0] = 9;
+		const bytes: rt.ByteSlice = rt.byteSliceFrom(poll);
+		bytes.data[bytes.start] = 9;
 	}
 	const _239: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
 	const iter3: rt.Iter<rt.Poll<Uint8Array>> = rt.iterSlice([copy$Poll_u8s(polled_), _239]);
@@ -346,7 +347,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(kept.at.x & 0xff, read & 0xff, by & 0xff, part & 0xff, source.at.x & 0xff)));
 		unwind = 117;
 		const bytes: Uint8Array = Uint8Array.of(a, 1);
-		rt.byteVecPush(out, unsizedCopy(bytes));
+		rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
 		rt.byteVecPush(out, bytes[0]);
 		const at: rt.usize = rt.optionMapOr(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 			return rt.usizeRem(_22 as rt.usize, 3);
@@ -437,8 +438,8 @@ export function sliceChangedThenRead(copy: Uint8Array, live: rt.ByteSlice): rt.u
 }
 
 /** `src[0]` as it was, read after a call changes it through a slice. */
-export function unsizedCopy(src: Uint8Array): rt.u8 {
-	return sliceChangedThenRead(copy$u8s(src), rt.byteSliceFrom(src));
+export function unsizedCopy(src: rt.ByteSlice): rt.u8 {
+	return sliceChangedThenRead(rt.byteSliceToArray(src), src);
 }
 
 /** `copy.x`, read after `by` moves what it holds right by one. */
@@ -460,16 +461,17 @@ export function lensBumped(lens: Lens.Lens): rt.u8 {
 export function sameArc(flow: rt.Result<Uint8Array, rt.Arc<rt.u8>>, arc: rt.Arc<rt.u8>): rt.u8 {
 	flow = copy$ControlFlow_Arc_u8_u8s(flow);
 	if (flow.ok) {
-		const _5: rt.u8 = rt.u8WrappingAdd(flow.value[0], 1);
-		flow.value[0] = _5;
-		return flow.value[0];
+		const bytes: rt.ByteSlice = rt.byteSliceFrom(flow.value);
+		const _5: rt.u8 = rt.u8WrappingAdd(bytes.data[bytes.start], 1);
+		bytes.data[bytes.start] = _5;
+		return bytes.data[bytes.start];
 	}
 	return flow.error === arc ? 1 : 0;
 }
 
 /** `a`'s byte, after writing `b`'s. */
-export function writeThenRead(a: Uint8Array, b: Uint8Array): rt.u8 {
-	b[0] = 9;
+export function writeThenRead(a: Uint8Array, b: rt.ByteSlice): rt.u8 {
+	b.data[b.start] = 9;
 	return a[0];
 }
 
@@ -512,7 +514,7 @@ export function order(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const pair: Pair.Pair = { _0: mark(out, 7) & 0xff, _1: _28 };
 	const n: Uint8Array = Uint8Array.of(at(2));
 	const _37: rt.i32 = n[0] as rt.i32;
-	const read: Point.Point = { x: increment(n) as rt.i32, y: _37 };
+	const read: Point.Point = { x: increment(rt.byteSliceFrom(n)) as rt.i32, y: _37 };
 	const base: Moved.Moved = { _0: at(4), _1: 0 };
 	const _49: rt.u16 = reset(base);
 	const updated: Moved.Moved = { _0: base._0, _1: _49 };
@@ -588,7 +590,7 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 	slots[0] = rt.u8Add(slots[0], _58);
 	const m: Uint8Array = Uint8Array.of(at(6));
 	const before: rt.u8 = m[0];
-	const after: rt.u8 = rt.u8WrappingSub(increment(m), before);
+	const after: rt.u8 = rt.u8WrappingSub(increment(rt.byteSliceFrom(m)), before);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(first, second, called, f(1), slots[0], n, after)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
 	const _89: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(data, rt.usizeDiv(data.length, 2));
@@ -637,9 +639,10 @@ export function logged(data: rt.ByteSlice, out: rt.ByteVec): rt.ByteSlice {
 }
 
 /** `n`'s byte, incremented. */
-export function increment(n: Uint8Array): rt.u8 {
-	n[0] = rt.u8WrappingAdd(n[0], 1);
-	return n[0];
+export function increment(n: rt.ByteSlice): rt.u8 {
+	const _2: rt.u8 = rt.u8WrappingAdd(n.data[n.start], 1);
+	n.data[n.start] = _2;
+	return n.data[n.start];
 }
 
 /** Changes `m`'s first field. */
@@ -1310,7 +1313,8 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, v);
 	rt.byteVecPush(out, rt.u8Add(rt.byteSliceFrom(Uint8Array.of()).length & 0xff, rt.iterSum(rt.iterSlice(rt.byteSliceView(rt.byteSliceFrom(Uint8Array.of()))), rt.u8Add, 0)));
 	const bytes: Uint8Array = Uint8Array.of(data.length & 0xff, 1, 2);
-	bytes.subarray(1, 3)[0] = 9;
+	const slice = rt.byteSliceRange(rt.byteSliceFrom(bytes), 1, 3);
+	slice.data[slice.start] = 9;
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }], out)))));
 	const parsed: rt.Result<rt.u8, Void.Void> = rt.Ok(data.length & 0xff);
@@ -1592,7 +1596,7 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return rt.u32Add(captured2, 1);
 	})(), n))));
 	const whole: Uint8Array = Uint8Array.of(data.length & 0xff);
-	overwrite(whole);
+	overwrite(rt.byteSliceFrom(whole));
 	rt.byteVecPush(out, whole[0]);
 	const parsed: Array<Dir.Dir | undefined> = [];
 	for (const _53 of rt.byteSliceView(data)) {
@@ -1608,9 +1612,9 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Replaces `a` whole from a closure. */
-export function overwrite(a: Uint8Array): void {
+export function overwrite(a: rt.ByteSlice): void {
 	((): void => {
-		a.set(Uint8Array.of(9));
+		a.data.set(Uint8Array.of(9), a.start);
 	})();
 }
 
@@ -1634,11 +1638,11 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 	};
 	const _30: (a0: rt.u8) => rt.Poll<rt.Result<rt.u8, rt.u8>> = (a3: rt.u8): rt.Poll<rt.Result<rt.u8, rt.u8>> => {
 		let half!: rt.Result<rt.u8, Dir.Dir>;
-		const _43: Dir.Dir | undefined = dir(a3);
+		const _47: Dir.Dir | undefined = dir(a3);
 		b0: {
-			if (_43 !== undefined) {
+			if (_47 !== undefined) {
 				if (rt.u8Rem(a3, 2) === 1) {
-					half = rt.Err(_43);
+					half = rt.Err(_47);
 					break b0;
 				}
 			}
@@ -1776,8 +1780,9 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const original: rt.Result<Uint8Array, undefined> = rt.Ok(Uint8Array.of(a, 1));
 	const copied: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(original);
 	if (copied.ok) {
-		const _83: rt.u8 = rt.u8WrappingAdd(copied.value[0], 1);
-		copied.value[0] = _83;
+		const v: rt.ByteSlice = rt.byteSliceFrom(copied.value);
+		const _83: rt.u8 = rt.u8WrappingAdd(v.data[v.start], 1);
+		v.data[v.start] = _83;
 	}
 	const _91: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(copied);
 	const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([copy$ControlFlow_unit_u8s(original), _91]);

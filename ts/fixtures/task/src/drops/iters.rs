@@ -181,7 +181,18 @@ pub(super) fn collected(log: &Log, id: u32, at: u8) {
 		.into_iter()
 		.collect();
 	log.note(format!("tree {}", tree.len()));
-	check(5);
+	// Collected references to values that drop: a panic drops the source, not what they
+	// point to.
+	let refs: Vec<&Guard> = list![guard(24), guard(25)]
+		.into_iter()
+		.map(|g| {
+			if g.id() == id + 25 {
+				check(5);
+			}
+			&same[0]
+		})
+		.collect();
+	log.note(format!("refs {}", refs.len()));
 	let queue: VecDeque<Guard> = list![guard(19), guard(20)]
 		.into_iter()
 		.map(|g| {

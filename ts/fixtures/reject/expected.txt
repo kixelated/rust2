@@ -51,24 +51,26 @@ unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject
 a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:253:15: 253:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:253:30
 a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:258:13
 an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:266:2
-replacing the value behind a reference to `[u8; 1]` at fixtures/reject/src/lib.rs:272:22
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:283:14
-a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:289:7
-a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:289:48
-`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:294:2
-`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:294:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:299:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:299:52
-`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:317:6
-unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:367:4
-a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:372:2
-`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:376:15
-replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:377:4
-unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reject/src/lib.rs:383:4
-passing `{closure@fixtures/reject/src/lib.rs:393:28: 393:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:393:13
-passing `{closure@fixtures/reject/src/lib.rs:394:15: 394:24}`, a closure that owns a value that drops, to `Iterator::any`, which is not supported yet at fixtures/reject/src/lib.rs:394:11
+replacing the value behind a reference to `[u16; 1]` at fixtures/reject/src/lib.rs:272:22
+`std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:279:16
+`std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:279:38
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:289:14
+a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:295:7
+a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:295:48
+`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:300:2
+`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:300:6
+hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:305:52
+comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:305:52
+`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:323:6
+unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:373:4
+a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:378:2
+`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:382:15
+replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:383:4
+unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reject/src/lib.rs:389:4
+passing `{closure@fixtures/reject/src/lib.rs:399:28: 399:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:399:13
+passing `{closure@fixtures/reject/src/lib.rs:400:15: 400:24}`, a closure that owns a value that drops, to `Iterator::any`, which is not supported yet at fixtures/reject/src/lib.rs:400:11
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:166:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:186:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:220:2
 an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:240:1
-`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:325:9
+`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:331:9

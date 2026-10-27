@@ -497,17 +497,19 @@ export function iterToArray<T>(it: Iter<T>, inPlace = false, dropIt?: Drop<Iter<
 		for (let item = it.next(); item !== DONE; item = it.next()) out.push(item);
 		return out;
 	}
+	// Not `dropAll`'s default, which would drop what a collected reference points to.
+	const collected = () => drop !== undefined && dropAll(out, drop);
 	try {
 		for (let item = it.next(); item !== DONE; item = it.next()) out.push(item);
 	} catch (e) {
-		if (inPlace) both(() => dropAll(out, drop), () => dropIt?.(it));
-		else both(() => dropIt?.(it), () => dropAll(out, drop));
+		if (inPlace) both(collected, () => dropIt?.(it));
+		else both(() => dropIt?.(it), collected);
 		throw e;
 	}
 	try {
 		dropIt?.(it);
 	} catch (e) {
-		dropAll(out, drop);
+		collected();
 		throw e;
 	}
 	return out;

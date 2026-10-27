@@ -10,7 +10,7 @@ use rustc_span::Span;
 use super::{Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
-use crate::lower::{AdtRepr, field_name};
+use crate::lower::{AdtRepr, byte_array, field_name};
 use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -43,7 +43,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						));
 					}
 				}
-				self.place_expr(*place, span, out)
+				let value = self.place_expr(*place, span, out);
+				// A borrow of an array of bytes is a slice of all of it, sharing its bytes.
+				match byte_array(place.ty(&self.mir.local_decls, tcx).ty) && !self.in_bytes(*place) {
+					true => Expr::rt("byteSliceFrom", vec![value]),
+					false => value,
+				}
 			}
 			// A bounds check of a `&mut` slice reads its length through a raw pointer that
 			// only `PtrMetadata` reads, which reads the slice's.
@@ -187,12 +192,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.b.fmt_value(tr, from, value, span, out)
 				}
 				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
-				// An array's bytes, as a slice of all of it.
+				// An array's bytes, as a slice of all of it: a reference to them is one already.
 				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
 					match to.builtin_deref(true) {
 						Some(pointee) if super::place::byte_slice(pointee) => {
 							let value = self.operand(op, span, out);
-							Expr::rt("byteSliceFrom", vec![value])
+							match crate::lower::bytes_ref(from) {
+								true => value,
+								false => Expr::rt("byteSliceFrom", vec![value]),
+							}
 						}
 						_ => self.err(span, format!("a coercion to `{to}`")),
 					}

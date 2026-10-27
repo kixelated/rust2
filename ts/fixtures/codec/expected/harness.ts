@@ -343,9 +343,8 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 					}
 					result = Encoder.varintOpt(w, _47);
 				} else if (_33 === 5) {
-					const _53: Uint8Array = rt.u64ToBeBytes(value);
 					const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
-					const _51: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(_53), 0, part);
+					const _51: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(rt.u64ToBeBytes(value)), 0, part);
 					result = Encoder.bytes(w, _51);
 				} else if (_33 === 6) {
 					const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(rt.byteSliceFrom(rt.u64ToBeBytes(value))));
