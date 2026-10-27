@@ -8,14 +8,17 @@ bytes minified and 9422 gzipped, and the async handoff's at most 3458 gzipped.
 
 ## Plan
 
-[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3363 bytes
-gzipped and the codec to 30094 minified. The codec's 9651 gzipped is what remains,
-229 bytes over.
+[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3424 bytes
+gzipped and the codec to 30347 minified. The codec's 9744 gzipped is what remains,
+322 bytes over.
 
-That gap is the runtime, not the lowering: [#89](https://github.com/kixelated/rust2/pull/89)
-grew `rt/int.ts` after THIR's numbers were taken, and THIR's own output bundled with
-today's `rt/int.ts` is 31112 bytes minified and 9666 gzipped, over MIR's. Closing it
-means trimming what the codec pulls from `rt/int.ts`, without losing #89's speed.
+That gap came after THIR's numbers were taken, not from the lowering:
+[#89](https://github.com/kixelated/rust2/pull/89) grew `rt/int.ts`, and
+[#87](https://github.com/kixelated/rust2/pull/87)'s drop glue with
+[#98](https://github.com/kixelated/rust2/pull/98) added 93 bytes gzipped.
+THIR's own output, without those drops, bundled with #95's `rt/int.ts` is 31112 bytes
+minified and 9666 gzipped. Closing the gap means trimming what the codec pulls from
+`rt/int.ts` or its drop glue, without losing speed.
 
 Small cuts measured by hand on the handoff and left out, each under 1% gzipped:
 hoisting a dispatch's entry case out of its `switch` (3-7 bytes), dropping `unwind`
