@@ -339,8 +339,8 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				self.writes.insert(self.tcx, self.def_id, base.ty(self.body, self.tcx).ty);
 			}
 		}
-		// A write to a whole local gives it another value; one through a reference, or a
-		// mutable borrow, can write into the value there.
+		// A write to a whole local gives it another value, but one through a reference or a
+		// box, or a mutable borrow, writes into the value there.
 		let through = matches!(place.projection.last(), Some(ProjectionElem::Deref));
 		let replaces = matches!(
 			kind,

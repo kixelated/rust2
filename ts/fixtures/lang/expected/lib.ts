@@ -10,6 +10,7 @@ import type * as Horizon from "./keys.Horizon.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
+import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
@@ -58,6 +59,10 @@ export function copy$Horizon(v: Horizon.Horizon): Horizon.Horizon {
 
 export function copy$Lens(v: Lens.Lens): Lens.Lens {
 	return { slot: v.slot, n: v.n };
+}
+
+export function copy$Level(v: Level.Level): Level.Level {
+	return { _0: v._0 };
 }
 
 export function copy$Mark(v: Mark.Mark): Mark.Mark {

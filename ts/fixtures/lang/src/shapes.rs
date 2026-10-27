@@ -295,8 +295,12 @@ struct Gauge {
 	level: u8,
 }
 
-/// `Copy` aggregates written into only where the copy's function can't see: in another
-/// module, or behind a type parameter. Each copy keeps its value.
+/// A `Copy` struct written into only through a box.
+#[derive(Clone, Copy)]
+struct Level(u8);
+
+/// `Copy` aggregates written into only in another module, behind a type parameter, or
+/// through a box. Each copy keeps its value.
 fn unwritten(data: &[u8], out: &mut Vec<u8>) {
 	let n = data.len() as u8;
 	let mut track = Track { mark: Mark { at: n } };
@@ -308,6 +312,13 @@ fn unwritten(data: &[u8], out: &mut Vec<u8>) {
 	let mut gauges = [first; 2];
 	crate::generics::reset(&mut gauges);
 	out.extend_from_slice(&[first.level, gauges[0].level, gauges[1].level]);
+
+	let start = Level(n);
+	let mut boxed = Box::new(start);
+	*boxed = Level(!n);
+	for level in [start, *boxed] {
+		out.push(level.0);
+	}
 }
 
 /// A `Copy` struct holding a shared reference to a value that changes through it.
