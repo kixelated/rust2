@@ -18,6 +18,8 @@ else. rangemap adds 266.
 - One program: the driver lowers the named crates' MIR with the package's. A
   `cargo check` encodes no MIR for a dependency's functions, and the driver wraps every
   rustc, so it gives the named crates `-Zalways-encode-mir`.
+- The driver passes `--cfg rust2_ts` to the package and the named crates, so moq's safe
+  twins of its internal `unsafe` are what translates.
 - Each crate's output goes in its own module directory, and the instances a crate's
   generics get from the package go with the crate that defines them.
 - The rule is general: a dependency without `unsafe` translates from source; one with
