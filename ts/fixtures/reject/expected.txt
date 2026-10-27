@@ -64,6 +64,9 @@ hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/rej
 comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:327:52
 `HashSet::remove` of `std::collections::HashSet<Loud>`, which may drop a `Loud`, which is not supported yet at fixtures/reject/src/lib.rs:340:6
 `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:357:6
+`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:406:15
+replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:407:4
+unsupported call to `core::str::<impl str>::split::<&str>` at fixtures/reject/src/lib.rs:412:4
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:184:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:204:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:238:2
