@@ -5,7 +5,7 @@
 // Each route runs alone in a realm of its own, a worker, which `measure` drives one
 // sample at a time. Routes in one realm share its state: JavaScriptCore merges the type
 // profiles of modules with the same text, a module two routes call sees both routes'
-// types, and V8 ran a route 4-12% slower loaded after an identical copy than before it.
+// types, and V8 ran a route 2-12% slower loaded after an identical copy than before it.
 
 import type { Wasm } from "../tests/wasm.ts";
 import type { Workload } from "./workloads.ts";
