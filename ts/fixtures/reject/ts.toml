@@ -50,6 +50,7 @@ roots = [
     "cow_made",
     "pushed",
     "owning_lazy",
+    "duration_assign",
     "missing",
 ]
 printable = ["Meters"]

@@ -277,6 +277,7 @@ pub fn std_impl<'tcx>(
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Debug) => rt("fromUtf8ErrorDebug", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Display) => rt("fromUtf8ErrorDisplay", vec![value, f]),
+			(Std::Duration, Trait::Debug) => Expr::rt("durationDebug", vec![value, f]),
 			_ => return None,
 		},
 		_ => return None,
