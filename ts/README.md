@@ -322,6 +322,15 @@ they need.
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
   assigned once and read once fold back into the expression that reads them unless that
   would reorder an effect.
+- `Option`'s and `Result`'s combinators lower from core's own MIR rather than runtime
+  functions, each of which restated core's drops and unwinding by hand. The wasm32
+  sysroot aborts on panic, so its MIR has no cleanups: std builds from source with
+  `-C panic=unwind`, which took a cold check from 33 to 42 seconds. Each closure gets
+  its own instance, keeping call sites monomorphic, and instances that print the same are
+  merged into one. An `Ok` rebuilt from a stable `Result`'s payload is that `Result`,
+  without which Node ran the codec 1.31x slower. Against the runtime functions, the codec
+  and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
+  them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
 ## Never
 
