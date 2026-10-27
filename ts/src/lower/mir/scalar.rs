@@ -353,7 +353,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			}
 			("slice", "split_at") if bytes() => Some(Producer::SplitAt { checked: false }),
 			("slice", "split_at_checked") if bytes() => Some(Producer::SplitAt { checked: true }),
-			("Option", "ok_or") if held(&args[0].node) => Some(Producer::OkOr),
+			("Option", "ok_or") if held(&args[0].node) && self.ok_or_error(&args[1].node, shape, shapes) => {
+				Some(Producer::OkOr)
+			}
 			("Try", "branch")
 				if held(&args[0].node)
 					&& gargs
@@ -400,6 +402,23 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				_ => false,
 			},
 			_ => false,
+		}
+	}
+
+	/// Whether `ok_or`'s error `op` can be the `Err` part of `shape`: a local held as its
+	/// parts, or a value with no enum in it to take apart.
+	fn ok_or_error(&self, op: &Operand<'tcx>, shape: &Shape<'tcx>, shapes: &FxHashMap<Local, Shape<'tcx>>) -> bool {
+		let Shape::Enum(_, [_, Some(err)]) = shape else {
+			return false;
+		};
+		let [err] = err.as_slice() else {
+			return false;
+		};
+		match op {
+			Operand::Copy(p) | Operand::Move(p) if let Some(source) = shapes.get(&p.local) => {
+				walk(source, p.projection).1 == p.projection.len() || !err.has_enum()
+			}
+			_ => !err.has_enum(),
 		}
 	}
 
@@ -818,7 +837,16 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Whether `local`, which a switch reads alone, holds the discriminant of a local held
 	/// as its parts, which its flag is.
 	pub(super) fn scalar_discr(&self, local: Local) -> bool {
-		matches!(self.def_rvalue(local), Some(Rvalue::Discriminant(p)) if self.scalars.contains_key(&p.local))
+		matches!(self.def_rvalue(local), Some(Rvalue::Discriminant(p)) if self.scalar_enum(*p))
+	}
+
+	/// Whether `place` is an enum held as its parts, whose flag is its discriminant, rather
+	/// than one a part holds whole, such as an error.
+	pub(super) fn scalar_enum(&self, place: Place<'tcx>) -> bool {
+		self.scalars.get(&place.local).is_some_and(|scalar| {
+			let (node, n) = walk(&scalar.shape, place.projection);
+			n == place.projection.len() && matches!(node.shape, Shape::Enum(..))
+		})
 	}
 
 	/// Whether `local`'s one assignment reads a part of a local held as its parts that

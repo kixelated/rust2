@@ -27,6 +27,12 @@ fn take(data: &[u8], n: usize) -> Result<(&[u8], &[u8]), Short> {
 	data.split_at_checked(n).ok_or(Short::Need(n))
 }
 
+/// The byte after the first, or an error that is itself an enum, held whole.
+fn second(data: &[u8], e: Option<u8>) -> Result<u8, Option<u8>> {
+	let (_, rest) = data.split_at_checked(1).ok_or(e)?;
+	Ok(rest.first().copied().unwrap_or(0))
+}
+
 /// A use that needs the slice itself.
 #[inline(never)]
 fn opaque(s: &[u8]) -> u8 {
@@ -128,6 +134,21 @@ pub fn splits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 					out.push(rest.len() as u8);
 				}
 				Err(n) => out.push(n),
+			}
+			// An error enum held whole, matched by its own variants.
+			let err = match data.len() % 2 {
+				0 => Short::Empty,
+				_ => Short::Need(data.len()),
+			};
+			match data.split_first().ok_or(err) {
+				Ok((&b, _)) => out.push(b),
+				Err(Short::Empty) => out.push(0xe0),
+				Err(Short::Need(n)) => out.push(0xe1 ^ n as u8),
+			}
+			match second(data, data.first().copied()) {
+				Ok(b) => out.push(b),
+				Err(Some(b)) => out.push(b ^ 0x55),
+				Err(None) => out.push(0xaa),
 			}
 			let found: Result<(&[u8], &[u8]), u8> = data.split_at_checked(2).ok_or(1);
 			if let Ok((front, back)) = found {

@@ -107,7 +107,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			// A local held as its parts has its flag.
-			Rvalue::Discriminant(place) if self.scalars.contains_key(&place.local) => {
+			Rvalue::Discriminant(place) if self.scalar_enum(*place) => {
 				let flag = self.scalar_flag(*place, span);
 				let pty = place.ty(&self.mir.local_decls, tcx).ty;
 				let int = Int::of(pty.discriminant_ty(tcx)).expect("an enum's discriminant is an integer");
