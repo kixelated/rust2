@@ -140,9 +140,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	defs: IndexVec<Local, u32>,
 	/// Locals something borrows, which a call or closure can change behind a read.
 	borrowed: IndexVec<Local, bool>,
-	/// Locals changed in place: assigned through a projection, borrowed mutably, or given
-	/// to what can change them after: a `Copy` aggregate std keeps, or a value with no copy
-	/// that holds one, moved anywhere.
+	/// Locals changed in place: assigned through a projection, borrowed mutably, or moved,
+	/// holding a `Copy` aggregate, into what can change it later: a field, a local changed
+	/// in place, or a call that `keeps` it. The return place is one when its caller has no
+	/// copy to make. Each holds its own JS objects, which a move hands over uncopied.
 	mutated: IndexVec<Local, bool>,
 	/// The names of borrowed locals.
 	shared: FxHashSet<String>,
@@ -405,8 +406,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => {}
 			}
 		}
-		// What a local changed in place takes whole from another, the other gives it, and
-		// it must be the other's own.
+		// What moves into a local changed in place must be its source's own too.
 		let mut changed = true;
 		while std::mem::take(&mut changed) {
 			for &(to, from) in &moves {
