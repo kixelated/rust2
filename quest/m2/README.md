@@ -33,7 +33,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
 - [Small std gaps](/quest/m2/ts-std-gaps.md) - `bool::then`, `iter::successors`, `usize::from(bool)`, and `None.ok_or` narrowing
 - [Iterator skips that read as std's](/quest/m2/ts-iter-nth.md) - `nth` and `nth_back` of what drops nothing read the items std's do
-- [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR
