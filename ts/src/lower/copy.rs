@@ -34,9 +34,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Tuple(tys) if !tys.is_empty() => (true, tys.to_vec()),
 			ty::Array(elem, _) => (true, vec![*elem]),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				// `None` and `Pending` are no objects, and `Some` and `Ready` their payload.
-				Some(Std::Option | Std::Poll) => (false, args.types().collect()),
-				Some(Std::Result | Std::ControlFlow) => (true, args.types().collect()),
+				// Their payload, or no object at all; a write into an `rt.Result`'s payload
+				// replaces the result.
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow) => (false, args.types().collect()),
 				Some(_) => return false,
 				None if adt.did().is_local() && adt.all_fields().next().is_some() => {
 					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
