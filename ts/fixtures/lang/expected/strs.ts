@@ -252,6 +252,142 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
+/**
+ * Up to three chars of `s`, from the char the kind's high bits pick: empty a quarter of
+ * the time, and otherwise found at least once unless the text is shorter.
+ */
+export function pattern(kind: rt.u8, s: string): string {
+	let p: string = "";
+	const iter: rt.Iter<rt.char> = rt.iterTake(rt.iterSkip(rt.strChars(s), rt.u8Div(kind, 32) as rt.usize), rt.u8Rem(rt.u8Div(kind, 8), 4) as rt.usize);
+	while (true) {
+		const _17: rt.char | rt.Done = iter.next();
+		if (_17 === rt.DONE) {
+			return p;
+		}
+		p = p + String.fromCodePoint(_17);
+	}
+}
+
+/**
+ * `&s[a..b]` by byte offsets, and the `str` methods by a `&str` pattern, which an empty
+ * one matches before each char and after the last.
+ */
+export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _211!: [rt.usize, rt.usize];
+	let sliced!: string;
+	const s: string = text(data);
+	const _6: string = s;
+	const p: string = pattern(kind, _6);
+	b0: {
+		const _8: rt.u8 = rt.u8Rem(kind, 8);
+		if (_8 === 0) {
+			let n: rt.i32 = 0;
+			const iter: rt.Iter<string> = rt.strSplit(s, p);
+			while (true) {
+				const _18: string | rt.Done = iter.next();
+				if (_18 === rt.DONE) {
+					break;
+				}
+				put(out, _18);
+				n = rt.i32Add(n, 1);
+			}
+			rt.byteVecPush(out, n & 0xff);
+			put(out, rt.optionUnwrapOr(rt.iterLast(rt.strSplit(s, p)), "none"));
+		} else {
+			if (_8 === 1) {
+				const iter2: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, p);
+				while (true) {
+					const _42: [rt.usize, string] | rt.Done = iter2.next();
+					if (_42 === rt.DONE) {
+						break b0;
+					}
+					const at: rt.usize = _42[0];
+					putOffset(out, at);
+					put(out, _42[1]);
+					put(out, rt.strSlice(s, 0, at));
+					const part6 = rt.usizeAdd(at, rt.stringLen(_42[1]));
+					put(out, rt.strSlice(s, part6));
+					const part7 = rt.usizeAdd(at, rt.stringLen(_42[1]));
+					put(out, rt.strSlice(s, at, part7));
+				}
+			}
+			if (_8 === 2) {
+				put(out, rt.strTrimStartMatches(s, p));
+				put(out, rt.strTrimEndMatches(s, p));
+				put(out, rt.strTrimEndMatches(rt.strTrimStartMatches(s, p), p));
+				rt.byteVecPush(out, rt.strStartsWith(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, "/") ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, (c: rt.char): boolean => {
+					return rt.charIsAsciiDigit(c);
+				}) ? 1 : 0);
+				putOffset(out, rt.strRfind(s, p));
+			} else if (_8 === 3) {
+				let path: string = s;
+				while (true) {
+					const _125: rt.usize | undefined = rt.strRfind(path, "/");
+					if (_125 !== undefined) {
+						const _130: string = path;
+						path = rt.strSlice(_130, 0, _125);
+						put(out, path);
+					} else {
+						break;
+					}
+				}
+				put(out, path);
+			} else if (_8 === 4) {
+				const keep: rt.usize = rt.usizeAdd(rt.u8Rem(rt.u8Div(kind, 8), 4) as rt.usize, 1);
+				const _146: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, "/");
+				const _149: rt.usize = rt.usizeSub(keep, 1);
+				put(out, rt.optionUnwrapOr(rt.optionMap(rt.iterNth(_146, _149), (_2: [rt.usize, string]): string => {
+					return rt.strSlice(s, 0, _2[0]);
+				}), "none"));
+				const _159: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, "/");
+				const _162: rt.usize = rt.usizeSub(keep, 1);
+				const part5 = rt.optionMapOr(rt.iterNth(_159, _162), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
+					return rt.usizeAdd(_22[0], 1);
+				});
+				put(out, rt.strSlice(s, part5));
+			} else if (_8 === 5) {
+				const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"));
+				put(out, parts.join(p));
+				put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
+					return part3;
+				})).join(p));
+				put(out, ["a", "", s].join("/"));
+			} else {
+				const at2: (a0: rt.u8) => rt.usize = (b2: rt.u8): rt.usize => {
+					if ((kind & 32) === 0) {
+						return rt.usizeRem(b2 as rt.usize, rt.usizeAdd(rt.stringLen(s), 2));
+					}
+					return rt.usizeSaturatingSub(rt.usizeAdd(rt.stringLen(s), 1), rt.usizeRem(b2 as rt.usize, 4));
+				};
+				if (!(data.length >= 2)) {
+					_211 = [0, 0] as [rt.usize, rt.usize];
+				} else {
+					_211 = [at2(data.data[data.start]), at2(data.data[data.start + 1])] as [rt.usize, rt.usize];
+				}
+				const a: rt.usize = _211[0];
+				const b: rt.usize = _211[1];
+				const _225: rt.u8 = rt.u8Rem(rt.u8Div(kind, 8), 4);
+				if (_225 === 0) {
+					sliced = rt.strSlice(s, a, b);
+				} else if (_225 === 1) {
+					sliced = rt.strSlice(s, a);
+				} else if (_225 === 2) {
+					const _236: string = s;
+					sliced = rt.strSlice(_236, 0, b);
+				} else {
+					const _240: string = s;
+					sliced = rt.strSlice(_240, 0);
+				}
+				put(out, sliced);
+			}
+		}
+	}
+}
+
 /** A predicate that is a function, not a closure. */
 export function digit(c: rt.char): boolean {
 	return rt.charIsAsciiDigit(c);

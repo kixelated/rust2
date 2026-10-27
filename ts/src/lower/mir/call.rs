@@ -667,6 +667,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) -> Option<Option<(Expr, bool)>> {
 		let container = gargs.type_at(0);
 		let index_ty = gargs.type_at(1);
+		// A string slices by UTF-8 byte offsets, which a JS string doesn't index by.
+		if container.is_str() || self.b.t.std_of(container) == Some(Std::String) {
+			if name == "index_mut" {
+				return None;
+			}
+			let base = self.operand(&args[0].node, span, out);
+			let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+			let mut values = vec![self.path(base, "s", out), start];
+			values.extend(end);
+			return Some(Some((Expr::rt("strSlice", values), true)));
+		}
 		let elem_ty = elem(self.tcx, container)?;
 		let bytes = matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8));
 		let base = self.operand(&args[0].node, span, out);
