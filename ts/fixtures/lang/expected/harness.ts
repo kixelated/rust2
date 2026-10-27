@@ -9,6 +9,7 @@ import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, 
 import { adaptors, consumers, ranges, options, own, values } from "./iters.ts";
 import { keys } from "./keys.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
+import { strs } from "./strs.ts";
 
 /** Run one case. */
 export function run(input: Uint8Array): rt.ByteVec {
@@ -19,7 +20,7 @@ export function run(input: Uint8Array): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input[0], input[1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 42);
+	const _14: rt.u8 = rt.u8Rem(op, 43);
 	if (_14 === 0) {
 		u8Op(kind, input.subarray(2, input.length - 0), out);
 	} else if (_14 === 1) {
@@ -120,6 +121,8 @@ export function run(input: Uint8Array): rt.ByteVec {
 		keys(kind, input.subarray(2, input.length - 0), out);
 	} else if (_14 === 40) {
 		chars(kind, input.subarray(2, input.length - 0), out);
+	} else if (_14 === 41) {
+		strs(kind, input.subarray(2, input.length - 0), out);
 	} else {
 		vecs(input.subarray(2, input.length - 0), out);
 	}
