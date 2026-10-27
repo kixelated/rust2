@@ -101,8 +101,7 @@ export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): voi
 	const _5: string = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f));
 	const arg = ([err] as [DecodeError.DecodeError])[0];
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg, f)];
-	const _6: string = rt.fmtFormat([args2[0]]);
-	putText(out, _5, _6);
+	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
 /** An encode error's code, then its text. */
@@ -111,8 +110,7 @@ export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): voi
 	const _5: string = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f));
 	const arg = ([err] as [EncodeError.EncodeError])[0];
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => EncodeError.fmt$Debug(arg, f)];
-	const _6: string = rt.fmtFormat([args2[0]]);
-	putText(out, _5, _6);
+	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
 /** An error's thiserror `Display` and derived `Debug`, which callers see. */
@@ -200,17 +198,9 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		const selector: rt.u8 = _5[0];
 		const _9: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(_5[1]);
 		if (_9 !== undefined) {
-			const len: rt.u8 = _9[0];
-			const _15: rt.usize = _9[1].length;
-			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
+			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
 			const r: Decoder.Decoder = Decoder.new(_13[1], form(selector));
-			const iterS: Uint8Array = _13[0];
-			let iterI: number = 0;
-			while (true) {
-				const _21: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-				if (_21 === rt.DONE) {
-					break;
-				}
+			for (const _21 of _13[0]) {
 				const _26: rt.Result<undefined, DecodeError.DecodeError> = decodeStep(r, _21, out);
 				if (_26.ok) {
 					rt.byteVecPush(out, 0);
@@ -322,22 +312,13 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		const selector: rt.u8 = _5[0];
 		const _9: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(_5[1]);
 		if (_9 !== undefined) {
-			const len: rt.u8 = _9[0];
-			const _15: rt.usize = _9[1].length;
-			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_15, len as rt.usize));
+			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
 			let values: Uint8Array = _13[1];
 			const buf: rt.ByteVec = new rt.ByteVec();
 			const _20: Form.Form = form(selector);
 			const w: Encoder.Encoder = Encoder.new(buf, _20);
 			const prefixes: Prefix.Prefix[] = [];
-			const iterS: Uint8Array = _13[0];
-			let iterI: number = 0;
-			while (true) {
-				const _24: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-				if (_24 === rt.DONE) {
-					break;
-				}
-				const step: rt.u8 = _24;
+			for (const step of _13[0]) {
 				const _30: [rt.u64, Uint8Array] = takeU64(values);
 				const value: rt.u64 = _30[0];
 				values = _30[1];
@@ -365,14 +346,12 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 					result = Encoder.varintOpt(w, _47);
 				} else if (_33 === 5) {
 					const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
-					const _53: Uint8Array = rt.u64ToBeBytes(value);
-					const _51: Uint8Array = rt.sliceRange(_53, 0, part);
+					const _51: Uint8Array = rt.sliceRange(rt.u64ToBeBytes(value), 0, part);
 					result = Encoder.bytes(w, _51);
 				} else if (_33 === 6) {
 					const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
 					if (_60.ok) {
-						const _68: string = _60.value;
-						result = Encoder.string(w, _68);
+						result = Encoder.string(w, _60.value);
 					} else {
 						result = Encoder.string(w, "not utf-8");
 					}
@@ -454,8 +433,7 @@ export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 			const value: Versions.Versions = _8.value[0];
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
-			const _17: Encoder.Encoder = Encoder.new(buf, form_);
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Form(value, _17, form_);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Form(value, Encoder.new(buf, form_), form_);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 			} else {
@@ -478,8 +456,7 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
 			const _19: Form.Form = Form.from$From_Version(version);
-			const _17: Encoder.Encoder = Encoder.new(buf, _19);
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$Encode_Version(value, _17, version);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$Encode_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 			} else {
@@ -502,8 +479,7 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
 			const _19: Form.Form = Form.from$From_Version(version);
-			const _17: Encoder.Encoder = Encoder.new(buf, _19);
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$Encode_Version(value, _17, version);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$Encode_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 			} else {
@@ -534,8 +510,7 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 		const versions: Versions.Versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
 		const buf: rt.ByteVec = new rt.ByteVec();
 		const _45: Form.Form = Form.from$From_Version(version);
-		const _43: Encoder.Encoder = Encoder.new(buf, _45);
-		const _40: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Version(versions, _43, version);
+		const _40: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Version(versions, Encoder.new(buf, _45), version);
 		if (_40.ok) {
 			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
 		} else {
@@ -604,8 +579,7 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 					const _26: string = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(arg, f));
 					const arg2 = ([{}] as [BoundsExceeded.BoundsExceeded])[0];
 					const args2: rt.Fmt[] = [(f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f)];
-					const _28: string = rt.fmtFormat([args2[0], " ", rt.fmtSpec({ alternate: true }, args2[0])]);
-					putText(out, _26, _28);
+					putText(out, _26, rt.fmtFormat([args2[0], " ", rt.fmtSpec({ alternate: true }, args2[0])]));
 					break b0;
 				}
 				err = { tag: "MalformedAuthToken" } as DecodeError.DecodeError;
@@ -615,8 +589,7 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 			const _38: string = rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 30 }, args4[0]), "|"]);
 			const arg4 = ([err] as [DecodeError.DecodeError])[0];
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg4, f)];
-			const _47: string = rt.fmtFormat([rt.fmtSpec({ alternate: true }, args6[0])]);
-			putText(out, _38, _47);
+			putText(out, _38, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args6[0])]));
 			decodeFailed(out, err);
 		}
 	}

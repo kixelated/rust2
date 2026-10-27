@@ -423,8 +423,7 @@ export class blocksFuture {
 								unwind = 142;
 								this.#saved$6 = true;
 								rt.drop(new blocksFuture$2(this.#first));
-								const _18: rt.u32 = rt.u32Rem(this.#guard$2.id, 5);
-								turns(this.#guard$2.log, _18);
+								turns(this.#guard$2.log, rt.u32Rem(this.#guard$2.id, 5));
 								temporaries(this.#guard$2.log, this.#guard$2.id);
 								unwind = 130;
 								this.#saved = Guard.new(rt.u32Add(this.#guard$2.id, 900), Log.clone$Clone(this.#guard$2.log));
@@ -490,14 +489,12 @@ export class blocksFuture {
 							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
 							const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
 							unwind = 117;
-							const _76: string = _78;
-							Guard.note(this.#slots[0], _76);
+							Guard.note(this.#slots[0], _78);
 							unwind = 137;
 							this.#tally = { n: this.#guard$2.id };
 							this.#saved$9 = true;
 							seen = new blocksFuture$3(copy$Tally(this.#tally));
-							const _89: rt.u32 = rt.u32Add(this.#tally.n, 1000);
-							this.#tally.n = _89;
+							this.#tally.n = rt.u32Add(this.#tally.n, 1000);
 							this.#saved$3 = this.#guard$2;
 							this.#saved$4 = this.#tally.n;
 							this.#saved$9 = false;
@@ -517,8 +514,7 @@ export class blocksFuture {
 						const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
 						const _93: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
 						unwind = 114;
-						const _91: string = _93;
-						Guard.note(this.#saved$3, _91);
+						Guard.note(this.#saved$3, _93);
 						unwind = 137;
 						this.#mark = { n: 1 };
 						this.#awaitee$4 = new blocksFuture$4(this.#mark);
@@ -539,8 +535,7 @@ export class blocksFuture {
 					const args6: rt.Fmt[] = [_136, (f: rt.Formatter) => rt.u32Display(arg4, f)];
 					const _129: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
 					unwind = 112;
-					const _127: string = _129;
-					Guard.note(this.#guard$2, _127);
+					Guard.note(this.#guard$2, _129);
 					unwind = 111;
 					_141 = undefined;
 					const _142: Guard.Guard = Guard.new(rt.u32Add(this.#guard$2.id, 800), Log.clone$Clone(this.#guard$2.log));
@@ -825,8 +820,7 @@ export class blocksFuture$4 {
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
 		if (this.#state === 0) {
 			const _3: Mark.Mark = { n: 2 };
-			const _4: Mark.Mark = this.#mark;
-			Object.assign(_4, _3);
+			Object.assign(this.#mark, _3);
 			const _0: rt.Poll<rt.u32> = this.#mark.n;
 			this.#state = 1;
 			return _0;

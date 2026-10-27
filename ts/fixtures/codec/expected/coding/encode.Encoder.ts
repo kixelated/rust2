@@ -5,7 +5,6 @@ import * as EncodeError from "../coding/encode.EncodeError.ts";
 import type * as Prefix from "../coding/encode.Prefix.ts";
 import type * as PrefixKind from "../coding/encode.PrefixKind.ts";
 import { write } from "../coding/varint.ts";
-import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import type * as Form from "../coding/varint.Form.ts";
 import type * as Control from "../stats.Control.ts";
 
@@ -47,8 +46,7 @@ export function bool(self: Encoder, v: boolean): void {
 
 /** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
 export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError.EncodeError> {
-	const _3: rt.Result<undefined, BoundsExceeded.BoundsExceeded> = write(v, self.form, self.buf);
-	if (_3.ok) {
+	if (write(v, self.form, self.buf).ok) {
 		return rt.Ok(undefined);
 	}
 	return rt.Err(EncodeError.from$From_BoundsExceeded({}));
@@ -122,32 +120,25 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 	const body: rt.usize = prefix.body;
 	const end: rt.usize = self.buf.length;
 	if (prefix.kind === "Varint") {
-		const _23: rt.Result<undefined, BoundsExceeded.BoundsExceeded> = write(rt.usizeSub(end, body) as rt.u64, self.form, self.buf);
-		if (_23.ok) {
+		if (write(rt.usizeSub(end, body) as rt.u64, self.form, self.buf).ok) {
 			const len: rt.usize = rt.usizeSub(self.buf.length, end);
 			if (!(len === 1)) {
 				const size2: Uint8Array = rt.bytes(9);
-				const _44: Uint8Array = rt.sliceRange(size2, 0, len);
-				const slice4 = rt.byteVecView(self.buf);
-				rt.sliceCopyFromSlice(_44, rt.sliceRange(slice4, end));
+				rt.sliceCopyFromSlice(rt.sliceRange(size2, 0, len), rt.sliceRange(rt.byteVecView(self.buf), end));
 				rt.byteVecTruncate(self.buf, rt.usizeSub(rt.usizeAdd(end, len), 1));
 				const _58: rt.usize = rt.usizeSub(rt.usizeAdd(body, len), 1);
-				const _56: Uint8Array = rt.byteVecView(self.buf);
-				rt.sliceCopyWithin(_56, body, end, _58);
+				rt.sliceCopyWithin(rt.byteVecView(self.buf), body, end, _58);
 				const _84: rt.ByteVec = self.buf;
 				const part2 = rt.usizeSub(body, 1);
 				const part3 = rt.usizeAdd(rt.usizeSub(body, 1), len);
-				const slice5 = rt.byteVecView(_84);
-				rt.sliceCopyFromSlice(rt.sliceRange(slice5, part2, part3), rt.sliceRange(size2, 0, len));
+				rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(_84), part2, part3), rt.sliceRange(size2, 0, len));
 			} else {
 				const slice2 = rt.byteVecView(self.buf);
-				const at = rt.idx(slice2, end);
-				const _35: rt.u8 = slice2[at];
+				const _35: rt.u8 = slice2[rt.idx(slice2, end)];
 				const _79: rt.ByteVec = self.buf;
 				const _39: rt.usize = rt.usizeSub(body, 1);
 				const slice3 = rt.byteVecView(_79);
-				const at2 = rt.idx(slice3, _39);
-				slice3[at2] = _35;
+				slice3[rt.idx(slice3, _39)] = _35;
 				rt.byteVecTruncate(self.buf, end);
 				return rt.Ok(undefined);
 			}
@@ -162,8 +153,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			const size: rt.u16 = _7.value;
 			const _75: rt.ByteVec = self.buf;
 			const part = rt.usizeSub(body, 2);
-			const slice_ = rt.byteVecView(_75);
-			rt.sliceCopyFromSlice(rt.sliceRange(slice_, part, body), rt.u16ToBeBytes(size));
+			rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(_75), part, body), rt.u16ToBeBytes(size));
 		} else {
 			return _7;
 		}

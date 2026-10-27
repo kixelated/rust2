@@ -129,13 +129,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	let flag!: boolean;
-	const iterS: Uint8Array = rt.sliceRange(data, 0, rt.min(data.length, 3));
-	let iterI: number = 0;
-	while (true) {
-		const _9: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_9 === rt.DONE) {
-			break;
-		}
+	for (const _9 of rt.sliceRange(data, 0, rt.min(data.length, 3))) {
 		const _15: rt.usize = rt.usizeRem(_9 as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 		if (!(_15 < 14)) {
 			rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _15);
@@ -432,20 +426,16 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		put(out, rt.fmtFormat([args16[0], " ", args16[1]]));
 	} else if (_7 === 15) {
 		const buf: Uint8Array = rt.bytes(3);
-		const _202: Uint8Array = buf;
-		const part3 = rt.min(rest.length, 4);
-		rt.sliceCopyFromSlice(_202, rt.sliceRange(rest, 0, part3));
+		rt.sliceCopyFromSlice(buf, rt.sliceRange(rest, 0, rt.min(rest.length, 4)));
 		const arg4 = ([buf] as [Uint8Array])[0];
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(arg4, f, rt.u8Display)];
 		put(out, rt.fmtFormat([args18[0]]));
 	} else if (_7 === 16) {
 		const _221: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(rest));
 		if (_221.ok) {
-			const _225: rt.u8 = rt.stringLen(_221.value) & 0xff;
-			r4 = rt.Ok(_225);
+			r4 = rt.Ok(rt.stringLen(_221.value) & 0xff);
 		} else {
-			const e: rt.FromUtf8Error = _221.error;
-			r4 = rt.Err(e);
+			r4 = rt.Err(_221.error);
 		}
 		const _234: rt.u8 = rt.resultUnwrap(r4, rt.fmtFromUtf8ErrorDebug);
 		put(out, rt.fmtToString((f: rt.Formatter) => rt.u8Display(_234, f)));
@@ -454,8 +444,7 @@ export function panics(kind: rt.u8, rest: Uint8Array, out: rt.ByteVec): void {
 		const part = rt.u8Rem(n, 6) as rt.usize;
 		const part2 = rt.u8Rem(rt.u8Div(n, 6), 6) as rt.usize;
 		const dest: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.sliceGet(rest, 1), 0) as rt.usize, 4);
-		const _244: Uint8Array = buf2;
-		rt.sliceCopyWithin(_244, part, part2, dest);
+		rt.sliceCopyWithin(buf2, part, part2, dest);
 		const arg3 = ([buf2] as [Uint8Array])[0];
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(arg3, f, rt.u8Display)];
 		put(out, rt.fmtFormat([args20[0]]));

@@ -42,9 +42,7 @@ export function area$Area(self: Shape): rt.u64 {
 	if (self.tag === "Line") {
 		return 0;
 	}
-	const width: rt.u16 = self.width;
-	const height: rt.u16 = self.height;
-	return rt.u64Mul(width as rt.u64, height as rt.u64);
+	return rt.u64Mul(self.width as rt.u64, self.height as rt.u64);
 }
 
 //# sourceMappingURL=shapes.Shape.ts.map

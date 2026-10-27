@@ -9,8 +9,7 @@ export interface Manual {
 }
 
 export function fmt$Debug(self: Manual, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _6: rt.DebugStruct = rt.fmtDebugStruct(f, "Manual");
-	return rt.debugStructFinishNonExhaustive(rt.debugStructField(rt.debugStructField(_6, "id", (f: rt.Formatter) => rt.u8Display(self.id, f)), "list", (f: rt.Formatter) => rt.fmtList(self.list, f, rt.u16Display)));
+	return rt.debugStructFinishNonExhaustive(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Manual"), "id", (f: rt.Formatter) => rt.u8Display(self.id, f)), "list", (f: rt.Formatter) => rt.fmtList(self.list, f, rt.u16Display)));
 }
 
 //# sourceMappingURL=fmt.Manual.ts.map

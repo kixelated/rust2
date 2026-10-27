@@ -15,9 +15,7 @@ export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Ver
 	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
 	const _6: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {
-		const val: Group = _6.value;
-		const _0: rt.Result<[Group, rt.usize], DecodeError.DecodeError> = rt.Ok([val, rt.usizeSub(buf.length, Decoder.remaining(r))]);
-		return _0;
+		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 	}
 	return _6;
 }

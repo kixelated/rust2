@@ -46,8 +46,7 @@ export function need(self: Decoder): rt.usize {
 /** Record that a read wanted `more` bytes past the current position. */
 export function short(self: Decoder, more: rt.usize): DecodeError.DecodeError {
 	const need_: rt.usize = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
-	const _9: rt.usize = self.need;
-	self.need = rt.max(_9, need_);
+	self.need = rt.max(self.need, need_);
 	return { tag: "Short" } as DecodeError.DecodeError;
 }
 
@@ -128,9 +127,7 @@ export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError>
 /** Read a varint. */
 export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError> {
 	let _0!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	const _13: Uint8Array = self.buf;
-	const _3: Form.Form = copy$Form(self.form);
-	const _2: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> = read(_13, _3);
+	const _2: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> = read(self.buf, copy$Form(self.form));
 	if (_2.ok) {
 		const value: rt.u64 = _2.value[0];
 		self.buf = _2.value[1];
@@ -178,8 +175,7 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 		if (_2.ok) {
 			return rt.Ok(_2.value);
 		}
-		const residual2: rt.Result<never, rt.FromUtf8Error> = _2;
-		return rt.Err(DecodeError.from$From_FromUtf8Error((residual2 as { ok: false; error: rt.FromUtf8Error }).error));
+		return rt.Err(DecodeError.from$From_FromUtf8Error((_2 as { ok: false; error: rt.FromUtf8Error }).error));
 	}
 	return _5;
 }
