@@ -300,7 +300,10 @@ pub fn call<'tcx>(
 			"next_back" => recv.member("nextBack").call(Vec::new()),
 			_ => {
 				let dropper = b.t.dropper(item, span);
-				recv.member("nthBackItem").call(tail(rest, vec![dropper]))
+				if !undefined(&dropper) {
+					return Some(Expr::rt("ownedNthBack", [vec![recv], rest, vec![dropper]].concat()));
+				}
+				recv.member("nthBackItem").call(rest)
 			}
 		};
 		return Some(Expr::rt("iterToOption", vec![item]));
@@ -319,6 +322,12 @@ pub fn call<'tcx>(
 		};
 		Some(Expr::rt_of(of, name).call([vec![recv.clone()], args].concat()))
 	};
+	// `rt.owned<Name>`, which drops by `droppers` as std's own does, where any drops: else
+	// `rt.iter<Name>`, so a bundle that never drops doesn't carry it.
+	let owned = |name: &str, args: Vec<Expr>, droppers: Vec<Expr>| match droppers.iter().all(undefined) {
+		true => method(name, args),
+		false => Some(Expr::rt_of("owned", name).call([vec![recv.clone()], args, tail(Vec::new(), droppers)].concat())),
+	};
 	// Each consumer that takes the iterator by value drops it, by `fold` but for `nth`'s.
 	if matches!(
 		name,
@@ -332,9 +341,13 @@ pub fn call<'tcx>(
 			method(&camel, rest)
 		}
 		// What each drops: an item it skips or rejects, or one it peeked.
-		"filter" | "skip" | "take" | "skip_while" | "take_while" | "step_by" | "inspect" | "peekable" => {
+		"filter" | "skip_while" | "take_while" | "inspect" | "peekable" => {
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
+		}
+		"skip" | "take" | "step_by" => {
+			let dropper = b.t.dropper(item, span);
+			owned(&camel, rest, vec![dropper])
 		}
 		"fuse" => {
 			let fused = fused(b, self_ty);
@@ -342,7 +355,7 @@ pub fn call<'tcx>(
 		}
 		"count" => {
 			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
-			method(name, tail(rest, droppers))
+			owned(name, rest, droppers)
 		}
 		"for_each" => {
 			let dropper = iter_dropper(b, self_ty, span);
@@ -364,11 +377,18 @@ pub fn call<'tcx>(
 		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
-		"last" | "nth" | "find" | "peek" | "next_if" => {
+		"last" | "nth" => {
 			option_ok(b, item, span);
 			let droppers = match name {
 				"last" => vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)],
-				"nth" | "find" => vec![b.t.dropper(item, span)],
+				_ => vec![b.t.dropper(item, span)],
+			};
+			owned(&camel, rest, droppers)
+		}
+		"find" | "peek" | "next_if" => {
+			option_ok(b, item, span);
+			let droppers = match name {
+				"find" => vec![b.t.dropper(item, span)],
 				_ => Vec::new(),
 			};
 			method(&camel, tail(rest, droppers))
@@ -482,6 +502,11 @@ pub(super) fn tail(mut args: Vec<Expr>, mut tail: Vec<Expr>) -> Vec<Expr> {
 	}
 	args.extend(tail);
 	args
+}
+
+/// Whether `e` is `undefined`, as the dropper of what doesn't drop is.
+fn undefined(e: &Expr) -> bool {
+	matches!(e, Expr::Lit(l) if l == "undefined")
 }
 
 /// Whether an iterator of type `ty` that drops is a `FusedIterator`, which std's `fuse` and

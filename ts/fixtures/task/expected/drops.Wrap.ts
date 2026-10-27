@@ -20,35 +20,35 @@ export class Wrap<T> {
 }
 
 export function drop$Drop_Arc_Held(self: Wrap<rt.Arc<Held.Held>>): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["w", args2[0], " drop"]);
 	Log.note(self.log, _4);
 }
 
 export function drop$Drop_Guard(self: Wrap<Guard.Guard>): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["w", args2[0], " drop"]);
 	Log.note(self.log, _4);
 }
 
 export function drop$Drop_Held(self: Wrap<Held.Held>): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["w", args2[0], " drop"]);
 	Log.note(self.log, _4);
 }
 
 export function drop$Drop_Pair_Held(self: Wrap<Pair.Pair<Held.Held>>): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["w", args2[0], " drop"]);
 	Log.note(self.log, _4);
 }
 
 export function drop$Drop_Vec_Wrap_Held(self: Wrap<Wrap<Held.Held>[]>): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["w", args2[0], " drop"]);
 	Log.note(self.log, _4);

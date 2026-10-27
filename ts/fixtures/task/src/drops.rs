@@ -86,6 +86,12 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 			let shared = arc.clone();
 			drop(arc);
 			log.note(format!("arc {}", Arc::strong_count(&shared)));
+			// A borrowed count is the count when it was borrowed, though a clone follows.
+			let counted = (&Arc::strong_count(&shared),);
+			let count = counted.0;
+			let cloned = shared.clone();
+			log.note(format!("counted {}", *count));
+			drop(cloned);
 			check(2);
 			let mutex = Mutex::new(list![Held::One(guard(5))]);
 			let boxed = Box::new(Held::Two(guard(6), guard(7)));

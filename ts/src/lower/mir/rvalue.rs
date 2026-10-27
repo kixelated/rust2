@@ -279,13 +279,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			AggregateKind::RawPtr(..) => return Some(self.err(span, "raw pointers are not supported")),
 			_ => {}
 		}
+		// A reference field read as its operand may be read more than once, or later: what
+		// it borrows is evaluated now, once, as Rust does, unless reading it again is the same.
+		let parts_read = dest.as_local().is_some_and(|local| self.parts_read(local));
 		let mut values = Vec::with_capacity(ops.len());
+		let mut rereadable = Vec::with_capacity(ops.len());
 		for op in ops.iter() {
 			let v = self.operand(op, span, out);
+			let is_ref = op.ty(&self.mir.local_decls, self.tcx).is_ref();
+			let reread = is_ref && self.rereadable(&v);
+			let v = match parts_read && is_ref && !reread {
+				true => self.path(v, "part", out),
+				false => v,
+			};
 			values.push(v);
+			rereadable.push(reread);
 		}
-		let _ = dest;
-		self.parts = Some(values.clone());
+		self.rereadable_parts = Some(rereadable);
 		Some(match kind {
 			AggregateKind::Tuple if values.is_empty() => Expr::undefined(),
 			AggregateKind::Tuple => {
