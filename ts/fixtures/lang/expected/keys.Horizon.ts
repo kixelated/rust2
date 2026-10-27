@@ -15,6 +15,10 @@ export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
 	rt.hashInt(self.local, state);
 }
 
+export function partialCmp$PartialOrd(self: Horizon, other: Horizon): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 export function cmp$Ord(self: Horizon, other: Horizon): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmpOption(Hop.cmp$Ord)(self.exclude, other.exclude);
 	if (cmp === 0) {
