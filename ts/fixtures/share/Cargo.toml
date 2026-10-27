@@ -10,5 +10,10 @@ publish = false
 # The cdylib is the native side of the differential test, built for wasm32.
 crate-type = ["lib", "cdylib"]
 
+[features]
+# Each makes `harness::overwrite` another kind of write, for the fixture's only one.
+call = []
+pointer = []
+
 [lints]
 workspace = true

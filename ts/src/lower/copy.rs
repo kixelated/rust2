@@ -209,9 +209,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// The types the crate's code writes into in place: through a projection, as `p.x = 1`
 /// writes into `p`; through a reference or a box, as `*r = v` does into what `r` points
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
-/// one, which counts as a write: one given to std, or kept anywhere but in a local, whose
-/// uses tell. Bodies are read as written, over their own type parameters, so a write into
-/// a type parameter stands for every type its bounds let it be.
+/// one, which counts as a write: one a parameter of a std function the crate names takes,
+/// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
+/// their own type parameters, so a write into a type parameter stands for every type its
+/// bounds let it be.
 pub struct Writes<'tcx> {
 	/// Each type written without type parameters, an array as a slice of its element,
 	/// since the two share storage in JS.
@@ -393,15 +394,12 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 		}
 	}
 
-	/// Whether `func` is a function of the crate, whose own body is read, rather than
-	/// std's, a pointer's, or a trait method only an instance resolves.
-	fn crate_fn(&self, func: &mir::Operand<'tcx>) -> bool {
-		let ty::FnDef(def_id, args) = *func.ty(self.body, self.tcx).kind() else {
-			return false;
-		};
+	/// Whether the function item `def_id` with `args` is the crate's own, whose body is
+	/// read, rather than std's or a trait method only an instance resolves.
+	fn crate_fn(&self, def_id: DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
 		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
 		matches!(
-			ty::Instance::try_resolve(self.tcx, env, def_id, args.skip_binder()),
+			ty::Instance::try_resolve(self.tcx, env, def_id, args),
 			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local())
 		)
 	}
@@ -422,30 +420,34 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 
 	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
 		match &terminator.kind {
-			mir::TerminatorKind::Call {
-				func,
-				args,
-				destination,
-				..
-			} => {
-				if !self.crate_fn(func) {
-					for arg in args.iter() {
-						self.pointees(arg.node.ty(self.body, self.tcx));
-					}
-				}
-				if destination.as_local().is_none() {
-					self.pointees(destination.ty(self.body, self.tcx).ty);
-				}
-			}
-			mir::TerminatorKind::TailCall { func, args, .. } if !self.crate_fn(func) => {
-				for arg in args.iter() {
-					self.pointees(arg.node.ty(self.body, self.tcx));
-				}
+			mir::TerminatorKind::Call { destination, .. } if destination.as_local().is_none() => {
+				self.pointees(destination.ty(self.body, self.tcx).ty)
 			}
 			mir::TerminatorKind::Yield { value, .. } => self.pointees(value.ty(self.body, self.tcx)),
 			_ => {}
 		}
 		self.super_terminator(terminator, location);
+	}
+
+	/// A function not of the crate, called here or taken as a value that a pointer or a
+	/// type parameter calls where no call shows: what its parameters take escapes to it.
+	/// This holds while the runtime writes in place only through such a parameter, as
+	/// `copy_from_slice` does, never in a std trait impl that a type parameter reaches.
+	fn visit_operand(&mut self, operand: &mir::Operand<'tcx>, location: Location) {
+		if let mir::Operand::Constant(constant) = operand
+			&& let ty::FnDef(def_id, args) = *constant.ty().kind()
+			&& !self.crate_fn(def_id, args.skip_binder())
+		{
+			let sig = self
+				.tcx
+				.fn_sig(def_id)
+				.instantiate(self.tcx, args.skip_binder())
+				.skip_norm_wip();
+			for &input in sig.skip_binder().inputs() {
+				self.pointees(input);
+			}
+		}
+		self.super_operand(operand, location);
 	}
 
 	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {

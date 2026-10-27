@@ -154,8 +154,8 @@ as `copy$Point`, which copies what it holds by value and shares what it holds by
 reference. Only a type the crate writes into in place is copied, or one holding such a
 type by value: a value of any other type never changes once made, so it is shared. A
 write counts through a field, an element, a reference, or a box, and a mutable reference
-std is given, or one kept other than in a local, counts as a write into what it points
-at. A write over a type parameter counts for every type its bounds allow. A caller must
+a std function's parameters take, where the crate calls it or takes it as a value, or
+one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
 not change in place what it passes to or gets from the translation either.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
@@ -369,7 +369,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `share` holds a `Copy` aggregate whose only write in the crate makes it copied, where
   `lang`'s other writes into the same type would hide a write the analysis misses: a
-  byte array overwritten whole through a type parameter.
+  byte array overwritten whole through a type parameter, or, under its features, by std
+  called directly or through a pointer a generic function calls.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the

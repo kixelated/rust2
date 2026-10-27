@@ -4,8 +4,8 @@ import * as rt from "./rt.ts";
 import { copy$u8s } from "./lib.ts";
 
 /**
- * Copy two bytes of the input into an array, overwrite the copy whole through a type
- * parameter, and output both: a shared array would change the original too.
+ * Copy two bytes of the input into an array, overwrite the copy, and output both: a
+ * shared array would change the original too.
  */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
@@ -23,7 +23,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	return out;
 }
 
-/** The crate's only write into a byte array. */
+/** The crate's only write into a byte array: whole, through a type parameter. */
 export function overwrite$u8s(dst: Uint8Array, value: Uint8Array): void {
 	dst.set(copy$u8s(value));
 }
