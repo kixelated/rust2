@@ -207,6 +207,7 @@ fn main() {
 		pair.sum(),
 		pair == swapped
 	);
+	println!("even {} {}", pair.even(), Pair { left: 7u32, right: 7 }.even());
 	let sized = Pair {
 		left: Size { width: 1, height: 2 },
 		right: 3u8,

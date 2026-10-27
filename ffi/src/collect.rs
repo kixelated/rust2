@@ -13,7 +13,7 @@ use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_infer::traits::{Obligation, ObligationCause};
-use rustc_middle::ty::{self, GenericArgKind, Ty, TyCtxt, TypingEnv};
+use rustc_middle::ty::{self, GenericArgKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv};
 use rustc_span::{Span, sym};
 use rustc_trait_selection::infer::InferCtxtExt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
@@ -1043,6 +1043,11 @@ impl<'tcx> Collector<'tcx> {
 					report.hidden.push(rest);
 					continue;
 				}
+				// As an impl whose bounds fail, a method whose own bounds fail at the
+				// instance is none of its methods.
+				if !self.applies(item.def_id, parent) {
+					continue;
+				}
 				let span = tcx.def_span(item.def_id);
 				if let ty::AssocKind::Const { .. } = item.kind {
 					// An instance's constant is read in Rust, named through the instance.
@@ -1114,6 +1119,28 @@ impl<'tcx> Collector<'tcx> {
 			infcx.predicate_must_hold_modulo_regions(&obligation)
 		});
 		holds.then_some(args)
+	}
+
+	/// Whether an impl item's bounds hold with the impl's parameters at `parent`. A bound on
+	/// the item's own type parameters is the choice of a type for each.
+	fn applies(&self, item: DefId, parent: ty::GenericArgsRef<'tcx>) -> bool {
+		let tcx = self.tcx;
+		let mut args = ty::GenericArgs::identity_for_item(tcx, item).to_vec();
+		args[..parent.len()].copy_from_slice(parent);
+		let args = tcx.mk_args(&args);
+		let env = TypingEnv::post_analysis(tcx, item);
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		tcx.clauses_of(item)
+			.instantiate(tcx, args)
+			.clauses
+			.iter()
+			.all(|clause| {
+				let clause = clause.skip_norm_wip();
+				clause.has_non_region_param() || {
+					let obligation = Obligation::new(tcx, ObligationCause::dummy(), param_env, clause);
+					infcx.predicate_must_hold_modulo_regions(&obligation)
+				}
+			})
 	}
 
 	/// A trait's required methods, as a callback interface.

@@ -64,7 +64,7 @@ export's, and adds nothing; another crate's type is refused.
 | an enum whose fields map, with no `Drop` of its own | a C enum without fields, or a struct of a tag and a union |
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
-| a generic type, at each instance `instances` names | that instance as any other type, with the methods of each impl it meets; any other instance is refused |
+| a generic type, at each instance `instances` names | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | `fn` and inherent `pub` methods | functions named through their type |

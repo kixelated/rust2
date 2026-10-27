@@ -500,6 +500,14 @@ impl<L: Copy, R: Copy> Pair<L, R> {
 			right: self.left,
 		}
 	}
+
+	/// Whether the sides are equal: a method of only the instances whose sides compare.
+	pub fn even(&self) -> bool
+	where
+		L: PartialEq<R>,
+	{
+		self.left == self.right
+	}
 }
 
 /// An impl of one instance, whose methods no other instance has.

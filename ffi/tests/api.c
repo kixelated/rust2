@@ -307,6 +307,8 @@ static int script(void) {
 	printf("pair %u %u sum %u ", swapped.left, swapped.right, api_pair_sum(&pair));
 	print("", api_pair_debug(&pair), " ");
 	printf("%s\n", api_pair_eq(&pair, &swapped) ? "true" : "false");
+	api_pair twins = {.left = 7, .right = 7};
+	printf("even %s %s\n", api_pair_even(&pair) ? "true" : "false", api_pair_even(&twins) ? "true" : "false");
 	api_size_pair sizes = {.left = {.width = 1, .height = 2}, .right = 3};
 	api_pair_size flipped = api_size_pair_swap(&sizes);
 	printf("sized %u %u ", flipped.left, flipped.right.width);
