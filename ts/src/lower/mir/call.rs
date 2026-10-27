@@ -313,7 +313,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// A `Cow<str>` is the `String` it would hold, so the `&mut` borrows the same place.
 			("Cow", "to_mut") if targ(0).is_some_and(|t| t.is_str()) => {
-				let place = self.borrowed_place(&args[0].node, span)?;
+				let (place, _) = self.borrowed_place(&args[0].node, span)?;
 				if let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_))
