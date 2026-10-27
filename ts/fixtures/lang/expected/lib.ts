@@ -86,6 +86,10 @@ export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined)
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
 }
 
+export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | undefined {
+	return v === undefined ? v : copy$Shape(v);
+}
+
 export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wrap<rt.i16> | undefined {
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
@@ -108,6 +112,10 @@ export function copy$Poll_u8s(v: rt.Poll<Uint8Array>): rt.Poll<Uint8Array> {
 
 export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>): rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> {
 	return v.ok ? rt.Ok(copy$Mutex_u8_u8(v.value)) : rt.Err(v.error);
+}
+
+export function copy$Result_u8s_u8s_Option_u8(v: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined>): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
+	return v.ok ? rt.Ok(copy$u8s_u8s(v.value)) : rt.Err(v.error);
 }
 
 export function copy$Shape(v: Shape.Shape): Shape.Shape {
@@ -170,6 +178,10 @@ export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
 
 export function copy$u8s(v: Uint8Array): Uint8Array {
 	return v.slice();
+}
+
+export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
+	return [v[0], v[1]];
 }
 
 //# sourceMappingURL=lib.ts.map

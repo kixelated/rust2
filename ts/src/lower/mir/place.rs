@@ -11,7 +11,7 @@ use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
-use crate::lower::library::Std;
+use crate::lower::library::{Flow, Std};
 use crate::lower::num::Int;
 use crate::lower::{AdtRepr, ObjectKind, byte_array, bytes_ref};
 use crate::ts::{Expr, Stmt, StmtKind};
@@ -51,7 +51,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			for elem in &place.projection[..n] {
 				pty = pty.projection_ty(tcx, *elem);
 			}
-			return self.project(e, pty, &place.projection[n..], place.local, span, out);
+			return self.project(e, pty, place, n, span, out);
 		}
 		let decls = &self.mir.local_decls;
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
@@ -120,26 +120,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => unreachable!("a checked pair is a tuple"),
 			});
 		}
-		let rest: Vec<ProjectionElem<Local, Ty<'tcx>>> = projection.collect();
-		self.project(e, pty, &rest, place.local, span, out)
+		let from = place.projection.len() - projection.len();
+		self.project(e, pty, place, from, span, out)
 	}
 
-	/// `e`, the value of a place of type `pty` in `local`, projected by `elems`.
+	/// `e`, the value of `place` projected as far as `from`, a `pty`, projected the rest of
+	/// the way.
 	fn project(
 		&mut self,
 		mut e: Expr,
 		mut pty: PlaceTy<'tcx>,
-		elems: &[ProjectionElem<Local, Ty<'tcx>>],
-		local: Local,
+		place: Place<'tcx>,
+		from: usize,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let tcx = self.tcx;
-		let place = Place::from(local);
 		// Whether `e` is an `rt.ByteSlice` of the place's bytes: a `[u8]`, or a `[u8; N]`
 		// behind a reference.
 		let mut in_bytes = false;
-		for &elem in elems {
+		for (read, elem) in place.projection.iter().enumerate().skip(from) {
 			let ty = pty.ty;
 			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
@@ -157,7 +157,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					e = self.field(e, ty, pty.variant_index, field, span);
 				}
 				ProjectionElem::Downcast(_, variant) => {
-					if !e.path_key().is_some_and(|key| self.switched.contains(&key)) {
+					let base = Place {
+						local: place.local,
+						projection: tcx.mk_place_elems(&place.projection[..read]),
+					};
+					if self.narrowing.stale(self.at, base) {
+						e = self.as_stale_variant(e, base, ty, variant, span);
+					} else if !e.path_key().is_some_and(|key| self.switched.contains(&key)) {
 						e = self.as_variant(e, ty, variant, span);
 					}
 				}
@@ -305,20 +311,91 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// others can't be, as a derived `==` reads the other operand after comparing
 	/// discriminants. `tsc` narrows only what a switch tests.
 	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
+		match ty.kind() {
+			ty::Adt(adt, _) if adt.did().is_local() => match self.variant_ty(ty, variant, span) {
+				Some(variant) => Expr::As(Box::new(base), variant),
+				None => base,
+			},
+			_ => base,
+		}
+	}
+
+	/// `base`, the `place` of a `ty`, cast to its `variant` through its whole type:
+	/// TypeScript may have narrowed it to another before a change it doesn't see.
+	fn as_stale_variant(
+		&mut self,
+		base: Expr,
+		place: Place<'tcx>,
+		ty: Ty<'tcx>,
+		variant: VariantIdx,
+		span: Span,
+	) -> Expr {
+		// `rt.Entry` is one class for either variant, which TypeScript narrows nothing by.
+		if matches!(ty.kind(), ty::Adt(adt, _) if matches!(Std::of(self.tcx, adt.did()), Some(Std::Entry))) {
+			return base;
+		}
+		let Some(variant) = self.variant_ty(ty, variant, span) else {
+			return self.err(
+				span,
+				format!("a payload of `{ty}` read where TypeScript narrowed it to another variant"),
+			);
+		};
+		let whole = match place.as_local() {
+			Some(local) => self.decl_ty(local),
+			None => self.b.t.ty(ty, span),
+		};
+		Expr::As(Box::new(Expr::As(Box::new(base), whole)), variant)
+	}
+
+	/// The JS type of `ty`'s `variant`, for a type whose variants hold their payloads:
+	/// a union's member, `Result`'s and `ControlFlow`'s, or `Option`'s and `Poll`'s value.
+	fn variant_ty(&mut self, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Option<crate::ts::Type> {
 		let tcx = self.tcx;
 		let ty::Adt(adt, args) = ty.kind() else {
-			return base;
+			return None;
 		};
-		if !adt.did().is_local() || !matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) {
-			return base;
+		// `rt.Result`'s variants.
+		let result = |ok: bool, payload| {
+			let (flag, name) = match ok {
+				true => ("true", "value"),
+				false => ("false", "error"),
+			};
+			crate::ts::Type::Object(vec![
+				("ok".into(), crate::ts::Type::Builtin(flag)),
+				(name.into(), payload),
+			])
+		};
+		match Std::of(tcx, adt.did()) {
+			Some(Std::Option | Std::Poll) => {
+				let payload = adt.variant(variant).fields.iter().next()?;
+				Some(self.b.t.ty(payload.ty(tcx, args).skip_norm_wip(), span))
+			}
+			Some(Std::Result) => {
+				let payload = self.b.t.ty(args.type_at(variant.index()), span);
+				Some(result(variant.index() == 0, payload))
+			}
+			// What `control_flow_field` reads of each variant.
+			Some(Std::ControlFlow) => {
+				let (breaks, continues) = (args.type_at(0), args.type_at(1));
+				Some(match (Flow::of(tcx, args), variant.index()) {
+					(Flow::Option, 0) => self.b.t.ty(continues, span),
+					(Flow::Option, _) => crate::ts::Type::Builtin("undefined"),
+					(Flow::Result | Flow::Other, 0) => result(true, self.b.t.ty(continues, span)),
+					(Flow::Result, _) => self.b.t.ty(breaks, span),
+					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
+				})
+			}
+			None if adt.did().is_local() && matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) => {
+				let def = adt.variant(variant);
+				let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
+				for (i, field) in def.fields.iter().enumerate() {
+					let ty = self.b.t.ty(field.ty(tcx, args).skip_norm_wip(), span);
+					fields.push((crate::lower::field_name(field.name.as_str(), i), ty));
+				}
+				Some(crate::ts::Type::Object(fields))
+			}
+			_ => None,
 		}
-		let def = adt.variant(variant);
-		let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
-		for (i, field) in def.fields.iter().enumerate() {
-			let ty = self.b.t.ty(field.ty(tcx, args).skip_norm_wip(), span);
-			fields.push((crate::lower::field_name(field.name.as_str(), i), ty));
-		}
-		Expr::As(Box::new(base), crate::ts::Type::Object(fields))
 	}
 
 	/// A field of `base`, a `ty`, in `variant` if it was downcast to one.
