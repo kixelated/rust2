@@ -338,8 +338,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates,
-  formatting, methods on generic types, iterators, with closures that log what each
+  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates, those
+  a container stores included, formatting, methods on generic types, iterators, with
+  closures that log what each
   adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,

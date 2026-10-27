@@ -672,16 +672,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			}
 		}
 		("Box", "new") => args.pop()?,
-		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself.
+		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself, which the caller gives as its
+		// own, as it does whatever std keeps.
 		("vec", "from_elem") => {
 			let elem = targ(gargs, 0);
 			let mut values = args;
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
 				false => {
-					// The last element is `x` itself: a copy of a `Copy` aggregate, without its `Clone`.
-					let value = owned(b, values.remove(0), elem, span);
-					values.insert(0, value);
 					values.push(super::collections::clone_fn(b, elem, span));
 					Expr::rt("vecFromElem", values)
 				}
