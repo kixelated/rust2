@@ -5,4 +5,4 @@ the binding of `bytes::Bytes::slice::<std::ops::RangeTo<usize>>` in wrong/bytes.
 the binding of `<bytes::Bytes as std::cmp::PartialEq>::eq` in wrong/bytes.ts doesn't type-check: error TS2322: Type '(self: ByteSlice, other: string) => boolean' is not assignable to type '(a0: ByteSlice, a1: ByteSlice) => boolean'.
          Types of parameters 'other' and 'a1' are incompatible.
            Type 'ByteSlice' is not assignable to type 'string'. at bytes-1.12.1/src/bytes.rs:769:5
-the binding of `raw::Tally` in wrong/tally.ts doesn't type-check: error TS2741: Property '[Symbol.dispose]' is missing in type 'Tally' but required in type 'Disposable'. at fixtures/bind/src/raw.rs:26:1
+the binding of `raw::Tally` in wrong/tally.ts doesn't type-check: error TS2322: Type 'Tally' is not assignable to type '"a bound value that drops must have a [Symbol.dispose]"'. at fixtures/bind/src/raw.rs:26:1

@@ -125,7 +125,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					};
 				}
 				if !self.t.own(adt.did()) {
-					return self.err(span, format!("a constant of type `{ty}` from another crate"));
+					let foreign = self.t.foreign(adt.did());
+					return self.err(span, format!("a constant of type `{ty}` {foreign}"));
 				}
 				let info = self.t.adt(*adt, span);
 				let def = adt.variant(variant);

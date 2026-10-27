@@ -387,7 +387,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => {}
 		}
 		if !self.b.t.own(def_id) {
-			return self.err(span, format!("constructing `{ty}` from another crate"));
+			return self.err(span, format!("constructing `{ty}` {}", self.b.t.foreign(def_id)));
 		}
 		let info = self.b.t.adt(adt, span);
 		match info.repr {

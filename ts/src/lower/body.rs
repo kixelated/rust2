@@ -177,7 +177,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if !self.t.own(adt_id) {
 			return self.err(
 				span,
-				format!("constructing `{}` from another crate", tcx.def_path_str(adt_id)),
+				format!("constructing `{}` {}", tcx.def_path_str(adt_id), self.t.foreign(adt_id)),
 			);
 		}
 		let info = self.t.adt(adt, span);

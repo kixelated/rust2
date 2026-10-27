@@ -116,6 +116,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 	let tcx = b.t.tcx;
 	no_drops(b, ty, span);
 	if b.t.iter_item(ty).is_some() {
+		not_bound(b, ty, span);
 		return Some(match own_next(b, ty) {
 			Some(instance) => {
 				let sym = b.t.instance(instance);
@@ -167,6 +168,7 @@ fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
 /// A function doing `into_iter` on each `ty`, or `None` where it is the value itself.
 fn into_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<Option<Expr>> {
 	if b.t.iter_item(ty).is_some() && own_next(b, ty).is_none() {
+		not_bound(b, ty, span);
 		return Some(None);
 	}
 	let param = Param {
@@ -185,6 +187,16 @@ fn no_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 			span,
 			format!("an iterator that owns `{ty}`, which drops, which is not supported yet"),
 		);
+	}
+}
+
+/// Refuse iterating `ty`, an iterator, if a binding stands in for it: it is no `rt.Iter`,
+/// which std's adaptors and `for` take every iterator but the crate's own for.
+fn not_bound<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
+	if let ty::Adt(adt, _) = ty.peel_refs().kind()
+		&& b.t.bound_drops(adt.did()).is_some()
+	{
+		b.t.err(span, "iterating a bound type, which is not supported yet");
 	}
 }
 
@@ -283,6 +295,7 @@ pub fn call<'tcx>(
 		_ => return None,
 	};
 	let item = b.t.iter_item(self_ty.peel_refs())?;
+	not_bound(b, self_ty, span);
 	// The crate's own `next` hands its item over; every other call may leave items behind.
 	if name != "by_ref" && !(name == "next" && own_next(b, self_ty).is_some()) {
 		no_drops(b, item, span);

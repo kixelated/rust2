@@ -434,8 +434,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
 			let alias = matches!(self.slots[place.local], Slot::Alias(_));
 			let target = self.local_expr(place.local, span);
+			// A binding's value may keep what it holds where `Object.assign` can't reach.
+			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
 			let e = match self.b.t.object_kind(pointee) {
-				Some(ObjectKind::Class) if !shared(self, pointee) => {
+				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),

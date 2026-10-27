@@ -6,6 +6,8 @@
 
 pub mod harness;
 pub mod raw;
+/// A second path to the function, which a binding can't also name.
+pub use raw::checksum;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;

@@ -226,7 +226,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
-			writes: copy::Writes::of_crate(tcx),
+			// Once the bindings are known.
+			writes: Default::default(),
 			held: false,
 			bindings: Default::default(),
 		})
@@ -1028,7 +1029,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	fn adt_ty(&mut self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>, span: Span) -> Type {
 		let tcx = self.tcx;
-		if let Some(sym) = self.bound_type(adt.did(), span) {
+		if let Some(sym) = self.bound_type(adt, args, span) {
 			let args = args.types().map(|t| self.ty(t, span)).collect();
 			return Type::Sym(sym, args);
 		}

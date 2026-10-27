@@ -100,9 +100,14 @@ pub struct Program {
 /// A binding's file, which callers import whole, as they do a type's module.
 #[derive(Debug)]
 pub struct Bound {
+	/// The file it is copied from.
+	pub source: PathBuf,
 	pub text: String,
 	/// What callers import it as: the type bound to it, or else its file's name.
 	pub namespace: String,
+	/// Its file's name as an identifier, which callers prefix the namespace with where it
+	/// is taken.
+	pub prefix: String,
 }
 
 /// A function that type-checks only if a binding is what translated code takes it for.
@@ -199,6 +204,19 @@ impl Program {
 
 	/// Write every module, the runtime, and their source maps to `out`.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
+		// A copy, or a clean, would replace or remove the source.
+		if let Ok(dir) = out.canonicalize()
+			&& let Some(bound) = self
+				.bound
+				.values()
+				.find(|b| b.source.canonicalize().is_ok_and(|s| s.starts_with(&dir)))
+		{
+			return Err(format!(
+				"the binding {} is inside the output, {}, which a translation replaces",
+				bound.source.display(),
+				out.display()
+			));
+		}
 		clean(out)?;
 		let mut modules: BTreeMap<&ModPath, Vec<&Item>> = BTreeMap::new();
 		for item in &self.items {
@@ -250,7 +268,7 @@ impl Program {
 	/// file. The name its importers give it, and what they prefix that with where it is taken.
 	pub fn namespace<'p>(&'p self, module: &'p ModPath) -> Option<(&'p str, &'p str)> {
 		if let Some(bound) = self.bound.get(module) {
-			return Some((module.last().map_or("lib", String::as_str), &bound.namespace));
+			return Some((&bound.prefix, &bound.namespace));
 		}
 		// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
 		module.last()?.split_once('.')

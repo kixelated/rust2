@@ -1,6 +1,7 @@
-# Bindings `ts.toml` can't make: `refused.txt` holds the errors.
+# Bindings `ts.toml` can't make, and what bound items can't do: `refused.txt` holds the
+# errors.
 package = "bind-fixture"
-roots = ["harness::run"]
+roots = ["harness::run", "harness::refused"]
 
 [bind]
 "nowhere::Thing" = "bind/thing.ts"
@@ -9,7 +10,11 @@ roots = ["harness::run"]
 "bytes::Buf" = "bind/buf.ts"
 "raw::Tally::get" = { file = "bind/get.ts", drop = true }
 "raw::Tally::new" = "rt/tally.ts"
+"raw::Held::new" = "RT/held.ts"
 "bytes::BytesMut" = "../bytes.ts"
 "bytes::Bytes" = "bind/bytes.ts"
 "raw::Tally" = "bind/bytes.ts"
-"raw::checksum" = "bind/missing.ts"
+"checksum" = "bind/missing.ts"
+"raw::checksum" = "bind/checksum.ts"
+"raw::Held" = "bind/tally.ts"
+"raw::zero" = "bind/checksum.ts"

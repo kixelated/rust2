@@ -46,3 +46,17 @@ impl Drop for Tally {
 		drop(unsafe { Arc::from_raw(self.count) });
 	}
 }
+
+/// A default made from its type alone, which a generic TS function can't make.
+pub fn zero<T: Default>() -> T {
+	T::default()
+}
+
+/// A value it holds, and drops where Rust drops it.
+pub struct Held<T>(T);
+
+impl<T> Held<T> {
+	pub fn new(value: T) -> Self {
+		Self(value)
+	}
+}

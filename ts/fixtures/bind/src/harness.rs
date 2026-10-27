@@ -44,3 +44,16 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	out.push(Arc::strong_count(&count) as u8);
 	out
 }
+
+/// What `refused.toml`'s bindings can't stand in for, which `run` never reaches.
+pub fn refused(count: &Arc<u32>) -> u8 {
+	let mut bytes = Bytes::new();
+	replace(&mut bytes, Bytes::from_static(b"replaced"));
+	let held = crate::raw::Held::new(Tally::new(count));
+	drop(held);
+	crate::raw::zero::<u8>() + bytes.len() as u8
+}
+
+fn replace(target: &mut Bytes, value: Bytes) {
+	*target = value;
+}

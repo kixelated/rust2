@@ -9,7 +9,7 @@ use std::path::{Component, Path, PathBuf};
 
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CRATE_DEF_ID, DefId};
-use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt};
+use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::{Translator, camel, short_name};
@@ -40,6 +40,8 @@ struct File {
 	path: PathBuf,
 	/// What its importers call it: the type bound to it, or its file's name.
 	namespace: String,
+	/// Its file's name as an identifier.
+	prefix: String,
 }
 
 /// What the translation knows of the config's bindings.
@@ -65,7 +67,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				t.failed = true;
 			};
 			let Some(def_id) = self.resolve_bound(path) else {
-				fail(self, "no such item in the crate or a crate it depends on".into());
+				fail(
+					self,
+					"no such item, or more than one, in the crate or a crate it depends on".into(),
+				);
 				continue;
 			};
 			let kind = match tcx.def_kind(def_id) {
@@ -98,10 +103,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					continue;
 				}
 			};
+			if let Some(other) = self.bindings.items.get(&def_id) {
+				let msg = format!("`{}` binds the same item", other.path);
+				fail(self, msg);
+				continue;
+			}
 			let name = tcx.item_name(def_id).to_string();
-			let file = self.bindings.files.entry(module.clone()).or_insert_with(|| File {
-				path: bind.file.clone(),
-				namespace: ident(module.last().expect("a file name")),
+			let file = self.bindings.files.entry(module.clone()).or_insert_with(|| {
+				let prefix = ident(module.last().expect("a file name"));
+				File {
+					path: bind.file.clone(),
+					namespace: prefix.clone(),
+					prefix,
+				}
 			});
 			if let Kind::Type { .. } = kind {
 				let types = self
@@ -114,7 +128,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					fail(self, format!("{} binds another type", bind.file.display()));
 					continue;
 				}
-				file.namespace = name;
+				file.namespace = super::escape(&name);
 			}
 			self.bindings.items.insert(
 				def_id,
@@ -125,6 +139,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
+		self.writes = super::copy::Writes::of_crate(tcx, &|def_id| self.bound(def_id));
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
@@ -155,21 +170,41 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Whether `def_id` is a bound type or function, or a function of a bound type in an
 	/// impl of the type's own crate: translation never reads it.
 	pub fn bound(&self, def_id: DefId) -> bool {
+		self.binder(def_id).is_some()
+	}
+
+	/// The bound item whose binding stands in for `def_id`: itself, or the bound type an
+	/// impl of the type's own crate is of. A trait's provided function the impl doesn't
+	/// override, and a blanket impl's, are the trait's, as for any other type.
+	fn binder(&self, def_id: DefId) -> Option<DefId> {
 		let tcx = self.tcx;
 		if self.bindings.items.contains_key(&def_id) {
-			return true;
+			return Some(def_id);
 		}
-		let Some(imp) = tcx.impl_of_assoc(def_id) else {
-			return false;
+		let imp = tcx.impl_of_assoc(def_id)?;
+		let ty::Adt(adt, _) = tcx
+			.type_of(imp)
+			.instantiate_identity()
+			.skip_norm_wip()
+			.peel_refs()
+			.kind()
+		else {
+			return None;
 		};
-		let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
-		matches!(self_ty.peel_refs().kind(), ty::Adt(adt, _)
-			if adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some())
+		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
 	}
 
 	/// Whether `def_id` is the crate's own, which it translates, rather than bound.
 	pub fn own(&self, def_id: DefId) -> bool {
 		def_id.is_local() && !self.bindings.items.contains_key(&def_id)
+	}
+
+	/// Why `def_id`, which isn't [`own`](Self::own), isn't the crate's to translate.
+	pub fn foreign(&self, def_id: DefId) -> &'static str {
+		match self.bindings.items.contains_key(&def_id) {
+			true => "bound to TypeScript",
+			false => "from another crate",
+		}
 	}
 
 	/// Whether a bound type's value drops through its `[Symbol.dispose]`, if it is one.
@@ -180,9 +215,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// The symbol of a bound type, from its binding's file.
-	pub fn bound_type(&mut self, def_id: DefId, span: Span) -> Option<SymId> {
-		self.bound_drops(def_id)?;
+	/// The symbol of a bound type, from its binding's file. `span` is where `args` reach it.
+	pub fn bound_type(&mut self, adt: ty::AdtDef<'tcx>, args: ty::GenericArgsRef<'tcx>, span: Span) -> Option<SymId> {
+		let def_id = adt.did();
+		let drop = self.bound_drops(def_id)?;
+		// What it holds drops only where it does.
+		if !drop && let Some(arg) = args.types().find(|&t| !t.has_param() && self.drops(t)) {
+			let path = &self.bindings.items[&def_id].path;
+			let msg = format!("`{path}` binds without drop, so it would never drop its `{arg}`");
+			self.err(span, msg);
+		}
 		if let Some(&sym) = self.bindings.types.get(&def_id) {
 			return Some(sym);
 		}
@@ -190,19 +232,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let name = self.tcx.item_name(def_id).to_string();
 		let sym = self.bound_sym(&module, name, SymKind::Struct, span);
 		self.bindings.types.insert(def_id, sym);
-		// It takes as many type parameters as the Rust type.
+		// It takes as many type parameters as the Rust type, any of which meets the
+		// binding's constraints on them.
 		let params = self.tcx.generics_of(def_id).own_counts().types;
+		let value = Type::Sym(sym, vec![Type::Builtin("any"); params]);
+		let copy = self.is_copy(self.tcx.type_of(def_id).instantiate_identity().skip_norm_wip());
+		let flag = |b: bool| Type::Builtin(if b { "true" } else { "false" });
+		let ret = Type::Rt("Bound", vec![value.clone(), flag(copy), flag(drop)]);
 		let value = Param {
 			name: "value".into(),
-			ty: Some(Type::Sym(sym, vec![Type::Builtin("unknown"); params])),
+			ty: Some(value),
 		};
-		let (ret, body) = match self.bound_drops(def_id) {
-			Some(true) => (
-				Type::Builtin("Disposable"),
-				vec![StmtKind::Return(Some(Expr::ident("value"))).at(None)],
-			),
-			_ => (Type::Builtin("void"), Vec::new()),
-		};
+		let body = vec![StmtKind::Return(Some(Expr::ident("value"))).at(None)];
 		let what = format!(
 			"the binding of `{}` in {}",
 			self.bindings.items[&def_id].path,
@@ -218,7 +259,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		let module = self.bound_module(instance)?.clone();
 		let def_id = instance.def_id();
-		let name = export_name(tcx, instance);
+		let name = export_name(tcx, def_id);
 		let sym = match self.bindings.exports.get(&(module.clone(), name.clone())) {
 			Some(&(other, sym)) if other == def_id => sym,
 			Some(&(other, _)) => {
@@ -234,6 +275,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				return None;
 			}
 			None => {
+				if let Some(param) = self.phantom(def_id) {
+					let msg = format!(
+						"a binding of `{}`, whose `{param}` no argument holds: its export can't call `{param}`'s impls",
+						tcx.def_path_str(def_id)
+					);
+					self.err(tcx.def_span(def_id), msg);
+				}
 				let sym = self.bound_sym(&module, name.clone(), SymKind::Function, span);
 				self.bindings.exports.insert((module.clone(), name), (def_id, sym));
 				sym
@@ -263,19 +311,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let InstanceKind::Item(def_id) = instance.def else {
 			return None;
 		};
-		if let Some(binding) = self.bindings.items.get(&def_id) {
-			return Some(&binding.module);
-		}
-		let ty::Adt(adt, _) = self.self_ty(instance)?.peel_refs().kind() else {
-			return None;
-		};
-		// One its own crate defines: std's blanket impls and its traits' provided functions,
-		// such as `ToOwned` and `ne`, are std's, as for any other type.
-		if def_id.krate != adt.did().krate {
-			return None;
-		}
-		self.bound_drops(adt.did())?;
-		Some(&self.bindings.items[&adt.did()].module)
+		Some(&self.bindings.items[&self.binder(def_id)?].module)
+	}
+
+	/// A type parameter of `def_id` with a trait bound that no argument's type holds: a
+	/// generic export sees each type argument only in the values it takes, so it has no
+	/// way to call that one's impls.
+	fn phantom(&self, def_id: DefId) -> Option<rustc_span::Symbol> {
+		let tcx = self.tcx;
+		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip().skip_binder();
+		let held: Vec<u32> = sig
+			.inputs()
+			.iter()
+			.flat_map(|t| t.walk())
+			.filter_map(|arg| match arg.as_type()?.kind() {
+				ty::Param(p) => Some(p.index),
+				_ => None,
+			})
+			.collect();
+		tcx.param_env(def_id).caller_bounds().find_map(|clause| {
+			let pred = clause.as_trait_clause()?.skip_binder();
+			match pred.self_ty().kind() {
+				ty::Param(p) if !held.contains(&p.index) && !tcx.is_sizedness_trait(pred.def_id()) => Some(p.name),
+				_ => None,
+			}
+		})
 	}
 
 	/// A symbol of a binding's file, named as the file exports it, which reaches the file.
@@ -287,7 +347,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(_) => Ok(String::new()),
 				None => std::fs::read_to_string(self.config.dir.join(&file.path)),
 			};
-			let namespace = file.namespace.clone();
+			let (namespace, prefix) = (file.namespace.clone(), file.prefix.clone());
+			let source = self.config.dir.join(&file.path);
 			let text = match text {
 				Ok(text) => text,
 				Err(err) => {
@@ -296,7 +357,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					String::new()
 				}
 			};
-			self.program.bound.insert(module.clone(), Bound { text, namespace });
+			let bound = Bound {
+				source,
+				text,
+				namespace,
+				prefix,
+			};
+			self.program.bound.insert(module.clone(), bound);
 		}
 		self.program.sym(Symbol {
 			module: module.clone(),
@@ -342,8 +409,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 /// The project `tsc` checks the check module in, beside it: the runtime's own settings, as
 /// `runtime/tsconfig.json` has them, but for the unused names a binding may leave, which
-/// are its author's to lint. A project of its own, since `tsc` refuses to check a file it
-/// names where a caller's `tsconfig.json` is above it.
+/// are its author's to lint, and the ambient types a caller's `node_modules` may hold. A
+/// project of its own, since `tsc` refuses to check a file it names where a caller's
+/// `tsconfig.json` is above it.
 const TSCONFIG: &str = r#"{
 	"compilerOptions": {
 		"strict": true,
@@ -355,7 +423,9 @@ const TSCONFIG: &str = r#"{
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
-		"erasableSyntaxOnly": true
+		"erasableSyntaxOnly": true,
+		"skipLibCheck": true,
+		"types": []
 	},
 	"files": ["bind.ts"]
 }
@@ -410,12 +480,19 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	}
 	let text = String::from_utf8_lossy(&output.stdout);
 	let prefix = format!("{name}(");
-	// Where the output is, which a message naming a module spells out.
-	let dir = format!("{}/", out.display());
+	// Where the output is, which a message naming a module spells out, as given or as the
+	// path it resolves to.
+	let dirs: Vec<String> = [Some(out.to_path_buf()), out.canonicalize().ok()]
+		.into_iter()
+		.flatten()
+		.map(|dir| format!("{}/", dir.display()))
+		.collect();
 	// Each item's instances of a generic function fail alike, so each failure is reported once.
 	let mut reported = std::collections::HashSet::new();
 	for diagnostic in diagnostics(&text) {
-		let diagnostic = diagnostic.replace(&dir, "");
+		// One in a binding's file names it from the runtime's directory.
+		let diagnostic = diagnostic.strip_prefix("../").unwrap_or(&diagnostic);
+		let diagnostic = dirs.iter().fold(diagnostic.to_string(), |d, dir| d.replace(dir, ""));
 		let check = diagnostic
 			.strip_prefix(&prefix)
 			.and_then(|rest| rest.split([',', ')']).next())
@@ -467,24 +544,17 @@ pub fn check_module() -> ModPath {
 	vec!["rt".into(), "bind".into()]
 }
 
-/// The export standing in for `instance`'s function: its name, then the trait it
+/// The export standing in for the function `def_id`: its name, then the trait it
 /// implements with the trait's type arguments as the impl names them, as a translated
 /// function's suffix has them, but not the type arguments of the type or the function,
 /// which a generic TS function takes. `Bytes::slice` is `slice`, and `Bytes`'s
 /// `PartialEq<[u8]>` is `eq$PartialEq_u8s`.
-fn export_name<'tcx>(tcx: TyCtxt<'tcx>, instance: Instance<'tcx>) -> String {
-	let def_id = instance.def_id();
+fn export_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 	let base = camel(tcx.item_name(def_id).as_str());
-	let trait_ref = match tcx.trait_impl_of_assoc(def_id) {
-		Some(imp) => Some(tcx.impl_trait_ref(imp).instantiate_identity().skip_norm_wip()),
-		// A trait's own method, which the impl did not override.
-		None => tcx
-			.trait_of_assoc(def_id)
-			.map(|trait_id| ty::TraitRef::from_assoc(tcx, trait_id, instance.args)),
-	};
-	let Some(trait_ref) = trait_ref else {
+	let Some(imp) = tcx.trait_impl_of_assoc(def_id) else {
 		return base;
 	};
+	let trait_ref = tcx.impl_trait_ref(imp).instantiate_identity().skip_norm_wip();
 	let mut parts = vec![tcx.item_name(trait_ref.def_id).to_string()];
 	let args = tcx
 		.generics_of(trait_ref.def_id)
@@ -504,9 +574,10 @@ pub fn resolve_in(tcx: TyCtxt<'_>, mut item: DefId, segments: &[&str]) -> Option
 					None => tcx.module_children(item),
 				};
 				let named = children.iter().filter_map(|child| match child.res {
-					// A tuple struct's constructor shares its name.
+					// A tuple struct's constructor shares its name, as a macro may.
 					Res::Def(kind, def_id)
-						if child.ident.as_str() == *segment && !matches!(kind, DefKind::Ctor(..)) =>
+						if child.ident.as_str() == *segment
+							&& !matches!(kind, DefKind::Ctor(..) | DefKind::Macro(_)) =>
 					{
 						Some((kind, def_id))
 					}
@@ -518,12 +589,20 @@ pub fn resolve_in(tcx: TyCtxt<'_>, mut item: DefId, segments: &[&str]) -> Option
 				let (first, rest): (Vec<_>, Vec<_>) = named.partition(|&(kind, _)| (kind == DefKind::Mod) != last);
 				first.into_iter().chain(rest).next()?.1
 			}
-			DefKind::Struct | DefKind::Enum | DefKind::Union => tcx.inherent_impls(item).iter().find_map(|&imp| {
-				tcx.associated_items(imp)
-					.in_definition_order()
-					.find(|assoc| assoc.is_fn() && assoc.name().as_str() == *segment)
-					.map(|assoc| assoc.def_id)
-			})?,
+			// The one function of the name, which impls for different type arguments can
+			// each define.
+			DefKind::Struct | DefKind::Enum | DefKind::Union => {
+				let mut fns = tcx.inherent_impls(item).iter().flat_map(|&imp| {
+					tcx.associated_items(imp)
+						.in_definition_order()
+						.filter(|assoc| assoc.is_fn() && assoc.name().as_str() == *segment)
+						.map(|assoc| assoc.def_id)
+				});
+				match (fns.next(), fns.next()) {
+					(Some(def_id), None) => def_id,
+					_ => return None,
+				}
+			}
 			_ => return None,
 		};
 	}
@@ -548,7 +627,7 @@ fn module_of(file: &Path) -> Result<ModPath, String> {
 			}
 		}
 	}
-	if module.first().is_some_and(|first| first == "rt") {
+	if module.first().is_some_and(|first| first.eq_ignore_ascii_case("rt")) {
 		return Err(format!("{} would replace the runtime, rt.ts and rt/", file.display()));
 	}
 	Ok(module)
@@ -568,6 +647,6 @@ fn ident(name: &str) -> String {
 		.collect();
 	match name.starts_with(|c: char| c.is_ascii_digit()) {
 		true => format!("_{name}"),
-		false => name,
+		false => super::escape(&name),
 	}
 }

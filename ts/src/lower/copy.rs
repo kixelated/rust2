@@ -213,6 +213,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
 /// their own type parameters, so a write into a type parameter stands for every type its
 /// bounds let it be.
+#[derive(Default)]
 pub struct Writes<'tcx> {
 	/// Each type written without type parameters, an array as a slice of its element,
 	/// since the two share storage in JS.
@@ -224,24 +225,22 @@ pub struct Writes<'tcx> {
 }
 
 impl<'tcx> Writes<'tcx> {
-	/// The writes of every function, closure, and coroutine body in the crate.
-	pub fn of_crate(tcx: TyCtxt<'tcx>) -> Self {
-		let mut writes = Writes {
-			concrete: FxHashSet::default(),
-			generic: FxIndexSet::default(),
-			found: RefCell::default(),
-		};
+	/// The writes of every function, closure, and coroutine body in the crate but those
+	/// `bound` says a binding stands in for, which count as code it doesn't read.
+	pub fn of_crate(tcx: TyCtxt<'tcx>, bound: &dyn Fn(DefId) -> bool) -> Self {
+		let mut writes = Writes::default();
 		for &def_id in tcx.mir_keys(()) {
-			if !tcx.def_kind(def_id).is_fn_like() {
+			let def_id = def_id.to_def_id();
+			if !tcx.def_kind(def_id).is_fn_like() || bound(def_id) {
 				continue;
 			}
-			let def_id = def_id.to_def_id();
 			let body = tcx.optimized_mir(def_id);
 			BodyWrites {
 				tcx,
 				body,
 				def_id,
 				writes: &mut writes,
+				bound,
 			}
 			.visit_body(body);
 		}
@@ -365,6 +364,7 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	body: &'m mir::Body<'tcx>,
 	def_id: DefId,
 	writes: &'w mut Writes<'tcx>,
+	bound: &'w dyn Fn(DefId) -> bool,
 }
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
@@ -400,7 +400,7 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
 		matches!(
 			ty::Instance::try_resolve(self.tcx, env, def_id, args),
-			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local())
+			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local() && !(self.bound)(did))
 		)
 	}
 }

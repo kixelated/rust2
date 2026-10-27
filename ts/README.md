@@ -217,27 +217,37 @@ and may import the translated modules and npm packages too. Callers import it wh
 type's module, `import * as Bytes from "./bind/bytes.ts"`.
 
 A bound type is the file's export of its name, `Bytes.Bytes`, with the Rust type's type
-parameters. A call of a bound function, or of a function of a bound type that its own
-crate defines, trait impls included, calls the file's export. The export is named as the
+parameters. A call of a bound function, or of a function that an impl for a bound type in
+the type's own crate defines, calls the file's export. The export is named as the
 translated function would be, without the type's or the function's type arguments, so one
 export serves every instance and a generic one is a generic TS function. `Bytes::slice` is
 `Bytes.slice`, `<Bytes as PartialEq>::eq` is `Bytes.eq$PartialEq`, and
-`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. std's blanket impls and its
-traits' provided functions, such as `ToOwned` and `ne`, stay std's, as for any other type.
-Translation can't see into a bound type, so a field, variant, or constructor of one is
-refused, as are iterating one and keying a collection by one.
+`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. A trait's provided function
+that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
+stay the trait's, as for any other type. A generic export sees a type argument only in the
+values it takes, so a function with a bounded type parameter that no argument holds, such
+as `fn zero<T: Default>() -> T`, can't be bound.
 
-Once the output is written, `tsc`, from `PATH`, checks each export against the translated
-signature of every instance translation calls, and each bound type against the Rust type's
-type parameters. A missing or mismatched binding fails the translation at the Rust item's
-span, and the output is removed.
+Translation can't see into a bound type, so a field, variant, or constructor of one is
+refused, as are iterating one, keying a collection by one, and assigning a whole one
+through a `&mut`. Its value is never `undefined` or `rt.Pending`, which `None` and
+`Poll::Pending` are, and is an object unless the Rust type is `Copy`. A `&mut` to one
+passes that object, which the binding's functions change in place. Where the type is
+`Copy`, such a `&mut` is refused, since JS shares the value where Rust copies it, and a
+binding never changes a `Copy` value in place. Nor does a binding change in place what it
+takes by value or by `&`, or share with a clone what a `&mut` changes, and an integer it
+returns is in its Rust type's range.
+
+Once the output is written, `tsc` 5.8 or later, from `PATH`, checks each export against the
+translated signature of every instance translation calls, and each bound type's value. A
+missing or mismatched binding fails the translation at the Rust item's span, and the
+output is removed. Only the binding files translation reaches are copied, so one imports
+another only where translation reaches both. A binding inside the output is refused, since
+a translation replaces it.
 
 A bound type with `drop = true` drops where Rust drops it, through its
 `[Symbol.dispose]`, which `tsc` checks it has. Without it, dropping one does nothing JS
-sees, and its value has no `[Symbol.dispose]`. A `&mut` to a bound type passes its JS
-object, which the binding changes in place. Where the type is `Copy`, such a `&mut` is
-refused, since JS shares the value where Rust copies it, and a binding never changes a
-`Copy` value in place.
+sees, `tsc` checks it has no `[Symbol.dispose]`, and a type argument that drops is refused.
 
 ## Design
 
