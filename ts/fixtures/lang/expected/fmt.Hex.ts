@@ -9,11 +9,11 @@ export interface Hex {
 
 export function fmt$Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (!rt.fmtAlternate(f)) {
-		const arg2 = ([self._0] as [rt.u32])[0];
+		const arg2 = self._0;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32LowerHex(arg2, f)];
 		return rt.fmtWriteFmt(f, [args4[0]]);
 	}
-	const arg = ([self._0] as [rt.u32])[0];
+	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32LowerHex(arg, f)];
 	return rt.fmtWriteFmt(f, [rt.fmtSpec({ alternate: true }, args2[0])]);
 }
