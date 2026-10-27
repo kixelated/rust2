@@ -11,35 +11,31 @@ native Rust.
 
 Decided by the MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)): drop
 points come from MIR's drop elaboration, which puts each drop where Rust runs it, with
-a flag where a value moved on some paths only, so the lowering adds nothing of its own:
-no `finally` per scope, and no `undefined` left by a move. A panic unwinds through the
-cleanup blocks of `-C panic=unwind` MIR, which a function runs from a `catch` (the
-task fixture's unwinding test checks them against native unwinding). An enum, tuple,
-or `Result` that drops is dropped by glue lowered from rustc's own `drop_in_place`
-shim.
+a flag where a value moved on some paths only. A panic unwinds through the cleanup
+blocks of `-C panic=unwind` MIR, which a function runs from a `catch`. A value without
+`[Symbol.dispose]`, such as an enum or a tuple, drops through glue lowered from rustc's
+`drop_in_place` shim. A runtime function that may drop what std's would (a collection's
+`clear`, `unwrap_or`'s fallback) takes a dropper for each such type after its own
+arguments (`drop_fn` and `droppers` in `drop.rs`). The task fixture's `drops.rs` checks
+these against native Rust, natively unwinding too.
 
-What still fails translation from MIR, by the census of moq-net at the pinned revision
-(kio's has 9 in all):
+What still fails translation, by the census at the pinned moq revision (moq-net's, then
+kio's):
 
-- An iterator that owns a value that drops (95): an `rt.Iter` drops nothing it skips,
-  consumes, or still holds when it is dropped.
-- Dropping a value whose glue is std's (128): a `Vec` of a value without
-  `[Symbol.dispose]`, such as an enum, and the instances of generic enums a census
-  lowers over their type parameters.
-- A std mapping that may discard an operand that drops (20): `keeps_operands` in
-  `library.rs` refuses any operand that drops, even one a mapping always keeps;
-  it should name the operands each mapping may discard instead.
-- A generic type that implements `Drop` (11).
-- A collection holding a value that drops (279): dropping it (118), and the methods
-  that may drop what it holds or is given (161), which are `clear`, `retain`,
-  `truncate`, `drain`, a `remove` of a key that drops, which drops the key the map
-  held, and an `insert` or `entry` given a key that drops, such as a `Path`, which
-  drops that key if the map holds an equal one. `insert` and `remove` on `Arc<str>`-keyed
-  maps need differential tests once these keys drop ([#77](https://github.com/kixelated/rust2/pull/77)).
-
-THIR's refusals that MIR's elaboration closes, for comparison: 657 drops of a value
-without glue, 280 temporaries that drop, 60 `for` loops, 112 moves out of other places,
-and 75 more in patterns, closures, and struct updates.
+- An iterator that owns a value that drops (124, 6), and the collection methods that
+  make one (19): `drain`, `into_keys`, and `into_values`. Most are a `for` loop over a
+  `Vec` or a map, and a `collect` of cloned `Path`s. An `rt.Iter` drops nothing it
+  skips, consumes, or still holds when it drops. Sources that own items need droppers
+  and a `[Symbol.dispose]` for what remains; adaptors drop what they discard (`filter`'s
+  rejects, `skip`, `nth`, `last`, `count`, `zip`'s unmatched item, `max_by_key`'s
+  losers) and what they hold (`Peekable`'s item, `Flatten`'s inner iterators); a
+  consumer that takes the iterator by value drops it, also when a closure panics. Look
+  out for `collect`, whose order of drops on a panic may differ between std's in-place and
+  generic paths, and for closures an adaptor holds, which must drop with it or refuse.
+  `extend` of a map or set already inserts each item as `insert` does, panics included,
+  but nothing tests it yet. A B-tree's `collect` sorts first, and a panicking `Ord` leaves
+  Rust's `Vec` in an order JS's `sort` won't match.
+- A closure that owns a value that drops, dropped without a call that takes it (10, 0).
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on

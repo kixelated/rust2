@@ -58,18 +58,6 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 	sum
 }
 
-pub struct Boxed<T>(pub T);
-
-impl<T> Drop for Boxed<T> {
-	fn drop(&mut self) {}
-}
-
-/// A generic `Drop` impl has an instance per type.
-pub fn boxed() -> u8 {
-	let b = Boxed(1u8);
-	b.0
-}
-
 /// The async block's generator would change its own copy of `n`.
 pub fn async_borrow() -> u8 {
 	let mut n = 1u8;
@@ -128,12 +116,6 @@ pub struct Meters(pub u64);
 pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f64
-}
-
-/// An `Arc` of a borrow is the borrowed value in JS: dropping the last one would drop it.
-pub fn shared_borrow(n: &Noisy) -> usize {
-	let a = std::sync::Arc::new(n);
-	std::sync::Arc::strong_count(&a)
 }
 
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
@@ -271,11 +253,6 @@ pub fn counted() -> usize {
 	(0..2).map(Noisy).count()
 }
 
-/// `unwrap_or` drops its fallback when the option holds a value.
-pub fn fallback(a: Option<Noisy>, b: Noisy) -> Noisy {
-	a.unwrap_or(b)
-}
-
 /// `rest` borrows the tail of `items` mutably, but a JS array has no views.
 pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
 	if let [_, rest @ ..] = items {
@@ -312,11 +289,6 @@ pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::Rang
 	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
 }
 
-/// Each value `clear` takes out would drop, which the runtime leaves to JS's collector.
-pub fn cleared(map: &mut std::collections::HashMap<u8, Noisy>) {
-	map.clear();
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -326,18 +298,6 @@ pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 pub fn byte_keys() -> usize {
 	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
 	map.len()
-}
-
-#[derive(PartialEq, Eq, Hash)]
-pub struct Loud(pub u8);
-
-impl Drop for Loud {
-	fn drop(&mut self) {}
-}
-
-/// `remove` drops the key the set held.
-pub fn removed(set: &mut std::collections::HashSet<Loud>, key: &Loud) -> bool {
-	set.remove(key)
 }
 
 /// A key whose `Hash` and `Eq` agree with a `u8`'s, but which is a JS object.
@@ -400,4 +360,14 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 		*v += 1;
 		*v
 	})
+}
+
+/// A `String` pushed to through a parameter, whose JS value is the caller's copy.
+pub fn pushed(s: &mut String) {
+	s.push('a');
+}
+
+/// A `str` pattern, where only a `char` and a predicate are supported.
+pub fn split_str(s: &str) -> usize {
+	s.split("ab").count()
 }

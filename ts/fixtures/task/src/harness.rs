@@ -8,6 +8,7 @@
 //! Where a panic unwinds, as on the host, a step that panics is logged and the script
 //! goes on, so what unwinding dropped shows in the log: `examples/unwind.rs`.
 
+use crate::drops;
 use crate::exec::Executor;
 use crate::log::Log;
 use crate::model::{self, Channel, Guard};
@@ -47,7 +48,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 /// Run one step of a script.
 fn run_step(log: &Log, exec: &mut Executor, channels: &mut Vec<Channel>, op: u8, arg: u8) {
 	let pick = |len: usize| (len > 0).then(|| usize::from(arg) % len);
-	match op % 11 {
+	match op % 13 {
 		0 => {
 			log.note(format!("c{} open", channels.len()));
 			channels.push(Channel::open());
@@ -96,10 +97,17 @@ fn run_step(log: &Log, exec: &mut Executor, channels: &mut Vec<Channel>, op: u8,
 				exec.drop(t);
 			}
 		}
-		_ => {
+		10 => {
 			if let Some(c) = pick(channels.len()) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
 				exec.spawn(model::blocks(channels[c].consumer(), guard, arg >= 128));
+			}
+		}
+		11 => drops::run(log, 1000 * exec.len() as u32, arg),
+		_ => {
+			if let Some(c) = pick(channels.len()) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(drops::held(channels[c].consumer(), guard));
 			}
 		}
 	}

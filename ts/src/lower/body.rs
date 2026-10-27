@@ -122,6 +122,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			return call;
 		}
+		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
+			return self.call_def(def_id, referent, args, span, out);
+		}
 		let call = library::Call {
 			def_id,
 			args: gargs,

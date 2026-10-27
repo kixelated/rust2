@@ -2,6 +2,10 @@
 
 import * as rt from "./rt.ts";
 
+export function eq$PartialEq(self: Skew, other: Skew): boolean {
+	return self._0 === other._0;
+}
+
 /**
  * An `Ord` by value whose `PartialOrd` disagrees: reversed, and unordered between odd
  * values, so a `partial_cmp` that calls `cmp` shows.

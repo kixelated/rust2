@@ -50,8 +50,9 @@ Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.
 and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collections in
-`rt/collections.ts`, and ownership and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
+in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
+`rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -123,6 +124,13 @@ range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns 
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
 
+A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
+`char` or a predicate, as in `rt.strSplit(s, "/")`, takes the char's text or the closure,
+which it calls on each char it reads, in the order std reads them. An offset it returns,
+from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does. A JS string can't
+change in place, so `String::push` assigns a longer one to the local or field the `&mut`
+borrows.
+
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
 its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
@@ -157,7 +165,14 @@ A value drops where Rust drops it, if dropping it does something JS can see: a `
 impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
 elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.Panic`,
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
-panic drops matches native Rust's.
+panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
+an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
+function of its type's own (`drop$Held`). The runtime functions for std's collections,
+`Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
+take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
+go on to the rest of the value and its container, but a hash table leaks its other
+entries, as std's does.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -289,16 +304,15 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
-takes it, in an iterator, in an enum or generic `Drop` type, passed to a std function
-that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
-collection ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
+takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
 `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!`, a copy of a closure that changes what it captured, `mem::swap`,
+`String` with `write!` or pushing to one through a parameter, a `str` pattern other than a
+`char` or a predicate, a copy of a closure that changes what it captured, `mem::swap`,
 `replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
 `MutexGuard`, a pinned reference, or a future through a reference, a switch on or a
 field of another crate's type without a mapping, and std functions without a mapping in
@@ -335,7 +349,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic

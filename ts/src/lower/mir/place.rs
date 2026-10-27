@@ -113,7 +113,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ProjectionElem::Field(field, _) => {
 					e = self.field(e, ty, pty.variant_index, field, span);
 				}
-				ProjectionElem::Downcast(..) => {}
+				ProjectionElem::Downcast(_, variant) => {
+					if !e.path_key().is_some_and(|key| self.switched.contains(&key)) {
+						e = self.as_variant(e, ty, variant, span);
+					}
+				}
 				ProjectionElem::Index(index) => {
 					let i = self.local_expr(index, span);
 					e = e.index(i);
@@ -179,6 +183,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		))
 	}
 
+	/// `base`, a `ty`, cast to its `variant`, which MIR reads without a switch where the
+	/// others can't be, as a derived `==` reads the other operand after comparing
+	/// discriminants. `tsc` narrows only what a switch tests.
+	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
+		let tcx = self.tcx;
+		let ty::Adt(adt, args) = ty.kind() else {
+			return base;
+		};
+		if !adt.did().is_local() || !matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) {
+			return base;
+		}
+		let def = adt.variant(variant);
+		let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
+		for (i, field) in def.fields.iter().enumerate() {
+			let ty = self.b.t.ty(field.ty(tcx, args).skip_norm_wip(), span);
+			fields.push((crate::lower::field_name(field.name.as_str(), i), ty));
+		}
+		Expr::As(Box::new(base), crate::ts::Type::Object(fields))
+	}
+
 	/// A field of `base`, a `ty`, in `variant` if it was downcast to one.
 	fn field(&mut self, base: Expr, ty: Ty<'tcx>, variant: Option<VariantIdx>, field: FieldIdx, span: Span) -> Expr {
 		let tcx = self.tcx;
@@ -235,7 +259,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						AdtRepr::Union | AdtRepr::Tags => {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
-							base.member(crate::lower::field_name(def.name.as_str(), field.index()))
+							let name = crate::lower::field_name(def.name.as_str(), field.index());
+							// A cleanup block runs in a `catch`, outside the test that narrowed it.
+							let base = match self.in_cleanup.is_some() {
+								true => {
+									let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+									let v = adt.variant(variant);
+									let mut fields =
+										vec![("tag".to_string(), crate::ts::Type::StrLit(v.name.to_string()))];
+									for (i, f) in v.fields.iter().enumerate() {
+										let field_ty = self.b.t.ty(f.ty(tcx, args).skip_norm_wip(), span);
+										fields.push((crate::lower::field_name(f.name.as_str(), i), field_ty));
+									}
+									Expr::As(Box::new(base), crate::ts::Type::Object(fields))
+								}
+								false => base,
+							};
+							base.member(name)
 						}
 					}
 				}
