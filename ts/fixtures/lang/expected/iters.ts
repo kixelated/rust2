@@ -632,10 +632,10 @@ export function values(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, _21);
 	}
-	[{ _0: data }, { _0: rt.sliceRange(data, 0, rt.min(data.length, 2)) }] as [Doubled.Doubled, Doubled.Doubled];
-	const arg = { _0: data };
+	const args: [Doubled.Doubled, Doubled.Doubled] = [{ _0: data }, { _0: rt.sliceRange(data, 0, rt.min(data.length, 2)) }];
+	const arg = args[0];
 	const _39: rt.Fmt = (f: rt.Formatter) => Doubled.fmt$Debug(arg, f);
-	const arg2 = { _0: rt.sliceRange(data, 0, rt.min(data.length, 2)) };
+	const arg2 = args[1];
 	const args2: rt.Fmt[] = [_39, (f: rt.Formatter) => Doubled.fmt$Debug(arg2, f)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], "|", rt.fmtSpec({ alternate: true }, args2[1])])));
 	const tags: Tag.Tag[] = rt.iterToArray(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): Tag.Tag => {

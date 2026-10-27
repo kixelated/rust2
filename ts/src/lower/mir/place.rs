@@ -67,12 +67,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			// A field of an aggregate made once and never changed is its operand: a
-			// reference, which borrow checking keeps as it was, or a path that stays put.
+			// reference, which borrow checking keeps as it was, read again only if reading
+			// it runs nothing, or a path that stays put.
 			(_, _)
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
 					&& let Some(part) = parts.get(field.as_usize())
-					&& (matches!(field_ty.kind(), ty::Ref(..)) || part.is_constant() || self.stable_name(part)) =>
+					&& ((matches!(field_ty.kind(), ty::Ref(..)) && super::cfg::pure(part))
+						|| part.is_constant()
+						|| self.stable_name(part)) =>
 			{
 				let part = part.clone();
 				let elem = *projection.peek().unwrap();

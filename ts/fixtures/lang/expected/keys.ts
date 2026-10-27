@@ -248,8 +248,9 @@ export function borrows(data: Uint8Array, out: rt.ByteVec): void {
 			const g: Horizon.Horizon = { exclude: a, local: _28 };
 			unwind = 0;
 			const _32: boolean = rt.u8Rem(d, 2) === 0;
+			const _37: [Horizon.Horizon, Horizon.Horizon] = [g, { exclude: b, local: _32 }];
 			const gr: Horizon.Horizon = g;
-			const hr: Horizon.Horizon = { exclude: b, local: _32 };
+			const hr: Horizon.Horizon = _37[1];
 			_43 = name(c);
 			unwind = 55;
 			const _44: Name.Name = name(d);
@@ -478,9 +479,9 @@ export function arcs(data: Uint8Array, out: rt.ByteVec): void {
 			_165 = true;
 			b = _20;
 			rt.byteVecPush(out, order(rt.cmpArc(rt.cmpStr)(a.text, b.text)) | ((order(Name.cmp$Ord(a, b)) << 2) & 0xff));
-			[rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr))] as [rt.Arc<string>, rt.Arc<string>];
-			rt.byteVecPush(out, (rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)) === b.text ? 1 : 0) | (((rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr)) === a.text ? 1 : 0) << 1) & 0xff));
-			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), b.text) ? 1 : 0) << 2) & 0xff));
+			const _39: [rt.Arc<string>, rt.Arc<string>] = [rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr))];
+			rt.byteVecPush(out, (_39[0] === b.text ? 1 : 0) | (((_39[1] === a.text ? 1 : 0) << 1) & 0xff));
+			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(_39[0], b.text) ? 1 : 0) << 2) & 0xff));
 			rt.byteVecPush(out, (rt.u64Eq(hashOf$Arc_str(a.text), hashOf$Arc_str(b.text)) ? 1 : 0) | (((rt.u64Eq(hashOf$Name(a), hashOf$Name(b)) ? 1 : 0) << 1) & 0xff));
 			const text: string = a.text.value;
 			const _102: string = b.text.value;

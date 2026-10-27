@@ -49,11 +49,11 @@ pub fn owning_closure() -> u8 {
 	f()
 }
 
-/// Each element drops at the end of its iteration, and the rest on a `break`.
-pub fn each(v: Vec<Noisy>) -> u8 {
+/// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
+pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
 	let mut sum = 0;
-	for n in v {
-		sum += n.0;
+	for k in m.into_keys() {
+		sum += k;
 	}
 	sum
 }
@@ -243,14 +243,14 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// The items `next` leaves drop with the iterator, which an `rt.Iter` never drops.
-pub fn drained(v: Vec<Noisy>) -> Option<Noisy> {
-	v.into_iter().next()
+/// A panic in `fold` drops the `Vec` `flatten` took mid-way before the rest, as `next` does not.
+pub fn flattened(v: Vec<Vec<Noisy>>) -> usize {
+	v.into_iter().flatten().fold(0, |n, _| n + 1)
 }
 
-/// `count` drops each item it consumes.
-pub fn counted() -> usize {
-	(0..2).map(Noisy).count()
+/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
+pub fn zip_dropped(v: &[u8]) -> usize {
+	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
 /// `rest` borrows the tail of `items` mutably, but a JS array has no views.

@@ -47,6 +47,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
+				None | Some(Std::Peekable) if self.std_iter(ty) => match adt.has_dtor(tcx) {
+					// What owns its items, an `IntoIter` or a `Drain`, drops those it still holds.
+					true => args.types().any(|t| self.drops(t)),
+					false => self.fields_drop(*adt, args, true),
+				},
 				Some(_) => false,
 				None if adt.did().is_local() => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
 				None => false,
@@ -67,6 +72,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.drops_cycle = true;
 		}
 		drops
+	}
+
+	/// Whether `ty` is one of std's iterators, or a type they are built of, which an `rt.Iter`
+	/// stands for: it drops what it owns, of its fields or, with a `Drop` impl, its items.
+	fn std_iter(&self, ty: Ty<'tcx>) -> bool {
+		let ty::Adt(adt, _) = ty.kind() else {
+			return false;
+		};
+		matches!(
+			self.tcx.crate_name(adt.did().krate).as_str(),
+			"core" | "alloc" | "std" | "hashbrown"
+		) && self.iter_item(ty).is_some()
 	}
 
 	/// Whether any field of `adt` with `args` drops, counting one of a type parameter only
@@ -97,6 +114,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
 					self.disposable(args.type_at(0), span)
 				}
+				// An `rt.Iter` drops what it was given to, but not a closure's captures.
+				None | Some(Std::Peekable) if self.std_iter(ty) => !ty
+					.walk()
+					.filter_map(|arg| arg.as_type())
+					.any(|t| matches!(t.kind(), ty::Closure(..)) && self.drops(t)),
 				Some(_) => false,
 				// A generic `Drop` impl has an instance per type, which one class's glue can't call.
 				None if adt.is_struct() && !self.generic_dtor(*adt) => {
@@ -125,6 +147,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Waker) => false,
+				// What it holds of its own, or of its items.
+				None | Some(Std::Peekable) if self.std_iter(ty) => {
+					args.types().any(|t| self.drop_panics(t, seen))
+						|| self.iter_item(ty).is_some_and(|item| self.drop_panics(item, seen))
+				}
 				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
 				None if adt.did().is_local() => {
 					let env = self.typing_env_pub();
@@ -286,6 +313,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.drop_glue_call(Expr::undefined(), ty, span);
 		}
 		super::mir::glue::shim(self, ty, span).map(Expr::Sym)
+	}
+
+	/// What drops a `ty`, as a runtime function takes it after its own arguments:
+	/// `undefined` if JS would see nothing drop, or if translation refused it.
+	pub fn dropper(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+		self.drop_fn(ty, span).unwrap_or_else(Expr::undefined)
 	}
 
 	/// What drops each of `tys`, as a runtime function takes them after its own arguments:

@@ -60,6 +60,26 @@ export function drop$Guard_Bomb_Held(_1: [Guard.Guard, Bomb.Bomb, Held.Held]): v
 	}
 }
 
+export function drop$Guard_Guard(_1: [Guard.Guard, Guard.Guard]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
+export function drop$Guard_u32(_1: [Guard.Guard, rt.u32]): void {
+	rt.drop(_1[0]);
+}
+
 export function drop$Held(_1: Held.Held): void {
 	let unwind: number = 0;
 	try {
@@ -80,6 +100,22 @@ export function drop$Held(_1: Held.Held): void {
 	}
 }
 
+export function drop$Key_Guard(_1: [Key.Key, Guard.Guard]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
 export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
 	drop$Held(value.value);
 }
@@ -93,6 +129,18 @@ export function drop$Option_Box_Held(_1: Held.Held | undefined): void {
 export function drop$Option_Held(_1: Held.Held | undefined): void {
 	if (_1 !== undefined) {
 		drop$Held(_1);
+	}
+}
+
+export function drop$Option_Key_Guard(_1: [Key.Key, Guard.Guard] | undefined): void {
+	if (_1 !== undefined) {
+		drop$Key_Guard(_1);
+	}
+}
+
+export function drop$Option_u32_Bomb(_1: [rt.u32, Bomb.Bomb] | undefined): void {
+	if (_1 !== undefined) {
+		drop$u32_Bomb(_1);
 	}
 }
 
@@ -120,6 +168,14 @@ export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>)
 	}
 }
 
+export function drop$Result_Vec_Guard_Guard(_1: rt.Result<Guard.Guard[], Guard.Guard>): void {
+	if (_1.ok) {
+		rt.dropAll(_1.value);
+	} else {
+		rt.drop(_1.error);
+	}
+}
+
 export function drop$Result_u32_Guard(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
@@ -130,6 +186,14 @@ export function drop$Result_u8_Key(_1: rt.Result<rt.u8, Key.Key>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
 	}
+}
+
+export function drop$Vec_Bomb(value: Bomb.Bomb[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$Vec_Guard(value: Guard.Guard[]): void {
+	rt.dropAll(value);
 }
 
 export function drop$Wrap_Arc_Held(_1: Wrap.Wrap<rt.Arc<Held.Held>>): void {
@@ -235,6 +299,14 @@ export function drop$Wrap_Vec_Wrap_Held(_1: Wrap.Wrap<Wrap.Wrap<Held.Held>[]>): 
 		rt.dropAll(_1.inner, drop$Wrap_Held);
 		throw e;
 	}
+}
+
+export function drop$u32_Bomb(_1: [rt.u32, Bomb.Bomb]): void {
+	rt.drop(_1[1]);
+}
+
+export function drop$u32_Guard(_1: [rt.u32, Guard.Guard]): void {
+	rt.drop(_1[1]);
 }
 
 //# sourceMappingURL=lib.ts.map

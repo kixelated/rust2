@@ -15,18 +15,20 @@ export function drop(value: unknown): void {
 }
 
 /**
- * Drop every element of `values`, in order, by `f` if it has no `[Symbol.dispose]`. A
- * panic in one still drops the rest, and then goes on, as std's slices do.
+ * Drop every element of `values` from `from` on, in order, by `f` if it has no
+ * `[Symbol.dispose]`. A panic in one still drops the rest, and then goes on, as std's
+ * slices do.
  */
-export function dropAll<T>(values: readonly T[] | undefined, f: (value: T) => void = drop): void {
-	if (values !== undefined) dropFrom(values, f, 0);
+export function dropAll<T>(values: ArrayLike<T> | undefined, f: (value: T) => void = drop, from = 0): void {
+	if (values !== undefined) dropRange(values, f, from, values.length);
 }
 
-function dropFrom<T>(values: readonly T[], f: (value: T) => void, i: number): void {
+/** Drop `values[from..to]` as `dropAll` does. */
+export function dropRange<T>(values: ArrayLike<T>, f: (value: T) => void, from: number, to: number): void {
 	try {
-		for (; i < values.length; i++) f(values[i]);
+		for (; from < to; from++) f(values[from]);
 	} catch (e) {
-		dropFrom(values, f, i + 1);
+		dropRange(values, f, from + 1, to);
 		throw e;
 	}
 }

@@ -13,7 +13,6 @@
 | 5 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:15:13 |
 | 5 | unsupported call to `_` | fixtures/reject/src/lib.rs:32:4 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
-| 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:55:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:107:2 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:127:20 |
 | 2 | a field of `_` | fixtures/reject/src/lib.rs:289:7 |
@@ -26,10 +25,13 @@
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:89:3 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | fixtures/reject/src/lib.rs:294:6 |
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:317:6 |
+| 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:55:13 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:349:2 |
 | 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | fixtures/reject/src/lib.rs:359:6 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:325:9 |
+| 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | fixtures/reject/src/lib.rs:248:26 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:118:2 |
+| 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:253:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:199:51 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:102:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:283:14 |
@@ -56,31 +58,33 @@ The type or module each refused type or path belongs to.
 | 6 | `Option` | fixtures/reject/src/lib.rs:27:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:6:14 |
 | 6 | `u8` | fixtures/reject/src/lib.rs:64:10 |
-| 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:55:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:15:13 |
+| 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:55:13 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:166:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:107:2 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:127:20 |
-| 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:294:6 |
+| 2 | `std::iter::Map` | fixtures/reject/src/lib.rs:172:23 |
+| 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:207:8 |
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:294:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:143:2 |
 | 2 | `std::string::String` | fixtures/reject/src/lib.rs:94:16 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:123:2 |
+| 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:299:52 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:186:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:240:1 |
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:317:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:325:9 |
 | 1 | `IntToFloat` | fixtures/reject/src/lib.rs:118:2 |
-| 1 | `Noisy` | fixtures/reject/src/lib.rs:253:20 |
+| 1 | `Noisy` | fixtures/reject/src/lib.rs:55:13 |
 | 1 | `[u8; 1]` | fixtures/reject/src/lib.rs:272:22 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:10:16 |
+| 1 | `into_keys` | fixtures/reject/src/lib.rs:55:13 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:199:51 |
-| 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:172:23 |
+| 1 | `std::iter::Flatten` | fixtures/reject/src/lib.rs:248:26 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:193:14 |
 | 1 | `std::mem` | fixtures/reject/src/lib.rs:48:18 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:289:48 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:289:7 |
-| 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:207:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:153:11 |
 | 1 | `std::slice` | fixtures/reject/src/lib.rs:32:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:148:2 |
@@ -98,15 +102,17 @@ The type or module each refused type or path belongs to.
 | 2 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut u8`, `u8` | fixtures/reject/src/lib.rs:64:10 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:143:2 |
 | 2 | an assignment through a reference to `_` | `u8` | fixtures/reject/src/lib.rs:65:3 |
-| 2 | an iterator that owns `_`, which drops, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:55:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:107:2 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:294:6 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:317:6 |
+| 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:55:13 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:349:2 |
 | 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | `std::option::Option` | fixtures/reject/src/lib.rs:359:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:325:9 |
 | 1 | `_`: a JS value of `_` is a copy, so a reference can't change it | `&mut std::string::String`, `std::string::String` | fixtures/reject/src/lib.rs:94:16 |
+| 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | `std::iter::Flatten` | fixtures/reject/src/lib.rs:248:26 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:118:2 |
+| 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:253:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:199:51 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:102:2 |
 | 1 | a field of `_` | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:289:48 |
@@ -119,7 +125,6 @@ The type or module each refused type or path belongs to.
 | 1 | an assignment through a reference to `_` | `u32` | fixtures/reject/src/lib.rs:16:2 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:186:1 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:240:1 |
-| 1 | an iterator that owns `_`, which drops, which is not supported yet | `Noisy` | fixtures/reject/src/lib.rs:253:20 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:299:52 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:172:23 |
@@ -186,14 +191,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:6:25: unsupported type `f64`
 - fixtures/reject/src/lib.rs:10:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:116:51: unsupported type `f64`
-
-</details>
-
-<details><summary>an iterator that owns `_`, which drops, which is not supported yet (3)</summary>
-
-- fixtures/reject/src/lib.rs:55:2: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
-- fixtures/reject/src/lib.rs:248:4: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
-- fixtures/reject/src/lib.rs:253:20: an iterator that owns `Noisy`, which drops, which is not supported yet
 
 </details>
 
@@ -276,6 +273,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` of `_`, which drops `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:55:13: `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet
+
+</details>
+
 <details><summary>`_` through a held type's own, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:349:2: `<std::sync::Arc<Picky> as PartialEq>::ne` through a held type's own, which is not supported yet
@@ -294,9 +297,21 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:248:26: `fold` of `std::iter::Flatten<std::vec::IntoIter<std::vec::Vec<Noisy>>>`, which folds a `flatten` whose source and iterators both drop, which is not supported yet
+
+</details>
+
 <details><summary>a `_` cast from `_` to `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:118:2: a `IntToFloat` cast from `u64` to `f64`
+
+</details>
+
+<details><summary>a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:253:30: a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:253:15: 253:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet
 
 </details>
 

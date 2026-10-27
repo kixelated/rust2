@@ -16,7 +16,7 @@ unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.r
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:36:42
 unsupported call to `std::mem::size_of_val::<Noisy>` at fixtures/reject/src/lib.rs:48:18
 dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:50:1
-an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:55:11
+`into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:55:13
 `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:64:10
 an assignment through a reference to `u8` at fixtures/reject/src/lib.rs:65:3
 a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:73:10: 73:18}` at fixtures/reject/src/lib.rs:74:2
@@ -46,8 +46,8 @@ constructing `std::iter::Map<Folds, {closure@fixtures/reject/src/lib.rs:172:12: 
 constructing `std::iter::Rev<Backs>` from another crate at fixtures/reject/src/lib.rs:193:14
 a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:199:15: 199:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold` at fixtures/reject/src/lib.rs:199:51
 unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:207:8
-an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:248:4
-an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:253:20
+`fold` of `std::iter::Flatten<std::vec::IntoIter<std::vec::Vec<Noisy>>>`, which folds a `flatten` whose source and iterators both drop, which is not supported yet at fixtures/reject/src/lib.rs:248:26
+a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:253:15: 253:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:253:30
 a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:258:13
 an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:266:2
 replacing the value behind a reference to `[u8; 1]` at fixtures/reject/src/lib.rs:272:22
