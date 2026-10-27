@@ -12,7 +12,7 @@ use rustc_span::Span;
 use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
-use crate::ts::{Expr, Stmt, StmtKind};
+use crate::ts::{Expr, Stmt};
 
 /// A standard library type with its own representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -297,7 +297,6 @@ fn keeps_operands(owner: &str, name: &str) -> bool {
 			)
 			| ("Vec", "push")
 			| ("Box", "new")
-			| ("boxed", "box_new")
 			| ("mem", "replace" | "take" | "swap")
 			| ("hint", "must_use")
 			| ("From", "from")
@@ -337,6 +336,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Array(..) => "array".into(),
 			ty::Str => "str".into(),
 			ty::Bool => "bool".into(),
+			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
 			_ => return None,
 		};
@@ -418,16 +418,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			if to == from {
 				return Some(value);
 			}
-			match (Int::of(to), Int::of(from)) {
-				(Some(_), Some(_)) => {
-					let operand = Operand {
-						expr: value,
-						value: None,
-					};
-					num::cast(b, operand, from, to, span)
-				}
-				_ => return None,
+			// Each `From` between integers and `char` keeps the value, as `as` then does.
+			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
+			if !scalar(to) || !scalar(from) {
+				return None;
 			}
+			let operand = Operand {
+				expr: value,
+				value: None,
+			};
+			num::cast(b, operand, from, to, span)
 		}
 		("Into", "into") => {
 			let (from, to) = (targ(gargs, 0), targ(gargs, 1));
@@ -435,6 +435,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let value = values.pop()?;
 			b.convert(value, from, to, span, out)
 		}
+		// A scalar value, but not a surrogate.
+		("char", "from_u32") => Expr::rt("charFromU32", args),
 		("TryFrom", "try_from") => {
 			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
@@ -509,7 +511,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				ty::Adt(adt, _) if int_range(ty) => {
 					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
 				}
-				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.copied(value, ty),
+				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.t.copied(value, ty, span),
 				_ => return None,
 			}
 		}
@@ -526,9 +528,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		("Option", "is_none") => args.pop()?.binary("===", Expr::undefined()),
 		("Option", "as_ref" | "as_mut") => args.pop()?,
 		("Option", "copied" | "cloned") => {
-			let inner = targ(gargs, 0);
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
+			let option = tcx.instantiate_bound_regions_with_erased(sig).output();
 			let value = args.pop()?;
-			b.copied(value, inner)
+			b.t.copied(value, option, span)
 		}
 
 		// Results.
@@ -595,43 +598,47 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let values = args;
 			match is_u8(elem) {
 				true => Expr::rt("sliceToByteVec", values),
-				false if b.t.is_copy(elem) => Expr::rt("sliceToVec", values),
-				false => return None,
-			}
-		}
-		("slice", "into_vec") => {
-			// `vec![..]`: `<[T]>::into_vec(box_new([..]))`.
-			let elem = targ(gargs, 0);
-			let value = args.pop()?;
-			match is_u8(elem) {
-				true => Expr::rt("byteVecFrom", vec![value]),
-				false => value,
-			}
-		}
-		("boxed", "box_new") | ("Box", "new") => args.pop()?,
-		("vec", "from_elem") => {
-			let elem = targ(gargs, 0);
-			let values = args;
-			match is_u8(elem) {
-				true => Expr::rt("byteVecOf", values),
 				false if b.t.is_copy(elem) => {
-					let [value, n] = <[Expr; 2]>::try_from(values).ok()?;
-					let value = match value.is_path() {
-						true => value,
-						false => {
-							let name = b.fresh("item");
-							out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
-							Expr::ident(name)
-						}
-					};
-					let item = b.copied(value, elem);
-					let item_ty = b.t.ty(elem, span);
-					Expr::ident("Array").member("from").call(vec![
-						Expr::Object(vec![(crate::ts::Key::Name("length".into()), n)]),
-						Expr::Arrow(Vec::new(), item_ty, vec![StmtKind::Return(Some(item.typed())).at(None)]),
-					])
+					let slice = values.into_iter().next()?;
+					match b.t.copy_fn(elem, span) {
+						Some(copy) => slice.member("map").call(vec![copy]),
+						None => slice.member("slice").call(Vec::new()),
+					}
 				}
 				false => return None,
+			}
+		}
+		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
+		// away. A `Copy` aggregate's operand may be shared with where it came from, which the
+		// vector must not change.
+		("slice", "into_vec") | ("boxed", "box_assume_init_into_vec_unsafe") => {
+			let elem = targ(gargs, 0);
+			let value = args.pop()?;
+			if is_u8(elem) {
+				return Some(Expr::rt("byteVecFrom", vec![value]));
+			}
+			match (b.t.copy_fn(elem, span), value) {
+				(None, value) => value,
+				(Some(_), Expr::Array(items)) => {
+					Expr::Array(items.into_iter().map(|item| owned(b, item, elem, span)).collect())
+				}
+				(Some(copy), value) => value.member("map").call(vec![copy]),
+			}
+		}
+		("Box", "new") => args.pop()?,
+		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself.
+		("vec", "from_elem") => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			match is_u8(elem) {
+				true => Expr::rt("byteVecOf", values),
+				false => {
+					// The last element is `x` itself: a copy of a `Copy` aggregate, without its `Clone`.
+					let value = owned(b, values.remove(0), elem, span);
+					values.insert(0, value);
+					values.push(super::collections::clone_fn(b, elem, span));
+					Expr::rt("vecFromElem", values)
+				}
 			}
 		}
 
@@ -835,6 +842,22 @@ pub fn targ<'tcx>(gargs: GenericArgsRef<'tcx>, n: usize) -> Ty<'tcx> {
 	gargs.types().nth(n).expect("a type argument")
 }
 
+/// `value`, a `ty`, as a value of its own: copied if it is a `Copy` aggregate that is not
+/// made right here.
+fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
+	fn made(e: &Expr) -> bool {
+		match e {
+			Expr::Array(_) | Expr::Object(_) | Expr::New(..) => true,
+			Expr::As(e, _) | Expr::Located(_, e) => made(e),
+			_ => false,
+		}
+	}
+	match made(&value) {
+		true => value,
+		false => b.t.copied(value, ty, span),
+	}
+}
+
 /// `rt.<of><Name>(args)`.
 fn rt2(args: Vec<Expr>, of: &str, name: &str) -> Expr {
 	Expr::rt_of(of, name).call(args)
@@ -900,6 +923,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
 				Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit("0")])

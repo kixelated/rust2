@@ -14,3 +14,7 @@
   style, where an async call returns `uniffi::Future<T, E>`.
 - Generated C: every type and function name starts with the crate's namespace, so a crate
   whose items did not already start with it gets renamed C symbols.
+- Generated C: type names are CamelCase, as in GLib: `app_my_object *` is now `AppMyObject *`,
+  `app_task` is `AppTask`, enum tags are `<Enum>Tag`, variant structs `<Enum><Variant>`, and
+  async callback types `<Function>Callback` (`app_my_object_do_thing_callback` is now
+  `AppMyObjectDoThingCallback`). Functions and enum constants keep their names.

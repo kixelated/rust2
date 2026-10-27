@@ -5,7 +5,7 @@
 // left only where a call dispatches on its receiver: an iterator's `next`, a writer's
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
-import { type TryFromIntError, u8Display, usizeDisplay } from "./rt/int.ts";
+import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
 
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
@@ -230,9 +230,12 @@ export function sliceToByteVec(s: Uint8Array): ByteVec {
 	return byteVecFrom(s);
 }
 
-/** `to_vec` of `Copy` elements. */
-export function sliceToVec<T>(s: readonly T[]): T[] {
-	return s.map(copy);
+/** `vec![value; n]`: `n - 1` clones of `value`, in order, then `value` itself; `clone` is `undefined` where a clone is the value. */
+export function vecFromElem<T>(value: T, n: number, clone: ((value: T) => T) | undefined): T[] {
+	const v: T[] = [];
+	for (let i = 1; i < n; i++) v.push(clone === undefined ? value : clone(value));
+	if (n > 0) v.push(value);
+	return v;
 }
 
 const SLAB = 8192;
@@ -390,19 +393,9 @@ export function stringLen(s: string): number {
 	return encoder.encode(s).length;
 }
 
-// Values
-
-/**
- * A copy of a `Copy` value. Objects stand for structs, tuples, and arrays, and Rust
- * copies those where JS would share them.
- */
-export function copy<T>(value: T): T {
-	if (typeof value !== "object" || value === null) return value;
-	if (value instanceof Uint8Array) return value.slice() as T;
-	if (Array.isArray(value)) return value.map(copy) as T;
-	const out = Object.create(Object.getPrototypeOf(value));
-	for (const key of Object.keys(value)) out[key] = copy((value as Record<string, unknown>)[key]);
-	return out;
+/** `char::from_u32`: `n`, unless it is a surrogate or past the last char. */
+export function charFromU32(n: u32): char | undefined {
+	return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? undefined : (n as char);
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.
@@ -722,11 +715,11 @@ function closePretty(f: Formatter, close: string): FmtResult {
 /** Characters `Debug` of a string writes as `\u{..}`, by std's rule. */
 const unprintable = /[\p{Cc}\p{Co}\p{White_Space}\p{Grapheme_Extend}\p{Default_Ignorable_Code_Point}\p{Cf}\P{Assigned}]/u;
 
-/** One char of a string's `Debug`. */
-function escapeDebug(c: string): string {
+/** One char of `Debug` of a string, which escapes `"`, or of a char, which escapes `'`. */
+function escapeDebug(c: string, quote: '"' | "'"): string {
 	switch (c) {
-		case '"':
-			return '\\"';
+		case quote:
+			return `\\${quote}`;
 		case "\\":
 			return "\\\\";
 		case "\n":
@@ -773,8 +766,18 @@ export function fmtBool(value: boolean, f: Formatter): FmtResult {
 /** `Debug` of a string. */
 export function fmtStr(s: string, f: Formatter): FmtResult {
 	let out = '"';
-	for (const c of s) out += escapeDebug(c);
+	for (const c of s) out += escapeDebug(c, '"');
 	return f.out.writeStr(out + '"');
+}
+
+/** `Display` of a `char`. */
+export function fmtCharDisplay(c: char, f: Formatter): FmtResult {
+	return fmtPad(f, String.fromCodePoint(c));
+}
+
+/** `Debug` of a `char`, which no width pads. */
+export function fmtCharDebug(c: char, f: Formatter): FmtResult {
+	return f.out.writeStr(`'${escapeDebug(String.fromCodePoint(c), "'")}'`);
 }
 
 /** `Debug` of `()`. */

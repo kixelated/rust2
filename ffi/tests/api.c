@@ -293,6 +293,14 @@ static int script(void) {
 	printf("both %u\n", api_bump_both(tally, tally));
 	api_tally_free(tally);
 
+	/* Another export's types, which this export's function takes and returns. */
+	api_area *small = api_area_new((api_size){.width = 2, .height = 3});
+	api_area *area = api_grow(small, 1);
+	api_area_free(small);
+	api_size size = api_area_size(area);
+	printf("area %u %u %llu\n", size.width, size.height, (unsigned long long)api_area_pixels(area));
+	api_area_free(area);
+
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());

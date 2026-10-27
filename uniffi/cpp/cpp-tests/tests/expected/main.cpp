@@ -218,6 +218,10 @@ int main(int argc, char **argv) {
     if (argc > 1 && std::strcmp(argv[1], "value-on-error") == 0) {
         // The abort is the expected outcome; the test matches the message printed before it.
         std::signal(SIGABRT, [](int) { std::_Exit(0); });
+#ifdef _MSC_VER
+        // The debug CRT's abort() otherwise waits on a dialog before raising SIGABRT.
+        _set_abort_behavior(0, _WRITE_ABORT_MSG);
+#endif
         auto empty = capi::Store::open("");
         (void)empty.value();
         return 1;

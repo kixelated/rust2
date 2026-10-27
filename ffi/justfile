@@ -33,7 +33,7 @@ fix:
 run *args:
     cargo run --locked --quiet -- {{ args }}
 
-# Census what moq-net exports into target/census, from the moq revision `just ts moq` pins or a checkout.
+# Census each package moq/ffi.toml exports into target/census/<package>.md, from the moq revision `just ts moq` pins or a checkout.
 census checkout="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -42,7 +42,7 @@ census checkout="":
         (cd ../ts && just moq-pin)
         src=../ts/target/moq
     fi
-    cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md
+    cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census
 
 # Time frame writes through the export and through moq's hand-written rs/moq-c, in the bench shell: nix develop .#bench.
 bench checkout="": (moq checkout)

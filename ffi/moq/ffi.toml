@@ -17,13 +17,10 @@ exclude = [
     "Hops::iter",
     "IntoBytes",
     "InvalidEpoch",
-    "InvalidPattern",
     "Path::borrow",
     "Path::new",
     "Path::parts",
     "Path::strip_prefix",
-    "Pattern",
-    "Patterns",
     "Server::accept",
     "Server::accept_request",
     "Server::with_publisher",
@@ -37,16 +34,12 @@ exclude = [
     "Versions::iter",
     "announce::Announce",
     "announce::Consumer::poll_synced",
-    "auth::Grant::expires",
-    "auth::Grant::publish",
-    "auth::Grant::subscribe",
     "auth::Issued",
     "auth::Request",
     "auth::Requests",
     "bytes",
     "cache::Pool::poll",
     "frame::Buffer",
-    "frame::Frame::arrived",
     "frame::Producer::group",
     "goaway::Consumer",
     "goaway::Producer",
@@ -54,20 +47,12 @@ exclude = [
     "group::Consumer::read_frames",
     "group::Producer::write_frames",
     "kio",
-    "origin::Consumer::allowed",
-    "origin::Consumer::scope",
     "origin::Driver::poll",
-    "origin::Producer::allowed",
-    "origin::Producer::scope",
     "origin::Requesting",
     "origin::Routing",
     "path::Relative::borrow",
     "path::Relative::new",
-    "path::Segment",
-    "path::Specificity",
     "server::Handshake",
-    "stats::Config::exclude",
-    "stats::Config::with_exclude",
     "stats::Failure::ALL",
     "stats::RefusalKind::ALL",
     "stats::Report::sessions",
@@ -78,7 +63,6 @@ exclude = [
     "stats::Snapshot::traffic",
     "stats::TrafficEntry",
     "time::Driver",
-    "time::Instant",
     "time::run",
     "track::Fetching",
     "track::Querying",
@@ -122,3 +106,30 @@ exclude = [
 "session::Stats" = "session_stats_snapshot"
 # The rule makes both this type and `Path::relative` `moq_path_relative`.
 "path::Relative" = "relative"
+
+# Exported with moq-net, whose signatures name their types, such as `Patterns` and `Instant`.
+[crates.moq-pattern]
+exclude = ["Pattern::captures", "Pattern::new", "Pattern::segments", "Patterns::iter"]
+
+[crates.moq-clock]
+exclude = [
+    "Deadline::poll",
+    "Deadlines::enter",
+    "Deadlines::park",
+    "Elapsed",
+    "Entered",
+    "Instant::from_std",
+    "Instant::into_std",
+    "OutOfRange",
+    "Sleep",
+    "Timeout",
+    "drive",
+    "timeout",
+    "timeout_at",
+]
+
+[crates.moq-clock.rename]
+# The rule makes both this function and the type `Wall` `moq_wall`.
+"wall" = "now_wall"
+# The rule makes both this function and the type `Interval` `moq_interval`.
+"interval" = "interval_every"

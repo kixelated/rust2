@@ -1,5 +1,5 @@
-//! The census: what a crate's `pub` API exports, and every item the export refuses,
-//! ranked by why, so the next mapping to build is picked from numbers.
+//! The census: what an exported crate's `pub` API exports, and every item the export
+//! refuses, ranked by why, so the next mapping to build is picked from numbers.
 
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -7,19 +7,27 @@ use std::fmt::Write;
 use rustc_span::Span;
 
 use crate::abi::Clash;
-use crate::collect::{Collected, Refusal};
+use crate::collect::{Refusal, Report};
+use crate::ir::Api;
 
-/// The census of `krate` as Markdown; `at` locates a span.
-pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn(Span) -> String) -> String {
-	let api = &collected.api;
+/// The census of one export as Markdown, `[crates.<package>]` in the config unless it is
+/// the configured package; `at` locates a span.
+pub fn render(api: &Api, collected: &Report, top: bool, clashes: &[Clash], at: &dyn Fn(Span) -> String) -> String {
+	let ours = |path: &[String]| path[0] == collected.krate;
+	let records: Vec<_> = api.records.iter().filter(|r| ours(&r.path)).collect();
+	let enums: Vec<_> = api.enums.iter().filter(|e| ours(&e.path)).collect();
+	let objects: Vec<_> = api.objects.iter().filter(|o| ours(&o.path)).collect();
+	let functions = api.functions.iter().filter(|f| ours(&f.path)).count();
+	let callbacks = api.callbacks.iter().filter(|c| ours(&c.path)).count();
+	let constants = api.constants.iter().filter(|c| ours(&c.path)).count();
 	let refused = |kinds: &[&str]| collected.refusals.iter().filter(|r| kinds.contains(&r.kind)).count();
-	let methods: usize = api.objects.iter().map(|o| o.methods.len()).sum::<usize>()
-		+ api.records.iter().map(|r| r.methods.len()).sum::<usize>()
-		+ api.enums.iter().map(|e| e.methods.len()).sum::<usize>();
-	let types = api.records.len() + api.enums.len() + api.objects.len();
+	let methods: usize = objects.iter().map(|o| o.methods.len()).sum::<usize>()
+		+ records.iter().map(|r| r.methods.len()).sum::<usize>()
+		+ enums.iter().map(|e| e.methods.len()).sum::<usize>();
+	let types = records.len() + enums.len() + objects.len();
 
 	let mut out = String::new();
-	let _ = writeln!(out, "# Export census of `{krate}`\n");
+	let _ = writeln!(out, "# Export census of `{}`\n", collected.package);
 	let _ = writeln!(
 		out,
 		"| Item | Exported | Refused | Share exported |\n| --- | ---: | ---: | ---: |"
@@ -33,21 +41,21 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 		let _ = writeln!(out, "| {name} | {exported} | {refused} | {share} |");
 	};
 	row("Types", types, refused(&["struct", "enum", "union"]));
-	row("Functions", api.functions.len(), refused(&["fn"]));
+	row("Functions", functions, refused(&["fn"]));
 	row(
 		"Methods and fields of exported types",
 		methods,
 		refused(&["method", "field"]),
 	);
-	row("Traits", api.callbacks.len(), refused(&["trait"]));
-	row("Constants", api.constants.len(), refused(&["const"]));
+	row("Traits", callbacks, refused(&["trait"]));
+	row("Constants", constants, refused(&["const"]));
 	row("Other items", 0, refused(&["use", "macro", "static", "item"]));
 	let _ = writeln!(
 		out,
 		"\nExported types: {} records, {} enums, {} objects. A refused type's methods are not counted, nor are the {} `poll_*` methods left out for their async twins.",
-		api.records.len(),
-		api.enums.len(),
-		api.objects.len(),
+		records.len(),
+		enums.len(),
+		objects.len(),
 		collected.twins.len()
 	);
 
@@ -126,7 +134,11 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 
 	if !collected.refusals.is_empty() {
 		let _ = writeln!(out, "\n## The config that exports what maps\n");
-		let _ = writeln!(out, "```toml\nexclude = [");
+		let table = match top {
+			true => String::new(),
+			false => format!("[crates.{}]\n", collected.package),
+		};
+		let _ = writeln!(out, "```toml\n{table}exclude = [");
 		let mut paths: Vec<&str> = collected.refusals.iter().map(|r| r.path.as_str()).collect();
 		paths.sort();
 		paths.dedup();
@@ -135,6 +147,11 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 		}
 		let _ = writeln!(out, "]\n```");
 	}
+	// A clash names each claimant by its Rust path, which starts with its crate's name.
+	let claims = |what: &str| what.contains(&format!("`{}::", collected.krate));
+	let clashes: Vec<_> = (clashes.iter())
+		.filter(|(_, (first, _), (second, _))| claims(first) || claims(second))
+		.collect();
 	if !clashes.is_empty() {
 		let _ = writeln!(out, "\n## C names claimed twice\n");
 		for (name, (first, _), (second, span)) in clashes {
@@ -171,6 +188,15 @@ pub fn render(krate: &str, collected: &Collected, clashes: &[Clash], at: &dyn Fn
 	if !collected.aliases.is_empty() {
 		let _ = writeln!(out, "\n## Type aliases, which export nothing of their own\n");
 		for path in &collected.aliases {
+			let _ = writeln!(out, "- `{path}`");
+		}
+	}
+	if !collected.reexports.is_empty() {
+		let _ = writeln!(
+			out,
+			"\n## Re-exports of another export's items, which name that export's\n"
+		);
+		for path in &collected.reexports {
 			let _ = writeln!(out, "- `{path}`");
 		}
 	}

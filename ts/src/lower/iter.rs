@@ -231,8 +231,10 @@ pub fn call<'tcx>(
 		let [v, items] = <[Expr; 2]>::try_from(args).ok()?;
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
-		if item != vec_args.type_at(0) && b.needs_copy(vec_args.type_at(0)) {
-			items = Expr::rt("iterMap", vec![items, Expr::Rt("copy".into())]);
+		if item != vec_args.type_at(0)
+			&& let Some(copy) = b.t.copy_fn(vec_args.type_at(0), span)
+		{
+			items = Expr::rt("iterMap", vec![items, copy]);
 		}
 		let extend = match vec_args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => "iterExtendBytes",
@@ -342,7 +344,7 @@ pub fn call<'tcx>(
 					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
 					method("map", vec![clone])
 				}
-				_ if b.needs_copy(*inner) => method("map", vec![Expr::Rt("copy".into())]),
+				_ if b.t.needs_copy(*inner) => method("map", b.t.copy_fn(*inner, span).into_iter().collect()),
 				// A JS string is a value already.
 				_ if b.t.is_copy(*inner)
 					|| matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) =>
@@ -419,9 +421,9 @@ pub(super) fn implements<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &st
 	infcx.type_implements_trait(tr, [ty], env).must_apply_modulo_regions()
 }
 
-/// Whether `ty` compares in JS as Rust's `Ord` does: an integer or a `bool`.
+/// Whether `ty` compares in JS as Rust's `Ord` does: an integer, a `bool`, or a `char`.
 fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+	matches!(ty.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_))
 }
 
 /// `iter.collect::<ty>()` of `item`s.

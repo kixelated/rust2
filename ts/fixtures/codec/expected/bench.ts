@@ -68,16 +68,13 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 	const w: Encoder.Encoder = Encoder.new(out, form_);
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = rt.u64Low(count);
-	l0: while (true) {
-		if (!(iterStart++ < iterEnd)) {
-			return rt.Ok(undefined);
-		}
+	while (iterStart++ < iterEnd) {
 		const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, value);
-		if (_17.ok) {
-			continue l0;
+		if (!_17.ok) {
+			return _17;
 		}
-		return _17;
 	}
+	return rt.Ok(undefined);
 }
 
 /** Every varint on the wire: how many, and the last. */
@@ -85,20 +82,18 @@ export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVe
 	const r: Decoder.Decoder = Decoder.new(wire, form_);
 	let count: rt.usize = 0;
 	let last: rt.u64 = 0;
-	l0: while (true) {
-		if (!Decoder.isEmpty(r)) {
-			const _9: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
-			if (_9.ok) {
-				last = _9.value;
-				count = rt.usizeAdd(count, 1);
-				continue l0;
-			}
+	while (!Decoder.isEmpty(r)) {
+		const _9: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
+		if (_9.ok) {
+			last = _9.value;
+			count = rt.usizeAdd(count, 1);
+		} else {
 			return _9;
 		}
-		putUsize(out, count);
-		putU64(out, last);
-		return rt.Ok(undefined);
 	}
+	putUsize(out, count);
+	putU64(out, last);
+	return rt.Ok(undefined);
 }
 
 /**
@@ -127,11 +122,8 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 	const w: Encoder.Encoder = Encoder.new(out, Form.from$From_Version(version));
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = rt.u64Low(count);
-	l0: while (true) {
-		if (!((_32 = iterStart++) < iterEnd)) {
-			return rt.Ok(undefined);
-		}
-		b2: {
+	while ((_32 = iterStart++) < iterEnd) {
+		b3: {
 			const n: rt.usize = _32;
 			if (n === 0) {
 				_38 = [0, first] as [rt.i64, rt.u64];
@@ -139,7 +131,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 				if (keyEvery2 !== 0) {
 					if (rt.usizeRem(n, keyEvery2) === 0) {
 						_38 = [delta2, keySize] as [rt.i64, rt.u64];
-						break b2;
+						break b3;
 					}
 				}
 				_38 = [delta2, size] as [rt.i64, rt.u64];
@@ -151,13 +143,14 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 		const _45: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, _48);
 		if (_45.ok) {
 			const _51: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, size2);
-			if (_51.ok) {
-				continue l0;
+			if (!_51.ok) {
+				return _51;
 			}
-			return _51;
+		} else {
+			return _45;
 		}
-		return _45;
 	}
+	return rt.Ok(undefined);
 }
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
@@ -166,26 +159,25 @@ export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt
 	let count: rt.usize = 0;
 	let total: rt.u64 = 0;
 	let last: rt.i64 = 0;
-	l0: while (true) {
-		if (!Decoder.isEmpty(r)) {
-			const _12: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
-			if (_12.ok) {
-				last = unzigzag(_12.value);
-				const _18: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
-				if (_18.ok) {
-					total = rt.u64Add(total, _18.value);
-					count = rt.usizeAdd(count, 1);
-					continue l0;
-				}
+	while (!Decoder.isEmpty(r)) {
+		const _12: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
+		if (_12.ok) {
+			last = unzigzag(_12.value);
+			const _18: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
+			if (_18.ok) {
+				total = rt.u64Add(total, _18.value);
+				count = rt.usizeAdd(count, 1);
+			} else {
 				return _18;
 			}
+		} else {
 			return _12;
 		}
-		putUsize(out, count);
-		putU64(out, total);
-		putU64(out, rt.u64Cast(last));
-		return rt.Ok(undefined);
 	}
+	putUsize(out, count);
+	putU64(out, total);
+	putU64(out, rt.u64Cast(last));
+	return rt.Ok(undefined);
 }
 
 /**
@@ -204,21 +196,11 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 	let total: rt.u64 = 0;
 	let last: rt.i64 = 0;
 	let short: rt.usize = 0;
-	l0: while (true) {
-		if (!(end < _6[1].length)) {
-			if (!(start < end)) {
-				putUsize(out, count);
-				putU64(out, total);
-				putU64(out, rt.u64Cast(last));
-				putUsize(out, short);
-				return rt.Ok(undefined);
-			}
-			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
-		}
+	l2: while (end < _6[1].length) {
 		end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
 		while (true) {
 			if (!(start < end)) {
-				continue l0;
+				continue l2;
 			}
 			const slice = _6[1];
 			const r: Decoder.Decoder = Decoder.new(rt.sliceRange(slice, start, end), Form.from$From_Version(version));
@@ -233,13 +215,21 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 			} else {
 				if (_32.error.tag === "Short") {
 					short = rt.usizeAdd(short, 1);
-					continue l0;
+					continue l2;
 				}
 				const _0: rt.Result<undefined, DecodeError.DecodeError> = rt.Err(_32.error);
 				return _0;
 			}
 		}
 	}
+	if (!(start < end)) {
+		putUsize(out, count);
+		putU64(out, total);
+		putU64(out, rt.u64Cast(last));
+		putUsize(out, short);
+		return rt.Ok(undefined);
+	}
+	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }
 
 /** One FRAME header: the zigzag timestamp delta, then the size. */
@@ -280,43 +270,37 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
 	const map: rt.BTreeMap<rt.u32, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
 	let iterStart: rt.u32 = 0;
 	const iterEnd: rt.u32 = count2;
-	while (true) {
-		if (!((_15 = iterStart++) < iterEnd)) {
-			let sum: rt.u64 = 0;
-			let iterStart2: rt.u32 = 0;
-			const iterEnd2: rt.u32 = count2;
-			while (true) {
-				if (!((_28 = iterStart2++) < iterEnd2)) {
-					const _49: rt.Range<rt.u32> = new rt.Range(1 << 14, 2 << 14);
-					const iter3: rt.Iter<[rt.u32, rt.u32]> = rt.btreeRange(map, _49);
-					while (true) {
-						const _57: [rt.u32, rt.u32] | rt.Done = iter3.next();
-						if (_57 === rt.DONE) {
-							let iterStart3: rt.u32 = 0;
-							const iterEnd3: rt.u32 = count2;
-							while (true) {
-								if (!((_66 = iterStart3++) < iterEnd3)) {
-									putU64(out, sum);
-									return;
-								}
-								const _73: rt.u32 = _10(_66);
-								rt.btreeRemove(map, _73);
-							}
-						}
-						sum = rt.u64Add(sum, _57[1] as rt.u64);
-					}
-				}
-				const i2: rt.u32 = _28;
-				const _42: rt.u32 = rt.u32Sub(count2, 1);
-				const part = rt.u32Sub(_42, i2);
-				const _38: rt.u32 = _10(part);
-				sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
-			}
-		}
+	while ((_15 = iterStart++) < iterEnd) {
 		const i: rt.u32 = _15;
 		const _21: rt.u32 = _10(i);
 		rt.btreeInsert(map, _21, i);
 	}
+	let sum: rt.u64 = 0;
+	let iterStart2: rt.u32 = 0;
+	const iterEnd2: rt.u32 = count2;
+	while ((_28 = iterStart2++) < iterEnd2) {
+		const i2: rt.u32 = _28;
+		const _42: rt.u32 = rt.u32Sub(count2, 1);
+		const part = rt.u32Sub(_42, i2);
+		const _38: rt.u32 = _10(part);
+		sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
+	}
+	const _49: rt.Range<rt.u32> = new rt.Range(1 << 14, 2 << 14);
+	const iter3: rt.Iter<[rt.u32, rt.u32]> = rt.btreeRange(map, _49);
+	while (true) {
+		const _57: [rt.u32, rt.u32] | rt.Done = iter3.next();
+		if (_57 === rt.DONE) {
+			break;
+		}
+		sum = rt.u64Add(sum, _57[1] as rt.u64);
+	}
+	let iterStart3: rt.u32 = 0;
+	const iterEnd3: rt.u32 = count2;
+	while ((_66 = iterStart3++) < iterEnd3) {
+		const _73: rt.u32 = _10(_66);
+		rt.btreeRemove(map, _73);
+	}
+	putU64(out, sum);
 }
 
 /**
@@ -324,45 +308,43 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
  * next to the iterator protocol they run through.
  */
 export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
-	b0: {
-		if (chain === 0) {
-			putUsize(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(data), (_211: rt.u8): rt.u8 => {
-				return _211 >> 1;
-			}), (_212: rt.u8): boolean => {
-				return (_212 & 1) === 0;
-			})));
-		} else if (chain === 1) {
-			const _11: rt.Iter<rt.u8> = rt.iterSlice(data);
-			rt.byteVecPush(out, rt.iterAny(_11, (_210: rt.u8): boolean => {
-				return _210 === 255;
-			}) ? 1 : 0);
-		} else if (chain === 2) {
-			putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(data), (_28: rt.u8): boolean => {
-				return (_28 & 1) === 1;
-			})).length);
-		} else if (chain === 3) {
-			putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u32 => {
-				return _2 as rt.u32;
-			}), rt.u32Add, 0) as rt.u64);
-		} else if (chain === 4) {
-			putU64(out, rt.iterFold(rt.iterTake(rt.iterSkip(rt.iterSlice(data), 16), 512), 0, (acc: rt.u32, _3: rt.u8): rt.u32 => {
-				return (acc ^ _3 as rt.u32) >>> 0;
-			}) as rt.u64);
-		} else {
-			let last: rt.usize = 0;
-			const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(data));
-			while (true) {
-				const _33: [rt.usize, rt.u8] | rt.Done = iter.next();
-				if (_33 === rt.DONE) {
-					putUsize(out, last);
-					break b0;
-				}
-				const i: rt.usize = _33[0];
-				if (_33[1] === 128) {
-					last = i;
-				}
+	if (chain === 0) {
+		putUsize(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(data), (_211: rt.u8): rt.u8 => {
+			return _211 >> 1;
+		}), (_212: rt.u8): boolean => {
+			return (_212 & 1) === 0;
+		})));
+	} else if (chain === 1) {
+		const _11: rt.Iter<rt.u8> = rt.iterSlice(data);
+		rt.byteVecPush(out, rt.iterAny(_11, (_210: rt.u8): boolean => {
+			return _210 === 255;
+		}) ? 1 : 0);
+	} else if (chain === 2) {
+		putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(data), (_28: rt.u8): boolean => {
+			return (_28 & 1) === 1;
+		})).length);
+	} else if (chain === 3) {
+		putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u32 => {
+			return _2 as rt.u32;
+		}), rt.u32Add, 0) as rt.u64);
+	} else if (chain === 4) {
+		putU64(out, rt.iterFold(rt.iterTake(rt.iterSkip(rt.iterSlice(data), 16), 512), 0, (acc: rt.u32, _3: rt.u8): rt.u32 => {
+			return (acc ^ _3 as rt.u32) >>> 0;
+		}) as rt.u64);
+	} else {
+		let last: rt.usize = 0;
+		const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(data));
+		while (true) {
+			const _33: [rt.usize, rt.u8] | rt.Done = iter.next();
+			if (_33 === rt.DONE) {
+				break;
+			}
+			const i: rt.usize = _33[0];
+			if (_33[1] === 128) {
+				last = i;
 			}
 		}
+		putUsize(out, last);
 	}
 }
 
@@ -388,14 +370,8 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 	let last: rt.u64 = 0;
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = rt.u64Low(count);
-	while (true) {
-		if (!((_26 = iterStart++) < iterEnd)) {
-			putU64(out, converted);
-			putU64(out, overflowed);
-			putU64(out, last);
-			return;
-		}
-		b1: {
+	while ((_26 = iterStart++) < iterEnd) {
+		b2: {
 			const value: rt.u64 = rt.u64Add(start, rt.u64Mul(_26 as rt.u64, step));
 			if (selector === 0) {
 				const _36: rt.u128 | undefined = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
@@ -409,9 +385,9 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 					return rt.u64Div(scaled3, from);
 				});
 				if (_44 !== undefined) {
-					if (rt.u64Le(_44, rt.u64Of(2305843009213693951n))) {
+					if (rt.u64Le(_44, { hi: 0x1fffffff, lo: 0xffffffff } as rt.u64)) {
 						scaled = _44;
-						break b1;
+						break b2;
 					}
 				}
 				scaled = undefined;
@@ -424,11 +400,14 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 			converted = rt.u64Add(converted, 1);
 		}
 	}
+	putU64(out, converted);
+	putU64(out, overflowed);
+	putU64(out, last);
 }
 
 /** `value`, or `None` past [`MAX_TIMESTAMP`], as moq-net bounds a converted timestamp. */
 export function bounded(value: rt.u128): rt.u64 | undefined {
-	if (!rt.u128Le(value, rt.u128Cast(rt.u64Of(2305843009213693951n)))) {
+	if (!rt.u128Le(value, { hi: 0, w2: 0, w1: 0x1fffffff, lo: 0xffffffff } as rt.u128)) {
 		return undefined;
 	}
 	return rt.u64Cast(value);

@@ -28,14 +28,17 @@ fn run(cmd: &mut Command) -> Output {
 	output
 }
 
-/// Export the fixture `name` into `out`, returning what the exporter printed.
-fn export(name: &str, out: &Path) -> Output {
+/// Export the fixture `name` into `out` with these cargo args, returning what the
+/// exporter printed.
+fn export(name: &str, out: &Path, cargo: &[&str]) -> Output {
 	let fixture = manifest_dir().join("fixtures").join(name);
 	Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
 		.arg("--config")
 		.arg(fixture.join("ffi.toml"))
 		.arg("--out")
 		.arg(out)
+		.arg("--")
+		.args(cargo)
 		.env("CARGO_TARGET_DIR", scratch().join(name).join("build"))
 		.output()
 		.expect("running rust2-ffi")
@@ -44,7 +47,9 @@ fn export(name: &str, out: &Path) -> Output {
 #[test]
 fn api() {
 	let out = scratch().join("api").join("out");
-	let output = export("api", &out);
+	// A feature enabled on another export directly, which the C library must build with.
+	let features = ["--features", "dep-fixture/doubled"];
+	let output = export("api", &out, &features);
 	assert!(
 		output.status.success(),
 		"exporting failed:\n{}",
@@ -82,6 +87,7 @@ fn api() {
 			"--example",
 			"transcript",
 		])
+		.args(features)
 		.current_dir(manifest_dir()));
 	assert_eq!(
 		String::from_utf8_lossy(&c.stdout),
@@ -113,7 +119,7 @@ fn api() {
 fn relative_target() {
 	let dir = scratch().join("relative");
 	std::fs::create_dir_all(&dir).unwrap();
-	let census = dir.join("census.md");
+	let census = dir.join("census");
 	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
 		.arg("--config")
 		.arg(manifest_dir().join("fixtures/api/ffi.toml"))
@@ -128,13 +134,15 @@ fn relative_target() {
 		"the census failed:\n{}",
 		String::from_utf8_lossy(&output.stderr)
 	);
-	assert!(census.exists() && dir.join("build").exists());
+	// One census per export.
+	assert!(census.join("api-fixture.md").exists() && census.join("dep-fixture.md").exists());
+	assert!(dir.join("build").exists());
 }
 
 #[test]
 fn reject() {
 	let out = scratch().join("reject").join("out");
-	let output = export("reject", &out);
+	let output = export("reject", &out, &[]);
 	assert!(!output.status.success(), "exporting reject succeeded");
 	let stderr = String::from_utf8_lossy(&output.stderr);
 	// Each error at its span, then each of its notes at its own.
@@ -171,4 +179,347 @@ fn reject() {
 		return;
 	}
 	assert_eq!(errors.join("\n") + "\n", expected);
+}
+
+/// The C library builds a dependency with what the check enabled in it, so a feature
+/// enabled directly in one that is no export fails loud.
+#[test]
+fn feature_of_non_export() {
+	let out = scratch().join("feature").join("out");
+	let output = export("api", &out, &["--features", "bytes/std"]);
+	assert!(!output.status.success(), "exporting with bytes/std succeeded");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr
+			.contains("--features bytes/std: the export builds bytes with only the features api-fixture enables in it"),
+		"{stderr}"
+	);
+}
+
+/// A one-function package named `name` in its own workspace, written into scratch.
+fn package(name: &str) -> PathBuf {
+	let package = scratch().join(name);
+	std::fs::create_dir_all(package.join("src")).unwrap();
+	let manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n");
+	std::fs::write(package.join("Cargo.toml"), manifest).unwrap();
+	std::fs::write(package.join("src/lib.rs"), "pub fn one() -> u32 {\n\t1\n}\n").unwrap();
+	std::fs::write(package.join("ffi.toml"), format!("package = \"{name}\"\n")).unwrap();
+	package
+}
+
+/// A census of the package whose config is `config` with these cargo args, to run.
+fn census(config: &Path, cargo: &[&str]) -> Command {
+	let dir = config.parent().unwrap();
+	let mut cmd = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"));
+	cmd.arg("--config")
+		.arg(config)
+		.arg("--census")
+		.arg(dir.join("census"))
+		.arg("--")
+		.args(cargo)
+		.env("CARGO_TARGET_DIR", dir.join("build"));
+	cmd
+}
+
+/// Finding the exports keeps to the check's `--locked`: it neither writes a lockfile the
+/// check then accepts, nor passes.
+#[test]
+fn locked() {
+	let package = package("locked");
+	let _ = std::fs::remove_file(package.join("Cargo.lock"));
+	let output = census(&package.join("ffi.toml"), &["--locked"]).output().unwrap();
+	assert!(!output.status.success(), "a census without a lockfile passed --locked");
+	assert!(!package.join("Cargo.lock").exists(), "the lockfile was written");
+}
+
+/// A package reached through a symlinked directory is the same package, though cargo
+/// keeps the link in its paths.
+#[test]
+fn symlinked() {
+	let package = package("symlinked");
+	let link = scratch().join("symlinked-link");
+	if !link.exists() {
+		std::os::unix::fs::symlink(&package, &link).unwrap();
+	}
+	let output = census(&link.join("ffi.toml"), &[]).output().unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
+
+/// Another export is found among what the check builds on the host, whatever target
+/// cargo's config names: a version only another platform depends on is no rival.
+#[test]
+fn other_platform() {
+	let package = package("platform");
+	for (dir, version) in [("unix", "1.0.0"), ("windows", "2.0.0")] {
+		let dep = package.join(dir);
+		std::fs::create_dir_all(dep.join("src")).unwrap();
+		let manifest = format!("[package]\nname = \"platform-dep\"\nversion = \"{version}\"\nedition = \"2024\"\n");
+		std::fs::write(dep.join("Cargo.toml"), manifest).unwrap();
+		std::fs::write(dep.join("src/lib.rs"), "pub struct Size {\n\tpub width: u32,\n}\n").unwrap();
+	}
+	let manifest = "[package]\nname = \"platform\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[target.'cfg(unix)'.dependencies]\nunix = { package = \"platform-dep\", path = \"unix\" }\n\n\
+		[target.'cfg(windows)'.dependencies]\nwindows = { package = \"platform-dep\", path = \"windows\" }\n\n\
+		[workspace]\nexclude = [\"unix\", \"windows\"]\n";
+	std::fs::write(package.join("Cargo.toml"), manifest).unwrap();
+	std::fs::write(
+		package.join("src/lib.rs"),
+		"#[cfg(unix)]\nuse unix as dep;\n#[cfg(windows)]\nuse windows as dep;\n\npub fn width(size: dep::Size) -> u32 {\n\tsize.width\n}\n",
+	)
+	.unwrap();
+	std::fs::write(
+		package.join("ffi.toml"),
+		"package = \"platform\"\n\n[crates.platform-dep]\n",
+	)
+	.unwrap();
+	let output = census(&package.join("ffi.toml"), &[])
+		.env("CARGO_BUILD_TARGET", "x86_64-pc-windows-msvc")
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
+
+/// Another export is found among what the library builds with: a version only a
+/// dev-dependency's features pull in is no rival.
+#[test]
+fn dev_features() {
+	let package = package("dev");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	for (dir, version) in [("exp1", "1.0.0"), ("exp2", "2.0.0")] {
+		write(
+			&format!("{dir}/Cargo.toml"),
+			&format!("[package]\nname = \"dev-exp\"\nversion = \"{version}\"\nedition = \"2024\"\n"),
+		);
+		write(
+			&format!("{dir}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n",
+		);
+	}
+	write(
+		"route/Cargo.toml",
+		"[package]\nname = \"dev-route\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nexp2 = { package = \"dev-exp\", path = \"../exp2\", optional = true }\n\n\
+		[features]\nextra = [\"dep:exp2\"]\n",
+	);
+	write("route/src/lib.rs", "");
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"dev\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nexp = { package = \"dev-exp\", path = \"exp1\" }\nroute = { package = \"dev-route\", path = \"route\" }\n\n\
+		[dev-dependencies]\nroute = { package = \"dev-route\", path = \"route\", features = [\"extra\"] }\n\n\
+		[workspace]\nexclude = [\"exp1\", \"exp2\", \"route\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: exp::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"dev\"\n\n[crates.dev-exp]\n");
+	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
+
+/// Another export is found in the checked package's own graph, read plainly: a root
+/// package that the workspace's default members leave out, under forced color, reaching
+/// an export twice.
+#[test]
+fn diamond() {
+	let package = package("diamond");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	// `left` and `right` both depend on the export `shared`, which depends on `leaf`.
+	for (name, deps) in [
+		("app", ""),
+		(
+			"left",
+			"shared = { package = \"diamond-shared\", path = \"../shared\" }\n",
+		),
+		(
+			"right",
+			"shared = { package = \"diamond-shared\", path = \"../shared\" }\n",
+		),
+		("shared", "leaf = { package = \"diamond-leaf\", path = \"../leaf\" }\n"),
+		("leaf", ""),
+	] {
+		write(
+			&format!("{name}/Cargo.toml"),
+			&format!(
+				"[package]\nname = \"diamond-{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[dependencies]\n{deps}"
+			),
+		);
+		write(
+			&format!("{name}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n",
+		);
+	}
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"diamond\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nleft = { package = \"diamond-left\", path = \"left\" }\n\
+		right = { package = \"diamond-right\", path = \"right\" }\n\
+		shared = { package = \"diamond-shared\", path = \"shared\" }\n\n\
+		[workspace]\nmembers = [\"app\", \"left\", \"right\", \"shared\", \"leaf\"]\ndefault-members = [\"app\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: shared::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"diamond\"\n\n[crates.diamond-shared]\n");
+	let output = census(&package.join("ffi.toml"), &[])
+		.env("CARGO_TERM_COLOR", "always")
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the census failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+}
+
+/// Another export is bound by the configured package's dependency on it, not its crate
+/// name or source: a used dependency whose crate shares an unused export's name stands
+/// in for none, and two exports of one crate name export, by names the configured package
+/// calls them that are its own crate name and `bytes`, which the glue names too, with
+/// their sources remapped.
+#[test]
+fn lookalike() {
+	let package = package("lookalike");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	// Both libraries are crate `shared`.
+	for name in ["exp", "other"] {
+		write(
+			&format!("{name}/Cargo.toml"),
+			&format!(
+				"[package]\nname = \"lookalike-{name}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[lib]\nname = \"shared\"\n"
+			),
+		);
+		write(
+			&format!("{name}/src/lib.rs"),
+			"pub struct Size {\n\tpub width: u32,\n}\n\nimpl Size {\n\tpub fn new(width: u32) -> Self {\n\t\tSelf { width }\n\t}\n}\n",
+		);
+	}
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"lookalike\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[lib]\nname = \"shared\"\n\n\
+		[dependencies]\nshared = { package = \"lookalike-exp\", path = \"exp\" }\n\
+		bytes = { package = \"lookalike-other\", path = \"other\" }\n\n\
+		[workspace]\nexclude = [\"exp\", \"other\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: bytes::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"lookalike\"\n\n[crates.lookalike-exp]\n");
+	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
+	assert!(!output.status.success(), "a lookalike stood in for the export");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains(
+			"[crates.lookalike-exp] needs `lookalike` to use its dependency `shared`, and it uses 0 crates of it"
+		),
+		"{stderr}"
+	);
+
+	write(
+		"src/lib.rs",
+		"pub fn total(a: shared::Size, b: bytes::Size) -> u32 {\n\ta.width + b.width\n}\n",
+	);
+	write(
+		"ffi.toml",
+		"package = \"lookalike\"\n\n[crates.lookalike-exp]\n\n\
+		[crates.lookalike-exp.rename]\n\"Size\" = \"exp_size\"\n\n[crates.lookalike-other]\n",
+	);
+	let out = package.join("out");
+	let remap = format!("--remap-path-prefix={}=/src", package.display());
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(package.join("ffi.toml"))
+		.arg("--out")
+		.arg(&out)
+		.env("CARGO_TARGET_DIR", package.join("build"))
+		.env("RUSTFLAGS", remap)
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the export failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	run(cargo()
+		.args(["build", "--quiet", "--manifest-path"])
+		.arg(out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(package.join("glue")));
+}
+
+/// Another export patched in for a registry dependency is bound by its resolved package,
+/// though the dependency names no path, and the glue builds it patched in too.
+#[test]
+fn patched() {
+	let package = package("patched");
+	let write = |path: &str, text: &str| {
+		let path = package.join(path);
+		std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+		std::fs::write(path, text).unwrap();
+	};
+	write(
+		"dep/Cargo.toml",
+		"[package]\nname = \"rust2-ffi-patched-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n",
+	);
+	write("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n");
+	write(
+		"Cargo.toml",
+		"[package]\nname = \"patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nrust2-ffi-patched-dep = \"1\"\n\n\
+		[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\n\
+		[workspace]\nexclude = [\"dep\"]\n",
+	);
+	write(
+		"src/lib.rs",
+		"pub fn width(size: rust2_ffi_patched_dep::Size) -> u32 {\n\tsize.width\n}\n",
+	);
+	write("ffi.toml", "package = \"patched\"\n\n[crates.rust2-ffi-patched-dep]\n");
+	let out = package.join("out");
+	let output = Command::new(env!("CARGO_BIN_EXE_rust2-ffi"))
+		.arg("--config")
+		.arg(package.join("ffi.toml"))
+		.arg("--out")
+		.arg(&out)
+		.args(["--", "--offline"])
+		.env("CARGO_TARGET_DIR", package.join("build"))
+		.output()
+		.unwrap();
+	assert!(
+		output.status.success(),
+		"the export failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	// The glue's workspace patches the export in as the configured one does.
+	run(cargo()
+		.args(["build", "--quiet", "--offline", "--manifest-path"])
+		.arg(out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(package.join("glue")));
 }
