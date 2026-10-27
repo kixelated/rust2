@@ -13,6 +13,7 @@
 mod call;
 mod cfg;
 pub mod coroutine;
+mod decided;
 pub mod glue;
 mod inline;
 mod place;
@@ -77,6 +78,7 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 	let mut body =
 		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
 	vec::literals(tcx, &mut body);
+	decided::fold(tcx, &mut body);
 	Some(body)
 }
 
