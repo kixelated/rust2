@@ -35,9 +35,45 @@ for (let n = 0; n <= 6; n++) {
 			for (let i = n >> 1; i < n; i++) rt.dequePushBack(deque, i);
 			caught(() => rt.dequeRetain(deque, keep));
 
+			const vec = [...Array(n).keys()];
+			const dropped: number[] = [];
+			caught(() => rt.vecRetain(vec, keep, (i) => dropped.push(i)));
+
+			// A run ends at each item the mask clears, and `same` panics comparing `p`.
+			const runs: [number, number][] = [];
+			for (let i = 0, run = 0; i < n; i++) runs.push([i, ((mask >> i) & 1) === 1 ? run : ++run]);
+			const deduped: number[] = [];
+			caught(() =>
+				rt.vecDedupBy(
+					runs,
+					(a, b) => {
+						if (a[0] === p) throw new Thrown();
+						return a[1] === b[1];
+					},
+					(r) => deduped.push(r[0]),
+				),
+			);
+
 			const entries = rt.iterToArray(rt.btreeIter(tree));
 			const items = rt.iterToArray(rt.dequeIter(deque));
-			console.log(`${n} ${mask} ${p} btree ${entries.join(";")} deque ${items.join(",")}`);
+			const ran = runs.map((r) => r[0]);
+			console.log(
+				`${n} ${mask} ${p} btree ${entries.join(";")} deque ${items.join(",")} vec ${vec.join(",")} dropped ${dropped.join(",")} dedup ${ran.join(",")} dropped ${deduped.join(",")}`,
+			);
+
+			// A sort whose comparator panics at its `2p`th call leaves each item once.
+			const sorted = [...Array(n).keys()].map((i) => (i * 5 + mask) % 7);
+			let calls = 0;
+			caught(() =>
+				rt.sliceSortBy(sorted, (a, b) => {
+					if (calls++ === p * 2) throw new Thrown();
+					return rt.cmp(a, b);
+				}),
+			);
+			const unsorted = [...Array(n).keys()].map((i) => (i * 5 + mask) % 7);
+			if (sorted.slice().sort().join() !== unsorted.sort().join()) {
+				throw new Error(`sort of ${n} by ${mask} panicking at ${p}: ${sorted}`);
+			}
 
 			// Keys that collide by twos, so `retain` unlinks within chains.
 			type Key = { k: number };

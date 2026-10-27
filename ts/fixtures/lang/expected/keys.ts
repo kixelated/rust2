@@ -849,10 +849,9 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 			place11.v = (place11.v << 4) & 0xffff;
 		}
 		const _139: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 3) };
-		const place14 = rt.entryOrInsertMut(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
-		const _144: rt.u8 = rt.u8WrappingAdd(place14.v[0], b);
-		place14.v[0] = _144;
-		place14.v[1] = place14.v[1] ^ place14.v[0];
+		const p: [rt.u8, rt.u8] = rt.entryOrInsert(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
+		p[0] = rt.u8WrappingAdd(p[0], b);
+		p[1] = p[1] ^ p[0];
 	}
 	const tree: rt.BTreeMap<rt.u16, rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u16, rt.u16>;
 	const _150: rt.usize = rt.usizeMul(data.length, 4);
@@ -863,8 +862,8 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _159: rt.usize = rt.usizeRem(j, data.length);
 		rt.idx(data, _159);
 		const b2: rt.u8 = data.data[data.start + _159];
-		const place15 = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
-		place15.v = rt.u16WrappingAdd(place15.v, b2 as rt.u16);
+		const place14 = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
+		place14.v = rt.u16WrappingAdd(place14.v, b2 as rt.u16);
 	}
 	const iter3: rt.Iter<[rt.u16, rt.u16]> = rt.btreeIter(tree);
 	while (true) {
@@ -876,31 +875,31 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(_179[1])));
 	}
 	const touchy: rt.BTreeMap<Touchy.Touchy, rt.u8> = rt.btreeNew(Touchy.cmp$Ord) as rt.BTreeMap<Touchy.Touchy, rt.u8>;
-	const place16 = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const place15 = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
 		return 7;
 	});
-	place16.v = rt.u8Add(place16.v, 1);
+	place15.v = rt.u8Add(place15.v, 1);
 	const hashy: rt.HashMap<Touchy.Touchy, rt.u8> = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
-	const place17 = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const place16 = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
 		return 0;
 	});
-	place17.v = rt.u8Add(place17.v, 2);
+	place16.v = rt.u8Add(place16.v, 2);
 	rt.iterExtendBytes(out, rt.iterChain(rt.btreeValues(touchy), rt.hashValues(hashy)));
-	const place18 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
+	const place17 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
 		return 0;
 	});
 	((): void => {
-		place18.v = rt.usizeAdd(place18.v, 1);
+		place17.v = rt.usizeAdd(place17.v, 1);
 	})();
 	const spare: rt.usize[] = [data.length, 8];
-	const place19 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
-	const swapped = place19.v;
-	place19.v = spare[0];
+	const place18 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
+	const swapped = place18.v;
+	place18.v = spare[0];
 	spare[0] = swapped;
-	const place20 = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
+	const place19 = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
 		return 0;
 	});
-	place20.v = rt.usizeAdd(place20.v, spare[0]);
+	place19.v = rt.usizeAdd(place19.v, spare[0]);
 	const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(counts);
 	while (true) {
 		const _241: [rt.u8, rt.usize] | rt.Done = iter4.next();

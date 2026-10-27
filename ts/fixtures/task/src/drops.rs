@@ -47,17 +47,17 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 13`, panicking at the point `arg / 13 % 8` names, if any: what
+/// Run scenario `arg % 14`, panicking at the point `arg / 14 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 13 % 8;
+	let at = arg / 14 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 13 {
+	match arg % 14 {
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
@@ -67,6 +67,7 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 		10 => tripped(log, id, at, false),
 		11 => grown(log, id, at, true),
 		12 => grown(log, id, at, false),
+		13 => edited(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -295,6 +296,15 @@ impl Hash for Key {
 			self.log.note(format!("k{} hashed", self.id));
 		}
 		self.read().hash(state);
+	}
+}
+
+/// The same key, logged, unless it trips.
+impl Clone for Key {
+	fn clone(&self) -> Self {
+		let id = self.read();
+		self.log.note(format!("k{id} cloned"));
+		Self::faulty(id, self.log.clone(), self.fault)
 	}
 }
 
@@ -726,6 +736,74 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 		}
 		_ if tree => drop(map.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
 		_ => drop(hashed.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
+	}
+	log.note(format!("unreached"));
+}
+
+/// What a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults drop, scenario
+/// `at`'s alone, and what is left to drop when a closure, a clone, a drop, or an index
+/// panics partway.
+fn edited(log: &Log, id: u32, at: u8) {
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let fault = |n: u32, fault: Fault| Key::faulty(id + n, log.clone(), fault);
+	let ids = |v: &[Key]| v.iter().map(|k| (k.id - id).to_string()).collect::<Vec<_>>().join(",");
+	match at {
+		0 => {
+			let mut v = list![key(1), key(2), key(3), key(4)];
+			v.retain(|k| (k.id - id) % 2 == 1);
+			log.note(format!("retained {}", ids(&v)));
+			v.retain_mut(|k| k.id != id + 3);
+			log.note(format!("retained {}", ids(&v)));
+			return;
+		}
+		1 => {
+			let mut v = list![key(1), key(2), key(3), key(4)];
+			v.retain(|k| {
+				if k.id == id + 3 {
+					panic!("k{} retained", k.id);
+				}
+				k.id != id + 2
+			});
+		}
+		2 => {
+			let mut v = list![key(1), key(1), key(2), key(2), key(3)];
+			v.dedup();
+			log.note(format!("deduped {}", ids(&v)));
+			v.dedup_by_key(|k| k.id / 2);
+			log.note(format!("deduped {}", ids(&v)));
+			v.dedup_by(|a, b| a.id > b.id);
+			log.note(format!("deduped {}", ids(&v)));
+			return;
+		}
+		3 => {
+			let mut v = list![key(1), fault(1, Fault::Blows), key(1), key(2)];
+			v.dedup();
+		}
+		4 => {
+			let mut v = list![key(1), key(2), key(3)];
+			drop(v.swap_remove(0));
+			log.note(format!("swapped {}", ids(&v)));
+			drop(v.swap_remove(3));
+		}
+		5 => {
+			let v = list![key(1), key(2)];
+			log.note(format!("cloned {}", ids(&v.clone())));
+			let tripped = list![key(1), fault(2, Fault::Trips), key(3)];
+			drop(tripped.clone());
+		}
+		6 => {
+			let pair = (key(1), key(2));
+			drop(pair.clone());
+			let tripped = (key(1), fault(2, Fault::Trips));
+			drop(tripped.clone());
+		}
+		_ => {
+			log.note(format!("max {}", key(1).max(key(2)).id - id));
+			log.note(format!("min {}", key(5).min(key(4)).id - id));
+			log.note(format!("clamped {}", key(2).clamp(key(1), key(3)).id - id));
+			log.note(format!("clamped {}", key(0).clamp(key(1), key(3)).id - id));
+			drop(key(2).clamp(key(3), key(1)));
+		}
 	}
 	log.note(format!("unreached"));
 }

@@ -837,6 +837,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
 				_ => Some(ObjectKind::Array),
 			},
+			// A JS array, whose elements change in place as an array's do.
+			ty::Tuple(tys) if !tys.is_empty() => Some(ObjectKind::Array),
 			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
 				Some(

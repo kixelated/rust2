@@ -10,6 +10,7 @@ mod chars;
 mod chunks;
 mod collections;
 mod cows;
+mod edits;
 mod fmt;
 mod generics;
 pub mod harness;
@@ -18,6 +19,7 @@ mod iters;
 mod keys;
 mod shapes;
 mod strs;
+mod wrappers;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;

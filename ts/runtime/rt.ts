@@ -272,6 +272,16 @@ export function boundMap<T>(b: Bound<T>, clone: (value: T) => T): Bound<T> {
 	return b.tag === "Unbounded" ? b : { tag: b.tag, _0: clone(b._0) };
 }
 
+/** `NonZero::new`: `n`, unless it is 0. */
+export function nonZero<T>(n: T): T | undefined {
+	return n === 0 ? undefined : n;
+}
+
+/** `reverse`, in place. */
+export function sliceReverse<T>(s: T[]): void {
+	s.reverse();
+}
+
 /** `last` and `last_mut`: the last element, or `undefined` if empty. */
 export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[s.length - 1];
@@ -438,8 +448,8 @@ export function vecClone<T>(s: ArrayLike<T>, clone: (item: T) => T, drop?: (item
 }
 
 /** `Vec::extend_from_slice`: a clone of each element of `s`, pushed in order, as far as they clone. */
-export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone: (item: T) => T): void {
-	for (let i = 0; i < s.length; i++) v.push(clone(s[i]));
+export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone?: (item: T) => T): void {
+	for (let i = 0; i < s.length; i++) v.push(clone === undefined ? s[i] : clone(s[i]));
 }
 
 /**

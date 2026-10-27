@@ -80,6 +80,22 @@ export function drop$Held(_1: Held.Held): void {
 	}
 }
 
+export function drop$Key_Key(_1: [Key.Key, Key.Key]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
 export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
 	drop$Held(value.value);
 }

@@ -233,7 +233,7 @@ fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &
 		(
 			_,
 			"get" | "get_mut" | "get_key_value" | "contains_key" | "contains" | "remove" | "remove_entry" | "take"
-			| "range" | "range_mut",
+			| "range" | "range_mut" | "split_off",
 		) => {
 			let tcx = b.t.tcx;
 			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
@@ -549,6 +549,7 @@ fn btree<'tcx>(
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
 		(_, "entry") => Expr::rt("entry", values),
+		(_, "split_off") => Expr::rt("btreeSplitOff", values),
 		("Index", "index") => Expr::rt("btreeIndex", values),
 		("Clone", "clone") => {
 			let k = clone_fn(b, key, span);
@@ -858,7 +859,7 @@ fn arc_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 
 /// `Ord::cmp` of `ty` as a function, or `PartialOrd::partial_cmp` if `partial`: the
 /// runtime's for a std type, which calls the same of what it holds, or the crate's.
-fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
+pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
@@ -893,7 +894,7 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 }
 
 /// `PartialEq::eq` of `ty`, as a function: the runtime's for a std type, or the crate's.
-fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
