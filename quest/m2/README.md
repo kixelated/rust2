@@ -28,8 +28,16 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the bench's bundles shrink back to THIR's sizes, coroutine classes first
+- [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
+- [Time the minified bundles](/quest/m2/ts-bench-minified.md) - `just ts bench` times what it measures for size, as consumers ship it
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
+- [Copy what a container stores](/quest/m2/ts-store-alias.md) - `push` and other stores of a `Copy` aggregate copy it instead of sharing it
+- [str and String methods over char](/quest/m2/ts-str-char.md) - `chars`, `char` patterns, and `String::push` translate, unblocking `ietf/namespace.rs`
+- [Share a held-back read across a call](/quest/m2/ts-shared-read.md) - `leading-ones` decode recovers what #83's copy fix cost
+- [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
+- [Translate derived == through references and slice index writes](/quest/m2/ts-ref-shapes.md) - two refused shapes #83's tests hit
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
+- [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

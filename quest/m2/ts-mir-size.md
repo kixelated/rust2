@@ -4,7 +4,7 @@
 
 [rust2-ts](/ts/README.md)'s bundles on `just ts bench` are no larger than the THIR
 lowering's were, without giving up the speed MIR gained: the codec's at most 30629
-bytes minified and 9422 gzipped, and the async handoff's at most 10949 and 3458.
+bytes minified and 9422 gzipped, and the async handoff's at most 3458 gzipped.
 
 ## Plan
 
@@ -32,6 +32,12 @@ Tried and dropped:
 - Collapsing an `async fn` whose body only awaits another that only moves its arguments
   in (`level2` into `level1` and on): exact, but it removes the depth the handoff
   measures, and moq-net's wrappers await `kio::wait`, not such an `async fn`.
+
+Decided with the maintainer on 2026-10-26, from
+[#85](https://github.com/kixelated/rust2/pull/85): the handoff's target is gzipped
+only. Its minified gap is the fixture's repeated one-await classes, which only a
+shared driver (measured slower or larger) or collapsing the wrappers (which empties
+the bench) would close.
 
 Generators and closures stay out: they measured 1.4-5.5x and 1.3-1.8x slower on the
 handoff. Coroutine fields stay private.
