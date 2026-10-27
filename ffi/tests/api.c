@@ -331,6 +331,15 @@ static int script(void) {
 	printf(" %s", next != NULL ? "true" : "false");
 	api_counter_free(next);
 	printf(" %s\n", api_counters_pop(stack) == NULL ? "true" : "false");
+	/* Generic functions and methods, at each instance the config names, by its own name. */
+	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
+	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
+	printf("seeded %llu %llu past %llu seeds %llu\n", (unsigned long long)api_counter_get(from_point),
+	       (unsigned long long)api_counter_get(from_size),
+	       (unsigned long long)api_counters_depth_past_point(stack, (api_point){.x = 1, .y = 2}),
+	       (unsigned long long)api_seeds((api_size){.width = 2, .height = 3}));
+	api_counter_free(from_point);
+	api_counter_free(from_size);
 	api_counters_free(stack);
 
 	/* Its Drop runs when C frees the handle, not before. */

@@ -37,10 +37,10 @@ export function log(self: Machine, v: rt.u8): rt.u8 {
 export function run(self: Machine, n: rt.u8): rt.u8 {
 	if (self.state.tag === "Dot") {
 		step(self);
-		if (self.state.tag === "Dot") {
-			return 27;
+		if ((self.state as Shape.Shape).tag === "Line") {
+			return (copy$Point(((self.state as Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1).x & 0xff) ^ self.steps ^ n;
 		}
-		return self.steps ^ n;
+		return 27;
 	}
 	if (self.state.tag === "Line") {
 		const seen: rt.u8 = peek(self);

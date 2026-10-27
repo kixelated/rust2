@@ -548,6 +548,42 @@ impl<T> Stack<T> {
 	pub fn depth(&self) -> usize {
 		self.items.len()
 	}
+
+	/// The depth past `from`'s seed: a generic type's generic method.
+	pub fn depth_past(&self, from: impl Seed<u64>) -> u64 {
+		self.items.len() as u64 + from.seed()
+	}
+}
+
+/// What a [`Counter`] can start from: generic, so no foreign implementation takes it, and a
+/// parameter it bounds exports at each instance the config names.
+pub trait Seed<T> {
+	fn seed(&self) -> T;
+}
+
+impl Seed<u64> for Point {
+	fn seed(&self) -> u64 {
+		u64::from(self.x.unsigned_abs()) + u64::from(self.y.unsigned_abs())
+	}
+}
+
+impl Seed<u64> for Size {
+	fn seed(&self) -> u64 {
+		u64::from(self.width) * u64::from(self.height)
+	}
+}
+
+impl Counter {
+	/// A counter named `name` at `from`'s seed: an `impl Trait` argument, at two instances.
+	pub fn seeded(name: &str, from: impl Seed<u64>) -> Counter {
+		Counter::new(name, from.seed())
+	}
+}
+
+/// The seed of `T`'s default and `from`'s: a type parameter no argument names, which the
+/// call names, beside an `impl Trait` one.
+pub fn seeds<T: Seed<u64> + Default>(from: impl Seed<u64>) -> u64 {
+	T::default().seed() + from.seed()
 }
 
 /// An area grown by `by` on each side: another export's types, across crates.
