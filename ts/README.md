@@ -150,7 +150,12 @@ and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, en
 or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
 it, since JS would share the object: by a function of `lib.ts` made for its type, such
 as `copy$Point`, which copies what it holds by value and shares what it holds by
-reference.
+reference. Only a type the crate writes into in place is copied, or one holding such a
+type by value: a value of any other type never changes once made, so it is shared. A
+write counts through a field, an element, a reference, or a box, and a mutable reference
+std is given, or one kept other than in a local, counts as a write into what it points
+at. A write over a type parameter counts for every type its bounds allow. A caller must
+not change in place what it passes to or gets from the translation either.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
@@ -350,7 +355,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
   encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates, those
-  a container stores included, formatting, methods on generic types, iterators, with
+  a container stores included and those written into only in another module, behind a
+  type parameter, or through a box, formatting, methods on generic types, iterators, with
   closures that log what each
   adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
