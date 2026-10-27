@@ -2,16 +2,16 @@
 
 import * as rt from "./rt.ts";
 import type * as Clash from "./collections.Clash.ts";
+import type * as Pair from "./collections.Pair.ts";
 import type * as Rank from "./collections.Rank.ts";
 import type * as Tally from "./collections.Tally.ts";
-import type * as Pair from "./fmt.Pair.ts";
+import type * as fmt_Pair from "./fmt.Pair.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
-import type * as Meters from "./shapes.Meters.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
 
@@ -47,10 +47,6 @@ export function copy$Lens(v: Lens.Lens): Lens.Lens {
 	return { slot: v.slot, n: v.n };
 }
 
-export function copy$Meters(v: Meters.Meters): Meters.Meters {
-	return { _0: v._0 };
-}
-
 export function copy$Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
 	return [v[0], v[1]];
 }
@@ -72,6 +68,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 }
 
 export function copy$Pair(v: Pair.Pair): Pair.Pair {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$Pair$2(v: fmt_Pair.Pair): fmt_Pair.Pair {
 	return { _0: v._0, _1: v._1 };
 }
 
@@ -131,8 +131,16 @@ export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap({ value: v.value, count: v.count });
 }
 
+export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
+	return [v[0], copy$Horizon(v[1])];
+}
+
 export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
 	return [v[0], copy$Tally(v[1])];
+}
+
+export function copy$u8_str(v: [rt.u8, string]): [rt.u8, string] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_u16(v: [rt.u8, rt.u16]): [rt.u8, rt.u16] {

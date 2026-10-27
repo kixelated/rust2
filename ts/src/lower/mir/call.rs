@@ -25,6 +25,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) {
 		let tcx = self.tcx;
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
+		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
 			// `next` into a local that holds the protocol's item or `rt.DONE`, unconverted.
@@ -70,11 +71,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.emit(pre, None, false, out);
 					return;
 				}
-				None => (self.call_def(def_id, gargs.skip_binder(), args, span, &mut pre), true),
+				None => (
+					self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
+					true,
+				),
 			},
 			ty::FnPtr(..) => {
 				let f = self.operand(func, span, &mut pre);
-				let values = self.operands(args, span, &mut pre);
+				let values = self.operands(false, args, result, span, &mut pre);
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
@@ -128,13 +132,31 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Arguments, uncopied: a callee that changes a parameter in place copies it first.
-	fn operands(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Vec<Expr> {
+	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
+	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
+	/// own value, which the analysis then made the local's own.
+	fn operands(
+		&mut self,
+		translated: bool,
+		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
 		let saved = std::mem::replace(&mut self.into_frozen, true);
-		let values = args
-			.iter()
-			.map(|arg| self.operand_frozen(&arg.node, span, out))
-			.collect();
+		let mut values = Vec::with_capacity(args.len());
+		for arg in args {
+			let value = self.operand_frozen(&arg.node, span, out);
+			values.push(match &arg.node {
+				Operand::Copy(p) | Operand::Move(p)
+					if self.moved_from(&arg.node).is_none()
+						&& self.keeps(translated, args, p.ty(&self.mir.local_decls, self.tcx).ty, result) =>
+				{
+					self.b.t.copied(value, p.ty(&self.mir.local_decls, self.tcx).ty, span)
+				}
+				_ => value,
+			});
+		}
 		self.into_frozen = saved;
 		values
 	}
@@ -153,6 +175,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		def_id: rustc_hir::def_id::DefId,
 		gargs: GenericArgsRef<'tcx>,
 		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Expr {
@@ -183,16 +206,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return f.call(values);
 		}
 		// A function of the crate gets what JS passes, so a `&mut` to a number can't reach it.
-		let local = match Instance::try_resolve(tcx, self.b.t.typing_env_pub(), def_id, gargs) {
-			Ok(Some(instance)) => matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local()),
-			_ => false,
-		};
+		let local = self.b.t.translated(def_id, gargs);
 		if local {
 			for arg in args {
 				self.check_escape(&arg.node, span);
 			}
 		}
-		let values = self.operands(args, span, out);
+		let values = self.operands(local, args, result, span, out);
 		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
@@ -294,7 +314,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_)) =>
 			{
-				let place = self.call_def(def_id, gargs, args, span, out);
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let place = self.call_def(def_id, gargs, args, result, span, out);
 				if !place.is_path() {
 					return done(place, true);
 				}

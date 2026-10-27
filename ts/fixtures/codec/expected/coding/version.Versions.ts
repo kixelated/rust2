@@ -16,7 +16,8 @@ export function decodeSlice$Decode_Form(buf: Uint8Array, version: Form.Form): rt
 	const _6: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
 	if (_6.ok) {
 		const val: Versions = _6.value;
-		const _0: rt.Result<[Versions, rt.usize], DecodeError.DecodeError> = rt.Ok([val, rt.usizeSub(buf.length, Decoder.remaining(r))]);
+		const value: Versions = val;
+		const _0: rt.Result<[Versions, rt.usize], DecodeError.DecodeError> = rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 		return _0;
 	}
 	return _6;
@@ -41,7 +42,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 			}
 			const _15: rt.Result<Version.Version, DecodeError.DecodeError> = Version.decode$Decode_Form(r, version);
 			if (_15.ok) {
-				vs.push(_15.value);
+				vs.push(copy$Version(_15.value));
 			} else {
 				return _15;
 			}

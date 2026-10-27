@@ -31,7 +31,7 @@ export interface Decoder {
 
 /** Read `buf`, with varints in the given form. */
 function new_(buf: Uint8Array, form: Form.Form): Decoder {
-	return { buf, form, len: buf.length, need: 0, control: undefined, uncounted: 0 };
+	return { buf, form: copy$Form(form), len: buf.length, need: 0, control: undefined, uncounted: 0 };
 }
 
 /**
