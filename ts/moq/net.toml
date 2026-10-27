@@ -1,0 +1,4 @@
+# moq-net whole, for the census: it names no roots, so every item is one.
+package = "moq-net"
+roots = []
+ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]

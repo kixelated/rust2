@@ -52,7 +52,7 @@ moq checkout="":
     printf '{ "extends": "%s/runtime/tsconfig.json", "files": [], "include": ["**/*.ts"] }\n' "$PWD" > "$out/tsconfig.json"
     tsc -p "$out"
 
-# Census what translation refuses in moq-net and kio into target/census, from the pinned moq revision or a checkout.
+# Census what translation refuses in moq-net, its model, and kio into target/census, from the pinned moq revision or a checkout.
 census checkout="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -61,7 +61,8 @@ census checkout="":
         just moq-pin
         src=target/moq
     fi
-    cargo run --locked --quiet -- --config moq/ts.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md -- --package moq-wasm
+    cargo run --locked --quiet -- --config moq/net.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/moq-net.md -- --package moq-wasm
+    cargo run --locked --quiet -- --config moq/model.toml --manifest-path "$src/rs/moq-net/Cargo.toml" --census target/census/model.md -- --package moq-wasm
     cargo run --locked --quiet -- --config moq/kio.toml --manifest-path "$src/rs/kio/Cargo.toml" --census target/census/kio.md
 
 # Check out the pinned moq revision in target/moq.

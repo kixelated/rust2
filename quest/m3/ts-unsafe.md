@@ -10,7 +10,7 @@ source instead of being bound by hand.
 ## Plan
 
 Decided with the maintainer on 2026-10-27: a dependency containing `unsafe` is bound by
-the consumer [at first](/quest/m2/ts-model/bind.md); this follows once a consumer binds
+the consumer [at first](/ts/README.md#bindings); this follows once a consumer binds
 enough of them to justify it. The census of moq-net's model found `bytes`, `hashlink`,
 `slab`, and `smallvec` bound, and kio's lock-free `log`.
 

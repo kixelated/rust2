@@ -159,6 +159,17 @@ pub struct Function {
 	pub eager: bool,
 	/// What it reads: Rust's function, or a field or constant named as it is.
 	pub access: Access,
+	/// The instance the config names, if it is generic.
+	pub instance: Option<Instance>,
+}
+
+/// An instance of a generic function or method the config names.
+pub struct Instance {
+	/// Its C name, without the prefix.
+	pub name: String,
+	/// The arguments of its declared type parameters, which the call names, as Rust
+	/// cannot infer one no argument names; its argument infers an `impl Trait` one.
+	pub args: Vec<Type>,
 }
 
 /// What an exported function reads.

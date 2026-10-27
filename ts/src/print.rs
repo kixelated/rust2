@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 use oxc_sourcemap::SourceMapBuilder;
 
-use crate::program::{HEADER, ModPath, Program, SymKind, is_type_module, module_file, unique};
+use crate::program::{HEADER, ModPath, Program, SymKind, module_file, unique};
 use crate::ts::{Ctor, Expr, FieldInit, Function, Item, Key, Loc, Param, Stmt, StmtKind, SymId, Type};
 
 pub struct Printed {
@@ -182,10 +182,8 @@ impl Bindings {
 		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
-			if is_type_module(&sym.module) {
+			if let Some((module, ty)) = program.namespace(&sym.module) {
 				let (binding, used) = namespaces.entry(sym.module.clone()).or_insert_with(|| {
-					// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
-					let (module, ty) = sym.module.last().unwrap().split_once('.').unwrap();
 					let mut binding = ty.to_string();
 					let mut n = 2;
 					while taken.contains(&binding) {

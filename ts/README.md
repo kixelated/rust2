@@ -26,6 +26,12 @@ roots = ["coding::Decoder", "lite::Group"]
 printable = ["coding::DecodeError"]
 # Macros whose invocations are left out, such as logging. Each must evaluate to `()`.
 ignore-macros = ["tracing::trace"]
+
+# Hand-written TypeScript that stands in for an item, by its path from the crate root or
+# else from a crate it depends on: a function, or a type and its functions.
+[bind]
+"bytes::Bytes" = "bind/bytes.ts"
+"util::TaskSet" = { file = "bind/tasks.ts", drop = true }
 ```
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
@@ -33,16 +39,18 @@ moq consumes it as the `ts` package of this repository's flake. In this reposito
 
 ## Census
 
-`--census file.md` translates nothing. It treats every item in the library as a root,
-except derived impls, which come along only when called or printable, and writes a Markdown report of
-every construct translation refuses, with counts and spans. Refusals are ranked by
-construct, by the type or module they name, and by each type or path. A generic function
-that no instance reaches is lowered over its own type parameters, refusing nothing that
-hinges on what they are, since each instance decides that. A census succeeds whatever
-it finds; translation still fails on any refusal.
+`--census file.md` translates nothing. It writes a Markdown report of every construct
+translation refuses, with counts and spans, ranked by construct, by the type or module
+they name, and by each type or path. It starts from the config's roots, as translation
+does. A config that names none makes every item in the library a root, except derived
+impls, which come along only when called or printable, and lowers a generic function
+that no instance reaches over its own type parameters, refusing nothing that hinges on
+what they are, since each instance decides that. A census succeeds whatever it finds;
+translation still fails on any refusal.
 
-`just ts census` runs it on moq-net and kio at the pinned moq revision, into
-`target/census`, and the nightly job publishes their tables.
+`just ts census` runs it at the pinned moq revision, into `target/census`, on moq-net
+whole (`moq/net.toml`), on its model's public types with their boundaries bound
+(`moq/model.toml`), and on kio, and the nightly job publishes their tables.
 
 ## Output
 
@@ -64,7 +72,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
-| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
+| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
@@ -206,6 +214,48 @@ full type arguments.
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
+## Bindings
+
+A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
+Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
+runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/bytes.ts`,
+and may import the translated modules and npm packages too. Callers import it whole, as a
+type's module, `import * as Bytes from "./bind/bytes.ts"`.
+
+A bound type is the file's export of its name, `Bytes.Bytes`, with the Rust type's type
+parameters. A call of a bound function, or of a function that an impl for a bound type in
+the type's own crate defines, calls the file's export. The export is named as the
+translated function would be, without the type's or the function's type arguments, so one
+export serves every instance and a generic one is a generic TS function. `Bytes::slice` is
+`Bytes.slice`, `<Bytes as PartialEq>::eq` is `Bytes.eq$PartialEq`, and
+`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. A trait's provided function
+that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
+stay the trait's, as for any other type. A generic export sees a type argument only in the
+values it takes, so a function with a bounded type parameter that no argument holds, such
+as `fn zero<T: Default>() -> T`, or with a const parameter, can't be bound. `tsc` checks a
+generic bound type's value at each of its instantiations translation reaches.
+
+Translation can't see into a bound type, so a field, variant, or constructor of one is
+refused, as are iterating one, keying a collection by one, and assigning a whole one
+through a `&mut`. Its value is never `undefined` or `rt.Pending`, which `None` and
+`Poll::Pending` are, and is an object unless the Rust type is `Copy`. A `&mut` to one
+passes that object, which the binding's functions change in place. Where the type is
+`Copy`, such a `&mut` is refused, since JS shares the value where Rust copies it, and a
+binding never changes a `Copy` value in place. Nor does a binding change in place what it
+takes by value or by `&`, or share with a clone what a `&mut` changes, and an integer it
+returns is in its Rust type's range.
+
+Once the output is written, `tsc` 7.0 or later, from `PATH`, checks each export against the
+translated signature of every instance translation calls, and each bound type's value. A
+missing or mismatched binding fails the translation at the Rust item's span, and the
+output is removed. Only the binding files translation reaches are copied, so one imports
+another only where translation reaches both. A binding inside the output is refused, since
+a translation replaces it.
+
+A bound type with `drop = true` drops where Rust drops it, through its
+`[Symbol.dispose]`, which `tsc` checks it has. Without it, dropping one does nothing JS
+sees, `tsc` checks it has no `[Symbol.dispose]`, and a type argument that drops is refused.
+
 ## Design
 
 Output is ranked correctness first, speed second, and bundle size third: the
@@ -285,8 +335,13 @@ they need.
   of nanoseconds, so its overflow, `checked_*`, and ordering are std's exactly, and a
   lowering of its methods from core's MIR would read the same fields.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
-  no faster on `just ts bench`, in V8 or JavaScriptCore.
+  `?` and `match` keep Rust's control flow exactly. One whose payload is `undefined`, such
+  as `Ok(())`, is one frozen object every evaluation shares, since nothing writes into a
+  result in place and engines don't remove one returned through a call they don't inline:
+  `just ts bench` measured the codec's encode workloads at 0.90 times their time without
+  it in Chrome, 0.75 in Firefox, and 0.75 in Bun at the geometric mean, with A/A within
+  0.03 in Chrome and Node within its noise. Sharing a result of any other constant, such
+  as `Err(DecodeError::Short)`, measured no faster on the decodes that return it.
 - A `&[u8]` is an `rt.ByteSlice` rather than a `Uint8Array` view, since a view costs
   several times what an object does to make in V8 and JavaScriptCore, and a varint's
   decode splits its slice once to four times. `just ts bench` measured the codec's decode
@@ -328,8 +383,8 @@ they need.
 ## Never
 
 Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, will
-bind to hand-written TS through config ([model](/quest/m2/ts-model/README.md)).
+`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
+to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
@@ -395,6 +450,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
+- `bind` binds `bytes::Bytes`, and a function and a type of its own that read through raw
+  pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
+  differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
+  the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.
+  `refused.toml` holds bindings the config can't make, with the errors in `refused.txt`.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

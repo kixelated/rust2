@@ -6,6 +6,7 @@
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
 import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
+import type { Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
@@ -45,6 +46,32 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 	panicFmt(["assertion `left ", op, " right`", ...failed, "\n  left: ", left, "\n right: ", right]);
 }
 
+// Bindings
+
+/**
+ * `T` if it can be a bound Rust type's value, or else why not: never `undefined` or
+ * `Pending`, which `None` and `Poll::Pending` are, an object unless Rust copies it, and
+ * disposable exactly when it drops.
+ */
+export type Bound<T, Copy extends boolean, Drop extends boolean> = [undefined] extends [T]
+	? "a bound value can't be undefined, which None is"
+	: [typeof Pending] extends [T]
+		? "a bound value can't be Pending, which Poll::Pending is"
+		: [Copy, T] extends [false, object]
+			? Disposes<T, Drop>
+			: Copy extends true
+				? Disposes<T, Drop>
+				: "a bound value Rust doesn't copy must be an object, which a reference changes in place";
+
+/** `T` if it has a `[Symbol.dispose]` exactly when `Drop`, or else why not. */
+type Disposes<T, Drop extends boolean> = Drop extends true
+	? [T] extends [Disposable]
+		? T
+		: "a bound value that drops must have a [Symbol.dispose]"
+	: [T] extends [{ [Symbol.dispose]: unknown }]
+		? "a bound value with a [Symbol.dispose] must bind with drop = true"
+		: T;
+
 // Results
 
 /** `Result<T, E>`. */
@@ -59,6 +86,12 @@ export function Ok<T, E = never>(value: T): Result<T, E> {
 export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
+
+/** `Ok(())`, one frozen object every evaluation shares, as nothing can change it. */
+export const OK: Result<undefined, never> = /* @__PURE__ */ Object.freeze({ ok: true, value: undefined });
+
+/** `Err(())`, shared as `OK` is. */
+export const ERR: Result<never, undefined> = /* @__PURE__ */ Object.freeze({ ok: false, error: undefined });
 
 /** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
 function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
@@ -573,8 +606,6 @@ export class FmtError {}
 /** `fmt::Result`. */
 export type FmtResult = Result<undefined, FmtError>;
 
-const written: FmtResult = /* @__PURE__ */ Ok(undefined);
-
 /** A value ready to write: `&dyn Display`, `&dyn Debug`, or one placeholder's argument. */
 export type Fmt = (f: Formatter) => FmtResult;
 
@@ -605,7 +636,7 @@ class StringWriter implements Write {
 
 	writeStr(s: string): FmtResult {
 		this.s += s;
-		return written;
+		return OK;
 	}
 }
 
@@ -629,7 +660,7 @@ class PadAdapter implements Write {
 			const r = this.out.writeStr(line);
 			if (!r.ok) return r;
 		}
-		return written;
+		return OK;
 	}
 }
 
@@ -645,7 +676,7 @@ function write(out: Write, args: Arguments): FmtResult {
 		const r = typeof part === "string" ? out.writeStr(part) : part({ out, spec: {} });
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** The number of chars in `s`, as Rust counts them for padding. */
@@ -750,7 +781,7 @@ export interface DebugStruct {
 export function debugStructField(b: DebugStruct, name: string, value: Fmt): DebugStruct {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr(" {\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr(" {\n");
 			b.result = head.ok ? pretty(b.fmt, [name, ": ", value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr((b.hasFields ? ", " : " { ") + name + ": ");
@@ -789,7 +820,7 @@ export interface DebugTuple {
 export function debugTupleField(b: DebugTuple, value: Fmt): DebugTuple {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.fields > 0 ? written : b.fmt.out.writeStr("(\n");
+			const head = b.fields > 0 ? OK : b.fmt.out.writeStr("(\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr(b.fields === 0 ? "(" : ", ");
@@ -830,10 +861,10 @@ export interface DebugList {
 export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr("\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr("\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
-			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : written;
+			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : OK;
 			if (b.result.ok) b.result = value(b.fmt);
 		}
 	}
@@ -868,7 +899,7 @@ function pretty(f: Formatter, parts: Arguments): FmtResult {
 		const r = typeof part === "string" ? writer.out.writeStr(part) : part(writer);
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** A pretty builder's `finish_non_exhaustive`: an indented `..`, then `close`. */

@@ -1483,6 +1483,48 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 		},
 		_ => 0,
 	});
+	// A library call's test narrows what it reads, as a match would.
+	if order == std::cmp::Ordering::Less {
+		out.push(match order {
+			std::cmp::Ordering::Equal => 31,
+			_ => 32,
+		});
+	}
+	let r: Result<u8, u8> = if data.len() > 1 { Ok(1) } else { Err(2) };
+	if r.is_ok() {
+		out.push(match r {
+			Ok(v) => v,
+			Err(e) => e,
+		});
+	}
+	// So does what the place was assigned, before such a test.
+	let mut assigned = std::cmp::Ordering::Less;
+	if data.len() > 3 {
+		assigned = std::cmp::Ordering::Greater;
+	}
+	if assigned == std::cmp::Ordering::Equal {
+		out.push(34);
+	}
+	let flow = step(0, data.len() as u8);
+	if flow.is_break() {
+		out.push(match flow {
+			ControlFlow::Continue(n) => n as u8,
+			ControlFlow::Break(b) => b.unwrap_or(33),
+		});
+	}
+	// A map's entry is one value for either variant, which TypeScript narrows nothing by.
+	let mut counts = std::collections::HashMap::new();
+	if data.len() % 2 == 0 {
+		counts.insert(data.len() as u8, 35);
+	}
+	let entry = Some(counts.entry(data.len() as u8));
+	if entry.is_some() {
+		out.push(match entry {
+			Some(std::collections::hash_map::Entry::Occupied(e)) => *e.get(),
+			Some(std::collections::hash_map::Entry::Vacant(e)) => *e.insert(36),
+			None => 37,
+		});
+	}
 	// What changes the place between the matches undecides it.
 	let mut m = s;
 	out.push(match m {
@@ -1527,6 +1569,12 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 	let mut machine = Machine { state: s, steps: 0 };
 	for _ in 0..4 {
 		out.push(machine.run(data.len() as u8));
+	}
+	let mut filled = Filled {
+		shape: dir(data.len() as u8).map(|_| s),
+	};
+	for _ in 0..3 {
+		out.push(filled.run());
 	}
 	// A copy keeps what was known of its original after the original changes.
 	let mut original = shape(data);
@@ -1666,8 +1714,8 @@ impl Machine {
 			Shape::Dot => {
 				self.step();
 				match self.state {
-					Shape::Dot => 27,
-					_ => self.steps ^ n,
+					Shape::Line(_, to) => to.x as u8 ^ self.steps ^ n,
+					_ => 27,
 				}
 			}
 			Shape::Line(..) => {
@@ -1688,6 +1736,46 @@ impl Machine {
 					Shape::Rect { .. } => 30,
 					_ => width as u8 ^ logged,
 				}
+			}
+		}
+	}
+}
+
+/// An `Option` a method matches, filling it between its matches.
+struct Filled {
+	shape: Option<Shape>,
+}
+
+impl Filled {
+	#[inline(never)]
+	fn fill(&mut self) {
+		self.shape = match self.shape {
+			None => Some(Shape::Line(Point::new(5, 6), Point::new(7, 8))),
+			Some(Shape::Dot) => Some(Shape::Line(Point::new(1, 2), Point::new(3, 4))),
+			Some(_) => None,
+		};
+	}
+
+	fn run(&mut self) -> u8 {
+		match self.shape {
+			None => {
+				self.fill();
+				match self.shape {
+					Some(Shape::Line(_, to)) => to.y as u8,
+					Some(_) => 40,
+					None => 41,
+				}
+			}
+			Some(Shape::Dot) => {
+				self.fill();
+				match self.shape {
+					Some(Shape::Line(from, _)) => from.x as u8,
+					_ => 42,
+				}
+			}
+			Some(_) => {
+				self.fill();
+				43
 			}
 		}
 	}
@@ -1829,6 +1917,11 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// A result with nothing set yet.
+fn unset() -> Result<Option<u8>, u8> {
+	Ok(None)
+}
+
 /// Steps a total by `x`: breaks with what it can't take, or continues with the new total.
 fn step(total: u16, x: u8) -> ControlFlow<Option<u8>, u16> {
 	match total.checked_add(u16::from(x) * 0x40) {
@@ -1900,6 +1993,20 @@ pub fn flows(data: &[u8], out: &mut Vec<u8>) {
 		if let ControlFlow::Continue(v) = flow {
 			out.extend_from_slice(&v);
 		}
+	}
+
+	// Every `Ok(None)` is one shared object: a store through a `ref mut` to its payload
+	// makes the result again, so the next stays `None`.
+	let mut set = unset();
+	if let Ok(ref mut n) = set {
+		*n = Some(a);
+	}
+	for result in [set, unset()] {
+		out.push(match result {
+			Ok(Some(n)) => n,
+			Ok(None) => 0xfe,
+			Err(e) => e,
+		});
 	}
 
 	let slot = Mutex::new(None);

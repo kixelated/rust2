@@ -49,7 +49,7 @@ fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>
 	let tcx = b.t.tcx;
 	let ty = ty.peel_refs();
 	// Over parameters, only a census's instance, which never runs, would call it.
-	if !matches!(ty.kind(), ty::Adt(adt, _) if adt.did().is_local()) || ty.has_param() || ty.has_aliases() {
+	if !matches!(ty.kind(), ty::Adt(adt, _) if b.t.own(adt.did())) || ty.has_param() || ty.has_aliases() {
 		return None;
 	}
 	let (next, _) = trait_items(tcx)?;
@@ -117,6 +117,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 	let tcx = b.t.tcx;
 	let owned = !ty.is_ref();
 	if b.t.iter_item(ty).is_some() {
+		not_bound(b, ty, span);
 		return Some(match own_next(b, ty) {
 			Some(instance) => {
 				let sym = b.t.instance(instance);
@@ -207,6 +208,17 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 	tcx.try_normalize_erasing_regions(t.typing_env_pub(), ty::Unnormalized::new_wip(projection))
 		.ok()
 }
+
+/// Refuse iterating `ty`, an iterator, if a binding stands in for it: it is no `rt.Iter`,
+/// which std's adaptors and `for` take every iterator but the crate's own for.
+fn not_bound<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
+	if let ty::Adt(adt, _) = ty.peel_refs().kind()
+		&& b.t.bound_drops(adt.did()).is_some()
+	{
+		b.t.err(span, "iterating a bound type, which is not supported yet");
+	}
+}
+
 /// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
 pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 	if b.t.erases_to(ty).undefined {
@@ -314,6 +326,7 @@ pub fn call<'tcx>(
 		_ => return None,
 	};
 	let item = b.t.iter_item(self_ty.peel_refs())?;
+	not_bound(b, self_ty, span);
 	let mut values = args.into_iter();
 	let recv = values.next()?;
 	let rest: Vec<Expr> = values.collect();

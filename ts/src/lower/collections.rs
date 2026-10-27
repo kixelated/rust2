@@ -450,7 +450,7 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 		ty::Bool | ty::Char | ty::Str => true,
 		ty::Int(_) | ty::Uint(_) => !Int::of(key)?.big(),
 		ty::Adt(..) if library::string(b.t.tcx, key) => true,
-		ty::Adt(adt, _) if adt.did().is_local() && fieldless(*adt) => derived_eq(b, key),
+		ty::Adt(adt, _) if b.t.own(adt.did()) && fieldless(*adt) => derived_eq(b, key),
 		_ => false,
 	};
 	if primitive {
@@ -480,7 +480,7 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -658,7 +658,7 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
-		ty::Adt(adt, args) if adt.did().is_local() => {
+		ty::Adt(adt, args) if b.t.own(adt.did()) => {
 			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
 				let f = trait_fn(tcx, tr, item);
 				Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(args))
@@ -899,7 +899,7 @@ fn discriminant<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, spa
 	let ty::Adt(adt, _) = ty.kind() else {
 		return b.err(span, format!("the discriminant of `{ty}`"));
 	};
-	if !adt.is_enum() || !adt.did().is_local() {
+	if !adt.is_enum() || !b.t.own(adt.did()) {
 		return b.err(span, format!("the discriminant of `{ty}`"));
 	}
 	let info = b.t.adt(*adt, span);
@@ -928,7 +928,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	// What a std type holds may be the crate's, which compares and hashes by its own impls.
 	let held = |t: Ty<'tcx>| {
 		let t = peel(b, t);
-		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local())
+		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
 	};
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
@@ -968,11 +968,11 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 			Expr::rt("cmpOption", vec![cmp_fn(b, inner, partial, span)])
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
-		ty::Adt(adt, _) if adt.did().is_local() && partial => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1013,7 +1013,7 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 			}
 			Expr::rt("eqArc", values)
 		}
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
@@ -1041,7 +1041,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", vec![hash_fn(b, inner, hasher, span)])
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}

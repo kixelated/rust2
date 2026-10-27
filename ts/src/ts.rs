@@ -94,6 +94,19 @@ impl Expr {
 		Self::Rt(name.into()).call(args)
 	}
 
+	/// `rt.Ok(value)`, or `rt.Err(value)` if not `ok`: for `undefined`, `rt.OK` or `rt.ERR`,
+	/// one object every evaluation shares, since nothing writes into a result in place and
+	/// `undefined` holds nothing to write into.
+	pub fn result(ok: bool, value: Expr) -> Self {
+		let unit = matches!(&value, Self::Lit(text) if text == "undefined");
+		match (ok, unit) {
+			(true, true) => Self::Rt("OK".into()),
+			(false, true) => Self::Rt("ERR".into()),
+			(true, false) => Self::rt("Ok", vec![value]),
+			(false, false) => Self::rt("Err", vec![value]),
+		}
+	}
+
 	/// The runtime function `name` of what `of` names: `rt.u8Add` for `("u8", "add")`.
 	pub fn rt_of(of: &str, name: &str) -> Self {
 		let mut chars = name.chars();

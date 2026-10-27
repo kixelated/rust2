@@ -32,6 +32,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
+			// A binding's export, which takes what JS passes, as std's mappings do not.
+			ty::FnDef(def_id, gargs) if self.b.t.binds(def_id, gargs.skip_binder()) => (
+				self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
+				true,
+			),
 			ty::FnDef(def_id, gargs) if self.bytes_across(def_id, gargs.skip_binder(), fn_ty) => {
 				let path = tcx.def_path_str(def_id);
 				let msg = format!(
@@ -528,7 +533,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// The crate's own iterator is its own `IntoIterator`; std's adaptors convert it
 			// where they take it.
 			("IntoIterator", "into_iter")
-				if matches!(targ(0)?.kind(), ty::Adt(adt, _) if adt.did().is_local())
+				if matches!(targ(0)?.kind(), ty::Adt(adt, _) if self.b.t.own(adt.did()))
 					&& self.b.t.iter_item(targ(0)?).is_some() =>
 			{
 				let value = self.operand(&args[0].node, span, out);
@@ -587,7 +592,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							}
 						};
 						let converted = self.b.convert(error, from, to, span, out);
-						done(Expr::rt("Err", vec![converted]), true)
+						done(Expr::result(false, converted), true)
 					}
 					_ => {
 						self.err(span, format!("`?` from `{residual}` to `{to}`"));
@@ -978,9 +983,9 @@ pub fn control_flow<'tcx>(
 ) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
 	match (flow(fx.tcx, ty), variant.index()) {
-		(Flow::Result | Flow::Other, 0) => Expr::rt("Ok", vec![value]),
+		(Flow::Result | Flow::Other, 0) => Expr::result(true, value),
 		(Flow::Result, _) => value,
-		(Flow::Other, _) => Expr::rt("Err", vec![value]),
+		(Flow::Other, _) => Expr::result(false, value),
 		(Flow::Option, 0) => value,
 		(Flow::Option, _) => Expr::undefined(),
 	}

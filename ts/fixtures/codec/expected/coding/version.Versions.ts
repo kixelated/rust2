@@ -54,7 +54,7 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 				return _18;
 			}
 		}
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _4;
 }
@@ -69,7 +69,7 @@ export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, versio
 				return _18;
 			}
 		}
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _4;
 }
