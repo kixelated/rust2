@@ -296,6 +296,8 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			// Parts joined again, by the pattern.
 			let parts: Vec<&str> = s.split('/').collect();
 			put(out, &parts.join(p.as_str()));
+			let owned: Vec<String> = parts.iter().map(|part| part.to_string()).collect();
+			put(out, &owned.join(p.as_str()));
 			put(out, &["a", "", &s].join("/"));
 		}
 		_ => {

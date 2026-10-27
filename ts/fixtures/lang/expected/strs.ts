@@ -295,7 +295,7 @@ export function pattern(kind: rt.u8, s: string): string {
  * one matches before each char and after the last.
  */
 export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _198!: [rt.usize, rt.usize];
+	let _211!: [rt.usize, rt.usize];
 	let sliced!: string;
 	const s: string = text(data);
 	const _6: string = s;
@@ -327,10 +327,10 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					putOffset(out, at);
 					put(out, _42[1]);
 					put(out, rt.strSlice(s, 0, at));
-					const part5 = rt.usizeAdd(at, rt.stringLen(_42[1]));
-					put(out, rt.strSlice(s, part5));
 					const part6 = rt.usizeAdd(at, rt.stringLen(_42[1]));
-					put(out, rt.strSlice(s, at, part6));
+					put(out, rt.strSlice(s, part6));
+					const part7 = rt.usizeAdd(at, rt.stringLen(_42[1]));
+					put(out, rt.strSlice(s, at, part7));
 				}
 			}
 			if (_8 === 2) {
@@ -367,12 +367,16 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				}), "none"));
 				const _159: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, "/");
 				const _162: rt.usize = rt.usizeSub(keep, 1);
-				const part4 = rt.optionMapOr(rt.iterNth(_159, _162), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
+				const part5 = rt.optionMapOr(rt.iterNth(_159, _162), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
 					return rt.usizeAdd(_22[0], 1);
 				});
-				put(out, rt.strSlice(s, part4));
+				put(out, rt.strSlice(s, part5));
 			} else if (_8 === 5) {
-				put(out, rt.iterToArray(rt.strSplit(s, "/")).join(p));
+				const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"));
+				put(out, parts.join(p));
+				put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
+					return part3;
+				})).join(p));
 				put(out, ["a", "", s].join("/"));
 			} else {
 				const at2: (a0: rt.u8) => rt.usize = (b2: rt.u8): rt.usize => {
@@ -382,23 +386,23 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					return rt.usizeSaturatingSub(rt.usizeAdd(rt.stringLen(s), 1), rt.usizeRem(b2 as rt.usize, 4));
 				};
 				if (!(data.length >= 2)) {
-					_198 = [0, 0] as [rt.usize, rt.usize];
+					_211 = [0, 0] as [rt.usize, rt.usize];
 				} else {
-					_198 = [at2(data.data[data.start]), at2(data.data[data.start + 1])] as [rt.usize, rt.usize];
+					_211 = [at2(data.data[data.start]), at2(data.data[data.start + 1])] as [rt.usize, rt.usize];
 				}
-				const a: rt.usize = _198[0];
-				const b: rt.usize = _198[1];
-				const _212: rt.u8 = rt.u8Rem(rt.u8Div(kind, 8), 4);
-				if (_212 === 0) {
+				const a: rt.usize = _211[0];
+				const b: rt.usize = _211[1];
+				const _225: rt.u8 = rt.u8Rem(rt.u8Div(kind, 8), 4);
+				if (_225 === 0) {
 					sliced = rt.strSlice(s, a, b);
-				} else if (_212 === 1) {
+				} else if (_225 === 1) {
 					sliced = rt.strSlice(s, a);
-				} else if (_212 === 2) {
-					const _223: string = s;
-					sliced = rt.strSlice(_223, 0, b);
+				} else if (_225 === 2) {
+					const _236: string = s;
+					sliced = rt.strSlice(_236, 0, b);
 				} else {
-					const _227: string = s;
-					sliced = rt.strSlice(_227, 0);
+					const _240: string = s;
+					sliced = rt.strSlice(_240, 0);
 				}
 				put(out, sliced);
 			}
