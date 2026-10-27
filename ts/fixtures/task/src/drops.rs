@@ -21,6 +21,7 @@ macro_rules! list {
 	}};
 }
 
+mod closures;
 mod iters;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
@@ -49,17 +50,20 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 19`, panicking at the point `arg / 19 % 8` names, if any: what
+/// Run scenario `arg % 22`, panicking at the point `arg / 22 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 19 % 8;
+	let at = arg / 22 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 19 {
+	match arg % 22 {
+		19 => closures::scoped(log, id, at),
+		20 => closures::discarded(log, id, at),
+		21 => closures::blasted(log, id, at),
 		13 => iters::looped(log, id, at),
 		14 => iters::collected(log, id, at),
 		15 => iters::drained(log, id, at),

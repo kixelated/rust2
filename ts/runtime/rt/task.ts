@@ -33,6 +33,30 @@ export function dropRange<T>(values: ArrayLike<T>, f: (value: T) => void, from: 
 	}
 }
 
+// Closures. One that owns a value that drops is an arrow function with
+// `[Symbol.dispose]`, which drops what it owns. Calling one that `FnOnce` calls consumes
+// it, as its body drops what it owns; one that `Fn` or `FnMut` call drops after a call
+// through `FnOnce`, as rustc's shim does.
+
+/** A closure `f`, which owns what `dispose` drops. */
+export function closure<F extends (...args: never[]) => unknown>(f: F, dispose: () => void): F & Disposable {
+	return Object.assign(f, { [Symbol.dispose]: dispose });
+}
+
+/** `FnOnce::call_once` of a closure that `Fn` or `FnMut` call: `f(...args)`, then `f` drops, a panic included. */
+export function callOnce<A extends unknown[], R>(f: (...args: A) => R, ...args: A): R {
+	try {
+		return f(...args);
+	} finally {
+		drop(f);
+	}
+}
+
+/** A closure that `Fn` or `FnMut` call, as one `FnOnce` calls: a call drops it after. */
+export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A) => R) & Disposable {
+	return closure((...args: A) => callOnce(f, ...args), () => drop(f));
+}
+
 // Shared ownership
 
 /** `Arc<T>`: every clone is this one object, counted. */

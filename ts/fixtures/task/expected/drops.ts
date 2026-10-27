@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Guard_Bomb_Held, drop$Held, drop$Mutex_Held, drop$Option_Box_Held, drop$Option_Held, drop$Pair_Held, drop$Result_Guard_Guard, drop$Result_u8_Key, drop$Wrap_Arc_Held, drop$Wrap_Guard, drop$Wrap_Held, drop$Wrap_Pair_Held, drop$Wrap_Vec_Wrap_Held } from "./lib.ts";
+import { scoped, discarded, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import type * as Fault from "./drops.Fault.ts";
@@ -16,7 +17,7 @@ import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
 /**
- * Run scenario `arg % 19`, panicking at the point `arg / 19 % 8` names, if any: what
+ * Run scenario `arg % 22`, panicking at the point `arg / 22 % 8` names, if any: what
  * every value std holds drops, where Rust drops it, and in Rust's order.
  */
 export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
@@ -74,7 +75,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		_353 = false;
 		_352 = false;
 		_351 = false;
-		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 19), 8);
+		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 22), 8);
 		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 		};
@@ -84,8 +85,14 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				rt.panicFmt(["d", args16[0], " at ", args16[1]]);
 			}
 		};
-		const _13: rt.u8 = rt.u8Rem(arg, 19);
-		if (_13 === 13) {
+		const _13: rt.u8 = rt.u8Rem(arg, 22);
+		if (_13 === 19) {
+			scoped(log, id, at);
+		} else if (_13 === 20) {
+			discarded(log, id, at);
+		} else if (_13 === 21) {
+			blasted(log, id, at);
+		} else if (_13 === 13) {
 			looped(log, id, at);
 		} else if (_13 === 14) {
 			collected(log, id, at);
@@ -117,23 +124,23 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			grown(log, id, at, false);
 		} else if (_13 === 0) {
 			v = [];
-			unwind = 203;
+			unwind = 206;
 			const _19: Held.Held = { tag: "One", _0: guard(1) };
 			v.push(_19);
 			v.push({ tag: "Empty" } as Held.Held);
 			_29 = guard(2);
-			unwind = 202;
+			unwind = 205;
 			const _32: Guard.Guard = guard(3);
-			unwind = 203;
+			unwind = 206;
 			v.push({ tag: "Two", _0: _29, _1: _32 } as Held.Held);
-			unwind = 201;
+			unwind = 204;
 			held_ = v;
 			check(1);
 			arc = new rt.Arc({ tag: "One", _0: guard(4) } as Held.Held);
-			unwind = 220;
+			unwind = 223;
 			_358 = true;
 			shared = rt.arcClone(arc);
-			unwind = 200;
+			unwind = 203;
 			_358 = false;
 			rt.arcDrop(arc, drop$Held);
 			const arg7 = ([shared.strong] as [rt.usize])[0];
@@ -141,22 +148,22 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			Log.note(log, rt.fmtFormat(["arc ", args2[0]]));
 			check(2);
 			v2 = [];
-			unwind = 199;
+			unwind = 202;
 			const _67: Held.Held = { tag: "One", _0: guard(5) };
 			v2.push(_67);
-			unwind = 200;
+			unwind = 203;
 			mutex = new rt.Mutex(v2);
-			unwind = 218;
+			unwind = 221;
 			_357 = true;
 			_73 = guard(6);
-			unwind = 198;
+			unwind = 201;
 			const _76: Guard.Guard = guard(7);
-			unwind = 218;
+			unwind = 221;
 			boxed = { tag: "Two", _0: _73, _1: _76 } as Held.Held;
-			unwind = 216;
+			unwind = 219;
 			_356 = true;
 			const _80: Held.Held = { tag: "One", _0: guard(8) };
-			unwind = 197;
+			unwind = 200;
 			maybe = _80;
 			check(3);
 			[held_.length, maybe !== undefined] as [rt.usize, boolean];
@@ -170,9 +177,9 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_357 = false;
 			rt.dropAll(mutex.value, drop$Held);
 			check(5);
-			unwind = 216;
+			unwind = 219;
 			drop$Option_Box_Held(maybe);
-			unwind = 220;
+			unwind = 223;
 			_356 = false;
 			_357 = false;
 			rt.arcDrop(shared, drop$Held);
@@ -182,53 +189,53 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		} else if (_13 === 1) {
 			const _115: rt.u32 = rt.u32Add(id, 10);
 			_117 = Log.clone$Clone(log);
-			unwind = 196;
+			unwind = 199;
 			const _119: Guard.Guard = guard(11);
-			unwind = 195;
+			unwind = 198;
 			wrapped = new Wrap.Wrap({ id: _115, log: _117, inner: { tag: "One", _0: _119 } as Held.Held });
 			const _123: rt.u32 = rt.u32Add(id, 20);
 			_125 = Log.clone$Clone(log);
-			unwind = 194;
+			unwind = 197;
 			const _126: Guard.Guard = guard(21);
-			unwind = 193;
+			unwind = 196;
 			guarded = new Wrap.Wrap({ id: _123, log: _125, inner: _126 });
 			check(1);
 			_134 = guard(31);
-			unwind = 192;
+			unwind = 195;
 			const _137: Guard.Guard = guard(32);
-			unwind = 191;
+			unwind = 194;
 			_133 = { tag: "Two", _0: _134, _1: _137 } as Held.Held;
 			const _140: Guard.Guard = guard(33);
-			unwind = 214;
+			unwind = 217;
 			_355 = true;
 			pair = new Pair.Pair({ first: _133, second: _140 });
 			v3 = [];
-			unwind = 190;
+			unwind = 193;
 			_148 = guard(41);
-			unwind = 189;
+			unwind = 192;
 			const _151: Guard.Guard = guard(42);
-			unwind = 190;
+			unwind = 193;
 			v3.push(new Pair.Pair({ first: _148, second: _151 }));
 			_157 = guard(43);
-			unwind = 188;
+			unwind = 191;
 			const _160: Guard.Guard = guard(44);
-			unwind = 190;
+			unwind = 193;
 			v3.push(new Pair.Pair({ first: _157, second: _160 }));
-			unwind = 187;
+			unwind = 190;
 			pairs = v3;
 			check(2);
 			const _167: rt.u32 = rt.u32Add(id, 50);
 			_169 = Log.clone$Clone(log);
-			unwind = 186;
+			unwind = 189;
 			v4 = [];
-			unwind = 185;
+			unwind = 188;
 			const _175: rt.u32 = rt.u32Add(id, 60);
 			_177 = Log.clone$Clone(log);
-			unwind = 184;
+			unwind = 187;
 			const _179: Guard.Guard = guard(61);
-			unwind = 185;
+			unwind = 188;
 			v4.push(new Wrap.Wrap({ id: _175, log: _177, inner: { tag: "One", _0: _179 } as Held.Held }));
-			unwind = 183;
+			unwind = 186;
 			nested = new Wrap.Wrap({ id: _167, log: _169, inner: v4 });
 			check(3);
 			_355 = false;
@@ -242,11 +249,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg6 = args5[2];
 			const args6: rt.Fmt[] = [_218, _219, (f: rt.Formatter) => rt.u32Display(arg6, f)];
 			Log.note(log, rt.fmtFormat(["wraps ", args6[0], " ", args6[1], " ", args6[2]]));
-			unwind = 187;
+			unwind = 190;
 			drop$Wrap_Vec_Wrap_Held(nested);
-			unwind = 214;
+			unwind = 217;
 			rt.dropAll(pairs);
-			unwind = 195;
+			unwind = 198;
 			_355 = false;
 			drop$Wrap_Guard(guarded);
 			unwind = 0;
@@ -254,22 +261,22 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		} else if (_13 === 2) {
 			const _225: rt.u32 = rt.u32Add(id, 70);
 			_227 = Log.clone$Clone(log);
-			unwind = 182;
+			unwind = 185;
 			const _230: Guard.Guard = guard(71);
-			unwind = 181;
+			unwind = 184;
 			_229 = { tag: "One", _0: _230 } as Held.Held;
 			const _233: Guard.Guard = guard(72);
 			unwind = 0;
 			shared2 = new rt.Arc(new Wrap.Wrap({ id: _225, log: _227, inner: new Pair.Pair({ first: _229, second: _233 }) }));
-			unwind = 212;
+			unwind = 215;
 			_354 = true;
 			v5 = [];
-			unwind = 180;
+			unwind = 183;
 			const _240: rt.Arc<Wrap.Wrap<Pair.Pair<Held.Held>>> = rt.arcClone(shared2);
 			v5.push(_240);
 			const _244: rt.Arc<Wrap.Wrap<Pair.Pair<Held.Held>>> = rt.arcClone(shared2);
 			v5.push(_244);
-			unwind = 179;
+			unwind = 182;
 			clones = v5;
 			check(1);
 			_354 = false;
@@ -281,37 +288,37 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg5 = ([!bail(log, id, at).ok] as [boolean])[0];
 			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
 			Log.note(log, rt.fmtFormat(["bailed ", args10[0]]));
-			unwind = 212;
+			unwind = 215;
 			rt.dropAll(clones, drop$Arc_Wrap_Pair_Held);
 			_354 = false;
 		} else {
 			_282 = guard(81);
-			unwind = 178;
+			unwind = 181;
 			const _285: Guard.Guard = guard(82);
 			unwind = 0;
 			arc2 = new rt.Arc(new rt.Mutex({ tag: "Two", _0: _282, _1: _285 } as Held.Held));
-			unwind = 210;
+			unwind = 213;
 			_353 = true;
 			other = rt.arcClone(arc2);
-			unwind = 177;
+			unwind = 180;
 			check(1);
 			_353 = false;
 			rt.arcDrop(arc2, drop$Mutex_Held);
 			check(2);
 			const _301: rt.Mutex<Held.Held> = other.value;
-			unwind = 176;
+			unwind = 179;
 			const held2: boolean = Held.isSome(_301.value);
-			unwind = 177;
+			unwind = 180;
 			const arg2 = ([held2] as [boolean])[0];
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args12[0]]));
 			lent = guard(83);
-			unwind = 175;
+			unwind = 178;
 			borrowed = new rt.Arc(lent);
-			unwind = 208;
+			unwind = 211;
 			_352 = true;
 			again = rt.arcClone(borrowed);
-			unwind = 206;
+			unwind = 209;
 			_351 = true;
 			_352 = false;
 			rt.arcDrop(borrowed);
@@ -321,11 +328,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg3 = ([Guard.id(lent)] as [rt.u32])[0];
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
 			Log.note(log, rt.fmtFormat(["lent ", args14[0]]));
-			unwind = 177;
+			unwind = 180;
 			_351 = false;
 			_352 = false;
 			rt.drop(lent);
-			unwind = 210;
+			unwind = 213;
 			rt.arcDrop(other, drop$Mutex_Held);
 			_353 = false;
 		}
@@ -352,127 +359,127 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																					if (unwind === 0) {
 																						throw e;
 																					}
-																					if (unwind === 175) {
+																					if (unwind === 178) {
 																						break b4;
 																					}
-																					if (unwind === 176) {
+																					if (unwind === 179) {
 																						break b3;
 																					}
-																					if (unwind === 177) {
+																					if (unwind === 180) {
 																						break b3;
 																					}
-																					if (unwind === 178) {
+																					if (unwind === 181) {
 																						rt.drop(_282);
 																						break b1;
 																					}
-																					if (unwind === 179) {
+																					if (unwind === 182) {
 																						rt.dropAll(clones, drop$Arc_Wrap_Pair_Held);
 																						break b5;
 																					}
-																					if (unwind === 180) {
+																					if (unwind === 183) {
 																						rt.dropAll(v5, drop$Arc_Wrap_Pair_Held);
 																						break b5;
 																					}
-																					if (unwind === 181) {
+																					if (unwind === 184) {
 																						drop$Held(_229);
 																						break b6;
 																					}
-																					if (unwind === 182) {
+																					if (unwind === 185) {
 																						break b6;
 																					}
-																					if (unwind === 183) {
+																					if (unwind === 186) {
 																						drop$Wrap_Vec_Wrap_Held(nested);
 																						break b10;
 																					}
-																					if (unwind === 184) {
+																					if (unwind === 187) {
 																						rt.drop(_177);
 																						break b12;
 																					}
-																					if (unwind === 185) {
+																					if (unwind === 188) {
 																						break b12;
 																					}
-																					if (unwind === 186) {
+																					if (unwind === 189) {
 																						break b11;
 																					}
-																					if (unwind === 187) {
+																					if (unwind === 190) {
 																						break b10;
 																					}
-																					if (unwind === 188) {
+																					if (unwind === 191) {
 																						rt.drop(_157);
 																						break b13;
 																					}
-																					if (unwind === 189) {
+																					if (unwind === 192) {
 																						rt.drop(_148);
 																						break b13;
 																					}
-																					if (unwind === 190) {
+																					if (unwind === 193) {
 																						break b13;
 																					}
-																					if (unwind === 191) {
+																					if (unwind === 194) {
 																						drop$Held(_133);
 																						break b8;
 																					}
-																					if (unwind === 192) {
+																					if (unwind === 195) {
 																						rt.drop(_134);
 																						break b8;
 																					}
-																					if (unwind === 193) {
+																					if (unwind === 196) {
 																						break b8;
 																					}
-																					if (unwind === 194) {
+																					if (unwind === 197) {
 																						rt.drop(_125);
 																						break b7;
 																					}
-																					if (unwind === 195) {
+																					if (unwind === 198) {
 																						break b7;
 																					}
-																					if (unwind === 196) {
+																					if (unwind === 199) {
 																						rt.drop(_117);
 																						break b1;
 																					}
-																					if (unwind === 197) {
+																					if (unwind === 200) {
 																						drop$Option_Box_Held(maybe);
 																						break b18;
 																					}
-																					if (unwind === 198) {
+																					if (unwind === 201) {
 																						rt.drop(_73);
 																						break b17;
 																					}
-																					if (unwind === 199) {
+																					if (unwind === 202) {
 																						rt.dropAll(v2, drop$Held);
 																						break b16;
 																					}
-																					if (unwind === 200) {
+																					if (unwind === 203) {
 																						break b16;
 																					}
-																					if (unwind === 201) {
+																					if (unwind === 204) {
 																						break b14;
 																					}
-																					if (unwind === 202) {
+																					if (unwind === 205) {
 																						rt.drop(_29);
 																						break b19;
 																					}
-																					if (unwind === 203) {
+																					if (unwind === 206) {
 																						break b19;
 																					}
-																					if (unwind === 206) {
+																					if (unwind === 209) {
 																						if (_351) {
 																							rt.arcDrop(again);
 																						}
-																					} else if (unwind !== 208) {
-																						if (unwind === 210) {
+																					} else if (unwind !== 211) {
+																						if (unwind === 213) {
 																							break b2;
 																						}
-																						if (unwind === 212) {
+																						if (unwind === 215) {
 																							break b5;
 																						}
-																						if (unwind === 214) {
+																						if (unwind === 217) {
 																							break b9;
 																						}
-																						if (unwind === 216) {
+																						if (unwind === 219) {
 																							break b18;
 																						}
-																						if (unwind === 218) {
+																						if (unwind === 221) {
 																							break b17;
 																						}
 																						break b15;

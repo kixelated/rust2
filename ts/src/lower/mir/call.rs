@@ -207,6 +207,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
 			let f = self.operand(&callee.node, span, out);
+			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call drops it after,
+			// as rustc's shim does, where an `FnOnce` closure's body drops what it owns.
+			if tcx.fn_trait_kind_from_def_id(trait_id) == Some(ty::ClosureKind::FnOnce)
+				&& let ty::Closure(_, closure) = callee_ty.kind()
+				&& closure.as_closure().kind() != ty::ClosureKind::FnOnce
+				&& self.b.t.drops(callee_ty)
+			{
+				return Expr::rt("callOnce", [vec![f], values].concat());
+			}
 			return f.call(values);
 		}
 		// A function of the crate gets what JS passes, so a `&mut` to a number can't reach it.

@@ -87,24 +87,33 @@ export function resultErr<T, E>(r: Result<T, E>, drop?: (value: T) => void): E |
 	return undefined;
 }
 
-/** `Result::map`. */
-export function resultMap<T, E, U>(r: Result<T, E>, f: (value: T) => U): Result<U, E> {
-	return r.ok ? Ok(f(r.value)) : r;
+/** `Result::map`: `f` of the value, or else the error, and `f` drops. */
+export function resultMap<T, E, U>(r: Result<T, E>, f: (value: T) => U, dropF?: (f: (value: T) => U) => void): Result<U, E> {
+	if (r.ok) return Ok(f(r.value));
+	dropF?.(f);
+	return r;
 }
 
-/** `Result::map_err`. */
-export function resultMapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F): Result<T, F> {
-	return r.ok ? r : Err(f(r.error));
+/** `Result::map_err`: `f` of the error, or else the value, and `f` drops. */
+export function resultMapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F, dropF?: (f: (error: E) => F) => void): Result<T, F> {
+	if (!r.ok) return Err(f(r.error));
+	dropF?.(f);
+	return r;
 }
 
-/** `Result::and_then`. */
-export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<U, E>): Result<U, E> {
-	return r.ok ? f(r.value) : r;
+/** `Result::and_then`: `f` of the value, or else the error, and `f` drops. */
+export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<U, E>, dropF?: (f: (value: T) => Result<U, E>) => void): Result<U, E> {
+	if (r.ok) return f(r.value);
+	dropF?.(f);
+	return r;
 }
 
-/** `Result::inspect_err`, whose error drops if `f` panics. */
-export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void): Result<T, E> {
-	if (r.ok) return r;
+/** `Result::inspect_err`, whose error drops if `f` panics, and `f` on a value. */
+export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void, dropF?: (f: (error: E) => void) => void): Result<T, E> {
+	if (r.ok) {
+		dropF?.(f);
+		return r;
+	}
 	try {
 		f(r.error);
 	} catch (e) {
@@ -144,9 +153,11 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (
 
 // Options, which are `T | undefined`.
 
-/** `Option::map`. */
-export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
-	return o === undefined ? undefined : f(o);
+/** `Option::map`: `f` of the value, or else `undefined`, and `f` drops. */
+export function optionMap<T, U>(o: T | undefined, f: (value: T) => U, dropF?: (f: (value: T) => U) => void): U | undefined {
+	if (o !== undefined) return f(o);
+	dropF?.(f);
+	return undefined;
 }
 
 /** `Option::unwrap_or`: the value, and the fallback drops, or else the fallback. */

@@ -11,7 +11,7 @@ use super::{Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
 use crate::lower::{AdtRepr, field_name};
-use crate::ts::{Expr, Key, Stmt, StmtKind};
+use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The value of `rvalue`, assigned to `dest`, or `None` if it has none to assign.
@@ -455,10 +455,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.b
 			.t
 			.ret_ty(sig.output(), mir.local_decls[mir::RETURN_PLACE].source_info.span);
+		let ty = Ty::new_closure(tcx, def_id, args);
+		let glue = match self.b.t.drops(ty) {
+			true => Some(self.b.t.closure_glue(ty, &captures, span)),
+			false => None,
+		};
 		let mut inner = Fx::new(&mut *self.b, &mir, Env::Closure(captures), span);
 		let params = inner.params();
 		let body = inner.lower();
-		Expr::Arrow(params, ret, body)
+		let f = Expr::Arrow(params, ret, body);
+		// One that owns what drops carries the glue that drops it.
+		match glue {
+			Some(glue) => Expr::rt("closure", vec![f, Expr::Arrow(Vec::new(), Type::Builtin("void"), glue)]),
+			None => f,
+		}
 	}
 }
 

@@ -42,11 +42,11 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// Dropping the closure would drop what it captured, which lives in an arrow function.
-pub fn owning_closure() -> u8 {
+/// A closure that owns a value that drops, which `map` would hold but never drop.
+pub fn owning_closure(v: &[u8]) -> usize {
 	let n = Noisy(1);
-	let f = move || std::mem::size_of_val(&n) as u8;
-	f()
+	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
+	v.iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -383,17 +383,13 @@ pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
 }
 
-/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok`, and with
-/// it what it captured, which lives in an arrow function.
-pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
-	let (m, n) = (Noisy(1), Noisy(2));
-	let a = a.map(move |x| {
-		drop(m);
-		x
-	});
-	let b = b.map_err(move |e| {
-		drop(n);
-		e
-	});
-	a.unwrap_or(0) + b.unwrap_or(0)
+/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
+/// never drop.
+pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
+	fn id(n: &Noisy) -> u8 {
+		n.0
+	}
+	let (a, b) = (Noisy(1), Noisy(2));
+	m.entry(1).or_insert_with(move || b);
+	v.iter().any(move |&x| x == id(&a))
 }

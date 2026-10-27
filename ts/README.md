@@ -72,7 +72,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
-| closure | an arrow function |
+| closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -318,8 +318,9 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 ## Not yet
 
 These fail translation: floats, statics, async blocks that borrow a number
-mutably and async closures, values that drop in a closure dropped without a call that
-takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
+mutably and async closures, a closure that owns a value that drops given to std's
+iterators or collections, and values that drop in some iterators
+([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
 `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
