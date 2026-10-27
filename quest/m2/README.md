@@ -34,6 +34,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - copies of `Copy` aggregates no one writes into in place go away, recovering #83's decode cost
+- [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
 - [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate
 - [str slicing and &str patterns](/quest/m2/ts-str-slice.md) - `&s[a..b]` and `&str` patterns translate, so `rfind`'s offsets are usable
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
