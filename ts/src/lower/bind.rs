@@ -443,6 +443,9 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
 		_ = crate::program::clean(out);
 	};
+	if let Err(err) = tsc_version() {
+		return failed(err);
+	}
 	let items: Vec<&Item> = program.checks.iter().map(|check| &check.item).collect();
 	let printed = match crate::print::module(program, &module, &items, &path) {
 		Ok(printed) => printed,
@@ -520,6 +523,32 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 		));
 	}
 	_ = crate::program::clean(out);
+}
+
+/// The oldest `tsc` the check project is written for.
+const TSC_MAJOR: u32 = 7;
+
+/// Refuse a `tsc` on `PATH` older than [`TSC_MAJOR`], which would fail the check project's
+/// options rather than the bindings.
+fn tsc_version() -> Result<(), String> {
+	let output = std::process::Command::new("tsc")
+		.arg("--version")
+		.output()
+		.map_err(|err| format!("running tsc, which checks the bindings: {err}"))?;
+	let text = String::from_utf8_lossy(&output.stdout);
+	// `Version 7.0.2`.
+	let major = text
+		.split_whitespace()
+		.last()
+		.and_then(|version| version.split('.').next())
+		.and_then(|major| major.parse::<u32>().ok());
+	match major {
+		Some(major) if major >= TSC_MAJOR => Ok(()),
+		_ => Err(format!(
+			"tsc {}, which checks the bindings, must be {TSC_MAJOR}.0 or later",
+			text.trim()
+		)),
+	}
 }
 
 /// Each of `tsc`'s diagnostics, with the lines that go on with it.

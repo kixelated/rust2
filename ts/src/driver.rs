@@ -87,7 +87,7 @@ impl Callbacks for Translate {
 				_ => Ok(()),
 			},
 			Output::Census(path) => match lower::census(tcx, &self.config) {
-				Some(census) => program::write_file(path, &census.render(&self.config.package)),
+				Some(census) => program::write_file(path, &census.render(&self.config.package, &self.config.roots)),
 				None => Ok(()),
 			},
 		};

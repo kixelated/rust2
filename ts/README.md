@@ -39,16 +39,18 @@ moq consumes it as the `ts` package of this repository's flake. In this reposito
 
 ## Census
 
-`--census file.md` translates nothing. It treats every item in the library as a root,
-except derived impls, which come along only when called or printable, and writes a Markdown report of
-every construct translation refuses, with counts and spans. Refusals are ranked by
-construct, by the type or module they name, and by each type or path. A generic function
-that no instance reaches is lowered over its own type parameters, refusing nothing that
-hinges on what they are, since each instance decides that. A census succeeds whatever
-it finds; translation still fails on any refusal.
+`--census file.md` translates nothing. It writes a Markdown report of every construct
+translation refuses, with counts and spans, ranked by construct, by the type or module
+they name, and by each type or path. It starts from the config's roots, as translation
+does. A config that names none makes every item in the library a root, except derived
+impls, which come along only when called or printable, and lowers a generic function
+that no instance reaches over its own type parameters, refusing nothing that hinges on
+what they are, since each instance decides that. A census succeeds whatever it finds;
+translation still fails on any refusal.
 
-`just ts census` runs it on moq-net and kio at the pinned moq revision, into
-`target/census`, and the nightly job publishes their tables.
+`just ts census` runs it at the pinned moq revision, into `target/census`, on moq-net
+whole (`moq/net.toml`), on its model's public types with their boundaries bound
+(`moq/model.toml`), and on kio, and the nightly job publishes their tables.
 
 ## Output
 
@@ -242,7 +244,7 @@ binding never changes a `Copy` value in place. Nor does a binding change in plac
 takes by value or by `&`, or share with a clone what a `&mut` changes, and an integer it
 returns is in its Rust type's range.
 
-Once the output is written, `tsc` 5.8 or later, from `PATH`, checks each export against the
+Once the output is written, `tsc` 7.0 or later, from `PATH`, checks each export against the
 translated signature of every instance translation calls, and each bound type's value. A
 missing or mismatched binding fails the translation at the Rust item's span, and the
 output is removed. Only the binding files translation reaches are copied, so one imports

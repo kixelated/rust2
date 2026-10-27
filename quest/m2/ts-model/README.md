@@ -35,8 +35,8 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
   it; only true boundaries (`Box<dyn Future>`, clocks, `rand`, DEFLATE) bind to
   hand-written TS. A dependency containing `unsafe` is bound by the consumer, until
   [unsafe code the translator can model](/quest/m3/ts-unsafe.md) translates.
-- Check in `ts/moq/model.toml`, rooted at those 22 types, and have nightly's census
-  report it beside the whole crate, so each child measures this target.
+- Each child measures this target by the census of `ts/moq/model.toml`, rooted at those
+  types with the boundaries bound, which nightly reports beside the whole crate.
 - The end-to-end work stays here: the model's roots, its differential harness, and the
   `frames.ts` workload.
 

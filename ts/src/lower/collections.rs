@@ -658,7 +658,7 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
-		ty::Adt(adt, args) if adt.did().is_local() => {
+		ty::Adt(adt, args) if b.t.own(adt.did()) => {
 			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
 				let f = trait_fn(tcx, tr, item);
 				Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(args))

@@ -41,9 +41,9 @@ impl Refusal {
 type Groups<'a, K> = BTreeMap<K, Vec<&'a Refusal>>;
 
 impl Census {
-	/// The census of `krate` as Markdown: refusals ranked by construct, by API, and by
-	/// type or path, then every span.
-	pub fn render(&self, krate: &str) -> String {
+	/// The census of `krate` from `roots`, or every item where there are none, as Markdown:
+	/// refusals ranked by construct, by API, and by type or path, then every span.
+	pub fn render(&self, krate: &str, roots: &[String]) -> String {
 		let mut refusals = self.refusals.clone();
 		// The crate's own code first, so a group's first span is in it when it can be.
 		refusals.sort_by(|a, b| (Path::new(&a.file).is_absolute(), a).cmp(&(Path::new(&b.file).is_absolute(), b)));
@@ -68,6 +68,10 @@ impl Census {
 
 		let mut out = String::new();
 		let _ = writeln!(out, "# Census of `{krate}`\n");
+		if !roots.is_empty() {
+			let roots: Vec<String> = roots.iter().map(|root| format!("`{root}`")).collect();
+			let _ = writeln!(out, "- Roots: {}", roots.join(", "));
+		}
 		let _ = writeln!(
 			out,
 			"- Refusals: {}\n- Function instances: {}\n- Generic functions no instance reached, lowered over their type parameters: {}",

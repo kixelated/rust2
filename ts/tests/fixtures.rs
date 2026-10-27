@@ -499,6 +499,21 @@ fn bind() {
 		);
 		rejected(&out, &output, &fixture("bind").join(format!("{config}.txt")));
 	}
+	// A census starts from the roots, as translation does: `harness::refused`, which no
+	// root reaches, refuses nothing in it.
+	let census = scratch().join("bind").join("census.md");
+	let config = fixture("bind").join("ts.toml");
+	let output = driver("bind", &config, &["--census".as_ref(), census.as_ref()], "census");
+	assert!(
+		output.status.success(),
+		"the census of bind failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	let got = std::fs::read_to_string(&census).unwrap();
+	assert!(
+		got.contains("\n- Refusals: 0\n"),
+		"the census of bind's roots refused:\n{got}"
+	);
 }
 
 /// The errors of a failed translation, each with where it points, against `expected`.
@@ -542,12 +557,12 @@ fn rejected(out: &Path, output: &Output, expected: &Path) {
 	);
 }
 
-/// A census ranks every refusal in the crate, reached from each of its items, and
-/// succeeds where translation fails.
+/// A census of a config without roots ranks every refusal in the crate, reached from each
+/// of its items, and succeeds where translation fails.
 #[test]
 fn census() {
 	let census = scratch().join("reject").join("census.md");
-	let config = fixture("reject").join("ts.toml");
+	let config = fixture("reject").join("census.toml");
 	let output = driver("reject", &config, &["--census".as_ref(), census.as_ref()], "census");
 	assert!(
 		output.status.success(),

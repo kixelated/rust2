@@ -52,55 +52,25 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	Some(t.program)
 }
 
-/// Every construct translation refuses in the crate, reached from each of its items
-/// as if each were a root.
+/// Every construct translation refuses in the crate: in what the config's roots reach, as
+/// translation does, or where it names none, in what each item reaches as if each were a
+/// root.
 pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
 	t.bind();
-	for def_id in tcx.hir_crate_items(()).definitions() {
-		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union)
-			&& !t.bound(def_id.to_def_id())
-		{
-			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
+	let polymorphic = match config.roots.is_empty() {
+		true => t.every_item(),
+		false => {
+			for root in &config.roots {
+				t.root(root);
+			}
+			for path in &config.printable {
+				t.printable(path);
+			}
+			t.drain();
+			0
 		}
-	}
-	let functions = |tcx: TyCtxt<'tcx>| {
-		tcx.hir_body_owners()
-			.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
 	};
-	// A derived impl comes along only when called or printable, as in translation.
-	for path in &config.printable {
-		t.printable(path);
-	}
-	let roots: Vec<DefId> = functions(tcx)
-		.map(LocalDefId::to_def_id)
-		.filter(|&def_id| {
-			!tcx.impl_of_assoc(def_id)
-				.is_some_and(|imp| tcx.is_automatically_derived(imp))
-				&& !t.bound(def_id)
-		})
-		.collect();
-	let generic = |def_id: DefId| tcx.generics_of(def_id).requires_monomorphization(tcx);
-	for &def_id in roots.iter().filter(|&&def_id| !generic(def_id)) {
-		t.instance(Instance::mono(tcx, def_id));
-	}
-	t.drain();
-	// A generic function no instance reached is lowered over its own type parameters, so
-	// what it refuses whatever they are is counted too.
-	let mut polymorphic = 0;
-	for &def_id in roots.iter().filter(|&&def_id| generic(def_id)) {
-		let lowered = |instance: &Instance<'tcx>| instance.def_id() == def_id && !instance.args.has_param();
-		if t.instances.keys().any(lowered) {
-			continue;
-		}
-		polymorphic += 1;
-		t.env = TypingEnv::post_analysis(tcx, def_id);
-		let instance = Instance::new_raw(def_id, ty::GenericArgs::identity_for_item(tcx, def_id));
-		let sym = t.instance(instance);
-		t.queue.retain(|&(queued, _)| queued != instance);
-		t.function(instance, sym);
-		t.drain();
-	}
 	let sm = tcx.sess.source_map();
 	let mut seen = rustc_data_structures::fx::FxHashSet::default();
 	let mut refusals = Vec::new();
@@ -128,6 +98,60 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 		polymorphic,
 		refusals,
 	})
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// Lower what each of the crate's items reaches as if each were a root, returning how
+	/// many generic functions no instance reached, lowered over their type parameters.
+	fn every_item(&mut self) -> usize {
+		let tcx = self.tcx;
+		let t = self;
+		for def_id in tcx.hir_crate_items(()).definitions() {
+			if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union)
+				&& !t.bound(def_id.to_def_id())
+			{
+				t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
+			}
+		}
+		let functions = |tcx: TyCtxt<'tcx>| {
+			tcx.hir_body_owners()
+				.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
+		};
+		// A derived impl comes along only when called or printable, as in translation.
+		for path in &t.config.printable {
+			t.printable(path);
+		}
+		let roots: Vec<DefId> = functions(tcx)
+			.map(LocalDefId::to_def_id)
+			.filter(|&def_id| {
+				!tcx.impl_of_assoc(def_id)
+					.is_some_and(|imp| tcx.is_automatically_derived(imp))
+					&& !t.bound(def_id)
+			})
+			.collect();
+		let generic = |def_id: DefId| tcx.generics_of(def_id).requires_monomorphization(tcx);
+		for &def_id in roots.iter().filter(|&&def_id| !generic(def_id)) {
+			t.instance(Instance::mono(tcx, def_id));
+		}
+		t.drain();
+		// A generic function no instance reached is lowered over its own type parameters, so
+		// what it refuses whatever they are is counted too.
+		let mut polymorphic = 0;
+		for &def_id in roots.iter().filter(|&&def_id| generic(def_id)) {
+			let lowered = |instance: &Instance<'tcx>| instance.def_id() == def_id && !instance.args.has_param();
+			if t.instances.keys().any(lowered) {
+				continue;
+			}
+			polymorphic += 1;
+			t.env = TypingEnv::post_analysis(tcx, def_id);
+			let instance = Instance::new_raw(def_id, ty::GenericArgs::identity_for_item(tcx, def_id));
+			let sym = t.instance(instance);
+			t.queue.retain(|&(queued, _)| queued != instance);
+			t.function(instance, sym);
+			t.drain();
+		}
+		polymorphic
+	}
 }
 
 pub struct Translator<'a, 'tcx> {
