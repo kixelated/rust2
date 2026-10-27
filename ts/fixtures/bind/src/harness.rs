@@ -51,7 +51,8 @@ pub fn refused(count: &Arc<u32>) -> u8 {
 	replace(&mut bytes, Bytes::from_static(b"replaced"));
 	let held = crate::raw::Held::new(Tally::new(count));
 	drop(held);
-	crate::raw::zero::<u8>() + bytes.len() as u8
+	let values = crate::raw::value::<1>() + crate::raw::value::<2>();
+	crate::raw::zero::<u8>() + bytes.len() as u8 + values as u8
 }
 
 fn replace(target: &mut Bytes, value: Bytes) {

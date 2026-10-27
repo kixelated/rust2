@@ -277,7 +277,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			None => {
 				if let Some(param) = self.phantom(def_id) {
 					let msg = format!(
-						"a binding of `{}`, whose `{param}` no argument holds: its export can't call `{param}`'s impls",
+						"a binding of `{}`, whose `{param}` no argument holds: one export for every instance can't recover it",
 						tcx.def_path_str(def_id)
 					);
 					self.err(tcx.def_span(def_id), msg);
@@ -314,9 +314,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(&self.bindings.items[&self.binder(def_id)?].module)
 	}
 
-	/// A type parameter of `def_id` with a trait bound that no argument's type holds: a
-	/// generic export sees each type argument only in the values it takes, so it has no
-	/// way to call that one's impls.
+	/// A parameter of `def_id` that no argument's type holds, and that one export serving
+	/// every instance would need, seeing each generic argument only in the values it takes:
+	/// a const parameter, whose value it can't read, or a type parameter with a trait bound,
+	/// whose impls it can't call.
 	fn phantom(&self, def_id: DefId) -> Option<rustc_span::Symbol> {
 		let tcx = self.tcx;
 		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip().skip_binder();
@@ -324,11 +325,23 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.inputs()
 			.iter()
 			.flat_map(|t| t.walk())
-			.filter_map(|arg| match arg.as_type()?.kind() {
-				ty::Param(p) => Some(p.index),
-				_ => None,
-			})
+			.filter_map(
+				|arg| match (arg.as_type().map(|t| t.kind()), arg.as_const().map(|c| c.kind())) {
+					(Some(ty::Param(p)), _) => Some(p.index),
+					(_, Some(ty::ConstKind::Param(p))) => Some(p.index),
+					_ => None,
+				},
+			)
 			.collect();
+		let mut generics = Some(tcx.generics_of(def_id));
+		while let Some(g) = generics {
+			if let Some(param) = g.own_params.iter().find(|param| {
+				matches!(param.kind, ty::GenericParamDefKind::Const { .. }) && !held.contains(&param.index)
+			}) {
+				return Some(param.name);
+			}
+			generics = g.parent.map(|parent| tcx.generics_of(parent));
+		}
 		tcx.param_env(def_id).caller_bounds().find_map(|clause| {
 			let pred = clause.as_trait_clause()?.skip_binder();
 			match pred.self_ty().kind() {

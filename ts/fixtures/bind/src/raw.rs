@@ -52,6 +52,11 @@ pub fn zero<T: Default>() -> T {
 	T::default()
 }
 
+/// A value of its const argument alone, which a generic TS function can't read.
+pub fn value<const N: u32>() -> u32 {
+	N
+}
+
 /// A value it holds, and drops where Rust drops it.
 pub struct Held<T>(T);
 

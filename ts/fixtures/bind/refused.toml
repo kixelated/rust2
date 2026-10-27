@@ -18,3 +18,4 @@ roots = ["harness::run", "harness::refused"]
 "raw::checksum" = "bind/checksum.ts"
 "raw::Held" = "bind/tally.ts"
 "raw::zero" = "bind/checksum.ts"
+"raw::value" = "bind/checksum.ts"
