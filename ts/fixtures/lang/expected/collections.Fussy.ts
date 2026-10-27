@@ -15,7 +15,7 @@ export function clone$Clone(self: Fussy): Fussy {
 	if (!(rt.u8Rem(self._0, 7) === 0)) {
 		return { _0: self._0 };
 	}
-	const arg = ([self._0] as [rt.u8])[0];
+	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["cloning ", args2[0]]);
 }

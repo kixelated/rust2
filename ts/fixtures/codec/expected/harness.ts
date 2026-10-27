@@ -99,8 +99,7 @@ export function takeU64(data: rt.ByteSlice): [rt.u64, rt.ByteSlice] {
 export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): void {
 	decodeError(out, err);
 	const _5: string = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f));
-	const arg = ([err] as [DecodeError.DecodeError])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)];
 	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
@@ -108,8 +107,7 @@ export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): voi
 export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): void {
 	encodeError(out, err);
 	const _5: string = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f));
-	const arg = ([err] as [EncodeError.EncodeError])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => EncodeError.fmt$Debug(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => EncodeError.fmt$Debug(err, f)];
 	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
@@ -345,9 +343,8 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 					}
 					result = Encoder.varintOpt(w, _47);
 				} else if (_33 === 5) {
-					const _53: Uint8Array = rt.u64ToBeBytes(value);
 					const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
-					const _51: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(_53), 0, part);
+					const _51: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(rt.u64ToBeBytes(value)), 0, part);
 					result = Encoder.bytes(w, _51);
 				} else if (_33 === 6) {
 					const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(rt.byteSliceFrom(rt.u64ToBeBytes(value))));
@@ -578,18 +575,16 @@ export function errors(data: rt.ByteSlice, out: rt.ByteVec): void {
 				if (_10 === 6) {
 					const arg = {};
 					const _26: string = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(arg, f));
-					const arg2 = ([{}] as [BoundsExceeded.BoundsExceeded])[0];
+					const arg2 = {};
 					const args2: rt.Fmt[] = [(f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f)];
 					putText(out, _26, rt.fmtFormat([args2[0], " ", rt.fmtSpec({ alternate: true }, args2[0])]));
 					break b0;
 				}
 				err = { tag: "MalformedAuthToken" } as DecodeError.DecodeError;
 			}
-			const arg3 = ([err] as [DecodeError.DecodeError])[0];
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Display(arg3, f)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Display(err, f)];
 			const _38: string = rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 30 }, args4[0]), "|"]);
-			const arg4 = ([err] as [DecodeError.DecodeError])[0];
-			const args6: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(arg4, f)];
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)];
 			putText(out, _38, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args6[0])]));
 			decodeFailed(out, err);
 		}
