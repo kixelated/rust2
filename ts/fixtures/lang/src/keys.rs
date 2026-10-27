@@ -148,6 +148,22 @@ impl PartialEq for Picky {
 	}
 }
 
+/// Borrows, whose derived impls compare, order, and hash what they point at through
+/// std's impls for references.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum Seen<'a> {
+	Hop(&'a Option<Hop>),
+	Twice(&'a &'a Horizon),
+	Text(&'a str),
+	Name(&'a Name),
+	Mut(&'a mut Hop),
+}
+
+/// A borrow of a `Skew`, whose derived `partial_cmp` reaches its own, not its `cmp`: a
+/// derived `Ord` beside it would be called instead.
+#[derive(PartialEq, PartialOrd)]
+struct Skewed<'a>(&'a Skew);
+
 /// Strings whose UTF-8 order differs from their UTF-16 order past U+FFFF.
 const WORDS: [&str; 6] = ["", "a", "ab", "\u{e000}", "\u{ffff}", "\u{10000}"];
 
@@ -216,10 +232,60 @@ fn find<K: Borrow<Q>, Q: PartialEq + ?Sized>(keys: &[K], q: &Q) -> u8 {
 
 /// Run one case.
 pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 3 {
+	match kind % 4 {
 		0 => options(data, out),
 		1 => arcs(data, out),
+		2 => borrows(data, out),
 		_ => places(data, out),
+	}
+}
+
+/// One of `Seen`'s variants, by `k`.
+fn seen<'a>(k: u8, hop: &'a Option<Hop>, horizon: &'a &'a Horizon, name: &'a Name, mine: &'a mut Hop) -> Seen<'a> {
+	match k % 5 {
+		0 => Seen::Hop(hop),
+		1 => Seen::Twice(horizon),
+		2 => Seen::Text(WORDS[k as usize / 5 % WORDS.len()]),
+		3 => Seen::Name(name),
+		_ => Seen::Mut(mine),
+	}
+}
+
+/// Borrows compared, ordered, and hashed as what they point at, through one reference
+/// or two, shared or mutable.
+fn borrows(data: &[u8], out: &mut Vec<u8>) {
+	for i in 1..data.len() {
+		let (c, d) = (data[i - 1], data[i]);
+		let (a, b) = (hop(c), hop(d));
+		let g = Horizon {
+			exclude: a,
+			local: c % 2 == 0,
+		};
+		let h = Horizon {
+			exclude: b,
+			local: d % 2 == 0,
+		};
+		let (gr, hr) = (&g, &h);
+		let (m, n) = (name(c), name(d));
+		let (mut x, mut y) = (Hop(c as u64 % 3), Hop(d as u64 % 3));
+		let (l, r) = (seen(c, &a, &gr, &m, &mut x), seen(d, &b, &hr, &n, &mut y));
+		out.push(
+			(l == r) as u8
+				| order(l.cmp(&r)) << 1
+				| partial(l.partial_cmp(&r)) << 3
+				| ((hash_of(&l) == hash_of(&r)) as u8) << 5,
+		);
+		let (s, t) = (Skew(c % 4), Skew(d % 4));
+		let (s, t) = (Skewed(&s), Skewed(&t));
+		out.push((s == t) as u8 | partial(s.partial_cmp(&t)) << 1);
+		out.push(
+			(&a == &b) as u8
+				| ((&gr == &hr) as u8) << 1
+				| ((&mut x == &mut y) as u8) << 2
+				| ((&x == &mut y) as u8) << 3
+				| ((&mut x == &y) as u8) << 4
+				| ((hash_of(&&mut x) == hash_of(&y)) as u8) << 5,
+		);
 	}
 }
 

@@ -223,6 +223,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// it: its `rt.Place` or `undefined`, which is only tested, unwrapped, or taken apart
 	/// into a reference that reads and writes through it.
 	place_opts: FxHashSet<Local>,
+	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
+	/// its arms.
+	switched: FxHashSet<String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -277,6 +280,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			halves: FxHashMap::default(),
 			joined: FxHashSet::default(),
 			place_opts: FxHashSet::default(),
+			switched: FxHashSet::default(),
 		};
 		fx.analyze();
 		fx
@@ -421,12 +425,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for (cond, len, index) in bounds {
 			if let Operand::Copy(l) | Operand::Move(l) = len
 				&& let Some(l) = l.as_local()
-				&& let Some(Rvalue::UnaryOp(mir::UnOp::PtrMetadata, Operand::Copy(slice) | Operand::Move(slice))) =
-					self.def_rvalue(l)
-				&& self.stable(*slice)
+				&& let Some(slice) = self.measured(l)
+				&& self.stable(slice)
 			{
-				self.idx_of.insert(l, *slice);
-				self.place_use(*slice);
+				self.idx_of.insert(l, slice);
+				self.place_use(slice);
 				self.operand_use(index);
 				continue;
 			}
@@ -530,7 +533,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				{
 					match &assign.1 {
 						// One that can throw is lowered even unread, so it keeps its reads.
-						r @ (Rvalue::BinaryOp(..) | Rvalue::UnaryOp(..) | Rvalue::Use(..))
+						r @ (Rvalue::BinaryOp(..)
+						| Rvalue::UnaryOp(..)
+						| Rvalue::Use(..)
+						| Rvalue::RawPtr(mir::RawPtrKind::FakeForPtrMetadata, _))
 							if !rvalue::effect(r, self) =>
 						{
 							computed[local].push(r)
@@ -549,21 +555,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				continue;
 			}
 			for rvalue in std::mem::take(&mut computed[local]) {
-				let ops: Vec<&Operand<'tcx>> = match rvalue {
-					Rvalue::BinaryOp(_, ops) => vec![&ops.0, &ops.1],
-					Rvalue::UnaryOp(_, op) | Rvalue::Use(op, _) => vec![op],
+				let read: Vec<Place<'tcx>> = match rvalue {
+					Rvalue::BinaryOp(_, ops) => [&ops.0, &ops.1].into_iter().filter_map(Operand::place).collect(),
+					Rvalue::UnaryOp(_, op) | Rvalue::Use(op, _) => op.place().into_iter().collect(),
+					Rvalue::RawPtr(_, p) => vec![*p],
 					_ => unreachable!("collected above"),
 				};
-				for op in ops {
-					if let Operand::Copy(p) | Operand::Move(p) = op {
-						self.uses[p.local] -= 1;
-						for elem in p.projection {
-							if let mir::ProjectionElem::Index(index) = elem {
-								self.uses[index] -= 1;
-							}
+				for p in read {
+					self.uses[p.local] -= 1;
+					for elem in p.projection {
+						if let mir::ProjectionElem::Index(index) = elem {
+							self.uses[index] -= 1;
 						}
-						work.push(p.local);
 					}
+					work.push(p.local);
 				}
 			}
 		}
@@ -677,6 +682,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 				}
 			}
+			// Only `PtrMetadata` reads a fake borrow, so it borrows nothing.
+			Rvalue::RawPtr(mir::RawPtrKind::FakeForPtrMetadata, place) => self.place_use(*place),
 			Rvalue::RawPtr(_, place) => {
 				self.place_use(*place);
 				if own(*place) {
@@ -1105,6 +1112,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		match &mir.basic_blocks[bb].statements[i].kind {
 			StatementKind::Assign(assign) => Some(&assign.1),
 			_ => None,
+		}
+	}
+
+	/// The slice whose length `len` is assigned: by `PtrMetadata` of a reference to it, or
+	/// of the fake raw pointer to it a bounds check of a `&mut` slice reads.
+	fn measured(&self, len: Local) -> Option<Place<'tcx>> {
+		let Some(Rvalue::UnaryOp(mir::UnOp::PtrMetadata, Operand::Copy(slice) | Operand::Move(slice))) =
+			self.def_rvalue(len)
+		else {
+			return None;
+		};
+		match slice.as_local().and_then(|raw| self.def_rvalue(raw)) {
+			Some(Rvalue::RawPtr(mir::RawPtrKind::FakeForPtrMetadata, place)) => self.stable(*slice).then_some(*place),
+			_ => Some(*slice),
 		}
 	}
 
@@ -2114,6 +2135,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
 			Some(Slot::Discr(Some((scrut, ty)))) => {
+				if !arms.is_empty() {
+					self.switched.extend(scrut.path_key());
+				}
 				let tests: Vec<Expr> = arms
 					.iter()
 					.map(|&(value, _)| self.variant_test(&scrut, ty, value, span))
