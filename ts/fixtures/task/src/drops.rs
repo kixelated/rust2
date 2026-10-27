@@ -21,6 +21,8 @@ macro_rules! list {
 	}};
 }
 
+mod iters;
+
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
 	One(Guard),
@@ -47,17 +49,37 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 13`, panicking at the point `arg / 13 % 8` names, if any: what
+/// Borrowed text or a value that drops, as moq-net's `path::Repr` is: generic over a
+/// lifetime alone.
+pub enum Text<'a> {
+	Borrowed(&'a str),
+	Owned(Guard),
+}
+
+/// A type generic over a lifetime alone, holding one that is.
+pub struct Named<'a>(Text<'a>);
+
+/// Pairs of its type parameters, as a map's entries are: each pair drops its halves in
+/// order, the second after the first panics.
+pub struct Entries<K, V>(Vec<(K, V)>);
+
+/// Run scenario `arg % 19`, panicking at the point `arg / 19 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 13 % 8;
+	let at = arg / 19 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 13 {
+	match arg % 19 {
+		13 => iters::looped(log, id, at),
+		14 => iters::collected(log, id, at),
+		15 => iters::drained(log, id, at),
+		16 => iters::extended(log, id, at),
+		17 => iters::bombed(log, id, at),
+		18 => iters::spent(log, id, at),
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
@@ -117,6 +139,8 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 					second: guard(44),
 				},
 			];
+			let _borrowed = Named(Text::Borrowed("text"));
+			let _owned = Named(Text::Owned(guard(45)));
 			check(2);
 			let nested = Wrap {
 				id: id + 50,
@@ -587,7 +611,11 @@ fn blown(log: &Log, id: u32, at: u8) {
 			first: bomb(1, true),
 			second: guard(2),
 		}),
-		3 => drop((guard(1), bomb(2, true), Held::One(guard(3)))),
+		3 => drop((
+			guard(1),
+			Entries(list![(bomb(2, true), guard(3)), (bomb(4, false), guard(5))]),
+			Held::One(guard(6)),
+		)),
 		4 => {
 			let mut map = BTreeMap::new();
 			map.insert(key(1, Fault::Sound), bomb(1, false));

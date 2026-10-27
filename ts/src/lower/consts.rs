@@ -91,6 +91,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			),
 			ty::Adt(adt, _) => {
 				let fields = children(valtree);
+				// Its nanoseconds are a pattern type, which only it reads.
+				if Std::of(tcx, adt.did()) == Some(Std::Duration) {
+					return match super::time::constant(&fields) {
+						Some(value) => value,
+						None => self.err(span, format!("a constant of type `{ty}` without its fields")),
+					};
+				}
 				let (variant, fields) = match adt.is_enum() {
 					true => {
 						let Some(((_, discr), rest)) = fields.split_first() else {

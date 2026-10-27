@@ -26,8 +26,7 @@ else. rangemap adds 266.
   `unsafe` is refused with a span unless the consumer [binds](/ts/README.md#bindings)
   it.
 - A named crate's own refusals belong to other quests: kio's atomics and `thread_local!`
-  to [shared ownership](/quest/m2/ts-shared.md), its `RawWaker` vtable to bindings, and
-  moq-clock's `Duration` to [Duration](/quest/m2/ts-model/time.md).
+  to [shared ownership](/quest/m2/ts-shared.md), and its `RawWaker` vtable to bindings.
 - Report the model's census before and after.
 
 Public API: `ts.toml` names the dependencies translated with the package; the output gains

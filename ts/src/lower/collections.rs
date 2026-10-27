@@ -151,21 +151,11 @@ pub fn call<'tcx>(
 	let Some(lost) = discarded(std, owner, name) else {
 		return Ok(Some(e));
 	};
-	if lost.is_empty() && b.t.drops(coll) {
-		return Ok(Some(b.err(
-			span,
-			format!("`{owner}::{name}` of `{coll}`, which may drop what it holds, which is not supported yet"),
-		)));
-	}
-	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
+	let Some(droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
 		return Ok(Some(Expr::undefined()));
 	};
 	if droppers.is_empty() {
 		return Ok(Some(e));
-	}
-	// `extend` comes before `last`, which only `from` sets.
-	if owner == "Extend" && matches!(std, Std::BTreeMap | Std::BTreeSet) {
-		droppers.insert(0, Expr::lit("false"));
 	}
 	Ok(Some(match e {
 		Expr::Call(f, mut args) => {
@@ -181,8 +171,8 @@ pub fn call<'tcx>(
 /// after its own arguments: the key `insert` and `entry` are given if an equal one is there
 /// already, and the value `insert` is given if the key's `Hash`, `Eq`, or `Ord` panics,
 /// the key `remove` takes out, the value `or_insert` is given if one is, the key an
-/// `or_insert_with` keeps if its closure panics, and what `clear`, `retain`, `truncate`,
-/// `extend`, and `from` discard. An empty list is what an iterator owns, which is refused.
+/// `or_insert_with` keeps if its closure panics, and what `clear`, `retain`, and
+/// `truncate` discard. An iterator, and `extend` and `from`, take theirs where they map.
 fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 	let map = matches!(std, Std::HashMap | Std::BTreeMap);
 	let set = matches!(std, Std::HashSet | Std::BTreeSet);
@@ -191,12 +181,29 @@ fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 		(_, "insert" | "entry" | "remove") if map || set => &[0],
 		(_, "remove" | "or_insert_with" | "or_insert_with_key" | "or_default") if std == Std::Entry => &[0],
 		(_, "or_insert") if std == Std::Entry => &[1],
-		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if map => &[0, 1],
-		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if set => &[0],
+		(_, "clear" | "retain" | "retain_mut") if map => &[0, 1],
+		(_, "clear" | "retain" | "retain_mut") if set => &[0],
 		(_, "clear" | "retain" | "retain_mut" | "truncate") if std == Std::VecDeque => &[0],
-		(_, "drain" | "into_keys" | "into_values") => &[],
 		_ => return None,
 	})
+}
+
+/// What drops each key, and each value of a map, of a collection of type `coll`, of those
+/// that drop: `undefined` for one that drops nothing.
+fn entry_droppers<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, span: Span) -> Vec<Expr> {
+	let n = match b.t.std_of(coll) {
+		Some(Std::HashMap | Std::BTreeMap) => 2,
+		_ => 1,
+	};
+	(0..n).map(|i| b.t.dropper(arg(coll, i), span)).collect()
+}
+
+/// What a collection of type `coll` stores each of: a key, a `(key, value)`, or an item.
+fn stored<'tcx>(b: &Body<'_, '_, 'tcx>, coll: Ty<'tcx>) -> Ty<'tcx> {
+	match b.t.std_of(coll) {
+		Some(Std::HashMap | Std::BTreeMap) => Ty::new_tup(b.t.tcx, &[arg(coll, 0), arg(coll, 1)]),
+		_ => arg(coll, 0),
+	}
 }
 
 /// The type a lookup of a map or set takes its key as: the `Q` of `get<Q>` where
@@ -349,10 +356,30 @@ fn hash<'tcx>(
 		(_, "remove_entry") => Expr::rt("hashRemoveEntry", values),
 		(_, "retain") => Expr::rt("hashRetain", values),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("hashIter", values),
-		(_, "iter" | "keys" | "into_keys") => Expr::rt("hashKeys", values),
-		(_, "values" | "values_mut" | "into_values") => Expr::rt("hashValues", values),
-		(_, "drain") if set => Expr::rt("hashDrainKeys", values),
-		(_, "drain") => Expr::rt("hashDrain", values),
+		(_, "iter" | "keys") => Expr::rt("hashKeys", values),
+		(_, "values" | "values_mut") => Expr::rt("hashValues", values),
+		// std's `fold` of either drops the half it does not yield after the one it does, where
+		// `next` drops it before.
+		(_, "into_keys" | "into_values") => {
+			let (kept, other) = if name == "into_keys" { (0, 1) } else { (1, 0) };
+			if b.t.drops(arg(coll, other)) {
+				let other = arg(coll, other);
+				return Some(b.err(
+					span,
+					format!("`{name}` of `{coll}`, which drops `{other}`, which is not supported yet"),
+				));
+			}
+			let dropper = b.t.dropper(arg(coll, kept), span);
+			let f = if name == "into_keys" { "hashKeys" } else { "hashValues" };
+			Expr::rt(f, super::iter::tail(values, vec![dropper]))
+		}
+		(_, "drain") => {
+			let droppers = entry_droppers(b, coll, span);
+			Expr::rt(
+				if set { "hashDrainKeys" } else { "hashDrain" },
+				super::iter::tail(values, droppers),
+			)
+		}
 		(_, "entry") => Expr::rt("entry", values),
 		(_, "reserve" | "shrink_to_fit") => {
 			discard(values, out);
@@ -369,16 +396,37 @@ fn hash<'tcx>(
 			Expr::rt("hashClone", values)
 		}
 		("Extend", "extend") | ("From", "from") => {
-			let source = extend_source(b, coll, call, owner, values.pop()?)?;
+			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
 			let target = match owner {
 				"From" => hash_new(b, coll, span)?,
 				_ => values.pop()?,
 			};
-			Expr::rt(if set { "hashExtendKeys" } else { "hashExtend" }, vec![target, source])
+			hash_extend(b, coll, target, source, iter, owner == "From", span)
 		}
 		_ => return None,
 	};
 	Some(e)
+}
+
+/// `extend` of `target`, a hash collection of type `coll`, from `source`, an iterator of
+/// type `iter`, or with `fresh`, `collect` into an empty one, which drops if a panic does.
+fn hash_extend<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	coll: Ty<'tcx>,
+	target: Expr,
+	source: Expr,
+	iter: Ty<'tcx>,
+	fresh: bool,
+	span: Span,
+) -> Expr {
+	let mut droppers = entry_droppers(b, coll, span);
+	droppers.push(super::iter::iter_dropper(b, iter, span));
+	droppers.push(Expr::lit(if fresh && b.t.drops(coll) { "true" } else { "false" }));
+	let f = match b.t.std_of(coll) {
+		Some(Std::HashSet) => "hashExtendKeys",
+		_ => "hashExtend",
+	};
+	Expr::rt(f, super::iter::tail(vec![target, source], droppers))
 }
 
 /// An empty hash collection of type `coll`, which finds its keys as their type needs.
@@ -516,8 +564,22 @@ fn btree<'tcx>(
 		(_, "first_entry") => Expr::rt("btreeFirstEntry", values),
 		(_, "last_entry") => Expr::rt("btreeFirstEntry", last(values)),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("btreeIter", values),
-		(_, "iter" | "keys" | "into_keys") => Expr::rt("btreeKeys", values),
-		(_, "values" | "values_mut" | "into_values") => Expr::rt("btreeValues", values),
+		(_, "iter" | "keys") => Expr::rt("btreeKeys", values),
+		(_, "values" | "values_mut") => Expr::rt("btreeValues", values),
+		// Each of which drops the half it does not yield as it reads, and whose `last` reads
+		// the back.
+		(_, "into_keys" | "into_values") => {
+			let mut droppers = entry_droppers(b, coll, span);
+			if name == "into_keys" && b.t.drops(coll) {
+				droppers.push(Expr::lit("true"));
+			}
+			let f = if name == "into_keys" {
+				"btreeKeys"
+			} else {
+				"btreeValues"
+			};
+			Expr::rt(f, super::iter::tail(values, droppers))
+		}
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
 		(_, "entry") => Expr::rt("entry", values),
@@ -531,22 +593,88 @@ fn btree<'tcx>(
 			values.extend([k, v]);
 			Expr::rt("btreeClone", values)
 		}
-		("Extend", "extend") | ("From", "from") => {
-			let source = extend_source(b, coll, call, owner, values.pop()?)?;
-			let target = match owner {
-				"From" => btree_new(b, coll, span),
-				_ => values.pop()?,
-			};
-			let mut values = vec![target, source];
-			// `from` keeps the last of equal keys, as std's sorted bulk build does.
-			if owner == "From" {
-				values.push(Expr::lit("true"));
-			}
-			Expr::rt(if set { "btreeExtendKeys" } else { "btreeExtend" }, values)
+		("Extend", "extend") => {
+			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
+			let mut droppers = vec![Expr::lit("false")];
+			droppers.extend(entry_droppers(b, coll, span));
+			droppers.push(super::iter::iter_dropper(b, iter, span));
+			let target = values.pop()?;
+			let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
+			Expr::rt(f, super::iter::tail(vec![target, source], droppers))
+		}
+		("From", "from") => {
+			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
+			btree_collect(b, coll, source, iter, span)
 		}
 		_ => return None,
 	};
 	Some(e)
+}
+
+/// `collect` and `from` into an empty B-tree of type `coll`, from `source`, an iterator of
+/// type `iter`, which keep the last of equal keys, as std's sorted bulk build does. Of
+/// entries that drop, std's collects into a `Vec` first, and then drops each but the last
+/// of equal keys in the order a stable sort leaves them.
+fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr, iter: Ty<'tcx>, span: Span) -> Expr {
+	let set = b.t.std_of(coll) == Some(Std::BTreeSet);
+	let target = btree_new(b, coll, span);
+	let key = arg(coll, 0);
+	if !b.t.drops(coll) {
+		let mut droppers = vec![Expr::lit("true"), Expr::undefined()];
+		if !set {
+			droppers.push(Expr::undefined());
+		}
+		droppers.push(super::iter::iter_dropper(b, iter, span));
+		let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
+		return Expr::rt(f, super::iter::tail(vec![target, source], droppers));
+	}
+	// A sort by an `Ord` of the crate's may panic, or leave equal keys in another order.
+	if own_ord(b, key, &mut Default::default()) {
+		return b.err(
+			span,
+			format!(
+				"`collect` of `{coll}`, which sorts by `{key}`'s own `Ord`, of entries that drop, which is not supported yet"
+			),
+		);
+	}
+	let entries = super::iter::to_array(b, source, iter, stored(b, coll), span);
+	let droppers = entry_droppers(b, coll, span);
+	let f = if set { "btreeCollectKeys" } else { "btreeCollect" };
+	Expr::rt(f, super::iter::tail(vec![target, entries], droppers))
+}
+
+/// Whether ordering or comparing a `ty` may run the crate's own `Ord` or `PartialEq`,
+/// rather than one derived, which may panic or disagree with itself.
+fn own_ord<'tcx>(
+	b: &Body<'_, '_, 'tcx>,
+	ty: Ty<'tcx>,
+	seen: &mut rustc_data_structures::fx::FxHashSet<Ty<'tcx>>,
+) -> bool {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	if !seen.insert(ty) {
+		return false;
+	}
+	match ty.kind() {
+		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
+		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
+		ty::Adt(adt, args) if adt.did().is_local() => {
+			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
+				let f = trait_fn(tcx, tr, item);
+				Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(args))
+					.ok()
+					.flatten()
+					.and_then(|instance| tcx.impl_of_assoc(instance.def_id()))
+					.is_some_and(|imp| tcx.is_automatically_derived(imp))
+			};
+			!derived("Ord", "cmp", &[ty.into()])
+				|| !derived("PartialEq", "eq", &[ty.into(), ty.into()])
+				|| adt
+					.all_fields()
+					.any(|f| own_ord(b, f.ty(tcx, args).skip_norm_wip(), seen))
+		}
+		_ => false,
+	}
 }
 
 /// An empty B-tree of type `coll`, ordered by its keys' `Ord`.
@@ -601,7 +729,10 @@ fn deque<'tcx>(
 			Expr::rt("dequeContains", values)
 		}
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
-		(_, "drain") => Expr::rt("dequeDrain", values),
+		(_, "drain") => {
+			let droppers = entry_droppers(b, coll, span);
+			Expr::rt("dequeDrain", super::iter::tail(values, droppers))
+		}
 		(_, "reserve" | "reserve_exact" | "shrink_to_fit") => {
 			discard(values, out);
 			Expr::undefined()
@@ -612,30 +743,38 @@ fn deque<'tcx>(
 			Expr::rt("dequeClone", values)
 		}
 		("Extend", "extend") | ("From", "from") => {
-			let source = extend_source(b, coll, call, owner, values.pop()?)?;
+			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
 			let target = match owner {
 				"From" => deque_new(b, coll, span),
 				_ => values.pop()?,
 			};
-			Expr::rt("dequeExtend", vec![target, source])
+			let dropper = super::iter::iter_dropper(b, iter, span);
+			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![dropper]))
 		}
 		_ => return None,
 	};
 	Some(e)
 }
 
-/// What `extend` or `from` adds to a collection: an `rt.Iter` of what `source` holds.
+/// What `extend` or `from` adds to a collection: an `rt.Iter` of what `source` holds, and
+/// the type of the iterator std's makes of it.
 fn extend_source<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	coll: Ty<'tcx>,
 	call: &Call<'tcx>,
 	owner: &str,
 	source: Expr,
-) -> Option<Expr> {
+) -> Option<(Expr, Ty<'tcx>)> {
 	// `Extend<A>::extend::<T>` and `From<T>::from`.
 	let ty = library::targ(call.args, if owner == "Extend" { 2 } else { 1 });
+	let iter = super::iter::iter_of(b.t, ty)?;
+	// Each but a `Vec`'s, by `for_each`.
+	super::iter::folds(b, iter, owner, call.span);
 	let Some(items) = super::iter::into_iter(b, ty, source, call.span) else {
-		return Some(b.err(call.span, format!("`{owner}` from `{ty}`, which is not supported yet")));
+		return Some((
+			b.err(call.span, format!("`{owner}` from `{ty}`, which is not supported yet")),
+			iter,
+		));
 	};
 	// `Extend<&T>` and `Extend<(&K, &V)>`, whose items are `Copy`, copy each one.
 	let elems: Vec<Ty<'tcx>> = match b.t.std_of(coll) {
@@ -648,12 +787,13 @@ fn extend_source<'tcx>(
 	};
 	let borrowed = owner == "Extend" && library::targ(call.args, 1) != stored;
 	if !borrowed || !elems.iter().any(|&t| b.t.needs_copy(t)) {
-		return Some(items);
+		return Some((items, iter));
 	}
-	Some(match b.t.copy_fn(stored, call.span) {
+	let items = match b.t.copy_fn(stored, call.span) {
 		Some(copy) => Expr::rt("iterMap", vec![items, copy]),
 		None => items,
-	})
+	};
+	Some((items, iter))
 }
 
 /// A method of an `Entry`, `OccupiedEntry`, or `VacantEntry`.
@@ -794,7 +934,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => held(inner),
-		ty::Adt(..) => library::string(b.t.tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering),
+		ty::Adt(..) => library::string(b.t.tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::Duration)),
 		_ => false,
 	}
 }
@@ -819,6 +959,7 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationCmp".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| cmp_fn(b, t, partial, span)).collect();
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
@@ -854,6 +995,7 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
 		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
@@ -890,6 +1032,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		ty::Str => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationHash".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| hash_fn(b, t, hasher, span)).collect();
 			Expr::rt("hashTuple", vec![Expr::Array(fns)])
@@ -935,9 +1078,10 @@ pub fn trait_fn(tcx: ty::TyCtxt<'_>, tr: &str, item: &str) -> rustc_hir::def_id:
 }
 
 /// What `into_iter` makes of a collection of type `ty`, by value or by reference: an
-/// `rt.Iter` of its entries, keys, or items.
-pub fn into_iter<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr) -> Option<Expr> {
-	let name = match b.t.std_of(ty.peel_refs())? {
+/// `rt.Iter` of its entries, keys, or items, which by value drops those it still holds.
+pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
+	let coll = ty.peel_refs();
+	let name = match b.t.std_of(coll)? {
 		Std::HashMap => "hashIter",
 		Std::HashSet => "hashKeys",
 		Std::BTreeMap => "btreeIter",
@@ -945,11 +1089,15 @@ pub fn into_iter<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr) -> Opt
 		Std::VecDeque => "dequeIter",
 		_ => return None,
 	};
-	Some(Expr::rt(name, vec![value]))
+	let droppers = match ty.is_ref() {
+		true => Vec::new(),
+		false => entry_droppers(b, coll, span),
+	};
+	Some(Expr::rt(name, super::iter::tail(vec![value], droppers)))
 }
 
-/// `collect` into a collection of type `ty`.
-pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, span: Span) -> Option<Expr> {
+/// `collect` into a collection of type `ty` from `iter`, an iterator of type `from`.
+pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from: Ty<'tcx>, span: Span) -> Option<Expr> {
 	let std = b.t.std_of(ty)?;
 	if let Some(elem) = undefined_arg(b, std, ty) {
 		return Some(b.err(
@@ -957,22 +1105,24 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, span:
 			format!("`{ty}` holds `{elem}`, which is `undefined` as `None` is, which is not supported"),
 		));
 	}
-	let (target, extend) = match std {
-		Std::HashMap => (hash_new(b, ty, span)?, "hashExtend"),
-		Std::HashSet => (hash_new(b, ty, span)?, "hashExtendKeys"),
-		Std::BTreeMap => (btree_new(b, ty, span), "btreeExtend"),
-		Std::BTreeSet => (btree_new(b, ty, span), "btreeExtendKeys"),
-		Std::VecDeque => (deque_new(b, ty, span), "dequeExtend"),
+	Some(match std {
+		Std::HashMap | Std::HashSet => {
+			let target = hash_new(b, ty, span)?;
+			hash_extend(b, ty, target, iter, from, true, span)
+		}
+		Std::BTreeMap | Std::BTreeSet => btree_collect(b, ty, iter, from, span),
+		// std's collects into a `Vec` first.
+		Std::VecDeque => {
+			let target = deque_new(b, ty, span);
+			let item = arg(ty, 0);
+			if !b.t.drops(item) {
+				let dropper = super::iter::iter_dropper(b, from, span);
+				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![dropper]))
+			} else {
+				let items = super::iter::to_array(b, iter, from, item, span);
+				Expr::rt("dequeExtend", vec![target, Expr::rt("iterSlice", vec![items])])
+			}
+		}
 		_ => return None,
-	};
-	let mut values = vec![target, iter];
-	// A B-tree's `collect` keeps the last of equal keys, as std's sorted bulk build does.
-	if matches!(std, Std::BTreeMap | Std::BTreeSet) {
-		values.push(Expr::lit("true"));
-	}
-	// A map or set drops the duplicates it is given.
-	if let Some(lost) = discarded(std, "From", "from") {
-		values.extend(b.t.droppers(lost.iter().map(|&n| arg(ty, n)), span)?);
-	}
-	Some(Expr::rt(extend, values))
+	})
 }

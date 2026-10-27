@@ -48,6 +48,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
+				None | Some(Std::Peekable) if self.std_iter(ty) => match adt.has_dtor(tcx) {
+					// What owns its items, an `IntoIter` or a `Drain`, drops those it still holds.
+					true => args.types().any(|t| self.drops(t)),
+					false => self.fields_drop(*adt, args, true),
+				},
 				Some(_) => false,
 				None if adt.did().is_local() => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
 				None => false,
@@ -68,6 +73,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.drops_cycle = true;
 		}
 		drops
+	}
+
+	/// Whether `ty` is one of std's iterators, or a type they are built of, which an `rt.Iter`
+	/// stands for: it drops what it owns, of its fields or, with a `Drop` impl, its items.
+	fn std_iter(&self, ty: Ty<'tcx>) -> bool {
+		let ty::Adt(adt, _) = ty.kind() else {
+			return false;
+		};
+		matches!(
+			self.tcx.crate_name(adt.did().krate).as_str(),
+			"core" | "alloc" | "std" | "hashbrown"
+		) && self.iter_item(ty).is_some()
 	}
 
 	/// Whether any field of `adt` with `args` drops, counting one of a type parameter only
@@ -100,6 +117,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
 					self.disposable(args.type_at(0), span)
 				}
+				// An `rt.Iter` drops what it was given to, but not a closure's captures.
+				None | Some(Std::Peekable) if self.std_iter(ty) => !ty
+					.walk()
+					.filter_map(|arg| arg.as_type())
+					.any(|t| matches!(t.kind(), ty::Closure(..)) && self.drops(t)),
 				Some(_) => false,
 				// A generic `Drop` impl has an instance per type, which one class's glue can't call.
 				None if adt.is_struct() && !self.generic_dtor(*adt) => {
@@ -129,6 +151,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Waker) => false,
+				// What it holds of its own, or of its items.
+				None | Some(Std::Peekable) if self.std_iter(ty) => {
+					args.types().any(|t| self.drop_panics(t, seen))
+						|| self.iter_item(ty).is_some_and(|item| self.drop_panics(item, seen))
+				}
 				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
 				None if adt.did().is_local() => {
 					let env = self.typing_env_pub();
@@ -188,6 +215,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// What drops the `ty` in `value`, or `None` if JS would see nothing drop.
 	pub fn drop_value(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		// Lifetimes don't change how a value drops, so a type generic over them alone, as a
+		// class's field may be, has the glue of any instance.
+		let ty = self.tcx.erase_and_anonymize_regions(ty);
 		if !self.drops(ty) {
 			return None;
 		}
@@ -261,6 +291,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
 			return Some(super::mir::glue::call(sym, value));
 		}
+		if let ty::Tuple(_) = ty.kind()
+			&& ty.has_param()
+		{
+			return Some(self.drop_fn(ty, span)?.call(vec![value]));
+		}
 		// A census lowers a generic function over its type parameters, where only an
 		// instance can say what the glue is.
 		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
@@ -273,11 +308,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// A function dropping a `ty`, or `None` if JS would see nothing drop or translation
 	/// refused it: `rt.drop` for a value with `[Symbol.dispose]`, or else its glue.
 	pub fn drop_fn(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		let ty = self.tcx.erase_and_anonymize_regions(ty);
 		if !self.drops(ty) {
 			return None;
 		}
 		if self.disposable(ty, span) {
 			return Some(Expr::Rt("drop".into()));
+		}
+		// A tuple over type parameters, as a generic class's glue holds, has no glue of
+		// rustc's until an instance: each element in order, as that glue drops them.
+		if let ty::Tuple(tys) = ty.kind()
+			&& ty.has_param()
+		{
+			let value = Expr::ident("value");
+			let mut steps = Vec::new();
+			for (i, elem) in tys.iter().enumerate() {
+				let element = value.clone().index(Expr::lit(i.to_string()));
+				if let Some(dropped) = self.drop_value(element, elem, span) {
+					steps.push((dropped, self.drop_panics(elem, &mut Default::default())));
+				}
+			}
+			let param = Param {
+				name: "value".into(),
+				ty: Some(self.ty(ty, span)),
+			};
+			return Some(Expr::Arrow(vec![param], Type::Builtin("void"), unwinding(steps)));
 		}
 		// Over type parameters, as a generic class's glue is, a function of its own.
 		if ty.has_param() || ty.has_aliases() {
@@ -292,6 +347,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.drop_glue_call(Expr::undefined(), ty, span);
 		}
 		super::mir::glue::shim(self, ty, span).map(Expr::Sym)
+	}
+
+	/// What drops a `ty`, as a runtime function takes it after its own arguments:
+	/// `undefined` if JS would see nothing drop, or if translation refused it.
+	pub fn dropper(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+		self.drop_fn(ty, span).unwrap_or_else(Expr::undefined)
 	}
 
 	/// What drops each of `tys`, as a runtime function takes them after its own arguments:
