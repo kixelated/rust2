@@ -879,7 +879,7 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 fn pattern(ty: Ty<'_>, p: Expr) -> Option<Expr> {
 	match ty.kind() {
 		ty::Char => Some(char_text(p)),
-		ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..) => Some(p),
+		ty::Closure(..) | ty::FnDef(..) => Some(p),
 		_ => None,
 	}
 }
