@@ -373,7 +373,13 @@ pub(super) fn bombed(log: &Log, id: u32, at: u8) {
 			drop(it.next());
 			drop(it);
 		}
-		1 => drop(list![bomb(1, true), bomb(2, false)].into_iter().skip(1).next()),
+		1 => {
+			// Past a `usize`'s greatest, it reads what it skips apart, leaving the rest in
+			// the iterator, which drops after what was made after it.
+			let mut it = list![bomb(1, true), bomb(2, false), bomb(3, false)].into_iter().skip(1);
+			let _after = bomb(4, false);
+			drop(it.nth(usize::MAX));
+		}
 		2 => drop(
 			list![bomb(1, false), bomb(2, true), bomb(3, false)]
 				.into_iter()

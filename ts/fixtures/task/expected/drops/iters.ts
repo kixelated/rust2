@@ -2210,36 +2210,37 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let it!: rt.Iter<Bomb.Bomb>;
 	let v!: Bomb.Bomb[];
-	let _32!: rt.Iter<Bomb.Bomb>;
+	let it2!: rt.Iter<Bomb.Bomb>;
 	let v2!: Bomb.Bomb[];
+	let _after!: Bomb.Bomb;
 	let v3!: Bomb.Bomb[];
 	let map!: rt.BTreeMap<rt.u32, Bomb.Bomb>;
-	let _70!: rt.u32;
-	let it2!: rt.Iter<[rt.u32, Bomb.Bomb]>;
+	let _79!: rt.u32;
+	let it3!: rt.Iter<[rt.u32, Bomb.Bomb]>;
 	let queue!: rt.VecDeque<Bomb.Bomb>;
-	let _91!: rt.u32;
+	let _100!: rt.u32;
 	let v4!: [rt.u32, Bomb.Bomb][];
 	let v5!: Bomb.Bomb[];
 	let flat!: rt.Iter<Bomb.Bomb>;
 	let v6!: Bomb.Bomb[][];
 	let v7!: Bomb.Bomb[];
 	let v8!: Bomb.Bomb[];
-	let _183!: boolean;
-	let _184!: boolean;
-	let _185!: boolean;
-	let _186!: boolean;
+	let _192!: boolean;
+	let _193!: boolean;
+	let _194!: boolean;
+	let _195!: boolean;
 	let unwind: number = 0;
 	try {
-		_186 = false;
-		_185 = false;
-		_184 = false;
-		_183 = false;
+		_195 = false;
+		_194 = false;
+		_193 = false;
+		_192 = false;
 		const bomb: (a0: rt.u32, a1: boolean) => Bomb.Bomb = (n3: rt.u32, blows: boolean): Bomb.Bomb => {
 			return new Bomb.Bomb({ id: rt.u32Add(id, n3), log: Log.clone$Clone(log), blows });
 		};
 		if (at === 0) {
 			v = [];
-			unwind = 111;
+			unwind = 116;
 			const _12: Bomb.Bomb = bomb(1, false);
 			v.push(_12);
 			const _17: Bomb.Bomb = bomb(2, true);
@@ -2248,189 +2249,202 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			v.push(_22);
 			unwind = 0;
 			it = rt.iterSlice(v, rt.drop);
-			unwind = 120;
-			_186 = true;
+			unwind = 125;
+			_195 = true;
 			rt.drop(rt.iterToOption(it.next()));
-			_186 = false;
+			_195 = false;
 			rt.drop(it);
-			_186 = false;
+			_195 = false;
 		} else if (at === 1) {
 			v2 = [];
-			unwind = 110;
-			const _38: Bomb.Bomb = bomb(1, true);
-			v2.push(_38);
-			const _43: Bomb.Bomb = bomb(2, false);
-			v2.push(_43);
+			unwind = 115;
+			const _36: Bomb.Bomb = bomb(1, true);
+			v2.push(_36);
+			const _41: Bomb.Bomb = bomb(2, false);
+			v2.push(_41);
+			const _46: Bomb.Bomb = bomb(3, false);
+			v2.push(_46);
 			unwind = 0;
-			_32 = rt.ownedSkip(rt.iterSlice(v2, rt.drop), 1, rt.drop);
-			unwind = 109;
-			rt.drop(rt.iterToOption(_32.next()));
+			it2 = rt.ownedSkip(rt.iterSlice(v2, rt.drop), 1, rt.drop);
+			unwind = 114;
+			_after = bomb(4, false);
+			unwind = 113;
+			rt.drop(rt.ownedNth(it2, 4294967295, rt.drop));
+			unwind = 114;
+			rt.drop(_after);
 			unwind = 0;
-			rt.drop(_32);
+			rt.drop(it2);
 		} else if (at === 2) {
 			v3 = [];
-			unwind = 108;
-			const _53: Bomb.Bomb = bomb(1, false);
-			v3.push(_53);
-			const _58: Bomb.Bomb = bomb(2, true);
-			v3.push(_58);
-			const _63: Bomb.Bomb = bomb(3, false);
-			v3.push(_63);
+			unwind = 112;
+			const _62: Bomb.Bomb = bomb(1, false);
+			v3.push(_62);
+			const _67: Bomb.Bomb = bomb(2, true);
+			v3.push(_67);
+			const _72: Bomb.Bomb = bomb(3, false);
+			v3.push(_72);
 			unwind = 0;
 			rt.ownedCount(rt.iterFilter(rt.iterSlice(v3, rt.drop), (b: Bomb.Bomb): boolean => {
 				return !b.blows;
 			}, rt.drop), rt.drop, rt.drop);
 		} else if (at === 3) {
-			_185 = true;
+			_194 = true;
 			map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>;
-			unwind = 118;
+			unwind = 123;
 			let iterStart: rt.u32 = 1;
 			const iterEnd: rt.u32 = 4;
-			while ((_70 = iterStart++) < iterEnd) {
-				const n: rt.u32 = _70;
-				const _76: Bomb.Bomb = bomb(n, n === 2);
-				rt.drop(rt.btreeInsert(map, n, _76, undefined, rt.drop));
+			while ((_79 = iterStart++) < iterEnd) {
+				const n: rt.u32 = _79;
+				const _85: Bomb.Bomb = bomb(n, n === 2);
+				rt.drop(rt.btreeInsert(map, n, _85, undefined, rt.drop));
 			}
-			_185 = false;
-			it2 = rt.btreeIter(map, undefined, rt.drop);
-			unwind = 116;
-			_184 = true;
-			drop$Option_u32_Bomb(rt.iterToOption(it2.next()));
-			_184 = false;
-			rt.drop(it2);
-			_184 = false;
-			_185 = false;
+			_194 = false;
+			it3 = rt.btreeIter(map, undefined, rt.drop);
+			unwind = 121;
+			_193 = true;
+			drop$Option_u32_Bomb(rt.iterToOption(it3.next()));
+			_193 = false;
+			rt.drop(it3);
+			_193 = false;
+			_194 = false;
 		} else if (at === 4) {
 			queue = rt.dequeNew() as rt.VecDeque<Bomb.Bomb>;
-			unwind = 107;
+			unwind = 111;
 			let iterStart2: rt.u32 = 1;
 			const iterEnd2: rt.u32 = 5;
-			while ((_91 = iterStart2++) < iterEnd2) {
-				const n2: rt.u32 = _91;
-				const _97: Bomb.Bomb = bomb(n2, n2 === 2);
-				rt.dequePushBack(queue, _97);
+			while ((_100 = iterStart2++) < iterEnd2) {
+				const n2: rt.u32 = _100;
+				const _106: Bomb.Bomb = bomb(n2, n2 === 2);
+				rt.dequePushBack(queue, _106);
 			}
 			rt.drop(rt.dequeDrain(queue, { end: 3 }, rt.drop));
 			unwind = 0;
 			rt.dequeDrop(queue, rt.drop);
 		} else if (at === 5) {
 			v4 = [];
-			unwind = 106;
-			const _111: [rt.u32, Bomb.Bomb] = [1, bomb(1, true)];
-			v4.push(_111);
-			const _117: [rt.u32, Bomb.Bomb] = [1, bomb(2, false)];
-			v4.push(_117);
-			const _123: [rt.u32, Bomb.Bomb] = [2, bomb(3, false)];
-			v4.push(_123);
+			unwind = 110;
+			const _120: [rt.u32, Bomb.Bomb] = [1, bomb(1, true)];
+			v4.push(_120);
+			const _126: [rt.u32, Bomb.Bomb] = [1, bomb(2, false)];
+			v4.push(_126);
+			const _132: [rt.u32, Bomb.Bomb] = [2, bomb(3, false)];
+			v4.push(_132);
 			unwind = 0;
-			const _106: rt.Iter<[rt.u32, Bomb.Bomb]> = rt.iterSlice(v4, drop$u32_Bomb);
-			rt.btreeDrop(rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>, rt.iterToArray(_106, true, rt.drop, drop$u32_Bomb), undefined, rt.drop), undefined, rt.drop);
+			const _115: rt.Iter<[rt.u32, Bomb.Bomb]> = rt.iterSlice(v4, drop$u32_Bomb);
+			rt.btreeDrop(rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>, rt.iterToArray(_115, true, rt.drop, drop$u32_Bomb), undefined, rt.drop), undefined, rt.drop);
 		} else if (at === 6) {
 			v5 = [];
-			unwind = 105;
-			const _134: Bomb.Bomb = bomb(1, false);
-			v5.push(_134);
-			const _139: Bomb.Bomb = bomb(2, true);
-			v5.push(_139);
-			const _144: Bomb.Bomb = bomb(3, false);
-			v5.push(_144);
+			unwind = 109;
+			const _143: Bomb.Bomb = bomb(1, false);
+			v5.push(_143);
+			const _148: Bomb.Bomb = bomb(2, true);
+			v5.push(_148);
+			const _153: Bomb.Bomb = bomb(3, false);
+			v5.push(_153);
 			unwind = 0;
 			rt.ownedCount(rt.ownedTake(rt.iterSlice(v5, rt.drop), 2, rt.drop), rt.drop, rt.drop);
 		} else {
 			v6 = [];
-			unwind = 104;
+			unwind = 108;
 			v7 = [];
-			unwind = 103;
-			const _157: Bomb.Bomb = bomb(1, false);
-			v7.push(_157);
-			unwind = 104;
+			unwind = 107;
+			const _166: Bomb.Bomb = bomb(1, false);
+			v7.push(_166);
+			unwind = 108;
 			v6.push(v7);
 			v8 = [];
-			unwind = 102;
-			const _166: Bomb.Bomb = bomb(2, true);
-			v8.push(_166);
-			const _171: Bomb.Bomb = bomb(3, false);
-			v8.push(_171);
-			unwind = 104;
+			unwind = 106;
+			const _175: Bomb.Bomb = bomb(2, true);
+			v8.push(_175);
+			const _180: Bomb.Bomb = bomb(3, false);
+			v8.push(_180);
+			unwind = 108;
 			v6.push(v8);
 			unwind = 0;
 			flat = rt.iterFlatten(rt.iterSlice(v6, drop$Vec_Bomb), (value: Bomb.Bomb[]) => rt.iterSlice(value, rt.drop), true);
-			unwind = 114;
-			_183 = true;
+			unwind = 119;
+			_192 = true;
 			rt.drop(rt.iterToOption(flat.next()));
-			_183 = false;
+			_192 = false;
 			rt.drop(flat);
-			_183 = false;
+			_192 = false;
 		}
 		unwind = 0;
 		Log.note(log, rt.fmtFormat(["unreached"]));
 	} catch (e) {
 		b5: {
 			b6: {
-				if (unwind === 0) {
-					throw e;
-				}
-				if (unwind === 102) {
-					rt.dropAll(v8);
-					break b6;
-				}
-				if (unwind === 103) {
-					rt.dropAll(v7);
-					break b6;
-				}
-				if (unwind === 104) {
-					break b6;
-				}
-				if (unwind === 105) {
-					rt.dropAll(v5);
-					break b5;
-				}
-				if (unwind === 106) {
-					rt.dropAll(v4, drop$u32_Bomb);
-					break b5;
-				}
-				if (unwind === 107) {
-					rt.dequeDrop(queue, rt.drop);
-					break b5;
-				}
-				if (unwind === 108) {
-					rt.dropAll(v3);
-					break b5;
-				}
-				if (unwind === 109) {
-					rt.drop(_32);
-					break b5;
-				}
-				if (unwind === 110) {
-					rt.dropAll(v2);
-					break b5;
-				}
-				if (unwind === 111) {
-					rt.dropAll(v);
-					break b5;
-				}
-				if (unwind === 114) {
-					if (!_183) {
+				b7: {
+					if (unwind === 0) {
+						throw e;
+					}
+					if (unwind === 106) {
+						rt.dropAll(v8);
+						break b6;
+					}
+					if (unwind === 107) {
+						rt.dropAll(v7);
+						break b6;
+					}
+					if (unwind === 108) {
+						break b6;
+					}
+					if (unwind === 109) {
+						rt.dropAll(v5);
 						break b5;
 					}
-					rt.drop(flat);
-					break b5;
-				}
-				if (unwind === 116) {
-					if (_184) {
-						rt.drop(it2);
-					}
-				} else if (unwind !== 118) {
-					if (!_186) {
+					if (unwind === 110) {
+						rt.dropAll(v4, drop$u32_Bomb);
 						break b5;
 					}
-					rt.drop(it);
+					if (unwind === 111) {
+						rt.dequeDrop(queue, rt.drop);
+						break b5;
+					}
+					if (unwind === 112) {
+						rt.dropAll(v3);
+						break b5;
+					}
+					if (unwind === 113) {
+						rt.drop(_after);
+						break b7;
+					}
+					if (unwind === 114) {
+						break b7;
+					}
+					if (unwind === 115) {
+						rt.dropAll(v2);
+						break b5;
+					}
+					if (unwind === 116) {
+						rt.dropAll(v);
+						break b5;
+					}
+					if (unwind === 119) {
+						if (!_192) {
+							break b5;
+						}
+						rt.drop(flat);
+						break b5;
+					}
+					if (unwind === 121) {
+						if (_193) {
+							rt.drop(it3);
+						}
+					} else if (unwind !== 123) {
+						if (!_195) {
+							break b5;
+						}
+						rt.drop(it);
+						break b5;
+					}
+					if (!_194) {
+						break b5;
+					}
+					rt.btreeDrop(map, undefined, rt.drop);
 					break b5;
 				}
-				if (!_185) {
-					break b5;
-				}
-				rt.btreeDrop(map, undefined, rt.drop);
+				rt.drop(it2);
 				break b5;
 			}
 			rt.dropAll(v6, drop$Vec_Bomb);
