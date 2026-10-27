@@ -14,8 +14,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	}
 	const bytes: Uint8Array = Uint8Array.of(input.data[input.start], input.data[input.start + 1]);
 	const copy: Uint8Array = copy$u8s(bytes);
-	const _13: Uint8Array = Uint8Array.of(rt.u8WrappingAdd(input.data[input.start + 1], 1), ~input.data[input.start] & 0xff);
-	overwrite$u8s(copy, _13);
+	overwrite$u8s(rt.byteSliceFrom(copy), Uint8Array.of(rt.u8WrappingAdd(input.data[input.start + 1], 1), ~input.data[input.start] & 0xff));
 	rt.byteVecPush(out, bytes[0]);
 	rt.byteVecPush(out, bytes[1]);
 	rt.byteVecPush(out, copy[0]);
@@ -24,8 +23,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 }
 
 /** The crate's only write into a byte array: whole, through a type parameter. */
-export function overwrite$u8s(dst: Uint8Array, value: Uint8Array): void {
-	dst.set(copy$u8s(value));
+export function overwrite$u8s(dst: rt.ByteSlice, value: Uint8Array): void {
+	dst.data.set(copy$u8s(value), dst.start);
 }
 
 //# sourceMappingURL=harness.ts.map

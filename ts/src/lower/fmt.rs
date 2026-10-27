@@ -212,6 +212,10 @@ pub fn std_impl<'tcx>(
 	let rt = |name: &str, args: Vec<Expr>| Expr::rt_of("fmt", name).call(args);
 	let text = matches!(tr, Trait::Display | Trait::Debug);
 	Some(match ty.kind() {
+		// A reference to an array of bytes is a slice of them, written as a slice is.
+		ty::Ref(_, inner, _) if super::byte_array(*inner) => {
+			b.fmt_call(tr, Ty::new_slice(tcx, tcx.types.u8), value, f, span)
+		}
 		ty::Ref(_, inner, _) => b.fmt_call(tr, *inner, value, f, span),
 		ty::Int(_) | ty::Uint(_) => {
 			let method = match tr {

@@ -16,6 +16,7 @@ import * as Varint from "moq/js/net/src/varint.ts";
 import { iterate } from "./iter.ts";
 import { rescale } from "./rescale.ts";
 import { ordered } from "./sorted.ts";
+import { interleave, stamp } from "./timestamp.ts";
 
 type Version = (typeof Lite)[keyof typeof Lite];
 
@@ -54,6 +55,10 @@ export function run(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
 			return ordered(data);
 		case 9:
 			return rescale(selector, data);
+		case 10:
+			return stamp(data);
+		case 11:
+			return interleave(data);
 		default:
 			throw new Error(`unknown workload ${op}`);
 	}

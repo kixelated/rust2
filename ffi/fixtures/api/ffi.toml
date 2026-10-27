@@ -1,7 +1,16 @@
 package = "api-fixture"
 prefix = "api"
-# The list's tail is not `Clone`, so its getter has no copy to return.
-exclude = ["Node::next"]
+# The list's tail is not `Clone`, so its getter has no copy to return, and one instance
+# leaves out a method the others keep.
+exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap"]
+
+# Generic types at the instances C uses, each with its C name: `Pair<u32>` is
+# `Pair<u32, u32>`, and `swap` returns each `Pair` of a `Size` as the other.
+[instances]
+"Pair<u32>" = "pair"
+"Pair<dep_fixture::Size, u8>" = "size_pair"
+"Pair<u8, dep_fixture::Size>" = "pair_size"
+"Stack<api_fixture::Counter>" = "counters"
 
 # Exported into the same library: `grow` names its types.
 [crates.dep-fixture]
