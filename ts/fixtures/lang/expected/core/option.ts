@@ -112,6 +112,13 @@ export function unwrapOrDefault$Option_u8(self: rt.u8 | undefined): rt.u8 {
 	return self;
 }
 
+export function map$Option_Dir_Shape_rematched_closure1(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => Shape.Shape): Shape.Shape | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_Dir_u8_from(self: Dir.Dir | undefined, _: (a0: Dir.Dir) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;

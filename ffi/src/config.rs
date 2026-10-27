@@ -27,7 +27,10 @@ pub struct Config {
 	/// `"Stack<dep_fixture::Size>" = "size_stack"`. The type's path is from the crate
 	/// root, as every key's; each argument is `()`, a primitive, `String`, or an exported
 	/// type by its path from its package's name in snake case, itself an instance if
-	/// generic. Trailing arguments left out take their defaults.
+	/// generic. Trailing arguments left out take their defaults. A key may name a generic
+	/// function or method instead, with an argument for each of its type parameters by
+	/// name, an `impl Trait` one by its argument's:
+	/// `"Counter::seeded(from: api_fixture::Point)" = "counter_seeded_point"`.
 	#[serde(default)]
 	pub instances: BTreeMap<String, String>,
 	/// Other packages exported into the same library, each a dependency of `package`, by
@@ -62,7 +65,7 @@ impl Config {
 		}
 		let tables = std::iter::once(&config.instances).chain(config.crates.values().map(|items| &items.instances));
 		for key in tables.flat_map(BTreeMap::keys) {
-			TypeName::parse(key).map_err(|err| format!("{}: instance `{key}`: {err}", path.display()))?;
+			Key::parse(key).map_err(|err| format!("{}: instance `{key}`: {err}", path.display()))?;
 		}
 		Ok(config)
 	}
@@ -70,6 +73,52 @@ impl Config {
 	/// The prefix of every C name.
 	pub fn prefix(&self) -> String {
 		self.prefix.clone().unwrap_or_else(|| self.package.replace('-', "_"))
+	}
+}
+
+/// A key of `instances`: a generic type, or a generic function or method with the argument
+/// of each of its type parameters by name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Key {
+	Type(TypeName),
+	Function {
+		path: Vec<String>,
+		args: Vec<(String, TypeName)>,
+	},
+}
+
+impl Key {
+	/// The instance `text` names, or why it names none.
+	pub fn parse(text: &str) -> Result<Self, String> {
+		let mut rest = text;
+		let name = TypeName::parse_from(&mut rest)?;
+		let key = match eat(&mut rest, "(") {
+			false => Self::Type(name),
+			true if !name.args.is_empty() => {
+				return Err("a function's type arguments are named in its parentheses, as `f(T: u8)`".to_string());
+			}
+			true => {
+				let mut args: Vec<(String, TypeName)> = Vec::new();
+				while !eat(&mut rest, ")") {
+					let param = ident(&mut rest, "a parameter's name")?;
+					if !eat(&mut rest, ":") {
+						return Err(format!("expected `:` at `{rest}`"));
+					}
+					if args.iter().any(|(other, _)| *other == param) {
+						return Err(format!("`{param}` is named twice"));
+					}
+					args.push((param, TypeName::parse_from(&mut rest)?));
+					if !eat(&mut rest, ",") && !rest.starts_with(')') {
+						return Err(format!("expected `,` or `)` at `{rest}`"));
+					}
+				}
+				Self::Function { path: name.path, args }
+			}
+		};
+		match rest.trim_start() {
+			"" => Ok(key),
+			extra => Err(format!("unexpected `{extra}`")),
+		}
 	}
 }
 
@@ -82,26 +131,8 @@ pub struct TypeName {
 }
 
 impl TypeName {
-	/// The type `text` spells, or why it spells none.
-	pub fn parse(text: &str) -> Result<Self, String> {
-		let mut rest = text;
-		let name = Self::parse_from(&mut rest)?;
-		match rest.trim_start() {
-			"" => Ok(name),
-			extra => Err(format!("unexpected `{extra}`")),
-		}
-	}
-
 	/// The type `rest` starts with, which it advances past.
 	fn parse_from(rest: &mut &str) -> Result<Self, String> {
-		fn eat(rest: &mut &str, token: &str) -> bool {
-			*rest = rest.trim_start();
-			let found = rest.starts_with(token);
-			if found {
-				*rest = &rest[token.len()..];
-			}
-			found
-		}
 		if eat(rest, "(") {
 			return match eat(rest, ")") {
 				true => Ok(Self {
@@ -113,16 +144,7 @@ impl TypeName {
 		}
 		let mut path = Vec::new();
 		loop {
-			*rest = rest.trim_start();
-			let len = rest
-				.find(|c: char| !(c.is_alphanumeric() || c == '_'))
-				.unwrap_or(rest.len());
-			let ident = &rest[..len];
-			if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
-				return Err(format!("expected a path at `{rest}`"));
-			}
-			path.push(ident.to_string());
-			*rest = &rest[len..];
+			path.push(ident(rest, "a path")?);
 			if !eat(rest, "::") {
 				break;
 			}
@@ -141,6 +163,31 @@ impl TypeName {
 		}
 		Ok(Self { path, args })
 	}
+}
+
+/// Whether `rest` starts with `token` past whitespace, advancing past it if so.
+fn eat(rest: &mut &str, token: &str) -> bool {
+	*rest = rest.trim_start();
+	let found = rest.starts_with(token);
+	if found {
+		*rest = &rest[token.len()..];
+	}
+	found
+}
+
+/// The identifier `rest` starts with past whitespace, `what` the key expects there,
+/// which it advances past.
+fn ident(rest: &mut &str, what: &str) -> Result<String, String> {
+	*rest = rest.trim_start();
+	let len = rest
+		.find(|c: char| !(c.is_alphanumeric() || c == '_'))
+		.unwrap_or(rest.len());
+	let ident = &rest[..len];
+	if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+		return Err(format!("expected {what} at `{rest}`"));
+	}
+	*rest = &rest[len..];
+	Ok(ident.to_string())
 }
 
 /// An export's package, as the CLI resolves it for the wrapper.

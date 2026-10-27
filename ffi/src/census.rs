@@ -140,8 +140,7 @@ pub fn render(api: &Api, collected: &Report, top: bool, clashes: &[Clash], at: &
 		};
 		let _ = writeln!(out, "```toml\n{table}exclude = [");
 		// An instance is left out by not naming it.
-		let (instances, items): (Vec<&Refusal>, Vec<&Refusal>) =
-			collected.refusals.iter().partition(|r| r.kind == "instance");
+		let (instances, items): (Vec<&Refusal>, Vec<&Refusal>) = collected.refusals.iter().partition(|r| r.named);
 		let mut paths: Vec<&str> = items.iter().map(|r| r.path.as_str()).collect();
 		paths.sort();
 		paths.dedup();
