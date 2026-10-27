@@ -36,7 +36,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Their payload, or no object at all; a write into an `rt.Result`'s payload
 				// replaces the result.
-				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow) => (false, args.types().collect()),
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse) => {
+					(false, args.types().collect())
+				}
+				Some(Std::Bound) => (true, args.types().collect()),
 				Some(_) => return false,
 				None if adt.did().is_local() && adt.all_fields().next().is_some() => {
 					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
@@ -123,6 +126,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Option) => ret(self.copy_unless(Expr::undefined(), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(Expr::Rt("Pending".into()), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
+				Some(Std::Reverse) => ret(self.copied(v(), args.type_at(0), span)),
+				Some(Std::Bound) => {
+					let ts_ty = self.ty(ty, span);
+					let held = self.copied(v().member("_0"), args.type_at(0), span);
+					let copy = Expr::Object(vec![
+						(Key::Name("tag".into()), v().member("tag")),
+						(Key::Name("_0".into()), held),
+					]);
+					ret(Expr::Cond(
+						Box::new(v().member("tag").binary("===", Expr::Str("Unbounded".into()))),
+						Box::new(v()),
+						Box::new(Expr::As(Box::new(copy), ts_ty)),
+					))
+				}
 				Some(Std::ControlFlow) => {
 					let (residual, value) = (args.type_at(0), args.type_at(1));
 					ret(match (Flow::of(tcx, args), residual.kind()) {

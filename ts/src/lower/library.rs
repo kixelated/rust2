@@ -74,6 +74,14 @@ pub enum Std {
 	RangeTo,
 	RangeFrom,
 	RangeFull,
+	/// `..=end`: `{ end, inclusive: true }`.
+	RangeToInclusive,
+	/// `rt.Bound<T>`, tagged as the crate's own enums are: `{ tag: "Included", _0 }`.
+	Bound,
+	/// What it holds, which orders the other way.
+	Reverse,
+	/// Its integer, which is never 0.
+	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
 	/// Its pointee: what an async body passes its context in.
@@ -146,6 +154,7 @@ impl Std {
 			(rustc_attr_ir::LangItem::RangeTo, Self::RangeTo),
 			(rustc_attr_ir::LangItem::RangeFrom, Self::RangeFrom),
 			(rustc_attr_ir::LangItem::RangeFull, Self::RangeFull),
+			(rustc_attr_ir::LangItem::RangeToInclusive, Self::RangeToInclusive),
 		] {
 			if tcx.is_lang_item(did, item) {
 				return Some(std);
@@ -176,6 +185,9 @@ impl Std {
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
+			["cmp", "Reverse"] => Some(Self::Reverse),
+			["ops", "range", "Bound"] => Some(Self::Bound),
+			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
@@ -240,6 +252,45 @@ pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 		},
 		_ => false,
 	}
+}
+
+/// What a value of `ty` is in JS if `ty` wraps one value it is represented as: `Reverse<T>`'s
+/// and `NonZero<T>`'s `T`, which differ only in their order and range, a pattern type's
+/// base, and the field of each of core's `niche_types` structs that hold one.
+pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Pat(base, _) => Some(*base),
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+			Some(Std::Reverse | Std::NonZero) => Some(args.type_at(0)),
+			Some(_) => None,
+			None => {
+				let path = std_path(tcx, adt.did());
+				if !(path.len() == 3 && path[0] == "num" && path[1] == "niche_types" && adt.is_struct()) {
+					return None;
+				}
+				let field = adt.non_enum_variant().fields.iter().next()?;
+				Some(field.ty(tcx, args).skip_norm_wip())
+			}
+		},
+		_ => None,
+	}
+}
+
+/// A `Bound` of type `ty`, an `rt.Bound`: its variant, by name, and the value it holds, if
+/// any.
+pub fn bound(variant: &str, value: Option<Expr>, ty: crate::ts::Type) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("tag".into()), Expr::Str(variant.into()))];
+	props.extend(value.map(|v| (crate::ts::Key::Name("_0".into()), v)));
+	Expr::As(Box::new(Expr::Object(props)), ty)
+}
+
+/// `..end`, or `..=end` if `inclusive`: `{ end }`, or `{ end, inclusive: true }`.
+pub fn range_to(end: Expr, inclusive: bool) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("end".into()), end)];
+	if inclusive {
+		props.push((crate::ts::Key::Name("inclusive".into()), Expr::lit("true")));
+	}
+	Expr::Object(props)
 }
 
 /// The refusal of code that tells a `Cow<str>`'s variants apart.
@@ -608,7 +659,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			)
 		}
 		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge")
-			if primitive(targ(gargs, 0).peel_refs()) =>
+			if primitive(scalar(tcx, targ(gargs, 0))) =>
 		{
 			let js = match name.as_str() {
 				"eq" => "===",
@@ -620,12 +671,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			};
 			let values = args;
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
-			match Int::of(targ(gargs, 0).peel_refs()) {
+			match Int::of(scalar(tcx, targ(gargs, 0))) {
 				Some(int) => int.compare(js, l, r),
 				None => l.binary(js, r),
 			}
 		}
-		("Ord", "max" | "min") if let Some(int) = Int::of(targ(gargs, 0)) => {
+		("Ord", "max" | "min") if let Some(int) = Int::of(scalar(tcx, targ(gargs, 0))) => {
 			let values = args;
 			match int.big() {
 				true => int.method(name.as_str(), values),
@@ -1100,6 +1151,15 @@ fn int_named(name: &str) -> Option<Int> {
 		_ => return None,
 	};
 	Some(Int { bits, signed, pointer })
+}
+
+/// What a JS value of `ty` is through references and `NonZero`, which is its integer.
+fn scalar<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty = ty.peel_refs();
+	match ty.kind() {
+		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::NonZero) => args.type_at(0),
+		_ => ty,
+	}
 }
 
 fn primitive(ty: Ty<'_>) -> bool {

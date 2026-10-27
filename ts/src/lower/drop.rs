@@ -43,7 +43,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::HashSet
 					| Std::BTreeMap
 					| Std::BTreeSet
-					| Std::VecDeque,
+					| Std::VecDeque
+					| Std::Bound
+					| Std::Reverse,
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
@@ -94,7 +96,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::Reverse) => {
 					self.disposable(args.type_at(0), span)
 				}
 				Some(_) => false,
@@ -166,7 +168,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Ref(_, inner, _) => self.inert(*inner),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each is its contents in JS.
-				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin) => {
+				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin | Std::Reverse) => {
 					args.types().all(|t| self.inert(t))
 				}
 				// Its waker.
@@ -209,7 +211,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let (name, args) = match std {
 				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
 				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
-				Std::Box | Std::Pin => return self.drop_value(value, args.type_at(0), span),
+				Std::Box | Std::Pin | Std::Reverse => return self.drop_value(value, args.type_at(0), span),
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
@@ -314,7 +316,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Array(elem, _) => Some(*elem),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
-				Std::Option | Std::Box | Std::Pin => self.elements(args.type_at(0)),
+				Std::Option | Std::Box | Std::Pin | Std::Reverse => self.elements(args.type_at(0)),
 				_ => None,
 			},
 			_ => None,

@@ -57,19 +57,42 @@ pub fn call<'tcx>(
 				let f = hash_fn(b, t, hasher, span);
 				return Ok(Some(f.call(args)));
 			}
-			("Ord", "max" | "min", ..) if let Some(t) = self_ty => {
+			// `Ord`'s defaults, of a std type or the crate's: `clamp` compares by `PartialOrd`.
+			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
-				if !std_key(b, t) || Int::of(t).is_some() {
+				let local = matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local());
+				if !(std_key(b, t) || local) || Int::of(t).is_some() {
 					return Err(args);
 				}
 				let mut values = args;
-				values.push(cmp_fn(b, t, false, span));
-				// What drops the operand it does not return.
+				values.push(cmp_fn(b, t, name == "clamp", span));
+				// What drops the operands it does not return.
 				let Some(droppers) = b.t.droppers(self_ty, span) else {
 					return Ok(Some(Expr::undefined()));
 				};
 				values.extend(droppers);
-				return Ok(Some(Expr::rt(if name == "max" { "ordMax" } else { "ordMin" }, values)));
+				let f = match name {
+					"max" => "ordMax",
+					"min" => "ordMin",
+					_ => "ordClamp",
+				};
+				return Ok(Some(Expr::rt(f, values)));
+			}
+			// A std type's own comparisons, as a tuple's are, by its `partial_cmp`. The library
+			// maps the integers' and `bool`'s.
+			("PartialOrd", "lt" | "le" | "gt" | "ge", ..) if let Some(t) = self_ty => {
+				let t = peel(b, t);
+				if matches!(t.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_)) || !std_key(b, t) {
+					return Err(args);
+				}
+				let order = cmp_fn(b, t, true, span).call(args);
+				let test = match name {
+					"lt" => library::Inherited::Lt,
+					"le" => library::Inherited::Le,
+					"gt" => library::Inherited::Gt,
+					_ => library::Inherited::Ge,
+				};
+				return Ok(Some(test.test(b, order, out)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers' and `bool`'s.
@@ -293,11 +316,14 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 	args.types().nth(n).expect("a collection's type argument")
 }
 
-/// What a JS value of `ty` is: through references and boxes, which are their pointee.
+/// What a JS value of `ty` is: through references and boxes, which are their pointee, and
+/// a `NonZero`, which is its integer.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 	let ty = ty.peel_refs();
 	match ty.kind() {
-		ty::Adt(adt, args) if Std::of(b.t.tcx, adt.did()) == Some(Std::Box) => peel(b, args.type_at(0)),
+		ty::Adt(adt, args) if matches!(Std::of(b.t.tcx, adt.did()), Some(Std::Box | Std::NonZero)) => {
+			peel(b, args.type_at(0))
+		}
 		_ => ty,
 	}
 }
@@ -424,14 +450,16 @@ fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
 }
 
-/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples
-/// and `Arc`s, but not an `Option`, whose `ne` is `!eq`.
+/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples,
+/// `Arc`s, `Reverse`s, and the elements of slices, but not an `Option`, whose `ne` is
+/// `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
-		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
+		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
 		ty::Adt(adt, _) if adt.did().is_local() => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
@@ -793,7 +821,10 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
-		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => held(inner),
+		_ if let Some(elem) = elements_of(b, ty) => held(elem),
+		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
+			held(inner)
+		}
 		ty::Adt(..) => library::string(b.t.tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering),
 		_ => false,
 	}
@@ -802,6 +833,22 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// What `ty` holds if it is an `Option`.
 fn option_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Option)).then(|| arg(ty, 0))
+}
+
+/// What `ty` holds if it is a `Reverse`.
+fn reverse_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	(b.t.std_of(ty) == Some(Std::Reverse)).then(|| arg(ty, 0))
+}
+
+/// The elements of `ty` if it is a `Vec`, a slice, or an array that is a JS array: of any
+/// type but `u8`, whose bytes are typed arrays.
+fn elements_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	let elem = match ty.kind() {
+		ty::Slice(elem) | ty::Array(elem, _) => *elem,
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Vec) => arg(ty, 0),
+		_ => return None,
+	};
+	(!matches!(elem.kind(), ty::Uint(ty::UintTy::U8))).then_some(elem)
 }
 
 /// What `ty` holds if it is an `Arc`.
@@ -827,6 +874,10 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 			Expr::rt("cmpOption", vec![cmp_fn(b, inner, partial, span)])
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
+			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
+		}
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		ty::Adt(adt, _) if adt.did().is_local() && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
@@ -863,6 +914,14 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
 			eq => Expr::rt("eqOption", vec![eq]),
 		},
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
+		// A slice compares its elements by `!=`, which `!eq` stands for only while that is
+		// the default.
+		_ if let Some(elem) = elements_of(b, ty) && own_ne(b, elem) => b.err(
+			span,
+			format!("comparing `{ty}` by `<{elem} as PartialEq>::ne` through a held type's own, which is not supported yet"),
+		),
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![eq_fn(b, elem, span)]),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
 			let mut values = vec![eq_fn(b, inner, span)];
 			// std's `Arc` finds itself equal before comparing a value that is `Eq`.
@@ -898,6 +957,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", vec![hash_fn(b, inner, hasher, span)])
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)]),
 		ty::Adt(adt, _) if adt.did().is_local() => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
