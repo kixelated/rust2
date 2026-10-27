@@ -180,8 +180,9 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 Output is ranked correctness first, speed second, and bundle size third: the
 consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
 constructs such as brand casts and annotations are free. Readable output is not a goal.
-Speed is a browser's: `just ts bench` runs Node and Bun only as stand-ins for V8 and
-JavaScriptCore, as Safari runs it, and where Node disagrees with Chrome, Chrome decides.
+Speed is a browser's: `just ts bench` runs Chrome and Firefox, and Node and Bun only as
+stand-ins for V8 and JavaScriptCore, as Safari runs it; where any engine disagrees with
+Chrome, Chrome decides.
 It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
 bundler's job. Types must be solid at the API boundary: the `roots` items and
 `printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
@@ -197,14 +198,16 @@ they need.
   decode 1.05-1.2x faster in Chrome. A loop of sums and comparisons past 2^32 measured
   2-6x faster. Limbs for every value allocate an object each, which costs what a
   `bigint` does in V8, so they lost decode; unboxed halves would lower every value to
-  two. Past 2^53 an operation allocates limbs, and 128-bit arithmetic goes through
-  `bigint` inside the runtime, but a product multiplies 32-bit halves without boxing
-  either factor, at 128 bits when both are numbers. Converting timestamps between
-  timescales, products past 2^53 divided back down, measured 2.1-3.1x faster that way
-  than through boxed factors in `u64`, and 1.6-1.7x in `u128` as moq-net converts them:
-  1.4-2.1x `bigint`'s time in `u64`, and 8-12x in `u128`, whose division and
-  comparisons still go through `bigint`. The runtime adds 6 KB to the codec's bundle, 2
-  KB gzipped. Brands tell `u64` from `i64` and `u32` from `usize` at no cost, since
+  two. Past 2^53 an operation allocates limbs, computed on their 32-bit words: sums,
+  differences, comparisons, casts, products of 64-bit values or of two numbers, and
+  division by a divisor below 2^32, with the rest of 128-bit arithmetic through `bigint`
+  inside the runtime. A literal past 2^53 is written out as limbs, which cost what a
+  hoisted constant does. Converting timestamps between timescales as moq-net does,
+  products past 2^53 divided back down, takes 0.8-1.0x the hand-written `bigint` route's
+  time in Chrome in `u64`, and 1.2-1.5x in `u128`. `u128` and `i128` as
+  native `bigint`s measured 1.4-1.8x slower than limbs on that in Chrome and 1.2-1.5x in
+  Node, and within noise in Bun, for a bundle 80 bytes larger. The runtime adds 6 KB to
+  the codec's bundle, 2 KB gzipped. Brands tell `u64` from `i64` and `u32` from `usize` at no cost, since
   TypeScript erases them; a required brand would cast every literal, so a plain number
   passes for any type.
 - A struct is a plain object, and each function of a type, trait impls included, is its
@@ -328,7 +331,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow,
-  with products of those values at 128 bits and their halves joined back.
+  with products of those values at 128 bits, 128-bit quotients by divisors below 2^32,
+  and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
@@ -359,14 +363,14 @@ does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-
 size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
 helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
 `bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
-native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
+native Rust's first. The JS routes run in Node, Bun, Chrome, and Firefox, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new
 random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary. Chrome's page reports each step it starts,
-and one that runs 30 s fails the run, naming it.
+runs it and posts the report to its summary. Each browser's page reports each step it
+starts, and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
@@ -385,4 +389,4 @@ The route runs both fixtures' translations from that directory's `translated/` a
 Read its gap from `translated` against A/A's, the noise of the same run. No route holds a
 fixed slot, so a gap past that noise is the change, and no reversed run is needed.
 
-The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.
+The bench shell adds Chromium, Firefox, and the wasm-bindgen that builds moq-wasm's package.

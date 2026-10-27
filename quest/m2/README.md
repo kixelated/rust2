@@ -30,7 +30,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the bench's bundles shrink back to THIR's sizes, coroutine classes first
 - [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
 - [Time the minified bundles](/quest/m2/ts-bench-minified.md) - `just ts bench` times what it measures for size, as consumers ship it
-- [Wide-integer runtime off bigint](/quest/m2/ts-wide-bigint.md) - checked sums, 128-bit quotients, and comparisons with numbers stop going through `bigint`, kept only if measured faster
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
@@ -39,8 +38,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Share a held-back read across a call](/quest/m2/ts-shared-read.md) - `leading-ones` decode recovers what #83's copy fix cost
 - [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
 - [Translate derived == through references and slice index writes](/quest/m2/ts-ref-shapes.md) - two refused shapes #83's tests hit
-- [Firefox in the TS benchmark](/quest/m2/ts-bench-firefox.md) - SpiderMonkey joins Chrome, Bun, and Node in `just ts bench`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
-- [Symlinked paths](/quest/m2/uniffi-symlink-path.md) - the fork builds when a consumer reaches it through a symlink, as on macOS's `/var`
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

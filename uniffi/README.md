@@ -50,7 +50,8 @@ mixing silently.
 | `dart/` | [acterglobal/uniffi-dart](https://github.com/acterglobal/uniffi-dart) | [kixelated/uniffi-dart@v0.3.1-kixelated.6+v0.32.0](https://github.com/kixelated/uniffi-dart/tree/v0.3.1-kixelated.6%2Bv0.32.0) | [MIT](dart/LICENSE) |
 | `cpp/` | [NordSecurity/uniffi-bindgen-cpp](https://github.com/NordSecurity/uniffi-bindgen-cpp) | [kixelated/uniffi-bindgen-cpp@v0.11.0-kixelated.5+v0.32.2](https://github.com/kixelated/uniffi-bindgen-cpp/tree/v0.11.0-kixelated.5%2Bv0.32.2) | [MPL-2.0](cpp/LICENSE) |
 
-Each directory keeps its upstream layout, so an upstream commit applies with
+Each directory keeps its upstream layout, except `uniffi_bindgen`'s templates (see
+[Carried changes](#carried-changes)), so an upstream commit applies with
 `git am --directory=uniffi/<dir>` (no `<dir>` for uniffi-rs). Their crates build in the
 repository's root workspace, in place of each upstream's own.
 
@@ -85,6 +86,11 @@ uniffi-rs:
   in-place truncate let one include a partial file.
 - The bindgen tests generate into a directory per test instead of one per language, so they
   run under nextest, which runs each test in its own process.
+- `uniffi_bindgen` has no `askama.toml`: its templates move from `src/**/templates` to
+  `templates/<scaffolding|kotlin|python|swift>`, askama's default directory, so a patch to
+  them needs its paths rewritten. askama canonicalizes the config file's path and then
+  reaches it by a relative path from the unresolved source file, which fails when the fork
+  sits behind a symlink (askama-rs/askama#744 was closed unmerged).
 
 uniffi-bindgen-go, on top of upstream v0.7.1+v0.31.0:
 
