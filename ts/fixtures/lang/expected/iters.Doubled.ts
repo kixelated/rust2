@@ -4,12 +4,12 @@ import * as rt from "./rt.ts";
 
 /** Each byte doubled, as a `Debug` list built from an iterator. */
 export interface Doubled {
-	_0: Uint8Array;
+	_0: rt.ByteSlice;
 }
 
 export function fmt$Debug(self: Doubled, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _5: rt.DebugList = rt.fmtDebugList(f);
-	const _6: rt.Iter<rt.u16> = rt.iterMap(rt.iterSlice(self._0), (_2: rt.u8): rt.u16 => {
+	const _6: rt.Iter<rt.u16> = rt.iterMap(rt.iterSlice(rt.byteSliceView(self._0)), (_2: rt.u8): rt.u16 => {
 		return rt.u16Mul(_2 as rt.u16, 2);
 	});
 	return rt.debugListFinish(rt.debugListEntries(_5, _6, rt.u16Display));

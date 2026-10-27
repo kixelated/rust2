@@ -1,20 +1,31 @@
-# [XS] Share a held-back read across a call
+# [S] Share what the crate never changes in place
 
 ## Goal
 
-`Decoder::varint`'s `leading-ones` decode on `just ts bench` is back to its speed before
-[#83](https://github.com/kixelated/rust2/pull/83) in Chrome, with every differential
-test still passing.
+rust2-ts shares a `Copy` aggregate, where it copies one today, when nothing in the crate
+writes into a value of that type in place. `Decoder::varint`'s `leading-ones` decode
+on `just ts bench` is back to its speed before
+[#83](https://github.com/kixelated/rust2/pull/83) in Chrome, and every differential
+test still passes.
 
 ## Plan
 
-Decided with the maintainer on 2026-10-26: #83 fixed a silent copy miscompile and
-accepted a 2-19% `leading-ones` decode cost in Node and Chromium to do it. The
-translator now copies `self.form` before calling `read`, because an earlier pass stops
-holding back the read of `self.form` before that call, so the call can't share it.
+Decided with the maintainer on 2026-10-27, replacing the narrower fix for
+`self.form`'s copy that this quest held before:
+[#83](https://github.com/kixelated/rust2/pull/83) and
+[#99](https://github.com/kixelated/rust2/pull/99) copy a `Copy` aggregate before a call
+can share it (`self.form` before `read`, `copy$Form` in `Decoder::new` and
+`Encoder::new`, and map keys). A copy is only observable if something writes into a
+shared value in place: a field or element assignment through it, or a `&mut` to its
+inside. A type the crate never writes that way can be shared freely.
 
-- Let the held-back read reach the call when nothing between them can change the
-  source, so `self.form` is shared again without a copy.
-- Prove the read is still exact with the argument-aliasing cases #83 added.
+- Find, per crate, each `Copy` aggregate type that some place writes into in place, and
+  let `copy_fn`'s callers skip the copy for every other type.
+- Keep the analysis whole-crate and fail closed: a write the analysis can't see, such as
+  through a generic, counts as a write.
+- Prove it with #83's argument-aliasing cases and #99's store cases, plus a new case
+  where the only in-place write is in another module or behind a generic.
+- Report the copies removed in moq-net's output, and the Chrome codec bench before and
+  after.
 
 Public API: the translator's output.

@@ -57,9 +57,9 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 }
 
 /** The fault `data` picks. */
-function new_(data: Uint8Array): Fault {
+function new_(data: rt.ByteSlice): Fault {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
+		return rt.optionUnwrapOr(rt.byteSliceGet(data, i), 0);
 	};
 	const _3: rt.u8 = rt.u8Rem(at(0), 4);
 	if (_3 === 0) {

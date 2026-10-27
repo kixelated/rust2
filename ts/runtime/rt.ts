@@ -198,7 +198,7 @@ export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void):
 	return undefined;
 }
 
-// Slices, which are `Uint8Array` views for bytes and arrays otherwise.
+// Slices: arrays, but for bytes, which are `ByteSlice`s.
 
 /** A bounds-checked index into a slice. */
 export function idx(slice: { readonly length: number }, index: number): number {
@@ -211,33 +211,38 @@ export function at<T>(slice: ArrayLike<T>, index: number): T {
 	return slice[idx(slice, index)];
 }
 
-/** `&s[start..end]`, with `end` defaulting to the length. */
-export function sliceRange<S extends Uint8Array | unknown[]>(s: S, start: number, end: number = s.length): S {
-	if (start > s.length) panic(`range start index ${start} out of range for slice of length ${s.length}`);
-	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
+/** Panic unless `start..end` is in a slice of `length`, as std's range checks do. */
+function rangeCheck(length: number, start: number, end: number): void {
+	if (start > length) panic(`range start index ${start} out of range for slice of length ${length}`);
+	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
 	if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);
-	return (s instanceof Uint8Array ? s.subarray(start, end) : s.slice(start, end)) as S;
+}
+
+/** `&s[start..end]`, with `end` defaulting to the length. */
+export function sliceRange<T>(s: T[], start: number, end: number = s.length): T[] {
+	rangeCheck(s.length, start, end);
+	return s.slice(start, end);
 }
 
 /** `split_first`: the first element and the rest, or `undefined` if empty. */
-export function sliceSplitFirst<S extends Uint8Array | unknown[]>(s: S): [S[number], S] | undefined {
-	return s.length === 0 ? undefined : [s[0], sliceRange(s, 1)];
+export function sliceSplitFirst<T>(s: T[]): [T, T[]] | undefined {
+	return s.length === 0 ? undefined : [s[0], s.slice(1)];
 }
 
 /** `split_first_chunk`: the first `n` elements and the rest, or `undefined` if shorter. */
-export function sliceSplitFirstChunk<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] | undefined {
-	return s.length < n ? undefined : [sliceRange(s, 0, n), sliceRange(s, n)];
+export function sliceSplitFirstChunk<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return s.length < n ? undefined : [s.slice(0, n), s.slice(n)];
 }
 
 /** `split_at`, panicking past the length. */
-export function sliceSplitAt<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] {
+export function sliceSplitAt<T>(s: T[], n: number): [T[], T[]] {
 	if (n > s.length) panic("mid > len");
-	return [sliceRange(s, 0, n), sliceRange(s, n)];
+	return [s.slice(0, n), s.slice(n)];
 }
 
 /** `split_at_checked`: the halves, or `undefined` past the length. */
-export function sliceSplitAtChecked<S extends Uint8Array | unknown[]>(s: S, n: number): [S, S] | undefined {
-	return n > s.length ? undefined : [sliceRange(s, 0, n), sliceRange(s, n)];
+export function sliceSplitAtChecked<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : [s.slice(0, n), s.slice(n)];
 }
 
 /** `first`: the first element, or `undefined` if empty. */
@@ -250,26 +255,104 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 	return index < s.length ? s[index] : undefined;
 }
 
+/**
+ * `&[u8]` and `&mut [u8]`: `length` bytes of `data` from `start`. It never changes, so a
+ * split makes another, which costs an object where a `Uint8Array` view costs several
+ * times as much.
+ */
+export class ByteSlice {
+	readonly data: Uint8Array;
+	readonly start: number;
+	readonly length: number;
+
+	constructor(data: Uint8Array, start: number, length: number) {
+		this.data = data;
+		this.start = start;
+		this.length = length;
+	}
+}
+
+/** All of `bytes` as a slice, as `&[u8; N]` coerces to `&[u8]`. */
+export function byteSliceFrom(bytes: Uint8Array): ByteSlice {
+	return new ByteSlice(bytes, 0, bytes.length);
+}
+
+/** A view of the bytes, for what reads a `Uint8Array`. */
+export function byteSliceView(s: ByteSlice): Uint8Array {
+	return s.data.subarray(s.start, s.start + s.length);
+}
+
+/** `&s[start..end]`, with `end` defaulting to the length. */
+export function byteSliceRange(s: ByteSlice, start: number, end: number = s.length): ByteSlice {
+	rangeCheck(s.length, start, end);
+	return new ByteSlice(s.data, s.start + start, end - start);
+}
+
+/** `split_first`: the first byte and the rest, or `undefined` if empty. */
+export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefined {
+	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
+}
+
+/** `split_first_chunk`: the first `n` bytes, as an array, and the rest, or `undefined` if shorter. */
+export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [Uint8Array, ByteSlice] | undefined {
+	if (s.length < n) return undefined;
+	return [s.data.subarray(s.start, s.start + n), new ByteSlice(s.data, s.start + n, s.length - n)];
+}
+
+/** `split_at`, panicking past the length. */
+export function byteSliceSplitAt(s: ByteSlice, n: number): [ByteSlice, ByteSlice] {
+	if (n > s.length) panic("mid > len");
+	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
+}
+
+/** `split_at_checked`: the halves, or `undefined` past the length. */
+export function byteSliceSplitAtChecked(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
+	if (n > s.length) return undefined;
+	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
+}
+
+/** `first`: the first byte, or `undefined` if empty. */
+export function byteSliceFirst(s: ByteSlice): number | undefined {
+	return s.length === 0 ? undefined : s.data[s.start];
+}
+
+/** `get`: the byte at `index`, or `undefined` past the end. */
+export function byteSliceGet(s: ByteSlice, index: number): number | undefined {
+	return index < s.length ? s.data[s.start + index] : undefined;
+}
+
+/** Copy `src` into `dst` at `at`; a few bytes copy faster than a view of them is made. */
+function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
+	if (length <= 16) {
+		for (let i = 0; i < length; i++) dst[at + i] = src[start + i];
+	} else {
+		dst.set(src.subarray(start, start + length), at);
+	}
+}
+
 /** `copy_from_slice`, panicking if the lengths differ. */
-export function sliceCopyFromSlice(dst: Uint8Array, src: Uint8Array): void {
+export function byteSliceCopyFromSlice(dst: ByteSlice, src: ByteSlice): void {
 	if (dst.length !== src.length) {
 		panic(`copy_from_slice: source slice length (${src.length}) does not match destination slice length (${dst.length})`);
 	}
-	dst.set(src);
+	copyBytes(dst.data, dst.start, src.data, src.start, src.length);
 }
 
 /** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds. */
-export function sliceCopyWithin(s: Uint8Array, start: number, end: number, dest: number): void {
+export function byteSliceCopyWithin(s: ByteSlice, start: number, end: number, dest: number): void {
 	// `slice::range` checks the end first, then `range` reports the rest.
 	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
-	sliceRange(s, start, end);
+	rangeCheck(s.length, start, end);
 	if (dest > s.length - (end - start)) panic("dest is out of bounds");
-	s.copyWithin(dest, start, end);
+	s.data.copyWithin(s.start + dest, s.start + start, s.start + end);
 }
 
 /** `to_vec` of bytes. */
-export function sliceToByteVec(s: Uint8Array): ByteVec {
-	return byteVecFrom(s);
+export function byteSliceToByteVec(s: ByteSlice): ByteVec {
+	const v = new ByteVec(s.length);
+	copyBytes(v.data, 0, s.data, s.start, s.length);
+	v.length = s.length;
+	return v;
 }
 
 /** `vec![value; n]`: `n - 1` clones of `value`, in order, then `value` itself; `clone` is `undefined` where a clone is the value. */
@@ -343,6 +426,11 @@ export function byteVecView(v: ByteVec): Uint8Array {
 	return v.data.subarray(0, v.length);
 }
 
+/** The bytes, as `Vec`'s `Deref` borrows them, which a later push may detach. */
+export function byteVecSlice(v: ByteVec): ByteSlice {
+	return new ByteSlice(v.data, 0, v.length);
+}
+
 /** `Vec::push`. */
 export function byteVecPush(v: ByteVec, byte: number): void {
 	reserve(v, 1);
@@ -355,10 +443,10 @@ export function byteVecPop(v: ByteVec): number | undefined {
 }
 
 /** `Vec::extend_from_slice`. */
-export function byteVecExtendFromSlice(v: ByteVec, bytes: Uint8Array): void {
-	reserve(v, bytes.length);
-	v.data.set(bytes, v.length);
-	v.length += bytes.length;
+export function byteVecExtendFromSlice(v: ByteVec, s: ByteSlice): void {
+	reserve(v, s.length);
+	copyBytes(v.data, v.length, s.data, s.start, s.length);
+	v.length += s.length;
 }
 
 /** `Vec::truncate`. */
@@ -426,8 +514,8 @@ export function stringFromUtf8(bytes: ByteVec): Result<string, FromUtf8Error> {
 }
 
 /** `str::as_bytes`: its UTF-8 bytes. */
-export function stringAsBytes(s: string): Uint8Array {
-	return encoder.encode(s);
+export function stringAsBytes(s: string): ByteSlice {
+	return byteSliceFrom(encoder.encode(s));
 }
 
 /** `str::len`: its length in UTF-8 bytes. */

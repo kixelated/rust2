@@ -335,13 +335,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
 			}
-			("slice", "copy_within") => {
+			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
+			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
 				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
 				let end = end.unwrap_or_else(|| s.clone().member("length"));
 				let dest = self.operand(&args[2].node, span, out);
-				done(Expr::rt("sliceCopyWithin", vec![s, start, end, dest]), true)
+				done(Expr::rt("byteSliceCopyWithin", vec![s, start, end, dest]), true)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
@@ -667,19 +668,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let container = gargs.type_at(0);
 		let index_ty = gargs.type_at(1);
 		let elem_ty = elem(self.tcx, container)?;
+		let bytes = matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8));
 		let base = self.operand(&args[0].node, span, out);
-		let base = match container.kind() {
-			ty::Adt(..) => library::vec_view(base, container),
-			_ => base,
-		};
 		match Int::of(index_ty) {
 			Some(_) => {
+				// A `Vec`'s element is its storage's, a byte vector's in `data`.
 				let base = self.path(base, "slice", out);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
 				let checked = self.path(checked, "at", out);
-				let place = base.index(checked);
+				let place = match container.kind() {
+					ty::Adt(..) if bytes => base.member("data").index(checked),
+					_ if super::place::byte_slice(container) => super::place::byte_at(base, checked),
+					_ => base.index(checked),
+				};
 				// The reference reads and writes the element where it is.
 				if let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
@@ -698,10 +701,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// The range's bounds are taken apart before the slice is read, while they are
 				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+				let base = match container.kind() {
+					ty::Adt(..) => library::vec_view(base, container),
+					ty::Array(..) if bytes => Expr::rt("byteSliceFrom", vec![base]),
+					_ => base,
+				};
 				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
-				Some(Some((Expr::rt("sliceRange", values), true)))
+				let range = match bytes {
+					true => "byteSliceRange",
+					false => "sliceRange",
+				};
+				Some(Some((Expr::rt(range, values), true)))
 			}
 		}
 	}
@@ -748,8 +760,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn items(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		let tcx = self.tcx;
 		match ty.peel_refs().kind() {
-			ty::Slice(_) | ty::Array(..) => Some(value),
-			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::vec_view(value, ty)),
+			ty::Slice(_) | ty::Array(..) => Some(library::elements(value, ty)),
+			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::elements(value, ty)),
 			_ => crate::lower::iter::into_iter(self.b, ty, value, span),
 		}
 	}

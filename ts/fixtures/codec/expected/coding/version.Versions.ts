@@ -11,7 +11,7 @@ import * as Version from "../coding/version.Version.ts";
 import type * as version_Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Form(buf: Uint8Array, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
+export function decodeSlice$Decode_Form(buf: rt.ByteSlice, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(buf, version);
 	const _6: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
 	if (_6.ok) {
