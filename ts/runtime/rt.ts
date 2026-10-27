@@ -10,6 +10,7 @@ import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } fr
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
+export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 
 /** A Rust panic. */
@@ -437,6 +438,11 @@ export function stringLen(s: string): number {
 /** `char::from_u32`: `n`, unless it is a surrogate or past the last char. */
 export function charFromU32(n: u32): char | undefined {
 	return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? undefined : (n as char);
+}
+
+/** `char::is_ascii_digit`. */
+export function charIsAsciiDigit(c: char): boolean {
+	return c >= 0x30 && c <= 0x39;
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.
