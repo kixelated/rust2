@@ -1393,7 +1393,7 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(rt.entryRemove(_259, rt.drop));
 			unwind = 134;
 			rt.entryDrop(_259, rt.drop);
-		} else if (!rt.entryOccupied(_259)) {
+		} else {
 			rt.entryDrop(_259, rt.drop);
 		}
 		tally("counted");

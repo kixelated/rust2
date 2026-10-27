@@ -6,6 +6,7 @@ import * as Pair from "./fmt.Pair.ts";
 import type * as Dir from "./shapes.Dir.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
+import * as Machine from "./shapes.Machine.ts";
 import * as Meters from "./shapes.Meters.ts";
 import * as Moved from "./shapes.Moved.ts";
 import type * as Mover from "./shapes.Mover.ts";
@@ -1392,13 +1393,13 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.u64Add(total$Shape([shape_, { tag: "Dot" } as Shape.Shape], out), total$Meters([{ _0: 3 }, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }], out)))));
 	const parsed: rt.Result<rt.u8, Void.Void> = rt.Ok(data.length & 0xff);
 	const a2: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;
-	const b3: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a2, b3, (parsed as { ok: true; value: rt.u8 }).value, early(a2))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a2, (parsed as { ok: true; value: rt.u8 }).value, (parsed as { ok: true; value: rt.u8 }).value, early(a2))));
 	const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 	payloads(data, out);
 	known(data, out);
+	rematched(data, out);
 }
 
 /** `n`'s result: `Ok` for an even `n`. */
@@ -1643,6 +1644,124 @@ export function known(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		return copy$Point(captured).y & 0xff;
 	})());
+}
+
+/** Enums matched again where an enclosing match decided their variant. */
+export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _5!: rt.u8;
+	let _15!: rt.u8;
+	let _19!: rt.u8;
+	let _29!: rt.u8;
+	let _43!: rt.u8;
+	let _48!: rt.u8;
+	let _59!: rt.u8;
+	let _68!: rt.u8;
+	let _72!: Shape.Shape;
+	let _114!: rt.u8;
+	const s: Shape.Shape = shape(data);
+	if (s.tag === "Dot") {
+		_5 = 2;
+	} else if (s.tag === "Line") {
+		const from: Point.Point = s._0;
+		const to: Point.Point = s._1;
+		const _12: rt.i32 = from.x;
+		_5 = (_12 ^ to.y) & 0xff;
+	} else {
+		_5 = 4;
+	}
+	rt.byteVecPush(out, _5);
+	if (s.tag === "Dot") {
+		_15 = 6;
+	} else {
+		_15 = 7;
+	}
+	rt.byteVecPush(out, _15);
+	if (s.tag === "Dot") {
+		_19 = 8;
+	} else if (s.tag === "Line") {
+		_19 = 10;
+	} else {
+		_19 = s.width & 0xff;
+	}
+	rt.byteVecPush(out, _19);
+	const d: Dir.Dir | undefined = dir(data.length & 0xff);
+	if (d === undefined) {
+		_29 = 15;
+	} else if (d === "North") {
+		_29 = 12;
+	} else {
+		_29 = { North: 1, East: 2, South: 4, West: 8 }[d] & 0xff;
+	}
+	rt.byteVecPush(out, _29);
+	const order_: rt.Ordering = rt.cmp(data.length & 0xff, 2);
+	if (order_ === -1) {
+		_43 = 17;
+	} else {
+		_43 = 0;
+	}
+	rt.byteVecPush(out, _43);
+	let m: Shape.Shape = s;
+	if (m.tag === "Dot") {
+		m = shape(rt.byteSliceRange(data, rt.min(data.length, 1)));
+		if (m.tag === "Line") {
+			_48 = 18;
+		} else {
+			_48 = 19;
+		}
+	} else {
+		_48 = 20;
+	}
+	rt.byteVecPush(out, _48);
+	let held = copy$Shape(m) as Shape.Shape | undefined;
+	if (held === undefined) {
+		_59 = 22;
+	} else {
+		const taken2 = held;
+		held = undefined;
+		const taken: Shape.Shape | undefined = taken2;
+		if (held === undefined) {
+			_59 = rt.optionMapOr(taken, 22, (t: Shape.Shape): rt.u8 => {
+				return rt.u64Low(Shape.area$Area(t)) & 0xff;
+			});
+		} else {
+			_59 = 21;
+		}
+	}
+	rt.byteVecPush(out, _59);
+	let cur: Shape.Shape = s;
+	let iterStart: rt.u8 = 0;
+	const iterEnd: rt.u8 = 3;
+	while ((_68 = iterStart++) < iterEnd) {
+		const i: rt.u8 = _68;
+		if (cur.tag === "Dot") {
+			_72 = { tag: "Line", _0: Point.new(i as rt.i32, 0), _1: Point.new(0, 0) } as Shape.Shape;
+		} else if (cur.tag === "Line") {
+			_72 = { tag: "Rect", corner: cur._0, width: rt.u16Add(cur._1.x & 0xffff, 1), height: 2 } as Shape.Shape;
+		} else if (!(cur.width > 1)) {
+			_72 = cur;
+		} else {
+			_72 = { tag: "Dot" } as Shape.Shape;
+		}
+		cur = _72;
+		rt.byteVecPush(out, rt.u64Low(Shape.area$Area(cur)) & 0xff);
+	}
+	const machine: Machine.Machine = { state: copy$Shape(s), steps: 0 };
+	let iterStart2: rt.i32 = 0;
+	const iterEnd2: rt.i32 = 4;
+	while (iterStart2++ < iterEnd2) {
+		rt.byteVecPush(out, Machine.run(machine, data.length & 0xff));
+	}
+	let original: Shape.Shape = shape(data);
+	if (original.tag === "Dot") {
+		original = shape(rt.byteSliceFrom(Uint8Array.of(1)));
+		rt.byteVecPush(out, 24);
+		if (original.tag === "Line") {
+			_114 = 25;
+		} else {
+			_114 = 26;
+		}
+		rt.byteVecPush(out, _114);
+	}
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */
