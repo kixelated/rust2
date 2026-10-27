@@ -66,7 +66,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, and `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |

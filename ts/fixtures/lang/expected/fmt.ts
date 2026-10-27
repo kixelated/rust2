@@ -427,8 +427,8 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_7 === 15) {
 		const buf: Uint8Array = rt.bytes(3);
 		rt.byteSliceCopyFromSlice(rt.byteSliceFrom(buf), rt.byteSliceRange(rest, 0, rt.min(rest.length, 4)));
-		const arg4 = ([buf] as [Uint8Array])[0];
-		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(arg4, f, rt.u8Display)];
+		const arg4 = ([rt.byteSliceFrom(buf)] as [rt.ByteSlice])[0];
+		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(arg4), f, rt.u8Display)];
 		put(out, rt.fmtFormat([args18[0]]));
 	} else if (_7 === 16) {
 		const _221: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(rest));
@@ -445,8 +445,8 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 		const part2 = rt.u8Rem(rt.u8Div(n, 6), 6) as rt.usize;
 		const dest: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.byteSliceGet(rest, 1), 0) as rt.usize, 4);
 		rt.byteSliceCopyWithin(rt.byteSliceFrom(buf2), part, part2, dest);
-		const arg3 = ([buf2] as [Uint8Array])[0];
-		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(arg3, f, rt.u8Display)];
+		const arg3 = ([rt.byteSliceFrom(buf2)] as [rt.ByteSlice])[0];
+		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(arg3), f, rt.u8Display)];
 		put(out, rt.fmtFormat([args20[0]]));
 	} else if (_7 === 18) {
 		const _271: rt.usize = rt.u8Rem(n, 8) as rt.usize;

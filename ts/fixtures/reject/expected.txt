@@ -50,7 +50,7 @@ an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supporte
 an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:253:20
 a mutable borrow of a subslice of `u32`, which JS would copy, having no views at fixtures/reject/src/lib.rs:258:13
 an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:266:2
-replacing the value behind a reference to `[u8; 1]` at fixtures/reject/src/lib.rs:272:22
+`std::mem::replace` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:272:22
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:283:14
 a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:289:7
 a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:289:48
