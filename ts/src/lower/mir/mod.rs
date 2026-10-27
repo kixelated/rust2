@@ -1581,6 +1581,34 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.is_arg(local)
 	}
 
+	/// Whether the aggregate assigned to `local` is read by its fields as its operands: it
+	/// is assigned once, never changed, and not held back.
+	fn parts_read(&self, local: Local) -> bool {
+		matches!(self.slots[local], Slot::Var(_))
+			&& !self.stepped_vars.contains_key(&local)
+			&& self.uses[local] != 0
+			&& !self.foldable(local)
+			&& self.defs[local] == 1
+			&& !self.mutated[local]
+	}
+
+	/// Whether the operand `e` reads the same wherever and however often it is read: a
+	/// path, with what it folds in that is held back a constant, a name nothing changes, or
+	/// a reference to a path, which borrow checking keeps as it is.
+	fn rereadable(&self, e: &Expr) -> bool {
+		let mut names = Vec::new();
+		reads_of(e, &mut names);
+		e.is_path()
+			&& self.pending.iter().filter(|p| names.contains(&p.name)).all(|p| {
+				p.value.is_constant()
+					|| self.stable_name(&p.value)
+					|| p.value.is_path()
+						&& self
+							.local_named(&p.name)
+							.is_some_and(|local| self.mir.local_decls[local].ty.is_ref())
+			})
+	}
+
 	// Emission
 
 	/// Emit the statements `stmts`, which together are one MIR statement, folding in the
@@ -1904,8 +1932,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// An aggregate assigned once and never changed: its operands, as emitted,
 				// read in place of its fields.
 				if parts.is_some()
-					&& self.defs[local] == 1
-					&& !self.mutated[local]
+					&& self.parts_read(local)
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..

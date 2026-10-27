@@ -177,7 +177,8 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			if (!(_207 < 8)) {
 				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _207);
 			}
-			const t2: [rt.u8, string] = [_203, ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207]];
+			const part = ["", "a", "ab", "b", "é", "", "￿", "𐀀"][_207];
+			const t2: [rt.u8, string] = [_203, part];
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashRemove(tuples, t2), 187));
 			if (rt.u8Rem(a, 2) === 0) {
 				rt.hashInsert(tuples, copy$u8_str(t2), a);

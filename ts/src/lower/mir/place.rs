@@ -67,7 +67,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			// A field of an aggregate made once and never changed is its operand: a
-			// reference, which borrow checking keeps as it was, or a path that stays put.
+			// reference, held in a path when the aggregate is made, which borrow checking
+			// keeps as it was, or a name that stays put.
 			(_, _)
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()

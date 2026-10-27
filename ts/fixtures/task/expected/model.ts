@@ -1327,16 +1327,16 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
 		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
 		unwind = 149;
+		const once: rt.u32 = boxed.id;
+		const _70: rt.Fmt = (f: rt.Formatter) => rt.u32Display(once, f);
 		const arg2 = boxed.id;
-		const _70: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg2, f);
-		const arg3 = boxed.id;
-		const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg3, f)];
+		const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg2, f)];
 		Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
-		const arg4 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
+		const arg3 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
 		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
-		const arg5 = ([Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing")] as [rt.u32])[0];
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
+		const arg4 = ([Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing")] as [rt.u32])[0];
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
 		Log.note(log, rt.fmtFormat(["unboxed ", args8[0]]));
 		if (rt.u32Rem(count, 2) === 0) {
 			_112 = Guard.new(rt.u32Add(count, 130), Log.clone$Clone(log));
@@ -1348,8 +1348,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			stacked = undefined;
 		}
 		unwind = 147;
-		const arg6 = ([stacked !== undefined] as [boolean])[0];
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg6, f)];
+		const arg5 = ([stacked !== undefined] as [boolean])[0];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
 		Log.note(log, rt.fmtFormat(["stacked ", args10[0]]));
 		if (rt.u32Rem(count, 2) === 0) {
 			failed = rt.Err(Guard.new(rt.u32Add(count, 150), Log.clone$Clone(log)));
@@ -1357,8 +1357,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			failed = rt.Ok(count);
 		}
 		unwind = 146;
-		const arg7 = ([!failed.ok] as [boolean])[0];
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg7, f)];
+		const arg6 = ([!failed.ok] as [boolean])[0];
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg6, f)];
 		Log.note(log, rt.fmtFormat(["failed ", args12[0]]));
 		if (rt.u32Rem(count, 3) === 0) {
 			flow = rt.Err(Guard.new(rt.u32Add(count, 160), Log.clone$Clone(log)));
@@ -1366,8 +1366,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			flow = rt.Ok(count);
 		}
 		unwind = 145;
-		const arg8 = ([!flow.ok] as [boolean])[0];
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg8, f)];
+		const arg7 = ([!flow.ok] as [boolean])[0];
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg7, f)];
 		Log.note(log, rt.fmtFormat(["flow ", args14[0]]));
 		_171 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
 		unwind = 144;
