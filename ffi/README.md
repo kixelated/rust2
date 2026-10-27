@@ -22,6 +22,7 @@ dependency that is no export is an error. It resolves them as the check did, whe
 is built: its manifest carries, as a `[patch]`, each patch or `[replace]` cargo applied
 to what the library builds with, read off cargo's resolution, wherever it was declared
 (the manifest, cargo's config, `--config`, or the environment), keyed by its source's URL.
+A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.

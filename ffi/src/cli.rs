@@ -210,6 +210,7 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 			if source == Some(named) {
 				continue;
 			}
+			let key = patch_key(named)?;
 			let replacement = match resolved.source.as_deref() {
 				None => {
 					let dir = resolved.manifest_path.parent().expect("a manifest path has a parent");
@@ -218,6 +219,14 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 				Some(git) if git.starts_with("git+") => {
 					let (url, rev) = git["git+".len()..].split_once('#').unwrap_or((git, ""));
 					let url = url.split('?').next().unwrap_or(url);
+					// Only a `[replace]` resolves a package to another commit of the source
+					// the dependency names; cargo refuses a patch from that source.
+					if url == key {
+						return Err(format!(
+							"{} {} is replaced from its own source, which a `[patch]` of the export's library cannot carry",
+							resolved.name, resolved.version
+						));
+					}
 					toml::toml! { git = url rev = rev }
 				}
 				Some(other) => {
@@ -227,7 +236,6 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 					));
 				}
 			};
-			let key = patch_key(named)?;
 			let into = patch.entry(key).or_insert_with(|| toml::Table::new().into());
 			let into = into.as_table_mut().expect("a patch's source is a table");
 			match into.get(&resolved.name) {

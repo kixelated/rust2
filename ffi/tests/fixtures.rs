@@ -543,14 +543,26 @@ fn patched() {
 }
 
 /// Another export the workspace `[replace]`s, by a spec naming no package, is carried as
-/// a `[patch]` of it, which resolves alike since a replacement keeps its version.
+/// a `[patch]` of it, which resolves alike since a replacement keeps its version. A
+/// replacement from the source it replaces is an error, since no patch can carry it.
 #[test]
 fn replaced() {
 	let package = package("replaced");
-	// A git repository the dependency names, whose copy lacks the field the package reads,
-	// named for the package so the spec names it by its URL.
+	// A git repository the dependency names, whose default branch lacks the field the
+	// package reads, named for the package so the spec names it by its URL.
 	let manifest = "[package]\nname = \"rust2-ffi-replaced-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n";
 	let git = package.join("rust2-ffi-replaced-dep");
+	let _ = std::fs::remove_dir_all(&git);
+	let commit = [
+		"-c",
+		"user.name=t",
+		"-c",
+		"user.email=t@t",
+		"commit",
+		"--quiet",
+		"-am",
+		"dep",
+	];
 	write_all(
 		&git,
 		&[
@@ -558,49 +570,58 @@ fn replaced() {
 			("src/lib.rs", "pub struct Size {\n\tpub height: u32,\n}\n"),
 		],
 	);
-	let _ = std::fs::remove_dir_all(git.join(".git"));
 	for args in [
-		&["init", "--quiet"][..],
+		&["init", "--quiet", "--initial-branch", "main"][..],
 		&["add", "."],
-		&[
-			"-c",
-			"user.name=t",
-			"-c",
-			"user.email=t@t",
-			"commit",
-			"--quiet",
-			"-m",
-			"dep",
-		],
+		&commit,
+		&["checkout", "--quiet", "-b", "fixed"],
 	] {
 		run(Command::new("git").args(args).current_dir(&git));
 	}
+	write_all(&git, &[("src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n")]);
+	run(Command::new("git").args(commit).current_dir(&git));
 	let url = format!("file://{}", git.display());
+	let files = |replacement: &str| {
+		write_all(
+			&package,
+			&[
+				("dep/Cargo.toml", manifest),
+				("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n"),
+				(
+					"Cargo.toml",
+					&format!(
+						"[package]\nname = \"replaced\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+						[dependencies]\nrust2-ffi-replaced-dep = {{ git = \"{url}\", branch = \"main\" }}\n\n\
+						[replace]\n\"{url}#1.0.0\" = {replacement}\n\n\
+						[workspace]\nexclude = [\"dep\", \"rust2-ffi-replaced-dep\"]\n"
+					),
+				),
+				(
+					"src/lib.rs",
+					"pub fn width(size: rust2_ffi_replaced_dep::Size) -> u32 {\n\tsize.width\n}\n",
+				),
+				(
+					"ffi.toml",
+					"package = \"replaced\"\n\n[crates.rust2-ffi-replaced-dep]\n",
+				),
+			],
+		);
+	};
+	files("{ path = \"dep\" }");
+	export_and_build(&package, &[]);
+	// Not an export, which is a path package, but what the package builds with.
+	files(&format!("{{ git = \"{url}\", branch = \"fixed\" }}"));
 	write_all(
 		&package,
-		&[
-			("dep/Cargo.toml", manifest),
-			("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n"),
-			(
-				"Cargo.toml",
-				&format!(
-					"[package]\nname = \"replaced\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
-				[dependencies]\nrust2-ffi-replaced-dep = {{ git = \"{url}\" }}\n\n\
-				[replace]\n\"{url}#1.0.0\" = {{ path = \"dep\" }}\n\n\
-				[workspace]\nexclude = [\"dep\", \"rust2-ffi-replaced-dep\"]\n"
-				),
-			),
-			(
-				"src/lib.rs",
-				"pub fn width(size: rust2_ffi_replaced_dep::Size) -> u32 {\n\tsize.width\n}\n",
-			),
-			(
-				"ffi.toml",
-				"package = \"replaced\"\n\n[crates.rust2-ffi-replaced-dep]\n",
-			),
-		],
+		&[("ffi.toml", "package = \"replaced\"\nexclude = [\"width\"]\n")],
 	);
-	export_and_build(&package, &[]);
+	let output = census(&package.join("ffi.toml"), &[]).output().unwrap();
+	assert!(!output.status.success(), "a replacement from its own source passed");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("rust2-ffi-replaced-dep 1.0.0 is replaced from its own source"),
+		"{stderr}"
+	);
 }
 
 /// Patches in cargo's config, which cargo reads only where the check runs, reach the glue
