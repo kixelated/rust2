@@ -369,11 +369,7 @@ pub fn call<'tcx>(
 				_ if super::byte_array(*inner) => method("map", vec![Expr::Rt("byteSliceToArray".into())]),
 				_ if b.t.needs_copy(*inner) => method("map", b.t.copy_fn(*inner, span).into_iter().collect()),
 				// A JS string is a value already.
-				_ if b.t.is_copy(*inner)
-					|| matches!(inner.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String)) =>
-				{
-					Some(recv)
-				}
+				_ if b.t.is_copy(*inner) || library::string(tcx, *inner) => Some(recv),
 				// Each item through its `Clone`.
 				_ => {
 					let clone = tcx.lang_items().clone_fn()?;
