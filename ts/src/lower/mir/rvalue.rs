@@ -45,6 +45,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				self.place_expr(*place, span, out)
 			}
+			// A bounds check of a `&mut` slice reads its length through a raw pointer that
+			// only `PtrMetadata` reads, which reads the slice's.
+			Rvalue::RawPtr(mir::RawPtrKind::FakeForPtrMetadata, place) => self.place_expr(*place, span, out),
 			Rvalue::RawPtr(..) => self.err(span, "raw pointers are not supported"),
 			Rvalue::Reborrow(..) => self.err(span, "reborrowing a type by its `Reborrow` impl is not supported"),
 			Rvalue::ThreadLocalRef(_) => self.err(span, "thread locals are not supported"),
