@@ -261,7 +261,7 @@ pub fn std_path(tcx: TyCtxt<'_>, did: DefId) -> Vec<String> {
 		.collect()
 }
 
-fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
+pub fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
 }
 
@@ -426,7 +426,9 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `inspect_err` its error if its closure panics.
 		("Result", "unwrap" | "expect" | "inspect_err") => &[1],
 		("Result", "unwrap_err") => &[0],
+		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
+		("bool", "then") => &[1],
 		_ => return None,
 	})
 }
@@ -548,9 +550,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			if to == from || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
-			// Each `From` between integers and `char` keeps the value, as `as` then does.
+			// Each `From` between integers and `char`, or from `bool`, keeps the value, as
+			// `as` then does.
 			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
-			if !scalar(to) || !scalar(from) {
+			if !scalar(to) || !(scalar(from) || from.is_bool()) {
 				return None;
 			}
 			let operand = Operand {
@@ -709,6 +712,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let values = args;
 			Expr::rt("thenSome", values)
 		}
+		("bool", "then") => Expr::rt("boolThen", args),
 
 		// Slices, whose byte functions take an `rt.ByteSlice`.
 		("slice", "len") => args.pop()?.member("length"),

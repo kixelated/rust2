@@ -51,6 +51,7 @@ roots = [
     "cow_made",
     "pushed",
     "split_chars",
+    "owning_lazy",
     "missing",
 ]
 printable = ["Meters"]
