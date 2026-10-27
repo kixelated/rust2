@@ -15,8 +15,17 @@ export class Channel {
 	}
 
 	[Symbol.dispose](): void {
-		rt.dropAll(this.producers);
-		rt.drop(this.consumer);
+		let dropped: number = 0;
+		try {
+			rt.dropAll(this.producers);
+			dropped = 1;
+			rt.drop(this.consumer);
+		} catch (e) {
+			if (dropped < 1) {
+				rt.drop(this.consumer);
+			}
+			throw e;
+		}
 	}
 }
 

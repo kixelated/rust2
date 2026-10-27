@@ -317,7 +317,7 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 			bump(_124.slot);
 		}
 		arc = new rt.Arc(a);
-		unwind = 102;
+		unwind = 117;
 		if (rt.u8Rem(a, 3) === 0) {
 			flow = rt.Ok(Uint8Array.of(a));
 		} else {
@@ -325,13 +325,13 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, sameArc(flow, arc));
 		const _143: rt.Mutex<rt.u8> = slot;
-		unwind = 101;
+		unwind = 116;
 		rt.byteVecPush(out, _143.value);
-		unwind = 102;
+		unwind = 117;
 		const _150: rt.Mutex<rt.u8> = other;
-		unwind = 100;
+		unwind = 115;
 		rt.byteVecPush(out, _150.value);
-		unwind = 102;
+		unwind = 117;
 		const source: Held.Held = { at: copy$Point(Point.new(a as rt.i32, 0)) };
 		const kept: Held.Held = hold(copy$Point(source.at));
 		source.at.x = 9;
@@ -339,10 +339,19 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 		const by: rt.i32 = movedBy(copy$Point(source.at), { held: source });
 		const part: rt.i32 = partMovedThenRead(copy$Held(source), source.at);
 		rt.byteVecExtendFromSlice(out, Uint8Array.of(kept.at.x & 0xff, read & 0xff, by & 0xff, part & 0xff, source.at.x & 0xff));
-		unwind = 102;
+		unwind = 117;
 		const bytes: Uint8Array = Uint8Array.of(a, 1);
 		rt.byteVecPush(out, unsizedCopy(bytes));
 		rt.byteVecPush(out, bytes[0]);
+		const at: rt.usize = rt.optionMapOr(rt.sliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+			return rt.usizeRem(_22 as rt.usize, 3);
+		});
+		rt.byteVecPush(out, writeAt(bytes, at, a));
+		rt.byteVecExtendFromSlice(out, bytes);
+		const points: Point.Point[] = rt.vecFromElem(copy$Point(Point.new(a as rt.i32, 0)), 2, copy$Point);
+		unwind = 114;
+		movedAt(points, at);
+		rt.byteVecExtendFromSlice(out, Uint8Array.of(points[rt.idx(points, 0)].x & 0xff, points[rt.idx(points, 1)].x & 0xff, points[rt.idx(points, 1)].y & 0xff));
 		unwind = 0;
 		rt.drop(arc);
 	} catch (e) {
@@ -352,6 +361,48 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 		rt.drop(arc);
 		throw e;
 	}
+}
+
+/**
+ * `live[at]`, written with `b`, then changed through its first byte, and through a
+ * reborrow that may move past it: an index past the end panics as native Rust does.
+ */
+export function writeAt(live: Uint8Array, at: rt.usize, b: rt.u8): rt.u8 {
+	rt.idx(live, at);
+	live[at] = b;
+	rt.idx(live, at);
+	const _7: rt.u8 = rt.u8WrappingAdd(live[at], 1);
+	rt.idx(live, 0);
+	live[0] = live[0] ^ _7;
+	let rest: Uint8Array = live;
+	if (rt.u8Rem(b, 2) === 0) {
+		rest = rt.sliceRange(rest, 1);
+	}
+	const _27: rt.usize = rest.length;
+	if (!(0 < _27)) {
+		rt.panic("index out of bounds: the len is " + _27 + " but the index is " + 0);
+	}
+	const _23: rt.u8 = rt.u8WrappingAdd(rest[0], 3);
+	const _31: rt.usize = rest.length;
+	if (!(0 < _31)) {
+		rt.panic("index out of bounds: the len is " + _31 + " but the index is " + 0);
+	}
+	rest[0] = _23;
+	rt.idx(live, at);
+	return live[at];
+}
+
+/**
+ * `live[at]` moved right by one, and its neighbor by its new `x`: an index past the end
+ * panics as native Rust does.
+ */
+export function movedAt(live: Point.Point[], at: rt.usize): void {
+	rt.idx(live, at);
+	live[at].x = rt.i32Add(live[at].x, 1);
+	rt.idx(live, at);
+	const _7: rt.i32 = live[at].x;
+	rt.idx(live, 1);
+	live[1].y = _7;
 }
 
 /** `at`, held. */
