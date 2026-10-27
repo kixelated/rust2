@@ -84,7 +84,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:289:7 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:207:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:153:11 |
-| 1 | `std::str` | fixtures/reject/src/lib.rs:382:4 |
+| 1 | `std::str` | fixtures/reject/src/lib.rs:383:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:148:2 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:74:2 |
@@ -138,7 +138,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:207:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:367:4 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:32:4 |
-| 1 | unsupported call to `_` | `std::str::split` | fixtures/reject/src/lib.rs:382:4 |
+| 1 | unsupported call to `_` | `std::str::split` | fixtures/reject/src/lib.rs:383:4 |
 | 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:10:16 |
 
 ## Spans
@@ -163,7 +163,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:153:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
 - fixtures/reject/src/lib.rs:207:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 - fixtures/reject/src/lib.rs:367:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
-- fixtures/reject/src/lib.rs:382:4: unsupported call to `core::str::<impl str>::split::<&str>`
+- fixtures/reject/src/lib.rs:383:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 
 </details>
 

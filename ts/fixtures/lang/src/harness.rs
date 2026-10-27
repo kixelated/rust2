@@ -19,7 +19,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 44 {
+	match op % 45 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -73,6 +73,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		40 => chars::chars(kind, data, &mut out),
 		41 => strs::strs(kind, data, &mut out),
 		42 => collections::vecs(data, &mut out),
+		43 => strs::slices(kind, data, &mut out),
 		_ => collections::stores(data, &mut out),
 	}
 	out
