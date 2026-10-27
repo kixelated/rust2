@@ -132,6 +132,25 @@ fn owned(a: Option<u8>, b: Option<u8>, out: &mut Vec<u8>) {
 	}
 	let empty: Option<Vec<u8>> = b.filter(|y| y % 2 == 0).map(|y| vec![y]);
 	out.push(empty.unwrap_or_default().len() as u8);
+	// A `Copy` payload rebuilt into another `Result` and changed there leaves the first's.
+	let pair: Result<[u32; 2], u8> = a.map(|x| [u32::from(x), 2]).ok_or(3);
+	let mut wide = pair.map_err(u16::from);
+	if let Ok(ref mut p) = wide {
+		p[0] = 9;
+	}
+	let mut matched: Result<[u32; 2], u16> = match pair {
+		Ok(p) => Ok(p),
+		Err(e) => Err(e.into()),
+	};
+	if let Ok(ref mut p) = matched {
+		p[1] = 8;
+	}
+	for r in [pair.map_err(u16::from), wide, matched] {
+		match r {
+			Ok([x, y]) => out.extend_from_slice(&[x as u8, y as u8]),
+			Err(e) => out.push(e as u8),
+		}
+	}
 }
 
 /// A panic inside a closure std calls.

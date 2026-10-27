@@ -168,6 +168,13 @@ export function map$Option_u8_Vec_u8_owned_closure4(self: rt.u8 | undefined, f: 
 	return f(self);
 }
 
+export function map$Option_u8_u32s_owned_closure9(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32[]): rt.u32[] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_u8_u8_options_closure3_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -341,6 +348,13 @@ export function mapOrElse$Option_u8_u8_options_closure7_options_closure8(self: r
 		return default_();
 	}
 	return f(self);
+}
+
+export function okOr$Option_u32s_u8(self: rt.u32[] | undefined, err: rt.u8): rt.Result<rt.u32[], rt.u8> {
+	if (self === undefined) {
+		return rt.Err(err);
+	}
+	return rt.Ok(self);
 }
 
 export function okOr$Option_u8_u16(self: rt.u8 | undefined, err: rt.u16): rt.Result<rt.u8, rt.u16> {

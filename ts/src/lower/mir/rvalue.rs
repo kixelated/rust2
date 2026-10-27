@@ -374,17 +374,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			0 => "value",
 			_ => "error",
 		};
-		let read = match (temp.and_then(|temp| self.var(temp)), value) {
-			(_, Expr::Member(_, Key::Name(field))) => field == held,
-			(Some(name), Expr::Ident(read)) => name == read,
-			_ => false,
+		let payload = |e: &Expr| matches!(e, Expr::Member(_, Key::Name(field)) if field == held);
+		// Only the payload read as it is: a copy the operand made must still be made.
+		let pending = match (temp.and_then(|temp| self.var(temp)), value) {
+			(_, value) if payload(value) => None,
+			(Some(name), Expr::Ident(read)) if name == *read => {
+				Some(self.pending.iter().position(|p| p.name == name && !p.effect && payload(&p.value))?)
+			}
+			_ => return None,
 		};
 		let whole_ty = whole.ty(&self.mir.local_decls, self.tcx).ty;
-		if from != variant || !read || !stable || self.b.t.std_of(whole_ty) != Some(Std::Result) {
+		if from != variant || !stable || self.b.t.std_of(whole_ty) != Some(Std::Result) {
 			return None;
 		}
-		if let Expr::Ident(name) = value {
-			let i = self.pending.iter().position(|p| &p.name == name && !p.effect)?;
+		if let Some(i) = pending {
 			self.pending.remove(i);
 		}
 		let same = self.place_expr(whole, span, out);

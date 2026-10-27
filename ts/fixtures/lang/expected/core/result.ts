@@ -72,6 +72,13 @@ export function mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(sel
 	return default_(self.error);
 }
 
+export function mapErr$Result_u32s_u8_u16_from(self: rt.Result<rt.u32[], rt.u8>, _: (a0: rt.u8) => rt.u16): rt.Result<rt.u32[], rt.u16> {
+	if (self.ok) {
+		return self as rt.Result<rt.u32[], rt.u16>;
+	}
+	return rt.Err(self.error as rt.u16);
+}
+
 export function mapErr$Result_u8_str_u8_library_closure2(self: rt.Result<rt.u8, string>, op: (a0: string) => rt.u8): rt.Result<rt.u8, rt.u8> {
 	if (self.ok) {
 		return self as rt.Result<rt.u8, rt.u8>;
