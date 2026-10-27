@@ -9,6 +9,7 @@ use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
+use super::Translator;
 use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
@@ -779,17 +780,15 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("str", "chars") => Expr::rt("strChars", args),
 		// Searches by a pattern.
-		("str", "split" | "match_indices" | "starts_with" | "trim_start_matches" | "trim_end_matches" | "rfind") => {
-			let f = match name.as_str() {
-				"split" => "strSplit",
-				"match_indices" => "strMatchIndices",
-				"starts_with" => "strStartsWith",
-				"trim_start_matches" => "strTrimStartMatches",
-				"trim_end_matches" => "strTrimEndMatches",
-				_ => "strRfind",
-			};
+		("str", "split" | "match_indices" | "contains" | "starts_with" | "rfind")
+		| ("str", "trim_start_matches" | "trim_end_matches") => {
 			let [s, p] = <[Expr; 2]>::try_from(args).ok()?;
-			Expr::rt(f, vec![s, pattern(targ(gargs, 0), p)?])
+			Expr::rt_of("str", &super::camel(&name)).call(vec![s, pattern(b.t, targ(gargs, 0), p)?])
+		}
+		// A slice of strings joined by a `&str`.
+		("slice", "join") if is_text(b.t, targ(gargs, 0)) && targ(gargs, 1).peel_refs().is_str() => {
+			let [parts, sep] = <[Expr; 2]>::try_from(args).ok()?;
+			parts.method("join", vec![sep])
 		}
 		("char", "is_ascii_digit") => Expr::rt("charIsAsciiDigit", args),
 		// A `Cow<str>` is its text, whichever variant holds it.
@@ -977,13 +976,20 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 }
 
 /// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text,
-/// or a predicate as it is. `None` for any other pattern.
-fn pattern(ty: Ty<'_>, p: Expr) -> Option<Expr> {
+/// or a string or a predicate as it is. `None` for any other pattern.
+fn pattern<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, p: Expr) -> Option<Expr> {
 	match ty.kind() {
 		ty::Char => Some(char_text(p)),
 		ty::Closure(..) | ty::FnDef(..) => Some(p),
+		ty::Ref(..) if is_text(t, ty) => Some(p),
 		_ => None,
 	}
+}
+
+/// Whether `ty` is a `str` or a `String`, behind any references: a JS string.
+fn is_text<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let ty = ty.peel_refs();
+	ty.is_str() || t.std_of(ty) == Some(Std::String)
 }
 
 /// A `char`'s text: a literal for a constant, or `String.fromCodePoint(c)`.

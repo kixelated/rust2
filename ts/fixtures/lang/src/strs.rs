@@ -1,7 +1,8 @@
-//! `str` and `String` over `char`: iterated from both ends, searched by a `char` or a
-//! predicate, trimmed, split, and built a char at a time. Text is made of chars of every
-//! UTF-8 width and those next to UTF-16's surrogates, so byte offsets and code units part.
-//! Predicates log each char they are called with, so where a search stops is output too.
+//! `str` and `String` over `char`: iterated from both ends, searched by a `char`, a
+//! predicate, or a `&str`, trimmed, split, sliced by byte offsets, and built a char at a
+//! time. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
+//! so byte offsets and code units part. Predicates log each char they are called with, so
+//! where a search stops is output too.
 
 use crate::fmt::put;
 
@@ -221,6 +222,103 @@ pub fn strs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let taken = std::mem::take(&mut built);
 			put(out, &taken);
 			out.push(built.is_empty() as u8);
+		}
+	}
+}
+
+/// Up to three chars of `s`, from the char the kind's high bits pick: empty a quarter of
+/// the time, and otherwise found at least once unless the text is shorter.
+fn pattern(kind: u8, s: &str) -> String {
+	let mut p = String::new();
+	for c in s.chars().skip((kind / 32) as usize).take((kind / 8 % 4) as usize) {
+		p.push(c);
+	}
+	p
+}
+
+/// `&s[a..b]` by byte offsets, and the `str` methods by a `&str` pattern, which an empty
+/// one matches before each char and after the last.
+pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let s = text(data);
+	let p = pattern(kind, &s);
+	match kind % 8 {
+		0 => {
+			// `split`, by a `&str` and by a `&String`.
+			let mut n = 0;
+			for part in s.split(p.as_str()) {
+				put(out, part);
+				n += 1;
+			}
+			out.push(n as u8);
+			put(out, s.split(&p).last().unwrap_or("none"));
+		}
+		1 => {
+			// `match_indices`: byte offsets, then the text before and after each match.
+			for (at, matched) in s.match_indices(p.as_str()) {
+				put_offset(out, Some(at));
+				put(out, matched);
+				put(out, &s[..at]);
+				put(out, &s[at + matched.len()..]);
+				put(out, &s[at..at + matched.len()]);
+			}
+		}
+		2 => {
+			// Trimmed, tested, and found.
+			put(out, s.trim_start_matches(p.as_str()));
+			put(out, s.trim_end_matches(p.as_str()));
+			put(out, s.trim_start_matches(&p).trim_end_matches(&p));
+			out.push(s.starts_with(p.as_str()) as u8);
+			out.push(s.contains(p.as_str()) as u8);
+			out.push(s.contains(&p) as u8);
+			out.push(s.contains('/') as u8);
+			out.push(s.contains(|c: char| c.is_ascii_digit()) as u8);
+			put_offset(out, s.rfind(p.as_str()));
+		}
+		3 => {
+			// Each parent of a path, as moq-net's discovery walks them.
+			let mut path = s.as_str();
+			while let Some(slash) = path.rfind('/') {
+				path = &path[..slash];
+				put(out, path);
+			}
+			put(out, path);
+		}
+		4 => {
+			// A path cut after its `keep`th part, and the rest, as moq-net's compression
+			// cuts one.
+			let keep = (kind / 8 % 4) as usize + 1;
+			let head = s.match_indices('/').nth(keep - 1).map(|(end, _)| &s[..end]);
+			put(out, head.unwrap_or("none"));
+			let start = s.match_indices('/').nth(keep - 1).map_or(s.len(), |(i, _)| i + 1);
+			put(out, &s[start..]);
+		}
+		5 => {
+			// Parts joined again, by the pattern.
+			let parts: Vec<&str> = s.split('/').collect();
+			put(out, &parts.join(p.as_str()));
+			let owned: Vec<String> = parts.iter().map(|part| part.to_string()).collect();
+			put(out, &owned.join(p.as_str()));
+			put(out, &["a", "", &s].join("/"));
+		}
+		_ => {
+			// A slice at any offsets, or at ones about the end by the kind's bit 5, which
+			// panics as std does past the end, backwards, or inside a char, whichever comes
+			// first.
+			let at = |b: u8| match kind & 0x20 {
+				0 => b as usize % (s.len() + 2),
+				_ => (s.len() + 1).saturating_sub(b as usize % 4),
+			};
+			let (a, b) = match data {
+				[a, b, ..] => (at(*a), at(*b)),
+				_ => (0, 0),
+			};
+			let sliced = match kind / 8 % 4 {
+				0 => &s[a..b],
+				1 => &s[a..],
+				2 => &s.as_str()[..b],
+				_ => &s.as_str()[..],
+			};
+			put(out, sliced);
 		}
 	}
 }
