@@ -1,5 +1,5 @@
-// `just ts bench`: bundles each route, times every workload natively and in Node, Bun,
-// Chrome, and Firefox, and reports the numbers with each route's bundle size.
+// `just ts bench`: bundles and minifies each route, times every workload natively and in
+// Node, Bun, Chrome, and Firefox, and reports the numbers with each route's bundle size.
 //
 // usage: bun main.ts --translated <dir> --wasm <file> --native <bin> --moq <checkout>
 //                    --moq-wasm <dir> --task <dir> --task-wasm <file> --task-native <bin>
@@ -59,8 +59,8 @@ const codecRoutes = ["native", "wasm", "wasm copy-in", "wasm copy-out", "hand-wr
 const handoffRoutes = ["native", "wasm", "hand-written", "translated", "spawned", "A/A"];
 const extra = args.route === undefined ? undefined : await extraRoute(args.route);
 
-/** `--route`'s name, and the entries of the translations in its directory, which must both be there. */
-async function extraRoute(arg: string): Promise<{ name: string; codec: string; task: string }> {
+/** `--route`'s name, and the bundles of the translations in its directory, which must both be there. */
+async function extraRoute(arg: string): Promise<{ name: string; codec: Uint8Array; task: Uint8Array }> {
 	const at = arg.indexOf("=");
 	const name = arg.slice(0, at);
 	if (at < 1 || at === arg.length - 1) throw new Error(`--route takes name=dir, not ${arg}`);
@@ -71,7 +71,7 @@ async function extraRoute(arg: string): Promise<{ name: string; codec: string; t
 	for (const file of [codec, join(task, "model.ts")]) {
 		if (!(await Bun.file(file).exists())) throw new Error(`--route ${name}: ${file} is missing`);
 	}
-	return { name, codec, task: await taskEntry(task) };
+	return { name, codec: await bundle(codec), task: await bundle(await taskEntry(task)) };
 }
 
 // `moq/` is the checkout, whose own imports resolve through its install.
@@ -82,8 +82,9 @@ const moq: BunPlugin = {
 	},
 };
 
-async function bundle(entry: string, options: { minify?: boolean; plugins?: BunPlugin[] } = {}): Promise<Uint8Array> {
-	const result = await Bun.build({ entrypoints: [entry], target: "browser", external: ["node:*"], ...options });
+/** `entry` bundled and minified, as a consumer ships it: each route is timed and sized as this. */
+async function bundle(entry: string, plugins: BunPlugin[] = []): Promise<Uint8Array> {
+	const result = await Bun.build({ entrypoints: [entry], target: "browser", external: ["node:*"], minify: true, plugins });
 	if (result.outputs.length !== 1) throw new Error(`bundling ${entry} made ${result.outputs.length} files`);
 	return new Uint8Array(await result.outputs[0].arrayBuffer());
 }
@@ -104,6 +105,7 @@ const handWritten = join(import.meta.dir, "moq.ts");
 const translated = join(arg("translated"), "bench.ts");
 const wasmBytes = await read(arg("wasm"));
 const translation = await bundle(translated);
+const handBundle = await bundle(handWritten, [moq]);
 
 // The task fixture's translation, as `bench/task.ts` drives it.
 async function taskEntry(dir: string): Promise<string> {
@@ -126,37 +128,38 @@ const taskHand = join(import.meta.dir, "task.ts");
 const taskTranslated = await taskEntry(arg("task"));
 const taskWasmBytes = await read(arg("task-wasm"));
 const taskTranslation = await bundle(taskTranslated);
+const taskHandBundle = await bundle(taskHand);
 await Promise.all([
 	Bun.write(join(out, "entry.js"), await bundle(join(import.meta.dir, "entry.ts"))),
-	Bun.write(join(out, "moq.js"), await bundle(handWritten, { plugins: [moq] })),
+	Bun.write(join(out, "moq.js"), handBundle),
 	Bun.write(join(out, "translated.js"), translation),
 	Bun.write(join(out, "translated-aa.js"), translation),
 	Bun.write(join(out, "bench.wasm"), wasmBytes),
-	Bun.write(join(out, "task-hand.js"), await bundle(taskHand)),
+	Bun.write(join(out, "task-hand.js"), taskHandBundle),
 	Bun.write(join(out, "task-translated.js"), taskTranslation),
 	Bun.write(join(out, "task-translated-aa.js"), taskTranslation),
 	Bun.write(join(out, "task.wasm"), taskWasmBytes),
 	Bun.write(join(out, "package.json"), '{ "type": "module" }\n'),
 	Bun.write(join(out, "index.html"), page),
-	extra && Bun.write(join(out, "route.js"), await bundle(extra.codec)),
-	extra && Bun.write(join(out, "task-route.js"), await bundle(extra.task)),
+	extra && Bun.write(join(out, "route.js"), extra.codec),
+	extra && Bun.write(join(out, "task-route.js"), extra.task),
 ]);
 
 const moqWasm = arg("moq-wasm");
 const sizes = [
 	{ route: "wasm", files: [wasmBytes] },
-	{ route: "hand-written", files: [await bundle(handWritten, { minify: true, plugins: [moq] })] },
-	{ route: "translated", files: [await bundle(translated, { minify: true })] },
-	...(extra ? [{ route: extra.name, files: [await bundle(extra.codec, { minify: true })] }] : []),
+	{ route: "hand-written", files: [handBundle] },
+	{ route: "translated", files: [translation] },
+	...(extra ? [{ route: extra.name, files: [extra.codec] }] : []),
 	{ route: "moq-wasm package", files: [await read(join(moqWasm, "moq_bg.wasm")), await read(join(moqWasm, "moq.js"))] },
 ].map(measureSize);
 
 // The task fixture: its channel, its async functions, and their runtime, as each route ships them.
 const taskSizes = [
 	{ route: "wasm", files: [taskWasmBytes] },
-	{ route: "hand-written", files: [await bundle(taskHand, { minify: true })] },
-	{ route: "translated", files: [await bundle(taskTranslated, { minify: true })] },
-	...(extra ? [{ route: extra.name, files: [await bundle(extra.task, { minify: true })] }] : []),
+	{ route: "hand-written", files: [taskHandBundle] },
+	{ route: "translated", files: [taskTranslation] },
+	...(extra ? [{ route: extra.name, files: [extra.task] }] : []),
 ].map(measureSize);
 
 function measureSize({ route, files }: { route: string; files: Uint8Array[] }) {
@@ -361,7 +364,7 @@ function render(): string {
 		"",
 		"## Bundle size",
 		"",
-		"Bytes for the same workloads, minified by Bun where JS. `moq-wasm package` is what moq",
+		"Bytes for the same workloads, as timed: minified by Bun where JS. `moq-wasm package` is what moq",
 		"ships as WASM today, its bindgen glue included: the whole consume path, not only the codec.",
 		"",
 		"| route | raw | gzip |",
