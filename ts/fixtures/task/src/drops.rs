@@ -476,6 +476,29 @@ fn options(log: &Log, id: u32, at: u8) {
 	let never = false.then_some(guard(18));
 	log.note(format!("then_some {} {}", then.is_some(), never.is_some()));
 	check(5);
+	// Lowered from core's MIR, whose cleanups drop what a panic in a closure leaves.
+	let kept = Some(guard(19)).filter(|g| {
+		check(6);
+		g.id() % 2 == 0
+	});
+	let dropped = Some(guard(20)).filter(|_| false);
+	let zipped = Some(guard(21)).zip(if at % 2 == 0 { Some(guard(22)) } else { None });
+	let other = None.or_else(|| Some(guard(23)));
+	let flag = Some(guard(24)).is_some_and(|g| g.id() > id);
+	log.note(format!(
+		"filter {} {} zip {} or_else {} is_some_and {flag}",
+		kept.is_some(),
+		dropped.is_some(),
+		zipped.is_some(),
+		other.is_some()
+	));
+	let chained = Ok::<Guard, Guard>(guard(25)).and_then(|g| {
+		check(7);
+		Err::<Guard, Guard>(g)
+	});
+	let error = Err::<Guard, Guard>(guard(26)).map_or_else(|e| e.id(), |v| v.id());
+	let cloned = Some(Arc::new(guard(27))).clone();
+	log.note(format!("and_then {} map_or_else {error} clone {}", chained.is_ok(), cloned.is_some()));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and

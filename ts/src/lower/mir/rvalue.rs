@@ -382,10 +382,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			self.pending.remove(i);
 		}
 		let same = self.place_expr(whole, span, out);
-		Some(match whole_ty == ty {
+		let ts_ty = self.b.t.ty(ty, span);
+		Some(match self.b.t.ty(whole_ty, span) == ts_ty {
 			true => same,
 			// Of the variant both share.
-			false => Expr::As(Box::new(same), self.b.t.ty(ty, span)),
+			false => Expr::As(Box::new(same), ts_ty),
 		})
 	}
 

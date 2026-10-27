@@ -3,6 +3,13 @@
 import * as rt from "../rt.ts";
 import type * as Guard from "../model.Guard.ts";
 
+export function isSomeAnd$Option_Guard_options_closure7(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => boolean): boolean {
+	if (self === undefined) {
+		return false;
+	}
+	return f(self);
+}
+
 export function unwrapOr$Option_Guard(self: Guard.Guard | undefined, default_: Guard.Guard): Guard.Guard {
 	let _0!: Guard.Guard;
 	let _5: boolean = false;
@@ -73,6 +80,118 @@ export function okOr$Option_Guard_Guard(self: Guard.Guard | undefined, err: Guar
 		return _0;
 	}
 	return _0;
+}
+
+export function filter$Option_Guard_options_closure4(self: Guard.Guard | undefined, predicate: (a0: Guard.Guard) => boolean): Guard.Guard | undefined {
+	let x!: Guard.Guard;
+	let unwind: number = 0;
+	try {
+		if (self !== undefined) {
+			unwind = 8;
+			x = self;
+			if (!predicate(x)) {
+				unwind = 0;
+				rt.drop(x);
+			} else {
+				return x;
+			}
+		}
+		return undefined;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(x);
+		throw e;
+	}
+}
+
+export function orElse$Option_Guard_options_closure6(self: Guard.Guard | undefined, f: () => Guard.Guard | undefined): Guard.Guard | undefined {
+	let _0!: Guard.Guard | undefined;
+	let _7!: boolean;
+	let unwind: number = 0;
+	try {
+		_7 = false;
+		_7 = true;
+		if (self === undefined) {
+			unwind = 12;
+			_0 = f();
+		} else {
+			_7 = false;
+			_0 = self;
+		}
+		if (_7) {
+			unwind = 0;
+			rt.drop(self);
+			return _0;
+		}
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		if (_7) {
+			rt.drop(self);
+		}
+		throw e;
+	}
+}
+
+export function zip$Option_Guard_Guard(self: Guard.Guard | undefined, other: Guard.Guard | undefined): [Guard.Guard, Guard.Guard] | undefined {
+	let _0!: [Guard.Guard, Guard.Guard] | undefined;
+	let _9!: boolean;
+	let _10!: boolean;
+	let unwind: number = 0;
+	try {
+		b0: {
+			_10 = false;
+			_9 = false;
+			_9 = true;
+			_10 = true;
+			if (self !== undefined) {
+				if (other !== undefined) {
+					_10 = false;
+					const a: Guard.Guard = self;
+					_9 = false;
+					_0 = [a, other] as [Guard.Guard, Guard.Guard];
+					break b0;
+				}
+			}
+			_0 = undefined;
+		}
+		if (self !== undefined) {
+			if (_10) {
+				unwind = 7;
+				rt.drop(self);
+			}
+		}
+		if (other !== undefined) {
+			if (_9) {
+				unwind = 0;
+				rt.drop(other);
+			}
+		}
+		_9 = false;
+		_10 = false;
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		if (other !== undefined) {
+			if (_9) {
+				rt.drop(other);
+			}
+		}
+		throw e;
+	}
+}
+
+export function clone$Clone_Option_Arc_Guard(self: rt.Arc<Guard.Guard> | undefined): rt.Arc<Guard.Guard> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return rt.arcClone(self);
 }
 
 //# sourceMappingURL=option.ts.map

@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped } from "./lib.ts";
-import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_options_closure3_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_options_closure6, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_options_closure3_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_options_closure5, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -521,7 +521,7 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_99 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure6(_99, 170, (b10: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(_99, 170, (b10: rt.u8): rt.u8 => {
 			return b10;
 		}));
 	}

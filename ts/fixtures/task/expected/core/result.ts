@@ -33,6 +33,13 @@ export function err$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>
 	return _0;
 }
 
+export function mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10(self: rt.Result<Guard.Guard, Guard.Guard>, default_: (a0: Guard.Guard) => rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
+	if (self.ok) {
+		return f(self.value);
+	}
+	return default_(self.error);
+}
+
 export function inspectErr$Result_u8_Key_tripped_closure6(self: rt.Result<rt.u8, Key.Key>, f: (a0: Key.Key) => void): rt.Result<rt.u8, Key.Key> {
 	let _9!: boolean;
 	let unwind: number = 0;
@@ -54,6 +61,13 @@ export function inspectErr$Result_u8_Key_tripped_closure6(self: rt.Result<rt.u8,
 		}
 		throw e;
 	}
+}
+
+export function andThen$Result_Guard_Guard_Guard_options_closure8(self: rt.Result<Guard.Guard, Guard.Guard>, op: (a0: Guard.Guard) => rt.Result<Guard.Guard, Guard.Guard>): rt.Result<Guard.Guard, Guard.Guard> {
+	if (self.ok) {
+		return op(self.value);
+	}
+	return self;
 }
 
 export function unwrapOr$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>, default_: Guard.Guard): Guard.Guard {

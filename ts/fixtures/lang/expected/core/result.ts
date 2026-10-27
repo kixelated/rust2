@@ -2,6 +2,48 @@
 
 import * as rt from "../rt.ts";
 
+export function isOkAnd$Result_u8_u16_results_closure5(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
+	if (self.ok) {
+		return f(self.value);
+	}
+	return false;
+}
+
+export function isErrAnd$Result_u8_u16_results_closure6(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => boolean): boolean {
+	if (self.ok) {
+		return false;
+	}
+	return f(self.error);
+}
+
+export function ok$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u8 | undefined {
+	if (self.ok) {
+		return self.value;
+	}
+	return undefined;
+}
+
+export function err$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u16 | undefined {
+	if (self.ok) {
+		return undefined;
+	}
+	return self.error;
+}
+
+export function asRef$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return rt.Ok(self.value);
+	}
+	return rt.Err(self.error);
+}
+
+export function map$Result_Vec_u8_String_Vec_u8_owned_closure6(self: rt.Result<rt.ByteVec, string>, op: (a0: rt.ByteVec) => rt.ByteVec): rt.Result<rt.ByteVec, string> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return self;
+}
+
 export function map$Result_u8_str_u8_library_closure1(self: rt.Result<rt.u8, string>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, string> {
 	if (self.ok) {
 		return rt.Ok(op(self.value));
@@ -9,11 +51,123 @@ export function map$Result_u8_str_u8_library_closure1(self: rt.Result<rt.u8, str
 	return self;
 }
 
+export function map$Result_u8_u16_u8_options_closure13(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return self;
+}
+
+export function mapOr$Result_u8_u16_u8_results_closure7(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+	if (self.ok) {
+		return f(self.value);
+	}
+	return default_;
+}
+
+export function mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(self: rt.Result<rt.u8, rt.u16>, default_: (a0: rt.u16) => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+	if (self.ok) {
+		return f(self.value);
+	}
+	return default_(self.error);
+}
+
 export function mapErr$Result_u8_str_u8_library_closure2(self: rt.Result<rt.u8, string>, op: (a0: string) => rt.u8): rt.Result<rt.u8, rt.u8> {
 	if (self.ok) {
 		return self as rt.Result<rt.u8, rt.u8>;
 	}
 	return rt.Err(op(self.error));
+}
+
+export function mapErr$Result_u8_u16_u16_results_closure14(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u16): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return self;
+	}
+	return rt.Err(op(self.error));
+}
+
+export function inspect$Result_u8_u16_results_closure12(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => void): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		f(self.value);
+	}
+	return self;
+}
+
+export function inspectErr$Result_u8_u16_results_closure13(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => void): rt.Result<rt.u8, rt.u16> {
+	if (!self.ok) {
+		f(self.error);
+	}
+	return self;
+}
+
+export function unwrapOrDefault$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return 0;
+}
+
+export function and$Result_u8_u16_u8(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return res;
+	}
+	return self;
+}
+
+export function andThen$Result_u8_u16_u8_results_closure3(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return op(self.value);
+	}
+	return self;
+}
+
+export function or$Result_u8_u16_u16(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return self;
+	}
+	return res;
+}
+
+export function orElse$Result_u8_u16_u16_results_closure4(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return self;
+	}
+	return op(self.error);
+}
+
+export function unwrapOr$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOrElse$Result_u8_u16_results_closure11(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u8): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return op(self.error);
+}
+
+export function unwrapOrElse$Result_u8_u8_panics_closure1(self: rt.Result<rt.u8, rt.u8>, op: (a0: rt.u8) => rt.u8): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return op(self.error);
+}
+
+export function copied$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+	if (self.ok) {
+		return rt.Ok(self.value);
+	}
+	return self;
+}
+
+export function clone$Clone_Result_Vec_u8_String(self: rt.Result<rt.ByteVec, string>): rt.Result<rt.ByteVec, string> {
+	if (self.ok) {
+		return rt.Ok(rt.byteVecFrom(rt.byteVecView(self.value)));
+	}
+	return rt.Err(self.error);
 }
 
 //# sourceMappingURL=result.ts.map

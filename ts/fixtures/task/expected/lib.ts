@@ -60,6 +60,22 @@ export function drop$Guard_Bomb_Held(_1: [Guard.Guard, Bomb.Bomb, Held.Held]): v
 	}
 }
 
+export function drop$Guard_Guard(_1: [Guard.Guard, Guard.Guard]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
 export function drop$Held(_1: Held.Held): void {
 	let unwind: number = 0;
 	try {
@@ -87,6 +103,12 @@ export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
 export function drop$Option_Box_Held(_1: Held.Held | undefined): void {
 	if (_1 !== undefined) {
 		drop$Held(_1);
+	}
+}
+
+export function drop$Option_Guard_Guard(_1: [Guard.Guard, Guard.Guard] | undefined): void {
+	if (_1 !== undefined) {
+		drop$Guard_Guard(_1);
 	}
 }
 
