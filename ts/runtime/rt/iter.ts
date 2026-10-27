@@ -75,8 +75,12 @@ export abstract class Iter<T> implements Iterable<T>, Disposable {
 	/** `count`, dropping each item by `drop`. */
 	countItems(drop?: Drop<T>): number {
 		let n = 0;
+		if (drop === undefined) {
+			while (this.next() !== DONE) n++;
+			return n;
+		}
 		for (let item = this.next(); item !== DONE; item = this.next()) {
-			drop?.(item);
+			drop(item);
 			n++;
 		}
 		return n;
@@ -577,6 +581,10 @@ export function iterToArray<T>(it: Iter<T>, inPlace = false, dropIt?: Drop<Iter<
 export function iterToByteVec(it: Iter<number>, dropIt?: Drop<Iter<number>>): ByteVec {
 	const out = new ByteVec();
 	// Its own loop: through `iterExtendBytes`, JavaScriptCore took 1.9x as long.
+	if (dropIt === undefined) {
+		for (let item = it.next(); item !== DONE; item = it.next()) byteVecPush(out, item);
+		return out;
+	}
 	try {
 		for (let item = it.next(); item !== DONE; item = it.next()) byteVecPush(out, item);
 	} finally {
