@@ -10,7 +10,7 @@ use super::interface::*;
 use heck::ToShoutySnakeCase;
 
 #[derive(Template)]
-#[template(syntax = "rs", escape = "none", path = "scaffolding_template.rs")]
+#[template(escape = "none", path = "scaffolding/scaffolding_template.rs")]
 pub struct RustScaffolding<'a> {
     ci: &'a ComponentInterface,
     udl_base_name: &'a str,

@@ -113,6 +113,9 @@ jobs:
       - name: Install
         run: nix develop --command just uniffi install
 
+      - name: Symlink
+        run: nix develop --command just uniffi symlink
+
       # The flake packages moq pins.
       - name: Build
         run: nix build .#uniffi
@@ -130,7 +133,7 @@ jobs:
 
       - uses: ./.github/actions/nix
 
-      # Every route in Node, Bun, and Chrome. The numbers go in the run's summary: no
+      # Every route in Node, Bun, Chrome, and Firefox. The numbers go in the run's summary: no
       # threshold fails the job.
       - name: Bench
         run: nix develop .#bench --command just ts bench

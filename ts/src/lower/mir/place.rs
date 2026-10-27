@@ -258,7 +258,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						AdtRepr::Union | AdtRepr::Tags => {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
-							base.member(crate::lower::field_name(def.name.as_str(), field.index()))
+							let name = crate::lower::field_name(def.name.as_str(), field.index());
+							// A cleanup block runs in a `catch`, outside the test that narrowed it.
+							let base = match self.in_cleanup.is_some() {
+								true => {
+									let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+									let v = adt.variant(variant);
+									let mut fields =
+										vec![("tag".to_string(), crate::ts::Type::StrLit(v.name.to_string()))];
+									for (i, f) in v.fields.iter().enumerate() {
+										let field_ty = self.b.t.ty(f.ty(tcx, args).skip_norm_wip(), span);
+										fields.push((crate::lower::field_name(f.name.as_str(), i), field_ty));
+									}
+									Expr::As(Box::new(base), crate::ts::Type::Object(fields))
+								}
+								false => base,
+							};
+							base.member(name)
 						}
 					}
 				}

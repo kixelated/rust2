@@ -1,5 +1,5 @@
 // `just ts bench`: bundles each route, times every workload natively and in Node, Bun,
-// and Chrome, and reports the numbers with each route's bundle size.
+// Chrome, and Firefox, and reports the numbers with each route's bundle size.
 //
 // usage: bun main.ts --translated <dir> --wasm <file> --native <bin> --moq <checkout>
 //                    --moq-wasm <dir> --task <dir> --task-wasm <file> --task-native <bin>
@@ -8,6 +8,7 @@
 // The task fixture's async handoff runs beside the codec, against moq's way with promises.
 // `--route` times the translations in another run's `--out` as one more route, for A/B runs.
 
+import { mkdir, rm } from "node:fs/promises";
 import { cpus, release, totalmem } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -91,7 +92,7 @@ async function read(path: string): Promise<Uint8Array> {
 	return new Uint8Array(await Bun.file(path).arrayBuffer());
 }
 
-// Chrome's page reports an entry that fails to load or throws before it can report itself.
+// The page reports an entry that fails to load or throws before it can report itself.
 const page = `<!doctype html>
 <script>
 	addEventListener("error", (e) => fetch("/error", { method: "POST", body: e.message ?? \`\${e.target.src} failed to load\` }), true);
@@ -238,7 +239,41 @@ async function script(command: string): Promise<Engine> {
 // bodies: a few seconds at the default 10 ms, so this long a silence is a hang.
 const stallMs = Math.max(30_000, 1000 * sampleMs);
 
-async function chrome(): Promise<Engine> {
+/** A browser `browser()` drives: `argv` opens `url` headless on a fresh `profile`. */
+interface Browser {
+	name: string;
+	command: string;
+	argv(url: string, profile: string): string[];
+	/** Writes what `profile` needs before the first launch. */
+	setup?(profile: string): Promise<void>;
+}
+
+// No sandbox: the page is our own, and CI runners refuse the user namespaces it needs.
+const chromium: Browser = {
+	name: "Chrome",
+	command: "chromium",
+	argv: (url, profile) => ["--headless", "--no-sandbox", "--no-first-run", `--user-data-dir=${profile}`, url],
+};
+
+// `--no-remote` keeps a Firefox the user has open from taking the page. The prefs keep a
+// fresh profile from opening a first-run tab beside it.
+const firefox: Browser = {
+	name: "Firefox",
+	command: "firefox",
+	argv: (url, profile) => ["--headless", "--no-remote", "--profile", profile, url],
+	async setup(profile) {
+		const prefs = {
+			"browser.aboutwelcome.enabled": false,
+			"browser.shell.checkDefaultBrowser": false,
+			"browser.startup.homepage_override.mstone": "ignore",
+			"datareporting.policy.dataSubmissionPolicyBypassNotification": true,
+		};
+		const lines = Object.entries(prefs).map(([k, v]) => `user_pref(${JSON.stringify(k)}, ${JSON.stringify(v)});\n`);
+		await Bun.write(join(profile, "user.js"), lines.join(""));
+	},
+};
+
+async function browser({ name, command, argv, setup }: Browser): Promise<Engine> {
 	const { promise, resolve, reject } = Promise.withResolvers<Engine>();
 	let step = "loading the page";
 	let stall: Timer | undefined;
@@ -257,32 +292,34 @@ async function chrome(): Promise<Engine> {
 					step = body;
 					progress();
 				} else if (path === "/result") resolve(JSON.parse(body));
-				else reject(new Error(`Chrome: ${body}`));
+				else reject(new Error(`${name}: ${body}`));
 				return new Response();
 			}
 			const file = Bun.file(join(out, path === "/" ? "index.html" : path.slice(1)));
 			if (!(await file.exists())) return new Response(null, { status: 404 });
-			// Cross-origin isolated, so performance.now() is precise to 5µs rather than 100.
+			// Cross-origin isolated, so performance.now() is precise to 5µs in Chrome and 20µs
+			// in Firefox, rather than 100µs and 1 ms.
 			const headers = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 			return new Response(file, { headers });
 		},
 	});
-	// No sandbox: the page is our own, and CI runners refuse the user namespaces it needs.
+	// A fresh profile each run, so no state from the last one carries over.
+	const profile = join(out, command);
+	await rm(profile, { recursive: true, force: true });
+	await mkdir(profile, { recursive: true });
+	await setup?.(profile);
 	// Its stderr goes to a file, which a child left behind cannot hold open as it can a pipe.
-	const log = join(out, "chrome.log");
-	const proc = Bun.spawn(
-		["chromium", "--headless", "--no-sandbox", "--no-first-run", `--user-data-dir=${join(out, "chrome")}`, server.url.href],
-		{ stdout: "ignore", stderr: Bun.file(log) },
-	);
+	const log = join(out, `${command}.log`);
+	const proc = Bun.spawn([command, ...argv(server.url.href, profile)], { stdout: "ignore", stderr: Bun.file(log) });
 	const fail = async (why: string) => {
 		proc.kill("SIGKILL");
-		reject(new Error(`Chrome ${why}:\n${await Bun.file(log).text()}`));
+		reject(new Error(`${name} ${why}:\n${await Bun.file(log).text()}`));
 	};
 	proc.exited.then((code) => fail(`exited with ${code}`));
 	progress();
 	try {
 		// The user agent reduces the version to its major number.
-		return { ...(await promise), engine: text(["chromium", "--version"]) };
+		return { ...(await promise), engine: text([command, "--version"]) };
 	} finally {
 		proc.kill();
 		// Closing the server first drops any progress still in flight.
@@ -299,7 +336,9 @@ function text(cmd: string[]): string {
 
 const host = await native();
 const engines: Engine[] = [];
-for (const run of [() => script("node"), () => script(process.execPath), chrome]) engines.push(await run());
+for (const run of [() => script("node"), () => script(process.execPath), () => browser(chromium), () => browser(firefox)]) {
+	engines.push(await run());
+}
 
 const report = render();
 await Bun.write(join(out, "report.md"), report);

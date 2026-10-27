@@ -161,7 +161,14 @@ A value drops where Rust drops it, if dropping it does something JS can see: a `
 impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
 elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.Panic`,
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
-panic drops matches native Rust's.
+panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
+an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
+function of its type's own (`drop$Held`). The runtime functions for std's collections,
+`Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
+take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
+go on to the rest of the value and its container, but a hash table leaks its other
+entries, as std's does.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -184,8 +191,9 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 Output is ranked correctness first, speed second, and bundle size third: the
 consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
 constructs such as brand casts and annotations are free. Readable output is not a goal.
-Speed is a browser's: `just ts bench` runs Node and Bun only as stand-ins for V8 and
-JavaScriptCore, as Safari runs it, and where Node disagrees with Chrome, Chrome decides.
+Speed is a browser's: `just ts bench` runs Chrome and Firefox, and Node and Bun only as
+stand-ins for V8 and JavaScriptCore, as Safari runs it; where any engine disagrees with
+Chrome, Chrome decides.
 It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
 bundler's job. Types must be solid at the API boundary: the `roots` items and
 `printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
@@ -299,9 +307,7 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
-takes it, in an iterator, in an enum or generic `Drop` type, passed to a std function
-that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
-collection ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
+takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
 `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
@@ -345,7 +351,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
@@ -373,14 +379,14 @@ does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-
 size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
 helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
 `bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
-native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
+native Rust's first. The JS routes run in Node, Bun, Chrome, and Firefox, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new
 random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary. Chrome's page reports each step it starts,
-and one that runs 30 s fails the run, naming it.
+runs it and posts the report to its summary. Each browser's page reports each step it
+starts, and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
@@ -399,4 +405,4 @@ The route runs both fixtures' translations from that directory's `translated/` a
 Read its gap from `translated` against A/A's, the noise of the same run. No route holds a
 fixed slot, so a gap past that noise is the change, and no reversed run is needed.
 
-The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.
+The bench shell adds Chromium, Firefox, and the wasm-bindgen that builds moq-wasm's package.
