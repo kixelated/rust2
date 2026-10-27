@@ -23,8 +23,9 @@ concurrency:
 
 jobs:
   # A push benches only if it changes what the bench runs since the PR's last benched
-  # head, or since its base before one. Path filters cannot tell which output a flake
-  # change touches, so it counts only if a flake output the bench runs has a new derivation.
+  # head, or since the PR's base while it has none. Path filters cannot tell which output
+  # a flake change touches, so it counts only if a flake output the bench runs has a new
+  # derivation.
   changed:
     name: Changed
     if: github.event_name == 'pull_request'
