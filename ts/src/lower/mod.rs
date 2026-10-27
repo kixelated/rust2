@@ -16,6 +16,7 @@ mod library;
 mod mir;
 mod num;
 mod task;
+mod time;
 
 use std::collections::VecDeque;
 
@@ -1101,6 +1102,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				library::Std::Ordering => Type::Rt("Ordering", vec![]),
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
+				library::Std::Duration => Type::Rt("Duration", vec![]),
 				library::Std::ControlFlow => {
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
 						self.err(span, msg);
