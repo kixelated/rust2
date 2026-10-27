@@ -38,7 +38,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
 - [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate
 - [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
-- [str slicing and &str patterns](/quest/m2/ts-str-slice.md) - `&s[a..b]` and `&str` patterns translate, so `rfind`'s offsets are usable
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR
