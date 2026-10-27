@@ -1,7 +1,9 @@
 //! The entry point both sides of the differential test run. The first byte picks a
 //! case and the rest is its input.
 
-use crate::{chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, shapes, splits, strs};
+use crate::{
+	chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, shapes, splits, strs,
+};
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
 /// [`fmt::Fault`], which the translated side prints from TypeScript in `caller.ts`.
