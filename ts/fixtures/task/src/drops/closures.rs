@@ -149,6 +149,10 @@ pub(super) fn discarded(log: &Log, id: u32, at: u8) {
 		none.map_or(0, move |n| n + l.id()),
 	);
 	log.note(format!("map_or {defaults:?}"));
+	let (m, n) = (guard(13), guard(14));
+	let yes = some.is_some();
+	let thens = (yes.then(move || m.id()), (!yes).then(move || n.id()));
+	log.note(format!("then {thens:?}"));
 	// One that `Fn` calls, which std consumes by `FnOnce`: called, then dropped.
 	let (o, p) = (guard(15), guard(16));
 	let plus = move |n: u32| {

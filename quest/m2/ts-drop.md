@@ -33,7 +33,8 @@ after the half it yields, `next` before); `zip` of two `TrustedRandomAccess` ite
 of items that drop; a `flatten` whose inner iterator holds items once ended, or that a
 `fold` reads where both its source and inner iterators drop; a B-tree's `collect` of
 entries that drop, sorted by the crate's own `Ord`; a `collect` in place of a `zip`
-whose second iterator drops; and `DebugList::entries` of items that drop.
+whose second iterator drops; `successors` of items that drop, which holds the next one;
+and `DebugList::entries` of items that drop.
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on

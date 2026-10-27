@@ -381,7 +381,7 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_7 === 4) {
 		if (!(n === 7)) {
-			rt.assertFailed("==", (f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.u8Display(7, f), undefined);
+			rt.assertFailed("==", (f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.u8Display(7, f), undefined as rt.Arguments | undefined);
 		}
 	} else if (_7 === 5) {
 		const _58: Pair.Pair = { _0: n, _1: 1 };

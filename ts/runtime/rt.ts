@@ -209,6 +209,14 @@ export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void):
 	return undefined;
 }
 
+// Not `then`, which would make the module's namespace a thenable that `await` calls.
+/** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined {
+	if (cond) return f();
+	drop?.(f);
+	return undefined;
+}
+
 // Slices: arrays, but for bytes, which are `ByteSlice`s.
 
 /** A bounds-checked index into a slice. */

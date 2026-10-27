@@ -401,6 +401,17 @@ pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) ->
 	v.iter().any(move |&x| x == id(&a))
 }
 
+/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
+/// `successors` does the item it holds next.
+pub fn owning_lazy() -> usize {
+	let (b, c) = (Noisy(2), Noisy(3));
+	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
+	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
+	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
+	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
+	walked + made + held
+}
+
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
 pub fn cow_matched(c: std::borrow::Cow<'_, str>) -> String {
 	match c {
