@@ -289,7 +289,7 @@ they need.
   `rt.ByteSlice` too, its bytes read in place: the decode workloads then took 0.72 times
   a view's time in Chrome, 0.67 in Firefox, 0.87 in Node, and 0.71 in Bun at the
   geometric mean, with the A/A route within 0.03, and encode no slower. Each split still
-  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views.md)).
+  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
@@ -322,7 +322,7 @@ they need.
 
 Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
 `&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, will
-bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
+bind to hand-written TS through config ([model](/quest/m2/ts-model/README.md)).
 
 ## Not yet
 

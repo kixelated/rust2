@@ -1871,6 +1871,37 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 		}
 		Err(_) => out.push(0),
 	}
+
+	// `then` calls its closure only when true, a function as well as a closure.
+	let mut calls = 0u8;
+	for &x in data.iter().take(6) {
+		let half = (x % 2 == 0).then(|| {
+			calls += 1;
+			x / 2
+		});
+		out.extend_from_slice(&[half.unwrap_or(0xee), calls]);
+		let empty = (x > 0x80).then(Vec::<u8>::new);
+		out.push(empty.map_or(2, |v| v.len() as u8));
+		let flag = x % 3 == 0;
+		out.push(u8::from(flag) + i8::from(flag) as u8 + usize::from(flag) as u8);
+		out.extend_from_slice(&u64::from(flag).to_be_bytes());
+		out.extend_from_slice(&u128::from(flag).to_be_bytes());
+		out.extend_from_slice(&i64::from(flag).to_be_bytes());
+	}
+
+	// `ok_or` of a local TypeScript sees is `undefined`.
+	let none: Option<u8> = None;
+	match none.ok_or(a) {
+		Ok(n) => out.extend_from_slice(&[5, n]),
+		Err(e) => out.extend_from_slice(&[6, e]),
+	}
+	const NONE: Option<u8> = None;
+	for result in [None.ok_or(b), NONE.ok_or(a)] {
+		match result {
+			Ok(n) => out.extend_from_slice(&[5, n]),
+			Err(e) => out.extend_from_slice(&[6, e]),
+		}
+	}
 }
 
 /// Steps a total by `x`: breaks with what it can't take, or continues with the new total.

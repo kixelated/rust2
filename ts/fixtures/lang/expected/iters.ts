@@ -441,16 +441,22 @@ export function fullRange(out: rt.ByteVec): undefined {
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */
 export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const all: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b2: rt.u8): rt.u8 | undefined => {
-		if (!(rt.u8Rem(b2, 3) === 0)) {
-			return b2;
+	const _68: (a0: rt.u8, a1: rt.ByteVec) => rt.u8 | undefined = (b2: rt.u8, calls2: rt.ByteVec): rt.u8 | undefined => {
+		rt.byteVecPush(calls2, b2);
+		return rt.optionMap(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
+			return rt.u8Div(b3, 2);
+		});
+	};
+	const all: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b4: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b4, 3) === 0)) {
+			return b4;
 		}
 		return undefined;
 	}));
 	rt.byteVecPush(out, all.length & 0xff);
-	const iter: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b3: rt.u8): rt.u8 | undefined => {
-		if (!(rt.u8Rem(b3, 3) === 0)) {
-			return b3;
+	const iter: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b5: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b5, 3) === 0)) {
+			return b5;
 		}
 		return undefined;
 	});
@@ -466,18 +472,18 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, item);
 		}
 	}
-	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFlatten(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b4: rt.u8): rt.u8 | undefined => {
-		if (!(rt.u8Rem(b4, 3) === 0)) {
-			return b4;
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFlatten(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b6: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b6, 3) === 0)) {
+			return b6;
 		}
 		return undefined;
 	}), (value: rt.u8 | undefined) => rt.iterOption(value)))));
 	rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterSlice(all), (o: rt.u8 | undefined): boolean => {
 		return o !== undefined;
 	})) & 0xff);
-	rt.byteVecPush(out, rt.optionUnwrapOr(second$Map_Iter_u8_options_closure0(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b5: rt.u8): rt.u8 | undefined => {
-		if (!(rt.u8Rem(b5, 3) === 0)) {
-			return b5;
+	rt.byteVecPush(out, rt.optionUnwrapOr(second$Map_Iter_u8_options_closure0(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b7: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b7, 3) === 0)) {
+			return b7;
 		}
 		return undefined;
 	})), 205));
@@ -498,14 +504,24 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		n = rt.u8Add(n, 1);
 		return rt.thenSome(n < 4, n);
 	}))));
+	const calls: rt.ByteVec = new rt.ByteVec();
+	const first2: rt.u8 | undefined = rt.byteSliceFirst(data);
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterTake(rt.iterSuccessors(first2, (b8: rt.u8): rt.u8 | undefined => {
+		return _68(b8, calls);
+	}), rt.usizeRem(data.length, 4)))));
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(calls));
+	rt.byteVecPush(out, rt.iterCount(rt.iterSuccessors(first2, (b9: rt.u8): rt.u8 | undefined => {
+		return _68(b9, calls);
+	})) & 0xff);
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(calls));
 	const iter3: Gaps.Gaps = { data, at: 0 };
 	while (true) {
-		const _70: rt.u8 | undefined | rt.Done = Gaps.next$Iterator(iter3);
-		if (_70 === rt.DONE) {
+		const _99: rt.u8 | undefined | rt.Done = Gaps.next$Iterator(iter3);
+		if (_99 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, rt.optionMapOr(_70, 170, (b6: rt.u8): rt.u8 => {
-			return b6;
+		rt.byteVecPush(out, rt.optionMapOr(_99, 170, (b10: rt.u8): rt.u8 => {
+			return b10;
 		}));
 	}
 }
