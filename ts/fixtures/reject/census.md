@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 74
-- Function instances: 61
+- Refusals: 76
+- Function instances: 62
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -14,6 +14,7 @@
 | 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:15:13 |
 | 4 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:107:2 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
+| 3 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:50:1 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:127:20 |
 | 2 | a field of `_` | fixtures/reject/src/lib.rs:289:7 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:186:1 |
@@ -44,7 +45,6 @@
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:74:2 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:299:52 |
-| 1 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:50:1 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:299:52 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:87:3 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:82:3 |
@@ -209,6 +209,14 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:6:25: unsupported type `f64`
 - fixtures/reject/src/lib.rs:10:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:116:51: unsupported type `f64`
+
+</details>
+
+<details><summary>dropping a closure that owns a value that drops, which is not supported yet (3)</summary>
+
+- fixtures/reject/src/lib.rs:50:1: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:390:12: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:394:12: dropping a closure that owns a value that drops, which is not supported yet
 
 </details>
 
@@ -394,12 +402,6 @@ The type or module each refused type or path belongs to.
 <details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:299:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
-
-</details>
-
-<details><summary>dropping a closure that owns a value that drops, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:50:1: dropping a closure that owns a value that drops, which is not supported yet
 
 </details>
 

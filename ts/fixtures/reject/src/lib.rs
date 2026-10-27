@@ -382,3 +382,18 @@ pub fn pushed(s: &mut String) {
 pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
 }
+
+/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok`, and with
+/// it what it captured, which lives in an arrow function.
+pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
+	let (m, n) = (Noisy(1), Noisy(2));
+	let a = a.map(move |x| {
+		drop(m);
+		x
+	});
+	let b = b.map_err(move |e| {
+		drop(n);
+		e
+	});
+	a.unwrap_or(0) + b.unwrap_or(0)
+}

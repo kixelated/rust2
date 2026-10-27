@@ -23,10 +23,11 @@ and `drops/iters.rs` check these against native Rust, natively unwinding too.
 What still fails translation, by the census at the pinned moq revision (moq-net's, then
 kio's):
 
-- A closure that owns a value that drops, dropped without a call that takes it (8, 0).
-  An arrow function has no `[Symbol.dispose]`; one that owns droppable captures needs
-  one, and so do the adaptors that hold it (`map`'s, `filter`'s), which drop it after
-  their iterator, as std's fields do.
+- A closure that owns a value that drops, dropped without a call that takes it (17, 0),
+  as `Option::map` drops it on `None` and `Result::map` on an error. An arrow function
+  has no `[Symbol.dispose]`; one that owns droppable captures needs one, and so do the
+  adaptors that hold it (`map`'s, `filter`'s), which drop it after their iterator, as
+  std's fields do.
 
 Refused with none in the census, each where std's order is one JS's can't follow yet:
 `into_keys` and `into_values` of a hash map whose other half drops (`fold` drops it

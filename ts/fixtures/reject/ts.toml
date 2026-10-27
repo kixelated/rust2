@@ -46,6 +46,7 @@ roots = [
     "shared",
     "pushed",
     "split_chars",
+    "discarded_closure",
     "missing",
 ]
 printable = ["Meters"]

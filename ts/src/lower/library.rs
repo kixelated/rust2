@@ -380,8 +380,7 @@ pub struct Call<'tcx> {
 /// any other mapping, which is refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
-		("Option", "map" | "unwrap" | "expect")
-		| ("Result", "map" | "map_err" | "and_then")
+		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
 		| ("Box", "new")
 		| ("mem", "replace" | "take" | "swap")
@@ -393,6 +392,10 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Option", "ok_or") => &[1],
 		("Option", "unwrap_or") => &[0],
 		("Option", "map_or") => &[1, 2],
+		// `Option<T>::map::<U, F>` drops its closure on `None`, and `Result<T, E>`'s
+		// `map::<U, F>` and `and_then::<U, F>` on an error, as `map_err::<F, O>` on a value.
+		("Option", "map") => &[2],
+		("Result", "map" | "map_err" | "and_then") => &[3],
 		// `Result<T, E>::ok` drops an error, `err` a value, and `unwrap_or` its fallback or
 		// the error.
 		("Result", "ok") => &[1],
