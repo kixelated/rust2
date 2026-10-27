@@ -208,8 +208,7 @@ export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: r
 			if (!(start < end)) {
 				continue l2;
 			}
-			const slice = _6[1];
-			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(slice, start, end), Form.from$From_Version(version));
+			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(_6[1], start, end), Form.from$From_Version(version));
 			const _32: rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError> = frameHeader(r);
 			if (_32.ok) {
 				const delta: rt.i64 = _32.value[0];
@@ -223,8 +222,7 @@ export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: r
 					short = rt.usizeAdd(short, 1);
 					continue l2;
 				}
-				const _0: rt.Result<undefined, DecodeError.DecodeError> = rt.Err(_32.error);
-				return _0;
+				return rt.Err(_32.error);
 			}
 		}
 	}
@@ -256,8 +254,7 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 export function encodeGroup(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
 	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const group: Group.Group = { subscribe: _6[0], sequence: takeU64(_6[1])[0], frameStart: 0 };
-	const _12: Encoder.Encoder = Encoder.new(out, Form.from$From_Version(version));
-	return Group.encode$Encode_Version(group, _12, version);
+	return Group.encode$Encode_Version(group, Encoder.new(out, Form.from$From_Version(version)), version);
 }
 
 /**
@@ -285,10 +282,7 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let iterStart2: rt.u32 = 0;
 	const iterEnd2: rt.u32 = count2;
 	while ((_28 = iterStart2++) < iterEnd2) {
-		const i2: rt.u32 = _28;
-		const _42: rt.u32 = rt.u32Sub(count2, 1);
-		const part = rt.u32Sub(_42, i2);
-		const _38: rt.u32 = _10(part);
+		const _38: rt.u32 = _10(rt.u32Sub(rt.u32Sub(count2, 1), _28));
 		sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
 	}
 	const _49: rt.Range<rt.u32> = new rt.Range(1 << 14, 2 << 14);
@@ -321,8 +315,7 @@ export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			return (_212 & 1) === 0;
 		})));
 	} else if (chain === 1) {
-		const _11: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-		rt.byteVecPush(out, rt.iterAny(_11, (_210: rt.u8): boolean => {
+		rt.byteVecPush(out, rt.iterAny(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): boolean => {
 			return _210 === 255;
 		}) ? 1 : 0);
 	} else if (chain === 2) {
@@ -437,8 +430,7 @@ export function stamp(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const iter: rt.Range<rt.u64> = new rt.Range(0, count, rt.u64Step);
 	while (true) {
 		const step2: Timestamp.Timestamp = { value: step, scale };
-		const _22: rt.u64 | rt.Done = iter.next();
-		if (_22 === rt.DONE) {
+		if (iter.next() === rt.DONE) {
 			break;
 		}
 		const _25: Timestamp.Timestamp | undefined = Timestamp.checkedAdd(time, step2);
@@ -474,19 +466,13 @@ export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let switches: rt.u64 = 0;
 	let lastA: boolean = true;
 	const iter: rt.Range<rt.u64> = new rt.Range(0, count, rt.u64Step);
-	while (true) {
-		const _21: rt.u64 | rt.Done = iter.next();
-		if (_21 === rt.DONE) {
-			break;
-		}
+	while (iter.next() !== rt.DONE) {
 		const takeA: boolean = Timestamp.partialCmp$PartialOrd(a, b) === -1;
 		if (!takeA) {
-			const _29: rt.u64 = rt.u64Add(b.value, bStep);
-			b.value = _29;
+			b.value = rt.u64Add(b.value, bStep);
 			fromB = rt.u64Add(fromB, 1);
 		} else {
-			const _27: rt.u64 = rt.u64Add(a.value, aStep);
-			a.value = _27;
+			a.value = rt.u64Add(a.value, aStep);
 			fromA = rt.u64Add(fromA, 1);
 		}
 		if (takeA !== lastA) {

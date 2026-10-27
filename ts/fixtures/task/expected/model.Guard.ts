@@ -84,7 +84,7 @@ export function unbox(self: Guard, event: string): rt.u32 {
 }
 
 export function drop$Drop(self: Guard): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["g", args2[0], " drop"]);
 	Log.note(self.log, _4);

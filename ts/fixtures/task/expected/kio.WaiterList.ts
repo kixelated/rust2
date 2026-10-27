@@ -16,30 +16,19 @@ function new_(): WaiterList {
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	const weak: rt.Weak<rt.Waker> = new rt.Weak(waiter.shared);
-	const iterS: rt.Weak<rt.Waker>[] = self.entries;
-	let iterI: number = 0;
 	b1: {
-		while (true) {
-			const _8: rt.Weak<rt.Waker> | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_8 === rt.DONE) {
-				break;
-			}
+		for (const _8 of self.entries) {
 			if (_8.arc === weak.arc) {
 				break b1;
 			}
 		}
 		let probes: rt.usize = rt.min(self.entries.length, 2);
 		while (probes > 0) {
-			const _23: rt.usize = self.cursor;
-			const at = rt.idx(self.entries, _23);
-			if (!(self.entries[at].arc.strong === 0)) {
+			if (!(self.entries[rt.idx(self.entries, self.cursor)].arc.strong === 0)) {
 				self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
 				probes = rt.usizeSub(probes, 1);
 			} else {
-				const _24: rt.Weak<rt.Waker> = weak;
-				const _27: rt.usize = self.cursor;
-				const at2 = rt.idx(self.entries, _27);
-				self.entries[at2] = _24;
+				self.entries[rt.idx(self.entries, self.cursor)] = weak;
 				break b1;
 			}
 		}
@@ -47,20 +36,12 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 			const live: rt.Weak<rt.Waker>[] = [];
 			const taken = self.entries;
 			self.entries = [];
-			const iterS2: rt.Weak<rt.Waker>[] = taken;
-			let iterI2: number = 0;
-			while (true) {
-				const _43: rt.Weak<rt.Waker> | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_43 === rt.DONE) {
-					break;
-				}
-				const entry: rt.Weak<rt.Waker> = _43;
+			for (const entry of taken) {
 				if (entry.arc.strong > 0) {
 					live.push(entry);
 				}
 			}
-			const _53: rt.Weak<rt.Waker>[] = live;
-			self.entries = _53;
+			self.entries = live;
 			self.cursor = 0;
 		}
 		self.entries.push(weak);
@@ -83,13 +64,7 @@ export function wake(self: WaiterList): void {
 		self.cursor = 0;
 		const taken = self.entries;
 		self.entries = [];
-		const iterS: rt.Weak<rt.Waker>[] = taken;
-		let iterI: number = 0;
-		while (true) {
-			const _6: rt.Weak<rt.Waker> | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_6 === rt.DONE) {
-				break;
-			}
+		for (const _6 of taken) {
 			const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
 			if (_10 !== undefined) {
 				unwind = 15;
