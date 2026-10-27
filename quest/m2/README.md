@@ -34,7 +34,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
-- [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate
 - [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
