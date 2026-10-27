@@ -4,19 +4,20 @@ import * as rt from "./rt.ts";
 import { put } from "./fmt.ts";
 
 /** The scalars to try: the edges, then each big-endian `u32` in `data`, zero-padded. */
-export function scalars(data: Uint8Array): rt.u32[] {
+export function scalars(data: rt.ByteSlice): rt.u32[] {
 	const all: rt.u32[] = [0, 127, 128, 255, 256, 2047, 2048, 55295, 55296, 56319, 56320, 57343, 57344, 65533, 65535, 65536, 1114109, 1114111, 1114112, 4294967295].slice();
-	let rest: Uint8Array = data;
+	let rest: rt.ByteSlice = data;
 	while (true) {
 		if (!((rest.length === 0))) {
 			const buf: Uint8Array = rt.bytes(4);
 			const n: rt.usize = rt.min(rest.length, 4);
-			const _13: Uint8Array = rt.sliceRange(buf, 0, n);
-			const _17: Uint8Array = rest;
-			rt.sliceCopyFromSlice(_13, rt.sliceRange(_17, 0, n));
+			const slice = rt.byteSliceFrom(buf);
+			const _13: rt.ByteSlice = rt.byteSliceRange(slice, 0, n);
+			const _17: rt.ByteSlice = rest;
+			rt.byteSliceCopyFromSlice(_13, rt.byteSliceRange(_17, 0, n));
 			all.push(rt.u32FromBeBytes(buf));
-			const _24: Uint8Array = rest;
-			rest = rt.sliceRange(_24, n);
+			const _24: rt.ByteSlice = rest;
+			rest = rt.byteSliceRange(_24, n);
 		} else {
 			return all;
 		}
@@ -67,7 +68,7 @@ export function class_(c: rt.char): rt.u8 {
 	return 2;
 }
 
-export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+export function chars(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _4: rt.u8 = rt.u8Rem(kind, 4);
 	if (_4 === 0) {
 		const iterS: rt.u32[] = scalars(data);
@@ -83,7 +84,7 @@ export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			} else {
 				const c: rt.char = _14;
 				rt.byteVecPush(out, class_(c));
-				rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(c as rt.u32));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(c as rt.u32)));
 			}
 		}
 	} else if (_4 === 1) {
@@ -97,14 +98,14 @@ export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			const n2: rt.u32 = _27;
 			const c2: rt.char = rt.optionUnwrapOr(rt.charFromU32(n2), (n2 & 0xff) as rt.char);
 			rt.byteVecPush(out, c2 & 0xff);
-			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(c2 & 0xffff));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(c2 & 0xffff)));
 			rt.byteVecPush(out, ((c2 << 24) >> 24) & 0xff);
-			rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes((c2 << 16) >> 16));
-			rt.byteVecExtendFromSlice(out, rt.i32ToBeBytes(c2 as rt.i32));
-			rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(c2 as rt.u64));
-			rt.byteVecExtendFromSlice(out, rt.i128ToBeBytes(c2 as rt.i128));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes((c2 << 16) >> 16)));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(c2 as rt.i32)));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(c2 as rt.u64)));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i128ToBeBytes(c2 as rt.i128)));
 			rt.byteVecPush(out, ((n2 & 0xff) as rt.char) & 0xff);
-			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(((c2 as rt.u32) & 0xff) as rt.u16));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(((c2 as rt.u32) & 0xff) as rt.u16)));
 		}
 	} else if (_4 === 2) {
 		const cs: rt.char[] = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(scalars(data)), (a0: rt.u32): rt.char | undefined => {
@@ -133,7 +134,7 @@ export function chars(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			if (_128 === rt.DONE) {
 				break;
 			}
-			rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(_128 as rt.u32));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(_128 as rt.u32)));
 		}
 	} else {
 		const iterS3: rt.u32[] = scalars(data);

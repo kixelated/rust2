@@ -18,7 +18,12 @@ all and an export names another's types across crates. `--out` writes a crate of
 libraries, its runtime beside it, and the header in `include/<prefix>.h`; `cargo build`
 on that crate makes a static and a shared library. That crate enables each export's
 features as the check did, including `--features <export>/<feature>`; such a feature on a
-dependency that is no export is an error.
+dependency that is no export is an error. It resolves them as the check did, wherever it
+is built: its manifest carries, as a `[patch]`, each patch or `[replace]` cargo applied
+to what the library builds with on any platform, read off cargo's resolution, wherever
+it was declared (the manifest, cargo's config, `--config`, or the environment), keyed by
+its source's URL.
+A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -128,7 +133,7 @@ rest. It ignores the config's `exclude`.
 
 ```bash
 just ffi test     # export the fixtures, build them, and drive api from C
-just ffi moq      # export moq-net and its exports at the pinned revision, build them, and run moq/moq.c
+just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c
 just ffi census   # census each into target/census
 nix develop .#bench --command just ffi bench  # frame writes, through the export and moq's rs/moq-c
 ```
@@ -138,5 +143,7 @@ export into the same library. `tests/api.c` runs the same script as the
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
 then it breaks each runtime check, which must abort with its message. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
-moq-net's `moq/moq.c` publishes and subscribes to a track in one process, polling each
-read, and scopes an origin to moq-pattern's patterns.
+moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
+writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
+track in one process, polling each read, scopes an origin to moq-pattern's patterns, and
+reads an OpusHead into hang's catalog through moq-mux.

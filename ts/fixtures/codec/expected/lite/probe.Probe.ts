@@ -12,7 +12,7 @@ import * as Version from "../lite/version.Version.ts";
 import type * as Control from "../stats.Control.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
+export function decodeSlice$Decode_Version(buf: rt.ByteSlice, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
 	const _6: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {

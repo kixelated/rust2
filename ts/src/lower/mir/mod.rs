@@ -24,7 +24,7 @@ use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
 use rustc_middle::mir::{self, BasicBlock, Local, Operand, Place, Rvalue, StatementKind, TerminatorKind};
 use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
-use rustc_span::Span;
+use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
 use super::Translator;
@@ -140,7 +140,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	defs: IndexVec<Local, u32>,
 	/// Locals something borrows, which a call or closure can change behind a read.
 	borrowed: IndexVec<Local, bool>,
-	/// Locals changed in place: assigned through a projection, or borrowed mutably.
+	/// Locals changed in place: assigned through a projection, borrowed mutably, or moved,
+	/// holding a `Copy` aggregate, into what can change it later: a field, a local changed
+	/// in place, or a call that `keeps` it. The return place is one when its caller has no
+	/// copy to make. Each holds its own JS objects, which a move hands over uncopied.
 	mutated: IndexVec<Local, bool>,
 	/// The names of borrowed locals.
 	shared: FxHashSet<String>,
@@ -294,6 +297,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.find_ignored_sites();
 		self.find_noops();
 		let mut bounds = Vec::new();
+		// Locals whose value moves whole into another's, `(to, from)`.
+		let mut moves = Vec::new();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			if data.statements.iter().all(|s| {
 				matches!(
@@ -316,6 +321,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 						self.def(*place);
 						self.rvalue_uses(rvalue);
+						let ops = match rvalue {
+							Rvalue::Use(op, _) => std::slice::from_ref(op),
+							Rvalue::Aggregate(_, ops) => &ops.raw[..],
+							_ => &[],
+						};
+						let moved: Vec<Local> = ops.iter().filter_map(|op| self.moved_from(op)).collect();
+						for from in moved {
+							match place.as_local() {
+								Some(to) => moves.push((to, from)),
+								// Into a field or through a reference, which changes in place.
+								None => self.mutated[from] = true,
+							}
+						}
 						if let Rvalue::BinaryOp(op, _) = rvalue
 							&& op.overflowing_to_wrapping().is_some()
 							&& let Some(local) = place.as_local()
@@ -333,7 +351,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let term = data.terminator();
 			match &term.kind {
 				TerminatorKind::SwitchInt { discr, .. } => self.operand_use(discr),
-				TerminatorKind::Return => self.uses[mir::RETURN_PLACE] += 1,
+				TerminatorKind::Return => {
+					self.uses[mir::RETURN_PLACE] += 1;
+					// The caller can change what it holds, and has no copy to make.
+					if self.moves_copied(mir.local_decls[mir::RETURN_PLACE].ty) {
+						self.mutated[mir::RETURN_PLACE] = true;
+					}
+				}
 				// A drop JS can't see reads nothing.
 				TerminatorKind::Drop { place, .. } => {
 					if self.b.t.drops(place.ty(&mir.local_decls, self.tcx).ty) {
@@ -348,20 +372,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				} => {
 					self.operand_use(func);
 					let result = destination.ty(&mir.local_decls, self.tcx).ty;
+					let translated = self.translated(func);
 					for arg in args.iter() {
 						self.operand_use(&arg.node);
-						if let Operand::Copy(p) | Operand::Move(p) = &arg.node
-							&& let Some(local) = p.as_local()
-						{
+						let (Operand::Copy(p) | Operand::Move(p)) = &arg.node else {
+							continue;
+						};
+						let part = p.ty(&mir.local_decls, self.tcx).ty;
+						let kept = self.keeps(translated, args, part, result);
+						if kept && let Some(from) = self.moved_from(&arg.node) {
+							self.mutated[from] = true;
+						}
+						if let Some(local) = p.as_local() {
 							// A callee given nothing that can change what the argument is can't
 							// change its source while it runs.
-							let part = mir.local_decls[local].ty;
 							let alone = !std::iter::once(func)
 								.chain(args.iter().map(|a| &a.node))
 								.any(|op| self.changes(op.ty(&mir.local_decls, self.tcx), part));
 							self.arg_use[local] = true;
 							self.arg_alone[local] = alone;
-							self.arg_kept[local] = self.holds(result, part);
+							self.arg_kept[local] = kept || self.holds(result, part);
 						}
 					}
 					self.def(*destination);
@@ -378,6 +408,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 				}
 				_ => {}
+			}
+		}
+		// What moves into a local changed in place must be its source's own too.
+		let mut changed = true;
+		while std::mem::take(&mut changed) {
+			for &(to, from) in &moves {
+				if self.mutated[to] && !self.mutated[from] {
+					self.mutated[from] = true;
+					changed = true;
+				}
 			}
 		}
 		// A bounds check of a slice's length is `rt.idx` of the slice; others test their
@@ -2346,6 +2386,126 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		})
 	}
 
+	/// Whether a call given `args`, of std's code unless `translated`, may change what it
+	/// takes by value of type `part` in place after its source gave it: a value with no
+	/// copy holding a `Copy` aggregate, whatever the callee, or a `Copy` aggregate std
+	/// keeps, or keeps a part of, in its result or where another argument reaches, as
+	/// `Vec::push` keeps it in the vector. The crate's own code copies a `Copy` aggregate
+	/// it keeps itself.
+	pub(super) fn keeps(
+		&self,
+		translated: bool,
+		args: &[Spanned<Operand<'tcx>>],
+		part: Ty<'tcx>,
+		result: Ty<'tcx>,
+	) -> bool {
+		if self.moves_copied(part) {
+			return true;
+		}
+		!translated
+			&& self.copied_parts(part).into_iter().any(|t| {
+				self.holds_behind(result, t)
+					|| args
+						.iter()
+						.any(|a| self.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
+			})
+	}
+
+	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
+	/// pointer, or a mutable reference to or interior mutability around what could hold one.
+	fn stores(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		use rustc_middle::ty::TypeVisitableExt;
+		let env = self.b.t.typing_env_pub();
+		self.reaches(ty, |t| match t.kind() {
+			ty::RawPtr(..) => true,
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
+			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
+		})
+	}
+
+	/// The local whose own value `op` moves out, which nothing reads after, if it holds a
+	/// `Copy` aggregate: by `move`, or by `copy` of a type that isn't `Copy`, as optimized
+	/// MIR moves too.
+	pub(super) fn moved_from(&self, op: &Operand<'tcx>) -> Option<Local> {
+		let (Operand::Copy(p) | Operand::Move(p)) = op else {
+			return None;
+		};
+		let ty = p.ty(&self.mir.local_decls, self.tcx).ty;
+		let moves = matches!(op, Operand::Move(_)) || !self.b.t.is_copy(ty);
+		(moves && own(*p) && self.holds_copied(ty)).then_some(p.local)
+	}
+
+	/// Whether a value of `ty` has no copy to make but holds a `Copy` aggregate by value,
+	/// so wherever it moves can change what it holds, which must then be its own.
+	fn moves_copied(&self, ty: Ty<'tcx>) -> bool {
+		!self.b.t.is_copy(ty) && self.holds_copied(ty)
+	}
+
+	/// Whether a value of `ty` is or holds by value a `Copy` aggregate.
+	fn holds_copied(&self, ty: Ty<'tcx>) -> bool {
+		!self.copied_parts(ty).is_empty()
+	}
+
+	/// The `Copy` aggregates, JS objects Rust code copies, that a value of `ty` is or holds
+	/// by value, not behind a reference, in any of which std could take it apart.
+	fn copied_parts(&self, ty: Ty<'tcx>) -> Vec<Ty<'tcx>> {
+		let mut parts = Vec::new();
+		let mut seen = FxHashSet::default();
+		let mut stack = vec![ty];
+		while let Some(ty) = stack.pop() {
+			if !seen.insert(ty) {
+				continue;
+			}
+			if self.b.t.needs_copy(ty) {
+				parts.push(ty);
+			}
+			match ty.kind() {
+				ty::Tuple(tys) => stack.extend(tys.iter()),
+				ty::Array(elem, _) | ty::Slice(elem) => stack.push(*elem),
+				ty::Adt(adt, args) if adt.did().is_local() => {
+					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)))
+				}
+				ty::Adt(_, args) => stack.extend(args.types()),
+				ty::Closure(_, args) => stack.extend(args.as_closure().upvar_tys()),
+				_ => {}
+			}
+		}
+		parts
+	}
+
+	/// Whether `func` is a function the crate translates, rather than std's.
+	pub(super) fn translated(&self, func: &Operand<'tcx>) -> bool {
+		match *func.ty(&self.mir.local_decls, self.tcx).kind() {
+			ty::FnDef(def_id, args) => self.b.t.translated(def_id, args.skip_binder()),
+			_ => false,
+		}
+	}
+
+	/// Whether a value of `ty` could hold a `part` where changing it in place changes no
+	/// local holding the value: behind a box, a reference, or a collection. One it holds
+	/// in a field or a variant changes in place only as its local does, which copies it.
+	fn holds_behind(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		if ty == part {
+			return false;
+		}
+		use crate::lower::library::Std;
+		match ty.kind() {
+			ty::Tuple(tys) => tys.iter().any(|t| self.holds_behind(t, part)),
+			ty::Array(elem, _) => self.holds_behind(*elem, part),
+			ty::Adt(adt, args)
+				if adt.did().is_local()
+					|| matches!(
+						self.b.t.std_of(ty),
+						Some(Std::Option | Std::Result | Std::ControlFlow | Std::Poll)
+					) =>
+			{
+				adt.all_fields()
+					.any(|field| self.holds_behind(self.b.t.field_ty(field.did, args), part))
+			}
+			_ => self.holds(ty, part),
+		}
+	}
+
 	/// Whether a value of `ty` could hold a `part`: holds its type, or hides what it holds.
 	fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		// An array and a slice of its element share storage through an unsizing coercion.
@@ -2387,7 +2547,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 /// Whether `place` is part of its local's own value, rather than reached through a
 /// reference or pointer.
-fn own(place: Place<'_>) -> bool {
+pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
 		.iter()

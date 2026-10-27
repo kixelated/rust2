@@ -58,7 +58,7 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 }
 
 /// Each export's package, as [`config::env::CRATES`] lists them: the configured package
-/// first. Then its workspace's patches, as [`config::env::PATCH`] has them.
+/// first. Then the patches it resolved with, as [`config::env::PATCH`] has them.
 fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String, String), String> {
 	let picks = Picks::parse(cargo)?;
 	// On the host, so the resolved dependencies are the ones the check passes rustc.
@@ -159,48 +159,123 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String,
 		}
 		lines.push_str(&package.line());
 	}
-	Ok((lines, patches(&metadata.workspace_root)?))
+	// Every platform's dependencies, which cargo resolves wherever the glue builds.
+	let output = run_cargo(manifest, &["metadata", "--format-version", "1"], &picks)?;
+	let resolved: Metadata = serde_json::from_slice(&output).map_err(|err| format!("reading cargo metadata: {err}"))?;
+	Ok((lines, overrides(&resolved, top)?))
 }
 
-/// The workspace's `[patch]` and `[replace]` tables, with each path absolute, so the
-/// glue's own workspace resolves the exports as the check does.
-fn patches(root: &Path) -> Result<String, String> {
-	let manifest = root.join("Cargo.toml");
-	let text = std::fs::read_to_string(&manifest).map_err(|err| format!("reading {}: {err}", manifest.display()))?;
-	let table: toml::Table = text
-		.parse()
-		.map_err(|err| format!("parsing {}: {err}", manifest.display()))?;
-	toml::to_string(&overrides(&table, root))
-		.map_err(|err| format!("writing the patches of {}: {err}", manifest.display()))
+/// The `[patch]` the glue's workspace resolves the exports by as the check did, wherever
+/// it builds, as TOML with each path absolute.
+fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
+	let patch = patch(metadata, top)?;
+	let mut overrides = toml::Table::new();
+	if !patch.is_empty() {
+		overrides.insert("patch".to_string(), patch.into());
+	}
+	toml::to_string(&overrides).map_err(|err| format!("writing the patches: {err}"))
 }
 
-/// A manifest's `[patch.<source>]` and `[replace]` dependencies, each path made absolute
-/// from `root`, the manifest's directory.
-fn overrides(manifest: &toml::Table, root: &Path) -> toml::Table {
-	let mut overrides = manifest.clone();
-	overrides.retain(|key, _| key == "patch" || key == "replace");
-	let mut deps: Vec<&mut toml::Value> = Vec::new();
-	for (key, value) in overrides.iter_mut() {
-		let Some(table) = value.as_table_mut() else {
+/// Each patch cargo applied in resolving what `top` builds with on any platform, wherever
+/// it was declared: the manifest, cargo's config, `--config`, or the environment. A
+/// dependency resolved to a package of another source than the one it names was patched,
+/// or `[replace]`d by a package of the same version, which a patch resolves to alike; it
+/// is keyed by the URL of the source it names, which reads the same without that config.
+fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
+	let packages: BTreeMap<&str, &Package> = metadata.packages.iter().map(|p| (p.id.as_str(), p)).collect();
+	let nodes: BTreeMap<&str, &Node> = metadata.resolve.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+	let mut patch = toml::Table::new();
+	let mut seen = BTreeSet::new();
+	let mut queue = vec![top.id.as_str()];
+	while let Some(id) = queue.pop() {
+		let (true, Some(package), Some(node)) = (seen.insert(id), packages.get(id), nodes.get(id)) else {
 			continue;
 		};
-		match key.as_str() {
-			// A table of dependencies for each source.
-			"patch" => deps.extend(
-				(table.iter_mut())
-					.filter_map(|(_, source)| source.as_table_mut())
-					.flat_map(|source| source.iter_mut().map(|(_, dep)| dep)),
-			),
-			_ => deps.extend(table.iter_mut().map(|(_, dep)| dep)),
+		// What the library builds, not what tests do.
+		let built = |kind: &Option<String>| kind.as_deref() != Some("dev");
+		for dep in node.deps.iter().filter(|d| d.dep_kinds.iter().any(|k| built(&k.kind))) {
+			queue.push(&dep.pkg);
+			let Some(resolved) = packages.get(dep.pkg.as_str()) else {
+				continue;
+			};
+			// Unrenamed, the edge is named by the library's crate name.
+			let lib = (resolved.targets.iter()).find(|t| t.kind.iter().any(|k| k.contains("lib") || k == "proc-macro"));
+			let named = (package.dependencies.iter()).find(|d| {
+				let name = d.rename.as_deref().or(lib.map(|t| t.name.as_str()));
+				built(&d.kind) && d.name == resolved.name && name.map(|n| n.replace('-', "_")) == Some(dep.name.clone())
+			});
+			// A path dependency names no source to patch.
+			let Some(named) = named.and_then(|d| d.source.as_deref()) else {
+				continue;
+			};
+			// A git package's source adds the commit it resolved to.
+			let source = resolved.source.as_deref().map(|s| s.split('#').next().unwrap_or(s));
+			if source == Some(named) {
+				continue;
+			}
+			let key = patch_key(named)?;
+			let replacement = match resolved.source.as_deref() {
+				None => {
+					let dir = resolved.manifest_path.parent().expect("a manifest path has a parent");
+					toml::toml! { path = (dir.display().to_string()) }
+				}
+				Some(git) if git.starts_with("git+") => {
+					let (url, rev) = git["git+".len()..].split_once('#').unwrap_or((git, ""));
+					let url = url.split('?').next().unwrap_or(url);
+					// Only a `[replace]` resolves a package to another commit of the source
+					// the dependency names; cargo refuses a patch from that source.
+					if url == key {
+						return Err(format!(
+							"{} {} is replaced from its own source, which a `[patch]` of the export's library cannot carry",
+							resolved.name, resolved.version
+						));
+					}
+					// A repository may hold several versions of the package.
+					let version = format!("={}", resolved.version);
+					toml::toml! { git = url rev = rev version = version }
+				}
+				Some(other) => {
+					return Err(format!(
+						"{} {} is patched in from {other}, which the export's library cannot patch in",
+						resolved.name, resolved.version
+					));
+				}
+			};
+			let into = patch.entry(key).or_insert_with(|| toml::Table::new().into());
+			let into = into.as_table_mut().expect("a patch's source is a table");
+			match into.get(&resolved.name) {
+				Some(toml::Value::Table(existing)) if *existing == replacement => {}
+				// Two versions of one package patched in from one source.
+				Some(_) => {
+					let mut renamed = replacement;
+					renamed.insert("package".to_string(), resolved.name.clone().into());
+					into.insert(format!("{}-{}", resolved.name, resolved.version), renamed.into());
+				}
+				None => {
+					into.insert(resolved.name.clone(), replacement.into());
+				}
+			}
 		}
 	}
-	// A dependency's own table: a bare string is a version requirement.
-	for dep in deps {
-		if let Some(toml::Value::String(path)) = dep.get_mut("path") {
-			*path = root.join(path.as_str()).display().to_string();
-		}
+	Ok(patch)
+}
+
+/// The `[patch]` key of a source as `cargo metadata` spells it.
+fn patch_key(source: &str) -> Result<String, String> {
+	if source == "registry+https://github.com/rust-lang/crates.io-index" || source == "sparse+https://index.crates.io/"
+	{
+		return Ok("crates-io".to_string());
 	}
-	overrides
+	if let Some(url) = source.strip_prefix("registry+") {
+		return Ok(url.to_string());
+	}
+	if source.starts_with("sparse+") {
+		return Ok(source.to_string());
+	}
+	if let Some(url) = source.strip_prefix("git+") {
+		return Ok(url.split(['?', '#']).next().unwrap_or(url).to_string());
+	}
+	Err(format!("a patch of {source}, which the export's library cannot patch"))
 }
 
 /// What a cargo subcommand prints for the package, run as the check resolves: from the
@@ -302,7 +377,6 @@ impl<'a> Picks<'a> {
 struct Metadata {
 	packages: Vec<Package>,
 	resolve: Resolve,
-	workspace_root: PathBuf,
 }
 
 #[derive(serde::Deserialize)]
@@ -350,6 +424,8 @@ struct Dependency {
 	rename: Option<String>,
 	/// `dev` or `build`, or none for a normal dependency.
 	kind: Option<String>,
+	/// The source it names, such as `registry+<url>`, or none for a path dependency.
+	source: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -361,21 +437,6 @@ struct Target {
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn absolutes_override_paths() {
-		let manifest: toml::Table = "[dependencies]\nx = { path = \"x\" }\n\n\
-			[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"real\" }\n\n\
-			[replace]\n\"a:1.0.0\" = { path = \"a\" }\n"
-			.parse()
-			.unwrap();
-		let expected: toml::Table =
-			"[patch.'https://example.com/git']\npath = \"1\"\nreal = { path = \"/ws/real\" }\n\n\
-			[replace]\n\"a:1.0.0\" = { path = \"/ws/a\" }\n"
-				.parse()
-				.unwrap();
-		assert_eq!(overrides(&manifest, Path::new("/ws")), expected);
-	}
 
 	#[test]
 	fn reads_what_picks_a_resolution() {

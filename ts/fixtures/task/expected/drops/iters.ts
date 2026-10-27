@@ -1435,7 +1435,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rt.drop(one);
 		const _272: rt.ByteVec = Log.text(sink);
 		unwind = 150;
-		const arg10 = ([rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteVecView(_272)), (_2: rt.u8): rt.u32 => {
+		const arg10 = ([rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_272))), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
 		}), rt.u32Add, 0)] as [rt.u32])[0];
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg10, f)];

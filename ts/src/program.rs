@@ -13,6 +13,7 @@ pub const RUNTIME: &[(&str, &str)] = &[
 	("rt/collections.ts", include_str!("../runtime/rt/collections.ts")),
 	("rt/int.ts", include_str!("../runtime/rt/int.ts")),
 	("rt/iter.ts", include_str!("../runtime/rt/iter.ts")),
+	("rt/str.ts", include_str!("../runtime/rt/str.ts")),
 	("rt/task.ts", include_str!("../runtime/rt/task.ts")),
 ];
 

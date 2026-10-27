@@ -6,13 +6,14 @@
 // `wide` adds a sweep of the `lang` fixture's 64- and 128-bit cases over operands that
 // random bytes rarely make: every pair of values next to a power of two.
 //
-// A harness, or a hand-written caller wrapping one, exports `run(input: Uint8Array):
+// A harness, or a hand-written caller wrapping one, exports `run(input: rt.ByteSlice):
 // Vec<u8>`, and may export `cases`, inputs it names, which run with the generated ones.
 // The wasm build exports `input`, `run`, and `output` around the crate's entry, which
 // `wasm.ts` calls. A panic traps natively and throws `Panic` in
 // TypeScript, and the two agree only if their messages do.
 
 import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { Wasm } from "./wasm.ts";
@@ -24,11 +25,13 @@ if (!wasmPath || !harnessPath) throw new Error("usage: differential.ts <fixture.
 const count = Number(countArg ?? "20000");
 
 const harness = await import(pathToFileURL(harnessPath).href);
+// The translation's runtime, beside the harness, which makes the input its slice type.
+const rt = await import(pathToFileURL(join(dirname(harnessPath), "rt.ts")).href);
 const wasm = new Wasm(await WebAssembly.compile(await readFile(wasmPath)));
 
 function translated(input: Uint8Array): Outcome {
 	try {
-		const out = harness.run(input);
+		const out = harness.run(rt.byteSliceFrom(input));
 		return out.data.slice(0, out.length);
 	} catch (err) {
 		if (err instanceof Error && err.name === "Panic") return { panic: err.message };

@@ -204,8 +204,9 @@ fn codec() {
 /// A caller of two functions of a type, through its module, as moq's TypeScript calls
 /// the codec.
 const SHAKE: &str = r#"import * as Decoder from "./coding/decode.Decoder.ts";
+import * as rt from "./rt.ts";
 
-export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(buf, { tag: "Quic" }));
+export const run = (buf: Uint8Array) => Decoder.u8(Decoder.new(rt.byteSliceFrom(buf), { tag: "Quic" }));
 "#;
 
 /// Bun's and esbuild's tree-shaken bundles of [`SHAKE`] keep the functions it calls and
@@ -250,20 +251,22 @@ fn shake(out: &Path) {
 		let want = [
 			// The runtime's.
 			"Err",
+			"ByteSlice",
 			"Ok",
 			"Panic",
+			"byteSliceFrom",
+			"byteSliceSplitAtChecked",
 			"checked",
 			"clamp",
 			"idx",
 			"max",
 			"panic",
-			"sliceRange",
-			"sliceSplitAtChecked",
 			"u32SaturatingAdd",
 			"u32Sub",
 			"usizeSaturatingAdd",
 			"usizeSub",
-			// The translation's, and the caller.
+			// The translation's, and the caller. The decoder keeps its own copy of the form.
+			"copy$Form",
 			"new_",
 			"run",
 			"short",
@@ -394,7 +397,8 @@ import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
 const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops }};
-export const run = harness(fixture);
+const script = harness(fixture);
+export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
 export const unwind = harness(fixture, true);
 "#
 	);

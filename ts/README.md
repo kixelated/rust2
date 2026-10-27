@@ -50,8 +50,9 @@ Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.
 and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collections in
-`rt/collections.ts`, and ownership and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
+in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
+`rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -65,7 +66,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array, `Uint8Array` for bytes, `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
@@ -82,6 +83,10 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collect
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
 `byteOffset` and `byteLength`, and copy it before transferring it.
+
+An `rt.ByteSlice` is a range of a `Uint8Array`: its `data`, from `start`, for `length`
+bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it gets as
+`rt.byteSliceView(slice)`, a view of it.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
@@ -122,6 +127,13 @@ moves read steps in place, as two variables: the array and an index into it, or 
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
+
+A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
+`char` or a predicate, as in `rt.strSplit(s, "/")`, takes the char's text or the closure,
+which it calls on each char it reads, in the order std reads them. An offset it returns,
+from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does. A JS string can't
+change in place, so `String::push` assigns a longer one to the local or field the `&mut`
+borrows.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
@@ -257,6 +269,13 @@ they need.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
+- A `&[u8]` is an `rt.ByteSlice` rather than a `Uint8Array` view, since a view costs
+  several times what an object does to make in V8 and JavaScriptCore, and a varint's
+  decode splits its slice once to four times. `just ts bench` measured the codec's decode
+  workloads at 0.75 times the views' time in Chrome, 0.81-0.84 in Node, and 0.82-0.85 in
+  Bun at the geometric mean, over two runs whose A/A route measured within 0.05 of them,
+  and encode no slower. A chunk, `&[u8; N]`, is still a view
+  ([byte slices without objects](/quest/m2/ts-byte-views.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
@@ -303,7 +322,8 @@ holds that JS copies kept other than to read and write it, `Hasher::write` of by
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!`, a copy of a closure that changes what it captured, `mem::swap`,
+`String` with `write!` or pushing to one through a parameter, a `str` pattern other than a
+`char` or a predicate, a copy of a closure that changes what it captured, `mem::swap`,
 `replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
 `MutexGuard`, a pinned reference, or a future through a reference, a switch on or a
 field of another crate's type without a mapping, and std functions without a mapping in
@@ -329,8 +349,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates,
-  formatting, methods on generic types, iterators, with closures that log what each
+  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates, those
+  a container stores included, formatting, methods on generic types, iterators, with
+  closures that log what each
   adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,

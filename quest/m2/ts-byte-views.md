@@ -1,28 +1,26 @@
-# [L] Cheaper byte slices
+# [L] Byte slices without objects
 
 ## Goal
 
-Splitting a `&[u8]` in translated code stops costing a `Uint8Array` view per
-split, so the codec's decode on the [TS benchmark](/ts/README.md#bench) moves
-toward moq's hand-written cursor, with every differential test still passing.
+Splitting a `&[u8]` in translated code allocates nothing, so the codec's decode on the
+[TS benchmark](/ts/README.md#bench) moves toward moq's hand-written cursor, with every
+differential test still passing.
 
 ## Plan
 
-The report in PR #15 puts views at most of what decode still costs:
-about 25 ns each in V8, and a varint takes one to four (`split_first`'s rest,
-`split_first_chunk`'s chunk and rest, a `lo @ ..` pattern). moq's hand-written
-`Cursor` reads through an offset and makes none.
+`&[u8]` is an `rt.ByteSlice`, a range of a `Uint8Array`, so a split makes an object
+rather than a view. What decode still pays per varint:
 
-Options to measure, not a decision:
+- `split_first_chunk`'s chunk is a `&[u8; N]`, which is a `Uint8Array` view of the
+  slice's bytes: one per multi-byte varint. A chunk only indexed could read the slice in
+  place, or a reference to a byte array could be a `ByteSlice` too.
+- Each split's rest is a new `ByteSlice`, and its tuple and `Result` are objects. Byte
+  slices in locals, parameters, and fields could be scalar-replaced as `(data, start,
+  length)`, as `u64` halves are, materializing a `ByteSlice` only where one escapes.
+  A microbenchmark of QUIC varint decode measured offsets in locals about 2x faster than a
+  `ByteSlice` per split in V8 and about the same in JavaScriptCore.
+- Iterating a byte slice makes one view, which `rt.iterSlice` and stepping in place read.
 
-- Lower `&[u8]` to an offset and length into a shared array, as `(buf, start,
-  end)` locals the translator scalar-replaces, materializing a `Uint8Array`
-  only at the API edge.
-- Keep `Uint8Array` but skip views nothing reads: a split whose chunk is only
-  destructured into bytes, or whose rest is unused on the path taken.
-
-Engines differ: JavaScriptCore makes views slower than V8 but small copies
-faster, and V8 gives a lone small array its own buffer, about a microsecond,
-the first time it is viewed. Measure Node, Bun, and Chrome.
+Measure Node, Bun, and Chrome, and Firefox once the bench has it; Chrome decides.
 
 Public API: the translator's output for byte slices.

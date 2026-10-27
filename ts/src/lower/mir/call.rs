@@ -25,6 +25,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) {
 		let tcx = self.tcx;
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
+		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
 			// `next` into a local that holds the protocol's item or `rt.DONE`, unconverted.
@@ -70,11 +71,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.emit(pre, None, false, out);
 					return;
 				}
-				None => (self.call_def(def_id, gargs.skip_binder(), args, span, &mut pre), true),
+				None => (
+					self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
+					true,
+				),
 			},
 			ty::FnPtr(..) => {
 				let f = self.operand(func, span, &mut pre);
-				let values = self.operands(args, span, &mut pre);
+				let values = self.operands(false, args, result, span, &mut pre);
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
@@ -128,13 +132,31 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Arguments, uncopied: a callee that changes a parameter in place copies it first.
-	fn operands(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Vec<Expr> {
+	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
+	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
+	/// own value, which the analysis then made the local's own.
+	fn operands(
+		&mut self,
+		translated: bool,
+		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
 		let saved = std::mem::replace(&mut self.into_frozen, true);
-		let values = args
-			.iter()
-			.map(|arg| self.operand_frozen(&arg.node, span, out))
-			.collect();
+		let mut values = Vec::with_capacity(args.len());
+		for arg in args {
+			let value = self.operand_frozen(&arg.node, span, out);
+			values.push(match &arg.node {
+				Operand::Copy(p) | Operand::Move(p)
+					if self.moved_from(&arg.node).is_none()
+						&& self.keeps(translated, args, p.ty(&self.mir.local_decls, self.tcx).ty, result) =>
+				{
+					self.b.t.copied(value, p.ty(&self.mir.local_decls, self.tcx).ty, span)
+				}
+				_ => value,
+			});
+		}
 		self.into_frozen = saved;
 		values
 	}
@@ -153,6 +175,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		def_id: rustc_hir::def_id::DefId,
 		gargs: GenericArgsRef<'tcx>,
 		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Expr {
@@ -183,16 +206,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return f.call(values);
 		}
 		// A function of the crate gets what JS passes, so a `&mut` to a number can't reach it.
-		let local = match Instance::try_resolve(tcx, self.b.t.typing_env_pub(), def_id, gargs) {
-			Ok(Some(instance)) => matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local()),
-			_ => false,
-		};
+		let local = self.b.t.translated(def_id, gargs);
 		if local {
 			for arg in args {
 				self.check_escape(&arg.node, span);
 			}
 		}
-		let values = self.operands(args, span, out);
+		let values = self.operands(local, args, result, span, out);
 		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
@@ -279,6 +299,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 				done(next, true)
 			}
+			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
+			("String", "push") => {
+				let place = self.borrowed_place(&args[0].node, span)?;
+				let c = self.operand(&args[1].node, span, out);
+				let pushed = place.clone().binary("+", library::char_text(c));
+				out.push(StmtKind::Expr(place.assign(pushed)).at(None));
+				done(Expr::undefined(), false)
+			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				done(self.swap_out(place, Expr::undefined(), "taken", out), true)
@@ -294,7 +322,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_)) =>
 			{
-				let place = self.call_def(def_id, gargs, args, span, out);
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let place = self.call_def(def_id, gargs, args, result, span, out);
 				if !place.is_path() {
 					return done(place, true);
 				}
@@ -302,13 +331,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
 			}
-			("slice", "copy_within") => {
+			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
+			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
 				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
 				let end = end.unwrap_or_else(|| s.clone().member("length"));
 				let dest = self.operand(&args[2].node, span, out);
-				done(Expr::rt("sliceCopyWithin", vec![s, start, end, dest]), true)
+				done(Expr::rt("byteSliceCopyWithin", vec![s, start, end, dest]), true)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
@@ -624,19 +654,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let container = gargs.type_at(0);
 		let index_ty = gargs.type_at(1);
 		let elem_ty = elem(self.tcx, container)?;
+		let bytes = matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8));
 		let base = self.operand(&args[0].node, span, out);
-		let base = match container.kind() {
-			ty::Adt(..) => library::vec_view(base, container),
-			_ => base,
-		};
 		match Int::of(index_ty) {
 			Some(_) => {
+				// A `Vec`'s element is its storage's, a byte vector's in `data`.
 				let base = self.path(base, "slice", out);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
 				let checked = self.path(checked, "at", out);
-				let place = base.index(checked);
+				let place = match container.kind() {
+					ty::Adt(..) if bytes => base.member("data").index(checked),
+					_ if super::place::byte_slice(container) => super::place::byte_at(base, checked),
+					_ => base.index(checked),
+				};
 				// The reference reads and writes the element where it is.
 				if let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
@@ -655,10 +687,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// The range's bounds are taken apart before the slice is read, while they are
 				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+				let base = match container.kind() {
+					ty::Adt(..) => library::vec_view(base, container),
+					ty::Array(..) if bytes => Expr::rt("byteSliceFrom", vec![base]),
+					_ => base,
+				};
 				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
-				Some(Some((Expr::rt("sliceRange", values), true)))
+				let range = match bytes {
+					true => "byteSliceRange",
+					false => "sliceRange",
+				};
+				Some(Some((Expr::rt(range, values), true)))
 			}
 		}
 	}
@@ -711,8 +752,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			));
 		}
 		match ty.peel_refs().kind() {
-			ty::Slice(_) | ty::Array(..) => Some(value),
-			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::vec_view(value, ty)),
+			ty::Slice(_) | ty::Array(..) => Some(library::elements(value, ty)),
+			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::elements(value, ty)),
 			_ => crate::lower::iter::into_iter(self.b, ty, value, span),
 		}
 	}
