@@ -7,6 +7,7 @@
 //! `fmt::Fault` an error only `caller.ts` prints.
 
 mod chars;
+mod chunks;
 mod collections;
 mod cows;
 mod fmt;

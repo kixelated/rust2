@@ -66,13 +66,7 @@ export type i128 = Num<"i128"> | I128Limbs;
 export type Step<T> = (n: T, by: number) => [T, boolean];
 
 /** `core::num::TryFromIntError`: which way the value was out of range. */
-export class TryFromIntError {
-	readonly kind: "PosOverflow" | "NegOverflow";
-
-	constructor(kind: "PosOverflow" | "NegOverflow") {
-		this.kind = kind;
-	}
-}
+export type TryFromIntError = { readonly kind: "PosOverflow" | "NegOverflow" };
 
 const TWO32 = 4294967296;
 const MAX_SAFE = 0x1fffffffffffff;
@@ -153,6 +147,11 @@ function beWord(bytes: Uint8Array): number {
 	return value;
 }
 
+/** The big-endian 32-bit word of `b` at `i`, a uint32. */
+function word(b: Uint8Array, i: number): number {
+	return ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+}
+
 function beBytes(a: number, n: number): Uint8Array {
 	const out = new Uint8Array(n);
 	for (let i = n - 1; i >= 0; i--) {
@@ -166,7 +165,7 @@ function narrowTryFrom(value: number | Limbs, min: number, max: number): Result<
 	// Rounding past 2^53 keeps the order, so the bounds still test exactly.
 	const n = typeof value === "number" ? value : approx(value);
 	if (n >= min && n <= max) return Ok(n);
-	return Err(new TryFromIntError(n < min ? "NegOverflow" : "PosOverflow"));
+	return Err({ kind: n < min ? "NegOverflow" : "PosOverflow" });
 }
 
 /** `n + by` within `[min, max]`, wrapped by `wrap` past them; `by` may be past the type's range. */
@@ -316,7 +315,7 @@ export const u32LeadingOnes = (a: u32): number => Math.clz32(~a);
 /** `u32`'s `leading_zeros`: the count of leading zero bits. */
 export const u32LeadingZeros = (a: u32): number => Math.clz32(a);
 /** `u32`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const u32FromBeBytes = (bytes: Uint8Array): u32 => beWord(bytes) >>> 0;
+export const u32FromBeBytes = (bytes: Uint8Array): u32 => word(bytes, 0);
 /** `u32`'s `to_be_bytes`: its big-endian bytes. */
 export const u32ToBeBytes = (a: u32): Uint8Array => beBytes(a, 4);
 /** `u32`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
@@ -457,7 +456,7 @@ export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
 export const i32LeadingZeros = (a: i32): number => Math.clz32(a);
 /** `i32`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const i32FromBeBytes = (bytes: Uint8Array): i32 => beWord(bytes) | 0;
+export const i32FromBeBytes = (bytes: Uint8Array): i32 => word(bytes, 0) | 0;
 /** `i32`'s `to_be_bytes`: its big-endian bytes. */
 export const i32ToBeBytes = (a: i32): Uint8Array => beBytes(a, 4);
 /** `i32`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
@@ -573,12 +572,12 @@ export const isizeStep: Step<isize> = i32Step as never;
 
 // 64- and 128-bit integers: numbers while they are safe integers, whose arithmetic stays
 // in numbers while its result does, and limbs past that. Each function takes the type's
-// width and sign, which each type's own passes as literals. A type's own takes the
-// number path itself where it is hot, small enough for a JIT to inline: through the
-// shared function alone, V8 took up to 1.7x as long on the codec's frames. Limbs compute
-// on their 32-bit words, several times faster than through bigints: sums, differences,
-// comparisons, casts, products of 64-bit values or of two numbers, and division by a
-// divisor below 2^32. The rest goes through bigints.
+// sign, and its width where both widths share the function, which each type's own passes
+// as literals. A type's own takes the number path itself where it is hot, small enough
+// for a JIT to inline: through the shared function alone, V8 took up to 1.7x as long on
+// the codec's frames. Limbs compute on their 32-bit words, several times faster than
+// through bigints: sums, differences, comparisons, casts, products of 64-bit values or of
+// two numbers, and division by a divisor below 2^32. The rest goes through bigints.
 
 type Wide = number | Limbs;
 
@@ -674,25 +673,28 @@ function mul32(a: number, b: number): number {
 	return (((mid & 0xffff) << 16) | (p00 & 0xffff)) >>> 0;
 }
 
-// Which way the last `sum` left the type's range: 1 past its maximum, -1 below its
+// Which way the last sum left the type's range: 1 past its maximum, -1 below its
 // minimum, and 0 not at all.
 let overflow = 0;
 
-/**
- * `a + b`, or `a - b` if `sign` is -1, wrapped into the type's range, setting `overflow`.
- * Each limb's carry or borrow is the floor of its sum over 2^32.
- */
-function sum(a: Wide, b: Wide, sign: number, bits: number, signed: boolean): Wide {
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
+// A sum of each width is its own function, so a bundle of 64-bit sums leaves out the
+// 128-bit limbs. Each limb's carry or borrow is the floor of its sum over 2^32.
+
+/** A 64-bit `a + b`, or `a - b` if `sign` is -1, wrapped into the type's range, setting `overflow`. */
+function sum64(a: Wide, b: Wide, sign: number, signed: boolean): Wide {
+	const lo = loOf(a) + sign * loOf(b);
+	const hi = hiOf(a) + sign * hiOf(b) + Math.floor(lo / TWO32);
+	overflow = outside(hi, signed);
+	return join(high(hi, signed), lo >>> 0);
+}
+
+/** A 128-bit `a + b`, or `a - b` if `sign` is -1, wrapped into the type's range, setting `overflow`. */
+function sum128(a: Wide, b: Wide, sign: number, signed: boolean): Wide {
+	const x = limbs(a, 128, signed) as U128Limbs;
+	const y = limbs(b, 128, signed) as U128Limbs;
 	const lo = x.lo + sign * y.lo;
-	if (bits === 64) {
-		const hi = x.hi + sign * y.hi + Math.floor(lo / TWO32);
-		overflow = outside(hi, signed);
-		return join(high(hi, signed), lo >>> 0);
-	}
-	const w1 = (x as U128Limbs).w1 + sign * (y as U128Limbs).w1 + Math.floor(lo / TWO32);
-	const w2 = (x as U128Limbs).w2 + sign * (y as U128Limbs).w2 + Math.floor(w1 / TWO32);
+	const w1 = x.w1 + sign * y.w1 + Math.floor(lo / TWO32);
+	const w2 = x.w2 + sign * y.w2 + Math.floor(w1 / TWO32);
 	const hi = x.hi + sign * y.hi + Math.floor(w2 / TWO32);
 	overflow = outside(hi, signed);
 	return one({ hi: high(hi, signed), w2: w2 >>> 0, w1: w1 >>> 0, lo: lo >>> 0 } as Limbs);
@@ -711,27 +713,19 @@ function extreme(top: boolean, bits: number, signed: boolean): Wide {
 	return (bits === 64 ? { hi, lo: rest } : { hi, w2: rest, w1: rest, lo: rest }) as Limbs;
 }
 
-function add(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
-	const v = sum(a, b, 1, bits, signed);
-	if (overflow !== 0) panic("attempt to add with overflow");
+/** The last sum, `v`, or a panic naming `op` if it overflowed. */
+function strict(v: Wide, op: string): Wide {
+	if (overflow !== 0) panic(`attempt to ${op} with overflow`);
 	return v;
 }
 
-function sub(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
-	const v = sum(a, b, -1, bits, signed);
-	if (overflow !== 0) panic("attempt to subtract with overflow");
-	return v;
-}
-
-/** `a + b`, or `a - b` if `sign` is -1, or `undefined` past the type's range. */
-function checkedSum(a: Wide, b: Wide, sign: number, bits: number, signed: boolean): Wide | undefined {
-	const v = sum(a, b, sign, bits, signed);
+/** The last sum, `v`, or `undefined` if it overflowed. */
+function optional(v: Wide): Wide | undefined {
 	return overflow === 0 ? v : undefined;
 }
 
-/** `a + b`, or `a - b` if `sign` is -1, clamped to the type's range. */
-function saturatingSum(a: Wide, b: Wide, sign: number, bits: number, signed: boolean): Wide {
-	const v = sum(a, b, sign, bits, signed);
+/** The last sum, `v`, clamped to the type's range. */
+function saturated(v: Wide, bits: number, signed: boolean): Wide {
 	return overflow === 0 ? v : extreme(overflow > 0, bits, signed);
 }
 
@@ -882,26 +876,27 @@ function divideWords(a: Limbs, b: number, bits: number, signed: boolean, remaind
 	return one({ hi: high(words[0], signed), w2: words[1], w1: words[2], lo: words[3] } as Limbs);
 }
 
-function neg(a: Wide, bits: number, signed: boolean): Wide {
-	const v = sum(0, a, -1, bits, signed);
-	if (overflow !== 0) panic("attempt to negate with overflow");
-	return v;
-}
+// The shifts and bitwise operators compute 64 bits on limbs and 128 through bigints, each
+// width its own function, so a bundle keeps only the widths it calls.
 
-function shl(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
-	const n = shift(b, bits, "left");
+function shl64(a: Wide, b: number | Limbs, signed: boolean): Wide {
+	const n = shift(b, 64, "left");
 	if (typeof a === "number" && safe(a * 2 ** n)) return a * 2 ** n;
-	const x = limbs(a, bits, signed);
-	if (bits !== 64) return one(box(exact(x) << BigInt(n), bits, signed));
+	const x = limbs(a, 64, signed);
 	if (n === 0) return one(x);
 	if (n < 32) return join(high((x.hi << n) | (x.lo >>> (32 - n)), signed), (x.lo << n) >>> 0);
 	return join(high(x.lo << (n - 32), signed), 0);
 }
 
-function shr(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
-	const n = shift(b, bits, "right");
+function shl128(a: Wide, b: number | Limbs, signed: boolean): Wide {
+	const n = shift(b, 128, "left");
+	if (typeof a === "number" && safe(a * 2 ** n)) return a * 2 ** n;
+	return one(box(exact(limbs(a, 128, signed)) << BigInt(n), 128, signed));
+}
+
+function shr64(a: Wide, b: number | Limbs, signed: boolean): Wide {
+	const n = shift(b, 64, "right");
 	if (typeof a === "number") return Math.floor(a / 2 ** n) + 0;
-	if (bits !== 64) return one(box((signed ? exact(a) : BigInt.asUintN(bits, exact(a))) >> BigInt(n), bits, signed));
 	if (n === 0) return one(a);
 	if (signed) {
 		if (n < 32) return join(a.hi >> n, ((a.lo >>> n) | (a.hi << (32 - n))) >>> 0);
@@ -911,9 +906,15 @@ function shr(a: Wide, b: number | Limbs, bits: number, signed: boolean): Wide {
 	return join(0, a.hi >>> (n - 32));
 }
 
-// The bitwise operators. On two safe integers, a type's own computes them a 32-bit half
-// at a time, which can make -2^53 in a signed type, the one result past the safe
-// integers; past that, these compute them on limbs.
+function shr128(a: Wide, b: number | Limbs, signed: boolean): Wide {
+	const n = shift(b, 128, "right");
+	if (typeof a === "number") return Math.floor(a / 2 ** n) + 0;
+	return one(box((signed ? exact(a) : BigInt.asUintN(128, exact(a))) >> BigInt(n), 128, signed));
+}
+
+// On two safe integers, a type's own computes the bitwise operators a 32-bit half at a
+// time, which can make -2^53 in a signed type, the one result past the safe integers;
+// past that, these compute them.
 
 function wordAnd(a: number, b: number): number {
 	return (Math.floor(a / TWO32) & Math.floor(b / TWO32)) * TWO32 + ((a & b) >>> 0);
@@ -927,87 +928,114 @@ function wordXor(a: number, b: number): number {
 	return (Math.floor(a / TWO32) ^ Math.floor(b / TWO32)) * TWO32 + ((a ^ b) >>> 0);
 }
 
-function and(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
-	if (bits === 64) return join(high(x.hi & y.hi, signed), (x.lo & y.lo) >>> 0);
-	return one(box(exact(x) & exact(y), bits, signed));
+function and64(a: Wide, b: Wide, signed: boolean): Wide {
+	const x = limbs(a, 64, signed);
+	const y = limbs(b, 64, signed);
+	return join(high(x.hi & y.hi, signed), (x.lo & y.lo) >>> 0);
 }
 
-function or(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
-	if (bits === 64) return join(high(x.hi | y.hi, signed), (x.lo | y.lo) >>> 0);
-	return one(box(exact(x) | exact(y), bits, signed));
+function and128(a: Wide, b: Wide, signed: boolean): Wide {
+	return one(box(exact(limbs(a, 128, signed)) & exact(limbs(b, 128, signed)), 128, signed));
 }
 
-function xor(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
-	const x = limbs(a, bits, signed);
-	const y = limbs(b, bits, signed);
-	if (bits === 64) return join(high(x.hi ^ y.hi, signed), (x.lo ^ y.lo) >>> 0);
-	return one(box(exact(x) ^ exact(y), bits, signed));
+function or64(a: Wide, b: Wide, signed: boolean): Wide {
+	const x = limbs(a, 64, signed);
+	const y = limbs(b, 64, signed);
+	return join(high(x.hi | y.hi, signed), (x.lo | y.lo) >>> 0);
 }
 
-function not(a: Wide, bits: number, signed: boolean): Wide {
+function or128(a: Wide, b: Wide, signed: boolean): Wide {
+	return one(box(exact(limbs(a, 128, signed)) | exact(limbs(b, 128, signed)), 128, signed));
+}
+
+function xor64(a: Wide, b: Wide, signed: boolean): Wide {
+	const x = limbs(a, 64, signed);
+	const y = limbs(b, 64, signed);
+	return join(high(x.hi ^ y.hi, signed), (x.lo ^ y.lo) >>> 0);
+}
+
+function xor128(a: Wide, b: Wide, signed: boolean): Wide {
+	return one(box(exact(limbs(a, 128, signed)) ^ exact(limbs(b, 128, signed)), 128, signed));
+}
+
+function not64(a: Wide, signed: boolean): Wide {
 	if (signed && typeof a === "number" && a !== MAX_SAFE) return -a - 1;
-	const x = limbs(a, bits, signed);
-	if (bits === 64) return join(high(~x.hi, signed), ~x.lo >>> 0);
-	return one(box(~exact(x), bits, signed));
+	const x = limbs(a, 64, signed);
+	return join(high(~x.hi, signed), ~x.lo >>> 0);
 }
 
-/** The number of leading ones of `v`'s bits. */
-function leading(v: bigint, bits: number): number {
-	let n = 0;
-	for (let bit = BigInt(bits - 1); bit >= 0n && (v >> bit) & 1n; bit--) n++;
-	return n;
+function not128(a: Wide, signed: boolean): Wide {
+	if (signed && typeof a === "number" && a !== MAX_SAFE) return -a - 1;
+	return one(box(~exact(limbs(a, 128, signed)), 128, signed));
 }
 
-function leadingZeros(a: Wide, bits: number, signed: boolean): number {
-	const x = limbs(a, bits, signed);
-	if (bits !== 64) return leading(BigInt.asUintN(bits, ~exact(x)), bits);
+function leadingZeros64(a: Wide, signed: boolean): number {
+	const x = limbs(a, 64, signed);
 	const hi = x.hi >>> 0;
 	return hi !== 0 ? Math.clz32(hi) : 32 + Math.clz32(x.lo);
 }
 
-function leadingOnes(a: Wide, bits: number, signed: boolean): number {
-	const x = limbs(a, bits, signed);
-	if (bits !== 64) return leading(BigInt.asUintN(bits, exact(x)), bits);
+function leadingOnes64(a: Wide, signed: boolean): number {
+	const x = limbs(a, 64, signed);
 	const hi = ~x.hi >>> 0;
 	return hi !== 0 ? Math.clz32(hi) : 32 + Math.clz32(~x.lo >>> 0);
 }
 
-function fromBeBytes(b: Uint8Array, bits: number, signed: boolean): Wide {
-	if (bits === 64) {
-		const hi = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
-		return join(high(hi, signed), ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0);
-	}
-	// A 32-bit word at a time: one bigint step per word, not per byte.
-	let value = 0n;
-	for (let i = 0; i < b.length; i += 4) {
-		const word = ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
-		value = (value << 32n) | BigInt(word);
-	}
-	return one(box(value, bits, signed));
+/** The number of leading ones of a 128-bit value's bits. */
+function leading128(v: bigint): number {
+	let n = 0;
+	for (let bit = 127n; bit >= 0n && (v >> bit) & 1n; bit--) n++;
+	return n;
 }
 
-function toBeBytes(a: Wide, bits: number, signed: boolean): Uint8Array {
-	const x = limbs(a, bits, signed);
-	const words = "w1" in x ? [x.hi, x.w2, x.w1, x.lo] : [x.hi, x.lo];
-	const out = new Uint8Array(bits / 8);
-	for (let i = 0; i < words.length; i++) {
-		const word = words[i];
-		out[4 * i] = word >>> 24;
-		out[4 * i + 1] = word >>> 16;
-		out[4 * i + 2] = word >>> 8;
-		out[4 * i + 3] = word;
-	}
+function leadingZeros128(a: Wide, signed: boolean): number {
+	return leading128(BigInt.asUintN(128, ~exact(limbs(a, 128, signed))));
+}
+
+function leadingOnes128(a: Wide, signed: boolean): number {
+	return leading128(BigInt.asUintN(128, exact(limbs(a, 128, signed))));
+}
+
+function fromBeBytes64(b: Uint8Array, signed: boolean): Wide {
+	return join(high(word(b, 0), signed), word(b, 4));
+}
+
+function fromBeBytes128(b: Uint8Array, signed: boolean): Wide {
+	// A 32-bit word at a time: one bigint step per word, not per byte.
+	const v = (((((BigInt(word(b, 0)) << 32n) | BigInt(word(b, 4))) << 32n) | BigInt(word(b, 8))) << 32n) | BigInt(word(b, 12));
+	return one(box(v, 128, signed));
+}
+
+/** `w`'s big-endian bytes, into `out` at `i`. */
+function putWord(out: Uint8Array, i: number, w: number): void {
+	out[i] = w >>> 24;
+	out[i + 1] = w >>> 16;
+	out[i + 2] = w >>> 8;
+	out[i + 3] = w;
+}
+
+function toBeBytes64(a: Wide, signed: boolean): Uint8Array {
+	const x = limbs(a, 64, signed);
+	const out = new Uint8Array(8);
+	putWord(out, 0, x.hi);
+	putWord(out, 4, x.lo);
+	return out;
+}
+
+function toBeBytes128(a: Wide, signed: boolean): Uint8Array {
+	const x = limbs(a, 128, signed) as U128Limbs | I128Limbs;
+	const out = new Uint8Array(16);
+	putWord(out, 0, x.hi);
+	putWord(out, 4, x.w2);
+	putWord(out, 8, x.w1);
+	putWord(out, 12, x.lo);
 	return out;
 }
 
 function tryFrom(value: number | Limbs, bits: number, signed: boolean): Result<Wide, TryFromIntError> {
 	const v = typeof value === "number" ? BigInt(value) : exact(value);
 	if (fitsBig(v, bits, signed)) return Ok(one(box(v, bits, signed)));
-	return Err(new TryFromIntError(v < 0n ? "NegOverflow" : "PosOverflow"));
+	return Err({ kind: v < 0n ? "NegOverflow" : "PosOverflow" });
 }
 
 function wideDisplay(a: Wide, f: Formatter): FmtResult {
@@ -1048,16 +1076,15 @@ function eq(a: Wide, b: Wide): boolean {
 	return a === b || (typeof a !== "number" && typeof b !== "number" && compare(a, b) === 0);
 }
 
-/** `Step` of a wide type, through its wrapping sum. */
-function wideStep(n: Wide, by: number, bits: number, signed: boolean): [Wide, boolean] {
-	const v = sum(n, Math.abs(by), by < 0 ? -1 : 1, bits, signed);
+/** `Step`'s result from the last sum, `v`, which moved by `by`'s magnitude. */
+function stepped(v: Wide): [Wide, boolean] {
 	return [v, overflow !== 0];
 }
 
 /** `u64`'s `a + b`, panicking on overflow. */
-export const u64Add = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : add(a, b, 64, false)) as u64;
+export const u64Add = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : strict(sum64(a, b, 1, false), "add")) as u64;
 /** `u64`'s `a - b`, panicking on overflow. */
-export const u64Sub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sub(a, b, 64, false)) as u64;
+export const u64Sub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : strict(sum64(a, b, -1, false), "subtract")) as u64;
 /** `u64`'s `a * b`, panicking on overflow. */
 export const u64Mul = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 64, false)) as u64;
 /** `u64`'s `a / b`, truncated, panicking on a zero divisor or overflow. */
@@ -1065,48 +1092,48 @@ export const u64Div = (a: u64, b: u64): u64 => (typeof a === "number" && typeof 
 /** `u64`'s `a % b`, panicking on a zero divisor or overflow. */
 export const u64Rem = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 64, false)) as u64;
 /** `u64`'s `a << b`, panicking on a shift by the width or more. */
-export const u64Shl = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 64, false)) as u64;
+export const u64Shl = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl64(a, b, false)) as u64;
 /** `u64`'s `a >> b`, panicking on a shift by the width or more. */
-export const u64Shr = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 64, false)) as u64;
+export const u64Shr = (a: u64, b: number | Limbs): u64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr64(a, b, false)) as u64;
 /** `u64`'s `a & b`. */
 export const u64And = (a: u64, b: u64): u64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
-	return (fits(n, false) ? n : and(a, b, 64, false)) as u64;
+	return (fits(n, false) ? n : and64(a, b, false)) as u64;
 };
 /** `u64`'s `a | b`. */
 export const u64Or = (a: u64, b: u64): u64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
-	return (fits(n, false) ? n : or(a, b, 64, false)) as u64;
+	return (fits(n, false) ? n : or64(a, b, false)) as u64;
 };
 /** `u64`'s `a ^ b`. */
 export const u64Xor = (a: u64, b: u64): u64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
-	return (fits(n, false) ? n : xor(a, b, 64, false)) as u64;
+	return (fits(n, false) ? n : xor64(a, b, false)) as u64;
 };
 /** `u64`'s `!a`. */
-export const u64Not = (a: u64): u64 => not(a, 64, false) as u64;
+export const u64Not = (a: u64): u64 => not64(a, false) as u64;
 /** `u64`'s `checked_add`: `a + b`, or `undefined` on overflow. */
-export const u64CheckedAdd = (a: u64, b: u64): u64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : checkedSum(a, b, 1, 64, false)) as u64 | undefined;
+export const u64CheckedAdd = (a: u64, b: u64): u64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : optional(sum64(a, b, 1, false))) as u64 | undefined;
 /** `u64`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
-export const u64CheckedSub = (a: u64, b: u64): u64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : checkedSum(a, b, -1, 64, false)) as u64 | undefined;
+export const u64CheckedSub = (a: u64, b: u64): u64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : optional(sum64(a, b, -1, false))) as u64 | undefined;
 /** `u64`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const u64CheckedMul = (a: u64, b: u64): u64 | undefined => product(a, b, 64, false) as u64 | undefined;
 /** `u64`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const u64SaturatingAdd = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : saturatingSum(a, b, 1, 64, false)) as u64;
+export const u64SaturatingAdd = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : saturated(sum64(a, b, 1, false), 64, false)) as u64;
 /** `u64`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const u64SaturatingSub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : saturatingSum(a, b, -1, 64, false)) as u64;
+export const u64SaturatingSub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : saturated(sum64(a, b, -1, false), 64, false)) as u64;
 /** `u64`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
-export const u64WrappingAdd = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum(a, b, 1, 64, false)) as u64;
+export const u64WrappingAdd = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum64(a, b, 1, false)) as u64;
 /** `u64`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
-export const u64WrappingSub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum(a, b, -1, 64, false)) as u64;
+export const u64WrappingSub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum64(a, b, -1, false)) as u64;
 /** `u64`'s `leading_ones`: the count of leading one bits. */
-export const u64LeadingOnes = (a: u64): number => leadingOnes(a, 64, false);
+export const u64LeadingOnes = (a: u64): number => leadingOnes64(a, false);
 /** `u64`'s `leading_zeros`: the count of leading zero bits. */
-export const u64LeadingZeros = (a: u64): number => leadingZeros(a, 64, false);
+export const u64LeadingZeros = (a: u64): number => leadingZeros64(a, false);
 /** `u64`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const u64FromBeBytes = (bytes: Uint8Array): u64 => fromBeBytes(bytes, 64, false) as u64;
+export const u64FromBeBytes = (bytes: Uint8Array): u64 => fromBeBytes64(bytes, false) as u64;
 /** `u64`'s `to_be_bytes`: its big-endian bytes. */
-export const u64ToBeBytes = (a: u64): Uint8Array => toBeBytes(a, 64, false);
+export const u64ToBeBytes = (a: u64): Uint8Array => toBeBytes64(a, false);
 /** `u64`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
 export const u64TryFrom = (value: number | Limbs): Result<u64, TryFromIntError> => tryFrom(value, 64, false) as Result<u64, TryFromIntError>;
 /** `u64`'s `Display`: its decimal digits, padded by the formatter's spec. */
@@ -1140,12 +1167,12 @@ export const u64Max = (a: u64, b: u64): u64 => (lt(b, a) ? a : b);
 /** `u64`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const u64Min = (a: u64, b: u64): u64 => (lt(b, a) ? b : a);
 /** `u64`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
-export const u64Step: Step<u64> = (n, by) => wideStep(n, by, 64, false) as [u64, boolean];
+export const u64Step: Step<u64> = (n, by) => stepped(sum64(n, Math.abs(by), by < 0 ? -1 : 1, false)) as [u64, boolean];
 
 /** `i64`'s `a + b`, panicking on overflow. */
-export const i64Add = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : add(a, b, 64, true)) as i64;
+export const i64Add = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : strict(sum64(a, b, 1, true), "add")) as i64;
 /** `i64`'s `a - b`, panicking on overflow. */
-export const i64Sub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sub(a, b, 64, true)) as i64;
+export const i64Sub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : strict(sum64(a, b, -1, true), "subtract")) as i64;
 /** `i64`'s `a * b`, panicking on overflow. */
 export const i64Mul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 64, true)) as i64;
 /** `i64`'s `a / b`, truncated, panicking on a zero divisor or overflow. */
@@ -1153,50 +1180,50 @@ export const i64Div = (a: i64, b: i64): i64 => (typeof a === "number" && typeof 
 /** `i64`'s `a % b`, panicking on a zero divisor or overflow. */
 export const i64Rem = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 64, true)) as i64;
 /** `i64`'s `-a`, panicking on overflow. */
-export const i64Neg = (a: i64): i64 => (typeof a === "number" ? -a + 0 : neg(a, 64, true)) as i64;
+export const i64Neg = (a: i64): i64 => (typeof a === "number" ? -a + 0 : strict(sum64(0, a, -1, true), "negate")) as i64;
 /** `i64`'s `a << b`, panicking on a shift by the width or more. */
-export const i64Shl = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 64, true)) as i64;
+export const i64Shl = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 && safe(a * 2 ** b) ? a * 2 ** b : shl64(a, b, true)) as i64;
 /** `i64`'s `a >> b`, panicking on a shift by the width or more. */
-export const i64Shr = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 64, true)) as i64;
+export const i64Shr = (a: i64, b: number | Limbs): i64 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 64 ? Math.floor(a / 2 ** b) + 0 : shr64(a, b, true)) as i64;
 /** `i64`'s `a & b`. */
 export const i64And = (a: i64, b: i64): i64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
-	return (fits(n, true) ? n : and(a, b, 64, true)) as i64;
+	return (fits(n, true) ? n : and64(a, b, true)) as i64;
 };
 /** `i64`'s `a | b`. */
 export const i64Or = (a: i64, b: i64): i64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
-	return (fits(n, true) ? n : or(a, b, 64, true)) as i64;
+	return (fits(n, true) ? n : or64(a, b, true)) as i64;
 };
 /** `i64`'s `a ^ b`. */
 export const i64Xor = (a: i64, b: i64): i64 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
-	return (fits(n, true) ? n : xor(a, b, 64, true)) as i64;
+	return (fits(n, true) ? n : xor64(a, b, true)) as i64;
 };
 /** `i64`'s `!a`. */
-export const i64Not = (a: i64): i64 => not(a, 64, true) as i64;
+export const i64Not = (a: i64): i64 => not64(a, true) as i64;
 /** `i64`'s `checked_add`: `a + b`, or `undefined` on overflow. */
-export const i64CheckedAdd = (a: i64, b: i64): i64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : checkedSum(a, b, 1, 64, true)) as i64 | undefined;
+export const i64CheckedAdd = (a: i64, b: i64): i64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : optional(sum64(a, b, 1, true))) as i64 | undefined;
 /** `i64`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
-export const i64CheckedSub = (a: i64, b: i64): i64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : checkedSum(a, b, -1, 64, true)) as i64 | undefined;
+export const i64CheckedSub = (a: i64, b: i64): i64 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : optional(sum64(a, b, -1, true))) as i64 | undefined;
 /** `i64`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const i64CheckedMul = (a: i64, b: i64): i64 | undefined => product(a, b, 64, true) as i64 | undefined;
 /** `i64`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const i64SaturatingAdd = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : saturatingSum(a, b, 1, 64, true)) as i64;
+export const i64SaturatingAdd = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : saturated(sum64(a, b, 1, true), 64, true)) as i64;
 /** `i64`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const i64SaturatingSub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : saturatingSum(a, b, -1, 64, true)) as i64;
+export const i64SaturatingSub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : saturated(sum64(a, b, -1, true), 64, true)) as i64;
 /** `i64`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
-export const i64WrappingAdd = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum(a, b, 1, 64, true)) as i64;
+export const i64WrappingAdd = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum64(a, b, 1, true)) as i64;
 /** `i64`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
-export const i64WrappingSub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum(a, b, -1, 64, true)) as i64;
+export const i64WrappingSub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum64(a, b, -1, true)) as i64;
 /** `i64`'s `leading_ones`: the count of leading one bits. */
-export const i64LeadingOnes = (a: i64): number => leadingOnes(a, 64, true);
+export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
-export const i64LeadingZeros = (a: i64): number => leadingZeros(a, 64, true);
+export const i64LeadingZeros = (a: i64): number => leadingZeros64(a, true);
 /** `i64`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const i64FromBeBytes = (bytes: Uint8Array): i64 => fromBeBytes(bytes, 64, true) as i64;
+export const i64FromBeBytes = (bytes: Uint8Array): i64 => fromBeBytes64(bytes, true) as i64;
 /** `i64`'s `to_be_bytes`: its big-endian bytes. */
-export const i64ToBeBytes = (a: i64): Uint8Array => toBeBytes(a, 64, true);
+export const i64ToBeBytes = (a: i64): Uint8Array => toBeBytes64(a, true);
 /** `i64`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
 export const i64TryFrom = (value: number | Limbs): Result<i64, TryFromIntError> => tryFrom(value, 64, true) as Result<i64, TryFromIntError>;
 /** `i64`'s `Display`: its decimal digits, padded by the formatter's spec. */
@@ -1228,12 +1255,12 @@ export const i64Max = (a: i64, b: i64): i64 => (lt(b, a) ? a : b);
 /** `i64`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const i64Min = (a: i64, b: i64): i64 => (lt(b, a) ? b : a);
 /** `i64`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
-export const i64Step: Step<i64> = (n, by) => wideStep(n, by, 64, true) as [i64, boolean];
+export const i64Step: Step<i64> = (n, by) => stepped(sum64(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i64, boolean];
 
 /** `u128`'s `a + b`, panicking on overflow. */
-export const u128Add = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : add(a, b, 128, false)) as u128;
+export const u128Add = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : strict(sum128(a, b, 1, false), "add")) as u128;
 /** `u128`'s `a - b`, panicking on overflow. */
-export const u128Sub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sub(a, b, 128, false)) as u128;
+export const u128Sub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : strict(sum128(a, b, -1, false), "subtract")) as u128;
 /** `u128`'s `a * b`, panicking on overflow. */
 export const u128Mul = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 128, false)) as u128;
 /** `u128`'s `a / b`, truncated, panicking on a zero divisor or overflow. */
@@ -1241,48 +1268,48 @@ export const u128Div = (a: u128, b: u128): u128 => (typeof a === "number" && typ
 /** `u128`'s `a % b`, panicking on a zero divisor or overflow. */
 export const u128Rem = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 128, false)) as u128;
 /** `u128`'s `a << b`, panicking on a shift by the width or more. */
-export const u128Shl = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 128, false)) as u128;
+export const u128Shl = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl128(a, b, false)) as u128;
 /** `u128`'s `a >> b`, panicking on a shift by the width or more. */
-export const u128Shr = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 128, false)) as u128;
+export const u128Shr = (a: u128, b: number | Limbs): u128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr128(a, b, false)) as u128;
 /** `u128`'s `a & b`. */
 export const u128And = (a: u128, b: u128): u128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
-	return (fits(n, false) ? n : and(a, b, 128, false)) as u128;
+	return (fits(n, false) ? n : and128(a, b, false)) as u128;
 };
 /** `u128`'s `a | b`. */
 export const u128Or = (a: u128, b: u128): u128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
-	return (fits(n, false) ? n : or(a, b, 128, false)) as u128;
+	return (fits(n, false) ? n : or128(a, b, false)) as u128;
 };
 /** `u128`'s `a ^ b`. */
 export const u128Xor = (a: u128, b: u128): u128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
-	return (fits(n, false) ? n : xor(a, b, 128, false)) as u128;
+	return (fits(n, false) ? n : xor128(a, b, false)) as u128;
 };
 /** `u128`'s `!a`. */
-export const u128Not = (a: u128): u128 => not(a, 128, false) as u128;
+export const u128Not = (a: u128): u128 => not128(a, false) as u128;
 /** `u128`'s `checked_add`: `a + b`, or `undefined` on overflow. */
-export const u128CheckedAdd = (a: u128, b: u128): u128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : checkedSum(a, b, 1, 128, false)) as u128 | undefined;
+export const u128CheckedAdd = (a: u128, b: u128): u128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : optional(sum128(a, b, 1, false))) as u128 | undefined;
 /** `u128`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
-export const u128CheckedSub = (a: u128, b: u128): u128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : checkedSum(a, b, -1, 128, false)) as u128 | undefined;
+export const u128CheckedSub = (a: u128, b: u128): u128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : optional(sum128(a, b, -1, false))) as u128 | undefined;
 /** `u128`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const u128CheckedMul = (a: u128, b: u128): u128 | undefined => product(a, b, 128, false) as u128 | undefined;
 /** `u128`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const u128SaturatingAdd = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : saturatingSum(a, b, 1, 128, false)) as u128;
+export const u128SaturatingAdd = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : saturated(sum128(a, b, 1, false), 128, false)) as u128;
 /** `u128`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const u128SaturatingSub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : saturatingSum(a, b, -1, 128, false)) as u128;
+export const u128SaturatingSub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : saturated(sum128(a, b, -1, false), 128, false)) as u128;
 /** `u128`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
-export const u128WrappingAdd = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum(a, b, 1, 128, false)) as u128;
+export const u128WrappingAdd = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum128(a, b, 1, false)) as u128;
 /** `u128`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
-export const u128WrappingSub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum(a, b, -1, 128, false)) as u128;
+export const u128WrappingSub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum128(a, b, -1, false)) as u128;
 /** `u128`'s `leading_ones`: the count of leading one bits. */
-export const u128LeadingOnes = (a: u128): number => leadingOnes(a, 128, false);
+export const u128LeadingOnes = (a: u128): number => leadingOnes128(a, false);
 /** `u128`'s `leading_zeros`: the count of leading zero bits. */
-export const u128LeadingZeros = (a: u128): number => leadingZeros(a, 128, false);
+export const u128LeadingZeros = (a: u128): number => leadingZeros128(a, false);
 /** `u128`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const u128FromBeBytes = (bytes: Uint8Array): u128 => fromBeBytes(bytes, 128, false) as u128;
+export const u128FromBeBytes = (bytes: Uint8Array): u128 => fromBeBytes128(bytes, false) as u128;
 /** `u128`'s `to_be_bytes`: its big-endian bytes. */
-export const u128ToBeBytes = (a: u128): Uint8Array => toBeBytes(a, 128, false);
+export const u128ToBeBytes = (a: u128): Uint8Array => toBeBytes128(a, false);
 /** `u128`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
 export const u128TryFrom = (value: number | Limbs): Result<u128, TryFromIntError> => tryFrom(value, 128, false) as Result<u128, TryFromIntError>;
 /** `u128`'s `Display`: its decimal digits, padded by the formatter's spec. */
@@ -1314,12 +1341,12 @@ export const u128Max = (a: u128, b: u128): u128 => (lt(b, a) ? a : b);
 /** `u128`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const u128Min = (a: u128, b: u128): u128 => (lt(b, a) ? b : a);
 /** `u128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
-export const u128Step: Step<u128> = (n, by) => wideStep(n, by, 128, false) as [u128, boolean];
+export const u128Step: Step<u128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, false)) as [u128, boolean];
 
 /** `i128`'s `a + b`, panicking on overflow. */
-export const i128Add = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : add(a, b, 128, true)) as i128;
+export const i128Add = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : strict(sum128(a, b, 1, true), "add")) as i128;
 /** `i128`'s `a - b`, panicking on overflow. */
-export const i128Sub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sub(a, b, 128, true)) as i128;
+export const i128Sub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : strict(sum128(a, b, -1, true), "subtract")) as i128;
 /** `i128`'s `a * b`, panicking on overflow. */
 export const i128Mul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : mul(a, b, 128, true)) as i128;
 /** `i128`'s `a / b`, truncated, panicking on a zero divisor or overflow. */
@@ -1327,50 +1354,50 @@ export const i128Div = (a: i128, b: i128): i128 => (typeof a === "number" && typ
 /** `i128`'s `a % b`, panicking on a zero divisor or overflow. */
 export const i128Rem = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && b !== 0 ? (a % b) + 0 : rem(a, b, 128, true)) as i128;
 /** `i128`'s `-a`, panicking on overflow. */
-export const i128Neg = (a: i128): i128 => (typeof a === "number" ? -a + 0 : neg(a, 128, true)) as i128;
+export const i128Neg = (a: i128): i128 => (typeof a === "number" ? -a + 0 : strict(sum128(0, a, -1, true), "negate")) as i128;
 /** `i128`'s `a << b`, panicking on a shift by the width or more. */
-export const i128Shl = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl(a, b, 128, true)) as i128;
+export const i128Shl = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 && safe(a * 2 ** b) ? a * 2 ** b : shl128(a, b, true)) as i128;
 /** `i128`'s `a >> b`, panicking on a shift by the width or more. */
-export const i128Shr = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr(a, b, 128, true)) as i128;
+export const i128Shr = (a: i128, b: number | Limbs): i128 => (typeof a === "number" && typeof b === "number" && b >= 0 && b < 128 ? Math.floor(a / 2 ** b) + 0 : shr128(a, b, true)) as i128;
 /** `i128`'s `a & b`. */
 export const i128And = (a: i128, b: i128): i128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordAnd(a, b) : NaN;
-	return (fits(n, true) ? n : and(a, b, 128, true)) as i128;
+	return (fits(n, true) ? n : and128(a, b, true)) as i128;
 };
 /** `i128`'s `a | b`. */
 export const i128Or = (a: i128, b: i128): i128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordOr(a, b) : NaN;
-	return (fits(n, true) ? n : or(a, b, 128, true)) as i128;
+	return (fits(n, true) ? n : or128(a, b, true)) as i128;
 };
 /** `i128`'s `a ^ b`. */
 export const i128Xor = (a: i128, b: i128): i128 => {
 	const n = typeof a === "number" && typeof b === "number" ? wordXor(a, b) : NaN;
-	return (fits(n, true) ? n : xor(a, b, 128, true)) as i128;
+	return (fits(n, true) ? n : xor128(a, b, true)) as i128;
 };
 /** `i128`'s `!a`. */
-export const i128Not = (a: i128): i128 => not(a, 128, true) as i128;
+export const i128Not = (a: i128): i128 => not128(a, true) as i128;
 /** `i128`'s `checked_add`: `a + b`, or `undefined` on overflow. */
-export const i128CheckedAdd = (a: i128, b: i128): i128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : checkedSum(a, b, 1, 128, true)) as i128 | undefined;
+export const i128CheckedAdd = (a: i128, b: i128): i128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : optional(sum128(a, b, 1, true))) as i128 | undefined;
 /** `i128`'s `checked_sub`: `a - b`, or `undefined` on overflow. */
-export const i128CheckedSub = (a: i128, b: i128): i128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : checkedSum(a, b, -1, 128, true)) as i128 | undefined;
+export const i128CheckedSub = (a: i128, b: i128): i128 | undefined => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : optional(sum128(a, b, -1, true))) as i128 | undefined;
 /** `i128`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const i128CheckedMul = (a: i128, b: i128): i128 | undefined => product(a, b, 128, true) as i128 | undefined;
 /** `i128`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const i128SaturatingAdd = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : saturatingSum(a, b, 1, 128, true)) as i128;
+export const i128SaturatingAdd = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : saturated(sum128(a, b, 1, true), 128, true)) as i128;
 /** `i128`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const i128SaturatingSub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : saturatingSum(a, b, -1, 128, true)) as i128;
+export const i128SaturatingSub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : saturated(sum128(a, b, -1, true), 128, true)) as i128;
 /** `i128`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
-export const i128WrappingAdd = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum(a, b, 1, 128, true)) as i128;
+export const i128WrappingAdd = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum128(a, b, 1, true)) as i128;
 /** `i128`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
-export const i128WrappingSub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum(a, b, -1, 128, true)) as i128;
+export const i128WrappingSub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum128(a, b, -1, true)) as i128;
 /** `i128`'s `leading_ones`: the count of leading one bits. */
-export const i128LeadingOnes = (a: i128): number => leadingOnes(a, 128, true);
+export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */
-export const i128LeadingZeros = (a: i128): number => leadingZeros(a, 128, true);
+export const i128LeadingZeros = (a: i128): number => leadingZeros128(a, true);
 /** `i128`'s `from_be_bytes`: a value from its big-endian bytes. */
-export const i128FromBeBytes = (bytes: Uint8Array): i128 => fromBeBytes(bytes, 128, true) as i128;
+export const i128FromBeBytes = (bytes: Uint8Array): i128 => fromBeBytes128(bytes, true) as i128;
 /** `i128`'s `to_be_bytes`: its big-endian bytes. */
-export const i128ToBeBytes = (a: i128): Uint8Array => toBeBytes(a, 128, true);
+export const i128ToBeBytes = (a: i128): Uint8Array => toBeBytes128(a, true);
 /** `i128`'s `try_from` another integer: it, or a `TryFromIntError` past the type's range. */
 export const i128TryFrom = (value: number | Limbs): Result<i128, TryFromIntError> => tryFrom(value, 128, true) as Result<i128, TryFromIntError>;
 /** `i128`'s `Display`: its decimal digits, padded by the formatter's spec. */
@@ -1402,4 +1429,4 @@ export const i128Max = (a: i128, b: i128): i128 => (lt(b, a) ? a : b);
 /** `i128`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const i128Min = (a: i128, b: i128): i128 => (lt(b, a) ? b : a);
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
-export const i128Step: Step<i128> = (n, by) => wideStep(n, by, 128, true) as [i128, boolean];
+export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];

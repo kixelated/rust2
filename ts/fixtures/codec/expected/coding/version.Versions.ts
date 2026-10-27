@@ -15,10 +15,7 @@ export function decodeSlice$Decode_Form(buf: rt.ByteSlice, version: Form.Form): 
 	const r: Decoder.Decoder = Decoder.new(buf, version);
 	const _6: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
 	if (_6.ok) {
-		const val: Versions = _6.value;
-		const value: Versions = val;
-		const _0: rt.Result<[Versions, rt.usize], DecodeError.DecodeError> = rt.Ok([value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
-		return _0;
+		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 	}
 	return _6;
 }
@@ -35,11 +32,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 		const count: rt.u64 = _3.value;
 		const vs: Version.Version[] = [];
 		const iter: rt.Range<rt.u64> = new rt.Range(0, count, rt.u64Step);
-		while (true) {
-			const _12: rt.u64 | rt.Done = iter.next();
-			if (_12 === rt.DONE) {
-				break;
-			}
+		while (iter.next() !== rt.DONE) {
 			const _15: rt.Result<Version.Version, DecodeError.DecodeError> = Version.decode$Decode_Form(r, version);
 			if (_15.ok) {
 				vs.push(copy$Version(_15.value));
@@ -56,13 +49,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		const iterS: Version.Version[] = self._0;
-		let iterI: number = 0;
-		while (true) {
-			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_14 === rt.DONE) {
-				break;
-			}
+		for (const _14 of self._0) {
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Form(_14, w, version);
 			if (!_18.ok) {
 				return _18;
@@ -77,13 +64,7 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		const iterS: Version.Version[] = self._0;
-		let iterI: number = 0;
-		while (true) {
-			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_14 === rt.DONE) {
-				break;
-			}
+		for (const _14 of self._0) {
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Version(_14, w, version);
 			if (!_18.ok) {
 				return _18;

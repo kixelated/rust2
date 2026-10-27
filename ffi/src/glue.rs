@@ -21,27 +21,6 @@ fn dependency(krate: &str) -> String {
 	format!("{krate}_export")
 }
 
-/// The Rust spelling of a type a callback's method takes or returns.
-fn rust(ty: &Type) -> String {
-	match ty {
-		Type::Unit => "()".to_string(),
-		Type::Bool => "bool".to_string(),
-		Type::Int(int) => int.rust().to_string(),
-		Type::F32 => "f32".to_string(),
-		Type::F64 => "f64".to_string(),
-		Type::Char => "char".to_string(),
-		Type::Str => "str".to_string(),
-		Type::String => "::std::string::String".to_string(),
-		Type::Slice => "[u8]".to_string(),
-		Type::Vec => "::std::vec::Vec<u8>".to_string(),
-		Type::Bytes => "::bytes::Bytes".to_string(),
-		Type::Duration => "::std::time::Duration".to_string(),
-		Type::Option(inner) => format!("Option<{}>", rust(inner)),
-		Type::Ref(Mutability::Not, inner) => format!("&{}", rust(inner)),
-		other => unreachable!("a callback never takes {other:?}"),
-	}
-}
-
 /// The crate that builds the C ABI.
 pub struct Crate<'a> {
 	pub abi: &'a Abi<'a>,
@@ -135,11 +114,41 @@ impl Gen<'_> {
 
 	/// An object's Rust type: its lifetimes `'static`, as the handle holds it.
 	fn object_path(&self, i: usize) -> String {
-		let object = &self.abi.api.objects[i];
-		let path = self.path(&object.path);
-		match object.lifetimes {
-			0 => path,
-			n => format!("{path}<{}>", vec!["'static"; n].join(", ")),
+		self.rust(&Type::Object(i))
+	}
+
+	/// The Rust spelling of a type a callback's method takes or returns, or a type
+	/// argument: a type with its instance's arguments, and an object's lifetimes `'static`.
+	fn rust(&self, ty: &Type) -> String {
+		let api = self.abi.api;
+		let generic = |path: &[String], lifetimes: usize, args: &[Type]| {
+			let path = self.path(path);
+			let mut params = vec!["'static".to_string(); lifetimes];
+			params.extend(args.iter().map(|arg| self.rust(arg)));
+			match params.is_empty() {
+				true => path,
+				false => format!("{path}::<{}>", params.join(", ")),
+			}
+		};
+		match ty {
+			Type::Unit => "()".to_string(),
+			Type::Bool => "bool".to_string(),
+			Type::Int(int) => int.rust().to_string(),
+			Type::F32 => "f32".to_string(),
+			Type::F64 => "f64".to_string(),
+			Type::Char => "char".to_string(),
+			Type::Str => "str".to_string(),
+			Type::String => "::std::string::String".to_string(),
+			Type::Slice => "[u8]".to_string(),
+			Type::Vec => "::std::vec::Vec<u8>".to_string(),
+			Type::Bytes => "::bytes::Bytes".to_string(),
+			Type::Duration => "::std::time::Duration".to_string(),
+			Type::Option(inner) => format!("Option<{}>", self.rust(inner)),
+			Type::Ref(Mutability::Not, inner) => format!("&{}", self.rust(inner)),
+			Type::Record(i) => generic(&api.records[*i].path, 0, &api.records[*i].args),
+			Type::Enum(i) => generic(&api.enums[*i].path, 0, &api.enums[*i].args),
+			Type::Object(i) => generic(&api.objects[*i].path, api.objects[*i].lifetimes, &api.objects[*i].args),
+			other => unreachable!("no callback or type argument is {other:?}"),
 		}
 	}
 
@@ -359,7 +368,7 @@ impl Gen<'_> {
 				constant: false,
 			};
 			for method in &object.methods {
-				self.function(method, Some((&owner, Some(i))));
+				self.function(method, Some((&owner, Type::Object(i))));
 			}
 		}
 		for function in &api.functions {
@@ -441,7 +450,7 @@ impl Gen<'_> {
 	fn record(&mut self, i: usize) {
 		let record = &self.abi.api.records[i];
 		let name = self.abi.record(i);
-		let path = self.path(&record.path);
+		let path = self.rust(&Type::Record(i));
 		let ty = Type::Record(i);
 		let mut fields = String::new();
 		for (n, field) in record.fields.iter().enumerate() {
@@ -506,14 +515,14 @@ impl Gen<'_> {
 		self.value_traits(&name, &path, &ty, record.traits);
 		let owner = Ty::Struct(name.clone());
 		for method in &record.methods {
-			self.function(method, Some((&owner, None)));
+			self.function(method, Some((&owner, ty.clone())));
 		}
 	}
 
 	fn enumeration(&mut self, i: usize) {
 		let e = &self.abi.api.enums[i];
 		let name = self.abi.enumeration(i);
-		let path = self.path(&e.path);
+		let path = self.rust(&Type::Enum(i));
 		let ty = Type::Enum(i);
 		let wildcard = match e.exhaustive {
 			true => "",
@@ -646,7 +655,7 @@ impl Gen<'_> {
 		self.value_traits(&name, &path, &ty, e.traits);
 		let owner = self.abi.ty(&ty);
 		for method in &e.methods {
-			self.function(method, Some((&owner, None)));
+			self.function(method, Some((&owner, ty.clone())));
 		}
 	}
 
@@ -677,7 +686,7 @@ impl Gen<'_> {
 				.params
 				.iter()
 				.enumerate()
-				.map(|(n, p)| format!("p{n}: {}", rust(&p.ty)))
+				.map(|(n, p)| format!("p{n}: {}", self.rust(&p.ty)))
 				.collect();
 			let args: Vec<String> = std::iter::once("self.0.data".to_string())
 				.chain(
@@ -692,7 +701,7 @@ impl Gen<'_> {
 				methods,
 				"\tfn {method_name}({receiver}{}) -> {} {{\n\t\tlet w = \"{name}_vtable.{method_name}\";\n\t\tlet f = unsafe {{ (*self.0.vtable).{method_name} }}.unwrap_or_else(|| rt::fail(w, \"the function is null\"));\n\t\tlet result = unsafe {{ f({}) }};\n\t\t{}\n\t}}\n",
 				params.iter().map(|p| format!(", {p}")).collect::<String>(),
-				rust(&method.ok),
+				self.rust(&method.ok),
 				args.join(", "),
 				self.lift(&method.ok, "result"),
 			);
@@ -836,10 +845,9 @@ impl Gen<'_> {
 		}
 	}
 
-	/// An exported function, a method of `owner` if it has one: its C type, and the
-	/// object it belongs to, if any.
-	fn function(&mut self, function: &Function, owner: Option<(&Ty, Option<usize>)>) {
-		let export = self.abi.export(function, owner.map(|(ty, _)| ty));
+	/// An exported function, a method of `owner` if it has one: its C type, and its type.
+	fn function(&mut self, function: &Function, owner: Option<(&Ty, Type)>) {
+		let export = self.abi.export(function, owner.as_ref().map(|(ty, _)| *ty));
 		let name = export.call.name.clone();
 		// An eager call borrows its arguments only for the call, as a synchronous one does.
 		let future = function.future && !function.eager;
@@ -847,24 +855,23 @@ impl Gen<'_> {
 		let mut args = Vec::new();
 		let mut params = Vec::new();
 		let mut c_params = export.call.params.iter();
-		let receiver_ty = owner.zip(function.receiver);
-		if let Some(((owner_ty, object), receiver)) = receiver_ty {
+		let receiver_ty = owner.as_ref().zip(function.receiver);
+		if let Some(((_, owner_type), receiver)) = &receiver_ty {
 			let (_, c_ty) = c_params.next().expect("a method takes self");
 			params.push(format!("this: {}", self.rs(c_ty)));
-			match object {
-				Some(i) => {
+			match owner_type {
+				Type::Object(i) => {
 					let ty = match receiver {
-						Receiver::Ref => Type::Ref(Mutability::Not, Box::new(Type::Object(i))),
-						Receiver::Mut => Type::Ref(Mutability::Mut, Box::new(Type::Object(i))),
-						Receiver::Owned => Type::Object(i),
+						Receiver::Ref => Type::Ref(Mutability::Not, Box::new(Type::Object(*i))),
+						Receiver::Mut => Type::Ref(Mutability::Mut, Box::new(Type::Object(*i))),
+						Receiver::Owned => Type::Object(*i),
 					};
 					let (stmt, arg) = self.arg(&ty, "this", "a_self", future);
 					stmts.push(stmt);
 					args.push(arg);
 				}
-				None => {
-					let value = self.value_type(owner_ty);
-					stmts.push(format!("let a_self = {};", self.lift(&value, "unsafe { *this }")));
+				value => {
+					stmts.push(format!("let a_self = {};", self.lift(value, "unsafe { *this }")));
 					args.push(match receiver {
 						Receiver::Owned => "a_self".to_string(),
 						_ => "&a_self".to_string(),
@@ -878,15 +885,8 @@ impl Gen<'_> {
 			stmts.push(stmt);
 			args.push(arg);
 		}
-		let callee = match owner {
-			Some((_, object)) => {
-				let (owner_path, method) = function.path.split_at(function.path.len() - 1);
-				let owner_path = match object {
-					Some(i) => self.object_path(i),
-					None => self.path(owner_path),
-				};
-				format!("<{owner_path}>::{}", method[0])
-			}
+		let callee = match &owner {
+			Some((_, owner_type)) => format!("<{}>::{}", self.rust(owner_type), function.name()),
 			None => self.path(&function.path),
 		};
 		let call = match function.access {
@@ -948,21 +948,5 @@ impl Gen<'_> {
 			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> {ret} {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}\n\tlet result = {call};\n\t{finish}\n}}\n",
 			params.join(", "),
 		));
-	}
-
-	/// The IR type of a value's C type, for its receiver.
-	fn value_type(&self, ty: &Ty) -> Type {
-		let api = self.abi.api;
-		let name = match ty {
-			Ty::Struct(name) | Ty::Enum(name) => name,
-			other => unreachable!("a value's receiver is {other:?}"),
-		};
-		if let Some(i) = (0..api.records.len()).find(|&i| &self.abi.record(i) == name) {
-			return Type::Record(i);
-		}
-		let i = (0..api.enums.len())
-			.find(|&i| &self.abi.enumeration(i) == name)
-			.expect("a value is a record or enum");
-		Type::Enum(i)
 	}
 }

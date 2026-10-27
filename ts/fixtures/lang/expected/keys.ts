@@ -8,6 +8,7 @@ import * as Liar from "./keys.Liar.ts";
 import * as Name from "./keys.Name.ts";
 import * as Never from "./keys.Never.ts";
 import * as Picky from "./keys.Picky.ts";
+import * as Rough from "./keys.Rough.ts";
 import * as Seen from "./keys.Seen.ts";
 import * as Side from "./keys.Side.ts";
 import * as Skew from "./keys.Skew.ts";
@@ -185,15 +186,187 @@ export function find$u8_u8(keys_: rt.ByteSlice, q: rt.u8): rt.u8 {
 
 /** Run one case. */
 export function keys(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _4: rt.u8 = rt.u8Rem(kind, 4);
+	const _4: rt.u8 = rt.u8Rem(kind, 5);
 	if (_4 === 0) {
 		options(data, out);
 	} else if (_4 === 1) {
 		arcs(data, out);
 	} else if (_4 === 2) {
 		borrows(data, out);
+	} else if (_4 === 3) {
+		defaults(data, out);
 	} else {
 		places(data, out);
+	}
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Horizon(l: Horizon.Horizon, r: Horizon.Horizon): rt.u8 {
+	const _5: rt.u8 = (!Horizon.eq$PartialEq(l, r) ? 1 : 0) | (((Horizon.partialCmp$PartialOrd(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = Horizon.partialCmp$PartialOrd(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((Horizon.partialCmp$PartialOrd(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = Horizon.partialCmp$PartialOrd(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Name(l: Name.Name, r: Name.Name): rt.u8 {
+	const _5: rt.u8 = (!Name.eq$PartialEq(l, r) ? 1 : 0) | (((Name.partialCmp$PartialOrd(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = Name.partialCmp$PartialOrd(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((Name.partialCmp$PartialOrd(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = Name.partialCmp$PartialOrd(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Option_Hop(l: Hop.Hop | undefined, r: Hop.Hop | undefined): rt.u8 {
+	const _5: rt.u8 = (!rt.eqOption(Hop.eq$PartialEq)(l, r) ? 1 : 0) | (((rt.cmpOption(Hop.partialCmp$PartialOrd)(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = rt.cmpOption(Hop.partialCmp$PartialOrd)(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((rt.cmpOption(Hop.partialCmp$PartialOrd)(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = rt.cmpOption(Hop.partialCmp$PartialOrd)(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Option_Rough(l: Rough.Rough | undefined, r: Rough.Rough | undefined): rt.u8 {
+	const _5: rt.u8 = (!rt.eqOption(Rough.eq$PartialEq)(l, r) ? 1 : 0) | (((rt.cmpOption(Rough.partialCmp$PartialOrd)(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = rt.cmpOption(Rough.partialCmp$PartialOrd)(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((rt.cmpOption(Rough.partialCmp$PartialOrd)(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = rt.cmpOption(Rough.partialCmp$PartialOrd)(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Rough(l: Rough.Rough, r: Rough.Rough): rt.u8 {
+	const _5: rt.u8 = (!Rough.eq$PartialEq(l, r) ? 1 : 0) | (((Rough.partialCmp$PartialOrd(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = Rough.partialCmp$PartialOrd(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((Rough.partialCmp$PartialOrd(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = Rough.partialCmp$PartialOrd(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Skew(l: Skew.Skew, r: Skew.Skew): rt.u8 {
+	const _5: rt.u8 = (!Skew.eq$PartialEq(l, r) ? 1 : 0) | (((Skew.partialCmp$PartialOrd(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = Skew.partialCmp$PartialOrd(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((Skew.partialCmp$PartialOrd(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = Skew.partialCmp$PartialOrd(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/** `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits. */
+export function compare$Skewed(l: Skewed.Skewed, r: Skewed.Skewed): rt.u8 {
+	const _5: rt.u8 = (!Skewed.eq$PartialEq(l, r) ? 1 : 0) | (((Skewed.partialCmp$PartialOrd(l, r) === -1 ? 1 : 0) << 1) & 0xff);
+	const order_ = Skewed.partialCmp$PartialOrd(l, r);
+	const _3: rt.u8 = _5 | (((order_ !== undefined && order_ <= 0 ? 1 : 0) << 2) & 0xff) | (((Skewed.partialCmp$PartialOrd(l, r) === 1 ? 1 : 0) << 3) & 0xff);
+	const order2 = Skewed.partialCmp$PartialOrd(l, r);
+	return _3 | (((order2 !== undefined && order2 >= 0 ? 1 : 0) << 4) & 0xff);
+}
+
+/**
+ * The comparisons a type's `PartialEq` and `PartialOrd` inherit: `!=` as `!eq`, and
+ * the orderings from `partial_cmp`, false when it is `None`, whatever `eq` says.
+ */
+export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _7!: rt.usize;
+	let m!: Name.Name;
+	let n!: Name.Name;
+	let _177!: Name.Name;
+	let unwind: number = 0;
+	try {
+		let iterStart: rt.usize = 1;
+		const iterEnd: rt.usize = data.length;
+		while ((_7 = iterStart++) < iterEnd) {
+			const i: rt.usize = _7;
+			const _15: rt.usize = rt.usizeSub(i, 1);
+			rt.idx(data, _15);
+			const _14: rt.u8 = data.data[data.start + _15];
+			rt.idx(data, i);
+			const _13: [rt.u8, rt.u8] = [_14, data.data[data.start + i]];
+			const c: rt.u8 = _14;
+			const d: rt.u8 = _13[1];
+			const _24: [Rough.Rough, Rough.Rough] = [{ _0: c }, { _0: d }];
+			const a: Rough.Rough = _24[0];
+			const b: Rough.Rough = _24[1];
+			const _29: rt.u8 = compare$Rough(a, b) | (((!Rough.eq$PartialEq(a, b) ? 1 : 0) << 5) & 0xff) | (((Rough.partialCmp$PartialOrd(a, b) === -1 ? 1 : 0) << 6) & 0xff);
+			const order_ = Rough.partialCmp$PartialOrd(a, b);
+			rt.byteVecPush(out, _29 | (((order_ !== undefined && order_ >= 0 ? 1 : 0) << 7) & 0xff));
+			const _58: rt.u8 = compare$Option_Rough(a, b);
+			const _67: Rough.Rough | undefined = a;
+			const order2 = rt.cmpOption(Rough.partialCmp$PartialOrd)(_67, undefined);
+			const _57: rt.u8 = _58 | (((order2 !== undefined && order2 <= 0 ? 1 : 0) << 5) & 0xff);
+			const _74: Rough.Rough | undefined = undefined;
+			const _76: Rough.Rough | undefined = b;
+			rt.byteVecPush(out, _57 | (((rt.cmpOption(Rough.partialCmp$PartialOrd)(_74, _76) === -1 ? 1 : 0) << 6) & 0xff));
+			const _81: [Skew.Skew, Skew.Skew] = [{ _0: rt.u8Rem(c, 4) }, { _0: rt.u8Rem(d, 4) }];
+			const s: Skew.Skew = _81[0];
+			const t: Skew.Skew = _81[1];
+			const _91: rt.u8 = compare$Skew(s, t);
+			const order3 = Skew.partialCmp$PartialOrd(s, t);
+			rt.byteVecPush(out, _91 | (((order3 !== undefined && order3 <= 0 ? 1 : 0) << 5) & 0xff) | (((Skew.partialCmp$PartialOrd(s, t) === 1 ? 1 : 0) << 6) & 0xff));
+			rt.byteVecPush(out, compare$Skewed({ _0: s }, { _0: t }));
+			const _118: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
+			const g: Hop.Hop | undefined = _118[0];
+			const h: Hop.Hop | undefined = _118[1];
+			const _123: rt.u8 = compare$Option_Hop(g, h);
+			const _130: rt.u64 | undefined = rt.optionMap(g, (h2: Hop.Hop): rt.u64 => {
+				return h2._0;
+			});
+			const _132: rt.u64 | undefined = rt.optionMap(h, (h3: Hop.Hop): rt.u64 => {
+				return h3._0;
+			});
+			rt.byteVecPush(out, _123 | (((rt.cmpOption(rt.cmp)(_130, _132) === 1 ? 1 : 0) << 5) & 0xff));
+			const _138: Horizon.Horizon = { exclude: g, local: rt.u8Rem(c, 2) === 0 };
+			unwind = 0;
+			const _137: [Horizon.Horizon, Horizon.Horizon] = [_138, { exclude: h, local: rt.u8Rem(d, 2) === 0 }];
+			const x: Horizon.Horizon = _138;
+			const y: Horizon.Horizon = _137[1];
+			const _149: rt.u8 = compare$Horizon(x, y);
+			unwind = 0;
+			const _148: rt.u8 = _149 | (((Horizon.partialCmp$PartialOrd(x, y) === -1 ? 1 : 0) << 5) & 0xff);
+			const order4 = Horizon.partialCmp$PartialOrd(x, y);
+			rt.byteVecPush(out, _148 | (((order4 !== undefined && order4 >= 0 ? 1 : 0) << 6) & 0xff));
+			_177 = name(c);
+			unwind = 99;
+			const _178: Name.Name = name(d);
+			unwind = 97;
+			m = _177;
+			n = _178;
+			rt.byteVecPush(out, compare$Name(m, n) | (((!rt.eqArc(rt.same, true)(m.text, n.text) ? 1 : 0) << 5) & 0xff));
+			const _194: rt.u8 = !Side.eq$PartialEq(side(rt.u8Rem(c, 2)), side(rt.u8Rem(d, 2))) ? 1 : 0;
+			const _208: Way.Way | undefined = way(c);
+			const _210: Way.Way | undefined = way(d);
+			rt.byteVecPush(out, _194 | (((!rt.eqOption(Way.eq$PartialEq)(_208, _210) ? 1 : 0) << 1) & 0xff) | (((rt.optionMap(way(c), (w: Way.Way): boolean => {
+				return !Way.eq$PartialEq(w, "Top" as Way.Way);
+			}) === true ? 1 : 0) << 2) & 0xff));
+			const _225: rt.ByteSlice = rt.byteSliceRange(data, 0, i);
+			const _227: rt.ByteSlice = rt.byteSliceRange(data, i);
+			const l: rt.ByteSlice = _225;
+			const r: rt.ByteSlice = _227;
+			const _232: rt.ByteSlice = rt.byteSliceRange(data, rt.usizeSub(i, 1), i);
+			const _236: rt.ByteSlice = rt.byteSliceRange(data, rt.usizeRem(c as rt.usize, i), rt.usizeAdd(rt.usizeRem(c as rt.usize, i), 1));
+			const p: rt.ByteSlice = _232;
+			const q: rt.ByteSlice = _236;
+			rt.byteVecPush(out, (rt.byteSliceEq(l, r) ? 1 : 0) | (((!rt.byteSliceEq(l, r) ? 1 : 0) << 1) & 0xff) | (((rt.byteSliceEq(p, q) ? 1 : 0) << 2) & 0xff) | (((!rt.byteSliceEq(p, q) ? 1 : 0) << 3) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(l, 0, 0), rt.byteSliceRange(r, 0, 0)) ? 1 : 0) << 4) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(data, 0, i), rt.byteSliceRange(data, rt.usizeSub(data.length, i))) ? 1 : 0) << 5) & 0xff));
+			unwind = 98;
+			rt.drop(n);
+			unwind = 0;
+			rt.drop(m);
+		}
+	} catch (e) {
+		b2: {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 97) {
+				rt.drop(n);
+			} else if (unwind !== 98) {
+				rt.drop(_177);
+				break b2;
+			}
+			rt.drop(m);
+		}
+		throw e;
 	}
 }
 
@@ -244,12 +417,11 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _24: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
 			const a: Hop.Hop | undefined = _24[0];
 			const b: Hop.Hop | undefined = _24[1];
-			const _28: boolean = rt.u8Rem(c, 2) === 0;
-			const g: Horizon.Horizon = { exclude: a, local: _28 };
+			const g: Horizon.Horizon = { exclude: a, local: rt.u8Rem(c, 2) === 0 };
 			unwind = 0;
-			const _32: boolean = rt.u8Rem(d, 2) === 0;
+			const h: Horizon.Horizon = { exclude: b, local: rt.u8Rem(d, 2) === 0 };
 			const gr: Horizon.Horizon = g;
-			const hr: Horizon.Horizon = { exclude: b, local: _32 };
+			const hr: Horizon.Horizon = h;
 			_43 = name(c);
 			unwind = 55;
 			const _44: Name.Name = name(d);
@@ -264,9 +436,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const r: Seen.Seen = _58[1];
 			rt.byteVecPush(out, (Seen.eq$PartialEq(l, r) ? 1 : 0) | ((order(Seen.cmp$Ord(l, r)) << 1) & 0xff) | ((partial(Seen.partialCmp$PartialOrd(l, r)) << 3) & 0xff) | (((rt.u64Eq(hashOf$Seen(l), hashOf$Seen(r)) ? 1 : 0) << 5) & 0xff));
 			const _102: [Skew.Skew, Skew.Skew] = [{ _0: rt.u8Rem(c, 4) }, { _0: rt.u8Rem(d, 4) }];
-			const s: Skew.Skew = _102[0];
-			const t: Skew.Skew = _102[1];
-			const _111: [Skewed.Skewed, Skewed.Skewed] = [{ _0: s }, { _0: t }];
+			const _111: [Skewed.Skewed, Skewed.Skewed] = [{ _0: _102[0] }, { _0: _102[1] }];
 			const s2: Skewed.Skewed = _111[0];
 			const t2: Skewed.Skewed = _111[1];
 			const _119: boolean = Skewed.eq$PartialEq(s2, t2);
@@ -373,16 +543,13 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			r = _229;
 			s2 = _234;
 			rt.byteVecPush(out, (!rt.eqOption(Picky.eq$PartialEq)(g, h) ? 1 : 0) | (((!rt.eqTuple([rt.eqOption(Picky.eq$PartialEq), rt.same])(j, k) ? 1 : 0) << 1) & 0xff) | (((!rt.eqArc(rt.eqOption(Picky.eq$PartialEq))(r, s2) ? 1 : 0) << 2) & 0xff));
-			const _261: rt.u8 = rt.u8Rem(c, 3);
-			const _264: boolean = rt.u8Rem(d, 2) === 0;
-			const key: [rt.u8, Horizon.Horizon] = [_261, { exclude: a, local: _264 }];
+			const key: [rt.u8, Horizon.Horizon] = [rt.u8Rem(c, 3), { exclude: a, local: rt.u8Rem(d, 2) === 0 }];
 			const _269: rt.u8 | undefined = rt.hashInsert(hashed, copy$u8_Horizon(key), i & 0xff);
 			unwind = 133;
 			rt.byteVecPush(out, rt.optionUnwrapOr(_269, 204));
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(sorted, copy$u8_Horizon(key), i & 0xff), 204));
 			const _281: [Way.Way | undefined, boolean] = [way(c), c < 128];
-			const _284: rt.u8 = i & 0xff;
-			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(ways, _281, _284), 204));
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(ways, _281, i & 0xff), 204));
 			const _291: [Way.Way | undefined, boolean] = [way(d), d < 128];
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(ways, _291), 221));
 			rt.byteVecPush(out, rt.hashLen(ways) & 0xff);
@@ -478,13 +645,13 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_165 = true;
 			b = _20;
 			rt.byteVecPush(out, order(rt.cmpArc(rt.cmpStr)(a.text, b.text)) | ((order(Name.cmp$Ord(a, b)) << 2) & 0xff));
-			[rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr))] as [rt.Arc<string>, rt.Arc<string>];
-			rt.byteVecPush(out, (rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)) === b.text ? 1 : 0) | (((rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr)) === a.text ? 1 : 0) << 1) & 0xff));
-			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), b.text) ? 1 : 0) << 2) & 0xff));
+			const _40: rt.Arc<string> = rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr));
+			const _43: rt.Arc<string> = rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr));
+			rt.byteVecPush(out, (_40 === b.text ? 1 : 0) | (((_43 === a.text ? 1 : 0) << 1) & 0xff));
+			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(_40, b.text) ? 1 : 0) << 2) & 0xff));
 			rt.byteVecPush(out, (rt.u64Eq(hashOf$Arc_str(a.text), hashOf$Arc_str(b.text)) ? 1 : 0) | (((rt.u64Eq(hashOf$Name(a), hashOf$Name(b)) ? 1 : 0) << 1) & 0xff));
 			const text: string = a.text.value;
-			const _102: string = b.text.value;
-			rt.byteVecPush(out, text === _102 ? 1 : 0);
+			rt.byteVecPush(out, text === b.text.value ? 1 : 0);
 			rt.idx(data, i);
 			const _106: rt.usize = rt.usizeRem(data.data[data.start + i] as rt.usize, ["", "a", "ab", "", "￿", "𐀀"].length);
 			if (!(_106 < 6)) {
@@ -634,8 +801,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const place6 = rt.entryGetMut(_35);
 				place6.v = rt.usizeAdd(place6.v, 7);
 			} else {
-				const e: rt.Entry<rt.u8, rt.usize> = _35;
-				const place5 = rt.entryGetMut(e);
+				const place5 = rt.entryGetMut(_35);
 				place5.v = rt.usizeMul(place5.v, 3);
 			}
 		} else if (_18 === 3) {
@@ -656,8 +822,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const place = rt.optionUnwrap(rt.btreeGetMut(counts, k));
 			place.v = rt.usizeAdd(place.v, 1);
 		}
-		const _82: rt.u8 = rt.u8Rem(b, 7);
-		const place9 = rt.entryOrInsertMut(rt.entry(wide, _82), 4503599627370496);
+		const place9 = rt.entryOrInsertMut(rt.entry(wide, rt.u8Rem(b, 7)), 4503599627370496);
 		place9.v = rt.u64WrappingAdd(rt.u64WrappingAdd(place9.v, rt.u64Shr(place9.v, 1)), b as rt.u64);
 		const _98: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 6) };
 		const place10 = rt.entryOrInsertWithMut(rt.entry(hops, _98), (): rt.u16 => {
@@ -676,8 +841,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const place13 = rt.entryGetMut(_114);
 				place13.v = place13.v | 1;
 			} else {
-				const e4: rt.Entry<Hop.Hop, rt.u16> = _114;
-				const place12 = rt.entryGetMut(e4);
+				const place12 = rt.entryGetMut(_114);
 				place12.v = rt.u16Sub(place12.v, 4096);
 			}
 		} else {
@@ -699,8 +863,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _159: rt.usize = rt.usizeRem(j, data.length);
 		rt.idx(data, _159);
 		const b2: rt.u8 = data.data[data.start + _159];
-		const _167: rt.u16 = rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16;
-		const place15 = rt.entryOrInsertMut(rt.entry(tree, _167), j & 0xffff);
+		const place15 = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
 		place15.v = rt.u16WrappingAdd(place15.v, b2 as rt.u16);
 	}
 	const iter3: rt.Iter<[rt.u16, rt.u16]> = rt.btreeIter(tree);
@@ -726,10 +889,9 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const place18 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
 		return 0;
 	});
-	const bump: () => void = (): void => {
+	((): void => {
 		place18.v = rt.usizeAdd(place18.v, 1);
-	};
-	bump();
+	})();
 	const spare: rt.usize[] = [data.length, 8];
 	const place19 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
 	const swapped = place19.v;

@@ -16,9 +16,7 @@ export function decodeSlice$Decode_Version(buf: rt.ByteSlice, version: Version.V
 	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
 	const _6: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {
-		const val: Probe = _6.value;
-		const _0: rt.Result<[Probe, rt.usize], DecodeError.DecodeError> = rt.Ok([val, rt.usizeSub(buf.length, Decoder.remaining(r))]);
-		return _0;
+		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
 	}
 	return _6;
 }

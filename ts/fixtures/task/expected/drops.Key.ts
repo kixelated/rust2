@@ -53,14 +53,14 @@ export function read(self: Key): rt.u32 {
 	if (!_2) {
 		return self.id;
 	}
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	rt.panicFmt(["k", args2[0], " tripped"]);
 }
 
 export function drop$Drop(self: Key): void {
 	let _13!: boolean;
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["k", args2[0], " drop"]);
 	Log.note(self.log, _4);
@@ -71,7 +71,7 @@ export function drop$Drop(self: Key): void {
 		_13 = false;
 	}
 	if (_13) {
-		const arg2 = ([self.id] as [rt.u32])[0];
+		const arg2 = self.id;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
 		rt.panicFmt(["k", args4[0], " blew"]);
 	}
@@ -93,7 +93,7 @@ export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 		_3 = false;
 	}
 	if (_3) {
-		const arg = ([self.id] as [rt.u32])[0];
+		const arg = self.id;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 		const _7: string = rt.fmtFormat(["k", args2[0], " hashed"]);
 		Log.note(self.log, _7);
@@ -102,8 +102,7 @@ export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 }
 
 export function fmt$Debug(self: Key, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _5: rt.DebugTuple = rt.fmtDebugTuple(f, "Key");
-	return rt.debugTupleFinish(rt.debugTupleField(_5, (f: rt.Formatter) => rt.u32Display(self.id, f)));
+	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Display(self.id, f)));
 }
 
 export { new_ as new };

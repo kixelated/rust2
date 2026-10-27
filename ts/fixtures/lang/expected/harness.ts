@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { chars } from "./chars.ts";
+import { chunks } from "./chunks.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores } from "./collections.ts";
 import { cows } from "./cows.ts";
 import { ints, strings, derived, written, panics } from "./fmt.ts";
@@ -21,7 +22,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 46);
+	const _14: rt.u8 = rt.u8Rem(op, 47);
 	if (_14 === 0) {
 		u8Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 1) {
@@ -130,6 +131,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		slices(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 44) {
 		stores(rt.byteSliceRange(input, 2), out);
+	} else if (_14 === 45) {
+		chunks(kind, rt.byteSliceRange(input, 2), out);
 	} else {
 		cows(kind, rt.byteSliceRange(input, 2), out);
 	}

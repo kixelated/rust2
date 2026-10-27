@@ -14,6 +14,10 @@ export function hash$Hash_DefaultHasher(self: Name, state: rt.Hasher): void {
 	rt.hashOption(rt.hashInt)(self.rank, state);
 }
 
+export function partialCmp$PartialOrd(self: Name, other: Name): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 export function cmp$Ord(self: Name, other: Name): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmpArc(rt.cmpStr)(self.text, other.text);
 	if (cmp === 0) {

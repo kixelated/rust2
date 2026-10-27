@@ -27,8 +27,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	try {
 		const s: string = text(data);
 		const owned: boolean = (kind & 128) !== 0;
-		const _10: rt.Iter<string> = rt.strSplit(s, "/");
-		const first: string = rt.optionUnwrapOr(rt.iterToOption(_10.next()), "");
+		const first: string = rt.optionUnwrapOr(rt.iterToOption(rt.strSplit(s, "/").next()), "");
 		const _14: rt.u8 = rt.u8Rem(kind, 6);
 		if (_14 === 0) {
 			const c: string = cow(s, owned);
@@ -46,8 +45,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			shared = new rt.Arc(s);
 			unwind = 267;
 			put(out, shared.value);
-			const _80: rt.Iter<string> = rt.strSplit(s, "\\");
-			const part: string = rt.optionUnwrapOr(rt.optionMap(rt.iterNth(_80, 1), (a03: string): string => {
+			const part: string = rt.optionUnwrapOr(rt.optionMap(rt.iterNth(rt.strSplit(s, "\\"), 1), (a03: string): string => {
 				return a03;
 			}), "fallback");
 			unwind = 266;
@@ -70,13 +68,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const v: string[] = [cow(first, owned), cow(s, !owned)];
 			const at = rt.idx(v, 1);
 			v[at] = v[at] + "v";
-			const iterS: string[] = v;
-			let iterI: number = 0;
-			while (true) {
-				const _126: string | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-				if (_126 === rt.DONE) {
-					break;
-				}
+			for (const _126 of v) {
 				put(out, _126);
 			}
 			put(out, c2);
@@ -102,10 +94,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				}
 				rt.byteVecPush(out, _189 ? 1 : 0);
 			}
-			const _200: string = a;
-			const _201: string = b;
-			const _199: string = rt.ordMax(_200, _201, rt.cmpStr);
-			rt.byteVecPush(out, _199 === b ? 1 : 0);
+			rt.byteVecPush(out, rt.ordMax(a, b, rt.cmpStr) === b ? 1 : 0);
 		} else if (_14 === 3) {
 			const n: Named.Named = Named.new(first, kind);
 			const m2: Named.Named = Named.clone$Clone(n);
@@ -115,13 +104,10 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, Named.eq$PartialEq(n, m2) ? 1 : 0);
 			rt.byteVecPush(out, Named.cmp$Ord(n, m2) > 0 ? 1 : 0);
 			rt.byteVecPush(out, Named.partialCmp$PartialOrd(n, m2) === -1 ? 1 : 0);
-			const o: Named.Named = Named.intoOwned(n);
-			put(out, o.name);
-			[Named.default$Default(), Named.new("", kind)] as [Named.Named, Named.Named];
-			const arg4 = Named.default$Default();
-			const _260: rt.Fmt = (f: rt.Formatter) => Named.fmt$Debug(arg4, f);
-			const arg5 = Named.new("", kind);
-			const args4: rt.Fmt[] = [_260, (f: rt.Formatter) => Named.fmt$Debug(arg5, f)];
+			put(out, Named.intoOwned(n).name);
+			const _255: Named.Named = Named.default$Default();
+			const _257: Named.Named = Named.new("", kind);
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => Named.fmt$Debug(_255, f), (f: rt.Formatter) => Named.fmt$Debug(_257, f)];
 			put(out, rt.fmtFormat([args4[0], " ", args4[1]]));
 		} else if (_14 === 4) {
 			const counts: rt.BTreeMap<string, rt.u8> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.u8>;
@@ -159,14 +145,11 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _324: Named.Named = Named.new(first, 0);
 			rt.byteVecPush(out, rt.hashContains(names, _324) ? 1 : 0);
 		} else {
-			[cow(s, owned)] as [string];
-			const arg = cow(s, owned);
-			const _337: rt.Fmt = (f: rt.Formatter) => rt.fmtPad(f, arg);
-			const arg2 = cow(s, owned);
-			const args6: rt.Fmt[] = [_337, (f: rt.Formatter) => rt.fmtStr(arg2, f)];
+			const c4: string = cow(s, owned);
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, c4), (f: rt.Formatter) => rt.fmtStr(c4, f)];
 			put(out, rt.fmtFormat(["[", args6[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args6[0]), "|", rt.fmtSpec({ align: "<", width: 5 }, args6[0]), "|", rt.fmtSpec({ align: "^", width: 7 }, args6[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 3 }, args6[0]), "|", args6[1], "]"]));
-			const arg3 = ([cow(first, owned)] as [string | undefined])[0];
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(arg3, f, rt.fmtStr)];
+			const part2 = cow(first, owned);
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.fmtStr)];
 			put(out, rt.fmtFormat([args8[0]]));
 		}
 	} catch (e2) {

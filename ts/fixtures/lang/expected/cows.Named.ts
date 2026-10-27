@@ -56,8 +56,7 @@ function new_(s: string, id: rt.u8): Named {
 	if (!((trimmed.length === 0))) {
 		name = trimmed;
 	} else {
-		const arg = ([id] as [rt.u8])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(id, f)];
 		name = rt.fmtFormat(["#", args2[0]]);
 	}
 	return { name, id };

@@ -69,6 +69,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => Expr::Array(items),
 					}
 				}
+				_ if super::byte_array(*inner) => Expr::rt("byteSliceFrom", vec![self.value(*inner, valtree, span)]),
 				_ => self.value(*inner, valtree, span),
 			},
 			ty::Array(elem, _) => {

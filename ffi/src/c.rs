@@ -183,7 +183,7 @@ impl Header<'_> {
 
 		for (i, record) in api.records.iter().enumerate() {
 			let name = abi.record(i);
-			self.line(format!("/* {} */", record.path.join("::")).trim_end());
+			self.line(format!("/* {} */", abi.api.rust(&record.path, &record.args)).trim_end());
 			self.value_functions(&name, Ty::Struct(name.clone()), record.traits, true);
 			let owner = Ty::Struct(name.clone());
 			for method in &record.methods {
@@ -197,7 +197,7 @@ impl Header<'_> {
 			if e.methods.is_empty() && !has(e.traits) && e.plain() {
 				continue;
 			}
-			self.line(format!("/* {} */", e.path.join("::")));
+			self.line(format!("/* {} */", abi.api.rust(&e.path, &e.args)));
 			self.value_functions(&name, ty.clone(), e.traits, !e.plain());
 			for method in &e.methods {
 				self.function(method, Some(&ty));
@@ -206,7 +206,7 @@ impl Header<'_> {
 		}
 		for (i, object) in api.objects.iter().enumerate() {
 			let name = abi.object(i);
-			let docs = format!("{}\n\n{}", object.path.join("::"), object.docs);
+			let docs = format!("{}\n\n{}", abi.api.rust(&object.path, &object.args), object.docs);
 			self.line(comment(docs.trim(), "").trim_end());
 			self.line(format!("void {name}_free({name} *self);"));
 			let t = object.traits;

@@ -26,6 +26,11 @@ census refuses and what moq waits on:
   - moq-clock's C names (`moq_now`, `moq_origin`) wait for its merge into kio.
   - A field and a method of one name, such as moq-tokio's `Backoff::initial`, claim one C
     name that `rename` cannot split, so [the config](/ffi/moq/ffi.toml) excludes both.
+  - The generic types moq-ffi's media API uses export at their instances
+    ([kixelated/rust2#103](https://github.com/kixelated/rust2/pull/103)). Left:
+    `catalog::Producer`'s `json_*` and `binary_*` producers take a type parameter no rule
+    picks, `Producer::modify` returns a borrowing `Guard`, and `DEFAULT_NAME` sits on
+    `hang::Catalog<()>`, an instance the config does not name.
 - **Driving**: sessions and origins run a `Driver` polled with a time and a `kio::Waiter`.
   Decide between exporting that poll, a generated thread that drives it, or moq-tokio's
   runtime helpers.

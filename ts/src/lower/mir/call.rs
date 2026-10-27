@@ -32,6 +32,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
+			ty::FnDef(def_id, gargs) if self.bytes_across(def_id, gargs.skip_binder(), fn_ty) => {
+				let path = tcx.def_path_str(def_id);
+				let msg = format!(
+					"`{path}` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it"
+				);
+				(self.err(span, msg), true)
+			}
 			// `next` into a local that holds the protocol's item or `rt.DONE`, unconverted.
 			ty::FnDef(def_id, gargs)
 				if crate::lower::iter::is_next(tcx, def_id)
@@ -136,6 +143,58 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Whether std's `def_id` makes a reference to a `[u8; N]` it holds or is handed, as
+	/// `Option::as_ref` of an `Option<[u8; 4]>` or `filter` over `[u8; 4]` items do: its
+	/// mapping has it as the `Uint8Array` itself, where translated code has a slice of it.
+	fn bytes_across(&self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, fn_ty: Ty<'tcx>) -> bool {
+		let tcx = self.tcx;
+		let t = &*self.b.t;
+		if t.translated(def_id, gargs) || !gargs.types().any(owns_bytes) {
+			return false;
+		}
+		let self_ty = gargs.types().next();
+		// Mappings that make the slice, or take it.
+		if let Some((owner, name)) = library::key(tcx, def_id) {
+			let handled = match (owner.as_str(), name.as_str()) {
+				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
+				("slice", "iter" | "iter_mut") => true,
+				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
+				_ => false,
+			};
+			if handled {
+				return false;
+			}
+		}
+		// A closure is the crate's own.
+		if tcx.trait_of_assoc(def_id).is_some_and(|tr| tcx.is_fn_trait(tr)) {
+			return false;
+		}
+		let env = t.typing_env_pub();
+		let normal = |ty: Ty<'tcx>| {
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
+				.unwrap_or(ty)
+		};
+		// An iterator's references were made where its items came from, unless it makes
+		// them of items it holds.
+		if tcx.trait_of_assoc(def_id).is_some()
+			&& let Some(item) = self_ty.and_then(|s| t.iter_item(s))
+			&& !owns_bytes(normal(item))
+		{
+			return false;
+		}
+		let sig = tcx.instantiate_bound_regions_with_erased(fn_ty.fn_sig(tcx));
+		// An iterator of items without such references was checked where each adaptor was
+		// made: a closure it holds takes them from there.
+		let refs = |ty: Ty<'tcx>| {
+			let ty = normal(ty);
+			match t.iter_item(ty).map(normal) {
+				Some(item) if !owns_bytes(item) && !holds_bytes_ref(item) => false,
+				item => std::iter::once(ty).chain(item).any(holds_bytes_ref),
+			}
+		};
+		sig.inputs_and_output.iter().any(refs) || gargs.types().any(refs)
+	}
+
 	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
 	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
 	/// own value, which the analysis then made the local's own.
@@ -168,7 +227,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// An argument, which the callee copies if it changes it in place.
 	fn operand_frozen(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		match op {
-			Operand::Copy(place) | Operand::Move(place) => self.place_expr(*place, span, out),
+			Operand::Copy(place) | Operand::Move(place) if !self.in_bytes(*place) => self.place_expr(*place, span, out),
 			_ => self.operand(op, span, out),
 		}
 	}
@@ -361,6 +420,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {
 				let parts = match int.big() {
 					true => None,
+					// Bytes through a reference are read where they are.
+					false if let Some(slice) = self.bytes_source(&args[0].node, span, out) => {
+						let n = u64::from(int.bits / 8);
+						Some(self.bytes_at(slice, n, out))
+					}
 					false => self.take_parts(&args[0].node),
 				};
 				let value = match parts {
@@ -382,7 +446,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						return done(Expr::undefined(), false);
 					}
 				};
-				let ty = targ(0)?;
+				// An array of bytes comes by reference, which is a slice of them.
+				let ty = match targ(0)? {
+					ty if crate::lower::byte_array(ty) => Ty::new_slice(tcx, tcx.types.u8),
+					ty => ty,
+				};
 				let value = self.operand(&args[0].node, span, out);
 				// The function reads it later, in a closure, where TypeScript no longer
 				// narrows a member of a union: a member is read now, into a name.
@@ -704,9 +772,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let checked = self.path(checked, "at", out);
 				let place = match container.kind() {
 					ty::Adt(..) if bytes => base.member("data").index(checked),
-					_ if super::place::byte_slice(container) => super::place::byte_at(base, checked),
+					// An array's bytes come through a reference, which is a slice of them.
+					_ if super::place::byte_slice(container) || crate::lower::byte_array(container) => {
+						super::place::byte_at(base, checked)
+					}
 					_ => base.index(checked),
 				};
+				// A reference to an array of bytes is a slice of them.
+				if crate::lower::byte_array(elem_ty) {
+					return Some(Some((Expr::rt("byteSliceFrom", vec![place]), true)));
+				}
 				// The reference reads and writes the element where it is.
 				if let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
@@ -727,7 +802,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
 				let base = match container.kind() {
 					ty::Adt(..) => library::vec_view(base, container),
-					ty::Array(..) if bytes => Expr::rt("byteSliceFrom", vec![base]),
 					_ => base,
 				};
 				let base = self.path(base, "slice", out);
@@ -789,6 +863,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => crate::lower::iter::into_iter(self.b, ty, value, span),
 		}
 	}
+}
+
+/// Whether `ty` holds a `[u8; N]` other than behind a reference or in a closure, which std
+/// only calls.
+fn owns_bytes(ty: Ty<'_>) -> bool {
+	match ty.kind() {
+		_ if crate::lower::byte_array(ty) => true,
+		ty::Array(elem, _) | ty::Slice(elem) => owns_bytes(*elem),
+		ty::Tuple(tys) => tys.iter().any(owns_bytes),
+		ty::Adt(_, args) | ty::Alias(_, ty::AliasTy { args, .. }) => args.types().any(owns_bytes),
+		_ => false,
+	}
+}
+
+/// Whether `ty` holds a `&[u8; N]`, as a closure's signature does if it takes one.
+fn holds_bytes_ref(ty: Ty<'_>) -> bool {
+	ty.walk().any(|arg| arg.as_type().is_some_and(crate::lower::bytes_ref))
 }
 
 /// The element type of a slice, array, or `Vec`.

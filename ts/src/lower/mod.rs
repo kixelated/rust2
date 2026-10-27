@@ -889,6 +889,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				);
 				Type::Builtin("unknown")
 			}
+			ty::Ref(..) if bytes_ref(ty) => Type::Rt("ByteSlice", vec![]),
 			ty::Ref(_, inner, _) => self.ty(*inner, span),
 			ty::Array(elem, _) => match elem.kind() {
 				ty::Uint(ty::UintTy::U8) => Type::Builtin("Uint8Array"),
@@ -1227,6 +1228,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		None
 	}
+}
+
+/// Whether `ty` is `[u8; N]`, which is a `Uint8Array`.
+pub fn byte_array(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Array(elem, _) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+}
+
+/// Whether `ty` is a reference to a `[u8; N]`, which is an `rt.ByteSlice` of its bytes, as a
+/// `&[u8]` is: a split's chunk is then no view.
+pub fn bytes_ref(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Ref(..)) && byte_array(ty.peel_refs())
 }
 
 /// A short name for a type, to tell instances apart.
