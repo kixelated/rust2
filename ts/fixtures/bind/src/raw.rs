@@ -22,6 +22,15 @@ pub fn checksum(bytes: &[u8]) -> u32 {
 	sum
 }
 
+/// Moves `at` past the zeros it points at, read through a raw pointer.
+pub fn skip(bytes: &[u8], at: &mut usize) {
+	let ptr = bytes.as_ptr();
+	// SAFETY: `*at` is in bounds while it is less than the length.
+	while *at < bytes.len() && unsafe { *ptr.add(*at) } == 0 {
+		*at += 1;
+	}
+}
+
 /// A count held by a raw pointer to its `Arc`, which drops it where Rust drops the tally.
 pub struct Tally {
 	count: *const u32,

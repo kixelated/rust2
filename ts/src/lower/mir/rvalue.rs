@@ -7,7 +7,7 @@ use rustc_middle::ty::adjustment::PointerCoercion;
 use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
-use super::{Env, Fx, Slot};
+use super::{Capture, Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
 use crate::lower::{AdtRepr, byte_array, field_name};
@@ -34,9 +34,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				if let mir::BorrowKind::Mut { .. } = kind {
 					let pointee = place.ty(&self.mir.local_decls, tcx).ty;
-					if self.b.t.object_kind(pointee).is_none()
-						&& !matches!(pointee.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut))
-					{
+					if self.b.t.needs_place(pointee) {
+						if let Some(reborrowed) = self.reborrowed(*kind, *place, span, out) {
+							return Some(reborrowed);
+						}
+						let target = self.place_expr(*place, span, out);
+						return Some(self.make_place(*place, target, span, out));
+					}
+					if matches!(pointee.kind(), ty::Ref(_, _, rustc_ast::Mutability::Not)) {
 						return Some(self.err(
 							span,
 							format!("a mutable reference to `{pointee}`, which is no object it can change in place"),
@@ -522,6 +527,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut captures = Vec::with_capacity(ops.len());
 		for op in ops.iter() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
+			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does.
+			if let Some(local) = op.place().and_then(|p| p.as_local())
+				&& self.points_at_place(local)
+				&& let Slot::Alias(Some(target)) = &self.slots[local]
+			{
+				captures.push(Capture {
+					value: target.clone(),
+					pointee: true,
+				});
+				continue;
+			}
 			let value = self.operand(op, span, out);
 			let in_var = op
 				.place()
@@ -540,7 +556,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Expr::ident(name)
 				}
 			};
-			captures.push(value);
+			captures.push(Capture { value, pointee: false });
 		}
 		let instance = Instance::new_raw(def_id, args);
 		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {

@@ -10,6 +10,7 @@ use rustc_middle::ty::{self, AdtDef, Instance, Ty, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::library::Std;
+use super::mir::Capture;
 use super::{Adt, AdtRepr, Translator};
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, Param, Stmt, StmtKind, Type};
@@ -382,13 +383,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// each that drops, in order, the rest still dropping after one panics, as rustc's glue
 	/// drops a closure. Its `[Symbol.dispose]`, and what ends an `FnOnce` body that drops
 	/// its closure whole.
-	pub fn closure_glue(&mut self, ty: Ty<'tcx>, captures: &[Expr], span: Span) -> Vec<Stmt> {
+	pub fn closure_glue(&mut self, ty: Ty<'tcx>, captures: &[Capture], span: Span) -> Vec<Stmt> {
 		let ty::Closure(_, args) = ty.kind() else {
 			unreachable!("closure glue of a closure")
 		};
 		let mut steps = Vec::new();
 		for (capture, ty) in captures.iter().zip(args.as_closure().upvar_tys()) {
-			if let Some(dropped) = self.drop_value(capture.clone(), ty, span) {
+			if let Some(dropped) = self.drop_value(capture.value.clone(), ty, span) {
 				steps.push((dropped, self.drop_panics(ty, &mut Default::default())));
 			}
 		}

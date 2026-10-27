@@ -94,7 +94,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			},
 			ty::FnPtr(..) => {
 				let f = self.operand(func, span, &mut pre);
-				let values = self.operands(false, args, result, span, &mut pre);
+				let values = self.operands(false, &[], args, result, span, &mut pre);
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
@@ -110,15 +110,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !pre.is_empty() {
 			self.emit(pre, None, false, out);
 		}
-		let value = match *fn_ty.kind() {
-			ty::FnDef(def_id, gargs) if self.place_result(def_id, gargs.skip_binder(), args, span) => {
-				match self.hold_place(dest, value, span, out) {
-					Some(value) => value,
-					None => return,
-				}
-			}
-			_ => value,
-		};
 		// What an `Iterator::next` returns, by the protocol, unless a `next` made it already.
 		let value = match dest.as_local() {
 			Some(rustc_middle::mir::RETURN_PLACE)
@@ -202,10 +193,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
 	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
-	/// own value, which the analysis then made the local's own.
+	/// own value, which the analysis then made the local's own. Each argument `pointees`
+	/// marks is what an `rt.Place` it is reads, as std's mappings take a `&mut` parameter.
 	fn operands(
 		&mut self,
 		translated: bool,
+		pointees: &[bool],
 		args: &[Spanned<Operand<'tcx>>],
 		result: Ty<'tcx>,
 		span: Span,
@@ -213,7 +206,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) -> Vec<Expr> {
 		let saved = std::mem::replace(&mut self.into_frozen, true);
 		let mut values = Vec::with_capacity(args.len());
-		for arg in args {
+		for (i, arg) in args.iter().enumerate() {
+			if pointees.get(i) == Some(&true)
+				&& let Some(p) = arg.node.place()
+				&& self
+					.b
+					.t
+					.place_pointee(p.ty(&self.mir.local_decls, self.tcx).ty)
+					.is_some()
+			{
+				let deref = self.tcx.mk_place_deref(p);
+				values.push(self.place_expr(deref, span, out));
+				continue;
+			}
 			let value = self.operand_frozen(&arg.node, span, out);
 			values.push(match &arg.node {
 				// Its type, rather than its variant's, for std's runtime function to infer
@@ -288,36 +293,79 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			return f.call(values);
 		}
-		// A function of the crate gets what JS passes, so a `&mut` to a number can't reach it.
 		let local = self.b.t.translated(def_id, gargs);
-		if local {
-			for arg in args {
-				self.check_escape(&arg.node, span);
+		let pointees = match self.b.t.mapped(def_id, gargs) {
+			false => Vec::new(),
+			true => {
+				if let Some(err) = self.std_places(def_id, gargs, result, span) {
+					return err;
+				}
+				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+				let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
+				inputs
+					.iter()
+					.map(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+					.collect()
 			}
-		}
-		let values = self.operands(local, args, result, span, out);
+		};
+		let values = self.operands(local, &pointees, args, result, span, out);
 		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
-	/// Refuse a `&mut` to a value JS copies, passed on whole to code that could write
-	/// through it: it would change a copy.
-	fn check_escape(&mut self, op: &Operand<'tcx>, span: Span) {
-		let (Operand::Copy(place) | Operand::Move(place)) = op else {
-			return;
+	/// A refusal of std's `def_id` if it would make a `&mut` to a value JS copies, which
+	/// its mapping has as the value, not an `rt.Place`: one it returns or its iterator
+	/// yields, other than a map's mapping, or one it hands a closure. A `&mut` it returns
+	/// as a type parameter, as `Option::unwrap` does, is what it was given.
+	fn std_places(
+		&mut self,
+		def_id: rustc_hir::def_id::DefId,
+		gargs: GenericArgsRef<'tcx>,
+		result: Ty<'tcx>,
+		span: Span,
+	) -> Option<Expr> {
+		let tcx = self.tcx;
+		let gargs = self.b.subst(gargs);
+		let call = library::Call {
+			def_id,
+			args: gargs,
+			span,
 		};
-		if !place.projection.is_empty() {
-			return;
+		if crate::lower::collections::place_call(self.b, &call) {
+			return None;
 		}
-		let ty = self.mir.local_decls[place.local].ty;
-		if let ty::Ref(_, inner, rustc_ast::Mutability::Mut) = ty.kind()
-			&& matches!(self.slots[place.local], Slot::Alias(_))
-			&& self.b.t.object_kind(*inner).is_none()
-		{
-			self.err(
-				span,
-				format!("a mutable reference to `{inner}` passed on, which is no object it can change in place"),
-			);
+		let t = &*self.b.t;
+		let handed = gargs.types().any(|ty| {
+			let sig = match ty.kind() {
+				ty::Closure(_, args) => args.as_closure().sig(),
+				ty::FnDef(..) | ty::FnPtr(..) => ty.fn_sig(tcx),
+				_ => return false,
+			};
+			tcx.instantiate_bound_regions_with_erased(sig)
+				.inputs()
+				.iter()
+				.any(|&i| t.has_place(i))
+		});
+		let yielded = t.iter_item(result).is_some_and(|item| t.has_place(item));
+		let made = t.has_place(result) && {
+			let resolved = Instance::try_resolve(tcx, t.typing_env_pub(), def_id, gargs)
+				.ok()
+				.flatten()
+				.map_or(def_id, |instance| instance.def_id());
+			let sig = tcx.fn_sig(resolved).instantiate_identity().skip_norm_wip();
+			let output = tcx.instantiate_bound_regions_with_erased(sig).output();
+			output
+				.walk()
+				.filter_map(|a| a.as_type())
+				.any(|ty| matches!(ty.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+		};
+		if !(handed || yielded || made) {
+			return None;
 		}
+		let path = tcx.def_path_str(def_id);
+		Some(self.err(
+			span,
+			format!("`{path}` with a mutable reference to a value JS copies, which its mapping would copy"),
+		))
 	}
 
 	/// A std call MIR needs lowered here: `Some(Some((value, effect)))`, or `Some(None)`
@@ -355,21 +403,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		match (owner.as_str(), name.as_str()) {
 			// Replacing what a `&mut` borrows.
 			("mem", "take") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let default = library::default_value(self.b, targ(0)?)?;
 				done(self.swap_out(place, default, "taken", span, out), true)
 			}
 			("mem", "replace") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
 				done(self.swap_out(place, value, "old", span, out), true)
 			}
 			("mem", "swap") => {
-				let a = self.borrowed_place(&args[0].node, span)?;
-				let c = self.borrowed_place(&args[1].node, span)?;
+				let a = self.borrowed_place(&args[0].node, span, out)?;
+				let c = self.borrowed_place(&args[1].node, span, out)?;
 				let old = self.swap_out(a, c.0.clone(), "swapped", span, out);
 				self.set_borrowed(&c, old, span, out);
-				done(Expr::undefined(), true)
+				done(Expr::undefined(), false)
 			}
 			// A range of numbers steps in place, with nothing between it and the loop.
 			("Iterator", "next") if super::small_range(tcx, targ(0)?) => {
@@ -384,7 +432,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
 			("String", "push") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let c = self.operand(&args[1].node, span, out);
 				let pushed = place.0.clone().binary("+", library::char_text(c));
 				self.set_borrowed(&place, pushed, span, out);
@@ -392,7 +440,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// A `Cow<str>` is the `String` it would hold, so the `&mut` borrows the same place.
 			("Cow", "to_mut") if targ(0).is_some_and(|t| t.is_str()) => {
-				let (place, borrowed) = self.borrowed_place(&args[0].node, span)?;
+				let (place, borrowed) = self.borrowed_place(&args[0].node, span, out)?;
 				if let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_))
@@ -401,10 +449,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.reborrows.extend(borrowed.map(|b| (local, b)));
 					return Some(None);
 				}
-				done(place, true)
+				match borrowed {
+					Some(borrowed) => {
+						let target = self.stable_target(borrowed, place, span, out);
+						done(self.place_of(target, None), true)
+					}
+					None => done(place, true),
+				}
 			}
 			("Option", "take") => {
-				let place = self.borrowed_place(&args[0].node, span)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
 				done(self.swap_out(place, Expr::undefined(), "taken", span, out), true)
 			}
 			// Indexing, whose result a `&mut` reads in place.
@@ -419,9 +473,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& matches!(self.slots[local], Slot::Var(_)) =>
 			{
 				let result = dest.ty(&self.mir.local_decls, tcx).ty;
-				let place = self.call_def(def_id, gargs, args, result, span, out);
+				// The receiver passes as what it points at, as std's `&mut self` does.
+				let values = self.operands(false, &[true], args, result, span, out);
+				let place = self.b.call_def(def_id, gargs, values, span, out);
 				if !place.is_path() {
-					return done(place, true);
+					let msg = format!("`{}` of a value JS copies, which is no path", tcx.def_path_str(def_id));
+					return done(self.err(span, msg), true);
 				}
 				self.materialize(&place, out);
 				self.slots[local] = Slot::Alias(Some(place));
@@ -612,70 +669,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Whether a call returns the `rt.Place` of a value a map holds that JS copies, or an
-	/// `Option` of one: a map's mapping, or `expect` or `unwrap` of such an `Option`.
-	fn place_result(
-		&self,
-		def_id: rustc_hir::def_id::DefId,
-		gargs: GenericArgsRef<'tcx>,
-		args: &[Spanned<Operand<'tcx>>],
-		span: Span,
-	) -> bool {
-		let call = library::Call {
-			def_id,
-			args: self.b.subst(gargs),
-			span,
-		};
-		if crate::lower::collections::place_call(self.b, &call) {
-			return true;
-		}
-		let unwrap = library::key(self.tcx, def_id)
-			.is_some_and(|(o, n)| o == "Option" && matches!(n.as_str(), "expect" | "unwrap"));
-		unwrap
-			&& matches!(args.first().map(|a| &a.node), Some(Operand::Move(p) | Operand::Copy(p))
-				if p.as_local().is_some_and(|l| self.place_opts.contains(&l)))
-	}
-
-	/// The value of a call that returns a place, for its destination: a reference, which
-	/// reads and writes through the place held in a constant, and `None` once it is one; an
-	/// `Option` only tested and taken apart; or else a refusal, since no other code takes a
-	/// place for a reference.
-	fn hold_place(&mut self, dest: Place<'tcx>, value: Expr, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
-		let ty = dest.ty(&self.mir.local_decls, self.tcx).ty;
-		match dest.as_local() {
-			Some(local) if self.uses[local] == 0 => Some(value),
-			Some(local)
-				if matches!(ty.kind(), ty::Ref(..))
-					&& self.defs[local] == 1
-					&& matches!(self.slots[local], Slot::Var(_)) =>
-			{
-				let place = self.path(value, "place", out);
-				self.slots[local] = Slot::Alias(Some(place.member("v")));
-				None
-			}
-			Some(local) if self.place_opts.contains(&local) => Some(value),
-			_ => Some(self.err(
-				span,
-				format!("`{ty}`, a mutable reference to a value a map holds, kept other than to read and write it"),
-			)),
-		}
-	}
-
 	/// The place a `&mut` operand borrows, as an assignable path, and through the
 	/// reference, which a store resolves: an alias of a borrowed place, not a copy of a
-	/// reference, which holds the object it points at.
-	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<Borrowed<'tcx>> {
+	/// reference, which holds the object it points at, or an `rt.Place`, whose `v` it is.
+	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Borrowed<'tcx>> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
 			return None;
 		};
 		if !place.projection.is_empty() {
 			return None;
 		}
+		let deref = self.tcx.mk_place_deref(*place);
 		match &self.slots[place.local] {
 			Slot::Alias(Some(target))
 				if (target.is_path() || matches!(target, Expr::Index(..))) && self.alias_of_place(place.local) =>
 			{
-				Some((target.clone(), Some(self.tcx.mk_place_deref(*place))))
+				Some((target.clone(), Some(deref)))
+			}
+			_ if self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_some() => {
+				Some((self.place_expr(deref, span, out), Some(deref)))
 			}
 			_ => {
 				let pointee = self.mir.local_decls[place.local].ty.peel_refs();
@@ -809,6 +821,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				{
 					self.slots[local] = Slot::Alias(Some(place));
 					return Some(None);
+				}
+				if name == "index_mut" && self.b.t.needs_place(elem_ty) {
+					let target = self.stable_path(place, false, span, out);
+					return Some(Some((self.place_of(target, None), true)));
 				}
 				Some(Some((place, true)))
 			}

@@ -216,7 +216,10 @@ pub fn std_impl<'tcx>(
 		ty::Ref(_, inner, _) if super::byte_array(*inner) => {
 			b.fmt_call(tr, Ty::new_slice(tcx, tcx.types.u8), value, f, span)
 		}
-		ty::Ref(_, inner, _) => b.fmt_call(tr, *inner, value, f, span),
+		ty::Ref(_, inner, _) => {
+			let value = b.t.pointee_value(ty, value);
+			b.fmt_call(tr, *inner, value, f, span)
+		}
 		ty::Int(_) | ty::Uint(_) => {
 			let method = match tr {
 				Trait::Display | Trait::Debug => "display",

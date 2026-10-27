@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 
-use crate::raw::{Tally, checksum};
+use crate::raw::{Tally, checksum, skip};
 
-/// Split the input as `Bytes`, compare and hash the parts, and count tallies down as they
-/// drop. A first byte of 1 slices out of order, which panics.
+/// Split the input as `Bytes`, compare and hash the parts, skip its leading zeros, and
+/// count tallies down as they drop. A first byte of 1 slices out of order, which panics.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();
 	let bytes = Bytes::copy_from_slice(input);
@@ -26,6 +26,9 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	for shift in [0, 8, 16, 24] {
 		out.push((sum >> shift) as u8);
 	}
+	let mut at = 0;
+	skip(input, &mut at);
+	out.push(at as u8);
 	if input.first() == Some(&1) {
 		let _ = bytes.slice(mid..mid.saturating_sub(1));
 	}

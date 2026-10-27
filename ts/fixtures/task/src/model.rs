@@ -117,10 +117,11 @@ pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 
 /// One value read through the captures only an async block makes: a borrow, which
 /// dropping the block must not drop; a copy, which a later change to the original must
-/// not reach; a mutable borrow the block replaces whole, which the caller must see; a
-/// move on one path only; and a move the block only borrows, which drops when the block
-/// returns or is cancelled. Between them, a value of two types that hold each other, and
-/// guards held across awaits that read values first.
+/// not reach; a mutable borrow the block replaces whole, and one of a number it writes
+/// across an await, which the caller must see; a move on one path only; and a move the
+/// block only borrows, which drops when the block returns or is cancelled. Between them,
+/// a value of two types that hold each other, and guards held across awaits that read
+/// values first.
 pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	let first = Guard::new(guard.id + 200, guard.log.clone());
 	let second = Guard::new(guard.id + 300, guard.log.clone());
@@ -147,6 +148,16 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 	}
 	.await;
 	guard.note(&format!("mark {replaced} {}", mark.n));
+	// A number a block borrows mutably across an await, whose writes the caller sees.
+	let mut count = guard.id;
+	let counted = async {
+		count += 1;
+		async {}.await;
+		count += 1;
+		count
+	}
+	.await;
+	guard.note(&format!("count {counted} {count}"));
 	let cycle = Outer {
 		inner: None,
 		guard: Guard::new(guard.id + 800, guard.log.clone()),
