@@ -2162,6 +2162,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Env::Closure(captures) = &self.env
 					&& place.local.as_u32() == 1
 					&& place.projection.is_empty()
+					&& matches!(ty.kind(), ty::Closure(..))
 				{
 					let mut glue = self.b.t.closure_glue(ty, &captures.clone(), span);
 					// In a block of its own, whose variable no other drop's can clash with.
