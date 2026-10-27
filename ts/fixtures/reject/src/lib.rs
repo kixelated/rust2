@@ -50,11 +50,11 @@ pub fn owning_closure() -> u8 {
 	f()
 }
 
-/// Each element drops at the end of its iteration, and the rest on a `break`.
-pub fn each(v: Vec<Noisy>) -> u8 {
+/// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
+pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
 	let mut sum = 0;
-	for n in v {
-		sum += n.0;
+	for k in m.into_keys() {
+		sum += k;
 	}
 	sum
 }
@@ -244,14 +244,14 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// The items `next` leaves drop with the iterator, which an `rt.Iter` never drops.
-pub fn drained(v: Vec<Noisy>) -> Option<Noisy> {
-	v.into_iter().next()
+/// A panic in `fold` drops the `Vec` `flatten` took mid-way before the rest, as `next` does not.
+pub fn flattened(v: Vec<Vec<Noisy>>) -> usize {
+	v.into_iter().flatten().fold(0, |n, _| n + 1)
 }
 
-/// `count` drops each item it consumes.
-pub fn counted() -> usize {
-	(0..2).map(Noisy).count()
+/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
+pub fn zip_dropped(v: &[u8]) -> usize {
+	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
 /// `rest` borrows the tail of `items` mutably, but a JS array has no views.
@@ -379,14 +379,31 @@ pub fn pushed(s: &mut String) {
 	s.push('a');
 }
 
-/// Each drops its closure, and the `Noisy` it owns, when it is done with it.
+/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok`, and with
+/// it what it captured, which lives in an arrow function.
+pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
+	let (m, n) = (Noisy(1), Noisy(2));
+	let a = a.map(move |x| {
+		drop(m);
+		x
+	});
+	let b = b.map_err(move |e| {
+		drop(n);
+		e
+	});
+	a.unwrap_or(0) + b.unwrap_or(0)
+}
+
+/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
+/// `successors` does the item it holds next.
 pub fn owning_lazy(cond: bool) -> usize {
 	let (a, b, c) = (Noisy(1), Noisy(2), Noisy(3));
 	let then = cond.then(move || a).is_some() as usize;
 	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
 	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
 	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
-	then + walked + made
+	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
+	then + walked + made + held
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.

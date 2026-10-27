@@ -869,9 +869,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// What a `DebugList` iterates, as an iterable JS value.
+	/// What a `DebugList` iterates, as an iterable JS value, which drops nothing it reads.
 	fn items(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		let tcx = self.tcx;
+		if self.b.t.drops(ty) {
+			return Some(self.err(
+				span,
+				format!("`DebugList::entries` of `{ty}`, which drops, which is not supported yet"),
+			));
+		}
 		match ty.peel_refs().kind() {
 			ty::Slice(_) | ty::Array(..) => Some(library::elements(value, ty)),
 			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::elements(value, ty)),

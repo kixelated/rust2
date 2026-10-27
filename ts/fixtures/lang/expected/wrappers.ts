@@ -326,45 +326,53 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			putU64(out, _167[0]);
 		}
 		rt.byteVecPush(out, rt.iterCount(rt.btreeRange(map, { end: a2 })) & 0xff);
+		const top2: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Rem(a2, 2)), { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Step);
+		while (rt.iterToOption(top2.next()) !== undefined) {
+		}
+		const bottom: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(0, rt.u64Rem(b2, 2), rt.u64Step);
+		while (rt.iterToOption(bottom.nextBack()) !== undefined) {
+		}
+		rt.byteVecPush(out, rt.iterCount(rt.btreeRange(map, top2)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.btreeRange(map, bottom)) & 0xff);
 		const above: rt.BTreeMap<rt.u64, rt.u64> = rt.btreeSplitOff(map, b2);
 		const iter3: rt.Iter<[rt.u64, rt.u64]> = rt.iterChain(rt.btreeIter(map), rt.btreeIter(above));
 		while (true) {
-			const _192: [rt.u64, rt.u64] | rt.Done = iter3.next();
-			if (_192 === rt.DONE) {
+			const _220: [rt.u64, rt.u64] | rt.Done = iter3.next();
+			if (_220 === rt.DONE) {
 				break;
 			}
-			putU64(out, _192[0]);
-			putU64(out, _192[1]);
+			putU64(out, _220[0]);
+			putU64(out, _220[1]);
 		}
 		rt.byteVecPush(out, rt.btreeLen(map) & 0xff);
 		rt.byteVecPush(out, rt.btreeLen(above) & 0xff);
-		const _210: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-		const set: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _210, true);
-		const _215: rt.u8 = at(2);
-		const high: rt.BTreeSet<rt.u8> = rt.btreeSplitOff(set, _215);
+		const _238: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
+		const set: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _238, true);
+		const _243: rt.u8 = at(2);
+		const high: rt.BTreeSet<rt.u8> = rt.btreeSplitOff(set, _243);
 		rt.iterExtendBytes(out, rt.iterChain(rt.btreeKeys(set), rt.btreeKeys(high)));
 		rt.byteVecPush(out, rt.btreeLen(high) & 0xff);
 	} else if (_21 === 2) {
-		const _230: [rt.u8, rt.u8] = [at(0), at(1)];
-		const x2: rt.u8 = _230[0];
-		const y: rt.u8 = _230[1];
+		const _258: [rt.u8, rt.u8] = [at(0), at(1)];
+		const x2: rt.u8 = _258[0];
+		const y: rt.u8 = _258[1];
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmp)(x2, y) & 0xff);
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmp)(x2, y) === -1 ? 1 : 0);
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmpOption(rt.cmp))(x2, undefined) === 1 ? 1 : 0);
 		rt.byteVecPush(out, rt.ordMax(x2, y, rt.cmpReverse(rt.cmp)));
 		const order = rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp])([x2, y] as [rt.u8, rt.u8], [y, x2] as [rt.u8, rt.u8]);
 		rt.byteVecPush(out, order !== undefined && order <= 0 ? 1 : 0);
-		const _274: rt.Iter<[rt.u8, rt.usize]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
+		const _302: rt.Iter<[rt.u8, rt.usize]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
 			return [_2[1], _2[0]] as [rt.u8, rt.usize];
 		});
-		const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpReverse(rt.cmp)) as rt.BTreeMap<rt.u8, rt.usize>, _274, true));
+		const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpReverse(rt.cmp)) as rt.BTreeMap<rt.u8, rt.usize>, _302, true));
 		while (true) {
-			const _280: [rt.u8, rt.usize] | rt.Done = iter4.next();
-			if (_280 === rt.DONE) {
+			const _308: [rt.u8, rt.usize] | rt.Done = iter4.next();
+			if (_308 === rt.DONE) {
 				break;
 			}
-			rt.byteVecPush(out, _280[0]);
-			rt.byteVecPush(out, _280[1] & 0xff);
+			rt.byteVecPush(out, _308[0]);
+			rt.byteVecPush(out, _308[1] & 0xff);
 		}
 		const ranked: [rt.u8, rt.usize][] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_23: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
 			return [_23[1], _23[0]] as [rt.u8, rt.usize];
@@ -372,9 +380,9 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.sliceSortByKey(ranked, (_25: [rt.u8, rt.usize]): [rt.u8, rt.usize] => {
 			return [rt.u8Rem(_25[0], 4), _25[1]] as [rt.u8, rt.usize];
 		}, rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp]));
-		for (const _300 of ranked) {
-			const d: rt.u8 = _300[0];
-			const i2: rt.usize = _300[1];
+		for (const _328 of ranked) {
+			const d: rt.u8 = _328[0];
+			const i2: rt.usize = _328[1];
 			rt.byteVecPush(out, d);
 			rt.byteVecPush(out, i2 & 0xff);
 		}
@@ -387,28 +395,28 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			const n2: rt.u64 = n;
 			putU64(out, n2);
 			putU64(out, n2);
-			const _332: rt.u64 = rt.optionUnwrapOr(rt.nonZero(b), n2);
-			const _329: boolean = rt.u64Eq(n2, _332);
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.fmtBool(_329, f)];
+			const _360: rt.u64 = rt.optionUnwrapOr(rt.nonZero(b), n2);
+			const _357: boolean = rt.u64Eq(n2, _360);
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.fmtBool(_357, f)];
 			put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]]));
 			rt.byteVecPush(out, rt.u64Gt(n2, { _0: 1 }._0) ? 1 : 0);
 			rt.byteVecPush(out, rt.cmp(n2, { _0: 1000 }._0) & 0xff);
 		}
 		rt.byteVecPush(out, rt.nonZero(rt.u64And(a, 1)) !== undefined ? 1 : 0);
 	} else {
-		const _359: rt.u64 | undefined = rt.nonZero(a);
+		const _387: rt.u64 | undefined = rt.nonZero(a);
 		b1: {
-			if (_359 !== undefined) {
+			if (_387 !== undefined) {
 				if (rt.u8Rem(at(2), 2) === 0) {
-					scale = { _0: _359 };
+					scale = { _0: _387 };
 					break b1;
 				}
 			}
-			const _370: rt.usize = rt.usizeRem(at(3) as rt.usize, 3);
-			if (!(_370 < 3)) {
-				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _370);
+			const _398: rt.usize = rt.usizeRem(at(3) as rt.usize, 3);
+			if (!(_398 < 3)) {
+				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _398);
 			}
-			scale = [{ _0: 1 }, { _0: 1000 }, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }][_370];
+			scale = [{ _0: 1 }, { _0: 1000 }, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }][_398];
 		}
 		if (!rt.u64Eq(1, scale._0)) {
 			if (!rt.u64Eq(1000, scale._0)) {
