@@ -123,7 +123,7 @@ impl Check<'_> {
 			}
 			cmd
 		};
-		run_cargo(cargo("clean").arg("--quiet"))?;
+		run_cargo(cargo("clean").arg("--quiet").args(resolution(self.args)))?;
 		// Its own, since runs may share a target directory.
 		let ran = target_dir.join(format!("{}-{}.ran", self.tool, std::process::id()));
 		match std::fs::remove_file(&ran) {
@@ -178,6 +178,22 @@ fn run_cargo(cmd: &mut Command) -> Result<(), String> {
 		true => Ok(()),
 		false => Err(format!("{cmd:?} failed")),
 	}
+}
+
+/// The cargo args that pick how the workspace resolves, which `cargo clean` resolves it
+/// by too: `--config`, and the lockfile and network flags.
+fn resolution(args: &[String]) -> Vec<&str> {
+	let mut picked = Vec::new();
+	let mut args = args.iter().map(String::as_str);
+	while let Some(arg) = args.next() {
+		match arg {
+			"--locked" | "--frozen" | "--offline" => picked.push(arg),
+			"--config" => picked.extend([Some(arg), args.next()].into_iter().flatten()),
+			_ if arg.starts_with("--config=") => picked.push(arg),
+			_ => {}
+		}
+	}
+	picked
 }
 
 /// The directory of the workspace `manifest`, or the current directory, belongs to.
