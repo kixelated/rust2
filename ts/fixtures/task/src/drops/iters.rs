@@ -381,3 +381,107 @@ pub(super) fn bombed(log: &Log, id: u32, at: u8) {
 	}
 	log.note(format!("unreached"));
 }
+
+/// A value that logs its drop to a sink, and panics if it is the first there: which one
+/// that is, std's hash tables leave unspecified, but not how many drop after.
+struct First {
+	id: u32,
+	sink: Log,
+}
+
+impl Drop for First {
+	fn drop(&mut self) {
+		let first = self.sink.text().is_empty();
+		self.sink.note(format!("dropped"));
+		if first {
+			panic!("first blew");
+		}
+	}
+}
+
+impl PartialEq for First {
+	fn eq(&self, other: &Self) -> bool {
+		self.id == other.id
+	}
+}
+
+impl Eq for First {}
+
+impl std::hash::Hash for First {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.id.hash(state);
+	}
+}
+
+/// Logs how many values dropped to its sink, as it drops last.
+struct Count {
+	sink: Log,
+	log: Log,
+}
+
+impl Drop for Count {
+	fn drop(&mut self) {
+		let text = self.sink.text();
+		let lines = text.iter().filter(|&&b| b == b'\n').count();
+		self.log.note(format!("dropped {lines}"));
+	}
+}
+
+/// What drops after an item's `Drop` panics inside a consumer that drops the iterator it
+/// was given, scenario `at`'s alone: the rest, as std's iterator leaves it, each once.
+pub(super) fn spent(log: &Log, id: u32, at: u8) {
+	let sink = Log::new();
+	let _count = Count {
+		sink: sink.clone(),
+		log: log.clone(),
+	};
+	let first = |n: u32| First {
+		id: id + n,
+		sink: sink.clone(),
+	};
+	match at {
+		0 => {
+			let mut map = HashMap::new();
+			for n in 0..3 {
+				map.insert(n, first(n));
+			}
+			drop(map.into_iter().count());
+		}
+		1 => {
+			let mut set = HashSet::new();
+			for n in 0..3 {
+				set.insert(first(n));
+			}
+			drop(set.into_iter().count());
+		}
+		2 => drop(list![first(0), first(1), first(2)].into_iter().skip(1).count()),
+		3 => {
+			let mut peek = list![first(0), first(1), first(2)].into_iter().peekable();
+			drop(peek.peek().is_some());
+			drop(peek.count());
+		}
+		4 => drop(list![first(0)].into_iter().chain(list![first(1), first(2)]).count()),
+		5 => {
+			let mut map = BTreeMap::new();
+			for n in 0..3 {
+				map.insert(n, first(n));
+			}
+			drop(map.into_iter().count());
+		}
+		6 => {
+			let mut queue = VecDeque::new();
+			for n in 0..3 {
+				queue.push_back(first(n));
+			}
+			drop(queue.into_iter().count());
+		}
+		_ => {
+			let mut map = HashMap::new();
+			for n in 0..3 {
+				map.insert(n, first(n));
+			}
+			drop(map.drain().count());
+		}
+	}
+	log.note(format!("unreached"));
+}

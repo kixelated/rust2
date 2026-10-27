@@ -627,9 +627,11 @@ class HashIter<K, V, T> extends Iter<T> {
 
 	override [Symbol.dispose](): void {
 		if (this.k === undefined && this.v === undefined) return;
-		// A panic leaves the entries after it undropped, as std's table does.
-		for (let n = this.left; n > 0; n--) {
-			this.left--;
+		// A panic leaves the entries after it undropped, as std's table does, even as what
+		// consumed it drops it again.
+		const n = this.left;
+		this.left = 0;
+		for (let i = 0; i < n; i++) {
 			const [key, value] = this.entry();
 			dropPair(key, value, this.k, this.v);
 		}

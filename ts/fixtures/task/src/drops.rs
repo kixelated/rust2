@@ -49,22 +49,23 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 18`, panicking at the point `arg / 18 % 8` names, if any: what
+/// Run scenario `arg % 19`, panicking at the point `arg / 19 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 18 % 8;
+	let at = arg / 19 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 18 {
+	match arg % 19 {
 		13 => iters::looped(log, id, at),
 		14 => iters::collected(log, id, at),
 		15 => iters::drained(log, id, at),
 		16 => iters::extended(log, id, at),
 		17 => iters::bombed(log, id, at),
+		18 => iters::spent(log, id, at),
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
