@@ -160,7 +160,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(std) = library::Std::of(tcx, adt_id) {
 			let mut values = values;
 			return match (std, variant.index()) {
-				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
+				(library::Std::Option, 1) | (library::Std::Poll, 0) | (library::Std::Cow, _) => values.pop().unwrap(),
 				(library::Std::Result, 0) => Expr::rt("Ok", values),
 				(library::Std::Result, _) => Expr::rt("Err", values),
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),

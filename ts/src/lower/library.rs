@@ -25,6 +25,8 @@ pub enum Std {
 	Vec,
 	/// A JS string.
 	String,
+	/// A JS string too, for `Cow<str>`, which keeps no variant: either is the text.
+	Cow,
 	/// Its contents.
 	Box,
 	FromUtf8Error,
@@ -113,6 +115,9 @@ impl Std {
 		}
 		if tcx.is_lang_item(did, rustc_attr_ir::LangItem::OwnedBox) {
 			return Some(Self::Box);
+		}
+		if tcx.is_diagnostic_item(sym::Cow, did) {
+			return Some(Self::Cow);
 		}
 		for (item, std) in [
 			(sym::Arc, Self::Arc),
@@ -220,6 +225,25 @@ impl Flow {
 			(Self::Option, false) => value.binary("===", Expr::undefined()),
 		}
 	}
+}
+
+/// Whether a `ty`'s value is a JS string: a `str`, a `String`, or a `Cow<str>`.
+pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	match ty.kind() {
+		ty::Str => true,
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+			Some(Std::String) => true,
+			// Its first argument is its lifetime.
+			Some(Std::Cow) => args.types().next().is_some_and(|t| t.is_str()),
+			_ => false,
+		},
+		_ => false,
+	}
+}
+
+/// The refusal of code that tells a `Cow<str>`'s variants apart.
+pub fn cow_variant(ty: Ty<'_>) -> String {
+	format!("a variant of `{ty}`, which is not supported: either is the same JS string")
 }
 
 /// The path of a std item within its crate, as `["slice", "iter", "Iter"]`; empty for
@@ -461,7 +485,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
 			let mut values = args;
 			let value = values.pop()?;
-			if to == from {
+			// One between strings, such as into a `Cow<str>` or out of one, keeps the text.
+			if to == from || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
 			// Each `From` between integers and `char` keeps the value, as `as` then does.
@@ -553,7 +578,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) && is_u8(args.type_at(0)) => {
 					Expr::rt("byteVecFrom", vec![Expr::rt("byteVecView", vec![value])])
 				}
-				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				ty::Adt(..) if string(tcx, ty) => value,
 				ty::Adt(adt, _) if int_range(ty) => {
 					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
 				}
@@ -738,6 +763,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 					Some(Std::Vec) => vec_view(v, ty),
 					Some(Std::String | Std::Box) => v,
+					Some(Std::Cow) if string(tcx, ty) => v,
 					_ => return None,
 				},
 				_ => return None,
@@ -766,6 +792,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			Expr::rt(f, vec![s, pattern(targ(gargs, 0), p)?])
 		}
 		("char", "is_ascii_digit") => Expr::rt("charIsAsciiDigit", args),
+		// A `Cow<str>` is its text, whichever variant holds it.
+		("Cow", "into_owned") if targ(gargs, 0).is_str() => args.pop()?,
+		("AsRef", "as_ref") if string(tcx, targ(gargs, 0)) && targ(gargs, 1).is_str() => args.pop()?,
+		("Cow", "is_borrowed" | "is_owned") => {
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let cow = tcx.instantiate_bound_regions_with_erased(sig).inputs()[0].peel_refs();
+			return Some(b.err(span, cow_variant(cow)));
+		}
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
 			args.pop()?
 		}
@@ -819,7 +853,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			let ty = targ(gargs, 0);
 			let value = args.pop()?;
 			match ty.kind() {
-				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				ty::Adt(..) if string(tcx, ty) => value,
 				_ => {
 					let value = b.fmt_value(fmt::Trait::Display, ty, value, span, out);
 					Expr::rt("fmtToString", vec![value])
@@ -1062,6 +1096,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 				_ => Expr::Array(Vec::new()),
 			},
 			Std::String => Expr::Str(String::new()),
+			Std::Cow if string(tcx, ty) => Expr::Str(String::new()),
 			_ => return None,
 		},
 		_ => return None,

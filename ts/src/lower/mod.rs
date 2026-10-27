@@ -1014,6 +1014,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					_ => Type::Array(Box::new(self.ty(args.type_at(0), span))),
 				},
 				library::Std::String => Type::Builtin("string"),
+				library::Std::Cow if library::string(tcx, Ty::new_adt(tcx, adt, args)) => Type::Builtin("string"),
+				library::Std::Cow => {
+					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
+					Type::Builtin("unknown")
+				}
 				library::Std::Box => self.ty(args.type_at(0), span),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),

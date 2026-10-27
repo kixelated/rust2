@@ -242,6 +242,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					// The value is its discriminant.
 					Some(Std::Ordering) => scrut,
+					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					None if adt.did().is_local() => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -323,6 +324,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Option, 0) => Expr::undefined(),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
+				// Either variant is its text.
+				(Std::Cow, _) => values.pop().unwrap(),
 				(Std::Result, 0) => Expr::rt("Ok", values),
 				(Std::Result, _) => Expr::rt("Err", values),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
