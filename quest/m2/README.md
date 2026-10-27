@@ -36,7 +36,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - copies of `Copy` aggregates no one writes into in place go away, recovering #83's decode cost
 - [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
 - [Small std gaps](/quest/m2/ts-std-gaps.md) - `bool::then`, `iter::successors`, `usize::from(bool)`, and `None.ok_or` narrowing
-- [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate
 - [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm

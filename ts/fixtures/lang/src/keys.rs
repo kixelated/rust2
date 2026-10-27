@@ -1,6 +1,7 @@
 //! Keys a map compares, orders, and hashes through std's impls: `Option`s, which order
 //! `None` first, and `Arc`s, which compare as what they hold; lookups through `Borrow`;
-//! and the references to values a map holds that JS copies, changed in place.
+//! the references to values a map holds that JS copies, changed in place; and the `!=`,
+//! `<`, `<=`, `>`, and `>=` a type's `PartialEq` and `PartialOrd` inherit.
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -164,6 +165,26 @@ enum Seen<'a> {
 #[derive(PartialEq, PartialOrd)]
 struct Skewed<'a>(&'a Skew);
 
+/// An `eq` by value and a `partial_cmp` by quarter, unordered past 200: `!=` and `<=`
+/// and `>=` all hold between some, and none of `<`, `<=`, `>`, and `>=` past 200.
+#[derive(Clone, Copy)]
+struct Rough(u8);
+
+impl PartialEq for Rough {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 == other.0
+	}
+}
+
+impl PartialOrd for Rough {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		match self.0 > 200 || other.0 > 200 {
+			true => None,
+			false => (self.0 / 4).partial_cmp(&(other.0 / 4)),
+		}
+	}
+}
+
 /// Strings whose UTF-8 order differs from their UTF-16 order past U+FFFF.
 const WORDS: [&str; 6] = ["", "a", "ab", "\u{e000}", "\u{ffff}", "\u{10000}"];
 
@@ -232,11 +253,63 @@ fn find<K: Borrow<Q>, Q: PartialEq + ?Sized>(keys: &[K], q: &Q) -> u8 {
 
 /// Run one case.
 pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 4 {
+	match kind % 5 {
 		0 => options(data, out),
 		1 => arcs(data, out),
 		2 => borrows(data, out),
+		3 => defaults(data, out),
 		_ => places(data, out),
+	}
+}
+
+/// `!=`, `<`, `<=`, `>`, and `>=` of each of `l` and `r` with the other, as bits.
+fn compare<T: PartialOrd>(l: &T, r: &T) -> u8 {
+	(l != r) as u8 | ((l < r) as u8) << 1 | ((l <= r) as u8) << 2 | ((l > r) as u8) << 3 | ((l >= r) as u8) << 4
+}
+
+/// The comparisons a type's `PartialEq` and `PartialOrd` inherit: `!=` as `!eq`, and
+/// the orderings from `partial_cmp`, false when it is `None`, whatever `eq` says.
+fn defaults(data: &[u8], out: &mut Vec<u8>) {
+	for i in 1..data.len() {
+		let (c, d) = (data[i - 1], data[i]);
+		let (a, b) = (Rough(c), Rough(d));
+		out.push(compare(&a, &b) | ((a != b) as u8) << 5 | ((a < b) as u8) << 6 | ((a >= b) as u8) << 7);
+		out.push(compare(&Some(a), &Some(b)) | ((Some(a) <= None) as u8) << 5 | ((None < Some(b)) as u8) << 6);
+		let (s, t) = (Skew(c % 4), Skew(d % 4));
+		out.push(compare(&s, &t) | ((s <= t) as u8) << 5 | ((s > t) as u8) << 6);
+		out.push(compare(&Skewed(&s), &Skewed(&t)));
+		let (g, h) = (hop(c), hop(d));
+		out.push(compare(&g, &h) | ((g.map(|h| h.0) > h.map(|h| h.0)) as u8) << 5);
+		let (x, y) = (
+			Horizon {
+				exclude: g,
+				local: c % 2 == 0,
+			},
+			Horizon {
+				exclude: h,
+				local: d % 2 == 0,
+			},
+		);
+		out.push(compare(&x, &y) | ((&x < &y) as u8) << 5 | ((&&x >= &&y) as u8) << 6);
+		let (m, n) = (name(c), name(d));
+		out.push(compare(&m, &n) | ((m.text != n.text) as u8) << 5);
+		// `Side`'s derived `eq` and `Way`'s own, which finds `Up` and `Top` equal.
+		out.push(
+			(side(c % 2) != side(d % 2)) as u8
+				| ((way(c) != way(d)) as u8) << 1
+				| ((way(c).map(|w| w != Way::Top) == Some(true)) as u8) << 2,
+		);
+		// Byte slices, through references and not.
+		let (l, r) = (&data[..i], &data[i..]);
+		let (p, q) = (&data[i - 1..i], &data[c as usize % i..c as usize % i + 1]);
+		out.push(
+			(l == r) as u8
+				| ((l != r) as u8) << 1
+				| ((p == q) as u8) << 2
+				| ((*p != *q) as u8) << 3
+				| ((&l[..0] == &r[..0]) as u8) << 4
+				| ((data[..i] == data[data.len() - i..]) as u8) << 5,
+		);
 	}
 }
 
