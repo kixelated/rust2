@@ -1512,6 +1512,19 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 			ControlFlow::Break(b) => b.unwrap_or(33),
 		});
 	}
+	// A map's entry is one value for either variant, which TypeScript narrows nothing by.
+	let mut counts = std::collections::HashMap::new();
+	if data.len() % 2 == 0 {
+		counts.insert(data.len() as u8, 35);
+	}
+	let entry = Some(counts.entry(data.len() as u8));
+	if entry.is_some() {
+		out.push(match entry {
+			Some(std::collections::hash_map::Entry::Occupied(e)) => *e.get(),
+			Some(std::collections::hash_map::Entry::Vacant(e)) => *e.insert(36),
+			None => 37,
+		});
+	}
 	// What changes the place between the matches undecides it.
 	let mut m = s;
 	out.push(match m {

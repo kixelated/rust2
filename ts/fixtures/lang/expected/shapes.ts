@@ -1620,11 +1620,12 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let r!: rt.Result<rt.u8, rt.u8>;
 	let _58!: rt.u8;
 	let _76!: rt.u8;
-	let _82!: rt.u8;
-	let _93!: rt.u8;
-	let _102!: rt.u8;
-	let _106!: Shape.Shape;
-	let _164!: rt.u8;
+	let _97!: rt.u8;
+	let _107!: rt.u8;
+	let _118!: rt.u8;
+	let _127!: rt.u8;
+	let _131!: Shape.Shape;
+	let _189!: rt.u8;
 	const s: Shape.Shape = shape(data);
 	if (s.tag === "Dot") {
 		_5 = 2;
@@ -1701,49 +1702,64 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, _76);
 	}
+	const counts: rt.HashMap<rt.u8, rt.u8> = rt.hashNew() as rt.HashMap<rt.u8, rt.u8>;
+	if (rt.usizeRem(data.length, 2) === 0) {
+		rt.hashInsert(counts, data.length & 0xff, 35);
+	}
+	const entry: rt.Entry<rt.u8, rt.u8> | undefined = rt.entry(counts, data.length & 0xff);
+	if (entry !== undefined) {
+		if ((entry as rt.Entry<rt.u8, rt.u8> | undefined) === undefined) {
+			_97 = 37;
+		} else if (rt.entryOccupied(((entry as rt.Entry<rt.u8, rt.u8> | undefined) as rt.Entry<rt.u8, rt.u8>) as rt.Entry<rt.u8, rt.u8>)) {
+			_97 = rt.entryGet((entry as rt.Entry<rt.u8, rt.u8> | undefined) as rt.Entry<rt.u8, rt.u8>);
+		} else {
+			_97 = rt.entryOrInsertMut((entry as rt.Entry<rt.u8, rt.u8> | undefined) as rt.Entry<rt.u8, rt.u8>, 36).v;
+		}
+		rt.byteVecPush(out, _97);
+	}
 	let m: Shape.Shape = s;
 	if (m.tag === "Dot") {
 		m = shape(rt.byteSliceRange(data, rt.min(data.length, 1)));
 		if (m.tag === "Line") {
-			_82 = 18;
+			_107 = 18;
 		} else {
-			_82 = 19;
+			_107 = 19;
 		}
 	} else {
-		_82 = 20;
+		_107 = 20;
 	}
-	rt.byteVecPush(out, _82);
+	rt.byteVecPush(out, _107);
 	let held = copy$Shape(m) as Shape.Shape | undefined;
 	if (held === undefined) {
-		_93 = 22;
+		_118 = 22;
 	} else {
 		const taken2 = held;
 		held = undefined;
 		const taken: Shape.Shape | undefined = taken2;
 		if ((held as Shape.Shape | undefined) === undefined) {
-			_93 = rt.optionMapOr(taken, 22, (t: Shape.Shape): rt.u8 => {
+			_118 = rt.optionMapOr(taken, 22, (t: Shape.Shape): rt.u8 => {
 				return rt.u64Low(Shape.area$Area(t)) & 0xff;
 			});
 		} else {
-			_93 = 21;
+			_118 = 21;
 		}
 	}
-	rt.byteVecPush(out, _93);
+	rt.byteVecPush(out, _118);
 	let cur: Shape.Shape = s;
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = 3;
-	while ((_102 = iterStart++) < iterEnd) {
-		const i: rt.u8 = _102;
+	while ((_127 = iterStart++) < iterEnd) {
+		const i: rt.u8 = _127;
 		if (cur.tag === "Dot") {
-			_106 = { tag: "Line", _0: Point.new(i as rt.i32, 0), _1: Point.new(0, 0) } as Shape.Shape;
+			_131 = { tag: "Line", _0: Point.new(i as rt.i32, 0), _1: Point.new(0, 0) } as Shape.Shape;
 		} else if (cur.tag === "Line") {
-			_106 = { tag: "Rect", corner: cur._0, width: rt.u16Add(cur._1.x & 0xffff, 1), height: 2 } as Shape.Shape;
+			_131 = { tag: "Rect", corner: cur._0, width: rt.u16Add(cur._1.x & 0xffff, 1), height: 2 } as Shape.Shape;
 		} else if (!(cur.width > 1)) {
-			_106 = cur;
+			_131 = cur;
 		} else {
-			_106 = { tag: "Dot" } as Shape.Shape;
+			_131 = { tag: "Dot" } as Shape.Shape;
 		}
-		cur = _106;
+		cur = _131;
 		rt.byteVecPush(out, rt.u64Low(Shape.area$Area(cur)) & 0xff);
 	}
 	const machine: Machine.Machine = { state: copy$Shape(s), steps: 0 };
@@ -1765,11 +1781,11 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		original = shape(rt.byteSliceFrom(Uint8Array.of(1)));
 		rt.byteVecPush(out, 24);
 		if (original.tag === "Line") {
-			_164 = 25;
+			_189 = 25;
 		} else {
-			_164 = 26;
+			_189 = 26;
 		}
-		rt.byteVecPush(out, _164);
+		rt.byteVecPush(out, _189);
 	}
 	reseated(data, out);
 }

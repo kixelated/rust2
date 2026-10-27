@@ -286,6 +286,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		variant: VariantIdx,
 		span: Span,
 	) -> Expr {
+		// `rt.Entry` is one class for either variant, which TypeScript narrows nothing by.
+		if matches!(ty.kind(), ty::Adt(adt, _) if matches!(Std::of(self.tcx, adt.did()), Some(Std::Entry))) {
+			return base;
+		}
 		let Some(variant) = self.variant_ty(ty, variant, span) else {
 			return self.err(
 				span,
