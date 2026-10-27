@@ -4,9 +4,10 @@
 //! transform made, which drops what the state it is in holds.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
-use rustc_middle::mir::{CoroutineSavedLocal, Operand};
+use rustc_middle::mir::{self, CoroutineSavedLocal, Operand};
 use rustc_middle::ty::{self, EarlyBinder, GenericArgsRef, Instance};
 use rustc_span::Span;
 
@@ -106,8 +107,32 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 			};
 		}
 	};
+	let resume = super::instance_mir(t, instance, span);
+	let moved = resume
+		.as_ref()
+		.map(|mir| moved_upvars(mir, def_id, layout))
+		.unwrap_or_default();
 	let mut saved = IndexVec::new();
-	for field in layout.field_tys.iter() {
+	// Locals of one type that are never live at once share a field, as rustc overlaps
+	// them in memory: each `.await` of a future of one type keeps it in the same one.
+	let mut shared: Vec<(FieldId, Type, Vec<CoroutineSavedLocal>)> = Vec::new();
+	for (local, field) in layout.field_tys.iter_enumerated() {
+		// An argument the body moves into its own variable keeps its field.
+		if let Some(&upvar) = moved.get(&local) {
+			saved.push(upvars[upvar]);
+			continue;
+		}
+		let ty = t.subst(args, field.ty);
+		// A local held across an `.await`, refused as any variable is.
+		let ty = t.held_ty(ty, field.source_info.span);
+		let free = shared
+			.iter_mut()
+			.find(|(_, of, locals)| *of == ty && locals.iter().all(|&l| !layout.storage_conflicts.contains(l, local)));
+		if let Some((id, _, locals)) = free {
+			locals.push(local);
+			saved.push(*id);
+			continue;
+		}
 		// rustc's own locals, such as `__awaitee`, start with `_`.
 		let name = match field
 			.debuginfo_name
@@ -118,9 +143,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		};
 		let id = t.program.field(sym, name);
 		saved.push(id);
-		let ty = t.subst(args, field.ty);
-		// A local held across an `.await`, refused as any variable is.
-		let ty = t.held_ty(ty, field.source_info.span);
+		shared.push((id, ty.clone(), vec![local]));
 		fields.push(ts::Field {
 			id,
 			ty,
@@ -159,7 +182,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		name: String::new(),
 		alias: None,
 	});
-	if let Some(mir) = super::instance_mir(t, instance, span) {
+	if let Some(mir) = resume {
 		let ret = mir.return_ty();
 		let mut b = Body::new(t, args);
 		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
@@ -265,4 +288,128 @@ pub fn construct<'tcx>(
 	let info = info(fx.b.t, def_id, args, span);
 	let values = ops.iter().map(|op| fx.operand(op, span, out)).collect();
 	Expr::New(Box::new(Expr::Sym(info.sym)), values)
+}
+
+/// The saved locals the resume function `mir` of the coroutine `def_id` moves or copies
+/// an upvar into, with the upvar's index, where the local can keep its value in the
+/// upvar's field: that copy is the upvar's one use and runs at most once, and it comes
+/// before every other use of the local.
+fn moved_upvars<'tcx>(
+	mir: &mir::Body<'tcx>,
+	def_id: DefId,
+	layout: &mir::CoroutineLayout<'tcx>,
+) -> FxHashMap<CoroutineSavedLocal, usize> {
+	use mir::visit::{PlaceContext, Visitor};
+	use mir::{Location, ProjectionElem, Rvalue, StatementKind};
+
+	struct Uses<'m, 'tcx> {
+		mir: &'m mir::Body<'tcx>,
+		def_id: DefId,
+		layout: &'m mir::CoroutineLayout<'tcx>,
+		upvars: FxHashMap<FieldIdx, u32>,
+		locals: FxHashMap<CoroutineSavedLocal, Vec<Location>>,
+	}
+	impl<'tcx> Uses<'_, 'tcx> {
+		/// The upvar `place` is, or the field of a variant, of this coroutine.
+		fn split(&self, place: mir::Place<'tcx>) -> Option<(Option<VariantIdx>, FieldIdx)> {
+			let ty = self.mir.local_decls[place.local].ty.builtin_deref(true)?;
+			if !matches!(ty.kind(), ty::Coroutine(d, _) if *d == self.def_id) {
+				return None;
+			}
+			match place.projection.as_slice() {
+				[ProjectionElem::Deref, ProjectionElem::Field(f, _), ..] => Some((None, *f)),
+				[
+					ProjectionElem::Deref,
+					ProjectionElem::Downcast(_, v),
+					ProjectionElem::Field(f, _),
+					..,
+				] => Some((Some(*v), *f)),
+				_ => None,
+			}
+		}
+	}
+	impl<'tcx> Visitor<'tcx> for Uses<'_, 'tcx> {
+		fn visit_place(&mut self, place: &mir::Place<'tcx>, cx: PlaceContext, at: Location) {
+			// Debug info names a place without using it.
+			if !matches!(cx, PlaceContext::NonUse(_)) {
+				match self.split(*place) {
+					Some((None, f)) => *self.upvars.entry(f).or_default() += 1,
+					Some((Some(v), f)) => self
+						.locals
+						.entry(self.layout.variant_fields[v][f])
+						.or_default()
+						.push(at),
+					None => {}
+				}
+			}
+			self.super_place(place, cx, at);
+		}
+	}
+
+	let mut uses = Uses {
+		mir,
+		def_id,
+		layout,
+		upvars: FxHashMap::default(),
+		locals: FxHashMap::default(),
+	};
+	uses.visit_body(mir);
+	let mut moved = FxHashMap::default();
+	// The transform's entry switch on the state: an unresumed coroutine's first poll
+	// starts at one target, and every later poll at another.
+	let mir::TerminatorKind::SwitchInt { targets, .. } = &mir.basic_blocks[mir::START_BLOCK].terminator().kind else {
+		return moved;
+	};
+	let Some(first) = targets.iter().find(|&(state, _)| state == 0).map(|(_, b)| b) else {
+		return moved;
+	};
+	let later = reach(mir, targets.all_targets().iter().copied().filter(|&b| b != first), None);
+	for (block, data) in mir.basic_blocks.iter_enumerated() {
+		for (statement_index, stmt) in data.statements.iter().enumerate() {
+			let StatementKind::Assign(assign) = &stmt.kind else {
+				continue;
+			};
+			let (dest, Rvalue::Use(Operand::Move(src) | Operand::Copy(src), _)) = &**assign else {
+				continue;
+			};
+			if src.projection.len() == 2
+				&& dest.projection.len() == 3
+				&& let Some((None, upvar)) = uses.split(*src)
+				&& let Some((Some(variant), field)) = uses.split(*dest)
+				&& uses.upvars.get(&upvar) == Some(&1)
+				// Only the first poll copies, and only once.
+				&& !later.contains(&block)
+				&& !reach(mir, mir.basic_blocks[block].terminator().successors(), None).contains(&block)
+			{
+				// Nothing the first poll runs before the copy, or instead of it, uses the
+				// local; a later poll runs after it.
+				let local = layout.variant_fields[variant][field];
+				let around = reach(mir, [first], Some(block));
+				let after = |u: &Location| match u.block == block {
+					true => u.statement_index >= statement_index,
+					false => !around.contains(&u.block),
+				};
+				if uses.locals[&local].iter().all(after) {
+					moved.insert(local, upvar.index());
+				}
+			}
+		}
+	}
+	moved
+}
+
+/// The blocks a run from `starts` can reach, without entering `avoid`.
+fn reach(
+	mir: &mir::Body<'_>,
+	starts: impl IntoIterator<Item = mir::BasicBlock>,
+	avoid: Option<mir::BasicBlock>,
+) -> FxHashSet<mir::BasicBlock> {
+	let mut seen = FxHashSet::default();
+	let mut next: Vec<_> = starts.into_iter().collect();
+	while let Some(b) = next.pop() {
+		if Some(b) != avoid && seen.insert(b) {
+			next.extend(mir.basic_blocks[b].terminator().successors());
+		}
+	}
+	seen
 }

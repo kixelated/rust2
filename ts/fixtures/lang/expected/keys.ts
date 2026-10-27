@@ -293,8 +293,7 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _29 | (((order_ !== undefined && order_ >= 0 ? 1 : 0) << 7) & 0xff));
 			const _58: rt.u8 = compare$Option_Rough(a, b);
 			const _67: Rough.Rough | undefined = a;
-			const _68: Rough.Rough | undefined = undefined;
-			const order2 = rt.cmpOption(Rough.partialCmp$PartialOrd)(_67, _68);
+			const order2 = rt.cmpOption(Rough.partialCmp$PartialOrd)(_67, undefined);
 			const _57: rt.u8 = _58 | (((order2 !== undefined && order2 <= 0 ? 1 : 0) << 5) & 0xff);
 			const _74: Rough.Rough | undefined = undefined;
 			const _76: Rough.Rough | undefined = b;
@@ -317,18 +316,15 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return h3._0;
 			});
 			rt.byteVecPush(out, _123 | (((rt.cmpOption(rt.cmp)(_130, _132) === 1 ? 1 : 0) << 5) & 0xff));
-			const _139: boolean = rt.u8Rem(c, 2) === 0;
-			const _138: Horizon.Horizon = { exclude: g, local: _139 };
+			const _138: Horizon.Horizon = { exclude: g, local: rt.u8Rem(c, 2) === 0 };
 			unwind = 0;
-			const _143: boolean = rt.u8Rem(d, 2) === 0;
-			const _137: [Horizon.Horizon, Horizon.Horizon] = [_138, { exclude: h, local: _143 }];
+			const _137: [Horizon.Horizon, Horizon.Horizon] = [_138, { exclude: h, local: rt.u8Rem(d, 2) === 0 }];
 			const x: Horizon.Horizon = _138;
 			const y: Horizon.Horizon = _137[1];
 			const _149: rt.u8 = compare$Horizon(x, y);
 			unwind = 0;
 			const _148: rt.u8 = _149 | (((Horizon.partialCmp$PartialOrd(x, y) === -1 ? 1 : 0) << 5) & 0xff);
-			const _167: Horizon.Horizon = x;
-			const order4 = Horizon.partialCmp$PartialOrd(_167, y);
+			const order4 = Horizon.partialCmp$PartialOrd(x, y);
 			rt.byteVecPush(out, _148 | (((order4 !== undefined && order4 >= 0 ? 1 : 0) << 6) & 0xff));
 			_177 = name(c);
 			unwind = 99;
@@ -419,8 +415,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _24: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
 			const a: Hop.Hop | undefined = _24[0];
 			const b: Hop.Hop | undefined = _24[1];
-			const _28: boolean = rt.u8Rem(c, 2) === 0;
-			const g: Horizon.Horizon = { exclude: a, local: _28 };
+			const g: Horizon.Horizon = { exclude: a, local: rt.u8Rem(c, 2) === 0 };
 			unwind = 0;
 			const _32: boolean = rt.u8Rem(d, 2) === 0;
 			const gr: Horizon.Horizon = g;
@@ -439,9 +434,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const r: Seen.Seen = _58[1];
 			rt.byteVecPush(out, (Seen.eq$PartialEq(l, r) ? 1 : 0) | ((order(Seen.cmp$Ord(l, r)) << 1) & 0xff) | ((partial(Seen.partialCmp$PartialOrd(l, r)) << 3) & 0xff) | (((rt.u64Eq(hashOf$Seen(l), hashOf$Seen(r)) ? 1 : 0) << 5) & 0xff));
 			const _102: [Skew.Skew, Skew.Skew] = [{ _0: rt.u8Rem(c, 4) }, { _0: rt.u8Rem(d, 4) }];
-			const s: Skew.Skew = _102[0];
-			const t: Skew.Skew = _102[1];
-			const _111: [Skewed.Skewed, Skewed.Skewed] = [{ _0: s }, { _0: t }];
+			const _111: [Skewed.Skewed, Skewed.Skewed] = [{ _0: _102[0] }, { _0: _102[1] }];
 			const s2: Skewed.Skewed = _111[0];
 			const t2: Skewed.Skewed = _111[1];
 			const _119: boolean = Skewed.eq$PartialEq(s2, t2);
@@ -548,16 +541,13 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			r = _229;
 			s2 = _234;
 			rt.byteVecPush(out, (!rt.eqOption(Picky.eq$PartialEq)(g, h) ? 1 : 0) | (((!rt.eqTuple([rt.eqOption(Picky.eq$PartialEq), rt.same])(j, k) ? 1 : 0) << 1) & 0xff) | (((!rt.eqArc(rt.eqOption(Picky.eq$PartialEq))(r, s2) ? 1 : 0) << 2) & 0xff));
-			const _261: rt.u8 = rt.u8Rem(c, 3);
-			const _264: boolean = rt.u8Rem(d, 2) === 0;
-			const key: [rt.u8, Horizon.Horizon] = [_261, { exclude: a, local: _264 }];
+			const key: [rt.u8, Horizon.Horizon] = [rt.u8Rem(c, 3), { exclude: a, local: rt.u8Rem(d, 2) === 0 }];
 			const _269: rt.u8 | undefined = rt.hashInsert(hashed, copy$u8_Horizon(key), i & 0xff);
 			unwind = 133;
 			rt.byteVecPush(out, rt.optionUnwrapOr(_269, 204));
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(sorted, copy$u8_Horizon(key), i & 0xff), 204));
 			const _281: [Way.Way | undefined, boolean] = [way(c), c < 128];
-			const _284: rt.u8 = i & 0xff;
-			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(ways, _281, _284), 204));
+			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashInsert(ways, _281, i & 0xff), 204));
 			const _291: [Way.Way | undefined, boolean] = [way(d), d < 128];
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.hashGet(ways, _291), 221));
 			rt.byteVecPush(out, rt.hashLen(ways) & 0xff);
@@ -658,8 +648,7 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), b.text) ? 1 : 0) << 2) & 0xff));
 			rt.byteVecPush(out, (rt.u64Eq(hashOf$Arc_str(a.text), hashOf$Arc_str(b.text)) ? 1 : 0) | (((rt.u64Eq(hashOf$Name(a), hashOf$Name(b)) ? 1 : 0) << 1) & 0xff));
 			const text: string = a.text.value;
-			const _102: string = b.text.value;
-			rt.byteVecPush(out, text === _102 ? 1 : 0);
+			rt.byteVecPush(out, text === b.text.value ? 1 : 0);
 			rt.idx(data, i);
 			const _106: rt.usize = rt.usizeRem(data.data[data.start + i] as rt.usize, ["", "a", "ab", "", "￿", "𐀀"].length);
 			if (!(_106 < 6)) {
@@ -809,8 +798,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const place6 = rt.entryGetMut(_35);
 				place6.v = rt.usizeAdd(place6.v, 7);
 			} else {
-				const e: rt.Entry<rt.u8, rt.usize> = _35;
-				const place5 = rt.entryGetMut(e);
+				const place5 = rt.entryGetMut(_35);
 				place5.v = rt.usizeMul(place5.v, 3);
 			}
 		} else if (_18 === 3) {
@@ -831,8 +819,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const place = rt.optionUnwrap(rt.btreeGetMut(counts, k));
 			place.v = rt.usizeAdd(place.v, 1);
 		}
-		const _82: rt.u8 = rt.u8Rem(b, 7);
-		const place9 = rt.entryOrInsertMut(rt.entry(wide, _82), 4503599627370496);
+		const place9 = rt.entryOrInsertMut(rt.entry(wide, rt.u8Rem(b, 7)), 4503599627370496);
 		place9.v = rt.u64WrappingAdd(rt.u64WrappingAdd(place9.v, rt.u64Shr(place9.v, 1)), b as rt.u64);
 		const _98: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 6) };
 		const place10 = rt.entryOrInsertWithMut(rt.entry(hops, _98), (): rt.u16 => {
@@ -851,8 +838,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const place13 = rt.entryGetMut(_114);
 				place13.v = place13.v | 1;
 			} else {
-				const e4: rt.Entry<Hop.Hop, rt.u16> = _114;
-				const place12 = rt.entryGetMut(e4);
+				const place12 = rt.entryGetMut(_114);
 				place12.v = rt.u16Sub(place12.v, 4096);
 			}
 		} else {
@@ -874,8 +860,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _159: rt.usize = rt.usizeRem(j, data.length);
 		rt.idx(data, _159);
 		const b2: rt.u8 = data.data[data.start + _159];
-		const _167: rt.u16 = rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16;
-		const place15 = rt.entryOrInsertMut(rt.entry(tree, _167), j & 0xffff);
+		const place15 = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
 		place15.v = rt.u16WrappingAdd(place15.v, b2 as rt.u16);
 	}
 	const iter3: rt.Iter<[rt.u16, rt.u16]> = rt.btreeIter(tree);
@@ -901,10 +886,9 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const place18 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
 		return 0;
 	});
-	const bump: () => void = (): void => {
+	((): void => {
 		place18.v = rt.usizeAdd(place18.v, 1);
-	};
-	bump();
+	})();
 	const spare: rt.usize[] = [data.length, 8];
 	const place19 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
 	const swapped = place19.v;
