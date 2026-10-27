@@ -44,8 +44,7 @@ export function run(self: Machine, n: rt.u8): rt.u8 {
 	}
 	if (self.state.tag === "Line") {
 		const seen: rt.u8 = peek(self);
-		const _12: rt.u8 = self.state._1.y & 0xff;
-		return _12 ^ seen;
+		return (self.state._1.y & 0xff) ^ seen;
 	}
 	const width: rt.u16 = self.state.width;
 	const logged: rt.u8 = log(self, self.state.height & 0xff);

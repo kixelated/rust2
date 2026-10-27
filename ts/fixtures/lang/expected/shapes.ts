@@ -1586,10 +1586,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (s.tag === "Dot") {
 		_5 = 2;
 	} else if (s.tag === "Line") {
-		const from: Point.Point = s._0;
-		const to: Point.Point = s._1;
-		const _12: rt.i32 = from.x;
-		_5 = (_12 ^ to.y) & 0xff;
+		_5 = (s._0.x ^ s._1.y) & 0xff;
 	} else {
 		_5 = 4;
 	}
@@ -1617,8 +1614,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_29 = { North: 1, East: 2, South: 4, West: 8 }[d] & 0xff;
 	}
 	rt.byteVecPush(out, _29);
-	const order_: rt.Ordering = rt.cmp(data.length & 0xff, 2);
-	if (order_ === -1) {
+	if (rt.cmp(data.length & 0xff, 2) === -1) {
 		_43 = 17;
 	} else {
 		_43 = 0;
