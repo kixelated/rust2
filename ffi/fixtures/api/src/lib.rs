@@ -484,6 +484,72 @@ pub fn describe(event: &Event) -> String {
 	format!("{event:?}")
 }
 
+/// Two values: a generic record, which exports at each instance the config names. Its
+/// second parameter defaults to its first, as an instance may leave it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pair<L, R = L> {
+	pub left: L,
+	pub right: R,
+}
+
+impl<L: Copy, R: Copy> Pair<L, R> {
+	/// The pair swapped: another instance, unless both are of one type.
+	pub fn swap(&self) -> Pair<R, L> {
+		Pair {
+			left: self.right,
+			right: self.left,
+		}
+	}
+
+	/// Whether the sides are equal: a method of only the instances whose sides compare.
+	pub fn even(&self) -> bool
+	where
+		L: PartialEq<R>,
+	{
+		self.left == self.right
+	}
+}
+
+/// An impl of one instance, whose methods no other instance has.
+impl Pair<u32> {
+	pub fn sum(&self) -> u32 {
+		self.left + self.right
+	}
+
+	/// The left value as a byte, beside `right`: the one instance that names the result
+	/// fills the type parameter, with `dep_fixture::Size`.
+	pub fn beside<T: Copy>(&self, right: T) -> Pair<u8, T> {
+		Pair {
+			left: self.left as u8,
+			right,
+		}
+	}
+}
+
+/// A stack: a generic object, at an instance of objects, whose handles move in and out.
+#[derive(Debug, Default)]
+pub struct Stack<T> {
+	items: Vec<T>,
+}
+
+impl<T> Stack<T> {
+	pub fn new() -> Self {
+		Self { items: Vec::new() }
+	}
+
+	pub fn push(&mut self, item: T) {
+		self.items.push(item);
+	}
+
+	pub fn pop(&mut self) -> Option<T> {
+		self.items.pop()
+	}
+
+	pub fn depth(&self) -> usize {
+		self.items.len()
+	}
+}
+
 /// An area grown by `by` on each side: another export's types, across crates.
 pub fn grow(area: &dep::Area, by: u32) -> dep::Area {
 	let size = area.size();

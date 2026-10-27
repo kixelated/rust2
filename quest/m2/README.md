@@ -27,11 +27,9 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 ## Required
 
 - [Byte slices without objects](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` allocates nothing, neither a chunk view nor a `ByteSlice`
-- [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
-- [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - copies of `Copy` aggregates no one writes into in place go away, recovering #83's decode cost
 - [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
 - [Small std gaps](/quest/m2/ts-std-gaps.md) - `bool::then`, `iter::successors`, `usize::from(bool)`, and `None.ok_or` narrowing
 - [Iterator skips that read as std's](/quest/m2/ts-iter-nth.md) - `nth` and `nth_back` of what drops nothing read the items std's do

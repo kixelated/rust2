@@ -145,5 +145,32 @@ pub fn measure(size: dep::Size) -> dep::Area {
 	dep::Area::new(size)
 }
 
+/// A generic type the config names at `u32` alone.
+pub struct Cell<T>(T);
+
+impl<T> Cell<T> {
+	pub fn new(value: T) -> Self {
+		Self(value)
+	}
+}
+
+/// An instance the config does not name.
+pub fn unnamed(cell: Cell<u8>) -> u8 {
+	cell.0
+}
+
+/// A type parameter both instances of `Cell` could fill.
+pub fn fill<T: Copy>(value: T) -> Cell<T> {
+	Cell(value)
+}
+
+/// A generic type whose bound the config's instance does not meet.
+pub struct Bounded<T: Copy>(pub T);
+
+/// A generic type whose default argument is a type no instance key can spell.
+pub struct Holder<T = Option<u32>> {
+	pub value: T,
+}
+
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
