@@ -319,7 +319,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if active.is_some() {
 					return Some(self.err(span, "unions are not supported"));
 				}
-				if let Some(same) = self.rebuilt_result(*def_id, *variant, ops, &values, ty, span, out) {
+				if let Some(same) = self.rebuilt_result(kind, ops, &values, ty, span, out) {
 					return Some(same);
 				}
 				self.adt(*def_id, *variant, args, values, ty, span)
@@ -334,14 +334,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// held back for this one read, goes unread.
 	fn rebuilt_result(
 		&mut self,
-		def_id: rustc_hir::def_id::DefId,
-		variant: VariantIdx,
+		kind: &AggregateKind<'tcx>,
 		ops: &IndexVec<FieldIdx, Operand<'tcx>>,
 		values: &[Expr],
 		ty: Ty<'tcx>,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Option<Expr> {
+		let &AggregateKind::Adt(def_id, variant, ..) = kind else {
+			return None;
+		};
 		if Std::of(self.tcx, def_id) != Some(Std::Result) {
 			return None;
 		}
@@ -354,7 +356,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			_ => (*place, None),
 		};
-		let [ref outer @ .., mir::ProjectionElem::Downcast(_, from), mir::ProjectionElem::Field(..)] = place.projection[..]
+		let [
+			ref outer @ ..,
+			mir::ProjectionElem::Downcast(_, from),
+			mir::ProjectionElem::Field(..),
+		] = place.projection[..]
 		else {
 			return None;
 		};

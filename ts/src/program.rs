@@ -118,7 +118,7 @@ impl Program {
 	pub fn merge(&mut self) {
 		loop {
 			let mut same: HashMap<SymId, SymId> = HashMap::new();
-			let mut kept: HashMap<(&ModPath, &str, &[ts::Param], &ts::Type, &[ts::Stmt]), SymId> = HashMap::new();
+			let mut kept: HashMap<Output, SymId> = HashMap::new();
 			let mut functions: Vec<&Function> = (self.items.iter())
 				.filter_map(|item| match item {
 					Item::Function(f) if self.std.contains(&f.sym) => Some(f),
@@ -272,6 +272,10 @@ impl Program {
 		Ok(())
 	}
 }
+
+/// What a function of a module prints as, but for its own name: its item, parameters,
+/// return type, and body.
+type Output<'a> = (&'a ModPath, &'a str, &'a [ts::Param], &'a ts::Type, &'a [ts::Stmt]);
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Scope {

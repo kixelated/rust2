@@ -498,7 +498,11 @@ fn options(log: &Log, id: u32, at: u8) {
 	});
 	let error = Err::<Guard, Guard>(guard(26)).map_or_else(|e| e.id(), |v| v.id());
 	let cloned = Some(Arc::new(guard(27))).clone();
-	log.note(format!("and_then {} map_or_else {error} clone {}", chained.is_ok(), cloned.is_some()));
+	log.note(format!(
+		"and_then {} map_or_else {error} clone {}",
+		chained.is_ok(),
+		cloned.is_some()
+	));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and

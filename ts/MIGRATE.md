@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Translation builds std from source for `wasm32-unknown-unknown`, so the toolchain needs
+  its `rust-src` component, as the flake's has, and the first run compiles std.
+- `Option`'s and `Result`'s combinators lower from core's MIR into `core/option.ts` and
+  `core/result.ts`, so the runtime no longer exports `optionMap`, `optionMapOr`,
+  `optionUnwrapOr`, `optionOkOr`, `resultOk`, `resultErr`, `resultMap`, `resultMapErr`,
+  `resultAndThen`, `resultInspectErr`, or `resultUnwrapOr`.
 - A struct is a plain object typed by an interface, unless it may drop: build one as a
   literal, `{ subscribe, sequence, frameStart: 0 }` rather than
   `new Group({ subscribe, sequence, frameStart: 0 })`.

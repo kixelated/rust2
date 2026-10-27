@@ -607,7 +607,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let path = tcx.def_path(module).data;
 		krate
 			.into_iter()
-			.chain(path.iter().filter_map(|part| part.data.get_opt_name().map(|name| name.to_string())))
+			.chain(
+				path.iter()
+					.filter_map(|part| part.data.get_opt_name().map(|name| name.to_string())),
+			)
 			.collect()
 	}
 
@@ -1241,7 +1244,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
 		// Without unwinding, std's MIR has none of the cleanups a panic runs.
-		if !def_id.is_local() && tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort) {
+		if !def_id.is_local()
+			&& tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort)
+		{
 			self.err(
 				span,
 				format!(

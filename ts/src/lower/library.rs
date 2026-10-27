@@ -426,12 +426,15 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
 			&& name == rustc_span::sym::clone
-			&& t.self_ty(instance).is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
+			&& t.self_ty(instance)
+				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
 	}
 	!matches!(
 		(std, name.as_str()),
-		(Std::Option, "unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter")
-			| (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
+		(
+			Std::Option,
+			"unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter"
+		) | (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
 	)
 }
 
