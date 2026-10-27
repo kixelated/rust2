@@ -22,10 +22,16 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 			}), (b11: rt.u8): boolean => {
 				return rt.u8Rem(b11, 3) !== 0;
 			}))));
-			for (const _18 of rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
+			const iterS: rt.u16[] = rt.iterToArray(rt.iterFilterMap(rt.iterSlice(data), (_217: rt.u8): rt.u16 | undefined => {
 				const b12: rt.u8 = _217;
 				return rt.thenSome(b12 < 100, rt.u16Mul(b12 as rt.u16, 200));
-			}))) {
+			}));
+			let iterI: number = 0;
+			while (true) {
+				const _18: rt.u16 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+				if (_18 === rt.DONE) {
+					break;
+				}
 				rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_18));
 			}
 		} else {
@@ -150,7 +156,14 @@ export function adaptors(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 export function chunksByZero$ChunksByZero_u8s(self: Uint8Array): rt.ByteVec[] {
 	const words: rt.ByteVec[] = [];
 	let word: rt.ByteVec = new rt.ByteVec();
-	for (const b of self) {
+	const iterS: Uint8Array = self;
+	let iterI: number = 0;
+	while (true) {
+		const _6: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_6 === rt.DONE) {
+			break;
+		}
+		const b: rt.u8 = _6;
 		if (!(b === 0)) {
 			rt.byteVecPush(word, b);
 		} else {
@@ -383,7 +396,13 @@ export function ranges(data: Uint8Array, out: rt.ByteVec): void {
 		return _24;
 	}), 0)));
 	rt.byteVecExtendFromSlice(out, rt.i64ToBeBytes(rt.optionUnwrapOr(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Add(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Step)), 0)));
-	for (const _295 of rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)))) {
+	const iterS: rt.u32[] = rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)));
+	let iterI: number = 0;
+	while (true) {
+		const _295: rt.u32 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_295 === rt.DONE) {
+			break;
+		}
 		rt.byteVecPush(out, _295 & 0xff);
 	}
 	updates(a, b, data, out);

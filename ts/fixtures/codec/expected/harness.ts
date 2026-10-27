@@ -200,7 +200,13 @@ export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
 		if (_9 !== undefined) {
 			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
 			const r: Decoder.Decoder = Decoder.new(_13[1], form(selector));
-			for (const _21 of _13[0]) {
+			const iterS: Uint8Array = _13[0];
+			let iterI: number = 0;
+			while (true) {
+				const _21: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+				if (_21 === rt.DONE) {
+					break;
+				}
 				const _26: rt.Result<undefined, DecodeError.DecodeError> = decodeStep(r, _21, out);
 				if (_26.ok) {
 					rt.byteVecPush(out, 0);
@@ -318,7 +324,14 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 			const _20: Form.Form = form(selector);
 			const w: Encoder.Encoder = Encoder.new(buf, _20);
 			const prefixes: Prefix.Prefix[] = [];
-			for (const step of _13[0]) {
+			const iterS: Uint8Array = _13[0];
+			let iterI: number = 0;
+			while (true) {
+				const _24: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+				if (_24 === rt.DONE) {
+					break;
+				}
+				const step: rt.u8 = _24;
 				const _30: [rt.u64, Uint8Array] = takeU64(values);
 				const value: rt.u64 = _30[0];
 				values = _30[1];

@@ -16,8 +16,14 @@ function new_(): WaiterList {
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 	const weak: rt.Weak<rt.Waker> = new rt.Weak(waiter.shared);
+	const iterS: rt.Weak<rt.Waker>[] = self.entries;
+	let iterI: number = 0;
 	b1: {
-		for (const _8 of self.entries) {
+		while (true) {
+			const _8: rt.Weak<rt.Waker> | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_8 === rt.DONE) {
+				break;
+			}
 			if (_8.arc === weak.arc) {
 				break b1;
 			}
@@ -36,7 +42,14 @@ export function register(self: WaiterList, waiter: Waiter.Waiter): void {
 			const live: rt.Weak<rt.Waker>[] = [];
 			const taken = self.entries;
 			self.entries = [];
-			for (const entry of taken) {
+			const iterS2: rt.Weak<rt.Waker>[] = taken;
+			let iterI2: number = 0;
+			while (true) {
+				const _43: rt.Weak<rt.Waker> | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+				if (_43 === rt.DONE) {
+					break;
+				}
+				const entry: rt.Weak<rt.Waker> = _43;
 				if (entry.arc.strong > 0) {
 					live.push(entry);
 				}
@@ -64,7 +77,13 @@ export function wake(self: WaiterList): void {
 		self.cursor = 0;
 		const taken = self.entries;
 		self.entries = [];
-		for (const _6 of taken) {
+		const iterS: rt.Weak<rt.Waker>[] = taken;
+		let iterI: number = 0;
+		while (true) {
+			const _6: rt.Weak<rt.Waker> | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_6 === rt.DONE) {
+				break;
+			}
 			const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
 			if (_10 !== undefined) {
 				unwind = 15;

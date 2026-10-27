@@ -200,13 +200,6 @@ pub enum StmtKind {
 		cond: Expr,
 		body: Vec<Stmt>,
 	},
-	/// `for (const name of iter) body`, over an array.
-	ForOf {
-		label: Option<String>,
-		name: String,
-		iter: Expr,
-		body: Vec<Stmt>,
-	},
 	Block {
 		label: Option<String>,
 		body: Vec<Stmt>,
@@ -287,7 +280,7 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| breaks_out(body, label, true)) || breaks_out(default, label, true)
 		}
-		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => breaks_out(body, label, true),
+		StmtKind::While { body, .. } => breaks_out(body, label, true),
 		_ => false,
 	})
 }
