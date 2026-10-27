@@ -364,8 +364,7 @@ fn interleave(data: &[u8], out: &mut Vec<u8>) {
 	let (mut from_a, mut from_b, mut switches) = (0, 0, 0);
 	let mut last_a = true;
 	for _ in 0..count {
-		// Not `a < b`, which needs `PartialOrd`'s default `lt`: /quest/m2/ts-cmp-defaults.md.
-		let take_a = a.cmp(&b).is_lt();
+		let take_a = a < b;
 		if take_a {
 			a.value += a_step;
 			from_a += 1;

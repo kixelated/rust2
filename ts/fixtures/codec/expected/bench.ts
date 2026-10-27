@@ -382,7 +382,7 @@ export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): v
 			if (selector === 0) {
 				const _36: rt.u128 | undefined = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
 				if (_36 === undefined) {
-					scaled = undefined;
+					scaled = undefined as rt.u64 | undefined;
 				} else {
 					scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
 				}
@@ -396,7 +396,7 @@ export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): v
 						break b2;
 					}
 				}
-				scaled = undefined;
+				scaled = undefined as rt.u64 | undefined;
 			}
 		}
 		if (scaled === undefined) {
@@ -479,14 +479,14 @@ export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_21 === rt.DONE) {
 			break;
 		}
-		const takeA: boolean = Timestamp.cmp$Ord(a, b) < 0;
+		const takeA: boolean = Timestamp.partialCmp$PartialOrd(a, b) === -1;
 		if (!takeA) {
-			const _30: rt.u64 = rt.u64Add(b.value, bStep);
-			b.value = _30;
+			const _29: rt.u64 = rt.u64Add(b.value, bStep);
+			b.value = _29;
 			fromB = rt.u64Add(fromB, 1);
 		} else {
-			const _28: rt.u64 = rt.u64Add(a.value, aStep);
-			a.value = _28;
+			const _27: rt.u64 = rt.u64Add(a.value, aStep);
+			a.value = _27;
 			fromA = rt.u64Add(fromA, 1);
 		}
 		if (takeA !== lastA) {

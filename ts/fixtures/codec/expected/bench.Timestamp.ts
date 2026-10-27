@@ -28,6 +28,10 @@ export function checkedAdd(self: Timestamp, rhs: Timestamp): Timestamp | undefin
 	return undefined;
 }
 
+export function partialCmp$PartialOrd(self: Timestamp, other: Timestamp): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 /**
  * moq-net's temporal order: across scales, the cross products in `u128`, with a tie
  * broken by `(scale, value)`.
