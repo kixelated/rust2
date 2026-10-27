@@ -1235,6 +1235,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		cfg::hoist_else(&mut out);
 		declare_in_place(&mut out);
 		cfg::tidy_loops(&mut out);
+		// A loop's own labels first, which its header's `break` names.
+		step::for_of(&mut out);
 		inline::inline_temps(&mut out, &self.shared);
 		// A loop can start by leaving now that what it tests is folded in.
 		cfg::tidy_loops(&mut out);
@@ -2397,6 +2399,10 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 			scan(cond, reads, true);
 			body.iter().for_each(|s| scan_stmt(s, reads, true));
 		}
+		StmtKind::ForOf { iter, body, .. } => {
+			scan(iter, reads, lazy);
+			body.iter().for_each(|s| scan_stmt(s, reads, true));
+		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_stmt(s, reads, lazy)),
 		_ => {}
 	}
@@ -2576,7 +2582,7 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			visit(cond);
 			then.iter().chain(els).for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::While { cond: e, body, .. } => {
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
 			reads_of(e, out);
 			body.iter().for_each(|s| scan_reads(s, out));
 		}
@@ -2650,7 +2656,9 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 				strip_assignments(then, unread);
 				strip_assignments(els, unread);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => strip_assignments(body, unread),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				strip_assignments(body, unread)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
@@ -2716,7 +2724,7 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 		|body: &mut Vec<Stmt>| list_names(body, name) == total && place_declaration(body, name, ty, total, mutable);
 	match &mut stmts[i].kind {
 		StmtKind::If { then, els, .. } => place(then) || place(els),
-		StmtKind::While { body, .. } | StmtKind::Block { body, .. } => place(body),
+		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => place(body),
 		StmtKind::Catch { body, handler, .. } => place(body) || place(handler),
 		StmtKind::Switch { cases, default, .. } => cases.iter_mut().any(|(_, body)| place(body)) || place(default),
 		_ => false,
@@ -2763,7 +2771,7 @@ fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 			f(cond);
 			then.iter().chain(els).for_each(|s| visit_stmt(s, f));
 		}
-		StmtKind::While { cond: e, body, .. } => {
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
 			f(e);
 			body.iter().for_each(|s| visit_stmt(s, f));
 		}
@@ -2950,7 +2958,9 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 				drop_self_assignments(then);
 				drop_self_assignments(els);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => drop_self_assignments(body),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				drop_self_assignments(body)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
@@ -2990,7 +3000,9 @@ fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
 				return_in_place(then, caught);
 				return_in_place(els, caught);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => return_in_place(body, caught),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				return_in_place(body, caught)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
 				return_in_place(default, caught);
@@ -3067,7 +3079,9 @@ fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
 				handler_reads(then, out);
 				handler_reads(els, out);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => handler_reads(body, out),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				handler_reads(body, out)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter().for_each(|(_, body)| handler_reads(body, out));
 				handler_reads(default, out);
@@ -3131,7 +3145,9 @@ fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
 				breaks_to_return(then, label, ret);
 				breaks_to_return(els, label, ret);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => breaks_to_return(body, label, ret),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				breaks_to_return(body, label, ret)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases
 					.iter_mut()

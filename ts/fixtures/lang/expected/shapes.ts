@@ -299,15 +299,9 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 		bump(copy5.slot);
 		rt.byteVecExtendFromSlice(out, Uint8Array.of(a, copy5.n));
 		rt.byteVecPush(out, lensBumped(lens));
-		const iterS: Lens.Lens[] = Array.from({ length: 2 }, (): Lens.Lens => {
+		for (const _104 of Array.from({ length: 2 }, (): Lens.Lens => {
 			return copy$Lens(lens);
-		}).map(copy$Lens);
-		let iterI: number = 0;
-		while (true) {
-			const _104: Lens.Lens | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_104 === rt.DONE) {
-				break;
-			}
+		}).map(copy$Lens)) {
 			bump(_104.slot);
 		}
 		const lenses: Lens.Lens[] = [];
@@ -575,14 +569,7 @@ export function reset(m: Moved.Moved): rt.u16 {
 export function discriminants(data: Uint8Array, out: rt.ByteVec): void {
 	let wide!: Wide.Wide;
 	let signed!: Signed.Signed;
-	const iterS: Uint8Array = data;
-	let iterI: number = 0;
-	while (true) {
-		const _5: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_5 === rt.DONE) {
-			break;
-		}
-		const b: rt.u8 = _5;
+	for (const b of data) {
 		const _10: rt.u8 = rt.u8Rem(b, 3);
 		if (_10 === 0) {
 			wide = "Low" as Wide.Wide;
@@ -1004,14 +991,7 @@ export function branchLoops(data: Uint8Array, out: rt.ByteVec): void {
 export function returnedLoop(data: Uint8Array): rt.u8 {
 	let i: rt.usize = 0;
 	while (!(i >= data.length)) {
-		const iterS: Uint8Array = rt.sliceRange(data, i);
-		let iterI: number = 0;
-		while (true) {
-			const _11: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_11 === rt.DONE) {
-				break;
-			}
-			const b: rt.u8 = _11;
+		for (const b of rt.sliceRange(data, i)) {
 			if (!(b === 0)) {
 				if (b > 240) {
 					return b ^ (i & 0xff);
@@ -1179,13 +1159,7 @@ export function patterns(data: Uint8Array, out: rt.ByteVec): void {
 	} else {
 		rt.byteVecPush(out, 0);
 	}
-	const iterS: Uint8Array = rt.sliceRange(data, 0, rt.min(data.length, 4));
-	let iterI: number = 0;
-	while (true) {
-		const _33: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_33 === rt.DONE) {
-			break;
-		}
+	for (const _33 of rt.sliceRange(data, 0, rt.min(data.length, 4))) {
 		b3: {
 			const b: rt.u8 = _33;
 			if (b === 0) {
@@ -1285,13 +1259,7 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	const add: (a0: rt.u8) => void = (v: rt.u8): void => {
 		sum = rt.u32Add(sum, v as rt.u32);
 	};
-	const iterS: Uint8Array = data;
-	let iterI: number = 0;
-	while (true) {
-		const _8: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_8 === rt.DONE) {
-			break;
-		}
+	for (const _8 of data) {
 		add(_8);
 	}
 	rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(sum));
@@ -1310,24 +1278,12 @@ export function closures(data: Uint8Array, out: rt.ByteVec): void {
 	overwrite(whole);
 	rt.byteVecPush(out, whole[0]);
 	const parsed: Array<Dir.Dir | undefined> = [];
-	const iterS2: Uint8Array = data;
-	let iterI2: number = 0;
-	while (true) {
-		const _53: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-		if (_53 === rt.DONE) {
-			break;
-		}
+	for (const _53 of data) {
 		const _59: Dir.Dir | undefined = dir(_53);
 		parsed.push(_59);
 	}
 	const tags: rt.ByteVec = new rt.ByteVec();
-	const iterS3: Array<Dir.Dir | undefined> = parsed;
-	let iterI3: number = 0;
-	while (true) {
-		const _64: Dir.Dir | undefined | rt.Done = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
-		if (_64 === rt.DONE) {
-			break;
-		}
+	for (const _64 of parsed) {
 		const _70: rt.u8 = rt.optionUnwrapOr(rt.optionMap(_64, from$From_Dir_u8), 0);
 		rt.byteVecPush(tags, _70);
 	}
@@ -1455,14 +1411,7 @@ export function flows(data: Uint8Array, out: rt.ByteVec): void {
 	let option!: rt.u8 | undefined;
 	let _113!: boolean;
 	let total: rt.u16 = 0;
-	const iterS: Uint8Array = data;
-	let iterI: number = 0;
-	while (true) {
-		const _7: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_7 === rt.DONE) {
-			break;
-		}
-		const x: rt.u8 = _7;
+	for (const x of data) {
 		const flow: rt.Result<rt.u16, rt.u8 | undefined> = step(total, x);
 		rt.byteVecExtendFromSlice(out, Uint8Array.of(!flow.ok ? 1 : 0, flow.ok ? 1 : 0));
 		if (flow.ok) {
@@ -1525,14 +1474,7 @@ export function flows(data: Uint8Array, out: rt.ByteVec): void {
 		}
 	}
 	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined);
-	const iterS2: Uint8Array = data;
-	let iterI2: number = 0;
-	while (true) {
-		const _106: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-		if (_106 === rt.DONE) {
-			break;
-		}
-		const x2: rt.u8 = _106;
+	for (const x2 of data) {
 		const held: rt.Mutex<rt.u8 | undefined> = slot;
 		const _114: rt.u8 | undefined = held.value;
 		b12: {

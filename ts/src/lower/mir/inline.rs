@@ -30,7 +30,9 @@ fn list(stmts: &mut Vec<Stmt>, names: &FxHashMap<String, usize>, shared: &FxHash
 				list(then, names, shared);
 				list(els, names, shared);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => list(body, names, shared),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				list(body, names, shared)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| list(body, names, shared));
 				list(default, names, shared);
@@ -54,7 +56,7 @@ fn list(stmts: &mut Vec<Stmt>, names: &FxHashMap<String, usize>, shared: &FxHash
 			continue;
 		};
 		// A literal's type comes from its declaration: an array's may be a tuple's.
-		let typed = ty.is_some() && matches!(peel(value), Expr::Array(_) | Expr::Object(_));
+		let typed = ty.is_some() && matches!(super::step::peel(value), Expr::Array(_) | Expr::Object(_));
 		if !typed
 			&& names.get(name) == Some(&1)
 			&& let Some(next) = eager(&stmts[i + 1])
@@ -105,7 +107,9 @@ impl Does {
 fn eager(stmt: &Stmt) -> Option<&Expr> {
 	match &stmt.kind {
 		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => Some(e),
-		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } => Some(e),
+		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } | StmtKind::ForOf { iter: e, .. } => {
+			Some(e)
+		}
 		StmtKind::Block { body, .. } => body.first().and_then(eager),
 		_ => None,
 	}
@@ -114,7 +118,9 @@ fn eager(stmt: &Stmt) -> Option<&Expr> {
 fn eager_mut(stmt: &mut Stmt) -> Option<&mut Expr> {
 	match &mut stmt.kind {
 		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => Some(e),
-		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } => Some(e),
+		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } | StmtKind::ForOf { iter: e, .. } => {
+			Some(e)
+		}
 		StmtKind::Block { body, .. } => body.first_mut().and_then(eager_mut),
 		_ => None,
 	}
@@ -157,12 +163,4 @@ fn expr_assigns(e: &Expr, name: &str) -> bool {
 		}
 	});
 	found
-}
-
-/// `e` without its source locations.
-fn peel(e: &Expr) -> &Expr {
-	match e {
-		Expr::Located(_, e) => peel(e),
-		e => e,
-	}
 }

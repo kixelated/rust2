@@ -331,3 +331,194 @@ pub(super) fn stepped_field(it: &Expr, key: &str) -> Expr {
 		it => it.clone().member(key),
 	}
 }
+
+/// Each loop over an array iterator stepped in place that only the loop steps, as
+/// `for (const item of array)`: a `while (true)` whose first statements take the next
+/// item and leave on `rt.DONE`. Nothing else names the index, so nothing sees where it
+/// stopped.
+pub(super) fn for_of(stmts: &mut Vec<Stmt>) {
+	let mut names: FxHashMap<String, usize> = FxHashMap::default();
+	for stmt in stmts.iter() {
+		super::visit_stmt(stmt, &mut |e| {
+			super::visit_expr(e, &mut |e| {
+				if let Expr::Ident(name) = e {
+					*names.entry(name.clone()).or_default() += 1;
+				}
+			})
+		});
+	}
+	// The variables declared `= 0`, as an index starts.
+	let mut zeros = FxHashSet::default();
+	decls(stmts, &mut |name, init| {
+		if matches!(init, Expr::Lit(l) if l == "0") {
+			zeros.insert(name.to_string());
+		}
+	});
+	let mut indexes = FxHashSet::default();
+	loops(stmts, &names, &zeros, &mut indexes);
+	if !indexes.is_empty() {
+		drop_decls(stmts, &indexes);
+	}
+}
+
+/// Call `f` on the name and value of each declaration in `stmts` that has one.
+fn decls(stmts: &[Stmt], f: &mut dyn FnMut(&str, &Expr)) {
+	for stmt in stmts {
+		match &stmt.kind {
+			StmtKind::Decl {
+				name, init: Some(init), ..
+			} => f(name, init),
+			StmtKind::If { then, els, .. } => {
+				decls(then, f);
+				decls(els, f);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				decls(body, f)
+			}
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter().for_each(|(_, body)| decls(body, f));
+				decls(default, f);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				decls(body, f);
+				decls(handler, f);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Rewrite the loops in `stmts`, collecting the indexes they no longer read.
+fn loops(
+	stmts: &mut [Stmt],
+	names: &FxHashMap<String, usize>,
+	zeros: &FxHashSet<String>,
+	indexes: &mut FxHashSet<String>,
+) {
+	for stmt in stmts.iter_mut() {
+		// The array and the index are declared, and named only by this loop's header.
+		if let StmtKind::While { label, cond, body } = &mut stmt.kind
+			&& matches!(cond, Expr::Lit(l) if l == "true")
+			&& let Some((item, array, index)) = header(body, label.as_deref())
+			&& names.get(&array) == Some(&2)
+			&& names.get(&index) == Some(&2)
+			&& zeros.contains(&index)
+		{
+			let mut body: Vec<Stmt> = std::mem::take(body).into_iter().skip(2).collect();
+			let mut name = item;
+			// `const entry = item;` names the item, when nothing else reads it.
+			if let Some(StmtKind::Decl {
+				mutable: false,
+				name: to,
+				init: Some(Expr::Ident(from)),
+				..
+			}) = body.first().map(|s| &s.kind)
+				&& *from == name
+				&& super::list_names(&body, &name) == 1
+			{
+				name = to.clone();
+				body.remove(0);
+			}
+			indexes.insert(index);
+			stmt.kind = StmtKind::ForOf {
+				label: label.take(),
+				name,
+				iter: Expr::ident(array),
+				body,
+			};
+		}
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				loops(then, names, zeros, indexes);
+				loops(els, names, zeros, indexes);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				loops(body, names, zeros, indexes)
+			}
+			StmtKind::Switch { cases, default, .. } => {
+				cases
+					.iter_mut()
+					.for_each(|(_, body)| loops(body, names, zeros, indexes));
+				loops(default, names, zeros, indexes);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				loops(body, names, zeros, indexes);
+				loops(handler, names, zeros, indexes);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// The item, array, and index of a loop that starts `const item = i < s.length ?
+/// s[i++] : rt.DONE; if (item === rt.DONE) break;`, the `break` leaving it.
+fn header(body: &[Stmt], label: Option<&str>) -> Option<(String, String, String)> {
+	let [next, test, ..] = body else {
+		return None;
+	};
+	let StmtKind::Decl {
+		mutable: false,
+		name: item,
+		init: Some(init),
+		..
+	} = &next.kind
+	else {
+		return None;
+	};
+	let Expr::Cond(c, a, b) = peel(init) else {
+		return None;
+	};
+	let (Expr::Binary(i, "<", len), Expr::Index(s, at), Expr::Rt(done)) = (peel(c), peel(a), peel(b)) else {
+		return None;
+	};
+	let (Expr::Ident(index), Expr::Member(s2, Key::Name(length)), Expr::Ident(array), Expr::Postfix(i2, "++")) =
+		(peel(i), peel(len), peel(s), peel(at))
+	else {
+		return None;
+	};
+	let same = |e: &Expr, name: &str| matches!(peel(e), Expr::Ident(n) if n == name);
+	if done != "DONE" || length != "length" || !same(s2, array) || !same(i2, index) {
+		return None;
+	}
+	let StmtKind::If { cond, then, els } = &test.kind else {
+		return None;
+	};
+	let leaves = matches!(then.as_slice(), [Stmt { kind: StmtKind::Break(target), .. }]
+		if target.is_none() || target.as_deref() == label);
+	let tests = matches!(peel(cond), Expr::Binary(l, "===", r)
+		if same(l, item) && matches!(peel(r), Expr::Rt(d) if d == "DONE"));
+	(leaves && tests && els.is_empty()).then(|| (item.clone(), array.clone(), index.clone()))
+}
+
+/// `e` without its source location.
+pub(super) fn peel(e: &Expr) -> &Expr {
+	match e {
+		Expr::Located(_, e) => peel(e),
+		e => e,
+	}
+}
+
+/// Drop the declarations of `names`, which nothing reads any more.
+fn drop_decls(stmts: &mut Vec<Stmt>, names: &FxHashSet<String>) {
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Decl { name, .. } if names.contains(name)));
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::If { then, els, .. } => {
+				drop_decls(then, names);
+				drop_decls(els, names);
+			}
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				drop_decls(body, names)
+			}
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| drop_decls(body, names));
+				drop_decls(default, names);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				drop_decls(body, names);
+				drop_decls(handler, names);
+			}
+			_ => {}
+		}
+	}
+}

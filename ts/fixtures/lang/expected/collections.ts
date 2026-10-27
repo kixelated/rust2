@@ -285,14 +285,7 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 				return t14.n & 0xff;
 			}));
 		}
-		const iterS: Uint8Array = data;
-		let iterI: number = 0;
-		while (true) {
-			const _380: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_380 === rt.DONE) {
-				break;
-			}
-			const b5: rt.u8 = _380;
+		for (const b5 of data) {
 			rt.byteVecPush(out, claim(copy2, rt.u8Rem(b5, 8), b5 as rt.u16));
 		}
 		const stamped: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
@@ -351,14 +344,7 @@ export function hashMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.hashLen(tuples) & 0xff);
 	} else {
 		const words: rt.HashMap<string, rt.ByteVec> = rt.hashNew() as rt.HashMap<string, rt.ByteVec>;
-		const iterS2: Uint8Array = data;
-		let iterI2: number = 0;
-		while (true) {
-			const _496: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-			if (_496 === rt.DONE) {
-				break;
-			}
-			const b6: rt.u8 = _496;
+		for (const b6 of data) {
 			const _502: rt.usize = rt.usizeRem(b6 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
 			if (!(_502 < 8)) {
 				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _502);
@@ -465,14 +451,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	if (_4 === 0) {
 		const hashed: rt.HashSet<rt.u16> = rt.hashNew() as rt.HashSet<rt.u16>;
 		const sorted: rt.BTreeSet<rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>;
-		const iterS: Uint8Array = data;
-		let iterI: number = 0;
-		while (true) {
-			const _10: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_10 === rt.DONE) {
-				break;
-			}
-			const b: rt.u8 = _10;
+		for (const b of data) {
 			const v: rt.u16 = rt.u16Rem(b as rt.u16, 24);
 			const _17: rt.u8 = rt.u8Rem(b, 3);
 			if (_17 === 0) {
@@ -514,14 +493,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 	} else if (_4 === 1) {
 		const nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
 		const seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
-		const iterS2: Uint8Array = data;
-		let iterI2: number = 0;
-		while (true) {
-			const _106: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-			if (_106 === rt.DONE) {
-				break;
-			}
-			const b2: rt.u8 = _106;
+		for (const b2 of data) {
 			rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
 			rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
 		}
@@ -548,13 +520,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
 		const dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
-		const iterS3: Uint8Array = data;
-		let iterI3: number = 0;
-		while (true) {
-			const _151: rt.u8 | rt.Done = iterI3 < iterS3.length ? iterS3[iterI3++] : rt.DONE;
-			if (_151 === rt.DONE) {
-				break;
-			}
+		for (const _151 of data) {
 			const _160: rt.usize = rt.usizeRem(_151 as rt.usize, 3);
 			if (!(_160 < 3)) {
 				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _160);
@@ -564,13 +530,7 @@ export function sets(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.hashLen(dirs) & 0xff);
 	} else {
 		const words: rt.BTreeSet<string> = rt.btreeNew(rt.cmpStr) as rt.BTreeSet<string>;
-		const iterS4: Uint8Array = data;
-		let iterI4: number = 0;
-		while (true) {
-			const _175: rt.u8 | rt.Done = iterI4 < iterS4.length ? iterS4[iterI4++] : rt.DONE;
-			if (_175 === rt.DONE) {
-				break;
-			}
+		for (const _175 of data) {
 			const _182: rt.usize = rt.usizeRem(_175 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
 			if (!(_182 < 8)) {
 				rt.panic("index out of bounds: the len is " + 8 + " but the index is " + _182);
@@ -726,14 +686,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 		if (_197 !== undefined) {
 			_197.n = _197.n ^ 23130;
 		}
-		const iterS: Uint8Array = data;
-		let iterI: number = 0;
-		while (true) {
-			const _205: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_205 === rt.DONE) {
-				break;
-			}
-			const b2: rt.u8 = _205;
+		for (const b2 of data) {
 			const r: Rank.Rank = rank(b2, rt.u8Div(b2, 3));
 			const _212: rt.Entry<Rank.Rank, Tally.Tally> = rt.entry(ranks, r);
 			if (!rt.entryOccupied(_212)) {
@@ -790,14 +743,7 @@ export function btreeMaps(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void 
 	} else {
 		const nibbles: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 		const words: rt.BTreeMap<string, Tally.Tally> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, Tally.Tally>;
-		const iterS2: Uint8Array = data;
-		let iterI2: number = 0;
-		while (true) {
-			const _307: rt.u8 | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-			if (_307 === rt.DONE) {
-				break;
-			}
-			const b3: rt.u8 = _307;
+		for (const b3 of data) {
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeInsert(nibbles, { _0: b3 }, b3), 204));
 			const _320: rt.usize = rt.usizeRem(b3 as rt.usize, ["", "a", "ab", "b", "é", "", "￿", "𐀀"].length);
 			if (!(_320 < 8)) {
@@ -899,14 +845,7 @@ export function deques(data: Uint8Array, out: rt.ByteVec): void {
 	let drained2!: rt.ByteVec;
 	const q: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
 	const pairs: rt.VecDeque<[rt.u8, rt.u8]> = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
-	const iterS: Uint8Array = data;
-	let iterI: number = 0;
-	while (true) {
-		const _7: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_7 === rt.DONE) {
-			break;
-		}
-		const b: rt.u8 = _7;
+	for (const b of data) {
 		const _12: rt.u8 = rt.u8Rem(b, 7);
 		if (_12 === 0) {
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.dequePopFront(q), 238));
@@ -1019,13 +958,7 @@ export function vecs(data: Uint8Array, out: rt.ByteVec): void {
 	pairs.push([b, a as rt.u16] as [rt.u8, rt.u16]);
 	const at = rt.idx(pairs, 0);
 	pairs[at][0] = pairs[at][0] ^ 255;
-	const iterS: [rt.u8, rt.u16][] = pairs;
-	let iterI: number = 0;
-	while (true) {
-		const _39: [rt.u8, rt.u16] | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_39 === rt.DONE) {
-			break;
-		}
+	for (const _39 of pairs) {
 		rt.byteVecPush(out, _39[0] ^ (_39[1] & 0xff));
 	}
 	rt.byteVecPush(out, [name, "x", name].length & 0xff);

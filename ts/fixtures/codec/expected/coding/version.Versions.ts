@@ -49,13 +49,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		const iterS: Version.Version[] = self._0;
-		let iterI: number = 0;
-		while (true) {
-			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_14 === rt.DONE) {
-				break;
-			}
+		for (const _14 of self._0) {
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Form(_14, w, version);
 			if (!_18.ok) {
 				return _18;
@@ -70,13 +64,7 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
-		const iterS: Version.Version[] = self._0;
-		let iterI: number = 0;
-		while (true) {
-			const _14: Version.Version | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-			if (_14 === rt.DONE) {
-				break;
-			}
+		for (const _14 of self._0) {
 			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Version(_14, w, version);
 			if (!_18.ok) {
 				return _18;

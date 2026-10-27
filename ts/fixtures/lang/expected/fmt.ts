@@ -129,13 +129,7 @@ export function ints(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
 /** Strings padded and escaped, and bytes that may not be UTF-8. */
 export function strings(data: Uint8Array, out: rt.ByteVec): void {
 	let flag!: boolean;
-	const iterS: Uint8Array = rt.sliceRange(data, 0, rt.min(data.length, 3));
-	let iterI: number = 0;
-	while (true) {
-		const _9: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_9 === rt.DONE) {
-			break;
-		}
+	for (const _9 of rt.sliceRange(data, 0, rt.min(data.length, 3))) {
 		const _15: rt.usize = rt.usizeRem(_9 as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 		if (!(_15 < 14)) {
 			rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _15);
