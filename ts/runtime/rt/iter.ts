@@ -17,20 +17,21 @@ export const DONE: unique symbol = /* @__PURE__ */ Symbol("DONE");
 /** The type of `DONE`. */
 export type Done = typeof DONE;
 
+/**
+ * What only the iterators std implements these traits for have, which Rust calls only
+ * there: declared, not stubbed, so no bundle carries a stub.
+ */
+export interface Iter<T> {
+	/** `DoubleEndedIterator::next_back`. */
+	nextBack(): T | Done;
+	/** `ExactSizeIterator::len`. */
+	len(): number;
+}
+
 /** `Iterator`: `next`, and the methods std's iterators each do their own way. */
 export abstract class Iter<T> implements Iterable<T> {
 	/** The next item, or `DONE`. */
 	abstract next(): T | Done;
-
-	/** `DoubleEndedIterator::next_back`, which Rust calls only where std implements it. */
-	nextBack(): T | Done {
-		throw new Error("rust2-ts: an iterator without `next_back`");
-	}
-
-	/** `ExactSizeIterator::len`, which Rust calls only where std implements it. */
-	len(): number {
-		throw new Error("rust2-ts: an iterator without `len`");
-	}
 
 	/** `nth`, as `next` returns it. */
 	nthItem(n: number): T | Done {

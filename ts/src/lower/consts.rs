@@ -69,6 +69,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => Expr::Array(items),
 					}
 				}
+				_ if super::byte_array(*inner) => Expr::rt("byteSliceFrom", vec![self.value(*inner, valtree, span)]),
 				_ => self.value(*inner, valtree, span),
 			},
 			ty::Array(elem, _) => {
@@ -105,6 +106,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					return match (std, variant.index()) {
 						(Std::Option, 0) => Expr::undefined(),
 						(Std::Option, _) => values.pop().unwrap(),
+						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 						(Std::Result, 0) => Expr::rt("Ok", values),
 						(Std::Result, _) => Expr::rt("Err", values),
 						// `start..=end`, not yet stepped past its end.

@@ -27,7 +27,7 @@ const ALPHABET: [char; 16] = [
 ];
 
 /// A char of the alphabet for each byte, by its low bits.
-fn text(data: &[u8]) -> String {
+pub fn text(data: &[u8]) -> String {
 	let mut s = String::new();
 	for &b in data {
 		s.push(ALPHABET[(b % 16) as usize]);

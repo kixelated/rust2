@@ -148,6 +148,8 @@ pub struct Translator<'a, 'tcx> {
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The function copying each `Copy` aggregate type.
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
+	/// The types the crate writes into in place, which alone are copied.
+	writes: copy::Writes<'tcx>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
@@ -215,6 +217,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
+			writes: copy::Writes::of_crate(tcx),
 			held: false,
 		})
 	}
@@ -889,6 +892,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				);
 				Type::Builtin("unknown")
 			}
+			ty::Ref(..) if bytes_ref(ty) => Type::Rt("ByteSlice", vec![]),
 			ty::Ref(_, inner, _) => self.ty(*inner, span),
 			ty::Array(elem, _) => match elem.kind() {
 				ty::Uint(ty::UintTy::U8) => Type::Builtin("Uint8Array"),
@@ -1033,6 +1037,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					_ => Type::Array(Box::new(self.ty(args.type_at(0), span))),
 				},
 				library::Std::String => Type::Builtin("string"),
+				library::Std::Cow if library::string(tcx, Ty::new_adt(tcx, adt, args)) => Type::Builtin("string"),
+				library::Std::Cow => {
+					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
+					Type::Builtin("unknown")
+				}
 				library::Std::Box => self.ty(args.type_at(0), span),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
@@ -1222,6 +1231,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		None
 	}
+}
+
+/// Whether `ty` is `[u8; N]`, which is a `Uint8Array`.
+pub fn byte_array(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Array(elem, _) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+}
+
+/// Whether `ty` is a reference to a `[u8; N]`, which is an `rt.ByteSlice` of its bytes, as a
+/// `&[u8]` is: a split's chunk is then no view.
+pub fn bytes_ref(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Ref(..)) && byte_array(ty.peel_refs())
 }
 
 /// A short name for a type, to tell instances apart.

@@ -56,7 +56,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 
 | Rust | TypeScript |
 | --- | --- |
-| `bool`, `str`, `String` | `boolean`, `string` |
+| `bool`, `str`, `String`, `Cow<str>` | `boolean`, `string` |
 | `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
@@ -66,7 +66,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, and `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
@@ -134,7 +134,9 @@ closure, which it calls on each char it reads, in the order std reads them. An o
 returns, from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does, and so does
 one `&s[a..b]` takes, which reads the string up to it and panics as std does inside a
 char. A JS string can't change in place, so `String::push` assigns a longer one to the
-local or field the `&mut` borrows.
+local or field the `&mut` borrows. A `Cow<str>` is its text, borrowed or owned, so
+`to_mut` borrows the `Cow`'s own place, and code that tells its variants apart, a `match`
+on them or `Cow::is_borrowed`, is refused.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
@@ -151,7 +153,12 @@ and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, en
 or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
 it, since JS would share the object: by a function of `lib.ts` made for its type, such
 as `copy$Point`, which copies what it holds by value and shares what it holds by
-reference.
+reference. Only a type the crate writes into in place is copied, or one holding such a
+type by value: a value of any other type never changes once made, so it is shared. A
+write counts through a field, an element, a reference, or a box, and a mutable reference
+a std function's parameters take, where the crate calls it or takes it as a value, or
+one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
+not change in place what it passes to or gets from the translation either.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
@@ -267,6 +274,9 @@ they need.
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
   dictionaries would undo monomorphization.
+- A `Cow<str>` is a JS string, as `str` and `String` are, rather than an object tagged by
+  its variant: no `Cow<str>` in moq-net or kio tells its variants apart, and a tag would
+  wrap every value and unwrap it at every read.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -275,8 +285,11 @@ they need.
   decode splits its slice once to four times. `just ts bench` measured the codec's decode
   workloads at 0.75 times the views' time in Chrome, 0.81-0.84 in Node, and 0.82-0.85 in
   Bun at the geometric mean, over two runs whose A/A route measured within 0.05 of them,
-  and encode no slower. A chunk, `&[u8; N]`, is still a view
-  ([byte slices without objects](/quest/m2/ts-byte-views.md)).
+  and encode no slower. A `&[u8; N]`, such as `split_first_chunk`'s chunk, is an
+  `rt.ByteSlice` too, its bytes read in place: the decode workloads then took 0.72 times
+  a view's time in Chrome, 0.67 in Firefox, 0.87 in Node, and 0.71 in Bun at the
+  geometric mean, with the A/A route within 0.03, and encode no slower. Each split still
+  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
@@ -298,9 +311,8 @@ they need.
   the coroutine transform's state machines, a class each. Against the THIR lowering it
   replaced, MIR closes about 1,100 of the 1,400 drop refusals in moq-net's census, and
   runs `just ts bench`'s codec 2-6% faster at the geometric mean and the async handoff
-  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, for 1% more gzip on the
-  codec's bundle and 9% on the async fixture's
-  ([size](/quest/m2/ts-mir-size.md)). Blocks become nested blocks, loops, and `if`s by
+  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, in bundles no larger
+  gzipped. Blocks become nested blocks, loops, and `if`s by
   Ramsey's "Beyond Relooper", except a coroutine's resume function, which enters loops
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
   assigned once and read once fold back into the expression that reads them unless that
@@ -316,8 +328,8 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
-takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
-`undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
+takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
@@ -350,8 +362,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates, those
-  a container stores included, formatting, methods on generic types, iterators, with
+  encoding's edges and the surrogates, `Cow<str>` borrowed and owned, control flow,
+  patterns, `Copy` aggregates, those a container stores included and those written into
+  only in another module, behind a type parameter, or through a box, formatting, methods
+  on generic types, iterators, with
   closures that log what each
   adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
@@ -361,6 +375,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
   with products of those values at 128 bits, 128-bit quotients by divisors below 2^32,
   and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
+- `share` holds a `Copy` aggregate whose only write in the crate makes it copied, where
+  `lang`'s other writes into the same type would hide a write the analysis misses: a
+  byte array overwritten whole through a type parameter, or, under its features, by std
+  called directly or through a pointer a generic function calls.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
@@ -386,15 +404,18 @@ The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks
 frame headers decoded as they arrive a few bytes at a time, which prices a decode that
 comes up `Short` and retries, iterator chains over bytes, a `BTreeMap` of 16, 256, and
 4096 keys, and timestamps converted between timescales as moq-net's `Timestamp::convert`
-does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-wasm's
-size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
-helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
-`bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
+does, whose products pass 2^53, then added by its `checked_add` and ordered by its `Ord`,
+whose cross products do too. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts` and its `Timestamp`
+in `bench/timestamp.ts`, ES iterator helpers in `bench/iter.ts`, a sorted array in
+`bench/sorted.ts`, and `bigint` in `bench/rescale.ts`, as moq's `js/hang` converts
+timescales), and translated; every route's output must match
 native Rust's first. The JS routes run minified, the same bundles whose size it reports,
 in Node, Bun, Chrome, and Firefox, with the WASM route's copies across the boundary timed
 apart from its compute, and an A/A copy of the
-translation to show the noise. Each round runs the JS routes and workloads in a new
-random order, so no route keeps a slot that runs it faster or slower than identical code
+translation to show the noise. Each route runs alone in a worker of its own, since routes
+in one realm share type profiles and run slower loaded second. Each round runs the JS
+routes and workloads in a new random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
 runs it and posts the report to its summary. Each browser's page reports each step it

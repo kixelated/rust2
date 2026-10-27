@@ -264,7 +264,7 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 }
 
 /**
- * `&[u8]` and `&mut [u8]`: `length` bytes of `data` from `start`. It never changes, so a
+ * `&[u8]` and `&mut [u8]`, and `&[u8; N]`: `length` bytes of `data` from `start`. It never changes, so a
  * split makes another, which costs an object where a `Uint8Array` view costs several
  * times as much.
  */
@@ -301,10 +301,15 @@ export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefin
 	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
 }
 
-/** `split_first_chunk`: the first `n` bytes, as an array, and the rest, or `undefined` if shorter. */
-export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [Uint8Array, ByteSlice] | undefined {
+/** `split_first_chunk`: the first `n` bytes and the rest, or `undefined` if shorter. */
+export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
 	if (s.length < n) return undefined;
-	return [s.data.subarray(s.start, s.start + n), new ByteSlice(s.data, s.start + n, s.length - n)];
+	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
+}
+
+/** `*r` of a `&[u8; N]`: a copy of its bytes. */
+export function byteSliceToArray(s: ByteSlice): Uint8Array {
+	return s.data.slice(s.start, s.start + s.length);
 }
 
 /** `split_at`, panicking past the length. */

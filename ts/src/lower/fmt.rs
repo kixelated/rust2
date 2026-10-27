@@ -212,6 +212,10 @@ pub fn std_impl<'tcx>(
 	let rt = |name: &str, args: Vec<Expr>| Expr::rt_of("fmt", name).call(args);
 	let text = matches!(tr, Trait::Display | Trait::Debug);
 	Some(match ty.kind() {
+		// A reference to an array of bytes is a slice of them, written as a slice is.
+		ty::Ref(_, inner, _) if super::byte_array(*inner) => {
+			b.fmt_call(tr, Ty::new_slice(tcx, tcx.types.u8), value, f, span)
+		}
 		ty::Ref(_, inner, _) => b.fmt_call(tr, *inner, value, f, span),
 		ty::Int(_) | ty::Uint(_) => {
 			let method = match tr {
@@ -249,8 +253,8 @@ pub fn std_impl<'tcx>(
 			value.call(vec![f])
 		}
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
-			(Std::String, Trait::Display) => Expr::rt("fmtPad", vec![f, value]),
-			(Std::String, Trait::Debug) => rt("str", vec![value, f]),
+			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
+			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
 			(Std::Box, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
