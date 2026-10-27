@@ -29,7 +29,9 @@ struct Binding {
 enum Kind {
 	Function,
 	/// A type, and whether its value drops through its `[Symbol.dispose]`.
-	Type { drop: bool },
+	Type {
+		drop: bool,
+	},
 }
 
 /// A binding's file.
@@ -68,7 +70,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			};
 			let kind = match tcx.def_kind(def_id) {
 				DefKind::Fn => Kind::Function,
-				DefKind::AssocFn if tcx.trait_impl_of_assoc(def_id).is_none() && tcx.impl_of_assoc(def_id).is_some() => {
+				DefKind::AssocFn
+					if tcx.trait_impl_of_assoc(def_id).is_none() && tcx.impl_of_assoc(def_id).is_some() =>
+				{
 					Kind::Function
 				}
 				DefKind::Struct | DefKind::Enum | DefKind::Union => {
@@ -168,12 +172,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		def_id.is_local() && !self.bindings.items.contains_key(&def_id)
 	}
 
-	/// Whether the trait impls of `def_id`, a type, are called as they are: the crate's
-	/// own, or a binding's exports.
-	pub fn own_or_bound(&self, def_id: DefId) -> bool {
-		def_id.is_local() || self.bindings.items.contains_key(&def_id)
-	}
-
 	/// Whether a bound type's value drops through its `[Symbol.dispose]`, if it is one.
 	pub fn bound_drops(&self, def_id: DefId) -> Option<bool> {
 		match self.bindings.items.get(&def_id)?.kind {
@@ -205,7 +203,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			),
 			_ => (Type::Builtin("void"), Vec::new()),
 		};
-		let what = format!("the binding of `{}` in {}", self.bindings.items[&def_id].path, module_file(&module).display());
+		let what = format!(
+			"the binding of `{}` in {}",
+			self.bindings.items[&def_id].path,
+			module_file(&module).display()
+		);
 		self.check(vec![value], ret, body, self.tcx.def_span(def_id), what);
 		Some(sym)
 	}
@@ -247,7 +249,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let sig = tcx.normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(sig));
 			let ty = self.fn_ty(sig.inputs(), sig.output(), span);
 			let body = vec![StmtKind::Return(Some(Expr::Sym(sym))).at(None)];
-			let what = ty::print::with_no_trimmed_paths!(format!("the binding of `{instance}` in {}", module_file(&module).display()));
+			let what = ty::print::with_no_trimmed_paths!(format!(
+				"the binding of `{instance}` in {}",
+				module_file(&module).display()
+			));
 			self.check(Vec::new(), ty, body, tcx.def_span(def_id), what);
 		}
 		Some(sym)
@@ -374,8 +379,8 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 		Err(err) => return failed(err),
 	};
 	let project = path.with_extension("json");
-	if let Err(err) = crate::program::write_file(&path, &printed.code)
-		.and_then(|()| crate::program::write_file(&project, TSCONFIG))
+	if let Err(err) =
+		crate::program::write_file(&path, &printed.code).and_then(|()| crate::program::write_file(&project, TSCONFIG))
 	{
 		return failed(err);
 	}
@@ -422,12 +427,20 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 			continue;
 		}
 		match check {
-			Some(check) => _ = tcx.dcx().span_err(check.span, format!("rust2-ts: {} doesn't type-check: {msg}", check.what)),
+			Some(check) => {
+				_ = tcx.dcx().span_err(
+					check.span,
+					format!("rust2-ts: {} doesn't type-check: {msg}", check.what),
+				)
+			}
 			None => _ = tcx.dcx().err(format!("rust2-ts: tsc: {diagnostic}")),
 		}
 	}
 	if reported.is_empty() {
-		tcx.dcx().err(format!("rust2-ts: tsc failed: {text}{}", String::from_utf8_lossy(&output.stderr)));
+		tcx.dcx().err(format!(
+			"rust2-ts: tsc failed: {text}{}",
+			String::from_utf8_lossy(&output.stderr)
+		));
 	}
 	_ = crate::program::clean(out);
 }
@@ -492,7 +505,9 @@ pub fn resolve_in(tcx: TyCtxt<'_>, mut item: DefId, segments: &[&str]) -> Option
 				};
 				let named = children.iter().filter_map(|child| match child.res {
 					// A tuple struct's constructor shares its name.
-					Res::Def(kind, def_id) if child.ident.as_str() == *segment && !matches!(kind, DefKind::Ctor(..)) => {
+					Res::Def(kind, def_id)
+						if child.ident.as_str() == *segment && !matches!(kind, DefKind::Ctor(..)) =>
+					{
 						Some((kind, def_id))
 					}
 					_ => None,
@@ -525,7 +540,12 @@ fn module_of(file: &Path) -> Result<ModPath, String> {
 	for part in file.with_extension("").components() {
 		match part {
 			Component::Normal(name) => module.push(name.to_string_lossy().into_owned()),
-			_ => return Err(format!("{} must be relative to ts.toml, inside its directory", file.display())),
+			_ => {
+				return Err(format!(
+					"{} must be relative to ts.toml, inside its directory",
+					file.display()
+				));
+			}
 		}
 	}
 	if module.first().is_some_and(|first| first == "rt") {
@@ -538,7 +558,13 @@ fn module_of(file: &Path) -> Result<ModPath, String> {
 fn ident(name: &str) -> String {
 	let name: String = name
 		.chars()
-		.map(|c| if c.is_alphanumeric() || c == '_' || c == '$' { c } else { '_' })
+		.map(|c| {
+			if c.is_alphanumeric() || c == '_' || c == '$' {
+				c
+			} else {
+				'_'
+			}
+		})
 		.collect();
 	match name.starts_with(|c: char| c.is_ascii_digit()) {
 		true => format!("_{name}"),

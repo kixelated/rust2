@@ -514,14 +514,17 @@ fn rejected(out: &Path, output: &Output, expected: &Path) {
 		if let Some(error) = line.strip_prefix("error: rust2-ts: ") {
 			got.push_str(error);
 			// What goes on in the lines after, as `tsc`'s messages do.
-			while let Some(more) = lines.peek().filter(|l| l.starts_with("   ") && !l.trim_start().starts_with("--> ")) {
+			while let Some(more) = lines
+				.peek()
+				.filter(|l| l.starts_with("   ") && !l.trim_start().starts_with("--> "))
+			{
 				got.push_str(&format!("\n{more}"));
 				lines.next();
 			}
 			if let Some(at) = lines.peek().and_then(|l| l.trim_start().strip_prefix("--> ")) {
-				let at = at.split_once("/registry/src/").map_or(at, |(_, rest)| {
-					rest.split_once('/').map_or(rest, |(_, path)| path)
-				});
+				let at = at
+					.split_once("/registry/src/")
+					.map_or(at, |(_, rest)| rest.split_once('/').map_or(rest, |(_, path)| path));
 				got.push_str(&format!(" at {at}"));
 			}
 			got.push('\n');

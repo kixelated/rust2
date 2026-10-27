@@ -225,7 +225,7 @@ export serves every instance and a generic one is a generic TS function. `Bytes:
 `<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. std's blanket impls and its
 traits' provided functions, such as `ToOwned` and `ne`, stay std's, as for any other type.
 Translation can't see into a bound type, so a field, variant, or constructor of one is
-refused, as is iterating one.
+refused, as are iterating one and keying a collection by one.
 
 Once the output is written, `tsc`, from `PATH`, checks each export against the translated
 signature of every instance translation calls, and each bound type against the Rust type's

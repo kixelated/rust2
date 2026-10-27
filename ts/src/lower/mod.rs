@@ -57,7 +57,8 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
 	t.bind();
 	for def_id in tcx.hir_crate_items(()).definitions() {
-		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) && !t.bound(def_id.to_def_id())
+		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union)
+			&& !t.bound(def_id.to_def_id())
 		{
 			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
 		}
@@ -653,7 +654,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
 			Ok(Some(instance)) => {
-				matches!(instance.def, InstanceKind::Item(did) if did.is_local()) && self.bound_module(instance).is_none()
+				matches!(instance.def, InstanceKind::Item(did) if did.is_local())
+					&& self.bound_module(instance).is_none()
 			}
 			_ => false,
 		}
@@ -845,7 +847,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				_ => Some(ObjectKind::Array),
 			},
 			// A binding's value: an object, unless Rust copies it, which JS can't.
-			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => (!self.is_copy(ty)).then_some(ObjectKind::Class),
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
+				(!self.is_copy(ty)).then_some(ObjectKind::Class)
+			}
 			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
 				Some(
