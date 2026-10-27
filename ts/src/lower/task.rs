@@ -4,7 +4,7 @@
 use rustc_middle::ty::{self, Ty};
 
 use super::body::Body;
-use super::library::{Call, Std};
+use super::library::{self, Call, Std};
 use crate::ts::Expr;
 
 /// A call of a standard library function on these types, or its arguments back if it is
@@ -31,7 +31,7 @@ pub fn call<'tcx>(
 				&& let ty::Adt(_, arc) = arc.expect_ty().kind()
 				&& self_std == Some(Std::Arc)
 				&& arc.type_at(0).is_str()
-				&& (from.expect_ty().peel_refs().is_str() || std_of(from.expect_ty()) == Some(Std::String)) =>
+				&& library::string(tcx, from.expect_ty().peel_refs()) =>
 		{
 			Expr::New(Box::new(Expr::Rt("Arc".into())), args)
 		}

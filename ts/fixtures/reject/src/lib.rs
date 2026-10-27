@@ -2,6 +2,7 @@
 //! output is written.
 
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
+#![feature(cow_is_borrowed)]
 
 pub fn float(a: f64) -> f64 {
 	a * 2.0
@@ -387,4 +388,30 @@ pub fn pushed(s: &mut String) {
 /// supported.
 pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
+}
+
+/// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
+pub fn cow_matched(c: std::borrow::Cow<'_, str>) -> String {
+	match c {
+		std::borrow::Cow::Borrowed(s) => s.to_string(),
+		std::borrow::Cow::Owned(s) => s,
+	}
+}
+
+pub fn cow_borrowed(c: &std::borrow::Cow<'_, str>) -> bool {
+	std::borrow::Cow::is_borrowed(c)
+}
+
+/// Only a `Cow<str>` has a JS value yet.
+pub fn cow_bytes(c: std::borrow::Cow<'_, [u8]>) -> usize {
+	c.len()
+}
+
+/// Made where its type goes unchecked, as a local's, it is refused where it is made.
+pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
+	{
+		let c: std::borrow::Cow<'_, std::sync::Arc<u8>> = std::borrow::Cow::Owned(a.clone());
+		drop(c);
+	}
+	std::sync::Arc::strong_count(a)
 }
