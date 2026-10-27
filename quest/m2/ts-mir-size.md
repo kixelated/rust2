@@ -1,4 +1,4 @@
-# [M] Smaller output from MIR
+# [S] Smaller output from MIR
 
 ## Goal
 
@@ -8,20 +8,19 @@ bytes minified and 9422 gzipped, and the async handoff's at most 3458 gzipped.
 
 ## Plan
 
-The codec's bundle is 29852 bytes minified and 9503 gzipped (+0.9% gzipped), and the
-async handoff's 15053 and 3712 (+37%, +7.3%), against THIR's numbers above, built from
-the same fixtures. Each candidate is measured on the bench's sizes and timings before
-it lands.
+[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3363 bytes
+gzipped and the codec to 30094 minified. The codec's 9651 gzipped is what remains,
+229 bytes over.
 
-The handoff's two gaps have different sources:
+That gap is the runtime, not the lowering: [#89](https://github.com/kixelated/rust2/pull/89)
+grew `rt/int.ts` after THIR's numbers were taken, and THIR's own output bundled with
+today's `rt/int.ts` is 31112 bytes minified and 9666 gzipped, over MIR's. Closing it
+means trimming what the codec pulls from `rt/int.ts`, without losing #89's speed.
 
-- Minified, nearly all of it is the fixture's 16 one-await `levelN` classes, about 360
-  bytes each against about 135 for a THIR generator and its wrapper. Gzip folds the
-  copies: the 15 repeats cost 172 bytes gzipped, less than THIR's 201.
-- Gzipped, the gap is the code outside the repeats: with one level each, MIR's bundle is
-  284 bytes gzipped over THIR's. `drainFuture`'s `switch` dispatch, `recvFuture`, and
-  `register` and `wake`, whose `for` loops are stepped `while` loops with temporaries,
-  are where it is.
+Small cuts measured by hand on the handoff and left out, each under 1% gzipped:
+hoisting a dispatch's entry case out of its `switch` (3-7 bytes), dropping `unwind`
+stores before a statement that can't throw (4), and merging `if` arms whose cleanup is
+the same (about 15).
 
 Tried and dropped:
 
