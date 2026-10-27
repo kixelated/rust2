@@ -233,6 +233,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	tested: IndexVec<Local, bool>,
 	/// The names of those that hold a value TypeScript would narrow by what it is assigned.
 	widened: FxHashSet<String>,
+	/// The tests and payload reads TypeScript may have narrowed stale.
+	narrowing: decided::Narrowing<'tcx>,
+	/// The statement or terminator being lowered.
+	at: mir::Location,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -290,6 +294,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			switched: FxHashSet::default(),
 			tested: IndexVec::from_elem_n(false, n),
 			widened: FxHashSet::default(),
+			narrowing: decided::narrowing(tcx, mir),
+			at: mir::START_BLOCK.start_location(),
 		};
 		fx.analyze();
 		fx
@@ -1115,10 +1121,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Mark the locals whose variant a switch tests, or that a closure or async block
-	/// captures and could test, and what references to them borrow.
+	/// Mark the locals whose variant a switch or a library call's test tests, or that a
+	/// closure or async block captures and could test, and what references to them borrow.
 	fn find_tested(&mut self) {
-		let mut work = Vec::new();
+		let mut work: Vec<Local> = self.narrowing.tested().collect();
 		for data in self.mir.basic_blocks.iter() {
 			for stmt in &data.statements {
 				let StatementKind::Assign(assign) = &stmt.kind else {
@@ -1199,6 +1205,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			self.widened.insert(name.clone());
 		}
 		value
+	}
+
+	/// The whole type of the place whose discriminant `discr` holds.
+	fn scrutinee_ty(&mut self, discr: Local, span: Span) -> Type {
+		let Some(Rvalue::Discriminant(place)) = self.def_rvalue(discr) else {
+			unreachable!("widened only where a discriminant is read")
+		};
+		match place.as_local() {
+			Some(local) => self.decl_ty(local),
+			None => self.b.t.ty(place.ty(&self.mir.local_decls, self.tcx).ty, span),
+		}
 	}
 
 	/// The rvalue a local's one assignment by a statement assigns.
@@ -1949,6 +1966,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.set_unwind(data.terminator(), out);
 		for (i, stmt) in data.statements.iter().enumerate() {
 			if !self.in_ignored(stmt.source_info.span) && !self.noops.contains(&(bb, i)) {
+				self.at = mir::Location {
+					block: bb,
+					statement_index: i,
+				};
 				self.statement(stmt, out);
 			}
 		}
@@ -1957,6 +1978,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if let Some(&to) = self.redirect.get(&bb) {
 			return Exit::Goto(to.as_usize());
 		}
+		self.at = mir::Location {
+			block: bb,
+			statement_index: data.statements.len(),
+		};
 		self.terminator(data.terminator(), out)
 	}
 
@@ -2235,14 +2260,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Operand::Copy(p) | Operand::Move(p) => p.as_local(),
 			_ => None,
 		};
+		// A variant TypeScript may have narrowed the place away from is tested on the
+		// place's whole type.
+		let whole = discr_local
+			.filter(|&l| {
+				self.def_at[l].is_some_and(|(bb, i)| {
+					self.narrowing.widened(mir::Location {
+						block: bb,
+						statement_index: i,
+					})
+				})
+			})
+			.map(|l| self.scrutinee_ty(l, span));
+		let widen = |test: Expr, read: &Expr| match (&whole, read.path_key()) {
+			(Some(whole), Some(key)) => widen_reads(test, &key, whole),
+			_ => test,
+		};
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
 			Some(Slot::Discr(Some((scrut, ty)))) => {
-				if !arms.is_empty() {
+				if !arms.is_empty() && whole.is_none() {
 					self.switched.extend(scrut.path_key());
 				}
 				let tests: Vec<Expr> = arms
 					.iter()
-					.map(|&(value, _)| self.variant_test(&scrut, ty, value, span))
+					.map(|&(value, _)| {
+						let test = self.variant_test(&scrut, ty, value, span);
+						widen(test, &scrut)
+					})
 					.collect();
 				// What one test reads that is held back folds into it; of several, all but
 				// the first may not run.
@@ -2283,7 +2327,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							None => self.err(span, format!("a switch on `{ty}`")),
 						},
 					};
-					tests.push((test, target));
+					tests.push((widen(test, &value), target));
 				}
 				// What the tests read that is held back folds into them.
 				let targets: Vec<BasicBlock> = tests.iter().map(|(_, t)| *t).collect();
@@ -2828,6 +2872,23 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
 		Expr::Cond(c, a, b) => subst(c, name, value) || subst(a, name, value) || subst(b, name, value),
 		Expr::Arrow(..) | Expr::Lambda(..) => false,
+	}
+}
+
+/// `test` with each read of the path `key` cast to its whole type `ty`, which TypeScript
+/// narrows nothing by.
+fn widen_reads(test: Expr, key: &str, ty: &Type) -> Expr {
+	let widen = |e: Box<Expr>| Box::new(widen_reads(*e, key, ty));
+	match test {
+		e if e.path_key().as_deref() == Some(key) => Expr::As(Box::new(e), ty.clone()),
+		Expr::Member(base, k) => Expr::Member(widen(base), k),
+		Expr::Index(base, index) => Expr::Index(widen(base), widen(index)),
+		Expr::Call(f, args) => Expr::Call(widen(f), args.into_iter().map(|e| widen_reads(e, key, ty)).collect()),
+		Expr::Unary(op, e) => Expr::Unary(op, widen(e)),
+		Expr::Located(loc, e) => Expr::Located(loc, widen(e)),
+		Expr::Binary(l, op, r) => Expr::Binary(widen(l), op, widen(r)),
+		Expr::Cond(c, a, b) => Expr::Cond(widen(c), widen(a), widen(b)),
+		e => e,
 	}
 }
 

@@ -6,43 +6,32 @@
 //! A forward dataflow over the body finds, at each switch on a place's variant, the
 //! variants the place can hold: a switch's edge narrows them, and anything that can
 //! change the place forgets them.
+//!
+//! The same dataflow follows what TypeScript narrowed each place to, which only an
+//! assignment it sees undoes. Where a call changed the place since, or a library call's
+//! test narrowed it, [`narrowing`] finds the tests and payload reads that must see the
+//! place's whole type.
 
+use rustc_abi::VariantIdx;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_index::IndexVec;
-use rustc_middle::mir::visit::Visitor;
+use rustc_middle::mir::visit::{PlaceContext, Visitor};
 use rustc_middle::mir::{
 	self, BasicBlock, BorrowKind, Local, Location, MutBorrowKind, Operand, Place, ProjectionElem, Rvalue,
 	StatementKind, SwitchTargets, TerminatorKind,
 };
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 
 /// Fold each switch in `body` that an enclosing switch decided.
 pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, body: &mut mir::Body<'tcx>) {
 	let flow = Flow::new(tcx, body);
-	let mut entry: IndexVec<BasicBlock, Option<Facts<'tcx>>> = IndexVec::from_elem(None, &body.basic_blocks);
-	entry[mir::START_BLOCK] = Some(Facts::default());
-	let mut work = vec![mir::START_BLOCK];
-	while let Some(bb) = work.pop() {
-		let Some(facts) = entry[bb].clone() else {
-			continue;
-		};
-		for (to, out) in flow.block(body, bb, facts).1 {
-			let joined = match &entry[to] {
-				None => out,
-				Some(old) => old.join(&out),
-			};
-			if entry[to].as_ref() != Some(&joined) {
-				entry[to] = Some(joined);
-				work.push(to);
-			}
-		}
-	}
+	let entry = flow.solve(body);
 	let mut folded = false;
 	for bb in body.basic_blocks.indices() {
 		let Some(facts) = entry[bb].clone() else {
 			continue;
 		};
-		let (Some((def, kept, otherwise)), _) = flow.block(body, bb, facts) else {
+		let (Some((def, kept, otherwise)), _) = flow.block(body, bb, facts, None) else {
 			continue;
 		};
 		let data = &mut body.basic_blocks_mut()[bb];
@@ -79,31 +68,112 @@ pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, body: &mut mir::Body<'tcx>) {
 	}
 }
 
-/// The variants, by discriminant, that each place known so far can hold.
+/// What the dataflow knows at a point.
 #[derive(Clone, Default, PartialEq)]
-struct Facts<'tcx>(Vec<(Place<'tcx>, Vec<u128>)>);
+struct Facts<'tcx> {
+	/// The variants, by discriminant, that each place known so far can hold.
+	known: Vec<(Place<'tcx>, Vec<u128>)>,
+	/// What TypeScript narrowed each place to since it last saw the place assigned: the
+	/// variants its tests left, or `None` where a library call's test narrowed it, and
+	/// what it holds, in a way the dataflow doesn't follow.
+	narrowed: Vec<(Place<'tcx>, Option<Vec<u128>>)>,
+}
 
 impl<'tcx> Facts<'tcx> {
-	/// What both `self` and `other` know.
+	/// What both `self` and `other` know, and what either may have narrowed.
 	fn join(&self, other: &Self) -> Self {
-		Self(
-			self.0
-				.iter()
-				.filter_map(|(p, vs)| {
-					let (_, theirs) = other.0.iter().find(|(q, _)| q == p)?;
-					let mut all: Vec<u128> = vs.iter().chain(theirs).copied().collect();
-					all.sort_unstable();
-					all.dedup();
-					Some((*p, all))
-				})
-				.collect(),
-		)
+		let known = self
+			.known
+			.iter()
+			.filter_map(|(p, vs)| {
+				let (_, theirs) = other.known.iter().find(|(q, _)| q == p)?;
+				Some((*p, union(vs, theirs)))
+			})
+			.collect();
+		// What one way in left unnarrowed has its whole type.
+		let narrowed = self
+			.narrowed
+			.iter()
+			.filter_map(|(p, vs)| {
+				let (_, theirs) = other.narrowed.iter().find(|(q, _)| q == p)?;
+				Some((*p, vs.as_ref().zip(theirs.as_ref()).map(|(a, b)| union(a, b))))
+			})
+			.collect();
+		Self { known, narrowed }
 	}
 
 	/// Forget what `gone` says of a place, and of the discriminants read in this block.
 	fn forget(&mut self, discrs: &mut Vec<(Local, usize, Place<'tcx>)>, gone: impl Fn(Place<'tcx>) -> bool) {
-		self.0.retain(|(p, _)| !gone(*p));
+		self.known.retain(|(p, _)| !gone(*p));
 		discrs.retain(|(_, _, p)| !gone(*p));
+	}
+
+	/// What TypeScript narrowed `place` to: `Some(None)` where the dataflow can't name it,
+	/// and `None` where it didn't narrow it.
+	fn narrowing(&self, place: Place<'tcx>) -> Option<Option<&[u128]>> {
+		if self.narrowed.iter().any(|(p, vs)| vs.is_none() && prefix(*p, place)) {
+			return Some(None);
+		}
+		self.narrowed
+			.iter()
+			.find(|(p, _)| *p == place)
+			.map(|(_, vs)| vs.as_deref())
+	}
+
+	/// Record that TypeScript narrowed `place` to `to`.
+	fn narrow(&mut self, place: Place<'tcx>, to: Option<Vec<u128>>) {
+		self.narrowed.retain(|(p, _)| *p != place);
+		self.narrowed.push((place, to));
+	}
+}
+
+/// The tests and payload reads in a body that must see a place's whole type, since
+/// TypeScript may have narrowed the place before a change it doesn't see, as a call's,
+/// or by a library call's test.
+#[derive(Default)]
+pub struct Narrowing<'tcx> {
+	/// The statements reading the discriminant that a widened switch tests.
+	widened: FxHashSet<Location>,
+	/// Places read as a variant TypeScript may not have narrowed them to, with where.
+	stale: FxHashSet<(Location, Place<'tcx>)>,
+	/// The locals whose variant a library call's test reads.
+	tested: FxHashSet<Local>,
+}
+
+impl<'tcx> Narrowing<'tcx> {
+	/// Whether the switch on the discriminant read `at` tests its place widened.
+	pub fn widened(&self, at: Location) -> bool {
+		self.widened.contains(&at)
+	}
+
+	/// Whether `place`, read `at` as one of its variants, is cast to it.
+	pub fn stale(&self, at: Location, place: Place<'tcx>) -> bool {
+		self.stale.contains(&(at, place))
+	}
+
+	/// The locals whose variant a library call's test reads, which TypeScript narrows as
+	/// it does a switch's.
+	pub fn tested(&self) -> impl Iterator<Item = Local> + '_ {
+		self.tested.iter().copied()
+	}
+}
+
+/// Where `body`'s tests and payload reads must see a place's whole type.
+pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Narrowing<'tcx> {
+	let mut flow = Flow::new(tcx, body);
+	// A widened test narrows nothing, which can leave a later test to widen too.
+	loop {
+		let mut seen = Narrowing::default();
+		for (bb, facts) in flow.solve(body).into_iter_enumerated() {
+			if let Some(facts) = facts {
+				flow.block(body, bb, facts, Some(&mut seen));
+			}
+		}
+		let widened: FxHashSet<BasicBlock> = seen.widened.iter().map(|at| at.block).collect();
+		if widened.is_subset(&flow.widened) {
+			return seen;
+		}
+		flow.widened.extend(widened);
 	}
 }
 
@@ -122,6 +192,10 @@ struct Flow<'tcx> {
 	/// Locals something can change behind the dataflow's back, by a raw pointer or a
 	/// two-phase borrow.
 	escaped: IndexVec<Local, bool>,
+	/// The `bool`s a switch branches on, or on the negation of.
+	conditions: IndexVec<Local, bool>,
+	/// The switches on a variant that test their place widened, which narrows nothing.
+	widened: FxHashSet<BasicBlock>,
 }
 
 impl<'tcx> Flow<'tcx> {
@@ -159,11 +233,32 @@ impl<'tcx> Flow<'tcx> {
 			};
 		}
 		let kept = defs.iter_enumerated().map(|(local, &d)| d == 0 && arg(local)).collect();
+		let mut conditions: IndexVec<Local, bool> = IndexVec::from_elem_n(false, n);
+		let mut work: Vec<Local> = body
+			.basic_blocks
+			.iter()
+			.filter_map(|data| match &data.terminator().kind {
+				TerminatorKind::SwitchInt { discr, .. } => discr.place()?.as_local(),
+				_ => None,
+			})
+			.collect();
+		while let Some(local) = work.pop() {
+			if !body.local_decls[local].ty.is_bool() || std::mem::replace(&mut conditions[local], true) {
+				continue;
+			}
+			if let Some(Rvalue::UnaryOp(mir::UnOp::Not, op) | Rvalue::Use(op, _)) = rvalues[local]
+				&& let Some(from) = op.place().and_then(|p| p.as_local())
+			{
+				work.push(from);
+			}
+		}
 		let mut flow = Self {
 			tcx,
 			borrows,
 			kept,
 			escaped: IndexVec::from_elem_n(false, n),
+			conditions,
+			widened: FxHashSet::default(),
 		};
 		for data in body.basic_blocks.iter() {
 			for stmt in &data.statements {
@@ -190,6 +285,29 @@ impl<'tcx> Flow<'tcx> {
 			}
 		}
 		flow
+	}
+
+	/// What is known as each block is entered, `None` where nothing reaches it.
+	fn solve(&self, body: &mir::Body<'tcx>) -> IndexVec<BasicBlock, Option<Facts<'tcx>>> {
+		let mut entry: IndexVec<BasicBlock, Option<Facts<'tcx>>> = IndexVec::from_elem(None, &body.basic_blocks);
+		entry[mir::START_BLOCK] = Some(Facts::default());
+		let mut work = vec![mir::START_BLOCK];
+		while let Some(bb) = work.pop() {
+			let Some(facts) = entry[bb].clone() else {
+				continue;
+			};
+			for (to, out) in self.block(body, bb, facts, None).1 {
+				let joined = match &entry[to] {
+					None => out,
+					Some(old) => old.join(&out),
+				};
+				if entry[to].as_ref() != Some(&joined) {
+					entry[to] = Some(joined);
+					work.push(to);
+				}
+			}
+		}
+		entry
 	}
 
 	/// `place`, through each reference it reads that borrows a place that stays put.
@@ -241,13 +359,79 @@ impl<'tcx> Flow<'tcx> {
 		})
 	}
 
+	/// Whether TypeScript sees a write to `place` as an assignment to its path.
+	fn visible(&self, place: Place<'tcx>) -> bool {
+		self.canon(place) == place && !matches!(place.projection.last(), Some(ProjectionElem::Deref))
+	}
+
+	/// Whether a call to `func` may be written out as a test TypeScript narrows what it
+	/// reads by: a call into the library, as it writes `PartialEq::eq` of an `Ordering`
+	/// as `===` and `Result::is_ok` as `.ok`, whose result a switch branches on.
+	fn tests(&self, body: &mir::Body<'tcx>, func: &Operand<'tcx>, destination: Place<'tcx>) -> bool {
+		let Some((def, args)) = func.const_fn_def() else {
+			return false;
+		};
+		destination.as_local().is_some_and(|local| self.conditions[local])
+			&& !matches!(
+				Instance::try_resolve(self.tcx, body.typing_env(self.tcx), def, args),
+				Ok(Some(instance)) if instance.def_id().is_local()
+			)
+	}
+
+	/// The enums that `ops` pass by shared reference or by copy.
+	fn read_places<'o>(&self, body: &mir::Body<'tcx>, ops: impl Iterator<Item = &'o Operand<'tcx>>) -> Vec<Place<'tcx>>
+	where
+		'tcx: 'o,
+	{
+		ops.filter_map(|op| {
+			let p = op.place()?;
+			let read = match p.ty(&body.local_decls, self.tcx).ty.kind() {
+				ty::Ref(_, _, ty::Mutability::Not) => self.tcx.mk_place_deref(p),
+				ty::Ref(..) | ty::RawPtr(..) => return None,
+				_ => p,
+			};
+			Some(self.canon(read))
+		})
+		.filter(|p| self.tracks(body, *p))
+		.collect()
+	}
+
+	/// Mark what `visit` reads as a variant where TypeScript may not have narrowed it to
+	/// that variant: narrowed to others, or in a way the dataflow can't name.
+	fn read_variants(
+		&self,
+		body: &mir::Body<'tcx>,
+		facts: &Facts<'tcx>,
+		location: Location,
+		seen: &mut Narrowing<'tcx>,
+		visit: impl FnOnce(&mut Downcasts<'tcx>),
+	) {
+		let mut reads = Downcasts(self.tcx, Vec::new());
+		visit(&mut reads);
+		for (base, variant) in reads.1 {
+			let ty::Adt(adt, _) = base.ty(&body.local_decls, self.tcx).ty.kind() else {
+				continue;
+			};
+			let discr = adt.discriminant_for_variant(self.tcx, variant).val;
+			let stale = match facts.narrowing(self.canon(base)) {
+				None => false,
+				Some(None) => true,
+				Some(Some(vs)) => vs != [discr],
+			};
+			if stale {
+				seen.stale.insert((location, base));
+			}
+		}
+	}
+
 	/// Run `bb` from `facts`: the switch it decided, if any, and the facts on each edge
-	/// that can be taken.
+	/// that can be taken. With `seen`, record where TypeScript's narrowing is stale.
 	fn block(
 		&self,
 		body: &mir::Body<'tcx>,
 		bb: BasicBlock,
 		mut facts: Facts<'tcx>,
+		mut seen: Option<&mut Narrowing<'tcx>>,
 	) -> (Option<Decided>, Vec<(BasicBlock, Facts<'tcx>)>) {
 		let data = &body.basic_blocks[bb];
 		// The discriminants read in this block so far: their locals, statements, and places.
@@ -257,6 +441,9 @@ impl<'tcx> Flow<'tcx> {
 				block: bb,
 				statement_index: i,
 			};
+			if let Some(seen) = seen.as_deref_mut() {
+				self.read_variants(body, &facts, location, seen, |v| v.visit_statement(stmt, location));
+			}
 			for lent in lent_places(|v| v.visit_statement(stmt, location)) {
 				if let Some(gone) = self.lent(body, lent) {
 					facts.forget(&mut discrs, gone);
@@ -265,30 +452,48 @@ impl<'tcx> Flow<'tcx> {
 			match &stmt.kind {
 				StatementKind::Assign(assign) => {
 					let (place, rvalue) = &**assign;
-					// A copy holds the variant its original does.
-					let copied: Vec<(Place<'tcx>, Vec<u128>)> = match rvalue {
+					// A copy holds the variant its original does, and TypeScript narrows
+					// what it is assigned to the copy's type.
+					let (copied, narrowed) = match rvalue {
 						Rvalue::Use(Operand::Copy(from) | Operand::Move(from), _) | Rvalue::CopyForDeref(from) => {
 							let (from, to) = (self.canon(*from), self.canon(*place));
-							facts
-								.0
+							let rebase = |p: &Place<'tcx>| {
+								let rest = &p.projection[from.projection.len()..];
+								to.project_deeper(rest, self.tcx)
+							};
+							let copied = facts
+								.known
 								.iter()
 								.filter(|(p, _)| prefix(from, *p))
-								.map(|(p, vs)| {
-									let rest = &p.projection[from.projection.len()..];
-									(to.project_deeper(rest, self.tcx), vs.clone())
-								})
+								.map(|(p, vs)| (rebase(p), vs.clone()))
 								.filter(|(p, _)| self.tracks(body, *p))
-								.collect()
+								.collect();
+							let mut narrowed: Vec<(Place<'tcx>, Option<Vec<u128>>)> = facts
+								.narrowed
+								.iter()
+								.filter(|(p, _)| prefix(from, *p))
+								.map(|(p, vs)| (rebase(p), vs.clone()))
+								.collect();
+							if facts.narrowing(from) == Some(None) {
+								narrowed.retain(|(p, _)| *p != to);
+								narrowed.push((to, None));
+							}
+							(copied, narrowed)
 						}
-						_ => Vec::new(),
+						_ => (Vec::new(), Vec::new()),
 					};
-					facts.forget(&mut discrs, self.written(*place));
+					let gone = self.written(*place);
+					if self.visible(*place) {
+						facts.narrowed.retain(|(p, _)| !gone(*p));
+						facts.narrowed.extend(narrowed);
+					}
+					facts.forget(&mut discrs, gone);
 					discrs.retain(|(d, _, _)| place.local != *d);
 					// A `&mut` can change what it borrows from then on.
 					if let Rvalue::Ref(_, BorrowKind::Mut { .. }, borrowed) = rvalue {
 						facts.forget(&mut discrs, self.written(*borrowed));
 					}
-					facts.0.extend(copied);
+					facts.known.extend(copied);
 					if let Rvalue::Discriminant(of) = rvalue
 						&& let Some(local) = place.as_local()
 						&& self.tracks(body, self.canon(*of))
@@ -308,6 +513,9 @@ impl<'tcx> Flow<'tcx> {
 			block: bb,
 			statement_index: data.statements.len(),
 		};
+		if let Some(seen) = seen.as_deref_mut() {
+			self.read_variants(body, &facts, location, seen, |v| v.visit_terminator(term, location));
+		}
 		for lent in lent_places(|v| v.visit_terminator(term, location)) {
 			if let Some(gone) = self.lent(body, lent) {
 				facts.forget(&mut discrs, gone);
@@ -322,7 +530,7 @@ impl<'tcx> Flow<'tcx> {
 			} if let Some(&(_, def, of)) = discrs.iter().find(|(l, _, _)| d.as_local() == Some(*l)) => {
 				let all = variants(self.tcx, body, of).expect("checked where read");
 				let known = facts
-					.0
+					.known
 					.iter()
 					.find(|(p, _)| *p == of)
 					.map_or(all.clone(), |(_, vs)| vs.clone());
@@ -332,20 +540,42 @@ impl<'tcx> Flow<'tcx> {
 						.find(|&(w, _)| w == v)
 						.map_or(targets.otherwise(), |(_, t)| t)
 				};
+				// A test for a variant TypeScript narrowed the place away from reads it
+				// widened.
+				let narrowed = facts.narrowing(of).map(|vs| vs.map(<[u128]>::to_vec));
+				let widened = self.widened.contains(&bb);
+				let stale = match &narrowed {
+					None => false,
+					Some(None) => targets.iter().next().is_some(),
+					Some(Some(vs)) => targets.iter().any(|(v, _)| !vs.contains(&v)),
+				};
+				if (widened || stale)
+					&& let Some(seen) = seen
+				{
+					seen.widened.insert(Location {
+						block: bb,
+						statement_index: def,
+					});
+				}
 				// Each edge that can be taken, with the variants that take it.
 				for &v in &known {
 					match out.iter_mut().find(|(t, _)| *t == target(v)) {
-						Some((_, facts)) => facts.0.last_mut().expect("pushed below").1.push(v),
+						Some((_, facts)) => facts.known.last_mut().expect("pushed below").1.push(v),
 						None => {
 							let mut facts = facts.clone();
-							facts.0.retain(|(p, _)| *p != of);
-							facts.0.push((of, vec![v]));
+							facts.known.retain(|(p, _)| *p != of);
+							facts.known.push((of, vec![v]));
 							out.push((target(v), facts));
 						}
 					}
 				}
-				for (_, facts) in &mut out {
-					facts.0.last_mut().expect("pushed above").1.sort_unstable();
+				for (to, facts) in &mut out {
+					facts.known.last_mut().expect("pushed above").1.sort_unstable();
+					// What TypeScript narrowed it to, less what the tests on the way rule out.
+					if !widened {
+						let left = narrowed.clone().flatten().unwrap_or_else(|| all.clone());
+						facts.narrow(of, Some(left.into_iter().filter(|&v| target(v) == *to).collect()));
+					}
 				}
 				let mut kept: Vec<(u128, BasicBlock)> = targets.iter().filter(|(v, _)| known.contains(v)).collect();
 				let listed = |v: &u128| targets.iter().any(|(w, _)| w == *v);
@@ -359,6 +589,19 @@ impl<'tcx> Flow<'tcx> {
 				}
 				decided = Some((def, kept, otherwise));
 			}
+			// A test of anything else changes nothing. What is known stays with the
+			// switches on a variant, which fold by it.
+			TerminatorKind::SwitchInt { targets, .. } => {
+				let facts = Facts {
+					known: Vec::new(),
+					narrowed: facts.narrowed.clone(),
+				};
+				for &to in targets.all_targets() {
+					if !out.iter().any(|(t, _)| *t == to) {
+						out.push((to, facts.clone()));
+					}
+				}
+			}
 			TerminatorKind::Goto { target, .. }
 			| TerminatorKind::Assert { target, .. }
 			| TerminatorKind::FalseEdge {
@@ -368,12 +611,26 @@ impl<'tcx> Flow<'tcx> {
 				real_target: target, ..
 			} => out.push((*target, facts.clone())),
 			TerminatorKind::Call {
+				func,
+				args,
 				destination,
 				target: Some(target),
 				..
 			} => {
 				let mut facts = facts.clone();
-				facts.forget(&mut discrs, self.written(*destination));
+				let gone = self.written(*destination);
+				if self.visible(*destination) {
+					facts.narrowed.retain(|(p, _)| !gone(*p));
+				}
+				facts.forget(&mut discrs, gone);
+				if self.tests(body, func, *destination) {
+					for read in self.read_places(body, args.iter().map(|arg| &arg.node)) {
+						facts.narrow(read, None);
+						if let Some(seen) = seen.as_deref_mut() {
+							seen.tested.insert(read.local);
+						}
+					}
+				}
 				out.push((*target, facts));
 			}
 			TerminatorKind::Drop { place, target, .. } => {
@@ -422,6 +679,28 @@ impl<'tcx> Visitor<'tcx> for Operands<'tcx> {
 		}
 		self.super_rvalue(rvalue, location);
 	}
+}
+
+/// The places a statement or terminator reads or writes as one of their variants, with
+/// that variant.
+struct Downcasts<'tcx>(TyCtxt<'tcx>, Vec<(Place<'tcx>, VariantIdx)>);
+
+impl<'tcx> Visitor<'tcx> for Downcasts<'tcx> {
+	fn visit_place(&mut self, place: &Place<'tcx>, _: PlaceContext, _: Location) {
+		for (base, elem) in place.iter_projections() {
+			if let ProjectionElem::Downcast(_, variant) = elem {
+				self.1.push((base.to_place(self.0), variant));
+			}
+		}
+	}
+}
+
+/// The variants in either of `a` and `b`, in order.
+fn union(a: &[u128], b: &[u128]) -> Vec<u128> {
+	let mut all: Vec<u128> = a.iter().chain(b).copied().collect();
+	all.sort_unstable();
+	all.dedup();
+	all
 }
 
 /// Whether a value of `ty` can change what it points at: it is or holds a `&mut` or a

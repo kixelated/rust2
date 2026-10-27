@@ -78,6 +78,10 @@ export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined)
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
 }
 
+export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | undefined {
+	return v === undefined ? v : copy$Shape(v);
+}
+
 export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wrap<rt.i16> | undefined {
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
