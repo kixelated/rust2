@@ -26,6 +26,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 ## Required
 
+- [Tests TypeScript narrowed stale](/quest/m2/ts-stale-narrow.md) - a match after a call that changes its place, or after a library call's test, passes `tsc`
 - [Byte slices without objects](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` allocates nothing, neither a chunk view nor a `ByteSlice`
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the codec bundle shrinks back to THIR's gzipped size
 - [An A/A control that measures noise](/quest/m2/ts-bench-aa.md) - `just ts bench`'s A/A measures only noise, in every engine
