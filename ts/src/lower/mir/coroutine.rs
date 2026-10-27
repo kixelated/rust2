@@ -4,9 +4,10 @@
 //! transform made, which drops what the state it is in holds.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
-use rustc_middle::mir::{CoroutineSavedLocal, Operand};
+use rustc_middle::mir::{self, CoroutineSavedLocal, Operand};
 use rustc_middle::ty::{self, EarlyBinder, GenericArgsRef, Instance};
 use rustc_span::Span;
 
@@ -106,11 +107,21 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 			};
 		}
 	};
+	let resume = super::instance_mir(t, instance, span);
+	let moved = resume
+		.as_ref()
+		.map(|mir| moved_upvars(mir, def_id, layout))
+		.unwrap_or_default();
 	let mut saved = IndexVec::new();
 	// Locals of one type that are never live at once share a field, as rustc overlaps
 	// them in memory: each `.await` of a future of one type keeps it in the same one.
 	let mut shared: Vec<(FieldId, Type, Vec<CoroutineSavedLocal>)> = Vec::new();
 	for (local, field) in layout.field_tys.iter_enumerated() {
+		// An argument the body moves into its own variable keeps its field.
+		if let Some(&upvar) = moved.get(&local) {
+			saved.push(upvars[upvar]);
+			continue;
+		}
 		let ty = t.subst(args, field.ty);
 		// A local held across an `.await`, refused as any variable is.
 		let ty = t.held_ty(ty, field.source_info.span);
@@ -171,7 +182,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		name: String::new(),
 		alias: None,
 	});
-	if let Some(mir) = super::instance_mir(t, instance, span) {
+	if let Some(mir) = resume {
 		let ret = mir.return_ty();
 		let mut b = Body::new(t, args);
 		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
@@ -277,4 +288,79 @@ pub fn construct<'tcx>(
 	let info = info(fx.b.t, def_id, args, span);
 	let values = ops.iter().map(|op| fx.operand(op, span, out)).collect();
 	Expr::New(Box::new(Expr::Sym(info.sym)), values)
+}
+
+/// The saved locals the resume function `mir` of the coroutine `def_id` moves or copies
+/// an upvar into, with the upvar's index, where that is the upvar's one read: nothing
+/// reads the upvar's field after, so the local can keep its value there.
+fn moved_upvars<'tcx>(
+	mir: &mir::Body<'tcx>,
+	def_id: DefId,
+	layout: &mir::CoroutineLayout<'tcx>,
+) -> FxHashMap<CoroutineSavedLocal, usize> {
+	use mir::visit::{PlaceContext, Visitor};
+	use mir::{ProjectionElem, Rvalue, StatementKind};
+
+	struct Reads<'m, 'tcx> {
+		mir: &'m mir::Body<'tcx>,
+		def_id: DefId,
+		reads: FxHashMap<FieldIdx, u32>,
+	}
+	impl<'tcx> Reads<'_, 'tcx> {
+		/// The upvar `place` is, or the field of a variant, of this coroutine.
+		fn split(&self, place: mir::Place<'tcx>) -> Option<(Option<VariantIdx>, FieldIdx)> {
+			let ty = self.mir.local_decls[place.local].ty.builtin_deref(true)?;
+			if !matches!(ty.kind(), ty::Coroutine(d, _) if *d == self.def_id) {
+				return None;
+			}
+			match place.projection.as_slice() {
+				[ProjectionElem::Deref, ProjectionElem::Field(f, _), ..] => Some((None, *f)),
+				[
+					ProjectionElem::Deref,
+					ProjectionElem::Downcast(_, v),
+					ProjectionElem::Field(f, _),
+					..,
+				] => Some((Some(*v), *f)),
+				_ => None,
+			}
+		}
+	}
+	impl<'tcx> Visitor<'tcx> for Reads<'_, 'tcx> {
+		fn visit_place(&mut self, place: &mir::Place<'tcx>, cx: PlaceContext, at: mir::Location) {
+			// Debug info names a place without reading it.
+			if !matches!(cx, PlaceContext::NonUse(_))
+				&& let Some((None, f)) = self.split(*place)
+			{
+				*self.reads.entry(f).or_default() += 1;
+			}
+			self.super_place(place, cx, at);
+		}
+	}
+
+	let mut reads = Reads {
+		mir,
+		def_id,
+		reads: FxHashMap::default(),
+	};
+	reads.visit_body(mir);
+	let mut moved = FxHashMap::default();
+	for data in mir.basic_blocks.iter() {
+		for stmt in &data.statements {
+			let StatementKind::Assign(assign) = &stmt.kind else {
+				continue;
+			};
+			let (dest, Rvalue::Use(Operand::Move(src) | Operand::Copy(src), _)) = &**assign else {
+				continue;
+			};
+			if src.projection.len() == 2
+				&& dest.projection.len() == 3
+				&& let Some((None, upvar)) = reads.split(*src)
+				&& let Some((Some(variant), field)) = reads.split(*dest)
+				&& reads.reads.get(&upvar) == Some(&1)
+			{
+				moved.insert(layout.variant_fields[variant][field], upvar.index());
+			}
+		}
+	}
+	moved
 }

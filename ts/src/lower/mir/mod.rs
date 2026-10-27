@@ -2947,10 +2947,11 @@ fn fails(term: &mir::Terminator<'_>) -> bool {
 	c.const_.try_to_bool().is_some_and(|b| b != *expected)
 }
 
-/// Drop the assignments of a variable to itself, which ferrying a value through
-/// temporaries leaves.
+/// Drop the assignments of a variable or a field to itself, which ferrying a value
+/// through temporaries leaves, as does a coroutine moving its argument into the
+/// variable that keeps its field.
 fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
-	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if matches!((&**t, &**v), (Expr::Ident(a), Expr::Ident(b)) if a == b)));
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if same_path(t, v)));
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
@@ -2970,6 +2971,23 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 			}
 			_ => {}
 		}
+	}
+}
+
+/// Whether `a` and `b` are one path: a variable, `this`, or a property of one.
+fn same_path(a: &Expr, b: &Expr) -> bool {
+	match (a, b) {
+		(Expr::Ident(a), Expr::Ident(b)) => a == b,
+		(Expr::This, Expr::This) => true,
+		(Expr::Member(a, ka), Expr::Member(b, kb)) => {
+			let key = match (ka, kb) {
+				(ts::Key::Name(x), ts::Key::Name(y)) => x == y,
+				(ts::Key::Field(x), ts::Key::Field(y)) => x == y,
+				_ => false,
+			};
+			key && same_path(a, b)
+		}
+		_ => false,
 	}
 }
 
