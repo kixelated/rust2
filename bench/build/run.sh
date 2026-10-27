@@ -299,17 +299,12 @@ rajit_counts() { # dir
 # Its output goes to a log, which a failure shows.
 # Earlier runs leave dirty pages behind (over a GiB on moq), and writing them
 # back stalls whichever run it overlaps, so each run starts after a sync.
-# Each run also starts with its target directory in the page cache, as a
-# developer's rebuild does: the other variants' builds evict it once they
-# outgrow memory, and an edit that reads it back from disk waits on the reads.
 # A ra-jit run also records whether the daemon or cargo built it, and the CPU time
 # and memory of the daemon, which hyperfine does not see. A test run records how
 # many tests failed, from nextest's summary; it runs them all and fails only
 # when nextest cannot run them.
 time_once() { # corpus dir scenario variant prepare cargo-args...
     local corpus=$1 dir=$2 scenario=$3 variant=$4 prepare=$5 json log
-    # A clean scenario's prepare removes the directory, leaving nothing to read.
-    local warm="[[ ! -d \$CARGO_TARGET_DIR ]] || find \"\$CARGO_TARGET_DIR\" -type f -exec cat {} + >/dev/null"
     local -a failure=()
     shift 5
     json=$out/raw/$corpus.$scenario.$variant.json
@@ -325,13 +320,10 @@ time_once() { # corpus dir scenario variant prepare cargo-args...
             counts=$(rajit_counts "$dir")
         fi
         # hyperfine sends only stdout to the log; nextest and cargo report on stderr.
-        # TEMPORARY (dropped before merge): KiB read from disk while warming and during the timed run.
-        local pgpgin="awk '/^pgpgin /{print \$2}' /proc/vmstat"
-        hyperfine --style none --runs 1 --prepare "$prepare && $pgpgin >$out/raw/.pg0 && { $warm; } && sync && $pgpgin >$out/raw/.pg1" --export-json "$json" --output "$log" "${failure[@]}" \
+        hyperfine --style none --runs 1 --prepare "$prepare && sync" --export-json "$json" --output "$log" "${failure[@]}" \
             --shell bash "$(printf '%q ' cargo "${sub[@]}" "$@") 2>&1" ||
             { tail -40 "$log" >&2 && die "$corpus $scenario failed with $variant"; }
-        measurement=$(jq -c --argjson a "$(<"$out/raw/.pg0")" --argjson b "$(<"$out/raw/.pg1")" --argjson c "$(bash -c "$pgpgin")" \
-            '.results[0].measurements[0] + {disk_read_mib: {warm: (($b - $a) / 1024 | round), run: (($c - $b) / 1024 | round)}}' "$json")
+        measurement=$(jq -c '.results[0].measurements[0]' "$json")
         if ((${#failure[@]})); then
             # "Summary [  34.7s] 5418 tests run: 5376 passed, 42 failed, 33 skipped"
             summary=$(sed -n 's/^ *Summary \[.*\] \([0-9]*\) tests run: \([0-9]*\) passed.*/\1 \2/p' "$log")
