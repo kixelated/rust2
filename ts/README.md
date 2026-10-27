@@ -158,7 +158,10 @@ panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
 function of its type's own (`drop$Held`). The runtime functions for std's collections,
 `Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
-take what drops each value they may drop, and drop it where std's do.
+take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
+go on to the rest of the value and its container, but a hash table leaks its other
+entries, as std's does.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the

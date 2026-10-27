@@ -33,8 +33,6 @@ kio's):
   out for `collect`, whose order of drops on a panic may differ between std's in-place and
   generic paths, and for closures an adaptor holds, which must drop with it or refuse.
 - A closure that owns a value that drops, dropped without a call that takes it (10, 0).
-- A `Drop` impl that panics: Rust drops the rest of the value and its container's other
-  elements, but the runtime's droppers and a class's `[Symbol.dispose]` stop at it.
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on

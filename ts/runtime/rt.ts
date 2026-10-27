@@ -58,12 +58,19 @@ export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
 
-function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
-	panicFmt([message, ": ", (f) => debug(value, f)]);
+/** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
+function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
+	try {
+		panicFmt([message, ": ", (f) => debug(value, f)]);
+	} catch (e) {
+		drop?.(value);
+		throw e;
+	}
 }
 
 // A function that may drop an operand std's would, rather than return it, takes what
-// drops it, and drops it where std's does: as it returns, after any closure it calls.
+// drops it, and drops it where std's does: as it returns, after any closure it calls, or
+// as a panic in that closure unwinds.
 
 /** `Result::ok`: the value, or `undefined` for an error, which drops. */
 export function resultOk<T, E>(r: Result<T, E>, drop?: (error: E) => void): T | undefined {
@@ -94,9 +101,15 @@ export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<
 	return r.ok ? f(r.value) : r;
 }
 
-/** `Result::inspect_err`. */
-export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void): Result<T, E> {
-	if (!r.ok) f(r.error);
+/** `Result::inspect_err`, whose error drops if `f` panics. */
+export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void): Result<T, E> {
+	if (r.ok) return r;
+	try {
+		f(r.error);
+	} catch (e) {
+		drop?.(r.error);
+		throw e;
+	}
 	return r;
 }
 
@@ -110,21 +123,21 @@ export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T, value?: (valu
 	return fallback;
 }
 
-/** `unwrap`, which shows the error with `debug`. */
-export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
-	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug);
+/** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
+export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
+	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug, drop);
 	return r.value;
 }
 
 /** `Result::expect`: the value, or a panic with `message` and the error's `Debug`. */
-export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
-	if (!r.ok) unwrapFailed(message, r.error, debug);
+export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>, drop?: (error: E) => void): T {
+	if (!r.ok) unwrapFailed(message, r.error, debug, drop);
 	return r.value;
 }
 
 /** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
-export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
-	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
+export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (value: T) => void): E {
+	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug, drop);
 	return r.error;
 }
 
@@ -149,8 +162,12 @@ export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (va
 		dropF?.(f);
 		return fallback;
 	}
-	const mapped = f(o);
-	drop?.(fallback);
+	let mapped: U;
+	try {
+		mapped = f(o);
+	} finally {
+		drop?.(fallback);
+	}
 	return mapped;
 }
 

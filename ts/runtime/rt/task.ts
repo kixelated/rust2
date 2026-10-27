@@ -14,10 +14,21 @@ export function drop(value: unknown): void {
 	if (dispose !== undefined) dispose.call(value);
 }
 
-/** Drop every element of `values`, in order, by `f` if it has no `[Symbol.dispose]`. */
+/**
+ * Drop every element of `values`, in order, by `f` if it has no `[Symbol.dispose]`. A
+ * panic in one still drops the rest, and then goes on, as std's slices do.
+ */
 export function dropAll<T>(values: readonly T[] | undefined, f: (value: T) => void = drop): void {
-	if (values === undefined) return;
-	for (const value of values) f(value);
+	if (values !== undefined) dropFrom(values, f, 0);
+}
+
+function dropFrom<T>(values: readonly T[], f: (value: T) => void, i: number): void {
+	try {
+		for (; i < values.length; i++) f(values[i]);
+	} catch (e) {
+		dropFrom(values, f, i + 1);
+		throw e;
+	}
 }
 
 // Shared ownership

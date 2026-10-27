@@ -47,21 +47,24 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 8`, panicking at the point `arg / 8 % 8` names, if any: what
+/// Run scenario `arg % 11`, panicking at the point `arg / 11 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 8 % 8;
+	let at = arg / 11 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 8 {
+	match arg % 11 {
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
 		7 => arcs(log, id, at),
+		8 => blown(log, id, at),
+		9 => tripped(log, id, at, true),
+		10 => tripped(log, id, at, false),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -205,21 +208,60 @@ impl Held {
 	}
 }
 
-/// A key that logs its own drop, compared, ordered, and hashed by its id alone.
+/// A key that logs its own drop, compared, ordered, and hashed by its id alone, unless
+/// its fault makes it panic there.
 pub struct Key {
 	id: u32,
 	log: Log,
+	fault: Fault,
+}
+
+/// Where a `Key` or `Bomb` panics, to show what std drops as the panic unwinds.
+#[derive(Clone, Copy)]
+enum Fault {
+	Sound,
+	/// In its `Drop`, after logging it.
+	Blows,
+	/// In its `Hash`, `Eq`, or `Ord`.
+	Trips,
+}
+
+impl Key {
+	fn new(id: u32, log: Log) -> Self {
+		Self {
+			id,
+			log,
+			fault: Fault::Sound,
+		}
+	}
+
+	fn faulty(id: u32, log: Log, fault: Fault) -> Self {
+		Self { id, log, fault }
+	}
+
+	/// Panic if this key trips, as a comparison or hash reads it.
+	fn read(&self) -> u32 {
+		if matches!(self.fault, Fault::Trips) {
+			panic!("k{} tripped", self.id);
+		}
+		self.id
+	}
 }
 
 impl Drop for Key {
 	fn drop(&mut self) {
 		self.log.note(format!("k{} drop", self.id));
+		// Nothing reads a dropped key in Rust; a translation that did would find another.
+		self.id = u32::MAX;
+		if matches!(self.fault, Fault::Blows) {
+			panic!("k{} blew", self.id);
+		}
 	}
 }
 
 impl PartialEq for Key {
 	fn eq(&self, other: &Self) -> bool {
-		self.id == other.id
+		self.read() == other.read()
 	}
 }
 
@@ -233,13 +275,19 @@ impl PartialOrd for Key {
 
 impl Ord for Key {
 	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.id.cmp(&other.id)
+		self.read().cmp(&other.read())
 	}
 }
 
 impl Hash for Key {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.id.hash(state);
+		self.read().hash(state);
+	}
+}
+
+impl std::fmt::Debug for Key {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_tuple("Key").field(&self.id).finish()
 	}
 }
 
@@ -247,10 +295,7 @@ impl Hash for Key {
 /// `insert` and `entry` find there already, the key `remove` takes out, the value
 /// `or_insert` is given, and what `retain`, `truncate`, and `clear` discard.
 fn ordered(log: &Log, id: u32, at: u8) {
-	let key = |n: u32| Key {
-		id: id + n,
-		log: log.clone(),
-	};
+	let key = |n: u32| Key::new(id + n, log.clone());
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
@@ -307,10 +352,7 @@ fn ordered(log: &Log, id: u32, at: u8) {
 /// and value logs to a sink, and the log reads how much it holds, in an order it ignores.
 fn hashed(log: &Log, id: u32, at: u8) {
 	let sink = Log::new();
-	let key = |n: u32| Key {
-		id: id + n,
-		log: sink.clone(),
-	};
+	let key = |n: u32| Key::new(id + n, sink.clone());
 	let guard = |n: u32| Guard::new(id + n, sink.clone());
 	let tally = |what: &str| {
 		let text = sink.text();
@@ -461,4 +503,138 @@ fn arcs(log: &Log, id: u32, at: u8) {
 	drop(map);
 	count("dropped", &name);
 	count("dropped", &other);
+}
+
+/// A value that logs its drop, and panics after if it blows.
+struct Bomb {
+	id: u32,
+	log: Log,
+	blows: bool,
+}
+
+impl Drop for Bomb {
+	fn drop(&mut self) {
+		self.log.note(format!("b{} drop", self.id));
+		if self.blows {
+			panic!("b{} blew", self.id);
+		}
+	}
+}
+
+/// A value whose own `Drop` may panic, before its fields drop.
+struct Shell {
+	log: Log,
+	blows: bool,
+	first: Bomb,
+	second: Guard,
+}
+
+impl Drop for Shell {
+	fn drop(&mut self) {
+		self.log.note(format!("shell drop"));
+		if self.blows {
+			panic!("shell blew");
+		}
+	}
+}
+
+/// What drops after a value's `Drop` panics, scenario `at`'s alone: the rest of the
+/// value, and the rest of what holds it, as std's glue and collections go on.
+fn blown(log: &Log, id: u32, at: u8) {
+	let bomb = |n: u32, blows: bool| Bomb {
+		id: id + n,
+		log: log.clone(),
+		blows,
+	};
+	let key = |n: u32, fault: Fault| Key::faulty(id + n, log.clone(), fault);
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	match at {
+		0 => drop(list![bomb(1, false), bomb(2, true), bomb(3, false)]),
+		1 => drop(Shell {
+			log: log.clone(),
+			blows: true,
+			first: bomb(1, false),
+			second: guard(2),
+		}),
+		2 => drop(Shell {
+			log: log.clone(),
+			blows: false,
+			first: bomb(1, true),
+			second: guard(2),
+		}),
+		3 => drop((guard(1), bomb(2, true), Held::One(guard(3)))),
+		4 => {
+			let mut map = BTreeMap::new();
+			map.insert(key(1, Fault::Sound), bomb(1, false));
+			map.insert(key(2, Fault::Sound), bomb(2, true));
+			map.insert(key(3, Fault::Sound), bomb(3, false));
+			map.clear();
+		}
+		5 => {
+			let mut map = BTreeMap::new();
+			map.insert(key(1, Fault::Sound), guard(1));
+			map.insert(key(2, Fault::Blows), guard(2));
+			map.insert(key(3, Fault::Sound), guard(3));
+			drop(map);
+		}
+		6 => {
+			let mut queue = VecDeque::new();
+			for n in 1..5 {
+				queue.push_back(bomb(n, n == 2));
+			}
+			queue.push_front(bomb(0, false));
+			queue.truncate(1);
+		}
+		_ => {
+			// One entry, whose order std's hash table leaves no room to differ in, and
+			// which leaves the map empty as unwinding drops it.
+			let mut map = HashMap::new();
+			map.insert(key(1, Fault::Blows), guard(1));
+			map.clear();
+		}
+	}
+	log.note(format!("unreached"));
+}
+
+/// What std drops of what a call owns when a key's `Hash`, `Eq`, or `Ord` panics in it,
+/// or a closure it calls does, scenario `at`'s alone, of a B-tree or else a hash table.
+fn tripped(log: &Log, id: u32, at: u8, tree: bool) {
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let trip = |n: u32| Key::faulty(id + n, log.clone(), Fault::Trips);
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let mut map = BTreeMap::new();
+	map.insert(key(1), guard(1));
+	let mut hashed = HashMap::new();
+	hashed.insert(key(2), guard(2));
+	match at {
+		0 if tree => drop(map.insert(trip(3), guard(3))),
+		0 => drop(hashed.insert(trip(3), guard(3))),
+		1 if tree => {
+			let mut set = BTreeSet::new();
+			set.insert(key(3));
+			drop(set.insert(trip(4)));
+		}
+		1 => {
+			let mut set = HashSet::new();
+			set.insert(key(3));
+			drop(set.insert(trip(4)));
+		}
+		2 if tree => drop(map.entry(trip(3)).or_insert(guard(3))),
+		2 => drop(hashed.entry(trip(3)).or_insert(guard(3))),
+		3 if tree => drop(map.entry(key(3)).or_insert_with(|| panic!("d{id} made"))),
+		3 => drop(
+			hashed
+				.entry(key(3))
+				.or_insert_with_key(|k| panic!("d{id} made {}", k.id)),
+		),
+		4 if tree => drop(Some(id).map_or(guard(3), |n| -> Guard { panic!("d{n} mapped") })),
+		4 => drop(Arc::new(key(3)).max(Arc::new(trip(4)))),
+		5 if tree => drop(Err::<u8, Key>(key(3)).unwrap()),
+		5 => drop(Err::<u8, Key>(key(3)).expect("an error")),
+		6 if tree => drop(Ok::<Key, u8>(key(3)).unwrap_err()),
+		6 => drop(Err::<u8, Key>(key(3)).inspect_err(|k| panic!("k{} inspected", k.id))),
+		_ if tree => drop(map.remove(&trip(3))),
+		_ => drop(hashed.remove(&trip(3))),
+	}
+	log.note(format!("unreached"));
 }

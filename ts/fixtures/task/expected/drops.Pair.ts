@@ -14,8 +14,17 @@ export class Pair<T> {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.first);
-		rt.drop(this.second);
+		let dropped: number = 0;
+		try {
+			rt.drop(this.first);
+			dropped = 1;
+			rt.drop(this.second);
+		} catch (e) {
+			if (dropped < 1) {
+				rt.drop(this.second);
+			}
+			throw e;
+		}
 	}
 }
 

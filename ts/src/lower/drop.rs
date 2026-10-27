@@ -114,6 +114,42 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether dropping a `ty` may run a `Drop` impl of the crate's, which may panic: std's
+	/// own drops never do, and a waker's is its host's. `seen` holds the types it is
+	/// deciding, one of which reached again panics through another path if at all.
+	fn drop_panics(&self, ty: Ty<'tcx>, seen: &mut rustc_data_structures::fx::FxHashSet<Ty<'tcx>>) -> bool {
+		if !seen.insert(ty) {
+			return false;
+		}
+		let tcx = self.tcx;
+		match ty.kind() {
+			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+				Some(Std::Waker) => false,
+				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
+				None if adt.did().is_local() => {
+					let env = self.typing_env_pub();
+					adt.has_dtor(tcx)
+						|| adt.all_fields().any(|field| {
+							let field = ty::EarlyBinder::bind(
+								tcx,
+								tcx.type_of(field.did).instantiate_identity().skip_norm_wip(),
+							);
+							let ty = tcx
+								.try_instantiate_and_normalize_erasing_regions(args, env, field)
+								.unwrap_or_else(|_| field.instantiate(tcx, args).skip_norm_wip());
+							self.drop_panics(ty, seen)
+						})
+				}
+				None => true,
+			},
+			ty::Tuple(tys) => tys.iter().any(|t| self.drop_panics(t, seen)),
+			ty::Array(elem, _) | ty::Slice(elem) => self.drop_panics(*elem, seen),
+			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drop_panics(t, seen)),
+			ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str | ty::Ref(..) | ty::Never => false,
+			_ => true,
+		}
+	}
+
 	/// Whether `adt` is generic and implements `Drop`.
 	fn generic_dtor(&self, adt: AdtDef<'tcx>) -> bool {
 		adt.has_dtor(self.tcx) && self.tcx.generics_of(adt.did()).requires_monomorphization(self.tcx)
@@ -309,17 +345,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if self.generic_dtor(adt) {
 			return;
 		}
-		let mut body: Vec<Stmt> = Vec::new();
+		// Each step, and whether it may panic.
+		let mut steps = Vec::new();
 		if let Some(dtor) = adt.destructor(tcx) {
 			let sym = self.instance(Instance::mono(tcx, dtor.did));
-			body.push(StmtKind::Expr(Expr::Sym(sym).call(vec![Expr::This])).at(None));
+			steps.push((Expr::Sym(sym).call(vec![Expr::This]), true));
 		}
 		for (field, &id) in adt.non_enum_variant().fields.iter().zip(fields) {
 			let ty = tcx.type_of(field.did).instantiate_identity().skip_norm_wip();
 			if let Some(dropped) = self.drop_value(Expr::This.field(id), ty, span) {
-				body.push(StmtKind::Expr(dropped).at(None));
+				steps.push((dropped, self.drop_panics(ty, &mut Default::default())));
 			}
 		}
+		let body = unwinding(steps);
 		let sym = self.program.sym(Symbol {
 			module: self.module_of(adt.did()),
 			base: "[Symbol.dispose]".into(),
@@ -340,4 +378,46 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			doc: None,
 		});
 	}
+}
+
+/// Statements running `steps` in order, where a panic in one still runs the rest, and then
+/// goes on, as rustc's glue drops each field after a `Drop` impl or another field panics:
+/// `try { a; dropped = 1; b; } catch (e) { if (dropped < 1) b; throw e; }`. Each step comes
+/// with whether it may panic: without one before the last, they run as they are.
+fn unwinding(steps: Vec<(Expr, bool)>) -> Vec<Stmt> {
+	let panics = steps
+		.split_last()
+		.is_some_and(|(_, before)| before.iter().any(|&(_, panics)| panics));
+	let steps = steps.into_iter().map(|(step, _)| step);
+	if !panics {
+		return steps.map(|e| StmtKind::Expr(e).at(None)).collect();
+	}
+	let dropped = || Expr::ident("dropped");
+	let mut body = Vec::new();
+	let mut handler = Vec::new();
+	for (i, step) in steps.enumerate() {
+		if i > 0 {
+			let done = Expr::lit(i.to_string());
+			body.push(StmtKind::Expr(Expr::Assign(Box::new(dropped()), Box::new(done.clone()))).at(None));
+			handler.push(
+				StmtKind::If {
+					cond: dropped().binary("<", done),
+					then: vec![StmtKind::Expr(step.clone()).at(None)],
+					els: Vec::new(),
+				}
+				.at(None),
+			);
+		}
+		body.push(StmtKind::Expr(step).at(None));
+	}
+	handler.push(StmtKind::Throw(Expr::ident("e")).at(None));
+	vec![
+		StmtKind::decl(true, "dropped", Some(Type::Builtin("number")), Some(Expr::lit("0"))).at(None),
+		StmtKind::Catch {
+			body,
+			name: "e".into(),
+			handler,
+		}
+		.at(None),
+	]
 }

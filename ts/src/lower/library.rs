@@ -285,14 +285,14 @@ pub struct Call<'tcx> {
 }
 
 /// What the mapping of `owner::name` may discard of the operands it takes by value, rather
-/// than move into its result or a closure: the types, by their index among the call's
-/// type arguments, whose droppers its runtime function takes after its own arguments, as
-/// `unwrap_or` drops its fallback. `None` for any other mapping, which is refused an
-/// operand that drops. Iterators refuse their own.
+/// than move into its result or a closure, as it returns or as a panic unwinds it: the
+/// types, by their index among the call's type arguments, whose droppers its runtime
+/// function takes after its own arguments, as `unwrap_or` drops its fallback. `None` for
+/// any other mapping, which is refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "map" | "unwrap" | "expect")
-		| ("Result", "map" | "map_err" | "and_then" | "inspect_err" | "unwrap" | "expect" | "unwrap_err")
+		| ("Result", "map" | "map_err" | "and_then")
 		| ("Vec", "push")
 		| ("Box", "new")
 		| ("boxed", "box_new")
@@ -310,6 +310,10 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Result", "ok") => &[1],
 		("Result", "err") => &[0],
 		("Result", "unwrap_or") => &[0, 1],
+		// `unwrap` and `expect` drop the error they panic with, `unwrap_err` the value, and
+		// `inspect_err` its error if its closure panics.
+		("Result", "unwrap" | "expect" | "inspect_err") => &[1],
+		("Result", "unwrap_err") => &[0],
 		("bool", "then_some") => &[0],
 		_ => return None,
 	})

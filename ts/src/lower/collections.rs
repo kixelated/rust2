@@ -179,15 +179,17 @@ pub fn call<'tcx>(
 /// What a method of a collection of type `std` may drop rather than return or keep, as the
 /// indices of the collection's type arguments whose runtime function takes what drops each,
 /// after its own arguments: the key `insert` and `entry` are given if an equal one is there
-/// already, the key `remove` takes out, the value `or_insert` is given if one is, and what
-/// `clear`, `retain`, `truncate`, `extend`, and `from` discard. An empty list is what an
-/// iterator owns, which is refused.
+/// already, and the value `insert` is given if the key's `Hash`, `Eq`, or `Ord` panics,
+/// the key `remove` takes out, the value `or_insert` is given if one is, the key an
+/// `or_insert_with` keeps if its closure panics, and what `clear`, `retain`, `truncate`,
+/// `extend`, and `from` discard. An empty list is what an iterator owns, which is refused.
 fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 	let map = matches!(std, Std::HashMap | Std::BTreeMap);
 	let set = matches!(std, Std::HashSet | Std::BTreeSet);
 	Some(match (owner, name) {
+		(_, "insert") if map => &[0, 1],
 		(_, "insert" | "entry" | "remove") if map || set => &[0],
-		(_, "remove") if std == Std::Entry => &[0],
+		(_, "remove" | "or_insert_with" | "or_insert_with_key" | "or_default") if std == Std::Entry => &[0],
 		(_, "or_insert") if std == Std::Entry => &[1],
 		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if map => &[0, 1],
 		(_, "clear" | "retain" | "retain_mut") | ("Extend", _) | ("From", _) if set => &[0],
