@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
+import type * as Window from "./durations.Window.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
@@ -125,6 +126,10 @@ export function copy$Shape(v: Shape.Shape): Shape.Shape {
 
 export function copy$Tally(v: Tally.Tally): Tally.Tally {
 	return { n: v.n };
+}
+
+export function copy$Window(v: Window.Window): Window.Window {
+	return { start: v.start, len: v.len };
 }
 
 export function copy$Wrap_Point(v: Wrap.Wrap<Point.Point>): Wrap.Wrap<Point.Point> {
