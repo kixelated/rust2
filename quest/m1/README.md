@@ -20,4 +20,3 @@ are folded into the [exporter's](/quest/m1/ffi-export.md). The
 - [Exporter](/quest/m1/ffi-export.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
 - [Export instances of generic functions](/quest/m1/ffi-generic-fn.md) - a generic function exports at the instances the config names
 - [Land main through quest land](/quest/m1/land.md) - every queued PR lands as one tested batch through the shared gate
-- [Bump quest to quest land](/quest/m1/land-bump.md) - condition: kixelated/quest ships `quest land`; then bump the flake input
