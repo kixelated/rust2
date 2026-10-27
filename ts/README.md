@@ -388,10 +388,12 @@ The codec fixture's `bench::run` holds the cases moq's own TypeScript benchmarks
 frame headers decoded as they arrive a few bytes at a time, which prices a decode that
 comes up `Short` and retries, iterator chains over bytes, a `BTreeMap` of 16, 256, and
 4096 keys, and timestamps converted between timescales as moq-net's `Timestamp::convert`
-does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-wasm's
-size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
-helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
-`bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
+does, whose products pass 2^53, then added by its `checked_add` and ordered by its `Ord`,
+whose cross products do too. Each runs four ways: natively, as wasm32 at moq-wasm's
+size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts` and its `Timestamp`
+in `bench/timestamp.ts`, ES iterator helpers in `bench/iter.ts`, a sorted array in
+`bench/sorted.ts`, and `bigint` in `bench/rescale.ts`, as moq's `js/hang` converts
+timescales), and translated; every route's output must match
 native Rust's first. The JS routes run minified, the same bundles whose size it reports,
 in Node, Bun, Chrome, and Firefox, with the WASM route's copies across the boundary timed
 apart from its compute, and an A/A copy of the
