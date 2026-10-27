@@ -8,17 +8,24 @@ bytes minified and 9422 gzipped, and the async handoff's at most 3458 gzipped.
 
 ## Plan
 
-[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3424 bytes
-gzipped and the codec to 30347 minified. The codec's 9744 gzipped is what remains,
-322 bytes over.
+[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3423 bytes
+gzipped. The codec is what remains: 30935 bytes minified and 9898 gzipped, 306 and 476
+over.
 
-That gap came after THIR's numbers were taken, not from the lowering:
-[#89](https://github.com/kixelated/rust2/pull/89) grew `rt/int.ts`, and
-[#87](https://github.com/kixelated/rust2/pull/87)'s drop glue with
-[#98](https://github.com/kixelated/rust2/pull/98) added 93 bytes gzipped.
-THIR's own output, without those drops, bundled with #95's `rt/int.ts` is 31112 bytes
-minified and 9666 gzipped. Closing the gap means trimming what the codec pulls from
-`rt/int.ts` or its drop glue, without losing speed.
+That gap came after THIR's numbers were taken, not from the lowering. On the same
+fixtures with #95, these PRs added to the codec:
+
+- [#89](https://github.com/kixelated/rust2/pull/89) grew `rt/int.ts`. THIR's own output
+  bundled with #95's `rt/int.ts`, before #87, is 31112 bytes minified and 9666 gzipped,
+  over MIR's 30094 and 9651.
+- [#87](https://github.com/kixelated/rust2/pull/87)'s drop glue with
+  [#98](https://github.com/kixelated/rust2/pull/98) added 253 bytes minified and 93
+  gzipped.
+- [#82](https://github.com/kixelated/rust2/pull/82)'s `rt.ByteSlice` added 580 bytes
+  minified and 156 gzipped.
+
+Closing the gap means trimming what the codec pulls from the runtime or its drop glue,
+without losing speed, or restating the goal against today's runtime.
 
 Small cuts measured by hand on the handoff and left out, each under 1% gzipped:
 hoisting a dispatch's entry case out of its `switch` (3-7 bytes), dropping `unwind`
