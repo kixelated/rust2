@@ -801,7 +801,8 @@ fn edited(log: &Log, id: u32, at: u8) {
 			log.note(format!("deduped {}", ids(&v)));
 			v.dedup_by(|a, b| a.id > b.id);
 			log.note(format!("deduped {}", ids(&v)));
-			return;
+			// Bounds out of order, so `clamp`'s assertion panics holding all three.
+			drop(key(2).clamp(key(3), key(1)));
 		}
 		3 => {
 			let mut v = list![key(1), fault(1, Fault::Blows), key(1), key(2)];
@@ -830,7 +831,8 @@ fn edited(log: &Log, id: u32, at: u8) {
 			log.note(format!("min {}", key(5).min(key(4)).id - id));
 			log.note(format!("clamped {}", key(2).clamp(key(1), key(3)).id - id));
 			log.note(format!("clamped {}", key(0).clamp(key(1), key(3)).id - id));
-			drop(key(2).clamp(key(3), key(1)));
+			// A comparison that panics in `max`, holding both.
+			drop(key(1).max(fault(2, Fault::Trips)));
 		}
 	}
 	log.note(format!("unreached"));

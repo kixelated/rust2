@@ -897,8 +897,13 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		) if !is_u8(targ(gargs, 0)) => {
 			let mut values = args;
 			match name.as_str() {
+				// By `<`, which is `partial_cmp`'s while it is the default.
 				"sort" | "sort_unstable" => {
-					values.push(super::collections::cmp_fn(b, targ(gargs, 0), true, span));
+					let elem = targ(gargs, 0);
+					if super::collections::own_test(b, elem, "lt") {
+						return Some(b.err(span, super::collections::own_test_err(elem, "lt")));
+					}
+					values.push(super::collections::cmp_fn(b, elem, true, span));
 					Expr::rt("sliceSortBy", values)
 				}
 				"sort_by" | "sort_unstable_by" => Expr::rt("sliceSortBy", values),
@@ -909,6 +914,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 							span,
 							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
 						));
+					}
+					if super::collections::own_test(b, key, "lt") {
+						return Some(b.err(span, super::collections::own_test_err(key, "lt")));
 					}
 					values.push(super::collections::cmp_fn(b, key, true, span));
 					Expr::rt("sliceSortByKey", values)

@@ -2,6 +2,7 @@
 //! called with, `Clone` and comparisons of vectors and tuples that are not `Copy`,
 //! `mem::take`, `Ord`'s defaults on the crate's own types, and `str`'s byte searches.
 
+use std::cmp::Ordering;
 use std::collections::{BTreeSet, VecDeque};
 
 use crate::fmt::put;
@@ -10,6 +11,27 @@ use crate::strs::text;
 /// The crate's own order, whose `min`, `max`, and `clamp` are `Ord`'s defaults.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 struct Stamp(u8);
+
+/// An order whose `partial_cmp` leans on its first operand, an odd one less than any, and
+/// whose `cmp` is by value, so what `Ord`'s defaults call, with which operand first, shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Lean(u8);
+
+#[allow(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for Lean {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(match self.0 % 2 {
+			1 => Ordering::Less,
+			_ => self.0.cmp(&other.0),
+		})
+	}
+}
+
+impl Ord for Lean {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.0.cmp(&other.0)
+	}
+}
 
 /// What `mem::take` leaves its own `Default` in place of.
 struct Tally {
@@ -235,6 +257,11 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(x.max(lo).0);
 			out.push(x.min(lo).0);
 			out.push(x.clamp(lo, hi).0);
+			// By `<`, `<=`, and `>`, which call `partial_cmp`, `other` first in `max` and `min`.
+			let (p, q, r) = (Lean(at(0)), Lean(at(1)), Lean(at(2)));
+			out.push(p.max(q).0);
+			out.push(p.min(q).0);
+			out.push(p.clamp(q, r).0);
 		}
 		_ => {
 			let s = text(data);

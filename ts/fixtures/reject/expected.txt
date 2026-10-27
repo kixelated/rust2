@@ -61,24 +61,27 @@ comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/r
 `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:319:6
 unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:369:4
 a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:374:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:411:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:413:27
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:412:30
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:418:2
-`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:422:18
-unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:423:2
-constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:429:53
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:432:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:434:27
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:433:30
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:439:2
+`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:443:18
+unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:444:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:450:53
 `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:378:15
 replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:379:4
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:386:12
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:390:12
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:401:18
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:403:15
-dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src/lib.rs:403:48: 403:56}>>`, which is not supported yet at fixtures/reject/src/lib.rs:403:79
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:404:13
-dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:404:32: 404:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:404:62
-an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:405:13
-unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:437:2
+comparing `Lopsided` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:398:4
+comparing `(i32, &Lopsided)` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:399:13
+comparing `Lopsided` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:400:12
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:407:12
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:411:12
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:422:18
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:424:15
+dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src/lib.rs:424:48: 424:56}>>`, which is not supported yet at fixtures/reject/src/lib.rs:424:79
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:425:13
+dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:425:32: 425:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:425:62
+an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:426:13
+unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:458:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:167:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:187:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:221:2

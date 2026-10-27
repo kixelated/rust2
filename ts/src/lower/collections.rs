@@ -57,15 +57,20 @@ pub fn call<'tcx>(
 				let f = hash_fn(b, t, hasher, span);
 				return Ok(Some(f.call(args)));
 			}
-			// `Ord`'s defaults, of a std type or the crate's: `clamp` compares by `PartialOrd`.
+			// `Ord`'s defaults, of a std type or the crate's, which compare by `PartialOrd`'s `<`,
+			// `<=`, and `>`, and so by `partial_cmp` while those are the defaults.
 			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
 				let local = matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local());
 				if !(std_key(b, t) || local) || Int::of(t).is_some() {
 					return Err(args);
 				}
+				let tests: &[&str] = if name == "clamp" { &["le", "lt", "gt"] } else { &["lt"] };
+				if let Some(test) = tests.iter().find(|test| own_test(b, t, test)) {
+					return Ok(Some(b.err(span, own_test_err(t, test))));
+				}
 				let mut values = args;
-				values.push(cmp_fn(b, t, name == "clamp", span));
+				values.push(cmp_fn(b, t, true, span));
 				// What drops the operands it does not return.
 				let Some(droppers) = b.t.droppers(self_ty, span) else {
 					return Ok(Some(Expr::undefined()));
@@ -84,6 +89,9 @@ pub fn call<'tcx>(
 				let t = peel(b, t);
 				if matches!(t.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_)) || !std_key(b, t) {
 					return Err(args);
+				}
+				if own_test(b, t, name) {
+					return Ok(Some(b.err(span, own_test_err(t, name))));
 				}
 				let order = cmp_fn(b, t, true, span).call(args);
 				let test = match name {
@@ -517,6 +525,31 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		}
 		_ => false,
 	}
+}
+
+/// Whether `ty`'s `PartialOrd::{test}`, `lt` or another of its tests, reaches the crate's
+/// own `test` of a type it holds, which `partial_cmp` stands for only while that is the
+/// default: through a tuple's last element, `Arc`s, and `Reverse`s.
+pub fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	match ty.kind() {
+		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
+		ty::Adt(adt, _) if adt.did().is_local() => {
+			let f = trait_fn(tcx, "PartialOrd", test);
+			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
+				.ok()
+				.flatten()
+				.is_some_and(|instance| instance.def_id() != f)
+		}
+		_ => false,
+	}
+}
+
+/// The refusal of a comparison that reaches the crate's own `test` of `ty`.
+pub fn own_test_err(ty: Ty<'_>, test: &str) -> String {
+	format!("comparing `{ty}` through its own `PartialOrd::{test}`, which is not supported yet")
 }
 
 /// Whether `ty`'s `PartialEq` is derived, so it compares as JS compares its tags.

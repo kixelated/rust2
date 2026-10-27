@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$chars } from "./lib.ts";
+import * as Lean from "./edits.Lean.ts";
 import * as Named from "./edits.Named.ts";
 import * as Stamp from "./edits.Stamp.ts";
 import * as Tally from "./edits.Tally.ts";
@@ -39,9 +40,9 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const pairs: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_228: rt.u16): [rt.u16, rt.u16] => {
 			return [_228, 0] as [rt.u16, rt.u16];
 		}));
-		rt.vecRetain(pairs, (p2: [rt.u16, rt.u16]): boolean => {
-			p2[1] = rt.u16Div(p2[0], 2);
-			return rt.u16Rem(p2[0], 3) === 0;
+		rt.vecRetain(pairs, (p3: [rt.u16, rt.u16]): boolean => {
+			p3[1] = rt.u16Div(p3[0], 2);
+			return rt.u16Rem(p3[0], 3) === 0;
 		});
 		for (const _33 of pairs) {
 			putU16s(out, [_33[0], _33[1]]);
@@ -110,8 +111,8 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const pairs2: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(words)), (_211: [rt.usize, rt.u16]): [rt.u16, rt.u16] => {
 			return [rt.u16Rem(_211[1], 5), _211[0] & 0xffff] as [rt.u16, rt.u16];
 		}));
-		rt.sliceSortByKey(pairs2, (p: [rt.u16, rt.u16]): rt.u16 => {
-			return p[0];
+		rt.sliceSortByKey(pairs2, (p2: [rt.u16, rt.u16]): rt.u16 => {
+			return p2[0];
 		}, rt.cmp);
 		for (const _159 of pairs2) {
 			putU16s(out, [_159[0], _159[1]]);
@@ -211,8 +212,8 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u16Add(i4 as rt.u16, b3 as rt.u16);
 			}));
 		}));
-		const _424: rt.u16[][] = rt.vecClone(nested, (a011: rt.u16[]): rt.u16[] => {
-			return a011.slice();
+		const _424: rt.u16[][] = rt.vecClone(nested, (a014: rt.u16[]): rt.u16[] => {
+			return a014.slice();
 		});
 		rt.byteVecPush(out, rt.eqSlice(rt.eqSlice(rt.same))(_424, nested) ? 1 : 0);
 		const pair: [string, rt.u8] = [text(data), at(0)];
@@ -253,9 +254,16 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const x: Stamp.Stamp = _529[0];
 		const lo: Stamp.Stamp = _529[1];
 		const hi: Stamp.Stamp = _529[2];
-		rt.byteVecPush(out, rt.ordMax(x, lo, Stamp.cmp$Ord)._0);
-		rt.byteVecPush(out, rt.ordMin(x, lo, Stamp.cmp$Ord)._0);
+		rt.byteVecPush(out, rt.ordMax(x, lo, Stamp.partialCmp$PartialOrd)._0);
+		rt.byteVecPush(out, rt.ordMin(x, lo, Stamp.partialCmp$PartialOrd)._0);
 		rt.byteVecPush(out, rt.ordClamp(x, lo, hi, Stamp.partialCmp$PartialOrd)._0);
+		const _554: [Lean.Lean, Lean.Lean, Lean.Lean] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
+		const p: Lean.Lean = _554[0];
+		const q: Lean.Lean = _554[1];
+		const r: Lean.Lean = _554[2];
+		rt.byteVecPush(out, rt.ordMax(p, q, Lean.partialCmp$PartialOrd)._0);
+		rt.byteVecPush(out, rt.ordMin(p, q, Lean.partialCmp$PartialOrd)._0);
+		rt.byteVecPush(out, rt.ordClamp(p, q, r, Lean.partialCmp$PartialOrd)._0);
 	} else {
 		const s: string = text(data);
 		const sep: rt.char[] = [47, 97];
@@ -267,27 +275,27 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.strEndsWith(s, (c: rt.char): boolean => {
 			return rt.charIsAsciiDigit(c);
 		}) ? 1 : 0);
-		const _587: [string, string] | undefined = rt.strSplitOnce(s, "/");
-		if (_587 === undefined) {
+		const _612: [string, string] | undefined = rt.strSplitOnce(s, "/");
+		if (_612 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _587[0]);
-			put(out, _587[1]);
+			put(out, _612[0]);
+			put(out, _612[1]);
 		}
-		const _596: [string, string] | undefined = rt.strSplitOnce(s, "a0");
-		if (_596 === undefined) {
+		const _621: [string, string] | undefined = rt.strSplitOnce(s, "a0");
+		if (_621 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _596[0]);
-			put(out, _596[1]);
+			put(out, _621[0]);
+			put(out, _621[1]);
 		}
 		const iter10: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, rt.usizeAdd(rt.stringLen(s), 1), rt.usizeStep);
 		while (true) {
-			const _611: rt.usize | rt.Done = iter10.next();
-			if (_611 === rt.DONE) {
+			const _636: rt.usize | rt.Done = iter10.next();
+			if (_636 === rt.DONE) {
 				break;
 			}
-			rt.byteVecPush(out, rt.strIsCharBoundary(s, _611) ? 1 : 0);
+			rt.byteVecPush(out, rt.strIsCharBoundary(s, _636) ? 1 : 0);
 		}
 		rt.iterExtendBytes(out, rt.strBytes(s));
 		rt.iterExtendBytes(out, rt.iterTake(rt.iterRev(rt.strBytes(s)), 3));

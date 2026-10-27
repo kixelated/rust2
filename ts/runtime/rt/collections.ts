@@ -95,12 +95,15 @@ export function cmpArc<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O
 	return (a, b) => cmp(a.value, b.value);
 }
 
-/** `cmp(a, b)`, which drops `b` and then `a` if it panics, as `max_by`'s unwinding does. */
-function compare<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): Ordering {
+/**
+ * `other < self` of `Ord::max` and `min`, by `cmp`, a `partial_cmp`, which drops `other` and
+ * then `self` if it panics, as their unwinding does.
+ */
+function less<T>(self: T, other: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): boolean {
 	try {
-		return cmp(a, b);
+		return cmp(other, self) === -1;
 	} catch (e) {
-		dropPair(b, a, drop, drop);
+		dropPair(other, self, drop, drop);
 		throw e;
 	}
 }
@@ -126,9 +129,9 @@ export function ordClamp<T>(a: T, min: T, max: T, cmp: (a: T, b: T) => Ordering 
 	return out === 1 ? min : out === 2 ? max : a;
 }
 
-/** `Ord::max`, by `cmp`: `b` unless `a` is greater, and the other drops. */
-export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
-	if (compare(a, b, cmp, drop) > 0) {
+/** `Ord::max`, by `cmp`, a `partial_cmp`: `a` if `b < a`, or else `b`, and the other drops. */
+export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): T {
+	if (less(a, b, cmp, drop)) {
 		drop?.(b);
 		return a;
 	}
@@ -136,9 +139,9 @@ export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (val
 	return b;
 }
 
-/** `Ord::min`, by `cmp`: `a` unless it is greater, and the other drops. */
-export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
-	if (compare(a, b, cmp, drop) > 0) {
+/** `Ord::min`, by `cmp`, a `partial_cmp`: `b` if `b < a`, or else `a`, and the other drops. */
+export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): T {
+	if (less(a, b, cmp, drop)) {
 		drop?.(a);
 		return b;
 	}

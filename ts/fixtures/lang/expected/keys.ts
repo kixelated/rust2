@@ -494,9 +494,9 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const a: Hop.Hop | undefined = _27[0];
 			const b: Hop.Hop | undefined = _27[1];
 			rt.byteVecPush(out, (rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) | (((!rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) << 1) & 0xff) | ((order(rt.cmpOption(Hop.cmp$Ord)(a, b)) << 2) & 0xff));
-			const _56: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpOption(Hop.cmp$Ord));
+			const _56: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpOption(Hop.partialCmp$PartialOrd));
 			const _53: rt.u8 = rt.eqOption(Hop.eq$PartialEq)(_56, b) ? 1 : 0;
-			const _62: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpOption(Hop.cmp$Ord));
+			const _62: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpOption(Hop.partialCmp$PartialOrd));
 			rt.byteVecPush(out, _53 | (((rt.eqOption(Hop.eq$PartialEq)(_62, a) ? 1 : 0) << 1) & 0xff));
 			rt.byteVecPush(out, rt.u64Eq(hashOf$Option_Hop(a), hashOf$Option_Hop(b)) ? 1 : 0);
 			const _75: [rt.u8 | undefined, rt.u8 | undefined] = [small(c), small(d)];
