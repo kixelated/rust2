@@ -12,6 +12,7 @@ import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
+import type * as Shape from "../shapes.Shape.ts";
 
 export function isSomeAnd$Option_u8_options_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
@@ -231,6 +232,13 @@ export function mapOr$Option_Point_u8_known_closure0_closure0(self: Point.Point 
 }
 
 export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank, Tally.Tally] | undefined, default_: rt.u8, f: (a0: [Rank.Rank, Tally.Tally]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Shape_u8_rematched_closure0(self: Shape.Shape | undefined, default_: rt.u8, f: (a0: Shape.Shape) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

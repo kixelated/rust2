@@ -1,6 +1,6 @@
 //! The language the driver translates, exercised against native Rust: every integer
 //! width's arithmetic and casts, `char`s and the `str` methods over them, `Cow<str>`,
-//! control flow, patterns, `Copy` aggregates, closures, traits, generic types, formatting,
+//! `Duration`, control flow, patterns, `Copy` aggregates, closures, traits, generic types, formatting,
 //! collections, the standard library calls it maps, and `Option`'s and `Result`'s
 //! combinators from core's MIR.
 //!
@@ -12,6 +12,7 @@ mod chunks;
 mod collections;
 mod combinators;
 mod cows;
+mod durations;
 mod fmt;
 mod generics;
 pub mod harness;

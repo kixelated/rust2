@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
-import { unwrapOr$Option_u8, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_shares_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
+import { unwrapOr$Option_u8, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_shares_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
 import { map$Result_u8_str_u8_library_closure1, mapErr$Result_u8_str_u8_library_closure2 } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
 import { advance, reset$Gauge } from "./generics.ts";
@@ -11,6 +11,7 @@ import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
 import type * as Level from "./shapes.Level.ts";
+import * as Machine from "./shapes.Machine.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import * as Meters from "./shapes.Meters.ts";
 import * as Moved from "./shapes.Moved.ts";
@@ -1363,6 +1364,7 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 	payloads(data, out);
 	known(data, out);
+	rematched(data, out);
 }
 
 /** `n`'s result: `Ok` for an even `n`. */
@@ -1606,6 +1608,219 @@ export function known(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		return copy$Point(captured).y & 0xff;
 	})());
+}
+
+/** Enums matched again where an enclosing match decided their variant. */
+export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _5!: rt.u8;
+	let _15!: rt.u8;
+	let _19!: rt.u8;
+	let _29!: rt.u8;
+	let _43!: rt.u8;
+	let _48!: rt.u8;
+	let _59!: rt.u8;
+	let _68!: rt.u8;
+	let _72!: Shape.Shape;
+	let _114!: rt.u8;
+	const s: Shape.Shape = shape(data);
+	if (s.tag === "Dot") {
+		_5 = 2;
+	} else if (s.tag === "Line") {
+		_5 = (s._0.x ^ s._1.y) & 0xff;
+	} else {
+		_5 = 4;
+	}
+	rt.byteVecPush(out, _5);
+	if (s.tag === "Dot") {
+		_15 = 6;
+	} else {
+		_15 = 7;
+	}
+	rt.byteVecPush(out, _15);
+	if (s.tag === "Dot") {
+		_19 = 8;
+	} else if (s.tag === "Line") {
+		_19 = 10;
+	} else {
+		_19 = s.width & 0xff;
+	}
+	rt.byteVecPush(out, _19);
+	const d: Dir.Dir | undefined = dir(data.length & 0xff);
+	if (d === undefined) {
+		_29 = 15;
+	} else if (d === "North") {
+		_29 = 12;
+	} else {
+		_29 = { North: 1, East: 2, South: 4, West: 8 }[d] & 0xff;
+	}
+	rt.byteVecPush(out, _29);
+	if (rt.cmp(data.length & 0xff, 2) === -1) {
+		_43 = 17;
+	} else {
+		_43 = 0;
+	}
+	rt.byteVecPush(out, _43);
+	let m: Shape.Shape = s;
+	if (m.tag === "Dot") {
+		m = shape(rt.byteSliceRange(data, rt.min(data.length, 1)));
+		if (m.tag === "Line") {
+			_48 = 18;
+		} else {
+			_48 = 19;
+		}
+	} else {
+		_48 = 20;
+	}
+	rt.byteVecPush(out, _48);
+	let held = copy$Shape(m) as Shape.Shape | undefined;
+	if (held === undefined) {
+		_59 = 22;
+	} else {
+		const taken2 = held;
+		held = undefined;
+		const taken: Shape.Shape | undefined = taken2;
+		if (held === undefined) {
+			_59 = mapOr$Option_Shape_u8_rematched_closure0(taken, 22, (t: Shape.Shape): rt.u8 => {
+				return rt.u64Low(Shape.area$Area(t)) & 0xff;
+			});
+		} else {
+			_59 = 21;
+		}
+	}
+	rt.byteVecPush(out, _59);
+	let cur: Shape.Shape = s;
+	let iterStart: rt.u8 = 0;
+	const iterEnd: rt.u8 = 3;
+	while ((_68 = iterStart++) < iterEnd) {
+		const i: rt.u8 = _68;
+		if (cur.tag === "Dot") {
+			_72 = { tag: "Line", _0: Point.new(i as rt.i32, 0), _1: Point.new(0, 0) } as Shape.Shape;
+		} else if (cur.tag === "Line") {
+			_72 = { tag: "Rect", corner: cur._0, width: rt.u16Add(cur._1.x & 0xffff, 1), height: 2 } as Shape.Shape;
+		} else if (!(cur.width > 1)) {
+			_72 = cur;
+		} else {
+			_72 = { tag: "Dot" } as Shape.Shape;
+		}
+		cur = _72;
+		rt.byteVecPush(out, rt.u64Low(Shape.area$Area(cur)) & 0xff);
+	}
+	const machine: Machine.Machine = { state: copy$Shape(s), steps: 0 };
+	let iterStart2: rt.i32 = 0;
+	const iterEnd2: rt.i32 = 4;
+	while (iterStart2++ < iterEnd2) {
+		rt.byteVecPush(out, Machine.run(machine, data.length & 0xff));
+	}
+	let original: Shape.Shape = shape(data);
+	if (original.tag === "Dot") {
+		original = shape(rt.byteSliceFrom(Uint8Array.of(1)));
+		rt.byteVecPush(out, 24);
+		if (original.tag === "Line") {
+			_114 = 25;
+		} else {
+			_114 = 26;
+		}
+		rt.byteVecPush(out, _114);
+	}
+	reseated(data, out);
+}
+
+/**
+ * A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
+ * a reborrow of that, a closure, and a call.
+ */
+export function reseated(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _12!: rt.u8;
+	let _19!: rt.u8;
+	let _26!: rt.u8;
+	let _37!: rt.u8;
+	let _51!: rt.u8;
+	const _5: [Shape.Shape, Shape.Shape] = [shape(data), shape(rt.byteSliceFrom(Uint8Array.of(1)))];
+	const a: Shape.Shape = _5[0];
+	const b: Shape.Shape = _5[1];
+	let r: Shape.Shape = a;
+	if (r.tag === "Dot") {
+		r = b;
+		if (r.tag === "Line") {
+			_12 = 27;
+		} else {
+			_12 = 28;
+		}
+	} else {
+		_12 = 29;
+	}
+	rt.byteVecPush(out, _12);
+	let r2: Shape.Shape = a;
+	if (r2.tag === "Dot") {
+		r2 = b;
+		if (r2.tag === "Line") {
+			_19 = 30;
+		} else {
+			_19 = 31;
+		}
+	} else {
+		_19 = 32;
+	}
+	rt.byteVecPush(out, _19);
+	let r3: Shape.Shape = a;
+	if (r3.tag === "Dot") {
+		((): void => {
+			r3 = b;
+		})();
+		if (r3.tag === "Line") {
+			_26 = 36;
+		} else {
+			_26 = 37;
+		}
+	} else {
+		_26 = 38;
+	}
+	rt.byteVecPush(out, _26);
+	let r4: Shape.Shape = a;
+	let other: Shape.Shape = b;
+	if (r4.tag === "Dot") {
+		const swapped = r4;
+		r4 = other;
+		other = swapped;
+		if (r4.tag === "Line") {
+			_37 = 39;
+		} else {
+			_37 = 40;
+		}
+	} else {
+		_37 = 41;
+	}
+	rt.byteVecPush(out, _37);
+	let r5: Shape.Shape = a;
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 2;
+	while (iterStart++ < iterEnd) {
+		if (r5.tag === "Dot") {
+			r5 = b;
+			if (r5.tag === "Line") {
+				_51 = 42;
+			} else {
+				_51 = 43;
+			}
+		} else {
+			_51 = 44;
+		}
+		rt.byteVecPush(out, _51);
+	}
+	rt.byteVecPush(out, rebound(a, b));
+}
+
+/** A parameter pointed elsewhere, after a copy of it that still points where it did. */
+export function rebound(r: Shape.Shape, b: Shape.Shape): rt.u8 {
+	const kept: Shape.Shape = r;
+	r = b;
+	if (r.tag === "Line") {
+		if (kept.tag === "Line") {
+			return 45;
+		}
+		return 46;
+	}
+	return 47;
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */

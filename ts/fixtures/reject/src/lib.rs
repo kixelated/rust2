@@ -440,3 +440,9 @@ pub fn discarded(o: Option<u8>, r: Result<u8, u8>) -> u8 {
 fn key(n: &Noisy) -> u8 {
 	n.0
 }
+
+/// A `Duration` is a value JS copies, which a `&mut` can't change in place.
+pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
+	d += by;
+	d
+}

@@ -95,6 +95,8 @@ pub enum Std {
 	Ordering,
 	/// `rt.Hasher`: `DefaultHasher`, which hash collections hash their keys with.
 	Hasher,
+	/// `rt.Duration`: its seconds and nanoseconds, never changed once made.
+	Duration,
 }
 
 impl Std {
@@ -132,6 +134,7 @@ impl Std {
 			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
 			(rustc_span::Symbol::intern("BTreeSet"), Self::BTreeSet),
 			(rustc_span::Symbol::intern("VecDeque"), Self::VecDeque),
+			(rustc_span::Symbol::intern("Duration"), Self::Duration),
 		] {
 			if tcx.is_diagnostic_item(item, did) {
 				return Some(std);
@@ -532,6 +535,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	let span = call.span;
 	let gargs = call.args;
 	let args = match super::task::call(b, call, &owner, &name, args) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::time::call(b, call, &owner, &name, args) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
@@ -1197,6 +1204,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			},
 			Std::String => Expr::Str(String::new()),
 			Std::Cow if string(tcx, ty) => Expr::Str(String::new()),
+			Std::Duration => super::time::zero(),
 			_ => return None,
 		},
 		_ => return None,

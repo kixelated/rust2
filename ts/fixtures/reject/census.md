@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 96
-- Function instances: 75
+- Refusals: 97
+- Function instances: 76
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 8 | unsupported call to `_` | fixtures/reject/src/lib.rs:33:4 |
+| 9 | unsupported call to `_` | fixtures/reject/src/lib.rs:33:4 |
 | 7 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:17:2 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:28:15 |
 | 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:16:13 |
@@ -97,6 +97,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:154:11 |
 | 1 | `std::str` | fixtures/reject/src/lib.rs:390:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:149:2 |
+| 1 | `std::time::Duration` | fixtures/reject/src/lib.rs:446:2 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:119:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:75:2 |
 
@@ -156,6 +157,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:417:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:154:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:97:10 |
+| 1 | unsupported call to `_` | `<std::time::Duration as std::ops::AddAssign>::add_assign` | fixtures/reject/src/lib.rs:446:2 |
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:49:18 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:208:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:374:4 |
@@ -165,7 +167,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (8)</summary>
+<details><summary>unsupported call to `_` (9)</summary>
 
 - fixtures/reject/src/lib.rs:33:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:49:18: unsupported call to `std::mem::size_of_val::<Noisy>`
@@ -175,6 +177,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:374:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
 - fixtures/reject/src/lib.rs:390:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 - fixtures/reject/src/lib.rs:417:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
+- fixtures/reject/src/lib.rs:446:2: unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign`
 
 </details>
 

@@ -13,6 +13,7 @@
 mod call;
 mod cfg;
 pub mod coroutine;
+mod decided;
 pub mod glue;
 mod inline;
 mod place;
@@ -83,6 +84,7 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 		t.err(span, why);
 		return None;
 	}
+	decided::fold(tcx, &mut body);
 	Some(body)
 }
 
