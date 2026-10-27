@@ -71,12 +71,12 @@ moq-pin:
     git -C target/moq fetch --quiet --depth 1 origin {{ moq_rev }}
     git -C target/moq checkout --quiet --detach {{ moq_rev }}
 
-# Time the codec natively, as moq's WASM, as moq's hand-written TS, and translated, in Node, Bun, and Chrome; `--route name=dir` adds another run's translations.
+# Time the codec natively, as moq's WASM, as moq's hand-written TS, and translated, in Node, Bun, Chrome, and Firefox; `--route name=dir` adds another run's translations.
 [arg("route", long)]
 bench checkout="" route="": (moq checkout)
     #!/usr/bin/env bash
     set -euo pipefail
-    for tool in bun chromium wasm-bindgen; do
+    for tool in bun chromium firefox wasm-bindgen; do
         command -v "$tool" > /dev/null || { echo "$tool is missing: run this in the bench shell, nix develop .#bench" >&2; exit 1; }
     done
     src="{{ checkout }}"
