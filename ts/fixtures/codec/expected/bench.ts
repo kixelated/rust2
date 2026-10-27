@@ -376,7 +376,7 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 			if (selector === 0) {
 				const _36: rt.u128 | undefined = rt.u128CheckedMul(rt.u128Cast(value), rt.u128Cast(to));
 				if (_36 === undefined) {
-					scaled = undefined;
+					scaled = undefined as rt.u64 | undefined;
 				} else {
 					scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
 				}
@@ -390,7 +390,7 @@ export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): voi
 						break b2;
 					}
 				}
-				scaled = undefined;
+				scaled = undefined as rt.u64 | undefined;
 			}
 		}
 		if (scaled === undefined) {

@@ -1131,6 +1131,182 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	};
 	out.extend_from_slice(&[a, b, c, early(a)]);
 	out.extend_from_slice(format!("{parsed:?}").as_bytes());
+	payloads(data, out);
+	known(data, out);
+}
+
+/// `n`'s result: `Ok` for an even `n`.
+#[inline(never)]
+fn parity(n: u8) -> Result<u8, u8> {
+	if n % 2 == 0 { Ok(n) } else { Err(n) }
+}
+
+/// A struct holding an enum, changed through a borrow of its field.
+struct Slot {
+	res: Result<u8, u8>,
+}
+
+/// Payloads changed through a borrow, which changes the enum holding them where it is
+/// and none of its copies.
+fn payloads(data: &[u8], out: &mut Vec<u8>) {
+	let n = data.len() as u8;
+	let mut res = parity(n);
+	let before = res;
+	if let Err(e) = &mut res {
+		*e = e.wrapping_add(1);
+	}
+	if let Ok(v) = &mut res {
+		*v ^= 0x55;
+	}
+	let mut err: Result<u8, u8> = Err(n);
+	if let Err(e) = &mut err {
+		*e = e.wrapping_add(3);
+	}
+	let mut owned: Result<u8, Vec<u8>> = Ok(n);
+	if let Ok(v) = &mut owned {
+		*v = v.wrapping_add(2);
+	}
+	let mut slot = Slot {
+		res: parity(n.wrapping_add(1)),
+	};
+	if let Err(e) = &mut slot.res {
+		*e = e.wrapping_sub(4);
+	}
+	let mut flow: ControlFlow<u8, u8> = ControlFlow::Break(n);
+	if let ControlFlow::Break(b) = &mut flow {
+		*b = b.wrapping_add(9);
+	}
+	let mut opt = Some(n);
+	if let Some(v) = &mut opt {
+		*v = v.wrapping_add(7);
+	}
+	let mut poll = Poll::Ready(n);
+	if let Poll::Ready(v) = &mut poll {
+		*v = v.wrapping_sub(1);
+	}
+	let mut nested: Poll<Option<Result<u8, u8>>> = Poll::Ready(Some(parity(n.wrapping_add(2))));
+	if let Poll::Ready(Some(Err(v))) = &mut nested {
+		*v = v.wrapping_add(6);
+	}
+	let mut caught = parity(n.wrapping_add(3));
+	let mut bump = || {
+		if let Err(e) = &mut caught {
+			*e = e.wrapping_add(5);
+		}
+	};
+	bump();
+	bump();
+	let mut replaced = parity(n.wrapping_add(4));
+	if let Ok(v) = &mut replaced {
+		out.push(std::mem::replace(v, 0x42));
+	}
+	let mut taken: Result<Option<u8>, u8> = Ok(n.checked_sub(1));
+	if let Ok(o) = &mut taken {
+		out.push(o.take().unwrap_or(0x43));
+	}
+	if let Poll::Ready(Some(r)) = nested {
+		out.push(match r {
+			Ok(v) => v,
+			Err(e) => e ^ 0x80,
+		});
+	}
+	out.push(match taken {
+		Ok(o) => o.unwrap_or(0x44),
+		Err(e) => e,
+	});
+	for r in [before, res, err, slot.res, caught, replaced] {
+		out.extend_from_slice(&match r {
+			Ok(v) => [0, v],
+			Err(e) => [1, e],
+		});
+	}
+	out.push(match owned {
+		Ok(v) => v,
+		Err(e) => e.len() as u8,
+	});
+	out.extend_from_slice(&[
+		match flow {
+			ControlFlow::Break(b) => b,
+			ControlFlow::Continue(c) => c,
+		},
+		opt.unwrap_or(0),
+		match poll {
+			Poll::Ready(v) => v,
+			Poll::Pending => 0,
+		},
+	]);
+}
+
+/// Enums matched where the variant they were made with is in sight.
+fn known(data: &[u8], out: &mut Vec<u8>) {
+	let n = data.len() as u8;
+	let ready: Poll<u8> = Poll::Ready(n);
+	let copied = ready;
+	let idle: Poll<Point> = Poll::Pending;
+	let none: Option<Point> = None;
+	let some = Some(Point::new(n as i32, 1));
+	out.extend_from_slice(&[
+		match ready {
+			Poll::Pending => 0,
+			Poll::Ready(v) => v,
+		},
+		match copied {
+			Poll::Pending => 0,
+			Poll::Ready(v) => v.wrapping_add(1),
+		},
+		match idle {
+			Poll::Pending => 0xff,
+			Poll::Ready(p) => p.x as u8,
+		},
+		match none {
+			Some(p) => p.y as u8,
+			None => 0xfe,
+		},
+		match some {
+			Some(p) => p.x as u8,
+			None => 0xfd,
+		},
+	]);
+	let dot = Shape::Dot;
+	let line = Shape::Line(Point::new(n as i32, 2), Point::new(3, 4));
+	out.push(match dot {
+		Shape::Dot => 1,
+		Shape::Line(from, _) => from.x as u8,
+		Shape::Rect { width, .. } => width as u8,
+	});
+	out.push(match line {
+		Shape::Dot => 1,
+		Shape::Line(from, _) => from.x as u8,
+		Shape::Rect { width, .. } => width as u8,
+	});
+	let east = Dir::East;
+	out.push(match east {
+		Dir::North => 1,
+		Dir::East => 2,
+		_ => 3,
+	});
+	let equal = std::cmp::Ordering::Equal;
+	out.push(match equal {
+		std::cmp::Ordering::Less => 1,
+		std::cmp::Ordering::Equal => 2,
+		std::cmp::Ordering::Greater => 3,
+	});
+	// A closure tests what it captured.
+	let later = Poll::Ready(n);
+	let none_later: Option<Point> = None;
+	let read = || {
+		let a = match later {
+			Poll::Pending => 0,
+			Poll::Ready(v) => v,
+		};
+		a ^ none_later.map_or(0x10, |p| p.x as u8)
+	};
+	out.push(read());
+	let moved = move || match none_later {
+		Some(p) => p.y as u8,
+		None => 0x20,
+	};
+	out.push(moved());
 }
 
 /// An enum without variants: no value of it exists.

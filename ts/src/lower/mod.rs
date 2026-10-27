@@ -799,6 +799,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		info
 	}
 
+	/// Whether a `ty`'s JS type is a union of its variants', which TypeScript narrows a
+	/// variable to the member it was assigned.
+	pub fn narrows(&self, ty: Ty<'tcx>) -> bool {
+		match ty.kind() {
+			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
+				Some(
+					library::Std::Option
+					| library::Std::Poll
+					| library::Std::Result
+					| library::Std::ControlFlow
+					| library::Std::Ordering,
+				) => true,
+				Some(_) => false,
+				None => adt.is_enum() && adt.variants().len() > 1,
+			},
+			_ => false,
+		}
+	}
+
 	/// What kind of JS object a `&mut` to `ty` can change in place, if any.
 	pub fn object_kind(&self, ty: Ty<'tcx>) -> Option<ObjectKind> {
 		match ty.kind() {
