@@ -1457,7 +1457,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let taken: rt.Result<rt.u8 | undefined, rt.u8> = rt.Ok(rt.u8CheckedSub(n, 1));
 	if (taken.ok) {
 		const taken2 = taken.value;
-		taken = rt.Ok(undefined);
+		taken = rt.OK;
 		rt.byteVecPush(out, unwrapOr$Option_u8(taken2, 67));
 	}
 	if (nested !== rt.Pending) {
@@ -2056,6 +2056,11 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
+/** A result with nothing set yet. */
+export function unset(): rt.Result<rt.u8 | undefined, rt.u8> {
+	return rt.OK;
+}
+
 /** Steps a total by `x`: breaks with what it can't take, or continues with the new total. */
 export function step(total: rt.u16, x: rt.u8): rt.Result<rt.u16, rt.u8 | undefined> {
 	const _3: rt.u16 | undefined = rt.u16CheckedAdd(total, rt.u16Mul(x as rt.u16, 64));
@@ -2068,7 +2073,7 @@ export function step(total: rt.u16, x: rt.u8): rt.Result<rt.u16, rt.u8 | undefin
 		}
 		return rt.Err(x);
 	}
-	return rt.Err(undefined);
+	return rt.ERR;
 }
 
 /** A step that may be pending, as a polled read is. */
@@ -2081,9 +2086,9 @@ export function polled(x: rt.u8): rt.Poll<rt.Result<rt.Result<undefined, undefin
 		return rt.Err(x);
 	}
 	if (_2 === 2) {
-		return rt.Ok(rt.Err(undefined));
+		return rt.Ok(rt.ERR);
 	}
-	return rt.Ok(rt.Ok(undefined));
+	return rt.Ok(rt.OK);
 }
 
 /**
@@ -2093,7 +2098,8 @@ export function polled(x: rt.u8): rt.Poll<rt.Result<rt.Result<undefined, undefin
 export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let result!: rt.Result<rt.u16, rt.u8>;
 	let option!: rt.u8 | undefined;
-	let _113!: boolean;
+	let _116!: rt.u8;
+	let _132!: boolean;
 	let total: rt.u16 = 0;
 	for (const x of rt.byteSliceView(data)) {
 		const flow: rt.Result<rt.u16, rt.u8 | undefined> = step(total, x);
@@ -2159,20 +2165,42 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(flow3.value));
 		}
 	}
+	let set: rt.Result<rt.u8 | undefined, rt.u8> = unset();
+	if (set.ok) {
+		set = rt.Ok(a);
+	}
+	const iter3: rt.Iter<rt.Result<rt.u8 | undefined, rt.u8>> = rt.iterSlice([set, unset()]);
+	while (true) {
+		const _111: rt.Result<rt.u8 | undefined, rt.u8> | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
+			break;
+		}
+		const result2: rt.Result<rt.u8 | undefined, rt.u8> = _111;
+		if (result2.ok) {
+			if (result2.value === undefined) {
+				_116 = 254;
+			} else {
+				_116 = result2.value;
+			}
+		} else {
+			_116 = result2.error;
+		}
+		rt.byteVecPush(out, _116);
+	}
 	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
 	for (const x2 of rt.byteSliceView(data)) {
 		const held: rt.Mutex<rt.u8 | undefined> = slot;
-		const _114: rt.u8 | undefined = held.value;
-		b12: {
-			if (_114 !== undefined) {
-				if (_114 >= x2) {
-					_113 = true;
-					break b12;
+		const _133: rt.u8 | undefined = held.value;
+		b16: {
+			if (_133 !== undefined) {
+				if (_133 >= x2) {
+					_132 = true;
+					break b16;
 				}
 			}
-			_113 = false;
+			_132 = false;
 		}
-		if (!_113) {
+		if (!_132) {
 			held.value = x2;
 		}
 	}

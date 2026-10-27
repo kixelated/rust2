@@ -49,7 +49,7 @@ export function bool(self: Encoder, v: boolean): void {
 /** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
 export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError.EncodeError> {
 	if (write(v, self.form, self.buf).ok) {
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 }
@@ -75,7 +75,7 @@ export function bytes(self: Encoder, v: rt.ByteSlice): rt.Result<undefined, Enco
 	const _3: rt.Result<undefined, EncodeError.EncodeError> = varint(self, v.length as rt.u64);
 	if (_3.ok) {
 		slice(self, v);
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _3;
 }
@@ -140,7 +140,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 				const _79: rt.ByteVec = self.buf;
 				_79.data[rt.idx(_79, rt.usizeSub(body, 1))] = _35;
 				rt.byteVecTruncate(self.buf, end);
-				return rt.Ok(undefined);
+				return rt.OK;
 			}
 		} else {
 			return rt.Err(EncodeError.from$From_BoundsExceeded({}));
@@ -158,7 +158,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			return _7;
 		}
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 export { new_ as new };

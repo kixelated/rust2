@@ -67,7 +67,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
-| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
+| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
@@ -290,8 +290,13 @@ they need.
   of nanoseconds, so its overflow, `checked_*`, and ordering are std's exactly, and a
   lowering of its methods from core's MIR would read the same fields.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
-  no faster on `just ts bench`, in V8 or JavaScriptCore.
+  `?` and `match` keep Rust's control flow exactly. One whose payload is `undefined`, such
+  as `Ok(())`, is one frozen object every evaluation shares, since nothing writes into a
+  result in place and engines don't remove one returned through a call they don't inline:
+  `just ts bench` measured the codec's encode workloads at 0.90 times their time without
+  it in Chrome, 0.75 in Firefox, and 0.75 in Bun at the geometric mean, with A/A within
+  0.03 in Chrome and Node within its noise. Sharing a result of any other constant, such
+  as `Err(DecodeError::Short)`, measured no faster on the decodes that return it.
 - A `&[u8]` is an `rt.ByteSlice` rather than a `Uint8Array` view, since a view costs
   several times what an object does to make in V8 and JavaScriptCore, and a varint's
   decode splits its slice once to four times. `just ts bench` measured the codec's decode
