@@ -10,7 +10,7 @@ pub type SymId = usize;
 pub type FieldId = usize;
 
 /// A position in a Rust source file, for the source map.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Loc {
 	/// An index into the program's source files.
 	pub file: u32,
@@ -20,7 +20,7 @@ pub struct Loc {
 	pub col: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expr {
 	Ident(String),
 	This,
@@ -54,7 +54,7 @@ pub enum Expr {
 }
 
 /// A property name.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Key {
 	Name(String),
 	Field(FieldId),
@@ -198,19 +198,19 @@ fn wide(ty: &Type) -> bool {
 	matches!(ty, Type::Rt("u64" | "i64" | "u128" | "i128", _))
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Param {
 	pub name: String,
 	pub ty: Option<Type>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Stmt {
 	pub kind: StmtKind,
 	pub loc: Option<Loc>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum StmtKind {
 	Expr(Expr),
 	Decl {
@@ -299,6 +299,73 @@ impl Stmt {
 				body,
 			} => cond == "true" && !breaks_out(body, label.as_deref(), false),
 			_ => false,
+		}
+	}
+}
+
+/// Each item `stmts` name as a value, to rename.
+pub fn syms_mut(stmts: &mut [Stmt], f: &mut impl FnMut(&mut SymId)) {
+	for stmt in stmts {
+		match &mut stmt.kind {
+			StmtKind::Expr(e) | StmtKind::Throw(e) | StmtKind::Return(Some(e)) => e.syms_mut(f),
+			StmtKind::Decl { init, .. } => init.iter_mut().for_each(|e| e.syms_mut(f)),
+			StmtKind::If { cond, then, els } => {
+				cond.syms_mut(f);
+				syms_mut(then, f);
+				syms_mut(els, f);
+			}
+			StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+				e.syms_mut(f);
+				syms_mut(body, f);
+			}
+			StmtKind::Block { body, .. } => syms_mut(body, f),
+			StmtKind::Catch { body, handler, .. } => {
+				syms_mut(body, f);
+				syms_mut(handler, f);
+			}
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
+				disc.syms_mut(f);
+				for (case, body) in cases {
+					case.syms_mut(f);
+					syms_mut(body, f);
+				}
+				syms_mut(default, f);
+			}
+			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) | StmtKind::Declare { .. } => {}
+		}
+	}
+}
+
+impl Expr {
+	/// Each item the expression names as a value, to rename.
+	pub fn syms_mut(&mut self, f: &mut impl FnMut(&mut SymId)) {
+		match self {
+			Expr::Sym(id) => f(id),
+			Expr::Arrow(_, _, body) => syms_mut(body, f),
+			Expr::Lambda(_, e)
+			| Expr::Member(e, _)
+			| Expr::Unary(_, e)
+			| Expr::Postfix(e, _)
+			| Expr::As(e, _)
+			| Expr::Located(_, e) => e.syms_mut(f),
+			Expr::Array(es) => es.iter_mut().for_each(|e| e.syms_mut(f)),
+			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.syms_mut(f)),
+			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+				a.syms_mut(f);
+				b.syms_mut(f);
+			}
+			Expr::Call(callee, args) | Expr::New(callee, args) => {
+				callee.syms_mut(f);
+				args.iter_mut().for_each(|e| e.syms_mut(f));
+			}
+			Expr::Cond(a, b, c) => {
+				a.syms_mut(f);
+				b.syms_mut(f);
+				c.syms_mut(f);
+			}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		}
 	}
 }

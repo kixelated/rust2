@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
+import { unwrapOr$Option_u64 } from "./core/option.ts";
 import { recvFuture } from "./kio.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
@@ -1265,7 +1266,7 @@ export class blocksFuture$10 {
 
 /** `v`, or 0, plus the id of `guard`, which it drops. */
 export function consume(guard: Guard.Guard, v: rt.u64 | undefined): rt.u64 {
-	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, rt.optionUnwrapOr(v, 0));
+	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, unwrapOr$Option_u64(v, 0));
 }
 
 export class slotFuture {
