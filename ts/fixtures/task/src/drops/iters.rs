@@ -112,7 +112,11 @@ pub(super) fn looped(log: &Log, id: u32, at: u8) {
 		.map_or(0, |g| g.id());
 	let strode = five(69).into_iter().rev().step_by(2).nth(2).map_or(0, |g| g.id());
 	let counted = five(74).into_iter().rev().take(3).count();
-	log.note(format!("back {skipped} {stepped} {taken} {passed} {strode} {counted}"));
+	// A count past `usize::MAX` saturates.
+	let far = (0i32..10).step_by(usize::MAX).nth_back(usize::MAX).is_none();
+	log.note(format!(
+		"back {skipped} {stepped} {taken} {passed} {strode} {counted} {far}"
+	));
 }
 
 /// What `collect` drops: in place of the `Vec` its items come from, what it collected
