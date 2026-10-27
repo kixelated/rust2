@@ -4,7 +4,7 @@
 //! transform made, which drops what the state it is in holds.
 
 use rustc_abi::{FieldIdx, VariantIdx};
-use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
 use rustc_middle::mir::{self, CoroutineSavedLocal, Operand};
@@ -291,22 +291,25 @@ pub fn construct<'tcx>(
 }
 
 /// The saved locals the resume function `mir` of the coroutine `def_id` moves or copies
-/// an upvar into, with the upvar's index, where that is the upvar's one read: nothing
-/// reads the upvar's field after, so the local can keep its value there.
+/// an upvar into, with the upvar's index, where the local can keep its value in the
+/// upvar's field: that copy is the upvar's one use and runs at most once, and it comes
+/// before every other use of the local.
 fn moved_upvars<'tcx>(
 	mir: &mir::Body<'tcx>,
 	def_id: DefId,
 	layout: &mir::CoroutineLayout<'tcx>,
 ) -> FxHashMap<CoroutineSavedLocal, usize> {
 	use mir::visit::{PlaceContext, Visitor};
-	use mir::{ProjectionElem, Rvalue, StatementKind};
+	use mir::{Location, ProjectionElem, Rvalue, StatementKind};
 
-	struct Reads<'m, 'tcx> {
+	struct Uses<'m, 'tcx> {
 		mir: &'m mir::Body<'tcx>,
 		def_id: DefId,
-		reads: FxHashMap<FieldIdx, u32>,
+		layout: &'m mir::CoroutineLayout<'tcx>,
+		upvars: FxHashMap<FieldIdx, u32>,
+		locals: FxHashMap<CoroutineSavedLocal, Vec<Location>>,
 	}
-	impl<'tcx> Reads<'_, 'tcx> {
+	impl<'tcx> Uses<'_, 'tcx> {
 		/// The upvar `place` is, or the field of a variant, of this coroutine.
 		fn split(&self, place: mir::Place<'tcx>) -> Option<(Option<VariantIdx>, FieldIdx)> {
 			let ty = self.mir.local_decls[place.local].ty.builtin_deref(true)?;
@@ -325,27 +328,44 @@ fn moved_upvars<'tcx>(
 			}
 		}
 	}
-	impl<'tcx> Visitor<'tcx> for Reads<'_, 'tcx> {
-		fn visit_place(&mut self, place: &mir::Place<'tcx>, cx: PlaceContext, at: mir::Location) {
-			// Debug info names a place without reading it.
-			if !matches!(cx, PlaceContext::NonUse(_))
-				&& let Some((None, f)) = self.split(*place)
-			{
-				*self.reads.entry(f).or_default() += 1;
+	impl<'tcx> Visitor<'tcx> for Uses<'_, 'tcx> {
+		fn visit_place(&mut self, place: &mir::Place<'tcx>, cx: PlaceContext, at: Location) {
+			// Debug info names a place without using it.
+			if !matches!(cx, PlaceContext::NonUse(_)) {
+				match self.split(*place) {
+					Some((None, f)) => *self.upvars.entry(f).or_default() += 1,
+					Some((Some(v), f)) => self
+						.locals
+						.entry(self.layout.variant_fields[v][f])
+						.or_default()
+						.push(at),
+					None => {}
+				}
 			}
 			self.super_place(place, cx, at);
 		}
 	}
 
-	let mut reads = Reads {
+	let mut uses = Uses {
 		mir,
 		def_id,
-		reads: FxHashMap::default(),
+		layout,
+		upvars: FxHashMap::default(),
+		locals: FxHashMap::default(),
 	};
-	reads.visit_body(mir);
+	uses.visit_body(mir);
 	let mut moved = FxHashMap::default();
-	for data in mir.basic_blocks.iter() {
-		for stmt in &data.statements {
+	// The transform's entry switch on the state: an unresumed coroutine's first poll
+	// starts at one target, and every later poll at another.
+	let mir::TerminatorKind::SwitchInt { targets, .. } = &mir.basic_blocks[mir::START_BLOCK].terminator().kind else {
+		return moved;
+	};
+	let Some(first) = targets.iter().find(|&(state, _)| state == 0).map(|(_, b)| b) else {
+		return moved;
+	};
+	let later = reach(mir, targets.all_targets().iter().copied().filter(|&b| b != first), None);
+	for (block, data) in mir.basic_blocks.iter_enumerated() {
+		for (statement_index, stmt) in data.statements.iter().enumerate() {
 			let StatementKind::Assign(assign) = &stmt.kind else {
 				continue;
 			};
@@ -354,13 +374,42 @@ fn moved_upvars<'tcx>(
 			};
 			if src.projection.len() == 2
 				&& dest.projection.len() == 3
-				&& let Some((None, upvar)) = reads.split(*src)
-				&& let Some((Some(variant), field)) = reads.split(*dest)
-				&& reads.reads.get(&upvar) == Some(&1)
+				&& let Some((None, upvar)) = uses.split(*src)
+				&& let Some((Some(variant), field)) = uses.split(*dest)
+				&& uses.upvars.get(&upvar) == Some(&1)
+				// Only the first poll copies, and only once.
+				&& !later.contains(&block)
+				&& !reach(mir, mir.basic_blocks[block].terminator().successors(), None).contains(&block)
 			{
-				moved.insert(layout.variant_fields[variant][field], upvar.index());
+				// Nothing the first poll runs before the copy, or instead of it, uses the
+				// local; a later poll runs after it.
+				let local = layout.variant_fields[variant][field];
+				let around = reach(mir, [first], Some(block));
+				let after = |u: &Location| match u.block == block {
+					true => u.statement_index >= statement_index,
+					false => !around.contains(&u.block),
+				};
+				if uses.locals[&local].iter().all(after) {
+					moved.insert(local, upvar.index());
+				}
 			}
 		}
 	}
 	moved
+}
+
+/// The blocks a run from `starts` can reach, without entering `avoid`.
+fn reach(
+	mir: &mir::Body<'_>,
+	starts: impl IntoIterator<Item = mir::BasicBlock>,
+	avoid: Option<mir::BasicBlock>,
+) -> FxHashSet<mir::BasicBlock> {
+	let mut seen = FxHashSet::default();
+	let mut next: Vec<_> = starts.into_iter().collect();
+	while let Some(b) = next.pop() {
+		if Some(b) != avoid && seen.insert(b) {
+			next.extend(mir.basic_blocks[b].terminator().successors());
+		}
+	}
+	seen
 }
