@@ -1,4 +1,4 @@
-# [M] Smaller output from MIR
+# [S] Smaller output from MIR
 
 ## Goal
 
@@ -8,20 +8,29 @@ bytes minified and 9422 gzipped, and the async handoff's at most 3458 gzipped.
 
 ## Plan
 
-The codec's bundle is 29852 bytes minified and 9503 gzipped (+0.9% gzipped), and the
-async handoff's 15053 and 3712 (+37%, +7.3%), against THIR's numbers above, built from
-the same fixtures. Each candidate is measured on the bench's sizes and timings before
-it lands.
+[#95](https://github.com/kixelated/rust2/pull/95) brought the handoff to 3423 bytes
+gzipped. The codec is what remains: 30935 bytes minified and 9898 gzipped, 306 and 476
+over.
 
-The handoff's two gaps have different sources:
+That gap came after THIR's numbers were taken, not from the lowering. On the same
+fixtures with #95, these PRs added to the codec:
 
-- Minified, nearly all of it is the fixture's 16 one-await `levelN` classes, about 360
-  bytes each against about 135 for a THIR generator and its wrapper. Gzip folds the
-  copies: the 15 repeats cost 172 bytes gzipped, less than THIR's 201.
-- Gzipped, the gap is the code outside the repeats: with one level each, MIR's bundle is
-  284 bytes gzipped over THIR's. `drainFuture`'s `switch` dispatch, `recvFuture`, and
-  `register` and `wake`, whose `for` loops are stepped `while` loops with temporaries,
-  are where it is.
+- [#89](https://github.com/kixelated/rust2/pull/89) grew `rt/int.ts`. THIR's own output
+  bundled with #95's `rt/int.ts`, before #87, is 31112 bytes minified and 9666 gzipped,
+  over MIR's 30094 and 9651.
+- [#87](https://github.com/kixelated/rust2/pull/87)'s drop glue with
+  [#98](https://github.com/kixelated/rust2/pull/98) added 253 bytes minified and 93
+  gzipped.
+- [#82](https://github.com/kixelated/rust2/pull/82)'s `rt.ByteSlice` added 580 bytes
+  minified and 156 gzipped.
+
+Closing the gap means trimming what the codec pulls from the runtime or its drop glue,
+without losing speed, or restating the goal against today's runtime.
+
+Small cuts measured by hand on the handoff and left out, each under 1% gzipped:
+hoisting a dispatch's entry case out of its `switch` (3-7 bytes), dropping `unwind`
+stores before a statement that can't throw (4), and merging `if` arms whose cleanup is
+the same (about 15).
 
 Tried and dropped:
 

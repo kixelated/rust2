@@ -104,8 +104,7 @@ export function reset$Gauge(xs: Gauge.Gauge[]): void {
 		if (_5 === rt.DONE) {
 			break;
 		}
-		const _9: Gauge.Gauge = copy$Gauge(Gauge.default$Default());
-		Object.assign(_5, _9);
+		Object.assign(_5, copy$Gauge(Gauge.default$Default()));
 	}
 }
 

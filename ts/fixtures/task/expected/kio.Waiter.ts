@@ -24,8 +24,7 @@ function new_(waker: rt.Waker): Waiter {
 	try {
 		unwind = 4;
 		const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
-		const _5: rt.Waker = waker;
-		return new Waiter({ waker: _5, shared });
+		return new Waiter({ waker, shared });
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
