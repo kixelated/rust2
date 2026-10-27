@@ -209,6 +209,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// What drops the `ty` in `value`, or `None` if JS would see nothing drop.
 	pub fn drop_value(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		// Lifetimes don't change how a value drops, so a type generic over them alone, as a
+		// class's field may be, has the glue of any instance.
+		let ty = self.tcx.erase_and_anonymize_regions(ty);
 		if !self.drops(ty) {
 			return None;
 		}
@@ -282,6 +285,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
 			return Some(super::mir::glue::call(sym, value));
 		}
+		if let ty::Tuple(_) = ty.kind()
+			&& ty.has_param()
+		{
+			return Some(self.drop_fn(ty, span)?.call(vec![value]));
+		}
 		// A census lowers a generic function over its type parameters, where only an
 		// instance can say what the glue is.
 		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
@@ -294,11 +302,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// A function dropping a `ty`, or `None` if JS would see nothing drop or translation
 	/// refused it: `rt.drop` for a value with `[Symbol.dispose]`, or else its glue.
 	pub fn drop_fn(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+		let ty = self.tcx.erase_and_anonymize_regions(ty);
 		if !self.drops(ty) {
 			return None;
 		}
 		if self.disposable(ty, span) {
 			return Some(Expr::Rt("drop".into()));
+		}
+		// A tuple over type parameters, as a generic class's glue holds, has no glue of
+		// rustc's until an instance: each element in order, as that glue drops them.
+		if let ty::Tuple(tys) = ty.kind()
+			&& ty.has_param()
+		{
+			let value = Expr::ident("value");
+			let mut steps = Vec::new();
+			for (i, elem) in tys.iter().enumerate() {
+				let element = value.clone().index(Expr::lit(i.to_string()));
+				if let Some(dropped) = self.drop_value(element, elem, span) {
+					steps.push((dropped, self.drop_panics(elem, &mut Default::default())));
+				}
+			}
+			let param = Param {
+				name: "value".into(),
+				ty: Some(self.ty(ty, span)),
+			};
+			return Some(Expr::Arrow(vec![param], Type::Builtin("void"), unwinding(steps)));
 		}
 		// Over type parameters, as a generic class's glue is, a function of its own.
 		if ty.has_param() || ty.has_aliases() {

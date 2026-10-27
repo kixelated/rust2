@@ -3,9 +3,11 @@
 import * as rt from "./rt.ts";
 import type * as First from "./drops/iters.First.ts";
 import type * as Bomb from "./drops.Bomb.ts";
+import type * as Entries from "./drops.Entries.ts";
 import type * as Held from "./drops.Held.ts";
 import type * as Key from "./drops.Key.ts";
 import type * as Pair from "./drops.Pair.ts";
+import type * as Text from "./drops.Text.ts";
 import * as Wrap from "./drops.Wrap.ts";
 import type * as Guard from "./model.Guard.ts";
 import type * as Tally from "./model.Tally.ts";
@@ -34,13 +36,29 @@ export function drop$Arc_str_Arc_str(_1: [rt.Arc<string>, rt.Arc<string>]): void
 	}
 }
 
+export function drop$Bomb_Guard(_1: [Bomb.Bomb, Guard.Guard]): void {
+	let unwind: number = 0;
+	try {
+		unwind = 4;
+		rt.drop(_1[0]);
+		unwind = 0;
+		rt.drop(_1[1]);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_1[1]);
+		throw e;
+	}
+}
+
 export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
 	}
 }
 
-export function drop$Guard_Bomb_Held(_1: [Guard.Guard, Bomb.Bomb, Held.Held]): void {
+export function drop$Guard_Entries_Bomb_Guard_Held(_1: [Guard.Guard, Entries.Entries<Bomb.Bomb, Guard.Guard>, Held.Held]): void {
 	let unwind: number = 0;
 	try {
 		unwind = 5;
@@ -186,6 +204,12 @@ export function drop$Result_u32_Guard(_1: rt.Result<rt.u32, Guard.Guard>): void 
 export function drop$Result_u8_Key(_1: rt.Result<rt.u8, Key.Key>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
+	}
+}
+
+export function drop$Text(_1: Text.Text): void {
+	if (_1.tag !== "Borrowed") {
+		rt.drop(_1._0);
 	}
 }
 

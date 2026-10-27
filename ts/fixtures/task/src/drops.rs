@@ -49,6 +49,20 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
+/// Borrowed text or a value that drops, as moq-net's `path::Repr` is: generic over a
+/// lifetime alone.
+pub enum Text<'a> {
+	Borrowed(&'a str),
+	Owned(Guard),
+}
+
+/// A type generic over a lifetime alone, holding one that is.
+pub struct Named<'a>(Text<'a>);
+
+/// Pairs of its type parameters, as a map's entries are: each pair drops its halves in
+/// order, the second after the first panics.
+pub struct Entries<K, V>(Vec<(K, V)>);
+
 /// Run scenario `arg % 19`, panicking at the point `arg / 19 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
@@ -125,6 +139,8 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 					second: guard(44),
 				},
 			];
+			let _borrowed = Named(Text::Borrowed("text"));
+			let _owned = Named(Text::Owned(guard(45)));
 			check(2);
 			let nested = Wrap {
 				id: id + 50,
@@ -595,7 +611,11 @@ fn blown(log: &Log, id: u32, at: u8) {
 			first: bomb(1, true),
 			second: guard(2),
 		}),
-		3 => drop((guard(1), bomb(2, true), Held::One(guard(3)))),
+		3 => drop((
+			guard(1),
+			Entries(list![(bomb(2, true), guard(3)), (bomb(4, false), guard(5))]),
+			Held::One(guard(6)),
+		)),
 		4 => {
 			let mut map = BTreeMap::new();
 			map.insert(key(1, Fault::Sound), bomb(1, false));
