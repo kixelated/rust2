@@ -183,10 +183,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return false;
 		}
 		let sig = tcx.instantiate_bound_regions_with_erased(fn_ty.fn_sig(tcx));
+		// An iterator of items without such references was checked where each adaptor was
+		// made: a closure it holds takes them from there.
 		let refs = |ty: Ty<'tcx>| {
 			let ty = normal(ty);
-			let items = t.iter_item(ty).into_iter();
-			std::iter::once(ty).chain(items).any(holds_bytes_ref)
+			match t.iter_item(ty).map(normal) {
+				Some(item) if !owns_bytes(item) && !holds_bytes_ref(item) => false,
+				item => std::iter::once(ty).chain(item).any(holds_bytes_ref),
+			}
 		};
 		sig.inputs_and_output.iter().any(refs) || gargs.types().any(refs)
 	}
@@ -860,17 +864,9 @@ fn owns_bytes(ty: Ty<'_>) -> bool {
 	}
 }
 
-/// Whether `ty` holds a `&[u8; N]` std could see: a closure's are the crate's own.
+/// Whether `ty` holds a `&[u8; N]`, as a closure's signature does if it takes one.
 fn holds_bytes_ref(ty: Ty<'_>) -> bool {
-	let mut walk = ty.walk();
-	while let Some(arg) = walk.next() {
-		match arg.as_type() {
-			Some(ty) if crate::lower::bytes_ref(ty) => return true,
-			Some(ty) if matches!(ty.kind(), ty::Closure(..)) => walk.skip_current_subtree(),
-			_ => {}
-		}
-	}
-	false
+	ty.walk().any(|arg| arg.as_type().is_some_and(crate::lower::bytes_ref))
 }
 
 /// The element type of a slice, array, or `Vec`.
