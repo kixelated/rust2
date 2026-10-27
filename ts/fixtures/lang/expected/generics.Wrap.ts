@@ -196,13 +196,13 @@ export function area$Area_Shape(self: Wrap<Shape.Shape>): rt.u64 {
 /** A default method, monomorphized for each type. */
 export function describe$Area_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 0);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area_Meters(self)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area_Meters(self))));
 }
 
 /** A default method, monomorphized for each type. */
 export function describe$Area_Shape(self: Wrap<Shape.Shape>, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area_Shape(self)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area_Shape(self))));
 }
 
 //# sourceMappingURL=generics.Wrap.ts.map

@@ -66,12 +66,12 @@ async function extraRoute(arg: string): Promise<{ name: string; codec: Uint8Arra
 	if (at < 1 || at === arg.length - 1) throw new Error(`--route takes name=dir, not ${arg}`);
 	if ([...codecRoutes, ...handoffRoutes].includes(name)) throw new Error(`--route ${name} is already a route`);
 	const dir = resolve(arg.slice(at + 1));
-	const codec = join(dir, "translated", "bench.ts");
+	const codec = join(dir, "translated");
 	const task = join(dir, "task");
-	for (const file of [codec, join(task, "model.ts")]) {
+	for (const file of [join(codec, "bench.ts"), join(task, "model.ts")]) {
 		if (!(await Bun.file(file).exists())) throw new Error(`--route ${name}: ${file} is missing`);
 	}
-	return { name, codec: await bundle(codec), task: await bundle(await taskEntry(task)) };
+	return { name, codec: await bundle(await codecEntry(codec)), task: await bundle(await taskEntry(task)) };
 }
 
 // `moq/` is the checkout, whose own imports resolve through its install.
@@ -102,7 +102,21 @@ const page = `<!doctype html>
 `;
 
 const handWritten = join(import.meta.dir, "moq.ts");
-const translated = join(arg("translated"), "bench.ts");
+
+// The codec fixture's translation, whose `bench::run` takes its input as a byte slice.
+async function codecEntry(dir: string): Promise<string> {
+	const entry = join(dir, "bench-entry.ts");
+	await Bun.write(
+		entry,
+		`import * as rt from "./rt.ts";
+import { run as bench } from "./bench.ts";
+
+export const run = (input: Uint8Array) => bench(rt.byteSliceFrom(input));
+`,
+	);
+	return entry;
+}
+const translated = await codecEntry(arg("translated"));
 const wasmBytes = await read(arg("wasm"));
 const translation = await bundle(translated);
 const handBundle = await bundle(handWritten, [moq]);

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 72
-- Function instances: 59
+- Refusals: 74
+- Function instances: 61
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -9,9 +9,9 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 7 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:16:2 |
+| 7 | unsupported call to `_` | fixtures/reject/src/lib.rs:32:4 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:27:15 |
 | 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:15:13 |
-| 6 | unsupported call to `_` | fixtures/reject/src/lib.rs:32:4 |
 | 4 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:107:2 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
 | 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:55:2 |
@@ -31,6 +31,7 @@
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:325:9 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:199:51 |
+| 1 | a coercion to `_` | fixtures/reject/src/lib.rs:372:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:102:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:283:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:258:13 |
@@ -59,13 +60,14 @@ The type or module each refused type or path belongs to.
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:94:16 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:55:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:15:13 |
+| 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:123:2 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:166:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:107:2 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:127:20 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:294:6 |
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:294:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:143:2 |
-| 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:123:2 |
+| 2 | `std::slice` | fixtures/reject/src/lib.rs:32:4 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:186:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:240:1 |
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:317:6 |
@@ -82,8 +84,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:289:7 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:207:8 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:153:11 |
-| 1 | `std::slice` | fixtures/reject/src/lib.rs:32:4 |
-| 1 | `std::str` | fixtures/reject/src/lib.rs:372:4 |
+| 1 | `std::str` | fixtures/reject/src/lib.rs:382:4 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:148:2 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:74:2 |
@@ -109,6 +110,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:325:9 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:118:2 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:199:51 |
+| 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:372:2 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:102:2 |
 | 1 | a field of `_` | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:289:48 |
 | 1 | a field of `_` | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:289:7 |
@@ -129,13 +131,14 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:166:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:220:2 |
 | 1 | replacing the value behind a reference to `_` | `[u8; 1]` | fixtures/reject/src/lib.rs:272:22 |
-| 1 | replacing the value behind a reference to `_` | `std::string::String` | fixtures/reject/src/lib.rs:367:4 |
+| 1 | replacing the value behind a reference to `_` | `std::string::String` | fixtures/reject/src/lib.rs:377:4 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:153:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:96:10 |
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:48:18 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:207:8 |
+| 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:367:4 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:32:4 |
-| 1 | unsupported call to `_` | `std::str::split` | fixtures/reject/src/lib.rs:372:4 |
+| 1 | unsupported call to `_` | `std::str::split` | fixtures/reject/src/lib.rs:382:4 |
 | 1 | unsupported type `_` | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:10:16 |
 
 ## Spans
@@ -149,6 +152,18 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:148:2: an assignment through a reference to `std::sync::MutexGuard<'_, u8>`
 - fixtures/reject/src/lib.rs:266:2: an assignment through a reference to `std::pin::Pin<&mut Noisy>`
 - fixtures/reject/src/lib.rs:360:3: an assignment through a reference to `u8`
+
+</details>
+
+<details><summary>unsupported call to `_` (7)</summary>
+
+- fixtures/reject/src/lib.rs:32:4: unsupported call to `std::slice::<impl [u8]>::sort`
+- fixtures/reject/src/lib.rs:48:18: unsupported call to `std::mem::size_of_val::<Noisy>`
+- fixtures/reject/src/lib.rs:96:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
+- fixtures/reject/src/lib.rs:153:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
+- fixtures/reject/src/lib.rs:207:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
+- fixtures/reject/src/lib.rs:367:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
+- fixtures/reject/src/lib.rs:382:4: unsupported call to `core::str::<impl str>::split::<&str>`
 
 </details>
 
@@ -170,18 +185,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:64:10: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:94:16: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
 - fixtures/reject/src/lib.rs:359:29: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it
-- fixtures/reject/src/lib.rs:366:15: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
-
-</details>
-
-<details><summary>unsupported call to `_` (6)</summary>
-
-- fixtures/reject/src/lib.rs:32:4: unsupported call to `std::slice::<impl [u8]>::sort`
-- fixtures/reject/src/lib.rs:48:18: unsupported call to `std::mem::size_of_val::<Noisy>`
-- fixtures/reject/src/lib.rs:96:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
-- fixtures/reject/src/lib.rs:153:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
-- fixtures/reject/src/lib.rs:207:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
-- fixtures/reject/src/lib.rs:372:4: unsupported call to `core::str::<impl str>::split::<&str>`
+- fixtures/reject/src/lib.rs:376:15: `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it
 
 </details>
 
@@ -190,7 +194,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:107:2: replacing the value behind a reference to `Meters`
 - fixtures/reject/src/lib.rs:111:2: replacing the value behind a reference to `Meters`
 - fixtures/reject/src/lib.rs:272:22: replacing the value behind a reference to `[u8; 1]`
-- fixtures/reject/src/lib.rs:367:4: replacing the value behind a reference to `std::string::String`
+- fixtures/reject/src/lib.rs:377:4: replacing the value behind a reference to `std::string::String`
 
 </details>
 
@@ -309,6 +313,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` (1)</summary>
 
 - fixtures/reject/src/lib.rs:199:51: a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:199:15: 199:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold`
+
+</details>
+
+<details><summary>a coercion to `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:372:2: a coercion to `std::sync::Arc<[u8]>`
 
 </details>
 
