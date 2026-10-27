@@ -325,10 +325,13 @@ time_once() { # corpus dir scenario variant prepare cargo-args...
             counts=$(rajit_counts "$dir")
         fi
         # hyperfine sends only stdout to the log; nextest and cargo report on stderr.
-        hyperfine --style none --runs 1 --prepare "$prepare && { $warm; } && sync" --export-json "$json" --output "$log" "${failure[@]}" \
+        # TEMPORARY (dropped before merge): KiB read from disk while warming and during the timed run.
+        local pgpgin="awk '/^pgpgin /{print \$2}' /proc/vmstat"
+        hyperfine --style none --runs 1 --prepare "$prepare && $pgpgin >$out/raw/.pg0 && { $warm; } && sync && $pgpgin >$out/raw/.pg1" --export-json "$json" --output "$log" "${failure[@]}" \
             --shell bash "$(printf '%q ' cargo "${sub[@]}" "$@") 2>&1" ||
             { tail -40 "$log" >&2 && die "$corpus $scenario failed with $variant"; }
-        measurement=$(jq -c '.results[0].measurements[0]' "$json")
+        measurement=$(jq -c --argjson a "$(<"$out/raw/.pg0")" --argjson b "$(<"$out/raw/.pg1")" --argjson c "$(bash -c "$pgpgin")" \
+            '.results[0].measurements[0] + {disk_read_mib: {warm: (($b - $a) / 1024 | round), run: (($c - $b) / 1024 | round)}}' "$json")
         if ((${#failure[@]})); then
             # "Summary [  34.7s] 5418 tests run: 5376 passed, 42 failed, 33 skipped"
             summary=$(sed -n 's/^ *Summary \[.*\] \([0-9]*\) tests run: \([0-9]*\) passed.*/\1 \2/p' "$log")
