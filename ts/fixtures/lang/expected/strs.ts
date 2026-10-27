@@ -5,9 +5,9 @@ import { put } from "./fmt.ts";
 import * as Named from "./strs.Named.ts";
 
 /** A char of the alphabet for each byte, by its low bits. */
-export function text(data: Uint8Array): string {
+export function text(data: rt.ByteSlice): string {
 	let s: string = "";
-	const iterS: Uint8Array = data;
+	const iterS: Uint8Array = rt.byteSliceView(data);
 	let iterI: number = 0;
 	while (true) {
 		const _5: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
@@ -23,8 +23,8 @@ export function text(data: Uint8Array): string {
 }
 
 /** Whether the `i`th step reads from the back: by the byte's high bit. */
-export function fromBack(data: Uint8Array, i: rt.usize): boolean {
-	const _3: rt.u8 | undefined = rt.sliceGet(data, i);
+export function fromBack(data: rt.ByteSlice, i: rt.usize): boolean {
+	const _3: rt.u8 | undefined = rt.byteSliceGet(data, i);
 	if (_3 !== undefined) {
 		if ((_3 & 128) !== 0) {
 			return true;
@@ -37,7 +37,7 @@ export function putChar(out: rt.ByteVec, c: rt.char | undefined): void {
 	if (c === undefined) {
 		rt.byteVecPush(out, 255);
 	} else {
-		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(c as rt.u32));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(c as rt.u32)));
 	}
 }
 
@@ -45,7 +45,7 @@ export function putOffset(out: rt.ByteVec, i: rt.usize | undefined): void {
 	if (i === undefined) {
 		rt.byteVecPush(out, 254);
 	} else {
-		rt.byteVecExtendFromSlice(out, rt.u32ToBeBytes(i as rt.u32));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(i as rt.u32)));
 	}
 }
 
@@ -63,7 +63,7 @@ export function putSeen(out: rt.ByteVec, seen: rt.char[]): void {
 	rt.byteVecPush(out, 253);
 }
 
-export function strs(kind: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let c!: rt.char | undefined;
 	let part!: string | undefined;
 	let part3!: string | undefined;

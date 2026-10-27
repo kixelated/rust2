@@ -7,9 +7,9 @@ import * as Fault from "./fmt.Fault.ts";
 import { run as harness } from "./harness.ts";
 import * as rt from "./rt.ts";
 
-export function run(input: Uint8Array): rt.ByteVec {
-	if (input[0] !== 0xff) return harness(input);
-	const fault = Fault.new(input.subarray(1));
+export function run(input: rt.ByteSlice): rt.ByteVec {
+	if (rt.byteSliceFirst(input) !== 0xff) return harness(input);
+	const fault = Fault.new(rt.byteSliceRange(input, 1));
 	const display: rt.Fmt = (f) => Fault.fmt$Display(fault, f);
 	const debug: rt.Fmt = (f) => Fault.fmt$Debug(fault, f);
 	const text = rt.fmtFormat([

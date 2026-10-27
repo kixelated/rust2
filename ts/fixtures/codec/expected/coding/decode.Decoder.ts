@@ -14,7 +14,7 @@ import type * as Control from "../stats.Control.ts";
  * [`DecodeError::Short`] can be retried once more bytes arrive.
  */
 export interface Decoder {
-	buf: Uint8Array;
+	buf: rt.ByteSlice;
 	form: Form.Form;
 	/** The length of the buffer this decoder started with. */
 	len: rt.usize;
@@ -30,7 +30,7 @@ export interface Decoder {
 }
 
 /** Read `buf`, with varints in the given form. */
-function new_(buf: Uint8Array, form: Form.Form): Decoder {
+function new_(buf: rt.ByteSlice, form: Form.Form): Decoder {
 	return { buf, form: copy$Form(form), len: buf.length, need: 0, control: undefined, uncounted: 0 };
 }
 
@@ -62,8 +62,8 @@ export function isEmpty(self: Decoder): boolean {
 }
 
 /** Read `len` raw bytes. */
-export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	const _6: [Uint8Array, Uint8Array] | undefined = rt.sliceSplitAtChecked(self.buf, len);
+export function slice(self: Decoder, len: rt.usize): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
+	const _6: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitAtChecked(self.buf, len);
 	if (_6 !== undefined) {
 		self.buf = _6[1];
 		return rt.Ok(_6[0]);
@@ -72,15 +72,15 @@ export function slice(self: Decoder, len: rt.usize): rt.Result<Uint8Array, Decod
 }
 
 /** Read every remaining byte. */
-export function rest(self: Decoder): Uint8Array {
+export function rest(self: Decoder): rt.ByteSlice {
 	const taken = self.buf;
-	self.buf = new Uint8Array(0);
+	self.buf = rt.byteSliceFrom(new Uint8Array(0));
 	return taken;
 }
 
 /** Split off the next `len` bytes as their own decoder, e.g. a size-prefixed body. */
 export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeError.DecodeError> {
-	const _4: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, len);
+	const _4: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = slice(self, len);
 	if (_4.ok) {
 		return rt.Ok(new_(_4.value, copy$Form(self.form)));
 	}
@@ -89,22 +89,22 @@ export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeErro
 
 /** Read a single byte. */
 export function u8(self: Decoder): rt.Result<rt.u8, DecodeError.DecodeError> {
-	const _3: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, 1);
+	const _3: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = slice(self, 1);
 	if (_3.ok) {
 		rt.idx(_3.value, 0);
-		return rt.Ok(_3.value[0]);
+		return rt.Ok(_3.value.data[_3.value.start]);
 	}
 	return _3;
 }
 
 /** Read a big-endian `u16`. */
 export function u16(self: Decoder): rt.Result<rt.u16, DecodeError.DecodeError> {
-	const _2: rt.Result<Uint8Array, DecodeError.DecodeError> = slice(self, 2);
+	const _2: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = slice(self, 2);
 	if (_2.ok) {
 		rt.idx(_2.value, 0);
-		const _9: rt.u8 = _2.value[0];
+		const _9: rt.u8 = _2.value.data[_2.value.start];
 		rt.idx(_2.value, 1);
-		return rt.Ok((_9 << 8) | _2.value[1]);
+		return rt.Ok((_9 << 8) | _2.value.data[_2.value.start + 1]);
 	}
 	return _2;
 }
@@ -128,9 +128,9 @@ export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError>
 /** Read a varint. */
 export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError> {
 	let _0!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	const _13: Uint8Array = self.buf;
+	const _13: rt.ByteSlice = self.buf;
 	const _3: Form.Form = copy$Form(self.form);
-	const _2: rt.Result<[rt.u64, Uint8Array], DecodeError.DecodeError> = read(_13, _3);
+	const _2: rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> = read(_13, _3);
 	if (_2.ok) {
 		const value: rt.u64 = _2.value[0];
 		self.buf = _2.value[1];
@@ -153,8 +153,8 @@ export function varintOpt(self: Decoder): rt.Result<rt.u64 | undefined, DecodeEr
 }
 
 /** Read a varint length, then that many raw bytes. */
-export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeError> {
-	const start: Uint8Array = self.buf;
+export function bytes(self: Decoder): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
+	const start: rt.ByteSlice = self.buf;
 	const _6: rt.Result<rt.u64, DecodeError.DecodeError> = varint(self);
 	if (_6.ok) {
 		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = rt.resultMapErr(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
@@ -172,9 +172,9 @@ export function bytes(self: Decoder): rt.Result<Uint8Array, DecodeError.DecodeEr
 
 /** Read a varint length, then that many bytes of UTF-8. */
 export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError> {
-	const _5: rt.Result<Uint8Array, DecodeError.DecodeError> = bytes(self);
+	const _5: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = bytes(self);
 	if (_5.ok) {
-		const _2: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(_5.value));
+		const _2: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(_5.value));
 		if (_2.ok) {
 			return rt.Ok(_2.value);
 		}

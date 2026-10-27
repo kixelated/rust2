@@ -132,9 +132,9 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		});
 	}
 	match ty.peel_refs().kind() {
-		ty::Slice(_) | ty::Array(..) => Some(Expr::rt("iterSlice", vec![value])),
+		ty::Slice(_) | ty::Array(..) => Some(Expr::rt("iterSlice", vec![library::elements(value, ty)])),
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
-			Std::Vec => Some(Expr::rt("iterSlice", vec![library::vec_view(value, ty)])),
+			Std::Vec => Some(Expr::rt("iterSlice", vec![library::elements(value, ty)])),
 			Std::Option => {
 				option_ok(b, args.type_at(0), span);
 				Some(Expr::rt("iterOption", vec![value]))
@@ -197,7 +197,9 @@ pub fn call<'tcx>(
 	// Where iterators come from.
 	match (owner, name) {
 		("slice", "iter" | "iter_mut") => {
-			return Some(Expr::rt("iterSlice", args));
+			let s = args.pop()?;
+			let s = library::elements(s, Ty::new_slice(tcx, targ(0)?));
+			return Some(Expr::rt("iterSlice", vec![s]));
 		}
 		("Option", "iter" | "iter_mut") => {
 			option_ok(b, targ(0)?, span);

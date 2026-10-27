@@ -7,7 +7,7 @@ import * as Meters from "./shapes.Meters.ts";
 import * as Point from "./shapes.Point.ts";
 import { returnedNever, tailBreak } from "./shapes.ts";
 
-export function mixed(data: Uint8Array): void {
+export function mixed(data: rt.ByteSlice): void {
 	returnedNever(7, 1);
 	const meters: Meters.Meters = { _0: tailBreak(data) as rt.u64 };
 	// @ts-expect-error A `u16` is not a `u8`.
