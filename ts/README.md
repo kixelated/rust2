@@ -192,7 +192,10 @@ panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
 function of its type's own (`drop$Held`). The runtime functions for std's collections,
 `Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
-take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+take what drops each value they may drop, and drop it where std's do. So do iterators: one
+that owns its items, as a `Vec`'s `into_iter` or a map's `drain` does, drops those it still
+holds by `[Symbol.dispose]`, an adaptor drops what it skips or rejects, and a consumer that
+takes an iterator by value drops it, a panic included. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.

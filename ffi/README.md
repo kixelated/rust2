@@ -46,9 +46,11 @@ exclude = ["Patterns::iter"]
 # The instances a generic type exports at, by its path, and their C names without the
 # prefix. An argument is `()`, a primitive, `String`, or an exported type by its path
 # from its package's name in snake case, itself an instance if generic. Trailing
-# arguments left out take their defaults.
+# arguments left out take their defaults. A generic function or method's key names the
+# argument of each of its type parameters, an `impl Trait` one by its argument's name.
 [crates.moq-mux.instances]
 "catalog::Producer<moq_mux::catalog::hang::Extra>" = "catalog_producer"
+"catalog::Producer::binary_stream(config: moq_mux::binary::Config)" = "catalog_producer_binary_stream"
 ```
 
 ## Rules
@@ -65,6 +67,7 @@ export's, and adds nothing; another crate's type is refused.
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
 | a generic type, at each instance `instances` names | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
+| a generic function or method, at each instance `instances` names | that instance in place of the rules below, at each instance of its type; one whose bounds fail, or that nothing exported reaches, is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | `fn` and inherent `pub` methods | functions named through their type |
@@ -118,8 +121,8 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by `instances`, and its methods through
-  that name. An `exclude` of a method by the generic type's path leaves it out of every
+  `moq_session_stats`. An instance is named by `instances`, and a type instance's
+  methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
   instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
   out of that one; a `rename` of a method by the generic type's path names it at every
   instance.
@@ -158,5 +161,6 @@ then it breaks each runtime check, which must abort with its message. The `rejec
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
-track in one process, polling each read, scopes an origin to moq-pattern's patterns, and
-reads an OpusHead into hang's catalog through moq-mux.
+track in one process, polling each read, scopes an origin to moq-pattern's patterns and
+hands it to a client to publish, reads an OpusHead into hang's catalog through moq-mux,
+and publishes a binary track the catalog lists.

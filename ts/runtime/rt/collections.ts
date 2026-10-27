@@ -16,7 +16,7 @@
 
 import { type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterToArray, type RangeInclusive } from "./iter.ts";
+import { DONE, type Done, Iter, iterSlice, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
 
 // Ordering
@@ -560,64 +560,94 @@ const ENTRIES = 0;
 const KEYS = 1;
 const VALUES = 2;
 
-/** An iterator of a hash collection: `iter`, `keys`, `values`, `drain`, and the rest. */
-class HashIter<K, V, T> extends Iter<T> {
+/**
+ * An iterator of a hash collection: `iter`, `keys`, `values`, `drain`, and the rest.
+ * One that owns its entries is given what drops each key and value of those that drop,
+ * and drops each entry it still holds as it drops.
+ */
+export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
 	private at: Slot<K, V> | undefined;
 	private readonly pick: Pick;
-	private left: number;
+	left: number;
+	private readonly k: ((key: K) => void) | undefined;
+	private readonly v: ((value: V) => void) | undefined;
+	/** Whether it is a `drain`, whose `count` reads each entry, as an `into_iter`'s does not. */
+	readonly drain: boolean;
 
-	constructor(m: HashMap<K, V>, pick: Pick) {
+	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
 		this.p = m.p.entries();
 		this.o = m.o?.values();
 		this.pick = pick;
 		this.left = hashLen(m);
+		this.k = k;
+		this.v = v;
+		this.drain = drain;
+	}
+
+	/** The next entry, of the `left` it has. */
+	private entry(): [K, V] {
+		const entry = this.p.next();
+		if (!entry.done) return entry.value;
+		if (this.at === undefined) this.at = (this.o as Iterator<Slot<K, V>>).next().value;
+		const s = this.at as Slot<K, V>;
+		this.at = s.next;
+		return [s.k, s.v];
 	}
 
 	next(): T | Done {
 		if (this.left === 0) return DONE;
 		this.left--;
-		const entry = this.p.next();
-		if (!entry.done) {
-			const [k, v] = entry.value;
-			return (this.pick === ENTRIES ? entry.value : this.pick === KEYS ? k : v) as T;
-		}
-		if (this.at === undefined) this.at = (this.o as Iterator<Slot<K, V>>).next().value;
-		const s = this.at as Slot<K, V>;
-		this.at = s.next;
-		return (this.pick === ENTRIES ? [s.k, s.v] : this.pick === KEYS ? s.k : s.v) as T;
+		const entry = this.entry();
+		if (this.pick === ENTRIES) return entry as T;
+		return (this.pick === KEYS ? entry[0] : entry[1]) as unknown as T;
 	}
 
 	override len(): number {
 		return this.left;
 	}
+
+	[Symbol.dispose](): void {
+		if (this.k === undefined && this.v === undefined) return;
+		// A panic leaves the entries after it undropped, as std's table does, even as what
+		// consumed it drops it again.
+		const n = this.left;
+		this.left = 0;
+		for (let i = 0; i < n; i++) {
+			const [key, value] = this.entry();
+			dropPair(key, value, this.k, this.v);
+		}
+	}
 }
 
-/** `iter`, `iter_mut`, and `into_iter` of a map: its entries, as `[key, value]`. */
-export function hashIter<K, V>(m: HashMap<K, V>): Iter<[K, V]> {
-	return new HashIter<K, V, [K, V]>(m, ENTRIES);
+/**
+ * `iter` and `iter_mut` of a map, and with what drops each key and value of those that
+ * drop, `into_iter`: its entries, as `[key, value]`.
+ */
+export function hashIter<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<[K, V]> {
+	return new HashIter<K, V, [K, V]>(m, ENTRIES, k, v);
 }
 
-/** `keys` and `into_keys` of a map, and `iter` and `into_iter` of a set. */
-export function hashKeys<K, V>(m: HashMap<K, V>): Iter<K> {
-	return new HashIter<K, V, K>(m, KEYS);
+/** `keys` of a map and `iter` of a set, and with what drops each key, `into_keys` of values that don't drop and `into_iter`. */
+export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void): Iter<K> {
+	return new HashIter<K, V, K>(m, KEYS, k);
 }
 
-/** `values`, `values_mut`, and `into_values`. */
-export function hashValues<K, V>(m: HashMap<K, V>): Iter<V> {
-	return new HashIter<K, V, V>(m, VALUES);
+/** `values` and `values_mut`, and with what drops each value, `into_values` of keys that don't drop. */
+export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void): Iter<V> {
+	return new HashIter<K, V, V>(m, VALUES, undefined, v);
 }
 
-/** `drain` of a map: every entry, taken out at once. */
-export function hashDrain<K, V>(m: HashMap<K, V>): Iter<[K, V]> {
-	return hashIter(taken(m));
+/** `drain` of a map: every entry, taken out at once, which drops as `hashIter`'s. */
+export function hashDrain<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<[K, V]> {
+	return new HashIter<K, V, [K, V]>(taken(m), ENTRIES, k, v, true);
 }
 
 /** `drain` of a set: every key, taken out at once. */
-export function hashDrainKeys<K, V>(m: HashMap<K, V>): Iter<K> {
-	return hashKeys(taken(m));
+export function hashDrainKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void): Iter<K> {
+	return new HashIter<K, V, K>(taken(m), KEYS, k, undefined, true);
 }
 
 /** What `m` held, which it no longer does. */
@@ -629,21 +659,58 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
 }
 
 /**
- * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`. Of
- * equal keys, the first stays and each later one drops, then the value it replaced.
+ * Run `f`, which extends `c` from `items`, and then drop `items` by `dropIt`, as std's
+ * `extend` drops the iterator it takes. A panic drops `items`, and then, if `c` is
+ * `fresh`, one `collect` made, `c` by `drop`.
  */
-export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void): HashMap<K, V> {
-	for (let item = items.next(); item !== DONE; item = items.next()) {
-		const old = hashInsert(m, item[0], item[1], k, v);
-		if (old !== undefined) v?.(old);
+function extending<C, T>(c: C, items: Iter<T>, f: () => void, dropIt?: (it: Iter<T>) => void, fresh = false, drop?: (c: C) => void): C {
+	if (dropIt === undefined && !fresh) {
+		f();
+		return c;
 	}
-	return m;
+	try {
+		try {
+			f();
+		} catch (e) {
+			dropIt?.(items);
+			throw e;
+		}
+		dropIt?.(items);
+	} catch (e) {
+		if (fresh) drop?.(c);
+		throw e;
+	}
+	return c;
 }
 
-/** `extend` of a set with keys, and `collect` into one through `hashNew`: a key already there drops. */
-export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void): HashSet<K> {
-	for (let key = keys.next(); key !== DONE; key = keys.next()) hashAdd(m, key, k);
-	return m;
+/**
+ * `extend` of a map with `[key, value]`s, and if `fresh`, `collect` into one through
+ * `hashNew`. Of equal keys, the first stays and each later one drops, then the value it
+ * replaced.
+ */
+export function hashExtend<K, V>(
+	m: HashMap<K, V>,
+	items: Iter<[K, V]>,
+	k?: (key: K) => void,
+	v?: (value: V) => void,
+	dropIt?: (it: Iter<[K, V]>) => void,
+	fresh = false,
+): HashMap<K, V> {
+	const f = () => {
+		for (let item = items.next(); item !== DONE; item = items.next()) {
+			const old = hashInsert(m, item[0], item[1], k, v);
+			if (old !== undefined) v?.(old);
+		}
+	};
+	return extending(m, items, f, dropIt, fresh, (m) => hashDrop(m, k, v));
+}
+
+/** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
+export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void, fresh = false): HashSet<K> {
+	const f = () => {
+		for (let key = keys.next(); key !== DONE; key = keys.next()) hashAdd(m, key, k);
+	};
+	return extending(m, keys, f, dropIt, fresh, (m) => hashDrop(m, k));
 }
 
 /** `clone`, with each key and value through its `Clone`, or as itself without one. */
@@ -1122,9 +1189,11 @@ export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => bo
 /**
  * An iterator of a B-tree's entries, keys, or values, from index `fi` of leaf `fl` up to
  * before index `bi` of leaf `bl`. The front moves to the next leaf as it passes a leaf's
- * last key, and the back to the previous leaf as it passes a leaf's first key.
+ * last key, and the back to the previous leaf as it passes a leaf's first key. One that
+ * owns its entries drops as `HashIter` does, but a panic dropping one still drops the
+ * rest, as std's B-trees do.
  */
-class BTreeIter<K, V, T> extends Iter<T> {
+export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 	fl: Leaf<K, V>;
 	fi: number;
 	bl: Leaf<K, V>;
@@ -1132,8 +1201,12 @@ class BTreeIter<K, V, T> extends Iter<T> {
 	/** How many items are left, where it is known: an iterator of the whole map. */
 	private n: number;
 	private readonly pick: Pick;
+	private readonly k: ((key: K) => void) | undefined;
+	private readonly v: ((value: V) => void) | undefined;
+	/** Whether its `last` reads from the back, as a map's `into_keys`' and `into_values`' do. */
+	readonly back: boolean;
 
-	constructor(pick: Pick, fl: Leaf<K, V>, fi: number, bl: Leaf<K, V>, bi: number, n = -1) {
+	constructor(pick: Pick, fl: Leaf<K, V>, fi: number, bl: Leaf<K, V>, bi: number, n = -1, k?: (key: K) => void, v?: (value: V) => void, back = false) {
 		super();
 		this.pick = pick;
 		if (fi === fl.k.length && fl.next !== undefined) {
@@ -1149,34 +1222,70 @@ class BTreeIter<K, V, T> extends Iter<T> {
 		this.bl = bl;
 		this.bi = bi;
 		this.n = n;
+		this.k = k;
+		this.v = v;
+		this.back = back;
 	}
 
 	next(): T | Done {
 		if (done(this)) return DONE;
 		const l = this.fl;
-		const item = picked<K, V, T>(this.pick, l, this.fi++);
+		const i = this.fi++;
 		if (this.fi === l.k.length && l.next !== undefined) {
 			this.fl = l.next;
 			this.fi = 0;
 		}
 		this.n--;
-		return item;
+		return this.picked(l, i);
 	}
 
 	override nextBack(): T | Done {
 		if (done(this)) return DONE;
 		const l = this.bl;
-		const item = picked<K, V, T>(this.pick, l, --this.bi);
+		const i = --this.bi;
 		if (this.bi === 0 && l.prev !== undefined) {
 			this.bl = l.prev;
 			this.bi = this.bl.k.length;
 		}
 		this.n--;
-		return item;
+		return this.picked(l, i);
+	}
+
+	/**
+	 * What it yields of index `i` of leaf `l`: of `into_keys` or `into_values`, the other
+	 * half drops first, and a panic there leaks this one, as std's unwinding does a
+	 * returned value.
+	 */
+	private picked(l: Leaf<K, V>, i: number): T {
+		if (this.pick === ENTRIES) return [l.k[i], l.v[i]] as T;
+		if (this.pick === KEYS) {
+			this.v?.(l.v[i]);
+			return l.k[i] as unknown as T;
+		}
+		this.k?.(l.k[i]);
+		return l.v[i] as unknown as T;
 	}
 
 	override len(): number {
 		return this.n;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.k === undefined && this.v === undefined) return;
+		const keys: K[] = [];
+		const values: V[] = [];
+		while (!done(this)) {
+			const l = this.fl;
+			keys.push(l.k[this.fi]);
+			values.push(l.v[this.fi]);
+			this.fi++;
+			if (this.fi === l.k.length && l.next !== undefined) {
+				this.fl = l.next;
+				this.fi = 0;
+			}
+		}
+		this.n = 0;
+		dropPairs(keys, values, this.k, this.v);
 	}
 }
 
@@ -1185,29 +1294,30 @@ function done<K, V, T>(it: BTreeIter<K, V, T>): boolean {
 	return it.fl === it.bl ? it.fi >= it.bi : it.fi === 0 && it.bl.next === it.fl && it.bi === it.bl.k.length;
 }
 
-/** What `pick` yields of index `i` of leaf `l`. */
-function picked<K, V, T>(pick: Pick, l: Leaf<K, V>, i: number): T {
-	return (pick === ENTRIES ? [l.k[i], l.v[i]] : pick === KEYS ? l.k[i] : l.v[i]) as T;
-}
-
-function whole<K, V, T>(m: BTreeMap<K, V>, pick: Pick): Iter<T> {
+function whole<K, V, T>(m: BTreeMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, back = false): Iter<T> {
 	const last = end(m, true);
-	return new BTreeIter<K, V, T>(pick, end(m, false), 0, last, last.k.length, m.n);
+	return new BTreeIter<K, V, T>(pick, end(m, false), 0, last, last.k.length, m.n, k, v, back);
 }
 
-/** `iter`, `iter_mut`, and `into_iter` of a map: its entries in key order. */
-export function btreeIter<K, V>(m: BTreeMap<K, V>): Iter<[K, V]> {
-	return whole(m, ENTRIES);
+/**
+ * `iter` and `iter_mut` of a map, and with what drops each key and value of those that
+ * drop, `into_iter`: its entries in key order.
+ */
+export function btreeIter<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<[K, V]> {
+	return whole(m, ENTRIES, k, v);
 }
 
-/** `keys` and `into_keys` of a map, and `iter` and `into_iter` of a set. */
-export function btreeKeys<K, V>(m: BTreeMap<K, V>): Iter<K> {
-	return whole(m, KEYS);
+/**
+ * `keys` of a map and `iter` of a set, and with droppers as `btreeIter`'s, `into_iter` of
+ * a set, or with `back`, `into_keys`.
+ */
+export function btreeKeys<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (value: V) => void, back = false): Iter<K> {
+	return whole(m, KEYS, k, v, back);
 }
 
-/** `values`, `values_mut`, and `into_values`. */
-export function btreeValues<K, V>(m: BTreeMap<K, V>): Iter<V> {
-	return whole(m, VALUES);
+/** `values` and `values_mut`, and with droppers as `btreeIter`'s, `into_values`. */
+export function btreeValues<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<V> {
+	return whole(m, VALUES, k, v, k !== undefined || v !== undefined);
 }
 
 /**
@@ -1257,61 +1367,93 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, numb
 
 /**
  * `extend` of a map with `[key, value]`s, which keeps an equal key already there and drops
- * the one given, then the value it replaced. With `last`, `collect` and `from` into an
- * empty one, which keep the last of equal keys: std's sorts every entry by key, stably,
- * and then drops each but the last of equal keys in that order.
+ * the one given, then the value it replaced, and drops `items` by `dropIt` once done. With
+ * `last`, `collect` and `from` of entries that drop nothing into an empty one, which keep
+ * the last of equal keys, as `btreeCollect` does.
  */
-export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last = false, k?: (key: K) => void, v?: (value: V) => void): BTreeMap<K, V> {
-	if (last && (k !== undefined || v !== undefined)) {
-		const sorted = iterToArray(items).sort((a, b) => m.c(a[0], b[0]));
-		for (let i = 0; i < sorted.length; i++) {
-			if (i + 1 < sorted.length && m.c(sorted[i][0], sorted[i + 1][0]) === 0) {
-				k?.(sorted[i][0]);
-				v?.(sorted[i][1]);
+export function btreeExtend<K, V>(
+	m: BTreeMap<K, V>,
+	items: Iter<[K, V]>,
+	last = false,
+	k?: (key: K) => void,
+	v?: (value: V) => void,
+	dropIt?: (it: Iter<[K, V]>) => void,
+): BTreeMap<K, V> {
+	const f = () => {
+		for (let item = items.next(); item !== DONE; item = items.next()) {
+			if (!last) {
+				const old = btreeInsert(m, item[0], item[1], k, v);
+				if (old !== undefined) v?.(old);
 				continue;
 			}
-			btreeInsert(m, sorted[i][0], sorted[i][1]);
+			const l = leafOf(m, item[0]);
+			const i = search(l.k, item[0], m.c);
+			if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
+			else {
+				l.k[i] = item[0];
+				l.v[i] = item[1];
+			}
 		}
-		return m;
-	}
-	for (let item = items.next(); item !== DONE; item = items.next()) {
-		if (!last) {
-			const old = btreeInsert(m, item[0], item[1], k, v);
-			if (old !== undefined) v?.(old);
-			continue;
-		}
-		const l = leafOf(m, item[0]);
-		const i = search(l.k, item[0], m.c);
-		if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
-		else {
-			l.k[i] = item[0];
-			l.v[i] = item[1];
-		}
-	}
-	return m;
+	};
+	return extending(m, items, f, dropIt);
 }
 
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
-export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void): BTreeSet<K> {
-	if (last && k !== undefined) {
-		const sorted = iterToArray(keys).sort(m.c);
-		for (let i = 0; i < sorted.length; i++) {
-			if (i + 1 < sorted.length && m.c(sorted[i], sorted[i + 1]) === 0) k(sorted[i]);
-			else btreeAdd(m, sorted[i]);
+export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void): BTreeSet<K> {
+	const f = () => {
+		for (let key = keys.next(); key !== DONE; key = keys.next()) {
+			if (!last) {
+				btreeAdd(m, key, k);
+				continue;
+			}
+			const l = leafOf(m, key);
+			const i = search(l.k, key, m.c);
+			if (i < 0) insertAt(m, l, ~i, key, undefined);
+			else l.k[i] = key;
 		}
-		return m;
-	}
-	for (let key = keys.next(); key !== DONE; key = keys.next()) {
-		if (!last) {
-			btreeAdd(m, key, k);
+	};
+	return extending(m, keys, f, dropIt);
+}
+
+/**
+ * `collect` and `from` into `m`, an empty map, of `entries`, which std's collects into a
+ * `Vec` first: it sorts them by key, stably, and builds the tree of each but the last of
+ * equal keys, which drop in order. A panic dropping one drops the entries after the next
+ * and then the next, which std's had peeked, and leaks the tree built so far, as std's.
+ */
+export function btreeCollect<K, V>(m: BTreeMap<K, V>, entries: [K, V][], k?: (key: K) => void, v?: (value: V) => void): BTreeMap<K, V> {
+	const sorted = entries.sort((a, b) => m.c(a[0], b[0]));
+	const keys: K[] = [];
+	const values: V[] = [];
+	for (let i = 0; i < sorted.length; i++) {
+		const [key, value] = sorted[i];
+		if (i + 1 === sorted.length || m.c(key, sorted[i + 1][0]) !== 0) {
+			keys.push(key);
+			values.push(value);
 			continue;
 		}
-		const l = leafOf(m, key);
-		const i = search(l.k, key, m.c);
-		if (i < 0) insertAt(m, l, ~i, key, undefined);
-		else l.k[i] = key;
+		try {
+			dropPair(key, value, k, v);
+		} catch (e) {
+			try {
+				dropPairs(sorted.map((e) => e[0]), sorted.map((e) => e[1]), k, v, i + 2);
+			} finally {
+				dropPair(sorted[i + 1][0], sorted[i + 1][1], k, v);
+			}
+			throw e;
+		}
 	}
+	build(m, keys, values);
 	return m;
+}
+
+/** `collect` and `from` into `m`, an empty set, of `keys`, as `btreeCollect`. */
+export function btreeCollectKeys<K>(m: BTreeSet<K>, keys: K[], k?: (key: K) => void): BTreeSet<K> {
+	return btreeCollect(
+		m,
+		keys.map((key) => [key, undefined]),
+		k,
+	);
 }
 
 /** `clone`, with each key and value through its `Clone`, or as itself without one. */
@@ -1659,17 +1801,22 @@ export function dequeInsert<T>(q: VecDeque<T>, i: number, item: T): void {
 	q.b[at(q, i)] = item;
 }
 
-/** An iterator of a deque's items from index `front` up to `back`. */
-class DequeIter<T> extends Iter<T> {
+/**
+ * An iterator of a deque's items from index `front` up to `back`, which drops those it
+ * still holds by `drop` as it drops, if it owns them, as a `drain` does.
+ */
+class DequeIter<T> extends Iter<T> implements Disposable {
 	private readonly q: VecDeque<T>;
 	private front: number;
 	private back: number;
+	private readonly drop: ((item: T) => void) | undefined;
 
-	constructor(q: VecDeque<T>, front: number, back: number) {
+	constructor(q: VecDeque<T>, front: number, back: number, drop?: (item: T) => void) {
 		super();
 		this.q = q;
 		this.front = front;
 		this.back = back;
+		this.drop = drop;
 	}
 
 	next(): T | Done {
@@ -1683,15 +1830,28 @@ class DequeIter<T> extends Iter<T> {
 	override len(): number {
 		return this.back - this.front;
 	}
+
+	[Symbol.dispose](): void {
+		if (this.drop === undefined) return;
+		const items: T[] = [];
+		while (this.front < this.back) items.push(this.q.b[at(this.q, this.front++)] as T);
+		dropAll(items, this.drop);
+	}
 }
 
-/** `iter`, `iter_mut`, and `into_iter`. */
-export function dequeIter<T>(q: VecDeque<T>): Iter<T> {
-	return new DequeIter(q, 0, q.n);
+/**
+ * `iter` and `iter_mut`, and with what drops each item, `into_iter`, whose `last`,
+ * `count`, and skips are a `Vec`'s.
+ */
+export function dequeIter<T>(q: VecDeque<T>, drop?: (item: T) => void): Iter<T> {
+	if (drop === undefined) return new DequeIter(q, 0, q.n);
+	const items: T[] = [];
+	for (let i = 0; i < q.n; i++) items.push(q.b[at(q, i)] as T);
+	return iterSlice(items, drop);
 }
 
-/** `drain`: the items within `r`, taken out at once. */
-export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>): Iter<T> {
+/** `drain`: the items within `r`, taken out at once, which drop by `drop` as `dequeIter`'s. */
+export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T) => void): Iter<T> {
 	// As `slice::range` checks it.
 	const [lo, hi, inclusive] = bounds(r);
 	if (hi !== undefined && (inclusive ? hi.key >= q.n : hi.key > q.n)) panic(`range end index ${hi.key} out of range for slice of length ${q.n}`);
@@ -1704,13 +1864,15 @@ export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>): Iter<T> {
 	for (let i = start; i < end; i++) dequePushBack(taken, q.b[at(q, i)] as T);
 	for (let i = end; i < q.n; i++) q.b[at(q, i - (end - start))] = q.b[at(q, i)];
 	dequeTruncate(q, q.n - (end - start));
-	return new DequeIter(taken, 0, taken.n);
+	return new DequeIter(taken, 0, taken.n, drop);
 }
 
-/** `extend`, and `collect` into a deque through `dequeNew`. */
-export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>): VecDeque<T> {
-	for (let item = items.next(); item !== DONE; item = items.next()) dequePushBack(q, item);
-	return q;
+/** `extend`, and `collect` into a deque through `dequeNew`, which drops `items` by `dropIt` once done. */
+export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, dropIt?: (it: Iter<T>) => void): VecDeque<T> {
+	const f = () => {
+		for (let item = items.next(); item !== DONE; item = items.next()) dequePushBack(q, item);
+	};
+	return extending(q, items, f, dropIt);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */
