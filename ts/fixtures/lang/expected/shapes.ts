@@ -12,6 +12,7 @@ import type * as Mover from "./shapes.Mover.ts";
 import * as Point from "./shapes.Point.ts";
 import * as Shape from "./shapes.Shape.ts";
 import type * as Signed from "./shapes.Signed.ts";
+import type * as Slot from "./shapes.Slot.ts";
 import * as Void from "./shapes.Void.ts";
 import type * as Wide from "./shapes.Wide.ts";
 
@@ -192,9 +193,9 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(_211));
 	}
 	if (rt.usizeRem(data.length, 2) === 0) {
-		poll = rt.Pending;
+		poll = rt.Pending as rt.Poll<Uint8Array>;
 	} else {
-		poll = Uint8Array.of(data.length & 0xff);
+		poll = Uint8Array.of(data.length & 0xff) as rt.Poll<Uint8Array>;
 	}
 	const polled_: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
 	if (poll !== rt.Pending) {
@@ -709,7 +710,7 @@ export function loops(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(popped)));
-	let found: [rt.usize, rt.usize] | undefined = undefined;
+	let found = undefined as [rt.usize, rt.usize] | undefined;
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = data.length;
 	l3: while ((_24 = iterStart++) < iterEnd) {
@@ -1320,6 +1321,252 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
+	payloads(data, out);
+	known(data, out);
+}
+
+/** `n`'s result: `Ok` for an even `n`. */
+export function parity(n: rt.u8): rt.Result<rt.u8, rt.u8> {
+	if (!(rt.u8Rem(n, 2) === 0)) {
+		return rt.Err(n);
+	}
+	return rt.Ok(n);
+}
+
+/**
+ * Payloads changed through a borrow, which changes the enum holding them where it is
+ * and none of its copies.
+ */
+export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _86!: rt.u8;
+	let _104!: rt.u8;
+	let _109!: rt.u8;
+	let _128!: Uint8Array;
+	let _133!: rt.u8;
+	let _143!: rt.u8;
+	let _149!: rt.u8;
+	const n: rt.u8 = data.length & 0xff;
+	let res: rt.Result<rt.u8, rt.u8> = parity(n);
+	const before: rt.Result<rt.u8, rt.u8> = res;
+	if (!res.ok) {
+		res = rt.Err(rt.u8WrappingAdd(res.error, 1));
+	}
+	if (res.ok) {
+		res = rt.Ok(res.value ^ 85);
+	}
+	let err: rt.Result<rt.u8, rt.u8> = rt.Err(n);
+	if (!err.ok) {
+		err = rt.Err(rt.u8WrappingAdd(err.error, 3));
+	}
+	let owned: rt.Result<rt.u8, rt.ByteVec> = rt.Ok(n);
+	if (owned.ok) {
+		owned = rt.Ok(rt.u8WrappingAdd(owned.value, 2));
+	}
+	const slot: Slot.Slot = { res: parity(rt.u8WrappingAdd(n, 1)) };
+	if (!slot.res.ok) {
+		const _33: rt.u8 = rt.u8WrappingSub(slot.res.error, 4);
+		slot.res = rt.Err(_33);
+	}
+	let flow: rt.Result<rt.u8, rt.u8> = rt.Err(n);
+	if (!flow.ok) {
+		flow = rt.Err(rt.u8WrappingAdd(flow.error, 9));
+	}
+	let opt: rt.u8 | undefined = n;
+	if (opt !== undefined) {
+		opt = rt.u8WrappingAdd(opt, 7);
+	}
+	let poll = n as rt.Poll<rt.u8>;
+	if (poll !== rt.Pending) {
+		poll = rt.u8WrappingSub(poll, 1);
+	}
+	let nested = parity(rt.u8WrappingAdd(n, 2)) as rt.Poll<rt.Result<rt.u8, rt.u8> | undefined>;
+	if (nested !== rt.Pending) {
+		if (nested !== undefined) {
+			if (!nested.ok) {
+				nested = rt.Err(rt.u8WrappingAdd(nested.error, 6));
+			}
+		}
+	}
+	let caught: rt.Result<rt.u8, rt.u8> = parity(rt.u8WrappingAdd(n, 3));
+	const bump_: () => void = (): void => {
+		if (!caught.ok) {
+			caught = rt.Err(rt.u8WrappingAdd(caught.error, 5));
+		}
+	};
+	bump_();
+	bump_();
+	let replaced: rt.Result<rt.u8, rt.u8> = parity(rt.u8WrappingAdd(n, 4));
+	if (replaced.ok) {
+		const old = replaced.value;
+		replaced = rt.Ok(66);
+		rt.byteVecPush(out, old);
+	}
+	const _80: string = "";
+	let named: rt.Result<string, rt.u8> = rt.Ok(_80);
+	if (named.ok) {
+		named = rt.Ok(named.value + "r");
+	}
+	if (named.ok) {
+		_86 = rt.stringLen(named.value) & 0xff;
+	} else {
+		_86 = named.error;
+	}
+	rt.byteVecPush(out, _86);
+	let taken: rt.Result<rt.u8 | undefined, rt.u8> = rt.Ok(rt.u8CheckedSub(n, 1));
+	if (taken.ok) {
+		const taken2 = taken.value;
+		taken = rt.Ok(undefined);
+		rt.byteVecPush(out, rt.optionUnwrapOr(taken2, 67));
+	}
+	if (nested !== rt.Pending) {
+		if (nested !== undefined) {
+			const r: rt.Result<rt.u8, rt.u8> = nested;
+			if (r.ok) {
+				_104 = r.value;
+			} else {
+				_104 = r.error ^ 128;
+			}
+			rt.byteVecPush(out, _104);
+		}
+	}
+	if (taken.ok) {
+		_109 = rt.optionUnwrapOr(taken.value, 68);
+	} else {
+		_109 = taken.error;
+	}
+	rt.byteVecPush(out, _109);
+	const iter: rt.Iter<rt.Result<rt.u8, rt.u8>> = rt.iterSlice([before, res, err, slot.res, caught, replaced]);
+	while (true) {
+		const _121: rt.Result<rt.u8, rt.u8> | rt.Done = iter.next();
+		if (_121 === rt.DONE) {
+			break;
+		}
+		const r2: rt.Result<rt.u8, rt.u8> = _121;
+		if (r2.ok) {
+			_128 = Uint8Array.of(0, r2.value);
+		} else {
+			_128 = Uint8Array.of(1, r2.error);
+		}
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(_128));
+	}
+	if (owned.ok) {
+		_133 = owned.value;
+	} else {
+		_133 = owned.error.length & 0xff;
+	}
+	rt.byteVecPush(out, _133);
+	if (flow.ok) {
+		_143 = flow.value;
+	} else {
+		_143 = flow.error;
+	}
+	const _147: rt.u8 = rt.optionUnwrapOr(opt, 0);
+	if (poll !== rt.Pending) {
+		_149 = poll;
+	} else {
+		_149 = 0;
+	}
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_143, _147, _149)));
+}
+
+/** Enums matched where the variant they were made with is in sight. */
+export function known(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _15!: rt.u8;
+	let _18!: rt.u8;
+	let _21!: rt.u8;
+	let _25!: rt.u8;
+	let _29!: rt.u8;
+	let _39!: rt.u8;
+	let _45!: rt.u8;
+	let _52!: rt.u8;
+	let _56!: rt.u8;
+	const n: rt.u8 = data.length & 0xff;
+	const ready = n as rt.Poll<rt.u8>;
+	const idle = rt.Pending as rt.Poll<Point.Point>;
+	const none = undefined as Point.Point | undefined;
+	const some: Point.Point | undefined = Point.new(n as rt.i32, 1);
+	if (ready !== rt.Pending) {
+		_15 = ready;
+	} else {
+		_15 = 0;
+	}
+	if (ready !== rt.Pending) {
+		_18 = rt.u8WrappingAdd(ready, 1);
+	} else {
+		_18 = 0;
+	}
+	if (idle !== rt.Pending) {
+		_21 = idle.x & 0xff;
+	} else {
+		_21 = 255;
+	}
+	if (none === undefined) {
+		_25 = 254;
+	} else {
+		_25 = none.y & 0xff;
+	}
+	if (some === undefined) {
+		_29 = 253;
+	} else {
+		_29 = some.x & 0xff;
+	}
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_15, _18, _21, _25, _29)));
+	const dot = { tag: "Dot" } as Shape.Shape;
+	const line = { tag: "Line", _0: Point.new(n as rt.i32, 2), _1: Point.new(3, 4) } as Shape.Shape;
+	if (dot.tag === "Dot") {
+		_39 = 1;
+	} else if (dot.tag === "Line") {
+		_39 = dot._0.x & 0xff;
+	} else {
+		_39 = dot.width & 0xff;
+	}
+	rt.byteVecPush(out, _39);
+	if (line.tag === "Dot") {
+		_45 = 1;
+	} else if (line.tag === "Line") {
+		_45 = line._0.x & 0xff;
+	} else {
+		_45 = line.width & 0xff;
+	}
+	rt.byteVecPush(out, _45);
+	const east = "East" as Dir.Dir;
+	if (east === "North") {
+		_52 = 1;
+	} else if (east === "East") {
+		_52 = 2;
+	} else {
+		_52 = 3;
+	}
+	rt.byteVecPush(out, _52);
+	const equal = 0 as rt.Ordering;
+	if (equal === -1) {
+		_56 = 1;
+	} else if (equal === 0) {
+		_56 = 2;
+	} else {
+		_56 = 3;
+	}
+	rt.byteVecPush(out, _56);
+	const noneLater = undefined as Point.Point | undefined;
+	const later = n as rt.Poll<rt.u8>;
+	rt.byteVecPush(out, ((): rt.u8 => {
+		let a!: rt.u8;
+		if (later !== rt.Pending) {
+			a = later;
+		} else {
+			a = 0;
+		}
+		return a ^ rt.optionMapOr(noneLater, 16, (p4: Point.Point): rt.u8 => {
+			return p4.x & 0xff;
+		});
+	})());
+	const captured = noneLater;
+	rt.byteVecPush(out, ((): rt.u8 => {
+		if (captured === undefined) {
+			return 32;
+		}
+		return copy$Point(captured).y & 0xff;
+	})());
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */
@@ -1509,7 +1756,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(total)));
 	const a: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(data), 0);
 	if (rt.u8Rem(a, 3) === 0) {
-		result = rt.Err(a);
+		result = rt.Err(a) as rt.Result<rt.u16, rt.u8>;
 	} else {
 		result = rt.Ok(rt.u16Add(a as rt.u16, 256));
 	}
@@ -1520,9 +1767,9 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
 	}
 	if (rt.u8Rem(a, 5) === 0) {
-		option = undefined;
+		option = undefined as rt.u8 | undefined;
 	} else {
-		option = rt.u8Div(a, 5);
+		option = rt.u8Div(a, 5) as rt.u8 | undefined;
 	}
 	rt.byteVecPush(out, option === undefined ? 1 : 0);
 	if (option !== undefined) {
