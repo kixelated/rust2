@@ -389,8 +389,9 @@ does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-
 size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
 helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
 `bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
-native Rust's first. The JS routes run in Node, Bun, Chrome, and Firefox, with the WASM route's
-copies across the boundary timed apart from its compute, and an A/A copy of the
+native Rust's first. The JS routes run minified, the same bundles whose size it reports,
+in Node, Bun, Chrome, and Firefox, with the WASM route's copies across the boundary timed
+apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new
 random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,

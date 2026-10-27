@@ -226,6 +226,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
 	/// its arms.
 	switched: FxHashSet<String>,
+	/// Locals whose variant some switch tests, directly or through a reference to them.
+	tested: IndexVec<Local, bool>,
+	/// The names of those that hold a value TypeScript would narrow by what it is assigned.
+	widened: FxHashSet<String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -281,6 +285,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			joined: FxHashSet::default(),
 			place_opts: FxHashSet::default(),
 			switched: FxHashSet::default(),
+			tested: IndexVec::from_elem_n(false, n),
+			widened: FxHashSet::default(),
 		};
 		fx.analyze();
 		fx
@@ -468,6 +474,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.b.t.check_erased(held, self.local_span(local));
 			}
 		}
+		self.find_tested();
 		// Names: what debug info calls a local, else its number.
 		let mut named: FxHashMap<Local, rustc_span::Symbol> = FxHashMap::default();
 		for info in &mir.var_debug_info {
@@ -1105,6 +1112,92 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Mark the locals whose variant a switch tests, or that a closure or async block
+	/// captures and could test, and what references to them borrow.
+	fn find_tested(&mut self) {
+		let mut work = Vec::new();
+		for data in self.mir.basic_blocks.iter() {
+			for stmt in &data.statements {
+				let StatementKind::Assign(assign) = &stmt.kind else {
+					continue;
+				};
+				match &assign.1 {
+					Rvalue::Discriminant(place) => work.push(place.local),
+					Rvalue::Aggregate(kind, ops)
+						if matches!(
+							**kind,
+							mir::AggregateKind::Closure(..) | mir::AggregateKind::Coroutine(..)
+						) =>
+					{
+						work.extend(ops.iter().filter_map(|op| op.place().map(|p| p.local)));
+					}
+					_ => {}
+				}
+			}
+		}
+		while let Some(local) = work.pop() {
+			if std::mem::replace(&mut self.tested[local], true) {
+				continue;
+			}
+			if let Slot::Alias(_) = self.slots[local]
+				&& let Some(
+					Rvalue::Ref(_, _, p)
+					| Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)
+					| Rvalue::CopyForDeref(p)
+					| Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _),
+				) = self.def_rvalue(local)
+			{
+				work.push(p.local);
+			}
+		}
+	}
+
+	/// `value`, the `rvalue` assigned to `place`, as a value of its whole type where
+	/// something tests `place`'s variant: TypeScript narrows a variable to the type of
+	/// what it was assigned, as a `Poll` made `Ready` to its payload's, and would refuse a
+	/// test for another variant.
+	fn widen(&mut self, place: Place<'tcx>, rvalue: &Rvalue<'tcx>, value: Expr, span: Span) -> Expr {
+		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+		// What is made here, rather than read from a place declared with its type.
+		let made = matches!(rvalue, Rvalue::Aggregate(..) | Rvalue::Use(Operand::Constant(_), _));
+		if !made || !self.tested[place.local] || !self.b.t.narrows(ty) {
+			return value;
+		}
+		// `Some` narrows to its payload's type, which only a test for `None` refutes, and
+		// that reads nothing of it.
+		if let Rvalue::Aggregate(kind, _) = rvalue
+			&& let mir::AggregateKind::Adt(def, variant, args, ..) = **kind
+			&& crate::lower::library::Std::of(self.tcx, def) == Some(crate::lower::library::Std::Option)
+			&& variant.index() == 1
+			&& !self.b.t.narrows(args.type_at(0))
+		{
+			return value;
+		}
+		let local = place.as_local();
+		let ts_ty = match local {
+			Some(local) if self.stepped_vars.contains_key(&local) => return value,
+			Some(local) => self.decl_ty(local),
+			None => self.b.t.ty(ty, span),
+		};
+		let mut inner = &value;
+		while let Expr::Located(_, e) = inner {
+			inner = e;
+		}
+		let value = match inner {
+			Expr::As(_, t) if *t == ts_ty => value,
+			// `Ok` and `Err` are of the whole type.
+			Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => return value,
+			_ => Expr::As(Box::new(value.typed()), ts_ty),
+		};
+		// Its declaration keeps the `as`.
+		if let Some(local) = local
+			&& let Slot::Var(name) = &self.slots[local]
+		{
+			self.widened.insert(name.clone());
+		}
+		value
+	}
+
 	/// The rvalue a local's one assignment by a statement assigns.
 	fn def_rvalue(&self, local: Local) -> Option<&'m Rvalue<'tcx>> {
 		let (bb, i) = self.def_at[local]?;
@@ -1293,7 +1386,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			cfg::strip_return(&mut out);
 		}
 		cfg::hoist_else(&mut out);
-		declare_in_place(&mut out);
+		declare_in_place(&mut out, &self.widened);
 		cfg::tidy_loops(&mut out);
 		out
 	}
@@ -1969,6 +2062,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			out.extend(pre);
 			return;
 		};
+		let value = self.widen(place, rvalue, value, span);
 		// What an `Iterator::next` returns, by the protocol.
 		let value = match (
 			self.next && place.local == mir::RETURN_PLACE && place.projection.is_empty(),
@@ -2803,8 +2897,9 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 
 /// Declare each variable declared up front at the assignment that first names it, where
 /// everything else that names it follows in the same block: no path reaches those without
-/// passing the assignment. `const` if nothing assigns it again.
-fn declare_in_place(stmts: &mut Vec<Stmt>) {
+/// passing the assignment. `const` if nothing assigns it again. Those `widened` keep
+/// the type their value was given.
+fn declare_in_place(stmts: &mut Vec<Stmt>, widened: &FxHashSet<String>) {
 	let declared: Vec<(String, Type)> = stmts
 		.iter()
 		.filter_map(|s| match &s.kind {
@@ -2818,15 +2913,17 @@ fn declare_in_place(stmts: &mut Vec<Stmt>) {
 		stmts
 			.iter()
 			.for_each(|s| visit_stmt(s, &mut |e| writes += writes_of(e, &name)));
-		if total > 0 && place_declaration(stmts, &name, &ty, total, writes > 1) {
+		let widened = widened.contains(&name);
+		if total > 0 && place_declaration(stmts, &name, &ty, total, writes > 1, widened) {
 			stmts.retain(|s| !matches!(&s.kind, StmtKind::Declare { name: n, .. } if *n == name));
 		}
 	}
 }
 
 /// Turn the statement that first names `name` into its declaration, if it assigns it and
-/// all `total` statements naming it follow in its block.
-fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mutable: bool) -> bool {
+/// all `total` statements naming it follow in its block. A `widened` value keeps its
+/// `as`, which then types the variable.
+fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mutable: bool, widened: bool) -> bool {
 	let Some(i) = stmts.iter().position(|s| stmt_names(s, name) > 0) else {
 		return false;
 	};
@@ -2840,15 +2937,25 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 		else {
 			unreachable!("checked above")
 		};
-		stmts[i].kind = StmtKind::decl(mutable, name, Some(ty.clone()), Some(*value));
+		stmts[i].kind = match *value {
+			Expr::As(_, ref t) if widened && t == ty => StmtKind::decl(mutable, name, None, Some(*value)),
+			value if widened => StmtKind::Decl {
+				mutable,
+				name: name.into(),
+				ty: Some(ty.clone()),
+				init: Some(value),
+			},
+			value => StmtKind::decl(mutable, name, Some(ty.clone()), Some(value)),
+		};
 		return true;
 	}
 	// Else everything naming it must be in one block of this statement.
 	if stmt_names(&stmts[i], name) != total {
 		return false;
 	}
-	let place =
-		|body: &mut Vec<Stmt>| list_names(body, name) == total && place_declaration(body, name, ty, total, mutable);
+	let place = |body: &mut Vec<Stmt>| {
+		list_names(body, name) == total && place_declaration(body, name, ty, total, mutable, widened)
+	};
 	match &mut stmts[i].kind {
 		StmtKind::If { then, els, .. } => place(then) || place(els),
 		StmtKind::While { body, .. } | StmtKind::Block { body, .. } => place(body),
@@ -3330,7 +3437,7 @@ mod tests {
 			.at(None),
 			StmtKind::Expr(arrow.call(Vec::new())).at(None),
 		];
-		declare_in_place(&mut stmts);
+		declare_in_place(&mut stmts, &FxHashSet::default());
 		assert!(matches!(&stmts[0].kind, StmtKind::Declare { name, .. } if name == "found"));
 	}
 }
