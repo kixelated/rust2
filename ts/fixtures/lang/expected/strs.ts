@@ -276,8 +276,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _211!: [rt.usize, rt.usize];
 	let sliced!: string;
 	const s: string = text(data);
-	const _6: string = s;
-	const p: string = pattern(kind, _6);
+	const p: string = pattern(kind, s);
 	b0: {
 		const _8: rt.u8 = rt.u8Rem(kind, 8);
 		if (_8 === 0) {
@@ -328,8 +327,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				while (true) {
 					const _125: rt.usize | undefined = rt.strRfind(path, "/");
 					if (_125 !== undefined) {
-						const _130: string = path;
-						path = rt.strSlice(_130, 0, _125);
+						path = rt.strSlice(path, 0, _125);
 						put(out, path);
 					} else {
 						break;
@@ -338,14 +336,10 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				put(out, path);
 			} else if (_8 === 4) {
 				const keep: rt.usize = rt.usizeAdd(rt.u8Rem(rt.u8Div(kind, 8), 4) as rt.usize, 1);
-				const _146: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, "/");
-				const _149: rt.usize = rt.usizeSub(keep, 1);
-				put(out, rt.optionUnwrapOr(rt.optionMap(rt.iterNth(_146, _149), (_2: [rt.usize, string]): string => {
+				put(out, rt.optionUnwrapOr(rt.optionMap(rt.iterNth(rt.strMatchIndices(s, "/"), rt.usizeSub(keep, 1)), (_2: [rt.usize, string]): string => {
 					return rt.strSlice(s, 0, _2[0]);
 				}), "none"));
-				const _159: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, "/");
-				const _162: rt.usize = rt.usizeSub(keep, 1);
-				const part5 = rt.optionMapOr(rt.iterNth(_159, _162), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
+				const part5 = rt.optionMapOr(rt.iterNth(rt.strMatchIndices(s, "/"), rt.usizeSub(keep, 1)), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
 					return rt.usizeAdd(_22[0], 1);
 				});
 				put(out, rt.strSlice(s, part5));
@@ -376,11 +370,9 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				} else if (_225 === 1) {
 					sliced = rt.strSlice(s, a);
 				} else if (_225 === 2) {
-					const _236: string = s;
-					sliced = rt.strSlice(_236, 0, b);
+					sliced = rt.strSlice(s, 0, b);
 				} else {
-					const _240: string = s;
-					sliced = rt.strSlice(_240, 0);
+					sliced = rt.strSlice(s, 0);
 				}
 				put(out, sliced);
 			}
