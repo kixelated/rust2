@@ -52,5 +52,4 @@ Public API: the translator's output for moq-net's model.
 - [Duration](/quest/m2/ts-model/time.md) - `Duration` translates as std's seconds and nanoseconds
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Options of values that can be undefined](/quest/m2/ts-model/nested-option.md) - `Option<Option<T>>` and `Option<()>` keep `None` apart from `Some(None)`
-- [Mutable references to values JS copies](/quest/m2/ts-model/mut-place.md) - a `&mut` to a number or an `Option` passed on or kept
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

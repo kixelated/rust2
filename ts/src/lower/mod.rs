@@ -889,11 +889,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// Whether `ty` holds a `&mut` that is an `rt.Place`, a closure's captures included.
+	/// Whether `ty` holds a `&mut` that is an `rt.Place`, other than in what a closure or
+	/// coroutine captured.
 	pub fn has_place(&self, ty: Ty<'tcx>) -> bool {
-		ty.walk()
-			.filter_map(|arg| arg.as_type())
-			.any(|t| self.place_pointee(t).is_some())
+		let mut walker = ty.walk();
+		while let Some(arg) = walker.next() {
+			let Some(t) = arg.as_type() else { continue };
+			if matches!(t.kind(), ty::Closure(..) | ty::Coroutine(..) | ty::CoroutineClosure(..)) {
+				walker.skip_current_subtree();
+			} else if self.place_pointee(t).is_some() {
+				return true;
+			}
+		}
+		false
 	}
 
 	/// The TypeScript type of a Rust type.
