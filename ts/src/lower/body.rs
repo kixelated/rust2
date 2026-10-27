@@ -126,6 +126,18 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return call;
 		}
 		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
+			// An operand that was a reference to an `rt.Place`, as `&&mut u32` is, passes
+			// what the Place points at.
+			let inputs = |gargs| {
+				let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
+				tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec()
+			};
+			let args = std::iter::zip(args, std::iter::zip(inputs(gargs), inputs(referent)))
+				.map(|(arg, (was, now))| match was.kind() {
+					ty::Ref(_, inner, _) if was != now => self.t.pointee_value(*inner, arg),
+					_ => arg,
+				})
+				.collect();
 			return self.call_def(def_id, referent, args, span, out);
 		}
 		if let Some(inherited) = library::Inherited::of(tcx, instance) {

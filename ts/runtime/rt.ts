@@ -46,6 +46,40 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 	panicFmt(["assertion `left ", op, " right`", ...failed, "\n  left: ", left, "\n right: ", right]);
 }
 
+// Places
+
+/**
+ * A `&mut` to a value JS copies, such as a number, which no JS value can point at: where
+ * the value is, read and written through `v`.
+ */
+export interface Place<T> {
+	v: T;
+}
+
+/** A place read and written by `get` and `set`: a local's, a field's, or an element's. */
+class Accessed<T> implements Place<T> {
+	private readonly read: () => T;
+	private readonly write: (value: T) => void;
+
+	constructor(read: () => T, write: (value: T) => void) {
+		this.read = read;
+		this.write = write;
+	}
+
+	get v(): T {
+		return this.read();
+	}
+
+	set v(value: T) {
+		this.write(value);
+	}
+}
+
+/** The place `get` reads and `set` writes. */
+export function place<T>(get: () => T, set: (value: T) => void): Place<T> {
+	return new Accessed(get, set);
+}
+
 // Bindings
 
 /**

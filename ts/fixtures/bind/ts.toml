@@ -4,4 +4,5 @@ roots = ["harness::run"]
 [bind]
 "bytes::Bytes" = "bind/bytes.ts"
 "raw::checksum" = "bind/checksum.ts"
+"raw::skip" = "bind/skip.ts"
 "raw::Tally" = { file = "bind/tally.ts", drop = true }

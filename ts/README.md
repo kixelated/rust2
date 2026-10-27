@@ -78,7 +78,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
+| `&T`, `&mut T`, `Box<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
@@ -171,6 +171,16 @@ write counts through a field, an element, a reference, or a box, and a mutable r
 a std function's parameters take, where the crate calls it or takes it as a value, or
 one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
 not change in place what it passes to or gets from the translation either.
+
+A `&mut` to a value JS copies, which no JS value can point at, such as a number, an
+`Option`, an enum, a tuple, a `Box`, or a `String`, is an `rt.Place` whose `v` reads and
+writes where it points. Where it is only read and written through, in the function that
+borrows it, it is the place it borrows, so a body that passes none on makes none. Passed
+on, returned, kept in a field, or captured by a value, it is
+`rt.place(() => x, (value) => x = value)` over that place, the objects and index it goes
+through held as they were when it was borrowed; a reborrow of one is the same
+`rt.Place`. A caller passes one as `{ v }`, or as any object whose `v` it reads and writes.
+std's mappings take a `&mut` parameter as what it points at.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
@@ -402,16 +412,16 @@ to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
-These fail translation: floats, statics, async blocks that borrow a number
-mutably and async closures, values that drop in a closure dropped without a call that
+These fail translation: floats, statics, async closures, values that drop in a closure dropped without a call that
 takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
-another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
-holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
+another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
+copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
+`and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!` or pushing to one through a parameter, a `str` pattern other than a
+`String` with `write!`, a `str` pattern other than a
 `char`, a `&str`, or a predicate, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
@@ -447,7 +457,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
+  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, and `&mut`
+  to values JS copies, of locals, fields, elements, and a map's values, passed on,
+  returned, kept in a struct, and captured. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow,
