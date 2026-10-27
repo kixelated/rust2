@@ -315,24 +315,38 @@ pub struct Call<'tcx> {
 	pub span: Span,
 }
 
-/// Whether the mapping of `owner::name` moves each operand it takes by value into its
-/// result or a closure, and so drops nothing JS would leave undropped. Any other mapping
-/// may discard one, as `unwrap_or` does its fallback. Iterators refuse their own.
-fn keeps_operands(owner: &str, name: &str) -> bool {
-	matches!(
-		(owner, name),
+/// What the mapping of `owner::name` may discard of the operands it takes by value, rather
+/// than move into its result or a closure, as it returns or as a panic unwinds it: the
+/// types, by their index among the call's type arguments, whose droppers its runtime
+/// function takes after its own arguments, as `unwrap_or` drops its fallback. `None` for
+/// any other mapping, which is refused an operand that drops. Iterators refuse their own.
+fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
+	Some(match (owner, name) {
 		("Option", "map" | "unwrap" | "expect")
-			| (
-				"Result",
-				"map" | "map_err" | "and_then" | "inspect_err" | "unwrap" | "expect" | "unwrap_err"
-			)
-			| ("Vec", "push")
-			| ("Box", "new")
-			| ("mem", "replace" | "take" | "swap")
-			| ("hint", "must_use")
-			| ("From", "from")
-			| ("Into", "into")
-	)
+		| ("Result", "map" | "map_err" | "and_then")
+		| ("Vec", "push")
+		| ("Box", "new")
+		| ("mem", "replace" | "take" | "swap")
+		| ("hint", "must_use")
+		| ("From", "from")
+		| ("Into", "into") => &[],
+		// `Option<T>::ok_or::<E>` drops its error, `unwrap_or` its fallback, and
+		// `map_or::<U, F>` its fallback or its closure.
+		("Option", "ok_or") => &[1],
+		("Option", "unwrap_or") => &[0],
+		("Option", "map_or") => &[1, 2],
+		// `Result<T, E>::ok` drops an error, `err` a value, and `unwrap_or` its fallback or
+		// the error.
+		("Result", "ok") => &[1],
+		("Result", "err") => &[0],
+		("Result", "unwrap_or") => &[0, 1],
+		// `unwrap` and `expect` drop the error they panic with, `unwrap_err` the value, and
+		// `inspect_err` its error if its closure panics.
+		("Result", "unwrap" | "expect" | "inspect_err") => &[1],
+		("Result", "unwrap_err") => &[0],
+		("bool", "then_some") => &[0],
+		_ => return None,
+	})
 }
 
 /// The first type `call` takes by value that drops.
@@ -404,9 +418,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		Ok(e) => return e,
 		Err(args) => args,
 	};
-	let dropping = match keeps_operands(&owner, &name) {
-		true => None,
-		false => dropping_operand(b, call),
+	let discarded = discards(&owner, &name);
+	let dropping = match discarded {
+		Some(_) => None,
+		None => dropping_operand(b, call),
 	};
 
 	// Methods on integers.
@@ -833,7 +848,18 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 		));
 	}
-	Some(e)
+	// What drops each operand the mapping may discard.
+	let lost = discarded.unwrap_or_default().iter().map(|&n| targ(gargs, n));
+	let Some(droppers) = b.t.droppers(lost, span) else {
+		return Some(Expr::undefined());
+	};
+	Some(match e {
+		Expr::Call(f, mut args) if !droppers.is_empty() => {
+			args.extend(droppers);
+			Expr::Call(f, args)
+		}
+		e => e,
+	})
 }
 
 /// A number from its big-endian bytes, each a value: shifted and or-ed.
