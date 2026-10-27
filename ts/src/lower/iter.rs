@@ -147,16 +147,20 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		}
 		args
 	};
+	// Items borrowed from what `ty` points at.
+	let items = |iter: Expr, elem: Ty<'tcx>| match ty.is_ref() {
+		true => by_ref(iter, elem),
+		false => iter,
+	};
 	match ty.peel_refs().kind() {
-		ty::Slice(_) => Some(Expr::rt("iterSlice", vec![library::elements(value, ty)])),
-		ty::Array(elem, _) => Some(Expr::rt(
-			"iterSlice",
-			each(b, *elem, vec![library::elements(value, ty)]),
-		)),
+		ty::Slice(elem) | ty::Array(elem, _) => {
+			let values = each(b, *elem, vec![library::elements(value, ty)]);
+			Some(items(Expr::rt("iterSlice", values), *elem))
+		}
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
 			Std::Vec => {
 				let values = each(b, args.type_at(0), vec![library::elements(value, ty)]);
-				Some(Expr::rt("iterSlice", values))
+				Some(items(Expr::rt("iterSlice", values), args.type_at(0)))
 			}
 			Std::Option => {
 				option_ok(b, args.type_at(0), span);
@@ -165,6 +169,15 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 			_ => super::collections::into_iter(b, ty, value, span),
 		},
 		_ => None,
+	}
+}
+
+/// `iter`, over the elements of a slice or `Vec` of `elem`s, yielding references to them:
+/// a slice of each array of bytes.
+fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
+	match super::byte_array(elem) {
+		true => Expr::rt("iterMap", vec![iter, Expr::Rt("byteSliceFrom".into())]),
+		false => iter,
 	}
 }
 
@@ -226,7 +239,7 @@ pub fn call<'tcx>(
 		("slice", "iter" | "iter_mut") => {
 			let s = args.pop()?;
 			let s = library::elements(s, Ty::new_slice(tcx, targ(0)?));
-			return Some(Expr::rt("iterSlice", vec![s]));
+			return Some(by_ref(Expr::rt("iterSlice", vec![s]), targ(0)?));
 		}
 		("Option", "iter" | "iter_mut") => {
 			option_ok(b, targ(0)?, span);
@@ -474,6 +487,8 @@ pub fn call<'tcx>(
 					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
 					method("map", vec![clone])
 				}
+				// Out of the slice each item is.
+				_ if super::byte_array(*inner) => method("map", vec![Expr::Rt("byteSliceToArray".into())]),
 				_ if b.t.needs_copy(*inner) => method("map", b.t.copy_fn(*inner, span).into_iter().collect()),
 				// A JS string is a value already.
 				_ if b.t.is_copy(*inner)

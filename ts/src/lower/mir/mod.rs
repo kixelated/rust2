@@ -787,6 +787,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// A borrow: borrow checking keeps the place as it is but through the borrow,
 			// unless the path to it goes through a reference held in a field or element,
 			// which can be replaced while the borrow lives.
+			// A borrow of bytes not yet in a slice makes one.
+			(ty::Ref(..), Rvalue::Ref(_, _, place))
+				if crate::lower::byte_array(place.ty(&mir.local_decls, self.tcx).ty) && !self.in_bytes(*place) =>
+			{
+				false
+			}
 			(ty::Ref(..), Rvalue::Ref(_, _, place)) => {
 				self.stable(*place)
 					&& place
@@ -2190,6 +2196,37 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
 		self.emit(vec![stmt], None, false, out);
 		Expr::ident(name)
+	}
+
+	/// Hold `slice`, an `rt.ByteSlice` to read more than once, in a path, as a tuple's part
+	/// already is.
+	pub(super) fn slice_path(&mut self, slice: Expr, out: &mut Vec<Stmt>) -> Expr {
+		match &slice {
+			Expr::Index(base, i) if base.is_path() && i.is_constant() => {
+				self.materialize(&slice, out);
+				slice
+			}
+			_ => self.path(slice, "slice", out),
+		}
+	}
+
+	/// The first `n` bytes of `slice`, each read where it is: from the slice it is a range
+	/// of, if it is one at a constant offset.
+	pub(super) fn bytes_at(&mut self, slice: Expr, n: u64, out: &mut Vec<Stmt>) -> Vec<Expr> {
+		let range = match &slice {
+			Expr::Call(f, args) if matches!(&**f, Expr::Rt(name) if name == "byteSliceRange") => {
+				match args.as_slice() {
+					[base, Expr::Lit(from), ..] => from.parse::<u64>().ok().map(|from| (base.clone(), from)),
+					_ => None,
+				}
+			}
+			_ => None,
+		};
+		let (base, from) = range.unwrap_or((slice, 0));
+		let base = self.slice_path(base, out);
+		(from..from + n)
+			.map(|i| place::byte_at(base.clone(), Expr::lit(i.to_string())))
+			.collect()
 	}
 
 	fn terminator(&mut self, term: &mir::Terminator<'tcx>, out: &mut Vec<Stmt>) -> Exit {
