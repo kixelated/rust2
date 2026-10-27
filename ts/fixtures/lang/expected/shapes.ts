@@ -1401,8 +1401,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 		replaced = rt.Ok(66);
 		rt.byteVecPush(out, old);
 	}
-	const _80: string = "";
-	let named: rt.Result<string, rt.u8> = rt.Ok(_80);
+	let named: rt.Result<string, rt.u8> = rt.Ok("");
 	if (named.ok) {
 		named = rt.Ok(named.value + "r");
 	}
