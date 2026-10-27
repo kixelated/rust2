@@ -187,8 +187,9 @@ Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` bu
 Output is ranked correctness first, speed second, and bundle size third: the
 consumer's final JS, after their bundler tree-shakes and minifies it, so type-only
 constructs such as brand casts and annotations are free. Readable output is not a goal.
-Speed is a browser's: `just ts bench` runs Node and Bun only as stand-ins for V8 and
-JavaScriptCore, as Safari runs it, and where Node disagrees with Chrome, Chrome decides.
+Speed is a browser's: `just ts bench` runs Chrome and Firefox, and Node and Bun only as
+stand-ins for V8 and JavaScriptCore, as Safari runs it; where any engine disagrees with
+Chrome, Chrome decides.
 It stays `.ts`, so `tsc` keeps checking the internals, and minifying is the consumer's
 bundler's job. Types must be solid at the API boundary: the `roots` items and
 `printable` types use Rust's branded types (`rt.u64`), while internals cast as freely as
@@ -367,14 +368,14 @@ does, whose products pass 2^53. Each runs four ways: natively, as wasm32 at moq-
 size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts`, ES iterator
 helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
 `bench/rescale.ts`, as moq's `js/hang` converts timescales), and translated; every route's output must match
-native Rust's first. The JS routes run in Node, Bun, and Chrome, with the WASM route's
+native Rust's first. The JS routes run in Node, Bun, Chrome, and Firefox, with the WASM route's
 copies across the boundary timed apart from its compute, and an A/A copy of the
 translation to show the noise. Each round runs the JS routes and workloads in a new
 random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
-runs it and posts the report to its summary. Chrome's page reports each step it starts,
-and one that runs 30 s fails the run, naming it.
+runs it and posts the report to its summary. Each browser's page reports each step it
+starts, and one that runs 30 s fails the run, naming it.
 
 The task fixture's `bench::run` times an async handoff: a value sent to a task parked on
 its channel, read through 1, 4, or 16 async functions. Its translation runs polled at
@@ -393,4 +394,4 @@ The route runs both fixtures' translations from that directory's `translated/` a
 Read its gap from `translated` against A/A's, the noise of the same run. No route holds a
 fixed slot, so a gap past that noise is the change, and no reversed run is needed.
 
-The bench shell adds Chromium and the wasm-bindgen that builds moq-wasm's package.
+The bench shell adds Chromium, Firefox, and the wasm-bindgen that builds moq-wasm's package.

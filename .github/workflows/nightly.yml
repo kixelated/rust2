@@ -133,7 +133,7 @@ jobs:
 
       - uses: ./.github/actions/nix
 
-      # Every route in Node, Bun, and Chrome. The numbers go in the run's summary: no
+      # Every route in Node, Bun, Chrome, and Firefox. The numbers go in the run's summary: no
       # threshold fails the job.
       - name: Bench
         run: nix develop .#bench --command just ts bench
