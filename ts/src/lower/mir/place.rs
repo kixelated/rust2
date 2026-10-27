@@ -341,7 +341,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
 				})
 			}
-			None if adt.did().is_local() && matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) => {
+			None if self.b.t.own(adt.did()) && matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) => {
 				let def = adt.variant(variant);
 				let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
 				for (i, field) in def.fields.iter().enumerate() {
@@ -404,7 +404,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) => base,
-				None if adt.did().is_local() => {
+				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
@@ -512,8 +512,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
 			let alias = matches!(self.slots[place.local], Slot::Alias(_));
 			let target = self.local_expr(place.local, span);
+			// A binding's value may keep what it holds where `Object.assign` can't reach.
+			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
 			let e = match self.b.t.object_kind(pointee) {
-				Some(ObjectKind::Class) if !shared(self, pointee) => {
+				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
@@ -654,7 +656,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					},
-					None if adt.did().is_local() => {
+					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let name = Expr::Str(adt.variant(index).name.to_string());
 						match info.repr {
@@ -709,7 +711,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An aggregate, field by field.
 		if let ty::Adt(..) | ty::Tuple(_) | ty::Array(..) = ty.kind()
 			&& !matches!(ty.kind(), ty::Tuple(tys) if tys.is_empty())
-			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() && adt.all_fields().next().is_none())
+			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) && adt.all_fields().next().is_none())
 		{
 			let Some(d) = tcx.try_destructure_mir_constant_for_user_output(val, ty) else {
 				return self.err(span, format!("a constant of type `{ty}` that can't be taken apart"));
@@ -739,7 +741,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::ZeroSized => match *ty.kind() {
 				ty::FnDef(def_id, args) => self.b.fn_value(def_id, args.skip_binder(), span),
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
-				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
+				ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(adt, span);
 					self.b.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
 				}

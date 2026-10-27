@@ -522,7 +522,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let owned = match mir.local_decls[local].ty.kind() {
 					ty::Tuple(_) | ty::Array(..) => true,
 					ty::Adt(adt, _) => {
-						adt.did().is_local()
+						self.b.t.own(adt.did())
 							|| matches!(
 								crate::lower::library::Std::of(self.tcx, adt.did()),
 								Some(crate::lower::library::Std::Option | crate::lower::library::Std::Result)
@@ -756,7 +756,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let ty::Adt(adt, _) = ty.kind() else {
 			return None;
 		};
-		if !adt.is_struct() || !adt.did().is_local() || adt.all_fields().next().is_some() {
+		if !adt.is_struct() || !self.b.t.own(adt.did()) || adt.all_fields().next().is_some() {
 			return None;
 		}
 		let info = self.b.t.adt(*adt, self.local_span(local));
@@ -2725,7 +2725,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			match ty.kind() {
 				ty::Tuple(tys) => stack.extend(tys.iter()),
 				ty::Array(elem, _) | ty::Slice(elem) => stack.push(*elem),
-				ty::Adt(adt, args) if adt.did().is_local() => {
+				ty::Adt(adt, args) if self.b.t.own(adt.did()) => {
 					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)))
 				}
 				ty::Adt(_, args) => stack.extend(args.types()),
@@ -2756,7 +2756,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			ty::Tuple(tys) => tys.iter().any(|t| self.holds_behind(t, part)),
 			ty::Array(elem, _) => self.holds_behind(*elem, part),
 			ty::Adt(adt, args)
-				if adt.did().is_local()
+				if self.b.t.own(adt.did())
 					|| matches!(
 						self.b.t.std_of(ty),
 						Some(Std::Option | Std::Result | Std::ControlFlow | Std::Poll)
@@ -2797,7 +2797,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					return true;
 				}
 				if let ty::Adt(adt, args) = t.kind()
-					&& adt.did().is_local()
+					&& self.b.t.own(adt.did())
 					&& seen.insert(t)
 				{
 					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)));
