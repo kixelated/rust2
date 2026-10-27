@@ -12,12 +12,12 @@ import * as Group from "./lite/group.Group.ts";
 import type * as Version from "./lite/version.Version.ts";
 
 /** Run one workload. */
-export function run(input: Uint8Array): rt.ByteVec {
+export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(input);
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(input);
 	if (_5 !== undefined) {
 		const op: rt.u8 = _5[0];
-		const _9: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(_5[1]);
+		const _9: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(_5[1]);
 		if (_9 !== undefined) {
 			const selector: rt.u8 = _9[0];
 			if (op === 0) {
@@ -61,8 +61,8 @@ export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, o
 }
 
 /** The same value, `count` times. */
-export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, Uint8Array] = takeU64(data);
+export function encodeVarints(data: rt.ByteSlice, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const count: rt.u64 = _6[0];
 	const value: rt.u64 = takeU64(_6[1])[0];
 	const w: Encoder.Encoder = Encoder.new(out, form_);
@@ -78,7 +78,7 @@ export function encodeVarints(data: Uint8Array, form_: Form.Form, out: rt.ByteVe
 }
 
 /** Every varint on the wire: how many, and the last. */
-export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+export function decodeVarints(wire: rt.ByteSlice, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(wire, form_);
 	let count: rt.usize = 0;
 	let last: rt.u64 = 0;
@@ -101,18 +101,18 @@ export function decodeVarints(wire: Uint8Array, form_: Form.Form, out: rt.ByteVe
  * zigzag timestamp delta, then the size. The first frame has no delta and its own size,
  * and every `key_every`th frame after it is `key_size`, as moq's benchmark samples are.
  */
-export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+export function encodeFrames(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
 	let _32!: rt.usize;
 	let _38!: [rt.i64, rt.u64];
-	const _6: [rt.u64, Uint8Array] = takeU64(data);
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, Uint8Array] = takeU64(_6[1]);
+	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
 	const delta: rt.u64 = _9[0];
-	const _12: [rt.u64, Uint8Array] = takeU64(_9[1]);
+	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
 	const first: rt.u64 = _12[0];
-	const _15: [rt.u64, Uint8Array] = takeU64(_12[1]);
+	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
 	const size: rt.u64 = _15[0];
-	const _18: [rt.u64, Uint8Array] = takeU64(_15[1]);
+	const _18: [rt.u64, rt.ByteSlice] = takeU64(_15[1]);
 	const keyEvery: rt.u64 = _18[0];
 	const keySize: rt.u64 = takeU64(_18[1])[0];
 	const _24: rt.i64 = rt.i64Cast(delta);
@@ -154,7 +154,7 @@ export function encodeFrames(data: Uint8Array, version: Version.Version, out: rt
 }
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
-export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+export function decodeFrames(wire: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(wire, Form.from$From_Version(version));
 	let count: rt.usize = 0;
 	let total: rt.u64 = 0;
@@ -187,8 +187,8 @@ export function decodeFrames(wire: Uint8Array, version: Version.Version, out: rt
  * decoded again from its start on the next. How many, their total size, the last delta,
  * and how many decodes came up short.
  */
-export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const _6: [rt.u64, Uint8Array] = takeU64(data);
+export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const read2: rt.usize = rt.max(rt.u64Low(_6[0]), 1);
 	let start: rt.usize = 0;
 	let end: rt.usize = 0;
@@ -202,7 +202,7 @@ export function decodeSplit(data: Uint8Array, version: Version.Version, out: rt.
 			if (!(start < end)) {
 				continue l2;
 			}
-			const r: Decoder.Decoder = Decoder.new(rt.sliceRange(_6[1], start, end), Form.from$From_Version(version));
+			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(_6[1], start, end), Form.from$From_Version(version));
 			const _32: rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError> = frameHeader(r);
 			if (_32.ok) {
 				const delta: rt.i64 = _32.value[0];
@@ -245,8 +245,8 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 }
 
 /** One size-prefixed GROUP header, starting at the first frame. */
-export function encodeGroup(data: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, Uint8Array] = takeU64(data);
+export function encodeGroup(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const group: Group.Group = { subscribe: _6[0], sequence: takeU64(_6[1])[0], frameStart: 0 };
 	return Group.encode$Encode_Version(group, Encoder.new(out, Form.from$From_Version(version)), version);
 }
@@ -256,7 +256,7 @@ export function encodeGroup(data: Uint8Array, version: Version.Version, out: rt.
  * up, summed over a quarter of the key space, and removed again. The sum of the values
  * found.
  */
-export function ordered(data: Uint8Array, out: rt.ByteVec): void {
+export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _15!: rt.u32;
 	let _28!: rt.u32;
 	let _66!: rt.u32;
@@ -301,32 +301,32 @@ export function ordered(data: Uint8Array, out: rt.ByteVec): void {
  * One iterator chain over every byte, picked by `chain`, with closures that cost little
  * next to the iterator protocol they run through.
  */
-export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (chain === 0) {
-		putUsize(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(data), (_211: rt.u8): rt.u8 => {
+		putUsize(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_211: rt.u8): rt.u8 => {
 			return _211 >> 1;
 		}), (_212: rt.u8): boolean => {
 			return (_212 & 1) === 0;
 		})));
 	} else if (chain === 1) {
-		rt.byteVecPush(out, rt.iterAny(rt.iterSlice(data), (_210: rt.u8): boolean => {
+		rt.byteVecPush(out, rt.iterAny(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): boolean => {
 			return _210 === 255;
 		}) ? 1 : 0);
 	} else if (chain === 2) {
-		putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(data), (_28: rt.u8): boolean => {
+		putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (_28: rt.u8): boolean => {
 			return (_28 & 1) === 1;
 		})).length);
 	} else if (chain === 3) {
-		putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(data), (_2: rt.u8): rt.u32 => {
+		putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
 		}), rt.u32Add, 0) as rt.u64);
 	} else if (chain === 4) {
-		putU64(out, rt.iterFold(rt.iterTake(rt.iterSkip(rt.iterSlice(data), 16), 512), 0, (acc: rt.u32, _3: rt.u8): rt.u32 => {
+		putU64(out, rt.iterFold(rt.iterTake(rt.iterSkip(rt.iterSlice(rt.byteSliceView(data)), 16), 512), 0, (acc: rt.u32, _3: rt.u8): rt.u32 => {
 			return (acc ^ _3 as rt.u32) >>> 0;
 		}) as rt.u64);
 	} else {
 		let last: rt.usize = 0;
-		const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(data));
+		const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 		while (true) {
 			const _33: [rt.usize, rt.u8] | rt.Done = iter.next();
 			if (_33 === rt.DONE) {
@@ -346,16 +346,16 @@ export function iterate(chain: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
  * `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
  * sooner. How many converted, how many overflowed, and the last converted.
  */
-export function rescale(selector: rt.u8, data: Uint8Array, out: rt.ByteVec): void {
+export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _26!: rt.usize;
 	let scaled!: rt.u64 | undefined;
-	const _6: [rt.u64, Uint8Array] = takeU64(data);
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
 	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, Uint8Array] = takeU64(_6[1]);
+	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
 	const start: rt.u64 = _9[0];
-	const _12: [rt.u64, Uint8Array] = takeU64(_9[1]);
+	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
 	const step: rt.u64 = _12[0];
-	const _15: [rt.u64, Uint8Array] = takeU64(_12[1]);
+	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
 	const from: rt.u64 = _15[0];
 	const to: rt.u64 = takeU64(_15[1])[0];
 	let converted: rt.u64 = 0;
@@ -406,7 +406,7 @@ export function bounded(value: rt.u128): rt.u64 | undefined {
 	return rt.u64Cast(value);
 }
 
-export function decodeGroup(wire: Uint8Array, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+export function decodeGroup(wire: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
 	const _6: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$Decode_Version(wire, version);
 	if (_6.ok) {
 		const val: [Group.Group, rt.usize] = _6.value;

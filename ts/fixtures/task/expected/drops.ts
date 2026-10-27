@@ -1188,7 +1188,7 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		};
 		const tally: (a0: string) => void = (what: string): void => {
 			const text: rt.ByteVec = Log.text(sink);
-			const sum: rt.u32 = rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteVecView(text)), (_2: rt.u8): rt.u32 => {
+			const sum: rt.u32 = rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(text))), (_2: rt.u8): rt.u32 => {
 				return _2 as rt.u32;
 			}), rt.u32Add, 0);
 			const _15: rt.usize = text.length;

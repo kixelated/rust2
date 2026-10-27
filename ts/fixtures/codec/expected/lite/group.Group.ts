@@ -11,7 +11,7 @@ import { decodeWith$Group_decode_closure0 } from "../lite/message.ts";
 import * as Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Version(buf: Uint8Array, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
+export function decodeSlice$Decode_Version(buf: rt.ByteSlice, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
 	const _6: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {

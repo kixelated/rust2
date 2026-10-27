@@ -26,7 +26,7 @@ function new_(buf: rt.ByteVec, form: Form.Form): Encoder {
 }
 
 /** Write raw bytes. */
-export function slice(self: Encoder, v: Uint8Array): void {
+export function slice(self: Encoder, v: rt.ByteSlice): void {
 	rt.byteVecExtendFromSlice(self.buf, v);
 }
 
@@ -37,7 +37,7 @@ export function u8(self: Encoder, v: rt.u8): void {
 
 /** Write a big-endian `u16`. */
 export function u16(self: Encoder, v: rt.u16): void {
-	rt.byteVecExtendFromSlice(self.buf, rt.u16ToBeBytes(v));
+	rt.byteVecExtendFromSlice(self.buf, rt.byteSliceFrom(rt.u16ToBeBytes(v)));
 }
 
 /** Write a bool as a 0 or 1 byte. */
@@ -70,7 +70,7 @@ export function varintOpt(self: Encoder, v: rt.u64 | undefined): rt.Result<undef
 }
 
 /** Write a varint length, then the raw bytes. */
-export function bytes(self: Encoder, v: Uint8Array): rt.Result<undefined, EncodeError.EncodeError> {
+export function bytes(self: Encoder, v: rt.ByteSlice): rt.Result<undefined, EncodeError.EncodeError> {
 	const _3: rt.Result<undefined, EncodeError.EncodeError> = varint(self, v.length as rt.u64);
 	if (_3.ok) {
 		slice(self, v);
@@ -96,7 +96,7 @@ export function prefixVarint(self: Encoder): Prefix.Prefix {
 
 /** Reserve a big-endian `u16` size prefix for the body written next; [`Self::fill`] sizes it. */
 export function prefixU16(self: Encoder): Prefix.Prefix {
-	rt.byteVecExtendFromSlice(self.buf, Uint8Array.of(0, 0));
+	rt.byteVecExtendFromSlice(self.buf, rt.byteSliceFrom(Uint8Array.of(0, 0)));
 	return { body: self.buf.length, kind: "U16" as PrefixKind.PrefixKind };
 }
 
@@ -125,21 +125,19 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			const len: rt.usize = rt.usizeSub(self.buf.length, end);
 			if (!(len === 1)) {
 				const size2: Uint8Array = rt.bytes(9);
-				rt.sliceCopyFromSlice(rt.sliceRange(size2, 0, len), rt.sliceRange(rt.byteVecView(self.buf), end));
+				rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(size2), 0, len), rt.byteSliceRange(rt.byteVecSlice(self.buf), end));
 				rt.byteVecTruncate(self.buf, rt.usizeSub(rt.usizeAdd(end, len), 1));
 				const _58: rt.usize = rt.usizeSub(rt.usizeAdd(body, len), 1);
-				rt.sliceCopyWithin(rt.byteVecView(self.buf), body, end, _58);
+				rt.byteSliceCopyWithin(rt.byteVecSlice(self.buf), body, end, _58);
 				const _84: rt.ByteVec = self.buf;
 				const part2 = rt.usizeSub(body, 1);
 				const part3 = rt.usizeAdd(rt.usizeSub(body, 1), len);
-				rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(_84), part2, part3), rt.sliceRange(size2, 0, len));
+				rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteVecSlice(_84), part2, part3), rt.byteSliceRange(rt.byteSliceFrom(size2), 0, len));
 			} else {
-				const slice2 = rt.byteVecView(self.buf);
-				const _35: rt.u8 = slice2[rt.idx(slice2, end)];
+				const _78: rt.ByteVec = self.buf;
+				const _35: rt.u8 = _78.data[rt.idx(_78, end)];
 				const _79: rt.ByteVec = self.buf;
-				const _39: rt.usize = rt.usizeSub(body, 1);
-				const slice3 = rt.byteVecView(_79);
-				slice3[rt.idx(slice3, _39)] = _35;
+				_79.data[rt.idx(_79, rt.usizeSub(body, 1))] = _35;
 				rt.byteVecTruncate(self.buf, end);
 				return rt.Ok(undefined);
 			}
@@ -154,7 +152,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			const size: rt.u16 = _7.value;
 			const _75: rt.ByteVec = self.buf;
 			const part = rt.usizeSub(body, 2);
-			rt.sliceCopyFromSlice(rt.sliceRange(rt.byteVecView(_75), part, body), rt.u16ToBeBytes(size));
+			rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteVecSlice(_75), part, body), rt.byteSliceFrom(rt.u16ToBeBytes(size)));
 		} else {
 			return _7;
 		}

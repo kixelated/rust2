@@ -16,9 +16,9 @@ import * as Probe from "./lite/probe.Probe.ts";
 import type * as Version from "./lite/version.Version.ts";
 
 /** Run one case. */
-export function run(input: Uint8Array): rt.ByteVec {
+export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(input);
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(input);
 	if (_5 !== undefined) {
 		const _8: rt.u8 = rt.u8Rem(_5[0], 9);
 		if (_8 === 0) {
@@ -80,7 +80,7 @@ export function liteVersion(selector: rt.u8): Version.Version {
 }
 
 export function putU64(out: rt.ByteVec, value: rt.u64): void {
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(value));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(value)));
 }
 
 export function putUsize(out: rt.ByteVec, value: rt.usize): void {
@@ -88,11 +88,11 @@ export function putUsize(out: rt.ByteVec, value: rt.usize): void {
 }
 
 /** Take up to 8 big-endian bytes as a `u64`, zero-padded on the right. */
-export function takeU64(data: Uint8Array): [rt.u64, Uint8Array] {
+export function takeU64(data: rt.ByteSlice): [rt.u64, rt.ByteSlice] {
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, 8);
-	rt.sliceCopyFromSlice(rt.sliceRange(buf, 0, n), rt.sliceRange(data, 0, n));
-	return [rt.u64FromBeBytes(buf), rt.sliceRange(data, n)] as [rt.u64, Uint8Array];
+	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
+	return [rt.u64FromBeBytes(buf), rt.byteSliceRange(data, n)] as [rt.u64, rt.ByteSlice];
 }
 
 /** A decode error's code, then its text. */
@@ -192,15 +192,15 @@ export function encodeError(out: rt.ByteVec, err: EncodeError.EncodeError): void
  * Read primitives as a script says until one fails: the script is the first
  * `data[1]` bytes after the form selector, and the wire is everything after it.
  */
-export function decodeScript(data: Uint8Array, out: rt.ByteVec): void {
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+export function decodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const selector: rt.u8 = _5[0];
-		const _9: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(_5[1]);
+		const _9: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(_5[1]);
 		if (_9 !== undefined) {
-			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
+			const _13: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
 			const r: Decoder.Decoder = Decoder.new(_13[1], form(selector));
-			for (const _21 of _13[0]) {
+			for (const _21 of rt.byteSliceView(_13[0])) {
 				const _26: rt.Result<undefined, DecodeError.DecodeError> = decodeStep(r, _21, out);
 				if (_26.ok) {
 					rt.byteVecPush(out, 0);
@@ -228,7 +228,7 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 	} else if (_5 === 1) {
 		const _15: rt.Result<rt.u16, DecodeError.DecodeError> = Decoder.u16(r);
 		if (_15.ok) {
-			rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(_15.value));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(_15.value)));
 		} else {
 			return _15;
 		}
@@ -261,7 +261,7 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 			return _31;
 		}
 	} else if (_5 === 5) {
-		const _40: rt.Result<Uint8Array, DecodeError.DecodeError> = Decoder.bytes(r);
+		const _40: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = Decoder.bytes(r);
 		if (_40.ok) {
 			putUsize(out, _40.value.length);
 			rt.byteVecExtendFromSlice(out, _40.value);
@@ -276,7 +276,7 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 			return _49;
 		}
 	} else if (_5 === 7) {
-		const _57: rt.Result<Uint8Array, DecodeError.DecodeError> = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
+		const _57: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = Decoder.slice(r, rt.u8Div(step, 10) as rt.usize);
 		if (_57.ok) {
 			rt.byteVecExtendFromSlice(out, _57.value);
 		} else {
@@ -303,23 +303,23 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 }
 
 /** Write primitives as a script says, taking each value from the data that follows. */
-export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
+export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let result!: rt.Result<undefined, EncodeError.EncodeError>;
 	let _47!: rt.u64 | undefined;
 	let _74!: Prefix.Prefix;
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const selector: rt.u8 = _5[0];
-		const _9: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(_5[1]);
+		const _9: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(_5[1]);
 		if (_9 !== undefined) {
-			const _13: [Uint8Array, Uint8Array] = rt.sliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
-			let values: Uint8Array = _13[1];
+			const _13: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(_9[1], rt.min(_9[1].length, _9[0] as rt.usize));
+			let values: rt.ByteSlice = _13[1];
 			const buf: rt.ByteVec = new rt.ByteVec();
 			const _20: Form.Form = form(selector);
 			const w: Encoder.Encoder = Encoder.new(buf, _20);
 			const prefixes: Prefix.Prefix[] = [];
-			for (const step of _13[0]) {
-				const _30: [rt.u64, Uint8Array] = takeU64(values);
+			for (const step of rt.byteSliceView(_13[0])) {
+				const _30: [rt.u64, rt.ByteSlice] = takeU64(values);
 				const value: rt.u64 = _30[0];
 				values = _30[1];
 				const _33: rt.u8 = rt.u8Rem(step, 10);
@@ -345,11 +345,12 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 					}
 					result = Encoder.varintOpt(w, _47);
 				} else if (_33 === 5) {
+					const _53: Uint8Array = rt.u64ToBeBytes(value);
 					const part = rt.u8Rem(rt.u8Div(step, 10), 9) as rt.usize;
-					const _51: Uint8Array = rt.sliceRange(rt.u64ToBeBytes(value), 0, part);
+					const _51: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(_53), 0, part);
 					result = Encoder.bytes(w, _51);
 				} else if (_33 === 6) {
-					const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(rt.u64ToBeBytes(value)));
+					const _60: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(rt.byteSliceFrom(rt.u64ToBeBytes(value))));
 					if (_60.ok) {
 						result = Encoder.string(w, _60.value);
 					} else {
@@ -395,12 +396,12 @@ export function encodeScript(data: Uint8Array, out: rt.ByteVec): void {
 				}
 			}
 			putUsize(out, buf.length);
-			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 		}
 	}
 }
 
-export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
+export function zigzag(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const value: rt.u64 = takeU64(data)[0];
 	const signed: rt.i64 = rt.i64Cast(value);
 	putU64(out, varint_zigzag(signed));
@@ -408,7 +409,7 @@ export function zigzag(data: Uint8Array, out: rt.ByteVec): void {
 	putU64(out, rt.u64Cast(unzigzag(varint_zigzag(signed))));
 }
 
-export function sizes(data: Uint8Array, out: rt.ByteVec): void {
+export function sizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _9!: rt.u8;
 	const value: rt.u64 = takeU64(data)[0];
 	let iterStart: rt.u8 = 0;
@@ -424,8 +425,8 @@ export function sizes(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** Decode a `T` from the wire, then encode what came out. */
-export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+export function roundtrip$Versions(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const form_: Form.Form = form(_5[0]);
 		const _8: rt.Result<[Versions.Versions, rt.usize], DecodeError.DecodeError> = Versions.decodeSlice$Decode_Form(_5[1], form_);
@@ -435,7 +436,7 @@ export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 			const buf: rt.ByteVec = new rt.ByteVec();
 			const _14: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Form(value, Encoder.new(buf, form_), form_);
 			if (_14.ok) {
-				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
 				encodeFailed(out, _14.error);
 			}
@@ -446,8 +447,8 @@ export function roundtrip$Versions(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
-export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+export function roundtripLite$Group(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const version: Version.Version = liteVersion(_5[0]);
 		const _8: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$Decode_Version(_5[1], version);
@@ -458,7 +459,7 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 			const _19: Form.Form = Form.from$From_Version(version);
 			const _14: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$Encode_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
-				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
 				encodeFailed(out, _14.error);
 			}
@@ -469,8 +470,8 @@ export function roundtripLite$Group(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
-export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+export function roundtripLite$Probe(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const version: Version.Version = liteVersion(_5[0]);
 		const _8: rt.Result<[Probe.Probe, rt.usize], DecodeError.DecodeError> = Probe.decodeSlice$Decode_Version(_5[1], version);
@@ -481,7 +482,7 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 			const _19: Form.Form = Form.from$From_Version(version);
 			const _14: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$Encode_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
-				rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
 				encodeFailed(out, _14.error);
 			}
@@ -492,17 +493,17 @@ export function roundtripLite$Probe(data: Uint8Array, out: rt.ByteVec): void {
 }
 
 /** Encode messages built from the data, at a lite version. */
-export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	if (_5 !== undefined) {
 		const version: Version.Version = liteVersion(_5[0]);
-		const _10: [rt.u64, Uint8Array] = takeU64(_5[1]);
+		const _10: [rt.u64, rt.ByteSlice] = takeU64(_5[1]);
 		const subscribe: rt.u64 = _10[0];
-		const _13: [rt.u64, Uint8Array] = takeU64(_10[1]);
+		const _13: [rt.u64, rt.ByteSlice] = takeU64(_10[1]);
 		const sequence: rt.u64 = _13[0];
-		const _16: [rt.u64, Uint8Array] = takeU64(_13[1]);
+		const _16: [rt.u64, rt.ByteSlice] = takeU64(_13[1]);
 		const frameStart: rt.u64 = _16[0];
-		const _19: [rt.u64, Uint8Array] = takeU64(_16[1]);
+		const _19: [rt.u64, rt.ByteSlice] = takeU64(_16[1]);
 		const bitrate: rt.u64 = _19[0];
 		const rtt: rt.u64 = takeU64(_19[1])[0];
 		encodeMessage$Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
@@ -512,7 +513,7 @@ export function encodeMessages(data: Uint8Array, out: rt.ByteVec): void {
 		const _45: Form.Form = Form.from$From_Version(version);
 		const _40: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Version(versions, Encoder.new(buf, _45), version);
 		if (_40.ok) {
-			rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 		} else {
 			encodeFailed(out, _40.error);
 		}
@@ -527,7 +528,7 @@ export function encodeMessage$Group(msg: Group.Group, version: Version.Version, 
 	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
-		rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 	} else {
 		encodeFailed(out, _8.error);
 	}
@@ -541,16 +542,16 @@ export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, 
 	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
-		rt.byteVecExtendFromSlice(out, rt.byteVecView(buf));
+		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 	} else {
 		encodeFailed(out, _8.error);
 	}
 }
 
 /** Each error the codec can return, built from the data, as callers see it. */
-export function errors(data: Uint8Array, out: rt.ByteVec): void {
+export function errors(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let err!: DecodeError.DecodeError;
-	const _5: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(data);
+	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
 	b0: {
 		if (_5 !== undefined) {
 			const selector: rt.u8 = _5[0];
@@ -565,7 +566,7 @@ export function errors(data: Uint8Array, out: rt.ByteVec): void {
 			} else if (_10 === 3) {
 				err = { tag: "Session", _0: { tag: "ProtocolViolation" } as SessionError.SessionError } as DecodeError.DecodeError;
 			} else if (_10 === 4) {
-				const _20: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.sliceToByteVec(_5[1]));
+				const _20: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(_5[1]));
 				if (_20.ok) {
 					err = { tag: "Missing" } as DecodeError.DecodeError;
 				} else {

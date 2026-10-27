@@ -187,6 +187,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.b.fmt_value(tr, from, value, span, out)
 				}
 				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
+				// An array's bytes, as a slice of all of it.
+				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
+					match to.builtin_deref(true) {
+						Some(pointee) if super::place::byte_slice(pointee) => {
+							let value = self.operand(op, span, out);
+							Expr::rt("byteSliceFrom", vec![value])
+						}
+						_ => self.err(span, format!("a coercion to `{to}`")),
+					}
+				}
 				PointerCoercion::Unsize | PointerCoercion::ReifyFnPointer(_) | PointerCoercion::ClosureFnPointer(_) => {
 					self.operand(op, span, out)
 				}
@@ -464,6 +474,19 @@ pub(super) fn context_like<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> boo
 			_ => false,
 		},
 		_ => false,
+	}
+}
+
+/// The part of `to` that unsizing `from` makes unsized, such as `[T]` from `[T; N]`.
+fn unsized_to<'tcx>(from: Ty<'tcx>, to: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match (from.kind(), to.kind()) {
+		_ if from == to => None,
+		(ty::Array(..), ty::Slice(_)) | (_, ty::Dynamic(..)) => Some(to),
+		(ty::Ref(_, a, _) | ty::RawPtr(a, _), ty::Ref(_, b, _) | ty::RawPtr(b, _)) => unsized_to(*a, *b),
+		(ty::Adt(a, a_args), ty::Adt(b, b_args)) if a.did() == b.did() => {
+			a_args.types().zip(b_args.types()).find_map(|(a, b)| unsized_to(a, b))
+		}
+		_ => None,
 	}
 }
 

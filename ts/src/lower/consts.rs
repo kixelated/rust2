@@ -62,7 +62,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						.map(|(t, v)| self.value(t, v, span))
 						.collect();
 					match elem.kind() {
-						ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(items),
+						ty::Uint(ty::UintTy::U8) => Expr::rt(
+							"byteSliceFrom",
+							vec![Expr::ident("Uint8Array").member("of").call(items)],
+						),
 						_ => Expr::Array(items),
 					}
 				}

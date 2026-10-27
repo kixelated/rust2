@@ -32,7 +32,7 @@ export type Shape =
 /** A default method, monomorphized for each type. */
 export function describe$Area(self: Shape, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(area$Area(self)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area(self))));
 }
 
 export function area$Area(self: Shape): rt.u64 {

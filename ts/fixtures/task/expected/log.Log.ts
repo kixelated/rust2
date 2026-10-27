@@ -38,7 +38,7 @@ export function text(self: Log): rt.ByteVec {
 		if (_13 === rt.DONE) {
 			return out;
 		}
-		const _19: Uint8Array = rt.stringAsBytes(_13);
+		const _19: rt.ByteSlice = rt.stringAsBytes(_13);
 		rt.byteVecExtendFromSlice(out, _19);
 		rt.byteVecPush(out, 10);
 	}

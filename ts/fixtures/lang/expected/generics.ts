@@ -12,9 +12,9 @@ import * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
 
 /** Each method once per instance: `Wrap` of a struct, an enum, a number, and itself. */
-export function methods(data: Uint8Array, out: rt.ByteVec): void {
+export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return rt.optionUnwrapOr(rt.sliceGet(data, i), 0);
+		return rt.optionUnwrapOr(rt.byteSliceGet(data, i), 0);
 	};
 	const point: Wrap.Wrap<Point.Point> = copy$Wrap_Point(Wrap.new$Point({ x: at(0) as rt.i32, y: -2 }));
 	Wrap.bump$Point(point);
@@ -29,11 +29,11 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const arg = ([nested] as [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>])[0];
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(arg, f)];
 	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
-	rt.byteVecExtendFromSlice(out, rt.u16ToBeBytes(Wrap.double$u8(byte)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(Wrap.double$u8(byte))));
 	rt.byteVecPush(out, Wrap.get$u8(byte));
 	rt.byteVecPush(out, Wrap.get$Pair(Wrap.get$Wrap_Pair(nested))._0);
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(Wrap.scaled$Meters(meters)));
-	rt.byteVecExtendFromSlice(out, rt.u64ToBeBytes(Wrap.scaled$Shape(shape)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(Wrap.scaled$Meters(meters))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(Wrap.scaled$Shape(shape))));
 	Wrap.describe$Area_Meters(meters, out);
 	Wrap.describe$Area_Shape(shape, out);
 	const mapped: Wrap.Wrap<Pair.Pair> = Wrap.map$u8_Pair_methods_closure1(byte, (b: rt.u8): Pair.Pair => {
@@ -67,7 +67,7 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	list.value.push(_171);
 	Wrap.bump$Vec_u16(list);
 	const none: Wrap.Wrap<rt.u8 | undefined> = new Wrap.Wrap({ value: undefined, count: 0 });
-	const some: Wrap.Wrap<rt.u8 | undefined> = Wrap.new$Option_u8(rt.sliceGet(data, 11));
+	const some: Wrap.Wrap<rt.u8 | undefined> = Wrap.new$Option_u8(rt.byteSliceGet(data, 11));
 	const err: Wrap.Wrap<rt.Result<rt.u8, Shape.Shape>> = new Wrap.Wrap({ value: rt.Err({ tag: "Dot" } as Shape.Shape), count: 2 });
 	const _193: rt.u8 = rt.optionUnwrapOr(Wrap.get$Option_u8(none), some.count);
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Vec_u16(list, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(none, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(some, f), (f: rt.Formatter) => Wrap.fmt$Debug_Result_u8_Shape(err, f), (f: rt.Formatter) => rt.u8Display(_193, f)];
@@ -78,7 +78,7 @@ export function methods(data: Uint8Array, out: rt.ByteVec): void {
 	const arg5 = Tagged.first$Either_u8_u16_i16(tagged);
 	const args12: rt.Fmt[] = [_241, (f: rt.Formatter) => rt.fmtOption(arg5, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))];
 	put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
-	rt.byteVecExtendFromSlice(out, rt.i16ToBeBytes(tagged.inner.value));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(tagged.inner.value)));
 	rt.byteVecPush(out, rt.optionUnwrapOr(Either.left$u8_u16(tagged.key), 0));
 }
 

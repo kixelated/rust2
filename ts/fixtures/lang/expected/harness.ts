@@ -12,121 +12,121 @@ import { copies, order, discriminants, loops, patterns, closures, library, flows
 import { strs } from "./strs.ts";
 
 /** Run one case. */
-export function run(input: Uint8Array): rt.ByteVec {
+export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (!(input.length >= 2)) {
 		return out;
 	}
-	const _10: [rt.u8, rt.u8] = [input[0], input[1]];
+	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
 	const _14: rt.u8 = rt.u8Rem(op, 44);
 	if (_14 === 0) {
-		u8Op(kind, input.subarray(2, input.length - 0), out);
+		u8Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 1) {
-		u16Op(kind, input.subarray(2, input.length - 0), out);
+		u16Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 2) {
-		u32Op(kind, input.subarray(2, input.length - 0), out);
+		u32Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 3) {
-		u64Op(kind, input.subarray(2, input.length - 0), out);
+		u64Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 4) {
-		u128Op(kind, input.subarray(2, input.length - 0), out);
+		u128Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 5) {
-		usizeOp(kind, input.subarray(2, input.length - 0), out);
+		usizeOp(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 6) {
-		i8Op(kind, input.subarray(2, input.length - 0), out);
+		i8Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 7) {
-		i16Op(kind, input.subarray(2, input.length - 0), out);
+		i16Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 8) {
-		i32Op(kind, input.subarray(2, input.length - 0), out);
+		i32Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 9) {
-		i64Op(kind, input.subarray(2, input.length - 0), out);
+		i64Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 10) {
-		i128Op(kind, input.subarray(2, input.length - 0), out);
+		i128Op(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 11) {
-		isizeOp(kind, input.subarray(2, input.length - 0), out);
+		isizeOp(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 12) {
 		const _28: rt.u8 = rt.u8Rem(kind, 6);
 		if (_28 === 0) {
-			i8Neg(input.subarray(2, input.length - 0), out);
+			i8Neg(rt.byteSliceRange(input, 2), out);
 		} else if (_28 === 1) {
-			i16Neg(input.subarray(2, input.length - 0), out);
+			i16Neg(rt.byteSliceRange(input, 2), out);
 		} else if (_28 === 2) {
-			i32Neg(input.subarray(2, input.length - 0), out);
+			i32Neg(rt.byteSliceRange(input, 2), out);
 		} else if (_28 === 3) {
-			i64Neg(input.subarray(2, input.length - 0), out);
+			i64Neg(rt.byteSliceRange(input, 2), out);
 		} else if (_28 === 4) {
-			i128Neg(input.subarray(2, input.length - 0), out);
+			i128Neg(rt.byteSliceRange(input, 2), out);
 		} else {
-			isizeNeg(input.subarray(2, input.length - 0), out);
+			isizeNeg(rt.byteSliceRange(input, 2), out);
 		}
 	} else if (_14 === 13) {
-		const _36: [rt.u8, Uint8Array] | undefined = rt.sliceSplitFirst(input.subarray(2, input.length - 0));
+		const _36: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(rt.byteSliceRange(input, 2));
 		if (_36 === undefined) {
-			cast(kind, rt.u8Div(kind, 12), input.subarray(2, input.length - 0), out);
+			cast(kind, rt.u8Div(kind, 12), rt.byteSliceRange(input, 2), out);
 		} else {
 			cast(kind, _36[0], _36[1], out);
 		}
 	} else if (_14 === 14) {
-		convert(input.subarray(2, input.length - 0), out);
+		convert(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 15) {
-		copies(input.subarray(2, input.length - 0), out);
+		copies(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 16) {
-		loops(input.subarray(2, input.length - 0), out);
+		loops(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 17) {
-		patterns(input.subarray(2, input.length - 0), out);
+		patterns(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 18) {
-		closures(input.subarray(2, input.length - 0), out);
+		closures(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 19) {
-		discriminants(input.subarray(2, input.length - 0), out);
+		discriminants(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 20) {
-		library(input.subarray(2, input.length - 0), out);
+		library(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 21) {
-		ints(kind, input.subarray(2, input.length - 0), out);
+		ints(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 22) {
-		strings(input.subarray(2, input.length - 0), out);
+		strings(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 23) {
-		derived(input.subarray(2, input.length - 0), out);
+		derived(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 24) {
-		written(input.subarray(2, input.length - 0), out);
+		written(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 25) {
-		panics(kind, input.subarray(2, input.length - 0), out);
+		panics(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 26) {
-		methods(input.subarray(2, input.length - 0), out);
+		methods(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 27) {
-		adaptors(kind, input.subarray(2, input.length - 0), out);
+		adaptors(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 28) {
-		consumers(kind, input.subarray(2, input.length - 0), out);
+		consumers(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 29) {
-		ranges(input.subarray(2, input.length - 0), out);
+		ranges(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 30) {
-		options(input.subarray(2, input.length - 0), out);
+		options(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 31) {
-		own(input.subarray(2, input.length - 0), out);
+		own(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 32) {
-		values(input.subarray(2, input.length - 0), out);
+		values(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 33) {
-		order(input.subarray(2, input.length - 0), out);
+		order(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 34) {
-		hashMaps(kind, input.subarray(2, input.length - 0), out);
+		hashMaps(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 35) {
-		sets(kind, input.subarray(2, input.length - 0), out);
+		sets(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 36) {
-		btreeMaps(kind, input.subarray(2, input.length - 0), out);
+		btreeMaps(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 37) {
-		deques(input.subarray(2, input.length - 0), out);
+		deques(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 38) {
-		flows(input.subarray(2, input.length - 0), out);
+		flows(rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 39) {
-		keys(kind, input.subarray(2, input.length - 0), out);
+		keys(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 40) {
-		chars(kind, input.subarray(2, input.length - 0), out);
+		chars(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 41) {
-		strs(kind, input.subarray(2, input.length - 0), out);
+		strs(kind, rt.byteSliceRange(input, 2), out);
 	} else if (_14 === 42) {
-		vecs(input.subarray(2, input.length - 0), out);
+		vecs(rt.byteSliceRange(input, 2), out);
 	} else {
-		stores(input.subarray(2, input.length - 0), out);
+		stores(rt.byteSliceRange(input, 2), out);
 	}
 	return out;
 }

@@ -362,6 +362,16 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	})
 }
 
+/// JS's `copyWithin` would share each tuple, which Rust copies.
+pub fn shifted(v: &mut [(u8, u8)]) {
+	v.copy_within(0..1, 1);
+}
+
+/// An `Arc`'s bytes would need a `ByteSlice` made inside it.
+pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
+	b
+}
+
 /// A `String` pushed to through a parameter, whose JS value is the caller's copy.
 pub fn pushed(s: &mut String) {
 	s.push('a');
