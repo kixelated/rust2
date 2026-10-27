@@ -591,11 +591,9 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, _21);
 	}
-	[{ _0: data }, { _0: rt.byteSliceRange(data, 0, rt.min(data.length, 2)) }] as [Doubled.Doubled, Doubled.Doubled];
-	const arg = { _0: data };
-	const _39: rt.Fmt = (f: rt.Formatter) => Doubled.fmt$Debug(arg, f);
-	const arg2 = { _0: rt.byteSliceRange(data, 0, rt.min(data.length, 2)) };
-	const args2: rt.Fmt[] = [_39, (f: rt.Formatter) => Doubled.fmt$Debug(arg2, f)];
+	const _31: Doubled.Doubled = { _0: data };
+	const _33: Doubled.Doubled = { _0: rt.byteSliceRange(data, 0, rt.min(data.length, 2)) };
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => Doubled.fmt$Debug(_31, f), (f: rt.Formatter) => Doubled.fmt$Debug(_33, f)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], "|", rt.fmtSpec({ alternate: true }, args2[1])])));
 	const tags: Tag.Tag[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): Tag.Tag => {
 		const b3: rt.u8 = _2;
