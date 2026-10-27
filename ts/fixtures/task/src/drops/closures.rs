@@ -161,6 +161,10 @@ pub(super) fn discarded(log: &Log, id: u32, at: u8) {
 	};
 	let other = move |n: u32| n + p.id();
 	log.note(format!("by ref {:?} {:?}", some.map(plus), none.map(other)));
+	let (r, s) = (guard(18), guard(19));
+	let kept = move || r.id();
+	let skipped = move || s.id();
+	log.note(format!("then by ref {:?} {:?}", yes.then(kept), (!yes).then(skipped)));
 	// A closure that owns one that owns a guard, as a helper's would.
 	let q = guard(17);
 	let inner = move |n: u32| n + q.id();

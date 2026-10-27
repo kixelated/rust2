@@ -363,49 +363,59 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let p!: Guard.Guard;
 	let _177!: Guard.Guard;
 	let other!: (a0: rt.u32) => rt.u32;
-	let _233!: boolean;
-	let _234!: boolean;
-	let _235!: boolean;
-	let _236!: boolean;
-	let _237!: boolean;
-	let _238!: boolean;
-	let _239!: boolean;
-	let _240!: boolean;
-	let _241!: boolean;
-	let _242!: boolean;
-	let _243!: boolean;
-	let _244!: boolean;
-	let _245!: boolean;
-	let _246!: boolean;
-	let _247!: boolean;
-	let _248!: boolean;
-	let _249!: boolean;
+	let r!: Guard.Guard;
+	let s!: Guard.Guard;
+	let _205!: Guard.Guard;
+	let skipped!: () => rt.u32;
+	let _262!: boolean;
+	let _263!: boolean;
+	let _264!: boolean;
+	let _265!: boolean;
+	let _266!: boolean;
+	let _267!: boolean;
+	let _268!: boolean;
+	let _269!: boolean;
+	let _270!: boolean;
+	let _271!: boolean;
+	let _272!: boolean;
+	let _273!: boolean;
+	let _274!: boolean;
+	let _275!: boolean;
+	let _276!: boolean;
+	let _277!: boolean;
+	let _278!: boolean;
+	let _279!: boolean;
+	let _280!: boolean;
+	let _281!: boolean;
 	let unwind: number = 0;
 	try {
-		_249 = false;
-		_248 = false;
-		_247 = false;
-		_246 = false;
-		_245 = false;
-		_244 = false;
-		_243 = false;
-		_242 = false;
-		_241 = false;
-		_240 = false;
-		_239 = false;
-		_238 = false;
-		_237 = false;
-		_236 = false;
-		_235 = false;
-		_234 = false;
-		_233 = false;
+		_281 = false;
+		_280 = false;
+		_279 = false;
+		_278 = false;
+		_277 = false;
+		_276 = false;
+		_275 = false;
+		_274 = false;
+		_273 = false;
+		_272 = false;
+		_271 = false;
+		_270 = false;
+		_269 = false;
+		_268 = false;
+		_267 = false;
+		_266 = false;
+		_265 = false;
+		_264 = false;
+		_263 = false;
+		_262 = false;
 		const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
 		};
 		const check: (a0: rt.u8) => void = (point: rt.u8): void => {
 			if (point === at) {
-				const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
-				rt.panicFmt(["d", args16[0], " at ", args16[1]]);
+				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
+				rt.panicFmt(["d", args18[0], " at ", args18[1]]);
 			}
 		};
 		if (!(at < 8)) {
@@ -419,15 +429,15 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			none = id;
 		}
 		_16 = guard(1);
-		unwind = 101;
+		unwind = 114;
 		const _19: Guard.Guard = guard(2);
-		unwind = 125;
-		_249 = true;
+		unwind = 142;
+		_281 = true;
 		a = _16;
-		_248 = true;
+		_280 = true;
 		b = _19;
 		const _23: rt.u32 | undefined = some;
-		_249 = false;
+		_281 = false;
 		const captured = check;
 		const captured2 = a;
 		const mapped: rt.u32 | undefined = map$Option_u32_u32_blasted_closure3(_23, rt.closure((n3: rt.u32): rt.u32 => {
@@ -449,7 +459,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured2);
 		}));
-		_248 = false;
+		_280 = false;
 		const captured3 = b;
 		const unmapped: rt.u32 | undefined = map$Option_u32_u32_blasted_closure3(none, rt.closure((n4: rt.u32): rt.u32 => {
 			let unwind3: number = 0;
@@ -474,22 +484,22 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const ok: rt.Result<rt.u32, rt.u32> = rt.Ok(id);
 		const err: rt.Result<rt.u32, rt.u32> = rt.Err(id);
 		_47 = guard(3);
-		unwind = 99;
+		unwind = 112;
 		_50 = guard(4);
-		unwind = 98;
+		unwind = 111;
 		_53 = guard(5);
-		unwind = 97;
+		unwind = 110;
 		const _56: Guard.Guard = guard(6);
-		unwind = 120;
-		_247 = true;
+		unwind = 137;
+		_279 = true;
 		c = _47;
-		_246 = true;
+		_278 = true;
 		d = _50;
-		_245 = true;
+		_277 = true;
 		e = _53;
-		_244 = true;
+		_276 = true;
 		f = _56;
-		_247 = false;
+		_279 = false;
 		const captured4 = c;
 		const _60: rt.Result<rt.u32, rt.u32> = map$Result_u32_u32_u32_discarded_closure4(ok, rt.closure((n5: rt.u32): rt.u32 => {
 			let unwind4: number = 0;
@@ -509,7 +519,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured4);
 		}));
-		_246 = false;
+		_278 = false;
 		const captured5 = d;
 		const values: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_60, map$Result_u32_u32_u32_discarded_closure4(err, rt.closure((n6: rt.u32): rt.u32 => {
 			let unwind5: number = 0;
@@ -529,7 +539,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured5);
 		}))];
-		_245 = false;
+		_277 = false;
 		const captured6 = e;
 		const _65: rt.Result<rt.u32, rt.u32> = mapErr$Result_u32_u32_u32_discarded_closure6(ok, rt.closure((n7: rt.u32): rt.u32 => {
 			let unwind6: number = 0;
@@ -549,7 +559,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured6);
 		}));
-		_244 = false;
+		_276 = false;
 		const captured7 = check;
 		const captured8 = f;
 		const errors: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_65, mapErr$Result_u32_u32_u32_discarded_closure6(err, rt.closure((n8: rt.u32): rt.u32 => {
@@ -574,14 +584,14 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(values[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(values[1], f, rt.u32Display, rt.u32Display)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(errors[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(errors[1], f, rt.u32Display, rt.u32Display)], f)];
 		Log.note(log, rt.fmtFormat(["result ", args4[0], " ", args4[1]]));
 		_84 = guard(7);
-		unwind = 93;
+		unwind = 106;
 		const _87: Guard.Guard = guard(8);
-		unwind = 117;
-		_243 = true;
+		unwind = 134;
+		_275 = true;
 		g = _84;
-		_242 = true;
+		_274 = true;
 		h = _87;
-		_243 = false;
+		_275 = false;
 		const captured9 = g;
 		const _91: rt.Result<rt.u32, rt.u32> = andThen$Result_u32_u32_u32_discarded_closure8(ok, rt.closure((n9: rt.u32): rt.Result<rt.u32, rt.u32> => {
 			let unwind8: number = 0;
@@ -602,7 +612,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured9);
 		}));
-		_242 = false;
+		_274 = false;
 		const captured10 = h;
 		const chained: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_91, andThen$Result_u32_u32_u32_discarded_closure8(err, rt.closure((n10: rt.u32): rt.Result<rt.u32, rt.u32> => {
 			let unwind9: number = 0;
@@ -624,22 +634,22 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(captured10);
 		}))];
 		_98 = guard(9);
-		unwind = 91;
+		unwind = 104;
 		const _101: Guard.Guard = guard(10);
-		unwind = 114;
-		_241 = true;
+		unwind = 131;
+		_273 = true;
 		i = _98;
-		_240 = true;
+		_272 = true;
 		j = _101;
-		_241 = false;
+		_273 = false;
 		const captured11 = i;
 		const _105: rt.Result<rt.u32, rt.u32> = inspectErr$Result_u32_u32_discarded_closure10(ok, rt.closure((_2: rt.u32): void => {
 			let unwind10: number = 0;
 			try {
 				unwind10 = 9;
 				const part = Guard.id(captured11);
-				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-				Log.note(log, rt.fmtFormat(["inspect ", args18[0]]));
+				const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+				Log.note(log, rt.fmtFormat(["inspect ", args20[0]]));
 				unwind10 = 0;
 				rt.drop(captured11);
 			} catch (e11) {
@@ -652,7 +662,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured11);
 		}));
-		_240 = false;
+		_272 = false;
 		const captured12 = check;
 		const captured13 = j;
 		const inspected: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_105, inspectErr$Result_u32_u32_discarded_closure10(err, rt.closure((_22: rt.u32): void => {
@@ -661,8 +671,8 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				unwind11 = 10;
 				captured12(3);
 				const part2 = Guard.id(captured13);
-				const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
-				Log.note(log, rt.fmtFormat(["inspect ", args20[0]]));
+				const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+				Log.note(log, rt.fmtFormat(["inspect ", args22[0]]));
 				unwind11 = 0;
 				rt.drop(captured13);
 			} catch (e12) {
@@ -678,15 +688,15 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(chained[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(chained[1], f, rt.u32Display, rt.u32Display)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(inspected[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(inspected[1], f, rt.u32Display, rt.u32Display)], f)];
 		Log.note(log, rt.fmtFormat(["chained ", args6[0], " ", args6[1]]));
 		_124 = guard(11);
-		unwind = 89;
+		unwind = 102;
 		const _127: Guard.Guard = guard(12);
-		unwind = 111;
-		_239 = true;
+		unwind = 128;
+		_271 = true;
 		k = _124;
-		_238 = true;
+		_270 = true;
 		l = _127;
 		const _132: rt.u32 | undefined = some;
-		_239 = false;
+		_271 = false;
 		const captured14 = check;
 		const captured15 = k;
 		const _131: rt.u32 = mapOr$Option_u32_u32_discarded_closure12(_132, 0, rt.closure((n11: rt.u32): rt.u32 => {
@@ -708,7 +718,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured15);
 		}));
-		_238 = false;
+		_270 = false;
 		const captured16 = l;
 		const part3 = [_131, mapOr$Option_u32_u32_discarded_closure12(none, 0, rt.closure((n12: rt.u32): rt.u32 => {
 			let unwind13: number = 0;
@@ -731,15 +741,15 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Display(part3[0], f), (f: rt.Formatter) => rt.u32Display(part3[1], f)], f)];
 		Log.note(log, rt.fmtFormat(["map_or ", args8[0]]));
 		_150 = guard(13);
-		unwind = 87;
+		unwind = 100;
 		const _153: Guard.Guard = guard(14);
-		unwind = 108;
-		_237 = true;
+		unwind = 125;
+		_269 = true;
 		m = _150;
-		_236 = true;
+		_268 = true;
 		n = _153;
 		const yes: boolean = some !== undefined;
-		_237 = false;
+		_269 = false;
 		const captured17 = m;
 		const _159: rt.u32 | undefined = rt.boolThen(yes, rt.closure((): rt.u32 => {
 			let unwind14: number = 0;
@@ -759,7 +769,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured17);
 		}), rt.drop);
-		_236 = false;
+		_268 = false;
 		const captured18 = n;
 		const part4 = [_159, rt.boolThen(!yes, rt.closure((): rt.u32 => {
 			let unwind15: number = 0;
@@ -782,14 +792,14 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part4[0], f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(part4[1], f, rt.u32Display)], f)];
 		Log.note(log, rt.fmtFormat(["then ", args10[0]]));
 		_177 = guard(15);
-		unwind = 85;
+		unwind = 98;
 		const _180: Guard.Guard = guard(16);
-		unwind = 104;
-		_235 = true;
+		unwind = 121;
+		_267 = true;
 		o = _177;
-		_234 = true;
+		_266 = true;
 		p = _180;
-		_235 = false;
+		_267 = false;
 		const captured19 = check;
 		const captured20 = o;
 		const plus: (a0: rt.u32) => rt.u32 = rt.closure((n13: rt.u32): rt.u32 => {
@@ -798,8 +808,8 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured20);
 		});
-		_234 = false;
-		_233 = true;
+		_266 = false;
+		_265 = true;
 		const captured21 = p;
 		other = rt.closure((n14: rt.u32): rt.u32 => {
 			return rt.u32Add(n14, Guard.id(captured21));
@@ -807,57 +817,87 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(captured21);
 		});
 		const _191: rt.u32 | undefined = map$Option_u32_u32_discarded_closure16(some, plus);
-		_233 = false;
+		_265 = false;
 		const _194: rt.u32 | undefined = map$Option_u32_u32_discarded_closure16(none, other);
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_191, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(_194, f, rt.u32Display)];
 		Log.note(log, rt.fmtFormat(["by ref ", args12[0], " ", args12[1]]));
-		const captured22 = guard(17);
-		const _213: rt.u32 | undefined = some;
-		const captured23 = check;
-		const captured24 = rt.closure((n15: rt.u32): rt.u32 => {
-			return rt.u32Add(n15, Guard.id(captured22));
+		_205 = guard(18);
+		unwind = 95;
+		const _208: Guard.Guard = guard(19);
+		unwind = 117;
+		_264 = true;
+		r = _205;
+		_263 = true;
+		s = _208;
+		_264 = false;
+		const captured22 = r;
+		_263 = false;
+		_262 = true;
+		const captured23 = s;
+		skipped = rt.closure((): rt.u32 => {
+			return Guard.id(captured23);
+		}, (): void => {
+			rt.drop(captured23);
+		});
+		const _219: rt.u32 | undefined = rt.boolThen(yes, rt.once(rt.closure((): rt.u32 => {
+			return Guard.id(captured22);
 		}, (): void => {
 			rt.drop(captured22);
+		})), rt.drop);
+		_262 = false;
+		const _221: rt.u32 | undefined = rt.boolThen(!yes, rt.once(skipped), rt.drop);
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_219, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(_221, f, rt.u32Display)];
+		Log.note(log, rt.fmtFormat(["then by ref ", args14[0], " ", args14[1]]));
+		const captured24 = guard(17);
+		const _240: rt.u32 | undefined = some;
+		const captured25 = check;
+		const captured26 = rt.closure((n15: rt.u32): rt.u32 => {
+			return rt.u32Add(n15, Guard.id(captured24));
+		}, (): void => {
+			rt.drop(captured24);
 		});
-		const part5 = map$Option_u32_u32_blasted_closure3(_213, rt.closure((n16: rt.u32): rt.u32 => {
+		const part5 = map$Option_u32_u32_blasted_closure3(_240, rt.closure((n16: rt.u32): rt.u32 => {
 			let unwind16: number = 0;
 			try {
 				unwind16 = 5;
-				captured23(6);
-				const _017: rt.u32 = captured24(n16);
+				captured25(6);
+				const _019: rt.u32 = captured26(n16);
 				unwind16 = 0;
-				rt.drop(captured24);
-				return _017;
+				rt.drop(captured26);
+				return _019;
 			} catch (e17) {
 				if (unwind16 === 0) {
 					throw e17;
 				}
-				rt.drop(captured24);
+				rt.drop(captured26);
 				throw e17;
 			}
 		}, (): void => {
-			rt.drop(captured24);
+			rt.drop(captured26);
 		}));
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Display)];
-		Log.note(log, rt.fmtFormat(["nested ", args14[0]]));
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Display)];
+		Log.note(log, rt.fmtFormat(["nested ", args16[0]]));
 		check(7);
-		_233 = false;
-		_234 = false;
-		_235 = false;
-		_236 = false;
-		_237 = false;
-		_238 = false;
-		_239 = false;
-		_240 = false;
-		_241 = false;
-		_242 = false;
-		_243 = false;
-		_244 = false;
-		_245 = false;
-		_246 = false;
-		_247 = false;
-		_248 = false;
-		_249 = false;
+		_262 = false;
+		_263 = false;
+		_264 = false;
+		_265 = false;
+		_266 = false;
+		_267 = false;
+		_268 = false;
+		_269 = false;
+		_270 = false;
+		_271 = false;
+		_272 = false;
+		_273 = false;
+		_274 = false;
+		_275 = false;
+		_276 = false;
+		_277 = false;
+		_278 = false;
+		_279 = false;
+		_280 = false;
+		_281 = false;
 	} catch (e2) {
 		b2: {
 			b3: {
@@ -867,119 +907,137 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 							b7: {
 								b8: {
 									b9: {
-										if (unwind === 0) {
-											throw e2;
-										}
-										if (unwind === 85) {
-											rt.drop(_177);
-											break b8;
-										}
-										if (unwind === 87) {
-											rt.drop(_150);
-											break b7;
-										}
-										if (unwind === 89) {
-											rt.drop(_124);
-											break b6;
-										}
-										if (unwind === 91) {
-											rt.drop(_98);
-											break b5;
-										}
-										if (unwind === 93) {
-											rt.drop(_84);
-											break b4;
-										}
-										if (unwind === 97) {
-											rt.drop(_53);
-										} else if (unwind !== 98) {
-											if (unwind === 99) {
+										b10: {
+											if (unwind === 0) {
+												throw e2;
+											}
+											if (unwind === 95) {
+												rt.drop(_205);
 												break b9;
 											}
-											if (unwind === 101) {
-												rt.drop(_16);
-												break b2;
-											}
-											if (unwind === 104) {
-												if (_233) {
-													rt.drop(other);
-												}
-												if (_234) {
-													rt.drop(p);
-												}
-												if (!_235) {
-													break b8;
-												}
-												rt.drop(o);
+											if (unwind === 98) {
+												rt.drop(_177);
 												break b8;
 											}
-											if (unwind === 108) {
-												break b8;
-											}
-											if (unwind === 111) {
+											if (unwind === 100) {
+												rt.drop(_150);
 												break b7;
 											}
-											if (unwind === 114) {
+											if (unwind === 102) {
+												rt.drop(_124);
 												break b6;
 											}
-											if (unwind === 117) {
+											if (unwind === 104) {
+												rt.drop(_98);
 												break b5;
 											}
-											if (unwind === 120) {
+											if (unwind === 106) {
+												rt.drop(_84);
 												break b4;
 											}
-											break b3;
+											if (unwind === 110) {
+												rt.drop(_53);
+											} else if (unwind !== 111) {
+												if (unwind === 112) {
+													break b10;
+												}
+												if (unwind === 114) {
+													rt.drop(_16);
+													break b2;
+												}
+												if (unwind === 117) {
+													if (_262) {
+														rt.drop(skipped);
+													}
+													if (_263) {
+														rt.drop(s);
+													}
+													if (!_264) {
+														break b9;
+													}
+													rt.drop(r);
+													break b9;
+												}
+												if (unwind === 121) {
+													break b9;
+												}
+												if (unwind === 125) {
+													break b8;
+												}
+												if (unwind === 128) {
+													break b7;
+												}
+												if (unwind === 131) {
+													break b6;
+												}
+												if (unwind === 134) {
+													break b5;
+												}
+												if (unwind === 137) {
+													break b4;
+												}
+												break b3;
+											}
+											rt.drop(_50);
 										}
-										rt.drop(_50);
+										rt.drop(_47);
+										break b3;
 									}
-									rt.drop(_47);
-									break b3;
+									if (_265) {
+										rt.drop(other);
+									}
+									if (_266) {
+										rt.drop(p);
+									}
+									if (_267) {
+										rt.drop(o);
+									}
 								}
-								if (_236) {
+								if (_268) {
 									rt.drop(n);
 								}
-								if (_237) {
+								if (_269) {
 									rt.drop(m);
 								}
 							}
-							if (_238) {
+							if (_270) {
 								rt.drop(l);
 							}
-							if (_239) {
+							if (_271) {
 								rt.drop(k);
 							}
 						}
-						if (_240) {
+						if (_272) {
 							rt.drop(j);
 						}
-						if (_241) {
+						if (_273) {
 							rt.drop(i);
 						}
 					}
-					if (_242) {
+					if (_274) {
 						rt.drop(h);
 					}
-					if (_243) {
+					if (_275) {
 						rt.drop(g);
 					}
 				}
-				if (_244) {
+				if (_276) {
 					rt.drop(f);
 				}
-				if (_245) {
+				if (_277) {
 					rt.drop(e);
 				}
-				if (_246) {
+				if (_278) {
 					rt.drop(d);
 				}
-				if (_247) {
+				if (_279) {
 					rt.drop(c);
 				}
 			}
-			if (_248) {
+			if (_280) {
 				rt.drop(b);
 			}
-			if (_249) {
+			if (_281) {
 				rt.drop(a);
 			}
 		}
