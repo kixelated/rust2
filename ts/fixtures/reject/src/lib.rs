@@ -390,19 +390,24 @@ pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
 }
 
-/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok`, and with
-/// it what it captured, which lives in an arrow function.
+/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok` and
+/// `Result::and_then` on `Err`, and with it what it captured, which lives in an arrow
+/// function.
 pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
-	let (m, n) = (Noisy(1), Noisy(2));
+	let (m, n, o) = (Noisy(1), Noisy(2), Noisy(3));
 	let a = a.map(move |x| {
 		drop(m);
 		x
 	});
-	let b = b.map_err(move |e| {
+	let c = b.map_err(move |e| {
 		drop(n);
 		e
 	});
-	a.unwrap_or(0) + b.unwrap_or(0)
+	let d = b.and_then(move |v| {
+		drop(o);
+		Ok(v)
+	});
+	a.unwrap_or(0) + c.unwrap_or(0) + d.unwrap_or(0)
 }
 
 /// Each drops its closure, and the `Noisy` it owns, when it is done with it, as

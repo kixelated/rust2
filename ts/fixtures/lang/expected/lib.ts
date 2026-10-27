@@ -114,6 +114,10 @@ export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8]
 	return v.ok ? rt.Ok(copy$Mutex_u8_u8(v.value)) : rt.Err(v.error);
 }
 
+export function copy$Result_u32s_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
+	return v.ok ? rt.Ok(copy$u32s(v.value)) : rt.Err(v.error);
+}
+
 export function copy$Result_u8s_u8s_Option_u8(v: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined>): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
 	return v.ok ? rt.Ok(copy$u8s_u8s(v.value)) : rt.Err(v.error);
 }
@@ -146,6 +150,10 @@ export function copy$Wrap_i16(v: Wrap.Wrap<rt.i16>): Wrap.Wrap<rt.i16> {
 
 export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap({ value: v.value, count: v.count });
+}
+
+export function copy$u32s(v: rt.u32[]): rt.u32[] {
+	return v.slice();
 }
 
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {

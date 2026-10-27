@@ -2,6 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Option_Shape, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
+import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_shares_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
+import { map$Result_u8_str_u8_library_closure1, mapErr$Result_u8_str_u8_library_closure2 } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
 import { advance, reset$Gauge } from "./generics.ts";
 import type * as Dir from "./shapes.Dir.ts";
@@ -77,7 +79,7 @@ export function shape(data: rt.ByteSlice): Shape.Shape {
 		const kind: rt.u8 = data.data[data.start];
 		const rest: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 1, data.length - 1);
 		const at: (a0: rt.usize) => rt.i32 = (i: rt.usize): rt.i32 => {
-			return rt.i32Sub(rt.optionUnwrapOr(rt.byteSliceGet(rest, i), 0) as rt.i32, 128);
+			return rt.i32Sub(unwrapOr$Option_u8(rt.byteSliceGet(rest, i), 0) as rt.i32, 128);
 		};
 		const _7: rt.u8 = rt.u8Rem(kind, 3);
 		if (_7 === 0) {
@@ -86,7 +88,7 @@ export function shape(data: rt.ByteSlice): Shape.Shape {
 		if (_7 === 1) {
 			return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
 		}
-		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.byteSliceGet(rest, 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.byteSliceGet(rest, 3), 0) as rt.u16 } as Shape.Shape;
+		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(unwrapOr$Option_u8(rt.byteSliceGet(rest, 2), 0) as rt.u16, 300), height: unwrapOr$Option_u8(rt.byteSliceGet(rest, 3), 0) as rt.u16 } as Shape.Shape;
 	}
 	return { tag: "Dot" } as Shape.Shape;
 }
@@ -96,7 +98,7 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _211!: Uint8Array;
 	let poll!: rt.Poll<Uint8Array>;
 	let _246!: rt.u8;
-	const p: Point.Point = Point.new(rt.optionUnwrapOr(rt.byteSliceFirst(data), 0) as rt.i32, 7);
+	const p: Point.Point = Point.new(unwrapOr$Option_u8(rt.byteSliceFirst(data), 0) as rt.i32, 7);
 	const q: Point.Point = copy$Point(p);
 	q.x = rt.i32Add(q.x, 100);
 	Point.bump(q);
@@ -160,7 +162,7 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 	opt = undefined;
 	const taken: Meters.Meters | undefined = taken2;
 	rt.byteVecPush(out, opt === undefined ? 1 : 0);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.optionMapOr(taken, 0, (m: Meters.Meters): rt.u64 => {
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(mapOr$Option_Meters_u64_copies_closure0(taken, 0, (m: Meters.Meters): rt.u64 => {
 		return m._0;
 	}))));
 	const res: rt.Result<Point.Point, rt.u8> = rt.Ok(p);
@@ -277,7 +279,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let flow!: rt.Result<Uint8Array, rt.Arc<rt.u8>>;
 	let unwind: number = 0;
 	try {
-		const a: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(data), 0);
+		const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 		const slot: rt.Mutex<rt.u8> = new rt.Mutex(a);
 		const other: rt.Mutex<rt.u8> = new rt.Mutex(0);
 		const pair: [rt.Mutex<rt.u8>, rt.u8] = [slot, a];
@@ -308,7 +310,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_51 === rt.DONE) {
 				break;
 			}
-			rt.byteVecPush(out, rt.optionMapOr(_51, 0, (_2: [rt.Mutex<rt.u8>, rt.u8]): rt.u8 => {
+			rt.byteVecPush(out, mapOr$Option_Mutex_u8_u8_u8_shares_closure0(_51, 0, (_2: [rt.Mutex<rt.u8>, rt.u8]): rt.u8 => {
 				return _2[1];
 			}));
 		}
@@ -388,7 +390,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const bytes: Uint8Array = Uint8Array.of(a, 1);
 		rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
 		rt.byteVecPush(out, bytes[0]);
-		const at: rt.usize = rt.optionMapOr(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+		const at: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 			return rt.usizeRem(_22 as rt.usize, 3);
 		});
 		rt.byteVecPush(out, writeAt(rt.byteSliceFrom(bytes), at, a));
@@ -541,7 +543,7 @@ export function order(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let taken!: Shape.Shape;
 	let _75!: rt.usize;
 	const at: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return rt.optionUnwrapOr(rt.byteSliceGet(data, i2), 0);
+		return unwrapOr$Option_u8(rt.byteSliceGet(data, i2), 0);
 	};
 	const _5: rt.u16 = mark(out, at(0)) & 0xffff;
 	const _10: rt.u16 = mark(out, at(1)) & 0xffff;
@@ -599,7 +601,7 @@ export function order(data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return rt.optionUnwrapOr(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
 	};
 	const _7: rt.ByteVec = listed(out, at(0));
 	rt.byteVecPush(out, 225);
@@ -650,7 +652,7 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** Each part's length and first byte. */
 export function ends(parts: rt.ByteSlice[], out: rt.ByteVec): void {
 	for (const _5 of parts) {
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_5.length & 0xff, rt.optionUnwrapOr(rt.byteSliceFirst(_5), 0))));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_5.length & 0xff, unwrapOr$Option_u8(rt.byteSliceFirst(_5), 0))));
 	}
 }
 
@@ -867,7 +869,7 @@ export function diverging(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.panicFmt(["closure ", args2[0]]);
 	};
 	const head: rt.ByteSlice = rt.byteSliceRange(data, 0, rt.min(data.length, 2));
-	const b: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(head), 0);
+	const b: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(head), 0);
 	rt.byteVecPush(out, returnedNever(b, data.length));
 	rt.byteVecPush(out, brokenNever(head));
 	rt.byteVecPush(out, _15(b));
@@ -1459,7 +1461,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (taken.ok) {
 		const taken2 = taken.value;
 		taken = rt.OK;
-		rt.byteVecPush(out, rt.optionUnwrapOr(taken2, 67));
+		rt.byteVecPush(out, unwrapOr$Option_u8(taken2, 67));
 	}
 	if (nested !== rt.Pending) {
 		if (nested !== undefined) {
@@ -1473,7 +1475,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	if (taken.ok) {
-		_109 = rt.optionUnwrapOr(taken.value, 68);
+		_109 = unwrapOr$Option_u8(taken.value, 68);
 	} else {
 		_109 = taken.error;
 	}
@@ -1503,7 +1505,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else {
 		_143 = flow.error;
 	}
-	const _147: rt.u8 = rt.optionUnwrapOr(opt, 0);
+	const _147: rt.u8 = unwrapOr$Option_u8(opt, 0);
 	if (poll !== rt.Pending) {
 		_149 = poll;
 	} else {
@@ -1599,7 +1601,7 @@ export function known(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else {
 			a = 0;
 		}
-		return a ^ rt.optionMapOr(noneLater, 16, (p4: Point.Point): rt.u8 => {
+		return a ^ mapOr$Option_Point_u8_known_closure0_closure0(noneLater, 16, (p4: Point.Point): rt.u8 => {
 			return p4.x & 0xff;
 		});
 	})());
@@ -1701,7 +1703,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if ((flow as rt.Result<rt.u16, rt.u8 | undefined>).ok) {
 			_76 = ((flow as rt.Result<rt.u16, rt.u8 | undefined>) as { ok: true; value: rt.u16 }).value & 0xff;
 		} else {
-			_76 = rt.optionUnwrapOr(((flow as rt.Result<rt.u16, rt.u8 | undefined>) as { ok: false; error: rt.u8 | undefined }).error, 33);
+			_76 = unwrapOr$Option_u8(((flow as rt.Result<rt.u16, rt.u8 | undefined>) as { ok: false; error: rt.u8 | undefined }).error, 33);
 		}
 		rt.byteVecPush(out, _76);
 	}
@@ -1740,7 +1742,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		held = undefined;
 		const taken: Shape.Shape | undefined = taken2;
 		if ((held as Shape.Shape | undefined) === undefined) {
-			_118 = rt.optionMapOr(taken, 22, (t: Shape.Shape): rt.u8 => {
+			_118 = mapOr$Option_Shape_u8_rematched_closure0(taken, 22, (t: Shape.Shape): rt.u8 => {
 				return rt.u64Low(Shape.area$Area(t)) & 0xff;
 			});
 		} else {
@@ -1771,7 +1773,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	while (iterStart2++ < iterEnd2) {
 		rt.byteVecPush(out, Machine.run(machine, data.length & 0xff));
 	}
-	const filled: Filled.Filled = { shape: copy$Option_Shape(rt.optionMap(dir(data.length & 0xff), (_2: Dir.Dir): Shape.Shape => {
+	const filled: Filled.Filled = { shape: copy$Option_Shape(map$Option_Dir_Shape_rematched_closure1(dir(data.length & 0xff), (_2: Dir.Dir): Shape.Shape => {
 		return copy$Shape(s);
 	})) };
 	let iterStart3: rt.i32 = 0;
@@ -1927,7 +1929,7 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const tags: rt.ByteVec = new rt.ByteVec();
 	for (const _64 of parsed) {
-		const _70: rt.u8 = rt.optionUnwrapOr(rt.optionMap(_64, from$From_Dir_u8), 0);
+		const _70: rt.u8 = unwrapOr$Option_u8(map$Option_Dir_u8_from(_64, from$From_Dir_u8), 0);
 		rt.byteVecPush(tags, _70);
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(tags));
@@ -1976,15 +1978,15 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		return rt.Err(from$From_Dir_u8((_132 as { ok: false; error: Dir.Dir }).error));
 	};
-	const a: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(data), 0);
-	const b: rt.u8 = rt.optionUnwrapOr(rt.byteSliceGet(data, 1), 0);
-	rt.byteVecPush(out, rt.optionUnwrapOr(_3(a, b), 255));
+	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
+	const b: rt.u8 = unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 0);
+	rt.byteVecPush(out, unwrapOr$Option_u8(_3(a, b), 255));
 	if (a === 0) {
 		parsed = rt.Err("zero");
 	} else {
 		parsed = rt.Ok(a);
 	}
-	const mapped: rt.Result<rt.u8, rt.u8> = rt.resultMapErr(rt.resultMap(parsed, (n7: rt.u8): rt.u8 => {
+	const mapped: rt.Result<rt.u8, rt.u8> = mapErr$Result_u8_str_u8_library_closure2(map$Result_u8_str_u8_library_closure1(parsed, (n7: rt.u8): rt.u8 => {
 		return rt.u8Div(n7, 2);
 	}), (e4: string): rt.u8 => {
 		return rt.stringLen(e4) & 0xff;
@@ -2021,11 +2023,11 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 			break;
 		}
 		const x: rt.u8 = _66;
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(rt.optionUnwrapOr(rt.boolThen(rt.u8Rem(x, 2) === 0, (): rt.u8 => {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(unwrapOr$Option_u8(rt.boolThen(rt.u8Rem(x, 2) === 0, (): rt.u8 => {
 			calls = rt.u8Add(calls, 1);
 			return rt.u8Div(x, 2);
 		}), 238), calls)));
-		rt.byteVecPush(out, rt.optionMapOr(rt.boolThen(x > 128, (): rt.ByteVec => {
+		rt.byteVecPush(out, mapOr$Option_Vec_u8_u8_library_closure5(rt.boolThen(x > 128, (): rt.ByteVec => {
 			return new rt.ByteVec();
 		}), 2, (v: rt.ByteVec): rt.u8 => {
 			return v.length & 0xff;
@@ -2036,13 +2038,13 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(flag ? 1 : 0)));
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(flag ? 1 : 0)));
 	}
-	const _117: rt.Result<rt.u8, rt.u8> = rt.optionOkOr(undefined as rt.u8 | undefined, a);
+	const _117: rt.Result<rt.u8, rt.u8> = okOr$Option_u8_u8(undefined as rt.u8 | undefined, a);
 	if (_117.ok) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(5, _117.value)));
 	} else {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(6, _117.error)));
 	}
-	const iter2: rt.Iter<rt.Result<rt.u8, rt.u8>> = rt.iterSlice([rt.optionOkOr(undefined as rt.u8 | undefined, b), rt.optionOkOr(undefined as rt.u8 | undefined, a)]);
+	const iter2: rt.Iter<rt.Result<rt.u8, rt.u8>> = rt.iterSlice([okOr$Option_u8_u8(undefined as rt.u8 | undefined, b), okOr$Option_u8_u8(undefined, a)]);
 	while (true) {
 		const _134: rt.Result<rt.u8, rt.u8> | rt.Done = iter2.next();
 		if (_134 === rt.DONE) {
@@ -2124,7 +2126,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(total)));
-	const a: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(data), 0);
+	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 	if (rt.u8Rem(a, 3) === 0) {
 		result = rt.Err(a) as rt.Result<rt.u16, rt.u8>;
 	} else {
@@ -2205,7 +2207,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			held.value = x2;
 		}
 	}
-	rt.byteVecPush(out, rt.optionUnwrapOr(slot.value, 252));
+	rt.byteVecPush(out, unwrapOr$Option_u8(slot.value, 252));
 }
 
 //# sourceMappingURL=shapes.ts.map

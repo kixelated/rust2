@@ -108,14 +108,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return future.member("poll").call(values);
 		}
 		if let ty::InstanceKind::Item(did) = instance.def
-			&& did.is_local()
+			&& self.t.lowers(instance)
 		{
 			let values: Vec<Expr> = args.into_iter().map(Expr::typed).collect();
 			// An `async fn` that only makes its future: the future, made here.
 			if let Some(class) = super::mir::coroutine::of_async_fn(self.t, instance, span) {
 				return Expr::New(Box::new(Expr::Sym(class)), values);
 			}
-			let sym = self.t.instance(instance);
+			let sym = self.t.callee(instance, span);
 			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
@@ -213,17 +213,15 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
 		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
-		// A local function or a binding's is named directly.
+		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
 		{
 			if let Some(sym) = self.t.bound_fn(instance, span) {
 				return Expr::Sym(sym);
 			}
-			if let ty::InstanceKind::Item(did) = instance.def
-				&& did.is_local()
-			{
-				return Expr::Sym(self.t.instance(instance));
+			if self.t.lowers(instance) {
+				return Expr::Sym(self.t.callee(instance, span));
 			}
 		}
 		let mut body = Vec::new();

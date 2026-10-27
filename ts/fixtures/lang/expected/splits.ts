@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Result_u8s_u8s_Option_u8 } from "./lib.ts";
+import { unwrapOr$Option_u8, mapOr$Option_u8s_u8s_u8_splits_closure0, okOr$Option_u8s_u8s_Option_u8, okOr$Option_u8s_u8s_Short } from "./core/option.ts";
 import type * as Short from "./splits.Short.ts";
 
 /** The first byte, then a big-endian `u16`, by `?` on `ok_or`. */
@@ -30,14 +31,14 @@ export function two(data: rt.ByteSlice): [rt.u8, rt.u8, rt.ByteSlice] | undefine
 
 /** `n` bytes, or how many it needed. */
 export function take(data: rt.ByteSlice, n: rt.usize): rt.Result<[rt.ByteSlice, rt.ByteSlice], Short.Short> {
-	return rt.optionOkOr((n <= data.length ? [new rt.ByteSlice(data.data, data.start, n), new rt.ByteSlice(data.data, data.start + n, data.length - n)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, { tag: "Need", _0: n } as Short.Short);
+	return okOr$Option_u8s_u8s_Short((n <= data.length ? [new rt.ByteSlice(data.data, data.start, n), new rt.ByteSlice(data.data, data.start + n, data.length - n)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, { tag: "Need", _0: n } as Short.Short);
 }
 
 /** The byte after the first, or an error that is itself an enum, held whole. */
 export function second(data: rt.ByteSlice, e: rt.u8 | undefined): rt.Result<rt.u8, rt.u8 | undefined> {
-	const _4: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> = copy$Result_u8s_u8s_Option_u8(rt.optionOkOr((1 <= data.length ? [new rt.ByteSlice(data.data, data.start, 1), new rt.ByteSlice(data.data, data.start + 1, data.length - 1)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, e));
+	const _4: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> = copy$Result_u8s_u8s_Option_u8(okOr$Option_u8s_u8s_Option_u8((1 <= data.length ? [new rt.ByteSlice(data.data, data.start, 1), new rt.ByteSlice(data.data, data.start + 1, data.length - 1)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, e));
 	if (_4.ok) {
-		return rt.Ok(rt.optionUnwrapOr(rt.byteSliceFirst(_4.value[1]), 0));
+		return rt.Ok(unwrapOr$Option_u8(rt.byteSliceFirst(_4.value[1]), 0));
 	}
 	return _4;
 }
@@ -85,7 +86,7 @@ export function splits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, sum);
 		rt.byteVecExtendFromSlice(out, new rt.ByteSlice(restData, restStart, restLen));
 	} else if (_4 === 1) {
-		const mid3: number = rt.u8Rem(rt.optionUnwrapOr(rt.byteSliceFirst(data), 0), 8) as rt.usize;
+		const mid3: number = rt.u8Rem(unwrapOr$Option_u8(rt.byteSliceFirst(data), 0), 8) as rt.usize;
 		if (mid3 > data.length) {
 			rt.panic("mid > len");
 		}
@@ -176,7 +177,7 @@ export function splits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					break b5;
 				}
 			}
-			rt.byteVecPush(out, rt.optionMapOr(split, 255, (_2: [rt.ByteSlice, rt.ByteSlice]): rt.u8 => {
+			rt.byteVecPush(out, mapOr$Option_u8s_u8s_u8_splits_closure0(split, 255, (_2: [rt.ByteSlice, rt.ByteSlice]): rt.u8 => {
 				return _2[0].data[_2[0].start + 3] ^ (_2[1].length & 0xff);
 			}));
 		}

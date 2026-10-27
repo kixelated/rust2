@@ -5,6 +5,7 @@
 //! (`slice::split_first`), a trait method by its trait (`From::from`), and a free
 //! function by its module (`mem::take`).
 
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::Span;
@@ -394,6 +395,54 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 	}
 }
 
+/// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
+/// than mapping here: a method of `Option` or `Result`, or their `Clone`. Not one taking a
+/// `&mut` or a raw pointer, whose writes the crate's analysis of what it writes into
+/// would miss, nor an `unsafe` one, nor one mapped below as one expression or as the
+/// runtime's panic.
+pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> bool {
+	let tcx = t.tcx;
+	let ty::InstanceKind::Item(did) = instance.def else {
+		return false;
+	};
+	if !is_std(tcx, did) || tcx.def_kind(did) != DefKind::AssocFn {
+		return false;
+	}
+	let Some(imp) = tcx.impl_of_assoc(did) else {
+		return false;
+	};
+	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
+		return false;
+	};
+	let Some(std @ (Std::Option | Std::Result)) = Std::of(tcx, adt.did()) else {
+		return false;
+	};
+	let sig = tcx.fn_sig(did).instantiate_identity().skip_norm_wip().skip_binder();
+	let writes = |ty: Ty<'tcx>| {
+		ty.walk()
+			.filter_map(|arg| arg.as_type())
+			.any(|t| matches!(t.kind(), ty::Ref(_, _, ty::Mutability::Mut) | ty::RawPtr(..)))
+	};
+	if sig.safety().is_unsafe() || sig.inputs().iter().any(|&ty| writes(ty)) {
+		return false;
+	}
+	let name = tcx.item_name(did);
+	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp)) {
+		// A `Clone` that only copies is the copy.
+		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
+			&& name == rustc_span::sym::clone
+			&& t.self_ty(instance)
+				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
+	}
+	!matches!(
+		(std, name.as_str()),
+		(
+			Std::Option,
+			"unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter"
+		) | (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
+	)
+}
+
 pub struct Call<'tcx> {
 	/// The function as written, before resolving a trait method to its impl.
 	pub def_id: DefId,
@@ -416,23 +465,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		| ("hint", "must_use")
 		| ("From", "from")
 		| ("Into", "into") => &[],
-		// `Option<T>::ok_or::<E>` drops its error, `unwrap_or` its fallback, and
-		// `map_or::<U, F>` its fallback or its closure.
-		("Option", "ok_or") => &[1],
-		("Option", "unwrap_or") => &[0],
-		("Option", "map_or") => &[1, 2],
-		// `Option<T>::map::<U, F>` drops its closure on `None`, and `Result<T, E>`'s
-		// `map::<U, F>` and `and_then::<U, F>` on an error, as `map_err::<F, O>` on a value.
-		("Option", "map") => &[2],
-		("Result", "map" | "map_err" | "and_then") => &[3],
-		// `Result<T, E>::ok` drops an error, `err` a value, and `unwrap_or` its fallback or
-		// the error.
-		("Result", "ok") => &[1],
-		("Result", "err") => &[0],
-		("Result", "unwrap_or") => &[0, 1],
-		// `unwrap` and `expect` drop the error they panic with, `unwrap_err` the value, and
-		// `inspect_err` its error if its closure panics.
-		("Result", "unwrap" | "expect" | "inspect_err") => &[1],
+		// `unwrap` and `expect` drop the error they panic with, and `unwrap_err` the value.
+		("Result", "unwrap" | "expect") => &[1],
 		("Result", "unwrap_err") => &[0],
 		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
@@ -664,11 +698,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		}
 		("Default", "default") => default_value(b, targ(gargs, 0))?,
 
-		// Options.
-		("Option", "map") => rt2(args, "option", "map"),
-		("Option", "map_or") => rt2(args, "option", "mapOr"),
-		("Option", "unwrap_or") => rt2(args, "option", "unwrapOr"),
-		("Option", "ok_or") => rt2(args, "option", "okOr"),
+		// Options, whose other combinators lower from core's MIR.
 		("Option", "unwrap") => rt2(args, "option", "unwrap"),
 		("Option", "expect") => rt2(args, "option", "expect"),
 		("Option", "is_some") => args.pop()?.binary("!==", Expr::undefined()),
@@ -681,15 +711,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			b.t.copied(value, option, span)
 		}
 
-		// Results.
-		("Result", "map") => rt2(args, "result", "map"),
-		("Result", "map_err") => rt2(args, "result", "mapErr"),
-		("Result", "and_then") => rt2(args, "result", "andThen"),
-		("Result", "inspect_err") => rt2(args, "result", "inspectErr"),
+		// Results, whose other combinators lower from core's MIR.
 		("Result", "is_ok") => args.pop()?.member("ok"),
 		("Result", "is_err") => args.pop()?.member("ok").not(),
-		("Result", "ok") => rt2(args, "result", "ok"),
-		("Result", "err") => rt2(args, "result", "err"),
 		// Their panics show the other side with its `Debug`.
 		("Result", "unwrap" | "expect" | "unwrap_err") => {
 			let (method, shown) = match name.as_str() {
@@ -701,7 +725,6 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			values.push(b.fmt_fn(fmt::Trait::Debug, shown, span));
 			Expr::rt_of("result", method).call(values)
 		}
-		("Result", "unwrap_or") => rt2(args, "result", "unwrapOr"),
 
 		("ControlFlow", "is_continue" | "is_break") => Flow::of(tcx, gargs).test(args.pop()?, name == "is_continue"),
 

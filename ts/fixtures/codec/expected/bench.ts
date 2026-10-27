@@ -9,6 +9,7 @@ import type * as EncodeError from "./coding/encode.EncodeError.ts";
 import * as Encoder from "./coding/encode.Encoder.ts";
 import { zigzag, unzigzag } from "./coding/varint.ts";
 import * as Form from "./coding/varint.Form.ts";
+import { unwrapOr$Option_u32, map$Option_u64_u64_encode_msg_closure0 } from "./core/option.ts";
 import { form, liteVersion, putU64, putUsize, takeU64, decodeError, encodeError } from "./harness.ts";
 import * as Group from "./lite/group.Group.ts";
 import type * as Version from "./lite/version.Version.ts";
@@ -220,7 +221,7 @@ export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: r
 					short = rt.usizeAdd(short, 1);
 					continue l2;
 				}
-				return rt.Err(_32.error);
+				return _32 as rt.Result<undefined, DecodeError.DecodeError>;
 			}
 		}
 	}
@@ -281,7 +282,7 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const iterEnd2: rt.u32 = count2;
 	while ((_28 = iterStart2++) < iterEnd2) {
 		const _38: rt.u32 = _10(rt.u32Sub(rt.u32Sub(count2, 1), _28));
-		sum = rt.u64Add(sum, rt.optionUnwrapOr(rt.btreeGet(map, _38), 0) as rt.u64);
+		sum = rt.u64Add(sum, unwrapOr$Option_u32(rt.btreeGet(map, _38), 0) as rt.u64);
 	}
 	const _49: rt.Range<rt.u32> = new rt.Range(1 << 14, 2 << 14);
 	const iter3: rt.Iter<[rt.u32, rt.u32]> = rt.btreeRange(map, _49);
@@ -378,7 +379,7 @@ export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): v
 					scaled = bounded(rt.u128Div(_36, rt.u128Cast(from)));
 				}
 			} else {
-				const _44: rt.u64 | undefined = rt.optionMap(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
+				const _44: rt.u64 | undefined = map$Option_u64_u64_encode_msg_closure0(rt.u64CheckedMul(value, to), (scaled3: rt.u64): rt.u64 => {
 					return rt.u64Div(scaled3, from);
 				});
 				if (_44 !== undefined) {
