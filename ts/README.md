@@ -56,7 +56,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 
 | Rust | TypeScript |
 | --- | --- |
-| `bool`, `str`, `String` | `boolean`, `string` |
+| `bool`, `str`, `String`, `Cow<str>` | `boolean`, `string` |
 | `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
@@ -134,7 +134,9 @@ closure, which it calls on each char it reads, in the order std reads them. An o
 returns, from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does, and so does
 one `&s[a..b]` takes, which reads the string up to it and panics as std does inside a
 char. A JS string can't change in place, so `String::push` assigns a longer one to the
-local or field the `&mut` borrows.
+local or field the `&mut` borrows. A `Cow<str>` is its text, borrowed or owned, so
+`to_mut` borrows the `Cow`'s own place, and code that tells its variants apart, a `match`
+on them or `Cow::is_borrowed`, is refused.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
@@ -275,6 +277,9 @@ they need.
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
   dictionaries would undo monomorphization.
+- A `Cow<str>` is a JS string, as `str` and `String` are, rather than an object tagged by
+  its variant: no `Cow<str>` in moq-net or kio tells its variants apart, and a tag would
+  wrap every value and unwrap it at every read.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -326,8 +331,8 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
-takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
-`undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
+takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
@@ -360,9 +365,10 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, control flow, patterns, `Copy` aggregates, those
-  a container stores included and those written into only in another module, behind a
-  type parameter, or through a box, formatting, methods on generic types, iterators, with
+  encoding's edges and the surrogates, `Cow<str>` borrowed and owned, control flow,
+  patterns, `Copy` aggregates, those a container stores included and those written into
+  only in another module, behind a type parameter, or through a box, formatting, methods
+  on generic types, iterators, with
   closures that log what each
   adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
