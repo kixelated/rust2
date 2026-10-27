@@ -256,7 +256,7 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 }
 
 /**
- * `&[u8]` and `&mut [u8]`: `length` bytes of `data` from `start`. It never changes, so a
+ * `&[u8]` and `&mut [u8]`, and `&[u8; N]`: `length` bytes of `data` from `start`. It never changes, so a
  * split makes another, which costs an object where a `Uint8Array` view costs several
  * times as much.
  */
@@ -293,10 +293,15 @@ export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefin
 	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
 }
 
-/** `split_first_chunk`: the first `n` bytes, as an array, and the rest, or `undefined` if shorter. */
-export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [Uint8Array, ByteSlice] | undefined {
+/** `split_first_chunk`: the first `n` bytes and the rest, or `undefined` if shorter. */
+export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
 	if (s.length < n) return undefined;
-	return [s.data.subarray(s.start, s.start + n), new ByteSlice(s.data, s.start + n, s.length - n)];
+	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
+}
+
+/** `*r` of a `&[u8; N]`: a copy of its bytes. */
+export function byteSliceToArray(s: ByteSlice): Uint8Array {
+	return s.data.slice(s.start, s.start + s.length);
 }
 
 /** `split_at`, panicking past the length. */
@@ -319,6 +324,13 @@ export function byteSliceFirst(s: ByteSlice): number | undefined {
 /** `get`: the byte at `index`, or `undefined` past the end. */
 export function byteSliceGet(s: ByteSlice, index: number): number | undefined {
 	return index < s.length ? s.data[s.start + index] : undefined;
+}
+
+/** `==` of byte slices: the same length and bytes. */
+export function byteSliceEq(a: ByteSlice, b: ByteSlice): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a.data[a.start + i] !== b.data[b.start + i]) return false;
+	return true;
 }
 
 /** Copy `src` into `dst` at `at`; a few bytes copy faster than a view of them is made. */

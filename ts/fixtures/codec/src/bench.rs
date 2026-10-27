@@ -3,9 +3,10 @@
 //! the workload and the second its wire format; an encode's output is the matching
 //! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
 //! writes them, op 7 decodes frame headers as they arrive a few bytes at a time, op 8
-//! keeps a `BTreeMap`, as moq-net's model keeps its state, and op 9 converts timestamps
-//! between timescales.
+//! keeps a `BTreeMap`, as moq-net's model keeps its state, op 9 converts timestamps
+//! between timescales, and ops 10 and 11 add and order them as moq-net's `Timestamp` does.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
@@ -32,6 +33,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		7 => decoded(decode_split(data, lite_version(selector), &mut out), &mut out),
 		8 => ordered(data, &mut out),
 		9 => rescale(selector, data, &mut out),
+		10 => stamp(data, &mut out),
+		11 => interleave(data, &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -276,6 +279,115 @@ const fn bounded(value: u128) -> Option<u64> {
 	} else {
 		None
 	}
+}
+
+/// moq-net's `Timestamp`, with the scale it keeps as a `NonZero` unwrapped.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Timestamp {
+	value: u64,
+	scale: u64,
+}
+
+impl Timestamp {
+	/// The sum, or `None` across scales or past [`MAX_TIMESTAMP`], as moq-net's
+	/// `Timestamp::checked_add` returns `TimeOverflow`.
+	const fn checked_add(self, rhs: Self) -> Option<Self> {
+		if self.scale != rhs.scale {
+			return None;
+		}
+		match self.value.checked_add(rhs.value) {
+			Some(value) => match bounded(value as u128) {
+				Some(value) => Some(Self {
+					value,
+					scale: self.scale,
+				}),
+				None => None,
+			},
+			None => None,
+		}
+	}
+}
+
+impl PartialOrd for Timestamp {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Timestamp {
+	/// moq-net's temporal order: across scales, the cross products in `u128`, with a tie
+	/// broken by `(scale, value)`.
+	fn cmp(&self, other: &Self) -> Ordering {
+		if self.scale == other.scale {
+			return self.value.cmp(&other.value);
+		}
+		let lhs = self.value as u128 * other.scale as u128;
+		let rhs = other.value as u128 * self.scale as u128;
+		lhs.cmp(&rhs)
+			.then_with(|| self.scale.cmp(&other.scale))
+			.then_with(|| self.value.cmp(&other.value))
+	}
+}
+
+/// A track's frames stamped one duration apart by [`Timestamp::checked_add`], as a
+/// publisher stamps them. How many were stamped, how many overflowed, and the last.
+fn stamp(data: &[u8], out: &mut Vec<u8>) {
+	let (count, data) = take_u64(data);
+	let (start, data) = take_u64(data);
+	let (step, data) = take_u64(data);
+	let (scale, _) = take_u64(data);
+	let step = Timestamp { value: step, scale };
+	let mut time = Timestamp { value: start, scale };
+	let (mut stamped, mut overflowed) = (0, 0);
+	for _ in 0..count {
+		match time.checked_add(step) {
+			Some(next) => {
+				time = next;
+				stamped += 1;
+			}
+			None => overflowed += 1,
+		}
+	}
+	put_u64(out, stamped);
+	put_u64(out, overflowed);
+	put_u64(out, time.value);
+}
+
+/// Two tracks' frames, each one duration after the last at its own scale, interleaved in
+/// presentation order by [`Timestamp`]'s `Ord`, as a muxer interleaves them: one
+/// comparison per frame taken. How many came from each track, and how many times the
+/// interleave switched tracks.
+fn interleave(data: &[u8], out: &mut Vec<u8>) {
+	let (count, data) = take_u64(data);
+	let (mut a, a_step, data) = track(data);
+	let (mut b, b_step, _) = track(data);
+	let (mut from_a, mut from_b, mut switches) = (0, 0, 0);
+	let mut last_a = true;
+	for _ in 0..count {
+		let take_a = a < b;
+		if take_a {
+			a.value += a_step;
+			from_a += 1;
+		} else {
+			b.value += b_step;
+			from_b += 1;
+		}
+		if take_a != last_a {
+			switches += 1;
+		}
+		last_a = take_a;
+	}
+	put_u64(out, from_a);
+	put_u64(out, from_b);
+	put_u64(out, switches);
+}
+
+/// A track's first timestamp and its frame duration: start, step, and scale.
+fn track(data: &[u8]) -> (Timestamp, u64, &[u8]) {
+	let (value, data) = take_u64(data);
+	let (step, data) = take_u64(data);
+	let (scale, data) = take_u64(data);
+	(Timestamp { value, scale }, step, data)
 }
 
 fn decode_group(wire: &[u8], version: lite::Version, out: &mut Vec<u8>) -> Result<(), DecodeError> {

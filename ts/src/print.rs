@@ -313,8 +313,8 @@ impl Refs {
 					self.stmts(program, then);
 					self.stmts(program, els);
 				}
-				StmtKind::While { cond, body, .. } => {
-					self.expr(program, cond);
+				StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+					self.expr(program, e);
 					self.stmts(program, body);
 				}
 				StmtKind::Block { body, .. } => self.stmts(program, body),
@@ -746,6 +746,21 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
+			StmtKind::ForOf {
+				label,
+				name,
+				iter,
+				body,
+			} => {
+				self.label(label);
+				let name = self.local(name).to_string();
+				self.write(&format!("for (const {name} of "));
+				self.expr(iter, 2);
+				self.write(") {\n");
+				self.block_body(body);
+				self.start();
+				self.write("}\n");
+			}
 			StmtKind::Block { label, body } => {
 				self.label(label);
 				self.write("{\n");
@@ -1153,6 +1168,11 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 			}
 			StmtKind::While { cond, body, .. } => {
 				collect_expr_locals(cond, out);
+				collect_locals(body, out);
+			}
+			StmtKind::ForOf { name, iter, body, .. } => {
+				out.push(name.clone());
+				collect_expr_locals(iter, out);
 				collect_locals(body, out);
 			}
 			StmtKind::Block { body, .. } => collect_locals(body, out),

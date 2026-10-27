@@ -560,6 +560,16 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 		range.start, range.end
 	);
 	out.extend_from_slice(text.as_bytes());
+	// A tuple of borrows read by its fields, as `format_args!` reads its arguments: each
+	// borrowed value is evaluated once, where the tuple is made.
+	let (marked, len) = (&mark(out, 16), &out.len());
+	out.push(*marked as u8);
+	out.push(*len as u8);
+	// A tuple read by one field: the others still run, where the tuple is made.
+	let (only, _) = (&mark(out, 17), &out.len());
+	let (first, _) = (&mark(out, 18), &mark(out, 19));
+	out.push(*only as u8);
+	out.push(*first as u8);
 	indexed(data, out);
 }
 
@@ -609,11 +619,22 @@ fn indexed(data: &[u8], out: &mut Vec<u8>) {
 		n = n.wrapping_add(1);
 		0
 	}] += n;
-	out.extend_from_slice(&[first, second, called, f(1), slots[0], n]);
+	// A value read before a call that changes it, used after the call's result.
+	let mut m = [at(6)];
+	let before = m[0];
+	let after = increment(&mut m).wrapping_sub(before);
+	out.extend_from_slice(&[first, second, called, f(1), slots[0], n, after]);
 	out.extend_from_slice(&bytes);
 	// An array of byte slices unsized to a slice of them.
 	let (head, tail) = data.split_at(data.len() / 2);
 	ends(&[head, tail], out);
+	// Of two operands that can panic, the one that runs first panics first.
+	if at(7) % 4 == 0 {
+		let (x, y, z) = (at(8), at(9), at(10));
+		let quotient = x / y;
+		let sum = z + 200;
+		out.push(sum.wrapping_add(quotient));
+	}
 }
 
 /// Each part's length and first byte.

@@ -36,6 +36,7 @@ roots = [
     "rest_mut",
     "replace_pinned_ref",
     "replace_captured",
+    "filter_owned_bytes",
     "copied_closure",
     "one_sided",
     "optional",
@@ -45,7 +46,7 @@ roots = [
     "shifted",
     "shared",
     "pushed",
-    "split_str",
+    "split_chars",
     "missing",
 ]
 printable = ["Meters"]

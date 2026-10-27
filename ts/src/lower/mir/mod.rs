@@ -14,6 +14,7 @@ mod call;
 mod cfg;
 pub mod coroutine;
 pub mod glue;
+mod inline;
 mod place;
 mod rvalue;
 mod step;
@@ -116,8 +117,9 @@ struct Pending {
 	effect: bool,
 	/// Whether it reads memory something else could change.
 	memory: bool,
-	/// The aggregate's operands, for a call that takes them apart.
-	parts: Option<Vec<Expr>>,
+	/// The aggregate's operands, for a call that takes them apart, each with whether it is
+	/// a reference that reads the same wherever it is read.
+	parts: Option<Vec<(Expr, bool)>>,
 	/// The names it reads, which an assignment to must not pass it.
 	reads: Vec<String>,
 	/// Whether it is a `Copy` aggregate read from where it could change, which only an
@@ -165,8 +167,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	next: bool,
 	/// Blocks whose only statement is `unreachable`.
 	unreachable: FxHashSet<BasicBlock>,
-	/// The operands of the aggregate lowered last.
-	parts: Option<Vec<Expr>>,
+	/// For the aggregate lowered last, whether each operand is a reference that reads the
+	/// same wherever it is read.
+	rereadable_parts: Option<Vec<bool>>,
 	/// Blocks that start an ignored macro's code, and the block after it.
 	redirect: FxHashMap<BasicBlock, BasicBlock>,
 	/// Whether the operands lowered now go to a local nothing changes in place.
@@ -257,7 +260,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			labels: 0,
 			next: crate::lower::iter::is_next(tcx, mir.source.def_id()),
 			unreachable: FxHashSet::default(),
-			parts: None,
+			rereadable_parts: None,
 			redirect: FxHashMap::default(),
 			into_frozen: false,
 			copy_on_flush: false,
@@ -784,6 +787,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// A borrow: borrow checking keeps the place as it is but through the borrow,
 			// unless the path to it goes through a reference held in a field or element,
 			// which can be replaced while the borrow lives.
+			// A borrow of bytes not yet in a slice makes one.
+			(ty::Ref(..), Rvalue::Ref(_, _, place))
+				if crate::lower::byte_array(place.ty(&mir.local_decls, self.tcx).ty) && !self.in_bytes(*place) =>
+			{
+				false
+			}
 			(ty::Ref(..), Rvalue::Ref(_, _, place)) => {
 				self.stable(*place)
 					&& place
@@ -1388,6 +1397,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		cfg::hoist_else(&mut out);
 		declare_in_place(&mut out, &self.widened);
 		cfg::tidy_loops(&mut out);
+		// A loop's own labels first, which its header's `break` names.
+		step::for_of(&mut out);
+		inline::inline_temps(&mut out, &self.shared);
+		// A loop can start by leaving now that what it tests is folded in.
+		cfg::tidy_loops(&mut out);
 		out
 	}
 
@@ -1581,6 +1595,34 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.is_arg(local)
 	}
 
+	/// Whether the aggregate assigned to `local` is read by its fields as its operands: it
+	/// is assigned once, never changed, and not held back.
+	fn parts_read(&self, local: Local) -> bool {
+		matches!(self.slots[local], Slot::Var(_))
+			&& !self.stepped_vars.contains_key(&local)
+			&& self.uses[local] != 0
+			&& !self.foldable(local)
+			&& self.defs[local] == 1
+			&& !self.mutated[local]
+	}
+
+	/// Whether the operand `e` reads the same wherever and however often it is read: a
+	/// path, with what it folds in that is held back a constant, a name nothing changes, or
+	/// a reference to a path, which borrow checking keeps as it is.
+	fn rereadable(&self, e: &Expr) -> bool {
+		let mut names = Vec::new();
+		reads_of(e, &mut names);
+		e.is_path()
+			&& self.pending.iter().filter(|p| names.contains(&p.name)).all(|p| {
+				p.value.is_constant()
+					|| self.stable_name(&p.value)
+					|| p.value.is_path()
+						&& self
+							.local_named(&p.name)
+							.is_some_and(|local| self.mir.local_decls[local].ty.is_ref())
+			})
+	}
+
 	// Emission
 
 	/// Emit the statements `stmts`, which together are one MIR statement, folding in the
@@ -1639,7 +1681,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				},
 				Read::Memory => seen_memory = true,
 				Read::Field(name) => seen_memory |= !self.frozen_names.contains(name.as_str()),
-				Read::Effect => seen_effect = true,
+				Read::Effect | Read::Panic => seen_effect = true,
 			}
 		}
 		// What stays pending past this statement, and what must run before it.
@@ -1761,7 +1803,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Hold back `value`, the assignment of `local`, to fold into what reads it.
-	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<Expr>>) {
+	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<(Expr, bool)>>) {
 		let name = self.var(local).expect("a pending local is a variable").to_string();
 		self.order += 1;
 		let mut reads = Vec::new();
@@ -1809,7 +1851,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let name = self.var(local)?;
 		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
 		let p = self.pending.remove(i);
-		let parts = p.parts.expect("checked above");
+		let parts: Vec<Expr> = p
+			.parts
+			.expect("checked above")
+			.into_iter()
+			.map(|(part, _)| part)
+			.collect();
 		if !p.effect && !p.memory {
 			return Some(parts);
 		}
@@ -1823,15 +1870,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut names = Vec::new();
 		let mut held = 0;
 		for value in parts {
-			let mut events = Vec::new();
-			scan(&value, &mut events, false);
-			let effect = events.iter().any(|r| matches!(r, Read::Effect));
-			let memory = events.iter().any(|r| match r {
-				Read::Memory => true,
-				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
-				Read::Ident(name, _) => self.shared.contains(name.as_str()),
-				Read::Effect => false,
-			});
+			let (effect, memory) = self.part_reads(&value);
 			if !effect && !memory {
 				names.push(value);
 				continue;
@@ -1859,6 +1898,51 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		Some(names)
 	}
 
+	/// The operand `field` of the aggregate `local` held back for its one read, held back
+	/// in the aggregate's place, which is never made. Its other operands are dropped, so
+	/// only when they do nothing. A reference that reads the same later is read in place.
+	pub(super) fn held_part(&mut self, local: Local, field: usize) -> Option<Expr> {
+		let name = self.var(local)?;
+		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
+		let parts = self.pending[i].parts.as_ref().expect("checked above");
+		let (part, rereadable) = parts.get(field)?.clone();
+		let others = parts.iter().enumerate().filter(|&(j, _)| j != field);
+		if others.clone().any(|(_, (v, _))| self.part_reads(v).0) {
+			return None;
+		}
+		let (effect, memory) = self.part_reads(&part);
+		if !effect && !memory || rereadable {
+			self.pending.remove(i);
+			return Some(part);
+		}
+		let name = self.b.fresh("part");
+		let p = &mut self.pending[i];
+		p.reads.clear();
+		reads_of(&part, &mut p.reads);
+		p.name = name.clone();
+		p.value = part;
+		p.effect = effect;
+		p.memory = memory;
+		p.parts = None;
+		p.decl = true;
+		Some(Expr::ident(name))
+	}
+
+	/// Whether evaluating the aggregate part `value` can do or throw anything, and whether
+	/// it reads memory something else could change.
+	fn part_reads(&self, value: &Expr) -> (bool, bool) {
+		let mut events = Vec::new();
+		scan(value, &mut events, false);
+		let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
+		let memory = events.iter().any(|r| match r {
+			Read::Memory => true,
+			Read::Field(name) => !self.frozen_names.contains(name.as_str()),
+			Read::Ident(name, _) => self.shared.contains(name.as_str()),
+			Read::Effect | Read::Panic => false,
+		});
+		(effect, memory)
+	}
+
 	/// Assign `value` to the local `local` now, or hold it back.
 	fn set_local(
 		&mut self,
@@ -1866,7 +1950,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		value: Expr,
 		effect: bool,
 		memory: bool,
-		parts: Option<Vec<Expr>>,
+		parts: Option<Vec<bool>>,
 		out: &mut Vec<Stmt>,
 	) {
 		if self.stepped_vars.contains_key(&local) {
@@ -1894,7 +1978,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.fold((effect, memory), |(e, m), p| (e || p.effect, m || p.memory));
 					let mut folded = self.fold_exprs(Vec::new(), vec![value], true, out);
 					let value = folded.pop().unwrap();
-					let parts = parts.and_then(|_| parts_of(&value));
+					let parts =
+						parts.and_then(|rereadable| Some(parts_of(&value)?.into_iter().zip(rereadable).collect()));
 					self.hold(local, value, effect, memory, parts);
 					return;
 				}
@@ -1904,8 +1989,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// An aggregate assigned once and never changed: its operands, as emitted,
 				// read in place of its fields.
 				if parts.is_some()
-					&& self.defs[local] == 1
-					&& !self.mutated[local]
+					&& self.parts_read(local)
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..
@@ -2083,7 +2167,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let effect = rvalue::effect(rvalue, self);
 		// A copy shared until it folds into its argument reads its source there.
 		let memory = rvalue::memory(rvalue, self) || shares;
-		let parts = self.parts.take();
+		let parts = self.rereadable_parts.take();
 		if let Some(local) = place.as_local() {
 			let parts = match rvalue {
 				Rvalue::Aggregate(..) => parts,
@@ -2112,6 +2196,37 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
 		self.emit(vec![stmt], None, false, out);
 		Expr::ident(name)
+	}
+
+	/// Hold `slice`, an `rt.ByteSlice` to read more than once, in a path, as a tuple's part
+	/// already is.
+	pub(super) fn slice_path(&mut self, slice: Expr, out: &mut Vec<Stmt>) -> Expr {
+		match &slice {
+			Expr::Index(base, i) if base.is_path() && i.is_constant() => {
+				self.materialize(&slice, out);
+				slice
+			}
+			_ => self.path(slice, "slice", out),
+		}
+	}
+
+	/// The first `n` bytes of `slice`, each read where it is: from the slice it is a range
+	/// of, if it is one at a constant offset.
+	pub(super) fn bytes_at(&mut self, slice: Expr, n: u64, out: &mut Vec<Stmt>) -> Vec<Expr> {
+		let range = match &slice {
+			Expr::Call(f, args) if matches!(&**f, Expr::Rt(name) if name == "byteSliceRange") => {
+				match args.as_slice() {
+					[base, Expr::Lit(from), ..] => from.parse::<u64>().ok().map(|from| (base.clone(), from)),
+					_ => None,
+				}
+			}
+			_ => None,
+		};
+		let (base, from) = range.unwrap_or((slice, 0));
+		let base = self.slice_path(base, out);
+		(from..from + n)
+			.map(|i| place::byte_at(base.clone(), Expr::lit(i.to_string())))
+			.collect()
 	}
 
 	fn terminator(&mut self, term: &mir::Terminator<'tcx>, out: &mut Vec<Stmt>) -> Exit {
@@ -2655,6 +2770,8 @@ enum Read {
 	Field(String),
 	/// A call, which may do anything.
 	Effect,
+	/// A call of the runtime's that reads its arguments only, and may panic.
+	Panic,
 }
 
 fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
@@ -2667,6 +2784,10 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 		}
 		StmtKind::While { cond, body, .. } => {
 			scan(cond, reads, true);
+			body.iter().for_each(|s| scan_stmt(s, reads, true));
+		}
+		StmtKind::ForOf { iter, body, .. } => {
+			scan(iter, reads, lazy);
 			body.iter().for_each(|s| scan_stmt(s, reads, true));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_stmt(s, reads, lazy)),
@@ -2706,7 +2827,10 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 				f => scan(f, reads, lazy),
 			}
 			args.iter().for_each(|e| scan(e, reads, lazy));
-			reads.push(Read::Effect);
+			reads.push(match &**f {
+				Expr::Rt(name) if reads_only(name) => Read::Panic,
+				_ => Read::Effect,
+			});
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
 		Expr::Postfix(e, _) => {
@@ -2741,6 +2865,46 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 		Expr::Arrow(_, _, body) => body.iter().for_each(|s| scan_stmt(s, reads, true)),
 		Expr::Lambda(_, body) => scan(body, reads, true),
 	}
+}
+
+/// Whether the runtime's function `name` only reads its arguments, if it may panic: a
+/// bounds check, or integer arithmetic or a comparison.
+fn reads_only(name: &str) -> bool {
+	if matches!(name, "idx" | "at" | "min" | "max" | "lt") {
+		return true;
+	}
+	let Some(op) = [
+		"usize", "isize", "u128", "i128", "u16", "i16", "u32", "i32", "u64", "i64", "u8", "i8",
+	]
+	.iter()
+	.find_map(|ty| name.strip_prefix(ty)) else {
+		return false;
+	};
+	matches!(
+		op,
+		"Add"
+			| "Sub"
+			| "Mul"
+			| "Div"
+			| "Rem"
+			| "Neg"
+			| "Shl"
+			| "Shr"
+			| "And"
+			| "Or"
+			| "Xor"
+			| "Not"
+			| "Eq"
+			| "Ne"
+			| "Lt"
+			| "Le"
+			| "Gt"
+			| "Ge"
+			| "Max"
+			| "Min"
+			| "Cast"
+			| "Low"
+	)
 }
 
 /// Replace the one read of `name` in `stmt` with `value`; whether it was there.
@@ -2805,8 +2969,8 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			visit(cond);
 			then.iter().chain(els).for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::While { cond, body, .. } => {
-			reads_of(cond, out);
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+			reads_of(e, out);
 			body.iter().for_each(|s| scan_reads(s, out));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_reads(s, out)),
@@ -2879,7 +3043,9 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 				strip_assignments(then, unread);
 				strip_assignments(els, unread);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => strip_assignments(body, unread),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				strip_assignments(body, unread)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
@@ -2958,7 +3124,7 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 	};
 	match &mut stmts[i].kind {
 		StmtKind::If { then, els, .. } => place(then) || place(els),
-		StmtKind::While { body, .. } | StmtKind::Block { body, .. } => place(body),
+		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => place(body),
 		StmtKind::Catch { body, handler, .. } => place(body) || place(handler),
 		StmtKind::Switch { cases, default, .. } => cases.iter_mut().any(|(_, body)| place(body)) || place(default),
 		_ => false,
@@ -3005,8 +3171,8 @@ fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 			f(cond);
 			then.iter().chain(els).for_each(|s| visit_stmt(s, f));
 		}
-		StmtKind::While { cond, body, .. } => {
-			f(cond);
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+			f(e);
 			body.iter().for_each(|s| visit_stmt(s, f));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| visit_stmt(s, f)),
@@ -3181,17 +3347,20 @@ fn fails(term: &mir::Terminator<'_>) -> bool {
 	c.const_.try_to_bool().is_some_and(|b| b != *expected)
 }
 
-/// Drop the assignments of a variable to itself, which ferrying a value through
-/// temporaries leaves.
+/// Drop the assignments of a variable or a field to itself, which ferrying a value
+/// through temporaries leaves, as does a coroutine moving its argument into the
+/// variable that keeps its field.
 fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
-	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if matches!((&**t, &**v), (Expr::Ident(a), Expr::Ident(b)) if a == b)));
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if same_path(t, v)));
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
 				drop_self_assignments(then);
 				drop_self_assignments(els);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => drop_self_assignments(body),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				drop_self_assignments(body)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
@@ -3205,6 +3374,23 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 	}
 }
 
+/// Whether `a` and `b` are one path: a variable, `this`, or a property of one.
+fn same_path(a: &Expr, b: &Expr) -> bool {
+	match (a, b) {
+		(Expr::Ident(a), Expr::Ident(b)) => a == b,
+		(Expr::This, Expr::This) => true,
+		(Expr::Member(a, ka), Expr::Member(b, kb)) => {
+			let key = match (ka, kb) {
+				(ts::Key::Name(x), ts::Key::Name(y)) => x == y,
+				(ts::Key::Field(x), ts::Key::Field(y)) => x == y,
+				_ => false,
+			};
+			key && same_path(a, b)
+		}
+		_ => false,
+	}
+}
+
 /// Return values in place throughout `stmts`, given the names cleanups read.
 fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
 	sink_return(stmts);
@@ -3214,7 +3400,9 @@ fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
 				return_in_place(then, caught);
 				return_in_place(els, caught);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => return_in_place(body, caught),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				return_in_place(body, caught)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
 				return_in_place(default, caught);
@@ -3291,7 +3479,9 @@ fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
 				handler_reads(then, out);
 				handler_reads(els, out);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => handler_reads(body, out),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				handler_reads(body, out)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter().for_each(|(_, body)| handler_reads(body, out));
 				handler_reads(default, out);
@@ -3355,7 +3545,9 @@ fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
 				breaks_to_return(then, label, ret);
 				breaks_to_return(els, label, ret);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => breaks_to_return(body, label, ret),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				breaks_to_return(body, label, ret)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases
 					.iter_mut()

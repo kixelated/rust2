@@ -268,9 +268,15 @@ pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::
 
 /// A reference copied into a closure holds its referent's object: replacing through it
 /// would change the copy, not the referent.
-pub fn replace_captured(a: &mut [u8; 1]) -> [u8; 1] {
+pub fn replace_captured(a: &mut [u16; 1]) -> [u16; 1] {
 	let mut g = move || std::mem::replace(&mut *a, [9]);
 	g()
+}
+
+/// A std adaptor lends its callback a reference to each array of bytes it holds, which it
+/// would pass as the array, not a slice of it.
+pub fn filter_owned_bytes(v: Vec<[u8; 2]>) -> usize {
+	v.into_iter().filter(|p| p[0] != 0).count()
 }
 
 /// Each copy of a closure has its own captures, which copies of an arrow function share.
@@ -377,7 +383,8 @@ pub fn pushed(s: &mut String) {
 	s.push('a');
 }
 
-/// A `str` pattern, where only a `char` and a predicate are supported.
-pub fn split_str(s: &str) -> usize {
-	s.split("ab").count()
+/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
+/// supported.
+pub fn split_chars(s: &str) -> usize {
+	s.split(['a', 'b']).count()
 }

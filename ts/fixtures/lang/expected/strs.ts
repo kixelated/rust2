@@ -51,13 +51,7 @@ export function putOffset(out: rt.ByteVec, i: rt.usize | undefined): void {
 
 /** What a predicate saw, then where it stopped. */
 export function putSeen(out: rt.ByteVec, seen: rt.char[]): void {
-	const iterS: rt.char[] = seen;
-	let iterI: number = 0;
-	while (true) {
-		const _5: rt.char | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-		if (_5 === rt.DONE) {
-			break;
-		}
+	for (const _5 of seen) {
 		putChar(out, _5);
 	}
 	rt.byteVecPush(out, 253);
@@ -121,8 +115,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					i2 = rt.usizeAdd(i2, 1);
 				} else {
 					rt.byteVecPush(out, i2 & 0xff);
-					const _81: rt.Iter<string> = rt.strSplit(s, String.fromCodePoint(sep));
-					put(out, rt.optionUnwrapOr(rt.iterToOption(_81.next()), "none"));
+					put(out, rt.optionUnwrapOr(rt.iterToOption(rt.strSplit(s, String.fromCodePoint(sep)).next()), "none"));
 					break b0;
 				}
 			}
@@ -196,15 +189,9 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 						put(out, matched);
 						i4 = rt.usizeAdd(i4, 1);
 					} else {
-						const iterS: rt.usize[] = rt.iterToArray(rt.iterMap(rt.strMatchIndices(s, "/"), (_2: [rt.usize, string]): rt.usize => {
+						for (const _190 of rt.iterToArray(rt.iterMap(rt.strMatchIndices(s, "/"), (_2: [rt.usize, string]): rt.usize => {
 							return _2[0];
-						}));
-						let iterI: number = 0;
-						while (true) {
-							const _190: rt.usize | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-							if (_190 === rt.DONE) {
-								break;
-							}
+						}))) {
 							putOffset(out, _190);
 						}
 						break b0;
@@ -213,13 +200,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			if (_13 === 6) {
 				const parts3: string[] = unescape(s);
-				const iterS2: string[] = parts3;
-				let iterI2: number = 0;
-				while (true) {
-					const _202: string | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-					if (_202 === rt.DONE) {
-						break;
-					}
+				for (const _202 of parts3) {
 					put(out, _202);
 				}
 				put(out, escape(parts3));
@@ -243,8 +224,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					}
 					named.name = named.name + String.fromCodePoint(_237);
 					Named.add(named, c3);
-					const _246: rt.usize = rt.usizeRem(i5, 2);
-					const at2 = rt.idx(each, _246);
+					const at2 = rt.idx(each, rt.usizeRem(i5, 2));
 					each[at2] = each[at2] + String.fromCodePoint(c3);
 					const _248: rt.char | undefined = rt.charFromU32(rt.u32Add(c3 as rt.u32, 1));
 					if (_248 !== undefined) {
@@ -254,10 +234,8 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				named.name = named.name + "􏿿";
 				put(out, built);
 				put(out, named.name);
-				const at3 = rt.idx(each, 0);
-				put(out, each[at3]);
-				const at4 = rt.idx(each, 1);
-				put(out, each[at4]);
+				put(out, each[rt.idx(each, 0)]);
+				put(out, each[rt.idx(each, 1)]);
 				const before: string = built;
 				const len: rt.usize = rt.stringLen(built);
 				const empty: boolean = built.length === 0;
@@ -269,6 +247,134 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				built = "";
 				put(out, taken2);
 				rt.byteVecPush(out, built.length === 0 ? 1 : 0);
+			}
+		}
+	}
+}
+
+/**
+ * Up to three chars of `s`, from the char the kind's high bits pick: empty a quarter of
+ * the time, and otherwise found at least once unless the text is shorter.
+ */
+export function pattern(kind: rt.u8, s: string): string {
+	let p: string = "";
+	const iter: rt.Iter<rt.char> = rt.iterTake(rt.iterSkip(rt.strChars(s), rt.u8Div(kind, 32) as rt.usize), rt.u8Rem(rt.u8Div(kind, 8), 4) as rt.usize);
+	while (true) {
+		const _17: rt.char | rt.Done = iter.next();
+		if (_17 === rt.DONE) {
+			return p;
+		}
+		p = p + String.fromCodePoint(_17);
+	}
+}
+
+/**
+ * `&s[a..b]` by byte offsets, and the `str` methods by a `&str` pattern, which an empty
+ * one matches before each char and after the last.
+ */
+export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _211!: [rt.usize, rt.usize];
+	let sliced!: string;
+	const s: string = text(data);
+	const p: string = pattern(kind, s);
+	b0: {
+		const _8: rt.u8 = rt.u8Rem(kind, 8);
+		if (_8 === 0) {
+			let n: rt.i32 = 0;
+			const iter: rt.Iter<string> = rt.strSplit(s, p);
+			while (true) {
+				const _18: string | rt.Done = iter.next();
+				if (_18 === rt.DONE) {
+					break;
+				}
+				put(out, _18);
+				n = rt.i32Add(n, 1);
+			}
+			rt.byteVecPush(out, n & 0xff);
+			put(out, rt.optionUnwrapOr(rt.iterLast(rt.strSplit(s, p)), "none"));
+		} else {
+			if (_8 === 1) {
+				const iter2: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, p);
+				while (true) {
+					const _42: [rt.usize, string] | rt.Done = iter2.next();
+					if (_42 === rt.DONE) {
+						break b0;
+					}
+					const at: rt.usize = _42[0];
+					putOffset(out, at);
+					put(out, _42[1]);
+					put(out, rt.strSlice(s, 0, at));
+					const part6 = rt.usizeAdd(at, rt.stringLen(_42[1]));
+					put(out, rt.strSlice(s, part6));
+					const part7 = rt.usizeAdd(at, rt.stringLen(_42[1]));
+					put(out, rt.strSlice(s, at, part7));
+				}
+			}
+			if (_8 === 2) {
+				put(out, rt.strTrimStartMatches(s, p));
+				put(out, rt.strTrimEndMatches(s, p));
+				put(out, rt.strTrimEndMatches(rt.strTrimStartMatches(s, p), p));
+				rt.byteVecPush(out, rt.strStartsWith(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, p) ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, "/") ? 1 : 0);
+				rt.byteVecPush(out, rt.strContains(s, (c: rt.char): boolean => {
+					return rt.charIsAsciiDigit(c);
+				}) ? 1 : 0);
+				putOffset(out, rt.strRfind(s, p));
+			} else if (_8 === 3) {
+				let path: string = s;
+				while (true) {
+					const _125: rt.usize | undefined = rt.strRfind(path, "/");
+					if (_125 !== undefined) {
+						path = rt.strSlice(path, 0, _125);
+						put(out, path);
+					} else {
+						break;
+					}
+				}
+				put(out, path);
+			} else if (_8 === 4) {
+				const keep: rt.usize = rt.usizeAdd(rt.u8Rem(rt.u8Div(kind, 8), 4) as rt.usize, 1);
+				put(out, rt.optionUnwrapOr(rt.optionMap(rt.iterNth(rt.strMatchIndices(s, "/"), rt.usizeSub(keep, 1)), (_2: [rt.usize, string]): string => {
+					return rt.strSlice(s, 0, _2[0]);
+				}), "none"));
+				const part5 = rt.optionMapOr(rt.iterNth(rt.strMatchIndices(s, "/"), rt.usizeSub(keep, 1)), rt.stringLen(s), (_22: [rt.usize, string]): rt.usize => {
+					return rt.usizeAdd(_22[0], 1);
+				});
+				put(out, rt.strSlice(s, part5));
+			} else if (_8 === 5) {
+				const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"));
+				put(out, parts.join(p));
+				put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
+					return part3;
+				})).join(p));
+				put(out, ["a", "", s].join("/"));
+			} else {
+				const at2: (a0: rt.u8) => rt.usize = (b2: rt.u8): rt.usize => {
+					if ((kind & 32) === 0) {
+						return rt.usizeRem(b2 as rt.usize, rt.usizeAdd(rt.stringLen(s), 2));
+					}
+					return rt.usizeSaturatingSub(rt.usizeAdd(rt.stringLen(s), 1), rt.usizeRem(b2 as rt.usize, 4));
+				};
+				if (!(data.length >= 2)) {
+					_211 = [0, 0] as [rt.usize, rt.usize];
+				} else {
+					_211 = [at2(data.data[data.start]), at2(data.data[data.start + 1])] as [rt.usize, rt.usize];
+				}
+				const a: rt.usize = _211[0];
+				const b: rt.usize = _211[1];
+				const _225: rt.u8 = rt.u8Rem(rt.u8Div(kind, 8), 4);
+				if (_225 === 0) {
+					sliced = rt.strSlice(s, a, b);
+				} else if (_225 === 1) {
+					sliced = rt.strSlice(s, a);
+				} else if (_225 === 2) {
+					sliced = rt.strSlice(s, 0, b);
+				} else {
+					sliced = rt.strSlice(s, 0);
+				}
+				put(out, sliced);
 			}
 		}
 	}
@@ -292,8 +398,7 @@ export function unescape(path: string): string[] {
 				if (ch === 47) {
 					const taken = part;
 					part = "";
-					const _12: string = taken;
-					parts.push(_12);
+					parts.push(taken);
 				} else if (ch === 92) {
 					const _14: rt.char | rt.Done = chars.next();
 					if (_14 === rt.DONE) {
