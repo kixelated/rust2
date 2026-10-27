@@ -117,8 +117,9 @@ struct Pending {
 	effect: bool,
 	/// Whether it reads memory something else could change.
 	memory: bool,
-	/// The aggregate's operands, for a call that takes them apart.
-	parts: Option<Vec<Expr>>,
+	/// The aggregate's operands, for a call that takes them apart, each with whether it is
+	/// a reference that reads the same wherever it is read.
+	parts: Option<Vec<(Expr, bool)>>,
 	/// The names it reads, which an assignment to must not pass it.
 	reads: Vec<String>,
 	/// Whether it is a `Copy` aggregate read from where it could change, which only an
@@ -166,8 +167,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	next: bool,
 	/// Blocks whose only statement is `unreachable`.
 	unreachable: FxHashSet<BasicBlock>,
-	/// The operands of the aggregate lowered last.
-	parts: Option<Vec<Expr>>,
+	/// For the aggregate lowered last, whether each operand is a reference that reads the
+	/// same wherever it is read.
+	rereadable_parts: Option<Vec<bool>>,
 	/// Blocks that start an ignored macro's code, and the block after it.
 	redirect: FxHashMap<BasicBlock, BasicBlock>,
 	/// Whether the operands lowered now go to a local nothing changes in place.
@@ -258,7 +260,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			labels: 0,
 			next: crate::lower::iter::is_next(tcx, mir.source.def_id()),
 			unreachable: FxHashSet::default(),
-			parts: None,
+			rereadable_parts: None,
 			redirect: FxHashMap::default(),
 			into_frozen: false,
 			copy_on_flush: false,
@@ -1593,6 +1595,34 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.is_arg(local)
 	}
 
+	/// Whether the aggregate assigned to `local` is read by its fields as its operands: it
+	/// is assigned once, never changed, and not held back.
+	fn parts_read(&self, local: Local) -> bool {
+		matches!(self.slots[local], Slot::Var(_))
+			&& !self.stepped_vars.contains_key(&local)
+			&& self.uses[local] != 0
+			&& !self.foldable(local)
+			&& self.defs[local] == 1
+			&& !self.mutated[local]
+	}
+
+	/// Whether the operand `e` reads the same wherever and however often it is read: a
+	/// path, with what it folds in that is held back a constant, a name nothing changes, or
+	/// a reference to a path, which borrow checking keeps as it is.
+	fn rereadable(&self, e: &Expr) -> bool {
+		let mut names = Vec::new();
+		reads_of(e, &mut names);
+		e.is_path()
+			&& self.pending.iter().filter(|p| names.contains(&p.name)).all(|p| {
+				p.value.is_constant()
+					|| self.stable_name(&p.value)
+					|| p.value.is_path()
+						&& self
+							.local_named(&p.name)
+							.is_some_and(|local| self.mir.local_decls[local].ty.is_ref())
+			})
+	}
+
 	// Emission
 
 	/// Emit the statements `stmts`, which together are one MIR statement, folding in the
@@ -1773,7 +1803,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Hold back `value`, the assignment of `local`, to fold into what reads it.
-	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<Expr>>) {
+	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<(Expr, bool)>>) {
 		let name = self.var(local).expect("a pending local is a variable").to_string();
 		self.order += 1;
 		let mut reads = Vec::new();
@@ -1821,7 +1851,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let name = self.var(local)?;
 		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
 		let p = self.pending.remove(i);
-		let parts = p.parts.expect("checked above");
+		let parts: Vec<Expr> = p
+			.parts
+			.expect("checked above")
+			.into_iter()
+			.map(|(part, _)| part)
+			.collect();
 		if !p.effect && !p.memory {
 			return Some(parts);
 		}
@@ -1835,15 +1870,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut names = Vec::new();
 		let mut held = 0;
 		for value in parts {
-			let mut events = Vec::new();
-			scan(&value, &mut events, false);
-			let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
-			let memory = events.iter().any(|r| match r {
-				Read::Memory => true,
-				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
-				Read::Ident(name, _) => self.shared.contains(name.as_str()),
-				Read::Effect | Read::Panic => false,
-			});
+			let (effect, memory) = self.part_reads(&value);
 			if !effect && !memory {
 				names.push(value);
 				continue;
@@ -1871,6 +1898,51 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		Some(names)
 	}
 
+	/// The operand `field` of the aggregate `local` held back for its one read, held back
+	/// in the aggregate's place, which is never made. Its other operands are dropped, so
+	/// only when they do nothing. A reference that reads the same later is read in place.
+	pub(super) fn held_part(&mut self, local: Local, field: usize) -> Option<Expr> {
+		let name = self.var(local)?;
+		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
+		let parts = self.pending[i].parts.as_ref().expect("checked above");
+		let (part, rereadable) = parts.get(field)?.clone();
+		let others = parts.iter().enumerate().filter(|&(j, _)| j != field);
+		if others.clone().any(|(_, (v, _))| self.part_reads(v).0) {
+			return None;
+		}
+		let (effect, memory) = self.part_reads(&part);
+		if !effect && !memory || rereadable {
+			self.pending.remove(i);
+			return Some(part);
+		}
+		let name = self.b.fresh("part");
+		let p = &mut self.pending[i];
+		p.reads.clear();
+		reads_of(&part, &mut p.reads);
+		p.name = name.clone();
+		p.value = part;
+		p.effect = effect;
+		p.memory = memory;
+		p.parts = None;
+		p.decl = true;
+		Some(Expr::ident(name))
+	}
+
+	/// Whether evaluating the aggregate part `value` can do or throw anything, and whether
+	/// it reads memory something else could change.
+	fn part_reads(&self, value: &Expr) -> (bool, bool) {
+		let mut events = Vec::new();
+		scan(value, &mut events, false);
+		let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
+		let memory = events.iter().any(|r| match r {
+			Read::Memory => true,
+			Read::Field(name) => !self.frozen_names.contains(name.as_str()),
+			Read::Ident(name, _) => self.shared.contains(name.as_str()),
+			Read::Effect | Read::Panic => false,
+		});
+		(effect, memory)
+	}
+
 	/// Assign `value` to the local `local` now, or hold it back.
 	fn set_local(
 		&mut self,
@@ -1878,7 +1950,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		value: Expr,
 		effect: bool,
 		memory: bool,
-		parts: Option<Vec<Expr>>,
+		parts: Option<Vec<bool>>,
 		out: &mut Vec<Stmt>,
 	) {
 		if self.stepped_vars.contains_key(&local) {
@@ -1906,7 +1978,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.fold((effect, memory), |(e, m), p| (e || p.effect, m || p.memory));
 					let mut folded = self.fold_exprs(Vec::new(), vec![value], true, out);
 					let value = folded.pop().unwrap();
-					let parts = parts.and_then(|_| parts_of(&value));
+					let parts =
+						parts.and_then(|rereadable| Some(parts_of(&value)?.into_iter().zip(rereadable).collect()));
 					self.hold(local, value, effect, memory, parts);
 					return;
 				}
@@ -1916,8 +1989,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// An aggregate assigned once and never changed: its operands, as emitted,
 				// read in place of its fields.
 				if parts.is_some()
-					&& self.defs[local] == 1
-					&& !self.mutated[local]
+					&& self.parts_read(local)
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..
@@ -2095,7 +2167,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let effect = rvalue::effect(rvalue, self);
 		// A copy shared until it folds into its argument reads its source there.
 		let memory = rvalue::memory(rvalue, self) || shares;
-		let parts = self.parts.take();
+		let parts = self.rereadable_parts.take();
 		if let Some(local) = place.as_local() {
 			let parts = match rvalue {
 				Rvalue::Aggregate(..) => parts,

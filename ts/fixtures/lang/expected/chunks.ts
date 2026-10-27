@@ -105,8 +105,9 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const b: rt.ByteSlice = rt.optionMapOr(rt.byteSliceSplitFirstChunk(_101[1], 2), _101[0], (_22: [rt.ByteSlice, rt.ByteSlice]): rt.ByteSlice => {
 				return _22[0];
 			});
-			[_101[0], b, _101[1]] as [rt.ByteSlice, rt.ByteSlice, rt.ByteSlice];
-			const read: (a0: rt.usize) => rt.u8 = reader(pick(_101[0], b, rt.usizeRem(data.length, 2) === 0));
+			const part2 = _101[0];
+			const part3 = _101[1];
+			const read: (a0: rt.usize) => rt.u8 = reader(pick(part2, b, rt.usizeRem(data.length, 2) === 0));
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(read(0), read(1), read(3))));
 			const both: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
 				if (!(i2 < 2)) {
@@ -120,7 +121,7 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			};
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(both(0), both(1))));
 			rt.byteVecExtendFromSlice(out, b);
-			rt.byteVecPush(out, _101[1].length & 0xff);
+			rt.byteVecPush(out, part3.length & 0xff);
 		}
 	} else if (_4 === 3) {
 		const lit: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(97, 98, 99));

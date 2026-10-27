@@ -537,11 +537,19 @@ export function order(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const len: rt.usize = data.length;
 	const _83: rt.ByteSlice = logged(data, out);
 	const _85: rt.usize = rt.min(mark(out, 14), len);
-	const _82: rt.ByteSlice = rt.byteSliceRange(_83, rt.usizeDiv(rt.min(mark(out, 15), len), 2), _85);
-	const _102: Shape.Shape = taken;
+	const _87: rt.usize = rt.usizeDiv(rt.min(mark(out, 15), len), 2);
 	const _103: rt.usize = sum;
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(_102, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_82), f, rt.u8Display)];
+	const _82: rt.ByteSlice = rt.byteSliceRange(_83, _87, _85);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(taken, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_82), f, rt.u8Display)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7], " ", args2[8], " ", args2[9]])));
+	const _125: rt.usize = mark(out, 16);
+	const _127: rt.usize = out.length;
+	rt.byteVecPush(out, _125 & 0xff);
+	rt.byteVecPush(out, _127 & 0xff);
+	const part = mark(out, 17);
+	const _143: [rt.usize, rt.usize] = [mark(out, 18), mark(out, 19)];
+	rt.byteVecPush(out, part & 0xff);
+	rt.byteVecPush(out, _143[0] & 0xff);
 	indexed(data, out);
 }
 
@@ -813,8 +821,7 @@ export function diverging(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!(b2 === 253)) {
 			return rt.u8Div(b2, 3);
 		}
-		const arg = ([b2] as [rt.u8])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b2, f)];
 		rt.panicFmt(["closure ", args2[0]]);
 	};
 	const head: rt.ByteSlice = rt.byteSliceRange(data, 0, rt.min(data.length, 2));
@@ -834,8 +841,7 @@ export function diverging(data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function closureNever(b: rt.u8): rt.u8 {
 	const _2: (a0: rt.u8) => never = (b2: rt.u8): never => {
-		const arg = ([b2] as [rt.u8])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8LowerHex(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8LowerHex(b2, f)];
 		rt.panicFmt(["closure failed on ", rt.fmtSpec({ alternate: true }, args2[0])]);
 	};
 	const _4: (a0: rt.u8) => never = madeNever();
@@ -861,8 +867,7 @@ export function closureNever(b: rt.u8): rt.u8 {
 /** A closure that never returns, made by a function. */
 export function madeNever(): (a0: rt.u8) => never {
 	return (b: rt.u8): never => {
-		const arg = ([b] as [rt.u8])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b, f)];
 		rt.panicFmt(["made ", args2[0]]);
 	};
 }
@@ -876,16 +881,14 @@ export function genericNever(b: rt.u8, len: rt.usize): void {
 		if (!(b === 246)) {
 			if (b === 249) {
 				if (!(len > 1)) {
-					const arg2 = ([b] as [rt.u8])[0];
-					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg2, f)];
+					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b, f)];
 					rt.panicFmt(["some ", args4[0]]);
 				} else {
 					unwrapOrBail$never(undefined, b);
 				}
 			}
 		} else {
-			const arg = ([b] as [rt.u8])[0];
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b, f)];
 			rt.panicFmt(["passed ", args2[0]]);
 		}
 	} else {
@@ -908,23 +911,20 @@ export function unwrapOrBail$never(o: never | undefined, b: rt.u8): never {
 
 /** A function that never returns. */
 export function bail(b: rt.u8): never {
-	const arg = ([b] as [rt.u8])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8LowerHex(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8LowerHex(b, f)];
 	rt.panicFmt(["failed on ", rt.fmtSpec({ alternate: true }, args2[0])]);
 }
 
 /** `return`, and `break` out of the function's labeled block, with values that never exist. */
 export function returnedNever(b: rt.u8, len: rt.usize): rt.u8 {
 	if (b === 247) {
-		const arg2 = ([b] as [rt.u8])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg2, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b, f)];
 		rt.panicFmt(["returned ", args2[0]]);
 	} else if (b === 248) {
 		if (!(rt.usizeRem(len, 2) === 0)) {
 			bail(b);
 		} else {
-			const arg = ([b] as [rt.u8])[0];
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(b, f)];
 			rt.panicFmt(["then ", args4[0]]);
 		}
 	} else {
@@ -963,8 +963,7 @@ export function brokenNever(data: rt.ByteSlice): rt.u8 {
 		rt.idx(data, _6);
 		const value = data.data[data.start + _6];
 		if (value === 251) {
-			const arg = ([i] as [rt.usize])[0];
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(i, f)];
 			rt.panicFmt(["broken at ", args2[0]]);
 		} else if (value === 252) {
 			const _19: rt.usize = i;
@@ -991,8 +990,7 @@ export function boundNever(data: rt.ByteSlice, _out: rt.ByteVec): rt.u8 {
 		rt.idx(data, _8);
 		const value = data.data[data.start + _8];
 		if (value === 239) {
-			const arg = ([i] as [rt.usize])[0];
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(i, f)];
 			rt.panicFmt(["bound at ", args2[0]]);
 		} else if (value === 240) {
 			const _22: rt.usize = i;
@@ -1322,8 +1320,7 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const parsed: rt.Result<rt.u8, Void.Void> = rt.Ok(data.length & 0xff);
 	const a2: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a2, (parsed as { ok: true; value: rt.u8 }).value, (parsed as { ok: true; value: rt.u8 }).value, early(a2))));
-	const arg = ([parsed] as [rt.Result<rt.u8, Void.Void>])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(arg, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(parsed, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 	payloads(data, out);
 	known(data, out);
