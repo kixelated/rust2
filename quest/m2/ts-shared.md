@@ -24,6 +24,11 @@ is its own guard. Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet)
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow
   panics. A re-entrant `Mutex` lock on one thread is unspecified in Rust; pick
   a loud failure (panic) and document it.
+- The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds:
+  atomics as `Atomic<T>` with `Ordering` arguments (about 345 refusals, 125 in
+  `stats.rs`), `PoisonError::into_inner` with a lock poisoned by a panic while held,
+  `thread_local!` (`LocalKey::with`), `thread::panicking`, and `Mutex::get_mut`. Atomics
+  are 139 of kio's 172 refusals here.
 - Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for shared and interior-mutable types.
