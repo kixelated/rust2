@@ -12,6 +12,7 @@ export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/str.ts";
 export * from "./rt/task.ts";
+export * from "./rt/time.ts";
 
 /** A Rust panic. */
 export class Panic extends Error {
