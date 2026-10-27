@@ -1,0 +1,39 @@
+# moq-net's model, for the census: its public types, with what the subset refuses for good
+# bound. moq writes the binding files; a census reads none.
+package = "moq-net"
+roots = [
+    "model::origin::Producer",
+    "model::origin::Consumer",
+    "model::broadcast::Producer",
+    "model::broadcast::Consumer",
+    "model::track::Producer",
+    "model::track::Consumer",
+    "model::group::Producer",
+    "model::group::Consumer",
+    "model::frame::Producer",
+    "model::frame::Consumer",
+    "model::bandwidth::Producer",
+    "model::bandwidth::Consumer",
+    "model::cache::Pool",
+    "model::broadcast::listing::Tracks",
+    "model::time::Timestamp",
+]
+ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]
+
+[bind]
+# `unsafe` inside.
+"bytes::Bytes" = "bind/bytes.ts"
+"bytes::BytesMut" = "bind/bytes-mut.ts"
+# Randomness, DEFLATE, and the clock, which JS has its own of.
+"rand::rng" = "bind/rand.ts"
+"rand::rngs::ThreadRng" = "bind/rand.ts"
+"model::flate::Encoder" = "bind/encoder.ts"
+"model::flate::Decoder" = "bind/decoder.ts"
+"model::clock::now" = "bind/clock.ts"
+"model::clock::wall" = "bind/clock.ts"
+"model::clock::anchor" = "bind/clock.ts"
+# Boxed futures, which JS runs as promises.
+"util::Tasks" = { file = "bind/tasks.ts", drop = true }
+"util::TasksWeak" = "bind/tasks-weak.ts"
+"util::TaskSet" = { file = "bind/task-set.ts", drop = true }
+"kio::Tasks" = { file = "bind/kio-tasks.ts", drop = true }
