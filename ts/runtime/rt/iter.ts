@@ -87,6 +87,19 @@ export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
 	return new FromNext(f, (f) => iterFromOption(f()));
 }
 
+/** `iter::successors`: `first`, then `succ` of each item, called as that item is yielded. */
+export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined): Iter<T> {
+	let next = first;
+	return iterFromFn(() => {
+		const item = next;
+		if (item === undefined) return undefined;
+		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
+		next = undefined;
+		next = succ(item);
+		return item;
+	});
+}
+
 /** An `impl Iterator` of the translated crate, which `next` calls the `next` of. */
 export function iterFrom<S, T>(source: S, next: (source: S) => T | Done): Iter<T> {
 	return new FromNext(source, next);

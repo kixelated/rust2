@@ -1627,27 +1627,27 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _3: (a0: rt.u8, a1: rt.u8) => rt.u8 | undefined = (a2: rt.u8, b2: rt.u8): rt.u8 | undefined => {
 		const _4: rt.u8 | undefined = rt.u8CheckedAdd(a2, b2);
 		if (_4 !== undefined) {
-			const _82: rt.u8 | undefined = rt.u8CheckedMul(_4, 2);
-			if (_82 !== undefined) {
-				return rt.u8Sub(_82, 1);
+			const _83: rt.u8 | undefined = rt.u8CheckedMul(_4, 2);
+			if (_83 !== undefined) {
+				return rt.u8Sub(_83, 1);
 			}
 			return undefined;
 		}
 		return undefined;
 	};
 	const _30: (a0: rt.u8) => rt.Poll<rt.Result<rt.u8, rt.u8>> = (a3: rt.u8): rt.Poll<rt.Result<rt.u8, rt.u8>> => {
-		let half!: rt.Result<rt.u8, Dir.Dir>;
+		let half2!: rt.Result<rt.u8, Dir.Dir>;
 		const _43: Dir.Dir | undefined = dir(a3);
 		b0: {
 			if (_43 !== undefined) {
 				if (rt.u8Rem(a3, 2) === 1) {
-					half = rt.Err(_43);
+					half2 = rt.Err(_43);
 					break b0;
 				}
 			}
-			half = rt.Ok(rt.u8Div(a3, 2));
+			half2 = rt.Ok(rt.u8Div(a3, 2));
 		}
-		const _132: rt.Result<rt.u8, Dir.Dir> = half;
+		const _132: rt.Result<rt.u8, Dir.Dir> = half2;
 		if (_132.ok) {
 			return rt.Ok(_132.value);
 		}
@@ -1661,10 +1661,10 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else {
 		parsed = rt.Ok(a);
 	}
-	const mapped: rt.Result<rt.u8, rt.u8> = rt.resultMapErr(rt.resultMap(parsed, (n5: rt.u8): rt.u8 => {
-		return rt.u8Div(n5, 2);
-	}), (e2: string): rt.u8 => {
-		return rt.stringLen(e2) & 0xff;
+	const mapped: rt.Result<rt.u8, rt.u8> = rt.resultMapErr(rt.resultMap(parsed, (n7: rt.u8): rt.u8 => {
+		return rt.u8Div(n7, 2);
+	}), (e4: string): rt.u8 => {
+		return rt.stringLen(e4) & 0xff;
 	});
 	if (mapped.ok) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(0, mapped.value)));
@@ -1681,14 +1681,56 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else {
 		rt.byteVecPush(out, 4);
 	}
-	const _45: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(data));
-	if (_45.ok) {
-		const s: string = _45.value;
+	const _46: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(data));
+	if (_46.ok) {
+		const s: string = _46.value;
 		rt.byteVecPush(out, 1);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.stringLen(s) as rt.u32)));
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	} else {
 		rt.byteVecPush(out, 0);
+	}
+	let calls: rt.u8 = 0;
+	const iter: rt.Iter<rt.u8> = rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 6);
+	while (true) {
+		const _66: rt.u8 | rt.Done = iter.next();
+		if (_66 === rt.DONE) {
+			break;
+		}
+		const x: rt.u8 = _66;
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(rt.optionUnwrapOr(rt.boolThen(rt.u8Rem(x, 2) === 0, (): rt.u8 => {
+			calls = rt.u8Add(calls, 1);
+			return rt.u8Div(x, 2);
+		}), 238), calls)));
+		rt.byteVecPush(out, rt.optionMapOr(rt.boolThen(x > 128, (): rt.ByteVec => {
+			return new rt.ByteVec();
+		}), 2, (v: rt.ByteVec): rt.u8 => {
+			return v.length & 0xff;
+		}));
+		const flag: boolean = rt.u8Rem(x, 3) === 0;
+		rt.byteVecPush(out, rt.u8Add(rt.u8Add(flag ? 1 : 0, ((flag ? 1 : 0)) & 0xff), ((flag ? 1 : 0)) & 0xff));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(flag ? 1 : 0)));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(flag ? 1 : 0)));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(flag ? 1 : 0)));
+	}
+	const _117: rt.Result<rt.u8, rt.u8> = rt.optionOkOr(undefined as rt.u8 | undefined, a);
+	if (_117.ok) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(5, _117.value)));
+	} else {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(6, _117.error)));
+	}
+	const iter2: rt.Iter<rt.Result<rt.u8, rt.u8>> = rt.iterSlice([rt.optionOkOr(undefined as rt.u8 | undefined, b), rt.optionOkOr(undefined as rt.u8 | undefined, a)]);
+	while (true) {
+		const _134: rt.Result<rt.u8, rt.u8> | rt.Done = iter2.next();
+		if (_134 === rt.DONE) {
+			break;
+		}
+		const result: rt.Result<rt.u8, rt.u8> = _134;
+		if (result.ok) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(5, result.value)));
+		} else {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(6, result.error)));
+		}
 	}
 }
 
@@ -1794,7 +1836,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(flow3.value));
 		}
 	}
-	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined);
+	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
 	for (const x2 of rt.byteSliceView(data)) {
 		const held: rt.Mutex<rt.u8 | undefined> = slot;
 		const _114: rt.u8 | undefined = held.value;

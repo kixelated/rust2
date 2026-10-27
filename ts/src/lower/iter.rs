@@ -218,6 +218,10 @@ pub fn call<'tcx>(
 		}
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
 		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		["iter", "sources", "successors", "successors"] => {
+			no_drops(b, targ(0)?, span);
+			return Some(Expr::rt("iterSuccessors", args));
+		}
 		_ => {}
 	}
 

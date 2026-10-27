@@ -275,13 +275,13 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			put_offset(out, s.rfind(p.as_str()));
 		}
 		3 => {
-			// Each parent of a path, as moq-net's discovery walks them.
-			let mut path = s.as_str();
-			while let Some(slash) = path.rfind('/') {
-				path = &path[..slash];
+			// A path and each parent of it, as moq-net's discovery walks them.
+			let covering = std::iter::successors(Some(s.as_str()), |path| {
+				(!path.is_empty()).then(|| path.rfind('/').map_or("", |slash| &path[..slash]))
+			});
+			for path in covering {
 				put(out, path);
 			}
-			put(out, path);
 		}
 		4 => {
 			// A path cut after its `keep`th part, and the rest, as moq-net's compression

@@ -397,6 +397,22 @@ pub fn options(data: &[u8], out: &mut Vec<u8>) {
 	})
 	.collect();
 	out.extend_from_slice(&counted);
+	// `successors` calls its closure on each item as it yields it, and never again once
+	// it returned `None`.
+	let mut calls = Vec::new();
+	let halving = |b: &u8, calls: &mut Vec<u8>| {
+		calls.push(*b);
+		b.checked_sub(1).map(|b| b / 2)
+	};
+	let first = data.first().copied();
+	let taken: Vec<u8> = std::iter::successors(first, |b| halving(b, &mut calls))
+		.take(data.len() % 4)
+		.collect();
+	out.extend_from_slice(&taken);
+	out.extend_from_slice(&calls);
+	let count = std::iter::successors(first, |b| halving(b, &mut calls)).count();
+	out.push(count as u8);
+	out.extend_from_slice(&calls);
 	// The crate's own iterator, whose items are options.
 	let gaps = Gaps { data, at: 0 };
 	for gap in gaps {
