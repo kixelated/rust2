@@ -289,6 +289,13 @@ export function mapOr$Option_u16_u8_hash_maps_closure0(self: rt.u16 | undefined,
 	return f(self);
 }
 
+export function mapOr$Option_u8_bool_take_largest_closure0(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_u8_u8_options_closure5(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;

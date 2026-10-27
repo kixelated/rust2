@@ -3,25 +3,26 @@
 import * as rt from "./rt.ts";
 import * as Bytes from "./bind/bytes.ts";
 import * as checksum from "./bind/checksum.ts";
+import * as skip from "./bind/skip.ts";
 import * as Tally from "./bind/tally.ts";
 
 /**
- * Split the input as `Bytes`, compare and hash the parts, and count tallies down as they
- * drop. A first byte of 1 slices out of order, which panics.
+ * Split the input as `Bytes`, compare and hash the parts, skip its leading zeros, and
+ * count tallies down as they drop. A first byte of 1 slices out of order, which panics.
  */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	let count!: rt.Arc<rt.u32>;
 	let a!: Tally.Tally;
 	let b!: Tally.Tally;
 	let held!: Tally.Tally | undefined;
-	let _120!: boolean;
-	let _121!: boolean;
-	let _122!: boolean;
+	let _127!: boolean;
+	let _128!: boolean;
+	let _129!: boolean;
 	let unwind: number = 0;
 	try {
-		_122 = false;
-		_121 = false;
-		_120 = false;
+		_129 = false;
+		_128 = false;
+		_127 = false;
 		const out: rt.ByteVec = new rt.ByteVec();
 		const bytes: Bytes.Bytes = Bytes.copyFromSlice(input);
 		const mid: rt.usize = rt.usizeDiv(Bytes.len(bytes), 2);
@@ -52,43 +53,46 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 			}
 			rt.byteVecPush(out, rt.u32Shr(sum, _65) & 0xff);
 		}
+		let at: rt.usize = 0;
+		skip.skip(input, rt.place(() => at, (value) => at = value));
+		rt.byteVecPush(out, at & 0xff);
 		if (rt.byteSliceFirst(input) === 1) {
-			const _81: rt.Range<rt.usize> = new rt.Range(mid, rt.usizeSaturatingSub(mid, 1));
-			Bytes.slice(bytes, _81);
+			const _88: rt.Range<rt.usize> = new rt.Range(mid, rt.usizeSaturatingSub(mid, 1));
+			Bytes.slice(bytes, _88);
 		}
 		count = new rt.Arc(input.length as rt.u32);
-		unwind = 67;
+		unwind = 69;
 		a = Tally.new(count);
-		unwind = 82;
-		_122 = true;
+		unwind = 84;
+		_129 = true;
 		b = Tally.new(count);
-		unwind = 80;
-		_121 = true;
+		unwind = 82;
+		_128 = true;
 		rt.byteVecPush(out, count.strong & 0xff);
-		_122 = false;
+		_129 = false;
 		rt.drop(a);
 		rt.byteVecPush(out, count.strong & 0xff);
-		const _104: rt.u8 = Tally.get(b) & 0xff;
-		rt.byteVecPush(out, _104);
-		unwind = 78;
-		_121 = false;
-		const _108: Tally.Tally = b;
-		_120 = true;
-		held = _108;
+		const _111: rt.u8 = Tally.get(b) & 0xff;
+		rt.byteVecPush(out, _111);
+		unwind = 80;
+		_128 = false;
+		const _115: Tally.Tally = b;
+		_127 = true;
+		held = _115;
 		if (rt.byteSliceFirst(input) === 2) {
-			_120 = false;
+			_127 = false;
 			rt.drop(held);
 		}
 		rt.byteVecPush(out, count.strong & 0xff);
 		const _0: rt.ByteVec = out;
-		if (_120) {
-			unwind = 80;
+		if (_127) {
+			unwind = 82;
 			rt.drop(held);
 		}
 		unwind = 0;
-		_120 = false;
-		_121 = false;
-		_122 = false;
+		_127 = false;
+		_128 = false;
+		_129 = false;
 		rt.drop(count);
 		return _0;
 	} catch (e) {
@@ -97,21 +101,21 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 				if (unwind === 0) {
 					throw e;
 				}
-				if (unwind === 67) {
+				if (unwind === 69) {
 					break b5;
 				}
-				if (unwind === 78) {
-					if (_120) {
+				if (unwind === 80) {
+					if (_127) {
 						rt.drop(held);
 					}
-				} else if (unwind !== 80) {
+				} else if (unwind !== 82) {
 					break b6;
 				}
-				if (_121) {
+				if (_128) {
 					rt.drop(b);
 				}
 			}
-			if (_122) {
+			if (_129) {
 				rt.drop(a);
 			}
 		}

@@ -16,6 +16,7 @@ roots = ["harness::run", "harness::refused"]
 "raw::Tally" = "bind/bytes.ts"
 "checksum" = "bind/missing.ts"
 "raw::checksum" = "bind/checksum.ts"
+"raw::skip" = "bind/skip.ts"
 "raw::Held" = "bind/tally.ts"
 "raw::zero" = "bind/checksum.ts"
 "raw::value" = "bind/checksum.ts"

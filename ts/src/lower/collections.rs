@@ -249,12 +249,6 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether a value of type `ty` a collection holds is one JS copies, such as a number, so
-/// a `&mut` to it is an `rt.Place` rather than the value.
-fn copied<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
-	b.t.object_kind(ty).is_none() && !matches!(ty.kind(), ty::Ref(..))
-}
-
 /// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
 /// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
@@ -277,7 +271,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 		],
 		_ => return false,
 	};
-	methods.contains(&name.as_str()) && copied(b, arg(coll, 1))
+	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 1))
 }
 
 /// The type an inherent method's impl is of, such as `HashMap<K, V, RandomState>`.
@@ -300,10 +294,11 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 	args.types().nth(n).expect("a collection's type argument")
 }
 
-/// What a JS value of `ty` is: through references and boxes, which are their pointee.
+/// What a JS value of `ty` is: through references and boxes, which are their pointee,
+/// up to a `&mut` that is an `rt.Place`.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	let ty = ty.peel_refs();
 	match ty.kind() {
+		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel(b, *inner),
 		ty::Adt(adt, args) if Std::of(b.t.tcx, adt.did()) == Some(Std::Box) => peel(b, args.type_at(0)),
 		_ => ty,
 	}
@@ -342,7 +337,7 @@ fn hash<'tcx>(
 		(_, "is_empty") => Expr::rt("hashLen", values).binary("===", Expr::lit("0")),
 		(_, "clear") => Expr::rt("hashClear", values),
 		(_, "contains_key" | "contains") => Expr::rt("hashContains", values),
-		(_, "get_mut") if !set && copied(b, arg(coll, 1)) => Expr::rt("hashGetMut", values),
+		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("hashGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("hashGet", values),
 		(_, "get") => Expr::rt("hashKey", values),
 		(_, "take") => {
@@ -544,7 +539,7 @@ fn btree<'tcx>(
 		(_, "is_empty") => Expr::rt("btreeLen", values).binary("===", Expr::lit("0")),
 		(_, "clear") => Expr::rt("btreeClear", values),
 		(_, "contains_key" | "contains") => Expr::rt("btreeContains", values),
-		(_, "get_mut") if !set && copied(b, arg(coll, 1)) => Expr::rt("btreeGetMut", values),
+		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("btreeGet", values),
 		(_, "get_key_value") => Expr::rt("btreeGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("btreeAdd", values),
@@ -801,7 +796,7 @@ fn entry<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, name: &str, args: Vec
 	let value = arg(coll, 1);
 	let mut values = args;
 	// What these return a `&mut` to is a place where JS would copy it.
-	let place = copied(b, value);
+	let place = b.t.needs_place(value);
 	let mutable = |f: &str| match place {
 		true => format!("{f}Mut"),
 		false => f.to_string(),

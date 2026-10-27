@@ -12,6 +12,7 @@ import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { adaptors, consumers, ranges, options, own, values } from "./iters.ts";
 import { keys } from "./keys.ts";
+import { refs } from "./refs.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
 import { strs, slices } from "./strs.ts";
@@ -25,7 +26,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 50);
+	const _14: rt.u8 = rt.u8Rem(op, 51);
 	if (_14 === 0) {
 		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 1) {
@@ -140,9 +141,11 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	} else if (_14 === 47) {
 		durations(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 48) {
+		combinators(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+	} else if (_14 === 49) {
 		splits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else {
-		combinators(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		refs(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	}
 	return out;
 }

@@ -480,7 +480,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				|| self.borrowed[local]
 				|| self.stepped.contains(&local)
 				|| self.next_results.contains(&local)
-				|| self.place_opts.contains(&local)
 				|| self.checked.contains(&local)
 				|| self.joined.contains(&local)
 			{
