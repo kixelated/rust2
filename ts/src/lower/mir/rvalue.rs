@@ -378,9 +378,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// Only the payload read as it is: a copy the operand made must still be made.
 		let pending = match (temp.and_then(|temp| self.var(temp)), value) {
 			(_, value) if payload(value) => None,
-			(Some(name), Expr::Ident(read)) if name == *read => {
-				Some(self.pending.iter().position(|p| p.name == name && !p.effect && payload(&p.value))?)
-			}
+			(Some(name), Expr::Ident(read)) if name == *read => Some(
+				self.pending
+					.iter()
+					.position(|p| p.name == name && !p.effect && payload(&p.value))?,
+			),
 			_ => return None,
 		};
 		let whole_ty = whole.ty(&self.mir.local_decls, self.tcx).ty;
