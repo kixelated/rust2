@@ -47,6 +47,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let decls = &self.mir.local_decls;
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
 		let mut projection = place.projection.iter().peekable();
+		let held = match projection.peek() {
+			Some(&ProjectionElem::Field(field, ty)) if !self.mutated[place.local] => {
+				self.held_part(place.local, field.as_usize(), ty.is_ref())
+			}
+			_ => None,
+		};
 		// A closure's captures, and a coroutine's state, are `_1`'s fields.
 		let mut e = match (&self.env, place.local.as_u32()) {
 			(Env::Closure(captures), 1) => {
@@ -65,6 +71,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					_ => return self.err(span, "a closure's environment read whole"),
 				}
+			}
+			// A field of an aggregate held back for its one read.
+			_ if let Some(part) = held => {
+				let elem = *projection.peek().unwrap();
+				pty = pty.projection_ty(tcx, elem);
+				projection.next();
+				part
 			}
 			// A field of an aggregate made once and never changed is its operand: a
 			// reference, held in a path when the aggregate is made, which borrow checking

@@ -123,8 +123,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			unwind = 194;
 			_358 = false;
 			rt.arcDrop(arc, drop$Held);
-			const arg6 = ([shared.strong] as [rt.usize])[0];
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg6, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(shared.strong, f)];
 			Log.note(log, rt.fmtFormat(["arc ", args2[0]]));
 			check(2);
 			v2 = [];
@@ -257,12 +256,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			check(1);
 			_354 = false;
 			rt.arcDrop(shared2, drop$Wrap_Pair_Held);
-			const arg4 = ([clones.length] as [rt.usize])[0];
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg4, f)];
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(clones.length, f)];
 			Log.note(log, rt.fmtFormat(["clones ", args8[0]]));
 			check(2);
-			const arg5 = ([!bail(log, id, at).ok] as [boolean])[0];
-			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
+			const part2 = !bail(log, id, at).ok;
+			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
 			Log.note(log, rt.fmtFormat(["bailed ", args10[0]]));
 			unwind = 206;
 			rt.dropAll(clones, drop$Arc_Wrap_Pair_Held);
@@ -285,8 +283,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			unwind = 170;
 			const held2: boolean = Held.isSome(_301.value);
 			unwind = 171;
-			const arg2 = ([held2] as [boolean])[0];
-			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
+			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(held2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args12[0]]));
 			lent = guard(83);
 			unwind = 169;
@@ -301,8 +298,8 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			check(3);
 			_351 = false;
 			rt.arcDrop(again);
-			const arg3 = ([Guard.id(lent)] as [rt.u32])[0];
-			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+			const part = Guard.id(lent);
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 			Log.note(log, rt.fmtFormat(["lent ", args14[0]]));
 			unwind = 171;
 			_351 = false;
@@ -864,8 +861,8 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 162;
 		_300 = true;
 		_301 = false;
-		const arg = ([old !== undefined] as [boolean])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg, f)];
+		const part = old !== undefined;
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part, f)];
 		Log.note(log, rt.fmtFormat(["replaced ", args2[0]]));
 		_300 = false;
 		rt.drop(old);
@@ -875,8 +872,8 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		removed = rt.btreeRemove(map, _64, rt.drop);
 		unwind = 147;
 		rt.drop(_64);
-		const arg2 = ([removed !== undefined] as [boolean])[0];
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
+		const part2 = removed !== undefined;
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
 		Log.note(log, rt.fmtFormat(["removed ", args4[0]]));
 		const _82: Key.Key = key(3);
 		_80 = rt.entry(map, _82, rt.drop);
@@ -887,8 +884,8 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			unwind = 160;
 			_94 = rt.entryRemove(_80, rt.drop);
 			unwind = 146;
-			const arg3 = ([Guard.id(_94)] as [rt.u32])[0];
-			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+			const part3 = Guard.id(_94);
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 			const _88: string = rt.fmtFormat(["occupied ", args6[0]]);
 			unwind = 160;
 			rt.drop(_94);
@@ -904,8 +901,8 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		if (!rt.entryOccupied(_102)) {
 			unwind = 145;
 			e2 = _102;
-			const arg4 = ([rt.entryKey(e2).id] as [rt.u32])[0];
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
+			const part4 = rt.entryKey(e2).id;
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
 			Log.note(log, rt.fmtFormat(["left ", args8[0]]));
 			unwind = 147;
 			rt.drop(e2.k);
@@ -953,13 +950,13 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _179: Key.Key = key(11);
 		rt.btreeAdd(set, _179, rt.drop);
 		const _190: Key.Key = key(10);
-		const arg5 = ([rt.btreeAdd(set, _190, rt.drop)] as [boolean])[0];
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
+		const part5 = rt.btreeAdd(set, _190, rt.drop);
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
 		Log.note(log, rt.fmtFormat(["again ", args12[0]]));
 		_206 = key(11);
 		unwind = 143;
-		const arg6 = ([rt.btreeDelete(set, _206, rt.drop)] as [boolean])[0];
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg6, f)];
+		const part6 = rt.btreeDelete(set, _206, rt.drop);
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part6, f)];
 		const _199: string = rt.fmtFormat(["gone ", args14[0]]);
 		unwind = 144;
 		rt.drop(_206);
@@ -982,8 +979,7 @@ export function ordered(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, rt.drop);
 		check(5);
 		rt.dequeTruncate(queue, 2, rt.drop);
-		const arg7 = ([queue.n] as [rt.usize])[0];
-		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg7, f)];
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(queue.n, f)];
 		Log.note(log, rt.fmtFormat(["queue ", args16[0]]));
 		rt.btreeClear(map, rt.drop, rt.drop);
 		rt.btreeClear(set, rt.drop);
@@ -1261,8 +1257,8 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		if (!rt.entryOccupied(_83)) {
 			unwind = 136;
 			e2 = _83;
-			const arg = ([rt.entryKey(e2).id] as [rt.u32])[0];
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+			const part = rt.entryKey(e2).id;
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 			Log.note(log, rt.fmtFormat(["left ", args2[0]]));
 			unwind = 161;
 			rt.drop(e2.k);
@@ -1314,13 +1310,13 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _172: Key.Key = key(11);
 		rt.hashAdd(set, _172, rt.drop);
 		const _183: Key.Key = key(10);
-		const arg2 = ([rt.hashAdd(set, _183, rt.drop)] as [boolean])[0];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
+		const part2 = rt.hashAdd(set, _183, rt.drop);
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
 		Log.note(log, rt.fmtFormat(["again ", args6[0]]));
 		_199 = key(11);
 		unwind = 135;
-		const arg3 = ([rt.hashDelete(set, _199, rt.drop)] as [boolean])[0];
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg3, f)];
+		const part3 = rt.hashDelete(set, _199, rt.drop);
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
 		const _192: string = rt.fmtFormat(["gone ", args8[0]]);
 		unwind = 151;
 		rt.drop(_199);
@@ -1927,8 +1923,8 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		drop$Option_Held(rt.btreeInsert(tags, 1, _123, undefined, drop$Held));
 		const place2 = rt.entryOrInsertMut(rt.entry(tags, 1), { tag: "One", _0: Guard.new(rt.u32Add(id, 2), Log.clone$Clone(log)) } as Held.Held, drop$Held);
 		if (place2.v.tag === "One") {
-			const arg = ([Guard.id(place2.v._0)] as [rt.u32])[0];
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+			const part8 = Guard.id(place2.v._0);
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
 			Log.note(log, rt.fmtFormat(["tag ", args4[0]]));
 		}
 		const _151: rt.Entry<rt.u8, Held.Held> = rt.entry(tags, 2);
@@ -1937,8 +1933,8 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _158: Guard.Guard = Guard.new(rt.u32Add(id, 4), Log.clone$Clone(log));
 		unwind = 88;
 		rt.entryOrInsertMut(_151, { tag: "Two", _0: _154, _1: _158 } as Held.Held, drop$Held);
-		const arg2 = ([rt.btreeLen(tags)] as [rt.usize])[0];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg2, f)];
+		const part9 = rt.btreeLen(tags);
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part9, f)];
 		Log.note(log, rt.fmtFormat(["tags ", args6[0]]));
 		check(4);
 		_197 = false;
@@ -2452,15 +2448,14 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 				const _99: Key.Key = key(3);
 				rt.entryOrInsertWith(rt.entry(hashed_, _99, rt.drop), (k2: Key.Key): Guard.Guard => {
 					const _86: rt.Fmt = (f: rt.Formatter) => rt.u32Display(id, f);
-					const arg4 = k2.id;
-					const args8: rt.Fmt[] = [_86, (f: rt.Formatter) => rt.u32Display(arg4, f)];
+					const arg2 = k2.id;
+					const args8: rt.Fmt[] = [_86, (f: rt.Formatter) => rt.u32Display(arg2, f)];
 					rt.panicFmt(["d", args8[0], " made ", args8[1]]);
 				}, rt.drop);
 			} else {
 				const _91: Key.Key = key(3);
 				rt.entryOrInsertWith(rt.entry(map, _91, rt.drop), (): Guard.Guard => {
-					const arg3 = ([id] as [rt.u32])[0];
-					const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+					const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
 					rt.panicFmt(["d", args6[0], " made"]);
 				}, rt.drop);
 			}
@@ -2477,8 +2472,7 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 				rt.drop(_109);
 			} else {
 				rt.drop(rt.optionMapOr(id, guard(3), (n4: rt.u32): Guard.Guard => {
-					const arg2 = ([n4] as [rt.u32])[0];
-					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
+					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(n4, f)];
 					rt.panicFmt(["d", args4[0], " mapped"]);
 				}, rt.drop));
 			}
@@ -2491,7 +2485,7 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 		} else if (at === 6) {
 			if (!tree) {
 				drop$Result_u8_Key(rt.resultInspectErr(rt.Err(key(3)), (k: Key.Key): void => {
-					const arg = ([k.id] as [rt.u32])[0];
+					const arg = k.id;
 					const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 					rt.panicFmt(["k", args2[0], " inspected"]);
 				}, rt.drop));

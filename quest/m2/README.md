@@ -28,7 +28,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 - [Byte slices without objects](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` allocates nothing, neither a chunk view nor a `ByteSlice`
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the codec bundle shrinks back to THIR's gzipped size
-- [A tuple read only by its fields is never made](/quest/m2/ts-fmt-tuple.md) - a one-argument `format!` reads its argument, not a one-element tuple
 - [An A/A control that measures noise](/quest/m2/ts-bench-aa.md) - `just ts bench`'s A/A measures only noise, in every engine
 - [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it

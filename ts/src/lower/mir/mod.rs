@@ -1857,15 +1857,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut names = Vec::new();
 		let mut held = 0;
 		for value in parts {
-			let mut events = Vec::new();
-			scan(&value, &mut events, false);
-			let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
-			let memory = events.iter().any(|r| match r {
-				Read::Memory => true,
-				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
-				Read::Ident(name, _) => self.shared.contains(name.as_str()),
-				Read::Effect | Read::Panic => false,
-			});
+			let (effect, memory) = self.part_reads(&value);
 			if !effect && !memory {
 				names.push(value);
 				continue;
@@ -1891,6 +1883,51 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			held += 1;
 		}
 		Some(names)
+	}
+
+	/// The operand `field` of the aggregate `local` held back for its one read, held back
+	/// in the aggregate's place, which is never made. Its other operands are dropped, so
+	/// only when they do nothing. A reference that reads the same later is read in place.
+	pub(super) fn held_part(&mut self, local: Local, field: usize, is_ref: bool) -> Option<Expr> {
+		let name = self.var(local)?;
+		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
+		let parts = self.pending[i].parts.as_ref().expect("checked above");
+		let part = parts.get(field)?.clone();
+		let others = parts.iter().enumerate().filter(|&(j, _)| j != field);
+		if others.clone().any(|(_, v)| self.part_reads(v).0) {
+			return None;
+		}
+		let (effect, memory) = self.part_reads(&part);
+		if !effect && !memory || is_ref && self.rereadable(&part) {
+			self.pending.remove(i);
+			return Some(part);
+		}
+		let name = self.b.fresh("part");
+		let p = &mut self.pending[i];
+		p.reads.clear();
+		reads_of(&part, &mut p.reads);
+		p.name = name.clone();
+		p.value = part;
+		p.effect = effect;
+		p.memory = memory;
+		p.parts = None;
+		p.decl = true;
+		Some(Expr::ident(name))
+	}
+
+	/// Whether evaluating the aggregate part `value` can do or throw anything, and whether
+	/// it reads memory something else could change.
+	fn part_reads(&self, value: &Expr) -> (bool, bool) {
+		let mut events = Vec::new();
+		scan(value, &mut events, false);
+		let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
+		let memory = events.iter().any(|r| match r {
+			Read::Memory => true,
+			Read::Field(name) => !self.frozen_names.contains(name.as_str()),
+			Read::Ident(name, _) => self.shared.contains(name.as_str()),
+			Read::Effect | Read::Panic => false,
+		});
+		(effect, memory)
 	}
 
 	/// Assign `value` to the local `local` now, or hold it back.
