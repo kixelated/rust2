@@ -167,5 +167,10 @@ pub fn fill<T: Copy>(value: T) -> Cell<T> {
 /// A generic type whose bound the config's instance does not meet.
 pub struct Bounded<T: Copy>(pub T);
 
+/// A generic type whose default argument is a type no instance key can spell.
+pub struct Holder<T = Option<u32>> {
+	pub value: T,
+}
+
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;

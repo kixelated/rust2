@@ -702,12 +702,28 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// An instance's type arguments, each of which must export.
+	/// An instance's type arguments, each of which must export as one the config can
+	/// spell: a default may name any type.
 	fn args(&self, site: &Site<'tcx>) -> Result<Vec<Type>, Why> {
 		(site.args.types())
-			.map(|ty| match ty.kind() {
-				ty::Tuple(list) if list.is_empty() => Ok(Type::Unit),
-				_ => self.ty(ty, Pos::Behind),
+			.map(|ty| {
+				let arg = match ty.kind() {
+					ty::Tuple(list) if list.is_empty() => Type::Unit,
+					_ => self.ty(ty, Pos::Behind)?,
+				};
+				match arg {
+					Type::Unit
+					| Type::Bool
+					| Type::Int(_)
+					| Type::F32
+					| Type::F64
+					| Type::Char
+					| Type::String
+					| Type::Record(_)
+					| Type::Enum(_)
+					| Type::Object(_) => Ok(arg),
+					_ => Err(why("type argument the config cannot spell", self.spell(ty))),
+				}
 			})
 			.collect()
 	}

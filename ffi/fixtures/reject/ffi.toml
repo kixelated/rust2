@@ -3,12 +3,13 @@ prefix = "reject"
 # An exclusion leaves an item out, so nothing refuses it.
 exclude = ["Excluded"]
 
-# Instances that cannot export: an unmet bound, a type that is not generic, and a path
-# that names nothing. `Cell<u16>` and `Cell<u32>` export, and nothing else of `Cell` does.
+# Instances that cannot export: an unmet bound, a default argument no key can spell, a
+# type that is not generic, and a path that names nothing. `Cell<u16>` and `Cell<u32>` export, and nothing else of `Cell` does.
 [instances]
 "Bounded<String>" = "bounded"
 "Cell<u16>" = "cell_u16"
 "Cell<u32>" = "cell"
+"Holder" = "holder"
 "Missing<u8>" = "missing"
 "Opaque<u8>" = "opaque_u8"
 
