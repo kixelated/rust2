@@ -49,7 +49,6 @@ Public API: the translator's output for moq-net's model.
 - [Bind to hand-written TypeScript](/quest/m2/ts-model/bind.md) - a config names TS that stands in for a Rust item at a boundary
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
 - [Std combinators from core's MIR](/quest/m2/ts-model/core-mir.md) - `Option`'s and `Result`'s combinators lower from core's own bodies
-- [Duration](/quest/m2/ts-model/time.md) - `Duration` translates as std's seconds and nanoseconds
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Options of values that can be undefined](/quest/m2/ts-model/nested-option.md) - `Option<Option<T>>` and `Option<()>` keep `None` apart from `Some(None)`
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

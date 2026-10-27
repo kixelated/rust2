@@ -1,7 +1,8 @@
 //! The language the driver translates, exercised against native Rust: every integer
 //! width's arithmetic and casts, `char`s and the `str` methods over them, `Cow<str>`,
-//! control flow, patterns, `Copy` aggregates, closures, traits, generic types, formatting,
-//! collections, `&mut` to values JS copies, and the standard library calls it maps.
+//! `Duration`, control flow, patterns, `Copy` aggregates, closures, traits, generic types,
+//! formatting, collections, `&mut` to values JS copies, and the standard library calls
+//! it maps.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -10,6 +11,7 @@ mod chars;
 mod chunks;
 mod collections;
 mod cows;
+mod durations;
 mod fmt;
 mod generics;
 pub mod harness;
