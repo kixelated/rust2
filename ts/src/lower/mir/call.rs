@@ -14,6 +14,10 @@ use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
+/// What a `&mut` borrows: its path, and the place a store through the reference writes,
+/// unless the reference is refused.
+type Borrowed<'tcx> = (Expr, Option<Place<'tcx>>);
+
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn call(
 		&mut self,
@@ -274,18 +278,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			("mem", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				let default = library::default_value(self.b, targ(0)?)?;
-				done(self.swap_out(place, default, "taken", out), true)
+				done(self.swap_out(place, default, "taken", span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				let value = self.operand(&args[1].node, span, out);
-				done(self.swap_out(place, value, "old", out), true)
+				done(self.swap_out(place, value, "old", span, out), true)
 			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span)?;
 				let c = self.borrowed_place(&args[1].node, span)?;
-				let old = self.swap_out(a, c.clone(), "swapped", out);
-				out.push(StmtKind::Expr(c.assign(old)).at(None));
+				let old = self.swap_out(a, c.0.clone(), "swapped", span, out);
+				self.set_borrowed(&c, old, span, out);
 				done(Expr::undefined(), true)
 			}
 			// A range of numbers steps in place, with nothing between it and the loop.
@@ -303,13 +307,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			("String", "push") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				let c = self.operand(&args[1].node, span, out);
-				let pushed = place.clone().binary("+", library::char_text(c));
-				out.push(StmtKind::Expr(place.assign(pushed)).at(None));
+				let pushed = place.0.clone().binary("+", library::char_text(c));
+				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
 			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
-				done(self.swap_out(place, Expr::undefined(), "taken", out), true)
+				done(self.swap_out(place, Expr::undefined(), "taken", span, out), true)
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
@@ -556,9 +560,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// The place a `&mut` operand borrows, as an assignable path: an alias of a borrowed
-	/// place, not a copy of a reference, which holds the object it points at.
-	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<Expr> {
+	/// The place a `&mut` operand borrows, as an assignable path, and through the
+	/// reference, which a store resolves: an alias of a borrowed place, not a copy of a
+	/// reference, which holds the object it points at.
+	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<Borrowed<'tcx>> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
 			return None;
 		};
@@ -569,11 +574,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Slot::Alias(Some(target))
 				if (target.is_path() || matches!(target, Expr::Index(..))) && self.alias_of_place(place.local) =>
 			{
-				Some(target.clone())
+				Some((target.clone(), Some(self.tcx.mk_place_deref(*place))))
 			}
 			_ => {
 				let pointee = self.mir.local_decls[place.local].ty.peel_refs();
-				Some(self.err(span, format!("replacing the value behind a reference to `{pointee}`")))
+				let err = self.err(span, format!("replacing the value behind a reference to `{pointee}`"));
+				Some((err, None))
 			}
 		}
 	}
@@ -634,11 +640,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The value at `place`, after setting `place` to `value`.
-	fn swap_out(&mut self, place: Expr, value: Expr, base: &str, out: &mut Vec<Stmt>) -> Expr {
+	fn swap_out(&mut self, place: Borrowed<'tcx>, value: Expr, base: &str, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let name = self.b.fresh(base);
-		out.push(StmtKind::decl(false, name.clone(), None, Some(place.clone())).at(None));
-		out.push(StmtKind::Expr(place.assign(value)).at(None));
+		out.push(StmtKind::decl(false, name.clone(), None, Some(place.0.clone())).at(None));
+		self.set_borrowed(&place, value, span, out);
 		Expr::ident(name)
+	}
+
+	/// Set what a `&mut` borrows to `value`.
+	fn set_borrowed(&mut self, (read, place): &Borrowed<'tcx>, value: Expr, span: Span, out: &mut Vec<Stmt>) {
+		match place {
+			Some(place) => out.extend(self.store(*place, value, span)),
+			None => out.push(StmtKind::Expr(read.clone().assign(value)).at(None)),
+		}
 	}
 
 	/// `container[index]`, or a slice of it by a range, which a reference reads in place.
@@ -653,6 +667,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) -> Option<Option<(Expr, bool)>> {
 		let container = gargs.type_at(0);
 		let index_ty = gargs.type_at(1);
+		// A string slices by UTF-8 byte offsets, which a JS string doesn't index by.
+		if container.is_str() || self.b.t.std_of(container) == Some(Std::String) {
+			if name == "index_mut" {
+				return None;
+			}
+			let base = self.operand(&args[0].node, span, out);
+			let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+			let mut values = vec![self.path(base, "s", out), start];
+			values.extend(end);
+			return Some(Some((Expr::rt("strSlice", values), true)));
+		}
 		let elem_ty = elem(self.tcx, container)?;
 		let bytes = matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8));
 		let base = self.operand(&args[0].node, span, out);

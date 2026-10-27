@@ -236,10 +236,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			check(4);
 			const _196: boolean = Held.isSome(wrapped.inner);
 			const _199: rt.u32 = Guard.id(guarded.inner);
-			const at2 = rt.idx(pairs, 1);
-			const _204: rt.u32 = Guard.id(pairs[at2].first);
-			const at3 = rt.idx(pairs, 0);
-			const args5: [boolean, rt.u32, rt.u32] = [_196, _199, rt.u32Add(rt.u32Add(_204, Guard.id(pairs[at3].second)), nested.inner.length as rt.u32)];
+			const args5: [boolean, rt.u32, rt.u32] = [_196, _199, rt.u32Add(rt.u32Add(Guard.id(pairs[rt.idx(pairs, 1)].first), Guard.id(pairs[rt.idx(pairs, 0)].second)), nested.inner.length as rt.u32)];
 			const _218: rt.Fmt = (f: rt.Formatter) => rt.fmtBool(_196, f);
 			const _219: rt.Fmt = (f: rt.Formatter) => rt.u32Display(_199, f);
 			const arg6 = args5[2];
@@ -618,8 +615,6 @@ export class heldFuture {
 	#state: number = 0;
 	#rx: Consumer.Consumer;
 	#guard: Guard.Guard;
-	#rx$2!: Consumer.Consumer;
-	#guard$2!: Guard.Guard;
 	#log!: Log.Log;
 	#id!: rt.u32;
 	#held!: Held.Held[];
@@ -649,9 +644,9 @@ export class heldFuture {
 				unwind = 16;
 				rt.drop(this.#log);
 				unwind = 17;
-				rt.drop(this.#guard$2);
+				rt.drop(this.#guard);
 				unwind = 0;
-				rt.drop(this.#rx$2);
+				rt.drop(this.#rx);
 			}
 		} catch (e) {
 			b0: {
@@ -680,9 +675,9 @@ export class heldFuture {
 						}
 						rt.drop(this.#log);
 					}
-					rt.drop(this.#guard$2);
+					rt.drop(this.#guard);
 				}
-				rt.drop(this.#rx$2);
+				rt.drop(this.#rx);
 			}
 			throw e;
 		}
@@ -695,11 +690,9 @@ export class heldFuture {
 		try {
 			if (this.#state === 0) {
 				unwind = 48;
-				this.#rx$2 = this.#rx;
-				this.#guard$2 = this.#guard;
-				this.#log = Log.clone$Clone(Guard.log(this.#guard$2));
+				this.#log = Log.clone$Clone(Guard.log(this.#guard));
 				unwind = 47;
-				this.#id = Guard.id(this.#guard$2);
+				this.#id = Guard.id(this.#guard);
 				v = [];
 				unwind = 46;
 				const _9: Held.Held = { tag: "One", _0: Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)) };
@@ -713,7 +706,7 @@ export class heldFuture {
 				const _24: rt.Arc<Held.Held> = new rt.Arc({ tag: "One", _0: Guard.new(rt.u32Add(this.#id, 520), Log.clone$Clone(this.#log)) } as Held.Held);
 				unwind = 43;
 				this.#wrap = new Wrap.Wrap({ id: _19, log: _22, inner: _24 });
-				this.#awaitee = new recvFuture(this.#rx$2);
+				this.#awaitee = new recvFuture(this.#rx);
 			} else if (this.#state === 1) {
 				rt.asyncFnResumed();
 			} else if (this.#state === 2) {
@@ -741,9 +734,9 @@ export class heldFuture {
 				unwind = 48;
 				rt.drop(this.#log);
 				unwind = 49;
-				rt.drop(this.#guard$2);
+				rt.drop(this.#guard);
 				unwind = 50;
-				rt.drop(this.#rx$2);
+				rt.drop(this.#rx);
 				this.#state = 1;
 				return value;
 			}
@@ -789,9 +782,9 @@ export class heldFuture {
 						}
 						rt.drop(this.#log);
 					}
-					rt.drop(this.#guard$2);
+					rt.drop(this.#guard);
 				}
-				rt.drop(this.#rx$2);
+				rt.drop(this.#rx);
 			}
 			this.#state = 2;
 			throw e;

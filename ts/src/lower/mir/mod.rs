@@ -14,6 +14,7 @@ mod call;
 mod cfg;
 pub mod coroutine;
 pub mod glue;
+mod inline;
 mod place;
 mod rvalue;
 mod step;
@@ -226,6 +227,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
 	/// its arms.
 	switched: FxHashSet<String>,
+	/// Locals whose variant some switch tests, directly or through a reference to them.
+	tested: IndexVec<Local, bool>,
+	/// The names of those that hold a value TypeScript would narrow by what it is assigned.
+	widened: FxHashSet<String>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -281,6 +286,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			joined: FxHashSet::default(),
 			place_opts: FxHashSet::default(),
 			switched: FxHashSet::default(),
+			tested: IndexVec::from_elem_n(false, n),
+			widened: FxHashSet::default(),
 		};
 		fx.analyze();
 		fx
@@ -468,6 +475,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.b.t.check_erased(held, self.local_span(local));
 			}
 		}
+		self.find_tested();
 		// Names: what debug info calls a local, else its number.
 		let mut named: FxHashMap<Local, rustc_span::Symbol> = FxHashMap::default();
 		for info in &mir.var_debug_info {
@@ -1105,6 +1113,92 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Mark the locals whose variant a switch tests, or that a closure or async block
+	/// captures and could test, and what references to them borrow.
+	fn find_tested(&mut self) {
+		let mut work = Vec::new();
+		for data in self.mir.basic_blocks.iter() {
+			for stmt in &data.statements {
+				let StatementKind::Assign(assign) = &stmt.kind else {
+					continue;
+				};
+				match &assign.1 {
+					Rvalue::Discriminant(place) => work.push(place.local),
+					Rvalue::Aggregate(kind, ops)
+						if matches!(
+							**kind,
+							mir::AggregateKind::Closure(..) | mir::AggregateKind::Coroutine(..)
+						) =>
+					{
+						work.extend(ops.iter().filter_map(|op| op.place().map(|p| p.local)));
+					}
+					_ => {}
+				}
+			}
+		}
+		while let Some(local) = work.pop() {
+			if std::mem::replace(&mut self.tested[local], true) {
+				continue;
+			}
+			if let Slot::Alias(_) = self.slots[local]
+				&& let Some(
+					Rvalue::Ref(_, _, p)
+					| Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)
+					| Rvalue::CopyForDeref(p)
+					| Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _),
+				) = self.def_rvalue(local)
+			{
+				work.push(p.local);
+			}
+		}
+	}
+
+	/// `value`, the `rvalue` assigned to `place`, as a value of its whole type where
+	/// something tests `place`'s variant: TypeScript narrows a variable to the type of
+	/// what it was assigned, as a `Poll` made `Ready` to its payload's, and would refuse a
+	/// test for another variant.
+	fn widen(&mut self, place: Place<'tcx>, rvalue: &Rvalue<'tcx>, value: Expr, span: Span) -> Expr {
+		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+		// What is made here, rather than read from a place declared with its type.
+		let made = matches!(rvalue, Rvalue::Aggregate(..) | Rvalue::Use(Operand::Constant(_), _));
+		if !made || !self.tested[place.local] || !self.b.t.narrows(ty) {
+			return value;
+		}
+		// `Some` narrows to its payload's type, which only a test for `None` refutes, and
+		// that reads nothing of it.
+		if let Rvalue::Aggregate(kind, _) = rvalue
+			&& let mir::AggregateKind::Adt(def, variant, args, ..) = **kind
+			&& crate::lower::library::Std::of(self.tcx, def) == Some(crate::lower::library::Std::Option)
+			&& variant.index() == 1
+			&& !self.b.t.narrows(args.type_at(0))
+		{
+			return value;
+		}
+		let local = place.as_local();
+		let ts_ty = match local {
+			Some(local) if self.stepped_vars.contains_key(&local) => return value,
+			Some(local) => self.decl_ty(local),
+			None => self.b.t.ty(ty, span),
+		};
+		let mut inner = &value;
+		while let Expr::Located(_, e) = inner {
+			inner = e;
+		}
+		let value = match inner {
+			Expr::As(_, t) if *t == ts_ty => value,
+			// `Ok` and `Err` are of the whole type.
+			Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => return value,
+			_ => Expr::As(Box::new(value.typed()), ts_ty),
+		};
+		// Its declaration keeps the `as`.
+		if let Some(local) = local
+			&& let Slot::Var(name) = &self.slots[local]
+		{
+			self.widened.insert(name.clone());
+		}
+		value
+	}
+
 	/// The rvalue a local's one assignment by a statement assigns.
 	fn def_rvalue(&self, local: Local) -> Option<&'m Rvalue<'tcx>> {
 		let (bb, i) = self.def_at[local]?;
@@ -1293,7 +1387,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			cfg::strip_return(&mut out);
 		}
 		cfg::hoist_else(&mut out);
-		declare_in_place(&mut out);
+		declare_in_place(&mut out, &self.widened);
+		cfg::tidy_loops(&mut out);
+		// A loop's own labels first, which its header's `break` names.
+		step::for_of(&mut out);
+		inline::inline_temps(&mut out, &self.shared);
+		// A loop can start by leaving now that what it tests is folded in.
 		cfg::tidy_loops(&mut out);
 		out
 	}
@@ -1546,7 +1645,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				},
 				Read::Memory => seen_memory = true,
 				Read::Field(name) => seen_memory |= !self.frozen_names.contains(name.as_str()),
-				Read::Effect => seen_effect = true,
+				Read::Effect | Read::Panic => seen_effect = true,
 			}
 		}
 		// What stays pending past this statement, and what must run before it.
@@ -1732,12 +1831,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for value in parts {
 			let mut events = Vec::new();
 			scan(&value, &mut events, false);
-			let effect = events.iter().any(|r| matches!(r, Read::Effect));
+			let effect = events.iter().any(|r| matches!(r, Read::Effect | Read::Panic));
 			let memory = events.iter().any(|r| match r {
 				Read::Memory => true,
 				Read::Field(name) => !self.frozen_names.contains(name.as_str()),
 				Read::Ident(name, _) => self.shared.contains(name.as_str()),
-				Read::Effect => false,
+				Read::Effect | Read::Panic => false,
 			});
 			if !effect && !memory {
 				names.push(value);
@@ -1969,6 +2068,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			out.extend(pre);
 			return;
 		};
+		let value = self.widen(place, rvalue, value, span);
 		// What an `Iterator::next` returns, by the protocol.
 		let value = match (
 			self.next && place.local == mir::RETURN_PLACE && place.projection.is_empty(),
@@ -2565,6 +2665,8 @@ enum Read {
 	Field(String),
 	/// A call, which may do anything.
 	Effect,
+	/// A call of the runtime's that reads its arguments only, and may panic.
+	Panic,
 }
 
 fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
@@ -2577,6 +2679,10 @@ fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 		}
 		StmtKind::While { cond, body, .. } => {
 			scan(cond, reads, true);
+			body.iter().for_each(|s| scan_stmt(s, reads, true));
+		}
+		StmtKind::ForOf { iter, body, .. } => {
+			scan(iter, reads, lazy);
 			body.iter().for_each(|s| scan_stmt(s, reads, true));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_stmt(s, reads, lazy)),
@@ -2616,7 +2722,10 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 				f => scan(f, reads, lazy),
 			}
 			args.iter().for_each(|e| scan(e, reads, lazy));
-			reads.push(Read::Effect);
+			reads.push(match &**f {
+				Expr::Rt(name) if reads_only(name) => Read::Panic,
+				_ => Read::Effect,
+			});
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
 		Expr::Postfix(e, _) => {
@@ -2651,6 +2760,46 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 		Expr::Arrow(_, _, body) => body.iter().for_each(|s| scan_stmt(s, reads, true)),
 		Expr::Lambda(_, body) => scan(body, reads, true),
 	}
+}
+
+/// Whether the runtime's function `name` only reads its arguments, if it may panic: a
+/// bounds check, or integer arithmetic or a comparison.
+fn reads_only(name: &str) -> bool {
+	if matches!(name, "idx" | "at" | "min" | "max" | "lt") {
+		return true;
+	}
+	let Some(op) = [
+		"usize", "isize", "u128", "i128", "u16", "i16", "u32", "i32", "u64", "i64", "u8", "i8",
+	]
+	.iter()
+	.find_map(|ty| name.strip_prefix(ty)) else {
+		return false;
+	};
+	matches!(
+		op,
+		"Add"
+			| "Sub"
+			| "Mul"
+			| "Div"
+			| "Rem"
+			| "Neg"
+			| "Shl"
+			| "Shr"
+			| "And"
+			| "Or"
+			| "Xor"
+			| "Not"
+			| "Eq"
+			| "Ne"
+			| "Lt"
+			| "Le"
+			| "Gt"
+			| "Ge"
+			| "Max"
+			| "Min"
+			| "Cast"
+			| "Low"
+	)
 }
 
 /// Replace the one read of `name` in `stmt` with `value`; whether it was there.
@@ -2715,8 +2864,8 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			visit(cond);
 			then.iter().chain(els).for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::While { cond, body, .. } => {
-			reads_of(cond, out);
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+			reads_of(e, out);
 			body.iter().for_each(|s| scan_reads(s, out));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| scan_reads(s, out)),
@@ -2789,7 +2938,9 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 				strip_assignments(then, unread);
 				strip_assignments(els, unread);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => strip_assignments(body, unread),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				strip_assignments(body, unread)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
@@ -2807,8 +2958,9 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 
 /// Declare each variable declared up front at the assignment that first names it, where
 /// everything else that names it follows in the same block: no path reaches those without
-/// passing the assignment. `const` if nothing assigns it again.
-fn declare_in_place(stmts: &mut Vec<Stmt>) {
+/// passing the assignment. `const` if nothing assigns it again. Those `widened` keep
+/// the type their value was given.
+fn declare_in_place(stmts: &mut Vec<Stmt>, widened: &FxHashSet<String>) {
 	let declared: Vec<(String, Type)> = stmts
 		.iter()
 		.filter_map(|s| match &s.kind {
@@ -2822,15 +2974,17 @@ fn declare_in_place(stmts: &mut Vec<Stmt>) {
 		stmts
 			.iter()
 			.for_each(|s| visit_stmt(s, &mut |e| writes += writes_of(e, &name)));
-		if total > 0 && place_declaration(stmts, &name, &ty, total, writes > 1) {
+		let widened = widened.contains(&name);
+		if total > 0 && place_declaration(stmts, &name, &ty, total, writes > 1, widened) {
 			stmts.retain(|s| !matches!(&s.kind, StmtKind::Declare { name: n, .. } if *n == name));
 		}
 	}
 }
 
 /// Turn the statement that first names `name` into its declaration, if it assigns it and
-/// all `total` statements naming it follow in its block.
-fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mutable: bool) -> bool {
+/// all `total` statements naming it follow in its block. A `widened` value keeps its
+/// `as`, which then types the variable.
+fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mutable: bool, widened: bool) -> bool {
 	let Some(i) = stmts.iter().position(|s| stmt_names(s, name) > 0) else {
 		return false;
 	};
@@ -2844,18 +2998,28 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 		else {
 			unreachable!("checked above")
 		};
-		stmts[i].kind = StmtKind::decl(mutable, name, Some(ty.clone()), Some(*value));
+		stmts[i].kind = match *value {
+			Expr::As(_, ref t) if widened && t == ty => StmtKind::decl(mutable, name, None, Some(*value)),
+			value if widened => StmtKind::Decl {
+				mutable,
+				name: name.into(),
+				ty: Some(ty.clone()),
+				init: Some(value),
+			},
+			value => StmtKind::decl(mutable, name, Some(ty.clone()), Some(value)),
+		};
 		return true;
 	}
 	// Else everything naming it must be in one block of this statement.
 	if stmt_names(&stmts[i], name) != total {
 		return false;
 	}
-	let place =
-		|body: &mut Vec<Stmt>| list_names(body, name) == total && place_declaration(body, name, ty, total, mutable);
+	let place = |body: &mut Vec<Stmt>| {
+		list_names(body, name) == total && place_declaration(body, name, ty, total, mutable, widened)
+	};
 	match &mut stmts[i].kind {
 		StmtKind::If { then, els, .. } => place(then) || place(els),
-		StmtKind::While { body, .. } | StmtKind::Block { body, .. } => place(body),
+		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => place(body),
 		StmtKind::Catch { body, handler, .. } => place(body) || place(handler),
 		StmtKind::Switch { cases, default, .. } => cases.iter_mut().any(|(_, body)| place(body)) || place(default),
 		_ => false,
@@ -2902,8 +3066,8 @@ fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 			f(cond);
 			then.iter().chain(els).for_each(|s| visit_stmt(s, f));
 		}
-		StmtKind::While { cond, body, .. } => {
-			f(cond);
+		StmtKind::While { cond: e, body, .. } | StmtKind::ForOf { iter: e, body, .. } => {
+			f(e);
 			body.iter().for_each(|s| visit_stmt(s, f));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| visit_stmt(s, f)),
@@ -3078,17 +3242,20 @@ fn fails(term: &mir::Terminator<'_>) -> bool {
 	c.const_.try_to_bool().is_some_and(|b| b != *expected)
 }
 
-/// Drop the assignments of a variable to itself, which ferrying a value through
-/// temporaries leaves.
+/// Drop the assignments of a variable or a field to itself, which ferrying a value
+/// through temporaries leaves, as does a coroutine moving its argument into the
+/// variable that keeps its field.
 fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
-	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if matches!((&**t, &**v), (Expr::Ident(a), Expr::Ident(b)) if a == b)));
+	stmts.retain(|s| !matches!(&s.kind, StmtKind::Expr(Expr::Assign(t, v)) if same_path(t, v)));
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
 				drop_self_assignments(then);
 				drop_self_assignments(els);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => drop_self_assignments(body),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				drop_self_assignments(body)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
@@ -3102,6 +3269,23 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 	}
 }
 
+/// Whether `a` and `b` are one path: a variable, `this`, or a property of one.
+fn same_path(a: &Expr, b: &Expr) -> bool {
+	match (a, b) {
+		(Expr::Ident(a), Expr::Ident(b)) => a == b,
+		(Expr::This, Expr::This) => true,
+		(Expr::Member(a, ka), Expr::Member(b, kb)) => {
+			let key = match (ka, kb) {
+				(ts::Key::Name(x), ts::Key::Name(y)) => x == y,
+				(ts::Key::Field(x), ts::Key::Field(y)) => x == y,
+				_ => false,
+			};
+			key && same_path(a, b)
+		}
+		_ => false,
+	}
+}
+
 /// Return values in place throughout `stmts`, given the names cleanups read.
 fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
 	sink_return(stmts);
@@ -3111,7 +3295,9 @@ fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
 				return_in_place(then, caught);
 				return_in_place(els, caught);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => return_in_place(body, caught),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				return_in_place(body, caught)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
 				return_in_place(default, caught);
@@ -3188,7 +3374,9 @@ fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
 				handler_reads(then, out);
 				handler_reads(els, out);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => handler_reads(body, out),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				handler_reads(body, out)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter().for_each(|(_, body)| handler_reads(body, out));
 				handler_reads(default, out);
@@ -3252,7 +3440,9 @@ fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
 				breaks_to_return(then, label, ret);
 				breaks_to_return(els, label, ret);
 			}
-			StmtKind::While { body, .. } | StmtKind::Block { body, .. } => breaks_to_return(body, label, ret),
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				breaks_to_return(body, label, ret)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases
 					.iter_mut()
@@ -3334,7 +3524,7 @@ mod tests {
 			.at(None),
 			StmtKind::Expr(arrow.call(Vec::new())).at(None),
 		];
-		declare_in_place(&mut stmts);
+		declare_in_place(&mut stmts, &FxHashSet::default());
 		assert!(matches!(&stmts[0].kind, StmtKind::Declare { name, .. } if name == "found"));
 	}
 }

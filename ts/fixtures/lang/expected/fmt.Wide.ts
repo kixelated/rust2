@@ -5,8 +5,7 @@ import * as rt from "./rt.ts";
 export function fmt$Debug(self: Wide, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const names: string[] = ["a", "b", "c", "d", "e", "f"];
 	const values: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(self.a, f), (f: rt.Formatter) => rt.u16Display(self.b, f), (f: rt.Formatter) => rt.u32Display(self.c, f), (f: rt.Formatter) => rt.u64Display(self.d, f), (f: rt.Formatter) => rt.i8Display(self.e, f), (f: rt.Formatter) => rt.fmtBool(self.f, f)];
-	const _20: string = "Wide";
-	return rt.fmtDebugStructFields(f, _20, names, values);
+	return rt.fmtDebugStructFields(f, "Wide", names, values);
 }
 
 /** Past five fields, derived `Debug` takes the fields as slices. */

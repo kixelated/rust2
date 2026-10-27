@@ -377,7 +377,8 @@ pub fn pushed(s: &mut String) {
 	s.push('a');
 }
 
-/// A `str` pattern, where only a `char` and a predicate are supported.
-pub fn split_str(s: &str) -> usize {
-	s.split("ab").count()
+/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
+/// supported.
+pub fn split_chars(s: &str) -> usize {
+	s.split(['a', 'b']).count()
 }
