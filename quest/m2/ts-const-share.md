@@ -23,7 +23,8 @@ Decided with the maintainer on 2026-10-27: all constant aggregates, not only `Ok
   `&mut Result` rebinds the place.
 - Other constants (`Err(DecodeError::Short)`, fieldless variants, limb literals, `const`
   arrays, `rt.fmtSpec` objects) share only when nothing in the crate writes into their type
-  in place, by the analysis that shares `Copy` aggregates; a `ref mut` to a payload, as in
+  in place, the analysis that already shares `Copy` aggregates
+  ([output](/ts/README.md#output)); a `ref mut` to a payload, as in
   `Result<Option<T>, E>`, keeps one object per evaluation. Prove each with such a case.
 - Freeze each shared object, so a write the analysis missed throws in strict mode.
 - Measure each kind: hoisting `{ tag: "Short" }` and a `u64` limb saved no allocation in
@@ -33,6 +34,3 @@ Decided with the maintainer on 2026-10-27: all constant aggregates, not only `Ok
 
 Public API: the translator's output; callers receive the same frozen object for a constant.
 
-## Required
-
-- [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - the analysis that finds types nothing writes into in place
