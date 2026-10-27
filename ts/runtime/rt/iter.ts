@@ -1185,6 +1185,24 @@ class SkipIter<T> extends Adaptor<T, T> {
 		return this.len() > 0 ? this.inner.nextBack() : DONE;
 	}
 
+	/** std's: past what it doesn't skip, its iterator read from the back through what it does. */
+	override nthBackItem(n: number, drop?: Drop<T>): T | Done {
+		const len = this.len();
+		if (n < len) return this.inner.nthBackItem(n, drop);
+		if (len > 0) {
+			const item = this.inner.nthBackItem(len - 1, drop);
+			if (item !== DONE) drop?.(item);
+		}
+		return DONE;
+	}
+
+	/** std's: its iterator advanced from the back in one step, short of what it skips. */
+	override advanceBackBy(n: number, drop?: Drop<T>): number {
+		const min = Math.min(this.len(), n);
+		this.inner.advanceBackBy(min, drop);
+		return n - min;
+	}
+
 	/** std's: what it still skips and then `n` more, in one step. */
 	override nthItem(n: number, drop?: Drop<T>): T | Done {
 		const skip = this.n;
@@ -1295,6 +1313,14 @@ class TakeIter<T> extends Adaptor<T, T> {
 		return n - advanced;
 	}
 
+	/** std's: its iterator advanced from the back past the limit and `n` more, in one step. */
+	override advanceBackBy(n: number, drop?: Drop<T>): number {
+		const trim = Math.max(this.inner.len() - this.n, 0);
+		const advanced = trim + n - this.inner.advanceBackBy(trim + n, drop) - trim;
+		this.n -= advanced;
+		return n - advanced;
+	}
+
 	override len(): number {
 		return Math.min(this.inner.len(), this.n);
 	}
@@ -1386,9 +1412,18 @@ class StepByIter<T> extends Adaptor<T, T> {
 	}
 
 	override nextBack(): T | Done {
+		return this.inner.nthBackItem(this.backIndex(), this.drop);
+	}
+
+	/** std's: every step from the back in one. */
+	override nthBackItem(n: number, drop?: Drop<T>): T | Done {
+		return this.inner.nthBackItem(n * (this.step + 1) + this.backIndex(), drop);
+	}
+
+	/** How far from the back its last item is. */
+	private backIndex(): number {
 		const rem = this.inner.len() % (this.step + 1);
-		const n = this.firstTake ? (rem === 0 ? this.step : rem - 1) : rem;
-		return this.inner.nthBackItem(n, this.drop);
+		return this.firstTake ? (rem === 0 ? this.step : rem - 1) : rem;
 	}
 
 	override len(): number {

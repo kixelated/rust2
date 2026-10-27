@@ -92,6 +92,25 @@ pub(super) fn looped(log: &Log, id: u32, at: u8) {
 	let back = flat.next_back().map_or(0, |g| g.id());
 	log.note(format!("flat {front} {back}"));
 	drop(flat);
+	// What reading past items skips, from either end, of `skip`, `take`, and `step_by`.
+	let five = |n: u32| list![guard(n), guard(n + 1), guard(n + 2), guard(n + 3), guard(n + 4)];
+	let skipped = five(44).into_iter().skip(2).nth_back(3).is_some();
+	let stepped = five(49).into_iter().step_by(2).nth_back(1).map_or(0, |g| g.id());
+	let taken = five(59)
+		.into_iter()
+		.take(3)
+		.rev()
+		.chain(Vec::new())
+		.nth(1)
+		.map_or(0, |g| g.id());
+	let passed = five(64)
+		.into_iter()
+		.skip(2)
+		.rev()
+		.chain(Vec::new())
+		.nth(2)
+		.map_or(0, |g| g.id());
+	log.note(format!("back {skipped} {stepped} {taken} {passed}"));
 }
 
 /// What `collect` drops: in place of the `Vec` its items come from, what it collected
