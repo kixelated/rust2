@@ -217,9 +217,14 @@ pub fn call<'tcx>(
 			return Some(Expr::rt("iterOnce", args));
 		}
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
-		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		// Each owns its closure, `F`, which it drops with itself.
+		["iter", "sources", "from_fn", "from_fn"] => {
+			no_drops(b, targ(1)?, span);
+			return Some(Expr::rt("iterFromFn", args));
+		}
 		["iter", "sources", "successors", "successors"] => {
 			no_drops(b, targ(0)?, span);
+			no_drops(b, targ(1)?, span);
 			return Some(Expr::rt("iterSuccessors", args));
 		}
 		_ => {}

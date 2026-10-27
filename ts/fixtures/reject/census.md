@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 74
-- Function instances: 61
+- Refusals: 77
+- Function instances: 62
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -12,13 +12,14 @@
 | 7 | unsupported call to `_` | fixtures/reject/src/lib.rs:32:4 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:27:15 |
 | 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:15:13 |
+| 5 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:55:2 |
 | 4 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:107:2 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:6:14 |
-| 3 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:55:2 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:127:20 |
 | 2 | a field of `_` | fixtures/reject/src/lib.rs:289:7 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:186:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:172:23 |
+| 2 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:50:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:166:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:84:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:86:3 |
@@ -42,7 +43,6 @@
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:74:2 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:7:2 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:299:52 |
-| 1 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:50:1 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:299:52 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:87:3 |
 | 1 | the `+` flag of a format spec is not supported | fixtures/reject/src/lib.rs:82:3 |
@@ -68,6 +68,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:294:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:143:2 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:32:4 |
+| 2 | `{closure}` | fixtures/reject/src/lib.rs:391:15 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:186:1 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:240:1 |
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:317:6 |
@@ -102,6 +103,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:143:2 |
 | 2 | an assignment through a reference to `_` | `u8` | fixtures/reject/src/lib.rs:65:3 |
 | 2 | an iterator that owns `_`, which drops, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:55:2 |
+| 2 | an iterator that owns `_`, which drops, which is not supported yet | `{closure}` | fixtures/reject/src/lib.rs:391:15 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:107:2 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:294:6 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:317:6 |
@@ -189,6 +191,16 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>an iterator that owns `_`, which drops, which is not supported yet (5)</summary>
+
+- fixtures/reject/src/lib.rs:55:2: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
+- fixtures/reject/src/lib.rs:248:4: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
+- fixtures/reject/src/lib.rs:253:20: an iterator that owns `Noisy`, which drops, which is not supported yet
+- fixtures/reject/src/lib.rs:391:15: an iterator that owns `{closure@fixtures/reject/src/lib.rs:391:48: 391:56}`, which drops, which is not supported yet
+- fixtures/reject/src/lib.rs:392:13: an iterator that owns `{closure@fixtures/reject/src/lib.rs:392:32: 392:39}`, which drops, which is not supported yet
+
+</details>
+
 <details><summary>replacing the value behind a reference to `_` (4)</summary>
 
 - fixtures/reject/src/lib.rs:107:2: replacing the value behind a reference to `Meters`
@@ -204,14 +216,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:6:25: unsupported type `f64`
 - fixtures/reject/src/lib.rs:10:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:116:51: unsupported type `f64`
-
-</details>
-
-<details><summary>an iterator that owns `_`, which drops, which is not supported yet (3)</summary>
-
-- fixtures/reject/src/lib.rs:55:2: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
-- fixtures/reject/src/lib.rs:248:4: an iterator that owns `std::vec::Vec<Noisy>`, which drops, which is not supported yet
-- fixtures/reject/src/lib.rs:253:20: an iterator that owns `Noisy`, which drops, which is not supported yet
 
 </details>
 
@@ -240,6 +244,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:172:23: constructing `std::iter::Map<Folds, {closure@fixtures/reject/src/lib.rs:172:12: 172:15}>` from another crate
 - fixtures/reject/src/lib.rs:193:14: constructing `std::iter::Rev<Backs>` from another crate
+
+</details>
+
+<details><summary>dropping a closure that owns a value that drops, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:50:1: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:389:18: dropping a closure that owns a value that drops, which is not supported yet
 
 </details>
 
@@ -379,12 +390,6 @@ The type or module each refused type or path belongs to.
 <details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:299:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
-
-</details>
-
-<details><summary>dropping a closure that owns a value that drops, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:50:1: dropping a closure that owns a value that drops, which is not supported yet
 
 </details>
 

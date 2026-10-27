@@ -382,3 +382,13 @@ pub fn pushed(s: &mut String) {
 pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
 }
+
+/// Each drops its closure, and the `Noisy` it owns, when it is done with it.
+pub fn owning_lazy(cond: bool) -> usize {
+	let (a, b, c) = (Noisy(1), Noisy(2), Noisy(3));
+	let then = cond.then(move || a).is_some() as usize;
+	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
+	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
+	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
+	then + walked + made
+}
