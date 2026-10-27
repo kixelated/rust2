@@ -96,6 +96,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			Ok(None) if self.t.polymorphic() && gargs.has_param() => return Expr::undefined(),
 			_ => return self.err(span, format!("`{}` does not resolve", tcx.def_path_str(def_id))),
 		};
+		if let Some(sym) = self.t.bound_fn(instance, span) {
+			return Expr::Sym(sym).call(args.into_iter().map(Expr::typed).collect());
+		}
 		// An `async` body's `Future::poll`, which its future has itself.
 		if let ty::InstanceKind::Item(did) = instance.def
 			&& tcx.is_coroutine(did)
@@ -170,10 +173,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
 		}
-		if !adt_id.is_local() {
+		if !self.t.own(adt_id) {
 			return self.err(
 				span,
-				format!("constructing `{}` from another crate", tcx.def_path_str(adt_id)),
+				format!("constructing `{}` {}", tcx.def_path_str(adt_id), self.t.foreign(adt_id)),
 			);
 		}
 		let info = self.t.adt(adt, span);
@@ -210,13 +213,18 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
 		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
-		// A local function is named directly.
+		// A local function or a binding's is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
-			&& let ty::InstanceKind::Item(did) = instance.def
-			&& did.is_local()
 		{
-			return Expr::Sym(self.t.instance(instance));
+			if let Some(sym) = self.t.bound_fn(instance, span) {
+				return Expr::Sym(sym);
+			}
+			if let ty::InstanceKind::Item(did) = instance.def
+				&& did.is_local()
+			{
+				return Expr::Sym(self.t.instance(instance));
+			}
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, values, span, &mut body);

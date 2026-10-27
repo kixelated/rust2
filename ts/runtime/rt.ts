@@ -6,6 +6,7 @@
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
 import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
+import type { Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
@@ -44,6 +45,32 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 	const failed: Arguments = args === undefined ? [" failed"] : [" failed: ", (f) => fmtWriteFmt(f, args)];
 	panicFmt(["assertion `left ", op, " right`", ...failed, "\n  left: ", left, "\n right: ", right]);
 }
+
+// Bindings
+
+/**
+ * `T` if it can be a bound Rust type's value, or else why not: never `undefined` or
+ * `Pending`, which `None` and `Poll::Pending` are, an object unless Rust copies it, and
+ * disposable exactly when it drops.
+ */
+export type Bound<T, Copy extends boolean, Drop extends boolean> = [undefined] extends [T]
+	? "a bound value can't be undefined, which None is"
+	: [typeof Pending] extends [T]
+		? "a bound value can't be Pending, which Poll::Pending is"
+		: [Copy, T] extends [false, object]
+			? Disposes<T, Drop>
+			: Copy extends true
+				? Disposes<T, Drop>
+				: "a bound value Rust doesn't copy must be an object, which a reference changes in place";
+
+/** `T` if it has a `[Symbol.dispose]` exactly when `Drop`, or else why not. */
+type Disposes<T, Drop extends boolean> = Drop extends true
+	? [T] extends [Disposable]
+		? T
+		: "a bound value that drops must have a [Symbol.dispose]"
+	: [T] extends [{ [Symbol.dispose]: unknown }]
+		? "a bound value with a [Symbol.dispose] must bind with drop = true"
+		: T;
 
 // Results
 

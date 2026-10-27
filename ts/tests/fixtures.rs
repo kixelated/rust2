@@ -475,32 +475,80 @@ fn unwinding(out: &Path, entry: &str, scripts: u32) {
 #[test]
 fn reject() {
 	let (out, output) = translate("reject");
-	rejected(&out, &output);
+	rejected(&out, &output, &fixture("reject").join("expected.txt"));
 }
 
-/// The errors of a failed translation, each with where it points, against `expected.txt`.
-fn rejected(out: &Path, output: &Output) {
-	assert!(!output.status.success(), "translating reject succeeded");
+/// Bindings stand in for what translation refuses, `bytes::Bytes` and the crate's own
+/// function and type over raw pointers, and run as native Rust does. `tsc` refuses each
+/// binding that doesn't match the Rust signature at its item, and the config refuses each
+/// binding it can't make.
+#[test]
+fn bind() {
+	let out = translated("bind");
+	snapshot("bind", &out);
+	typecheck(&out);
+	differential("bind-fixture", &[], &out, "harness.ts", 1_000, &[]);
+	for config in ["wrong", "refused"] {
+		let out = scratch().join("bind").join(config);
+		let toml = fixture("bind").join(format!("{config}.toml"));
+		let output = driver("bind", &toml, &["--out".as_ref(), out.as_ref()], "build");
+		assert!(
+			!out.join("bind/bytes.ts").exists(),
+			"a failed translation left a binding's file"
+		);
+		rejected(&out, &output, &fixture("bind").join(format!("{config}.txt")));
+	}
+	// A census starts from the roots, as translation does: `harness::refused`, which no
+	// root reaches, refuses nothing in it.
+	let census = scratch().join("bind").join("census.md");
+	let config = fixture("bind").join("ts.toml");
+	let output = driver("bind", &config, &["--census".as_ref(), census.as_ref()], "census");
+	assert!(
+		output.status.success(),
+		"the census of bind failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	let got = std::fs::read_to_string(&census).unwrap();
+	assert!(
+		got.contains("\n- Refusals: 0\n"),
+		"the census of bind's roots refused:\n{got}"
+	);
+}
+
+/// The errors of a failed translation, each with where it points, against `expected`.
+fn rejected(out: &Path, output: &Output, expected: &Path) {
+	assert!(!output.status.success(), "translating {} succeeded", expected.display());
 	assert!(!out.join("lib.ts").exists(), "a failed translation wrote output");
 	let stderr = String::from_utf8_lossy(&output.stderr);
-	// Each error and where it points, without rustc's rendering of the source.
+	// Each error and where it points, without rustc's rendering of the source, and with a
+	// dependency's source from wherever cargo keeps it.
 	let mut got = String::new();
 	let mut lines = stderr.lines().peekable();
 	while let Some(line) = lines.next() {
 		if let Some(error) = line.strip_prefix("error: rust2-ts: ") {
 			got.push_str(error);
+			// What goes on in the lines after, as `tsc`'s messages do.
+			while let Some(more) = lines
+				.peek()
+				.filter(|l| l.starts_with("   ") && !l.trim_start().starts_with("--> "))
+			{
+				got.push_str(&format!("\n{more}"));
+				lines.next();
+			}
 			if let Some(at) = lines.peek().and_then(|l| l.trim_start().strip_prefix("--> ")) {
+				let at = at
+					.split_once("/registry/src/")
+					.map_or(at, |(_, rest)| rest.split_once('/').map_or(rest, |(_, path)| path));
 				got.push_str(&format!(" at {at}"));
 			}
 			got.push('\n');
 		}
 	}
-	let path = fixture("reject").join("expected.txt");
 	if std::env::var_os("UPDATE_EXPECT").is_some() {
-		std::fs::write(&path, &got).unwrap();
+		std::fs::write(expected, &got).unwrap();
 		return;
 	}
-	let want = std::fs::read_to_string(&path).unwrap_or_default();
+	let want = std::fs::read_to_string(expected).unwrap_or_default();
 	assert!(
 		got == want,
 		"the errors differ; rerun with UPDATE_EXPECT=1\n{}",
@@ -508,12 +556,12 @@ fn rejected(out: &Path, output: &Output) {
 	);
 }
 
-/// A census ranks every refusal in the crate, reached from each of its items, and
-/// succeeds where translation fails.
+/// A census of a config without roots ranks every refusal in the crate, reached from each
+/// of its items, and succeeds where translation fails.
 #[test]
 fn census() {
 	let census = scratch().join("reject").join("census.md");
-	let config = fixture("reject").join("ts.toml");
+	let config = fixture("reject").join("census.toml");
 	let output = driver("reject", &config, &["--census".as_ref(), census.as_ref()], "census");
 	assert!(
 		output.status.success(),

@@ -98,8 +98,10 @@
                 ];
                 RUSTFLAGS = "-C link-args=-Wl,-rpath,${tsToolchain}/lib";
                 nativeBuildInputs = [ pkgs.makeWrapper ];
+                # tsc checks bindings, from the caller's PATH first.
                 postInstall = ''
-                  wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo
+                  wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo \
+                    --suffix PATH : ${pkgs.typescript}/bin
                 '';
                 # The tests need node, tsc, and wasm builds: `just ts test` runs them.
                 doCheck = false;

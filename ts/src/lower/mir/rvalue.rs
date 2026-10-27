@@ -258,7 +258,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The value is its discriminant.
 					Some(Std::Ordering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
-					None if adt.did().is_local() => {
+					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
 							.iter()
@@ -392,8 +392,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			["iter", "sources", "empty", "Empty"] => return Expr::rt("iterEmpty", Vec::new()),
 			_ => {}
 		}
-		if !def_id.is_local() {
-			return self.err(span, format!("constructing `{ty}` from another crate"));
+		if !self.b.t.own(def_id) {
+			return self.err(span, format!("constructing `{ty}` {}", self.b.t.foreign(def_id)));
 		}
 		let info = self.b.t.adt(adt, span);
 		match info.repr {
