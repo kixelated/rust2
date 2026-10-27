@@ -16,7 +16,7 @@
 
 import { panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterToArray, RangeInclusive } from "./iter.ts";
+import { DONE, type Done, Iter, iterToArray, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
 
 // Ordering
@@ -1227,8 +1227,9 @@ export type Bounds<K> = { readonly start: K; readonly end: K } | RangeInclusive<
 /** `RangeBounds`: the start, the end, and whether the end is in the range. */
 function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefined, boolean] {
 	if (r === undefined) return [undefined, undefined, false];
-	// Exhausted, an inclusive range ends before its end, as its `end_bound` says.
-	if (r instanceof RangeInclusive) return [{ key: r.lo }, { key: r.hi }, !r.exhausted];
+	// Exhausted, an inclusive range ends before its end, as its `end_bound` says. A field
+	// test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
+	if ("exhausted" in r) return [{ key: r.lo }, { key: r.hi }, !r.exhausted];
 	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, false];
 }
 

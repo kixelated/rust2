@@ -298,9 +298,8 @@ they need.
   the coroutine transform's state machines, a class each. Against the THIR lowering it
   replaced, MIR closes about 1,100 of the 1,400 drop refusals in moq-net's census, and
   runs `just ts bench`'s codec 2-6% faster at the geometric mean and the async handoff
-  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, for 1% more gzip on the
-  codec's bundle and 9% on the async fixture's
-  ([size](/quest/m2/ts-mir-size.md)). Blocks become nested blocks, loops, and `if`s by
+  1.4-5.9x faster at depths 1 to 16 in Node, Bun, and Chrome, in bundles no larger
+  gzipped. Blocks become nested blocks, loops, and `if`s by
   Ramsey's "Beyond Relooper", except a coroutine's resume function, which enters loops
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
   assigned once and read once fold back into the expression that reads them unless that
