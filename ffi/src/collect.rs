@@ -48,6 +48,8 @@ pub struct Refusal {
 	pub kind: &'static str,
 	pub span: Span,
 	pub why: Vec<Why>,
+	/// Whether it is an instance the config's `instances` names, left out by not naming it.
+	pub named: bool,
 }
 
 /// What collection found.
@@ -67,7 +69,7 @@ pub struct Crate<'a> {
 	pub package: &'a str,
 	/// Paths from its root the config leaves out.
 	pub exclude: &'a [String],
-	/// The instances the config names, by type, with their C names.
+	/// The instances the config names, of types and functions, with their C names.
 	pub instances: &'a BTreeMap<String, String>,
 }
 
@@ -132,6 +134,23 @@ struct Instance<'tcx> {
 	name: String,
 }
 
+/// An instance of a generic function or method the config names.
+#[derive(Clone)]
+struct FnInstance<'tcx> {
+	def_id: DefId,
+	/// The argument of each of its own type parameters, by its index in the generics.
+	args: Vec<(usize, Ty<'tcx>)>,
+	/// Its arguments as reports name it by: `(from: api_fixture::Point)`.
+	shown: String,
+	/// Its C name, without the prefix.
+	name: String,
+	/// The config's key, and its crate's root.
+	key: String,
+	root: String,
+	/// Whether an exported type or the crate's root reached it.
+	reached: bool,
+}
+
 struct Collector<'tcx> {
 	tcx: TyCtxt<'tcx>,
 	/// Each `pub` item and its shortest path, in the order the walk met them.
@@ -139,6 +158,8 @@ struct Collector<'tcx> {
 	decls: rustc_data_structures::fx::FxHashMap<Key<'tcx>, Decl>,
 	/// The instances the config names, in its order.
 	instances: Vec<Instance<'tcx>>,
+	/// The instances of functions and methods the config names, in its order.
+	fn_instances: Vec<FnInstance<'tcx>>,
 	/// The exported crates, the configured one first, and what collection found in each.
 	crates: Vec<CrateNum>,
 	reports: Vec<Report>,
@@ -205,6 +226,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 				})
 				.collect(),
 			instances: Vec::new(),
+			fn_instances: Vec::new(),
 			left_out: Default::default(),
 			impls: Default::default(),
 			bytes,
@@ -224,6 +246,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 		c.resolve(crates);
 		c.declare();
 		c.define();
+		c.unreached();
 		let more = c.orphans();
 		if more.is_empty() {
 			let instances = (c.instances.iter())
@@ -346,38 +369,50 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// Resolve the instances each export's config names, noting each that names no type.
+	/// Resolve the instances each export's config names, noting each that names nothing.
 	fn resolve(&mut self, crates: &[Crate<'_>]) {
 		let tcx = self.tcx;
 		for krate in crates {
 			for (key, name) in krate.instances {
-				let instance = crate::config::TypeName::parse(key)
-					.map_err(|why| (why, None))
-					.and_then(|mut parsed| {
-						parsed.path.insert(0, krate.root.clone());
-						let ty = self.instance_ty(&parsed)?;
-						let ty::Adt(adt, args) = *ty.kind() else {
-							unreachable!("an instance's type is a struct or enum")
-						};
-						let span = Some(tcx.def_span(adt.did()));
-						if !self.typed(adt.did()) {
-							return Err(("its type takes no type parameters".to_string(), span));
+				let parsed = crate::config::Key::parse(key).expect("the config checked each key");
+				let mut parsed = match parsed {
+					crate::config::Key::Type(parsed) => parsed,
+					crate::config::Key::Function { mut path, args } => {
+						path.insert(0, krate.root.clone());
+						match self.fn_instance(&path, &args, key, name) {
+							Ok(instance) => self.fn_instances.push(instance),
+							Err((why, span)) => {
+								let (report, _) = self.report(std::slice::from_ref(&krate.root));
+								report.unresolved.push((key.clone(), why, span));
+							}
 						}
-						let key = self.key(adt.did(), args);
-						if let Some(other) = self.instances.iter().find(|i| i.site.key == key) {
-							let other = other.site.shown[1..].join("::");
-							return Err((format!("it is the instance `{other}` names"), span));
-						}
-						let path = parsed.path;
-						let spelled: Vec<String> = args.types().map(|ty| self.spell(ty)).collect();
-						let mut shown = path.clone();
-						let last = shown.last_mut().expect("a path has a segment");
-						*last = format!("{last}<{}>", spelled.join(", "));
-						Ok(Instance {
-							site: Site { key, args, path, shown },
-							name: name.clone(),
-						})
-					});
+						continue;
+					}
+				};
+				parsed.path.insert(0, krate.root.clone());
+				let instance = self.instance_ty(&parsed).and_then(|ty| {
+					let ty::Adt(adt, args) = *ty.kind() else {
+						unreachable!("an instance's type is a struct or enum")
+					};
+					let span = Some(tcx.def_span(adt.did()));
+					if !self.typed(adt.did()) {
+						return Err(("its type takes no type parameters".to_string(), span));
+					}
+					let key = self.key(adt.did(), args);
+					if let Some(other) = self.instances.iter().find(|i| i.site.key == key) {
+						let other = other.site.shown[1..].join("::");
+						return Err((format!("it is the instance `{other}` names"), span));
+					}
+					let path = parsed.path;
+					let spelled: Vec<String> = args.types().map(|ty| self.spell(ty)).collect();
+					let mut shown = path.clone();
+					let last = shown.last_mut().expect("a path has a segment");
+					*last = format!("{last}<{}>", spelled.join(", "));
+					Ok(Instance {
+						site: Site { key, args, path, shown },
+						name: name.clone(),
+					})
+				});
 				match instance {
 					Ok(instance) => self.instances.push(instance),
 					Err((why, span)) => {
@@ -385,6 +420,149 @@ impl<'tcx> Collector<'tcx> {
 						report.unresolved.push((key.clone(), why, span));
 					}
 				}
+			}
+		}
+	}
+
+	/// The instance a function key names, at the C name `name`: the function or method its
+	/// path names, at the argument it gives each type parameter.
+	fn fn_instance(
+		&self,
+		path: &[String],
+		given: &[(String, crate::config::TypeName)],
+		key: &str,
+		name: &str,
+	) -> Result<FnInstance<'tcx>, (String, Option<Span>)> {
+		let def_id = self.function_def(path)?;
+		let span = Some(self.tcx.def_span(def_id));
+		let params = self.type_params(def_id).map_err(|why| (why, span))?;
+		if params.is_empty() {
+			return Err(("it takes no type parameters".to_string(), span));
+		}
+		let names = || {
+			params
+				.iter()
+				.map(|(name, _)| format!("`{name}`"))
+				.collect::<Vec<_>>()
+				.join(", ")
+		};
+		if let Some((name, _)) = given.iter().find(|(name, _)| params.iter().all(|(p, _)| p != name)) {
+			return Err((format!("`{name}` is none of its type parameters {}", names()), span));
+		}
+		let mut args = Vec::new();
+		let mut shown = Vec::new();
+		for (name, index) in &params {
+			let Some((_, arg)) = given.iter().find(|(given, _)| given == name) else {
+				return Err((format!("it needs an argument for `{name}`"), span));
+			};
+			let ty = self.instance_ty(arg)?;
+			args.push((*index, ty));
+			shown.push(format!("{name}: {}", self.spell(ty)));
+		}
+		let shown = format!("({})", shown.join(", "));
+		if let Some(other) = (self.fn_instances.iter()).find(|other| other.def_id == def_id && other.args == args) {
+			return Err((format!("it is the instance `{}` names", other.key), span));
+		}
+		Ok(FnInstance {
+			def_id,
+			args,
+			shown,
+			name: name.to_string(),
+			key: key.to_string(),
+			root: path[0].clone(),
+			reached: false,
+		})
+	}
+
+	/// The function a path from an export's root names: a `fn` item, or the one inherent
+	/// method of that name of an exported struct or enum.
+	fn function_def(&self, path: &[String]) -> Result<DefId, (String, Option<Span>)> {
+		let tcx = self.tcx;
+		let at = |path: &[String]| (self.items.iter()).find(|(_, p)| p == path).map(|(def_id, _)| *def_id);
+		let none = || {
+			Err((
+				format!("`{}` names no exported function or method", path[1..].join("::")),
+				None,
+			))
+		};
+		if let Some(def_id) = at(path) {
+			return match tcx.def_kind(def_id) {
+				DefKind::Fn => Ok(def_id),
+				_ => none(),
+			};
+		}
+		let (name, owner) = path.split_last().expect("a path has a segment");
+		let Some(owner) = at(owner).filter(|&owner| matches!(tcx.def_kind(owner), DefKind::Struct | DefKind::Enum))
+		else {
+			return none();
+		};
+		let methods: Vec<DefId> = (tcx.inherent_impls(owner).iter())
+			.flat_map(|&imp| tcx.associated_items(imp).in_definition_order())
+			.filter(|item| matches!(item.kind, ty::AssocKind::Fn { .. }) && item.name().as_str() == name)
+			.map(|item| item.def_id)
+			.collect();
+		match methods[..] {
+			[one] => Ok(one),
+			[] => none(),
+			_ => Err((
+				format!("`{}` names a method of several impls", path[1..].join("::")),
+				Some(tcx.def_span(owner)),
+			)),
+		}
+	}
+
+	/// A function's own type parameters, in order, each by its index and the name a key
+	/// gives it: a declared one's own, and an `impl Trait` one's argument's.
+	fn type_params(&self, def_id: DefId) -> Result<Vec<(String, usize)>, String> {
+		let tcx = self.tcx;
+		let inputs = tcx.fn_sig(def_id).skip_binder().skip_binder().inputs();
+		let idents = tcx.fn_arg_idents(def_id);
+		let mut params: Vec<(String, usize)> = Vec::new();
+		for param in &tcx.generics_of(def_id).own_params {
+			let name = match param.kind {
+				ty::GenericParamDefKind::Lifetime => continue,
+				ty::GenericParamDefKind::Const { .. } => return Err("it takes a const parameter".to_string()),
+				ty::GenericParamDefKind::Type { synthetic: false, .. } => param.name.to_string(),
+				ty::GenericParamDefKind::Type { synthetic: true, .. } => {
+					let named = |ty: &Ty<'tcx>| {
+						ty.walk().any(
+							|arg| matches!(arg.as_type().map(Ty::kind), Some(ty::Param(p)) if p.index == param.index),
+						)
+					};
+					let argument = inputs
+						.iter()
+						.position(named)
+						.and_then(|i| idents.get(i).copied().flatten());
+					match argument {
+						Some(ident) => ident.to_string(),
+						None => return Err("an `impl Trait` argument no key can name".to_string()),
+					}
+				}
+			};
+			if params.iter().any(|(other, _)| *other == name) {
+				return Err(format!("`{name}` names several of its type parameters"));
+			}
+			params.push((name, param.index as usize));
+		}
+		Ok(params)
+	}
+
+	/// The instances the config names of the function `def_id`, by index.
+	fn fn_instances_of(&self, def_id: DefId) -> Vec<usize> {
+		(self.fn_instances.iter().enumerate())
+			.filter(|(_, instance)| instance.def_id == def_id)
+			.map(|(i, _)| i)
+			.collect()
+	}
+
+	/// Note each function instance the config names that no export reached.
+	fn unreached(&mut self) {
+		for instance in self.fn_instances.clone() {
+			if !instance.reached {
+				let span = Some(self.tcx.def_span(instance.def_id));
+				let (report, _) = self.report(std::slice::from_ref(&instance.root));
+				let why = "nothing exported reaches it".to_string();
+				report.unresolved.push((instance.key, why, span));
 			}
 		}
 	}
@@ -466,9 +644,15 @@ impl<'tcx> Collector<'tcx> {
 		Ok(Ty::new_adt(tcx, tcx.adt_def(def_id), args))
 	}
 
-	fn refuse(&mut self, path: &[String], kind: &'static str, span: Span, why: Vec<Why>) {
+	fn refuse(&mut self, path: &[String], kind: &'static str, span: Span, why: Vec<Why>, named: bool) {
 		let (report, path) = self.report(path);
-		report.refusals.push(Refusal { path, kind, span, why });
+		report.refusals.push(Refusal {
+			path,
+			kind,
+			span,
+			why,
+			named,
+		});
 	}
 
 	/// Every `pub` item reachable from each exported crate's root, breadth first so each
@@ -528,6 +712,7 @@ impl<'tcx> Collector<'tcx> {
 							"use",
 							span,
 							vec![why("re-export of another crate's item", other.to_string())],
+							false,
 						);
 						continue;
 					}
@@ -537,15 +722,15 @@ impl<'tcx> Collector<'tcx> {
 							let (report, rest) = self.report(&path);
 							report.aliases.push(rest);
 						}
-						DefKind::Macro(_) => self.refuse(&path, "macro", span, vec![why("macro", "")]),
-						DefKind::Static { .. } => self.refuse(&path, "static", span, vec![why("static", "")]),
+						DefKind::Macro(_) => self.refuse(&path, "macro", span, vec![why("macro", "")], false),
+						DefKind::Static { .. } => self.refuse(&path, "static", span, vec![why("static", "")], false),
 						DefKind::Struct
 						| DefKind::Enum
 						| DefKind::Union
 						| DefKind::Trait
 						| DefKind::Fn
 						| DefKind::Const => self.items.push((def_id, path)),
-						_ => self.refuse(&path, "item", span, vec![why("item kind", format!("{kind:?}"))]),
+						_ => self.refuse(&path, "item", span, vec![why("item kind", format!("{kind:?}"))], false),
 					}
 				}
 			}
@@ -705,27 +890,28 @@ impl<'tcx> Collector<'tcx> {
 	/// An instance's type arguments, each of which must export as one the config can
 	/// spell: a default may name any type.
 	fn args(&self, site: &Site<'tcx>) -> Result<Vec<Type>, Why> {
-		(site.args.types())
-			.map(|ty| {
-				let arg = match ty.kind() {
-					ty::Tuple(list) if list.is_empty() => Type::Unit,
-					_ => self.ty(ty, Pos::Behind)?,
-				};
-				match arg {
-					Type::Unit
-					| Type::Bool
-					| Type::Int(_)
-					| Type::F32
-					| Type::F64
-					| Type::Char
-					| Type::String
-					| Type::Record(_)
-					| Type::Enum(_)
-					| Type::Object(_) => Ok(arg),
-					_ => Err(why("type argument the config cannot spell", self.spell(ty))),
-				}
-			})
-			.collect()
+		site.args.types().map(|ty| self.arg(ty)).collect()
+	}
+
+	/// A type argument of an instance, which must export as one the config can spell.
+	fn arg(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
+		let arg = match ty.kind() {
+			ty::Tuple(list) if list.is_empty() => Type::Unit,
+			_ => self.ty(ty, Pos::Behind)?,
+		};
+		match arg {
+			Type::Unit
+			| Type::Bool
+			| Type::Int(_)
+			| Type::F32
+			| Type::F64
+			| Type::Char
+			| Type::String
+			| Type::Record(_)
+			| Type::Enum(_)
+			| Type::Object(_) => Ok(arg),
+			_ => Err(why("type argument the config cannot spell", self.spell(ty))),
+		}
 	}
 
 	/// An object, if the type can move across threads. Shared borrows of one that is not
@@ -909,10 +1095,14 @@ impl<'tcx> Collector<'tcx> {
 			let kind = tcx.def_kind(def_id);
 			if !matches!(kind, DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::Trait) {
 				match kind {
-					DefKind::Fn => match self.function(def_id, path.clone(), None, None) {
-						Ok(function) => self.api.functions.push(function),
-						Err(why) => self.refuse(&path, "fn", span, why),
-					},
+					DefKind::Fn => {
+						for (function, shown, named) in self.functions(def_id, &path, &path, None, None) {
+							match function {
+								Ok(function) => self.api.functions.push(function),
+								Err(why) => self.refuse(&shown, "fn", span, why, named),
+							}
+						}
+					}
 					DefKind::Const => {
 						if let Some(getter) = self.constant_item(def_id, path, None) {
 							self.api.functions.push(getter);
@@ -932,7 +1122,7 @@ impl<'tcx> Collector<'tcx> {
 						DefKind::Union => "union",
 						_ => "struct",
 					};
-					self.refuse(&site.shown, kind, span, vec![why]);
+					self.refuse(&site.shown, kind, span, vec![why], site.key.args.is_some());
 					continue;
 				}
 				if let Some(Decl::Callback(index)) = decl {
@@ -1007,8 +1197,9 @@ impl<'tcx> Collector<'tcx> {
 					future: false,
 					eager: false,
 					access: Access::Field,
+					instance: None,
 				}),
-				Err(why) => self.refuse(&shown, "field", span, vec![why]),
+				Err(why) => self.refuse(&shown, "field", span, vec![why], false),
 			}
 		}
 		getters
@@ -1058,24 +1249,29 @@ impl<'tcx> Collector<'tcx> {
 					}));
 					continue;
 				}
-				match self.function(item.def_id, method, Some(self_ty), Some(parent)) {
-					Ok(function) => methods.push(function),
-					Err(why) => refused.push((shown, span, why)),
+				for (function, shown, named) in
+					self.functions(item.def_id, &method, &shown, Some(self_ty), Some(parent))
+				{
+					match function {
+						Ok(function) => methods.push(function),
+						Err(why) => refused.push((shown, span, why, named)),
+					}
 				}
 			}
 		}
 		// `poll_x` is left out when `x` exports as a future: the future is its poll.
-		for (method, span, why) in refused {
+		for (method, span, why, named) in refused {
 			let name = method.last().expect("a method has a name");
-			let twin = name
-				.strip_prefix("poll_")
-				.is_some_and(|x| methods.iter().any(|m| m.future && m.name() == x));
+			let twin = !named
+				&& name
+					.strip_prefix("poll_")
+					.is_some_and(|x| methods.iter().any(|m| m.future && m.name() == x));
 			match twin {
 				true => {
 					let (report, rest) = self.report(&method);
 					report.twins.push(rest);
 				}
-				false => self.refuse(&method, "method", span, why),
+				false => self.refuse(&method, "method", span, why, named),
 			}
 		}
 		let env = TypingEnv::post_analysis(tcx, def_id);
@@ -1175,7 +1371,7 @@ impl<'tcx> Collector<'tcx> {
 					}
 					let mut method = path.to_vec();
 					method.push(name.to_string());
-					match self.function(item.def_id, method, Some(self_ty), None) {
+					match self.function(item.def_id, method, Some(self_ty), None, None) {
 						Ok(function) if function.future => errs.push(why("async trait method", name.to_string())),
 						Ok(function)
 							if !function.params.iter().all(|p| foreign_arg(&p.ty))
@@ -1205,19 +1401,69 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// A function or method's signature, with its type parameters chosen: a method's
-	/// receiver is `self_ty`, at its impl's `parent` arguments.
+	/// A function or method as exported: by the rules, or at each instance the config
+	/// names of it instead, each with the path reports show it by and whether the config
+	/// names it.
+	fn functions(
+		&mut self,
+		def_id: DefId,
+		path: &Path,
+		shown: &Path,
+		self_ty: Option<Ty<'tcx>>,
+		parent: Option<ty::GenericArgsRef<'tcx>>,
+	) -> Vec<(Result<Function, Vec<Why>>, Path, bool)> {
+		let named = self.fn_instances_of(def_id);
+		if named.is_empty() {
+			let function = self.function(def_id, path.clone(), self_ty, parent, None);
+			return vec![(function, shown.clone(), false)];
+		}
+		let mut functions = Vec::new();
+		for i in named {
+			self.fn_instances[i].reached = true;
+			let instance = &self.fn_instances[i];
+			let mut shown = shown.clone();
+			*shown.last_mut().expect("a path has a segment") += &instance.shown;
+			let function = self.function(def_id, path.clone(), self_ty, parent, Some(instance));
+			functions.push((function, shown, true));
+		}
+		functions
+	}
+
+	/// A function or method's signature, with its type parameters chosen by the rules, or
+	/// as the config's `instance` of it names them: a method's receiver is `self_ty`, at
+	/// its impl's `parent` arguments.
 	fn function(
 		&self,
 		def_id: DefId,
 		path: Path,
 		self_ty: Option<Ty<'tcx>>,
 		parent: Option<ty::GenericArgsRef<'tcx>>,
+		instance: Option<&FnInstance<'tcx>>,
 	) -> Result<Function, Vec<Why>> {
 		let tcx = self.tcx;
 		let mut errs = Vec::new();
 		self.impls.borrow_mut().clear();
-		let args = self.instantiate(def_id, parent)?;
+		let args = match instance {
+			Some(instance) => self.instance_args(def_id, parent, instance)?,
+			None => self.instantiate(def_id, parent)?,
+		};
+		// What the glue names a declared type parameter as, which a call cannot always
+		// infer; an `impl Trait` one cannot be named, and is inferred from its argument.
+		let instance = instance.map(|instance| {
+			let declared = (tcx.generics_of(def_id).own_params.iter())
+				.filter(|p| matches!(p.kind, ty::GenericParamDefKind::Type { synthetic: false, .. }));
+			let args = declared
+				.filter_map(|p| {
+					self.arg(args.type_at(p.index as usize))
+						.map_err(|why| errs.push(why))
+						.ok()
+				})
+				.collect();
+			crate::ir::Instance {
+				name: instance.name.clone(),
+				args,
+			}
+		});
 		let env = TypingEnv::post_analysis(tcx, def_id);
 		let sig = tcx.fn_sig(def_id).instantiate(tcx, args).skip_norm_wip();
 		let (statics, lifetimes) = self.borrows(def_id, sig.skip_binder());
@@ -1316,8 +1562,43 @@ impl<'tcx> Collector<'tcx> {
 				future,
 				eager: future && eager,
 				access: Access::Call,
+				instance,
 			}),
 			_ => Err(errs),
+		}
+	}
+
+	/// The generic arguments of a function instance the config names: its parent's, its
+	/// lifetimes as they are, and its own type parameters' as the instance names them,
+	/// where its bounds hold.
+	fn instance_args(
+		&self,
+		def_id: DefId,
+		parent: Option<ty::GenericArgsRef<'tcx>>,
+		instance: &FnInstance<'tcx>,
+	) -> Result<ty::GenericArgsRef<'tcx>, Vec<Why>> {
+		let tcx = self.tcx;
+		let mut args = ty::GenericArgs::identity_for_item(tcx, def_id).to_vec();
+		if let Some(parent) = parent {
+			args[..parent.len()].copy_from_slice(parent);
+		}
+		for &(index, ty) in &instance.args {
+			args[index] = ty.into();
+		}
+		let args = tcx.mk_args(&args);
+		let env = TypingEnv::post_analysis(tcx, def_id);
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		let unmet: Vec<Why> = (tcx.clauses_of(def_id).instantiate(tcx, args).clauses.iter())
+			.map(|clause| clause.skip_norm_wip())
+			.filter(|&clause| {
+				let obligation = Obligation::new(tcx, ObligationCause::dummy(), param_env, clause);
+				!infcx.predicate_must_hold_modulo_regions(&obligation)
+			})
+			.map(|clause| why("unmet bound of the instance", clause.to_string()))
+			.collect();
+		match unmet.is_empty() {
+			true => Ok(args),
+			false => Err(unmet),
 		}
 	}
 
@@ -1768,7 +2049,7 @@ impl<'tcx> Collector<'tcx> {
 					Err(why) => why,
 				};
 				if why.construct != "constant type" {
-					self.refuse(&path, "const", span, vec![why]);
+					self.refuse(&path, "const", span, vec![why], false);
 					return None;
 				}
 				tcx.type_of(def_id).instantiate_identity().skip_norm_wip()
@@ -1786,9 +2067,10 @@ impl<'tcx> Collector<'tcx> {
 				future: false,
 				eager: false,
 				access: Access::Const,
+				instance: None,
 			}),
 			Err(why) => {
-				self.refuse(&path, "const", span, vec![why]);
+				self.refuse(&path, "const", span, vec![why], false);
 				None
 			}
 		}
