@@ -640,6 +640,8 @@ function advance<T>(it: Iter<T>, n: number, drop: Drop<T> | undefined): number {
 	}
 	if (it instanceof RevIter) return advanceBack(it.inner, n, drop);
 	if (it instanceof SkipIter) {
+		// std's: what it skips and `n` more in one step. Past a `usize`'s greatest, std's
+		// splits it, but no iterator that drops holds that many.
 		const skip = it.n;
 		const left = advance(it.inner, skip + n, drop);
 		const advanced = skip + n - left;
@@ -741,10 +743,15 @@ function nth<T>(it: Iter<T>, n: number, drop: Drop<T> | undefined): T | Done {
 	}
 	if (it instanceof RevIter) return nthBack(it.inner, n, drop);
 	if (it instanceof SkipIter) {
-		// std's: what it still skips and then `n` more, in one step.
+		// std's: what it still skips and then `n` more, in one step, or past a `usize`'s
+		// greatest, what it skips in one and `n` in another.
 		const skip = it.n;
 		it.n = 0;
-		return nth(it.inner, skip + n, drop);
+		if (skip + n <= USIZE_MAX) return nth(it.inner, skip + n, drop);
+		const item = nth(it.inner, skip - 1, drop);
+		if (item === DONE) return DONE;
+		drop(item);
+		return nth(it.inner, n, drop);
 	}
 	if (it instanceof TakeIter) {
 		// std's: past the limit, it reads the rest of the limit through, drops it, and ends.

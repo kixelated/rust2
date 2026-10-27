@@ -399,8 +399,9 @@ helpers in `bench/iter.ts`, a sorted array in `bench/sorted.ts`, and `bigint` in
 native Rust's first. The JS routes run minified, the same bundles whose size it reports,
 in Node, Bun, Chrome, and Firefox, with the WASM route's copies across the boundary timed
 apart from its compute, and an A/A copy of the
-translation to show the noise. Each round runs the JS routes and workloads in a new
-random order, so no route keeps a slot that runs it faster or slower than identical code
+translation to show the noise. Each route runs alone in a worker of its own, since routes
+in one realm share type profiles and run slower loaded second. Each round runs the JS
+routes and workloads in a new random order, so no route keeps a slot that runs it faster or slower than identical code
 in another; the report records the seed. It also records the host and engine versions,
 and each route's bundle size raw and gzipped. It sets no threshold; the nightly workflow
 runs it and posts the report to its summary. Each browser's page reports each step it
