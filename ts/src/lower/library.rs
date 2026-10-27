@@ -795,8 +795,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
-		// `Bound<&T>::cloned::<T>` and `copied`: what it holds, cloned.
-		("Bound", "cloned" | "copied") => {
+		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
+		("Bound", "cloned") => {
 			let value = args.pop()?;
 			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
 			let bound = tcx.instantiate_bound_regions_with_erased(sig).output();
