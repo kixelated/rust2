@@ -1,11 +1,20 @@
 //! Copies of `Copy` aggregates, by their type.
 //!
 //! JS shares an object where Rust copies its value, so a `Copy` value that is a JS object
-//! Rust code can change in place is copied where Rust copies it. A function made for its
-//! type copies what it holds by value and shares what it holds by reference, as Rust does.
+//! the crate's code writes into in place is copied where Rust copies it. A function made
+//! for its type copies what it holds by value and shares what it holds by reference, as
+//! Rust does. A value of a type nothing writes into never changes once made, so sharing
+//! it is a copy no one can tell apart.
 
-use rustc_middle::ty::{self, EarlyBinder, Ty, TypeVisitableExt};
-use rustc_span::Span;
+use std::cell::RefCell;
+
+use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexSet};
+use rustc_hir::def_id::DefId;
+use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
+use rustc_middle::mir::{self, Location, Place, ProjectionElem};
+use rustc_middle::ty::fast_reject::DeepRejectCtxt;
+use rustc_middle::ty::{self, EarlyBinder, Ty, TyCtxt, TypeVisitableExt};
+use rustc_span::{DUMMY_SP, Span};
 
 use super::library::{Flow, Std};
 use super::{AdtRepr, Translator, field_name, short_name};
@@ -14,25 +23,29 @@ use crate::ts::{self, Expr, Key, Param, Stmt, StmtKind};
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Whether a `ty` is copied where Rust copies it: a `Copy` value that is, or holds by
-	/// value, a JS object Rust code can change in place.
+	/// value, a JS object the crate's code writes into in place.
 	pub fn needs_copy(&self, ty: Ty<'tcx>) -> bool {
-		self.is_copy(ty) && self.mutable_aggregate(ty)
+		self.is_copy(ty) && self.changes(ty)
 	}
 
-	fn mutable_aggregate(&self, ty: Ty<'tcx>) -> bool {
-		match ty.kind() {
-			ty::Tuple(tys) => !tys.is_empty(),
-			ty::Array(..) => true,
+	/// Whether a value of `ty` is, or holds by value, a JS object the crate writes into.
+	fn changes(&self, ty: Ty<'tcx>) -> bool {
+		let (object, parts): (bool, Vec<Ty<'tcx>>) = match ty.kind() {
+			ty::Tuple(tys) if !tys.is_empty() => (true, tys.to_vec()),
+			ty::Array(elem, _) => (true, vec![*elem]),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				// The runtime's methods hand out the payload itself.
-				Some(Std::Option | Std::Result | Std::ControlFlow | Std::Poll) => {
-					args.types().any(|t| self.mutable_aggregate(t))
+				// `None` and `Pending` are no objects, and `Some` and `Ready` their payload.
+				Some(Std::Option | Std::Poll) => (false, args.types().collect()),
+				Some(Std::Result | Std::ControlFlow) => (true, args.types().collect()),
+				Some(_) => return false,
+				None if adt.did().is_local() && adt.all_fields().next().is_some() => {
+					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
 				}
-				Some(_) => false,
-				None => adt.did().is_local() && adt.all_fields().next().is_some(),
+				None => return false,
 			},
-			_ => false,
-		}
+			_ => return false,
+		};
+		object && self.writes.written(self.tcx, ty) || parts.into_iter().any(|t| self.changes(t))
 	}
 
 	/// `value`, copied if a `ty` is.
@@ -190,5 +203,155 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx
 			.try_instantiate_and_normalize_erasing_regions(args, self.typing_env_pub(), field)
 			.unwrap_or_else(|_| field.instantiate(self.tcx, args).skip_norm_wip())
+	}
+}
+
+/// The types the crate's code writes into in place: through a projection, as `p.x = 1`
+/// writes into `p`; through a reference, as `*r = v` does into what `r` points at; or by
+/// anything a mutable reference or pointer to one lets other code do, which counts as a
+/// write. Bodies are read as written, over their own type parameters, so a write into a
+/// type parameter stands for every type its bounds let it be.
+pub struct Writes<'tcx> {
+	/// Each type written without type parameters, an array as a slice of its element,
+	/// since the two share storage in JS.
+	concrete: FxHashSet<Ty<'tcx>>,
+	/// Each type over the type parameters of the body writing it, and that body.
+	generic: FxIndexSet<(DefId, Ty<'tcx>)>,
+	/// What [`Writes::written`] found of each type it was asked about.
+	found: RefCell<FxHashMap<Ty<'tcx>, bool>>,
+}
+
+impl<'tcx> Writes<'tcx> {
+	/// The writes of every function, closure, and coroutine body in the crate.
+	pub fn of_crate(tcx: TyCtxt<'tcx>) -> Self {
+		let mut writes = Writes {
+			concrete: FxHashSet::default(),
+			generic: FxIndexSet::default(),
+			found: RefCell::default(),
+		};
+		for &def_id in tcx.mir_keys(()) {
+			if !tcx.def_kind(def_id).is_fn_like() {
+				continue;
+			}
+			let def_id = def_id.to_def_id();
+			let body = tcx.optimized_mir(def_id);
+			BodyWrites {
+				tcx,
+				body,
+				def_id,
+				writes: &mut writes,
+			}
+			.visit_body(body);
+			// What a mutable reference or pointer a local holds points at, which code given one
+			// can write into, std's included. One in a signature, under a binder, is no value.
+			for decl in &body.local_decls {
+				for t in decl.ty.walk().filter_map(|arg| arg.as_type()) {
+					if let ty::Ref(_, inner, ty::Mutability::Mut) | ty::RawPtr(inner, ty::Mutability::Mut) = t.kind()
+						&& !inner.has_escaping_bound_vars()
+					{
+						writes.insert(tcx, def_id, *inner);
+					}
+				}
+			}
+		}
+		writes
+	}
+
+	fn insert(&mut self, tcx: TyCtxt<'tcx>, def_id: DefId, ty: Ty<'tcx>) {
+		let ty = storage(tcx, ty);
+		match ty.has_param() {
+			true => _ = self.generic.insert((def_id, ty)),
+			false => _ = self.concrete.insert(ty),
+		}
+	}
+
+	/// Whether the crate writes into a value of `ty` in place. Over type parameters, as a
+	/// census lowers some functions, it may.
+	fn written(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+		let ty = storage(tcx, ty);
+		if ty.has_param() || self.concrete.contains(&ty) {
+			return true;
+		}
+		if let Some(&found) = self.found.borrow().get(&ty) {
+			return found;
+		}
+		let found = self
+			.generic
+			.iter()
+			.any(|&(def_id, written)| instantiates(tcx, def_id, written, ty));
+		self.found.borrow_mut().insert(ty, found);
+		found
+	}
+}
+
+/// `ty` as [`Writes`] keys it: without regions, and an array as a slice of its element.
+fn storage<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty = tcx.erase_and_anonymize_regions(ty);
+	match ty.kind() {
+		ty::Array(elem, _) => Ty::new_slice(tcx, *elem),
+		_ => ty,
+	}
+}
+
+/// Whether `written`, a type over the type parameters of `def_id`, is `ty` for some
+/// arguments that satisfy its bounds.
+fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: Ty<'tcx>) -> bool {
+	use rustc_infer::infer::TyCtxtInferExt;
+	use rustc_infer::traits::{Obligation, ObligationCause};
+	use rustc_trait_selection::traits::ObligationCtxt;
+	if !DeepRejectCtxt::relate_rigid_infer(tcx).types_may_unify(ty, written) {
+		return false;
+	}
+	let (infcx, env) = tcx
+		.infer_ctxt()
+		.build_with_typing_env(ty::TypingEnv::fully_monomorphized());
+	let ocx = ObligationCtxt::new(&infcx);
+	let cause = ObligationCause::dummy();
+	let args = infcx.fresh_args_for_item(DUMMY_SP, def_id);
+	let written = ocx.normalize(&cause, env, EarlyBinder::bind(tcx, written).instantiate(tcx, args));
+	if ocx.eq(&cause, env, written, ty).is_err() {
+		return false;
+	}
+	for (clause, _) in tcx.clauses_of(def_id).instantiate(tcx, args) {
+		let clause = ocx.normalize(&cause, env, clause);
+		ocx.register_obligation(Obligation::new(tcx, cause.clone(), env, clause));
+	}
+	!ocx.try_evaluate_obligations().has_errors()
+}
+
+/// The writes of one body.
+struct BodyWrites<'w, 'm, 'tcx> {
+	tcx: TyCtxt<'tcx>,
+	body: &'m mir::Body<'tcx>,
+	def_id: DefId,
+	writes: &'w mut Writes<'tcx>,
+}
+
+impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
+	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {
+		let PlaceContext::MutatingUse(kind) = context else {
+			return;
+		};
+		// A write to a part of a value writes into the value, unless the part is behind a
+		// reference, whose referent it writes into instead.
+		for (base, elem) in place.iter_projections() {
+			if !matches!(elem, ProjectionElem::Deref) {
+				self.writes.insert(self.tcx, self.def_id, base.ty(self.body, self.tcx).ty);
+			}
+		}
+		// A write to a whole local gives it another value; one through a reference, or a
+		// mutable borrow, can write into the value there.
+		let through = matches!(place.projection.last(), Some(ProjectionElem::Deref));
+		let replaces = matches!(
+			kind,
+			MutatingUseContext::Store
+				| MutatingUseContext::Call
+				| MutatingUseContext::AsmOutput
+				| MutatingUseContext::Yield
+				| MutatingUseContext::Drop
+		);
+		if through || !replaces {
+			self.writes.insert(self.tcx, self.def_id, place.ty(self.body, self.tcx).ty);
+		}
 	}
 }

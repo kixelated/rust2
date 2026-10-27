@@ -265,8 +265,7 @@ fn shake(out: &Path) {
 			"u32Sub",
 			"usizeSaturatingAdd",
 			"usizeSub",
-			// The translation's, and the caller. The decoder keeps its own copy of the form.
-			"copy$Form",
+			// The translation's, and the caller.
 			"new_",
 			"run",
 			"short",

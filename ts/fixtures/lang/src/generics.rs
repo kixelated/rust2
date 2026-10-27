@@ -1,7 +1,7 @@
 //! Methods on generic structs and enums, each instance its own method.
 
 use crate::fmt::{Pair, put};
-use crate::shapes::{Area, Meters, Point, Shape};
+use crate::shapes::{Area, Meters, Point, Shape, Track};
 
 /// A generic struct, with methods on every instance, on some, and on one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,4 +172,18 @@ pub fn methods(data: &[u8], out: &mut Vec<u8>) {
 	put(out, &format!("{tagged:?} {:?}", tagged.first()));
 	out.extend_from_slice(&tagged.inner.value.to_be_bytes());
 	out.push(tagged.key.left().unwrap_or(0));
+}
+
+/// Moves `track`'s mark on: the crate's only write into a `Mark`, in another module than
+/// the copy of one that must not see it.
+pub fn advance(track: &mut Track) {
+	track.mark.at = track.mark.at.wrapping_add(1);
+}
+
+/// Resets each of `xs`, writing into each one in place, which only an instance knows the
+/// type of.
+pub fn reset<X: Default>(xs: &mut [X]) {
+	for x in xs.iter_mut() {
+		*x = X::default();
+	}
 }

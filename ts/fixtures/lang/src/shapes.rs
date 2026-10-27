@@ -269,6 +269,45 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		});
 	}
 	shares(data, out);
+	unwritten(data, out);
+}
+
+/// A `Copy` struct this module never writes into: only `generics::advance` does.
+#[derive(Clone, Copy)]
+pub struct Mark {
+	pub at: u8,
+}
+
+/// What holds a `Mark`.
+pub struct Track {
+	pub mark: Mark,
+}
+
+impl Track {
+	fn mark(&self) -> Mark {
+		self.mark
+	}
+}
+
+/// A `Copy` struct written into only behind a type parameter, by `generics::reset`.
+#[derive(Clone, Copy, Default)]
+struct Gauge {
+	level: u8,
+}
+
+/// `Copy` aggregates written into only where the copy's function can't see: in another
+/// module, or behind a type parameter. Each copy keeps its value.
+fn unwritten(data: &[u8], out: &mut Vec<u8>) {
+	let n = data.len() as u8;
+	let mut track = Track { mark: Mark { at: n } };
+	let seen = track.mark();
+	crate::generics::advance(&mut track);
+	out.extend_from_slice(&[seen.at, track.mark.at]);
+
+	let first = Gauge { level: n | 1 };
+	let mut gauges = [first; 2];
+	crate::generics::reset(&mut gauges);
+	out.extend_from_slice(&[first.level, gauges[0].level, gauges[1].level]);
 }
 
 /// A `Copy` struct holding a shared reference to a value that changes through it.
