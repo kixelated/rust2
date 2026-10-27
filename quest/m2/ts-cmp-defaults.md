@@ -19,5 +19,6 @@ them.
 - Cover a hand-written `partial_cmp` that returns `None`, and a type whose `eq` and
   `partial_cmp` disagree, in the differential tests.
 - Report moq-net's census before and after.
+- Then `bench.rs`'s `interleave` can order its timestamps with `a < b`, as Rust writes it.
 
 Public API: the translator's output.
