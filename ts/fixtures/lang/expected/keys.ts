@@ -339,12 +339,14 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _194 | (((!rt.eqOption(Way.eq$PartialEq)(_208, _210) ? 1 : 0) << 1) & 0xff) | (((rt.optionMap(way(c), (w: Way.Way): boolean => {
 				return !Way.eq$PartialEq(w, "Top" as Way.Way);
 			}) === true ? 1 : 0) << 2) & 0xff));
-			const _224: [rt.ByteSlice, rt.ByteSlice] = [rt.byteSliceRange(data, 0, i), rt.byteSliceRange(data, i)];
-			const l: rt.ByteSlice = _224[0];
-			const r: rt.ByteSlice = _224[1];
-			const _231: [rt.ByteSlice, rt.ByteSlice] = [rt.byteSliceRange(data, rt.usizeSub(i, 1), i), rt.byteSliceRange(data, rt.usizeRem(c as rt.usize, i), rt.usizeAdd(rt.usizeRem(c as rt.usize, i), 1))];
-			const p: rt.ByteSlice = _231[0];
-			const q: rt.ByteSlice = _231[1];
+			const _225: rt.ByteSlice = rt.byteSliceRange(data, 0, i);
+			const _227: rt.ByteSlice = rt.byteSliceRange(data, i);
+			const l: rt.ByteSlice = _225;
+			const r: rt.ByteSlice = _227;
+			const _232: rt.ByteSlice = rt.byteSliceRange(data, rt.usizeSub(i, 1), i);
+			const _236: rt.ByteSlice = rt.byteSliceRange(data, rt.usizeRem(c as rt.usize, i), rt.usizeAdd(rt.usizeRem(c as rt.usize, i), 1));
+			const p: rt.ByteSlice = _232;
+			const q: rt.ByteSlice = _236;
 			rt.byteVecPush(out, (rt.byteSliceEq(l, r) ? 1 : 0) | (((!rt.byteSliceEq(l, r) ? 1 : 0) << 1) & 0xff) | (((rt.byteSliceEq(p, q) ? 1 : 0) << 2) & 0xff) | (((!rt.byteSliceEq(p, q) ? 1 : 0) << 3) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(l, 0, 0), rt.byteSliceRange(r, 0, 0)) ? 1 : 0) << 4) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(data, 0, i), rt.byteSliceRange(data, rt.usizeSub(data.length, i))) ? 1 : 0) << 5) & 0xff));
 			unwind = 98;
 			rt.drop(n);
@@ -417,9 +419,9 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const b: Hop.Hop | undefined = _24[1];
 			const g: Horizon.Horizon = { exclude: a, local: rt.u8Rem(c, 2) === 0 };
 			unwind = 0;
-			const _37: [Horizon.Horizon, Horizon.Horizon] = [g, { exclude: b, local: rt.u8Rem(d, 2) === 0 }];
+			const h: Horizon.Horizon = { exclude: b, local: rt.u8Rem(d, 2) === 0 };
 			const gr: Horizon.Horizon = g;
-			const hr: Horizon.Horizon = _37[1];
+			const hr: Horizon.Horizon = h;
 			_43 = name(c);
 			unwind = 55;
 			const _44: Name.Name = name(d);
@@ -643,9 +645,10 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_165 = true;
 			b = _20;
 			rt.byteVecPush(out, order(rt.cmpArc(rt.cmpStr)(a.text, b.text)) | ((order(Name.cmp$Ord(a, b)) << 2) & 0xff));
-			const _39: [rt.Arc<string>, rt.Arc<string>] = [rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr)), rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr))];
-			rt.byteVecPush(out, (_39[0] === b.text ? 1 : 0) | (((_39[1] === a.text ? 1 : 0) << 1) & 0xff));
-			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(_39[0], b.text) ? 1 : 0) << 2) & 0xff));
+			const _40: rt.Arc<string> = rt.ordMax(a.text, b.text, rt.cmpArc(rt.cmpStr));
+			const _43: rt.Arc<string> = rt.ordMin(a.text, b.text, rt.cmpArc(rt.cmpStr));
+			rt.byteVecPush(out, (_40 === b.text ? 1 : 0) | (((_43 === a.text ? 1 : 0) << 1) & 0xff));
+			rt.byteVecPush(out, (rt.eqArc(rt.same, true)(a.text, b.text) ? 1 : 0) | (((Name.eq$PartialEq(a, b) ? 1 : 0) << 1) & 0xff) | (((rt.eqArc(rt.same, true)(_40, b.text) ? 1 : 0) << 2) & 0xff));
 			rt.byteVecPush(out, (rt.u64Eq(hashOf$Arc_str(a.text), hashOf$Arc_str(b.text)) ? 1 : 0) | (((rt.u64Eq(hashOf$Name(a), hashOf$Name(b)) ? 1 : 0) << 1) & 0xff));
 			const text: string = a.text.value;
 			rt.byteVecPush(out, text === b.text.value ? 1 : 0);

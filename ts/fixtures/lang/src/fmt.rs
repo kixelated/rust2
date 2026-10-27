@@ -316,6 +316,38 @@ impl fmt::Debug for Tup {
 	}
 }
 
+/// `v`, logged, so an argument evaluated more than once shows.
+fn note(log: &mut Vec<u8>, v: u8) -> u8 {
+	log.push(v);
+	v
+}
+
+/// `Display` through `write!` of arguments with effects.
+pub struct Noted(pub u8);
+
+impl fmt::Display for Noted {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut log = Vec::new();
+		write!(
+			f,
+			"{} {:?} {log:?}",
+			note(&mut log, self.0),
+			note(&mut log, 1) == self.0
+		)
+	}
+}
+
+/// Arguments that read `log` before and after one changes it, through a reference.
+fn logged(log: &mut Vec<u8>, data: &[u8]) -> String {
+	format!(
+		"{} {} {} {}",
+		log.len(),
+		note(log, data[0]),
+		data[log.len() % data.len()],
+		log.len()
+	)
+}
+
 /// Written `Display` and `Debug`, and a `Display` that fails inside `format!`.
 pub fn written(data: &[u8], out: &mut Vec<u8>) {
 	let at = |i: usize| data.get(i).copied().unwrap_or(0);
@@ -345,6 +377,23 @@ pub fn written(data: &[u8], out: &mut Vec<u8>) {
 		out,
 		&format!("{1} {0} {0:?} {name} {name:>5}", at(7), at(8), name = "named"),
 	);
+	// Each argument is evaluated once, in order, however many placeholders read it.
+	let mut log = Vec::new();
+	let first = format!(
+		"{1} {0} {0:?} {2} {}",
+		note(&mut log, at(9)),
+		note(&mut log, at(10)) == 3,
+		log.len()
+	);
+	put(out, &first);
+	put(out, &format!("{}|{:>6}", Noted(at(11)), Noted(2)));
+	if !data.is_empty() {
+		put(out, &logged(&mut log, data));
+	}
+	out.extend_from_slice(&log);
+	if at(12) > 250 {
+		panic!("{} {}", note(&mut log, at(12)), log.len());
+	}
 }
 
 /// Panics, each with the message native Rust formats.
