@@ -15,7 +15,7 @@ import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
 /**
- * Run scenario `arg % 11`, panicking at the point `arg / 11 % 8` names, if any: what
+ * Run scenario `arg % 13`, panicking at the point `arg / 13 % 8` names, if any: what
  * every value std holds drops, where Rust drops it, and in Rust's order.
  */
 export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
@@ -73,7 +73,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		_353 = false;
 		_352 = false;
 		_351 = false;
-		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 11), 8);
+		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 13), 8);
 		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 		};
@@ -83,7 +83,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				rt.panicFmt(["d", args16[0], " at ", args16[1]]);
 			}
 		};
-		const _13: rt.u8 = rt.u8Rem(arg, 11);
+		const _13: rt.u8 = rt.u8Rem(arg, 13);
 		if (_13 === 4) {
 			ordered(log, id, at);
 		} else if (_13 === 5) {
@@ -98,25 +98,29 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			tripped(log, id, at, true);
 		} else if (_13 === 10) {
 			tripped(log, id, at, false);
+		} else if (_13 === 11) {
+			grown(log, id, at, true);
+		} else if (_13 === 12) {
+			grown(log, id, at, false);
 		} else if (_13 === 0) {
 			v = [];
-			unwind = 195;
+			unwind = 197;
 			const _19: Held.Held = { tag: "One", _0: guard(1) };
 			v.push(_19);
 			v.push({ tag: "Empty" } as Held.Held);
 			_29 = guard(2);
-			unwind = 194;
+			unwind = 196;
 			const _32: Guard.Guard = guard(3);
-			unwind = 195;
+			unwind = 197;
 			v.push({ tag: "Two", _0: _29, _1: _32 } as Held.Held);
-			unwind = 193;
+			unwind = 195;
 			held_ = v;
 			check(1);
 			arc = new rt.Arc({ tag: "One", _0: guard(4) } as Held.Held);
-			unwind = 212;
+			unwind = 214;
 			_358 = true;
 			shared = rt.arcClone(arc);
-			unwind = 192;
+			unwind = 194;
 			_358 = false;
 			rt.arcDrop(arc, drop$Held);
 			const arg7 = ([shared.strong] as [rt.usize])[0];
@@ -124,22 +128,22 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			Log.note(log, rt.fmtFormat(["arc ", args2[0]]));
 			check(2);
 			v2 = [];
-			unwind = 191;
+			unwind = 193;
 			const _67: Held.Held = { tag: "One", _0: guard(5) };
 			v2.push(_67);
-			unwind = 192;
+			unwind = 194;
 			mutex = new rt.Mutex(v2);
-			unwind = 210;
+			unwind = 212;
 			_357 = true;
 			_73 = guard(6);
-			unwind = 190;
+			unwind = 192;
 			const _76: Guard.Guard = guard(7);
-			unwind = 210;
+			unwind = 212;
 			boxed = { tag: "Two", _0: _73, _1: _76 } as Held.Held;
-			unwind = 208;
+			unwind = 210;
 			_356 = true;
 			const _80: Held.Held = { tag: "One", _0: guard(8) };
-			unwind = 189;
+			unwind = 191;
 			maybe = _80;
 			check(3);
 			[held_.length, maybe !== undefined] as [rt.usize, boolean];
@@ -153,9 +157,9 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_357 = false;
 			rt.dropAll(mutex.value, drop$Held);
 			check(5);
-			unwind = 208;
+			unwind = 210;
 			drop$Option_Box_Held(maybe);
-			unwind = 212;
+			unwind = 214;
 			_356 = false;
 			_357 = false;
 			rt.arcDrop(shared, drop$Held);
@@ -165,53 +169,53 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		} else if (_13 === 1) {
 			const _115: rt.u32 = rt.u32Add(id, 10);
 			_117 = Log.clone$Clone(log);
-			unwind = 188;
+			unwind = 190;
 			const _119: Guard.Guard = guard(11);
-			unwind = 187;
+			unwind = 189;
 			wrapped = new Wrap.Wrap({ id: _115, log: _117, inner: { tag: "One", _0: _119 } as Held.Held });
 			const _123: rt.u32 = rt.u32Add(id, 20);
 			_125 = Log.clone$Clone(log);
-			unwind = 186;
+			unwind = 188;
 			const _126: Guard.Guard = guard(21);
-			unwind = 185;
+			unwind = 187;
 			guarded = new Wrap.Wrap({ id: _123, log: _125, inner: _126 });
 			check(1);
 			_134 = guard(31);
-			unwind = 184;
+			unwind = 186;
 			const _137: Guard.Guard = guard(32);
-			unwind = 183;
+			unwind = 185;
 			_133 = { tag: "Two", _0: _134, _1: _137 } as Held.Held;
 			const _140: Guard.Guard = guard(33);
-			unwind = 206;
+			unwind = 208;
 			_355 = true;
 			pair = new Pair.Pair({ first: _133, second: _140 });
 			v3 = [];
-			unwind = 182;
+			unwind = 184;
 			_148 = guard(41);
-			unwind = 181;
+			unwind = 183;
 			const _151: Guard.Guard = guard(42);
-			unwind = 182;
+			unwind = 184;
 			v3.push(new Pair.Pair({ first: _148, second: _151 }));
 			_157 = guard(43);
-			unwind = 180;
-			const _160: Guard.Guard = guard(44);
 			unwind = 182;
+			const _160: Guard.Guard = guard(44);
+			unwind = 184;
 			v3.push(new Pair.Pair({ first: _157, second: _160 }));
-			unwind = 179;
+			unwind = 181;
 			pairs = v3;
 			check(2);
 			const _167: rt.u32 = rt.u32Add(id, 50);
 			_169 = Log.clone$Clone(log);
-			unwind = 178;
+			unwind = 180;
 			v4 = [];
-			unwind = 177;
+			unwind = 179;
 			const _175: rt.u32 = rt.u32Add(id, 60);
 			_177 = Log.clone$Clone(log);
-			unwind = 176;
+			unwind = 178;
 			const _179: Guard.Guard = guard(61);
-			unwind = 177;
+			unwind = 179;
 			v4.push(new Wrap.Wrap({ id: _175, log: _177, inner: { tag: "One", _0: _179 } as Held.Held }));
-			unwind = 175;
+			unwind = 177;
 			nested = new Wrap.Wrap({ id: _167, log: _169, inner: v4 });
 			check(3);
 			_355 = false;
@@ -228,11 +232,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg6 = rt.u32Add(rt.u32Add(_204, Guard.id(pairs[at3].second)), nested.inner.length as rt.u32);
 			const args6: rt.Fmt[] = [_218, _219, (f: rt.Formatter) => rt.u32Display(arg6, f)];
 			Log.note(log, rt.fmtFormat(["wraps ", args6[0], " ", args6[1], " ", args6[2]]));
-			unwind = 179;
+			unwind = 181;
 			drop$Wrap_Vec_Wrap_Held(nested);
-			unwind = 206;
+			unwind = 208;
 			rt.dropAll(pairs);
-			unwind = 187;
+			unwind = 189;
 			_355 = false;
 			drop$Wrap_Guard(guarded);
 			unwind = 0;
@@ -240,22 +244,22 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		} else if (_13 === 2) {
 			const _225: rt.u32 = rt.u32Add(id, 70);
 			_227 = Log.clone$Clone(log);
-			unwind = 174;
+			unwind = 176;
 			const _230: Guard.Guard = guard(71);
-			unwind = 173;
+			unwind = 175;
 			_229 = { tag: "One", _0: _230 } as Held.Held;
 			const _233: Guard.Guard = guard(72);
 			unwind = 0;
 			shared2 = new rt.Arc(new Wrap.Wrap({ id: _225, log: _227, inner: new Pair.Pair({ first: _229, second: _233 }) }));
-			unwind = 204;
+			unwind = 206;
 			_354 = true;
 			v5 = [];
-			unwind = 172;
+			unwind = 174;
 			const _240: rt.Arc<Wrap.Wrap<Pair.Pair<Held.Held>>> = rt.arcClone(shared2);
 			v5.push(_240);
 			const _244: rt.Arc<Wrap.Wrap<Pair.Pair<Held.Held>>> = rt.arcClone(shared2);
 			v5.push(_244);
-			unwind = 171;
+			unwind = 173;
 			clones = v5;
 			check(1);
 			_354 = false;
@@ -267,37 +271,37 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg5 = ([!bail(log, id, at).ok] as [boolean])[0];
 			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
 			Log.note(log, rt.fmtFormat(["bailed ", args10[0]]));
-			unwind = 204;
+			unwind = 206;
 			rt.dropAll(clones, drop$Arc_Wrap_Pair_Held);
 			_354 = false;
 		} else {
 			_282 = guard(81);
-			unwind = 170;
+			unwind = 172;
 			const _285: Guard.Guard = guard(82);
 			unwind = 0;
 			arc2 = new rt.Arc(new rt.Mutex({ tag: "Two", _0: _282, _1: _285 } as Held.Held));
-			unwind = 202;
+			unwind = 204;
 			_353 = true;
 			other = rt.arcClone(arc2);
-			unwind = 169;
+			unwind = 171;
 			check(1);
 			_353 = false;
 			rt.arcDrop(arc2, drop$Mutex_Held);
 			check(2);
 			const _301: rt.Mutex<Held.Held> = other.value;
-			unwind = 168;
+			unwind = 170;
 			const held2: boolean = Held.isSome(_301.value);
-			unwind = 169;
+			unwind = 171;
 			const arg2 = ([held2] as [boolean])[0];
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args12[0]]));
 			lent = guard(83);
-			unwind = 167;
+			unwind = 169;
 			borrowed = new rt.Arc(lent);
-			unwind = 200;
+			unwind = 202;
 			_352 = true;
 			again = rt.arcClone(borrowed);
-			unwind = 198;
+			unwind = 200;
 			_351 = true;
 			_352 = false;
 			rt.arcDrop(borrowed);
@@ -307,11 +311,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const arg3 = ([Guard.id(lent)] as [rt.u32])[0];
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
 			Log.note(log, rt.fmtFormat(["lent ", args14[0]]));
-			unwind = 169;
+			unwind = 171;
 			_351 = false;
 			_352 = false;
 			rt.drop(lent);
-			unwind = 202;
+			unwind = 204;
 			rt.arcDrop(other, drop$Mutex_Held);
 			_353 = false;
 		}
@@ -338,127 +342,127 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																					if (unwind === 0) {
 																						throw e;
 																					}
-																					if (unwind === 167) {
+																					if (unwind === 169) {
 																						break b4;
 																					}
-																					if (unwind === 168) {
-																						break b3;
-																					}
-																					if (unwind === 169) {
-																						break b3;
-																					}
 																					if (unwind === 170) {
+																						break b3;
+																					}
+																					if (unwind === 171) {
+																						break b3;
+																					}
+																					if (unwind === 172) {
 																						rt.drop(_282);
 																						break b1;
 																					}
-																					if (unwind === 171) {
+																					if (unwind === 173) {
 																						rt.dropAll(clones, drop$Arc_Wrap_Pair_Held);
 																						break b5;
 																					}
-																					if (unwind === 172) {
+																					if (unwind === 174) {
 																						rt.dropAll(v5, drop$Arc_Wrap_Pair_Held);
 																						break b5;
 																					}
-																					if (unwind === 173) {
+																					if (unwind === 175) {
 																						drop$Held(_229);
 																						break b6;
 																					}
-																					if (unwind === 174) {
+																					if (unwind === 176) {
 																						break b6;
 																					}
-																					if (unwind === 175) {
+																					if (unwind === 177) {
 																						drop$Wrap_Vec_Wrap_Held(nested);
 																						break b10;
 																					}
-																					if (unwind === 176) {
+																					if (unwind === 178) {
 																						rt.drop(_177);
 																						break b12;
 																					}
-																					if (unwind === 177) {
+																					if (unwind === 179) {
 																						break b12;
 																					}
-																					if (unwind === 178) {
+																					if (unwind === 180) {
 																						break b11;
 																					}
-																					if (unwind === 179) {
+																					if (unwind === 181) {
 																						break b10;
 																					}
-																					if (unwind === 180) {
+																					if (unwind === 182) {
 																						rt.drop(_157);
 																						break b13;
 																					}
-																					if (unwind === 181) {
+																					if (unwind === 183) {
 																						rt.drop(_148);
 																						break b13;
 																					}
-																					if (unwind === 182) {
+																					if (unwind === 184) {
 																						break b13;
 																					}
-																					if (unwind === 183) {
+																					if (unwind === 185) {
 																						drop$Held(_133);
 																						break b8;
 																					}
-																					if (unwind === 184) {
+																					if (unwind === 186) {
 																						rt.drop(_134);
 																						break b8;
 																					}
-																					if (unwind === 185) {
+																					if (unwind === 187) {
 																						break b8;
 																					}
-																					if (unwind === 186) {
+																					if (unwind === 188) {
 																						rt.drop(_125);
 																						break b7;
 																					}
-																					if (unwind === 187) {
+																					if (unwind === 189) {
 																						break b7;
 																					}
-																					if (unwind === 188) {
+																					if (unwind === 190) {
 																						rt.drop(_117);
 																						break b1;
 																					}
-																					if (unwind === 189) {
+																					if (unwind === 191) {
 																						drop$Option_Box_Held(maybe);
 																						break b18;
 																					}
-																					if (unwind === 190) {
+																					if (unwind === 192) {
 																						rt.drop(_73);
 																						break b17;
 																					}
-																					if (unwind === 191) {
+																					if (unwind === 193) {
 																						rt.dropAll(v2, drop$Held);
 																						break b16;
 																					}
-																					if (unwind === 192) {
+																					if (unwind === 194) {
 																						break b16;
 																					}
-																					if (unwind === 193) {
+																					if (unwind === 195) {
 																						break b14;
 																					}
-																					if (unwind === 194) {
+																					if (unwind === 196) {
 																						rt.drop(_29);
 																						break b19;
 																					}
-																					if (unwind === 195) {
+																					if (unwind === 197) {
 																						break b19;
 																					}
-																					if (unwind === 198) {
+																					if (unwind === 200) {
 																						if (_351) {
 																							rt.arcDrop(again);
 																						}
-																					} else if (unwind !== 200) {
-																						if (unwind === 202) {
+																					} else if (unwind !== 202) {
+																						if (unwind === 204) {
 																							break b2;
 																						}
-																						if (unwind === 204) {
+																						if (unwind === 206) {
 																							break b5;
 																						}
-																						if (unwind === 206) {
+																						if (unwind === 208) {
 																							break b9;
 																						}
-																						if (unwind === 208) {
+																						if (unwind === 210) {
 																							break b18;
 																						}
-																						if (unwind === 210) {
+																						if (unwind === 212) {
 																							break b17;
 																						}
 																						break b15;
@@ -2504,6 +2508,460 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 					}
 					rt.drop(_14);
 					break b1;
+				}
+			}
+			rt.hashDrop(hashed_, rt.drop, rt.drop);
+		}
+		rt.btreeDrop(map, rt.drop, rt.drop);
+		throw e;
+	}
+}
+
+/**
+ * What std drops as a map or set grows by a key whose `Hash`, `Eq`, or `Ord` panics, or
+ * whose drop does as an equal one is there, scenario `at`'s alone, of a B-tree or else a
+ * hash table: into an empty or a cleared one too.
+ */
+export function grown(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): void {
+	let map!: rt.BTreeMap<Key.Key, Guard.Guard>;
+	let hashed_!: rt.HashMap<Key.Key, Guard.Guard>;
+	let _16!: Key.Key;
+	let _25!: Key.Key;
+	let _34!: Key.Key;
+	let _45!: Key.Key;
+	let _54!: Key.Key;
+	let _65!: Key.Key;
+	let _74!: rt.BTreeSet<Key.Key>;
+	let _81!: rt.HashSet<Key.Key>;
+	let _88!: Key.Key;
+	let _97!: Key.Key;
+	let _106!: Key.Key;
+	let _115!: Key.Key;
+	let _124!: Key.Key;
+	let _134!: rt.Entry<Key.Key, Guard.Guard>;
+	let _145!: Key.Key;
+	let _155!: rt.Entry<Key.Key, Guard.Guard>;
+	let _166!: Key.Key;
+	let _174!: rt.Entry<Key.Key, Guard.Guard>;
+	let _185!: Key.Key;
+	let _193!: rt.Entry<Key.Key, Guard.Guard>;
+	let set!: rt.BTreeSet<Key.Key>;
+	let set2!: rt.HashSet<Key.Key>;
+	let _229!: rt.Entry<Key.Key, Guard.Guard>;
+	let _239!: rt.Entry<Key.Key, Guard.Guard>;
+	let _252!: boolean;
+	let _253!: boolean;
+	let _254!: boolean;
+	let _255!: boolean;
+	let _256!: boolean;
+	let _257!: boolean;
+	let _258!: boolean;
+	let _259!: boolean;
+	let _260!: boolean;
+	let _261!: boolean;
+	let _262!: boolean;
+	let _263!: boolean;
+	let _264!: boolean;
+	let _265!: boolean;
+	let _266!: boolean;
+	let _267!: boolean;
+	let _268!: boolean;
+	let _269!: boolean;
+	let _270!: boolean;
+	let _271!: boolean;
+	let unwind: number = 0;
+	try {
+		_271 = false;
+		_270 = false;
+		_269 = false;
+		_268 = false;
+		_267 = false;
+		_266 = false;
+		_265 = false;
+		_264 = false;
+		_263 = false;
+		_262 = false;
+		_261 = false;
+		_260 = false;
+		_259 = false;
+		_258 = false;
+		_257 = false;
+		_256 = false;
+		_255 = false;
+		_254 = false;
+		_253 = false;
+		_252 = false;
+		const key: (a0: rt.u32) => Key.Key = (n: rt.u32): Key.Key => {
+			return Key.new(rt.u32Add(id, n), Log.clone$Clone(log));
+		};
+		const fault: (a0: rt.u32, a1: Fault.Fault) => Key.Key = (n2: rt.u32, fault2: Fault.Fault): Key.Key => {
+			return Key.faulty(rt.u32Add(id, n2), Log.clone$Clone(log), fault2);
+		};
+		const guard: (a0: rt.u32) => Guard.Guard = (n3: rt.u32): Guard.Guard => {
+			return Guard.new(rt.u32Add(id, n3), Log.clone$Clone(log));
+		};
+		map = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, Guard.Guard>;
+		unwind = 138;
+		hashed_ = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+		if (at === 0) {
+			if (!tree) {
+				unwind = 137;
+				_25 = fault(1, "Trips" as Fault.Fault);
+				unwind = 177;
+				_270 = true;
+				const _29: Guard.Guard = guard(1);
+				_270 = false;
+				const _23: Guard.Guard | undefined = rt.hashInsert(hashed_, _25, _29, rt.drop, rt.drop);
+				unwind = 137;
+				_270 = false;
+				rt.drop(_23);
+			} else {
+				unwind = 137;
+				_16 = fault(1, "Trips" as Fault.Fault);
+				unwind = 179;
+				_271 = true;
+				const _20: Guard.Guard = guard(1);
+				_271 = false;
+				const _14: Guard.Guard | undefined = rt.btreeInsert(map, _16, _20, rt.drop, rt.drop);
+				unwind = 137;
+				_271 = false;
+				rt.drop(_14);
+			}
+		} else if (at === 1) {
+			if (!tree) {
+				unwind = 137;
+				_54 = key(1);
+				unwind = 171;
+				_267 = true;
+				const _57: Guard.Guard = guard(1);
+				_267 = false;
+				const _52: Guard.Guard | undefined = rt.hashInsert(hashed_, _54, _57, rt.drop, rt.drop);
+				unwind = 137;
+				_267 = false;
+				rt.drop(_52);
+				rt.hashClear(hashed_, rt.drop, rt.drop);
+				_65 = fault(2, "Trips" as Fault.Fault);
+				unwind = 169;
+				_266 = true;
+				const _69: Guard.Guard = guard(2);
+				_266 = false;
+				const _63: Guard.Guard | undefined = rt.hashInsert(hashed_, _65, _69, rt.drop, rt.drop);
+				unwind = 137;
+				_266 = false;
+				rt.drop(_63);
+			} else {
+				unwind = 137;
+				_34 = key(1);
+				unwind = 175;
+				_269 = true;
+				const _37: Guard.Guard = guard(1);
+				_269 = false;
+				const _32: Guard.Guard | undefined = rt.btreeInsert(map, _34, _37, rt.drop, rt.drop);
+				unwind = 137;
+				_269 = false;
+				rt.drop(_32);
+				rt.btreeClear(map, rt.drop, rt.drop);
+				_45 = fault(2, "Trips" as Fault.Fault);
+				unwind = 173;
+				_268 = true;
+				const _49: Guard.Guard = guard(2);
+				_268 = false;
+				const _43: Guard.Guard | undefined = rt.btreeInsert(map, _45, _49, rt.drop, rt.drop);
+				unwind = 137;
+				_268 = false;
+				rt.drop(_43);
+			}
+		} else if (at === 2) {
+			if (!tree) {
+				unwind = 137;
+				_81 = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
+				unwind = 135;
+				const _82: Key.Key = fault(1, "Trips" as Fault.Fault);
+				rt.hashAdd(_81, _82, rt.drop);
+				unwind = 137;
+				rt.hashDrop(_81, rt.drop);
+			} else {
+				unwind = 137;
+				_74 = rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>;
+				unwind = 136;
+				const _75: Key.Key = fault(1, "Trips" as Fault.Fault);
+				rt.btreeAdd(_74, _75, rt.drop);
+				unwind = 137;
+				rt.btreeDrop(_74, rt.drop);
+			}
+		} else if (at === 3) {
+			if (!tree) {
+				unwind = 137;
+				_106 = key(1);
+				unwind = 163;
+				_263 = true;
+				const _109: Guard.Guard = guard(1);
+				_263 = false;
+				const _104: Guard.Guard | undefined = rt.hashInsert(hashed_, _106, _109, rt.drop, rt.drop);
+				unwind = 137;
+				_263 = false;
+				rt.drop(_104);
+				_115 = fault(1, "Blows" as Fault.Fault);
+				unwind = 161;
+				_262 = true;
+				const _119: Guard.Guard = guard(2);
+				_262 = false;
+				const _113: Guard.Guard | undefined = rt.hashInsert(hashed_, _115, _119, rt.drop, rt.drop);
+				unwind = 137;
+				_262 = false;
+				rt.drop(_113);
+			} else {
+				unwind = 137;
+				_88 = key(1);
+				unwind = 167;
+				_265 = true;
+				const _91: Guard.Guard = guard(1);
+				_265 = false;
+				const _86: Guard.Guard | undefined = rt.btreeInsert(map, _88, _91, rt.drop, rt.drop);
+				unwind = 137;
+				_265 = false;
+				rt.drop(_86);
+				_97 = fault(1, "Blows" as Fault.Fault);
+				unwind = 165;
+				_264 = true;
+				const _101: Guard.Guard = guard(2);
+				_264 = false;
+				const _95: Guard.Guard | undefined = rt.btreeInsert(map, _97, _101, rt.drop, rt.drop);
+				unwind = 137;
+				_264 = false;
+				rt.drop(_95);
+			}
+		} else if (at === 4) {
+			if (!tree) {
+				unwind = 137;
+				_145 = key(1);
+				unwind = 155;
+				_259 = true;
+				const _148: Guard.Guard = guard(1);
+				_259 = false;
+				const _143: Guard.Guard | undefined = rt.hashInsert(hashed_, _145, _148, rt.drop, rt.drop);
+				unwind = 137;
+				_259 = false;
+				rt.drop(_143);
+				rt.hashClear(hashed_, rt.drop, rt.drop);
+				const _157: Key.Key = fault(2, "Trips" as Fault.Fault);
+				_155 = rt.entry(hashed_, _157, rt.drop);
+				unwind = 153;
+				_258 = true;
+				const _161: Guard.Guard = guard(2);
+				_258 = false;
+				rt.entryOrInsert(_155, _161, rt.drop);
+				unwind = 137;
+				_258 = false;
+			} else {
+				unwind = 137;
+				_124 = key(1);
+				unwind = 159;
+				_261 = true;
+				const _127: Guard.Guard = guard(1);
+				_261 = false;
+				const _122: Guard.Guard | undefined = rt.btreeInsert(map, _124, _127, rt.drop, rt.drop);
+				unwind = 137;
+				_261 = false;
+				rt.drop(_122);
+				rt.btreeClear(map, rt.drop, rt.drop);
+				const _136: Key.Key = fault(2, "Trips" as Fault.Fault);
+				_134 = rt.entry(map, _136, rt.drop);
+				unwind = 157;
+				_260 = true;
+				const _140: Guard.Guard = guard(2);
+				_260 = false;
+				rt.entryOrInsert(_134, _140, rt.drop);
+				unwind = 137;
+				_260 = false;
+			}
+		} else if (at === 5) {
+			if (!tree) {
+				unwind = 137;
+				_185 = key(1);
+				unwind = 147;
+				_255 = true;
+				const _188: Guard.Guard = guard(1);
+				_255 = false;
+				const _183: Guard.Guard | undefined = rt.hashInsert(hashed_, _185, _188, rt.drop, rt.drop);
+				unwind = 137;
+				_255 = false;
+				rt.drop(_183);
+				const _195: Key.Key = fault(1, "Blows" as Fault.Fault);
+				_193 = rt.entry(hashed_, _195, rt.drop);
+				unwind = 145;
+				_254 = true;
+				const _199: Guard.Guard = guard(2);
+				_254 = false;
+				rt.entryOrInsert(_193, _199, rt.drop);
+				unwind = 137;
+				_254 = false;
+			} else {
+				unwind = 137;
+				_166 = key(1);
+				unwind = 151;
+				_257 = true;
+				const _169: Guard.Guard = guard(1);
+				_257 = false;
+				const _164: Guard.Guard | undefined = rt.btreeInsert(map, _166, _169, rt.drop, rt.drop);
+				unwind = 137;
+				_257 = false;
+				rt.drop(_164);
+				const _176: Key.Key = fault(1, "Blows" as Fault.Fault);
+				_174 = rt.entry(map, _176, rt.drop);
+				unwind = 149;
+				_256 = true;
+				const _180: Guard.Guard = guard(2);
+				_256 = false;
+				rt.entryOrInsert(_174, _180, rt.drop);
+				unwind = 137;
+				_256 = false;
+			}
+		} else if (at === 6) {
+			if (!tree) {
+				unwind = 137;
+				set2 = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
+				unwind = 133;
+				const _218: Key.Key = key(1);
+				rt.hashAdd(set2, _218, rt.drop);
+				const _224: Key.Key = fault(1, "Blows" as Fault.Fault);
+				rt.hashAdd(set2, _224, rt.drop);
+				unwind = 137;
+				rt.hashDrop(set2, rt.drop);
+			} else {
+				unwind = 137;
+				set = rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>;
+				unwind = 134;
+				const _205: Key.Key = key(1);
+				rt.btreeAdd(set, _205, rt.drop);
+				const _211: Key.Key = fault(1, "Blows" as Fault.Fault);
+				rt.btreeAdd(set, _211, rt.drop);
+				unwind = 137;
+				rt.btreeDrop(set, rt.drop);
+			}
+		} else if (!tree) {
+			unwind = 137;
+			const _241: Key.Key = fault(1, "Trips" as Fault.Fault);
+			_239 = rt.entry(hashed_, _241, rt.drop);
+			unwind = 141;
+			_252 = true;
+			const _245: Guard.Guard = guard(1);
+			_252 = false;
+			rt.entryOrInsert(_239, _245, rt.drop);
+			unwind = 137;
+			_252 = false;
+		} else {
+			unwind = 137;
+			const _231: Key.Key = fault(1, "Trips" as Fault.Fault);
+			_229 = rt.entry(map, _231, rt.drop);
+			unwind = 143;
+			_253 = true;
+			const _235: Guard.Guard = guard(1);
+			_253 = false;
+			rt.entryOrInsert(_229, _235, rt.drop);
+			unwind = 137;
+			_253 = false;
+		}
+		Log.note(log, rt.fmtFormat(["unreached"]));
+		unwind = 138;
+		rt.hashDrop(hashed_, rt.drop, rt.drop);
+		unwind = 0;
+		rt.btreeDrop(map, rt.drop, rt.drop);
+	} catch (e) {
+		b1: {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 133) {
+				rt.hashDrop(set2, rt.drop);
+			} else if (unwind === 134) {
+				rt.btreeDrop(set, rt.drop);
+			} else if (unwind === 135) {
+				rt.hashDrop(_81, rt.drop);
+			} else if (unwind === 136) {
+				rt.btreeDrop(_74, rt.drop);
+			} else if (unwind !== 137) {
+				if (unwind === 138) {
+					break b1;
+				}
+				if (unwind === 141) {
+					if (_252) {
+						rt.entryDrop(_239, rt.drop);
+					}
+				} else if (unwind === 143) {
+					if (_253) {
+						rt.entryDrop(_229, rt.drop);
+					}
+				} else if (unwind === 145) {
+					if (_254) {
+						rt.entryDrop(_193, rt.drop);
+					}
+				} else if (unwind === 147) {
+					if (_255) {
+						rt.drop(_185);
+					}
+				} else if (unwind === 149) {
+					if (_256) {
+						rt.entryDrop(_174, rt.drop);
+					}
+				} else if (unwind === 151) {
+					if (_257) {
+						rt.drop(_166);
+					}
+				} else if (unwind === 153) {
+					if (_258) {
+						rt.entryDrop(_155, rt.drop);
+					}
+				} else if (unwind === 155) {
+					if (_259) {
+						rt.drop(_145);
+					}
+				} else if (unwind === 157) {
+					if (_260) {
+						rt.entryDrop(_134, rt.drop);
+					}
+				} else if (unwind === 159) {
+					if (_261) {
+						rt.drop(_124);
+					}
+				} else if (unwind === 161) {
+					if (_262) {
+						rt.drop(_115);
+					}
+				} else if (unwind === 163) {
+					if (_263) {
+						rt.drop(_106);
+					}
+				} else if (unwind === 165) {
+					if (_264) {
+						rt.drop(_97);
+					}
+				} else if (unwind === 167) {
+					if (_265) {
+						rt.drop(_88);
+					}
+				} else if (unwind === 169) {
+					if (_266) {
+						rt.drop(_65);
+					}
+				} else if (unwind === 171) {
+					if (_267) {
+						rt.drop(_54);
+					}
+				} else if (unwind === 173) {
+					if (_268) {
+						rt.drop(_45);
+					}
+				} else if (unwind === 175) {
+					if (_269) {
+						rt.drop(_34);
+					}
+				} else if (unwind === 177) {
+					if (_270) {
+						rt.drop(_25);
+					}
+				} else if (_271) {
+					rt.drop(_16);
 				}
 			}
 			rt.hashDrop(hashed_, rt.drop, rt.drop);

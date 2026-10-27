@@ -32,6 +32,9 @@ kio's):
   consumer that takes the iterator by value drops it, also when a closure panics. Look
   out for `collect`, whose order of drops on a panic may differ between std's in-place and
   generic paths, and for closures an adaptor holds, which must drop with it or refuse.
+  `extend` of a map or set already inserts each item as `insert` does, panics included,
+  but nothing tests it yet. A B-tree's `collect` sorts first, and a panicking `Ord` leaves
+  Rust's `Vec` in an order JS's `sort` won't match.
 - A closure that owns a value that drops, dropped without a call that takes it (10, 0).
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable

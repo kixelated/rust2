@@ -47,17 +47,17 @@ pub struct Pair<T> {
 	second: Guard,
 }
 
-/// Run scenario `arg % 11`, panicking at the point `arg / 11 % 8` names, if any: what
+/// Run scenario `arg % 13`, panicking at the point `arg / 13 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 11 % 8;
+	let at = arg / 13 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 11 {
+	match arg % 13 {
 		4 => ordered(log, id, at),
 		5 => hashed(log, id, at),
 		6 => options(log, id, at),
@@ -65,6 +65,8 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 		8 => blown(log, id, at),
 		9 => tripped(log, id, at, true),
 		10 => tripped(log, id, at, false),
+		11 => grown(log, id, at, true),
+		12 => grown(log, id, at, false),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -635,6 +637,72 @@ fn tripped(log: &Log, id: u32, at: u8, tree: bool) {
 		6 => drop(Err::<u8, Key>(key(3)).inspect_err(|k| panic!("k{} inspected", k.id))),
 		_ if tree => drop(map.remove(&trip(3))),
 		_ => drop(hashed.remove(&trip(3))),
+	}
+	log.note(format!("unreached"));
+}
+
+/// What std drops as a map or set grows by a key whose `Hash`, `Eq`, or `Ord` panics, or
+/// whose drop does as an equal one is there, scenario `at`'s alone, of a B-tree or else a
+/// hash table: into an empty or a cleared one too.
+fn grown(log: &Log, id: u32, at: u8, tree: bool) {
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let fault = |n: u32, fault: Fault| Key::faulty(id + n, log.clone(), fault);
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let mut map = BTreeMap::new();
+	let mut hashed = HashMap::new();
+	match at {
+		0 if tree => drop(map.insert(fault(1, Fault::Trips), guard(1))),
+		0 => drop(hashed.insert(fault(1, Fault::Trips), guard(1))),
+		1 if tree => {
+			map.insert(key(1), guard(1));
+			map.clear();
+			drop(map.insert(fault(2, Fault::Trips), guard(2)));
+		}
+		1 => {
+			hashed.insert(key(1), guard(1));
+			hashed.clear();
+			drop(hashed.insert(fault(2, Fault::Trips), guard(2)));
+		}
+		2 if tree => drop(BTreeSet::new().insert(fault(1, Fault::Trips))),
+		2 => drop(HashSet::new().insert(fault(1, Fault::Trips))),
+		3 if tree => {
+			map.insert(key(1), guard(1));
+			drop(map.insert(fault(1, Fault::Blows), guard(2)));
+		}
+		3 => {
+			hashed.insert(key(1), guard(1));
+			drop(hashed.insert(fault(1, Fault::Blows), guard(2)));
+		}
+		4 if tree => {
+			map.insert(key(1), guard(1));
+			map.clear();
+			drop(map.entry(fault(2, Fault::Trips)).or_insert(guard(2)));
+		}
+		4 => {
+			hashed.insert(key(1), guard(1));
+			hashed.clear();
+			drop(hashed.entry(fault(2, Fault::Trips)).or_insert(guard(2)));
+		}
+		5 if tree => {
+			map.insert(key(1), guard(1));
+			drop(map.entry(fault(1, Fault::Blows)).or_insert(guard(2)));
+		}
+		5 => {
+			hashed.insert(key(1), guard(1));
+			drop(hashed.entry(fault(1, Fault::Blows)).or_insert(guard(2)));
+		}
+		6 if tree => {
+			let mut set = BTreeSet::new();
+			set.insert(key(1));
+			drop(set.insert(fault(1, Fault::Blows)));
+		}
+		6 => {
+			let mut set = HashSet::new();
+			set.insert(key(1));
+			drop(set.insert(fault(1, Fault::Blows)));
+		}
+		_ if tree => drop(map.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
+		_ => drop(hashed.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
 	}
 	log.note(format!("unreached"));
 }

@@ -321,10 +321,10 @@ function hashed<K, V>(m: HashMap<K, V>, key: K): boolean {
 	return m.h !== undefined && (m.h.all || typeof key === "object");
 }
 
-/** The slot holding a key equal to `key`, a hashed key. */
-function slot<K, V>(m: HashMap<K, V>, key: K): Slot<K, V> | undefined {
+/** The slot holding a key equal to `key`, a hashed key whose hash is `hash` if given. */
+function slot<K, V>(m: HashMap<K, V>, key: K, hash?: number): Slot<K, V> | undefined {
 	const h = m.h as Hashing<K>;
-	for (let s = m.o?.get(h.hash(key)); s !== undefined; s = s.next) if (h.eq(s.k, key)) return s;
+	for (let s = m.o?.get(hash ?? h.hash(key)); s !== undefined; s = s.next) if (h.eq(s.k, key)) return s;
 	return undefined;
 }
 
@@ -385,9 +385,12 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K
 		m.p.set(key, value);
 		return old;
 	}
+	// Hashed once, as std's is, into an empty map too.
+	let hash: number;
 	let found: Slot<K, V> | undefined;
 	try {
-		found = slot(m, key);
+		hash = (m.h as Hashing<K>).hash(key);
+		found = slot(m, key, hash);
 	} catch (e) {
 		dropPair(value, key, v, k);
 		throw e;
@@ -395,17 +398,17 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K
 	if (found !== undefined) {
 		const old = found.v;
 		found.v = value;
+		// A panic here leaks `old`, as std's does.
 		k?.(key);
 		return old;
 	}
-	add(m, key, value);
+	add(m, key, value, hash);
 	return undefined;
 }
 
-/** Add a hashed key that is not there yet: its new slot. */
-function add<K, V>(m: HashMap<K, V>, key: K, value: V): Slot<K, V> {
+/** Add a hashed key that is not there yet, whose hash is `hash`: its new slot. */
+function add<K, V>(m: HashMap<K, V>, key: K, value: V, hash = (m.h as Hashing<K>).hash(key)): Slot<K, V> {
 	m.o ??= new Map();
-	const hash = (m.h as Hashing<K>).hash(key);
 	const s = { k: key, v: value, next: m.o.get(hash) };
 	m.o.set(hash, s);
 	m.n++;
@@ -417,19 +420,25 @@ function add<K, V>(m: HashMap<K, V>, key: K, value: V): Slot<K, V> {
  * and `key` drops, as it does if its `Hash` or `Eq` panics.
  */
 export function hashAdd<K>(m: HashSet<K>, key: K, k?: (key: K) => void): boolean {
-	let found: boolean;
+	if (!hashed(m, key)) {
+		if (m.p.has(key)) return false;
+		m.p.set(key, undefined);
+		return true;
+	}
+	let hash: number;
+	let found: Slot<K, undefined> | undefined;
 	try {
-		found = hashContains(m, key);
+		hash = (m.h as Hashing<K>).hash(key);
+		found = slot(m, key, hash);
 	} catch (e) {
 		k?.(key);
 		throw e;
 	}
-	if (found) {
+	if (found !== undefined) {
 		k?.(key);
 		return false;
 	}
-	if (hashed(m, key)) add(m, key, undefined);
-	else m.p.set(key, undefined);
+	add(m, key, undefined, hash);
 	return true;
 }
 
@@ -615,7 +624,7 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
  */
 export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void): HashMap<K, V> {
 	for (let item = items.next(); item !== DONE; item = items.next()) {
-		const old = hashInsert(m, item[0], item[1], k);
+		const old = hashInsert(m, item[0], item[1], k, v);
 		if (old !== undefined) v?.(old);
 	}
 	return m;
@@ -777,7 +786,7 @@ export function btreeIndex<K, V>(m: BTreeMap<K, V>, key: K): V {
 
 /**
  * `BTreeMap::insert`: the old value, if any. An equal key already there stays, and `key`
- * drops. A panic in its `Ord` drops `key` and then `value`.
+ * drops. A panic in its `Ord`, or in its drop there, drops `key` and then `value`.
  */
 export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key: K) => void, v?: (value: V) => void): V | undefined {
 	let l: Leaf<K, V>;
@@ -793,7 +802,12 @@ export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key:
 		insertAt(m, l, ~i, key, value);
 		return undefined;
 	}
-	k?.(key);
+	try {
+		k?.(key);
+	} catch (e) {
+		v?.(value);
+		throw e;
+	}
 	const old = l.v[i];
 	l.v[i] = value;
 	return old;
@@ -1250,15 +1264,17 @@ export function btreeExtend<K, V>(m: BTreeMap<K, V>, items: Iter<[K, V]>, last =
 		return m;
 	}
 	for (let item = items.next(); item !== DONE; item = items.next()) {
+		if (!last) {
+			const old = btreeInsert(m, item[0], item[1], k, v);
+			if (old !== undefined) v?.(old);
+			continue;
+		}
 		const l = leafOf(m, item[0]);
 		const i = search(l.k, item[0], m.c);
 		if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
 		else {
-			const old = l.v[i];
-			if (last) l.k[i] = item[0];
-			else k?.(item[0]);
+			l.k[i] = item[0];
 			l.v[i] = item[1];
-			if (!last) v?.(old);
 		}
 	}
 	return m;
@@ -1275,11 +1291,14 @@ export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, 
 		return m;
 	}
 	for (let key = keys.next(); key !== DONE; key = keys.next()) {
+		if (!last) {
+			btreeAdd(m, key, k);
+			continue;
+		}
 		const l = leafOf(m, key);
 		const i = search(l.k, key, m.c);
 		if (i < 0) insertAt(m, l, ~i, key, undefined);
-		else if (last) l.k[i] = key;
-		else k?.(key);
+		else l.k[i] = key;
 	}
 	return m;
 }
@@ -1339,7 +1358,8 @@ export function entry<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K, k?: (key:
 /** The key `m` holds equal to `key`, if any. */
 function stored<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K): { k: K } | undefined {
 	if (isHash(m)) {
-		if (hashed(m, key)) return slot(m, key);
+		// Hashed into an empty map too, as std's `entry` hashes.
+		if (hashed(m, key)) return slot(m, key, (m.h as Hashing<K>).hash(key));
 		return m.p.has(key) ? { k: key } : undefined;
 	}
 	const l = leafOf(m, key);

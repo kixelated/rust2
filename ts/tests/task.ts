@@ -281,5 +281,5 @@ export const cases: Uint8Array[] = [
 	[0, 0, 12, 0, 6, 0, 3, 5, 6, 0],
 	[0, 0, 12, 0, 12, 1, 6, 0, 9, 1, 9, 0],
 	// Each scenario of values std holds that drop, panicking at each point or none.
-	...Array.from({ length: 88 }, (_, arg) => [11, arg]),
+	...Array.from({ length: 104 }, (_, arg) => [11, arg]),
 ].map((script) => Uint8Array.from(script));
