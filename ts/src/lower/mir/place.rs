@@ -302,10 +302,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					false => self.b.t.copied(value, ty, span),
 				}
 			}
+			// Moved out of a local's own value changed in place, which is its own.
 			Operand::Move(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 				let value = self.place_expr(*place, span, out);
-				match self.into_frozen {
+				match self.into_frozen || super::own(*place) && self.mutated[place.local] {
 					true => value,
 					false => self.b.t.copied(value, ty, span),
 				}
