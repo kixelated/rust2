@@ -374,6 +374,14 @@ fn lang_differential(out: &Path) {
 	differential("lang-fixture", out, "caller.ts", 50_000, &["wide"]);
 }
 
+#[test]
+fn share() {
+	let out = translated("share");
+	snapshot("share", &out);
+	typecheck(&out);
+	differential("share-fixture", &out, "harness.ts", 1_000, &[]);
+}
+
 /// Futures and drops: the harness is hand-written TS around the translation, whose FIFO
 /// executor logs every poll, wake, and drop as the fixture's native one does.
 #[test]

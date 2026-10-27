@@ -367,6 +367,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   with products of those values at 128 bits, 128-bit quotients by divisors below 2^32,
   and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
+- `share` holds a `Copy` aggregate whose only write in the crate makes it copied, where
+  `lang`'s other writes into the same type would hide a write the analysis misses: a
+  byte array overwritten whole through a type parameter.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
   functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the

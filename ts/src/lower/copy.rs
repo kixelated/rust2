@@ -258,17 +258,19 @@ impl<'tcx> Writes<'tcx> {
 	/// Whether the crate writes into a value of `ty` in place. Over type parameters, as a
 	/// census lowers some functions, it may.
 	fn written(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
-		let ty = storage(tcx, ty);
-		if ty.has_param() || self.concrete.contains(&ty) {
+		let ty = tcx.erase_and_anonymize_regions(ty);
+		let stored = storage(tcx, ty);
+		if ty.has_param() || self.concrete.contains(&stored) {
 			return true;
 		}
 		if let Some(&found) = self.found.borrow().get(&ty) {
 			return found;
 		}
-		let found = self
-			.generic
-			.iter()
-			.any(|&(def_id, written)| instantiates(tcx, def_id, written, ty));
+		// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
+		// its slice pattern can be any array of that element.
+		let found = self.generic.iter().any(|&(def_id, written)| {
+			instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
+		});
 		self.found.borrow_mut().insert(ty, found);
 		found
 	}
