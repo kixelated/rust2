@@ -78,8 +78,50 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 	let mut body =
 		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
 	vec::literals(tcx, &mut body);
+	if !def_id.is_local()
+		&& let Some(why) = std_refused(tcx, &body)
+	{
+		t.err(span, why);
+		return None;
+	}
 	decided::fold(tcx, &mut body);
 	Some(body)
+}
+
+/// Why a body of std's can't lower as the crate's do, if it can't. The crate's analysis of
+/// what it writes into reads only its own bodies, so one must change nothing in place: no
+/// assignment through a projection or a reference, and no mutable borrow or pointer. And
+/// core's plain integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is
+/// checked.
+fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'static str> {
+	const WRITE: &str = "a change in place, which a body of std's is not supported to make";
+	const WRAP: &str = "arithmetic that wraps, which a body of std's is not supported to do";
+	for bb in body.basic_blocks.iter() {
+		for stmt in &bb.statements {
+			match &stmt.kind {
+				StatementKind::Assign(assign) if !assign.0.projection.is_empty() => return Some(WRITE),
+				StatementKind::Assign(assign) => match &assign.1 {
+					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, _) | Rvalue::RawPtr(mir::RawPtrKind::Mut, _) => {
+						return Some(WRITE);
+					}
+					Rvalue::BinaryOp(mir::BinOp::Add | mir::BinOp::Sub | mir::BinOp::Mul, operands)
+						if operands.0.ty(body, tcx).is_integral() =>
+					{
+						return Some(WRAP);
+					}
+					_ => {}
+				},
+				StatementKind::SetDiscriminant { .. } => return Some(WRITE),
+				_ => {}
+			}
+		}
+		if let TerminatorKind::Call { destination, .. } = &bb.terminator().kind
+			&& !destination.projection.is_empty()
+		{
+			return Some(WRITE);
+		}
+	}
+	None
 }
 
 /// What `_1` is.

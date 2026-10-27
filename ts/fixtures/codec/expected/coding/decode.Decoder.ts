@@ -4,6 +4,7 @@ import * as rt from "../rt.ts";
 import * as DecodeError from "../coding/decode.DecodeError.ts";
 import { read } from "../coding/varint.ts";
 import type * as Form from "../coding/varint.Form.ts";
+import { mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0, inspectErr$Result_u8s_DecodeError_bytes_closure1 } from "../core/result.ts";
 import type * as Control from "../stats.Control.ts";
 
 /**
@@ -134,7 +135,7 @@ export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError
 	} else if (_2.error.tag === "Short") {
 		_0 = rt.Err(short(self, rt.usizeAdd(self.buf.length, 1)));
 	} else {
-		_0 = rt.Err(_2.error);
+		_0 = _2 as rt.Result<rt.u64, DecodeError.DecodeError>;
 	}
 	return _0;
 }
@@ -153,11 +154,11 @@ export function bytes(self: Decoder): rt.Result<rt.ByteSlice, DecodeError.Decode
 	const start: rt.ByteSlice = self.buf;
 	const _6: rt.Result<rt.u64, DecodeError.DecodeError> = varint(self);
 	if (_6.ok) {
-		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = rt.resultMapErr(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
+		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
 			return { tag: "BoundsExceeded" } as DecodeError.DecodeError;
 		});
 		if (_3.ok) {
-			return rt.resultInspectErr(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
+			return inspectErr$Result_u8s_DecodeError_bytes_closure1(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
 				self.buf = start;
 			});
 		}

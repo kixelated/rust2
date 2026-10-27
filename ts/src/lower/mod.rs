@@ -48,6 +48,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	if t.failed {
 		return None;
 	}
+	t.program.merge();
 	t.program.name();
 	Some(t.program)
 }
@@ -186,6 +187,11 @@ pub struct Translator<'a, 'tcx> {
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
 	held: bool,
+	/// Where the crate first reached each instance of std's that lowers from its MIR, which
+	/// refuses there: its own spans are std's.
+	sites: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, Span>,
+	/// While such an instance lowers, that span and its function.
+	site: Option<(Span, DefId)>,
 	/// The hand-written TypeScript the config binds items to.
 	bindings: bind::Bindings<'tcx>,
 }
@@ -254,6 +260,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Once the bindings are known.
 			writes: Default::default(),
 			held: false,
+			sites: Default::default(),
+			site: None,
 			bindings: Default::default(),
 		})
 	}
@@ -293,12 +301,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// Refuse a construct outside the subset.
+	/// Refuse a construct outside the subset: inside a body of std's, at the crate's call.
 	pub fn err(&mut self, span: Span, msg: impl Into<String>) {
 		self.failed = true;
+		let (span, msg) = match self.site {
+			Some((site, def_id)) => (site, format!("{}, in `{}`", msg.into(), self.tcx.def_path_str(def_id))),
+			None => (span, msg.into()),
+		};
 		match &mut self.refusals {
-			Some(refusals) => refusals.push((span, msg.into())),
-			None => _ = self.tcx.dcx().span_err(span, format!("rust2-ts: {}", msg.into())),
+			Some(refusals) => refusals.push((span, msg)),
+			None => _ = self.tcx.dcx().span_err(span, format!("rust2-ts: {msg}")),
 		}
 	}
 
@@ -532,6 +544,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		sym
 	}
 
+	/// The symbol of an instance a call at `span` reaches, noting where the crate first
+	/// reached one of std's.
+	pub fn callee(&mut self, instance: Instance<'tcx>, span: Span) -> SymId {
+		if !instance.def_id().is_local() {
+			let site = self.site.map_or(span, |(site, _)| site);
+			self.sites.entry(instance).or_insert(site);
+		}
+		self.instance(instance)
+	}
+
 	/// The type an associated function's impl or trait is for.
 	pub fn self_ty(&self, instance: Instance<'tcx>) -> Option<Ty<'tcx>> {
 		let def_id = instance.def_id();
@@ -597,17 +619,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		parts.join("_")
 	}
 
-	/// The Rust module `def_id` is in.
+	/// The Rust module `def_id` is in, from the crate root; another crate's is under a
+	/// directory of its name, as `core/option` for `Option::map`.
 	pub fn module_of(&self, def_id: DefId) -> Vec<String> {
-		let Some(local) = def_id.as_local() else {
-			return Vec::new();
-		};
-		let module = self.tcx.parent_module_from_def_id(local).to_def_id();
-		self.tcx
-			.def_path(module)
-			.data
-			.iter()
-			.filter_map(|part| part.data.get_opt_name().map(|name| name.to_string()))
+		let tcx = self.tcx;
+		let mut module = tcx.parent(def_id);
+		while tcx.def_kind(module) != DefKind::Mod {
+			module = tcx.parent(module);
+		}
+		let krate = (!def_id.is_local()).then(|| tcx.crate_name(def_id.krate).to_string());
+		let path = tcx.def_path(module).data;
+		krate
+			.into_iter()
+			.chain(
+				path.iter()
+					.filter_map(|part| part.data.get_opt_name().map(|name| name.to_string())),
+			)
 			.collect()
 	}
 
@@ -675,13 +702,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx.type_is_copy_modulo_regions(self.typing_env(), ty)
 	}
 
-	/// Whether a call of `def_id` with `args` runs a function of the crate, which it
-	/// translates, rather than std's.
+	/// Whether a call of `def_id` with `args` runs a function whose body translates, the
+	/// crate's own or std's from its MIR, rather than a mapping.
 	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => {
-				matches!(instance.def, InstanceKind::Item(did) if did.is_local())
-					&& self.bound_module(instance).is_none()
+			Ok(Some(instance)) => self.lowers(instance),
+			_ => false,
+		}
+	}
+
+	/// Whether `instance`'s body lowers from its MIR: the crate's own function, unless a
+	/// binding stands in for it, or one of std's that `library` leaves to its MIR.
+	pub fn lowers(&self, instance: Instance<'tcx>) -> bool {
+		match instance.def {
+			InstanceKind::Item(did) => {
+				self.bound_module(instance).is_none() && (did.is_local() || library::from_mir(self, instance))
 			}
 			_ => false,
 		}
@@ -1232,20 +1267,46 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("unsupported function `{}`", tcx.def_path_str(def_id)));
 			return;
 		};
-		if !def_id.is_local() {
+		if !self.lowers(instance) {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
 		}
-		let Some(mut function) = mir::function(self, instance) else {
-			return;
-		};
+		let site = (!def_id.is_local()).then(|| (self.sites.get(&instance).copied().unwrap_or(span), def_id));
+		let outer = std::mem::replace(&mut self.site, site);
+		let function = self.lower_function(instance, sym, span);
+		self.site = outer;
+		if let Some(function) = function {
+			if !def_id.is_local() {
+				self.program.std.insert(sym);
+			}
+			self.program.items.push(Item::Function(function));
+		}
+	}
+
+	fn lower_function(&mut self, instance: Instance<'tcx>, sym: SymId, span: Span) -> Option<ts::Function> {
+		let tcx = self.tcx;
+		let def_id = instance.def_id();
+		// Without unwinding, std's MIR has none of the cleanups a panic runs.
+		if !def_id.is_local()
+			&& tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort)
+		{
+			self.err(
+				span,
+				format!(
+					"`{}` was built to abort on panic, so its MIR drops nothing a panic unwinds through: rust2-ts builds std from source to unwind",
+					tcx.crate_name(def_id.krate)
+				),
+			);
+			return None;
+		}
+		let mut function = mir::function(self, instance)?;
 		function.sym = sym;
 		function.loc = self.loc(span);
 		// A trait method's impl often leaves its docs to the trait.
 		function.doc = self
 			.doc(def_id)
 			.or_else(|| tcx.trait_item_of(def_id).and_then(|item| self.doc(item)));
-		self.program.items.push(Item::Function(function));
+		Some(function)
 	}
 
 	/// The doc comment on an item, as written.

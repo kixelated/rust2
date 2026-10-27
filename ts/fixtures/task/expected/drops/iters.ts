@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { drop$Guard_Guard, drop$Guard_u32, drop$Key_Guard, drop$Option_Key_Guard, drop$Option_u32_Bomb, drop$Result_Vec_Guard_Guard, drop$Vec_Bomb, drop$Vec_Guard, drop$u32_Bomb, drop$u32_First, drop$u32_Guard } from "../lib.ts";
+import { mapOr$Option_Guard_u32_drained_closure4, mapOr$Option_Key_u32_drained_closure5, mapOr$Option_Vec_Guard_usize_collected_closure11 } from "../core/option.ts";
 import * as Count from "../drops/iters.Count.ts";
 import * as First from "../drops/iters.First.ts";
 import * as Bomb from "../drops.Bomb.ts";
@@ -199,7 +200,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rest = rt.ownedTake(rt.ownedSkip(rt.iterSlice(v3, rt.drop), 1, rt.drop), 3, rt.drop);
 		unwind = 356;
 		_610 = true;
-		const part4 = rt.optionMapOr(rt.iterToOption(rest.next()), 0, (g5: Guard.Guard): rt.u32 => {
+		const part4 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(rest.next()), 0, (g5: Guard.Guard): rt.u32 => {
 			let unwind2: number = 0;
 			try {
 				unwind2 = 4;
@@ -299,7 +300,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_606 = true;
 		rt.drop(_275);
 		_606 = false;
-		const part7 = rt.optionMapOr(nth, 0, (g8: Guard.Guard): rt.u32 => {
+		const part7 = mapOr$Option_Guard_u32_drained_closure4(nth, 0, (g8: Guard.Guard): rt.u32 => {
 			let unwind3: number = 0;
 			try {
 				unwind3 = 4;
@@ -350,7 +351,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 314;
 		rt.drop(_333);
 		_605 = false;
-		const _366: rt.u32 = rt.optionMapOr(best, 0, (g11: Guard.Guard): rt.u32 => {
+		const _366: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(best, 0, (g11: Guard.Guard): rt.u32 => {
 			let unwind4: number = 0;
 			try {
 				unwind4 = 4;
@@ -407,7 +408,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _418: Guard.Guard = guard(38);
 		v12.push(_418);
 		unwind = 314;
-		const _427: rt.u32 = rt.optionMapOr(rt.ownedLast(rt.ownedStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop, rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
+		const _427: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedLast(rt.ownedStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop, rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
 			let unwind6: number = 0;
 			try {
 				unwind6 = 4;
@@ -453,7 +454,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		flat = rt.iterFlatten(rt.iterSlice(v13, drop$Vec_Guard), (value: Guard.Guard[]) => rt.iterSlice(value, rt.drop), true);
 		unwind = 344;
 		_604 = true;
-		const front: rt.u32 = rt.optionMapOr(rt.iterToOption(flat.next()), 0, (g14: Guard.Guard): rt.u32 => {
+		const front: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(flat.next()), 0, (g14: Guard.Guard): rt.u32 => {
 			let unwind7: number = 0;
 			try {
 				unwind7 = 4;
@@ -469,7 +470,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e7;
 			}
 		});
-		const back: rt.u32 = rt.optionMapOr(rt.iterToOption(flat.nextBack()), 0, (g15: Guard.Guard): rt.u32 => {
+		const back: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(flat.nextBack()), 0, (g15: Guard.Guard): rt.u32 => {
 			let unwind8: number = 0;
 			try {
 				unwind8 = 4;
@@ -525,7 +526,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rt.drop(_501);
 		_509 = rt.ownedStepBy(rt.iterSlice(five(49), rt.drop), 2, rt.drop);
 		unwind = 305;
-		const stepped: rt.u32 = rt.optionMapOr(rt.ownedNthBack(_509, 1, rt.drop), 0, (g16: Guard.Guard): rt.u32 => {
+		const stepped: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNthBack(_509, 1, rt.drop), 0, (g16: Guard.Guard): rt.u32 => {
 			let unwind10: number = 0;
 			try {
 				unwind10 = 4;
@@ -551,7 +552,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_517 = rt.iterChain(_518, rt.iterSlice(_524, rt.drop));
 		unwind = 304;
 		_603 = false;
-		const taken: rt.u32 = rt.optionMapOr(rt.ownedNth(_517, 1, rt.drop), 0, (g17: Guard.Guard): rt.u32 => {
+		const taken: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_517, 1, rt.drop), 0, (g17: Guard.Guard): rt.u32 => {
 			let unwind11: number = 0;
 			try {
 				unwind11 = 4;
@@ -577,7 +578,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_528 = rt.iterChain(_529, rt.iterSlice(_535, rt.drop));
 		unwind = 303;
 		_602 = false;
-		const passed: rt.u32 = rt.optionMapOr(rt.ownedNth(_528, 2, rt.drop), 0, (g18: Guard.Guard): rt.u32 => {
+		const passed: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_528, 2, rt.drop), 0, (g18: Guard.Guard): rt.u32 => {
 			let unwind12: number = 0;
 			try {
 				unwind12 = 4;
@@ -597,7 +598,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rt.drop(_528);
 		_539 = rt.ownedStepBy(rt.iterRev(rt.iterSlice(five(69), rt.drop)), 2, rt.drop);
 		unwind = 302;
-		const strode: rt.u32 = rt.optionMapOr(rt.ownedNth(_539, 2, rt.drop), 0, (g19: Guard.Guard): rt.u32 => {
+		const strode: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_539, 2, rt.drop), 0, (g19: Guard.Guard): rt.u32 => {
 			let unwind13: number = 0;
 			try {
 				unwind13 = 4;
@@ -1060,7 +1061,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _156: Guard.Guard = guard(15);
 		v6.push(_156);
 		unwind = 168;
-		const part2 = rt.optionMapOr(rt.iterCollectOption(rt.iterMap(rt.iterSlice(v6, rt.drop), (g5: Guard.Guard): Guard.Guard | undefined => {
+		const part2 = mapOr$Option_Vec_Guard_usize_collected_closure11(rt.iterCollectOption(rt.iterMap(rt.iterSlice(v6, rt.drop), (g5: Guard.Guard): Guard.Guard | undefined => {
 			let unwind6: number = 0;
 			try {
 				unwind6 = 6;
@@ -1467,7 +1468,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 180;
 		_299 = true;
 		const _49: rt.usize = keys.length;
-		const _52: rt.u32 = rt.optionMapOr(rt.iterToOption(values.next()), 0, (g: Guard.Guard): rt.u32 => {
+		const _52: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(values.next()), 0, (g: Guard.Guard): rt.u32 => {
 			let unwind3: number = 0;
 			try {
 				unwind3 = 4;
@@ -1498,7 +1499,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_298 = false;
 		_85 = rt.btreeKeys(set, rt.drop);
 		unwind = 158;
-		const part = rt.optionMapOr(rt.iterToOption(_85.next()), 0, (k: Key.Key): rt.u32 => {
+		const part = mapOr$Option_Key_u32_drained_closure5(rt.iterToOption(_85.next()), 0, (k: Key.Key): rt.u32 => {
 			const _05: rt.u32 = k.id;
 			rt.drop(k);
 			return _05;
@@ -1520,7 +1521,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		range = rt.dequeDrain(queue, new rt.Range(1, 4), rt.drop);
 		unwind = 174;
 		_296 = true;
-		const part2 = rt.optionMapOr(rt.iterToOption(range.next()), 0, (g2: Guard.Guard): rt.u32 => {
+		const part2 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(range.next()), 0, (g2: Guard.Guard): rt.u32 => {
 			let unwind4: number = 0;
 			try {
 				unwind4 = 4;
@@ -1545,7 +1546,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_297 = false;
 		_137 = rt.dequeIter(queue, rt.drop);
 		unwind = 157;
-		const _134: rt.u32 = rt.optionMapOr(rt.iterToOption(_137.next()), 0, (g3: Guard.Guard): rt.u32 => {
+		const _134: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(_137.next()), 0, (g3: Guard.Guard): rt.u32 => {
 			let unwind5: number = 0;
 			try {
 				unwind5 = 4;
@@ -1612,7 +1613,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		taken = rt.hashDrainKeys(set2, rt.drop);
 		unwind = 152;
 		check(6);
-		const part5 = rt.optionMapOr(rt.iterToOption(taken.next()), 0, (k2: Key.Key): rt.u32 => {
+		const part5 = mapOr$Option_Key_u32_drained_closure5(rt.iterToOption(taken.next()), 0, (k2: Key.Key): rt.u32 => {
 			const _08: rt.u32 = k2.id;
 			rt.drop(k2);
 			return _08;

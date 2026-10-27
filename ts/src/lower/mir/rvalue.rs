@@ -319,9 +319,85 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if active.is_some() {
 					return Some(self.err(span, "unions are not supported"));
 				}
+				if let Some(same) = self.rebuilt_result(kind, ops, &values, ty, span, out) {
+					return Some(same);
+				}
 				self.adt(*def_id, *variant, args, values, ty, span)
 			}
 			_ => unreachable!(),
+		})
+	}
+
+	/// The `Result` a variant of one is rebuilt from, if it takes what that same variant of
+	/// another held, as `map_err` returns its `Ok`: that one's object, since a write into
+	/// an `rt.Result`'s payload replaces the result, so none changes in place. The payload,
+	/// held back for this one read, goes unread.
+	fn rebuilt_result(
+		&mut self,
+		kind: &AggregateKind<'tcx>,
+		ops: &IndexVec<FieldIdx, Operand<'tcx>>,
+		values: &[Expr],
+		ty: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
+		let &AggregateKind::Adt(def_id, variant, ..) = kind else {
+			return None;
+		};
+		if Std::of(self.tcx, def_id) != Some(Std::Result) {
+			return None;
+		}
+		let ([Operand::Copy(place) | Operand::Move(place)], [value]) = (&ops.raw[..], values) else {
+			return None;
+		};
+		let (place, temp) = match self.def_rvalue(place.local) {
+			Some(Rvalue::Use(Operand::Copy(from) | Operand::Move(from), _)) if place.projection.is_empty() => {
+				(*from, Some(place.local))
+			}
+			_ => (*place, None),
+		};
+		let [
+			ref outer @ ..,
+			mir::ProjectionElem::Downcast(_, from),
+			mir::ProjectionElem::Field(..),
+		] = place.projection[..]
+		else {
+			return None;
+		};
+		let whole = Place {
+			local: place.local,
+			projection: self.tcx.mk_place_elems(outer),
+		};
+		// What the place holds now is what the payload was read from.
+		let stable = self.frozen(whole) && self.defs[whole.local] + u32::from(self.is_arg(whole.local)) <= 1;
+		let held = match variant.index() {
+			0 => "value",
+			_ => "error",
+		};
+		let payload = |e: &Expr| matches!(e, Expr::Member(_, Key::Name(field)) if field == held);
+		// Only the payload read as it is: a copy the operand made must still be made.
+		let pending = match (temp.and_then(|temp| self.var(temp)), value) {
+			(_, value) if payload(value) => None,
+			(Some(name), Expr::Ident(read)) if name == *read => Some(
+				self.pending
+					.iter()
+					.position(|p| p.name == name && !p.effect && payload(&p.value))?,
+			),
+			_ => return None,
+		};
+		let whole_ty = whole.ty(&self.mir.local_decls, self.tcx).ty;
+		if from != variant || !stable || self.b.t.std_of(whole_ty) != Some(Std::Result) {
+			return None;
+		}
+		if let Some(i) = pending {
+			self.pending.remove(i);
+		}
+		let same = self.place_expr(whole, span, out);
+		let ts_ty = self.b.t.ty(ty, span);
+		Some(match self.b.t.ty(whole_ty, span) == ts_ty {
+			true => same,
+			// Of the variant both share.
+			false => Expr::As(Box::new(same), ts_ty),
 		})
 	}
 

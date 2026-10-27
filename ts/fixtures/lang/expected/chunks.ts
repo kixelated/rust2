@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import type * as Header from "./chunks.Header.ts";
+import { mapOr$Option_u8s_u8s_u8s_chunks_closure0, okOr$Option_u8s_u8s_u8 } from "./core/option.ts";
 
 export function header(data: rt.ByteSlice): Header.Header | undefined {
 	const _4: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitFirstChunk(data, 2);
@@ -13,7 +14,7 @@ export function header(data: rt.ByteSlice): Header.Header | undefined {
 }
 
 export function take4(data: rt.ByteSlice): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8> {
-	return rt.optionOkOr(rt.byteSliceSplitFirstChunk(data, 4), data.length & 0xff);
+	return okOr$Option_u8s_u8s_u8(rt.byteSliceSplitFirstChunk(data, 4), data.length & 0xff);
 }
 
 export function word(chunk: rt.ByteSlice): rt.u32 {
@@ -101,7 +102,7 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_4 === 2) {
 		const _101: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitFirstChunk(data, 2);
 		if (_101 !== undefined) {
-			const b: rt.ByteSlice = rt.optionMapOr(rt.byteSliceSplitFirstChunk(_101[1], 2), _101[0], (_22: [rt.ByteSlice, rt.ByteSlice]): rt.ByteSlice => {
+			const b: rt.ByteSlice = mapOr$Option_u8s_u8s_u8s_chunks_closure0(rt.byteSliceSplitFirstChunk(_101[1], 2), _101[0], (_22: [rt.ByteSlice, rt.ByteSlice]): rt.ByteSlice => {
 				return _22[0];
 			});
 			const part2 = _101[0];

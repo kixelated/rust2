@@ -47,7 +47,6 @@ Public API: the translator's output for moq-net's model.
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - kio closes a channel when its last producer drops
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
-- [Std combinators from core's MIR](/quest/m2/ts-model/core-mir.md) - `Option`'s and `Result`'s combinators lower from core's own bodies
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Options of values that can be undefined](/quest/m2/ts-model/nested-option.md) - `Option<Option<T>>` and `Option<()>` keep `None` apart from `Some(None)`
 - [Mutable references to values JS copies](/quest/m2/ts-model/mut-place.md) - a `&mut` to a number or an `Option` passed on or kept
