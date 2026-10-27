@@ -14,6 +14,10 @@ use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
 
+/// What a `&mut` borrows: its path, and the place a store through the reference writes,
+/// unless the reference is refused.
+type Borrowed<'tcx> = (Expr, Option<Place<'tcx>>);
+
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn call(
 		&mut self,
@@ -25,6 +29,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	) {
 		let tcx = self.tcx;
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
+		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();
 		let (value, effect) = match *fn_ty.kind() {
 			// `next` into a local that holds the protocol's item or `rt.DONE`, unconverted.
@@ -70,11 +75,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.emit(pre, None, false, out);
 					return;
 				}
-				None => (self.call_def(def_id, gargs.skip_binder(), args, span, &mut pre), true),
+				None => (
+					self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
+					true,
+				),
 			},
 			ty::FnPtr(..) => {
 				let f = self.operand(func, span, &mut pre);
-				let values = self.operands(args, span, &mut pre);
+				let values = self.operands(false, args, result, span, &mut pre);
 				(f.call(values), true)
 			}
 			_ => (self.err(span, format!("a call through `{fn_ty}`")), true),
@@ -128,13 +136,31 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Arguments, uncopied: a callee that changes a parameter in place copies it first.
-	fn operands(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) -> Vec<Expr> {
+	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
+	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
+	/// own value, which the analysis then made the local's own.
+	fn operands(
+		&mut self,
+		translated: bool,
+		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
 		let saved = std::mem::replace(&mut self.into_frozen, true);
-		let values = args
-			.iter()
-			.map(|arg| self.operand_frozen(&arg.node, span, out))
-			.collect();
+		let mut values = Vec::with_capacity(args.len());
+		for arg in args {
+			let value = self.operand_frozen(&arg.node, span, out);
+			values.push(match &arg.node {
+				Operand::Copy(p) | Operand::Move(p)
+					if self.moved_from(&arg.node).is_none()
+						&& self.keeps(translated, args, p.ty(&self.mir.local_decls, self.tcx).ty, result) =>
+				{
+					self.b.t.copied(value, p.ty(&self.mir.local_decls, self.tcx).ty, span)
+				}
+				_ => value,
+			});
+		}
 		self.into_frozen = saved;
 		values
 	}
@@ -153,6 +179,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		def_id: rustc_hir::def_id::DefId,
 		gargs: GenericArgsRef<'tcx>,
 		args: &[Spanned<Operand<'tcx>>],
+		result: Ty<'tcx>,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Expr {
@@ -183,16 +210,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return f.call(values);
 		}
 		// A function of the crate gets what JS passes, so a `&mut` to a number can't reach it.
-		let local = match Instance::try_resolve(tcx, self.b.t.typing_env_pub(), def_id, gargs) {
-			Ok(Some(instance)) => matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local()),
-			_ => false,
-		};
+		let local = self.b.t.translated(def_id, gargs);
 		if local {
 			for arg in args {
 				self.check_escape(&arg.node, span);
 			}
 		}
-		let values = self.operands(args, span, out);
+		let values = self.operands(local, args, result, span, out);
 		self.b.call_def(def_id, gargs, values, span, out)
 	}
 
@@ -265,10 +289,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let a = self.borrowed_place(&args[0].node, span)?;
 				let c = self.borrowed_place(&args[1].node, span)?;
 				let old = self.swap_out(a, c.0.clone(), "swapped", span, out);
-				match c.1 {
-					Some(place) => out.extend(self.store(place, old, span)),
-					None => out.push(StmtKind::Expr(c.0.assign(old)).at(None)),
-				}
+				self.set_borrowed(&c, old, span, out);
 				done(Expr::undefined(), true)
 			}
 			// A range of numbers steps in place, with nothing between it and the loop.
@@ -281,6 +302,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Box::new(Expr::undefined()),
 				);
 				done(next, true)
+			}
+			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
+			("String", "push") => {
+				let place = self.borrowed_place(&args[0].node, span)?;
+				let c = self.operand(&args[1].node, span, out);
+				let pushed = place.0.clone().binary("+", library::char_text(c));
+				self.set_borrowed(&place, pushed, span, out);
+				done(Expr::undefined(), false)
 			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
@@ -297,7 +326,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_)) =>
 			{
-				let place = self.call_def(def_id, gargs, args, span, out);
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let place = self.call_def(def_id, gargs, args, result, span, out);
 				if !place.is_path() {
 					return done(place, true);
 				}
@@ -532,7 +562,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The place a `&mut` operand borrows, as an assignable path, and through the
 	/// reference, which a store resolves: an alias of a borrowed place, not a copy of a
 	/// reference, which holds the object it points at.
-	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<(Expr, Option<Place<'tcx>>)> {
+	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span) -> Option<Borrowed<'tcx>> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
 			return None;
 		};
@@ -609,21 +639,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The value at `place`, after setting `place` to `value`.
-	fn swap_out(
-		&mut self,
-		(read, place): (Expr, Option<Place<'tcx>>),
-		value: Expr,
-		base: &str,
-		span: Span,
-		out: &mut Vec<Stmt>,
-	) -> Expr {
+	fn swap_out(&mut self, place: Borrowed<'tcx>, value: Expr, base: &str, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let name = self.b.fresh(base);
-		out.push(StmtKind::decl(false, name.clone(), None, Some(read.clone())).at(None));
-		match place {
-			Some(place) => out.extend(self.store(place, value, span)),
-			None => out.push(StmtKind::Expr(read.assign(value)).at(None)),
-		}
+		out.push(StmtKind::decl(false, name.clone(), None, Some(place.0.clone())).at(None));
+		self.set_borrowed(&place, value, span, out);
 		Expr::ident(name)
+	}
+
+	/// Set what a `&mut` borrows to `value`.
+	fn set_borrowed(&mut self, (read, place): &Borrowed<'tcx>, value: Expr, span: Span, out: &mut Vec<Stmt>) {
+		match place {
+			Some(place) => out.extend(self.store(*place, value, span)),
+			None => out.push(StmtKind::Expr(read.clone().assign(value)).at(None)),
+		}
 	}
 
 	/// `container[index]`, or a slice of it by a range, which a reference reads in place.

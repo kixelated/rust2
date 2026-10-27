@@ -740,3 +740,107 @@ pub fn vecs(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(repeated.iter().chain(&again).map(|t| t.1));
 	out.extend(bumps.iter().chain(&kept).map(|o| o.0));
 }
+
+/// A struct that is not `Copy` holding a `Copy` aggregate by value.
+struct Holder {
+	pair: (u8, u8),
+}
+
+/// Stores `p` by value in `v`.
+fn keep(v: &mut Vec<(u8, u8)>, p: (u8, u8)) {
+	v.push(p);
+}
+
+/// Gives back what it was given.
+fn same(p: (u8, u8)) -> (u8, u8) {
+	p
+}
+
+/// Changes what it was given in place, which is its own.
+fn bump(mut h: Holder) -> u8 {
+	h.pair.0 ^= 1;
+	h.pair.0
+}
+
+/// Holds `pair`, for its caller to change.
+fn hold(pair: (u8, u8)) -> Holder {
+	Holder { pair }
+}
+
+/// A `Copy` aggregate a std call stores by value is the container's own copy: changing
+/// one stored element leaves the value it came from and the other elements as they were.
+pub fn stores(data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let b = data.get(1).copied().unwrap_or(0);
+	// Made by a call, so its fields are read from it, not from `a` and `b`.
+	let pair = same((a, b));
+	let mut changed = (b, a);
+	changed.0 ^= 0x10;
+
+	let mut v = Vec::new();
+	v.push(pair);
+	v.push(pair);
+	v[0].0 ^= 1;
+	// A local changed in place, before and after it is stored.
+	v.push(changed);
+	changed.1 ^= 0x20;
+	v[2].0 ^= 4;
+	// Through a parameter, and through a call's result.
+	keep(&mut v, pair);
+	v[3].1 ^= 8;
+	v.push(same(pair));
+	v[4].0 ^= 0x40;
+	// Each element of an array std takes apart.
+	v.extend([pair, changed]);
+	v[5].1 ^= 0x80;
+	v[6].0 ^= 0x80;
+	let old = std::mem::replace(&mut v[0], pair);
+	v[0].1 ^= 0x10;
+	out.extend(v.iter().flat_map(|p| [p.0, p.1]));
+	out.extend_from_slice(&[changed.0, changed.1, old.0, old.1]);
+
+	let tally = Tally { n: a as u16 };
+	let mut q = VecDeque::new();
+	q.push_back(tally);
+	q.push_front(tally);
+	q.insert(1, tally);
+	if let Some(t) = q.front_mut() {
+		t.n ^= 1;
+	}
+	if let Some(t) = q.back_mut() {
+		t.n ^= 2;
+	}
+	out.extend(q.iter().map(|t| t.n as u8));
+	out.push(tally.n as u8);
+
+	let mut hash = HashMap::new();
+	hash.insert(0u8, pair);
+	hash.insert(1, pair);
+	if let Some(p) = hash.get_mut(&0) {
+		p.0 ^= 1;
+	}
+	hash.entry(2).or_insert(pair).1 ^= 2;
+	out.extend((0..3).flat_map(|k| hash.get(&k).map_or([0xff; 2], |p| [p.0, p.1])));
+	let mut tree = BTreeMap::new();
+	tree.insert(0u8, pair);
+	tree.insert(1, pair);
+	if let Some(p) = tree.get_mut(&1) {
+		p.1 ^= 1;
+	}
+	out.extend(tree.values().flat_map(|p| [p.0, p.1]));
+
+	let mut boxed = Box::new(pair);
+	boxed.0 ^= 1;
+	let mut holders = vec![Holder { pair }];
+	let holder = Holder { pair };
+	holders.push(holder);
+	holders[1].pair.1 ^= 2;
+	out.extend_from_slice(&[boxed.0, boxed.1, holders[0].pair.1, holders[1].pair.1]);
+	out.push(bump(Holder { pair }));
+	let mut held = hold(pair);
+	held.pair.1 ^= 4;
+	holders.push(hold(pair));
+	holders[2].pair.0 ^= 8;
+	out.extend_from_slice(&[held.pair.1, holders[2].pair.0]);
+	out.extend_from_slice(&[pair.0, pair.1]);
+}

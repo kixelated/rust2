@@ -648,6 +648,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx.type_is_copy_modulo_regions(self.typing_env(), ty)
 	}
 
+	/// Whether a call of `def_id` with `args` runs a function of the crate, which it
+	/// translates, rather than std's.
+	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
+		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
+			Ok(Some(instance)) => matches!(instance.def, InstanceKind::Item(did) if did.is_local()),
+			_ => false,
+		}
+	}
+
 	/// A local struct or enum, translating its definition the first time.
 	pub fn adt(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
 		if let Some(info) = self.adts.get(&adt.did()) {

@@ -369,6 +369,35 @@ fn shares(data: &[u8], out: &mut Vec<u8>) {
 	let mut bytes = [a, 1];
 	out.push(unsized_copy(&mut bytes));
 	out.push(bytes[0]);
+	let at = data.get(1).map_or(0, |&b| b as usize % 3);
+	out.push(write_at(&mut bytes, at, a));
+	out.extend_from_slice(&bytes);
+	let mut points = vec![Point::new(a as i32, 0); 2];
+	moved_at(&mut points, at);
+	out.extend_from_slice(&[points[0].x as u8, points[1].x as u8, points[1].y as u8]);
+}
+
+/// `live[at]`, written with `b`, then changed through its first byte, and through a
+/// reborrow that may move past it: an index past the end panics as native Rust does.
+#[inline(never)]
+fn write_at(live: &mut [u8], at: usize, b: u8) -> u8 {
+	live[at] = b;
+	live[0] ^= live[at].wrapping_add(1);
+	// Reassigned, so its bounds checks read its length apart from `rt.idx`.
+	let mut rest = &mut *live;
+	if b % 2 == 0 {
+		rest = &mut rest[1..];
+	}
+	rest[0] = rest[0].wrapping_add(3);
+	live[at]
+}
+
+/// `live[at]` moved right by one, and its neighbor by its new `x`: an index past the end
+/// panics as native Rust does.
+#[inline(never)]
+fn moved_at(live: &mut [Point], at: usize) {
+	live[at].x += 1;
+	live[1].y = live[at].x;
 }
 
 /// A `Copy` struct holding another by value.
@@ -1200,6 +1229,14 @@ fn payloads(data: &[u8], out: &mut Vec<u8>) {
 	if let Ok(v) = &mut replaced {
 		out.push(std::mem::replace(v, 0x42));
 	}
+	let mut named: Result<String, u8> = Ok(String::new());
+	if let Ok(s) = &mut named {
+		s.push('r');
+	}
+	out.push(match named {
+		Ok(s) => s.len() as u8,
+		Err(e) => e,
+	});
 	let mut taken: Result<Option<u8>, u8> = Ok(n.checked_sub(1));
 	if let Ok(o) = &mut taken {
 		out.push(o.take().unwrap_or(0x43));

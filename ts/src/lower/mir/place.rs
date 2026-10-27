@@ -113,7 +113,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ProjectionElem::Field(field, _) => {
 					e = self.field(e, ty, pty.variant_index, field, span);
 				}
-				ProjectionElem::Downcast(..) => {}
+				ProjectionElem::Downcast(_, variant) => {
+					if !e.path_key().is_some_and(|key| self.switched.contains(&key)) {
+						e = self.as_variant(e, ty, variant, span);
+					}
+				}
 				ProjectionElem::Index(index) => {
 					let i = self.local_expr(index, span);
 					e = e.index(i);
@@ -177,6 +181,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			span,
 			format!("a mutable borrow of a subslice of `{elem}`, which JS would copy, having no views"),
 		))
+	}
+
+	/// `base`, a `ty`, cast to its `variant`, which MIR reads without a switch where the
+	/// others can't be, as a derived `==` reads the other operand after comparing
+	/// discriminants. `tsc` narrows only what a switch tests.
+	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
+		let tcx = self.tcx;
+		let ty::Adt(adt, args) = ty.kind() else {
+			return base;
+		};
+		if !adt.did().is_local() || !matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) {
+			return base;
+		}
+		let def = adt.variant(variant);
+		let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
+		for (i, field) in def.fields.iter().enumerate() {
+			let ty = self.b.t.ty(field.ty(tcx, args).skip_norm_wip(), span);
+			fields.push((crate::lower::field_name(field.name.as_str(), i), ty));
+		}
+		Expr::As(Box::new(base), crate::ts::Type::Object(fields))
 	}
 
 	/// A field of `base`, a `ty`, in `variant` if it was downcast to one.
@@ -278,10 +302,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					false => self.b.t.copied(value, ty, span),
 				}
 			}
+			// Moved out of a local's own value changed in place, which is its own.
 			Operand::Move(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 				let value = self.place_expr(*place, span, out);
-				match self.into_frozen {
+				match self.into_frozen || super::own(*place) && self.mutated[place.local] {
 					true => value,
 					false => self.b.t.copied(value, ty, span),
 				}
