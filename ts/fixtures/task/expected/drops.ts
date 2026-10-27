@@ -2,6 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Guard_Bomb_Held, drop$Held, drop$Mutex_Held, drop$Option_Box_Held, drop$Option_Held, drop$Pair_Held, drop$Result_Guard_Guard, drop$Result_u8_Key, drop$Wrap_Arc_Held, drop$Wrap_Guard, drop$Wrap_Held, drop$Wrap_Pair_Held, drop$Wrap_Vec_Wrap_Held } from "./lib.ts";
+import { unwrapOr$Option_Guard, unwrapOr$Option_u64, mapOr$Option_u32_Guard_options_closure2, okOr$Option_Guard_Guard } from "./core/option.ts";
+import { ok$Result_Guard_Guard, err$Result_Guard_Guard, inspectErr$Result_u8_Key_tripped_closure6, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import type * as Fault from "./drops.Fault.ts";
 import * as Held from "./drops.Held.ts";
@@ -719,7 +721,7 @@ export class heldFuture {
 				unwind = 43;
 				const result: rt.u64 | undefined = _36;
 				rt.drop(this.#awaitee);
-				const value: rt.u64 = rt.optionUnwrapOr(result, 0);
+				const value: rt.u64 = unwrapOr$Option_u64(result, 0);
 				const _51: rt.usize = this.#held.length;
 				const _54: boolean = Held.isSome(this.#wrap.inner.value);
 				const arg = this.#id;
@@ -1598,7 +1600,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_10 = _11;
 		const _14: Guard.Guard = guard(2);
 		_218 = false;
-		some = rt.optionOkOr(_10, _14, rt.drop);
+		some = okOr$Option_Guard_Guard(_10, _14);
 		_218 = false;
 		if (!(at > 8)) {
 			_217 = true;
@@ -1612,7 +1614,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 124;
 		const _23: Guard.Guard = guard(3);
 		_217 = false;
-		none = rt.optionOkOr(_18, _23, rt.drop);
+		none = okOr$Option_Guard_Guard(_18, _23);
 		unwind = 112;
 		_217 = false;
 		const _32: boolean = some.ok;
@@ -1620,11 +1622,11 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_32, f), (f: rt.Formatter) => rt.fmtBool(_35, f)];
 		Log.note(log, rt.fmtFormat(["ok_or ", args2[0], " ", args2[1]]));
 		check(1);
-		ok = rt.resultOk(rt.Ok(guard(4)), rt.drop);
+		ok = ok$Result_Guard_Guard(rt.Ok(guard(4)));
 		unwind = 111;
-		err = rt.resultOk(rt.Err(guard(5)), rt.drop);
+		err = ok$Result_Guard_Guard(rt.Err(guard(5)));
 		unwind = 110;
-		flipped = rt.resultErr(rt.Ok(guard(6)), rt.drop);
+		flipped = err$Result_Guard_Guard(rt.Ok(guard(6)));
 		unwind = 109;
 		const _66: boolean = ok !== undefined;
 		const _69: boolean = err !== undefined;
@@ -1638,14 +1640,14 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_84 = _85;
 		const _88: Guard.Guard = guard(8);
 		_216 = false;
-		kept = rt.optionUnwrapOr(_84, _88, rt.drop);
+		kept = unwrapOr$Option_Guard(_84, _88);
 		unwind = 120;
 		_216 = false;
 		_215 = true;
 		_92 = undefined as Guard.Guard | undefined;
 		const _93: Guard.Guard = guard(9);
 		_215 = false;
-		fallback = rt.optionUnwrapOr(_92, _93, rt.drop);
+		fallback = unwrapOr$Option_Guard(_92, _93);
 		unwind = 107;
 		_215 = false;
 		const _98: Guard.Guard = guard(10);
@@ -1654,7 +1656,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_97 = rt.Ok(_98);
 		const _101: Guard.Guard = guard(11);
 		_214 = false;
-		value = rt.resultUnwrapOr(_97, _101, rt.drop, rt.drop);
+		value = unwrapOr$Result_Guard_Guard(_97, _101);
 		unwind = 106;
 		_214 = false;
 		const _106: Guard.Guard = guard(12);
@@ -1663,7 +1665,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_105 = rt.Err(_106);
 		const _109: Guard.Guard = guard(13);
 		_213 = false;
-		error = rt.resultUnwrapOr(_105, _109, rt.drop, rt.drop);
+		error = unwrapOr$Result_Guard_Guard(_105, _109);
 		unwind = 105;
 		_213 = false;
 		const _118: rt.u32 = Guard.id(kept);
@@ -1673,14 +1675,14 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_118, f), (f: rt.Formatter) => rt.u32Display(_121, f), (f: rt.Formatter) => rt.u32Display(_124, f), (f: rt.Formatter) => rt.u32Display(_127, f)];
 		Log.note(log, rt.fmtFormat(["unwrap_or ", args6[0], " ", args6[1], " ", args6[2], " ", args6[3]]));
 		check(3);
-		mapped = rt.optionMapOr(id, guard(14), (n2: rt.u32): Guard.Guard => {
+		mapped = mapOr$Option_u32_Guard_options_closure2(id, guard(14), (n2: rt.u32): Guard.Guard => {
 			Log.note(log, rt.fmtFormat(["mapped"]));
 			return Guard.new(rt.u32Add(n2, 15), Log.clone$Clone(log));
-		}, rt.drop);
+		});
 		unwind = 104;
-		unmapped = rt.optionMapOr(undefined as rt.u32 | undefined, guard(16), (n3: rt.u32): Guard.Guard => {
+		unmapped = mapOr$Option_u32_Guard_options_closure2(undefined as rt.u32 | undefined, guard(16), (n3: rt.u32): Guard.Guard => {
 			return Guard.new(n3, Log.clone$Clone(log));
-		}, rt.drop);
+		});
 		unwind = 103;
 		const _157: rt.u32 = Guard.id(mapped);
 		const _160: rt.u32 = Guard.id(unmapped);
@@ -2494,10 +2496,10 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 				_155 = false;
 				rt.drop(_109);
 			} else {
-				rt.drop(rt.optionMapOr(id, guard(3), (n4: rt.u32): Guard.Guard => {
+				rt.drop(mapOr$Option_u32_Guard_options_closure2(id, guard(3), (n4: rt.u32): Guard.Guard => {
 					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(n4, f)];
 					rt.panicFmt(["d", args4[0], " mapped"]);
-				}, rt.drop));
+				}));
 			}
 		} else if (at === 5) {
 			if (!tree) {
@@ -2507,11 +2509,11 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 			}
 		} else if (at === 6) {
 			if (!tree) {
-				drop$Result_u8_Key(rt.resultInspectErr(rt.Err(key(3)), (k: Key.Key): void => {
+				drop$Result_u8_Key(inspectErr$Result_u8_Key_tripped_closure6(rt.Err(key(3)), (k: Key.Key): void => {
 					const arg = k.id;
 					const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 					rt.panicFmt(["k", args2[0], " inspected"]);
-				}, rt.drop));
+				}));
 			} else {
 				rt.resultUnwrapErr(rt.Ok(key(3)), (value: Key.Key, f: rt.Formatter) => Key.fmt$Debug(value, f), rt.drop);
 			}

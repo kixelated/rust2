@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::print;
-use crate::ts::{FieldId, Function, Item, SymId};
+use crate::ts::{self, FieldId, Function, Item, SymId};
 
 /// The runtime every module imports helpers from, written beside the crate root: each
 /// file's path from there, and its text.
@@ -90,6 +90,10 @@ pub struct Program {
 	pub methods: HashMap<SymId, Vec<Function>>,
 	/// The structs whose values are plain objects; the others are classes.
 	pub plain: HashSet<SymId>,
+	/// The instances of std's functions, which [`Program::merge`] merges.
+	pub std: HashSet<SymId>,
+	/// Those merged into another, which have no name of their own.
+	merged: HashSet<SymId>,
 	pub sources: Vec<Source>,
 }
 
@@ -108,6 +112,59 @@ impl Program {
 		self.fields.len() - 1
 	}
 
+	/// Make one function of the instances of a std function whose output is the same, as
+	/// those over closures of one signature are: the first in order, which the others'
+	/// callers then call. Each merge can make their callers the same too.
+	pub fn merge(&mut self) {
+		loop {
+			let mut same: HashMap<SymId, SymId> = HashMap::new();
+			let mut kept: HashMap<(&ModPath, &str, &[ts::Param], &ts::Type, &[ts::Stmt]), SymId> = HashMap::new();
+			let mut functions: Vec<&Function> = (self.items.iter())
+				.filter_map(|item| match item {
+					Item::Function(f) if self.std.contains(&f.sym) => Some(f),
+					_ => None,
+				})
+				.collect();
+			functions.sort_by_key(|f| self.syms[f.sym].key());
+			for f in functions {
+				let sym = &self.syms[f.sym];
+				let key = (&sym.module, sym.base.as_str(), &f.params[..], &f.ret, &f.body[..]);
+				let first = *kept.entry(key).or_insert(f.sym);
+				if first != f.sym {
+					same.insert(f.sym, first);
+				}
+			}
+			if same.is_empty() {
+				return;
+			}
+			self.items
+				.retain(|item| !matches!(item, Item::Function(f) if same.contains_key(&f.sym)));
+			let mut rename = |id: &mut SymId| {
+				if let Some(&to) = same.get(id) {
+					*id = to;
+				}
+			};
+			let functions = self.items.iter_mut().filter_map(|item| match item {
+				Item::Function(f) => Some(f),
+				_ => None,
+			});
+			for f in functions.chain(self.methods.values_mut().flatten()) {
+				ts::syms_mut(&mut f.body, &mut rename);
+			}
+			for item in &mut self.items {
+				if let Item::Struct { fields, .. } = item {
+					for field in fields {
+						if let ts::FieldInit::Value(e) = &mut field.init {
+							e.syms_mut(&mut rename);
+						}
+					}
+				}
+			}
+			self.std.retain(|id| !same.contains_key(id));
+			self.merged.extend(same.into_keys());
+		}
+	}
+
 	/// Put every item and method in order, and name every symbol and field, resolving
 	/// collisions within each scope in that order.
 	pub fn name(&mut self) {
@@ -120,6 +177,9 @@ impl Program {
 
 		let mut scopes: BTreeMap<Scope, Vec<SymId>> = BTreeMap::new();
 		for (id, sym) in self.syms.iter().enumerate() {
+			if self.merged.contains(&id) {
+				continue;
+			}
 			let scope = match sym.owner {
 				Some(owner) => Scope::Owner(owner),
 				None => Scope::Module(sym.module.clone()),
