@@ -14,13 +14,30 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
-		rt.drop(this.log);
+		let dropped: number = 0;
+		try {
+			drop$Drop(this);
+			dropped = 1;
+			rt.drop(this.log);
+		} catch (e) {
+			if (dropped < 1) {
+				rt.drop(this.log);
+			}
+			throw e;
+		}
 	}
 }
 
-function new_(id: rt.u32, log: Log.Log): Guard {
-	return new Guard({ id, log });
+function new_(id_: rt.u32, log_: Log.Log): Guard {
+	return new Guard({ id: id_, log: log_ });
+}
+
+export function id(self: Guard): rt.u32 {
+	return self.id;
+}
+
+export function log(self: Guard): Log.Log {
+	return self.log;
 }
 
 /** Log `event` as this guard's. */
