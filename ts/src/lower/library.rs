@@ -240,6 +240,37 @@ fn is_std(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	matches!(tcx.crate_name(did.krate).as_str(), "core" | "alloc" | "std")
 }
 
+/// If `instance` is a method of std's `PartialEq`, `PartialOrd`, `Ord`, or `Hash` impl
+/// for references, which calls its referents' with the operands dereferenced, the
+/// generic arguments of that call. A reference is its referent in JS, so the operands
+/// pass as they are.
+pub fn referent<'tcx>(
+	tcx: TyCtxt<'tcx>,
+	def_id: DefId,
+	gargs: GenericArgsRef<'tcx>,
+	instance: Instance<'tcx>,
+) -> Option<GenericArgsRef<'tcx>> {
+	let tr = tcx.trait_of_assoc(def_id)?;
+	// A method the impl leaves to its trait's default, as `Ord::max` is, is not forwarded.
+	let imp = tcx.impl_of_assoc(instance.def_id())?;
+	if !is_std(tcx, imp) {
+		return None;
+	}
+	let operands = match tcx.get_diagnostic_name(tr)?.as_str() {
+		"PartialEq" | "PartialOrd" => 2,
+		"Ord" | "Hash" => 1,
+		_ => return None,
+	};
+	let mut args = gargs.to_vec();
+	for arg in &mut args[..operands] {
+		let ty::Ref(_, pointee, _) = arg.as_type()?.kind() else {
+			return None;
+		};
+		*arg = (*pointee).into();
+	}
+	Some(tcx.mk_args(&args))
+}
+
 /// Whether `Clone` of `ty`, a `Copy` type, only copies: no `Clone` written by hand runs
 /// for it or anything in it, as a derived or std `Clone` clones each field.
 pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
