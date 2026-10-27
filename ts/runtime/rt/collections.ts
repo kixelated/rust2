@@ -573,16 +573,16 @@ const VALUES = 2;
  * One that owns its entries is given what drops each key and value of those that drop,
  * and drops each entry it still holds as it drops.
  */
-class HashIter<K, V, T> extends Iter<T> {
+export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
 	private at: Slot<K, V> | undefined;
 	private readonly pick: Pick;
-	private left: number;
+	left: number;
 	private readonly k: ((key: K) => void) | undefined;
 	private readonly v: ((value: V) => void) | undefined;
 	/** Whether it is a `drain`, whose `count` reads each entry, as an `into_iter`'s does not. */
-	private readonly drain: boolean;
+	readonly drain: boolean;
 
 	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
@@ -617,15 +617,7 @@ class HashIter<K, V, T> extends Iter<T> {
 		return this.left;
 	}
 
-	/** std's `into_iter`'s: its length, and then each entry drops with it. */
-	override countItems(drop?: (item: T) => void): number {
-		if (this.drain) return super.countItems(drop);
-		const n = this.left;
-		this[Symbol.dispose]();
-		return n;
-	}
-
-	override [Symbol.dispose](): void {
+	[Symbol.dispose](): void {
 		if (this.k === undefined && this.v === undefined) return;
 		// A panic leaves the entries after it undropped, as std's table does, even as what
 		// consumed it drops it again.
@@ -1209,7 +1201,7 @@ export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => bo
  * owns its entries drops as `HashIter` does, but a panic dropping one still drops the
  * rest, as std's B-trees do.
  */
-class BTreeIter<K, V, T> extends Iter<T> {
+export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 	fl: Leaf<K, V>;
 	fi: number;
 	bl: Leaf<K, V>;
@@ -1220,7 +1212,7 @@ class BTreeIter<K, V, T> extends Iter<T> {
 	private readonly k: ((key: K) => void) | undefined;
 	private readonly v: ((value: V) => void) | undefined;
 	/** Whether its `last` reads from the back, as a map's `into_keys`' and `into_values`' do. */
-	private readonly back: boolean;
+	readonly back: boolean;
 
 	constructor(pick: Pick, fl: Leaf<K, V>, fi: number, bl: Leaf<K, V>, bi: number, n = -1, k?: (key: K) => void, v?: (value: V) => void, back = false) {
 		super();
@@ -1286,16 +1278,7 @@ class BTreeIter<K, V, T> extends Iter<T> {
 		return this.n;
 	}
 
-	/** std's `into_keys`' and `into_values`': the last, and then the rest drop with it. */
-	override lastItem(drop?: (item: T) => void): T | Done {
-		if (!this.back) return super.lastItem(drop);
-		const last = this.nextBack();
-		// A panic here leaks the last, as std's unwinding does a returned value.
-		this[Symbol.dispose]();
-		return last;
-	}
-
-	override [Symbol.dispose](): void {
+	[Symbol.dispose](): void {
 		if (this.k === undefined && this.v === undefined) return;
 		const keys: K[] = [];
 		const values: V[] = [];
@@ -1829,7 +1812,7 @@ export function dequeInsert<T>(q: VecDeque<T>, i: number, item: T): void {
  * An iterator of a deque's items from index `front` up to `back`, which drops those it
  * still holds by `drop` as it drops, if it owns them, as a `drain` does.
  */
-class DequeIter<T> extends Iter<T> {
+class DequeIter<T> extends Iter<T> implements Disposable {
 	private readonly q: VecDeque<T>;
 	private front: number;
 	private back: number;
@@ -1855,7 +1838,7 @@ class DequeIter<T> extends Iter<T> {
 		return this.back - this.front;
 	}
 
-	override [Symbol.dispose](): void {
+	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const items: T[] = [];
 		while (this.front < this.back) items.push(this.q.b[at(this.q, this.front++)] as T);
