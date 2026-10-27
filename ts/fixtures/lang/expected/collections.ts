@@ -783,7 +783,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const o: rt.Ordering = rt.orderingThen(rt.orderingReverse(Nibble.cmp$Ord(a2, b4)), (): rt.Ordering => {
 				return rt.cmp(y, x);
 			}, true);
-			rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1) === 0 ? 1 : 0) << 2) & 0xff));
+			rt.byteVecPush(out, (o < 0 ? 1 : 0) | (((o >= 0 ? 1 : 0) << 1) & 0xff) | (((rt.orderingThen(Nibble.cmp$Ord(a2, b4), -1 as rt.Ordering) === 0 ? 1 : 0) << 2) & 0xff));
 			if (o === -1) {
 				_401 = 1;
 			} else if (o === 0) {

@@ -211,6 +211,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for arg in args {
 			let value = self.operand_frozen(&arg.node, span, out);
 			values.push(match &arg.node {
+				// Its type, rather than its variant's, for std's runtime function to infer
+				// its type parameters from, as `widen` gives a local's.
+				Operand::Constant(c) if !translated && self.b.t.narrows(c.ty()) => {
+					let ty = self.b.t.ty(c.ty(), span);
+					super::whole(value, ty).unwrap_or_else(|value| value)
+				}
 				Operand::Copy(p) | Operand::Move(p)
 					if self.moved_from(&arg.node).is_none()
 						&& self.keeps(translated, args, p.ty(&self.mir.local_decls, self.tcx).ty, result) =>
