@@ -1098,8 +1098,8 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (_88 !== undefined) {
 		_88.v[0] = _88.v[0] ^ 1;
 	}
-	const place = rt.entryOrInsertMut(rt.entry(hash, 2), copy$u8_u8(pair));
-	place.v[1] = place.v[1] ^ 2;
+	const _93: rt.Place<[rt.u8, rt.u8]> = rt.entryOrInsertMut(rt.entry(hash, 2), copy$u8_u8(pair));
+	_93.v[1] = _93.v[1] ^ 2;
 	rt.iterExtendBytes(out, rt.iterFlatMap(new rt.Range(0, 3), (k: rt.u8): Uint8Array => {
 		return rt.optionMapOr(rt.hashGet(hash, k), rt.bytes(2).fill(255), (p2: [rt.u8, rt.u8]): Uint8Array => {
 			return Uint8Array.of(p2[0], p2[1]);

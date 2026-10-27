@@ -12,11 +12,6 @@ pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }
 
-/// JS has no reference to a number: the caller's `u32` would not change.
-pub fn bump(x: &mut u32) {
-	*x += 1;
-}
-
 /// Each element would be a copy, so the increments would be lost.
 pub fn increment(v: &mut [u32]) {
 	for x in v {
@@ -59,16 +54,6 @@ pub fn each(v: Vec<Noisy>) -> u8 {
 	sum
 }
 
-/// The async block's generator would change its own copy of `n`.
-pub fn async_borrow() -> u8 {
-	let mut n = 1u8;
-	let f = async {
-		n += 1;
-	};
-	drop(f);
-	n
-}
-
 /// An async closure is a coroutine closure, not an async body.
 pub fn async_closure() -> u8 {
 	let f = async || 1u8;
@@ -91,7 +76,7 @@ pub fn specs(n: u8, w: usize) -> [String; 9] {
 	]
 }
 
-/// `fmt::Write` for a `String`, which a JS string can't be changed through.
+/// `fmt::Write` for a `String`, which has no mapping.
 pub fn written(s: &mut String, n: u8) {
 	use std::fmt::Write;
 	let _ = write!(s, "{n}");
@@ -361,7 +346,7 @@ pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<
 	a.max(b)
 }
 
-/// A reference to a value a map holds that JS copies, passed on, where no `rt.Place` follows it.
+/// std hands its closure a `&mut` to a value JS copies, which its mapping has as the value.
 pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	map.get_mut(&1).map_or(0, |v| {
 		*v += 1;
@@ -377,11 +362,6 @@ pub fn shifted(v: &mut [(u8, u8)]) {
 /// An `Arc`'s bytes would need a `ByteSlice` made inside it.
 pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
-}
-
-/// A `String` pushed to through a parameter, whose JS value is the caller's copy.
-pub fn pushed(s: &mut String) {
-	s.push('a');
 }
 
 /// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
@@ -424,4 +404,28 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 		drop(c);
 	}
 	std::sync::Arc::strong_count(a)
+}
+
+/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
+pub fn last_bumped(v: &mut Vec<u32>) {
+	if let Some(x) = v.last_mut() {
+		*x += 1;
+	}
+}
+
+/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
+pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
+	map.entry(1).and_modify(|v| *v += 1);
+}
+
+fn bumped(x: &mut u8) {
+	*x += 1;
+}
+
+/// A `Result`'s value passed on: a store through it makes the `Result` again, which no
+/// `rt.Place` of a path does.
+pub fn ok_passed(r: &mut Result<u8, u8>) {
+	if let Ok(v) = r {
+		bumped(v);
+	}
 }

@@ -35,6 +35,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// gets here, and `tsc` sees that through `rt.unreachable`.
 			Slot::Unit if self.mir.local_decls[local].ty.is_never() => Expr::rt("unreachable", vec![Expr::undefined()]),
 			Slot::Unit => Expr::undefined(),
+			// Passed on or kept, a `&mut` to a borrowed place JS copies is its `rt.Place`.
+			Slot::Alias(Some(target)) if self.points_at_place(local) => {
+				let target = target.clone();
+				let payload = match self.def_rvalue(local) {
+					Some(mir::Rvalue::Ref(_, _, p)) => self.payload_ty(*p, span),
+					_ => None,
+				};
+				self.place_of(target, payload)
+			}
 			Slot::Alias(Some(target)) => target.clone(),
 			Slot::Alias(None) => self.err(span, "a reference read before its borrow"),
 			Slot::Discr(_) => self.err(span, "a discriminant read other than by a switch"),
@@ -64,9 +73,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				match projection.next() {
 					Some(elem @ ProjectionElem::Field(field, _)) => {
 						pty = pty.projection_ty(tcx, elem);
-						match captures.get(field.as_usize()) {
-							Some(capture) => capture.clone(),
-							None => return self.err(span, "a capture the closure doesn't have"),
+						let Some(capture) = captures.get(field.as_usize()) else {
+							return self.err(span, "a capture the closure doesn't have");
+						};
+						let (value, pointee) = (capture.value.clone(), capture.pointee);
+						match projection.peek() {
+							Some(ProjectionElem::Deref) if pointee => {
+								pty = pty.projection_ty(tcx, ProjectionElem::<Local, Ty<'tcx>>::Deref);
+								projection.next();
+								value
+							}
+							// Passed on or kept whole, it is the place's `rt.Place`.
+							None if pointee => self.place_of(value, None),
+							_ => value,
 						}
 					}
 					_ => return self.err(span, "a closure's environment read whole"),
@@ -94,6 +113,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				projection.next();
 				part
 			}
+			// An alias of a borrowed place is that place, which the dereference reads.
+			_ if matches!(projection.peek(), Some(ProjectionElem::Deref)) && self.points_at_place(place.local) => {
+				let Slot::Alias(Some(target)) = &self.slots[place.local] else {
+					return self.err(span, "a reference read before its borrow");
+				};
+				let target = target.clone();
+				pty = pty.projection_ty(tcx, ProjectionElem::<Local, Ty<'tcx>>::Deref);
+				projection.next();
+				target
+			}
 			_ => self.local_expr(place.local, span),
 		};
 		// Checked arithmetic's pair is its value, and `.1` is whether it overflowed, which
@@ -119,6 +148,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
 				ProjectionElem::Deref => {
+					// Drop glue's pointer is the value it drops.
+					let glue =
+						matches!(self.env, Env::Shim) && place.local.as_u32() == 1 && pty.ty == decls[place.local].ty;
+					if self.b.t.place_pointee(ty).is_some() && !glue {
+						e = e.member("v");
+					}
 					// A box's pointer is the box in JS: one to an object shares it.
 					if let ty::RawPtr(pointee, _) = ty.kind()
 						&& !matches!(self.slots[place.local], Slot::Alias(_))
@@ -426,9 +461,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		// `*r = v` replaces the object `r` points at in place, which other references and
 		// captures share. An alias of a borrowed place, or of a reference to no object,
-		// assigns the place.
+		// assigns the place, and an `rt.Place` its `v`.
 		if let [ProjectionElem::Deref] = place.projection.as_slice()
 			&& !self.alias_of_place(place.local)
+			&& self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_none()
 			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)))
 		{
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
@@ -512,11 +548,141 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn alias_of_place(&self, local: Local) -> bool {
 		matches!(self.slots[local], Slot::Alias(_))
 			&& match self.def_rvalue(local) {
-				Some(mir::Rvalue::Ref(_, _, p)) => !matches!(p.projection.last(), Some(ProjectionElem::Deref)),
+				// A reborrow of what an alias of a borrowed place points at borrows that place.
+				Some(mir::Rvalue::Ref(_, _, p)) => match p.projection.as_slice() {
+					[ProjectionElem::Deref] => self.points_at_place(p.local),
+					[.., ProjectionElem::Deref] => false,
+					_ => true,
+				},
+				// A copy of a `&mut` the closure captured by reference.
+				Some(mir::Rvalue::CopyForDeref(p) | mir::Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)) => {
+					self.pointee_capture(*p).is_some()
+				}
 				Some(_) => false,
 				// An element `index_mut` borrows.
 				None => true,
 			}
+	}
+
+	/// The place `place` borrows, if it is a `&mut` the closure captured by reference.
+	pub(super) fn pointee_capture(&self, place: Place<'tcx>) -> Option<Expr> {
+		let Env::Closure(captures) = &self.env else {
+			return None;
+		};
+		let ([ProjectionElem::Field(field, _)] | [ProjectionElem::Deref, ProjectionElem::Field(field, _)]) =
+			place.projection.as_slice()
+		else {
+			return None;
+		};
+		let capture = captures
+			.get(field.as_usize())
+			.filter(|c| c.pointee && place.local.as_u32() == 1)?;
+		Some(capture.value.clone())
+	}
+
+	/// Whether `local` is an `rt.Place` reference that aliases the place it borrows, so its
+	/// target is that place rather than the `rt.Place`.
+	pub(super) fn points_at_place(&self, local: Local) -> bool {
+		self.b.t.place_pointee(self.mir.local_decls[local].ty).is_some() && self.alias_of_place(local)
+	}
+
+	/// The `rt.Place` of `target`, the JS path of the borrowed `place`, fixed where it is now.
+	pub(super) fn make_place(&mut self, place: Place<'tcx>, target: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let target = self.stable_target(place, target, span, out);
+		let payload = self.payload_ty(place, span);
+		self.place_of(target, payload)
+	}
+
+	/// The type of `place` if it is a variant's payload, whose JS path is its whole enum,
+	/// as `Some`'s is the `Option`.
+	pub(super) fn payload_ty(&mut self, place: Place<'tcx>, span: Span) -> Option<crate::ts::Type> {
+		let downcast = place.iter_projections().any(|(base, e)| {
+			matches!(e, ProjectionElem::Downcast(..)) && base.ty(&self.mir.local_decls, self.tcx).ty.is_enum()
+		});
+		downcast.then(|| self.b.t.ty(place.ty(&self.mir.local_decls, self.tcx).ty, span))
+	}
+
+	/// `target`, the JS path of the borrowed `place`, with the objects and index it goes
+	/// through held where they are now, as the borrow fixes them, for an `rt.Place` that
+	/// reads and writes it later.
+	pub(super) fn stable_target(&mut self, place: Place<'tcx>, target: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		// A store into a `Result`'s value makes the `Result` again, which a path can't.
+		for (base, elem) in place.iter_projections() {
+			if let ProjectionElem::Downcast(..) = elem
+				&& let Some(std @ (Std::Result | Std::ControlFlow)) =
+					self.b.t.std_of(base.ty(&self.mir.local_decls, self.tcx).ty)
+			{
+				return self.err(
+					span,
+					format!("a mutable reference into a `{std:?}`'s payload, passed on or kept"),
+				);
+			}
+		}
+		self.stable_path(target, super::own(place), span, out)
+	}
+
+	/// `target`, a path, with the index it goes through held where it is now, and the
+	/// object too unless it is a local's `own` value, which can't change while borrowed.
+	pub(super) fn stable_path(&mut self, target: Expr, own: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		self.materialize(&target, out);
+		let mut base = |fx: &mut Self, e: Expr| match own {
+			true => e,
+			false => fx.held_now(e, out),
+		};
+		match target {
+			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			Expr::Ident(_) | Expr::This => target,
+			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
+			Expr::Index(object, i) => {
+				let object = base(self, *object);
+				Expr::Index(Box::new(object), Box::new(self.held_now(*i, out)))
+			}
+			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
+		}
+	}
+
+	/// `e`, evaluated now into a constant unless reading it later reads the same.
+	fn held_now(&mut self, e: Expr, out: &mut Vec<Stmt>) -> Expr {
+		if e.is_constant() || matches!(e, Expr::This) || self.stable_name(&e) {
+			return e;
+		}
+		let name = self.b.fresh("borrowed");
+		let stmt = StmtKind::decl(false, name.clone(), None, Some(e)).at(None);
+		self.emit(vec![stmt], None, false, out);
+		Expr::ident(name)
+	}
+
+	/// The `rt.Place` that reads and writes `target`, a path that stays put, read as
+	/// `payload` if it is a variant's.
+	pub(super) fn place_of(&mut self, target: Expr, payload: Option<crate::ts::Type>) -> Expr {
+		let value = self.b.fresh("value");
+		let param = crate::ts::Param {
+			name: value.clone(),
+			ty: None,
+		};
+		let read = match payload {
+			Some(ty) => Expr::As(Box::new(target.clone()), ty),
+			None => target.clone(),
+		};
+		let get = Expr::Lambda(Vec::new(), Box::new(read));
+		let set = Expr::Lambda(vec![param], Box::new(target.assign(Expr::ident(value))));
+		Expr::rt("place", vec![get, set])
+	}
+
+	/// The `rt.Place` of `place`, a reborrow `&mut *r` of a reference `r` that is one, which is `r`'s.
+	pub(super) fn reborrowed(&mut self, place: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let [rest @ .., ProjectionElem::Deref] = place.projection.as_slice() else {
+			return None;
+		};
+		let base = Place {
+			local: place.local,
+			projection: self.tcx.mk_place_elems(rest),
+		};
+		let base_ty = base.ty(&self.mir.local_decls, self.tcx).ty;
+		if self.b.t.place_pointee(base_ty).is_none() || base.as_local().is_some_and(|l| self.alias_of_place(l)) {
+			return None;
+		}
+		Some(self.place_expr(base, span, out))
 	}
 
 	/// `SetDiscriminant`: a coroutine's state.

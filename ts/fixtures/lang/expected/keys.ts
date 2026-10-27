@@ -780,10 +780,10 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const k: rt.u8 = rt.u8Rem(b, 97);
 		const _18: rt.u8 = rt.u8Rem(b, 6);
 		if (_18 === 0) {
-			const place8 = rt.entryOrInsertWithMut(rt.entry(counts, k), (): rt.usize => {
+			const _20: rt.Place<rt.usize> = rt.entryOrInsertWithMut(rt.entry(counts, k), (): rt.usize => {
 				return 0;
 			});
-			place8.v = rt.usizeAdd(place8.v, 1);
+			_20.v = rt.usizeAdd(_20.v, 1);
 		} else if (_18 === 1) {
 			const _24: rt.Place<rt.usize> | undefined = rt.btreeGetMut(counts, k);
 			if (_24 !== undefined) {
@@ -795,40 +795,40 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_18 === 2) {
 			const _35: rt.Entry<rt.u8, rt.usize> = rt.entry(counts, k);
 			if (!rt.entryOccupied(_35)) {
-				const place7 = rt.entryOrInsertMut(_35, i);
-				place7.v = rt.usizeAdd(place7.v, 2);
+				const _50: rt.Place<rt.usize> = rt.entryOrInsertMut(_35, i);
+				_50.v = rt.usizeAdd(_50.v, 2);
 			} else if (!(rt.entryGet(_35) > 1)) {
-				const place6 = rt.entryGetMut(_35);
-				place6.v = rt.usizeAdd(place6.v, 7);
+				const _47: rt.Place<rt.usize> = rt.entryGetMut(_35);
+				_47.v = rt.usizeAdd(_47.v, 7);
 			} else {
-				const place5 = rt.entryGetMut(_35);
-				place5.v = rt.usizeMul(place5.v, 3);
+				const _43: rt.Place<rt.usize> = rt.entryGetMut(_35);
+				_43.v = rt.usizeMul(_43.v, 3);
 			}
 		} else if (_18 === 3) {
-			const place4 = rt.entryOrInsertWithMut(rt.entry(counts, k), (): rt.usize => {
+			const c: rt.Place<rt.usize> = rt.entryOrInsertWithMut(rt.entry(counts, k), (): rt.usize => {
 				return rt.usizeMul(i, 2);
 			});
-			place4.v = (place4.v ^ 5) >>> 0;
-			rt.byteVecPush(out, place4.v & 0xff);
+			c.v = (c.v ^ 5) >>> 0;
+			rt.byteVecPush(out, c.v & 0xff);
 		} else if (_18 === 4) {
 			if (!rt.btreeContains(counts, k)) {
-				const place3 = rt.entryOrInsertMut(rt.entry(counts, k), 9);
-				place3.v = (place3.v << 1) >>> 0;
+				const _69: rt.Place<rt.usize> = rt.entryOrInsertMut(rt.entry(counts, k), 9);
+				_69.v = (_69.v << 1) >>> 0;
 			} else {
-				const place2 = rt.optionExpect(rt.btreeGetMut(counts, k), "a counted key");
-				place2.v = rt.usizeAdd(place2.v, 4);
+				const _63: rt.Place<rt.usize> = rt.optionExpect(rt.btreeGetMut(counts, k), "a counted key");
+				_63.v = rt.usizeAdd(_63.v, 4);
 			}
 		} else {
-			const place = rt.optionUnwrap(rt.btreeGetMut(counts, k));
-			place.v = rt.usizeAdd(place.v, 1);
+			const _74: rt.Place<rt.usize> = rt.optionUnwrap(rt.btreeGetMut(counts, k));
+			_74.v = rt.usizeAdd(_74.v, 1);
 		}
-		const place9 = rt.entryOrInsertMut(rt.entry(wide, rt.u8Rem(b, 7)), 4503599627370496);
-		place9.v = rt.u64WrappingAdd(rt.u64WrappingAdd(place9.v, rt.u64Shr(place9.v, 1)), b as rt.u64);
+		const w: rt.Place<rt.u64> = rt.entryOrInsertMut(rt.entry(wide, rt.u8Rem(b, 7)), 4503599627370496);
+		w.v = rt.u64WrappingAdd(rt.u64WrappingAdd(w.v, rt.u64Shr(w.v, 1)), b as rt.u64);
 		const _98: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 6) };
-		const place10 = rt.entryOrInsertWithMut(rt.entry(hops, _98), (): rt.u16 => {
+		const h: rt.Place<rt.u16> = rt.entryOrInsertWithMut(rt.entry(hops, _98), (): rt.u16 => {
 			return 0;
 		});
-		place10.v = rt.u16WrappingAdd(place10.v, b as rt.u16);
+		h.v = rt.u16WrappingAdd(h.v, b as rt.u16);
 		const _108: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 4) };
 		const _105: rt.Place<rt.u16> | undefined = rt.hashGetMut(hops, _108);
 		if (_105 !== undefined) {
@@ -838,21 +838,21 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _114: rt.Entry<Hop.Hop, rt.u16> = rt.entry(hops, _116);
 		if (rt.entryOccupied(_114)) {
 			if (!(rt.entryGet(_114) > 4096)) {
-				const place13 = rt.entryGetMut(_114);
-				place13.v = place13.v | 1;
+				const _130: rt.Place<rt.u16> = rt.entryGetMut(_114);
+				_130.v = _130.v | 1;
 			} else {
-				const place12 = rt.entryGetMut(_114);
-				place12.v = rt.u16Sub(place12.v, 4096);
+				const _126: rt.Place<rt.u16> = rt.entryGetMut(_114);
+				_126.v = rt.u16Sub(_126.v, 4096);
 			}
 		} else {
-			const place11 = rt.entryOrInsertMut(_114, b as rt.u16);
-			place11.v = (place11.v << 4) & 0xffff;
+			const _132: rt.Place<rt.u16> = rt.entryOrInsertMut(_114, b as rt.u16);
+			_132.v = (_132.v << 4) & 0xffff;
 		}
 		const _139: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 3) };
-		const place14 = rt.entryOrInsertMut(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
-		const _144: rt.u8 = rt.u8WrappingAdd(place14.v[0], b);
-		place14.v[0] = _144;
-		place14.v[1] = place14.v[1] ^ place14.v[0];
+		const p: rt.Place<[rt.u8, rt.u8]> = rt.entryOrInsertMut(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
+		const _144: rt.u8 = rt.u8WrappingAdd(p.v[0], b);
+		p.v[0] = _144;
+		p.v[1] = p.v[1] ^ p.v[0];
 	}
 	const tree: rt.BTreeMap<rt.u16, rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u16, rt.u16>;
 	const _150: rt.usize = rt.usizeMul(data.length, 4);
@@ -863,8 +863,8 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _159: rt.usize = rt.usizeRem(j, data.length);
 		rt.idx(data, _159);
 		const b2: rt.u8 = data.data[data.start + _159];
-		const place15 = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
-		place15.v = rt.u16WrappingAdd(place15.v, b2 as rt.u16);
+		const v: rt.Place<rt.u16> = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
+		v.v = rt.u16WrappingAdd(v.v, b2 as rt.u16);
 	}
 	const iter3: rt.Iter<[rt.u16, rt.u16]> = rt.btreeIter(tree);
 	while (true) {
@@ -876,31 +876,31 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(_179[1])));
 	}
 	const touchy: rt.BTreeMap<Touchy.Touchy, rt.u8> = rt.btreeNew(Touchy.cmp$Ord) as rt.BTreeMap<Touchy.Touchy, rt.u8>;
-	const place16 = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const _195: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
 		return 7;
 	});
-	place16.v = rt.u8Add(place16.v, 1);
+	_195.v = rt.u8Add(_195.v, 1);
 	const hashy: rt.HashMap<Touchy.Touchy, rt.u8> = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
-	const place17 = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const _203: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
 		return 0;
 	});
-	place17.v = rt.u8Add(place17.v, 2);
+	_203.v = rt.u8Add(_203.v, 2);
 	rt.iterExtendBytes(out, rt.iterChain(rt.btreeValues(touchy), rt.hashValues(hashy)));
-	const place18 = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
+	const c2: rt.Place<rt.usize> = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
 		return 0;
 	});
 	((): void => {
-		place18.v = rt.usizeAdd(place18.v, 1);
+		c2.v = rt.usizeAdd(c2.v, 1);
 	})();
 	const spare: rt.usize[] = [data.length, 8];
-	const place19 = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
-	const swapped = place19.v;
-	place19.v = spare[0];
+	const c3: rt.Place<rt.usize> = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
+	const swapped = c3.v;
+	c3.v = spare[0];
 	spare[0] = swapped;
-	const place20 = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
+	const d: rt.Place<rt.usize> = rt.entryOrInsertWithMut(rt.entry(counts, 2), (): rt.usize => {
 		return 0;
 	});
-	place20.v = rt.usizeAdd(place20.v, spare[0]);
+	d.v = rt.usizeAdd(d.v, spare[0]);
 	const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(counts);
 	while (true) {
 		const _241: [rt.u8, rt.usize] | rt.Done = iter4.next();

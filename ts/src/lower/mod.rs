@@ -874,6 +874,28 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether a JS value of `ty` is a copy that no JS value can point at, such as a number,
+	/// so a `&mut` to it is an `rt.Place`: where the value is, read and written through `v`.
+	/// A reference's referent is the object it points at, or a copy itself.
+	pub fn needs_place(&self, ty: Ty<'tcx>) -> bool {
+		self.object_kind(ty).is_none() && !ty.is_ref()
+	}
+
+	/// What `ty` points at, if it is a `&mut` that is an `rt.Place`.
+	pub fn place_pointee(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		match ty.kind() {
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.needs_place(*inner) => Some(*inner),
+			_ => None,
+		}
+	}
+
+	/// Whether `ty` holds a `&mut` that is an `rt.Place`, a closure's captures included.
+	pub fn has_place(&self, ty: Ty<'tcx>) -> bool {
+		ty.walk()
+			.filter_map(|arg| arg.as_type())
+			.any(|t| self.place_pointee(t).is_some())
+	}
+
 	/// The TypeScript type of a Rust type.
 	pub fn ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
 		let tcx = self.tcx;
@@ -885,6 +907,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Never => Type::Builtin("never"),
 			ty::Tuple(tys) if tys.is_empty() => Type::Builtin("undefined"),
 			ty::Tuple(tys) => Type::Tuple(tys.iter().map(|t| self.ty(t, span)).collect()),
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.needs_place(*inner) => {
+				Type::Rt("Place", vec![self.ty(*inner, span)])
+			}
 			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.object_kind(*inner).is_none() => {
 				self.err(
 					span,

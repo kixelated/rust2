@@ -1905,8 +1905,8 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		count("tree", other);
 		check(1);
 		const _48: rt.Arc<string> = rt.arcClone(name);
-		const place = rt.entryOrInsertMut(rt.entry(map, _48, rt.drop), 0);
-		place.v = rt.u8Add(place.v, 1);
+		const _45: rt.Place<rt.u8> = rt.entryOrInsertMut(rt.entry(map, _48, rt.drop), 0);
+		_45.v = rt.u8Add(_45.v, 1);
 		count("entry", name);
 		rt.hashRemove(map, name, rt.drop);
 		count("remove", name);
@@ -1944,9 +1944,9 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 88;
 		const _123 = { tag: "One", _0: Guard.new(rt.u32Add(id, 1), Log.clone$Clone(log)) } as Held.Held;
 		drop$Option_Held(rt.btreeInsert(tags, 1, _123, undefined, drop$Held));
-		const place2 = rt.entryOrInsertMut(rt.entry(tags, 1), { tag: "One", _0: Guard.new(rt.u32Add(id, 2), Log.clone$Clone(log)) } as Held.Held, drop$Held);
-		if (place2.v.tag === "One") {
-			const part8 = Guard.id(place2.v._0);
+		const _128: rt.Place<Held.Held> = rt.entryOrInsertMut(rt.entry(tags, 1), { tag: "One", _0: Guard.new(rt.u32Add(id, 2), Log.clone$Clone(log)) } as Held.Held, drop$Held);
+		if (_128.v.tag === "One") {
+			const part8 = Guard.id(_128.v._0);
 			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
 			Log.note(log, rt.fmtFormat(["tag ", args4[0]]));
 		}

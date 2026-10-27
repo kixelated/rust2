@@ -118,8 +118,8 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					break;
 				}
 				const _279: string = cow(_271[1], rt.usizeRem(_271[0], 2) === 1 === owned);
-				const place = rt.entryOrInsertMut(rt.entry(counts, _279), 0);
-				place.v = rt.u8Add(place.v, 1);
+				const _276: rt.Place<rt.u8> = rt.entryOrInsertMut(rt.entry(counts, _279), 0);
+				_276.v = rt.u8Add(_276.v, 1);
 			}
 			const iter4: rt.Iter<[string, rt.u8]> = rt.btreeIter(counts);
 			while (true) {

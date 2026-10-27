@@ -85,12 +85,21 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 pub enum Env {
 	/// A parameter like any other.
 	Plain,
-	/// A closure's environment, whose fields are the expressions it captured.
-	Closure(Vec<Expr>),
+	/// A closure's environment, whose fields are what it captured.
+	Closure(Vec<Capture>),
 	/// A coroutine's state, behind `Pin<&mut Self>` or `&mut Self`: `this` of its class.
 	Coroutine,
 	/// Drop glue, whose `_1` is a pointer to the value: the value in JS.
 	Shim,
+}
+
+/// What a closure captured.
+#[derive(Clone)]
+pub struct Capture {
+	pub value: Expr,
+	/// Whether `value` is the place a `&mut` captured by reference borrows, which the
+	/// closure reads and writes as JS's do, rather than an `rt.Place` of it.
+	pub pointee: bool,
 }
 
 /// How a MIR local lowers.
@@ -225,10 +234,6 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
 	joined: FxHashSet<Local>,
-	/// `Option`s of a `&mut` to a value a map holds that JS copies, as `get_mut` returns
-	/// it: its `rt.Place` or `undefined`, which is only tested, unwrapped, or taken apart
-	/// into a reference that reads and writes through it.
-	place_opts: FxHashSet<Local>,
 	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
 	/// its arms.
 	switched: FxHashSet<String>,
@@ -291,7 +296,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			unwind_out: FxHashMap::default(),
 			halves: FxHashMap::default(),
 			joined: FxHashSet::default(),
-			place_opts: FxHashSet::default(),
 			switched: FxHashSet::default(),
 			tested: IndexVec::from_elem_n(false, n),
 			widened: FxHashSet::default(),
@@ -456,7 +460,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.find_stepped();
 		self.unborrow_passed();
 		self.find_halves();
-		self.find_place_opts();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -835,6 +838,66 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// Whether a reference in `local` is read whole, rather than only through, or a reborrow
+	/// of what it points at is: passed on, kept, or captured. A `&mut` parameter of std's
+	/// reads through it, as its mapping takes what it points at.
+	fn read_whole(&self, local: Local) -> bool {
+		use rustc_middle::mir::visit::{PlaceContext, Visitor};
+		struct Reads<'a, 'tcx> {
+			local: Local,
+			whole: bool,
+			reborrows: Vec<Local>,
+			pointees: &'a dyn Fn(&Operand<'tcx>, usize) -> bool,
+		}
+		impl<'tcx> Visitor<'tcx> for Reads<'_, 'tcx> {
+			fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, at: mir::Location) {
+				if let TerminatorKind::Call { func, args, .. } = &term.kind
+					&& args.iter().enumerate().any(|(i, a)| {
+						a.node.place().is_some_and(|p| p.as_local() == Some(self.local)) && !(self.pointees)(func, i)
+					}) {
+					self.whole = true;
+				}
+				if !matches!(term.kind, TerminatorKind::Call { .. }) {
+					self.super_terminator(term, at);
+				}
+			}
+			fn visit_assign(&mut self, to: &Place<'tcx>, rvalue: &Rvalue<'tcx>, at: mir::Location) {
+				if let Rvalue::Ref(_, _, p) = rvalue
+					&& p.local == self.local
+					&& let [mir::ProjectionElem::Deref] = p.projection.as_slice()
+					&& let Some(to) = to.as_local()
+				{
+					self.reborrows.push(to);
+				}
+				self.super_assign(to, rvalue, at);
+			}
+			fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+				let used = matches!(cx, PlaceContext::NonMutatingUse(_))
+					|| matches!(cx, PlaceContext::MutatingUse(mir::visit::MutatingUseContext::Borrow));
+				if place.local == self.local && place.projection.is_empty() && used {
+					self.whole = true;
+				}
+			}
+		}
+		let tcx = self.tcx;
+		let pointees = |func: &Operand<'tcx>, i: usize| match *func.ty(&self.mir.local_decls, tcx).kind() {
+			ty::FnDef(def_id, gargs) if !self.b.t.translated(def_id, self.b.subst(gargs.skip_binder())) => {
+				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+				let input = tcx.instantiate_bound_regions_with_erased(sig).inputs().get(i).copied();
+				input.is_some_and(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+			}
+			_ => false,
+		};
+		let mut reads = Reads {
+			local,
+			whole: false,
+			reborrows: Vec::new(),
+			pointees: &pointees,
+		};
+		reads.visit_body(self.mir);
+		reads.whole || reads.reborrows.into_iter().any(|r| r != local && self.read_whole(r))
+	}
+
 	/// Whether `local` is the task's context an async body is resumed with, as it passes it
 	/// on: a parameter nothing assigns, or a local assigned it once, in another type that
 	/// is the context in JS too.
@@ -980,91 +1043,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An `Iterator::next` returns the item or `rt.DONE` too.
 		if self.next {
 			self.next_results.insert(mir::RETURN_PLACE);
-		}
-	}
-
-	/// The `Option`s of places `get_mut` returns that are only tested, unwrapped, or taken
-	/// apart into a reference that reads its place in place: no other code sees a place.
-	fn find_place_opts(&mut self) {
-		use rustc_middle::mir::visit::{MutatingUseContext, NonMutatingUseContext, PlaceContext, Visitor};
-		struct Uses<'tcx> {
-			local: Local,
-			at: Vec<(Place<'tcx>, PlaceContext, mir::Location)>,
-		}
-		impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
-			fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, at: mir::Location) {
-				if place.local == self.local {
-					self.at.push((*place, cx, at));
-				}
-			}
-		}
-		let mir: &'m mir::Body<'tcx> = self.mir;
-		let tcx = self.tcx;
-		let callee = |func: &Operand<'tcx>| match *func.ty(&mir.local_decls, tcx).kind() {
-			ty::FnDef(def_id, gargs) => Some((def_id, gargs.skip_binder())),
-			_ => None,
-		};
-		for data in mir.basic_blocks.iter() {
-			let TerminatorKind::Call {
-				func,
-				destination,
-				fn_span,
-				..
-			} = &data.terminator().kind
-			else {
-				continue;
-			};
-			let Some(local) = destination.as_local() else {
-				continue;
-			};
-			let option = self.b.t.std_of(mir.local_decls[local].ty) == Some(crate::lower::library::Std::Option);
-			let Some((def_id, gargs)) = callee(func) else {
-				continue;
-			};
-			let call = crate::lower::library::Call {
-				def_id,
-				args: self.b.subst(gargs),
-				span: *fn_span,
-			};
-			if !option || self.defs[local] != 1 || !crate::lower::collections::place_call(self.b, &call) {
-				continue;
-			}
-			let mut uses = Uses { local, at: Vec::new() };
-			uses.visit_body(mir);
-			let ok = uses
-				.at
-				.iter()
-				.all(|&(place, cx, at)| match (place.projection.as_slice(), cx) {
-					(
-						_,
-						PlaceContext::NonUse(_) | PlaceContext::NonMutatingUse(NonMutatingUseContext::PlaceMention),
-					) => true,
-					([], PlaceContext::NonMutatingUse(NonMutatingUseContext::Inspect)) => true,
-					// Its one definition, by the call.
-					([], PlaceContext::MutatingUse(MutatingUseContext::Call)) => true,
-					// Unwrapped by value, into a reference to the same place.
-					([], PlaceContext::NonMutatingUse(NonMutatingUseContext::Move | NonMutatingUseContext::Copy)) => {
-						let term = mir.basic_blocks[at.block].terminator();
-						matches!(&term.kind, TerminatorKind::Call { func, args, .. }
-						if matches!(args.first().map(|a| &a.node), Some(Operand::Move(p) | Operand::Copy(p)) if *p == place)
-							&& callee(func).and_then(|(d, _)| crate::lower::library::key(tcx, d))
-								.is_some_and(|(o, n)| o == "Option" && matches!(n.as_str(), "expect" | "unwrap")))
-					}
-					// `Some`'s reference, into a local that reads it in place.
-					(
-						[mir::ProjectionElem::Downcast(_, v), mir::ProjectionElem::Field(f, _)],
-						PlaceContext::NonMutatingUse(NonMutatingUseContext::Move | NonMutatingUseContext::Copy),
-					) if v.as_u32() == 1 && f.as_u32() == 0 => {
-						let stmt = mir.basic_blocks[at.block].statements.get(at.statement_index);
-						matches!(stmt.map(|s| &s.kind), Some(StatementKind::Assign(assign))
-						if matches!(&assign.1, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _) if *p == place)
-							&& assign.0.as_local().is_some_and(|to| self.alias(to)))
-					}
-					_ => false,
-				});
-			if ok {
-				self.place_opts.insert(local);
-			}
 		}
 	}
 
@@ -1486,13 +1464,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				return item;
 			}
 			return Type::Union(vec![item, Type::Rt("Done", Vec::new())]);
-		}
-		if self.place_opts.contains(&local)
-			&& let ty::Adt(_, args) = ty.kind()
-			&& let ty::Ref(_, value, _) = args.type_at(0).kind()
-		{
-			let value = self.b.t.ty(*value, self.span);
-			return Type::Union(vec![Type::Rt("Place", vec![value]), Type::Builtin("undefined")]);
 		}
 		let ty = match (self.checked.contains(&local), ty.kind()) {
 			(true, ty::Tuple(tys)) => tys[0],
@@ -2085,13 +2056,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let target = match rvalue {
 						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
 							Some(e) => e,
-							None => self.place_expr(*p, span, out),
+							None => match self.reborrowed(*p, span, out) {
+								Some(e) => e,
+								// Read whole, the place is held as it is now for its `rt.Place`.
+								None if self.points_at_place(local) && self.read_whole(local) => {
+									let target = self.place_expr(*p, span, out);
+									self.stable_target(*p, target, span, out)
+								}
+								None => self.place_expr(*p, span, out),
+							},
 						},
-						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
-						// `Some`'s place, which the reference reads and writes through.
-						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) if self.place_opts.contains(&p.local) => {
-							self.place_expr(*p, span, out).member("v")
+						// A copy of a `&mut` captured by reference borrows the same place.
+						Rvalue::CopyForDeref(p) | Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)
+							if let Some(target) = self.pointee_capture(*p) =>
+						{
+							target
 						}
+						Rvalue::CopyForDeref(p) => self.place_expr(*p, span, out),
 						Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Cast(_, Operand::Copy(p) | Operand::Move(p), _) => self.place_expr(*p, span, out),
 						Rvalue::Use(op @ Operand::Constant(_), _) => self.operand(op, span, out),
