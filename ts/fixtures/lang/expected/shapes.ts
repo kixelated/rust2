@@ -574,8 +574,19 @@ export function indexed(data: Uint8Array, out: rt.ByteVec): void {
 	const _58: rt.u8 = n;
 	n = rt.u8WrappingAdd(n, 1);
 	slots[0] = rt.u8Add(slots[0], _58);
-	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, f(1), slots[0], n));
+	const m: Uint8Array = Uint8Array.of(at(6));
+	const before: rt.u8 = m[0];
+	const after: rt.u8 = rt.u8WrappingSub(increment(m), before);
+	rt.byteVecExtendFromSlice(out, Uint8Array.of(first, second, called, f(1), slots[0], n, after));
 	rt.byteVecExtendFromSlice(out, bytes);
+	if (rt.u8Rem(at(7), 4) === 0) {
+		const _96: [rt.u8, rt.u8, rt.u8] = [at(8), at(9), at(10)];
+		const x: rt.u8 = _96[0];
+		const y: rt.u8 = _96[1];
+		const z: rt.u8 = _96[2];
+		const quotient: rt.u8 = rt.u8Div(x, y);
+		rt.byteVecPush(out, rt.u8WrappingAdd(rt.u8Add(z, 200), quotient));
+	}
 }
 
 /** A vector of `b`, logging that it was made. */
