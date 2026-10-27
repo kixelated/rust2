@@ -264,7 +264,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let ty::Adt(adt, args) = ty.kind() else {
 			return base;
 		};
-		if !adt.did().is_local() || !matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) {
+		if !self.b.t.own(adt.did()) || !matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) {
 			return base;
 		}
 		let def = adt.variant(variant);
@@ -326,7 +326,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) => base,
-				None if adt.did().is_local() => {
+				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
@@ -576,7 +576,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					},
-					None if adt.did().is_local() => {
+					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let name = Expr::Str(adt.variant(index).name.to_string());
 						match info.repr {
@@ -631,7 +631,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An aggregate, field by field.
 		if let ty::Adt(..) | ty::Tuple(_) | ty::Array(..) = ty.kind()
 			&& !matches!(ty.kind(), ty::Tuple(tys) if tys.is_empty())
-			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() && adt.all_fields().next().is_none())
+			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) && adt.all_fields().next().is_none())
 		{
 			let Some(d) = tcx.try_destructure_mir_constant_for_user_output(val, ty) else {
 				return self.err(span, format!("a constant of type `{ty}` that can't be taken apart"));
@@ -661,7 +661,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::ZeroSized => match *ty.kind() {
 				ty::FnDef(def_id, args) => self.b.fn_value(def_id, args.skip_binder(), span),
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
-				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
+				ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(adt, span);
 					self.b.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
 				}

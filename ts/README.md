@@ -26,6 +26,12 @@ roots = ["coding::Decoder", "lite::Group"]
 printable = ["coding::DecodeError"]
 # Macros whose invocations are left out, such as logging. Each must evaluate to `()`.
 ignore-macros = ["tracing::trace"]
+
+# Hand-written TypeScript that stands in for an item, by its path from the crate root or
+# else from a crate it depends on: a function, or a type and its functions.
+[bind]
+"bytes::Bytes" = "bind/bytes.ts"
+"util::TaskSet" = { file = "bind/tasks.ts", drop = true }
 ```
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
@@ -202,6 +208,37 @@ full type arguments.
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
+## Bindings
+
+A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
+Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
+runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/bytes.ts`,
+and may import the translated modules and npm packages too. Callers import it whole, as a
+type's module, `import * as Bytes from "./bind/bytes.ts"`.
+
+A bound type is the file's export of its name, `Bytes.Bytes`, with the Rust type's type
+parameters. A call of a bound function, or of a function of a bound type that its own
+crate defines, trait impls included, calls the file's export. The export is named as the
+translated function would be, without the type's or the function's type arguments, so one
+export serves every instance and a generic one is a generic TS function. `Bytes::slice` is
+`Bytes.slice`, `<Bytes as PartialEq>::eq` is `Bytes.eq$PartialEq`, and
+`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. std's blanket impls and its
+traits' provided functions, such as `ToOwned` and `ne`, stay std's, as for any other type.
+Translation can't see into a bound type, so a field, variant, or constructor of one is
+refused, as is iterating one.
+
+Once the output is written, `tsc`, from `PATH`, checks each export against the translated
+signature of every instance translation calls, and each bound type against the Rust type's
+type parameters. A missing or mismatched binding fails the translation at the Rust item's
+span, and the output is removed.
+
+A bound type with `drop = true` drops where Rust drops it, through its
+`[Symbol.dispose]`, which `tsc` checks it has. Without it, dropping one does nothing JS
+sees, and its value has no `[Symbol.dispose]`. A `&mut` to a bound type passes its JS
+object, which the binding changes in place. Where the type is `Copy`, such a `&mut` is
+refused, since JS shares the value where Rust copies it, and a binding never changes a
+`Copy` value in place.
+
 ## Design
 
 Output is ranked correctness first, speed second, and bundle size third: the
@@ -321,8 +358,8 @@ they need.
 ## Never
 
 Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, will
-bind to hand-written TS through config ([model](/quest/m2/ts-model/README.md)).
+`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
+to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
@@ -386,6 +423,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
+- `bind` binds `bytes::Bytes`, and a function and a type of its own that read through raw
+  pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
+  differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
+  the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.
+  `refused.toml` holds bindings the config can't make, with the errors in `refused.txt`.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

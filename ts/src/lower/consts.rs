@@ -124,7 +124,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
-				if !adt.did().is_local() {
+				if !self.t.own(adt.did()) {
 					return self.err(span, format!("a constant of type `{ty}` from another crate"));
 				}
 				let info = self.t.adt(*adt, span);

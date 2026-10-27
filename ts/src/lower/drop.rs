@@ -28,6 +28,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let outer_cycle = std::mem::replace(&mut self.drops_cycle, false);
 		let tcx = self.tcx;
 		let drops = match ty.kind() {
+			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Arc | Std::Waker) => true,
 				Some(
@@ -92,6 +93,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.inert(ty);
 		}
 		match ty.kind() {
+			// Its binding's `[Symbol.dispose]`.
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
@@ -123,6 +126,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		match ty.kind() {
+			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Waker) => false,
 				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
@@ -164,6 +168,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		match ty.kind() {
 			ty::Ref(_, inner, _) => self.inert(*inner),
+			// A binding's value that drops nothing has no `[Symbol.dispose]` to call.
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each is its contents in JS.
 				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin) => {

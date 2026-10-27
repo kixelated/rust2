@@ -49,7 +49,7 @@ fn own_next<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Instance<'tcx>
 	let tcx = b.t.tcx;
 	let ty = ty.peel_refs();
 	// Over parameters, only a census's instance, which never runs, would call it.
-	if !matches!(ty.kind(), ty::Adt(adt, _) if adt.did().is_local()) || ty.has_param() || ty.has_aliases() {
+	if !matches!(ty.kind(), ty::Adt(adt, _) if b.t.own(adt.did())) || ty.has_param() || ty.has_aliases() {
 		return None;
 	}
 	let (next, _) = trait_items(tcx)?;

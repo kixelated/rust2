@@ -78,7 +78,7 @@ impl Callbacks for Translate {
 		// Only a program rustc accepts is translated.
 		let written = match &self.output {
 			Output::Dir(out) => match lower::translate(tcx, &self.config) {
-				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out),
+				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out).map(|()| lower::typecheck(tcx, &program, out)),
 				_ => Ok(()),
 			},
 			Output::Census(path) => match lower::census(tcx, &self.config) {

@@ -38,7 +38,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				// replaces the result.
 				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow) => (false, args.types().collect()),
 				Some(_) => return false,
-				None if adt.did().is_local() && adt.all_fields().next().is_some() => {
+				None if self.own(adt.did()) && adt.all_fields().next().is_some() => {
 					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
 				}
 				None => return false,
