@@ -28,6 +28,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 
 - [Cheaper byte slices](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` stops making a `Uint8Array` view per split
 - [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the bench's bundles shrink back to THIR's sizes, coroutine classes first
+- [An A/A control that measures noise](/quest/m2/ts-bench-aa.md) - `just ts bench`'s A/A measures only noise, in every engine
 - [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
 - [Time the minified bundles](/quest/m2/ts-bench-minified.md) - `just ts bench` times what it measures for size, as consumers ship it
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
