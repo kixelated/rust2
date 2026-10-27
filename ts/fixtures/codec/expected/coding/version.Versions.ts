@@ -35,7 +35,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 		while (iter.next() !== rt.DONE) {
 			const _15: rt.Result<Version.Version, DecodeError.DecodeError> = Version.decode$Decode_Form(r, version);
 			if (_15.ok) {
-				vs.push(_15.value);
+				vs.push(copy$Version(_15.value));
 			} else {
 				return _15;
 			}
