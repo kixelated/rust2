@@ -34,10 +34,10 @@ export class Count {
 }
 
 export function drop$Drop(self: Count): void {
-	const arg = ([rt.iterCount(rt.iterFilter(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(Log.text(self.sink)))), (_2: rt.u8): boolean => {
+	const part = rt.iterCount(rt.iterFilter(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(Log.text(self.sink)))), (_2: rt.u8): boolean => {
 		return _2 === 10;
-	}))] as [rt.usize])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+	}));
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 	const _11: string = rt.fmtFormat(["dropped ", args2[0]]);
 	Log.note(self.log, _11);
 }
