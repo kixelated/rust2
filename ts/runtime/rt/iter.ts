@@ -24,6 +24,9 @@ export const DONE: unique symbol = /* @__PURE__ */ Symbol("DONE");
 /** The type of `DONE`. */
 export type Done = typeof DONE;
 
+/** wasm32's `usize::MAX`, where std's adaptors saturate or split a count. */
+const USIZE_MAX = 0xffffffff;
+
 /** What drops a value. */
 type Drop<T> = (value: T) => void;
 
@@ -1415,9 +1418,42 @@ class StepByIter<T> extends Adaptor<T, T> {
 		return this.inner.nthBackItem(this.backIndex(), this.drop);
 	}
 
-	/** std's: every step from the back in one. */
+	/**
+	 * std's: the first item, dropped unless it is the one, then every step in one `nth`, as
+	 * many as a `usize` counts at a time.
+	 */
+	override nthItem(n: number, drop?: Drop<T>): T | Done {
+		if (this.firstTake) {
+			this.firstTake = false;
+			const first = this.inner.next();
+			if (first === DONE || n === 0) return first;
+			drop?.(first);
+			n -= 1;
+		}
+		let step = this.step + 1;
+		if (n === USIZE_MAX) {
+			const item = this.inner.nthItem(step - 1, drop);
+			if (item === DONE) return DONE;
+			drop?.(item);
+		} else {
+			n += 1;
+		}
+		for (;;) {
+			if (n * step <= USIZE_MAX) return this.inner.nthItem(n * step - 1, drop);
+			const byN = Math.floor(USIZE_MAX / n) * n;
+			const byStep = Math.floor(USIZE_MAX / step) * step;
+			if (byN > byStep) step -= Math.floor(USIZE_MAX / n);
+			else n -= Math.floor(USIZE_MAX / step);
+			const item = this.inner.nthItem(Math.max(byN, byStep) - 1, drop);
+			if (item === DONE) return DONE;
+			drop?.(item);
+		}
+	}
+
+	/** std's: every step from the back in one, saturating at a `usize`'s greatest. */
 	override nthBackItem(n: number, drop?: Drop<T>): T | Done {
-		return this.inner.nthBackItem(n * (this.step + 1) + this.backIndex(), drop);
+		const steps = Math.min(n * (this.step + 1), USIZE_MAX);
+		return this.inner.nthBackItem(Math.min(steps + this.backIndex(), USIZE_MAX), drop);
 	}
 
 	/** How far from the back its last item is. */
