@@ -571,8 +571,12 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			"checked_mul" => "checkedMul",
 			"saturating_add" => "saturatingAdd",
 			"saturating_sub" => "saturatingSub",
+			"saturating_mul" => "saturatingMul",
 			"wrapping_add" => "wrappingAdd",
 			"wrapping_sub" => "wrappingSub",
+			"wrapping_mul" => "wrappingMul",
+			"div_ceil" => "divCeil",
+			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
 		return Some(int.method(method, args));
@@ -683,6 +687,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				false => Expr::rt(if name == "max" { "max" } else { "min" }, values),
 			}
 		}
+		("Ord", "clamp") if let Some(int) = Int::of(targ(gargs, 0)) => match int.big() {
+			true => int.method("clamp", args),
+			false => Expr::rt("clamp", args),
+		},
 		("Clone", "clone") => {
 			let ty = targ(gargs, 0);
 			let values = args;
