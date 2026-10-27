@@ -160,8 +160,12 @@ impl<'a> Abi<'a> {
 		}
 	}
 
-	/// A function's C name: a method's through its type's, unless renamed itself.
+	/// A function's C name: an instance's as the config names it, else a method's through
+	/// its type's, unless renamed itself.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
+		if let Some(instance) = &function.instance {
+			return format!("{}_{}", self.prefix, instance.name);
+		}
 		let owner = match owner {
 			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
 			_ => return self.name(&function.path),

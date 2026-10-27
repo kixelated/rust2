@@ -885,10 +885,14 @@ impl Gen<'_> {
 			stmts.push(stmt);
 			args.push(arg);
 		}
-		let callee = match &owner {
+		let mut callee = match &owner {
 			Some((_, owner_type)) => format!("<{}>::{}", self.rust(owner_type), function.name()),
 			None => self.path(&function.path),
 		};
+		if let Some(instance) = function.instance.as_ref().filter(|i| !i.args.is_empty()) {
+			let args: Vec<String> = instance.args.iter().map(|ty| self.rust(ty)).collect();
+			callee = format!("{callee}::<{}>", args.join(", "));
+		}
 		let call = match function.access {
 			Access::Call => format!("{callee}({})", args.join(", ")),
 			Access::Field => format!("&({}).{}", args[0], function.name()),

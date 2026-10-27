@@ -5,6 +5,7 @@ import { chars } from "./chars.ts";
 import { chunks } from "./chunks.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores } from "./collections.ts";
 import { cows } from "./cows.ts";
+import { durations } from "./durations.ts";
 import { ints, strings, derived, written, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
@@ -23,7 +24,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 48);
+	const _14: rt.u8 = rt.u8Rem(op, 49);
 	if (_14 === 0) {
 		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 1) {
@@ -134,9 +135,11 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	} else if (_14 === 45) {
 		chunks(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 46) {
+		cows(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+	} else if (_14 === 47) {
 		splits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else {
-		cows(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		durations(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	}
 	return out;
 }

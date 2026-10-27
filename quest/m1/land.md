@@ -20,7 +20,3 @@ gate is shared through kixelated/quest, and this repository adopts it.
 - The ruleset requires a check that PR heads never carry, so auto-merge only
   waits for the gate. `check.yml` drops its `merge_group` trigger.
 - Update the contributor docs that describe landing.
-
-## Required
-
-- [Bump quest to quest land](/quest/m1/land-bump.md) - condition: kixelated/quest ships `quest land`; then bump the flake input

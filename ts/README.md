@@ -51,8 +51,8 @@ and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
-in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
-`rt/task.ts`.
+in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
+`rt/task.ts`, and `Duration` in `rt/time.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -72,6 +72,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
+| `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
@@ -181,7 +182,10 @@ panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
 function of its type's own (`drop$Held`). The runtime functions for std's collections,
 `Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
-take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+take what drops each value they may drop, and drop it where std's do. So do iterators: one
+that owns its items, as a `Vec`'s `into_iter` or a map's `drain` does, drops those it still
+holds by `[Symbol.dispose]`, an adaptor drops what it skips or rejects, and a consumer that
+takes an iterator by value drops it, a panic included. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.
@@ -277,6 +281,9 @@ they need.
 - A `Cow<str>` is a JS string, as `str` and `String` are, rather than an object tagged by
   its variant: no `Cow<str>` in moq-net or kio tells its variants apart, and a tag would
   wrap every value and unwrap it at every read.
+- A `Duration` keeps std's fields, whole seconds and nanoseconds, rather than one count
+  of nanoseconds, so its overflow, `checked_*`, and ordering are std's exactly, and a
+  lowering of its methods from core's MIR would read the same fields.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
   `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
   no faster on `just ts bench`, in V8 or JavaScriptCore.
@@ -371,7 +378,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, `Cow<str>` borrowed and owned, control flow,
+  encoding's edges and the surrogates, `Cow<str>` borrowed and owned, `Duration`s whose
+  seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into
   only in another module, behind a type parameter, or through a box, formatting, methods
   on generic types, iterators, with

@@ -145,9 +145,9 @@ impl Callbacks for Export {
 							})
 							.collect();
 						// An instance is left out by not naming it.
-						let fix = match refusal.kind {
-							"instance" => format!("drop it from {table}'s `instances`"),
-							_ => format!("exclude it in {table} to leave it out"),
+						let fix = match refusal.named {
+							true => format!("drop it from {table}'s `instances`"),
+							false => format!("exclude it in {table} to leave it out"),
 						};
 						let mut err = tcx.dcx().struct_span_err(
 							refusal.span,
