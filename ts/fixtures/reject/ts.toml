@@ -52,6 +52,8 @@ roots = [
     "pushed",
     "split_chars",
     "discarded_closure",
+    "owning_lazy",
+    "duration_assign",
     "missing",
 ]
 printable = ["Meters"]

@@ -405,6 +405,18 @@ pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
 	a.unwrap_or(0) + b.unwrap_or(0)
 }
 
+/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
+/// `successors` does the item it holds next.
+pub fn owning_lazy(cond: bool) -> usize {
+	let (a, b, c) = (Noisy(1), Noisy(2), Noisy(3));
+	let then = cond.then(move || a).is_some() as usize;
+	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
+	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
+	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
+	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
+	then + walked + made + held
+}
+
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
 pub fn cow_matched(c: std::borrow::Cow<'_, str>) -> String {
 	match c {
@@ -429,4 +441,10 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 		drop(c);
 	}
 	std::sync::Arc::strong_count(a)
+}
+
+/// A `Duration` is a value JS copies, which a `&mut` can't change in place.
+pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
+	d += by;
+	d
 }

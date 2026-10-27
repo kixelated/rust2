@@ -1244,6 +1244,7 @@ pub fn patterns(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(format!("{parsed:?}").as_bytes());
 	payloads(data, out);
 	known(data, out);
+	rematched(data, out);
 }
 
 /// `n`'s result: `Ok` for an even `n`.
@@ -1428,6 +1429,270 @@ fn known(data: &[u8], out: &mut Vec<u8>) {
 	out.push(moved());
 }
 
+/// Enums matched again where an enclosing match decided their variant.
+fn rematched(data: &[u8], out: &mut Vec<u8>) {
+	let s = shape(data);
+	out.push(match s {
+		Shape::Dot => match s {
+			Shape::Line(..) => 1,
+			_ => 2,
+		},
+		Shape::Line(from, _) => match s {
+			Shape::Line(_, to) => (from.x ^ to.y) as u8,
+			Shape::Dot | Shape::Rect { .. } => 3,
+		},
+		Shape::Rect { .. } => 4,
+	});
+	out.push(match s {
+		Shape::Dot => {
+			let copy = s;
+			match copy {
+				Shape::Line(..) => 5,
+				_ => 6,
+			}
+		}
+		_ => 7,
+	});
+	// An arm that matches what the others left, and a borrow matched as the place.
+	out.push(match s {
+		Shape::Dot => 8,
+		_ => match &s {
+			Shape::Dot => 9,
+			Shape::Line(..) => 10,
+			Shape::Rect { width, .. } => *width as u8,
+		},
+	});
+	let d = dir(data.len() as u8);
+	out.push(match d {
+		Some(Dir::North) => match d {
+			Some(Dir::East) => 11,
+			Some(_) => 12,
+			None => 13,
+		},
+		Some(d) => match d {
+			Dir::North => 14,
+			_ => d as u8,
+		},
+		None => 15,
+	});
+	let order = (data.len() as u8).cmp(&2);
+	out.push(match order {
+		std::cmp::Ordering::Less => match order {
+			std::cmp::Ordering::Equal => 16,
+			_ => 17,
+		},
+		_ => 0,
+	});
+	// What changes the place between the matches undecides it.
+	let mut m = s;
+	out.push(match m {
+		Shape::Dot => {
+			m = shape(&data[data.len().min(1)..]);
+			match m {
+				Shape::Line(..) => 18,
+				_ => 19,
+			}
+		}
+		_ => 20,
+	});
+	let mut held = Some(m);
+	out.push(match held {
+		Some(_) => {
+			let taken = held.take();
+			match held {
+				Some(_) => 21,
+				None => taken.map_or(22, |t| t.area() as u8),
+			}
+		}
+		None => 22,
+	});
+	// What a loop knows on entry is what every way into it knows.
+	let mut cur = s;
+	for i in 0..3u8 {
+		cur = match cur {
+			Shape::Dot => Shape::Line(Point::new(i as i32, 0), Point::new(0, 0)),
+			Shape::Line(from, _) => match cur {
+				Shape::Line(_, to) => Shape::Rect {
+					corner: from,
+					width: to.x as u16 + 1,
+					height: 2,
+				},
+				_ => Shape::Dot,
+			},
+			Shape::Rect { width, .. } if width > 1 => Shape::Dot,
+			Shape::Rect { .. } => cur,
+		};
+		out.push(cur.area() as u8);
+	}
+	let mut machine = Machine { state: s, steps: 0 };
+	for _ in 0..4 {
+		out.push(machine.run(data.len() as u8));
+	}
+	// A copy keeps what was known of its original after the original changes.
+	let mut original = shape(data);
+	if let Shape::Dot = original {
+		let copy = original;
+		original = shape(&[1]);
+		out.push(match copy {
+			Shape::Line(..) => 23,
+			_ => 24,
+		});
+		out.push(match original {
+			Shape::Line(..) => 25,
+			_ => 26,
+		});
+	}
+	reseated(data, out);
+}
+
+/// A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
+/// a reborrow of that, a closure, and a call.
+fn reseated(data: &[u8], out: &mut Vec<u8>) {
+	let (a, b) = (shape(data), shape(&[1]));
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			*rr = &b;
+			match *r {
+				Shape::Line(..) => 27,
+				_ => 28,
+			}
+		}
+		_ => 29,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			let again = &mut *rr;
+			*again = &b;
+			match *r {
+				Shape::Line(..) => 30,
+				_ => 31,
+			}
+		}
+		_ => 32,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let mut point = || r = &b;
+			point();
+			match *r {
+				Shape::Line(..) => 36,
+				_ => 37,
+			}
+		}
+		_ => 38,
+	});
+	let mut r = &a;
+	let mut other = &b;
+	out.push(match *r {
+		Shape::Dot => {
+			std::mem::swap(&mut r, &mut other);
+			match *r {
+				Shape::Line(..) => 39,
+				_ => 40,
+			}
+		}
+		_ => 41,
+	});
+	let mut r = &a;
+	for _ in 0..2 {
+		out.push(match *r {
+			Shape::Dot => {
+				let rr = &mut r;
+				*rr = &b;
+				match *r {
+					Shape::Line(..) => 42,
+					_ => 43,
+				}
+			}
+			_ => 44,
+		});
+	}
+	out.push(rebound(&a, &b));
+}
+
+/// A parameter pointed elsewhere, after a copy of it that still points where it did.
+fn rebound<'a>(mut r: &'a Shape, b: &'a Shape) -> u8 {
+	let kept = r;
+	let rr = &mut r;
+	*rr = b;
+	match *r {
+		Shape::Line(..) => match *kept {
+			Shape::Line(..) => 45,
+			_ => 46,
+		},
+		_ => 47,
+	}
+}
+
+/// A state a method matches, changing it between its matches.
+struct Machine {
+	state: Shape,
+	steps: u8,
+}
+
+impl Machine {
+	fn step(&mut self) {
+		self.steps += 1;
+		self.state = match self.state {
+			Shape::Dot => Shape::Line(Point::new(1, 2), Point::new(3, 4)),
+			Shape::Line(from, _) => Shape::Rect {
+				corner: from,
+				width: 5,
+				height: 6,
+			},
+			Shape::Rect { .. } => Shape::Dot,
+		};
+	}
+
+	/// Reads the state, which a shared borrow can't change.
+	#[inline(never)]
+	fn peek(&self) -> u8 {
+		self.steps ^ self.state.area() as u8
+	}
+
+	#[inline(never)]
+	fn log(&mut self, v: u8) -> u8 {
+		self.steps = self.steps.wrapping_add(v);
+		self.steps
+	}
+
+	fn run(&mut self, n: u8) -> u8 {
+		match self.state {
+			Shape::Dot => {
+				self.step();
+				match self.state {
+					Shape::Dot => 27,
+					_ => self.steps ^ n,
+				}
+			}
+			Shape::Line(..) => {
+				let seen = self.peek();
+				match &self.state {
+					Shape::Line(_, to) => to.y as u8 ^ seen,
+					_ => 28,
+				}
+			}
+			Shape::Rect { width, .. } => {
+				// A two-phase borrow of `self`, which the match reads past.
+				let logged = self.log(match self.state {
+					Shape::Rect { height, .. } => height as u8,
+					_ => 29,
+				});
+				self.step();
+				match self.state {
+					Shape::Rect { .. } => 30,
+					_ => width as u8 ^ logged,
+				}
+			}
+		}
+	}
+}
+
 /// An enum without variants: no value of it exists.
 #[derive(Clone, Copy, Debug)]
 pub enum Void {}
@@ -1530,6 +1795,37 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 			out.extend_from_slice(s.as_bytes());
 		}
 		Err(_) => out.push(0),
+	}
+
+	// `then` calls its closure only when true, a function as well as a closure.
+	let mut calls = 0u8;
+	for &x in data.iter().take(6) {
+		let half = (x % 2 == 0).then(|| {
+			calls += 1;
+			x / 2
+		});
+		out.extend_from_slice(&[half.unwrap_or(0xee), calls]);
+		let empty = (x > 0x80).then(Vec::<u8>::new);
+		out.push(empty.map_or(2, |v| v.len() as u8));
+		let flag = x % 3 == 0;
+		out.push(u8::from(flag) + i8::from(flag) as u8 + usize::from(flag) as u8);
+		out.extend_from_slice(&u64::from(flag).to_be_bytes());
+		out.extend_from_slice(&u128::from(flag).to_be_bytes());
+		out.extend_from_slice(&i64::from(flag).to_be_bytes());
+	}
+
+	// `ok_or` of a local TypeScript sees is `undefined`.
+	let none: Option<u8> = None;
+	match none.ok_or(a) {
+		Ok(n) => out.extend_from_slice(&[5, n]),
+		Err(e) => out.extend_from_slice(&[6, e]),
+	}
+	const NONE: Option<u8> = None;
+	for result in [None.ok_or(b), NONE.ok_or(a)] {
+		match result {
+			Ok(n) => out.extend_from_slice(&[5, n]),
+			Err(e) => out.extend_from_slice(&[6, e]),
+		}
 	}
 }
 

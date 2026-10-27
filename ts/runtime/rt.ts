@@ -12,6 +12,7 @@ export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/str.ts";
 export * from "./rt/task.ts";
+export * from "./rt/time.ts";
 
 /** A Rust panic. */
 export class Panic extends Error {
@@ -195,6 +196,14 @@ export function optionExpect<T>(o: T | undefined, message: string): T {
 export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined {
 	if (cond) return value;
 	drop?.(value);
+	return undefined;
+}
+
+// Not `then`, which would make the module's namespace a thenable that `await` calls.
+/** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined {
+	if (cond) return f();
+	drop?.(f);
 	return undefined;
 }
 

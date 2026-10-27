@@ -336,7 +336,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 316;
 		const _339: Guard.Guard | undefined = guard(30);
 		v10.push(_339);
-		v10.push(undefined);
+		v10.push(undefined as Guard.Guard | undefined);
 		const _348: Guard.Guard | undefined = guard(31);
 		v10.push(_348);
 		const _354: Guard.Guard | undefined = guard(32);

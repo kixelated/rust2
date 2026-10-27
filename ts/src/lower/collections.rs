@@ -934,7 +934,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => held(inner),
-		ty::Adt(..) => library::string(b.t.tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering),
+		ty::Adt(..) => library::string(b.t.tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::Duration)),
 		_ => false,
 	}
 }
@@ -959,6 +959,7 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationCmp".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| cmp_fn(b, t, partial, span)).collect();
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
@@ -994,6 +995,7 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
 		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
@@ -1030,6 +1032,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		ty::Str => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt".into()),
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationHash".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| hash_fn(b, t, hasher, span)).collect();
 			Expr::rt("hashTuple", vec![Expr::Array(fns)])

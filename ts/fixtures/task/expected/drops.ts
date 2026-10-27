@@ -126,7 +126,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		} else if (_13 === 0) {
 			v = [];
 			unwind = 216;
-			const _19: Held.Held = { tag: "One", _0: guard(1) };
+			const _19 = { tag: "One", _0: guard(1) } as Held.Held;
 			v.push(_19);
 			v.push({ tag: "Empty" } as Held.Held);
 			_29 = guard(2);
@@ -158,7 +158,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			check(2);
 			v2 = [];
 			unwind = 212;
-			const _85: Held.Held = { tag: "One", _0: guard(5) };
+			const _85 = { tag: "One", _0: guard(5) } as Held.Held;
 			v2.push(_85);
 			unwind = 233;
 			mutex = new rt.Mutex(v2);
@@ -591,7 +591,7 @@ export function bail(log: Log.Log, id: rt.u32, at: rt.u8): rt.Result<rt.u32, rt.
 	try {
 		v = [];
 		unwind = 28;
-		const _8: Held.Held = { tag: "One", _0: Guard.new(rt.u32Add(id, 90), Log.clone$Clone(log)) };
+		const _8 = { tag: "One", _0: Guard.new(rt.u32Add(id, 90), Log.clone$Clone(log)) } as Held.Held;
 		v.push(_8);
 		unwind = 27;
 		held_ = v;
@@ -734,7 +734,7 @@ export class heldFuture {
 				this.#id = Guard.id(this.#guard);
 				v = [];
 				unwind = 46;
-				const _9: Held.Held = { tag: "One", _0: Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)) };
+				const _9 = { tag: "One", _0: Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)) } as Held.Held;
 				v.push(_9);
 				v.push({ tag: "Empty" } as Held.Held);
 				unwind = 45;
@@ -1431,7 +1431,7 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(rt.entryRemove(_259, rt.drop));
 			unwind = 134;
 			rt.entryDrop(_259, rt.drop);
-		} else if (!rt.entryOccupied(_259)) {
+		} else {
 			rt.entryDrop(_259, rt.drop);
 		}
 		tally("counted");
@@ -1640,7 +1640,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_218 = false;
 		if (!(at > 8)) {
 			_217 = true;
-			_18 = undefined;
+			_18 = undefined as Guard.Guard | undefined;
 		} else {
 			unwind = 113;
 			const _20: Guard.Guard = guard(0);
@@ -1680,7 +1680,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 120;
 		_216 = false;
 		_215 = true;
-		_92 = undefined;
+		_92 = undefined as Guard.Guard | undefined;
 		const _93: Guard.Guard = guard(9);
 		_215 = false;
 		fallback = rt.optionUnwrapOr(_92, _93, rt.drop);
@@ -1716,7 +1716,7 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			return Guard.new(rt.u32Add(n2, 15), Log.clone$Clone(log));
 		}, rt.drop);
 		unwind = 104;
-		unmapped = rt.optionMapOr(undefined, guard(16), (n3: rt.u32): Guard.Guard => {
+		unmapped = rt.optionMapOr(undefined as rt.u32 | undefined, guard(16), (n3: rt.u32): Guard.Guard => {
 			return Guard.new(n3, Log.clone$Clone(log));
 		}, rt.drop);
 		unwind = 103;
@@ -1980,7 +1980,7 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		check(3);
 		tags = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, Held.Held>;
 		unwind = 88;
-		const _123: Held.Held = { tag: "One", _0: Guard.new(rt.u32Add(id, 1), Log.clone$Clone(log)) };
+		const _123 = { tag: "One", _0: Guard.new(rt.u32Add(id, 1), Log.clone$Clone(log)) } as Held.Held;
 		drop$Option_Held(rt.btreeInsert(tags, 1, _123, undefined, drop$Held));
 		const place2 = rt.entryOrInsertMut(rt.entry(tags, 1), { tag: "One", _0: Guard.new(rt.u32Add(id, 2), Log.clone$Clone(log)) } as Held.Held, drop$Held);
 		if (place2.v.tag === "One") {

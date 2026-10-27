@@ -207,6 +207,18 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 	tcx.try_normalize_erasing_regions(t.typing_env_pub(), ty::Unnormalized::new_wip(projection))
 		.ok()
 }
+
+/// Refuse `closure`, which an iterator owns, if it owns a value that drops: its captures
+/// live in an arrow function's scope, where nothing outside can drop them.
+fn closure_no_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, closure: Ty<'tcx>, span: Span) {
+	if b.t.drops(closure) {
+		b.t.err(
+			span,
+			"dropping a closure that owns a value that drops, which is not supported yet",
+		);
+	}
+}
+
 /// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
 pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 	if b.t.erases_to(ty).undefined {
@@ -257,7 +269,23 @@ pub fn call<'tcx>(
 			return Some(Expr::rt("iterOnce", tail(args, vec![dropper])));
 		}
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
-		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		// Each owns its closure, `F`, which the runtime's never drops.
+		["iter", "sources", "from_fn", "from_fn"] => {
+			closure_no_drops(b, targ(1)?, span);
+			return Some(Expr::rt("iterFromFn", args));
+		}
+		["iter", "sources", "successors", "successors"] => {
+			// `rt.iterSuccessors` would leave the item it holds next undropped.
+			let item = targ(0)?;
+			if b.t.drops(item) {
+				b.t.err(
+					span,
+					format!("an iterator that owns `{item}`, which drops, which is not supported yet"),
+				);
+			}
+			closure_no_drops(b, targ(1)?, span);
+			return Some(Expr::rt("iterSuccessors", args));
+		}
 		_ => {}
 	}
 
