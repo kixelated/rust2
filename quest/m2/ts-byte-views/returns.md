@@ -13,9 +13,10 @@ The [epic's](/quest/m2/ts-byte-views/README.md) hand edit measured Chrome 1.84x 
 decode and 1.65x on frames with locals and returns, against [#120](https://github.com/kixelated/rust2/pull/120).
 
 Decided with the maintainer on 2026-10-27: a per-function scratch object. The function
-returns the error or `undefined` and writes the other parts into its scratch; one shared
-`rt` scratch risks shape conflicts between call sites, and module `let`s measured 0.93x in
-Chrome.
+returns which variant it made, apart from any payload, and writes the parts into its
+scratch; an error payload can itself be `undefined` (`Err(())`, `Err(None)`), so it never
+doubles as the success signal. One shared `rt` scratch risks shape conflicts between call
+sites, and module `let`s measured 0.93x in Chrome.
 
 - Only functions outside the API boundary that are never used as a value: not roots, fn
   pointers, or closures.
