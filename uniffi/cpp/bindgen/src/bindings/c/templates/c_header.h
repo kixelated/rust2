@@ -27,35 +27,35 @@ extern "C" {
  * safe to do so from inside its callback. A dispatcher that refuses work or has shut down
  * abandons the call, and its callback never runs.
  */
-typedef struct {{ ns }}_task {{ ns }}_task;
+typedef struct {{ ty }}Task {{ ty }}Task;
 
 /** Cancels the call if it is still pending and releases the task; NULL is ignored. */
-void {{ ns }}_task_free({{ ns }}_task *task);
+void {{ ns }}_task_free({{ ty }}Task *task);
 
 /** One unit of async work handed to a custom dispatcher. */
-typedef struct {{ ns }}_work {{ ns }}_work;
+typedef struct {{ ty }}Work {{ ty }}Work;
 
 /** Runs the work and releases it. Call it exactly once for every work item accepted. */
-void {{ ns }}_work_run({{ ns }}_work *work);
+void {{ ns }}_work_run({{ ty }}Work *work);
 
 /**
  * Runs async work, and so every callback, somewhere the host chooses, such as its own loop.
  * Both functions may be called from any thread.
  */
-typedef struct {{ ns }}_dispatcher {
+typedef struct {{ ty }}Dispatcher {
     /** Queues the work to run later with `{{ ns }}_work_run` and returns true, or returns false to refuse it. */
-    bool (*dispatch)(void *user_data, {{ ns }}_work *work);
+    bool (*dispatch)(void *user_data, {{ ty }}Work *work);
     /** Stops accepting work, runs what was accepted, and returns once none can still run. */
     void (*shutdown)(void *user_data);
     /** Passed to both functions. */
     void *user_data;
-} {{ ns }}_dispatcher;
+} {{ ty }}Dispatcher;
 
 /**
  * Replaces the default dispatcher thread, before the first async call. The struct is copied.
  * Aborts when called after an async call or a shutdown, or with a NULL function.
  */
-void {{ ns }}_set_dispatcher(const {{ ns }}_dispatcher *dispatcher);
+void {{ ns }}_set_dispatcher(const {{ ty }}Dispatcher *dispatcher);
 
 /** Stops dispatching for good: pending calls never call back. Call it before unloading. */
 void {{ ns }}_shutdown_dispatcher(void);

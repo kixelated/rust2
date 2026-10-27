@@ -1,5 +1,6 @@
 /* moq-net's exported C API against the real library: a broadcast's track, published
  * and subscribed to in one process, with every read polled as a future, and an origin.
+ * moq-pattern and moq-clock export into the same library, and moq-net names their types.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -85,6 +86,12 @@ int main(void) {
 	moq_group_consumer_read_frame_future_free(reading);
 	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "hello"));
 	CHECK(moq_frame_frame_timestamp(frame) == NULL);
+	/* When it arrived: moq-clock's `Instant`, from moq-clock's own export. */
+	moq_instant *arrived = moq_frame_frame_arrived(frame);
+	moq_instant *now = moq_now();
+	CHECK(moq_instant_checked_duration_since(now, arrived).some);
+	moq_instant_free(now);
+	moq_instant_free(arrived);
 	moq_frame_frame_free(frame);
 
 	/* A timestamp is a `Copy` value behind a handle: passing it copies it out. The track
@@ -131,14 +138,33 @@ int main(void) {
 	moq_path *root = moq_origin_producer_root(origin);
 	CHECK(is(moq_path_as_str(root), ""));
 	moq_path_free(root);
-	moq_path *absolute = moq_origin_producer_absolute(origin, str("room/alice"));
+
+	/* Scoped beneath a root to patterns, which moq-pattern's own export builds. */
+	moq_pattern *alice = NULL;
+	moq_invalid_pattern invalid;
+	CHECK(moq_pattern_subtree(str("alice"), &alice, &invalid));
+	moq_patterns *patterns = moq_patterns_new();
+	CHECK(moq_patterns_insert(patterns, alice));
+	moq_pattern_free(alice);
+	moq_origin_producer *scoped = NULL;
+	CHECK(moq_origin_producer_scope(origin, str("room"), patterns, &scoped, &err));
+	moq_patterns_free(patterns);
+	root = moq_origin_producer_root(scoped);
+	CHECK(is(moq_path_as_str(root), "room"));
+	moq_path_free(root);
+	moq_path *absolute = moq_origin_producer_absolute(scoped, str("alice"));
 	CHECK(is(moq_path_as_str(absolute), "room/alice"));
 	moq_path_free(absolute);
-	moq_origin_consumer *reader = moq_origin_producer_consume(origin);
-	absolute = moq_origin_consumer_absolute(reader, str("room/bob"));
+	moq_patterns *allowed = moq_origin_producer_allowed(scoped);
+	CHECK(moq_patterns_matches(allowed, str("alice/cam")));
+	CHECK(!moq_patterns_matches(allowed, str("bob")));
+	moq_patterns_free(allowed);
+	moq_origin_consumer *reader = moq_origin_producer_consume(scoped);
+	absolute = moq_origin_consumer_absolute(reader, str("bob"));
 	CHECK(is(moq_path_as_str(absolute), "room/bob"));
 	moq_path_free(absolute);
 	moq_origin_consumer_free(reader);
+	moq_origin_producer_free(scoped);
 
 	/* A broadcast the origin creates is stamped with its path, which its info lends. */
 	moq_origin_publication *publication = NULL;

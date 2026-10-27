@@ -7,6 +7,11 @@ import type * as Key from "./drops.Key.ts";
 import type * as Pair from "./drops.Pair.ts";
 import * as Wrap from "./drops.Wrap.ts";
 import type * as Guard from "./model.Guard.ts";
+import type * as Tally from "./model.Tally.ts";
+
+export function copy$Tally(v: Tally.Tally): Tally.Tally {
+	return { n: v.n };
+}
 
 export function drop$Arc_Wrap_Pair_Held(value: rt.Arc<Wrap.Wrap<Pair.Pair<Held.Held>>>): void {
 	rt.arcDrop(value, drop$Wrap_Pair_Held);

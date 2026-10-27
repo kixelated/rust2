@@ -1,7 +1,6 @@
 package = "reject-fixture"
 roots = [
     "float",
-    "character",
     "dynamic",
     "bump",
     "increment",

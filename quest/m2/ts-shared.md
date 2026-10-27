@@ -25,9 +25,6 @@ is its own guard. Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet)
   panics. A re-entrant `Mutex` lock on one thread is unspecified in Rust; pick
   a loud failure (panic) and document it.
 - Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
-- `rt.copy` copies a `Copy` aggregate deeply, through the shared references in it,
-  so copying `(&Arc<T>, u8)` copies the `Arc` and its count, or a `Cell` and its
-  value. Copy only what the type owns.
 
 Public API: the translator's output for shared and interior-mutable types.
 

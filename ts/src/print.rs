@@ -903,7 +903,13 @@ impl Printer<'_> {
 			}
 			Expr::Binary(l, op, r) => {
 				let p = binary_prec(op);
-				self.operand(l, op, p);
+				// The type after `as` would read on into `&`, `|`, or `<` as its own.
+				let left = match &**l {
+					Expr::As(..) => 21,
+					Expr::Located(_, e) if matches!(&**e, Expr::As(..)) => 21,
+					_ => p,
+				};
+				self.operand(l, op, left);
 				self.write(&format!(" {op} "));
 				// `&&` and `||` are associative, so a chain reads without groups.
 				let right = match is_logical(op) && matches!(&**r, Expr::Binary(_, inner, _) if inner == op) {

@@ -40,7 +40,9 @@ jobs:
 
   uniffi-fixtures:
     name: UniFFI fixtures
-    runs-on: ubuntu-24.04-arm
+    # x86_64: nixpkgs marks Swift 6.3 broken on aarch64-linux, where it fails to link with
+    # gold. Swift 6.4 links with LLD and lifts the mark once it reaches nixpkgs-unstable.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
@@ -111,6 +113,9 @@ jobs:
       - name: Install
         run: nix develop --command just uniffi install
 
+      - name: Symlink
+        run: nix develop --command just uniffi symlink
+
       # The flake packages moq pins.
       - name: Build
         run: nix build .#uniffi
@@ -158,7 +163,7 @@ jobs:
         run: nix develop --command just ffi census
 
       - name: Summarize
-        run: awk '/^## Refused items/ { exit } { print }' ffi/target/census/moq-net.md >> "$GITHUB_STEP_SUMMARY"
+        run: awk 'FNR == 1 { refused = 0 } /^## Refused items/ { refused = 1 } !refused' ffi/target/census/*.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

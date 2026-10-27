@@ -204,7 +204,13 @@ pub fn convert(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&from_halves((wide >> 32) as u32, wide as u32).to_be_bytes());
 	let narrow = ((wide >> 40) as u8 as u64) << 32 | (wide as u16) as u64;
 	out.extend_from_slice(&narrow.to_be_bytes());
+	// Named constants past `i32::MAX`, which JS's 32-bit operators read as negative.
+	out.extend_from_slice(&(HIGH >> 1).to_be_bytes());
+	out.extend_from_slice(&(TOP >> 4).to_be_bytes());
 }
+
+const HIGH: u32 = u32::MAX;
+const TOP: usize = 1 << 31;
 
 /// A `u64` from its high and low 32 bits, as moq-net's varints join them.
 fn from_halves(hi: u32, lo: u32) -> u64 {

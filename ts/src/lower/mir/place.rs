@@ -275,7 +275,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.place_expr(*place, span, out);
 				match self.force_share || self.into_frozen && self.frozen(*place) {
 					true => value,
-					false => self.b.copied(value, ty),
+					false => self.b.t.copied(value, ty, span),
 				}
 			}
 			Operand::Move(place) => {
@@ -283,7 +283,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.place_expr(*place, span, out);
 				match self.into_frozen {
 					true => value,
-					false => self.b.copied(value, ty),
+					false => self.b.t.copied(value, ty, span),
 				}
 			}
 			Operand::Constant(c) => self.constant(c, span),
@@ -511,6 +511,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			},
 			ConstValue::Scalar(Scalar::Int(int)) => match ty.kind() {
 				ty::Bool => Expr::lit((int.to_bits_unchecked() != 0).to_string()),
+				ty::Char => Expr::lit(int.to_u32().to_string()),
 				_ => match Int::of(ty) {
 					Some(i) => {
 						let size = rustc_abi::Size::from_bits(i.bits);
