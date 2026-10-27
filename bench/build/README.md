@@ -45,6 +45,7 @@ They build without incremental compilation, as CI does.
 A test run runs every test even when some fail, and the report lists how many failed, since a failed test can end sooner than a passing one.
 Before the timed runs, each variant does one untimed clean build that warms the disk cache and logs any failure.
 Each timed run starts after a `sync`: on CI's 16 GiB runners, writing back the dirty pages that earlier runs left made the edits it overlapped about 10% slower.
+It also starts with its variant's target directory read into the page cache, as a developer's rebuild finds it: four of moq's (2.9 GB each) fill what those runners cache, so an edit that followed every other variant's often read its own back from disk.
 
 ## Variants
 
