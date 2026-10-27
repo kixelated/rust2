@@ -359,6 +359,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// The statements that assign `value` to `place`, which has projections.
 	pub(super) fn store(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> Vec<Stmt> {
+		let (place, value) = self.rebuilt(place, value, span);
 		let mut out = Vec::new();
 		// `*r = v` replaces the object `r` points at in place, which other references and
 		// captures share. An alias of a borrowed place, or of a reference to no object,
@@ -394,6 +395,47 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let target = self.place_expr(place, span, &mut out);
 		out.push(StmtKind::Expr(target.assign(value)).at(self.b.t.loc(span)));
 		out
+	}
+
+	/// A store of `value` to `place` as a store of the whole value to what holds it, where
+	/// `place`, or what a reference to it reads, is the payload of an `Option`, `Poll`,
+	/// `Result`, or `ControlFlow`: JS shares their values as immutable, so a payload
+	/// changes by making its enum again.
+	fn rebuilt(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> (Place<'tcx>, Expr) {
+		let tcx = self.tcx;
+		let (mut at, mut value, mut rebuilt) = (place, value, false);
+		loop {
+			if let [ProjectionElem::Deref, rest @ ..] = at.projection.as_slice()
+				&& self.alias_of_place(at.local)
+				&& let Some(mir::Rvalue::Ref(_, _, borrowed)) = self.def_rvalue(at.local)
+			{
+				at = borrowed.project_deeper(rest, tcx);
+				continue;
+			}
+			let [.., ProjectionElem::Downcast(_, variant), ProjectionElem::Field(..)] = at.projection.as_slice() else {
+				break;
+			};
+			let base = Place {
+				local: at.local,
+				projection: tcx.mk_place_elems(&at.projection[..at.projection.len() - 2]),
+			};
+			let ty = base.ty(&self.mir.local_decls, tcx).ty;
+			let ty::Adt(adt, args) = ty.kind() else {
+				break;
+			};
+			if !matches!(
+				Std::of(tcx, adt.did()),
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow)
+			) {
+				break;
+			}
+			value = self.adt(adt.did(), *variant, args, vec![value], ty, span);
+			(at, rebuilt) = (base, true);
+		}
+		match rebuilt {
+			true => (at, value),
+			false => (place, value),
+		}
 	}
 
 	/// Whether `local` is an alias of a borrowed place, as `&mut x` or `&mut v[i]`, rather
