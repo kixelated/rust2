@@ -151,6 +151,23 @@ impl Expr {
 		}
 	}
 
+	/// The text of a path of names, the same for two paths that read the same place.
+	pub fn path_key(&self) -> Option<String> {
+		match self {
+			Self::Ident(name) => Some(name.clone()),
+			Self::This => Some("this".into()),
+			Self::Member(base, key) => {
+				let key = match key {
+					Key::Name(name) => name.clone(),
+					Key::Field(id) => format!("#{id}"),
+				};
+				Some(format!("{}.{key}", base.path_key()?))
+			}
+			Self::Located(_, e) => e.path_key(),
+			_ => None,
+		}
+	}
+
 	/// Whether evaluating this twice is free and gives the same value both times, so a
 	/// pattern may read it more than once: a name, or a member path from one.
 	pub fn is_path(&self) -> bool {

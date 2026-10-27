@@ -37,7 +37,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [str and String methods over char](/quest/m2/ts-str-char.md) - `chars`, `char` patterns, and `String::push` translate, unblocking `ietf/namespace.rs`
 - [Share a held-back read across a call](/quest/m2/ts-shared-read.md) - `leading-ones` decode recovers what #83's copy fix cost
 - [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
-- [Translate derived == through references and slice index writes](/quest/m2/ts-ref-shapes.md) - two refused shapes #83's tests hit
 - [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate
 - [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
 - [str slicing and &str patterns](/quest/m2/ts-str-slice.md) - `&s[a..b]` and `&str` patterns translate, so `rfind`'s offsets are usable
