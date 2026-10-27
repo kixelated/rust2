@@ -18,10 +18,13 @@ pub fn run(args: Vec<String>) -> ExitCode {
 		// MIR without the checks of undefined behavior that debug builds add around raw
 		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
 		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
-		// can catch a panic and go on.
+		// can catch a panic and go on. And with every call where the source has it, as a
+		// release build's inlining would not keep it, since a call is what a binding or a
+		// std function's translation stands in for.
 		if job.is_some() {
 			args.push("-Zub-checks=no".into());
 			args.push("-Cpanic=unwind".into());
+			args.push("-Zinline-mir=no".into());
 		}
 		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
@@ -78,11 +81,13 @@ impl Callbacks for Translate {
 		// Only a program rustc accepts is translated.
 		let written = match &self.output {
 			Output::Dir(out) => match lower::translate(tcx, &self.config) {
-				Some(program) if tcx.dcx().has_errors().is_none() => program.write(out),
+				Some(program) if tcx.dcx().has_errors().is_none() => {
+					program.write(out).map(|()| lower::typecheck(tcx, &program, out))
+				}
 				_ => Ok(()),
 			},
 			Output::Census(path) => match lower::census(tcx, &self.config) {
-				Some(census) => program::write_file(path, &census.render(&self.config.package)),
+				Some(census) => program::write_file(path, &census.render(&self.config.package, &self.config.roots)),
 				None => Ok(()),
 			},
 		};

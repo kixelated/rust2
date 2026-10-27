@@ -23,7 +23,7 @@ else. rangemap adds 266.
 - Each crate's output goes in its own module directory, and the instances a crate's
   generics get from the package go with the crate that defines them.
 - The rule is general: a dependency without `unsafe` translates from source; one with
-  `unsafe` is refused with a span unless the consumer [binds](/quest/m2/ts-model/bind.md)
+  `unsafe` is refused with a span unless the consumer [binds](/ts/README.md#bindings)
   it.
 - A named crate's own refusals belong to other quests: kio's atomics and `thread_local!`
   to [shared ownership](/quest/m2/ts-shared.md), and its `RawWaker` vtable to bindings.

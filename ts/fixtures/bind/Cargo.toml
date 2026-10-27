@@ -1,0 +1,17 @@
+[package]
+name = "bind-fixture"
+description = "Items outside rust2-ts's subset, bound to hand-written TypeScript"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+# The cdylib is the native side of the differential test, built for wasm32.
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+bytes = "1.12.1"
+
+[lints]
+workspace = true

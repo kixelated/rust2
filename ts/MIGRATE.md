@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `--census` starts from the config's roots, as translation does. For the census of every
+  item, census with a config that names no roots: `roots = []`.
 - A struct is a plain object typed by an interface, unless it may drop: build one as a
   literal, `{ subscribe, sequence, frameStart: 0 }` rather than
   `new Group({ subscribe, sequence, frameStart: 0 })`.

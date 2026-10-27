@@ -5,6 +5,8 @@
 //! call is always a direct call. Types are translated once, generically, and a function of
 //! a type is a module-level one taking `self` first, so a bundler drops what goes unused.
 
+mod bind;
+pub use bind::typecheck;
 mod body;
 mod collections;
 mod consts;
@@ -20,7 +22,7 @@ mod time;
 
 use std::collections::VecDeque;
 
-use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::ty::{
 	self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv,
@@ -35,6 +37,7 @@ use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 /// Translate what the config's roots reach, or `None` after reporting why not.
 pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	let mut t = Translator::new(tcx, config, None)?;
+	t.bind();
 	for root in &config.roots {
 		t.root(root);
 	}
@@ -49,51 +52,25 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	Some(t.program)
 }
 
-/// Every construct translation refuses in the crate, reached from each of its items
-/// as if each were a root.
+/// Every construct translation refuses in the crate: in what the config's roots reach, as
+/// translation does, or where it names none, in what each item reaches as if each were a
+/// root.
 pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
-	for def_id in tcx.hir_crate_items(()).definitions() {
-		if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union) {
-			t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
+	t.bind();
+	let polymorphic = match config.roots.is_empty() {
+		true => t.every_item(),
+		false => {
+			for root in &config.roots {
+				t.root(root);
+			}
+			for path in &config.printable {
+				t.printable(path);
+			}
+			t.drain();
+			0
 		}
-	}
-	let functions = |tcx: TyCtxt<'tcx>| {
-		tcx.hir_body_owners()
-			.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
 	};
-	// A derived impl comes along only when called or printable, as in translation.
-	for path in &config.printable {
-		t.printable(path);
-	}
-	let roots: Vec<DefId> = functions(tcx)
-		.map(LocalDefId::to_def_id)
-		.filter(|&def_id| {
-			!tcx.impl_of_assoc(def_id)
-				.is_some_and(|imp| tcx.is_automatically_derived(imp))
-		})
-		.collect();
-	let generic = |def_id: DefId| tcx.generics_of(def_id).requires_monomorphization(tcx);
-	for &def_id in roots.iter().filter(|&&def_id| !generic(def_id)) {
-		t.instance(Instance::mono(tcx, def_id));
-	}
-	t.drain();
-	// A generic function no instance reached is lowered over its own type parameters, so
-	// what it refuses whatever they are is counted too.
-	let mut polymorphic = 0;
-	for &def_id in roots.iter().filter(|&&def_id| generic(def_id)) {
-		let lowered = |instance: &Instance<'tcx>| instance.def_id() == def_id && !instance.args.has_param();
-		if t.instances.keys().any(lowered) {
-			continue;
-		}
-		polymorphic += 1;
-		t.env = TypingEnv::post_analysis(tcx, def_id);
-		let instance = Instance::new_raw(def_id, ty::GenericArgs::identity_for_item(tcx, def_id));
-		let sym = t.instance(instance);
-		t.queue.retain(|&(queued, _)| queued != instance);
-		t.function(instance, sym);
-		t.drain();
-	}
 	let sm = tcx.sess.source_map();
 	let mut seen = rustc_data_structures::fx::FxHashSet::default();
 	let mut refusals = Vec::new();
@@ -121,6 +98,60 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 		polymorphic,
 		refusals,
 	})
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// Lower what each of the crate's items reaches as if each were a root, returning how
+	/// many generic functions no instance reached, lowered over their type parameters.
+	fn every_item(&mut self) -> usize {
+		let tcx = self.tcx;
+		let t = self;
+		for def_id in tcx.hir_crate_items(()).definitions() {
+			if matches!(tcx.def_kind(def_id), DefKind::Struct | DefKind::Enum | DefKind::Union)
+				&& !t.bound(def_id.to_def_id())
+			{
+				t.adt(tcx.adt_def(def_id), tcx.def_span(def_id));
+			}
+		}
+		let functions = |tcx: TyCtxt<'tcx>| {
+			tcx.hir_body_owners()
+				.filter(move |&def_id| matches!(tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn))
+		};
+		// A derived impl comes along only when called or printable, as in translation.
+		for path in &t.config.printable {
+			t.printable(path);
+		}
+		let roots: Vec<DefId> = functions(tcx)
+			.map(LocalDefId::to_def_id)
+			.filter(|&def_id| {
+				!tcx.impl_of_assoc(def_id)
+					.is_some_and(|imp| tcx.is_automatically_derived(imp))
+					&& !t.bound(def_id)
+			})
+			.collect();
+		let generic = |def_id: DefId| tcx.generics_of(def_id).requires_monomorphization(tcx);
+		for &def_id in roots.iter().filter(|&&def_id| !generic(def_id)) {
+			t.instance(Instance::mono(tcx, def_id));
+		}
+		t.drain();
+		// A generic function no instance reached is lowered over its own type parameters, so
+		// what it refuses whatever they are is counted too.
+		let mut polymorphic = 0;
+		for &def_id in roots.iter().filter(|&&def_id| generic(def_id)) {
+			let lowered = |instance: &Instance<'tcx>| instance.def_id() == def_id && !instance.args.has_param();
+			if t.instances.keys().any(lowered) {
+				continue;
+			}
+			polymorphic += 1;
+			t.env = TypingEnv::post_analysis(tcx, def_id);
+			let instance = Instance::new_raw(def_id, ty::GenericArgs::identity_for_item(tcx, def_id));
+			let sym = t.instance(instance);
+			t.queue.retain(|&(queued, _)| queued != instance);
+			t.function(instance, sym);
+			t.drain();
+		}
+		polymorphic
+	}
 }
 
 pub struct Translator<'a, 'tcx> {
@@ -155,6 +186,8 @@ pub struct Translator<'a, 'tcx> {
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
 	held: bool,
+	/// The hand-written TypeScript the config binds items to.
+	bindings: bind::Bindings<'tcx>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -218,8 +251,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			coroutines: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
-			writes: copy::Writes::of_crate(tcx),
+			// Once the bindings are known.
+			writes: Default::default(),
 			held: false,
+			bindings: Default::default(),
 		})
 	}
 
@@ -390,12 +425,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The item a config path names, or `None` after reporting that it names none.
 	fn config_item(&mut self, path: &str) -> Option<DefId> {
-		let def_id = self.resolve_path(path);
-		if def_id.is_none() {
+		let segments: Vec<&str> = path.split("::").collect();
+		let def_id = bind::resolve_in(self.tcx, rustc_hir::def_id::CRATE_DEF_ID.to_def_id(), &segments)
+			.filter(|def_id| def_id.is_local());
+		let Some(def_id) = def_id else {
 			self.tcx.dcx().err(format!("rust2-ts: no item `{path}` in the crate"));
 			self.failed = true;
+			return None;
+		};
+		if self.bound(def_id) {
+			self.err(self.tcx.def_span(def_id), "a root or printable item can't be bound");
+			return None;
 		}
-		def_id
+		Some(def_id)
 	}
 
 	/// Translate a type the config names, which must not be generic.
@@ -455,36 +497,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	fn resolve_path(&self, path: &str) -> Option<DefId> {
-		let mut module = rustc_hir::def_id::CRATE_DEF_ID;
-		let mut segments = path.split("::").peekable();
-		while let Some(segment) = segments.next() {
-			let child = self
-				.tcx
-				.module_children_local(module)
-				.iter()
-				.find(|child| child.ident.as_str() == segment)?;
-			let Res::Def(kind, def_id) = child.res else {
-				return None;
-			};
-			if segments.peek().is_none() {
-				return Some(def_id);
-			}
-			if kind != DefKind::Mod {
-				return None;
-			}
-			module = def_id.as_local()?;
-		}
-		None
-	}
-
-	/// The symbol of a function instance, queueing its translation the first time.
+	/// The symbol of a function instance, queueing its translation the first time, or the
+	/// export of a binding that stands in for it.
 	pub fn instance(&mut self, instance: Instance<'tcx>) -> SymId {
 		if let Some(&sym) = self.instances.get(&instance) {
 			return sym;
 		}
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
+		if let Some(sym) = self.bound_fn(instance, tcx.def_span(def_id)) {
+			return sym;
+		}
 		let base = camel(tcx.item_name(def_id).as_str());
 		// A function of a local type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
@@ -656,7 +679,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// translates, rather than std's.
 	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => matches!(instance.def, InstanceKind::Item(did) if did.is_local()),
+			Ok(Some(instance)) => {
+				matches!(instance.def, InstanceKind::Item(did) if did.is_local())
+					&& self.bound_module(instance).is_none()
+			}
+			_ => false,
+		}
+	}
+
+	/// Whether a call of `def_id` with `args` calls a binding's export.
+	pub fn binds(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
+		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
+			Ok(Some(instance)) => self.bound_module(instance).is_some(),
 			_ => false,
 		}
 	}
@@ -838,6 +872,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
 				_ => Some(ObjectKind::Array),
 			},
+			// A binding's value: an object, unless Rust copies it, which JS can't.
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
+				(!self.is_copy(ty)).then_some(ObjectKind::Class)
+			}
 			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
 				Some(
@@ -1058,6 +1096,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	fn adt_ty(&mut self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>, span: Span) -> Type {
 		let tcx = self.tcx;
+		if let Some(sym) = self.bound_type(adt, args, span) {
+			let args = args.types().map(|t| self.ty(t, span)).collect();
+			return Type::Sym(sym, args);
+		}
 		if let Some(std) = library::Std::of(tcx, adt.did()) {
 			return match std {
 				library::Std::Option => {
