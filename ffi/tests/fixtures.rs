@@ -550,6 +550,62 @@ fn patched() {
 	export_and_build(&package, &["--offline"]);
 }
 
+/// A commit of all of `dir`'s files.
+const COMMIT: [&str; 8] = [
+	"-c",
+	"user.name=t",
+	"-c",
+	"user.email=t@t",
+	"commit",
+	"--quiet",
+	"-am",
+	"commit",
+];
+
+/// The URL of a new git repository in `dir`, whose branch `main` holds `files`.
+fn repository(dir: &Path, files: &[(&str, &str)]) -> String {
+	let _ = std::fs::remove_dir_all(dir);
+	write_all(dir, files);
+	for args in [
+		&["init", "--quiet", "--initial-branch", "main"][..],
+		&["add", "."],
+		&COMMIT,
+	] {
+		run(Command::new("git").args(args).current_dir(dir));
+	}
+	format!("file://{}", dir.display())
+}
+
+/// A dependency patched in from a git repository that holds two versions of it, the patch
+/// picking one by version, is carried with the version it resolved to.
+#[test]
+fn git_patched() {
+	let package = package("git_patched");
+	let manifest =
+		|version| format!("[package]\nname = \"rust2-ffi-git-dep\"\nversion = \"{version}\"\nedition = \"2024\"\n");
+	let stale = repository(
+		&package.join("stale"),
+		&[("Cargo.toml", &manifest("1.0.0")), ("src/lib.rs", "")],
+	);
+	let fresh = repository(
+		&package.join("fresh"),
+		&[
+			("one/Cargo.toml", &manifest("1.0.0")),
+			("one/src/lib.rs", ""),
+			("two/Cargo.toml", &manifest("2.0.0")),
+			("two/src/lib.rs", ""),
+		],
+	);
+	let text = format!(
+		"[package]\nname = \"git_patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
+		[dependencies]\nrust2-ffi-git-dep = {{ git = \"{stale}\" }}\n\n\
+		[patch.\"{stale}\"]\nrust2-ffi-git-dep = {{ git = \"{fresh}\", version = \"1\" }}\n\n\
+		[workspace]\nexclude = [\"stale\", \"fresh\"]\n"
+	);
+	write_all(&package, &[("Cargo.toml", &text)]);
+	export_and_build(&package, &[]);
+}
+
 /// Another export the workspace `[replace]`s, by a spec naming no package, is carried as
 /// a `[patch]` of it, which resolves alike since a replacement keeps its version. A
 /// replacement from the source it replaces is an error, since no patch can carry it.
@@ -560,35 +616,18 @@ fn replaced() {
 	// package reads, named for the package so the spec names it by its URL.
 	let manifest = "[package]\nname = \"rust2-ffi-replaced-dep\"\nversion = \"1.0.0\"\nedition = \"2024\"\n";
 	let git = package.join("rust2-ffi-replaced-dep");
-	let _ = std::fs::remove_dir_all(&git);
-	let commit = [
-		"-c",
-		"user.name=t",
-		"-c",
-		"user.email=t@t",
-		"commit",
-		"--quiet",
-		"-am",
-		"dep",
-	];
-	write_all(
+	let url = repository(
 		&git,
 		&[
 			("Cargo.toml", manifest),
 			("src/lib.rs", "pub struct Size {\n\tpub height: u32,\n}\n"),
 		],
 	);
-	for args in [
-		&["init", "--quiet", "--initial-branch", "main"][..],
-		&["add", "."],
-		&commit,
-		&["checkout", "--quiet", "-b", "fixed"],
-	] {
-		run(Command::new("git").args(args).current_dir(&git));
-	}
+	run(Command::new("git")
+		.args(["checkout", "--quiet", "-b", "fixed"])
+		.current_dir(&git));
 	write_all(&git, &[("src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n")]);
-	run(Command::new("git").args(commit).current_dir(&git));
-	let url = format!("file://{}", git.display());
+	run(Command::new("git").args(COMMIT).current_dir(&git));
 	let files = |replacement: &str| {
 		write_all(
 			&package,

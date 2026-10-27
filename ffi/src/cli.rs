@@ -230,7 +230,9 @@ fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 							resolved.name, resolved.version
 						));
 					}
-					toml::toml! { git = url rev = rev }
+					// A repository may hold several versions of the package.
+					let version = format!("={}", resolved.version);
+					toml::toml! { git = url rev = rev version = version }
 				}
 				Some(other) => {
 					return Err(format!(
