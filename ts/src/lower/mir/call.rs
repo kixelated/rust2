@@ -635,7 +635,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							}
 						};
 						let converted = self.b.convert(error, from, to, span, out);
-						done(Expr::rt("Err", vec![converted]), true)
+						done(Expr::result(false, converted), true)
 					}
 					_ => {
 						self.err(span, format!("`?` from `{residual}` to `{to}`"));
@@ -985,9 +985,9 @@ pub fn control_flow<'tcx>(
 ) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
 	match (flow(fx.tcx, ty), variant.index()) {
-		(Flow::Result | Flow::Other, 0) => Expr::rt("Ok", vec![value]),
+		(Flow::Result | Flow::Other, 0) => Expr::result(true, value),
 		(Flow::Result, _) => value,
-		(Flow::Other, _) => Expr::rt("Err", vec![value]),
+		(Flow::Other, _) => Expr::result(false, value),
 		(Flow::Option, 0) => value,
 		(Flow::Option, _) => Expr::undefined(),
 	}

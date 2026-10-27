@@ -18,3 +18,4 @@ generic std gap is planned here even when moq never calls it.
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [The rest of Duration](/quest/m3/ts-duration.md) - compound assignment, float conversions, and `Sum` on a `Duration` translate
 - [The rest of format specs](/quest/m3/ts-fmt-specs.md) - precision, argument widths, `+`, and the other radixes format as `core::fmt` does
+- [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library

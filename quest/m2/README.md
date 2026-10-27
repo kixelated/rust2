@@ -31,7 +31,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Iterator skips that read as std's](/quest/m2/ts-iter-nth.md) - `nth` and `nth_back` of what drops nothing read the items std's do
-- [Share constant aggregates](/quest/m2/ts-const-share.md) - `Ok(())` and other constants nothing writes into are one frozen object
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model/README.md) - the model translates with kio, moq-clock, and moq-pattern, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

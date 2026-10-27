@@ -297,7 +297,7 @@ export function decodeStep(r: Decoder.Decoder, step: rt.u8, out: rt.ByteVec): rt
 	} else {
 		putUsize(out, Decoder.rest(r).length);
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 /** Write primitives as a script says, taking each value from the data that follows. */
@@ -323,13 +323,13 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const _33: rt.u8 = rt.u8Rem(step, 10);
 				if (_33 === 0) {
 					Encoder.u8(w, rt.u64Low(value) & 0xff);
-					result = rt.Ok(undefined);
+					result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 				} else if (_33 === 1) {
 					Encoder.u16(w, rt.u64Low(value) & 0xffff);
-					result = rt.Ok(undefined);
+					result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 				} else if (_33 === 2) {
 					Encoder.bool(w, rt.u64And(value, 1) === 1);
-					result = rt.Ok(undefined);
+					result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 				} else if (_33 === 3) {
 					result = Encoder.varint(w, value);
 				} else if (_33 === 4) {
@@ -360,11 +360,11 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 						_74 = Encoder.prefixU16(w);
 					}
 					prefixes.push(_74);
-					result = rt.Ok(undefined);
+					result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 				} else if (_33 === 8) {
 					const _79: Prefix.Prefix | undefined = prefixes.pop();
 					if (_79 === undefined) {
-						result = rt.Ok(undefined);
+						result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 					} else {
 						const prefix: Prefix.Prefix = _79;
 						putUsize(out, Encoder.since(w, prefix));
@@ -375,7 +375,7 @@ export function encodeScript(data: rt.ByteSlice, out: rt.ByteVec): void {
 					if (_88 !== undefined) {
 						Encoder.discard(w, _88);
 					}
-					result = rt.Ok(undefined);
+					result = rt.OK as rt.Result<undefined, EncodeError.EncodeError>;
 				}
 				if (!result.ok) {
 					encodeFailed(out, result.error);

@@ -349,8 +349,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
-				(Std::Result, 0) => Expr::rt("Ok", values),
-				(Std::Result, _) => Expr::rt("Err", values),
+				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),

@@ -114,8 +114,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::Option, 0) => Expr::undefined(),
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
-						(Std::Result, 0) => Expr::rt("Ok", values),
-						(Std::Result, _) => Expr::rt("Err", values),
+						(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 						// `start..=end`, not yet stepped past its end.
 						(Std::RangeInclusive, _)
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>

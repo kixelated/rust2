@@ -178,8 +178,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
-				(library::Std::Result, 0) => Expr::rt("Ok", values),
-				(library::Std::Result, _) => Expr::rt("Err", values),
+				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
 		}
