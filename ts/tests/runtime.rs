@@ -185,7 +185,10 @@ fn retain_unwinds() {
 					})
 				}));
 				let ran: Vec<u32> = runs.iter().map(|r| r.0.0).collect();
-				let deduped: Vec<u32> = std::mem::take(&mut *deduped.borrow_mut()).into_iter().map(|r| r.0).collect();
+				let deduped: Vec<u32> = std::mem::take(&mut *deduped.borrow_mut())
+					.into_iter()
+					.map(|r| r.0)
+					.collect();
 				let entries: Vec<String> = tree.iter().map(|(k, v)| format!("{k},{v}")).collect();
 				let items: Vec<String> = deque.iter().map(u32::to_string).collect();
 				let join = |v: &[u32]| v.iter().map(u32::to_string).collect::<Vec<_>>().join(",");

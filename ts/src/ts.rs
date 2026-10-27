@@ -129,7 +129,8 @@ impl Expr {
 			// own, without which a declaration narrows to the one variant it is made as.
 			Self::As(e, ty)
 				if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_))
-					&& !wide(&ty) && !matches!(ty, Type::Rt("Bound", _)) =>
+					&& !wide(&ty)
+					&& !matches!(ty, Type::Rt("Bound", _)) =>
 			{
 				*e
 			}

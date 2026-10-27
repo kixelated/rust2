@@ -291,11 +291,6 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
-pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
-	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -382,12 +377,6 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 /// A `String` pushed to through a parameter, whose JS value is the caller's copy.
 pub fn pushed(s: &mut String) {
 	s.push('a');
-}
-
-/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
-/// supported.
-pub fn split_chars(s: &str) -> usize {
-	s.split(['a', 'b']).count()
 }
 
 /// Each drops its closure, and the `Noisy` it owns, when it is done with it.

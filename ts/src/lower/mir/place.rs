@@ -298,7 +298,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
 					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 					let fields = vec![
-						("tag".to_string(), crate::ts::Type::StrLit(adt.variant(variant).name.to_string())),
+						(
+							"tag".to_string(),
+							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
+						),
 						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
 					];
 					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")

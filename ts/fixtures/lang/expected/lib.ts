@@ -135,6 +135,10 @@ export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap({ value: v.value, count: v.count });
 }
 
+export function copy$chars(v: rt.char[]): rt.char[] {
+	return v.slice();
+}
+
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
 	return [v[0], copy$Horizon(v[1])];
 }

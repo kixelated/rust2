@@ -129,7 +129,8 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				put_u16s(out, &[*a, *b]);
 			}
 			// `None` first, as `Option`'s `Ord` puts it.
-			let mut options: Vec<Option<u16>> = words.iter().map(|&w| if w % 2 == 0 { None } else { Some(w) }).collect();
+			let mut options: Vec<Option<u16>> =
+				words.iter().map(|&w| if w % 2 == 0 { None } else { Some(w) }).collect();
 			options.sort_unstable();
 			for o in &options {
 				put_u16s(out, &[o.map_or(0xffff, |o| o)]);
@@ -198,7 +199,10 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push((changed < named) as u8);
 			changed.extend_from_slice(&named[..named.len() / 2]);
 			out.push(changed.len() as u8);
-			let nested: Vec<Vec<u16>> = data.iter().map(|&b| (0..b % 3).map(|i| i as u16 + b as u16).collect()).collect();
+			let nested: Vec<Vec<u16>> = data
+				.iter()
+				.map(|&b| (0..b % 3).map(|i| i as u16 + b as u16).collect())
+				.collect();
 			out.push((nested.clone() == nested) as u8);
 			let pair = (text(data), at(0));
 			let copy = pair.clone();
@@ -237,6 +241,7 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let sep = ['/', 'a'];
 			out.push(s.contains(sep) as u8);
 			out.push(s.contains(&sep[..]) as u8);
+			out.push(s.split(sep).count() as u8);
 			out.push(s.ends_with("/") as u8);
 			out.push(s.ends_with('😀') as u8);
 			out.push(s.ends_with(|c: char| c.is_ascii_digit()) as u8);

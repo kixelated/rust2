@@ -918,10 +918,16 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
 		// A slice compares its elements by `!=`, which `!eq` stands for only while that is
 		// the default.
-		_ if let Some(elem) = elements_of(b, ty) && own_ne(b, elem) => b.err(
-			span,
-			format!("comparing `{ty}` by `<{elem} as PartialEq>::ne` through a held type's own, which is not supported yet"),
-		),
+		_ if let Some(elem) = elements_of(b, ty)
+			&& own_ne(b, elem) =>
+		{
+			b.err(
+				span,
+				format!(
+					"comparing `{ty}` by `<{elem} as PartialEq>::ne` through a held type's own, which is not supported yet"
+				),
+			)
+		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![eq_fn(b, elem, span)]),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
 			let mut values = vec![eq_fn(b, inner, span)];

@@ -99,6 +99,16 @@ pub fn wrappers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let held = (bound_of(at(3), b), Bound::Unbounded);
 			bounds(out, held);
 			put_bound(out, held.0.as_ref());
+			// Each one-sided range's field, read and through struct update syntax.
+			let (to, from) = (
+				..(at(2) as usize % (data.len() + 1)),
+				(at(3) as usize % (data.len() + 1))..,
+			);
+			let through = ..=b;
+			put_u64(out, (to.end + from.start) as u64);
+			put_u64(out, through.end);
+			out.push(data[std::ops::RangeTo { ..to }].len() as u8);
+			out.push(data[std::ops::RangeFrom { ..from }].len() as u8);
 		}
 		1 => {
 			let mut map = BTreeMap::new();

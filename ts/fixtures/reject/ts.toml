@@ -38,7 +38,6 @@ roots = [
     "replace_captured",
     "filter_owned_bytes",
     "copied_closure",
-    "one_sided",
     "optional",
     "byte_keys",
     "borrowed",
@@ -50,7 +49,6 @@ roots = [
     "cow_bytes",
     "cow_made",
     "pushed",
-    "split_chars",
     "owning_lazy",
     "missing",
 ]

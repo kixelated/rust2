@@ -810,10 +810,16 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				(_, Some(Std::RangeFrom)) if start => ("Included", Some("start")),
 				(_, Some(Std::RangeTo)) if !start => ("Excluded", Some("end")),
 				(_, Some(Std::RangeToInclusive)) if !start => ("Included", Some("end")),
-				(_, Some(Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull)) => ("Unbounded", None),
+				(_, Some(Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull)) => {
+					("Unbounded", None)
+				}
 				// Exhausted, it ends before its end.
 				(_, Some(Std::RangeInclusive)) => {
-					let f = if start { "rangeInclusiveStartBound" } else { "rangeInclusiveEndBound" };
+					let f = if start {
+						"rangeInclusiveStartBound"
+					} else {
+						"rangeInclusiveEndBound"
+					};
 					return Some(Expr::As(Box::new(Expr::rt(f, vec![r])), ts));
 				}
 				_ => return None,
@@ -875,9 +881,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			}
 		}
 		// Sorted by `lt` of `Ord`, or by a comparator, or by `lt` of the keys a function makes.
-		("slice", "sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key")
-			if !is_u8(targ(gargs, 0)) =>
-		{
+		(
+			"slice",
+			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
+		) if !is_u8(targ(gargs, 0)) => {
 			let mut values = args;
 			match name.as_str() {
 				"sort" | "sort_unstable" => {
@@ -888,7 +895,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 				_ => {
 					let key = targ(gargs, 1);
 					if b.t.drops(key) {
-						return Some(b.err(span, format!("`slice::{name}` by `{key}`, which drops, which is not supported yet")));
+						return Some(b.err(
+							span,
+							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
 					}
 					values.push(super::collections::cmp_fn(b, key, true, span));
 					Expr::rt("sliceSortByKey", values)
@@ -990,7 +1000,10 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 					// `Vec<T, A>::dedup_by_key::<F, K>`.
 					let key = targ(gargs, 3);
 					if b.t.drops(key) {
-						return Some(b.err(span, format!("`Vec::dedup_by_key` by `{key}`, which drops, which is not supported yet")));
+						return Some(b.err(
+							span,
+							format!("`Vec::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
 					}
 					values.push(super::collections::eq_fn(b, key, span));
 					Expr::rt("vecDedupByKey", values)

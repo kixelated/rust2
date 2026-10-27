@@ -54,30 +54,27 @@ replacing the value behind a reference to `[u16; 1]` at fixtures/reject/src/lib.
 `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:280:16
 `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:280:38
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:290:14
-a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:296:7
-a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:296:48
-`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:301:2
-`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:301:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:306:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:306:52
-`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:324:6
-unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:374:4
-a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:379:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:405:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:407:27
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:406:30
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:412:2
-`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:416:18
-unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:417:2
-constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:423:53
-`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:383:15
-replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:384:4
-unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reject/src/lib.rs:390:4
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:396:18
-an iterator that owns `{closure@fixtures/reject/src/lib.rs:398:48: 398:56}`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:398:15
-an iterator that owns `{closure@fixtures/reject/src/lib.rs:399:32: 399:39}`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:399:13
+`Option<&std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:296:2
+`std::collections::HashMap<u8, std::option::Option<u8>>` holds `std::option::Option<u8>`, which is `undefined` as `None` is, which is not supported at fixtures/reject/src/lib.rs:296:6
+hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:301:52
+comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:301:52
+`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:319:6
+unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:369:4
+a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:374:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:394:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:396:27
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:395:30
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:401:2
+`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:405:18
+unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:406:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:412:53
+`&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:378:15
+replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:379:4
+dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:385:18
+an iterator that owns `{closure@fixtures/reject/src/lib.rs:387:48: 387:56}`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:387:15
+an iterator that owns `{closure@fixtures/reject/src/lib.rs:388:32: 388:39}`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:388:13
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:167:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:187:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:221:2
 an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:241:1
-`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:332:9
+`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:327:9
