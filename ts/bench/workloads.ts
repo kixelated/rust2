@@ -5,7 +5,7 @@
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, iterated, or converted. */
 	name: string;
-	op: "encode" | "decode" | "iterate" | "map" | "convert" | "handoff";
+	op: "encode" | "decode" | "iterate" | "map" | "convert" | "add" | "compare" | "handoff";
 	/** Varints, frame headers, messages, items, keys, timestamps, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
@@ -84,6 +84,15 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 			out.push({ name: `time/${type}/${name}`, op: "convert", items: count, input });
 		}
 	}
+
+	// The same frames stamped by moq-net's `Timestamp::checked_add` (op 10), and interleaved
+	// by its `Ord` (op 11) with an audio track's at 48 kHz, from the same instant: every
+	// value is under 2^53, as moq's TypeScript keeps them, and every cross product past it.
+	const video = [start, 33_333n, 1_000_000n];
+	const audio = [(start * 48_000n) / 1_000_000n, 1_024n, 48_000n];
+	const time = (op: number, params: bigint[]) => Uint8Array.of(op, 0, ...[BigInt(count), ...params].flatMap(u64));
+	out.push({ name: "time/checked-add/micros", op: "add", items: count, input: time(10, video) });
+	out.push({ name: "time/ord/micros-48k", op: "compare", items: count, input: time(11, [...video, ...audio]) });
 	return out;
 }
 
