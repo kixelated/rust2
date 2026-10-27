@@ -61,10 +61,10 @@ export function isEmpty(self: Decoder): boolean {
 
 /** Read `len` raw bytes. */
 export function slice(self: Decoder, len: rt.usize): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
-	const _6: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitAtChecked(self.buf, len);
-	if (_6 !== undefined) {
-		self.buf = _6[1];
-		return rt.Ok(_6[0]);
+	const slice_: rt.ByteSlice = self.buf;
+	if (len <= slice_.length) {
+		self.buf = new rt.ByteSlice(slice_.data, slice_.start + len, slice_.length - len);
+		return rt.Ok(new rt.ByteSlice(slice_.data, slice_.start, len));
 	}
 	return rt.Err(short(self, len));
 }

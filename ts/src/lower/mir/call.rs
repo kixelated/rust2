@@ -28,6 +28,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) {
 		let tcx = self.tcx;
+		if let Some(local) = dest.as_local()
+			&& self.scalars.contains_key(&local)
+		{
+			self.scalar_call(local, func, args, span, out);
+			return;
+		}
 		let fn_ty = func.ty(&self.mir.local_decls, tcx);
 		let result = dest.ty(&self.mir.local_decls, tcx).ty;
 		let mut pre = Vec::new();

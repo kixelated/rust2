@@ -4,8 +4,8 @@
 
 A translated function that returns a value built of byte slices and scalars, such as
 `Result<(&[u8], T), E>`, hands its parts to the caller without an object, and Chrome's
-varint and frame decode on `just ts bench` are faster than with
-[locals](/quest/m2/ts-byte-views/locals.md) alone, with every differential test passing.
+varint and frame decode on `just ts bench` are faster than with slices held as parts in
+locals alone, with every differential test passing.
 
 ## Plan
 
@@ -25,7 +25,3 @@ sites, and module `let`s measured 0.93x in Chrome.
   never delays that read.
 
 Public API: the translator's output for byte slices.
-
-## Required
-
-- [Byte slices in locals](/quest/m2/ts-byte-views/locals.md) - the representation returns hand on

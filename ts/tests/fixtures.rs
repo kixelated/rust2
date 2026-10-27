@@ -256,7 +256,6 @@ fn shake(out: &Path) {
 			"Ok",
 			"Panic",
 			"byteSliceFrom",
-			"byteSliceSplitAtChecked",
 			"checked",
 			"clamp",
 			"idx",

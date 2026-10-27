@@ -17,6 +17,7 @@ pub mod glue;
 mod inline;
 mod place;
 mod rvalue;
+mod scalar;
 mod step;
 mod unwind;
 mod vec;
@@ -28,6 +29,7 @@ use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
+pub use self::place::slice_member;
 use super::Translator;
 use super::body::Body;
 
@@ -105,6 +107,9 @@ enum Slot<'tcx> {
 	Alias(Option<Expr>),
 	/// A discriminant only a `switchInt` reads: tested as the place's variant.
 	Discr(Option<(Expr, Ty<'tcx>)>),
+	/// A discriminant only a `switchInt` reads, of a local held as its parts: its flag,
+	/// whether it is its second variant.
+	Flag(Option<Expr>),
 }
 
 /// A temporary's value, held back to fold into the one expression that reads it.
@@ -237,6 +242,13 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	tested: IndexVec<Local, bool>,
 	/// The names of those that hold a value TypeScript would narrow by what it is assigned.
 	widened: FxHashSet<String>,
+	/// Locals held as their parts, by `scalar`.
+	scalars: FxHashMap<Local, scalar::Scalar<'tcx>>,
+	/// Names nothing assigns again that `scalar` reads in place: variables of parts assigned
+	/// once, and the slices it took apart.
+	steady: FxHashSet<String>,
+	/// Those slices, with their types, which need declarations.
+	scalar_binds: Vec<(String, Type)>,
 }
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -295,6 +307,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			switched: FxHashSet::default(),
 			tested: IndexVec::from_elem_n(false, n),
 			widened: FxHashSet::default(),
+			scalars: FxHashMap::default(),
+			steady: FxHashSet::default(),
+			scalar_binds: Vec::new(),
 		};
 		fx.analyze();
 		fx
@@ -457,14 +472,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.unborrow_passed();
 		self.find_halves();
 		self.find_place_opts();
+		self.find_scalars();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
 				Slot::Unit
+			} else if self.scalars.contains_key(&local) {
+				Slot::Var(String::new())
 			} else if let Some(value) = self.unassigned(local, ty) {
 				Slot::Alias(Some(value))
-			} else if self.alias(local) {
+			} else if self.alias(local) && !self.reads_scalar_object(local) {
 				Slot::Alias(None)
+			} else if self.discr_only(local) && self.scalar_discr(local) {
+				Slot::Flag(None)
 			} else if self.discr_only(local) {
 				Slot::Discr(None)
 			} else {
@@ -511,6 +531,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.stepped.contains(&local) {
 					self.name_stepped(local, &base);
 				}
+				self.name_scalar(local, &base);
 				let owned = match mir.local_decls[local].ty.kind() {
 					ty::Tuple(_) | ty::Array(..) => true,
 					ty::Adt(adt, _) => {
@@ -522,7 +543,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					_ => false,
 				};
-				if owned && !self.is_arg(local) && !self.borrowed[local] && !self.mutated[local] {
+				// A byte slice's fields are readonly, so its parts are frozen even in a parameter.
+				let bytes = matches!(mir.local_decls[local].ty.kind(), ty::Ref(_, inner, ty::Mutability::Not) if place::byte_slice(*inner));
+				if (bytes || owned && !self.is_arg(local)) && !self.borrowed[local] && !self.mutated[local] {
 					self.frozen_names.insert(name.clone());
 				}
 				self.slots[local] = Slot::Var(name);
@@ -1381,6 +1404,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				out.push(StmtKind::Declare { name, ty }.at(None));
 			}
 		}
+		self.scalar_decls(&mut out);
 		let mut flags: Vec<String> = self.range_flags.values().cloned().collect();
 		flags.sort();
 		for name in flags {
@@ -2012,7 +2036,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					self.emit(vec![StmtKind::Expr(value).at(None)], None, false, out);
 				}
 			}
-			Slot::Alias(_) | Slot::Discr(_) => unreachable!("set by their own assignment"),
+			Slot::Alias(_) | Slot::Discr(_) | Slot::Flag(_) => unreachable!("set by their own assignment"),
 		}
 	}
 
@@ -2080,6 +2104,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if self.joined.contains(&local) {
 				return;
 			}
+			if self.scalars.contains_key(&local) {
+				self.scalar_assign(local, rvalue, span, out);
+				return;
+			}
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
@@ -2117,6 +2145,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let target = self.place_expr(*p, span, out);
 					let target = self.path(target, "scrutinee", out);
 					self.slots[local] = Slot::Discr(Some((target, ty)));
+					return;
+				}
+				Slot::Flag(_) => {
+					let Rvalue::Discriminant(p) = rvalue else {
+						unreachable!("checked by scalar_discr")
+					};
+					let flag = self.scalar_flag(*p, span);
+					self.slots[local] = Slot::Flag(Some(flag));
 					return;
 				}
 				_ => {}
@@ -2210,6 +2246,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// already is.
 	pub(super) fn slice_path(&mut self, slice: Expr, out: &mut Vec<Stmt>) -> Expr {
 		match &slice {
+			// A local's parts, which do nothing.
+			_ if place::made_slice(&slice).is_some() => slice,
 			Expr::Index(base, i) if base.is_path() && i.is_constant() => {
 				self.materialize(&slice, out);
 				slice
@@ -2367,6 +2405,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				};
 				conds.into_iter().zip(arms.iter().map(|&(_, t)| t)).collect()
 			}
+			// The discriminants of `Option`, `Result`, and `ControlFlow` are their variants'.
+			Some(Slot::Flag(Some(flag))) => {
+				let tests: Vec<Expr> = arms
+					.iter()
+					.map(|&(value, _)| match value {
+						0 => flag.clone().not(),
+						_ => flag.clone(),
+					})
+					.collect();
+				let conds = match tests.len() {
+					1 => self.fold_exprs(Vec::new(), tests, false, out),
+					_ => tests,
+				};
+				conds.into_iter().zip(arms.iter().map(|&(_, t)| t)).collect()
+			}
 			_ => {
 				let ty = discr.ty(&self.mir.local_decls, self.tcx);
 				let mut pre = Vec::new();
@@ -2447,6 +2500,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let mut pre = Vec::new();
 			let slice = self.place_expr(slice, span, &mut pre);
 			let index = self.operand(index, span, &mut pre);
+			// A slice held as its parts is tested by its length, so none is made to test.
+			if let Some([_, _, length]) = place::made_slice(&slice) {
+				let length = length.clone();
+				let index = self.path(index, "index", &mut pre);
+				let failed = fold(index.clone().binary(">=", length.clone()));
+				if !matches!(&failed, Expr::Lit(t) if t == "false")
+					&& let Some(panic) = self.assert_panic(msg, vec![length, index], span)
+				{
+					pre.push(
+						StmtKind::If {
+							cond: failed,
+							then: vec![StmtKind::Expr(panic).at(None)],
+							els: Vec::new(),
+						}
+						.at(self.b.t.loc(span)),
+					);
+				}
+				self.emit(pre, None, false, out);
+				return;
+			}
 			pre.push(StmtKind::Expr(Expr::rt("idx", vec![slice, index])).at(self.b.t.loc(span)));
 			self.emit(pre, None, false, out);
 			return;
@@ -2841,6 +2914,10 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 			scan(base, reads, lazy);
 			scan(index, reads, lazy);
 			reads.push(field(base));
+		}
+		// A byte slice made of its parts only holds them.
+		Expr::New(f, args) if matches!(&**f, Expr::Rt(name) if name == "ByteSlice") => {
+			args.iter().for_each(|e| scan(e, reads, lazy))
 		}
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			// A method's lookup reads no data the arguments could change: only its receiver.

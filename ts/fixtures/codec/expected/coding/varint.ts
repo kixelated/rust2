@@ -199,115 +199,119 @@ export function read(buf: rt.ByteSlice, form: Form.Form): rt.Result<[rt.u64, rt.
 }
 
 export function readQuic(buf: rt.ByteSlice): rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> {
-	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(buf);
-	if (_5 !== undefined) {
-		const first: rt.u8 = _5[0];
+	if (buf.length !== 0) {
+		const first: rt.u8 = buf.data[buf.start];
 		if (!(first < 64)) {
 			if (!(first < 128)) {
 				if (!(first < 192)) {
-					const _54: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
-					if (_54.ok) {
-						const val3: [rt.ByteSlice, rt.ByteSlice] = _54.value;
-						return rt.Ok([fromHalves((((val3[0].data[val3[0].start] & 63) << 24) | (val3[0].data[val3[0].start + 1] << 16) | (val3[0].data[val3[0].start + 2] << 8) | val3[0].data[val3[0].start + 3]) >>> 0, ((val3[0].data[val3[0].start + 4] << 24) | (val3[0].data[val3[0].start + 5] << 16) | (val3[0].data[val3[0].start + 6] << 8) | val3[0].data[val3[0].start + 7]) >>> 0), val3[1]] as [rt.u64, rt.ByteSlice]);
+					if (buf.length >= 8) {
+						return rt.Ok([fromHalves((((buf.data[buf.start] & 63) << 24) | (buf.data[buf.start + 1] << 16) | (buf.data[buf.start + 2] << 8) | buf.data[buf.start + 3]) >>> 0, ((buf.data[buf.start + 4] << 24) | (buf.data[buf.start + 5] << 16) | (buf.data[buf.start + 6] << 8) | buf.data[buf.start + 7]) >>> 0), new rt.ByteSlice(buf.data, buf.start + 8, buf.length - 8)] as [rt.u64, rt.ByteSlice]);
 					}
-					return _54;
+					return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 				}
-				const _33: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
-				if (_33.ok) {
-					const val2: [rt.ByteSlice, rt.ByteSlice] = _33.value;
-					return rt.Ok([(((val2[0].data[val2[0].start] & 63) << 24) | (val2[0].data[val2[0].start + 1] << 16) | (val2[0].data[val2[0].start + 2] << 8) | val2[0].data[val2[0].start + 3]) >>> 0 as rt.u64, val2[1]] as [rt.u64, rt.ByteSlice]);
+				if (buf.length >= 4) {
+					return rt.Ok([(((buf.data[buf.start] & 63) << 24) | (buf.data[buf.start + 1] << 16) | (buf.data[buf.start + 2] << 8) | buf.data[buf.start + 3]) >>> 0 as rt.u64, new rt.ByteSlice(buf.data, buf.start + 4, buf.length - 4)] as [rt.u64, rt.ByteSlice]);
 				}
-				return _33;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
-			const _14: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
-			if (_14.ok) {
-				const val: [rt.ByteSlice, rt.ByteSlice] = _14.value;
-				return rt.Ok([(((val[0].data[val[0].start] & 63) << 8) | val[0].data[val[0].start + 1]) as rt.u64, val[1]] as [rt.u64, rt.ByteSlice]);
+			if (buf.length >= 2) {
+				return rt.Ok([(((buf.data[buf.start] & 63) << 8) | buf.data[buf.start + 1]) as rt.u64, new rt.ByteSlice(buf.data, buf.start + 2, buf.length - 2)] as [rt.u64, rt.ByteSlice]);
 			}
-			return _14;
+			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 		}
-		return rt.Ok([first as rt.u64, _5[1]] as [rt.u64, rt.ByteSlice]);
+		return rt.Ok([first as rt.u64, new rt.ByteSlice(buf.data, buf.start + 1, buf.length - 1)] as [rt.u64, rt.ByteSlice]);
 	}
 	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }
 
 export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> {
-	let _8!: [rt.u64, rt.ByteSlice];
-	const _6: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(buf);
-	if (_6 !== undefined) {
-		const first: rt.u8 = _6[0];
+	let _8_0!: rt.u64;
+	let _8_1Data!: Uint8Array;
+	let _8_1Start!: number;
+	let _8_1Len!: number;
+	if (buf.length !== 0) {
+		const first: rt.u8 = buf.data[buf.start];
 		const _9: rt.u32 = rt.u8LeadingOnes(first);
 		if (_9 === 0) {
-			_8 = [first as rt.u64, _6[1]] as [rt.u64, rt.ByteSlice];
+			_8_0 = first as rt.u64;
+			_8_1Data = buf.data;
+			_8_1Start = buf.start + 1;
+			_8_1Len = buf.length - 1;
 		} else if (_9 === 1) {
-			const _14: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 2), { tag: "Short" } as DecodeError.DecodeError);
-			if (_14.ok) {
-				const val: [rt.ByteSlice, rt.ByteSlice] = _14.value;
-				_8 = [(((val[0].data[val[0].start] & 63) << 8) | val[0].data[val[0].start + 1]) as rt.u64, val[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 2) {
+				_8_0 = (((buf.data[buf.start] & 63) << 8) | buf.data[buf.start + 1]) as rt.u64;
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 2;
+				_8_1Len = buf.length - 2;
 			} else {
-				return _14;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 2) {
-			const _30: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 3), { tag: "Short" } as DecodeError.DecodeError);
-			if (_30.ok) {
-				const val2: [rt.ByteSlice, rt.ByteSlice] = _30.value;
-				_8 = [(((val2[0].data[val2[0].start] & 31) << 16) | (val2[0].data[val2[0].start + 1] << 8) | val2[0].data[val2[0].start + 2]) as rt.u64, val2[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 3) {
+				_8_0 = (((buf.data[buf.start] & 31) << 16) | (buf.data[buf.start + 1] << 8) | buf.data[buf.start + 2]) as rt.u64;
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 3;
+				_8_1Len = buf.length - 3;
 			} else {
-				return _30;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 3) {
-			const _48: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 4), { tag: "Short" } as DecodeError.DecodeError);
-			if (_48.ok) {
-				const val3: [rt.ByteSlice, rt.ByteSlice] = _48.value;
-				_8 = [(((val3[0].data[val3[0].start] & 15) << 24) | (val3[0].data[val3[0].start + 1] << 16) | (val3[0].data[val3[0].start + 2] << 8) | val3[0].data[val3[0].start + 3]) >>> 0 as rt.u64, val3[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 4) {
+				_8_0 = (((buf.data[buf.start] & 15) << 24) | (buf.data[buf.start + 1] << 16) | (buf.data[buf.start + 2] << 8) | buf.data[buf.start + 3]) >>> 0 as rt.u64;
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 4;
+				_8_1Len = buf.length - 4;
 			} else {
-				return _48;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 4) {
-			const _65: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 5), { tag: "Short" } as DecodeError.DecodeError);
-			if (_65.ok) {
-				const val4: [rt.ByteSlice, rt.ByteSlice] = _65.value;
-				_8 = [fromHalves(((val4[0].data[val4[0].start] & 7)) as rt.u32, ((val4[0].data[val4[0].start + 1] << 24) | (val4[0].data[val4[0].start + 2] << 16) | (val4[0].data[val4[0].start + 3] << 8) | val4[0].data[val4[0].start + 4]) >>> 0), val4[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 5) {
+				_8_0 = fromHalves(((buf.data[buf.start] & 7)) as rt.u32, ((buf.data[buf.start + 1] << 24) | (buf.data[buf.start + 2] << 16) | (buf.data[buf.start + 3] << 8) | buf.data[buf.start + 4]) >>> 0);
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 5;
+				_8_1Len = buf.length - 5;
 			} else {
-				return _65;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 5) {
-			const _81: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 6), { tag: "Short" } as DecodeError.DecodeError);
-			if (_81.ok) {
-				const val5: [rt.ByteSlice, rt.ByteSlice] = _81.value;
-				_8 = [fromHalves(((val5[0].data[val5[0].start] & 3) << 8) | val5[0].data[val5[0].start + 1], ((val5[0].data[val5[0].start + 2] << 24) | (val5[0].data[val5[0].start + 3] << 16) | (val5[0].data[val5[0].start + 4] << 8) | val5[0].data[val5[0].start + 5]) >>> 0), val5[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 6) {
+				_8_0 = fromHalves(((buf.data[buf.start] & 3) << 8) | buf.data[buf.start + 1], ((buf.data[buf.start + 2] << 24) | (buf.data[buf.start + 3] << 16) | (buf.data[buf.start + 4] << 8) | buf.data[buf.start + 5]) >>> 0);
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 6;
+				_8_1Len = buf.length - 6;
 			} else {
-				return _81;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 6) {
 			if (!seven) {
 				return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
 			}
-			const _101: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
-			if (_101.ok) {
-				const val6: [rt.ByteSlice, rt.ByteSlice] = _101.value;
-				_8 = [fromHalves(((val6[0].data[val6[0].start] & 1) << 16) | (val6[0].data[val6[0].start + 1] << 8) | val6[0].data[val6[0].start + 2], ((val6[0].data[val6[0].start + 3] << 24) | (val6[0].data[val6[0].start + 4] << 16) | (val6[0].data[val6[0].start + 5] << 8) | val6[0].data[val6[0].start + 6]) >>> 0), val6[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 7) {
+				_8_0 = fromHalves(((buf.data[buf.start] & 1) << 16) | (buf.data[buf.start + 1] << 8) | buf.data[buf.start + 2], ((buf.data[buf.start + 3] << 24) | (buf.data[buf.start + 4] << 16) | (buf.data[buf.start + 5] << 8) | buf.data[buf.start + 6]) >>> 0);
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 7;
+				_8_1Len = buf.length - 7;
 			} else {
-				return _101;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
 		} else if (_9 === 7) {
-			const _121: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
-			if (_121.ok) {
-				const val7: [rt.ByteSlice, rt.ByteSlice] = _121.value;
-				_8 = [fromHalves((val7[0].data[val7[0].start + 1] << 16) | (val7[0].data[val7[0].start + 2] << 8) | val7[0].data[val7[0].start + 3], ((val7[0].data[val7[0].start + 4] << 24) | (val7[0].data[val7[0].start + 5] << 16) | (val7[0].data[val7[0].start + 6] << 8) | val7[0].data[val7[0].start + 7]) >>> 0), val7[1]] as [rt.u64, rt.ByteSlice];
+			if (buf.length >= 8) {
+				_8_0 = fromHalves((buf.data[buf.start + 1] << 16) | (buf.data[buf.start + 2] << 8) | buf.data[buf.start + 3], ((buf.data[buf.start + 4] << 24) | (buf.data[buf.start + 5] << 16) | (buf.data[buf.start + 6] << 8) | buf.data[buf.start + 7]) >>> 0);
+				_8_1Data = buf.data;
+				_8_1Start = buf.start + 8;
+				_8_1Len = buf.length - 8;
 			} else {
-				return _121;
+				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 			}
+		} else if (buf.length >= 9) {
+			_8_0 = fromHalves(((buf.data[buf.start + 1] << 24) | (buf.data[buf.start + 2] << 16) | (buf.data[buf.start + 3] << 8) | buf.data[buf.start + 4]) >>> 0, ((buf.data[buf.start + 5] << 24) | (buf.data[buf.start + 6] << 16) | (buf.data[buf.start + 7] << 8) | buf.data[buf.start + 8]) >>> 0);
+			_8_1Data = buf.data;
+			_8_1Start = buf.start + 9;
+			_8_1Len = buf.length - 9;
 		} else {
-			const _142: rt.Result<[rt.ByteSlice, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 9), { tag: "Short" } as DecodeError.DecodeError);
-			if (_142.ok) {
-				const val8: [rt.ByteSlice, rt.ByteSlice] = _142.value;
-				_8 = [fromHalves(((val8[0].data[val8[0].start + 1] << 24) | (val8[0].data[val8[0].start + 2] << 16) | (val8[0].data[val8[0].start + 3] << 8) | val8[0].data[val8[0].start + 4]) >>> 0, ((val8[0].data[val8[0].start + 5] << 24) | (val8[0].data[val8[0].start + 6] << 16) | (val8[0].data[val8[0].start + 7] << 8) | val8[0].data[val8[0].start + 8]) >>> 0), val8[1]] as [rt.u64, rt.ByteSlice];
-			} else {
-				return _142;
-			}
+			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 		}
-		return rt.Ok(_8);
+		return rt.Ok([_8_0, new rt.ByteSlice(_8_1Data, _8_1Start, _8_1Len)] as [rt.u64, rt.ByteSlice]);
 	}
 	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }

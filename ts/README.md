@@ -288,8 +288,17 @@ they need.
   and encode no slower. A `&[u8; N]`, such as `split_first_chunk`'s chunk, is an
   `rt.ByteSlice` too, its bytes read in place: the decode workloads then took 0.72 times
   a view's time in Chrome, 0.67 in Firefox, 0.87 in Node, and 0.71 in Bun at the
-  geometric mean, with the A/A route within 0.03, and encode no slower. Each split still
-  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
+  geometric mean, with the A/A route within 0.03, and encode no slower.
+- A local built of byte slices and scalars, in tuples, `Option`s, `Result`s, and
+  `ControlFlow`s, is a JS value per part: a slice's `data`, `start`, and `length`, and an
+  enum's variant as a flag, when nothing borrows or writes into it and only std's splits,
+  `ok_or`, `?`, aggregates, and copies assign it. A read that takes it apart reads its
+  parts; any other makes its object there, and a local whose object would be made more
+  often than before stays one. `just ts bench` measured the codec's varint decode at 0.49
+  times the objects' time in Chrome, 0.57 in Firefox, 0.64 in Node, and 0.56 in Bun at
+  the geometric mean, and frame decode at 0.61, 0.56, 0.70, and 0.61, with the A/A route
+  within 0.04 and encode no slower. A parameter, a return, and a field are still a
+  `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a

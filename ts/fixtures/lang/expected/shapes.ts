@@ -71,11 +71,11 @@ export function dir(byte: rt.u8): Dir.Dir | undefined {
 }
 
 export function shape(data: rt.ByteSlice): Shape.Shape {
-	const _4: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(data);
-	if (_4 !== undefined) {
-		const kind: rt.u8 = _4[0];
+	if (data.length !== 0) {
+		const kind: rt.u8 = data.data[data.start];
+		const rest: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 1, data.length - 1);
 		const at: (a0: rt.usize) => rt.i32 = (i: rt.usize): rt.i32 => {
-			return rt.i32Sub(rt.optionUnwrapOr(rt.byteSliceGet(_4[1], i), 0) as rt.i32, 128);
+			return rt.i32Sub(rt.optionUnwrapOr(rt.byteSliceGet(rest, i), 0) as rt.i32, 128);
 		};
 		const _7: rt.u8 = rt.u8Rem(kind, 3);
 		if (_7 === 0) {
@@ -84,7 +84,7 @@ export function shape(data: rt.ByteSlice): Shape.Shape {
 		if (_7 === 1) {
 			return { tag: "Line", _0: Point.new(at(0), at(1)), _1: Point.new(at(2), at(3)) } as Shape.Shape;
 		}
-		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.byteSliceGet(_4[1], 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.byteSliceGet(_4[1], 3), 0) as rt.u16 } as Shape.Shape;
+		return { tag: "Rect", corner: Point.new(at(0), at(1)), width: rt.u16Mul(rt.optionUnwrapOr(rt.byteSliceGet(rest, 2), 0) as rt.u16, 300), height: rt.optionUnwrapOr(rt.byteSliceGet(rest, 3), 0) as rt.u16 } as Shape.Shape;
 	}
 	return { tag: "Dot" } as Shape.Shape;
 }
@@ -630,8 +630,11 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const after: rt.u8 = rt.u8WrappingSub(increment(rt.byteSliceFrom(m)), before);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(first, second, called, f(1), slots[0], n, after)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
-	const _89: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(data, rt.usizeDiv(data.length, 2));
-	ends([_89[0], _89[1]], out);
+	const mid: number = rt.usizeDiv(data.length, 2);
+	if (mid > data.length) {
+		rt.panic("mid > len");
+	}
+	ends([new rt.ByteSlice(data.data, data.start, mid), new rt.ByteSlice(data.data, data.start + mid, data.length - mid)], out);
 	if (rt.u8Rem(at(7), 4) === 0) {
 		const _106: [rt.u8, rt.u8, rt.u8] = [at(8), at(9), at(10)];
 		const x: rt.u8 = _106[0];
@@ -1262,7 +1265,7 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.unreachable(undefined);
 			} else if (!((data.data[data.start] === data.data[data.start + (data.length - 1)]))) {
 				rt.byteVecPush(out, data.data[data.start] ^ data.data[data.start + 1]);
-				rt.byteVecPush(out, rt.byteSliceRange(data, 2).length & 0xff);
+				rt.byteVecPush(out, (data.length - 2) & 0xff);
 			} else {
 				rt.byteVecPush(out, 2);
 			}
