@@ -560,6 +560,11 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 		range.start, range.end
 	);
 	out.extend_from_slice(text.as_bytes());
+	// A tuple of borrows read by its fields, as `format_args!` reads its arguments: each
+	// borrowed value is evaluated once, where the tuple is made.
+	let (marked, len) = (&mark(out, 16), &out.len());
+	out.push(*marked as u8);
+	out.push(*len as u8);
 	indexed(data, out);
 }
 
