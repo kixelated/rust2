@@ -159,7 +159,10 @@ fn crates(manifest: &Path, config: &Config, cargo: &[String]) -> Result<(String,
 		}
 		lines.push_str(&package.line());
 	}
-	Ok((lines, overrides(&metadata, top)?))
+	// Every platform's dependencies, which cargo resolves wherever the glue builds.
+	let output = run_cargo(manifest, &["metadata", "--format-version", "1"], &picks)?;
+	let resolved: Metadata = serde_json::from_slice(&output).map_err(|err| format!("reading cargo metadata: {err}"))?;
+	Ok((lines, overrides(&resolved, top)?))
 }
 
 /// The `[patch]` the glue's workspace resolves the exports by as the check did, wherever
@@ -173,11 +176,11 @@ fn overrides(metadata: &Metadata, top: &Package) -> Result<String, String> {
 	toml::to_string(&overrides).map_err(|err| format!("writing the patches: {err}"))
 }
 
-/// Each patch cargo applied in resolving what `top` builds with, wherever it was
-/// declared: the manifest, cargo's config, `--config`, or the environment. A dependency
-/// resolved to a package of another source than the one it names was patched, or
-/// `[replace]`d by a package of the same version, which a patch resolves to alike; it is
-/// keyed by the URL of the source it names, which reads the same without that config.
+/// Each patch cargo applied in resolving what `top` builds with on any platform, wherever
+/// it was declared: the manifest, cargo's config, `--config`, or the environment. A
+/// dependency resolved to a package of another source than the one it names was patched,
+/// or `[replace]`d by a package of the same version, which a patch resolves to alike; it
+/// is keyed by the URL of the source it names, which reads the same without that config.
 fn patch(metadata: &Metadata, top: &Package) -> Result<toml::Table, String> {
 	let packages: BTreeMap<&str, &Package> = metadata.packages.iter().map(|p| (p.id.as_str(), p)).collect();
 	let nodes: BTreeMap<&str, &Node> = metadata.resolve.nodes.iter().map(|n| (n.id.as_str(), n)).collect();

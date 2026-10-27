@@ -512,7 +512,8 @@ fn export_and_build(dir: &Path, args: &[&str]) {
 
 /// Another export patched in for a registry dependency is bound by its resolved package,
 /// though the dependency names no path, and the glue builds it patched in too, though
-/// the dependency goes by its library's crate name.
+/// the dependency goes by its library's crate name. So is a dependency of no platform's,
+/// which cargo resolves all the same.
 #[test]
 fn patched() {
 	let package = package("patched");
@@ -526,11 +527,18 @@ fn patched() {
 			),
 			("dep/src/lib.rs", "pub struct Size {\n\tpub width: u32,\n}\n"),
 			(
+				"inactive/Cargo.toml",
+				"[package]\nname = \"rust2-ffi-patched-inactive\"\nversion = \"1.0.0\"\nedition = \"2024\"\n",
+			),
+			("inactive/src/lib.rs", ""),
+			(
 				"Cargo.toml",
 				"[package]\nname = \"patched\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n\
 			[dependencies]\nrust2-ffi-patched-dep = \"1\"\n\n\
-			[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\n\
-			[workspace]\nexclude = [\"dep\"]\n",
+			[target.'cfg(any())'.dependencies]\nrust2-ffi-patched-inactive = \"1\"\n\n\
+			[patch.crates-io]\nrust2-ffi-patched-dep = { path = \"dep\" }\n\
+			rust2-ffi-patched-inactive = { path = \"inactive\" }\n\n\
+			[workspace]\nexclude = [\"dep\", \"inactive\"]\n",
 			),
 			(
 				"src/lib.rs",
