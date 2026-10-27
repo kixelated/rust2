@@ -232,7 +232,8 @@ export serves every instance and a generic one is a generic TS function. `Bytes:
 that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
 stay the trait's, as for any other type. A generic export sees a type argument only in the
 values it takes, so a function with a bounded type parameter that no argument holds, such
-as `fn zero<T: Default>() -> T`, can't be bound.
+as `fn zero<T: Default>() -> T`, or with a const parameter, can't be bound. `tsc` checks a
+generic bound type's value at each of its instantiations translation reaches.
 
 Translation can't see into a bound type, so a field, variant, or constructor of one is
 refused, as are iterating one, keying a collection by one, and assigning a whole one

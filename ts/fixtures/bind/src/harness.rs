@@ -45,6 +45,12 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	out
 }
 
+/// A `Held` of `None`, which `wrong.toml`'s binding would make `undefined`, as the outer
+/// `None` is.
+pub fn held() -> bool {
+	Some(crate::raw::Held::new(None::<u8>)).is_some()
+}
+
 /// What `refused.toml`'s bindings can't stand in for, which `run` never reaches.
 pub fn refused(count: &Arc<u32>) -> u8 {
 	let mut bytes = Bytes::new();

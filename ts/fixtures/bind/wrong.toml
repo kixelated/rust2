@@ -1,9 +1,10 @@
 # Bindings that don't match what translated code takes them for, each refused at its Rust
 # item: `wrong.txt` holds the errors.
 package = "bind-fixture"
-roots = ["harness::run"]
+roots = ["harness::run", "harness::held"]
 
 [bind]
 "bytes::Bytes" = "wrong/bytes.ts"
 "raw::checksum" = "bind/checksum.ts"
 "raw::Tally" = { file = "wrong/tally.ts", drop = true }
+"raw::Held" = "wrong/held.ts"

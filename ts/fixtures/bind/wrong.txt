@@ -6,3 +6,5 @@ the binding of `<bytes::Bytes as std::cmp::PartialEq>::eq` in wrong/bytes.ts doe
          Types of parameters 'other' and 'a1' are incompatible.
            Type 'ByteSlice' is not assignable to type 'string'. at bytes-1.12.1/src/bytes.rs:769:5
 the binding of `raw::Tally` in wrong/tally.ts doesn't type-check: error TS2322: Type 'Tally' is not assignable to type '"a bound value that drops must have a [Symbol.dispose]"'. at fixtures/bind/src/raw.rs:26:1
+the binding of `raw::Held<std::option::Option<u8>>` in wrong/held.ts doesn't type-check: error TS2322: Type 'u8 | undefined' is not assignable to type '"a bound value can't be undefined, which None is"'.
+         Type 'undefined' is not assignable to type '"a bound value can't be undefined, which None is"'. at fixtures/bind/src/raw.rs:61:1

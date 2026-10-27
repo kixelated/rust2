@@ -54,6 +54,8 @@ pub struct Bindings<'tcx> {
 	exports: rustc_data_structures::fx::FxHashMap<(ModPath, String), (DefId, SymId)>,
 	/// The instances checked against their export.
 	checked: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The instantiations of bound types whose value is checked.
+	values: rustc_data_structures::fx::FxHashSet<ty::Ty<'tcx>>,
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
@@ -225,31 +227,36 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let msg = format!("`{path}` binds without drop, so it would never drop its `{arg}`");
 			self.err(span, msg);
 		}
-		if let Some(&sym) = self.bindings.types.get(&def_id) {
-			return Some(sym);
-		}
 		let module = self.bindings.items[&def_id].module.clone();
-		let name = self.tcx.item_name(def_id).to_string();
-		let sym = self.bound_sym(&module, name, SymKind::Struct, span);
-		self.bindings.types.insert(def_id, sym);
-		// It takes as many type parameters as the Rust type, any of which meets the
-		// binding's constraints on them.
-		let params = self.tcx.generics_of(def_id).own_counts().types;
-		let value = Type::Sym(sym, vec![Type::Builtin("any"); params]);
-		let copy = self.is_copy(self.tcx.type_of(def_id).instantiate_identity().skip_norm_wip());
-		let flag = |b: bool| Type::Builtin(if b { "true" } else { "false" });
-		let ret = Type::Rt("Bound", vec![value.clone(), flag(copy), flag(drop)]);
-		let value = Param {
-			name: "value".into(),
-			ty: Some(value),
+		let sym = match self.bindings.types.get(&def_id) {
+			Some(&sym) => sym,
+			None => {
+				let name = self.tcx.item_name(def_id).to_string();
+				let sym = self.bound_sym(&module, name, SymKind::Struct, span);
+				self.bindings.types.insert(def_id, sym);
+				sym
+			}
 		};
-		let body = vec![StmtKind::Return(Some(Expr::ident("value"))).at(None)];
-		let what = format!(
-			"the binding of `{}` in {}",
-			self.bindings.items[&def_id].path,
-			module_file(&module).display()
-		);
-		self.check(vec![value], ret, body, self.tcx.def_span(def_id), what);
+		// Each instantiation translation reaches, with its own type arguments: a generic
+		// binding may be one value for one and another for the next, as `Held<T> = T` is
+		// `undefined` for `Held<()>`. Over type parameters, only a census's, which checks
+		// nothing, reaches one.
+		let ty = ty::Ty::new_adt(self.tcx, adt, args);
+		if !ty.has_param() && self.bindings.values.insert(ty) {
+			let value = Type::Sym(sym, args.types().map(|t| self.ty(t, span)).collect());
+			let flag = |b: bool| Type::Builtin(if b { "true" } else { "false" });
+			let ret = Type::Rt("Bound", vec![value.clone(), flag(self.is_copy(ty)), flag(drop)]);
+			let value = Param {
+				name: "value".into(),
+				ty: Some(value),
+			};
+			let body = vec![StmtKind::Return(Some(Expr::ident("value"))).at(None)];
+			let what = ty::print::with_no_trimmed_paths!(format!(
+				"the binding of `{ty}` in {}",
+				module_file(&module).display()
+			));
+			self.check(vec![value], ret, body, self.tcx.def_span(def_id), what);
+		}
 		Some(sym)
 	}
 
@@ -277,7 +284,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			None => {
 				if let Some(param) = self.phantom(def_id) {
 					let msg = format!(
-						"a binding of `{}`, whose `{param}` no argument holds: one export for every instance can't recover it",
+						"a binding of `{}`, whose `{param}` one export for every instance can't recover from its arguments",
 						tcx.def_path_str(def_id)
 					);
 					self.err(tcx.def_span(def_id), msg);
@@ -314,34 +321,34 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(&self.bindings.items[&self.binder(def_id)?].module)
 	}
 
-	/// A parameter of `def_id` that no argument's type holds, and that one export serving
-	/// every instance would need, seeing each generic argument only in the values it takes:
-	/// a const parameter, whose value it can't read, or a type parameter with a trait bound,
-	/// whose impls it can't call.
+	/// A parameter of `def_id` that one export serving every instance, seeing each generic
+	/// argument only in the values it takes, can't recover: a const parameter, whose value
+	/// even an argument whose type holds it may not carry, as `None` of an
+	/// `Option<[u8; N]>` doesn't, or a type parameter with a trait bound that no argument's
+	/// type holds, whose impls it can't call.
 	fn phantom(&self, def_id: DefId) -> Option<rustc_span::Symbol> {
 		let tcx = self.tcx;
+		let mut generics = Some(tcx.generics_of(def_id));
+		while let Some(g) = generics {
+			if let Some(param) = g
+				.own_params
+				.iter()
+				.find(|param| matches!(param.kind, ty::GenericParamDefKind::Const { .. }))
+			{
+				return Some(param.name);
+			}
+			generics = g.parent.map(|parent| tcx.generics_of(parent));
+		}
 		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip().skip_binder();
 		let held: Vec<u32> = sig
 			.inputs()
 			.iter()
 			.flat_map(|t| t.walk())
-			.filter_map(
-				|arg| match (arg.as_type().map(|t| t.kind()), arg.as_const().map(|c| c.kind())) {
-					(Some(ty::Param(p)), _) => Some(p.index),
-					(_, Some(ty::ConstKind::Param(p))) => Some(p.index),
-					_ => None,
-				},
-			)
+			.filter_map(|arg| match arg.as_type()?.kind() {
+				ty::Param(p) => Some(p.index),
+				_ => None,
+			})
 			.collect();
-		let mut generics = Some(tcx.generics_of(def_id));
-		while let Some(g) = generics {
-			if let Some(param) = g.own_params.iter().find(|param| {
-				matches!(param.kind, ty::GenericParamDefKind::Const { .. }) && !held.contains(&param.index)
-			}) {
-				return Some(param.name);
-			}
-			generics = g.parent.map(|parent| tcx.generics_of(parent));
-		}
 		tcx.param_env(def_id).caller_bounds().find_map(|clause| {
 			let pred = clause.as_trait_clause()?.skip_binder();
 			match pred.self_ty().kind() {

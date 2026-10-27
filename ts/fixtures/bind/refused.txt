@@ -10,11 +10,11 @@ binding `raw::checksum`: `checksum` binds the same item
 binding `std::vec::Vec`: std's type has a representation of its own
 reading bind/missing.ts: No such file or directory (os error 2) at fixtures/bind/src/harness.rs:25:12
 unsupported type `*const u32` at fixtures/bind/src/raw.rs:27:2
-`raw::Held` binds without drop, so it would never drop its `raw::Tally` at fixtures/bind/src/harness.rs:52:13
-a binding of `raw::value`, whose `N` no argument holds: one export for every instance can't recover it at fixtures/bind/src/raw.rs:56:1
-a binding of `raw::zero`, whose `T` no argument holds: one export for every instance can't recover it at fixtures/bind/src/raw.rs:51:1
-`raw::Held` binds without drop, so it would never drop its `raw::Tally` at fixtures/bind/src/harness.rs:52:6
+`raw::Held` binds without drop, so it would never drop its `raw::Tally` at fixtures/bind/src/harness.rs:58:13
+a binding of `raw::value`, whose `N` one export for every instance can't recover from its arguments at fixtures/bind/src/raw.rs:56:1
+a binding of `raw::zero`, whose `T` one export for every instance can't recover from its arguments at fixtures/bind/src/raw.rs:51:1
+`raw::Held` binds without drop, so it would never drop its `raw::Tally` at fixtures/bind/src/harness.rs:58:6
 unsupported call to `std::sync::Arc::<u32>::from_raw` at fixtures/bind/src/raw.rs:46:17
 unsupported call to `std::sync::Arc::<u32>::into_raw` at fixtures/bind/src/raw.rs:33:11
 a raw pointer dereferenced at fixtures/bind/src/raw.rs:39:12
-an assignment through a reference to `bytes::Bytes` at fixtures/bind/src/harness.rs:59:2
+an assignment through a reference to `bytes::Bytes` at fixtures/bind/src/harness.rs:65:2
