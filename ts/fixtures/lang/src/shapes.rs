@@ -1492,6 +1492,91 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 			_ => 26,
 		});
 	}
+	reseated(data, out);
+}
+
+/// A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
+/// a reborrow of that, a closure, and a call.
+fn reseated(data: &[u8], out: &mut Vec<u8>) {
+	let (a, b) = (shape(data), shape(&[1]));
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			*rr = &b;
+			match *r {
+				Shape::Line(..) => 27,
+				_ => 28,
+			}
+		}
+		_ => 29,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			let again = &mut *rr;
+			*again = &b;
+			match *r {
+				Shape::Line(..) => 30,
+				_ => 31,
+			}
+		}
+		_ => 32,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let mut point = || r = &b;
+			point();
+			match *r {
+				Shape::Line(..) => 36,
+				_ => 37,
+			}
+		}
+		_ => 38,
+	});
+	let mut r = &a;
+	let mut other = &b;
+	out.push(match *r {
+		Shape::Dot => {
+			std::mem::swap(&mut r, &mut other);
+			match *r {
+				Shape::Line(..) => 39,
+				_ => 40,
+			}
+		}
+		_ => 41,
+	});
+	let mut r = &a;
+	for _ in 0..2 {
+		out.push(match *r {
+			Shape::Dot => {
+				let rr = &mut r;
+				*rr = &b;
+				match *r {
+					Shape::Line(..) => 42,
+					_ => 43,
+				}
+			}
+			_ => 44,
+		});
+	}
+	out.push(rebound(&a, &b));
+}
+
+/// A parameter pointed elsewhere, after a copy of it that still points where it did.
+fn rebound<'a>(mut r: &'a Shape, b: &'a Shape) -> u8 {
+	let kept = r;
+	let rr = &mut r;
+	*rr = b;
+	match *r {
+		Shape::Line(..) => match *kept {
+			Shape::Line(..) => 45,
+			_ => 46,
+		},
+		_ => 47,
+	}
 }
 
 /// A state a method matches, changing it between its matches.

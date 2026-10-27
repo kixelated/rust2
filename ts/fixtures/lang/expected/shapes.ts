@@ -1683,6 +1683,105 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, _114);
 	}
+	reseated(data, out);
+}
+
+/**
+ * A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
+ * a reborrow of that, a closure, and a call.
+ */
+export function reseated(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _12!: rt.u8;
+	let _19!: rt.u8;
+	let _26!: rt.u8;
+	let _37!: rt.u8;
+	let _51!: rt.u8;
+	const _5: [Shape.Shape, Shape.Shape] = [shape(data), shape(rt.byteSliceFrom(Uint8Array.of(1)))];
+	const a: Shape.Shape = _5[0];
+	const b: Shape.Shape = _5[1];
+	let r: Shape.Shape = a;
+	if (r.tag === "Dot") {
+		r = b;
+		if (r.tag === "Line") {
+			_12 = 27;
+		} else {
+			_12 = 28;
+		}
+	} else {
+		_12 = 29;
+	}
+	rt.byteVecPush(out, _12);
+	let r2: Shape.Shape = a;
+	if (r2.tag === "Dot") {
+		r2 = b;
+		if (r2.tag === "Line") {
+			_19 = 30;
+		} else {
+			_19 = 31;
+		}
+	} else {
+		_19 = 32;
+	}
+	rt.byteVecPush(out, _19);
+	let r3: Shape.Shape = a;
+	if (r3.tag === "Dot") {
+		((): void => {
+			r3 = b;
+		})();
+		if (r3.tag === "Line") {
+			_26 = 36;
+		} else {
+			_26 = 37;
+		}
+	} else {
+		_26 = 38;
+	}
+	rt.byteVecPush(out, _26);
+	let r4: Shape.Shape = a;
+	let other: Shape.Shape = b;
+	if (r4.tag === "Dot") {
+		const swapped = r4;
+		r4 = other;
+		other = swapped;
+		if (r4.tag === "Line") {
+			_37 = 39;
+		} else {
+			_37 = 40;
+		}
+	} else {
+		_37 = 41;
+	}
+	rt.byteVecPush(out, _37);
+	let r5: Shape.Shape = a;
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 2;
+	while (iterStart++ < iterEnd) {
+		if (r5.tag === "Dot") {
+			r5 = b;
+			if (r5.tag === "Line") {
+				_51 = 42;
+			} else {
+				_51 = 43;
+			}
+		} else {
+			_51 = 44;
+		}
+		rt.byteVecPush(out, _51);
+	}
+	rt.byteVecPush(out, rebound(a, b));
+}
+
+/** A parameter pointed elsewhere, after a copy of it that still points where it did. */
+export function rebound(r: Shape.Shape, b: Shape.Shape): rt.u8 {
+	const kept: Shape.Shape = r;
+	r = b;
+	if (r.tag === "Line") {
+		if (kept.tag === "Line") {
+			return 45;
+		}
+		return 46;
+	}
+	return 47;
 }
 
 /** A `match` without arms on a scrutinee that diverges, not on an empty type. */
