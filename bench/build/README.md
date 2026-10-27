@@ -45,6 +45,8 @@ They build without incremental compilation, as CI does.
 A test run runs every test even when some fail, and the report lists how many failed, since a failed test can end sooner than a passing one.
 Before the timed runs, each variant does one untimed clean build that warms the disk cache and logs any failure.
 Each timed run starts after a `sync`: on CI's 16 GiB runners, writing back the dirty pages that earlier runs left made the edits it overlapped about 10% slower.
+An edit can still read its target directory back from disk when it follows every other variant's builds, since four of moq's (2.9 GB each) fill what those runners cache; each variant gets at most two such runs, and the trimmed mean drops the slowest.
+Over 21 CI runs since the sync, the controls' change had an RMS of 1.3% on `edit-leaf` and 1.4% on `edit-hub`, against 1.9% on `check` and 1.6% on `build`.
 
 ## Variants
 
