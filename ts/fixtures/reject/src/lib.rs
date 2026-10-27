@@ -399,3 +399,12 @@ pub fn cow_borrowed(c: &std::borrow::Cow<'_, str>) -> bool {
 pub fn cow_bytes(c: std::borrow::Cow<'_, [u8]>) -> usize {
 	c.len()
 }
+
+/// Made where its type goes unchecked, as a local's, it is refused where it is made.
+pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
+	{
+		let c: std::borrow::Cow<'_, std::sync::Arc<u8>> = std::borrow::Cow::Owned(a.clone());
+		drop(c);
+	}
+	std::sync::Arc::strong_count(a)
+}

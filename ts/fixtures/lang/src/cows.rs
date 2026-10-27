@@ -43,6 +43,14 @@ impl<'a> Named<'a> {
 	}
 }
 
+/// `to_mut` of a `Result`'s payload, which the store rebuilds the `Result` around.
+fn exclaimed(mut r: Result<Cow<'_, str>, u8>) -> Result<Cow<'_, str>, u8> {
+	if let Ok(c) = &mut r {
+		c.to_mut().push('!');
+	}
+	r
+}
+
 fn cow(s: &str, owned: bool) -> Cow<'_, str> {
 	match owned {
 		true => Cow::Owned(s.to_string()),
@@ -98,6 +106,14 @@ pub fn cows(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				put(out, c);
 			}
 			put(out, &c.into_owned());
+			let r = match kind & 0x40 {
+				0 => Ok(cow(first, owned)),
+				_ => Err(kind),
+			};
+			match exclaimed(r) {
+				Ok(c) => put(out, &c),
+				Err(e) => out.push(e),
+			}
 		}
 		2 => {
 			// Comparisons with each string type, either way around, and ordering.

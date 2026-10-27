@@ -412,6 +412,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				at = borrowed.project_deeper(rest, tcx);
 				continue;
 			}
+			if let [ProjectionElem::Deref, rest @ ..] = at.projection.as_slice()
+				&& let Some(&borrowed) = self.reborrows.get(&at.local)
+			{
+				at = borrowed.project_deeper(rest, tcx);
+				continue;
+			}
 			let [.., ProjectionElem::Downcast(_, variant), ProjectionElem::Field(..)] = at.projection.as_slice() else {
 				break;
 			};

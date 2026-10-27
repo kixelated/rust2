@@ -325,7 +325,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				// Either variant is its text.
-				(Std::Cow, _) => values.pop().unwrap(),
+				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 				(Std::Result, 0) => Expr::rt("Ok", values),
 				(Std::Result, _) => Expr::rt("Err", values),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),

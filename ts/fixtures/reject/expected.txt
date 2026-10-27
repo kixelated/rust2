@@ -67,6 +67,7 @@ a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the 
 a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:395:2
 `std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:399:18
 unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:400:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:406:53
 `&mut std::string::String`: a JS value of `std::string::String` is a copy, so a reference can't change it at fixtures/reject/src/lib.rs:377:15
 replacing the value behind a reference to `std::string::String` at fixtures/reject/src/lib.rs:378:4
 unsupported call to `core::str::<impl str>::split::<&str>` at fixtures/reject/src/lib.rs:383:4

@@ -5,6 +5,14 @@ import * as Named from "./cows.Named.ts";
 import { put } from "./fmt.ts";
 import { text } from "./strs.ts";
 
+/** `to_mut` of a `Result`'s payload, which the store rebuilds the `Result` around. */
+export function exclaimed(r: rt.Result<string, rt.u8>): rt.Result<string, rt.u8> {
+	if (r.ok) {
+		return rt.Ok(r.value + "!");
+	}
+	return r;
+}
+
 export function cow(s: string, owned: boolean): string {
 	if (!owned) {
 		return s;
@@ -14,6 +22,7 @@ export function cow(s: string, owned: boolean): string {
 
 export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let shared!: rt.Arc<string>;
+	let r!: rt.Result<string, rt.u8>;
 	let unwind: number = 0;
 	try {
 		const s: string = text(data);
@@ -35,19 +44,19 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			put(out, "fallback");
 			put(out, s);
 			shared = new rt.Arc(s);
-			unwind = 256;
+			unwind = 267;
 			put(out, shared.value);
 			const _80: rt.Iter<string> = rt.strSplit(s, "\\");
 			const part: string = rt.optionUnwrapOr(rt.optionMap(rt.iterNth(_80, 1), (a03: string): string => {
 				return a03;
 			}), "fallback");
-			unwind = 255;
+			unwind = 266;
 			put(out, part);
 			const into: string = cow(first, owned);
-			unwind = 254;
+			unwind = 265;
 			put(out, into);
 			const fromStr: string = first;
-			unwind = 253;
+			unwind = 264;
 			put(out, fromStr);
 			unwind = 0;
 			rt.drop(shared);
@@ -71,21 +80,32 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				put(out, _126);
 			}
 			put(out, c2);
+			if ((kind & 64) === 0) {
+				r = rt.Ok(cow(first, owned));
+			} else {
+				r = rt.Err(kind);
+			}
+			const _140: rt.Result<string, rt.u8> = exclaimed(r);
+			if (_140.ok) {
+				put(out, _140.value);
+			} else {
+				rt.byteVecPush(out, _140.error);
+			}
 		} else if (_14 === 2) {
 			const a: string = cow(s, owned);
 			const b: string = cow(first, !owned);
 			const iter2: rt.Iter<boolean> = rt.iterSlice([a === first, a === first, a === s, first === a, s === a, a === b, a !== b, rt.cmpStr(a, b) < 0, rt.cmpStr(a, b) >= 0, rt.cmpStr(a, b) === 1]);
 			while (true) {
-				const _179: boolean | rt.Done = iter2.next();
-				if (_179 === rt.DONE) {
+				const _189: boolean | rt.Done = iter2.next();
+				if (_189 === rt.DONE) {
 					break;
 				}
-				rt.byteVecPush(out, _179 ? 1 : 0);
+				rt.byteVecPush(out, _189 ? 1 : 0);
 			}
-			const _190: string = a;
-			const _191: string = b;
-			const _189: string = rt.ordMax(_190, _191, rt.cmpStr);
-			rt.byteVecPush(out, _189 === b ? 1 : 0);
+			const _200: string = a;
+			const _201: string = b;
+			const _199: string = rt.ordMax(_200, _201, rt.cmpStr);
+			rt.byteVecPush(out, _199 === b ? 1 : 0);
 		} else if (_14 === 3) {
 			const n: Named.Named = Named.new(first, kind);
 			const m2: Named.Named = Named.clone$Clone(n);
@@ -99,62 +119,62 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			put(out, o.name);
 			[Named.default$Default(), Named.new("", kind)] as [Named.Named, Named.Named];
 			const arg4 = Named.default$Default();
-			const _250: rt.Fmt = (f: rt.Formatter) => Named.fmt$Debug(arg4, f);
+			const _260: rt.Fmt = (f: rt.Formatter) => Named.fmt$Debug(arg4, f);
 			const arg5 = Named.new("", kind);
-			const args4: rt.Fmt[] = [_250, (f: rt.Formatter) => Named.fmt$Debug(arg5, f)];
+			const args4: rt.Fmt[] = [_260, (f: rt.Formatter) => Named.fmt$Debug(arg5, f)];
 			put(out, rt.fmtFormat([args4[0], " ", args4[1]]));
 		} else if (_14 === 4) {
 			const counts: rt.BTreeMap<string, rt.u8> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.u8>;
 			const iter3: rt.Iter<[rt.usize, string]> = rt.iterEnumerate(rt.strSplit(s, "/"));
 			while (true) {
-				const _261: [rt.usize, string] | rt.Done = iter3.next();
-				if (_261 === rt.DONE) {
+				const _271: [rt.usize, string] | rt.Done = iter3.next();
+				if (_271 === rt.DONE) {
 					break;
 				}
-				const _269: string = cow(_261[1], rt.usizeRem(_261[0], 2) === 1 === owned);
-				const place = rt.entryOrInsertMut(rt.entry(counts, _269), 0);
+				const _279: string = cow(_271[1], rt.usizeRem(_271[0], 2) === 1 === owned);
+				const place = rt.entryOrInsertMut(rt.entry(counts, _279), 0);
 				place.v = rt.u8Add(place.v, 1);
 			}
 			const iter4: rt.Iter<[string, rt.u8]> = rt.btreeIter(counts);
 			while (true) {
-				const _278: [string, rt.u8] | rt.Done = iter4.next();
-				if (_278 === rt.DONE) {
+				const _288: [string, rt.u8] | rt.Done = iter4.next();
+				if (_288 === rt.DONE) {
 					break;
 				}
-				put(out, _278[0]);
-				rt.byteVecPush(out, _278[1]);
+				put(out, _288[0]);
+				rt.byteVecPush(out, _288[1]);
 			}
 			rt.byteVecPush(out, rt.optionUnwrapOr(rt.btreeGet(counts, first), 255));
 			const names: rt.HashSet<Named.Named> = rt.hashNew(rt.hashing(Named.hash$Hash_DefaultHasher, Named.eq$PartialEq)) as rt.HashSet<Named.Named>;
 			const iter5: rt.Iter<string> = rt.strSplit(s, "/");
 			while (true) {
-				const _298: string | rt.Done = iter5.next();
-				if (_298 === rt.DONE) {
+				const _308: string | rt.Done = iter5.next();
+				if (_308 === rt.DONE) {
 					break;
 				}
-				const _304: Named.Named = Named.new(_298, 0);
-				rt.hashAdd(names, _304);
+				const _314: Named.Named = Named.new(_308, 0);
+				rt.hashAdd(names, _314);
 			}
 			rt.byteVecPush(out, rt.hashLen(names) & 0xff);
-			const _314: Named.Named = Named.new(first, 0);
-			rt.byteVecPush(out, rt.hashContains(names, _314) ? 1 : 0);
+			const _324: Named.Named = Named.new(first, 0);
+			rt.byteVecPush(out, rt.hashContains(names, _324) ? 1 : 0);
 		} else {
 			[cow(s, owned)] as [string];
 			const arg = cow(s, owned);
-			const _327: rt.Fmt = (f: rt.Formatter) => rt.fmtPad(f, arg);
+			const _337: rt.Fmt = (f: rt.Formatter) => rt.fmtPad(f, arg);
 			const arg2 = cow(s, owned);
-			const args6: rt.Fmt[] = [_327, (f: rt.Formatter) => rt.fmtStr(arg2, f)];
+			const args6: rt.Fmt[] = [_337, (f: rt.Formatter) => rt.fmtStr(arg2, f)];
 			put(out, rt.fmtFormat(["[", args6[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args6[0]), "|", rt.fmtSpec({ align: "<", width: 5 }, args6[0]), "|", rt.fmtSpec({ align: "^", width: 7 }, args6[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 3 }, args6[0]), "|", args6[1], "]"]));
 			const arg3 = ([cow(first, owned)] as [string | undefined])[0];
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(arg3, f, rt.fmtStr)];
 			put(out, rt.fmtFormat([args8[0]]));
 		}
-	} catch (e) {
+	} catch (e2) {
 		if (unwind === 0) {
-			throw e;
+			throw e2;
 		}
 		rt.drop(shared);
-		throw e;
+		throw e2;
 	}
 }
 

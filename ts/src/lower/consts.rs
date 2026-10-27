@@ -104,7 +104,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				if let Some(std) = Std::of(tcx, adt.did()) {
 					return match (std, variant.index()) {
 						(Std::Option, 0) => Expr::undefined(),
-						(Std::Option | Std::Cow, _) => values.pop().unwrap(),
+						(Std::Option, _) => values.pop().unwrap(),
+						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 						(Std::Result, 0) => Expr::rt("Ok", values),
 						(Std::Result, _) => Expr::rt("Err", values),
 						// `start..=end`, not yet stepped past its end.

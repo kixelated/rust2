@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 80
-- Function instances: 64
+- Refusals: 81
+- Function instances: 65
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -44,6 +44,7 @@
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:75:2 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:300:52 |
+| 1 | constructing `_` | fixtures/reject/src/lib.rs:406:53 |
 | 1 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:51:1 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:300:52 |
 | 1 | hex `Debug`, as in `{:x?}`, is not supported | fixtures/reject/src/lib.rs:88:3 |
@@ -56,9 +57,9 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
+| 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:388:2 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:28:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:7:14 |
-| 6 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:388:2 |
 | 6 | `u8` | fixtures/reject/src/lib.rs:65:10 |
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:95:16 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:56:2 |
@@ -130,6 +131,7 @@ The type or module each refused type or path belongs to.
 | 1 | an iterator that owns `_`, which drops, which is not supported yet | `Noisy` | fixtures/reject/src/lib.rs:254:20 |
 | 1 | arithmetic on `_` | `f64` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:300:52 |
+| 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:406:53 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:173:23 |
 | 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:194:14 |
 | 1 | hashing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:300:52 |
@@ -401,6 +403,12 @@ The type or module each refused type or path belongs to.
 <details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:300:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
+
+</details>
+
+<details><summary>constructing `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:406:53: constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>`
 
 </details>
 
