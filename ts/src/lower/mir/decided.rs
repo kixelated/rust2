@@ -155,7 +155,10 @@ impl<'tcx> Flow<'tcx> {
 				_ => None,
 			};
 		}
-		let kept = writes.iter_enumerated().map(|(local, &w)| w == 0 && arg(local)).collect();
+		let kept = writes
+			.iter_enumerated()
+			.map(|(local, &w)| w == 0 && arg(local))
+			.collect();
 		let mut flow = Self {
 			tcx,
 			borrows,
@@ -402,8 +405,8 @@ struct Writes(IndexVec<Local, usize>);
 
 impl<'tcx> Visitor<'tcx> for Writes {
 	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {
-		let writes = context.is_mutating_use()
-			|| context == PlaceContext::NonMutatingUse(NonMutatingUseContext::RawBorrow);
+		let writes =
+			context.is_mutating_use() || context == PlaceContext::NonMutatingUse(NonMutatingUseContext::RawBorrow);
 		if writes && !place.is_indirect() {
 			self.0[place.local] += 1;
 		}
