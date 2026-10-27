@@ -36,6 +36,7 @@ roots = [
     "rest_mut",
     "replace_pinned_ref",
     "replace_captured",
+    "filter_owned_bytes",
     "copied_closure",
     "one_sided",
     "optional",

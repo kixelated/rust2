@@ -86,6 +86,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice] | undefined): [rt.ByteSlice, rt.ByteSlice] | undefined {
+	return v === undefined ? v : copy$u8s_u8s(v);
+}
+
 export function copy$Pair(v: Pair.Pair): Pair.Pair {
 	return { a: v.a, b: v.b };
 }
@@ -180,6 +184,10 @@ export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
 
 export function copy$u8s(v: Uint8Array): Uint8Array {
 	return v.slice();
+}
+
+export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
+	return [v[0], v[1]];
 }
 
 //# sourceMappingURL=lib.ts.map

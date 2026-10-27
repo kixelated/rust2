@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
 use api_lib::{
-	Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Point, Registry, Shape, Size, Stamp, Tally,
-	Window,
+	Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Pair, Point, Registry, Shape, Size, Stack, Stamp,
+	Tally, Window,
 };
 use bytes::Bytes;
 
@@ -197,6 +197,36 @@ fn main() {
 	let area = api_lib::grow(&dep::Area::new(Size { width: 2, height: 3 }), 1);
 	let size = area.size();
 	println!("area {} {} {}", size.width, size.height, area.pixels());
+
+	let pair = Pair { left: 2u32, right: 5 };
+	let swapped = pair.swap();
+	println!(
+		"pair {} {} sum {} {pair:?} {}",
+		swapped.left,
+		swapped.right,
+		pair.sum(),
+		pair == swapped
+	);
+	println!("even {} {}", pair.even(), Pair { left: 7u32, right: 7 }.even());
+	let sized = Pair {
+		left: Size { width: 1, height: 2 },
+		right: 3u8,
+	};
+	let flipped = sized.swap();
+	println!("sized {} {} {flipped:?}", flipped.left, flipped.right.width);
+	let beside = Pair { left: 258u32, right: 9 }.beside(sized.left);
+	println!("beside {} {beside:?}", beside.left);
+	let mut stack = Stack::new();
+	for (i, name) in ["a", "b"].into_iter().enumerate() {
+		stack.push(Counter::new(name, i as u64 + 1));
+	}
+	let top = stack.pop().map(|c| c.get());
+	println!(
+		"stack {} {top:?} {} {}",
+		stack.depth(),
+		stack.pop().is_some(),
+		stack.pop().is_none()
+	);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());

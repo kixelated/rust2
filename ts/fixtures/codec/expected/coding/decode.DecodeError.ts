@@ -15,7 +15,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "invalid string");
 	}
 	if (self.tag === "InvalidMessage") {
-		const arg = ([([self._0] as [rt.u64])[0]] as [rt.u64])[0];
+		const arg = self._0;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
 		return rt.fmtWriteFmt(__formatter, ["invalid message: ", args2[0]]);
 	}

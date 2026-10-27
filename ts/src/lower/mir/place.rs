@@ -10,10 +10,10 @@ use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, Projec
 use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
-use super::{Env, Fx, Slot};
+use super::{Env, Fx, Pending, Slot};
 use crate::lower::library::{Flow, Std};
 use crate::lower::num::Int;
-use crate::lower::{AdtRepr, ObjectKind};
+use crate::lower::{AdtRepr, ObjectKind, byte_array, bytes_ref};
 use crate::ts::{Expr, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
@@ -47,6 +47,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let decls = &self.mir.local_decls;
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
 		let mut projection = place.projection.iter().peekable();
+		let held = match projection.peek() {
+			Some(&ProjectionElem::Field(field, _)) if !self.mutated[place.local] => {
+				self.held_part(place.local, field.as_usize())
+			}
+			_ => None,
+		};
 		// A closure's captures, and a coroutine's state, are `_1`'s fields.
 		let mut e = match (&self.env, place.local.as_u32()) {
 			(Env::Closure(captures), 1) => {
@@ -66,8 +72,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					_ => return self.err(span, "a closure's environment read whole"),
 				}
 			}
+			// A field of an aggregate held back for its one read.
+			_ if let Some(part) = held => {
+				let elem = *projection.peek().unwrap();
+				pty = pty.projection_ty(tcx, elem);
+				projection.next();
+				part
+			}
 			// A field of an aggregate made once and never changed is its operand: a
-			// reference, which borrow checking keeps as it was, or a path that stays put.
+			// reference, held in a path when the aggregate is made, which borrow checking
+			// keeps as it was, or a name that stays put.
 			(_, _)
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
@@ -97,8 +111,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => unreachable!("a checked pair is a tuple"),
 			});
 		}
+		// Whether `e` is an `rt.ByteSlice` of the place's bytes: a `[u8]`, or a `[u8; N]`
+		// behind a reference.
+		let mut in_bytes = false;
 		while let Some(elem) = projection.next() {
 			let ty = pty.ty;
+			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
 				ProjectionElem::Deref => {
 					// A box's pointer is the box in JS: one to an object shares it.
@@ -127,9 +145,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				ProjectionElem::Index(index) => {
 					let i = self.local_expr(index, span);
-					e = match byte_slice(ty) {
+					e = match in_bytes {
 						true => {
-							let base = self.path(e, "slice", out);
+							let base = self.slice_path(e, out);
 							byte_at(base, i)
 						}
 						false => e.index(i),
@@ -140,15 +158,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					min_length: _,
 					from_end,
 				} => {
-					let base = match from_end || byte_slice(ty) {
-						true => self.path(e, "slice", out),
+					let base = match from_end || in_bytes {
+						true => self.slice_path(e, out),
 						false => e,
 					};
 					let i = match from_end {
 						false => Expr::lit(offset.to_string()),
 						true => base.clone().member("length").binary("-", Expr::lit(offset.to_string())),
 					};
-					e = match byte_slice(ty) {
+					e = match in_bytes {
 						true => byte_at(base, i),
 						false => base.index(i),
 					};
@@ -159,11 +177,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					to,
 					from_end: true,
 				} if byte_slice(ty) => {
-					let base = self.path(e, "slice", out);
+					let base = self.slice_path(e, out);
 					let mut values = vec![base.clone(), Expr::lit(from.to_string())];
 					if to != 0 {
 						values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
 					}
+					e = Expr::rt("byteSliceRange", values);
+				}
+				// Part of a `[u8; N]` behind a reference, as `[a, rest @ ..]` of a `&[u8; N]`.
+				ProjectionElem::Subslice { from, to, from_end } if in_bytes => {
+					let end = match (from_end, ty.kind()) {
+						(false, _) => to,
+						(true, ty::Array(_, len)) if let Some(len) = len.try_to_target_usize(tcx) => len - to,
+						_ => return self.err(span, format!("a subslice of `{ty}`")),
+					};
+					let base = self.slice_path(e, out);
+					let values = vec![base, Expr::lit(from.to_string()), Expr::lit(end.to_string())];
 					e = Expr::rt("byteSliceRange", values);
 				}
 				ProjectionElem::Subslice { from, to, from_end } => {
@@ -189,9 +218,30 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				| ProjectionElem::UnwrapUnsafeBinder(_)
 				| ProjectionElem::PhantomDeref => {}
 			}
+			in_bytes = match elem {
+				ProjectionElem::Deref => bytes_ref(ty),
+				ProjectionElem::Subslice { .. } => in_bytes,
+				_ => false,
+			};
 			pty = pty.projection_ty(tcx, elem);
 		}
 		e
+	}
+
+	/// Whether `place` is a `[u8; N]` read through a reference, whose JS value is an
+	/// `rt.ByteSlice` of its bytes rather than a `Uint8Array`, as [`Self::place_expr`]
+	/// reads it.
+	pub(super) fn in_bytes(&self, place: Place<'tcx>) -> bool {
+		let mut in_bytes = false;
+		for (base, elem) in place.iter_projections() {
+			let ty = base.ty(&self.mir.local_decls, self.tcx).ty;
+			in_bytes = match elem {
+				ProjectionElem::Deref => bytes_ref(ty),
+				ProjectionElem::Subslice { .. } => in_bytes || byte_slice(ty),
+				_ => false,
+			};
+		}
+		in_bytes && byte_array(place.ty(&self.mir.local_decls, self.tcx).ty)
 	}
 
 	/// An error if `kind` borrows a subslice of other than bytes mutably: a JS array has
@@ -385,6 +435,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// An operand's value, copied if it is a `Copy` aggregate read from a place that keeps it.
 	pub fn operand(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		match op {
+			// An array of bytes read through a reference, copied out of its slice.
+			Operand::Copy(place) | Operand::Move(place) if self.in_bytes(*place) => {
+				let value = self.place_expr(*place, span, out);
+				Expr::rt("byteSliceToArray", vec![value])
+			}
 			// JS shares objects where Rust copies, so a `Copy` aggregate is copied where
 			// either side could change in place: into a local changed in place, or out of a
 			// place that could change.
@@ -434,6 +489,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn store(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> Vec<Stmt> {
 		let (place, value) = self.rebuilt(place, value, span);
 		let mut out = Vec::new();
+		// Bytes through a reference are copied into the slice of them it holds.
+		if self.in_bytes(place) {
+			let target = self.place_expr(place, span, &mut out);
+			let target = self.slice_path(target, &mut out);
+			let set = target.clone().member("data").member("set");
+			out.push(StmtKind::Expr(set.call(vec![value, target.member("start")])).at(self.b.t.loc(span)));
+			return out;
+		}
 		// `*r = v` replaces the object `r` points at in place, which other references and
 		// captures share. An alias of a borrowed place, or of a reference to no object,
 		// assigns the place.
@@ -706,7 +769,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.inner()
 					.inspect_with_uninit_and_ptr_outside_interpreter(start..start + len as usize);
 				let items = bytes.iter().map(|b| Expr::lit(b.to_string())).collect();
-				Expr::ident("Uint8Array").member("of").call(items)
+				Expr::rt(
+					"byteSliceFrom",
+					vec![Expr::ident("Uint8Array").member("of").call(items)],
+				)
 			}
 			ConstValue::Slice { .. } => {
 				let Some(bytes) = val.try_get_slice_bytes_for_diagnostics(tcx) else {
@@ -753,6 +819,57 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			_ => None,
 		}
+	}
+
+	/// The slice of the bytes an operand copies from behind a reference, directly or through
+	/// a temporary still held back to fold into its one read, which is then no longer
+	/// pending: read where they are, they need no copy.
+	pub(super) fn bytes_source(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let (Operand::Copy(place) | Operand::Move(place)) = op else {
+			return None;
+		};
+		if self.in_bytes(*place) {
+			return Some(self.place_expr(*place, span, out));
+		}
+		let local = place.as_local()?;
+		if self.defs[local] != 1 || self.uses[local] != 1 {
+			return None;
+		}
+		let name = self.var(local)?.to_string();
+		let i = self.pending.iter().position(|p| p.name == name)?;
+		let Expr::Call(f, args) = &self.pending[i].value else {
+			return None;
+		};
+		let (Expr::Rt(rt), [slice]) = (&**f, args.as_slice()) else {
+			return None;
+		};
+		if rt != "byteSliceToArray" {
+			return None;
+		}
+		let slice = slice.clone();
+		let p = self.pending.remove(i);
+		// A path, or a subslice of one in bounds, reads only bytes nothing changed since.
+		let path = |e: &Expr| e.is_path() || matches!(e, Expr::Index(base, i) if base.is_path() && i.is_constant());
+		let stable = match &slice {
+			Expr::Call(f, args) if matches!(&**f, Expr::Rt(name) if name == "byteSliceRange") => {
+				matches!(args.as_slice(), [base, Expr::Lit(_), ..] if path(base))
+			}
+			e => path(e),
+		};
+		if stable {
+			return Some(slice);
+		}
+		// What the copy read, held where the copy was.
+		let name = self.b.fresh("slice");
+		self.pending.push(Pending {
+			name: name.clone(),
+			value: slice,
+			parts: None,
+			copy: false,
+			decl: true,
+			..p
+		});
+		Some(Expr::ident(name))
 	}
 
 	/// The bytes of a byte string constant, `&[u8; N]`.

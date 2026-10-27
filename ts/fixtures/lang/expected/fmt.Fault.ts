@@ -40,7 +40,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return rt.fmtPad(f, "short buffer");
 	}
 	if (self.tag === "Code") {
-		const arg4 = ([self._0] as [rt.u16])[0];
+		const arg4 = self._0;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16LowerHex(arg4, f)];
 		return rt.fmtWriteFmt(f, ["code=", rt.fmtSpec({ alternate: true, zero: true, width: 6 }, args2[0])]);
 	}
@@ -51,7 +51,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		const args4: rt.Fmt[] = [_20, (f: rt.Formatter) => rt.usizeDisplay(arg3, f)];
 		return rt.fmtWriteFmt(f, [args4[0], " bytes exceeds the ", args4[1], " byte limit"]);
 	}
-	const arg = ([self._0] as [Pair.Pair])[0];
+	const arg = self._0;
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => Pair.fmt$Debug(arg, f)];
 	return rt.fmtWriteFmt(f, ["at ", args6[0]]);
 }
