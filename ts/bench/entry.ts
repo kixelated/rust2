@@ -1,5 +1,5 @@
 // One engine's run of the benchmark, bundled by `main.ts` beside the files it loads: in
-// Node and Bun it prints the result, and in Chrome it posts it back to `main.ts`.
+// Node and Bun it prints the result, and in a browser it posts it back to `main.ts`.
 
 import { Wasm } from "../tests/wasm.ts";
 import { measure, type Route } from "./time.ts";
@@ -20,7 +20,7 @@ export interface Config {
 
 const browser = typeof window !== "undefined";
 
-// Tells Chrome's `main.ts`, which fails the run when it stops hearing, what runs next. A
+// Tells a browser's `main.ts`, which fails the run when it stops hearing, what runs next. A
 // beacon leaves no response for the page to handle between samples.
 const progress = browser ? (step: string) => void navigator.sendBeacon("/progress", step) : () => {};
 
@@ -53,6 +53,8 @@ function parse(workloads: Workloads): Workload[] {
 }
 
 async function main() {
+	// Without isolation, a browser coarsens performance.now() to as much as a millisecond.
+	if (browser && !crossOriginIsolated) throw new Error("the page is not cross-origin isolated");
 	const config: Config = JSON.parse(new TextDecoder().decode(await load("workloads.json")));
 	const workloads = parse(config.workloads);
 	const wasm = new Wasm(await WebAssembly.compile(await load("bench.wasm")));
