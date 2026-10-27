@@ -81,6 +81,7 @@ dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src
 passing `{closure@fixtures/reject/src/lib.rs:410:32: 410:39}`, a closure that owns a value that drops, to `from_fn::from_fn`, which is not supported yet at fixtures/reject/src/lib.rs:410:13
 dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:410:32: 410:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:410:62
 an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:411:13
+unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:443:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:167:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:187:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:221:2

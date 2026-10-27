@@ -437,3 +437,9 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	}
 	std::sync::Arc::strong_count(a)
 }
+
+/// A `Duration` is a value JS copies, which a `&mut` can't change in place.
+pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
+	d += by;
+	d
+}
