@@ -285,9 +285,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return f.call(values);
 		}
 		let local = self.b.t.translated(def_id, gargs);
-		let pointees = match local {
-			true => Vec::new(),
-			false => {
+		let pointees = match self.b.t.mapped(def_id, gargs) {
+			false => Vec::new(),
+			true => {
 				if let Some(err) = self.std_places(def_id, gargs, result, span) {
 					return err;
 				}

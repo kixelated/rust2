@@ -35,7 +35,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let mir::BorrowKind::Mut { .. } = kind {
 					let pointee = place.ty(&self.mir.local_decls, tcx).ty;
 					if self.b.t.needs_place(pointee) {
-						if let Some(reborrowed) = self.reborrowed(*place, span, out) {
+						if let Some(reborrowed) = self.reborrowed(*kind, *place, span, out) {
 							return Some(reborrowed);
 						}
 						let target = self.place_expr(*place, span, out);

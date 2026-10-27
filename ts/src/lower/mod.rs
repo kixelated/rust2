@@ -687,6 +687,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether a call of `def_id` with `args` runs std's mapping, which takes a `&mut`
+	/// parameter as what it points at, rather than the crate's function or a binding's export.
+	pub fn mapped(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
+		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
+			Ok(Some(instance)) => {
+				!matches!(instance.def, InstanceKind::Item(did) if did.is_local())
+					&& self.bound_module(instance).is_none()
+			}
+			_ => true,
+		}
+	}
+
 	/// Whether a call of `def_id` with `args` calls a binding's export.
 	pub fn binds(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {

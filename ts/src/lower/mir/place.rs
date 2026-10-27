@@ -750,7 +750,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The `rt.Place` of `place`, a reborrow `&mut *r` of a reference `r` that is one, which is `r`'s.
-	pub(super) fn reborrowed(&mut self, place: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+	/// A shared reborrow `&*r` is what `r` points at instead.
+	pub(super) fn reborrowed(
+		&mut self,
+		kind: mir::BorrowKind,
+		place: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
+		if !matches!(kind, mir::BorrowKind::Mut { .. }) {
+			return None;
+		}
 		let [rest @ .., ProjectionElem::Deref] = place.projection.as_slice() else {
 			return None;
 		};

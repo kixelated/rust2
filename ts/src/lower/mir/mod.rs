@@ -846,9 +846,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Whether a reference in `local` is read whole, rather than only through, or a reborrow
-	/// of what it points at is: passed on, kept, or captured. A `&mut` parameter of std's
-	/// reads through it, as its mapping takes what it points at.
+	/// Whether a reference in `local` is read whole, rather than only through, or a mutable
+	/// reborrow of what it points at is: passed on, kept, or captured. A `&mut` parameter of
+	/// std's reads through it, as its mapping takes what it points at.
 	fn read_whole(&self, local: Local) -> bool {
 		use rustc_middle::mir::visit::{PlaceContext, Visitor};
 		struct Reads<'a, 'tcx> {
@@ -870,7 +870,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			fn visit_assign(&mut self, to: &Place<'tcx>, rvalue: &Rvalue<'tcx>, at: mir::Location) {
-				if let Rvalue::Ref(_, _, p) = rvalue
+				if let Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, p) = rvalue
 					&& p.local == self.local
 					&& let [mir::ProjectionElem::Deref] = p.projection.as_slice()
 					&& let Some(to) = to.as_local()
@@ -889,7 +889,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let pointees = |func: &Operand<'tcx>, i: usize| match *func.ty(&self.mir.local_decls, tcx).kind() {
-			ty::FnDef(def_id, gargs) if !self.b.t.translated(def_id, self.b.subst(gargs.skip_binder())) => {
+			ty::FnDef(def_id, gargs) if self.b.t.mapped(def_id, self.b.subst(gargs.skip_binder())) => {
 				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 				let input = tcx.instantiate_bound_regions_with_erased(sig).inputs().get(i).copied();
 				input.is_some_and(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
@@ -2083,7 +2083,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let target = match rvalue {
 						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
 							Some(e) => e,
-							None => match self.reborrowed(*p, span, out) {
+							None => match self.reborrowed(*kind, *p, span, out) {
 								Some(e) => e,
 								// Read whole, the place is held as it is now for its `rt.Place`.
 								None if self.points_at_place(local) && self.read_whole(local) => {

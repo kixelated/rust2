@@ -144,6 +144,14 @@ fn deref_box(b: &mut Box<Option<u8>>, to: u8) {
 	*r = Some(to);
 }
 
+/// Methods that take `&self`, called through a `&mut`.
+fn fill(seen: &mut Option<u8>, s: &mut String, next: u8) -> u8 {
+	if seen.is_none() {
+		*seen = Some(next);
+	}
+	seen.unwrap_or(0xee).wrapping_add(s.len() as u8)
+}
+
 pub fn refs(data: &[u8], out: &mut Vec<u8>) {
 	let by = data.first().copied().unwrap_or(3);
 	// A local, a field, and elements of an array and a `Vec`.
@@ -196,6 +204,9 @@ pub fn refs(data: &[u8], out: &mut Vec<u8>) {
 		Fetch::Refused => 0xff,
 	});
 	out.extend_from_slice(text.as_bytes());
+	let mut empty = None;
+	out.push(fill(&mut empty, &mut text, by));
+	out.push(fill(&mut empty, &mut text, by.wrapping_add(1)));
 	// A struct keeping a `&mut`, and one passed on in a loop.
 	let mut at = 0;
 	let mut cursor = Cursor { at: &mut at, data };
