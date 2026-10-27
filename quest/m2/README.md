@@ -27,7 +27,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 ## Required
 
 - [Byte slices without objects](/quest/m2/ts-byte-views.md) - splitting a `&[u8]` allocates nothing, neither a chunk view nor a `ByteSlice`
-- [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the bench's bundles shrink back to THIR's sizes, coroutine classes first
+- [Smaller output from MIR](/quest/m2/ts-mir-size.md) - the codec bundle shrinks back to THIR's gzipped size
 - [An A/A control that measures noise](/quest/m2/ts-bench-aa.md) - `just ts bench`'s A/A measures only noise, in every engine
 - [Time Timestamp's checked_add and Ord](/quest/m2/ts-bench-timestamp.md) - the `u128` paths #89 sped up get a Chrome timing
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
@@ -35,6 +35,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - copies of `Copy` aggregates no one writes into in place go away, recovering #83's decode cost
 - [Matches TypeScript has already narrowed](/quest/m2/ts-narrow-test.md) - an inner match on a value an outer match decided passes `tsc`
+- [Small std gaps](/quest/m2/ts-std-gaps.md) - `bool::then`, `iter::successors`, `usize::from(bool)`, and `None.ok_or` narrowing
 - [Copy-on-write strings](/quest/m2/ts-cow-str.md) - `Cow<str>` translates, finishing `ietf/namespace.rs`
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model.md) - the driver grows from moq-net's codec to its model, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm

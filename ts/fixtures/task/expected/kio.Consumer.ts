@@ -34,9 +34,7 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 		return undefined;
 	}
 	const _16: State.State = state.value;
-	const _18: rt.usize = self.next;
-	const at = rt.idx(_16.queue, _18);
-	const value: rt.u64 = _16.queue[at];
+	const value: rt.u64 = _16.queue[rt.idx(_16.queue, self.next)];
 	self.next = rt.usizeAdd(self.next, 1);
 	return value;
 }

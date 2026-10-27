@@ -25,9 +25,7 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	const _6: rt.Mutex<string[]> = self._0.value;
-	const _4: string[] = _6.value;
-	_4.push(event);
+	self._0.value.value.push(event);
 }
 
 /** Every event so far, one per line. */
