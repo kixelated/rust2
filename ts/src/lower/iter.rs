@@ -134,8 +134,9 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 				Expr::rt("iterFrom", args)
 			}
 			// One borrowed by `&mut`, which std's adaptors may drop once it ends, but which
-			// is its owner's to drop.
-			None if !owned && b.t.drops(ty.peel_refs()) => Expr::rt("iterBorrow", vec![value]),
+			// is its owner's to drop, and which a consumer reads on through the borrow
+			// rather than by its by-value overrides, as `Chain::count` ends both halves.
+			None if !owned => Expr::rt("iterBorrow", vec![value]),
 			None => value,
 		});
 	}

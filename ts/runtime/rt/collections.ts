@@ -617,12 +617,9 @@ class HashIter<K, V, T> extends Iter<T> {
 		return this.left;
 	}
 
-	/**
-	 * std's `into_iter`'s: its length, and then each entry drops with it. One that drops
-	 * nothing reads each entry, as it may be borrowed and read again after.
-	 */
+	/** std's `into_iter`'s: its length, and then each entry drops with it. */
 	override countItems(drop?: (item: T) => void): number {
-		if (this.drain || (this.k === undefined && this.v === undefined)) return super.countItems(drop);
+		if (this.drain) return super.countItems(drop);
 		const n = this.left;
 		this[Symbol.dispose]();
 		return n;

@@ -91,7 +91,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, rt.hashLen(map) & 0xff);
 		rt.byteVecPush(out, rt.hashLen(map) === 0 ? 1 : 0);
 		const it: rt.Iter<[rt.u8, rt.u16]> = rt.hashIter(map);
-		rt.byteVecPush(out, rt.iterCount(it) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterBorrow(it)) & 0xff);
 		rt.byteVecPush(out, rt.iterToOption(it.next()) === undefined ? 1 : 0);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(rt.iterSum(rt.iterMap(rt.hashValues(map), (v5: rt.u16): rt.u16 => {
 			return rt.u16Rem(v5, 256);
