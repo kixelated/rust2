@@ -7,8 +7,9 @@ rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
-`wasm32-unknown-unknown`. Every crate compiles as rustc would; the configured library is
-also translated, after type and borrow checking, starting from its roots and following
+`wasm32-unknown-unknown`, with std built from source for it, unwinding and with every
+function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
+would; the configured library is also translated, after type and borrow checking, starting from its roots and following
 what they reach. A construct outside the subset is a compile error with its span, and
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
@@ -60,7 +61,9 @@ and each type a module of its own beside it, holding the type and its functions
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
-`rt/task.ts`, and `Duration` in `rt/time.ts`.
+`rt/task.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
+`Option`'s and `Result`'s combinators, goes in a module under its crate's name, as
+`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -188,12 +191,14 @@ elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
 panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
-function of its type's own (`drop$Held`). The runtime functions for std's collections,
-`Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
-take what drops each value they may drop, and drop it where std's do. So do iterators: one
-that owns its items, as a `Vec`'s `into_iter` or a map's `drain` does, drops those it still
-holds by `[Symbol.dispose]`, an adaptor drops what it skips or rejects, and a consumer that
-takes an iterator by value drops it, a panic included. A `Drop` impl that
+function of its type's own (`drop$Held`). `Option`'s and `Result`'s combinators lower
+from core's MIR, so they drop what core's do, where core's do. The runtime functions for
+std's collections, `Arc`, and the std functions that may discard an operand
+(`then_some`, a map's `insert`) take what drops each value they may drop, and drop it
+where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
+map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
+what it skips or rejects, and a consumer that takes an iterator by value drops it, a
+panic included. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.
@@ -379,6 +384,15 @@ they need.
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
   assigned once and read once fold back into the expression that reads them unless that
   would reorder an effect.
+- `Option`'s and `Result`'s combinators lower from core's own MIR rather than runtime
+  functions, each of which restated core's drops and unwinding by hand. The wasm32
+  sysroot aborts on panic, so its MIR has no cleanups: std builds from source with
+  `-C panic=unwind`, which took a cold check from 33 to 42 seconds. Each closure gets
+  its own instance, keeping call sites monomorphic, and instances that print the same are
+  merged into one. An `Ok` rebuilt from a stable `Result`'s payload is that `Result`,
+  without which Node ran the codec 1.31x slower. Against the runtime functions, the codec
+  and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
+  them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
 ## Never
 
@@ -403,7 +417,8 @@ format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), wri
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
 reference, a switch on or a field of another crate's type without a mapping, and std
-functions without a mapping in `src/lower/library.rs`.
+functions without a mapping in `src/lower/library.rs`, but for `Option`'s and `Result`'s
+methods that take no `&mut`, which lower from core's MIR.
 
 ## Tests
 
@@ -431,7 +446,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   only in another module, behind a type parameter, or through a box, formatting, methods
   on generic types, iterators, with
   closures that log what each
-  adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
+  adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
+  and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
   disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones. Its differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,

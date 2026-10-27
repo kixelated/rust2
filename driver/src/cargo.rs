@@ -96,7 +96,7 @@ pub struct Check<'a> {
 	pub target: Option<&'a str>,
 	/// Passed on to `cargo check`, such as `--features`.
 	pub args: &'a [String],
-	/// The environment the wrapper reads its job from.
+	/// The environment cargo runs in, which the wrapper reads its job from.
 	pub env: &'a [(&'a str, &'a OsStr)],
 }
 
@@ -110,7 +110,7 @@ impl Check<'_> {
 		let cargo = |subcommand: &str| {
 			let mut cmd = cargo();
 			// Cargo reads its config from where it runs, so run where the package is.
-			cmd.current_dir(package_dir);
+			cmd.current_dir(package_dir).envs(self.env.iter().copied());
 			cmd.arg(subcommand)
 				.arg("--manifest-path")
 				.arg(self.manifest)
@@ -137,7 +137,6 @@ impl Check<'_> {
 			.args(self.args)
 			.env("RUSTC_WRAPPER", &exe)
 			.env(crate::rustc::RAN, &ran)
-			.envs(self.env.iter().copied())
 			.status()
 			.map_err(|err| format!("running cargo: {err}"))?;
 		if !status.success() {

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 92
-- Function instances: 70
+- Refusals: 93
+- Function instances: 71
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -34,6 +34,7 @@
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:356:2 |
 | 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | fixtures/reject/src/lib.rs:366:6 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:332:9 |
+| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it, in `_` | fixtures/reject/src/lib.rs:366:18 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | fixtures/reject/src/lib.rs:249:26 |
 | 1 | a `_` cast from `_` to `_` | fixtures/reject/src/lib.rs:119:2 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:254:30 |
@@ -63,15 +64,16 @@ The type or module each refused type or path belongs to.
 | Count | API | First |
 | ---: | --- | --- |
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:417:2 |
+| 7 | `u8` | fixtures/reject/src/lib.rs:65:10 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:28:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:7:14 |
-| 6 | `u8` | fixtures/reject/src/lib.rs:65:10 |
 | 5 | `{closure}` | fixtures/reject/src/lib.rs:50:11 |
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:50:11 |
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:95:16 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:16:13 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:56:13 |
 | 3 | `std::iter::Map` | fixtures/reject/src/lib.rs:50:18 |
+| 3 | `std::option::Option` | fixtures/reject/src/lib.rs:301:6 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:124:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:108:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:56:13 |
@@ -79,7 +81,6 @@ The type or module each refused type or path belongs to.
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:280:16 |
 | 2 | `std::iter::Take` | fixtures/reject/src/lib.rs:409:79 |
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:208:8 |
-| 2 | `std::option::Option` | fixtures/reject/src/lib.rs:301:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:144:2 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:33:4 |
 | 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:306:52 |
@@ -131,6 +132,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:356:2 |
 | 1 | `_`, a mutable reference to a value a map holds, kept other than to read and write it | `std::option::Option` | fixtures/reject/src/lib.rs:366:6 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:332:9 |
+| 1 | `_`: a JS value of `_` is a copy, so a reference can't change it, in `_` | `&mut u8`, `u8`, `std::option::Option::map_or` | fixtures/reject/src/lib.rs:366:18 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | `std::iter::Flatten` | fixtures/reject/src/lib.rs:249:26 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:119:2 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:254:30 |
@@ -375,6 +377,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:332:9: `Hasher::write`, which is not supported yet
+
+</details>
+
+<details><summary>`_`: a JS value of `_` is a copy, so a reference can't change it, in `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:366:18: `&mut u8`: a JS value of `u8` is a copy, so a reference can't change it, in `std::option::Option::<T>::map_or`
 
 </details>
 

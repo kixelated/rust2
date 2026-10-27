@@ -7,6 +7,7 @@ import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import type * as Prefix from "../coding/encode.Prefix.ts";
 import * as Form from "../coding/varint.Form.ts";
+import { unwrapOr$Option_u64, map$Option_u64_u64_encode_msg_closure0 } from "../core/option.ts";
 import { decodeWith$Probe_decode_closure0 } from "../lite/message.ts";
 import * as Version from "../lite/version.Version.ts";
 import type * as Control from "../stats.Control.ts";
@@ -98,12 +99,12 @@ export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Vers
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version" as EncodeError.EncodeError);
 	}
-	const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.bitrate, (v: rt.u64): rt.u64 => {
+	const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, unwrapOr$Option_u64(map$Option_u64_u64_encode_msg_closure0(self.bitrate, (v: rt.u64): rt.u64 => {
 		return rt.u64Max(v, 1);
 	}), 0));
 	if (_9.ok) {
 		if (Version.hasProbeRtt(version)) {
-			const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, rt.optionUnwrapOr(rt.optionMap(self.rtt, (v2: rt.u64): rt.u64 => {
+			const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, unwrapOr$Option_u64(map$Option_u64_u64_encode_msg_closure0(self.rtt, (v2: rt.u64): rt.u64 => {
 				return rt.u64Max(v2, 1);
 			}), 0));
 			if (!_17.ok) {

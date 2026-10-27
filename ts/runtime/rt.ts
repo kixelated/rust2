@@ -107,66 +107,6 @@ function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (val
 // drops it, and drops it where std's does: as it returns, after any closure it calls, or
 // as a panic in that closure unwinds.
 
-/** `Result::ok`: the value, or `undefined` for an error, which drops. */
-export function resultOk<T, E>(r: Result<T, E>, drop?: (error: E) => void): T | undefined {
-	if (r.ok) return r.value;
-	drop?.(r.error);
-	return undefined;
-}
-
-/** `Result::err`: the error, or `undefined` for a value, which drops. */
-export function resultErr<T, E>(r: Result<T, E>, drop?: (value: T) => void): E | undefined {
-	if (!r.ok) return r.error;
-	drop?.(r.value);
-	return undefined;
-}
-
-/** `Result::map`: `f` of the value, or else the error, and `f` drops. */
-export function resultMap<T, E, U>(r: Result<T, E>, f: (value: T) => U, dropF?: (f: (value: T) => U) => void): Result<U, E> {
-	if (r.ok) return Ok(f(r.value));
-	dropF?.(f);
-	return r;
-}
-
-/** `Result::map_err`: `f` of the error, or else the value, and `f` drops. */
-export function resultMapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F, dropF?: (f: (error: E) => F) => void): Result<T, F> {
-	if (!r.ok) return Err(f(r.error));
-	dropF?.(f);
-	return r;
-}
-
-/** `Result::and_then`: `f` of the value, or else the error, and `f` drops. */
-export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<U, E>, dropF?: (f: (value: T) => Result<U, E>) => void): Result<U, E> {
-	if (r.ok) return f(r.value);
-	dropF?.(f);
-	return r;
-}
-
-/** `Result::inspect_err`, whose error drops if `f` panics, and `f` on a value. */
-export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void, dropF?: (f: (error: E) => void) => void): Result<T, E> {
-	if (r.ok) {
-		dropF?.(f);
-		return r;
-	}
-	try {
-		f(r.error);
-	} catch (e) {
-		drop?.(r.error);
-		throw e;
-	}
-	return r;
-}
-
-/** `Result::unwrap_or`: the value, and the fallback drops, or else the fallback, and the error drops. */
-export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T, value?: (value: T) => void, error?: (error: E) => void): T {
-	if (r.ok) {
-		value?.(fallback);
-		return r.value;
-	}
-	error?.(r.error);
-	return fallback;
-}
-
 /** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
 export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
 	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug, drop);
@@ -186,43 +126,6 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (
 }
 
 // Options, which are `T | undefined`.
-
-/** `Option::map`: `f` of the value, or else `undefined`, and `f` drops. */
-export function optionMap<T, U>(o: T | undefined, f: (value: T) => U, dropF?: (f: (value: T) => U) => void): U | undefined {
-	if (o !== undefined) return f(o);
-	dropF?.(f);
-	return undefined;
-}
-
-/** `Option::unwrap_or`: the value, and the fallback drops, or else the fallback. */
-export function optionUnwrapOr<T>(o: T | undefined, fallback: T, drop?: (value: T) => void): T {
-	if (o === undefined) return fallback;
-	drop?.(fallback);
-	return o;
-}
-
-// `f` decides `U`, since a literal fallback would infer a literal type.
-/** `Option::map_or`: `f` of the value, and the fallback drops, or else the fallback, and `f` drops. */
-export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U, drop?: (value: U) => void, dropF?: (f: (value: T) => U) => void): U {
-	if (o === undefined) {
-		dropF?.(f);
-		return fallback;
-	}
-	let mapped: U;
-	try {
-		mapped = f(o);
-	} finally {
-		drop?.(fallback);
-	}
-	return mapped;
-}
-
-/** `Option::ok_or`: the value, and the error drops, or else the error. */
-export function optionOkOr<T, E>(o: T | undefined, error: E, drop?: (error: E) => void): Result<T, E> {
-	if (o === undefined) return Err(error);
-	drop?.(error);
-	return Ok(o);
-}
 
 /** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T {

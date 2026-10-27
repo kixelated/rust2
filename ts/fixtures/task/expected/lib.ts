@@ -145,6 +145,12 @@ export function drop$Option_Box_Held(_1: Held.Held | undefined): void {
 	}
 }
 
+export function drop$Option_Guard_Guard(_1: [Guard.Guard, Guard.Guard] | undefined): void {
+	if (_1 !== undefined) {
+		drop$Guard_Guard(_1);
+	}
+}
+
 export function drop$Option_Held(_1: Held.Held | undefined): void {
 	if (_1 !== undefined) {
 		drop$Held(_1);
