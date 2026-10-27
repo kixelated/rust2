@@ -271,6 +271,63 @@ pub fn referent<'tcx>(
 	Some(tcx.mk_args(&args))
 }
 
+/// A comparison an impl of `PartialEq` or `PartialOrd` inherits from its trait, as a
+/// derived one inherits all but `eq` and `partial_cmp`.
+#[derive(Clone, Copy)]
+pub enum Inherited {
+	Ne,
+	Lt,
+	Le,
+	Gt,
+	Ge,
+}
+
+impl Inherited {
+	/// The comparison `instance` is, if it is the trait's own default.
+	pub fn of(tcx: TyCtxt<'_>, instance: Instance<'_>) -> Option<Self> {
+		let ty::InstanceKind::Item(did) = instance.def else {
+			return None;
+		};
+		let tr = tcx.trait_of_assoc(did)?;
+		let inherited = match (tcx.get_diagnostic_name(tr)?.as_str(), tcx.item_name(did).as_str()) {
+			("PartialEq", "ne") => Self::Ne,
+			("PartialOrd", "lt") => Self::Lt,
+			("PartialOrd", "le") => Self::Le,
+			("PartialOrd", "gt") => Self::Gt,
+			("PartialOrd", "ge") => Self::Ge,
+			_ => return None,
+		};
+		Some(inherited)
+	}
+
+	/// What the default calls, with the same generic arguments and operands: `eq` or
+	/// `partial_cmp`.
+	pub fn via(self, tcx: TyCtxt<'_>) -> DefId {
+		match self {
+			Self::Ne => super::collections::trait_fn(tcx, "PartialEq", "eq"),
+			_ => super::collections::trait_fn(tcx, "PartialOrd", "partial_cmp"),
+		}
+	}
+
+	/// The comparison, from what `via` returned: `!eq`, or whether the `partial_cmp` is
+	/// `Some` and of the order wanted, as std's defaults test it.
+	pub fn test(self, b: &mut Body<'_, '_, '_>, value: Expr, out: &mut Vec<Stmt>) -> Expr {
+		let (op, order) = match self {
+			Self::Ne => return value.not(),
+			Self::Lt => return value.binary("===", Expr::lit("-1")),
+			Self::Gt => return value.binary("===", Expr::lit("1")),
+			Self::Le => ("<=", "0"),
+			Self::Ge => (">=", "0"),
+		};
+		let value = match value.is_path() {
+			true => value,
+			false => b.spill(value, "order", out),
+		};
+		let some = value.clone().binary("!==", Expr::undefined());
+		some.binary("&&", value.binary(op, Expr::lit(order)))
+	}
+}
+
 /// Whether `Clone` of `ty`, a `Copy` type, only copies: no `Clone` written by hand runs
 /// for it or anything in it, as a derived or std `Clone` clones each field.
 pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
@@ -445,6 +502,7 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 
 	let self_ty = || gargs.types().next();
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
+	let byte_slice = |t: Ty<'tcx>| matches!(t.kind(), ty::Slice(e) if is_u8(*e));
 	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
 	// A range of integers, whose comparisons and clones JS makes as Rust does.
 	let int_range = |t: Ty<'tcx>| match t.peel_refs().kind() {
@@ -646,6 +704,9 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			}
 		}
 		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "byteSlice", "copyFromSlice"),
+		("PartialEq", "eq") if byte_slice(targ(gargs, 0)) && byte_slice(targ(gargs, 1)) => {
+			Expr::rt("byteSliceEq", args)
+		}
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
 			let values = args;

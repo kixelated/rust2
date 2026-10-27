@@ -923,7 +923,7 @@ pub fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> E
 }
 
 /// An item of one of std's traits, by the trait's diagnostic name: `Ord`'s `cmp`.
-fn trait_fn(tcx: ty::TyCtxt<'_>, tr: &str, item: &str) -> rustc_hir::def_id::DefId {
+pub fn trait_fn(tcx: ty::TyCtxt<'_>, tr: &str, item: &str) -> rustc_hir::def_id::DefId {
 	let tr = tcx
 		.get_diagnostic_item(rustc_span::Symbol::intern(tr))
 		.expect("a trait of std");

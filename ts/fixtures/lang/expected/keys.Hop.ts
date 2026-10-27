@@ -10,6 +10,10 @@ export function hash$Hash_DefaultHasher(self: Hop, state: rt.Hasher): void {
 	rt.hashInt(self._0, state);
 }
 
+export function partialCmp$PartialOrd(self: Hop, other: Hop): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 export function cmp$Ord(self: Hop, other: Hop): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
