@@ -33,8 +33,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
-- [Copy what a container stores](/quest/m2/ts-store-alias.md) - `push` and other stores of a `Copy` aggregate copy it instead of sharing it
-- [str and String methods over char](/quest/m2/ts-str-char.md) - `chars`, `char` patterns, and `String::push` translate, unblocking `ietf/namespace.rs`
 - [Share what the crate never changes in place](/quest/m2/ts-shared-read.md) - copies of `Copy` aggregates no one writes into in place go away, recovering #83's decode cost
 - [Output tsc accepts for writes through Result and Poll compares](/quest/m2/ts-tsc-shapes.md) - two shapes whose output fails `tsc` type-check
 - [Default comparison methods](/quest/m2/ts-cmp-defaults.md) - inherited `ne`, `lt`, `le`, `gt`, `ge` and `[u8]` equality translate

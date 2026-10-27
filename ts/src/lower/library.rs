@@ -672,16 +672,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 			}
 		}
 		("Box", "new") => args.pop()?,
-		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself.
+		// `vec![x; n]`: `n - 1` clones of `x`, then `x` itself, which the caller gives as its
+		// own, as it does whatever std keeps.
 		("vec", "from_elem") => {
 			let elem = targ(gargs, 0);
 			let mut values = args;
 			match is_u8(elem) {
 				true => Expr::rt("byteVecOf", values),
 				false => {
-					// The last element is `x` itself: a copy of a `Copy` aggregate, without its `Clone`.
-					let value = owned(b, values.remove(0), elem, span);
-					values.insert(0, value);
 					values.push(super::collections::clone_fn(b, elem, span));
 					Expr::rt("vecFromElem", values)
 				}
@@ -739,6 +737,22 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
+		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
+		("str", "chars") => Expr::rt("strChars", args),
+		// Searches by a pattern.
+		("str", "split" | "match_indices" | "starts_with" | "trim_start_matches" | "trim_end_matches" | "rfind") => {
+			let f = match name.as_str() {
+				"split" => "strSplit",
+				"match_indices" => "strMatchIndices",
+				"starts_with" => "strStartsWith",
+				"trim_start_matches" => "strTrimStartMatches",
+				"trim_end_matches" => "strTrimEndMatches",
+				_ => "strRfind",
+			};
+			let [s, p] = <[Expr; 2]>::try_from(args).ok()?;
+			Expr::rt(f, vec![s, pattern(targ(gargs, 0), p)?])
+		}
+		("char", "is_ascii_digit") => Expr::rt("charIsAsciiDigit", args),
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {
 			args.pop()?
 		}
@@ -913,6 +927,26 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 		true => value,
 		false => b.t.copied(value, ty, span),
 	}
+}
+
+/// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text,
+/// or a predicate as it is. `None` for any other pattern.
+fn pattern(ty: Ty<'_>, p: Expr) -> Option<Expr> {
+	match ty.kind() {
+		ty::Char => Some(char_text(p)),
+		ty::Closure(..) | ty::FnDef(..) => Some(p),
+		_ => None,
+	}
+}
+
+/// A `char`'s text: a literal for a constant, or `String.fromCodePoint(c)`.
+pub fn char_text(c: Expr) -> Expr {
+	if let Expr::Lit(n) = &c
+		&& let Some(c) = n.parse().ok().and_then(char::from_u32)
+	{
+		return Expr::Str(c.to_string());
+	}
+	Expr::ident("String").member("fromCodePoint").call(vec![c])
 }
 
 /// `rt.<of><Name>(args)`.

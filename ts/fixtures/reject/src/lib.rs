@@ -361,3 +361,13 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 		*v
 	})
 }
+
+/// A `String` pushed to through a parameter, whose JS value is the caller's copy.
+pub fn pushed(s: &mut String) {
+	s.push('a');
+}
+
+/// A `str` pattern, where only a `char` and a predicate are supported.
+pub fn split_str(s: &str) -> usize {
+	s.split("ab").count()
+}
