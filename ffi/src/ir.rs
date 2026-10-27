@@ -16,6 +16,38 @@ pub struct Api {
 	pub constants: Vec<Constant>,
 }
 
+impl Api {
+	/// A type's Rust path with its instance's arguments, such as
+	/// `moq_mux::catalog::Producer<moq_mux::catalog::hang::Extra>`.
+	pub fn rust(&self, path: &Path, args: &[Type]) -> String {
+		let path = path.join("::");
+		match args {
+			[] => path,
+			args => {
+				let args: Vec<String> = args.iter().map(|arg| self.arg(arg)).collect();
+				format!("{path}<{}>", args.join(", "))
+			}
+		}
+	}
+
+	/// A type argument, as [`Self::rust`] spells it.
+	fn arg(&self, ty: &Type) -> String {
+		match ty {
+			Type::Unit => "()".to_string(),
+			Type::Bool => "bool".to_string(),
+			Type::Int(int) => int.rust().to_string(),
+			Type::F32 => "f32".to_string(),
+			Type::F64 => "f64".to_string(),
+			Type::Char => "char".to_string(),
+			Type::String => "String".to_string(),
+			Type::Record(i) => self.rust(&self.records[*i].path, &self.records[*i].args),
+			Type::Enum(i) => self.rust(&self.enums[*i].path, &self.enums[*i].args),
+			Type::Object(i) => self.rust(&self.objects[*i].path, &self.objects[*i].args),
+			other => unreachable!("no type argument is {other:?}"),
+		}
+	}
+}
+
 /// A Rust path: its export's package name in snake case, unique among the exports, then
 /// the path from that crate's root, such as `["moq_net", "track", "Producer", "append_group"]`.
 pub type Path = Vec<String>;
@@ -23,6 +55,8 @@ pub type Path = Vec<String>;
 /// A struct whose fields are all `pub`: a value, copied across.
 pub struct Record {
 	pub path: Path,
+	/// The type arguments of the instance it is, empty unless the type is generic.
+	pub args: Vec<Type>,
 	pub span: Span,
 	pub docs: String,
 	pub fields: Vec<Field>,
@@ -43,6 +77,7 @@ pub struct Field {
 /// enumeration.
 pub struct Enum {
 	pub path: Path,
+	pub args: Vec<Type>,
 	pub span: Span,
 	pub docs: String,
 	pub variants: Vec<Variant>,
@@ -71,6 +106,7 @@ impl Enum {
 /// an `Arc`, whose receivers borrow it as Rust's do, checked at run time.
 pub struct Object {
 	pub path: Path,
+	pub args: Vec<Type>,
 	pub span: Span,
 	pub docs: String,
 	/// Whether it is `Sync`: if not, `&self` borrows it on one thread at a time.
@@ -172,7 +208,7 @@ pub enum Literal {
 }
 
 /// A type as the API uses it, in the exact form the Rust side takes or returns.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Type {
 	Unit,
 	Bool,
@@ -210,14 +246,14 @@ pub enum Type {
 	Tuple(Vec<Type>),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Mutability {
 	Not,
 	Mut,
 }
 
 /// How a parameter takes a foreign implementation of a trait.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Dyn {
 	/// A type parameter or `impl Trait`, given the foreign type.
 	Impl,
