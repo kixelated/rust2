@@ -23,14 +23,21 @@ pub struct Config {
 	/// named through its new name.
 	#[serde(default)]
 	pub rename: BTreeMap<String, String>,
+	/// Generic types exported at instances, each with its C name, without the prefix:
+	/// `"Stack<dep_fixture::Size>" = "size_stack"`. The type's path is from the crate
+	/// root, as every key's; each argument is `()`, a primitive, `String`, or an exported
+	/// type by its path from its package's name in snake case, itself an instance if
+	/// generic. Trailing arguments left out take their defaults.
+	#[serde(default)]
+	pub instances: BTreeMap<String, String>,
 	/// Other packages exported into the same library, each a dependency of `package`, by
 	/// name: an export names another's types across crates.
 	#[serde(default)]
 	pub crates: BTreeMap<String, Items>,
 }
 
-/// What leaves another export's items out, and renames them, as `exclude` and `rename`
-/// do the package's.
+/// What leaves another export's items out, renames them, and names its instances, as
+/// `exclude`, `rename`, and `instances` do the package's.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Items {
@@ -38,6 +45,8 @@ pub struct Items {
 	pub exclude: Vec<String>,
 	#[serde(default)]
 	pub rename: BTreeMap<String, String>,
+	#[serde(default)]
+	pub instances: BTreeMap<String, String>,
 }
 
 impl Config {
@@ -51,12 +60,86 @@ impl Config {
 				config.package
 			));
 		}
+		let tables = std::iter::once(&config.instances).chain(config.crates.values().map(|items| &items.instances));
+		for key in tables.flat_map(BTreeMap::keys) {
+			TypeName::parse(key).map_err(|err| format!("{}: instance `{key}`: {err}", path.display()))?;
+		}
 		Ok(config)
 	}
 
 	/// The prefix of every C name.
 	pub fn prefix(&self) -> String {
 		self.prefix.clone().unwrap_or_else(|| self.package.replace('-', "_"))
+	}
+}
+
+/// A type as an instance's key spells it: a path and its generic arguments, or `()` when
+/// the path is empty.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeName {
+	pub path: Vec<String>,
+	pub args: Vec<TypeName>,
+}
+
+impl TypeName {
+	/// The type `text` spells, or why it spells none.
+	pub fn parse(text: &str) -> Result<Self, String> {
+		let mut rest = text;
+		let name = Self::parse_from(&mut rest)?;
+		match rest.trim_start() {
+			"" => Ok(name),
+			extra => Err(format!("unexpected `{extra}`")),
+		}
+	}
+
+	/// The type `rest` starts with, which it advances past.
+	fn parse_from(rest: &mut &str) -> Result<Self, String> {
+		fn eat(rest: &mut &str, token: &str) -> bool {
+			*rest = rest.trim_start();
+			let found = rest.starts_with(token);
+			if found {
+				*rest = &rest[token.len()..];
+			}
+			found
+		}
+		if eat(rest, "(") {
+			return match eat(rest, ")") {
+				true => Ok(Self {
+					path: Vec::new(),
+					args: Vec::new(),
+				}),
+				false => Err("a tuple other than `()`".to_string()),
+			};
+		}
+		let mut path = Vec::new();
+		loop {
+			*rest = rest.trim_start();
+			let len = rest
+				.find(|c: char| !(c.is_alphanumeric() || c == '_'))
+				.unwrap_or(rest.len());
+			let ident = &rest[..len];
+			if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+				return Err(format!("expected a path at `{rest}`"));
+			}
+			path.push(ident.to_string());
+			*rest = &rest[len..];
+			if !eat(rest, "::") {
+				break;
+			}
+		}
+		let mut args = Vec::new();
+		if eat(rest, "<") {
+			loop {
+				args.push(Self::parse_from(rest)?);
+				if eat(rest, ">") {
+					break;
+				}
+				if !eat(rest, ",") {
+					return Err(format!("expected `,` or `>` at `{rest}`"));
+				}
+			}
+		}
+		Ok(Self { path, args })
 	}
 }
 
