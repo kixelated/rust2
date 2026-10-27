@@ -422,8 +422,8 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 		const _129: rt.u8 = rt.optionExpect(missing, rt.fmtFormat(["missing ", args10[0]]));
 		put(out, rt.fmtToString((f: rt.Formatter) => rt.u8Display(_129, f)));
 	} else if (_7 === 11) {
-		const part5 = { _0: n };
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => Fails.fmt$Display(part5, f)];
+		const part7 = { _0: n };
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => Fails.fmt$Display(part7, f)];
 		put(out, rt.fmtFormat([args12[0]]));
 	} else if (_7 === 12) {
 		const _157: Fails.Fails = { _0: n };
@@ -444,7 +444,8 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_7 === 15) {
 		const buf: Uint8Array = rt.bytes(3);
 		rt.byteSliceCopyFromSlice(rt.byteSliceFrom(buf), rt.byteSliceRange(rest, 0, rt.min(rest.length, 4)));
-		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(buf, f, rt.u8Display)];
+		const part6 = rt.byteSliceFrom(buf);
+		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(part6), f, rt.u8Display)];
 		put(out, rt.fmtFormat([args18[0]]));
 	} else if (_7 === 16) {
 		const _221: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(rest));
@@ -461,7 +462,8 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 		const part3 = rt.u8Rem(rt.u8Div(n, 6), 6) as rt.usize;
 		const dest: rt.usize = rt.usizeRem(rt.optionUnwrapOr(rt.byteSliceGet(rest, 1), 0) as rt.usize, 4);
 		rt.byteSliceCopyWithin(rt.byteSliceFrom(buf2), part2, part3, dest);
-		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(buf2, f, rt.u8Display)];
+		const part4 = rt.byteSliceFrom(buf2);
+		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(part4), f, rt.u8Display)];
 		put(out, rt.fmtFormat([args20[0]]));
 	} else if (_7 === 18) {
 		const _271: rt.usize = rt.u8Rem(n, 8) as rt.usize;

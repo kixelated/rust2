@@ -2037,7 +2037,8 @@ export function convert(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes((a << 24) | (c << 8) | d)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(0)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.u64FromBeBytes(Uint8Array.of(d, c, b, a, a, b, c, d)))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(rt.i32FromBeBytes(Uint8Array.of(d, c, b, a)))));
+	const slice = rt.byteSliceFrom(Uint8Array.of(d, c, b, a));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes((slice.data[slice.start] << 24) | (slice.data[slice.start + 1] << 16) | (slice.data[slice.start + 2] << 8) | slice.data[slice.start + 3])));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(fromHalves(rt.u64Low(rt.u64Shr(wide, 32)), rt.u64Low(wide)))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.u64FromHalves((rt.u64Low(rt.u64Shr(wide, 40)) & 0xff) as rt.u32, (rt.u64Low(wide) & 0xffff) as rt.u32))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(2147483647)));

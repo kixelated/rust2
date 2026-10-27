@@ -66,7 +66,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, and `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
@@ -275,8 +275,11 @@ they need.
   decode splits its slice once to four times. `just ts bench` measured the codec's decode
   workloads at 0.75 times the views' time in Chrome, 0.81-0.84 in Node, and 0.82-0.85 in
   Bun at the geometric mean, over two runs whose A/A route measured within 0.05 of them,
-  and encode no slower. A chunk, `&[u8; N]`, is still a view
-  ([byte slices without objects](/quest/m2/ts-byte-views.md)).
+  and encode no slower. A `&[u8; N]`, such as `split_first_chunk`'s chunk, is an
+  `rt.ByteSlice` too, its bytes read in place: the decode workloads then took 0.72 times
+  a view's time in Chrome, 0.67 in Firefox, 0.87 in Node, and 0.71 in Bun at the
+  geometric mean, with the A/A route within 0.03, and encode no slower. Each split still
+  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a

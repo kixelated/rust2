@@ -613,6 +613,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 					Expr::rt("byteVecFrom", vec![Expr::rt("byteVecView", vec![value])])
 				}
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::String) => value,
+				// Through the reference, a slice of the bytes.
+				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
 				ty::Adt(adt, _) if int_range(ty) => {
 					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
 				}
@@ -1084,6 +1086,7 @@ pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
 pub fn elements(v: Expr, ty: Ty<'_>) -> Expr {
 	match ty.peel_refs().kind() {
 		ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt("byteSliceView", vec![v]),
+		_ if super::bytes_ref(ty) => Expr::rt("byteSliceView", vec![v]),
 		ty::Adt(_, args)
 			if args
 				.types()
