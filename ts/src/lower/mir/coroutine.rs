@@ -107,7 +107,21 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		}
 	};
 	let mut saved = IndexVec::new();
-	for field in layout.field_tys.iter() {
+	// Locals of one type that are never live at once share a field, as rustc overlaps
+	// them in memory: each `.await` of a future of one type keeps it in the same one.
+	let mut shared: Vec<(FieldId, Type, Vec<CoroutineSavedLocal>)> = Vec::new();
+	for (local, field) in layout.field_tys.iter_enumerated() {
+		let ty = t.subst(args, field.ty);
+		// A local held across an `.await`, refused as any variable is.
+		let ty = t.held_ty(ty, field.source_info.span);
+		let free = shared
+			.iter_mut()
+			.find(|(_, of, locals)| *of == ty && locals.iter().all(|&l| !layout.storage_conflicts.contains(l, local)));
+		if let Some((id, _, locals)) = free {
+			locals.push(local);
+			saved.push(*id);
+			continue;
+		}
 		// rustc's own locals, such as `__awaitee`, start with `_`.
 		let name = match field
 			.debuginfo_name
@@ -118,9 +132,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		};
 		let id = t.program.field(sym, name);
 		saved.push(id);
-		let ty = t.subst(args, field.ty);
-		// A local held across an `.await`, refused as any variable is.
-		let ty = t.held_ty(ty, field.source_info.span);
+		shared.push((id, ty.clone(), vec![local]));
 		fields.push(ts::Field {
 			id,
 			ty,
