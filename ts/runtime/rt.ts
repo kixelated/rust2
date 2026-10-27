@@ -59,18 +59,32 @@ export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
 
-function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
-	panicFmt([message, ": ", (f) => debug(value, f)]);
+/** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
+function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
+	try {
+		panicFmt([message, ": ", (f) => debug(value, f)]);
+	} catch (e) {
+		drop?.(value);
+		throw e;
+	}
 }
 
-/** `Result::ok`: the value, or `undefined` for an error. */
-export function resultOk<T, E>(r: Result<T, E>): T | undefined {
-	return r.ok ? r.value : undefined;
+// A function that may drop an operand std's would, rather than return it, takes what
+// drops it, and drops it where std's does: as it returns, after any closure it calls, or
+// as a panic in that closure unwinds.
+
+/** `Result::ok`: the value, or `undefined` for an error, which drops. */
+export function resultOk<T, E>(r: Result<T, E>, drop?: (error: E) => void): T | undefined {
+	if (r.ok) return r.value;
+	drop?.(r.error);
+	return undefined;
 }
 
-/** `Result::err`: the error, or `undefined` for a value. */
-export function resultErr<T, E>(r: Result<T, E>): E | undefined {
-	return r.ok ? undefined : r.error;
+/** `Result::err`: the error, or `undefined` for a value, which drops. */
+export function resultErr<T, E>(r: Result<T, E>, drop?: (value: T) => void): E | undefined {
+	if (!r.ok) return r.error;
+	drop?.(r.value);
+	return undefined;
 }
 
 /** `Result::map`. */
@@ -88,32 +102,43 @@ export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<
 	return r.ok ? f(r.value) : r;
 }
 
-/** `Result::inspect_err`. */
-export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void): Result<T, E> {
-	if (!r.ok) f(r.error);
+/** `Result::inspect_err`, whose error drops if `f` panics. */
+export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void): Result<T, E> {
+	if (r.ok) return r;
+	try {
+		f(r.error);
+	} catch (e) {
+		drop?.(r.error);
+		throw e;
+	}
 	return r;
 }
 
-/** `Result::unwrap_or`. */
-export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T): T {
-	return r.ok ? r.value : fallback;
+/** `Result::unwrap_or`: the value, and the fallback drops, or else the fallback, and the error drops. */
+export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T, value?: (value: T) => void, error?: (error: E) => void): T {
+	if (r.ok) {
+		value?.(fallback);
+		return r.value;
+	}
+	error?.(r.error);
+	return fallback;
 }
 
-/** `unwrap`, which shows the error with `debug`. */
-export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
-	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug);
+/** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
+export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
+	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug, drop);
 	return r.value;
 }
 
 /** `Result::expect`: the value, or a panic with `message` and the error's `Debug`. */
-export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
-	if (!r.ok) unwrapFailed(message, r.error, debug);
+export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>, drop?: (error: E) => void): T {
+	if (!r.ok) unwrapFailed(message, r.error, debug, drop);
 	return r.value;
 }
 
 /** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
-export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
-	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
+export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (value: T) => void): E {
+	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug, drop);
 	return r.error;
 }
 
@@ -124,20 +149,34 @@ export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undef
 	return o === undefined ? undefined : f(o);
 }
 
-/** `Option::unwrap_or`. */
-export function optionUnwrapOr<T>(o: T | undefined, fallback: T): T {
-	return o === undefined ? fallback : o;
+/** `Option::unwrap_or`: the value, and the fallback drops, or else the fallback. */
+export function optionUnwrapOr<T>(o: T | undefined, fallback: T, drop?: (value: T) => void): T {
+	if (o === undefined) return fallback;
+	drop?.(fallback);
+	return o;
 }
 
 // `f` decides `U`, since a literal fallback would infer a literal type.
-/** `Option::map_or`. */
-export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U): U {
-	return o === undefined ? fallback : f(o);
+/** `Option::map_or`: `f` of the value, and the fallback drops, or else the fallback, and `f` drops. */
+export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U, drop?: (value: U) => void, dropF?: (f: (value: T) => U) => void): U {
+	if (o === undefined) {
+		dropF?.(f);
+		return fallback;
+	}
+	let mapped: U;
+	try {
+		mapped = f(o);
+	} finally {
+		drop?.(fallback);
+	}
+	return mapped;
 }
 
-/** `Option::ok_or`. */
-export function optionOkOr<T, E>(o: T | undefined, error: E): Result<T, E> {
-	return o === undefined ? Err(error) : Ok(o);
+/** `Option::ok_or`: the value, and the error drops, or else the error. */
+export function optionOkOr<T, E>(o: T | undefined, error: E, drop?: (error: E) => void): Result<T, E> {
+	if (o === undefined) return Err(error);
+	drop?.(error);
+	return Ok(o);
 }
 
 /** `Option::unwrap`: the value, or a panic. */
@@ -152,9 +191,11 @@ export function optionExpect<T>(o: T | undefined, message: string): T {
 	return o;
 }
 
-/** `bool::then_some`: `value` if `cond`, which is evaluated either way. */
-export function thenSome<T>(cond: boolean, value: T): T | undefined {
-	return cond ? value : undefined;
+/** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined {
+	if (cond) return value;
+	drop?.(value);
+	return undefined;
 }
 
 // Slices, which are `Uint8Array` views for bytes and arrays otherwise.

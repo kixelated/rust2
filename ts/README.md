@@ -165,7 +165,14 @@ A value drops where Rust drops it, if dropping it does something JS can see: a `
 impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
 elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.Panic`,
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
-panic drops matches native Rust's.
+panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
+an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
+function of its type's own (`drop$Held`). The runtime functions for std's collections,
+`Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
+take what drops each value they may drop, and drop it where std's do. A `Drop` impl that
+panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
+go on to the rest of the value and its container, but a hash table leaks its other
+entries, as std's does.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -297,9 +304,7 @@ bind to hand-written TS through config ([model](/quest/m2/ts-model.md)).
 
 These fail translation: floats, statics, async blocks that borrow a number
 mutably and async closures, values that drop in a closure dropped without a call that
-takes it, in an iterator, in an enum or generic `Drop` type, passed to a std function
-that may discard them (`unwrap_or`), borrowed in an `Arc` or `Mutex`, or in a
-collection ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
+takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a collection holding a type that can be
 `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
 holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
@@ -344,7 +349,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and their halves joined back.
   `brands.ts`, another caller, mixes integer types where `tsc` must refuse them.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
