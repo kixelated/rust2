@@ -232,7 +232,8 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
 	/// its arms.
 	switched: FxHashSet<String>,
-	/// Locals whose variant some switch tests, directly or through a reference to them.
+	/// Locals whose variant some switch tests, or that std takes, directly or through a
+	/// reference to them.
 	tested: IndexVec<Local, bool>,
 	/// The names of those that hold a value TypeScript would narrow by what it is assigned.
 	widened: FxHashSet<String>,
@@ -1125,11 +1126,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// Mark the locals whose variant a switch tests, or that a closure or async block
-	/// captures and could test, and what references to them borrow.
+	/// Mark the locals whose variant a switch tests, that a closure or async block
+	/// captures and could test, or that std takes, whose runtime function infers its type
+	/// parameters from them, and what references to them borrow.
 	fn find_tested(&mut self) {
+		let tcx = self.tcx;
 		let mut work = Vec::new();
 		for data in self.mir.basic_blocks.iter() {
+			if let TerminatorKind::Call { func, args, .. } = &data.terminator().kind
+				&& let ty::FnDef(def_id, _) = *func.ty(&self.mir.local_decls, tcx).kind()
+				&& crate::lower::library::is_std(tcx, def_id)
+			{
+				work.extend(args.iter().filter_map(|arg| arg.node.place().map(|p| p.local)));
+			}
 			for stmt in &data.statements {
 				let StatementKind::Assign(assign) = &stmt.kind else {
 					continue;
@@ -1166,9 +1175,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// `value`, the `rvalue` assigned to `place`, as a value of its whole type where
-	/// something tests `place`'s variant: TypeScript narrows a variable to the type of
-	/// what it was assigned, as a `Poll` made `Ready` to its payload's, and would refuse a
-	/// test for another variant.
+	/// something tests `place`'s variant or std takes it: TypeScript narrows a variable to
+	/// the type of what it was assigned, as a `Poll` made `Ready` to its payload's, and
+	/// would refuse a test for another variant, or infer a `None`'s `Option<T>` as of
+	/// `T = undefined`.
 	fn widen(&mut self, place: Place<'tcx>, rvalue: &Rvalue<'tcx>, value: Expr, span: Span) -> Expr {
 		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 		// What is made here, rather than read from a place declared with its type.
@@ -1192,15 +1202,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(local) => self.decl_ty(local),
 			None => self.b.t.ty(ty, span),
 		};
-		let mut inner = &value;
-		while let Expr::Located(_, e) = inner {
-			inner = e;
-		}
-		let value = match inner {
-			Expr::As(_, t) if *t == ts_ty => value,
-			// `Ok` and `Err` are of the whole type.
-			Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => return value,
-			_ => Expr::As(Box::new(value.typed()), ts_ty),
+		let value = match whole(value, ts_ty) {
+			Ok(value) => value,
+			Err(value) => return value,
 		};
 		// Its declaration keeps the `as`.
 		if let Some(local) = local
@@ -2756,6 +2760,20 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 /// Whether `place` is part of its local's own value, rather than reached through a
 /// reference or pointer.
+/// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
+/// which TypeScript types as the whole union already.
+pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
+	let mut inner = &value;
+	while let Expr::Located(_, e) = inner {
+		inner = e;
+	}
+	match inner {
+		Expr::As(_, t) if *t == ty => Ok(value),
+		Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => Err(value),
+		_ => Ok(Expr::As(Box::new(value.typed()), ty)),
+	}
+}
+
 pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
