@@ -12,6 +12,15 @@ exclude = ["Excluded"]
 "Holder" = "holder"
 "Missing<u8>" = "missing"
 "Opaque<u8>" = "opaque_u8"
+# Function instances that cannot export: an unmet bound, a name that is none of its type
+# parameters, one left out, a function that is not generic, a method nothing exported
+# reaches, and a path that names nothing.
+"copied(T: String)" = "copied_string"
+"copied(U: u8)" = "copied_u8"
+"copied()" = "copied"
+"pair(T: u8)" = "pair_u8"
+"Bounded::get(U: u64)" = "bounded_get"
+"missing(T: u8)" = "missing_u8"
 
 # Another export, whose `Size` claims the same C name as this one's.
 [crates.dep-fixture]

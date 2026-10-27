@@ -174,3 +174,16 @@ pub struct Holder<T = Option<u32>> {
 
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
+
+/// A generic function whose bound one of the config's instances does not meet, and whose
+/// type parameter others misname.
+pub fn copied<T: Copy>(value: T) -> T {
+	value
+}
+
+impl<T: Copy> Bounded<T> {
+	/// A generic method of a type that exports at no instance, so nothing reaches it.
+	pub fn get<U: From<T>>(&self) -> U {
+		U::from(self.0)
+	}
+}
