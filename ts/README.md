@@ -50,8 +50,9 @@ Each Rust module with translated items becomes a file (`lib.ts`, `coding/varint.
 and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
-runtime: what std does that JS does not, with iterators in `rt/iter.ts`, collections in
-`rt/collections.ts`, and ownership and async in `rt/task.ts`.
+runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
+in `rt/str.ts`, collections in `rt/collections.ts`, and ownership and async in
+`rt/task.ts`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -122,6 +123,13 @@ moves read steps in place, as two variables: the array and an index into it, or 
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
 an `rt.Iter` with `for ... of`.
+
+A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
+`char` or a predicate, as in `rt.strSplit(s, "/")`, takes the char's text or the closure,
+which it calls on each char it reads, in the order std reads them. An offset it returns,
+from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does. A JS string can't
+change in place, so `String::push` assigns a longer one to the local or field the `&mut`
+borrows.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
@@ -303,7 +311,8 @@ holds that JS copies kept other than to read and write it, `Hasher::write` of by
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!`, a copy of a closure that changes what it captured, `mem::swap`,
+`String` with `write!` or pushing to one through a parameter, a `str` pattern other than a
+`char` or a predicate, a copy of a closure that changes what it captured, `mem::swap`,
 `replace`, or `take` of a reference's whole pointee, assigning an `Arc`, a waker, a
 `MutexGuard`, a pinned reference, or a future through a reference, a switch on or a
 field of another crate's type without a mapping, and std functions without a mapping in

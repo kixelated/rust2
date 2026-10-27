@@ -299,6 +299,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 				done(next, true)
 			}
+			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
+			("String", "push") => {
+				let place = self.borrowed_place(&args[0].node, span)?;
+				let c = self.operand(&args[1].node, span, out);
+				let pushed = place.clone().binary("+", library::char_text(c));
+				out.push(StmtKind::Expr(place.assign(pushed)).at(None));
+				done(Expr::undefined(), false)
+			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span)?;
 				done(self.swap_out(place, Expr::undefined(), "taken", out), true)

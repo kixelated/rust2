@@ -42,6 +42,8 @@ roots = [
     "byte_keys",
     "borrowed",
     "raw_keys",
+    "pushed",
+    "split_str",
     "missing",
 ]
 printable = ["Meters"]
