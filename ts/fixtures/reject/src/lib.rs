@@ -435,3 +435,8 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 		bumped(v);
 	}
 }
+
+/// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
+pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
+	Some(a) == Some(b)
+}

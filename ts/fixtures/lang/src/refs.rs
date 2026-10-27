@@ -129,6 +129,21 @@ struct Pair {
 	n: u8,
 }
 
+/// Places std reads through: its impls for references compare, order, and format what
+/// they point at.
+fn read_through(a: &mut u32, b: &mut u32, out: &mut Vec<u8>) {
+	out.push(u8::from(a == b));
+	out.push(u8::from(a < b));
+	out.push(a.cmp(&b) as u8);
+	out.extend_from_slice(format!("{a}|{b:?}").as_bytes());
+}
+
+/// A `&mut Box` dereferenced through `DerefMut`, as generic code over it would.
+fn deref_box(b: &mut Box<Option<u8>>, to: u8) {
+	let r = <Box<Option<u8>> as std::ops::DerefMut>::deref_mut(b);
+	*r = Some(to);
+}
+
 pub fn refs(data: &[u8], out: &mut Vec<u8>) {
 	let by = data.first().copied().unwrap_or(3);
 	// A local, a field, and elements of an array and a `Vec`.
@@ -226,6 +241,13 @@ pub fn refs(data: &[u8], out: &mut Vec<u8>) {
 		add(&mut total, b);
 	}
 	out.extend_from_slice(&total.to_be_bytes());
+	// Read through by std, and dereferenced through `DerefMut`.
+	let (mut x, mut y) = (u32::from(by), u32::from(data.get(1).copied().unwrap_or(5)));
+	read_through(&mut x, &mut y, out);
+	out.extend_from_slice(&[x as u8, y as u8]);
+	let mut boxed = Box::new(None);
+	deref_box(&mut boxed, total as u8);
+	out.push(std::ops::Deref::deref(&boxed).unwrap_or(0xee));
 }
 
 fn bump_slot(c: &mut usize, b: u8) {

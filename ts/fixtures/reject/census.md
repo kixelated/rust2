@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 81
-- Function instances: 69
+- Refusals: 82
+- Function instances: 70
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 9 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
+| 10 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:23:15 |
 | 5 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:51:2 |
 | 4 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:17:2 |
@@ -62,6 +62,7 @@ The type or module each refused type or path belongs to.
 | 6 | `Option` | fixtures/reject/src/lib.rs:23:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:7:14 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:51:2 |
+| 3 | `std::option::Option` | fixtures/reject/src/lib.rs:286:6 |
 | 3 | `std::slice` | fixtures/reject/src/lib.rs:28:4 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:109:2 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:152:2 |
@@ -69,7 +70,6 @@ The type or module each refused type or path belongs to.
 | 2 | `Poll` | fixtures/reject/src/lib.rs:113:20 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:286:6 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:265:16 |
-| 2 | `std::option::Option` | fixtures/reject/src/lib.rs:286:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:129:2 |
 | 2 | `u8` | fixtures/reject/src/lib.rs:88:2 |
 | 2 | `{closure}` | fixtures/reject/src/lib.rs:378:15 |
@@ -146,6 +146,7 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:206:2 |
 | 1 | replacing the value behind a reference to `_` | `[u16; 1]` | fixtures/reject/src/lib.rs:258:22 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:397:2 |
+| 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:441:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:139:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:82:10 |
 | 1 | unsupported call to `_` | `<std::time::Duration as std::ops::AddAssign>::add_assign` | fixtures/reject/src/lib.rs:411:2 |
@@ -158,7 +159,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (9)</summary>
+<details><summary>unsupported call to `_` (10)</summary>
 
 - fixtures/reject/src/lib.rs:28:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:44:18: unsupported call to `std::mem::size_of_val::<Noisy>`
@@ -169,6 +170,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:370:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 - fixtures/reject/src/lib.rs:397:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
 - fixtures/reject/src/lib.rs:411:2: unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign`
+- fixtures/reject/src/lib.rs:441:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 
 </details>
 

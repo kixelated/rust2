@@ -890,6 +890,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// What `value`, a `ty` that is a reference, points at: an `rt.Place`'s `v`, and
+	/// otherwise the reference's own JS value.
+	pub fn pointee_value(&self, ty: Ty<'tcx>, value: ts::Expr) -> ts::Expr {
+		match self.place_pointee(ty) {
+			Some(_) => value.member("v"),
+			None => value,
+		}
+	}
+
 	/// Whether `ty` holds a `&mut` that is an `rt.Place`, other than in what a closure or
 	/// coroutine captured.
 	pub fn has_place(&self, ty: Ty<'tcx>) -> bool {

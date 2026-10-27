@@ -287,10 +287,11 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 	args.types().nth(n).expect("a collection's type argument")
 }
 
-/// What a JS value of `ty` is: through references and boxes, which are their pointee.
+/// What a JS value of `ty` is: through references and boxes, which are their pointee,
+/// up to a `&mut` that is an `rt.Place`.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	let ty = ty.peel_refs();
 	match ty.kind() {
+		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel(b, *inner),
 		ty::Adt(adt, args) if Std::of(b.t.tcx, adt.did()) == Some(Std::Box) => peel(b, args.type_at(0)),
 		_ => ty,
 	}

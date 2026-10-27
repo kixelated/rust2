@@ -459,7 +459,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& matches!(self.slots[local], Slot::Var(_)) =>
 			{
 				let result = dest.ty(&self.mir.local_decls, tcx).ty;
-				let values = self.operands(false, &[], args, result, span, out);
+				// The receiver passes as what it points at, as std's `&mut self` does.
+				let values = self.operands(false, &[true], args, result, span, out);
 				let place = self.b.call_def(def_id, gargs, values, span, out);
 				if !place.is_path() {
 					let msg = format!("`{}` of a value JS copies, which is no path", tcx.def_path_str(def_id));

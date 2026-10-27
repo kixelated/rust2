@@ -124,10 +124,27 @@ export function skip(remaining: rt.Place<rt.usize>, data: rt.ByteSlice): rt.usiz
 	}
 }
 
+/**
+ * Places std reads through: its impls for references compare, order, and format what
+ * they point at.
+ */
+export function readThrough(a: rt.Place<rt.u32>, b: rt.Place<rt.u32>, out: rt.ByteVec): void {
+	rt.byteVecPush(out, a.v === b.v ? 1 : 0);
+	rt.byteVecPush(out, a.v < b.v ? 1 : 0);
+	rt.byteVecPush(out, rt.cmp(a.v, b.v) & 0xff);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(a.v, f), (f: rt.Formatter) => rt.u32Display(b.v, f)];
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], "|", args2[1]])));
+}
+
+/** A `&mut Box` dereferenced through `DerefMut`, as generic code over it would. */
+export function derefBox(b: rt.Place<rt.u8 | undefined>, to: rt.u8): void {
+	b.v = to;
+}
+
 export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _133!: rt.u8;
-	const _228: (a0: rt.Place<rt.u32>, a1: rt.u8) => void = (x2: rt.Place<rt.u32>, b7: rt.u8): void => {
-		bump(x2, b7);
+	const _228: (a0: rt.Place<rt.u32>, a1: rt.u8) => void = (x3: rt.Place<rt.u32>, b7: rt.u8): void => {
+		bump(x3, b7);
 	};
 	const by: rt.u8 = rt.optionUnwrapOr(rt.byteSliceFirst(data), 3);
 	let local: rt.u32 = 7;
@@ -258,6 +275,15 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_228(rt.place(() => total, (value14) => total = value14), b6);
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(total)));
+	const _246: [rt.u32, rt.u32] = [by as rt.u32, rt.optionUnwrapOr(rt.byteSliceGet(data, 1), 5) as rt.u32];
+	let x2: rt.u32 = _246[0];
+	let y: rt.u32 = _246[1];
+	readThrough(rt.place(() => x2, (value15) => x2 = value15), rt.place(() => y, (value16) => y = value16), out);
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(x2 & 0xff, y & 0xff)));
+	let boxed2: rt.u8 | undefined = undefined as rt.u8 | undefined;
+	const _267: rt.u8 = total & 0xff;
+	derefBox(rt.place(() => boxed2, (value17) => boxed2 = value17), _267);
+	rt.byteVecPush(out, rt.optionUnwrapOr(boxed2, 238));
 }
 
 export function bumpSlot(c: rt.Place<rt.usize>, b: rt.u8): void {
