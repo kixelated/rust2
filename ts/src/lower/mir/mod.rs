@@ -117,8 +117,9 @@ struct Pending {
 	effect: bool,
 	/// Whether it reads memory something else could change.
 	memory: bool,
-	/// The aggregate's operands, for a call that takes them apart.
-	parts: Option<Vec<Expr>>,
+	/// The aggregate's operands, for a call that takes them apart, each with whether it is
+	/// a reference that reads the same wherever it is read.
+	parts: Option<Vec<(Expr, bool)>>,
 	/// The names it reads, which an assignment to must not pass it.
 	reads: Vec<String>,
 	/// Whether it is a `Copy` aggregate read from where it could change, which only an
@@ -166,8 +167,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	next: bool,
 	/// Blocks whose only statement is `unreachable`.
 	unreachable: FxHashSet<BasicBlock>,
-	/// The operands of the aggregate lowered last.
-	parts: Option<Vec<Expr>>,
+	/// For the aggregate lowered last, whether each operand is a reference that reads the
+	/// same wherever it is read.
+	rereadable_parts: Option<Vec<bool>>,
 	/// Blocks that start an ignored macro's code, and the block after it.
 	redirect: FxHashMap<BasicBlock, BasicBlock>,
 	/// Whether the operands lowered now go to a local nothing changes in place.
@@ -258,7 +260,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			labels: 0,
 			next: crate::lower::iter::is_next(tcx, mir.source.def_id()),
 			unreachable: FxHashSet::default(),
-			parts: None,
+			rereadable_parts: None,
 			redirect: FxHashMap::default(),
 			into_frozen: false,
 			copy_on_flush: false,
@@ -1795,7 +1797,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Hold back `value`, the assignment of `local`, to fold into what reads it.
-	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<Expr>>) {
+	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<(Expr, bool)>>) {
 		let name = self.var(local).expect("a pending local is a variable").to_string();
 		self.order += 1;
 		let mut reads = Vec::new();
@@ -1843,7 +1845,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let name = self.var(local)?;
 		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
 		let p = self.pending.remove(i);
-		let parts = p.parts.expect("checked above");
+		let parts: Vec<Expr> = p
+			.parts
+			.expect("checked above")
+			.into_iter()
+			.map(|(part, _)| part)
+			.collect();
 		if !p.effect && !p.memory {
 			return Some(parts);
 		}
@@ -1888,17 +1895,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The operand `field` of the aggregate `local` held back for its one read, held back
 	/// in the aggregate's place, which is never made. Its other operands are dropped, so
 	/// only when they do nothing. A reference that reads the same later is read in place.
-	pub(super) fn held_part(&mut self, local: Local, field: usize, is_ref: bool) -> Option<Expr> {
+	pub(super) fn held_part(&mut self, local: Local, field: usize) -> Option<Expr> {
 		let name = self.var(local)?;
 		let i = self.pending.iter().position(|p| p.name == name && p.parts.is_some())?;
 		let parts = self.pending[i].parts.as_ref().expect("checked above");
-		let part = parts.get(field)?.clone();
+		let (part, rereadable) = parts.get(field)?.clone();
 		let others = parts.iter().enumerate().filter(|&(j, _)| j != field);
-		if others.clone().any(|(_, v)| self.part_reads(v).0) {
+		if others.clone().any(|(_, (v, _))| self.part_reads(v).0) {
 			return None;
 		}
 		let (effect, memory) = self.part_reads(&part);
-		if !effect && !memory || is_ref && self.rereadable(&part) {
+		if !effect && !memory || rereadable {
 			self.pending.remove(i);
 			return Some(part);
 		}
@@ -1937,7 +1944,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		value: Expr,
 		effect: bool,
 		memory: bool,
-		parts: Option<Vec<Expr>>,
+		parts: Option<Vec<bool>>,
 		out: &mut Vec<Stmt>,
 	) {
 		if self.stepped_vars.contains_key(&local) {
@@ -1965,7 +1972,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.fold((effect, memory), |(e, m), p| (e || p.effect, m || p.memory));
 					let mut folded = self.fold_exprs(Vec::new(), vec![value], true, out);
 					let value = folded.pop().unwrap();
-					let parts = parts.and_then(|_| parts_of(&value));
+					let parts =
+						parts.and_then(|rereadable| Some(parts_of(&value)?.into_iter().zip(rereadable).collect()));
 					self.hold(local, value, effect, memory, parts);
 					return;
 				}
@@ -2153,7 +2161,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let effect = rvalue::effect(rvalue, self);
 		// A copy shared until it folds into its argument reads its source there.
 		let memory = rvalue::memory(rvalue, self) || shares;
-		let parts = self.parts.take();
+		let parts = self.rereadable_parts.take();
 		if let Some(local) = place.as_local() {
 			let parts = match rvalue {
 				Rvalue::Aggregate(..) => parts,

@@ -48,8 +48,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
 		let mut projection = place.projection.iter().peekable();
 		let held = match projection.peek() {
-			Some(&ProjectionElem::Field(field, ty)) if !self.mutated[place.local] => {
-				self.held_part(place.local, field.as_usize(), ty.is_ref())
+			Some(&ProjectionElem::Field(field, _)) if !self.mutated[place.local] => {
+				self.held_part(place.local, field.as_usize())
 			}
 			_ => None,
 		};
