@@ -125,6 +125,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
 			return self.call_def(def_id, referent, args, span, out);
 		}
+		if let Some(inherited) = library::Inherited::of(tcx, instance) {
+			let value = self.call_def(inherited.via(tcx), gargs, args, span, out);
+			return inherited.test(self, value, out);
+		}
 		let call = library::Call {
 			def_id,
 			args: gargs,

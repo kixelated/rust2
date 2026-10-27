@@ -161,6 +161,23 @@ pub async fn blocks(mut rx: Consumer, guard: Guard, moves: bool) -> u64 {
 		false => third,
 	};
 	chosen.note("chosen");
+	// A capture copied into a local on each pass of a loop, which then changes the copy:
+	// the next pass copies the capture unchanged.
+	let base = guard.id;
+	let looped = async move {
+		let mut total = 0;
+		let mut passes = 0;
+		while passes < 2 {
+			let mut x = base;
+			x += 1;
+			async {}.await;
+			total += x;
+			passes += 1;
+		}
+		total
+	}
+	.await;
+	chosen.note(&format!("looped {looped}"));
 	if moves {
 		drop(async move { guard.note("moved") });
 	}
