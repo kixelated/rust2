@@ -1564,6 +1564,11 @@ pub fn library(data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// A result with nothing set yet.
+fn unset() -> Result<Option<u8>, u8> {
+	Ok(None)
+}
+
 /// Steps a total by `x`: breaks with what it can't take, or continues with the new total.
 fn step(total: u16, x: u8) -> ControlFlow<Option<u8>, u16> {
 	match total.checked_add(u16::from(x) * 0x40) {
@@ -1635,6 +1640,20 @@ pub fn flows(data: &[u8], out: &mut Vec<u8>) {
 		if let ControlFlow::Continue(v) = flow {
 			out.extend_from_slice(&v);
 		}
+	}
+
+	// Every `Ok(None)` is one shared object: a store through a `ref mut` to its payload
+	// makes the result again, so the next stays `None`.
+	let mut set = unset();
+	if let Ok(ref mut n) = set {
+		*n = Some(a);
+	}
+	for result in [set, unset()] {
+		out.push(match result {
+			Ok(Some(n)) => n,
+			Ok(None) => 0xfe,
+			Err(e) => e,
+		});
 	}
 
 	let slot = Mutex::new(None);
