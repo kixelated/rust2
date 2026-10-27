@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 87
-- Function instances: 68
+- Refusals: 96
+- Function instances: 75
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -13,15 +13,17 @@
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:28:15 |
 | 6 | `_`: a JS value of `_` is a copy, so a reference can't change it | fixtures/reject/src/lib.rs:16:13 |
 | 5 | an iterator that owns `_`, which drops, which is not supported yet | fixtures/reject/src/lib.rs:56:2 |
+| 5 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:51:1 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:405:2 |
 | 4 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:108:2 |
 | 4 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
+| 3 | a closure's environment read whole | fixtures/reject/src/lib.rs:434:40 |
+| 3 | dropping a closure that owns a value that drops, which is not supported yet, in `_` | fixtures/reject/src/lib.rs:434:17 |
 | 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:128:20 |
 | 2 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:280:16 |
 | 2 | a field of `_` | fixtures/reject/src/lib.rs:296:7 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:187:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:173:23 |
-| 2 | dropping a closure that owns a value that drops, which is not supported yet | fixtures/reject/src/lib.rs:51:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:167:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:85:3 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:87:3 |
@@ -63,10 +65,10 @@ The type or module each refused type or path belongs to.
 | 7 | `u8` | fixtures/reject/src/lib.rs:65:10 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:28:15 |
 | 6 | `f64` | fixtures/reject/src/lib.rs:7:14 |
+| 4 | `std::option::Option` | fixtures/reject/src/lib.rs:301:6 |
 | 4 | `std::string::String` | fixtures/reject/src/lib.rs:95:16 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:56:2 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:16:13 |
-| 3 | `std::option::Option` | fixtures/reject/src/lib.rs:301:6 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:124:2 |
 | 2 | `Iterator` | fixtures/reject/src/lib.rs:167:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:108:2 |
@@ -74,6 +76,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:301:6 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:280:16 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:144:2 |
+| 2 | `std::result::Result` | fixtures/reject/src/lib.rs:435:15 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:33:4 |
 | 2 | `{closure}` | fixtures/reject/src/lib.rs:398:15 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:187:1 |
@@ -142,6 +145,9 @@ The type or module each refused type or path belongs to.
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:423:53 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:173:23 |
 | 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:194:14 |
+| 1 | dropping a closure that owns a value that drops, which is not supported yet, in `_` | `std::option::Option::map` | fixtures/reject/src/lib.rs:434:17 |
+| 1 | dropping a closure that owns a value that drops, which is not supported yet, in `_` | `std::result::Result::and_then` | fixtures/reject/src/lib.rs:436:15 |
+| 1 | dropping a closure that owns a value that drops, which is not supported yet, in `_` | `std::result::Result::map_err` | fixtures/reject/src/lib.rs:435:15 |
 | 1 | hashing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:306:52 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:167:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:221:2 |
@@ -216,6 +222,16 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>dropping a closure that owns a value that drops, which is not supported yet (5)</summary>
+
+- fixtures/reject/src/lib.rs:51:1: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:396:18: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:434:40: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:435:42: dropping a closure that owns a value that drops, which is not supported yet
+- fixtures/reject/src/lib.rs:436:57: dropping a closure that owns a value that drops, which is not supported yet
+
+</details>
+
 <details><summary>a variant of `_`, which is not supported: either is the same JS string (4)</summary>
 
 - fixtures/reject/src/lib.rs:405:2: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
@@ -240,6 +256,22 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:7:25: unsupported type `f64`
 - fixtures/reject/src/lib.rs:11:16: unsupported type `dyn std::ops::Fn(u8) -> u8`
 - fixtures/reject/src/lib.rs:117:51: unsupported type `f64`
+
+</details>
+
+<details><summary>a closure's environment read whole (3)</summary>
+
+- fixtures/reject/src/lib.rs:434:40: a closure's environment read whole
+- fixtures/reject/src/lib.rs:435:42: a closure's environment read whole
+- fixtures/reject/src/lib.rs:436:57: a closure's environment read whole
+
+</details>
+
+<details><summary>dropping a closure that owns a value that drops, which is not supported yet, in `_` (3)</summary>
+
+- fixtures/reject/src/lib.rs:434:17: dropping a closure that owns a value that drops, which is not supported yet, in `std::option::Option::<T>::map`
+- fixtures/reject/src/lib.rs:435:15: dropping a closure that owns a value that drops, which is not supported yet, in `std::result::Result::<T, E>::map_err`
+- fixtures/reject/src/lib.rs:436:15: dropping a closure that owns a value that drops, which is not supported yet, in `std::result::Result::<T, E>::and_then`
 
 </details>
 
@@ -275,13 +307,6 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:173:23: constructing `std::iter::Map<Folds, {closure@fixtures/reject/src/lib.rs:173:12: 173:15}>` from another crate
 - fixtures/reject/src/lib.rs:194:14: constructing `std::iter::Rev<Backs>` from another crate
-
-</details>
-
-<details><summary>dropping a closure that owns a value that drops, which is not supported yet (2)</summary>
-
-- fixtures/reject/src/lib.rs:51:1: dropping a closure that owns a value that drops, which is not supported yet
-- fixtures/reject/src/lib.rs:396:18: dropping a closure that owns a value that drops, which is not supported yet
 
 </details>
 

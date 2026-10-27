@@ -425,3 +425,18 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	}
 	std::sync::Arc::strong_count(a)
 }
+
+/// What a closure owns drops where std's MIR drops the closure uncalled: `map` on `None`,
+/// `map_err` on `Ok`, and `and_then` on `Err`.
+pub fn discarded(o: Option<u8>, r: Result<u8, u8>) -> u8 {
+	let (a, b, c) = (Noisy(1), Noisy(2), Noisy(3));
+	// Through a reference, so each closure owns its `Noisy` whole rather than its field.
+	let mapped = o.map(move |v| v ^ key(&a)).unwrap_or(0);
+	let errs = r.map_err(move |e| e ^ key(&b)).unwrap_or(0);
+	let then = r.and_then(move |v| Ok::<u8, u8>(v ^ key(&c))).unwrap_or(0);
+	mapped ^ errs ^ then
+}
+
+fn key(n: &Noisy) -> u8 {
+	n.0
+}

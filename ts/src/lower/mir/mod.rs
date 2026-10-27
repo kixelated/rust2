@@ -77,7 +77,40 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 	let mut body =
 		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
 	vec::literals(tcx, &mut body);
+	if std::env::var_os("RUST2_TS_DEBUG_MIR").is_some() && !def_id.is_local() {
+		let mut out = Vec::new();
+		mir::pretty::MirWriter::new(tcx).write_mir_fn(&body, &mut out).unwrap();
+		eprintln!("{}", String::from_utf8_lossy(&out));
+	}
+	// The crate's analysis of what it writes into reads only its own bodies.
+	if !def_id.is_local() && writes_in_place(&body) {
+		t.err(span, "a change in place, which a body of std's is not supported to make");
+		return None;
+	}
 	Some(body)
+}
+
+/// Whether `body` may change a value in place: it assigns through a projection or a
+/// reference, or takes a mutable borrow or pointer.
+fn writes_in_place(body: &mir::Body<'_>) -> bool {
+	body.basic_blocks.iter().any(|bb| {
+		let statements = bb.statements.iter().any(|stmt| match &stmt.kind {
+			StatementKind::Assign(assign) => {
+				!assign.0.projection.is_empty()
+					|| matches!(
+						assign.1,
+						Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, _) | Rvalue::RawPtr(mir::RawPtrKind::Mut, _)
+					)
+			}
+			StatementKind::SetDiscriminant { .. } => true,
+			_ => false,
+		});
+		let call = matches!(
+			&bb.terminator().kind,
+			TerminatorKind::Call { destination, .. } if !destination.projection.is_empty()
+		);
+		statements || call
+	})
 }
 
 /// What `_1` is.
