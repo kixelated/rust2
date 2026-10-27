@@ -3078,7 +3078,17 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Member(base, _) => subst(base, name, value),
 		Expr::Index(base, index) => subst(base, name, value) || subst(index, name, value),
 		Expr::Call(f, args) | Expr::New(f, args) => {
-			subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))
+			if !(subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))) {
+				return false;
+			}
+			// A result of what folded in as `undefined` is the shared one.
+			if let Expr::Call(f, args) = &*e
+				&& let (Expr::Rt(ctor), [arg]) = (&**f, args.as_slice())
+				&& matches!(ctor.as_str(), "Ok" | "Err")
+			{
+				*e = Expr::result(ctor == "Ok", arg.clone());
+			}
+			true
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),

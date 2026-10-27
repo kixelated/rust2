@@ -98,7 +98,7 @@ export function write(value: rt.u64, form: Form.Form, out: rt.ByteVec): rt.Resul
 		return writeQuic(value, out);
 	}
 	writeLeadingOnes(value, out);
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, BoundsExceeded.BoundsExceeded> {
@@ -135,7 +135,7 @@ export function writeQuic(value: rt.u64, out: rt.ByteVec): rt.Result<undefined, 
 		const _48: Uint8Array = rt.u32ToBeBytes(lo);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, b, c, d, _48[0], _48[1], _48[2], _48[3])));
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {

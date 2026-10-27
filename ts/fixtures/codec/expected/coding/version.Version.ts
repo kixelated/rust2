@@ -26,7 +26,7 @@ export function decode$Decode_Form(r: Decoder.Decoder, _2: Form.Form): rt.Result
 export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0);
 	if (_4.ok) {
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _4;
 }
@@ -35,7 +35,7 @@ export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.F
 export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0);
 	if (_4.ok) {
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _4;
 }
