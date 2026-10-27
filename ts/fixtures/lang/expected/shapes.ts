@@ -191,7 +191,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 			shape_.width = 6;
 		}
 	}
-	const iter2: rt.Iter<Shape.Shape> = rt.iterSlice([before, copy$Shape(shape_)]);
+	const _202: Shape.Shape = copy$Shape(shape_);
+	const iter2: rt.Iter<Shape.Shape> = rt.iterSlice([copy$Shape(before), _202]);
 	while (true) {
 		const _204: Shape.Shape | rt.Done = iter2.next();
 		if (_204 === rt.DONE) {
@@ -222,7 +223,8 @@ export function copies(data: Uint8Array, out: rt.ByteVec): void {
 		const bytes: Uint8Array = poll;
 		bytes[0] = 9;
 	}
-	const iter3: rt.Iter<rt.Poll<Uint8Array>> = rt.iterSlice([polled_, copy$Poll_u8s(poll)]);
+	const _239: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
+	const iter3: rt.Iter<rt.Poll<Uint8Array>> = rt.iterSlice([copy$Poll_u8s(polled_), _239]);
 	while (true) {
 		const _241: rt.Poll<Uint8Array> | rt.Done = iter3.next();
 		if (_241 === rt.DONE) {
@@ -281,8 +283,10 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 			copy3[1] = _45;
 		}
 		unwind = 0;
-		const iter: rt.Iter<[rt.Mutex<rt.u8>, rt.u8] | undefined> = rt.iterSlice([held, copy$Option_Mutex_u8_u8(copy3)]);
+		const _49: [rt.Mutex<rt.u8>, rt.u8] | undefined = copy$Option_Mutex_u8_u8(copy3);
+		const iter: rt.Iter<[rt.Mutex<rt.u8>, rt.u8] | undefined> = rt.iterSlice([copy$Option_Mutex_u8_u8(held), _49]);
 		while (true) {
+			unwind = 0;
 			const _51: [rt.Mutex<rt.u8>, rt.u8] | undefined | rt.Done = iter.next();
 			if (_51 === rt.DONE) {
 				break;
@@ -303,7 +307,7 @@ export function shares(data: Uint8Array, out: rt.ByteVec): void {
 			copy4.value[1] = _69;
 		}
 		unwind = 0;
-		const iter2: rt.Iter<rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>> = rt.iterSlice([res, copy$Result_Mutex_u8_u8_u8(copy4)]);
+		const iter2: rt.Iter<rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>> = rt.iterSlice([copy$Result_Mutex_u8_u8_u8(res), copy$Result_Mutex_u8_u8_u8(copy4)]);
 		while (true) {
 			const _76: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> | rt.Done = iter2.next();
 			if (_76 === rt.DONE) {
@@ -1563,7 +1567,8 @@ export function flows(data: Uint8Array, out: rt.ByteVec): void {
 		const _83: rt.u8 = rt.u8WrappingAdd(copied.value[0], 1);
 		copied.value[0] = _83;
 	}
-	const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([original, copy$ControlFlow_unit_u8s(copied)]);
+	const _91: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(copied);
+	const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([copy$ControlFlow_unit_u8s(original), _91]);
 	while (true) {
 		const _93: rt.Result<Uint8Array, undefined> | rt.Done = iter2.next();
 		if (_93 === rt.DONE) {

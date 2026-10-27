@@ -2361,8 +2361,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Whether a call given `args`, of std's code unless `translated`, may change what it
 	/// takes by value of type `part` in place after its source gave it: a value with no
 	/// copy holding a `Copy` aggregate, whatever the callee, or a `Copy` aggregate std
-	/// keeps in its result or where another argument reaches, as `Vec::push` keeps it in
-	/// the vector. The crate's own code copies a `Copy` aggregate it keeps itself.
+	/// keeps, or keeps a part of, in its result or where another argument reaches, as
+	/// `Vec::push` keeps it in the vector. The crate's own code copies a `Copy` aggregate
+	/// it keeps itself.
 	pub(super) fn keeps(
 		&self,
 		translated: bool,
@@ -2374,11 +2375,12 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			return true;
 		}
 		!translated
-			&& self.b.t.needs_copy(part)
-			&& (self.holds_behind(result, part)
-				|| args
-					.iter()
-					.any(|a| self.stores(a.node.ty(&self.mir.local_decls, self.tcx), part)))
+			&& self.copied_parts(part).into_iter().any(|t| {
+				self.holds_behind(result, t)
+					|| args
+						.iter()
+						.any(|a| self.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
+			})
 	}
 
 	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
@@ -2411,9 +2413,15 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		!self.b.t.is_copy(ty) && self.holds_copied(ty)
 	}
 
-	/// Whether a value of `ty` is or holds by value, not behind a reference, a `Copy`
-	/// aggregate: a JS object Rust code copies.
+	/// Whether a value of `ty` is or holds by value a `Copy` aggregate.
 	fn holds_copied(&self, ty: Ty<'tcx>) -> bool {
+		!self.copied_parts(ty).is_empty()
+	}
+
+	/// The `Copy` aggregates, JS objects Rust code copies, that a value of `ty` is or holds
+	/// by value, not behind a reference, in any of which std could take it apart.
+	fn copied_parts(&self, ty: Ty<'tcx>) -> Vec<Ty<'tcx>> {
+		let mut parts = Vec::new();
 		let mut seen = FxHashSet::default();
 		let mut stack = vec![ty];
 		while let Some(ty) = stack.pop() {
@@ -2421,7 +2429,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				continue;
 			}
 			if self.b.t.needs_copy(ty) {
-				return true;
+				parts.push(ty);
 			}
 			match ty.kind() {
 				ty::Tuple(tys) => stack.extend(tys.iter()),
@@ -2434,7 +2442,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				_ => {}
 			}
 		}
-		false
+		parts
 	}
 
 	/// Whether `func` is a function the crate translates, rather than std's.

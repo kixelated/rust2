@@ -762,6 +762,11 @@ fn bump(mut h: Holder) -> u8 {
 	h.pair.0
 }
 
+/// Holds `pair`, for its caller to change.
+fn hold(pair: (u8, u8)) -> Holder {
+	Holder { pair }
+}
+
 /// A `Copy` aggregate a std call stores by value is the container's own copy: changing
 /// one stored element leaves the value it came from and the other elements as they were.
 pub fn stores(data: &[u8], out: &mut Vec<u8>) {
@@ -785,8 +790,14 @@ pub fn stores(data: &[u8], out: &mut Vec<u8>) {
 	v[3].1 ^= 8;
 	v.push(same(pair));
 	v[4].0 ^= 0x40;
+	// Each element of an array std takes apart.
+	v.extend([pair, changed]);
+	v[5].1 ^= 0x80;
+	v[6].0 ^= 0x80;
+	let old = std::mem::replace(&mut v[0], pair);
+	v[0].1 ^= 0x10;
 	out.extend(v.iter().flat_map(|p| [p.0, p.1]));
-	out.extend_from_slice(&[changed.0, changed.1]);
+	out.extend_from_slice(&[changed.0, changed.1, old.0, old.1]);
 
 	let tally = Tally { n: a as u16 };
 	let mut q = VecDeque::new();
@@ -826,5 +837,10 @@ pub fn stores(data: &[u8], out: &mut Vec<u8>) {
 	holders[1].pair.1 ^= 2;
 	out.extend_from_slice(&[boxed.0, boxed.1, holders[0].pair.1, holders[1].pair.1]);
 	out.push(bump(Holder { pair }));
+	let mut held = hold(pair);
+	held.pair.1 ^= 4;
+	holders.push(hold(pair));
+	holders[2].pair.0 ^= 8;
+	out.extend_from_slice(&[held.pair.1, holders[2].pair.0]);
 	out.extend_from_slice(&[pair.0, pair.1]);
 }

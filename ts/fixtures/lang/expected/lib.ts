@@ -6,6 +6,7 @@ import type * as Pair from "./collections.Pair.ts";
 import type * as Rank from "./collections.Rank.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as fmt_Pair from "./fmt.Pair.ts";
+import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
@@ -29,6 +30,20 @@ export function copy$ControlFlow_Arc_u8_u8s(v: rt.Result<Uint8Array, rt.Arc<rt.u
 
 export function copy$ControlFlow_unit_u8s(v: rt.Result<Uint8Array, undefined>): rt.Result<Uint8Array, undefined> {
 	return v.ok ? rt.Ok(copy$u8s(v.value)) : rt.Err(v.error);
+}
+
+export function copy$Either_u8_Point(v: Either.Either<rt.u8, Point.Point>): Either.Either<rt.u8, Point.Point> {
+	if (v.tag === "Left") {
+		return { tag: "Left", _0: v._0 };
+	}
+	if (v.tag === "Right") {
+		return { tag: "Right", value: copy$Point(v.value) };
+	}
+	return v;
+}
+
+export function copy$Either_u8_Points(v: Either.Either<rt.u8, Point.Point>[]): Either.Either<rt.u8, Point.Point>[] {
+	return v.map(copy$Either_u8_Point);
 }
 
 export function copy$Held(v: Held.Held): Held.Held {
@@ -147,8 +162,16 @@ export function copy$u8_u16(v: [rt.u8, rt.u16]): [rt.u8, rt.u16] {
 	return [v[0], v[1]];
 }
 
+export function copy$u8_u16s(v: [rt.u8, rt.u16][]): [rt.u8, rt.u16][] {
+	return v.map(copy$u8_u16);
+}
+
 export function copy$u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	return [v[0], v[1]];
+}
+
+export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
+	return v.map(copy$u8_u8);
 }
 
 export function copy$u8s(v: Uint8Array): Uint8Array {
