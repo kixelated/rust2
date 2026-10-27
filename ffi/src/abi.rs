@@ -73,6 +73,8 @@ pub struct Abi<'a> {
 	/// C names for Rust paths, each starting with its crate's name, in place of the
 	/// rule's: an item's, and its methods' through it.
 	rename: &'a BTreeMap<String, String>,
+	/// Each instance's C name, without the prefix, which its members are named through.
+	instances: HashMap<Type, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
 	/// Each `Option<T>` struct by C name, with `T`.
@@ -86,11 +88,12 @@ pub struct Abi<'a> {
 }
 
 impl<'a> Abi<'a> {
-	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>) -> Self {
+	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>, instances: &[(Type, String)]) -> Self {
 		let mut abi = Self {
 			api,
 			prefix: prefix.to_string(),
 			rename,
+			instances: instances.iter().cloned().collect(),
 			renamed: Default::default(),
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
@@ -138,15 +141,35 @@ impl<'a> Abi<'a> {
 	}
 
 	pub fn record(&self, i: usize) -> String {
-		self.name(&self.api.records[i].path)
+		self.type_name(Type::Record(i), &self.api.records[i].path)
 	}
 
 	pub fn enumeration(&self, i: usize) -> String {
-		self.name(&self.api.enums[i].path)
+		self.type_name(Type::Enum(i), &self.api.enums[i].path)
 	}
 
 	pub fn object(&self, i: usize) -> String {
-		self.name(&self.api.objects[i].path)
+		self.type_name(Type::Object(i), &self.api.objects[i].path)
+	}
+
+	/// A type's C name: an instance's as the config names it, else its path's.
+	fn type_name(&self, ty: Type, path: &[String]) -> String {
+		match self.instances.get(&ty) {
+			Some(name) => format!("{}_{name}", self.prefix),
+			None => self.name(path),
+		}
+	}
+
+	/// A function's C name: a method's through its type's, unless renamed itself.
+	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
+		let owner = match owner {
+			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
+			_ => return self.name(&function.path),
+		};
+		match self.rename.contains_key(&function.path.join("::")) {
+			true => self.name(&function.path),
+			false => format!("{owner}_{}", snake(function.name())),
+		}
 	}
 
 	pub fn callback(&self, i: usize) -> String {
@@ -251,7 +274,7 @@ impl<'a> Abi<'a> {
 
 	/// The C signature of `function`, a method of the type named `owner` if it has one.
 	pub fn export(&self, function: &Function, owner: Option<&Ty>) -> Export {
-		let name = self.name(&function.path);
+		let name = self.function_name(function, owner);
 		let mut params = Vec::new();
 		if let (Some(receiver), Some(owner)) = (function.receiver, owner) {
 			let ty = match owner {
@@ -259,7 +282,8 @@ impl<'a> Abi<'a> {
 					name: name.clone(),
 					constant: receiver == Receiver::Ref
 						|| (receiver == Receiver::Owned
-							&& self.api.objects.iter().any(|o| o.copy && &self.name(&o.path) == name)),
+							&& (0..self.api.objects.len())
+								.any(|i| self.api.objects[i].copy && &self.object(i) == name)),
 				},
 				// A value's receiver is read through a pointer, and never changed.
 				value => Ty::In(Box::new(value.clone())),
@@ -370,7 +394,7 @@ impl<'a> Abi<'a> {
 		let mut functions: Vec<(&Function, Option<Ty>)> = Vec::new();
 		for (i, record) in api.records.iter().enumerate() {
 			let name = self.record(i);
-			let what = format!("struct `{}`", record.path.join("::"));
+			let what = format!("struct `{}`", api.rust(&record.path, &record.args));
 			self.claim_traits(&name, &what, record.span, record.traits, true);
 			self.claim(name.clone(), what, record.span);
 			types.extend(record.fields.iter().map(|f| &f.ty));
@@ -378,7 +402,7 @@ impl<'a> Abi<'a> {
 		}
 		for (i, e) in api.enums.iter().enumerate() {
 			let name = self.enumeration(i);
-			let what = format!("enum `{}`", e.path.join("::"));
+			let what = format!("enum `{}`", api.rust(&e.path, &e.args));
 			let upper = name.to_uppercase();
 			for variant in &e.variants {
 				self.claim(
@@ -405,7 +429,7 @@ impl<'a> Abi<'a> {
 		}
 		for (i, object) in api.objects.iter().enumerate() {
 			let name = self.object(i);
-			let what = format!("type `{}`", object.path.join("::"));
+			let what = format!("type `{}`", api.rust(&object.path, &object.args));
 			self.claim(format!("{name}_free"), what.clone(), object.span);
 			self.claim_traits(&name, &what, object.span, object.traits, false);
 			self.claim(name.clone(), what, object.span);

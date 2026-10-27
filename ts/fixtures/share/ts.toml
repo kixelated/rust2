@@ -1,0 +1,2 @@
+package = "share-fixture"
+roots = ["harness::run"]

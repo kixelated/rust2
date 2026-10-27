@@ -301,6 +301,38 @@ static int script(void) {
 	printf("area %u %u %llu\n", size.width, size.height, (unsigned long long)api_area_pixels(area));
 	api_area_free(area);
 
+	/* Generic types, each at the instances the config names under their own names. */
+	api_pair pair = {.left = 2, .right = 5};
+	api_pair swapped = api_pair_swap(&pair);
+	printf("pair %u %u sum %u ", swapped.left, swapped.right, api_pair_sum(&pair));
+	print("", api_pair_debug(&pair), " ");
+	printf("%s\n", api_pair_eq(&pair, &swapped) ? "true" : "false");
+	api_pair twins = {.left = 7, .right = 7};
+	printf("even %s %s\n", api_pair_even(&pair) ? "true" : "false", api_pair_even(&twins) ? "true" : "false");
+	api_size_pair sizes = {.left = {.width = 1, .height = 2}, .right = 3};
+	api_pair_size flipped = api_size_pair_swap(&sizes);
+	printf("sized %u %u ", flipped.left, flipped.right.width);
+	print("", api_pair_size_debug(&flipped), "\n");
+	api_pair byte = {.left = 258, .right = 9};
+	api_pair_size beside = api_pair_beside(&byte, sizes.left);
+	printf("beside %u ", beside.left);
+	print("", api_pair_size_debug(&beside), "\n");
+	api_counters *stack = api_counters_new();
+	const char *names[] = {"a", "b"};
+	for (int i = 0; i < 2; i++) {
+		api_counter *pushed = api_counter_new(str(names[i]), (uint64_t)i + 1);
+		api_counters_push(stack, pushed);
+		api_counter_free(pushed);
+	}
+	api_counter *top = api_counters_pop(stack);
+	printf("stack %zu Some(%llu)", api_counters_depth(stack), (unsigned long long)api_counter_get(top));
+	api_counter_free(top);
+	api_counter *next = api_counters_pop(stack);
+	printf(" %s", next != NULL ? "true" : "false");
+	api_counter_free(next);
+	printf(" %s\n", api_counters_pop(stack) == NULL ? "true" : "false");
+	api_counters_free(stack);
+
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());

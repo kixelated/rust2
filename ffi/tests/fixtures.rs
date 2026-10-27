@@ -150,6 +150,7 @@ fn reject() {
 	let at = |i: usize| {
 		lines[i + 1..]
 			.iter()
+			.take_while(|l| !l.starts_with("error") && !l.starts_with("warning") && !l.starts_with("note: "))
 			.find_map(|l| l.trim_start().strip_prefix("--> "))
 			.unwrap_or("no span")
 	};
