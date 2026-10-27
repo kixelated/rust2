@@ -30,7 +30,7 @@ export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: 
 			const _49: rt.Result<undefined, EncodeError.EncodeError> = Encoder.fill(w, prefix);
 			if (_49.ok) {
 				w.control = "Probe" as Control.Control;
-				return rt.Ok(undefined);
+				return rt.OK;
 			}
 			return _49;
 		}
@@ -110,7 +110,7 @@ export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Vers
 				return _17;
 			}
 		}
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _9;
 }

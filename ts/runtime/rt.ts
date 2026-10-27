@@ -60,6 +60,12 @@ export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
 
+/** `Ok(())`, one frozen object every evaluation shares, as nothing can change it. */
+export const OK: Result<undefined, never> = /* @__PURE__ */ Object.freeze({ ok: true, value: undefined });
+
+/** `Err(())`, shared as `OK` is. */
+export const ERR: Result<never, undefined> = /* @__PURE__ */ Object.freeze({ ok: false, error: undefined });
+
 /** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
 function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
 	try {
@@ -562,8 +568,6 @@ export class FmtError {}
 /** `fmt::Result`. */
 export type FmtResult = Result<undefined, FmtError>;
 
-const written: FmtResult = /* @__PURE__ */ Ok(undefined);
-
 /** A value ready to write: `&dyn Display`, `&dyn Debug`, or one placeholder's argument. */
 export type Fmt = (f: Formatter) => FmtResult;
 
@@ -594,7 +598,7 @@ class StringWriter implements Write {
 
 	writeStr(s: string): FmtResult {
 		this.s += s;
-		return written;
+		return OK;
 	}
 }
 
@@ -618,7 +622,7 @@ class PadAdapter implements Write {
 			const r = this.out.writeStr(line);
 			if (!r.ok) return r;
 		}
-		return written;
+		return OK;
 	}
 }
 
@@ -634,7 +638,7 @@ function write(out: Write, args: Arguments): FmtResult {
 		const r = typeof part === "string" ? out.writeStr(part) : part({ out, spec: {} });
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** The number of chars in `s`, as Rust counts them for padding. */
@@ -739,7 +743,7 @@ export interface DebugStruct {
 export function debugStructField(b: DebugStruct, name: string, value: Fmt): DebugStruct {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr(" {\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr(" {\n");
 			b.result = head.ok ? pretty(b.fmt, [name, ": ", value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr((b.hasFields ? ", " : " { ") + name + ": ");
@@ -778,7 +782,7 @@ export interface DebugTuple {
 export function debugTupleField(b: DebugTuple, value: Fmt): DebugTuple {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.fields > 0 ? written : b.fmt.out.writeStr("(\n");
+			const head = b.fields > 0 ? OK : b.fmt.out.writeStr("(\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr(b.fields === 0 ? "(" : ", ");
@@ -819,10 +823,10 @@ export interface DebugList {
 export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr("\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr("\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
-			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : written;
+			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : OK;
 			if (b.result.ok) b.result = value(b.fmt);
 		}
 	}
@@ -857,7 +861,7 @@ function pretty(f: Formatter, parts: Arguments): FmtResult {
 		const r = typeof part === "string" ? writer.out.writeStr(part) : part(writer);
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** A pretty builder's `finish_non_exhaustive`: an indented `..`, then `close`. */

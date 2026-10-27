@@ -80,7 +80,7 @@ export function encodeVarints(data: rt.ByteSlice, form_: Form.Form, out: rt.Byte
 			return _17;
 		}
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 /** Every varint on the wire: how many, and the last. */
@@ -99,7 +99,7 @@ export function decodeVarints(wire: rt.ByteSlice, form_: Form.Form, out: rt.Byte
 	}
 	putUsize(out, count);
 	putU64(out, last);
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 /**
@@ -156,7 +156,7 @@ export function encodeFrames(data: rt.ByteSlice, version: Version.Version, out: 
 			return _45;
 		}
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
@@ -183,7 +183,7 @@ export function decodeFrames(wire: rt.ByteSlice, version: Version.Version, out: 
 	putUsize(out, count);
 	putU64(out, total);
 	putU64(out, rt.u64Cast(last));
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 /**
@@ -231,7 +231,7 @@ export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: r
 		putU64(out, total);
 		putU64(out, rt.u64Cast(last));
 		putUsize(out, short);
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
 }
@@ -505,7 +505,7 @@ export function decodeGroup(wire: rt.ByteSlice, version: Version.Version, out: r
 		putU64(out, group.sequence);
 		putU64(out, group.frameStart);
 		putUsize(out, used);
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _6;
 }
