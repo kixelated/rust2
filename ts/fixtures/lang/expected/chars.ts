@@ -121,8 +121,7 @@ export function chars(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _140 of scalars(data)) {
 			const _144: rt.char | undefined = rt.charFromU32(_140);
 			if (_144 !== undefined) {
-				const arg = ([_144] as [rt.char])[0];
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDisplay(arg, f)];
+				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDisplay(_144, f)];
 				put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ align: ">", width: 3 }, args2[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 4 }, args2[0]), "|", rt.fmtSpec({ align: "<", width: 2 }, args2[0])]));
 			}
 		}

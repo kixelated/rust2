@@ -1,8 +1,9 @@
 // One engine's run of the benchmark, bundled by `main.ts` beside the files it loads: in
-// Node and Bun it prints the result, and in a browser it posts it back to `main.ts`.
+// Node and Bun it prints the result, and in a browser it posts it back to `main.ts`. Each
+// route runs in a worker of its own, which loads this bundle again to serve `measure`.
 
 import { Wasm } from "../tests/wasm.ts";
-import { measure, type Route } from "./time.ts";
+import { type Link, type Load, measure, type Reply, type Subject, serve } from "./time.ts";
 import type { Workload } from "./workloads.ts";
 
 type Workloads = { name: string; op: Workload["op"]; items: number; input: string }[];
@@ -18,14 +19,16 @@ export interface Config {
 	route?: string;
 }
 
-const browser = typeof window !== "undefined";
+// A page has a `window` and its workers a `WorkerGlobalScope`; Node and Bun have neither.
+const browser = typeof window !== "undefined" || typeof WorkerGlobalScope !== "undefined";
+const threads = browser ? undefined : await import("node:worker_threads");
+const worker = browser ? typeof window === "undefined" : !threads?.isMainThread;
 
 // Tells a browser's `main.ts`, which fails the run when it stops hearing, what runs next. A
 // beacon leaves no response for the page to handle between samples.
 const progress = browser ? (step: string) => void navigator.sendBeacon("/progress", step) : () => {};
 
 async function load(name: string): Promise<Uint8Array> {
-	progress(`loading ${name}`);
 	const url = new URL(name, import.meta.url);
 	if (url.protocol === "file:") {
 		const fs = await import("node:fs/promises");
@@ -34,11 +37,61 @@ async function load(name: string): Promise<Uint8Array> {
 	return new Uint8Array(await (await fetch(url)).arrayBuffer());
 }
 
-/** A bundled route, whose `run` (or `exported`) returns its output as `view` reads it. */
-async function route<T>(name: string, file: string, view: (out: T) => Uint8Array, exported = "run"): Promise<Route> {
-	progress(`loading ${file}`);
-	const run = (await import(new URL(file, import.meta.url).href))[exported];
-	return { name, run, output: async (input) => view(await run(input)) };
+/** A worker running this bundle, which serves `measure`. */
+function spawn(): Link {
+	const arrived: Reply[] = [];
+	const waiting: PromiseWithResolvers<unknown>[] = [];
+	let failed: Error | undefined;
+	const settle = () => {
+		while (waiting.length > 0 && (failed || arrived.length > 0)) {
+			const next = waiting.shift() as PromiseWithResolvers<unknown>;
+			const reply = arrived.shift();
+			if (!reply) next.reject(failed);
+			else if ("error" in reply) next.reject(new Error(reply.error));
+			else next.resolve(reply.value);
+		}
+	};
+	const receive = (reply: Reply) => {
+		arrived.push(reply);
+		settle();
+	};
+	const fail = (err: Error) => {
+		failed = err;
+		settle();
+	};
+	if (threads) {
+		const w = new threads.Worker(new URL(import.meta.url));
+		w.on("message", receive);
+		w.on("error", fail);
+		return { post: (load) => w.postMessage(load), reply: () => next(), close: () => void w.terminate() };
+	}
+	const w = new Worker(import.meta.url, { type: "module" });
+	w.onmessage = (e: MessageEvent<Reply>) => receive(e.data);
+	w.onerror = (e) => fail(new Error(`a worker failed: ${e.message}`));
+	return { post: (load) => w.postMessage(load), reply: () => next(), close: () => w.terminate() };
+
+	function next(): Promise<unknown> {
+		const next = Promise.withResolvers<unknown>();
+		waiting.push(next);
+		settle();
+		return next.promise;
+	}
+}
+
+/** A worker's side: it loads one route, then times it as `measure` asks. */
+function work() {
+	// Without isolation, a browser coarsens performance.now() to as much as a millisecond.
+	if (browser && !crossOriginIsolated) throw new Error("the worker is not cross-origin isolated");
+	const reply = (reply: Reply) => (threads ? threads.parentPort?.postMessage(reply) : postMessage(reply));
+	const start = (request: Load) =>
+		serve(
+			request,
+			reply,
+			(file) => import(new URL(file, import.meta.url).href),
+			async (file) => new Wasm(await WebAssembly.compile(await load(file))),
+		);
+	if (threads) threads.parentPort?.once("message", start);
+	else onmessage = (e: MessageEvent<Load>) => start(e.data);
 }
 
 function engine(): string {
@@ -55,36 +108,41 @@ function parse(workloads: Workloads): Workload[] {
 async function main() {
 	// Without isolation, a browser coarsens performance.now() to as much as a millisecond.
 	if (browser && !crossOriginIsolated) throw new Error("the page is not cross-origin isolated");
+	progress("loading workloads.json");
 	const config: Config = JSON.parse(new TextDecoder().decode(await load("workloads.json")));
-	const workloads = parse(config.workloads);
+	const options = { ...config, progress };
+	// Each route is a file of its own, so no cache keyed by URL serves one route's code to
+	// another, and runs in a worker of its own. The A/A route is the translation again: its
+	// spread from the first is the measurement's noise.
+	const route = (route: string, file: string, exported = "run", slice = false): Subject => ({ route, file, exported, slice });
 	const wasm = new Wasm(await WebAssembly.compile(await load("bench.wasm")));
-	// The A/A route is the translation again, loaded as its own module: its spread from the
-	// first is the measurement's noise.
-	const translated = (out: { data: Uint8Array; length: number }) => out.data.subarray(0, out.length);
 	const routes = [
-		await route("hand-written", "moq.js", (out: Uint8Array) => out),
-		await route("translated", "translated.js", translated),
-		await route("A/A", "translated-aa.js", translated),
+		{ wasm: "bench.wasm" },
+		route("hand-written", "moq.js"),
+		route("translated", "translated.js", "run", true),
+		route("A/A", "translated-aa.js", "run", true),
 	];
-	if (config.route) routes.push(await route(config.route, "route.js", translated));
-	const timings = await measure(wasm, routes, workloads, { ...config, progress });
+	if (config.route) routes.push(route(config.route, "route.js", "run", true));
+	const timings = await measure(wasm, routes, parse(config.workloads), spawn, options);
 
 	// The async handoff: the translation polled at once by a one-task executor, as the
 	// native and WASM routes are, and on the runtime's microtask executor.
-	const bytes = (out: Uint8Array) => out;
 	const handoffRoutes = [
-		await route("hand-written", "task-hand.js", bytes, "handWritten"),
-		await route("translated", "task-translated.js", bytes),
-		await route("spawned", "task-translated.js", bytes, "spawn"),
-		await route("A/A", "task-translated-aa.js", bytes),
+		{ wasm: "task.wasm" },
+		route("hand-written", "task-hand.js", "handWritten"),
+		route("translated", "task-translated.js"),
+		route("spawned", "task-spawned.js", "spawn"),
+		route("A/A", "task-translated-aa.js"),
 	];
-	if (config.route) handoffRoutes.push(await route(config.route, "task-route.js", bytes));
+	if (config.route) handoffRoutes.push(route(config.route, "task-route.js"));
 	const taskWasm = new Wasm(await WebAssembly.compile(await load("task.wasm")));
-	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), { ...config, progress })));
+	timings.push(...(await measure(taskWasm, handoffRoutes, parse(config.handoffs), spawn, options)));
 	return { engine: engine(), timings };
 }
 
-if (browser) {
+if (worker) {
+	work();
+} else if (browser) {
 	const post = (path: string, body: string) => fetch(path, { method: "POST", body });
 	main().then(
 		(result) => post("/result", JSON.stringify(result)),

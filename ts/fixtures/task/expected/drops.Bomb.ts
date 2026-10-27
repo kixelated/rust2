@@ -31,12 +31,12 @@ export class Bomb {
 }
 
 export function drop$Drop(self: Bomb): void {
-	const arg = ([self.id] as [rt.u32])[0];
+	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["b", args2[0], " drop"]);
 	Log.note(self.log, _4);
 	if (self.blows) {
-		const arg2 = ([self.id] as [rt.u32])[0];
+		const arg2 = self.id;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
 		rt.panicFmt(["b", args4[0], " blew"]);
 	}
