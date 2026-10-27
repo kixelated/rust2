@@ -86,6 +86,18 @@ export function cmp$Ord(self: Key, other: Key): rt.Ordering {
 }
 
 export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
+	let _3!: boolean;
+	if (self.fault === "Counted") {
+		_3 = true;
+	} else {
+		_3 = false;
+	}
+	if (_3) {
+		const arg = ([self.id] as [rt.u32])[0];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		const _7: string = rt.fmtFormat(["k", args2[0], " hashed"]);
+		Log.note(self.log, _7);
+	}
 	rt.hashInt(read(self), state);
 }
 

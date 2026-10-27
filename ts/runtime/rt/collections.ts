@@ -381,8 +381,10 @@ function dropPairs<K, V>(keys: readonly K[], values: readonly V[], k?: (key: K) 
  */
 export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K) => void, v?: (value: V) => void): V | undefined {
 	if (!hashed(m, key)) {
+		const had = m.p.has(key);
 		const old = m.p.get(key);
 		m.p.set(key, value);
+		if (had) k?.(key);
 		return old;
 	}
 	// Hashed once, as std's is, into an empty map too.
@@ -421,7 +423,10 @@ function add<K, V>(m: HashMap<K, V>, key: K, value: V, hash = (m.h as Hashing<K>
  */
 export function hashAdd<K>(m: HashSet<K>, key: K, k?: (key: K) => void): boolean {
 	if (!hashed(m, key)) {
-		if (m.p.has(key)) return false;
+		if (m.p.has(key)) {
+			k?.(key);
+			return false;
+		}
 		m.p.set(key, undefined);
 		return true;
 	}
@@ -450,25 +455,34 @@ export function hashRemoveEntry<K, V>(m: HashMap<K, V>, key: K): [K, V] | undefi
 		m.p.delete(key);
 		return [key, value];
 	}
-	const h = m.h as Hashing<K>;
-	const hash = h.hash(key);
-	let prev: Slot<K, V> | undefined;
-	for (let s = m.o?.get(hash); s !== undefined; prev = s, s = s.next) {
-		if (!h.eq(s.k, key)) continue;
-		if (prev !== undefined) prev.next = s.next;
-		else if (s.next !== undefined) m.o?.set(hash, s.next);
-		else m.o?.delete(hash);
-		m.n--;
-		return [s.k, s.v];
+	const hash = (m.h as Hashing<K>).hash(key);
+	const s = slot(m, key, hash);
+	if (s === undefined) return undefined;
+	unlink(m, hash, s);
+	return [s.k, s.v];
+}
+
+/** Take `s`, a slot whose key's hash is `hash`, out of `m`. */
+function unlink<K, V>(m: HashMap<K, V>, hash: number, s: Slot<K, V>): void {
+	const o = m.o as Map<number, Slot<K, V>>;
+	let prev = o.get(hash) as Slot<K, V>;
+	if (prev === s) {
+		if (s.next !== undefined) o.set(hash, s.next);
+		else o.delete(hash);
+	} else {
+		while (prev.next !== s) prev = prev.next as Slot<K, V>;
+		prev.next = s.next;
 	}
-	return undefined;
+	m.n--;
 }
 
 /** `HashMap::remove`: the value there, if any, whose key drops. */
 export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void): V | undefined {
 	if (!hashed(m, key)) {
+		if (!m.p.has(key)) return undefined;
 		const old = m.p.get(key);
 		m.p.delete(key);
+		k?.(key);
 		return old;
 	}
 	const entry = hashRemoveEntry(m, key);
@@ -479,7 +493,11 @@ export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void)
 
 /** `HashSet::remove`: whether `key` was there. The key it held drops. */
 export function hashDelete<K>(m: HashSet<K>, key: K, k?: (key: K) => void): boolean {
-	if (!hashed(m, key)) return m.p.delete(key);
+	if (!hashed(m, key)) {
+		if (!m.p.delete(key)) return false;
+		k?.(key);
+		return true;
+	}
 	const entry = hashRemoveEntry(m, key);
 	if (entry !== undefined) k?.(entry[0]);
 	return entry !== undefined;
@@ -1323,48 +1341,50 @@ export function btreeClone<K, V>(m: BTreeMap<K, V>, key: (k: K) => K = itself, v
 // Entries
 
 /**
- * `hash_map::Entry` and `btree_map::Entry`, and their `OccupiedEntry`: the map, and the
- * key looked up, which an occupied entry finds again.
+ * `hash_map::Entry` and `btree_map::Entry`, and their `OccupiedEntry` and `VacantEntry`:
+ * the map, the key, and where `entry` found it. The map stays as it was until the entry is
+ * consumed, so nothing compares or hashes the key again, as nothing does in Rust.
  */
 export interface Entry<K, V> {
 	readonly m: HashMap<K, V> | BTreeMap<K, V>;
-	/** The key it was given, or the map's own for an occupied entry whose key drops. */
+	/** The key it was given, or the map's own if it is occupied. */
 	readonly k: K;
-	/**
-	 * Whether it is occupied, once read: the map stays as it was until the entry is
-	 * consumed, and a drop after that, of a variant moved out, reads it again.
-	 */
-	o: boolean | undefined;
+	/** Whether it is occupied: whether the map held the key. */
+	readonly o: boolean;
+	/** A hashed key's slot if it is occupied, and its hash. */
+	readonly s: Slot<K, V> | undefined;
+	readonly h: number | undefined;
+	/** A B-tree's leaf, and the key's index in it, or the complement of where it goes. */
+	readonly l: Leaf<K, V> | undefined;
+	readonly i: number;
 }
 
 /**
  * `entry`: `key` drops at once if the map holds an equal one, or if its `Hash`, `Eq`, or
- * `Ord` panics. An occupied entry then holds the map's key, as std's holds its slot.
+ * `Ord` panics. A hashed key is hashed into an empty map too, as std's is.
  */
 export function entry<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K, k?: (key: K) => void): Entry<K, V> {
-	if (k === undefined) return { m, k: key, o: undefined };
-	let held: { k: K } | undefined;
+	let e: Entry<K, V>;
 	try {
-		held = stored(m, key);
-	} catch (e) {
-		k(key);
-		throw e;
+		e = locate(m, key);
+	} catch (err) {
+		k?.(key);
+		throw err;
 	}
-	if (held === undefined) return { m, k: key, o: false };
-	k(key);
-	return { m, k: held.k, o: true };
+	if (e.o) k?.(key);
+	return e;
 }
 
-/** The key `m` holds equal to `key`, if any. */
-function stored<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K): { k: K } | undefined {
-	if (isHash(m)) {
-		// Hashed into an empty map too, as std's `entry` hashes.
-		if (hashed(m, key)) return slot(m, key, (m.h as Hashing<K>).hash(key));
-		return m.p.has(key) ? { k: key } : undefined;
+function locate<K, V>(m: HashMap<K, V> | BTreeMap<K, V>, key: K): Entry<K, V> {
+	if (!isHash(m)) {
+		const l = leafOf(m, key);
+		const i = search(l.k, key, m.c);
+		return { m, k: i < 0 ? key : l.k[i], o: i >= 0, s: undefined, h: undefined, l, i };
 	}
-	const l = leafOf(m, key);
-	const i = search(l.k, key, m.c);
-	return i < 0 ? undefined : { k: l.k[i] };
+	if (!hashed(m, key)) return { m, k: key, o: m.p.has(key), s: undefined, h: undefined, l: undefined, i: 0 };
+	const h = (m.h as Hashing<K>).hash(key);
+	const s = slot(m, key, h);
+	return { m, k: s === undefined ? key : s.k, o: s !== undefined, s, h, l: undefined, i: 0 };
 }
 
 /** `make(e.k)`, which drops the key of `e`, a vacant entry, if it panics. */
@@ -1377,9 +1397,24 @@ function make<K, V>(e: Entry<K, V>, f: (key: K) => V, k?: (key: K) => void): V {
 	}
 }
 
+/** Insert `value` where `e`, a vacant entry, goes: its place. */
+function fill<K, V>(e: Entry<K, V>, value: V): Place<V> {
+	const m = e.m;
+	if (isHash(m)) {
+		if (e.h !== undefined) return add(m, e.k, value, e.h);
+		m.p.set(e.k, value);
+		return new AtKey(m.p, e.k);
+	}
+	const l = e.l as Leaf<K, V>;
+	const i = ~e.i;
+	insertAt(m, l, i, e.k, value);
+	// A split keeps the leaf's first half and moves the rest to the next leaf.
+	return i < l.k.length ? new AtIndex(l.v, i) : new AtIndex((l.next as Leaf<K, V>).v, i - l.k.length);
+}
+
 /** Drop `e`, an `Entry`: a vacant one holds the key it was given. */
 export function entryDrop<K, V>(e: Entry<K, V>, k: (key: K) => void): void {
-	if (!entryOccupied(e)) k(e.k);
+	if (!e.o) k(e.k);
 }
 
 function isHash<K, V>(m: HashMap<K, V> | BTreeMap<K, V>): m is HashMap<K, V> {
@@ -1388,59 +1423,50 @@ function isHash<K, V>(m: HashMap<K, V> | BTreeMap<K, V>): m is HashMap<K, V> {
 
 /** `Entry::or_insert_with`: the value there, or else `f()`'s, inserted. */
 export function entryOrInsertWith<K, V>(e: Entry<K, V>, f: (key: K) => V, k?: (key: K) => void): V {
-	const m = e.m;
-	if (isHash(m)) {
-		if (hashed(m, e.k)) return (slot(m, e.k) ?? add(m, e.k, make(e, f, k))).v;
-		const found = m.p.get(e.k);
-		if (found !== undefined) return found;
-		const value = make(e, f, k);
-		m.p.set(e.k, value);
-		return value;
-	}
-	const l = leafOf(m, e.k);
-	const i = search(l.k, e.k, m.c);
-	if (i >= 0) return l.v[i];
+	if (e.o) return entryGet(e);
 	const value = make(e, f, k);
-	insertAt(m, l, ~i, e.k, value);
+	fill(e, value);
 	return value;
 }
 
 /** `Entry::or_insert`: the value there, and `value` drops, or else `value`, inserted. */
 export function entryOrInsert<K, V>(e: Entry<K, V>, value: V, v?: (value: V) => void): V {
-	if (v === undefined || !entryOccupied(e)) return entryOrInsertWith(e, () => value);
-	const found = entryGet(e);
-	v(value);
-	return found;
+	if (!e.o) {
+		fill(e, value);
+		return value;
+	}
+	v?.(value);
+	return entryGet(e);
 }
 
 /** Whether `e` is `Entry::Occupied`: whether the map holds its key. */
 export function entryOccupied<K, V>(e: Entry<K, V>): boolean {
-	return (e.o ??= isHash(e.m) ? hashContains(e.m, e.k) : btreeContains(e.m, e.k));
+	return e.o;
 }
 
-/** `Entry::and_modify`: `f` of the value there, if any, which is never `undefined`. */
+/** `Entry::and_modify`: `f` of the value there, if any. */
 export function entryAndModify<K, V>(e: Entry<K, V>, f: (value: V) => void): Entry<K, V> {
-	const value = isHash(e.m) ? hashGet(e.m, e.k) : btreeGet(e.m, e.k);
-	if (value !== undefined) f(value);
+	if (e.o) f(entryGet(e));
 	return e;
 }
 
 /** `Entry::key` and `OccupiedEntry::key`: the key the map holds, or else the one looked up. */
 export function entryKey<K, V>(e: Entry<K, V>): K {
-	if (isHash(e.m)) return hashed(e.m, e.k) ? (slot(e.m, e.k)?.k ?? e.k) : e.k;
-	const l = leafOf(e.m, e.k);
-	const i = search(l.k, e.k, e.m.c);
-	return i < 0 ? e.k : l.k[i];
+	return e.k;
 }
 
 /** `OccupiedEntry::get` and `get_mut`. */
 export function entryGet<K, V>(e: Entry<K, V>): V {
-	return (isHash(e.m) ? hashGet(e.m, e.k) : btreeGet(e.m, e.k)) as V;
+	if (e.s !== undefined) return e.s.v;
+	if (e.l !== undefined) return e.l.v[e.i];
+	return (e.m as HashMap<K, V>).p.get(e.k) as V;
 }
 
 /** `OccupiedEntry::get_mut` and `into_mut` of a value JS copies: its place. */
 export function entryGetMut<K, V>(e: Entry<K, V>): Place<V> {
-	return (isHash(e.m) ? hashGetMut(e.m, e.k) : btreeGetMut(e.m, e.k)) as Place<V>;
+	if (e.s !== undefined) return e.s;
+	if (e.l !== undefined) return new AtIndex(e.l.v, e.i);
+	return new AtKey((e.m as HashMap<K, V>).p, e.k);
 }
 
 /**
@@ -1448,38 +1474,33 @@ export function entryGetMut<K, V>(e: Entry<K, V>): Place<V> {
  * `or_default`: its place, after inserting `make()`'s value if the map lacks the key.
  */
 export function entryOrInsertWithMut<K, V>(e: Entry<K, V>, f: (key: K) => V, k?: (key: K) => void): Place<V> {
-	// The place comes from the one search, as Rust's comes from its entry: a second would
-	// compare keys where Rust compares none.
-	const m = e.m;
-	if (isHash(m)) {
-		if (hashed(m, e.k)) return slot(m, e.k) ?? add(m, e.k, make(e, f, k));
-		if (!m.p.has(e.k)) m.p.set(e.k, make(e, f, k));
-		return new AtKey(m.p, e.k);
-	}
-	const l = leafOf(m, e.k);
-	const i = search(l.k, e.k, m.c);
-	if (i >= 0) return new AtIndex(l.v, i);
-	insertAt(m, l, ~i, e.k, make(e, f, k));
-	// A split keeps the leaf's first half and moves the rest to the next leaf.
-	return ~i < l.k.length ? new AtIndex(l.v, ~i) : new AtIndex((l.next as Leaf<K, V>).v, ~i - l.k.length);
+	return e.o ? entryGetMut(e) : fill(e, make(e, f, k));
 }
 
 /** `Entry::or_insert` and `VacantEntry::insert` of a value JS copies: its place, and `value` drops if one was there. */
 export function entryOrInsertMut<K, V>(e: Entry<K, V>, value: V, v?: (value: V) => void): Place<V> {
-	const occupied = v !== undefined && entryOccupied(e);
-	const place = entryOrInsertWithMut(e, () => value);
-	if (occupied) v(value);
+	if (!e.o) return fill(e, value);
+	const place = entryGetMut(e);
+	v?.(value);
 	return place;
 }
 
 /** `OccupiedEntry::insert`: the old value. */
 export function entryInsert<K, V>(e: Entry<K, V>, value: V): V {
-	return (isHash(e.m) ? hashInsert(e.m, e.k, value) : btreeInsert(e.m, e.k, value)) as V;
+	const place = entryGetMut(e);
+	const old = place.v;
+	place.v = value;
+	return old;
 }
 
 /** `OccupiedEntry::remove_entry`. */
 export function entryRemoveEntry<K, V>(e: Entry<K, V>): [K, V] {
-	return (isHash(e.m) ? hashRemoveEntry(e.m, e.k) : btreeRemoveEntry(e.m, e.k)) as [K, V];
+	const m = e.m;
+	const value = entryGet(e);
+	if (!isHash(m)) removeAt(m, e.l as Leaf<K, V>, e.i);
+	else if (e.s !== undefined) unlink(m, e.h as number, e.s);
+	else m.p.delete(e.k);
+	return [e.k, value];
 }
 
 /** `OccupiedEntry::remove`, whose key drops. */
@@ -1491,7 +1512,10 @@ export function entryRemove<K, V>(e: Entry<K, V>, k?: (key: K) => void): V {
 
 /** `first_entry`, and with `last`, `last_entry`: an occupied entry, if the map has one. */
 export function btreeFirstEntry<K, V>(m: BTreeMap<K, V>, last = false): Entry<K, V> | undefined {
-	return m.n === 0 ? undefined : { m, k: btreeFirstKey(m, last) as K, o: true };
+	if (m.n === 0) return undefined;
+	const l = end(m, last);
+	const i = last ? l.k.length - 1 : 0;
+	return { m, k: l.k[i], o: true, s: undefined, h: undefined, l, i };
 }
 
 // VecDeque

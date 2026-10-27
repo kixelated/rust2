@@ -226,6 +226,8 @@ enum Fault {
 	Blows,
 	/// In its `Hash`, `Eq`, or `Ord`.
 	Trips,
+	/// Never, but its `Hash` logs each call.
+	Counted,
 }
 
 impl Key {
@@ -283,6 +285,9 @@ impl Ord for Key {
 
 impl Hash for Key {
 	fn hash<H: Hasher>(&self, state: &mut H) {
+		if matches!(self.fault, Fault::Counted) {
+			self.log.note(format!("k{} hashed", self.id));
+		}
 		self.read().hash(state);
 	}
 }
@@ -403,6 +408,18 @@ fn hashed(log: &Log, id: u32, at: u8) {
 	set.insert(key(12));
 	set.retain(|k| k.id % 2 == 1);
 	tally("set");
+	// An entry hashes its key once, and what consumes it hashes nothing: two keys, so the
+	// table never grows, which hashes each again.
+	let counted = |n: u32| Key::faulty(id + n, sink.clone(), Fault::Counted);
+	let mut counts = HashMap::new();
+	counts.insert(counted(20), guard(20));
+	drop(counts.entry(counted(20)).or_insert(guard(21)));
+	drop(counts.entry(counted(22)).or_insert_with(|| guard(22)));
+	drop(counts.entry(counted(20)).and_modify(|_| ()).or_insert(guard(23)));
+	if let hash_map::Entry::Occupied(e) = counts.entry(counted(22)) {
+		drop(e.remove());
+	}
+	tally("counted");
 	check(4);
 	map.clear();
 	tally("clear");

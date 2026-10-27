@@ -1148,32 +1148,43 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let _149!: Key.Key;
 	let set!: rt.HashSet<Key.Key>;
 	let _199!: Key.Key;
-	let _242!: boolean;
-	let _243!: boolean;
-	let _244!: boolean;
-	let _245!: boolean;
-	let _246!: boolean;
-	let _247!: boolean;
-	let _248!: boolean;
-	let _249!: boolean;
-	let _250!: boolean;
-	let _251!: boolean;
-	let _252!: boolean;
+	let counts!: rt.HashMap<Key.Key, Guard.Guard>;
+	let _223!: Key.Key;
+	let _231!: rt.Entry<Key.Key, Guard.Guard>;
+	let _250!: rt.Entry<Key.Key, Guard.Guard>;
+	let _259!: rt.Entry<Key.Key, Guard.Guard>;
+	let _297!: boolean;
+	let _298!: boolean;
+	let _299!: boolean;
+	let _300!: boolean;
+	let _301!: boolean;
+	let _302!: boolean;
+	let _303!: boolean;
+	let _304!: boolean;
+	let _305!: boolean;
+	let _306!: boolean;
+	let _307!: boolean;
+	let _308!: boolean;
+	let _309!: boolean;
+	let _310!: boolean;
 	let unwind: number = 0;
 	try {
-		_252 = false;
-		_251 = false;
-		_250 = false;
-		_249 = false;
-		_247 = false;
-		_248 = false;
-		_246 = false;
-		_245 = false;
-		_244 = false;
-		_243 = false;
-		_242 = false;
+		_310 = false;
+		_309 = false;
+		_308 = false;
+		_307 = false;
+		_305 = false;
+		_306 = false;
+		_304 = false;
+		_303 = false;
+		_302 = false;
+		_301 = false;
+		_300 = false;
+		_299 = false;
+		_298 = false;
+		_297 = false;
 		sink = Log.new();
-		unwind = 108;
+		unwind = 138;
 		const key: (a0: rt.u32) => Key.Key = (n: rt.u32): Key.Key => {
 			return Key.new(rt.u32Add(id, n), Log.clone$Clone(sink));
 		};
@@ -1197,103 +1208,103 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			}
 		};
 		map = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
-		unwind = 135;
-		_252 = true;
+		unwind = 173;
+		_310 = true;
 		_20 = key(1);
-		unwind = 133;
-		_251 = true;
+		unwind = 171;
+		_309 = true;
 		const _23: Guard.Guard = guard(1);
-		_251 = false;
+		_309 = false;
 		const _18: Guard.Guard | undefined = rt.hashInsert(map, _20, _23, rt.drop, rt.drop);
-		unwind = 135;
-		_251 = false;
+		unwind = 173;
+		_309 = false;
 		rt.drop(_18);
 		_28 = key(2);
-		unwind = 131;
-		_250 = true;
+		unwind = 169;
+		_308 = true;
 		const _31: Guard.Guard = guard(2);
-		_250 = false;
+		_308 = false;
 		const _26: Guard.Guard | undefined = rt.hashInsert(map, _28, _31, rt.drop, rt.drop);
-		unwind = 135;
-		_250 = false;
+		unwind = 173;
+		_308 = false;
 		rt.drop(_26);
 		_36 = key(3);
-		unwind = 129;
-		_249 = true;
+		unwind = 167;
+		_307 = true;
 		const _39: Guard.Guard = guard(3);
-		_249 = false;
+		_307 = false;
 		const _34: Guard.Guard | undefined = rt.hashInsert(map, _36, _39, rt.drop, rt.drop);
-		unwind = 135;
-		_249 = false;
+		unwind = 173;
+		_307 = false;
 		rt.drop(_34);
 		_44 = key(1);
-		unwind = 127;
-		_248 = true;
+		unwind = 165;
+		_306 = true;
 		const _47: Guard.Guard = guard(4);
-		_248 = false;
+		_306 = false;
 		old = rt.hashInsert(map, _44, _47, rt.drop, rt.drop);
-		unwind = 125;
-		_247 = true;
-		_248 = false;
+		unwind = 163;
+		_305 = true;
+		_306 = false;
 		tally("insert");
-		_247 = false;
+		_305 = false;
 		rt.drop(old);
 		check(1);
 		_62 = key(2);
-		unwind = 107;
+		unwind = 137;
 		removed = rt.hashRemove(map, _62, rt.drop);
-		unwind = 123;
-		_246 = true;
+		unwind = 161;
+		_304 = true;
 		rt.drop(_62);
 		tally("remove");
-		_246 = false;
+		_304 = false;
 		rt.drop(removed);
 		const _74: Key.Key = key(3);
 		_72 = rt.entry(map, _74, rt.drop);
 		if (rt.entryOccupied(_72)) {
-			unwind = 121;
+			unwind = 159;
 			rt.drop(rt.entryRemove(_72, rt.drop));
 		} else {
-			unwind = 121;
+			unwind = 159;
 			Log.note(log, rt.fmtFormat(["vacant"]));
 		}
 		if (!rt.entryOccupied(_72)) {
-			unwind = 123;
+			unwind = 161;
 			rt.entryDrop(_72, rt.drop);
 		}
-		unwind = 123;
+		unwind = 161;
 		const _85: Key.Key = key(5);
 		const _83: rt.Entry<Key.Key, Guard.Guard> = rt.entry(map, _85, rt.drop);
 		if (!rt.entryOccupied(_83)) {
-			unwind = 106;
+			unwind = 136;
 			e2 = _83;
 			const arg = ([rt.entryKey(e2).id] as [rt.u32])[0];
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 			Log.note(log, rt.fmtFormat(["left ", args2[0]]));
-			unwind = 123;
+			unwind = 161;
 			rt.drop(e2.k);
 		}
 		tally("entry");
 		check(2);
 		const _114: Key.Key = key(1);
 		_112 = rt.entry(map, _114, rt.drop);
-		unwind = 119;
-		_245 = true;
+		unwind = 157;
+		_303 = true;
 		const _117: Guard.Guard = guard(6);
-		_245 = false;
+		_303 = false;
 		const _111: Guard.Guard = rt.entryOrInsert(_112, _117, rt.drop);
-		unwind = 123;
-		_245 = false;
+		unwind = 161;
+		_303 = false;
 		const kept: rt.u32 = Guard.id(_111);
 		const _125: Key.Key = key(7);
 		_123 = rt.entry(map, _125, rt.drop);
-		unwind = 117;
-		_244 = true;
+		unwind = 155;
+		_302 = true;
 		const _128: Guard.Guard = guard(7);
-		_244 = false;
+		_302 = false;
 		const _122: Guard.Guard = rt.entryOrInsert(_123, _128, rt.drop);
-		unwind = 123;
-		_244 = false;
+		unwind = 161;
+		_302 = false;
 		[kept, Guard.id(_122)] as [rt.u32, rt.u32];
 		const _139: rt.Fmt = (f: rt.Formatter) => rt.u32Display(kept, f);
 		const arg2 = Guard.id(_122);
@@ -1301,13 +1312,13 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		Log.note(log, rt.fmtFormat(["or_insert ", args4[0], " ", args4[1]]));
 		tally("or_insert");
 		_149 = key(8);
-		unwind = 115;
-		_243 = true;
+		unwind = 153;
+		_301 = true;
 		const _152: Guard.Guard = guard(8);
-		_243 = false;
+		_301 = false;
 		const _147: Guard.Guard | undefined = rt.hashInsert(map, _149, _152, rt.drop, rt.drop);
-		unwind = 123;
-		_243 = false;
+		unwind = 161;
+		_301 = false;
 		rt.drop(_147);
 		rt.hashRetain(map, (k: Key.Key, _37: Guard.Guard): boolean => {
 			return rt.u32Rem(k.id, 2) === 0;
@@ -1315,8 +1326,8 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		tally("retain");
 		check(3);
 		set = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
-		unwind = 113;
-		_242 = true;
+		unwind = 151;
+		_300 = true;
 		const _167: Key.Key = key(10);
 		rt.hashAdd(set, _167, rt.drop);
 		const _172: Key.Key = key(11);
@@ -1326,11 +1337,11 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg3, f)];
 		Log.note(log, rt.fmtFormat(["again ", args6[0]]));
 		_199 = key(11);
-		unwind = 105;
+		unwind = 135;
 		const arg4 = ([rt.hashDelete(set, _199, rt.drop)] as [boolean])[0];
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg4, f)];
 		const _192: string = rt.fmtFormat(["gone ", args8[0]]);
-		unwind = 113;
+		unwind = 151;
 		rt.drop(_199);
 		Log.note(log, _192);
 		const _208: Key.Key = key(12);
@@ -1339,127 +1350,198 @@ export function hashed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			return rt.u32Rem(k2.id, 2) === 1;
 		}, rt.drop);
 		tally("set");
+		const counted: (a0: rt.u32) => Key.Key = (n3: rt.u32): Key.Key => {
+			return Key.faulty(rt.u32Add(id, n3), Log.clone$Clone(sink), "Counted" as Fault.Fault);
+		};
+		counts = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+		unwind = 134;
+		_223 = counted(20);
+		unwind = 149;
+		_299 = true;
+		const _226: Guard.Guard = guard(20);
+		_299 = false;
+		const _221: Guard.Guard | undefined = rt.hashInsert(counts, _223, _226, rt.drop, rt.drop);
+		unwind = 134;
+		_299 = false;
+		rt.drop(_221);
+		const _233: Key.Key = counted(20);
+		_231 = rt.entry(counts, _233, rt.drop);
+		unwind = 147;
+		_298 = true;
+		const _236: Guard.Guard = guard(21);
+		_298 = false;
+		rt.entryOrInsert(_231, _236, rt.drop);
+		unwind = 134;
+		_298 = false;
+		const _243: Key.Key = counted(22);
+		rt.entryOrInsertWith(rt.entry(counts, _243, rt.drop), (): Guard.Guard => {
+			return guard(22);
+		}, rt.drop);
+		const _253: Key.Key = counted(20);
+		_250 = rt.entryAndModify(rt.entry(counts, _253, rt.drop), (_27: Guard.Guard): void => {});
+		unwind = 145;
+		_297 = true;
+		const _256: Guard.Guard = guard(23);
+		_297 = false;
+		rt.entryOrInsert(_250, _256, rt.drop);
+		unwind = 134;
+		_297 = false;
+		const _261: Key.Key = counted(22);
+		_259 = rt.entry(counts, _261, rt.drop);
+		if (rt.entryOccupied(_259)) {
+			unwind = 133;
+			rt.drop(rt.entryRemove(_259, rt.drop));
+			unwind = 134;
+			rt.entryDrop(_259, rt.drop);
+		} else if (!rt.entryOccupied(_259)) {
+			rt.entryDrop(_259, rt.drop);
+		}
+		tally("counted");
 		check(4);
 		rt.hashClear(map, rt.drop, rt.drop);
 		tally("clear");
 		check(5);
-		_242 = false;
+		_300 = false;
 		rt.hashDrop(set, rt.drop);
-		_252 = false;
+		_310 = false;
 		rt.hashDrop(map, rt.drop, rt.drop);
 		tally("end");
+		unwind = 151;
+		rt.hashDrop(counts, rt.drop, rt.drop);
 		unwind = 0;
-		_242 = false;
-		_246 = false;
-		_247 = false;
-		_252 = false;
+		_300 = false;
+		_304 = false;
+		_305 = false;
+		_310 = false;
 		rt.drop(sink);
-	} catch (e3) {
-		b3: {
-			b4: {
-				b5: {
-					b6: {
-						if (unwind === 0) {
-							throw e3;
-						}
-						if (unwind === 105) {
-							rt.drop(_199);
-						} else {
-							if (unwind === 106) {
-								rt.drop(e2.k);
-								break b6;
+	} catch (e4) {
+		b4: {
+			b5: {
+				b6: {
+					b7: {
+						b8: {
+							if (unwind === 0) {
+								throw e4;
 							}
-							if (unwind === 107) {
-								rt.drop(_62);
-								break b5;
-							}
-							if (unwind === 108) {
-								break b3;
-							}
-							if (unwind !== 113) {
-								if (unwind === 115) {
-									if (!_243) {
+							if (unwind === 133) {
+								rt.entryDrop(_259, rt.drop);
+							} else if (unwind !== 134) {
+								if (unwind === 135) {
+									rt.drop(_199);
+									break b8;
+								}
+								if (unwind === 136) {
+									rt.drop(e2.k);
+									break b7;
+								}
+								if (unwind === 137) {
+									rt.drop(_62);
+									break b6;
+								}
+								if (unwind === 138) {
+									break b4;
+								}
+								if (unwind === 145) {
+									if (_297) {
+										rt.entryDrop(_250, rt.drop);
+									}
+								} else if (unwind === 147) {
+									if (_298) {
+										rt.entryDrop(_231, rt.drop);
+									}
+								} else if (unwind === 149) {
+									if (_299) {
+										rt.drop(_223);
+									}
+								} else {
+									if (unwind === 151) {
+										break b8;
+									}
+									if (unwind === 153) {
+										if (!_301) {
+											break b7;
+										}
+										rt.drop(_149);
+										break b7;
+									}
+									if (unwind === 155) {
+										if (!_302) {
+											break b7;
+										}
+										rt.entryDrop(_123, rt.drop);
+										break b7;
+									}
+									if (unwind === 157) {
+										if (!_303) {
+											break b7;
+										}
+										rt.entryDrop(_112, rt.drop);
+										break b7;
+									}
+									if (unwind === 159) {
+										if (rt.entryOccupied(_72)) {
+											break b7;
+										}
+										rt.entryDrop(_72, rt.drop);
+										break b7;
+									}
+									if (unwind === 161) {
+										break b7;
+									}
+									if (unwind === 163) {
 										break b6;
 									}
-									rt.drop(_149);
-									break b6;
-								}
-								if (unwind === 117) {
-									if (!_244) {
-										break b6;
+									if (unwind === 165) {
+										if (!_306) {
+											break b5;
+										}
+										rt.drop(_44);
+										break b5;
 									}
-									rt.entryDrop(_123, rt.drop);
-									break b6;
-								}
-								if (unwind === 119) {
-									if (!_245) {
-										break b6;
+									if (unwind === 167) {
+										if (!_307) {
+											break b5;
+										}
+										rt.drop(_36);
+										break b5;
 									}
-									rt.entryDrop(_112, rt.drop);
-									break b6;
-								}
-								if (unwind === 121) {
-									if (rt.entryOccupied(_72)) {
-										break b6;
+									if (unwind === 169) {
+										if (!_308) {
+											break b5;
+										}
+										rt.drop(_28);
+										break b5;
 									}
-									rt.entryDrop(_72, rt.drop);
-									break b6;
-								}
-								if (unwind === 123) {
-									break b6;
-								}
-								if (unwind === 125) {
+									if (unwind === 171) {
+										if (!_309) {
+											break b5;
+										}
+										rt.drop(_20);
+										break b5;
+									}
 									break b5;
 								}
-								if (unwind === 127) {
-									if (!_248) {
-										break b4;
-									}
-									rt.drop(_44);
-									break b4;
-								}
-								if (unwind === 129) {
-									if (!_249) {
-										break b4;
-									}
-									rt.drop(_36);
-									break b4;
-								}
-								if (unwind === 131) {
-									if (!_250) {
-										break b4;
-									}
-									rt.drop(_28);
-									break b4;
-								}
-								if (unwind === 133) {
-									if (!_251) {
-										break b4;
-									}
-									rt.drop(_20);
-									break b4;
-								}
-								break b4;
 							}
+							rt.hashDrop(counts, rt.drop, rt.drop);
 						}
-						if (_242) {
+						if (_300) {
 							rt.hashDrop(set, rt.drop);
 						}
 					}
-					if (_246) {
+					if (_304) {
 						rt.drop(removed);
 					}
 				}
-				if (_247) {
+				if (_305) {
 					rt.drop(old);
 				}
 			}
-			if (_252) {
+			if (_310) {
 				rt.hashDrop(map, rt.drop, rt.drop);
 			}
 		}
 		rt.drop(sink);
-		throw e3;
+		throw e4;
 	}
 }
 
