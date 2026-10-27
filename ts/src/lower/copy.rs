@@ -268,13 +268,7 @@ impl<'tcx> Writes<'tcx> {
 		let found = self
 			.generic
 			.iter()
-			.any(|&(def_id, written)| {
-				let hit = instantiates(tcx, def_id, written, ty);
-				if hit && std::env::var_os("DEBUG_WRITES").is_some() {
-					eprintln!("WRITES {ty} <- {written} in {}", tcx.def_path_str(def_id));
-				}
-				hit
-			});
+			.any(|&(def_id, written)| instantiates(tcx, def_id, written, ty));
 		self.found.borrow_mut().insert(ty, found);
 		found
 	}
@@ -307,12 +301,20 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 	let cause = ObligationCause::dummy();
 	let register = |clause: ty::Clause<'tcx>| ocx.register_obligation(Obligation::new(tcx, cause.clone(), env, clause));
 	let args = infcx.fresh_args_for_item(DUMMY_SP, def_id);
-	let written = EarlyBinder::bind(tcx, written).instantiate(tcx, args).skip_normalization();
+	let written = EarlyBinder::bind(tcx, written)
+		.instantiate(tcx, args)
+		.skip_normalization();
 	let mut projections = Vec::new();
 	let written = written.fold_with(&mut BottomUpFolder {
 		tcx,
 		ty_op: |t: Ty<'tcx>| match *t.kind() {
-			ty::Alias(_, alias @ ty::AliasTy { kind: ty::Projection { .. }, .. }) => {
+			ty::Alias(
+				_,
+				alias @ ty::AliasTy {
+					kind: ty::Projection { .. },
+					..
+				},
+			) => {
 				let var = infcx.next_ty_var(DUMMY_SP);
 				projections.push((alias, var));
 				var
