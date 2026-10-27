@@ -111,7 +111,7 @@ export class sumFuture {
 							if (result !== undefined) {
 								const value: rt.u64 = result;
 								if (!(value !== 99)) {
-									const arg2 = ([this.#guard.id] as [rt.u32])[0];
+									const arg2 = this.#guard.id;
 									const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
 									rt.panicFmt(["g", args2[0], " poisoned"]);
 								} else {
@@ -491,7 +491,7 @@ export class blocksFuture {
 								this.#saved$8 = false;
 								this.#slots[result2] = this.#saved;
 								this.#saved$8 = false;
-								const arg = ([this.#waited] as [rt.u64])[0];
+								const arg = this.#waited;
 								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
 								const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
 								unwind = 133;
@@ -569,7 +569,7 @@ export class blocksFuture {
 					unwind = 125;
 					this.#looped = _162;
 					rt.drop(this.#awaitee$3);
-					const arg5 = ([this.#looped] as [rt.u32])[0];
+					const arg5 = this.#looped;
 					const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
 					const _174: string = rt.fmtFormat(["looped ", args8[0]]);
 					unwind = 123;
@@ -1238,7 +1238,7 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		};
 		_11 = guard(1000);
 		unwind = 83;
-		const arg = ([_11.id] as [rt.u32])[0];
+		const arg = _11.id;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 		const _7: string = rt.fmtFormat(["temporary ", args2[0]]);
 		unwind = 0;
@@ -1272,8 +1272,8 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		unwind = 80;
 		const _60: Guard.Guard = guard(1050);
 		unwind = 0;
-		const arg3 = ([first([_57, _60] as [Guard.Guard, Guard.Guard])] as [rt.u32])[0];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+		const part = first([_57, _60] as [Guard.Guard, Guard.Guard]);
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 		Log.note(log, rt.fmtFormat(["skipped ", args6[0]]));
 		_70 = guard(1060);
 		unwind = 79;
@@ -1287,14 +1287,14 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		Guard.note(head, "head");
 		Guard.note(rest[1], "rest");
 		rt.drop(guard(1090));
-		const arg4 = ([([] as Guard.Guard[]).length] as [rt.usize])[0];
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg4, f)];
+		const part2 = ([] as Guard.Guard[]).length;
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
 		Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
 		const captured = guard(1100);
-		const arg5 = ([((): rt.u32 => {
+		const part3 = ((): rt.u32 => {
 			return Guard.finish(captured, "closure");
-		})()] as [rt.u32])[0];
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
+		})();
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 		Log.note(log, rt.fmtFormat(["closed ", args10[0]]));
 		let sum_: rt.u32 = 0;
 		iter = new Countdown.Countdown({ left: 2, guard: guard(1110) });
@@ -1308,8 +1308,7 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		}
 		unwind = 76;
 		rt.drop(iter);
-		const arg6 = ([sum_] as [rt.u32])[0];
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg6, f)];
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(sum_, f)];
 		Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
 		unwind = 77;
 		rt.dropAll(rest);
@@ -1385,8 +1384,7 @@ export function read(t: Tally.Tally): rt.u32 {
 
 /** `i`, noted as picked. */
 export function pick(log: Log.Log, i: rt.usize): rt.usize {
-	const arg = ([i] as [rt.usize])[0];
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(i, f)];
 	Log.note(log, rt.fmtFormat(["pick ", args2[0]]));
 	return i;
 }
@@ -1438,21 +1436,20 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		const _42: Guard.Guard = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
 		const scoped: rt.u32 = _42.id;
 		rt.drop(_42);
-		const arg = ([scoped] as [rt.u32])[0];
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(scoped, f)];
 		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
 		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
 		unwind = 149;
 		const once: rt.u32 = boxed.id;
 		const _70: rt.Fmt = (f: rt.Formatter) => rt.u32Display(once, f);
-		const arg2 = boxed.id;
-		const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg2, f)];
+		const arg = boxed.id;
+		const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg, f)];
 		Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
-		const arg3 = ([Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing")] as [rt.u32])[0];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg3, f)];
+		const part = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
-		const arg4 = ([Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing")] as [rt.u32])[0];
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg4, f)];
+		const part2 = Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing");
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 		Log.note(log, rt.fmtFormat(["unboxed ", args8[0]]));
 		if (rt.u32Rem(count, 2) === 0) {
 			_112 = Guard.new(rt.u32Add(count, 130), Log.clone$Clone(log));
@@ -1464,8 +1461,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			stacked = undefined;
 		}
 		unwind = 147;
-		const arg5 = ([stacked !== undefined] as [boolean])[0];
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg5, f)];
+		const part3 = stacked !== undefined;
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
 		Log.note(log, rt.fmtFormat(["stacked ", args10[0]]));
 		if (rt.u32Rem(count, 2) === 0) {
 			failed = rt.Err(Guard.new(rt.u32Add(count, 150), Log.clone$Clone(log)));
@@ -1473,8 +1470,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			failed = rt.Ok(count);
 		}
 		unwind = 146;
-		const arg6 = ([!failed.ok] as [boolean])[0];
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg6, f)];
+		const part4 = !failed.ok;
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
 		Log.note(log, rt.fmtFormat(["failed ", args12[0]]));
 		if (rt.u32Rem(count, 3) === 0) {
 			flow = rt.Err(Guard.new(rt.u32Add(count, 160), Log.clone$Clone(log)));
@@ -1482,8 +1479,8 @@ export function turns(log: Log.Log, count: rt.u32): void {
 			flow = rt.Ok(count);
 		}
 		unwind = 145;
-		const arg7 = ([!flow.ok] as [boolean])[0];
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg7, f)];
+		const part5 = !flow.ok;
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
 		Log.note(log, rt.fmtFormat(["flow ", args14[0]]));
 		_171 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
 		unwind = 144;

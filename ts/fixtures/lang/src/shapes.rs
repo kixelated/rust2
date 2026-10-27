@@ -565,6 +565,11 @@ pub fn order(data: &[u8], out: &mut Vec<u8>) {
 	let (marked, len) = (&mark(out, 16), &out.len());
 	out.push(*marked as u8);
 	out.push(*len as u8);
+	// A tuple read by one field: the others still run, where the tuple is made.
+	let (only, _) = (&mark(out, 17), &out.len());
+	let (first, _) = (&mark(out, 18), &mark(out, 19));
+	out.push(*only as u8);
+	out.push(*first as u8);
 	indexed(data, out);
 }
 

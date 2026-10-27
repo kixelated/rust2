@@ -12,13 +12,13 @@ export function hash$Hash_DefaultHasher(self: Touchy, state: rt.Hasher): void {
 }
 
 export function eq$PartialEq(self: Touchy, _2: Touchy): boolean {
-	const arg = ([self._0] as [rt.u8])[0];
+	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["compared ", args2[0]]);
 }
 
 export function cmp$Ord(self: Touchy, _2: Touchy): rt.Ordering {
-	const arg = ([self._0] as [rt.u8])[0];
+	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["ordered ", args2[0]]);
 }

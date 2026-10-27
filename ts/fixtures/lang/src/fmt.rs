@@ -390,6 +390,9 @@ pub fn written(data: &[u8], out: &mut Vec<u8>) {
 	if !data.is_empty() {
 		put(out, &logged(&mut log, data));
 	}
+	// One argument, read by its one placeholder, is evaluated once, where `format!` is.
+	let once = format!("{:?}", note(&mut log, at(13)));
+	put(out, &format!("{} {}", once, log.len()));
 	out.extend_from_slice(&log);
 	if at(12) > 250 {
 		panic!("{} {}", note(&mut log, at(12)), log.len());

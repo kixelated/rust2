@@ -26,8 +26,7 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const shape: Wrap.Wrap<Shape.Shape> = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(point), width: at(5) as rt.u16, height: 3 } as Shape.Shape);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Point(point, f), (f: rt.Formatter) => Wrap.fmt$Debug_u8(byte, f), (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f), (f: rt.Formatter) => Wrap.fmt$Debug_Shape(shape, f)];
 	put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3]]));
-	const arg = ([nested] as [Wrap.Wrap<Wrap.Wrap<Pair.Pair>>])[0];
-	const args4: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(arg, f)];
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f)];
 	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(Wrap.double$u8(byte))));
 	rt.byteVecPush(out, Wrap.get$u8(byte));
