@@ -15,7 +15,7 @@
 use rustc_abi::VariantIdx;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_index::IndexVec;
-use rustc_middle::mir::visit::{PlaceContext, Visitor};
+use rustc_middle::mir::visit::{NonMutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{
 	self, BasicBlock, BorrowKind, Local, Location, MutBorrowKind, Operand, Place, ProjectionElem, Rvalue,
 	StatementKind, SwitchTargets, TerminatorKind,
@@ -184,10 +184,10 @@ type Decided = (usize, Vec<(u128, BasicBlock)>, BasicBlock);
 /// What a body's places are, for the dataflow.
 struct Flow<'tcx> {
 	tcx: TyCtxt<'tcx>,
-	/// Each reference local's one assignment, as the place it borrows or the place behind
-	/// the reference it copies.
+	/// Each reference local whose one write is an assignment, as the place it borrows or
+	/// the place behind the reference it copies.
 	borrows: IndexVec<Local, Option<Place<'tcx>>>,
-	/// Parameters assigned nowhere, which keep their value.
+	/// Parameters written nowhere, which keep their value.
 	kept: IndexVec<Local, bool>,
 	/// Locals something can change behind the dataflow's back, by a raw pointer or a
 	/// two-phase borrow.
@@ -201,27 +201,24 @@ struct Flow<'tcx> {
 impl<'tcx> Flow<'tcx> {
 	fn new(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Self {
 		let n = body.local_decls.len();
-		let mut defs: IndexVec<Local, usize> = IndexVec::from_elem_n(0, n);
+		let mut writes = Writes(IndexVec::from_elem_n(0, n));
+		writes.visit_body(body);
+		let writes = writes.0;
 		let mut rvalues: IndexVec<Local, Option<&Rvalue<'tcx>>> = IndexVec::from_elem_n(None, n);
 		for data in body.basic_blocks.iter() {
 			for stmt in &data.statements {
 				if let StatementKind::Assign(assign) = &stmt.kind
 					&& let Some(local) = assign.0.as_local()
 				{
-					defs[local] += 1;
 					rvalues[local] = Some(&assign.1);
 				}
-			}
-			if let TerminatorKind::Call { destination, .. } = &data.terminator().kind
-				&& let Some(local) = destination.as_local()
-			{
-				defs[local] += 1;
 			}
 		}
 		let arg = |local: Local| (1..=body.arg_count).contains(&local.as_usize());
 		let mut borrows = IndexVec::from_elem_n(None, n);
 		for (local, rvalue) in rvalues.iter_enumerated() {
-			if defs[local] != 1 || arg(local) || !body.local_decls[local].ty.is_ref() {
+			// Its one write is this assignment, so nothing points it elsewhere.
+			if writes[local] != 1 || arg(local) || !body.local_decls[local].ty.is_ref() {
 				continue;
 			}
 			borrows[local] = match rvalue {
@@ -232,7 +229,10 @@ impl<'tcx> Flow<'tcx> {
 				_ => None,
 			};
 		}
-		let kept = defs.iter_enumerated().map(|(local, &d)| d == 0 && arg(local)).collect();
+		let kept = writes
+			.iter_enumerated()
+			.map(|(local, &w)| w == 0 && arg(local))
+			.collect();
 		let mut conditions: IndexVec<Local, bool> = IndexVec::from_elem_n(false, n);
 		let mut work: Vec<Local> = body
 			.basic_blocks
@@ -653,6 +653,20 @@ impl<'tcx> Flow<'tcx> {
 			}
 		}
 		(decided, out)
+	}
+}
+
+/// How often each local is written itself, not through a pointer it holds: assigned, a
+/// call's destination, dropped, or borrowed `&mut` or raw, which can write it later.
+struct Writes(IndexVec<Local, usize>);
+
+impl<'tcx> Visitor<'tcx> for Writes {
+	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {
+		let writes =
+			context.is_mutating_use() || context == PlaceContext::NonMutatingUse(NonMutatingUseContext::RawBorrow);
+		if writes && !place.is_indirect() {
+			self.0[place.local] += 1;
+		}
 	}
 }
 

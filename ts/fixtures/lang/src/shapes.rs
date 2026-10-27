@@ -269,6 +269,56 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 		});
 	}
 	shares(data, out);
+	unwritten(data, out);
+}
+
+/// A `Copy` struct this module never writes into: only `generics::advance` does.
+#[derive(Clone, Copy)]
+pub struct Mark {
+	pub at: u8,
+}
+
+/// What holds a `Mark`.
+pub struct Track {
+	pub mark: Mark,
+}
+
+impl Track {
+	fn mark(&self) -> Mark {
+		self.mark
+	}
+}
+
+/// A `Copy` struct written into only behind a type parameter, by `generics::reset`.
+#[derive(Clone, Copy, Default)]
+struct Gauge {
+	level: u8,
+}
+
+/// A `Copy` struct written into only through a box.
+#[derive(Clone, Copy)]
+struct Level(u8);
+
+/// `Copy` aggregates written into only in another module, behind a type parameter, or
+/// through a box. Each copy keeps its value.
+fn unwritten(data: &[u8], out: &mut Vec<u8>) {
+	let n = data.len() as u8;
+	let mut track = Track { mark: Mark { at: n } };
+	let seen = track.mark();
+	crate::generics::advance(&mut track);
+	out.extend_from_slice(&[seen.at, track.mark.at]);
+
+	let first = Gauge { level: n | 1 };
+	let mut gauges = [first; 2];
+	crate::generics::reset(&mut gauges);
+	out.extend_from_slice(&[first.level, gauges[0].level, gauges[1].level]);
+
+	let start = Level(n);
+	let mut boxed = Box::new(start);
+	*boxed = Level(!n);
+	for level in [start, *boxed] {
+		out.push(level.0);
+	}
 }
 
 /// A `Copy` struct holding a shared reference to a value that changes through it.
@@ -1526,6 +1576,91 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 			Shape::Line(..) => 25,
 			_ => 26,
 		});
+	}
+	reseated(data, out);
+}
+
+/// A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
+/// a reborrow of that, a closure, and a call.
+fn reseated(data: &[u8], out: &mut Vec<u8>) {
+	let (a, b) = (shape(data), shape(&[1]));
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			*rr = &b;
+			match *r {
+				Shape::Line(..) => 27,
+				_ => 28,
+			}
+		}
+		_ => 29,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let rr = &mut r;
+			let again = &mut *rr;
+			*again = &b;
+			match *r {
+				Shape::Line(..) => 30,
+				_ => 31,
+			}
+		}
+		_ => 32,
+	});
+	let mut r = &a;
+	out.push(match *r {
+		Shape::Dot => {
+			let mut point = || r = &b;
+			point();
+			match *r {
+				Shape::Line(..) => 36,
+				_ => 37,
+			}
+		}
+		_ => 38,
+	});
+	let mut r = &a;
+	let mut other = &b;
+	out.push(match *r {
+		Shape::Dot => {
+			std::mem::swap(&mut r, &mut other);
+			match *r {
+				Shape::Line(..) => 39,
+				_ => 40,
+			}
+		}
+		_ => 41,
+	});
+	let mut r = &a;
+	for _ in 0..2 {
+		out.push(match *r {
+			Shape::Dot => {
+				let rr = &mut r;
+				*rr = &b;
+				match *r {
+					Shape::Line(..) => 42,
+					_ => 43,
+				}
+			}
+			_ => 44,
+		});
+	}
+	out.push(rebound(&a, &b));
+}
+
+/// A parameter pointed elsewhere, after a copy of it that still points where it did.
+fn rebound<'a>(mut r: &'a Shape, b: &'a Shape) -> u8 {
+	let kept = r;
+	let rr = &mut r;
+	*rr = b;
+	match *r {
+		Shape::Line(..) => match *kept {
+			Shape::Line(..) => 45,
+			_ => 46,
+		},
+		_ => 47,
 	}
 }
 
