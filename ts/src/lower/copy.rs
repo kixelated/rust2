@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexSet};
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
-use rustc_middle::mir::{self, Location, Place, ProjectionElem};
+use rustc_middle::mir::{self, Location, Place, ProjectionElem, Rvalue};
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::{self, EarlyBinder, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::{DUMMY_SP, Span};
@@ -207,10 +207,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 }
 
 /// The types the crate's code writes into in place: through a projection, as `p.x = 1`
-/// writes into `p`; through a reference, as `*r = v` does into what `r` points at; or by
-/// anything a mutable reference or pointer to one lets other code do, which counts as a
-/// write. Bodies are read as written, over their own type parameters, so a write into a
-/// type parameter stands for every type its bounds let it be.
+/// writes into `p`; through a reference or a box, as `*r = v` does into what `r` points
+/// at; or by anything code it doesn't read can do with a mutable reference or pointer to
+/// one, which counts as a write: one given to std, or kept anywhere but in a local, whose
+/// uses tell. Bodies are read as written, over their own type parameters, so a write into
+/// a type parameter stands for every type its bounds let it be.
 pub struct Writes<'tcx> {
 	/// Each type written without type parameters, an array as a slice of its element,
 	/// since the two share storage in JS.
@@ -242,17 +243,6 @@ impl<'tcx> Writes<'tcx> {
 				writes: &mut writes,
 			}
 			.visit_body(body);
-			// What a mutable reference or pointer a local holds points at, which code given one
-			// can write into, std's included. One in a signature, under a binder, is no value.
-			for decl in &body.local_decls {
-				for t in decl.ty.walk().filter_map(|arg| arg.as_type()) {
-					if let ty::Ref(_, inner, ty::Mutability::Mut) | ty::RawPtr(inner, ty::Mutability::Mut) = t.kind()
-						&& !inner.has_escaping_bound_vars()
-					{
-						writes.insert(tcx, def_id, *inner);
-					}
-				}
-			}
 		}
 		writes
 	}
@@ -278,7 +268,13 @@ impl<'tcx> Writes<'tcx> {
 		let found = self
 			.generic
 			.iter()
-			.any(|&(def_id, written)| instantiates(tcx, def_id, written, ty));
+			.any(|&(def_id, written)| {
+				let hit = instantiates(tcx, def_id, written, ty);
+				if hit && std::env::var_os("DEBUG_WRITES").is_some() {
+					eprintln!("WRITES {ty} <- {written} in {}", tcx.def_path_str(def_id));
+				}
+				hit
+			});
 		self.found.borrow_mut().insert(ty, found);
 		found
 	}
@@ -294,10 +290,12 @@ fn storage<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 }
 
 /// Whether `written`, a type over the type parameters of `def_id`, is `ty` for some
-/// arguments that satisfy its bounds.
+/// arguments that satisfy its bounds. A projection on them, which only those arguments
+/// decide, is any type that satisfies its associated type's bounds.
 fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: Ty<'tcx>) -> bool {
 	use rustc_infer::infer::TyCtxtInferExt;
 	use rustc_infer::traits::{Obligation, ObligationCause};
+	use rustc_middle::ty::{BottomUpFolder, TypeFoldable, Upcast};
 	use rustc_trait_selection::traits::ObligationCtxt;
 	if !DeepRejectCtxt::relate_rigid_infer(tcx).types_may_unify(ty, written) {
 		return false;
@@ -307,14 +305,51 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 		.build_with_typing_env(ty::TypingEnv::fully_monomorphized());
 	let ocx = ObligationCtxt::new(&infcx);
 	let cause = ObligationCause::dummy();
+	let register = |clause: ty::Clause<'tcx>| ocx.register_obligation(Obligation::new(tcx, cause.clone(), env, clause));
 	let args = infcx.fresh_args_for_item(DUMMY_SP, def_id);
-	let written = ocx.normalize(&cause, env, EarlyBinder::bind(tcx, written).instantiate(tcx, args));
+	let written = EarlyBinder::bind(tcx, written).instantiate(tcx, args).skip_normalization();
+	let mut projections = Vec::new();
+	let written = written.fold_with(&mut BottomUpFolder {
+		tcx,
+		ty_op: |t: Ty<'tcx>| match *t.kind() {
+			ty::Alias(_, alias @ ty::AliasTy { kind: ty::Projection { .. }, .. }) => {
+				let var = infcx.next_ty_var(DUMMY_SP);
+				projections.push((alias, var));
+				var
+			}
+			_ => t,
+		},
+		lt_op: |r| r,
+		ct_op: |c| c,
+	});
+	for (alias, var) in projections {
+		let ty::Projection { def_id: item } = alias.kind else {
+			unreachable!("only projections are replaced")
+		};
+		for clause in tcx.item_bounds(item).iter_instantiated(tcx, alias.args) {
+			let clause = clause.skip_normalization().fold_with(&mut BottomUpFolder {
+				tcx,
+				ty_op: |t: Ty<'tcx>| match *t.kind() {
+					ty::Alias(_, a) if a == alias => var,
+					_ => t,
+				},
+				lt_op: |r| r,
+				ct_op: |c| c,
+			});
+			register(ocx.normalize(&cause, env, ty::Unnormalized::new(clause)));
+		}
+		let projection = ty::ProjectionClause {
+			projection_term: alias.into(),
+			term: var.into(),
+		};
+		register(projection.upcast(tcx));
+	}
+	let written = ocx.normalize(&cause, env, ty::Unnormalized::new(written));
 	if ocx.eq(&cause, env, written, ty).is_err() {
 		return false;
 	}
 	for (clause, _) in tcx.clauses_of(def_id).instantiate(tcx, args) {
-		let clause = ocx.normalize(&cause, env, clause);
-		ocx.register_obligation(Obligation::new(tcx, cause.clone(), env, clause));
+		register(ocx.normalize(&cause, env, clause));
 	}
 	!ocx.try_evaluate_obligations().has_errors()
 }
@@ -327,7 +362,88 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	writes: &'w mut Writes<'tcx>,
 }
 
+impl<'tcx> BodyWrites<'_, '_, 'tcx> {
+	fn insert(&mut self, ty: Ty<'tcx>) {
+		self.writes.insert(self.tcx, self.def_id, ty);
+	}
+
+	/// What each mutable reference or pointer a value of `ty` holds points at, where code
+	/// given the value can reach it. What a closure or a coroutine holds only its own body
+	/// reads, a function holds nothing, and what a trait object holds counted where it
+	/// became one.
+	fn pointees(&mut self, ty: Ty<'tcx>) {
+		let mut stack = vec![ty];
+		while let Some(ty) = stack.pop() {
+			match *ty.kind() {
+				ty::Ref(_, inner, mutability) | ty::RawPtr(inner, mutability) => {
+					if mutability.is_mut() {
+						self.insert(inner);
+					}
+					stack.push(inner);
+				}
+				ty::Adt(_, args) => stack.extend(args.types()),
+				ty::Tuple(tys) => stack.extend(tys),
+				ty::Array(elem, _) | ty::Slice(elem) => stack.push(elem),
+				_ => {}
+			}
+		}
+	}
+
+	/// Whether `func` is a function of the crate, whose own body is read, rather than
+	/// std's, a pointer's, or a trait method only an instance resolves.
+	fn crate_fn(&self, func: &mir::Operand<'tcx>) -> bool {
+		let ty::FnDef(def_id, args) = *func.ty(self.body, self.tcx).kind() else {
+			return false;
+		};
+		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
+		matches!(
+			ty::Instance::try_resolve(self.tcx, env, def_id, args.skip_binder()),
+			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local())
+		)
+	}
+}
+
 impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
+	fn visit_assign(&mut self, place: &Place<'tcx>, rvalue: &Rvalue<'tcx>, location: Location) {
+		if place.as_local().is_none() {
+			self.pointees(place.ty(self.body, self.tcx).ty);
+		}
+		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
+			&& to.walk().any(|arg| arg.as_type().is_some_and(|t| t.is_trait()))
+		{
+			self.pointees(op.ty(self.body, self.tcx));
+		}
+		self.super_assign(place, rvalue, location);
+	}
+
+	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
+		match &terminator.kind {
+			mir::TerminatorKind::Call {
+				func,
+				args,
+				destination,
+				..
+			} => {
+				if !self.crate_fn(func) {
+					for arg in args.iter() {
+						self.pointees(arg.node.ty(self.body, self.tcx));
+					}
+				}
+				if destination.as_local().is_none() {
+					self.pointees(destination.ty(self.body, self.tcx).ty);
+				}
+			}
+			mir::TerminatorKind::TailCall { func, args, .. } if !self.crate_fn(func) => {
+				for arg in args.iter() {
+					self.pointees(arg.node.ty(self.body, self.tcx));
+				}
+			}
+			mir::TerminatorKind::Yield { value, .. } => self.pointees(value.ty(self.body, self.tcx)),
+			_ => {}
+		}
+		self.super_terminator(terminator, location);
+	}
+
 	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {
 		let PlaceContext::MutatingUse(kind) = context else {
 			return;
@@ -336,22 +452,15 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		// reference, whose referent it writes into instead.
 		for (base, elem) in place.iter_projections() {
 			if !matches!(elem, ProjectionElem::Deref) {
-				self.writes.insert(self.tcx, self.def_id, base.ty(self.body, self.tcx).ty);
+				self.insert(base.ty(self.body, self.tcx).ty);
 			}
 		}
 		// A write to a whole local gives it another value, but one through a reference or a
-		// box, or a mutable borrow, writes into the value there.
-		let through = matches!(place.projection.last(), Some(ProjectionElem::Deref));
-		let replaces = matches!(
-			kind,
-			MutatingUseContext::Store
-				| MutatingUseContext::Call
-				| MutatingUseContext::AsmOutput
-				| MutatingUseContext::Yield
-				| MutatingUseContext::Drop
-		);
-		if through || !replaces {
-			self.writes.insert(self.tcx, self.def_id, place.ty(self.body, self.tcx).ty);
+		// box writes into the value there.
+		if matches!(place.projection.last(), Some(ProjectionElem::Deref))
+			|| matches!(kind, MutatingUseContext::SetDiscriminant)
+		{
+			self.insert(place.ty(self.body, self.tcx).ty);
 		}
 	}
 }
