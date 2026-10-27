@@ -22,13 +22,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Path filters cannot tell which output a flake change touches, so a PR runs the
-  # bench only if a flake output it runs has a derivation other than its base's.
+  # A push benches only if it changes what the bench runs since the PR's last benched
+  # head, or since the PR's base while it has none. Path filters cannot tell which output
+  # a flake change touches, so it counts only if a flake output the bench runs has a new
+  # derivation.
   changed:
     name: Changed
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      # Finds the PR's last benched run.
+      actions: read
     outputs:
       bench: ${{ steps.diff.outputs.bench }}
 
@@ -37,16 +43,43 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The merge commit and its first parent, the base.
+          # The merge commit and its parents, the base and the PR's head.
           fetch-depth: 2
 
       - uses: ./.github/actions/nix
 
       - name: Diff
         id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # The head of the PR's newest run whose bench jobs ran and passed.
+          runs=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/bench.yml/runs" \
+            -f event=pull_request -f status=success -f branch="$HEAD_REF" -F per_page=100 \
+            --jq '.workflow_runs[] | select(.head_repository.full_name == env.HEAD_REPO) | "\(.id) \(.head_sha)"')
+          benched=
+          while read -r id sha; do
+            [ -n "$id" ] || continue
+            ran=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" -f filter=latest \
+              --jq 'any(.jobs[]; (.name | startswith("Bench (")) and .conclusion == "success")')
+            if [ "$ran" = true ]; then
+              benched=$sha
+              break
+            fi
+          done <<<"$runs"
+          if [ -n "$benched" ]; then
+            # The pushes since the last bench, which leave out the base's own changes.
+            git fetch --no-tags --depth=1 origin "$benched"
+            from=$benched to=$HEAD_SHA
+          else
+            from=HEAD^ to=HEAD
+          fi
+          echo "Comparing $from to $to"
           # The trigger's paths, less the flake's and the Nix comparison's, which runs nightly only.
-          if ! git diff --quiet HEAD^ HEAD -- bench/build .github/workflows/bench.yml ':!*.md' ':!bench/build/nix*'; then
+          if ! git diff --quiet "$from" "$to" -- bench/build .github/workflows/bench.yml ':!*.md' ':!bench/build/nix*'; then
             echo "bench=true" >>"$GITHUB_OUTPUT"
             exit 0
           fi
@@ -58,17 +91,18 @@ jobs:
               echo "$output $drv"
             done
           }
-          drvs HEAD^ >"$RUNNER_TEMP/base"
-          drvs HEAD >"$RUNNER_TEMP/head"
-          cat "$RUNNER_TEMP/head"
-          if diff "$RUNNER_TEMP/base" "$RUNNER_TEMP/head"; then changed=false; else changed=true; fi
+          drvs "$from" >"$RUNNER_TEMP/from"
+          drvs "$to" >"$RUNNER_TEMP/to"
+          cat "$RUNNER_TEMP/to"
+          if diff "$RUNNER_TEMP/from" "$RUNNER_TEMP/to"; then changed=false; else changed=true; fi
           echo "bench=$changed" >>"$GITHUB_OUTPUT"
 
   bench:
     name: Bench (${{ matrix.name }})
     needs: changed
-    # A schedule or dispatch skips the changed job, and runs everything.
-    if: ${{ !cancelled() && (needs.changed.result == 'skipped' || needs.changed.outputs.bench == 'true') }}
+    # Only the changed job's verdict skips the bench: a schedule or dispatch skips that
+    # job, and its failure runs the bench rather than quietly skipping it.
+    if: ${{ !cancelled() && needs.changed.outputs.bench != 'false' }}
     # x86_64 Linux is where rustc links with LLD by default.
     runs-on: ubuntu-24.04
     timeout-minutes: 330
