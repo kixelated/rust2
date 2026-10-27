@@ -451,7 +451,7 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 					strip_tail(body, &StmtKind::Break(Some(l.clone())));
 				}
 			}
-			StmtKind::While { label, body, .. } => {
+			StmtKind::While { label, body, .. } | StmtKind::ForOf { label, body, .. } => {
 				simplify(body);
 				if let Some(l) = label {
 					strip_tail(body, &StmtKind::Continue(Some(l.clone())));
@@ -480,12 +480,17 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 			StmtKind::Block { label: Some(l), body }
 			| StmtKind::While {
 				label: Some(l), body, ..
+			}
+			| StmtKind::ForOf {
+				label: Some(l), body, ..
 			} => !targets(body, l),
 			_ => false,
 		};
 		if unused {
 			match &mut stmts[i].kind {
-				StmtKind::Block { label, .. } | StmtKind::While { label, .. } => *label = None,
+				StmtKind::Block { label, .. } | StmtKind::While { label, .. } | StmtKind::ForOf { label, .. } => {
+					*label = None
+				}
 				_ => unreachable!(),
 			}
 		}
@@ -535,7 +540,9 @@ pub fn hoist_else(stmts: &mut Vec<Stmt>) {
 					stmts.splice(i + 1..i + 1, els);
 				}
 			}
-			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => hoist_else(body),
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				hoist_else(body)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| hoist_else(body));
 				hoist_else(default);
@@ -566,7 +573,7 @@ fn adopt_labels(stmts: &mut [Stmt]) {
 	for stmt in stmts.iter_mut() {
 		if let StmtKind::Block { label: Some(b), body } = &mut stmt.kind
 			&& let [loop_] = body.as_mut_slice()
-			&& let StmtKind::While { label, body, .. } = &mut loop_.kind
+			&& let StmtKind::While { label, body, .. } | StmtKind::ForOf { label, body, .. } = &mut loop_.kind
 		{
 			let l = label.get_or_insert_with(|| b.clone()).clone();
 			retarget(body, b, &l);
@@ -577,7 +584,9 @@ fn adopt_labels(stmts: &mut [Stmt]) {
 				adopt_labels(then);
 				adopt_labels(els);
 			}
-			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => adopt_labels(body),
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				adopt_labels(body)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| adopt_labels(body));
 				adopt_labels(default);
@@ -600,7 +609,9 @@ fn retarget(stmts: &mut [Stmt], from: &str, to: &str) {
 				retarget(then, from, to);
 				retarget(els, from, to);
 			}
-			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => retarget(body, from, to),
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+				retarget(body, from, to)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| retarget(body, from, to));
 				retarget(default, from, to);
@@ -640,7 +651,7 @@ fn rotate(stmts: &mut [Stmt]) {
 				rotate(then);
 				rotate(els);
 			}
-			StmtKind::Block { body, .. } | StmtKind::While { body, .. } => rotate(body),
+			StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => rotate(body),
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| rotate(body));
 				rotate(default);
@@ -667,7 +678,9 @@ fn unlabel(stmts: &mut [Stmt], innermost: Option<&str>, in_switch: bool) {
 			}
 			StmtKind::Block { body, .. } => unlabel(body, innermost, in_switch),
 			// An unlabeled loop matches no jump's label.
-			StmtKind::While { label, body, .. } => unlabel(body, Some(label.as_deref().unwrap_or("")), false),
+			StmtKind::While { label, body, .. } | StmtKind::ForOf { label, body, .. } => {
+				unlabel(body, Some(label.as_deref().unwrap_or("")), false)
+			}
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| unlabel(body, innermost, true));
 				unlabel(default, innermost, true);
@@ -732,7 +745,9 @@ fn targets(stmts: &[Stmt], label: &str) -> bool {
 	stmts.iter().any(|stmt| match &stmt.kind {
 		StmtKind::Break(Some(l)) | StmtKind::Continue(Some(l)) => l == label,
 		StmtKind::If { then, els, .. } => targets(then, label) || targets(els, label),
-		StmtKind::Block { body, .. } | StmtKind::While { body, .. } => targets(body, label),
+		StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
+			targets(body, label)
+		}
 		StmtKind::Catch { body, handler, .. } => targets(body, label) || targets(handler, label),
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| targets(body, label)) || targets(default, label)

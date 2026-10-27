@@ -208,8 +208,7 @@ export function readQuic(buf: rt.ByteSlice): rt.Result<[rt.u64, rt.ByteSlice], D
 					const _54: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
 					if (_54.ok) {
 						const val3: [Uint8Array, rt.ByteSlice] = _54.value;
-						const slice = val3[0];
-						return rt.Ok([fromHalves((((val3[0][0] & 63) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0, rt.u32FromBeBytes(slice.subarray(4, 8))), val3[1]] as [rt.u64, rt.ByteSlice]);
+						return rt.Ok([fromHalves((((val3[0][0] & 63) << 24) | (val3[0][1] << 16) | (val3[0][2] << 8) | val3[0][3]) >>> 0, rt.u32FromBeBytes(val3[0].subarray(4, 8))), val3[1]] as [rt.u64, rt.ByteSlice]);
 					}
 					return _54;
 				}
@@ -268,8 +267,7 @@ export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[r
 			const _65: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 5), { tag: "Short" } as DecodeError.DecodeError);
 			if (_65.ok) {
 				const val4: [Uint8Array, rt.ByteSlice] = _65.value;
-				const slice5 = val4[0];
-				_8 = [fromHalves(((val4[0][0] & 7)) as rt.u32, rt.u32FromBeBytes(slice5.subarray(1, 5))), val4[1]] as [rt.u64, rt.ByteSlice];
+				_8 = [fromHalves(((val4[0][0] & 7)) as rt.u32, rt.u32FromBeBytes(val4[0].subarray(1, 5))), val4[1]] as [rt.u64, rt.ByteSlice];
 			} else {
 				return _65;
 			}
@@ -277,8 +275,7 @@ export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[r
 			const _81: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 6), { tag: "Short" } as DecodeError.DecodeError);
 			if (_81.ok) {
 				const val5: [Uint8Array, rt.ByteSlice] = _81.value;
-				const slice4 = val5[0];
-				_8 = [fromHalves(((val5[0][0] & 3) << 8) | val5[0][1], rt.u32FromBeBytes(slice4.subarray(2, 6))), val5[1]] as [rt.u64, rt.ByteSlice];
+				_8 = [fromHalves(((val5[0][0] & 3) << 8) | val5[0][1], rt.u32FromBeBytes(val5[0].subarray(2, 6))), val5[1]] as [rt.u64, rt.ByteSlice];
 			} else {
 				return _81;
 			}
@@ -289,8 +286,7 @@ export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[r
 			const _101: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 7), { tag: "Short" } as DecodeError.DecodeError);
 			if (_101.ok) {
 				const val6: [Uint8Array, rt.ByteSlice] = _101.value;
-				const slice3 = val6[0];
-				_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(slice3.subarray(3, 7))), val6[1]] as [rt.u64, rt.ByteSlice];
+				_8 = [fromHalves(((val6[0][0] & 1) << 16) | (val6[0][1] << 8) | val6[0][2], rt.u32FromBeBytes(val6[0].subarray(3, 7))), val6[1]] as [rt.u64, rt.ByteSlice];
 			} else {
 				return _101;
 			}
@@ -298,8 +294,7 @@ export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[r
 			const _121: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 8), { tag: "Short" } as DecodeError.DecodeError);
 			if (_121.ok) {
 				const val7: [Uint8Array, rt.ByteSlice] = _121.value;
-				const slice2 = val7[0];
-				_8 = [fromHalves((val7[0][1] << 16) | (val7[0][2] << 8) | val7[0][3], rt.u32FromBeBytes(slice2.subarray(4, 8))), val7[1]] as [rt.u64, rt.ByteSlice];
+				_8 = [fromHalves((val7[0][1] << 16) | (val7[0][2] << 8) | val7[0][3], rt.u32FromBeBytes(val7[0].subarray(4, 8))), val7[1]] as [rt.u64, rt.ByteSlice];
 			} else {
 				return _121;
 			}
@@ -307,8 +302,7 @@ export function readLeadingOnes(buf: rt.ByteSlice, seven: boolean): rt.Result<[r
 			const _142: rt.Result<[Uint8Array, rt.ByteSlice], DecodeError.DecodeError> = rt.optionOkOr(rt.byteSliceSplitFirstChunk(buf, 9), { tag: "Short" } as DecodeError.DecodeError);
 			if (_142.ok) {
 				const val8: [Uint8Array, rt.ByteSlice] = _142.value;
-				const slice = val8[0];
-				_8 = [fromHalves(rt.u32FromBeBytes(slice.subarray(1, 5)), ((val8[0][5] << 24) | (val8[0][6] << 16) | (val8[0][7] << 8) | val8[0][8]) >>> 0), val8[1]] as [rt.u64, rt.ByteSlice];
+				_8 = [fromHalves(rt.u32FromBeBytes(val8[0].subarray(1, 5)), ((val8[0][5] << 24) | (val8[0][6] << 16) | (val8[0][7] << 8) | val8[0][8]) >>> 0), val8[1]] as [rt.u64, rt.ByteSlice];
 			} else {
 				return _142;
 			}

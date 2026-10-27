@@ -102,8 +102,7 @@ export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 }
 
 export function fmt$Debug(self: Key, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _5: rt.DebugTuple = rt.fmtDebugTuple(f, "Key");
-	return rt.debugTupleFinish(rt.debugTupleField(_5, (f: rt.Formatter) => rt.u32Display(self.id, f)));
+	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Display(self.id, f)));
 }
 
 export { new_ as new };

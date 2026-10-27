@@ -321,6 +321,13 @@ export function byteSliceGet(s: ByteSlice, index: number): number | undefined {
 	return index < s.length ? s.data[s.start + index] : undefined;
 }
 
+/** `==` of byte slices: the same length and bytes. */
+export function byteSliceEq(a: ByteSlice, b: ByteSlice): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a.data[a.start + i] !== b.data[b.start + i]) return false;
+	return true;
+}
+
 /** Copy `src` into `dst` at `at`; a few bytes copy faster than a view of them is made. */
 function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
 	if (length <= 16) {
