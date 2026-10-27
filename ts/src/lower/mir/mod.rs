@@ -2280,7 +2280,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.b.t.drops(ty) {
 					let mut pre = Vec::new();
 					let value = self.place_expr(*place, span, &mut pre);
-					if let Some(dropped) = self.b.t.drop_value(value, ty, span) {
+					let dropped = match place.as_local().is_some_and(|l| self.stepped.contains(&l)) {
+						true => self.stepped_drop(&value, ty, span),
+						false => self.b.t.drop_value(value, ty, span),
+					};
+					if let Some(dropped) = dropped {
 						pre.push(StmtKind::Expr(dropped).at(None));
 					}
 					self.emit(pre, None, false, out);

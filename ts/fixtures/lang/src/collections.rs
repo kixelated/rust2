@@ -154,6 +154,9 @@ pub fn hash_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			out.push(map.len() as u8);
 			out.push(map.is_empty() as u8);
+			let mut it = map.iter();
+			out.push(it.by_ref().count() as u8);
+			out.push(it.next().is_none() as u8);
 			let total: u16 = map.values().map(|v| v % 256).sum();
 			out.extend_from_slice(&total.to_be_bytes());
 			let sorted: BTreeMap<u8, u16> = map.iter().map(|(k, v)| (*k, *v)).collect();

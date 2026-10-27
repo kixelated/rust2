@@ -268,15 +268,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 
 	/// An iterator stepped in place, from the `rt.Iter` its mapping makes: `{ s, i: 0 }`
-	/// from `rt.iterSlice(s)`, and `{ start, end }` from `new rt.Range(start, end)`. A
-	/// moved one is already made.
+	/// from `rt.iterSlice(s)`, or `rt.iterSlice(s, drop)` of items it owns, which its drop
+	/// drops again, and `{ start, end }` from `new rt.Range(start, end)`. A moved one is
+	/// already made.
 	pub(super) fn stepped_make(&mut self, value: Expr, span: rustc_span::Span) -> Expr {
 		let rt = |f: &Expr, name: &str| matches!(f, Expr::Rt(n) if n == name);
 		let object = |fields: [(&str, Expr); 2]| {
 			Expr::Object(fields.into_iter().map(|(k, v)| (Key::Name(k.into()), v)).collect())
 		};
 		match value {
-			Expr::Call(f, mut args) if rt(&f, "iterSlice") && args.len() == 1 => {
+			Expr::Call(f, mut args) if rt(&f, "iterSlice") && matches!(args.len(), 1 | 2) => {
+				args.truncate(1);
 				object([("s", args.pop().unwrap()), ("i", Expr::lit("0"))])
 			}
 			Expr::New(f, args) if rt(&f, "Range") && args.len() == 2 => {
@@ -299,6 +301,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			Box::new(s.index(Expr::Postfix(Box::new(i), "++"))),
 			Box::new(Expr::Rt("DONE".into())),
 		)
+	}
+
+	/// What drops a `Vec`'s iterator stepped in place, of type `ty`, as `it`: the items from
+	/// its index on.
+	pub(super) fn stepped_drop(&mut self, it: &Expr, ty: Ty<'tcx>, span: rustc_span::Span) -> Option<Expr> {
+		let item = array_iter(self.tcx, ty)?;
+		let dropper = self.b.t.drop_fn(item, span)?;
+		Some(Expr::rt(
+			"dropAll",
+			vec![stepped_field(it, "s"), dropper, stepped_field(it, "i")],
+		))
 	}
 
 	/// The types of a stepped local's variables: its array and index, or its bounds.

@@ -397,6 +397,14 @@ pub fn options(data: &[u8], out: &mut Vec<u8>) {
 	})
 	.collect();
 	out.extend_from_slice(&counted);
+	// Counted through a borrow, which leaves a `Chain` to read on past a gap.
+	let mut k = 0u8;
+	let mut gappy = std::iter::empty().chain(std::iter::from_fn(|| {
+		k += 1;
+		(k != 2).then_some(k)
+	}));
+	out.push(gappy.by_ref().count() as u8);
+	out.push(gappy.next().unwrap_or(0xee));
 	// `successors` calls its closure on each item as it yields it, and never again once
 	// it returned `None`.
 	let mut calls = Vec::new();
