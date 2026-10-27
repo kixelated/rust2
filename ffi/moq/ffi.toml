@@ -11,7 +11,6 @@ exclude = [
     "AsPath",
     "BoundsExceeded",
     "Client::connect",
-    "Client::with_publisher",
     "Client::with_url",
     "Consume",
     "DecodeError",
@@ -27,7 +26,6 @@ exclude = [
     "Path::strip_prefix",
     "Server::accept",
     "Server::accept_request",
-    "Server::with_publisher",
     "Timed",
     "Timestamp::as_micros",
     "Timestamp::as_millis",
@@ -100,6 +98,11 @@ exclude = [
     "varint::encode_quic",
 ]
 
+# A consumer moves in, as C makes one from its producer.
+[crates.moq-net.instances]
+"Client::with_publisher(publish: moq_net::origin::Consumer)" = "client_with_publisher"
+"Server::with_publisher(publish: moq_net::origin::Consumer)" = "server_with_publisher"
+
 [crates.moq-net.rename]
 # The rule makes both this type and `Session::stats` `moq_session_stats`.
 "session::Stats" = "session_stats_snapshot"
@@ -142,7 +145,6 @@ exclude = [
     "Backoff::max",
     "Backoff::timeout",
     "Client::connect",
-    "Client::with_publisher",
     "Listener::accept_health",
     "Listener::local_addr",
     "Listener::tcp_local_addr",
@@ -266,7 +268,6 @@ exclude = [
     "server::Request::local_addr",
     "server::Request::remote_addr",
     "server::Request::url",
-    "server::Request::with_publisher",
     "server::Request::within",
     "tcp::Config::bind",
     "tcp::Error",
@@ -313,6 +314,11 @@ exclude = [
     "worker::Spawner",
     "worker::Workers::local_addr",
 ]
+
+# As moq-net's, which these pass the consumer to.
+[crates.moq-tokio.instances]
+"Client::with_publisher(publish: moq_net::origin::Consumer)" = "tokio_client_with_publisher"
+"server::Request::with_publisher(publish: moq_net::origin::Consumer)" = "server_request_with_publisher"
 
 [crates.moq-tokio.rename]
 # The rule names these and moq-net's `Client`, `Server`, and `Error` alike.
@@ -397,15 +403,11 @@ exclude = [
     "binary::Consumer::next",
     "binary::Consumer::poll_latest",
     "binary::Consumer::poll_next",
-    "binary::Snapshot",
-    "binary::Stream",
     "catalog::Consumer",
     "catalog::Entry",
     "catalog::Guard",
     "catalog::IntoRendition",
     "catalog::Producer::audio",
-    "catalog::Producer::binary_snapshot",
-    "catalog::Producer::binary_stream",
     "catalog::Producer::is_claimed",
     "catalog::Producer::json_snapshot",
     "catalog::Producer::json_stream",
@@ -508,6 +510,9 @@ exclude = [
 "catalog::Reserved<moq_mux::catalog::hang::Extra>" = "catalog_reserved"
 "catalog::Timebase<moq_mux::catalog::hang::Extra>" = "catalog_timebase"
 "catalog::hang::Consumer<moq_mux::catalog::hang::Extra>" = "catalog_hang_consumer"
+# The binary producers moq-ffi's flate tracks publish through, at the config C builds.
+"catalog::Producer::binary_snapshot(config: moq_mux::binary::Config)" = "catalog_producer_binary_snapshot"
+"catalog::Producer::binary_stream(config: moq_mux::binary::Config)" = "catalog_producer_binary_stream"
 "container::Consumer<moq_mux::catalog::hang::Container>" = "container_consumer"
 "container::GroupConsumer<moq_mux::catalog::hang::Container>" = "container_group_consumer"
 "import::Container<moq_mux::catalog::hang::Extra>" = "import_container"

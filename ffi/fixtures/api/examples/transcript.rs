@@ -227,6 +227,15 @@ fn main() {
 		stack.pop().is_some(),
 		stack.pop().is_none()
 	);
+	let from_point = Counter::seeded("p", Point { x: -3, y: 4 });
+	let from_size = Counter::seeded("s", Size { width: 5, height: 6 });
+	println!(
+		"seeded {} {} past {} seeds {}",
+		from_point.get(),
+		from_size.get(),
+		stack.depth_past(Point { x: 1, y: 2 }),
+		api_lib::seeds::<Point>(Size { width: 2, height: 3 })
+	);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());
