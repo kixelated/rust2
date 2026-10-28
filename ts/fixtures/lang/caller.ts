@@ -159,7 +159,7 @@ function ints(): Uint8Array[] {
 			const u = i % 3 === 0 ? x : values[(i * 7) % values.length];
 			const v = values[(i * 13 + 5) % values.length];
 			const shift = shifts[i++ % shifts.length];
-			for (let kind = 0; kind < 30; kind++) {
+			for (let kind = 0; kind < 31; kind++) {
 				for (const o of [u64, i64]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), shift));
 				for (const o of [u128, i128]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), ...be(u), ...be(v), shift));
 			}

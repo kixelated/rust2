@@ -86,6 +86,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("dyns::dyns", |_, data, out| dyns::dyns(data, out)),
 		("cells::cells", cells::cells),
 		("dyns::shared", |_, data, out| dyns::shared(data, out)),
+		("iters::ranked", iters::ranked),
 		("locks::locks", |_, data, out| locks::locks(data, out)),
 	]
 }

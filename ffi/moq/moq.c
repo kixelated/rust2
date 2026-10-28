@@ -37,10 +37,10 @@ static int is(moq_buf buf, const char *s) {
 
 /* The catalog `mutate` lends for its call, which lists the binary track: counts it in
  * data. */
-static void lists_state(void *data, moq_hang_catalog *catalog) {
+static void lists_state(void *data, moq_hang_catalog_extra *catalog) {
 	moq_buf json;
 	moq_hang_error *hang_err = NULL;
-	CHECK(moq_hang_catalog_to_json(catalog, &json, &hang_err));
+	CHECK(moq_hang_catalog_extra_to_json(catalog, &json, &hang_err));
 	for (size_t i = 0; i + 5 <= json.len; i++) {
 		if (memcmp(json.ptr + i, "state", 5) == 0) {
 			(*(int *)data)++;
@@ -227,14 +227,12 @@ int main(void) {
 	CHECK(moq_origin_driver_poll(driver, now, waiter, &deadline, &err));
 	moq_instant_free(deadline);
 	moq_instant_free(now);
-	/* A client publishes the origin through moq-net's generic `with_publisher`, which a
-	 * consumer moves into. */
+	/* A client publishes the origin through moq-net's generic `with_publisher`, at each
+	 * type that implements its bound, by reference, so C keeps its handle. */
 	moq_client *client = moq_client_new();
-	moq_origin_consumer *published = moq_origin_producer_consume(origin);
-	moq_client *publishing = moq_client_with_publisher(client, published);
+	moq_client *publishing = moq_client_with_publisher_producer(client, origin);
 	CHECK(publishing != NULL);
 	moq_client_free(publishing);
-	moq_origin_consumer_free(published);
 	moq_client_free(client);
 	int before = wakes;
 	moq_origin_producer_free(origin);
@@ -276,32 +274,33 @@ int main(void) {
 	mux_err = NULL;
 
 	/* A binary track the catalog lists, published through moq-mux's generic
-	 * `binary_snapshot` at the config C builds. */
+	 * `binary_snapshot` at the config C builds, by a catalog at moq-mux's untyped
+	 * extension, each instance named by the last segment of each argument. */
 	moq_broadcast_info *listed = moq_broadcast_info_new();
 	moq_broadcast_producer *publisher = moq_broadcast_info_produce(listed);
 	moq_broadcast_info_free(listed);
 	moq_catalog_config *catalog_config = moq_catalog_config_default();
-	moq_hang_catalog *hang = moq_hang_catalog_default();
-	moq_catalog_config_extra *extra = moq_catalog_config_with_catalog(catalog_config, hang);
+	moq_hang_catalog_extra *hang = moq_hang_catalog_extra_default();
+	moq_catalog_config_extra *extra = moq_catalog_config_with_catalog_extra(catalog_config, hang);
 	moq_catalog_config_free(catalog_config);
-	moq_hang_catalog_free(hang);
-	moq_catalog_producer *catalog = NULL;
-	CHECK(moq_catalog_producer_new(publisher, extra, &catalog, &mux_err));
+	moq_hang_catalog_extra_free(hang);
+	moq_catalog_producer_extra *catalog = NULL;
+	CHECK(moq_catalog_producer_extra_new(publisher, extra, &catalog, &mux_err));
 	moq_catalog_config_extra_free(extra);
 	moq_track_producer *state = NULL;
 	CHECK(moq_broadcast_producer_create_track(publisher, str("state"), NULL, &state, &err));
 	moq_binary_config *binary = moq_binary_config_default();
 	moq_binary_snapshot *snapshot = NULL;
-	CHECK(moq_catalog_producer_binary_snapshot(catalog, state, binary, &snapshot, &mux_err));
+	CHECK(moq_catalog_producer_extra_binary_snapshot_config(catalog, state, binary, &snapshot, &mux_err));
 	moq_binary_config_free(binary);
 	moq_track_producer_free(state);
 	CHECK(is(moq_binary_snapshot_name(snapshot), "state"));
 	CHECK(moq_binary_snapshot_update(snapshot, str("latest"), &mux_err));
 	int listed_state = 0;
-	CHECK(moq_catalog_producer_mutate(catalog, lists_state, &listed_state, &mux_err));
+	CHECK(moq_catalog_producer_extra_mutate(catalog, lists_state, &listed_state, &mux_err));
 	CHECK(listed_state == 1);
 	moq_binary_snapshot_free(snapshot);
-	moq_catalog_producer_free(catalog);
+	moq_catalog_producer_extra_free(catalog);
 	moq_broadcast_producer_free(publisher);
 
 	/* moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with. */

@@ -308,22 +308,23 @@ int script() {
 		std::printf("area %u %u %llu\n", size.width, size.height, ull(area.pixels()));
 	}
 
-	// Generic types, each at the instances the config names under their own names.
-	api::pair pair{2, 5};
-	api::pair swapped = pair.swap();
+	// Generic types, each at the instances it infers, named by their arguments.
+	api::pair_u32 pair{2, 5};
+	api::pair_u32 swapped = pair.swap();
 	std::printf("pair %u %u sum %u ", swapped.left, swapped.right, pair.sum());
 	print("", pair.debug(), " ");
 	std::printf("%s\n", yes(pair == swapped));
-	std::printf("even %s %s\n", yes(pair.even()), yes(api::pair{7, 7}.even()));
-	api::size_pair sizes{{1, 2}, 3};
-	api::pair_size flipped = sizes.swap();
+	std::printf("even %s %s\n", yes(pair.even()), yes(api::pair_u32{7, 7}.even()));
+	api::pair_size_u8 sizes = api::tag({1, 2}, 3);
+	api::pair_u8_size flipped = sizes.swap();
 	std::printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", flipped.debug(), "\n");
-	api::pair_size beside = api::pair{258, 9}.beside(sizes.left);
+	api::pair_u8_size beside = api::pair_u32{258, 9}.beside_size(sizes.left);
 	std::printf("beside %u ", beside.left);
 	print("", beside.debug(), "\n");
 	{
-		api::counters stack = api::counters::new_();
+		// At its default, named as the type itself.
+		api::stack stack = api::stack::new_();
 		const char *names[] = {"a", "b"};
 		for (int i = 0; i < 2; i++) {
 			stack.push(api::counter::new_(names[i], static_cast<std::uint64_t>(i) + 1));
@@ -332,12 +333,25 @@ int script() {
 		std::printf("stack %zu Some(%llu)", stack.depth(), ull(top->get()));
 		std::printf(" %s", yes(stack.pop().has_value()));
 		std::printf(" %s\n", yes(!stack.pop().has_value()));
-		// Generic functions and methods, at each instance the config names, by its own name.
+		// Generic functions and methods, at each implementation of the trait bounding them,
+		// by reference, which leaves C++ its handle. Two arguments sharing a last segment
+		// name their instances apart by the module of one.
 		api::counter from_point = api::counter::seeded_point("p", {-3, 4});
 		api::counter from_size = api::counter::seeded_size("s", {5, 6});
-		std::printf("seeded %llu %llu past %llu seeds %llu\n", ull(from_point.get()), ull(from_size.get()),
-		            ull(stack.depth_past_point({1, 2})), ull(api::seeds({2, 3})));
+		api::counter from_counter = api::counter::seeded_counter("c", from_point);
+		api::counter from_polar = api::counter::seeded_polar_point("q", {1, 2});
+		std::printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", ull(from_point.get()), ull(from_size.get()),
+		            ull(from_counter.get()), ull(from_polar.get()), ull(stack.depth_past_point({1, 2})),
+		            ull(api::seeds_point_size({2, 3})));
 	}
+
+	// A trait implemented for `Point` and `&Point` apart: one instance.
+	std::printf("weigh %u\n", api::weigh_point({-1, 2}));
+	// Instances that name each other, and one made only by an impl of it.
+	std::printf("cross %u outer %u\n", api::cross(api::left_right_u8{api::right_u8{1}}, api::right_left_u8{api::left_u8{2}}),
+	            api::outer_inner_u8::new_(4).get());
+	// A bound that outlives the call takes a value, and an instance only a constant names.
+	std::printf("kept %llu boxed %u\n", ull(api::kept_point({1, -2})), api::boxed().value);
 
 	// Its Drop runs when C++ destroys the handle, not before.
 	{
@@ -350,7 +364,7 @@ int script() {
 	api::retry retry = api::retry::new_(5u);
 	std::optional<std::uint32_t> limit = retry.limit_setting();
 	std::printf("retry %d %u %u %u\n", limit.has_value(), limit.value_or(0), retry.limit(), retry.delay());
-	std::printf("slot %u\n", api::byte_slot::new_(200).value());
+	std::printf("slot %u\n", api::slot_u8::new_(200).value());
 	return 0;
 }
 

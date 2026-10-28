@@ -105,7 +105,7 @@ impl Callbacks for Export {
 				renames.insert(format!("{field}{}::{path}", report.krate), name.clone());
 			}
 		}
-		let abi = Abi::new(&collected.api, &self.config.prefix(), &renames, &collected.instances);
+		let abi = Abi::new(&collected.api, &self.config.prefix(), &renames);
 		for key in abi.unused_renames() {
 			let (field, key) = field(key);
 			let (krate, path) = key.split_once("::").expect("a rename starts with its crate");
@@ -113,22 +113,6 @@ impl Callbacks for Export {
 				"rust2-ffi: rename `{field}{path}` in {} names nothing exported",
 				self.table(&collected, krate)
 			));
-		}
-		for report in &collected.reports {
-			for (key, why, span) in &report.unresolved {
-				let message = format!(
-					"rust2-ffi: instance `{key}` in {} exports nothing: {why}",
-					self.table(&collected, &report.krate)
-				);
-				match span {
-					Some(span) => {
-						tcx.dcx().struct_span_err(*span, message).emit();
-					}
-					None => {
-						tcx.dcx().err(message);
-					}
-				};
-			}
 		}
 		let written = match &self.output {
 			Output::Census(dir) => collected.reports.iter().enumerate().try_for_each(|(i, report)| {
@@ -147,15 +131,10 @@ impl Callbacks for Export {
 								false => format!("{} `{}`", why.construct, why.detail),
 							})
 							.collect();
-						// An instance is left out by not naming it.
-						let fix = match refusal.named {
-							true => format!("drop it from {table}'s `instances`"),
-							false => format!("exclude it in {table} to leave it out"),
-						};
 						let mut err = tcx.dcx().struct_span_err(
 							refusal.span,
 							format!(
-								"rust2-ffi: cannot export {} `{}`: {}; {fix}",
+								"rust2-ffi: cannot export {} `{}`: {}; exclude it in {table} to leave it out",
 								refusal.kind,
 								refusal.path,
 								reasons.join("; ")
@@ -252,17 +231,16 @@ impl Export {
 					Output::Census(_) => &[],
 					Output::Dir(_) => self.items(package).0,
 				},
-				instances: self.items(package).2,
 			});
 		}
 		Some(crates)
 	}
 
-	/// The config's `exclude`, `rename`, and `instances` for `package`.
-	fn items(&self, package: &str) -> (&[String], &BTreeMap<String, String>, &BTreeMap<String, String>) {
+	/// The config's `exclude` and `rename` for `package`.
+	fn items(&self, package: &str) -> (&[String], &BTreeMap<String, String>) {
 		match self.config.crates.get(package) {
-			Some(items) => (&items.exclude, &items.rename, &items.instances),
-			None => (&self.config.exclude, &self.config.rename, &self.config.instances),
+			Some(items) => (&items.exclude, &items.rename),
+			None => (&self.config.exclude, &self.config.rename),
 		}
 	}
 

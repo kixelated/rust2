@@ -14,3 +14,14 @@
   `detail`) and every variant's payload name (`<enum>_<variant>`, even without fields)
   join the names the naming rule claims, so an exported item named one clashes: give it
   another name with a `rename`.
+- The `instances` key is gone, top-level and under `[crates.*]`, and a config that has
+  it fails to parse: delete it. A generic item exports at the instances it infers from
+  its defaults, its inherent impls, its exports' implementations of the traits bounding
+  it, and the signatures that name it. Exclude an instance by its path, such as
+  `"Pair<u8, dep_fixture::Size>"`, to leave it out.
+- An instance's C name is no longer the config's. It is the generic item's name, then
+  the last segment of each argument's, with more segments only where two instances would
+  share a name: `catalog::Producer<catalog::hang::Extra>` is `moq_catalog_producer_extra`,
+  and `Counter::seeded` at `polar::Point` beside `Point` is
+  `api_counter_seeded_polar_point`. An instance an upstream change adds can lengthen
+  another's name.

@@ -474,6 +474,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let value = self.operand(&args[1].node, span, out);
 				done(self.swap_out(place, targ(0)?, value, "old", span, out), true)
 			}
+			// `mem::replace(self, Some(value))`, and `Some(value)` is `value`.
+			("Option", "replace") => {
+				let ty = args[0].node.ty(&self.mir.local_decls, tcx).builtin_deref(true)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let value = self.operand(&args[1].node, span, out);
+				done(self.swap_out(place, ty, value, "old", span, out), true)
+			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
 				let c = self.borrowed_place(&args[1].node, span, out)?;

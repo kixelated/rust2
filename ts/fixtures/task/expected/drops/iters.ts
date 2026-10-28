@@ -330,7 +330,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 348;
 		best = rt.iterMaxByKey(rt.iterSlice(v9, rt.drop), (g9: Guard.Guard): rt.u32 => {
 			return rt.u32Rem(Guard.id(g9), 2);
-		}, true, rt.drop);
+		}, rt.cmpLt(rt.cmp), true, rt.drop);
 		unwind = 346;
 		_605 = true;
 		v10 = [];

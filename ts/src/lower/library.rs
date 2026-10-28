@@ -556,8 +556,11 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `unwrap` and `expect` drop the error they panic with, and `unwrap_err` the value.
 		("Result", "unwrap" | "expect") => &[1],
 		("Result", "unwrap_err") => &[0],
-		// `Vec<T>` drops each element `retain` rejects and `dedup` removes.
-		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => &[0],
+		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
+		// `clear` cut, and what `insert` panics with.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear" | "insert") => {
+			&[0]
+		}
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
 		// `OnceLock` is initializing, and what it made if it set the cell itself.
 		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
@@ -850,7 +853,7 @@ fn mapping<'tcx>(
 	if let Some(int) = int_named(&owner) {
 		let method = match name.as_str() {
 			"from_be_bytes" => "fromBeBytes",
-			"to_be_bytes" => "toBeBytes",
+			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
 			"checked_add" => "checkedAdd",
@@ -866,7 +869,12 @@ fn mapping<'tcx>(
 			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
-		return Some(int.method(method, args));
+		let e = int.method(method, args);
+		// The big-endian bytes, the other way around.
+		return Some(match name.as_str() {
+			"to_le_bytes" => e.method("reverse", Vec::new()),
+			_ => e,
+		});
 	}
 	if owner == "f64" {
 		return super::float::method(b, &name, args, span);
@@ -892,8 +900,11 @@ fn mapping<'tcx>(
 			let (to, from) = (targ(gargs, 0), unwrapped(tcx, targ(gargs, 1)));
 			let mut values = args;
 			let value = values.pop()?;
-			// One between strings, such as into a `Cow<str>` or out of one, keeps the text.
-			if to == from || (string(tcx, to) && string(tcx, from.peel_refs())) {
+			// One between strings, such as into a `Cow<str>` or out of one, keeps the text, and
+			// `Some` of a value is the value.
+			let some = matches!(to.kind(), ty::Adt(adt, args)
+				if Std::of(tcx, adt.did()) == Some(Std::Option) && args.type_at(0) == targ(gargs, 1));
+			if to == from || some || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
 			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
@@ -916,8 +927,11 @@ fn mapping<'tcx>(
 		}
 		// A scalar value, but not a surrogate.
 		("char", "from_u32") => Expr::rt("charFromU32", args),
-		("TryFrom", "try_from") => {
-			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
+		("TryFrom", "try_from") | ("TryInto", "try_into") => {
+			let (to, from) = match owner.as_str() {
+				"TryFrom" => (targ(gargs, 0), targ(gargs, 1)),
+				_ => (targ(gargs, 1), targ(gargs, 0)),
+			};
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
 				return None;
 			};
@@ -1002,6 +1016,20 @@ fn mapping<'tcx>(
 						drops.push(b.t.drop_fn(t, span).unwrap_or_else(Expr::undefined));
 					}
 					Expr::rt("tupleClone", vec![value, Expr::Array(clones), Expr::Array(drops)])
+				}
+				// A box is what it holds, cloned.
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => {
+					let inner = args.type_at(0);
+					if !inner.is_sized(tcx, b.t.typing_env_pub()) {
+						return None;
+					}
+					match super::collections::clone_fn(b, inner, span) {
+						Expr::Lit(l) if l == "undefined" => value,
+						clone => clone.call(vec![value]),
+					}
+				}
+				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::FromUtf8Error) => {
+					Expr::rt("fromUtf8ErrorClone", vec![value])
 				}
 				// Through the reference, a slice of the bytes.
 				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
@@ -1135,6 +1163,17 @@ fn mapping<'tcx>(
 				false => Expr::rt("sliceSplitFirstChunk", values),
 			}
 		}
+		// A slice of the one value.
+		("raw", "from_ref") if std_path(tcx, call.def_id) == ["slice", "raw", "from_ref"] => {
+			let value = args.pop()?;
+			match is_u8(targ(gargs, 0)) {
+				true => Expr::rt(
+					"byteSliceFrom",
+					vec![Expr::ident("Uint8Array").member("of").call(vec![value])],
+				),
+				false => Expr::Array(vec![value]),
+			}
+		}
 		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "byteSlice", "copyFromSlice"),
 		("PartialEq", "eq") if byte_slice(targ(gargs, 0)) && byte_slice(targ(gargs, 1)) => {
 			Expr::rt("byteSliceEq", args)
@@ -1261,6 +1300,14 @@ fn mapping<'tcx>(
 			Expr::rt("vecExtendFromSlice", values)
 		}
 		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
+		("Vec", "insert" | "remove" | "truncate") if !is_u8(targ(gargs, 0)) => {
+			Expr::rt_of("vec", &super::camel(&name)).call(args)
+		}
+		("Vec", "clear") => {
+			let mut values = args;
+			values.push(Expr::lit("0"));
+			Expr::rt("vecTruncate", values)
+		}
 		// What each takes by value is a closure, which it drops once done.
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
 			if let Some(ty) = dropping_operand(b, call) {
@@ -1380,6 +1427,12 @@ fn mapping<'tcx>(
 
 		// Formatting.
 		("hint", "must_use") => args.pop()?,
+		// The size wasm32 lays the type out in, which translation targets.
+		("mem", "size_of") => {
+			let env = b.t.typing_env_pub();
+			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
+			Expr::lit(layout.size.bytes().to_string())
+		}
 		("fmt", "format") => {
 			let parts = args.pop()?;
 			match literal(&parts) {

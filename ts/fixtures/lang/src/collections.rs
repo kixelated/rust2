@@ -486,6 +486,11 @@ pub fn btree_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			out.extend(map.keys().copied());
 			out.extend(map.values().copied());
+			// Ends, which a B-tree's own iterators read without comparing.
+			out.push(map.keys().max().map_or(0xff, |k| *k));
+			out.push(map.iter().min().map_or(0xff, |(k, v)| k ^ v));
+			out.push(map.range(4..).max().map_or(0xff, |(k, v)| k ^ v));
+			out.push(map.values().max().map_or(0xff, |v| *v));
 			map.remove(&3);
 			out.push(map.len() as u8);
 			out.push(map.contains_key(&3) as u8);

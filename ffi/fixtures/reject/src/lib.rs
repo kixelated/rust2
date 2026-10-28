@@ -145,7 +145,7 @@ pub fn measure(size: dep::Size) -> dep::Area {
 	dep::Area::new(size)
 }
 
-/// A generic type the config names at `u32` alone.
+/// A generic type, which exports at the instances its exports name.
 pub struct Cell<T>(T);
 
 impl<T> Cell<T> {
@@ -154,39 +154,33 @@ impl<T> Cell<T> {
 	}
 }
 
-/// An instance the config does not name.
-pub fn unnamed(cell: Cell<u8>) -> u8 {
+impl Cell<u8> {
+	/// An instance holding an instance of its own type, which could name ever deeper ones.
+	pub fn nest(self) -> Cell<Cell<u8>> {
+		Cell(self)
+	}
+}
+
+/// An instance the config excludes.
+pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0
 }
 
-/// A type parameter both instances of `Cell` could fill.
-pub fn fill<T: Copy>(value: T) -> Cell<T> {
-	Cell(value)
+/// An instance whose type argument is no value or handle, so it cannot name it.
+pub fn listed(cell: Cell<Vec<String>>) -> usize {
+	cell.0.len()
 }
 
-/// A generic type whose bound the config's instance does not meet.
-pub struct Bounded<T: Copy>(pub T);
+/// A const-generic type, whose const argument the IR cannot carry.
+pub struct Fixed<const N: usize>(pub u8);
 
-/// A generic type whose default argument is a type no instance key can spell.
-pub struct Holder<T = Option<u32>> {
-	pub value: T,
+/// An instance of it, which a signature names.
+pub fn fixed() -> Fixed<2> {
+	Fixed(2)
 }
 
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
-
-/// A generic function whose bound one of the config's instances does not meet, and whose
-/// type parameter others misname.
-pub fn copied<T: Copy>(value: T) -> T {
-	value
-}
-
-impl<T: Copy> Bounded<T> {
-	/// A generic method of a type that exports at no instance, so nothing reaches it.
-	pub fn get<U: From<T>>(&self) -> U {
-		U::from(self.0)
-	}
-}
 
 /// A borrowed waker: one crosses only into Rust, which keeps it.
 pub fn lend(waker: &std::task::Waker) {

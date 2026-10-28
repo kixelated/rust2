@@ -444,10 +444,22 @@ pub fn call<'tcx>(
 			};
 			method(&camel, tail(rest, droppers))
 		}
-		// Not of places, which the runtime would compare as the objects they are.
-		"max" | "min" if primitive(item.peel_refs()) && !b.t.has_place(item) => {
+		// By the items' `Ord::max` or `min`, or the keys', which test `<` of the next and the
+		// best. Not of places, which the runtime would compare as the objects they are.
+		"max" | "min" | "max_by_key" | "min_by_key"
+			if !b.t.has_place(if name.ends_with("_by_key") { targ(1)? } else { item }) =>
+		{
+			let by_key = name.ends_with("_by_key");
+			let key = if by_key { targ(1)? } else { item };
+			if by_key && b.t.drops(key) {
+				return Some(b.err(
+					span,
+					format!("`{name}` by `{key}`, which drops, which is not supported yet"),
+				));
+			}
 			// A `BTreeMap`'s `into_keys` reads the one end and drops the rest with it.
-			if std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
+			if !by_key
+				&& std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
 				&& b.t.drops(self_ty)
 			{
 				return Some(b.err(
@@ -455,12 +467,31 @@ pub fn call<'tcx>(
 					format!("`{name}` of `{self_ty}`, which drops its values, which is not supported yet"),
 				));
 			}
-			let drops = iter_drops(b, self_ty, span);
-			method(name, tail(rest, vec![drops]))
-		}
-		"max_by_key" | "min_by_key" if primitive(targ(1)?) => {
+			// A B-tree's iterators read an end, comparing nothing.
+			if !by_key && btree_end(tcx, self_ty, name) {
+				let end = match name {
+					"max" => recv.member("nextBack").call(Vec::new()),
+					_ => recv.member("next").call(Vec::new()),
+				};
+				return Some(Expr::rt(
+					"iterToOption",
+					[end].into_iter().chain(b.t.none_arg(item)).collect(),
+				));
+			}
+			if !by_key && own_ord(b.t, key.peel_refs(), name) {
+				return Some(b.err(
+					span,
+					format!("`{name}` of `{key}` through its own `Ord::{name}`, which is not supported yet"),
+				));
+			}
+			let lt = super::collections::test_fn(b, key, "lt", span);
 			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
-			method(&camel, tail(rest, droppers))
+			method(&camel, tail([rest, vec![lt]].concat(), droppers))
+		}
+		"rposition" => method(&camel, rest),
+		"rfind" => {
+			let dropper = b.t.dropper(item, span);
+			method(&camel, tail(rest, vec![dropper]))
 		}
 		"chain" => {
 			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
@@ -680,11 +711,6 @@ fn core_trait(tcx: ty::TyCtxt<'_>, name: &str) -> Option<DefId> {
 		.find(|&tr| tcx.item_name(tr).as_str() == name)
 }
 
-/// Whether `ty` compares in JS as Rust's `Ord` does: an integer, a `bool`, or a `char`.
-fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_))
-}
-
 /// `iter.collect::<ty>()` of `item`s, from an iterator of type `from`, which it drops.
 fn collect<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
@@ -867,4 +893,43 @@ fn in_place<'tcx>(t: &Translator<'_, 'tcx>, iter: Ty<'tcx>, elem: Ty<'tcx>) -> b
 		&& merge > 0
 		&& expand > 0
 		&& u128::from(from.size.bytes()) * merge >= u128::from(to.size.bytes()) * expand
+}
+
+/// Whether `ty`, the crate's own type, has its own `Ord::max` or `min`, by `name`, which
+/// `Iterator::max` or `min` calls.
+fn own_ord<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
+	let tcx = t.tcx;
+	if !matches!(ty.kind(), ty::Adt(adt, _) if t.own(adt.did())) {
+		return false;
+	}
+	let f = super::collections::trait_fn(tcx, "Ord", name);
+	Instance::try_resolve(tcx, t.typing_env_pub(), f, tcx.mk_args(&[ty.into()]))
+		.ok()
+		.flatten()
+		.is_some_and(|instance| instance.def_id() != f)
+}
+
+/// Whether std's iterator `ty` has its own `min` or `max`, by `name`, which reads its first
+/// or last item, as a B-tree's do.
+fn btree_end(tcx: ty::TyCtxt<'_>, ty: Ty<'_>, name: &str) -> bool {
+	let Some(path) = std_iter_path(tcx, ty) else {
+		return false;
+	};
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	match path[..] {
+		[
+			"collections",
+			"btree",
+			"map",
+			"Iter" | "IterMut" | "Keys" | "Range" | "RangeMut" | "IntoKeys",
+		]
+		| ["collections", "btree", "set", "Iter" | "Range"] => true,
+		[
+			"collections",
+			"btree",
+			"set",
+			"Difference" | "SymmetricDifference" | "Intersection" | "Union",
+		] => name == "min",
+		_ => false,
+	}
 }
