@@ -6,7 +6,7 @@ import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapO
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, asRef$Result_Guard_u8, mapOr$Result_Guard_u8_u32_id, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
-import { boxed } from "./drops/objects.ts";
+import { boxed, shared } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
@@ -23,9 +23,17 @@ import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
-/** What boxed trait objects drop, panicking at the point `at` names, if any. */
-export function dyns(log: Log.Log, id: rt.u32, at: rt.u8): void {
-	boxed(log, id, at);
+/**
+ * Run trait object scenario `arg % 12`, boxed or shared, panicking at the point
+ * `arg % 6` names, if any.
+ */
+export function dyns(log: Log.Log, id: rt.u32, arg: rt.u8): void {
+	const at: rt.u8 = rt.u8Rem(arg, 6);
+	if (rt.u8Rem(rt.u8Div(arg, 6), 2) === 0) {
+		boxed(log, id, at);
+	} else {
+		shared(log, id, at);
+	}
 }
 
 /** Run one-time cells' scenario `at`. */
@@ -42,7 +50,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let v!: Held.Held[];
 	let _29!: Guard.Guard;
 	let arc!: rt.Arc<Held.Held>;
-	let shared!: rt.Arc<Held.Held>;
+	let shared_!: rt.Arc<Held.Held>;
 	let cloned!: rt.Arc<Held.Held>;
 	let mutex!: rt.Mutex<Held.Held[]>;
 	let v2!: Held.Held[];
@@ -163,15 +171,15 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			arc = new rt.Arc({ tag: "One", _0: guard(4) } as Held.Held);
 			unwind = 239;
 			_386 = true;
-			shared = rt.arcClone(arc);
+			shared_ = rt.arcClone(arc);
 			unwind = 217;
 			_386 = false;
 			rt.arcDrop(arc, drop$Held);
-			const part4 = shared.strong;
+			const part4 = shared_.strong;
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part4, f)];
 			Log.note(log, rt.fmtFormat(["arc ", args2[0]]));
-			const part5 = shared.strong;
-			cloned = rt.arcClone(shared);
+			const part5 = shared_.strong;
+			cloned = rt.arcClone(shared_);
 			unwind = 237;
 			_385 = true;
 			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
@@ -214,7 +222,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_383 = false;
 			_384 = false;
 			_385 = false;
-			rt.arcDrop(shared, drop$Held);
+			rt.arcDrop(shared_, drop$Held);
 			unwind = 0;
 			_386 = false;
 			rt.dropAll(held_, drop$Held);
@@ -553,7 +561,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																					rt.arcDrop(cloned, drop$Held);
 																				}
 																			}
-																			rt.arcDrop(shared, drop$Held);
+																			rt.arcDrop(shared_, drop$Held);
 																		}
 																		if (_386) {
 																			rt.arcDrop(arc, drop$Held);

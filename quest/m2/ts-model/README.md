@@ -28,8 +28,8 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
 
 - This is an epic; each group of refusals is a child below. moq must work, but nothing in
   the translator is specific to moq: dependencies follow general rules, and moq's own
-  changes (safe `cfg` twins of its `unsafe`, `dyn Expiry` as an enum, dropping or binding
-  `hashlink`, `slab`, and `smallvec`) are one research-tier quest in moq's tree.
+  changes (safe `cfg` twins of its `unsafe`, dropping or binding `hashlink`, `slab`, and
+  `smallvec`) are one research-tier quest in moq's tree.
 - Until `unsafe` and trait objects translate, internal `unsafe` in moq-net and kio gets
   safe `cfg` twins in moq, so differential tests cover it, and a dependency containing
   `unsafe` is bound by the consumer. These are stopgaps: decided with the maintainer on

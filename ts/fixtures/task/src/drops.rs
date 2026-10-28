@@ -66,9 +66,14 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// What boxed trait objects drop, panicking at the point `at` names, if any.
-pub fn dyns(log: &Log, id: u32, at: u8) {
-	objects::boxed(log, id, at)
+/// Run trait object scenario `arg % 12`, boxed or shared, panicking at the point
+/// `arg % 6` names, if any.
+pub fn dyns(log: &Log, id: u32, arg: u8) {
+	let at = arg % 6;
+	match arg / 6 % 2 {
+		0 => objects::boxed(log, id, at),
+		_ => objects::shared(log, id, at),
+	}
 }
 
 /// Run one-time cells' scenario `at`.

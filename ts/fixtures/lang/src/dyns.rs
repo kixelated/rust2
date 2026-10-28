@@ -1,9 +1,12 @@
 //! Trait objects of the crate's own traits, behind `&`, `&mut`, and `Box`: each call runs
 //! the impl of the value's own type, a struct, an enum, or a number, changing it in place
 //! through `&mut self` wherever it is, a provided method, a supertrait's, `Debug` among
-//! them, `self: Box<Self>`, and an upcast to the supertrait.
+//! them, `self: Box<Self>`, and an upcast to the supertrait. Behind an `Arc`, the object
+//! shares the count of the `Arc` it was made from.
 
 use std::fmt::{self, Debug};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Weak};
 
 use crate::fmt::put;
 
@@ -177,4 +180,100 @@ pub fn dyns(data: &[u8], out: &mut Vec<u8>) {
 	}
 	let boxed: Box<dyn Shape> = Box::new(n);
 	put(out, &format!("{sum} {}", boxed.into_area()));
+}
+
+/// Counts its calls, which every `Arc` of it sees.
+struct Hits(AtomicU32);
+
+impl Shape for Hits {
+	fn area(&self) -> u32 {
+		self.0.fetch_add(1, Ordering::Relaxed)
+	}
+	fn grow(&mut self, by: u8) {
+		*self.0.get_mut() = self.0.get_mut().wrapping_add(u32::from(by));
+	}
+}
+
+fn counts<T: ?Sized>(arcs: &[&Arc<T>]) -> String {
+	let counts: Vec<String> = arcs.iter().map(|a| Arc::strong_count(a).to_string()).collect();
+	counts.join(",")
+}
+
+pub fn shared(data: &[u8], out: &mut Vec<u8>) {
+	let [a, b, rest @ ..] = data else {
+		return;
+	};
+
+	// Two objects of one `Arc`, and an upcast of each: one count, which either side's
+	// clones and drops change, and one value.
+	let sq = Arc::new(Square { side: u16::from(*a) });
+	let named: Arc<dyn Named> = sq.clone();
+	let again: Arc<dyn Named> = Arc::<Square>::clone(&sq);
+	let shape: Arc<dyn Shape> = named.clone();
+	let up: Arc<dyn Shape> = again.clone();
+	put(out, &format!("{} ", counts(&[&sq])));
+	put(
+		out,
+		&format!("{} {} {} {:?} ", named.label(), shape.area(), sides_of(&*up), &*named),
+	);
+	let (weak, other) = (Arc::downgrade(&shape), Arc::downgrade(&up));
+	put(
+		out,
+		&format!(
+			"{} {} {} ",
+			Arc::ptr_eq(&named, &again),
+			Arc::ptr_eq(&shape, &up),
+			Weak::ptr_eq(&weak, &other)
+		),
+	);
+	drop(sq);
+	drop(named);
+	put(out, &format!("{} {} ", counts(&[&again]), Weak::strong_count(&weak)));
+	let upgraded = weak.upgrade().map(|s| s.area());
+	drop(again);
+	put(out, &format!("{} ", counts(&[&up])));
+	drop(up);
+	put(
+		out,
+		&format!("{} {} {:?} ", counts(&[&shape]), weak.upgrade().is_some(), upgraded),
+	);
+	drop(shape);
+	put(
+		out,
+		&format!("{} {} ", weak.upgrade().is_none(), Weak::strong_count(&other)),
+	);
+
+	// Calls through every `Arc` reach the one value.
+	let hits = Arc::new(Hits(AtomicU32::new(u32::from(*b))));
+	let objects: Vec<Arc<dyn Shape>> = (0..3).map(|_| hits.clone() as Arc<dyn Shape>).collect();
+	let sum = objects.iter().fold(0u32, |sum, s| sum.wrapping_add(s.area()));
+	put(
+		out,
+		&format!("{sum} {} {} ", hits.0.load(Ordering::Relaxed), counts(&[&hits])),
+	);
+	drop(objects);
+	put(out, &format!("{} ", counts(&[&hits])));
+
+	// Of a number and an enum, which JS copies, and two `Arc`s that are not the same.
+	let n: Arc<dyn Shape> = Arc::new(u32::from(*b));
+	let m: Arc<dyn Shape> = Arc::new(u32::from(*b));
+	put(out, &format!("{} {} ", n.area(), Arc::ptr_eq(&n, &m)));
+	let tris: Vec<Arc<dyn Named>> = rest
+		.iter()
+		.map(|&x| match x % 3 {
+			0 => Arc::new(Tri::Flat) as Arc<dyn Named>,
+			1 => Arc::new(Tri::Tall(x)),
+			_ => Arc::new(Square { side: u16::from(x) }),
+		})
+		.collect();
+	let kept: Vec<Arc<dyn Named>> = tris.iter().step_by(2).cloned().collect();
+	for t in &tris {
+		put(out, &format!("{}:{}:{} ", t.label(), t.area(), Arc::strong_count(t)));
+	}
+	drop(tris);
+	let mut total = 0u32;
+	for k in &kept {
+		k.tally(&mut total);
+	}
+	put(out, &format!("{total} {}", counts(&kept.iter().collect::<Vec<_>>())));
 }

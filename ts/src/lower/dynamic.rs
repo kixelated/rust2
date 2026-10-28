@@ -3,7 +3,8 @@
 //! for its trait (`area$Shape`), and taking the arguments after `self`. That is the
 //! trait's type, which a TS caller can implement. A coercion to one wraps the value in a
 //! class of its type's own, whose methods call that type's impl and whose
-//! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value.
+//! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value. An
+//! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt};

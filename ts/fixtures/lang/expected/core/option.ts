@@ -5,6 +5,7 @@ import { copy$u8s_u8s } from "../lib.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import type * as Shape from "../dyns.Shape.ts";
 import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
@@ -13,7 +14,7 @@ import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
-import type * as Shape from "../shapes.Shape.ts";
+import type * as shapes_Shape from "../shapes.Shape.ts";
 import type * as Short from "../splits.Short.ts";
 
 export function isSomeAnd$Option_u8_bools_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
@@ -135,7 +136,14 @@ export function unwrapOrDefault$Option_u8(self: rt.u8 | undefined): rt.u8 {
 	return self;
 }
 
-export function map$Option_Dir_Shape_rematched_closure1(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => Shape.Shape): Shape.Shape | undefined {
+export function map$Option_Arc_dyn_Shape_u32_shared_closure0(self: rt.Arc<Shape.Shape> | undefined, f: (a0: rt.Arc<Shape.Shape>) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_Dir_Shape_rematched_closure1(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => shapes_Shape.Shape): shapes_Shape.Shape | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -317,7 +325,7 @@ export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank,
 	return f(self);
 }
 
-export function mapOr$Option_Shape_u8_rematched_closure0(self: Shape.Shape | undefined, default_: rt.u8, f: (a0: Shape.Shape) => rt.u8): rt.u8 {
+export function mapOr$Option_Shape_u8_rematched_closure0(self: shapes_Shape.Shape | undefined, default_: rt.u8, f: (a0: shapes_Shape.Shape) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
