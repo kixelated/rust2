@@ -130,7 +130,9 @@ fun script() {
 
 	println(greet("x", Shape.SQUARE))
 	println("len ${len("abc".encodeToByteArray())}")
-	println("hex ${hex(byteArrayOf(0xff.toByte(), 0, 'a'.code.toByte()))}")
+	val binary = byteArrayOf(0xff.toByte(), 0, 'a'.code.toByte())
+	println("hex ${hex(binary)}")
+	println("timed hex ${timedHex(binary)}")
 	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
 		println(describe(event))
 	}

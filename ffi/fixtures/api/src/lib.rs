@@ -624,6 +624,26 @@ pub fn hex(payload: impl Payload) -> String {
 	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// A value and when it was stamped, as moq's `Timed` is, which bytes convert into.
+pub struct Timed<P> {
+	pub value: P,
+	pub at: Option<Stamp>,
+}
+
+impl<B: Into<Bytes>> From<B> for Timed<Bytes> {
+	fn from(value: B) -> Self {
+		Self {
+			value: value.into(),
+			at: None,
+		}
+	}
+}
+
+/// A timed payload's bytes in hex, which need not be UTF-8.
+pub fn timed_hex(payload: impl Into<Timed<Bytes>>) -> String {
+	hex(payload.into().value)
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }

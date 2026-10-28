@@ -16,11 +16,13 @@ use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_infer::traits::util::elaborate;
 use rustc_infer::traits::{Obligation, ObligationCause};
+use rustc_middle::ty::fast_reject::{TreatParams, simplify_type};
 use rustc_middle::ty::{
 	self, GenericArgKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor, TypingEnv,
 };
-use rustc_span::{Span, sym};
+use rustc_span::{DUMMY_SP, Span, sym};
 use rustc_trait_selection::infer::InferCtxtExt;
+use rustc_trait_selection::traits::ObligationCtxt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
 use crate::ir::{
@@ -1787,21 +1789,25 @@ impl<'tcx> Collector<'tcx> {
 			let tr = bound.def_id();
 			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
-				let target = target();
-				let owned = match target.kind() {
-					ty::Str => string,
-					ty::Slice(elem) => vec(*elem),
-					_ => {
-						candidates.push(target);
-						continue;
+				// An `Into` target that does not map takes what converts into it instead.
+				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
+					.then(|| self.sources(def_id, target()));
+				for target in std::iter::once(target()).chain(into.into_iter().flatten()) {
+					let owned = match target.kind() {
+						ty::Str => string,
+						ty::Slice(elem) => vec(*elem),
+						_ => {
+							candidates.push(target);
+							continue;
+						}
+					};
+					// A borrow of what C lends, unless the parameter outlives the call, then the
+					// owned form, which meets bounds that only owned types implement.
+					if !outlives {
+						candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
 					}
-				};
-				// A borrow of what C lends, unless the parameter outlives the call, then the
-				// owned form, which meets bounds that only owned types implement.
-				if !outlives {
-					candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
+					candidates.extend(owned);
 				}
-				candidates.extend(owned);
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
 			}
@@ -1833,6 +1839,57 @@ impl<'tcx> Collector<'tcx> {
 			[_] => Err(why("callback bound", names.join(" + "))),
 			_ => Err(why("generic parameter", names.join(" + "))),
 		}
+	}
+
+	/// What `impl Into<target>` takes through the `From` implementations into `target`
+	/// whose source is a type parameter: each `Into<X>` or `AsRef<X>` its bounds imply, so
+	/// `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes.
+	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
+			return Vec::new();
+		};
+		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
+			return Vec::new();
+		};
+		let mut found = Vec::new();
+		for &imp in tcx
+			.trait_impls_of(from)
+			.non_blanket_impls()
+			.get(&simple)
+			.into_iter()
+			.flatten()
+		{
+			let (infcx, env) = tcx
+				.infer_ctxt()
+				.build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
+			let args = infcx.fresh_args_for_item(DUMMY_SP, imp);
+			let trait_ref = tcx.impl_trait_ref(imp).instantiate(tcx, args).skip_norm_wip();
+			let source = trait_ref.args.type_at(1);
+			let ocx = ObligationCtxt::new(&infcx);
+			if !source.is_ty_var()
+				|| ocx
+					.eq(&ObligationCause::dummy(), env, trait_ref.self_ty(), target)
+					.is_err()
+			{
+				continue;
+			}
+			let source = infcx.deeply_resolve_ignoring_regions(source);
+			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
+			for bound in elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
+				.filter_map(|clause| clause.as_trait_clause())
+				.filter(|bound| {
+					tcx.is_diagnostic_item(sym::Into, bound.def_id())
+						|| tcx.is_diagnostic_item(sym::AsRef, bound.def_id())
+				}) {
+				let bound = infcx.deeply_resolve_ignoring_regions(bound.skip_binder());
+				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
+				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&x) {
+					found.push(x);
+				}
+			}
+		}
+		found
 	}
 
 	/// The arguments with `param` of `def_id` as `candidate`, if its bounds hold there.
