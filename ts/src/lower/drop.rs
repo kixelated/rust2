@@ -137,7 +137,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			// A closure's `[Symbol.dispose]` drops what it owns, as a trait object's does.
+			// A closure's `[Symbol.dispose]` drops what it owns, a `dyn Future`'s what it is, and
+			// another trait object's what it wraps.
 			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		}

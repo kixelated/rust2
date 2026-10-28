@@ -95,6 +95,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 | `pin!(x)`, `poll_fn(f)`, `future::pending()` | `x`; `rt.PollFn`, which drops `f` with itself; `rt.NEVER` |
+| `Box::pin(x)`, `dyn Future<Output = T>` | `x`; `rt.Future<T>`: an `async` body or std's future as it is, and another future as an `rt.DynFuture` over its `poll`, which drops it with itself unless borrowed |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
@@ -240,8 +241,8 @@ Shape.Square(sq)`, whose methods call that type's impl; one from a `&mut` to a v
 copies holds its `rt.Place`, so `&mut self` writes where the value is. An upcast is the
 same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose]`, which
 a TS caller's object may leave out. A trait object of another crate's trait, but for
-`&dyn Debug` and `&dyn Display`, of a generic trait or one with an associated type, or
-behind any other pointer, such as an `Arc`, is refused.
+`&dyn Debug`, `&dyn Display`, and `dyn Future`, of a generic trait or one with an
+associated type, or behind any other pointer, such as an `Arc`, is refused.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -457,8 +458,8 @@ they need.
 ## Not yet
 
 `unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
-`&dyn Debug` and `&dyn Display` ([trait objects](/quest/m3/ts-dyn.md)), fail translation.
-Until they translate, an item that needs one, such as a boxed future, binds to
+`&dyn Debug`, `&dyn Display`, `dyn Future`, and the crate's own traits' behind `&`, `&mut`,
+or `Box` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a closure that owns a value

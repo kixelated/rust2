@@ -2,6 +2,11 @@
 
 import * as rt from "./rt.ts";
 
+/** Over early-bound lifetimes, which its signature takes as arguments too. */
+export function larger$Shape(self: Tri, other: rt.u32): rt.u32 {
+	return rt.max(area$Shape(self), other);
+}
+
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
 export function tally$Shape(self: Tri, sum: rt.Place<rt.u32>): void {
 	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));

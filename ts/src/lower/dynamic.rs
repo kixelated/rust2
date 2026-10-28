@@ -121,17 +121,19 @@ impl<'tcx> Translator<'_, 'tcx> {
 
 	/// Whether `instance` is a call through a trait object's method, whose wrapper takes
 	/// its arguments as the crate's functions do. A `&dyn Debug` or `&dyn Display` is a
-	/// function writing its value instead.
+	/// function writing its value instead, and a `dyn Future` an `rt.Future`.
 	pub fn dispatches(&self, instance: Instance<'tcx>) -> bool {
 		let ty::InstanceKind::Virtual(..) = instance.def else {
 			return false;
 		};
-		let ty::Dynamic(preds, ..) = instance.args.type_at(0).kind() else {
+		let object = instance.args.type_at(0);
+		let ty::Dynamic(preds, ..) = object.kind() else {
 			return false;
 		};
-		preds
-			.principal_def_id()
-			.is_none_or(|principal| super::fmt::Trait::of(self.tcx, principal).is_none())
+		self.dyn_future(object).is_none()
+			&& preds
+				.principal_def_id()
+				.is_none_or(|principal| super::fmt::Trait::of(self.tcx, principal).is_none())
 	}
 
 	/// The class wrapping a `from` as the trait object `to`, held as `held`, made the first

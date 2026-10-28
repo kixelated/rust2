@@ -50,9 +50,12 @@ export interface Fixture<V> {
 		run(log: Log, id: number, arg: number): void;
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
-		boxed(log: Log, id: number, at: number): void;
+		dyns(log: Log, id: number, at: number): void;
 	};
-	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
+	futures: {
+		helpers(rx: Consumer, guard: Guard): Future<V>;
+		boxed(rx: Consumer, guard: Guard): Future<V>;
+	};
 }
 
 /** What every waker of one task points at. */
@@ -276,7 +279,14 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.futures.helpers(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
-	["boxed", (r, arg) => r.f.drops.boxed(r.log, 1000 * r.exec.tasks.length, arg % 6)],
+	[
+		"boxed",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.futures.boxed(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
+	["dyns", (r, arg) => r.f.drops.dyns(r.log, 1000 * r.exec.tasks.length, arg % 6)],
 ];
 
 /**
@@ -351,10 +361,16 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 77], ["run", 0]),
 	script(["open", 0], ["helpers", 0], ["helpers", 1], ["run", 0], ["send", 4], ["step", 0], ["drop", 1], ["drop", 0]),
 	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 99], ["run", 0], ["poll", 0]),
+	// Boxed futures: a boxed `recv` and a boxed borrow awaited, then a queue of `dyn
+	// Future`s polled through a boxed `poll_fn`, returning, cancelled with the futures the
+	// queue still holds, and panicking inside one.
+	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 6], ["step", 0], ["send", 7], ["run", 0]),
+	script(["open", 0], ["boxed", 0], ["boxed", 1], ["run", 0], ["send", 4], ["run", 0], ["drop", 1], ["send", 5], ["step", 0], ["drop", 0]),
+	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 99], ["run", 0], ["poll", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
 	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
 	// What boxed trait objects drop, panicking at each point, in a `Drop`, or none.
-	...Array.from({ length: 6 }, (_, at) => script(["boxed", at])),
+	...Array.from({ length: 6 }, (_, at) => script(["dyns", at])),
 ];

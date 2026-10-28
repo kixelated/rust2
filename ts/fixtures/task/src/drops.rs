@@ -66,7 +66,7 @@ pub struct Named<'a>(Text<'a>);
 pub struct Entries<K, V>(Vec<(K, V)>);
 
 /// What boxed trait objects drop, panicking at the point `at` names, if any.
-pub fn boxed(log: &Log, id: u32, at: u8) {
+pub fn dyns(log: &Log, id: u32, at: u8) {
 	objects::boxed(log, id, at)
 }
 

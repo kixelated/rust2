@@ -503,6 +503,22 @@ pub fn float_printed(a: f64) -> String {
 	format!("{a}")
 }
 
+/// An `Arc` around a future of the crate's: a `dyn Future` behind it would need the `Arc`'s
+/// own count around an `rt.Future`.
+pub fn shared_future() -> std::sync::Arc<dyn std::future::Future<Output = u8>> {
+	std::sync::Arc::new(Ready(1))
+}
+
+pub struct Ready(u8);
+
+impl std::future::Future for Ready {
+	type Output = u8;
+
+	fn poll(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<u8> {
+		std::task::Poll::Ready(self.0)
+	}
+}
+
 pub trait Reading {
 	fn read(&self) -> u8;
 }

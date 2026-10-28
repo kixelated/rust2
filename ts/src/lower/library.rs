@@ -522,7 +522,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
-		| ("Box", "new")
+		| ("Box", "new" | "pin")
 		| ("mem", "replace" | "take" | "swap")
 		| ("hint", "must_use")
 		| ("From", "from")
@@ -803,7 +803,7 @@ fn mapping<'tcx>(
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let gargs = call.args;
-	let args = match super::task::call(b, call, &owner, &name, args) {
+	let args = match super::task::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};

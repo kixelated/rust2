@@ -17,6 +17,11 @@ export function intoArea$Shape_u32(self: rt.u32): rt.u32 {
 	return rt.u32WrappingAdd(area$Shape_u32(self), 1);
 }
 
+/** Over early-bound lifetimes, which its signature takes as arguments too. */
+export function larger$Shape_u32(self: rt.u32, other: rt.u32): rt.u32 {
+	return rt.max(area$Shape_u32(self), other);
+}
+
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
 export function tally$Shape_u32(self: rt.u32, sum: rt.Place<rt.u32>): void {
 	sum.v = rt.u32WrappingAdd(sum.v, area$Shape_u32(self));
@@ -74,10 +79,10 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _109!: rt.usize;
 	let iterS2!: Named.Named[];
 	let iterI2!: number;
-	let _222!: boolean;
+	let _232!: boolean;
 	let unwind: number = 0;
 	try {
-		_222 = false;
+		_232 = false;
 		if (data.length >= 3) {
 			const _12: [rt.u8, rt.u8, rt.u8] = [data.data[data.start], data.data[data.start + 1], data.data[data.start + 2]];
 			const a: rt.u8 = _12[0];
@@ -103,9 +108,9 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _82: rt.u8 = sidesOf$Square(sq);
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(_78, f), (f: rt.Formatter) => rt.u8Display(_82, f)];
 			put(out, rt.fmtFormat([args6[0], " ", args6[1], " "]));
-			_222 = true;
+			_232 = true;
 			shapes = [];
-			unwind = 116;
+			unwind = 120;
 			const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + 3, data.length - 3))));
 			while (true) {
 				const _94: [rt.usize, rt.u8] | rt.Done = iter.next();
@@ -128,14 +133,14 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 					s.v.grow$Shape(a);
 				}
 				const _129: string = s.v.label$Named();
-				unwind = 110;
+				unwind = 114;
 				const _132: rt.u32 = s.v.area$Shape();
 				const _135: rt.u8 = sidesOf$dyn_Shape(upcast(s.v));
 				const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _129), (f: rt.Formatter) => rt.u32Display(_132, f), (f: rt.Formatter) => rt.u8Display(_135, f), (f: rt.Formatter) => s.v.fmt$Debug(f)];
 				const _125: string = rt.fmtFormat([args8[0], ":", args8[1], ":", args8[2], ":", args8[3], " "]);
-				unwind = 116;
+				unwind = 120;
 				const _124: string = _125;
-				unwind = 109;
+				unwind = 113;
 				put(out, _124);
 			}
 			let sum: rt.u32 = 0;
@@ -143,44 +148,46 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 				_150.tally$Shape(rt.place(() => sum, (value4) => sum = value4));
 			}
 			const _167: Tri.Tri = tri;
-			const _168: rt.u32 = sum;
+			const at2 = rt.idx(shapes, 0);
+			const _175: rt.u32 = sum;
 			const _165: Shown.Shown = { _0: (f: rt.Formatter) => Tri.fmt$Debug(_167, f) };
-			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_168, f), (f: rt.Formatter) => Shown.fmt$Debug(_165, f)];
-			const _160: string = rt.fmtFormat([args10[0], " ", args10[1], " "]);
-			unwind = 108;
+			const _169: rt.u32 = shapes[at2].larger$Shape(b as rt.u32);
+			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_175, f), (f: rt.Formatter) => Shown.fmt$Debug(_165, f), (f: rt.Formatter) => rt.u32Display(_169, f)];
+			const _160: string = rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " "]);
+			unwind = 112;
 			put(out, _160);
-			unwind = 116;
-			_222 = false;
+			unwind = 120;
+			_232 = false;
 			iterS2 = shapes;
 			iterI2 = 0;
 			while (true) {
-				unwind = 107;
-				const _177: Named.Named | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-				if (_177 === rt.DONE) {
+				unwind = 111;
+				const _185: Named.Named | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+				if (_185 === rt.DONE) {
 					break;
 				}
-				sum = rt.u32WrappingAdd(sum, _177.intoArea$Shape());
+				sum = rt.u32WrappingAdd(sum, _185.intoArea$Shape());
 			}
-			unwind = 116;
+			unwind = 120;
 			rt.dropAll(iterS2, rt.drop, iterI2);
-			const _196: rt.u32 = sum;
-			const _195: rt.u32 = new Shape.u32(n).intoArea$Shape();
-			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_196, f), (f: rt.Formatter) => rt.u32Display(_195, f)];
-			const _190: string = rt.fmtFormat([args12[0], " ", args12[1]]);
-			unwind = 106;
-			put(out, _190);
-			_222 = false;
+			const _204: rt.u32 = sum;
+			const _203: rt.u32 = new Shape.u32(n).intoArea$Shape();
+			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_204, f), (f: rt.Formatter) => rt.u32Display(_203, f)];
+			const _198: string = rt.fmtFormat([args12[0], " ", args12[1]]);
+			unwind = 110;
+			put(out, _198);
+			_232 = false;
 		}
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		if (unwind !== 106) {
-			if (unwind === 107) {
+		if (unwind !== 110) {
+			if (unwind === 111) {
 				rt.dropAll(iterS2, rt.drop, iterI2);
 			}
 		}
-		if (_222) {
+		if (_232) {
 			rt.dropAll(shapes);
 		}
 		throw e;

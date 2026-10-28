@@ -5,7 +5,7 @@ import * as dyns_Square from "./dyns.Square.ts";
 import * as dyns_Tri from "./dyns.Tri.ts";
 
 export type Named =
-	| { label$Named: () => string; fmt$Debug: (a0: rt.Formatter) => rt.Result<undefined, rt.FmtError>; area$Shape: () => rt.u32; grow$Shape: (a0: rt.u8) => void; sides$Shape: () => rt.u8; intoArea$Shape: () => rt.u32; tally$Shape: (a0: rt.Place<rt.u32>) => void };
+	| { label$Named: () => string; fmt$Debug: (a0: rt.Formatter) => rt.Result<undefined, rt.FmtError>; area$Shape: () => rt.u32; grow$Shape: (a0: rt.u8) => void; sides$Shape: () => rt.u8; intoArea$Shape: () => rt.u32; larger$Shape: (a0: rt.u32) => rt.u32; tally$Shape: (a0: rt.Place<rt.u32>) => void };
 
 export class Square {
 	v: dyns_Square.Square;
@@ -32,6 +32,10 @@ export class Square {
 
 	label$Named(): string {
 		return dyns_Square.label$Named(this.v);
+	}
+
+	larger$Shape(a: rt.u32): rt.u32 {
+		return dyns_Square.larger$Shape(this.v, a);
 	}
 
 	sides$Shape(): rt.u8 {
@@ -68,6 +72,10 @@ export class Tri {
 
 	label$Named(): string {
 		return dyns_Tri.label$Named(this.v);
+	}
+
+	larger$Shape(a: rt.u32): rt.u32 {
+		return dyns_Tri.larger$Shape(this.v, a);
 	}
 
 	sides$Shape(): rt.u8 {
