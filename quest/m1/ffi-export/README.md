@@ -49,7 +49,6 @@ Every generator on the C ABI:
 
 - [Payloads cross as bytes](/quest/m1/ffi-export/payload-bytes.md) - a payload that is not UTF-8 crosses unchanged, where today it aborts from C, C++, and Kotlin
 - [Iterator and JSON arguments the exporter can't map yet](/quest/m1/ffi-export/instance-keys.md) - `IntoIterator` as a `Vec`, and `serde_json::Value`
-- [Fail CI on an instance not inferred](/quest/m1/ffi-export/inference-gate.md) - a gap in instance inference fails CI instead of sitting in the census
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in a session's config, as Rust assigns it
 - [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI

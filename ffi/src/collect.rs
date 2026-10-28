@@ -36,6 +36,9 @@ pub struct Why {
 	pub note: Option<(Span, String)>,
 }
 
+/// The construct of an instance inference missed: a bug in the exporter, not the crate.
+pub const NOT_INFERRED: &str = "instance not inferred";
+
 fn why(construct: &'static str, detail: impl Into<String>) -> Why {
 	Why {
 		construct,
@@ -2476,9 +2479,9 @@ impl<'tcx> Collector<'tcx> {
 								return Err(why("type parameter", name));
 							}
 							// Inference admits or rejects each instance a signature names, so one
-							// it did not is a gap in inference, which the census counts.
+							// it did not is a gap in inference, which even a census fails on.
 							if key.args.is_some() && self.items.iter().any(|(item, _)| *item == did) {
-								let mut why = why("instance not inferred", name);
+								let mut why = why(NOT_INFERRED, name);
 								let note =
 									format!("`{}` exports only at the instances it infers", strip_args(tcx, did));
 								why.note = Some((tcx.def_span(did), note));

@@ -245,7 +245,8 @@ glue includes is [`runtime/rt.rs`](runtime/rt.rs), the one the C++ header includ
 `--census dir` exports nothing. It writes `<package>.md` for each exported package,
 which counts what exports and ranks every refusal by construct and by the type it names,
 lists each refused item at its span, and ends with the `exclude` list that exports the
-rest. It ignores the config's `exclude`.
+rest. It ignores the config's `exclude`. It still fails on an `instance not inferred`
+refusal, which is a bug in the exporter's inference rather than in the crate.
 
 ## Tests
 
