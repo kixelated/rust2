@@ -7,11 +7,9 @@ import type { usize } from "./int.ts";
 /** `bytes::Bytes`. */
 export type Bytes = ByteSlice;
 
-const EMPTY = new Uint8Array(0);
-
-/** `Bytes::new`. */
+/** `Bytes::new`. Its bytes are made each time, as a bundler keeps a constant object. */
 export function bytesNew(): Bytes {
-	return new ByteSlice(EMPTY, 0, 0);
+	return new ByteSlice(new Uint8Array(0), 0, 0);
 }
 
 /** `Bytes::copy_from_slice`: a copy, which later writes to `data` don't change. */

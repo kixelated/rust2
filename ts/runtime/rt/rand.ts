@@ -9,11 +9,9 @@ import { intFromBig, intToBig, type Limbs } from "./int.ts";
 /** `rand::rngs::ThreadRng`: a handle to the platform's source, which holds no state. */
 export class ThreadRng {}
 
-const RNG = new ThreadRng();
-
-/** `rand::rng()`. */
+/** `rand::rng()`. A handle is made each time, as a bundler keeps a constant object. */
 export function randRng(): ThreadRng {
-	return RNG;
+	return new ThreadRng();
 }
 
 /** `bits` uniform random bits, as a nonnegative bigint. */

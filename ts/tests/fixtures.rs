@@ -495,7 +495,7 @@ fn bind() {
 		let toml = fixture("bind").join(format!("{config}.toml"));
 		let output = driver("bind", &toml, &["--out".as_ref(), out.as_ref()], "build");
 		assert!(
-			!out.join("bind/bytes.ts").exists(),
+			!out.join("bind/blob.ts").exists(),
 			"a failed translation left a binding's file"
 		);
 		rejected(&out, &output, &fixture("bind").join(format!("{config}.txt")));

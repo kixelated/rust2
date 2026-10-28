@@ -112,7 +112,7 @@ fn bytes<'tcx>(
 			let owner = targ(call.args, 0);
 			if b.t.drops(owner) {
 				let msg = format!(
-					"`Bytes::from_owner` of `{owner}`, which drops when the last `Bytes` of it does, which is not supported"
+					"`Bytes::from_owner` of `{owner}`, which would drop with the last clone of what it makes, which is not supported"
 				);
 				return Some(b.err(call.span, msg));
 			}

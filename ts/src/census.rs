@@ -141,6 +141,7 @@ const VERBATIM: &[&str] = &[
 	".await",
 	"?",
 	"Binary",
+	"Bytes::from_owner",
 	"Copy",
 	"Debug",
 	"DebugList::entries",

@@ -16,8 +16,12 @@ dependencies = [
 name = "bind-fixture"
 version = "0.0.0"
 dependencies = [
- "bytes",
+ "blob",
 ]
+
+[[package]]
+name = "blob"
+version = "0.0.0"
 
 [[package]]
 name = "bytes"
