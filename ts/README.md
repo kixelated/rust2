@@ -225,7 +225,8 @@ std's collections, `Arc`, and the std functions that may discard an operand
 where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
 map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
 what it skips or rejects, and a consumer that takes an iterator by value drops it, a
-panic included. A `Drop` impl that
+panic included: through each `rt.Iter`'s own `fold` where std's folds, which drops each
+adaptor's closure as its fold ends, before what it wraps, as std's does. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.

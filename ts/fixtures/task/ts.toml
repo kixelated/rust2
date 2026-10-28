@@ -12,5 +12,6 @@ roots = [
     "drops::held",
     "drops::edited",
     "drops::folded",
+    "drops::rfolded",
     "futures::helpers",
 ]

@@ -300,6 +300,10 @@ export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take): void {
 
 /** `Extend::extend` of a `Vec<u8>`. */
 export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take): void {
+	if (take === undefined) {
+		for (let item = items.next(); item !== DONE; item = items.next()) byteVecPush(v, item);
+		return;
+	}
 	each(items, (item) => byteVecPush(v, item), take);
 }
 

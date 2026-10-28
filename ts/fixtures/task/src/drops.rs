@@ -800,10 +800,16 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 	log.note(format!("unreached"));
 }
 
-/// Run scenario `arg % 16` of what std's by-value consumers drop of adaptors that hold
-/// closures that drop, panicking as a closure reads item `arg / 16`, if any.
+/// Run scenario `arg % 32` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, panicking as a closure reads item `arg / 32`, if any.
 pub fn folded(log: &Log, id: u32, arg: u8) {
 	folds::folded(log, id, arg);
+}
+
+/// Run scenario `arg % 9` of what folds back to front, and through what wraps a closure
+/// beside another, panicking as a closure reads item `arg / 9 % 8`, if any.
+pub fn rfolded(log: &Log, id: u32, arg: u8) {
+	folds::rfolded(log, id, arg);
 }
 
 /// What a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults drop, scenario

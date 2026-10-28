@@ -5,7 +5,7 @@ import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Bomb_Guard, drop$Gu
 import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapOr$Option_u64, mapOr$Option_u32_Guard_options_closure2, okOr$Option_Guard_Guard, filter$Option_Guard_options_closure4, orElse$Option_Guard_options_closure6, zip$Option_Guard_Guard, clone$Clone_Option_Arc_Guard } from "./core/option.ts";
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
-import { folded as folds_folded } from "./drops/folds.ts";
+import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
@@ -3298,11 +3298,19 @@ export function grown(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): void 
 }
 
 /**
- * Run scenario `arg % 16` of what std's by-value consumers drop of adaptors that hold
- * closures that drop, panicking as a closure reads item `arg / 16`, if any.
+ * Run scenario `arg % 32` of what std's by-value consumers drop of adaptors that hold
+ * closures that drop, panicking as a closure reads item `arg / 32`, if any.
  */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	folds_folded(log, id, arg);
+}
+
+/**
+ * Run scenario `arg % 9` of what folds back to front, and through what wraps a closure
+ * beside another, panicking as a closure reads item `arg / 9 % 8`, if any.
+ */
+export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
+	folds_rfolded(log, id, arg);
 }
 
 /**
