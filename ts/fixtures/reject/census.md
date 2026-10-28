@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 73
-- Function instances: 79
+- Refusals: 74
+- Function instances: 81
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -18,6 +18,7 @@
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:42 |
 | 2 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:261:16 |
+| 2 | a coercion to `_` | fixtures/reject/src/lib.rs:355:2 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:168:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:154:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:148:2 |
@@ -35,7 +36,6 @@
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:235:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:181:51 |
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:105:2 |
-| 1 | a coercion to `_` | fixtures/reject/src/lib.rs:355:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:89:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:271:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:240:13 |
@@ -61,9 +61,9 @@ The type or module each refused type or path belongs to.
 | 6 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:41:42 |
+| 4 | `std::sync::Arc` | fixtures/reject/src/lib.rs:110:2 |
 | 3 | `PartialOrd` | fixtures/reject/src/lib.rs:374:4 |
 | 3 | `std::iter::Map` | fixtures/reject/src/lib.rs:56:23 |
-| 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:110:2 |
 | 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:282:52 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:89:2 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:404:13 |
@@ -112,6 +112,7 @@ The type or module each refused type or path belongs to.
 | 3 | unsupported type `_` | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:114:20 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
+| 2 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:355:2 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:125:2 |
 | 2 | comparing `_` through its own `_`, which is not supported yet | `Lopsided`, `PartialOrd::lt` | fixtures/reject/src/lib.rs:374:4 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:94:2 |
@@ -131,7 +132,6 @@ The type or module each refused type or path belongs to.
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:235:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:181:51 |
 | 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:105:2 |
-| 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:355:2 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:89:2 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:240:13 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
@@ -255,6 +255,13 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a coercion to `_` (2)</summary>
+
+- fixtures/reject/src/lib.rs:355:2: a coercion to `std::sync::Arc<[u8]>`
+- fixtures/reject/src/lib.rs:490:2: a coercion to `std::sync::Arc<dyn std::future::Future<Output = u8>>`
+
+</details>
+
 <details><summary>an iterator of the crate implementing `_`, which is not supported yet (2)</summary>
 
 - fixtures/reject/src/lib.rs:168:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
@@ -358,12 +365,6 @@ The type or module each refused type or path belongs to.
 <details><summary>a cast from `_` to `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:105:2: a cast from `u64` to `f32`
-
-</details>
-
-<details><summary>a coercion to `_` (1)</summary>
-
-- fixtures/reject/src/lib.rs:355:2: a coercion to `std::sync::Arc<[u8]>`
 
 </details>
 
