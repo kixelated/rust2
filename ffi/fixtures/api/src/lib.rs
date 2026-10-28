@@ -959,8 +959,8 @@ pub fn counters(names: Vec<String>) -> Vec<Counter> {
 	names.iter().map(|name| Counter::new(name, 1)).collect()
 }
 
-/// The counters' values summed, or 0 for none: each moves in.
-pub fn worth(counters: Option<Vec<Counter>>) -> u64 {
+/// The counters' values summed, or 0 for none: each moves in, through the `Box` too.
+pub fn worth(counters: Option<Box<Vec<Counter>>>) -> u64 {
 	counters.map_or(0, |counters| counters.iter().map(Counter::get).sum())
 }
 

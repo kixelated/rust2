@@ -346,7 +346,11 @@ fn main() {
 	let counters = api_lib::counters(vec!["x".to_string(), "y".to_string()]);
 	let names: Vec<String> = counters.iter().map(|c| format!("{} {}", c.name(), c.get())).collect();
 	println!("counters {}", names.join(", "));
-	println!("worth {} {}", api_lib::worth(Some(counters)), api_lib::worth(None));
+	println!(
+		"worth {} {}",
+		api_lib::worth(Some(Box::new(counters))),
+		api_lib::worth(None)
+	);
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);

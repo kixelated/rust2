@@ -491,9 +491,7 @@ impl<'a> Gen<'a> {
 			Ty::Duration | Ty::SocketAddr | Ty::Struct(_) | Ty::In(_) => {
 				let w = self.fresh("w");
 				// Taken by value, each object in a list moves out, as one passed alone does.
-				if let Type::List(_) | Type::Option(_) = ty
-					&& moved(abi, ty)
-				{
+				if moved(abi, ty) {
 					let close = self.close(ty, e);
 					arg.after.push(close);
 				}

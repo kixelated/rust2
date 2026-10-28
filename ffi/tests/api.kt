@@ -284,6 +284,7 @@ fun script() {
 	println("counters ${counters.joinToString(", ") { "${it.name()} ${it.get()}" }}")
 	// Each counter moves in, so Kotlin closes it.
 	println("worth ${worth(counters)} ${worth(null)}")
+	check(runCatching { counters[0].get() }.exceptionOrNull() is IllegalStateException, "a counter moved in is closed")
 	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
 	val site = Site.new(base)
 	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
