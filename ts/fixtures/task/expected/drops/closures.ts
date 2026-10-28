@@ -1641,7 +1641,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured32);
 		});
-		const part8 = map$Option_Guard_u32_folded_closure100(rt.dropAfter(_448, () => rt.iterMaxByKey(_442, _448, undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
+		const part8 = map$Option_Guard_u32_folded_closure100(rt.dropAfter(_448, () => rt.iterMaxByKey(_442, _448, rt.cmpLt(rt.cmp), undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
 			let unwind7: number = 0;
 			try {
 				unwind7 = 4;

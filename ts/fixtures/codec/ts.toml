@@ -1,3 +1,2 @@
 package = "codec-fixture"
 roots = ["harness::run", "bench::run"]
-ignore-macros = ["tracing::trace", "tracing::warn"]

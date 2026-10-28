@@ -7,13 +7,15 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
-import type { Pending } from "./rt/task.ts";
+import { dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
+export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
+export * from "./rt/rand.ts";
 export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 export * from "./rt/time.ts";
@@ -434,6 +436,34 @@ export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K
 	vecDedupBy(v, (a, b) => eq(key(a), key(b)), drop);
 }
 
+/** `Vec::insert`: `item` at `i`, with those from `i` on moved up. Past the end, it drops `item` and panics. */
+export function vecInsert<T>(v: T[], i: number, item: T, drop?: (item: T) => void): void {
+	if (i > v.length) {
+		try {
+			panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
+		} finally {
+			drop?.(item);
+		}
+	}
+	v.splice(i, 0, item);
+}
+
+/** `Vec::remove`: the element at `i`, with those after it moved down. */
+export function vecRemove<T>(v: T[], i: number): T {
+	if (i >= v.length) panic(`removal index (is ${i}) should be < len (is ${v.length})`);
+	return v.splice(i, 1)[0];
+}
+
+/**
+ * `Vec::truncate`, and `clear` to 0: the first `len` elements, if there are more, and then
+ * each other drops in order, the rest still if one panics.
+ */
+export function vecTruncate<T>(v: T[], len: number, drop?: (item: T) => void): void {
+	if (len >= v.length) return;
+	const cut = v.splice(len);
+	if (drop !== undefined) dropAll(cut, drop);
+}
+
 /** `Vec::swap_remove`: the element at `i`, with the last moved into its place. */
 export function vecSwapRemove<T>(v: T[], i: number): T {
 	if (i >= v.length) panic(`swap_remove index (is ${i}) should be < len (is ${v.length})`);
@@ -724,6 +754,11 @@ export class FromUtf8Error {
 		this.bytes = bytes;
 		this.error = utf8Error(byteVecView(bytes));
 	}
+}
+
+/** `Clone` of a `FromUtf8Error`: its bytes, copied. */
+export function fromUtf8ErrorClone(e: FromUtf8Error): FromUtf8Error {
+	return new FromUtf8Error(byteVecFrom(byteVecView(e.bytes)));
 }
 
 /** Where `v`, which is not UTF-8, stops being so, and how many bytes are invalid there, as std reports it. */

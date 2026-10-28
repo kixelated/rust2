@@ -14,7 +14,6 @@ exclude = [
     "Consume",
     "DecodeError",
     "Driver",
-    "Error::from_transport",
     "Hops::as_slice",
     "Hops::iter",
     "IntoBytes",
@@ -59,7 +58,6 @@ exclude = [
     "stats::Snapshot::traffic",
     "stats::TrafficEntry",
     "time::Driver",
-    "time::run",
     "track::Fetching",
     "track::Resolving",
     "track::Subscribing",
@@ -95,11 +93,6 @@ exclude = [
     "varint::decode_quic",
     "varint::encode_quic",
 ]
-
-# A consumer moves in, as C makes one from its producer.
-[crates.moq-net.instances]
-"Client::with_publisher(publish: moq_net::origin::Consumer)" = "client_with_publisher"
-"Server::with_publisher(publish: moq_net::origin::Consumer)" = "server_with_publisher"
 
 [crates.moq-net.rename]
 # The rule makes both this type and `Session::stats` `moq_session_stats`.
@@ -304,11 +297,6 @@ exclude = [
     "worker::Workers::local_addr",
 ]
 
-# As moq-net's, which these pass the consumer to.
-[crates.moq-tokio.instances]
-"Client::with_publisher(publish: moq_net::origin::Consumer)" = "tokio_client_with_publisher"
-"server::Request::with_publisher(publish: moq_net::origin::Consumer)" = "server_request_with_publisher"
-
 [crates.moq-tokio.rename]
 # The rule names these and moq-net's `Client`, `Server`, and `Error` alike.
 "Client" = "tokio_client"
@@ -327,7 +315,6 @@ exclude = [
 [crates.hang]
 exclude = [
     "Catalog::from_reader",
-    "Catalog::media",
     "Catalog::subscribe",
     "catalog::Archive::store",
     "catalog::Archive::timelines",
@@ -370,12 +357,10 @@ exclude = [
     "timeline::RecordExt",
 ]
 
-# The catalog moq-ffi reads, with moq-mux's untyped extension. The rule's name,
-# `moq_catalog`, would make its accessors, such as `audio`, the `catalog` module's types.
-[crates.hang.instances]
-"Catalog<moq_mux::catalog::hang::Extra>" = "hang_catalog"
-
 [crates.hang.rename]
+# The rule makes its accessors, such as `audio`, the `catalog` module's types:
+# `moq_catalog_audio`.
+"Catalog" = "hang_catalog"
 # The rule names this and moq-net's `Error` alike.
 "Error" = "hang_error"
 # The rule makes both these enums and the `kind` methods of `AudioCodec` and `VideoCodec`
@@ -402,7 +387,6 @@ exclude = [
     "catalog::Guard",
     "catalog::IntoRendition",
     "catalog::Producer::audio",
-    "catalog::Producer::is_claimed",
     "catalog::Producer::json_snapshot",
     "catalog::Producer::json_stream",
     "catalog::Producer::modify",
@@ -422,7 +406,6 @@ exclude = [
     "catalog::hang::Extra::iter",
     "catalog::hang::Extra::remove",
     "catalog::hang::Extra::set",
-    "catalog::msf::Consumer",
     "codec::aac::Config::parse",
     "codec::annexb::NalIterator",
     "codec::annexb::build_prefix",
@@ -455,11 +438,9 @@ exclude = [
     "container::MissingKeyframe",
     "container::Producer",
     "container::flv::Export",
-    "container::flv::Import",
     "container::fmp4::Export",
     "container::fmp4::Fragmenter::push",
     "container::fmp4::Fragmenter::push_group",
-    "container::fmp4::Import",
     "container::fmp4::Muxer::fragment",
     "container::fmp4::Muxer::read",
     "container::fmp4::Wire::new",
@@ -467,7 +448,6 @@ exclude = [
     "container::fmp4::mp4_atom",
     "container::mkv::Error",
     "container::mkv::Export",
-    "container::mkv::Import",
     "container::ts::Catalog",
     "container::ts::Export",
     "container::ts::Follower",
@@ -476,7 +456,6 @@ exclude = [
     "container::ts::Mpegts::si",
     "container::ts::Mpegts::tracks",
     "container::ts::MultipleProgramsError",
-    "container::ts::Passthrough",
     "container::ts::Programs::decode",
     "container::ts::Programs::finish",
     "container::ts::Track::descriptors",
@@ -487,28 +466,9 @@ exclude = [
     "json::Consumer",
     "json::Snapshot",
     "json::Stream",
-    "timeline::Consumer",
     "timeline::Entry",
-    "timeline::Event",
     "timeline::Producer::push",
 ]
-
-# Each at the one type moq-ffi uses it at: the untyped catalog extension, or the hang
-# container a catalog entry names.
-[crates.moq-mux.instances]
-# `Config<()>` is the default, which `with_catalog` makes the extension's.
-"catalog::Config<()>" = "catalog_config"
-"catalog::Config<moq_mux::catalog::hang::Extra>" = "catalog_config_extra"
-"catalog::Producer<moq_mux::catalog::hang::Extra>" = "catalog_producer"
-"catalog::Reserved<moq_mux::catalog::hang::Extra>" = "catalog_reserved"
-"catalog::Timebase<moq_mux::catalog::hang::Extra>" = "catalog_timebase"
-"catalog::hang::Consumer<moq_mux::catalog::hang::Extra>" = "catalog_hang_consumer"
-# The binary producers moq-ffi's flate tracks publish through, at the config C builds.
-"catalog::Producer::binary_snapshot(config: moq_mux::binary::Config)" = "catalog_producer_binary_snapshot"
-"catalog::Producer::binary_stream(config: moq_mux::binary::Config)" = "catalog_producer_binary_stream"
-"container::Consumer<moq_mux::catalog::hang::Container>" = "container_consumer"
-"container::GroupConsumer<moq_mux::catalog::hang::Container>" = "container_group_consumer"
-"import::Container<moq_mux::catalog::hang::Extra>" = "import_container"
 
 [crates.moq-mux.rename]
 # The rule names these and moq-net's `Error` and hang's `container::Frame` alike.

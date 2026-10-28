@@ -1,13 +1,13 @@
-binding `bytes::Buf`: a binding is of a function or a type, not Trait
-binding `bytes::BytesMut`: ../bytes.ts must be relative to ts.toml, inside its directory
+binding `blob::Source`: a binding is of a function or a type, not Trait
+binding `blob::empty`: ../blob.ts must be relative to ts.toml, inside its directory
 binding `nowhere::Thing`: no such item, or more than one, in the crate or a crate it depends on
 binding `raw`: a binding is of a function or a type, not Mod
 binding `raw::Held::new`: RT/held.ts would replace the runtime, rt.ts and rt/
-binding `raw::Tally`: bind/bytes.ts binds another type
+binding `raw::Tally`: bind/blob.ts binds another type
 binding `raw::Tally::get`: only a type's value drops
 binding `raw::Tally::new`: rt/tally.ts would replace the runtime, rt.ts and rt/
 binding `raw::checksum`: `checksum` binds the same item
-binding `std::vec::Vec`: std's type has a representation of its own
+binding `std::vec::Vec`: the type has a representation of its own
 reading bind/missing.ts: No such file or directory (os error 2) at fixtures/bind/src/harness.rs:25:12
 unsupported type `*const u32` at fixtures/bind/src/raw.rs:36:2
 `raw::Held` binds without drop, so it would never drop its `raw::Tally` at fixtures/bind/src/harness.rs:61:13
@@ -17,4 +17,4 @@ a binding of `raw::zero`, whose `T` one export for every instance can't recover 
 unsupported call to `std::sync::Arc::<u32>::from_raw` at fixtures/bind/src/raw.rs:55:17
 unsupported call to `std::sync::Arc::<u32>::into_raw` at fixtures/bind/src/raw.rs:42:11
 a raw pointer dereferenced at fixtures/bind/src/raw.rs:48:12
-an assignment through a reference to `bytes::Bytes` at fixtures/bind/src/harness.rs:68:2
+an assignment through a reference to `blob::Blob` at fixtures/bind/src/harness.rs:68:2

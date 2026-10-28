@@ -554,6 +554,21 @@ export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U
 	return undefined;
 }
 
+/** `DoubleEndedIterator::rfind`, dropping what `f` rejects by `drop`. */
+export function iterRfind<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>): T | undefined {
+	return iterToOption(rfindItem(it, f, drop));
+}
+
+/** `Iterator::rposition`: from the back, where its item is counting from the front. */
+export function iterRposition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
+	let i = it.len();
+	for (let item = it.nextBack(); item !== DONE; item = it.nextBack()) {
+		i--;
+		if (f(item)) return i;
+	}
+	return undefined;
+}
+
 /** `Iterator::position`. */
 export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
 	const folded = it.folded();
@@ -599,33 +614,37 @@ export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, drop
 	return iterFold(it, one, mul, drops);
 }
 
-/** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
-export function iterMax<K extends number | Limbs | boolean>(it: Iter<K>, drops = false): K | undefined {
-	return iterMaxByKey(it, (item) => item, drops);
+/** `max`, by `lt`, its items' `PartialOrd::lt`, which `Ord::max` tests: the last of the greatest. */
+export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, (item: T) => item, lt, false, drops, drop);
 }
 
-/** `min` of integers or booleans: the first of the least. */
-export function iterMin<K extends number | Limbs | boolean>(it: Iter<K>, drops = false): K | undefined {
-	return iterMinByKey(it, (item) => item, drops);
+/** `min`, by `lt`, as `iterMax`: the first of the least. */
+export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, (item: T) => item, lt, true, drops, drop);
 }
 
-/** `max_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMaxByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, drops = false, drop?: Drop<T>): T | undefined {
-	return best(it, f, false, drops, drop);
+/** `max_by_key`, by `lt` of the keys, as `iterMax`, each item's key taken once. */
+export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, f, lt, false, drops, drop);
 }
 
-/** `min_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMinByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, drops = false, drop?: Drop<T>): T | undefined {
-	return best(it, f, true, drops, drop);
+/** `min_by_key`, by `lt` of the keys, as `iterMin`, each item's key taken once. */
+export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, f, lt, true, drops, drop);
 }
+
+/** A `PartialOrd::lt`. */
+type Lt<T> = (a: T, b: T) => boolean;
 
 /**
  * The item of the greatest key, the last of equal ones, or of the least if `least`, the
- * first, as std's `reduce` keeps it: the first by `next`, and the rest by `fold`, each
- * other dropped as it loses. A panic in `f` drops its item, then the best; one dropping
- * a loser leaks the winner, as std's unwinding does a returned value.
+ * first, as std's `reduce` by `Ord::max` or `min` keeps it: the first by `next`, and the
+ * rest by `fold`, each tested for `lt` the best's and dropped as it loses. A panic in `f`
+ * or `lt` drops its item, then the best; one dropping a loser leaks the winner, as std's
+ * unwinding does a returned value.
  */
-function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, least: boolean, drops: boolean, drop?: Drop<T>): T | undefined {
+function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, drops: boolean, drop?: Drop<T>): T | undefined {
 	if (!drops && drop === undefined) {
 		let best = it.next();
 		if (best === DONE) return undefined;
@@ -653,14 +672,15 @@ function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) =
 		first,
 		(best, item) => {
 			let k: K;
+			let wins: boolean;
 			try {
 				k = f(item);
+				wins = least ? lt(k, best[0]) : !lt(k, best[0]);
 			} catch (e) {
 				drop?.(item);
 				drop?.(best[1]);
 				throw e;
 			}
-			const wins = least ? lt(k, best[0]) : !lt(k, best[0]);
 			drop?.(wins ? best[1] : item);
 			return wins ? [k, item] : best;
 		},

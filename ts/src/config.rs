@@ -18,10 +18,6 @@ pub struct Config {
 	/// so callers can print them as Rust does.
 	#[serde(default)]
 	pub printable: Vec<String>,
-	/// Macros, by path, whose invocations are left out, such as logging. Each must
-	/// evaluate to `()`.
-	#[serde(default)]
-	pub ignore_macros: Vec<String>,
 	/// Hand-written TypeScript that stands in for a Rust item, by the item's path: from
 	/// the crate root, or else from a crate it depends on.
 	#[serde(default)]
