@@ -56,6 +56,10 @@ fn rebox(b: &mut Box<Pair>, by: u8) {
 fn swap_pair(p: &mut (u8, u8)) {
 	std::mem::swap(&mut p.0, &mut p.1);
 	p.1 = p.1.wrapping_add(1);
+	// The whole tuple, replaced in the caller's.
+	if p.0 % 3 == 0 {
+		*p = (p.1, p.0);
+	}
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -37,6 +37,13 @@ export function unwrapOr$Option_Cow_str(self: string | undefined, default_: stri
 	return self;
 }
 
+export function unwrapOr$Option_NonZero_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$Option_char(self: rt.char | undefined, default_: rt.char): rt.char {
 	if (self === undefined) {
 		return default_;
@@ -59,13 +66,6 @@ export function unwrapOr$Option_u16(self: rt.u16 | undefined, default_: rt.u16):
 }
 
 export function unwrapOr$Option_u32(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
-export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -219,7 +219,7 @@ export function map$Option_u8_u8_elements_closure8(self: rt.u8 | undefined, f: (
 	return f(self);
 }
 
-export function map$Option_u8_u8_u8_u8_lent_closure2(self: rt.Place<[rt.u8, rt.u8]> | undefined, f: (a0: rt.Place<[rt.u8, rt.u8]>) => rt.Place<[rt.u8, rt.u8]>): rt.Place<[rt.u8, rt.u8]> | undefined {
+export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -318,6 +318,13 @@ export function mapOr$Option_Vec_u16_u8_consumers_closure23(self: rt.u16[] | und
 }
 
 export function mapOr$Option_Vec_u8_u8_library_closure5(self: rt.ByteVec | undefined, default_: rt.u8, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u16_u16_edits_closure21(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -550,9 +557,9 @@ export function filter$Option_u8_combinators_closure0(self: rt.u8 | undefined, p
 	return undefined;
 }
 
-export function filter$Option_u8_u8_lent_closure1(self: rt.Place<[rt.u8, rt.u8]> | undefined, predicate: (a0: rt.Place<[rt.u8, rt.u8]>) => boolean): rt.Place<[rt.u8, rt.u8]> | undefined {
+export function filter$Option_u8_u8_lent_closure1(self: [rt.u8, rt.u8] | undefined, predicate: (a0: [rt.u8, rt.u8]) => boolean): [rt.u8, rt.u8] | undefined {
 	if (self !== undefined) {
-		const x: rt.Place<[rt.u8, rt.u8]> = self;
+		const x: [rt.u8, rt.u8] = self;
 		if (predicate(x)) {
 			return x;
 		}

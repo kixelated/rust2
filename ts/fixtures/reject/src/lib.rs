@@ -272,11 +272,6 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
-pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
-	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -360,10 +355,46 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
-/// supported.
-pub fn split_chars(s: &str) -> usize {
-	s.split(['a', 'b']).count()
+/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
+/// translation calls `partial_cmp`.
+#[derive(PartialEq, Eq, Ord)]
+pub struct Lopsided(u8);
+
+impl PartialOrd for Lopsided {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.0.cmp(&other.0))
+	}
+
+	fn lt(&self, other: &Self) -> bool {
+		self.0 > other.0
+	}
+}
+
+pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
+	v.sort();
+	let wins = (1, &a) < (2, &b);
+	wins && a.max(b).0 > 0
+}
+
+/// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
+/// element.
+#[derive(PartialEq, Eq)]
+pub struct Batched(u8);
+
+impl std::hash::Hash for Batched {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+	}
+
+	fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len());
+	}
+}
+
+pub fn batched(v: Vec<Batched>) -> usize {
+	let mut set = std::collections::HashSet::new();
+	set.insert(v);
+	set.len()
 }
 
 /// Closures that own a value that drops, which `or_insert_with` would call but never drop

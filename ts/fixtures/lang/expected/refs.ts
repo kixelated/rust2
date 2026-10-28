@@ -68,12 +68,14 @@ export function rebox(b: rt.Place<Pair.Pair>, by: rt.u8): void {
 	}
 }
 
-export function swapPair(p: rt.Place<[rt.u8, rt.u8]>): void {
-	const swapped = p.v[0];
-	p.v[0] = p.v[1];
-	p.v[1] = swapped;
-	const _5: rt.u8 = rt.u8WrappingAdd(p.v[1], 1);
-	p.v[1] = _5;
+export function swapPair(p: [rt.u8, rt.u8]): void {
+	const swapped = p[0];
+	p[0] = p[1];
+	p[1] = swapped;
+	p[1] = rt.u8WrappingAdd(p[1], 1);
+	if (rt.u8Rem(p[0], 3) === 0) {
+		Object.assign(p, [p[1], p[0]] as [rt.u8, rt.u8]);
+	}
 }
 
 export function refuse(f: rt.Place<Fetch.Fetch>): void {
@@ -207,15 +209,15 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.byteVecPush(out, unwrapOr$Option_u8(slot, 238));
 	let boxed: Pair.Pair = { n: by };
-	let pair: [rt.u8, rt.u8] = [by, rt.u8WrappingAdd(by, 1)];
+	const pair: [rt.u8, rt.u8] = [by, rt.u8WrappingAdd(by, 1)];
 	let fetch = { tag: "Idle" } as Fetch.Fetch;
 	let text: string = "";
 	for (const b2 of rt.byteSliceView(data)) {
 		rebox(rt.place(() => boxed, (value7) => boxed = value7), b2);
-		swapPair(rt.place(() => pair, (value8) => pair = value8));
-		refuse(rt.place(() => fetch, (value9) => fetch = value9));
+		swapPair(pair);
+		refuse(rt.place(() => fetch, (value8) => fetch = value8));
 		const _120: rt.char = rt.u8Add(97, rt.u8Rem(b2, 26)) as rt.char;
-		pushTo(rt.place(() => text, (value10) => text = value10), _120);
+		pushTo(rt.place(() => text, (value9) => text = value9), _120);
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(boxed.n, pair[0], pair[1])));
 	if (fetch.tag === "Idle") {
@@ -228,11 +230,11 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, _133);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(text));
 	let empty: rt.u8 | undefined = undefined;
-	rt.byteVecPush(out, fill(rt.place(() => empty, (value11) => empty = value11), rt.place(() => text, (value12) => text = value12), by));
+	rt.byteVecPush(out, fill(rt.place(() => empty, (value10) => empty = value10), rt.place(() => text, (value11) => text = value11), by));
 	const _148: rt.u8 = rt.u8WrappingAdd(by, 1);
-	rt.byteVecPush(out, fill(rt.place(() => empty, (value13) => empty = value13), rt.place(() => text, (value14) => text = value14), _148));
+	rt.byteVecPush(out, fill(rt.place(() => empty, (value12) => empty = value12), rt.place(() => text, (value13) => text = value13), _148));
 	let at: rt.usize = 0;
-	const cursor: Cursor.Cursor = { at: rt.place(() => at, (value15) => at = value15), data };
+	const cursor: Cursor.Cursor = { at: rt.place(() => at, (value14) => at = value14), data };
 	let sum: rt.u8 = 0;
 	while (true) {
 		const _153: rt.u8 | undefined = Cursor.next(cursor);
@@ -249,14 +251,14 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, sum);
 	rt.byteVecPush(out, at & 0xff);
 	let remaining: rt.usize = rt.u8Rem(by, 5) as rt.usize;
-	rt.byteVecPush(out, skip(rt.place(() => remaining, (value16) => remaining = value16), data) & 0xff);
+	rt.byteVecPush(out, skip(rt.place(() => remaining, (value15) => remaining = value15), data) & 0xff);
 	rt.byteVecPush(out, remaining & 0xff);
 	const _177: [Pair.Pair, Pair.Pair] = [{ n: 1 }, { n: 2 }];
 	const a: Pair.Pair = _177[0];
 	const b4: Pair.Pair = _177[1];
 	let p: Pair.Pair = a;
 	const borrowed = p;
-	const r: rt.Place<rt.u8> = rt.place(() => borrowed.n, (value17) => borrowed.n = value17);
+	const r: rt.Place<rt.u8> = rt.place(() => borrowed.n, (value16) => borrowed.n = value16);
 	p = b4;
 	bumpByte(r);
 	p.n = rt.u8Add(p.n, 10);
@@ -287,17 +289,17 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	let total: rt.u32 = 0;
 	for (const b6 of rt.byteSliceView(data)) {
-		_238(rt.place(() => total, (value18) => total = value18), b6);
+		_238(rt.place(() => total, (value17) => total = value17), b6);
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(total)));
 	const _256: [rt.u32, rt.u32] = [by as rt.u32, unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 5) as rt.u32];
 	let x2: rt.u32 = _256[0];
 	let y: rt.u32 = _256[1];
-	readThrough(rt.place(() => x2, (value19) => x2 = value19), rt.place(() => y, (value20) => y = value20), out);
+	readThrough(rt.place(() => x2, (value18) => x2 = value18), rt.place(() => y, (value19) => y = value19), out);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(x2 & 0xff, y & 0xff)));
 	let boxed2: rt.u8 | undefined = undefined as rt.u8 | undefined;
 	const _277: rt.u8 = total & 0xff;
-	derefBox(rt.place(() => boxed2, (value21) => boxed2 = value21), _277);
+	derefBox(rt.place(() => boxed2, (value20) => boxed2 = value20), _277);
 	rt.byteVecPush(out, unwrapOr$Option_u8(boxed2, 238));
 	lent(data, out);
 }
@@ -356,22 +358,21 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 			last = _45;
 		}
 		(last as [rt.u8, rt.u8])[1] = (last as [rt.u8, rt.u8])[1] ^ b;
-		const _46: rt.Place<[rt.u8, rt.u8]> | undefined = last === undefined ? undefined : rt.place(() => last as [rt.u8, rt.u8], (value8) => last = value8);
+		const _46: [rt.u8, rt.u8] | undefined = last;
 		if (_46 !== undefined) {
-			_46.v[0] = rt.u8WrappingAdd(_46.v[0], 1);
+			_46[0] = rt.u8WrappingAdd(_46[0], 1);
 		}
-		const _52: rt.Place<[rt.u8, rt.u8]> | undefined = map$Option_u8_u8_u8_u8_lent_closure2(filter$Option_u8_u8_lent_closure1(last === undefined ? undefined : rt.place(() => last as [rt.u8, rt.u8], (value9) => last = value9), (p: rt.Place<[rt.u8, rt.u8]>): boolean => {
-			return rt.u8Rem(p.v[0], 2) === 0;
-		}), (p2: rt.Place<[rt.u8, rt.u8]>): rt.Place<[rt.u8, rt.u8]> => {
-			const _310: rt.u8 = rt.u8WrappingAdd(p2.v[1], 2);
-			p2.v[1] = _310;
+		const _52: [rt.u8, rt.u8] | undefined = map$Option_u8_u8_u8_u8_lent_closure2(filter$Option_u8_u8_lent_closure1(last, (p: [rt.u8, rt.u8]): boolean => {
+			return rt.u8Rem(p[0], 2) === 0;
+		}), (p2: [rt.u8, rt.u8]): [rt.u8, rt.u8] => {
+			p2[1] = rt.u8WrappingAdd(p2[1], 2);
 			return p2;
 		});
 		if (_52 !== undefined) {
-			_52.v[0] = _52.v[0] ^ 1;
+			_52[0] = _52[0] ^ 1;
 		}
-		const _61: rt.Place<rt.u32 | undefined> = rt.place(() => seen, (value10) => seen = value10);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(mapOr$Option_u32_u32_lent_closure4(andThen$Option_u32_u32_lent_closure3(_61.v === undefined ? undefined : rt.place(() => _61.v as rt.u32, (value11) => _61.v = value11), (x4: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined => {
+		const _61: rt.Place<rt.u32 | undefined> = rt.place(() => seen, (value8) => seen = value8);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(mapOr$Option_u32_u32_lent_closure4(andThen$Option_u32_u32_lent_closure3(_61.v === undefined ? undefined : rt.place(() => _61.v as rt.u32, (value9) => _61.v = value9), (x4: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined => {
 			return rt.thenSome(rt.u32Rem(x4.v, 3) === 0, x4);
 		}), 0, (x5: rt.Place<rt.u32>): rt.u32 => {
 			x5.v = rt.u32Mul(x5.v, 2);
@@ -400,7 +401,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 				counts.a = 0;
 			}
 			const borrowed = counts;
-			at = rt.place(() => borrowed.a as rt.u32, (value13) => borrowed.a = value13);
+			at = rt.place(() => borrowed.a as rt.u32, (value11) => borrowed.a = value11);
 		} else {
 			const f = (): rt.u32 => {
 				return 100;
@@ -408,7 +409,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (counts.b === undefined) {
 				counts.b = f();
 			}
-			at = rt.place(() => counts.b as rt.u32, (value12) => (counts.b as rt.u32) = value12);
+			at = rt.place(() => counts.b as rt.u32, (value10) => (counts.b as rt.u32) = value10);
 		}
 		at.v = rt.u32Add(at.v, b2 as rt.u32);
 		const _117: rt.usize = rt.usizeRem(i, 2);
@@ -418,7 +419,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (spare[_117] === undefined) {
 			spare[_117] = 1;
 		}
-		bump(rt.place(() => spare[_117] as rt.u32, (value14) => (spare[_117] as rt.u32) = value14), b2);
+		bump(rt.place(() => spare[_117] as rt.u32, (value12) => (spare[_117] as rt.u32) = value12), b2);
 	}
 	const iter3: rt.Iter<[rt.usize, rt.Place<rt.u32 | undefined>]> = rt.iterEnumerate(rt.iterSliceMut(spare));
 	while (true) {
@@ -427,7 +428,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 			break;
 		}
 		_126[1].v = _126[0] as rt.u32;
-		held.push(rt.place(() => _126[1].v as rt.u32, (value15) => (_126[1].v as rt.u32) = value15));
+		held.push(rt.place(() => _126[1].v as rt.u32, (value13) => (_126[1].v as rt.u32) = value13));
 	}
 	const iter4: rt.Iter<rt.Place<rt.u32>> = rt.iterSlice(held);
 	while (true) {
@@ -516,11 +517,11 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_86[1].v = rt.u32Add(_86[1].v, _86[0].v as rt.u32);
 		_86[0].v = rt.u8WrappingAdd(_86[0].v, _86[0].v);
 	}
-	const _97: rt.Place<[rt.u8, rt.u8 | undefined]> | undefined = rt.iterFind(rt.iterSliceMut(pairs), (_23: rt.Place<[rt.u8, rt.u8 | undefined]>): boolean => {
-		return rt.u8Rem(_23.v[0], 3) === 0;
+	const _97: [rt.u8, rt.u8 | undefined] | undefined = rt.iterFind(rt.iterSlice(pairs), (_23: [rt.u8, rt.u8 | undefined]): boolean => {
+		return rt.u8Rem(_23[0], 3) === 0;
 	});
 	if (_97 !== undefined) {
-		_97.v[1] = mapOr$Option_u8_u8_elements_closure3(_97.v[1], 0, (s: rt.u8): rt.u8 => {
+		_97[1] = mapOr$Option_u8_u8_elements_closure3(_97[1], 0, (s: rt.u8): rt.u8 => {
 			return rt.u8WrappingAdd(s, 1);
 		});
 	}
@@ -581,9 +582,8 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const tree: rt.BTreeMap<rt.u8, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>;
 	const queue: rt.VecDeque<rt.u32> = rt.dequeNew() as rt.VecDeque<rt.u32>;
 	for (const b2 of rt.byteSliceView(data)) {
-		rt.entryOrInsertMut(rt.entryAndModifyMut(rt.entry(hash, rt.u8Rem(b2, 5)), (x8: rt.Place<[rt.u8, rt.u8]>): void => {
-			const _36: rt.u8 = rt.u8WrappingAdd(x8.v[1], b2);
-			x8.v[1] = _36;
+		rt.entryOrInsert(rt.entryAndModify(rt.entry(hash, rt.u8Rem(b2, 5)), (x8: [rt.u8, rt.u8]): void => {
+			x8[1] = rt.u8WrappingAdd(x8[1], b2);
 		}), [b2, 0] as [rt.u8, rt.u8]);
 		const _213: rt.u32 = b2 as rt.u32;
 		const _214: rt.Place<rt.u32> = rt.entryOrInsertWithMut(rt.entryAndModifyMut(rt.entry(tree, rt.u8Rem(b2, 4)), (x9: rt.Place<rt.u32>): void => {
@@ -597,22 +597,22 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.dequePushFront(queue, rt.u32Add(b2 as rt.u32, 1));
 		}
 	}
-	const iter12: rt.Iter<rt.Place<[rt.u8, rt.u8]>> = rt.hashValuesMut(hash);
+	const iter12: rt.Iter<[rt.u8, rt.u8]> = rt.hashValues(hash);
 	while (true) {
-		const _236: rt.Place<[rt.u8, rt.u8]> | rt.Done = iter12.next();
+		const _236: [rt.u8, rt.u8] | rt.Done = iter12.next();
 		if (_236 === rt.DONE) {
 			break;
 		}
-		_236.v[0] = rt.u8WrappingAdd(_236.v[0], 1);
+		_236[0] = rt.u8WrappingAdd(_236[0], 1);
 	}
-	const iter13: rt.Iter<[rt.u8, rt.Place<[rt.u8, rt.u8]>]> = rt.hashIterMut(hash);
+	const iter13: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.hashIter(hash);
 	while (true) {
-		const _246: [rt.u8, rt.Place<[rt.u8, rt.u8]>] | rt.Done = iter13.next();
+		const _246: [rt.u8, [rt.u8, rt.u8]] | rt.Done = iter13.next();
 		if (_246 === rt.DONE) {
 			break;
 		}
 		if (rt.u8Rem(_246[0], 2) === 0) {
-			_246[1].v = [_246[1].v[1], _246[1].v[0]] as [rt.u8, rt.u8];
+			Object.assign(_246[1], [_246[1][1], _246[1][0]] as [rt.u8, rt.u8]);
 		}
 	}
 	const iter14: rt.Iter<[rt.u8, rt.Place<rt.u32>]> = rt.btreeIterMut(tree);
@@ -705,8 +705,8 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_362.v = _362.v ^ 255;
 		rt.btreeInsert(tree, 9, _362.v as rt.u32);
 	}
-	rt.hashRetainMut(hash, (k3: rt.u8, x11: rt.Place<[rt.u8, rt.u8]>): boolean => {
-		x11.v[1] = x11.v[1] ^ k3;
+	rt.hashRetain(hash, (k3: rt.u8, x11: [rt.u8, rt.u8]): boolean => {
+		x11[1] = x11[1] ^ k3;
 		return k3 !== rt.u8Rem(by, 5);
 	});
 	rt.btreeRetainMut(tree, (k4: rt.u8, x12: rt.Place<rt.u32>): boolean => {

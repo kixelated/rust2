@@ -38,31 +38,32 @@ replacing the value behind a reference to `[u16; 1]` at fixtures/reject/src/lib.
 `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:261:16
 `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:261:38
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:271:14
-a field of `std::ops::RangeTo<usize>` at fixtures/reject/src/lib.rs:277:7
-a field of `std::ops::RangeFrom<usize>` at fixtures/reject/src/lib.rs:277:48
-`HashMap::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:282:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:287:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:287:52
-`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:305:6
-unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:355:4
-a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:360:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:386:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:388:27
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:387:30
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:393:2
-`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:397:18
-unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:398:2
-constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:404:53
-unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reject/src/lib.rs:366:4
-passing `{closure@fixtures/reject/src/lib.rs:373:28: 373:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:373:13
-passing `{closure@fixtures/reject/src/lib.rs:374:25: 374:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet at fixtures/reject/src/lib.rs:374:16
-passing `{closure@fixtures/reject/src/lib.rs:381:13: 381:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:381:4
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:443:17
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:443:38
-a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:417:12
-unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:424:2
+`HashMap::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:277:6
+hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:282:52
+comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:282:52
+`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:300:6
+unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:350:4
+a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:355:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:417:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:419:27
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:418:30
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:424:2
+`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:428:18
+unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:429:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:435:53
+comparing `Lopsided` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:374:4
+comparing `(i32, &Lopsided)` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:375:13
+comparing `Lopsided` through its own `PartialOrd::lt`, which is not supported yet at fixtures/reject/src/lib.rs:376:12
+hashing `std::vec::Vec<Batched>` through `Batched`'s own `Hash::hash_slice`, which is not supported yet at fixtures/reject/src/lib.rs:395:16
+passing `{closure@fixtures/reject/src/lib.rs:404:28: 404:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:404:13
+passing `{closure@fixtures/reject/src/lib.rs:405:25: 405:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet at fixtures/reject/src/lib.rs:405:16
+passing `{closure@fixtures/reject/src/lib.rs:412:13: 412:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:412:4
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:474:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:474:38
+a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:448:12
+unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:455:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:148:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:168:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:202:2
 an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:222:1
-`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:313:9
+`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:308:9

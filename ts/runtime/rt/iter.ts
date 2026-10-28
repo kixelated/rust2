@@ -18,7 +18,7 @@
 // of iterator has its own, the `owned` functions follow it, dispatching on the kind, so a
 // bundle that never drops an item carries none of it.
 
-import { ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type Result } from "../rt.ts";
+import { ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -2215,19 +2215,18 @@ export class RangeInclusive<T> extends Iter<T> {
 		this.int = int;
 	}
 
+	/** std's: `start` steps past the item, so it passes `end`, and only wrapping exhausts it. */
 	next(): T | Done {
 		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const lo = this.lo;
-		if (lt(lo, this.hi)) this.lo = step(lo, 1, this.int)!;
-		else this.exhausted = true;
+		[this.lo, this.exhausted] = stepOverflowing(lo, 1, this.int);
 		return lo;
 	}
 
 	override nextBack(): T | Done {
 		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const hi = this.hi;
-		if (lt(this.lo, hi)) this.hi = step(hi, -1, this.int)!;
-		else this.exhausted = true;
+		[this.hi, this.exhausted] = stepOverflowing(hi, -1, this.int);
 		return hi;
 	}
 
@@ -2284,7 +2283,23 @@ export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> 
 	return range;
 }
 
+/** `RangeInclusive::start_bound`: its start, included. */
+export function rangeInclusiveStartBound<T>(r: RangeInclusive<T>): RangeBound<T> {
+	return { tag: "Included", _0: r.lo };
+}
+
+/** `RangeInclusive::end_bound`: its end, included, until wrapping exhausts it and it excludes its start, as std's. */
+export function rangeInclusiveEndBound<T>(r: RangeInclusive<T>): RangeBound<T> {
+	return r.exhausted ? { tag: "Excluded", _0: r.lo } : { tag: "Included", _0: r.hi };
+}
+
 /** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `int`, and whether it wrapped. */
+/** `Step::forward_overflowing` by `by`, of an integer type's step or a safe number's. */
+function stepOverflowing<T>(n: T, by: number, int: Step<T> | undefined): [T, boolean] {
+	if (int !== undefined) return int(n, by);
+	return [step(n, by, int)!, false];
+}
+
 function overflowing<T>(n: T, by: number, int: Step<T> | undefined): [T, boolean] {
 	if (int === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
 	return int(n, by);

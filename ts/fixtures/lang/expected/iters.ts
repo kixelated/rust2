@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$u8_u8 } from "./lib.ts";
-import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_i64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -796,13 +796,13 @@ export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.iterSum(new rt.Range(0, a as rt.u64, rt.u64Step), rt.u64Add, 0))));
 	const edge: rt.u64 = rt.u64Add(rt.u64Sub({ hi: 0x200000, lo: 0 } as rt.u64, 2), rt.u64Rem(a as rt.u64, 4));
 	const past: rt.Range<rt.u64> = new rt.Range(edge, rt.u64Add(edge, 4), rt.u64Step);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_u64(rt.iterNth(past, rt.usizeRem(b as rt.usize, 3)), 0))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_u64(rt.iterToOption(past.nextBack()), 0))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_u64(rt.iterNth(new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step), rt.usizeRem(b as rt.usize, 5)), 0))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_NonZero_u64(rt.iterNth(past, rt.usizeRem(b as rt.usize, 3)), 0))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_NonZero_u64(rt.iterToOption(past.nextBack()), 0))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_NonZero_u64(rt.iterNth(new rt.RangeInclusive(edge, rt.u64Add(edge, 3), rt.u64Step), rt.usizeRem(b as rt.usize, 5)), 0))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.iterSum(rt.iterMap(new rt.RangeInclusive(rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Rem(a as rt.u64, 3)), { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, rt.u64Step), (n4: rt.u64): rt.u64 => {
 		return rt.u64Rem(n4, 7);
 	}), rt.u64Add, 0))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_u64(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (_24: rt.u64): rt.u64 => {
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_NonZero_u64(rt.iterMaxByKey(rt.iterRev(new rt.RangeInclusive(edge, rt.u64Add(edge, 2), rt.u64Step)), (_24: rt.u64): rt.u64 => {
 		return _24;
 	}), 0))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(unwrapOr$Option_i64(rt.iterMin(new rt.Range(rt.i64Sub(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Add(rt.i64Neg({ hi: 0x200000, lo: 0 } as rt.i64), 1), rt.i64Step)), 0))));

@@ -439,10 +439,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
 		match (owner.as_str(), name.as_str()) {
 			// Replacing what a `&mut` borrows.
+			// What `Default::default` makes, a std type's or the crate's, before the swap.
 			("mem", "take") => {
+				let ty = targ(0)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let default = library::default_value(self.b, targ(0)?)?;
-				done(self.swap_out(place, targ(0)?, default, "taken", span, out), true)
+				let default = match library::default_value(self.b, ty) {
+					Some(default) => default,
+					None => {
+						let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
+						let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
+						self.path(default, "default", out)
+					}
+				};
+				done(self.swap_out(place, ty, default, "taken", span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
