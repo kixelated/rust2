@@ -146,7 +146,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.iter()
 			.map(|def_id| def_id.to_def_id())
 			.chain(self.read.iter().copied());
-		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| self.own(def_id));
+		// A binding's code, a bound type's methods' included, is code it doesn't read.
+		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| {
+			self.crates.translates(def_id) && !self.bound(def_id)
+		});
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate

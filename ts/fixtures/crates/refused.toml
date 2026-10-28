@@ -2,3 +2,6 @@
 # the errors.
 package = "crates-fixture"
 roots = ["harness::run"]
+
+[bind]
+"crates_dep::Slots" = "bind/slots.ts"

@@ -2,4 +2,5 @@ package = "crates-fixture"
 roots = ["harness::run"]
 
 [bind]
+"crates_dep::Slots" = "bind/slots.ts"
 "crates_dep::last" = "bind/last.ts"

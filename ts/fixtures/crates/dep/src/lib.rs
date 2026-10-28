@@ -88,6 +88,22 @@ impl DoubleEndedIterator for Countdown {
 	}
 }
 
+/// Writes into the arrays it is given, where a binding stands in for it.
+pub struct Slots {
+	base: i16,
+}
+
+impl Slots {
+	pub fn with_base(base: i16) -> Self {
+		Self { base }
+	}
+
+	/// Fill `out` from the base: the only write into a `[i16; 2]`.
+	pub fn fill(&self, out: &mut [i16; 2]) {
+		*out = [self.base, self.base - 1];
+	}
+}
+
 /// The first byte of `bytes`.
 pub fn first(bytes: &[u8]) -> u8 {
 	assert!(!bytes.is_empty(), "no first byte");

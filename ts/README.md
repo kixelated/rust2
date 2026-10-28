@@ -507,7 +507,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `crates` translates with `crates/dep`, which writes into a `Copy` type only the package
   copies, ranks the package's type in a generic function, drops, iterates, and reads
   through a raw pointer behind a safe twin under `rust2_ts` and in a function
-  `bind/last.ts` stands in for. Its differential test runs them against native Rust.
+  `bind/last.ts` stands in for. `bind/slots.ts` stands in for a type whose method alone
+  writes into an array the package copies. Its differential test runs them against native Rust.
   `refused.toml` drops the binding, its `rev` feature makes the dependency's iterator run
   from either end, and its `shared` feature adds a module of the dependency's name, with
   the errors in `refused.txt`, `rev.txt`, and `shared.txt`.

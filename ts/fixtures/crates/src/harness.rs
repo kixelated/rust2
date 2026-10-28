@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use crates_dep::{Countdown, Guard, Point, Weigh};
+use crates_dep::{Countdown, Guard, Point, Slots, Weigh};
 
 /// The package's own type, which the dependency's generic function ranks.
 struct Item(u8);
@@ -42,6 +42,11 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	for n in Countdown::new(input.len().min(4) as u8) {
 		out.push(n);
 	}
+	// Only the binding writes into a `[i16; 2]`, so the copy must not share it.
+	let kept: [i16; 2] = [input.len() as i16, 7];
+	let mut filled = kept;
+	Slots::with_base(kept[0]).fill(&mut filled);
+	out.extend([kept[0] as u8, kept[1] as u8, filled[0] as u8, filled[1] as u8]);
 	out.push(crates_dep::first(input));
 	out.push(crates_dep::last(input));
 	out

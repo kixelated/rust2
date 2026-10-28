@@ -44,19 +44,12 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		output,
 		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
 	];
-	// What translation needs is the dev profile's, std's flags as well as `FLAGS`.
-	if let Some(arg) = args
-		.cargo
-		.iter()
-		.find(|arg| matches!(arg.as_str(), "--release" | "-r") || arg.starts_with("--profile"))
-	{
-		return Err(format!(
-			"`{arg}` is not supported: translation checks with the dev profile"
-		));
-	}
 	let mut cargo = std_from_source();
 	cargo.push("--config".into());
 	cargo.push(format!("profile.dev.rustflags={}", toml_list(FLAGS)));
+	// The profile those flags and std's are set on, which cargo refuses to combine with
+	// one the cargo args pick.
+	cargo.extend(["--profile".into(), "dev".into()]);
 	cargo.extend(args.cargo);
 	Check {
 		tool: "rust2-ts",
