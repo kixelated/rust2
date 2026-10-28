@@ -365,6 +365,21 @@ pub fn anys(data: &[u8], out: &mut Vec<u8>) {
 	}
 	put(out, &format!("{m} "));
 
+	// Of types that can be `undefined`, whose `None` is `rt.None`.
+	let unit: &dyn Any = &();
+	put(out, &format!("{:?} ", (unit.downcast_ref::<()>(), unit.is::<Option<u8>>())));
+	let (mut some, mut none) = (Some(a), None::<u8>);
+	let odd: [&mut dyn Any; 3] = [&mut some, &mut none, &mut n];
+	for x in odd {
+		let found = (x.downcast_ref::<()>(), x.downcast_ref::<Option<u8>>().copied());
+		put(out, &format!("{found:?}"));
+		if let Some(o) = x.downcast_mut::<Option<u8>>() {
+			*o = o.map_or(Some(b), |_| None);
+		}
+		put(out, &format!("{} ", x.downcast_mut::<()>().is_some()));
+	}
+	put(out, &format!("{some:?} {none:?} "));
+
 	// Owned: a box downcasts to its value, or back to itself.
 	let mut boxes: Vec<Box<dyn Any>> = Vec::new();
 	for (i, &x) in rest.iter().enumerate() {

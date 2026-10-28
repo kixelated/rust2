@@ -442,10 +442,9 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 			self.pointees(place.ty(self.body, self.tcx).ty);
 		}
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
+		let object = |t: Ty<'tcx>| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t);
 		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
-			&& to
-				.walk()
-				.any(|arg| arg.as_type().is_some_and(|t| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t)))
+			&& to.walk().any(|arg| arg.as_type().is_some_and(object))
 		{
 			self.pointees(op.ty(self.body, self.tcx));
 		}

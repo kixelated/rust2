@@ -584,6 +584,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
+				| ("dyn Any", "downcast_ref" | "downcast_mut")
 		)
 }
 

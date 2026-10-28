@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import * as Any from "./core/any.Any.ts";
-import { map$Option_Arc_dyn_Shape_u32_shared_closure0 } from "./core/option.ts";
-import { ok$Result_usize_u8_Arc_dyn_Any, map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure0 } from "./core/result.ts";
+import { map$Option_Arc_dyn_Shape_u32_shared_closure0, mapOr$Option_u8_Option_u8_anys_closure0 } from "./core/option.ts";
+import { ok$Result_usize_u8_Arc_dyn_Any, map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1 } from "./core/result.ts";
 import * as Erased from "./dyns.Erased.ts";
 import type * as Hits from "./dyns.Hits.ts";
 import * as Named from "./dyns.Named.ts";
@@ -376,7 +376,7 @@ export function isA$u32(e: Erased.Erased): boolean {
 
 export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let tri!: Tri.Tri;
-	let _149!: Any.Any;
+	let _237!: Any.Any;
 	if (data.length >= 2) {
 		const _10: [rt.u8, rt.u8] = [data.data[data.start], data.data[data.start + 1]];
 		const a: rt.u8 = _10[0];
@@ -427,94 +427,121 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(m, f)];
 		put(out, rt.fmtFormat([args8[0], " "]));
-		const boxes: Any.Any[] = [];
-		const iter3: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + 2, data.length - 2))));
+		const unit: Any.Any = new Any.unit(undefined);
+		const part2 = [unit instanceof Any.unit ? unit.v : unit instanceof Any.unit$Place ? unit.v.v : rt.None, unit instanceof Any.Option_u8 || unit instanceof Any.Option_u8$Place] as [undefined | rt.None, boolean];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part2[0], f, rt.fmtUnit, rt.None), (f: rt.Formatter) => rt.fmtBool(part2[1], f)], f)];
+		put(out, rt.fmtFormat([args10[0], " "]));
+		let some: rt.u8 | undefined = a;
+		let none: rt.u8 | undefined = undefined;
+		const iter3: rt.Iter<Any.Any> = rt.iterSlice([new Any.Option_u8$Place(rt.place(() => some, (value5) => some = value5)), new Any.Option_u8$Place(rt.place(() => none, (value6) => none = value6)), new Any.u32$Place(rt.place(() => n, (value7) => n = value7))]);
 		while (true) {
-			const _141: [rt.usize, rt.u8] | rt.Done = iter3.next();
-			if (_141 === rt.DONE) {
+			const _167: Any.Any | rt.Done = iter3.next();
+			if (_167 === rt.DONE) {
 				break;
 			}
-			const i: rt.usize = _141[0];
-			const x: rt.u8 = _141[1];
-			const _150: rt.u8 = rt.u8Rem(x, 4);
-			if (_150 === 0) {
-				_149 = new Any.u8(x);
-			} else if (_150 === 1) {
-				_149 = new Any.u32(x as rt.u32);
-			} else if (_150 === 2) {
-				_149 = new Any.Tri({ tag: "Tall", _0: x } as Tri.Tri);
-			} else {
-				_149 = new Any.Square({ side: i & 0xffff });
+			const part3 = [_167 instanceof Any.unit ? _167.v : _167 instanceof Any.unit$Place ? _167.v.v : rt.None, _167 instanceof Any.Option_u8 ? _167.v : _167 instanceof Any.Option_u8$Place ? _167.v.v : rt.None] as [undefined | rt.None, rt.u8 | undefined | rt.None];
+			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part3[0], f, rt.fmtUnit, rt.None), (f: rt.Formatter) => rt.fmtOption(part3[1], f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None)], f)];
+			put(out, rt.fmtFormat([args12[0]]));
+			const _189: rt.Place<rt.u8 | undefined> | undefined = _167 instanceof Any.Option_u8 ? _167 : _167 instanceof Any.Option_u8$Place ? _167.v : undefined;
+			if (_189 !== undefined) {
+				_189.v = mapOr$Option_u8_Option_u8_anys_closure0(_189.v, b, (_2: rt.u8): rt.u8 | undefined => {
+					return undefined;
+				});
 			}
-			boxes.push(_149);
+			const arg2 = ((_167 instanceof Any.unit ? _167 : _167 instanceof Any.unit$Place ? _167.v : undefined)) !== undefined;
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
+			put(out, rt.fmtFormat([args14[0], " "]));
+		}
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(some, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtOption(none, f, rt.u8Debug)];
+		put(out, rt.fmtFormat([args16[0], " ", args16[1], " "]));
+		const boxes: Any.Any[] = [];
+		const iter4: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + 2, data.length - 2))));
+		while (true) {
+			const _229: [rt.usize, rt.u8] | rt.Done = iter4.next();
+			if (_229 === rt.DONE) {
+				break;
+			}
+			const i: rt.usize = _229[0];
+			const x: rt.u8 = _229[1];
+			const _238: rt.u8 = rt.u8Rem(x, 4);
+			if (_238 === 0) {
+				_237 = new Any.u8(x);
+			} else if (_238 === 1) {
+				_237 = new Any.u32(x as rt.u32);
+			} else if (_238 === 2) {
+				_237 = new Any.Tri({ tag: "Tall", _0: x } as Tri.Tri);
+			} else {
+				_237 = new Any.Square({ side: i & 0xffff });
+			}
+			boxes.push(_237);
 		}
 		const kept: Any.Any[] = [];
-		const iter4: rt.Iter<[rt.usize, Any.Any]> = rt.iterEnumerate(rt.iterSlice(boxes, rt.drop));
+		const iter5: rt.Iter<[rt.usize, Any.Any]> = rt.iterEnumerate(rt.iterSlice(boxes, rt.drop));
 		while (true) {
-			const _168: [rt.usize, Any.Any] | rt.Done = iter4.next();
-			if (_168 === rt.DONE) {
+			const _256: [rt.usize, Any.Any] | rt.Done = iter5.next();
+			if (_256 === rt.DONE) {
 				break;
 			}
-			const i2: rt.usize = _168[0];
-			const boxed: Any.Any = _168[1];
-			const _173: rt.Result<rt.u32, Any.Any> = boxed instanceof Any.u32 ? rt.Ok(boxed.v) : rt.Err(boxed);
-			if (_173.ok) {
-				const part3 = _173.value;
-				const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
-				put(out, rt.fmtFormat(["n", args10[0], " "]));
+			const i2: rt.usize = _256[0];
+			const boxed: Any.Any = _256[1];
+			const _261: rt.Result<rt.u32, Any.Any> = boxed instanceof Any.u32 ? rt.Ok(boxed.v) : rt.Err(boxed);
+			if (_261.ok) {
+				const part5 = _261.value;
+				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part5, f)];
+				put(out, rt.fmtFormat(["n", args18[0], " "]));
 			} else if (!(rt.usizeRem(i2, 2) === 0)) {
-				const other2: Any.Any = _173.error;
-				const _194: rt.Result<rt.u8, Any.Any> = other2 instanceof Any.u8 ? rt.Ok(other2.v) : rt.Err(other2);
-				if (_194.ok) {
-					const arg2 = _194.value;
-					const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg2, f)];
-					put(out, rt.fmtFormat(["u8 ", args12[0], " "]));
+				const other2: Any.Any = _261.error;
+				const _282: rt.Result<rt.u8, Any.Any> = other2 instanceof Any.u8 ? rt.Ok(other2.v) : rt.Err(other2);
+				if (_282.ok) {
+					const arg3 = _282.value;
+					const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg3, f)];
+					put(out, rt.fmtFormat(["u8 ", args20[0], " "]));
 				} else {
-					const other3: Any.Any = _194.error;
-					const part2 = kind(other3);
-					const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part2)];
-					put(out, rt.fmtFormat([args14[0], " "]));
+					const other3: Any.Any = _282.error;
+					const part4 = kind(other3);
+					const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part4)];
+					put(out, rt.fmtFormat([args22[0], " "]));
 					rt.drop(other3);
 				}
 			} else {
-				kept.push(_173.error);
+				kept.push(_261.error);
 			}
 		}
-		rt.drop(iter4);
-		const iter5: rt.Iter<rt.Place<Any.Any>> = rt.iterRev(rt.iterSliceMut(kept));
+		rt.drop(iter5);
+		const iter6: rt.Iter<rt.Place<Any.Any>> = rt.iterRev(rt.iterSliceMut(kept));
 		while (true) {
-			const _228: rt.Place<Any.Any> | rt.Done = iter5.next();
-			if (_228 === rt.DONE) {
+			const _316: rt.Place<Any.Any> | rt.Done = iter6.next();
+			if (_316 === rt.DONE) {
 				break;
 			}
-			const _240: string = kind(_228.v);
-			const _243: boolean = bump(_228.v, a);
-			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _240), (f: rt.Formatter) => rt.fmtBool(_243, f)];
-			put(out, rt.fmtFormat([args16[0], ":", args16[1], " "]));
+			const _328: string = kind(_316.v);
+			const _331: boolean = bump(_316.v, a);
+			const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _328), (f: rt.Formatter) => rt.fmtBool(_331, f)];
+			put(out, rt.fmtFormat([args24[0], ":", args24[1], " "]));
 		}
-		const _251: rt.Arc<[rt.u8, rt.u8]> = new rt.Arc([a, b] as [rt.u8, rt.u8]);
-		const hold: rt.Arc<Any.Any> = new rt.ArcDyn(_251, new Any.u8_u8(_251.value));
-		const _270: Any.Any = hold.value;
+		const _339: rt.Arc<[rt.u8, rt.u8]> = new rt.Arc([a, b] as [rt.u8, rt.u8]);
+		const hold: rt.Arc<Any.Any> = new rt.ArcDyn(_339, new Any.u8_u8(_339.value));
+		const _358: Any.Any = hold.value;
 		const held: rt.Arc<Any.Any>[] = [rt.arcClone(hold), rt.arcClone(hold)];
-		const _266: rt.usize = hold.strong;
-		const _269: [rt.u8, rt.u8] | undefined = _270 instanceof Any.u8_u8 ? _270.v : undefined;
-		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_266, f), (f: rt.Formatter) => rt.fmtOption(_269, f, (value: [rt.u8, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
-		put(out, rt.fmtFormat([args18[0], " ", args18[1], " "]));
+		const _354: rt.usize = hold.strong;
+		const _357: [rt.u8, rt.u8] | undefined = _358 instanceof Any.u8_u8 ? _358.v : undefined;
+		const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_354, f), (f: rt.Formatter) => rt.fmtOption(_357, f, (value: [rt.u8, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
+		put(out, rt.fmtFormat([args26[0], " ", args26[1], " "]));
 		rt.dropAll(held);
-		const part4 = hold.strong;
-		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part4, f)];
-		put(out, rt.fmtFormat([args20[0], " "]));
-		const _293: rt.Result<rt.Arc<rt.u8>, rt.Arc<Any.Any>> = rt.arcDowncast(hold, Any.u8);
-		if (_293.ok) {
+		const part6 = hold.strong;
+		const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part6, f)];
+		put(out, rt.fmtFormat([args28[0], " "]));
+		const _381: rt.Result<rt.Arc<rt.u8>, rt.Arc<Any.Any>> = rt.arcDowncast(hold, Any.u8);
+		if (_381.ok) {
 			rt.panic("internal error: entered unreachable code");
 		} else {
-			const typed: [rt.usize, rt.u8] | undefined = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure0(rt.arcDowncast(_293.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
-				const _0: [rt.usize, rt.u8] = [t.strong, t.value[0]];
+			const typed: [rt.usize, rt.u8] | undefined = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
+				const _02: [rt.usize, rt.u8] = [t.strong, t.value[0]];
 				rt.drop(t);
-				return _0;
+				return _02;
 			}));
-			const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(typed, f, (value: [rt.usize, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
-			put(out, rt.fmtFormat([args22[0]]));
+			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(typed, f, (value: [rt.usize, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
+			put(out, rt.fmtFormat([args30[0]]));
 			rt.dropAll(kept);
 		}
 	}

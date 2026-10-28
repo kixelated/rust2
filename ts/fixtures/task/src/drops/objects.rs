@@ -138,7 +138,10 @@ pub(super) fn anys(log: &Log, id: u32) {
 	boxes.push(Box::new(7u32));
 	boxes.push(Box::new(guard(4)));
 	let last = boxes.pop().map(|b| b.downcast::<Guard>());
-	log.note(format!("last {:?}", last.as_ref().map(|g| g.as_ref().map(|g| g.id()).is_ok())));
+	log.note(format!(
+		"last {:?}",
+		last.as_ref().map(|g| g.as_ref().map(|g| g.id()).is_ok())
+	));
 	drop(last);
 	// A miss gives the box back, which still drops what it holds.
 	let held = boxes.remove(1).downcast::<Guard>();
@@ -155,7 +158,10 @@ pub(super) fn anys(log: &Log, id: u32) {
 	log.note(format!("clones {}", Arc::strong_count(&clones[0])));
 	let [a, b] = clones;
 	let typed = a.downcast::<(Guard, Guard)>().ok();
-	log.note(format!("typed {:?}", typed.as_ref().map(|t| (t.0.id(), Arc::strong_count(t)))));
+	log.note(format!(
+		"typed {:?}",
+		typed.as_ref().map(|t| (t.0.id(), Arc::strong_count(t)))
+	));
 	drop(typed);
 	log.note("dropped".into());
 	drop(b);

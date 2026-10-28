@@ -5,7 +5,7 @@ import type * as dyns_Square from "../dyns.Square.ts";
 import type * as dyns_Tri from "../dyns.Tri.ts";
 import type * as fmt_Fault from "../fmt.Fault.ts";
 
-export type Any = {  };
+export type Any = object;
 
 export class Fault {
 	v: fmt_Fault.Fault;
@@ -19,6 +19,22 @@ export class Fault$Place {
 	v: rt.Place<fmt_Fault.Fault>;
 
 	constructor(v: rt.Place<fmt_Fault.Fault>) {
+		this.v = v;
+	}
+}
+
+export class Option_u8 {
+	v: rt.u8 | undefined;
+
+	constructor(v: rt.u8 | undefined) {
+		this.v = v;
+	}
+}
+
+export class Option_u8$Place {
+	v: rt.Place<rt.u8 | undefined>;
+
+	constructor(v: rt.Place<rt.u8 | undefined>) {
 		this.v = v;
 	}
 }
@@ -91,6 +107,22 @@ export class u8_u8 {
 	v: [rt.u8, rt.u8];
 
 	constructor(v: [rt.u8, rt.u8]) {
+		this.v = v;
+	}
+}
+
+export class unit {
+	v: undefined;
+
+	constructor(v: undefined) {
+		this.v = v;
+	}
+}
+
+export class unit$Place {
+	v: rt.Place<undefined>;
+
+	constructor(v: rt.Place<undefined>) {
 		this.v = v;
 	}
 }

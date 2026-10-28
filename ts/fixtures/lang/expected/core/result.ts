@@ -53,7 +53,7 @@ export function asRef$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.Result<r
 	return rt.Err(self.error);
 }
 
-export function map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure0(self: rt.Result<rt.Arc<[rt.u8, rt.u8]>, rt.Arc<Any.Any>>, op: (a0: rt.Arc<[rt.u8, rt.u8]>) => [rt.usize, rt.u8]): rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>> {
+export function map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(self: rt.Result<rt.Arc<[rt.u8, rt.u8]>, rt.Arc<Any.Any>>, op: (a0: rt.Arc<[rt.u8, rt.u8]>) => [rt.usize, rt.u8]): rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>> {
 	if (self.ok) {
 		return rt.Ok(copy$usize_u8(op(self.value)));
 	}

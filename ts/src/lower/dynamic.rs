@@ -4,7 +4,8 @@
 //! trait's type, which a TS caller can implement. A coercion to one wraps the value in a
 //! class of its type's own, whose methods call that type's impl and whose
 //! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value. An
-//! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be.
+//! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be. A `dyn Any` has no
+//! methods, and a downcast checks for the class of the type it names.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt};
@@ -328,11 +329,13 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 			return Expr::undefined();
 		};
 		let Some(method) = found.methods.iter().find(|m| m.def_id == def_id) else {
-			if self.t.tcx.trait_of_assoc(def_id).is_some_and(|tr| is_any(self.t.tcx, tr)) {
-				return self.err(
-					span,
-					format!("`{}` of `{object}`, which is not supported yet", self.t.tcx.def_path_str(def_id)),
+			let tcx = self.t.tcx;
+			if tcx.trait_of_assoc(def_id).is_some_and(|tr| is_any(tcx, tr)) {
+				let msg = format!(
+					"`{}` of `{object}`, which is not supported yet",
+					tcx.def_path_str(def_id)
 				);
+				return self.err(span, msg);
 			}
 			return self.err(
 				span,
@@ -369,7 +372,10 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		// to `dyn Any` would need the class of the value's own type, which a downcast checks.
 		if pointee.is_trait() {
 			if is_any_object(self.t.tcx, object) && principal(pointee) != principal(object) {
-				return self.err(span, format!("an upcast from `{pointee}` to `{object}`, which is not supported yet"));
+				return self.err(
+					span,
+					format!("an upcast from `{pointee}` to `{object}`, which is not supported yet"),
+				);
 			}
 			return value;
 		}
@@ -398,11 +404,15 @@ pub fn call<'tcx>(
 	out: &mut Vec<Stmt>,
 ) -> Result<Option<Expr>, Vec<Expr>> {
 	let tcx = b.t.tcx;
-	if !matches!((owner, name), ("dyn Any", "is" | "downcast_ref" | "downcast_mut") | ("Box" | "Arc", "downcast")) {
+	if !matches!(
+		(owner, name),
+		("dyn Any", "is" | "downcast_ref" | "downcast_mut") | ("Box" | "Arc", "downcast")
+	) {
 		return Err(args);
 	}
 	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-	let receiver = tcx.instantiate_bound_regions_with_erased(sig).inputs()[0];
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let receiver = sig.inputs()[0];
 	let object = match receiver.kind() {
 		ty::Adt(_, args) => args.type_at(0),
 		_ => receiver.builtin_deref(true).unwrap_or(receiver),
@@ -423,7 +433,11 @@ pub fn call<'tcx>(
 	let o = first(args);
 	let o = if o.is_path() { o } else { b.spill(o, "object", out) };
 	let is = |class: Class| o.clone().binary("instanceof", Expr::Sym(class.sym));
-	let none = b.t.none(to);
+	// What the `Option` of a reference holds, which a `&mut` place never leaves `undefined`.
+	let none = match sig.output().kind() {
+		ty::Adt(_, args) => b.t.none(args.type_at(0)),
+		_ => Expr::undefined(),
+	};
 	let e = match name {
 		"is" => place.into_iter().fold(is(value), |e, place| e.binary("||", is(place))),
 		"downcast_ref" | "downcast_mut" => {
