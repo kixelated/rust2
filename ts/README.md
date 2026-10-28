@@ -87,6 +87,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
+| `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()` |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -229,6 +230,18 @@ panic included. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.
+
+A trait object of the crate's own trait, behind `&`, `&mut`, or `Box`, is an object with
+a method for each function a call can dispatch to, its supertraits' included, named for
+its trait as an impl's function is and taking what follows `self`: `shape.area$Shape()`.
+The trait's module exports its type, `Shape.Shape` from `dyns.Shape.ts`, which a TS
+caller can implement. A coercion wraps the value in a class of its type's, `new
+Shape.Square(sq)`, whose methods call that type's impl; one from a `&mut` to a value JS
+copies holds its `rt.Place`, so `&mut self` writes where the value is. An upcast is the
+same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose]`, which
+a TS caller's object may leave out. A trait object of another crate's trait, but for
+`&dyn Debug` and `&dyn Display`, of a generic trait or one with an associated type, or
+behind any other pointer, such as an `Arc`, is refused.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the

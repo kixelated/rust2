@@ -102,7 +102,7 @@ const floats = [
 const ULPS = 2n;
 
 export function within(input: Uint8Array, native: Uint8Array, translated: Uint8Array): boolean {
-	if (input[0] % 59 !== 58 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
+	if (input[0] % 60 !== 58 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
 	const [a, b] = [native, translated].map((v) => new DataView(v.buffer, v.byteOffset, v.length));
 	// Bits as a line through zero, so the distance between two is how many doubles apart they are.
 	const line = (v: bigint) => (v < 0n ? -(v & 0x7fffffffffffffffn) : v);

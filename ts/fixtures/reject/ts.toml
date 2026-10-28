@@ -58,6 +58,8 @@ roots = [
     "places_equal",
     "fma",
     "float_printed",
+    "shared_object",
+    "generic_object",
     "missing",
 ]
 printable = ["Meters"]

@@ -5,7 +5,7 @@ unsupported type `f32` at fixtures/reject/src/lib.rs:7:14
 a scalar constant of type `f32` at fixtures/reject/src/lib.rs:8:2
 arithmetic on `f32` at fixtures/reject/src/lib.rs:8:2
 unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
-unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:11:16
+`dyn std::ops::Fn(u8) -> u8`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
 `std::iter::IntoIterator::into_iter` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:17:11
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:24:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:23:15
@@ -67,6 +67,9 @@ a mutable reference into a `Result`'s payload, passed on or kept at fixtures/rej
 unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:474:2
 `f64::mul_add`, which rounds once, where JS would round twice at fixtures/reject/src/lib.rs:498:4
 unsupported call to `<f64 as std::fmt::Display>::fmt` at fixtures/reject/src/lib.rs:503:11
+a coercion to `std::sync::Arc<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:518:39
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:527:23
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:528:4
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:155:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:175:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:209:2

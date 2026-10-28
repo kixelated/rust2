@@ -23,6 +23,7 @@ macro_rules! list {
 
 mod closures;
 mod iters;
+mod objects;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
@@ -64,17 +65,18 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
+/// Run scenario `arg % 24`, panicking at the point `arg / 24 % 11` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 23 % 11;
+	let at = arg / 24 % 11;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 23 {
+	match arg % 24 {
+		23 => objects::boxed(log, id, at),
 		22 => closures::iterated(log, id, at),
 		19 => closures::scoped(log, id, at),
 		20 => closures::discarded(log, id, at),

@@ -502,3 +502,28 @@ pub fn fma(a: f64) -> f64 {
 pub fn float_printed(a: f64) -> String {
 	format!("{a}")
 }
+
+pub trait Reading {
+	fn read(&self) -> u8;
+}
+
+impl Reading for u8 {
+	fn read(&self) -> u8 {
+		*self
+	}
+}
+
+/// An `Arc` of a trait object, whose count the `Arc` it was made from shares.
+pub fn shared_object(n: u8) -> u8 {
+	let r: std::sync::Arc<dyn Reading> = std::sync::Arc::new(n);
+	r.read()
+}
+
+pub trait Scaled<T> {
+	fn scale(&self, by: T) -> T;
+}
+
+/// A trait object of a generic trait.
+pub fn generic_object(s: &dyn Scaled<u8>) -> u8 {
+	s.scale(2)
+}
