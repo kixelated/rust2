@@ -19,91 +19,102 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let _64!: Guard.Guard;
 	let cell2!: rt.OnceLock<Guard.Guard>;
 	let other!: rt.OnceCell<Held.Held>;
+	let fresh!: rt.OnceCell<Guard.Guard>;
+	let first!: Guard.Guard;
+	let second!: Guard.Guard;
+	let _142!: Guard.Guard;
+	let second2!: () => Guard.Guard;
 	let cell3!: rt.OnceCell<Guard.Guard>;
 	let taken!: Guard.Guard | undefined;
-	let _166!: Guard.Guard | undefined;
+	let _201!: Guard.Guard | undefined;
 	let cell4!: rt.OnceCell<Guard.Guard>;
 	let cell5!: rt.OnceCell<Guard.Guard>;
 	let _probe!: CellProbe.CellProbe;
 	let lock3!: rt.OnceLock<Guard.Guard>;
 	let _probe2!: LockProbe.LockProbe;
 	let shared!: rt.Arc<Cached.Cached>;
-	let _232!: rt.OnceLock<Held.Held>;
+	let _267!: rt.OnceLock<Held.Held>;
 	let other2!: rt.Arc<Cached.Cached>;
 	let cells!: rt.OnceCell<Guard.Guard>[];
 	let v!: rt.OnceCell<Guard.Guard>[];
 	let cell6!: rt.OnceCell<Guard.Guard | undefined, rt.None>;
-	let _310!: rt.Result<undefined, Guard.Guard | undefined>;
-	let _325!: rt.Result<undefined, Guard.Guard | undefined>;
-	let _405!: boolean;
-	let _406!: boolean;
-	let _407!: boolean;
-	let _408!: boolean;
-	let _409!: boolean;
-	let _410!: boolean;
-	let _411!: boolean;
-	let _412!: boolean;
+	let _345!: rt.Result<undefined, Guard.Guard | undefined>;
+	let _360!: rt.Result<undefined, Guard.Guard | undefined>;
+	let _442!: boolean;
+	let _443!: boolean;
+	let _444!: boolean;
+	let _445!: boolean;
+	let _446!: boolean;
+	let _447!: boolean;
+	let _448!: boolean;
+	let _449!: boolean;
+	let _450!: boolean;
+	let _451!: boolean;
+	let _452!: boolean;
 	let unwind: number = 0;
 	try {
-		_412 = false;
-		_411 = false;
-		_410 = false;
-		_409 = false;
-		_408 = false;
-		_407 = false;
-		_406 = false;
-		_405 = false;
+		_452 = false;
+		_451 = false;
+		_450 = false;
+		_449 = false;
+		_448 = false;
+		_447 = false;
+		_446 = false;
+		_445 = false;
+		_444 = false;
+		_443 = false;
+		_442 = false;
 		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 		};
 		const _6: rt.u8 = rt.u8Rem(at, 8);
 		if (_6 === 0) {
-			_412 = true;
+			_452 = true;
 			cell = new rt.OnceCell(undefined);
-			unwind = 234;
+			unwind = 258;
 			const _19: Guard.Guard = guard(1);
 			_17 = rt.onceSet(cell, _19, rt.drop);
-			unwind = 217;
+			unwind = 237;
 			const part13 = _17.ok;
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part13, f)];
 			const _11: string = rt.fmtFormat(["set ", args2[0]]);
-			unwind = 234;
+			unwind = 258;
 			drop$Result_unit_Guard(_17);
 			Log.note(log, _11);
 			const _28: Guard.Guard = guard(2);
 			refused = rt.onceSet(cell, _28, rt.drop);
-			unwind = 232;
-			_411 = true;
+			unwind = 256;
+			_451 = true;
 			const part14 = !refused.ok;
 			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part14, f)];
 			Log.note(log, rt.fmtFormat(["refused ", args4[0]]));
-			_411 = false;
+			_451 = false;
 			drop$Result_unit_Guard(refused);
 			const part15 = mapOr$Option_Guard_u32_drained_closure4(cell.v, 0, (g2: Guard.Guard): rt.u32 => {
 				return rt.u32Sub(Guard.id(g2), id);
 			});
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part15, f)];
 			Log.note(log, rt.fmtFormat(["held ", args6[0]]));
-			_412 = false;
+			_452 = false;
 			rt.drop(cell);
 			_64 = guard(3);
-			unwind = 216;
+			unwind = 236;
 			const _67: Guard.Guard = guard(4);
-			unwind = 232;
+			unwind = 256;
 			lock = new rt.OnceLock({ tag: "Two", _0: _64, _1: _67 } as Held.Held);
-			unwind = 215;
+			unwind = 235;
 			const _72 = { tag: "One", _0: guard(5) } as Held.Held;
 			drop$Result_unit_Held(rt.onceSet(lock, _72, drop$Held));
 			const part16 = lock.v !== undefined;
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part16, f)];
 			Log.note(log, rt.fmtFormat(["kept ", args8[0]]));
-			unwind = 232;
+			unwind = 256;
 			drop$Option_Held(lock.v);
-			_411 = false;
-			_412 = false;
+			_451 = false;
+			_452 = false;
 		} else if (_6 === 1) {
 			cell2 = new rt.OnceLock(undefined);
-			unwind = 214;
+			unwind = 234;
 			const captured7 = guard(11);
 			const captured8 = guard;
 			const part11 = rt.u32Sub(Guard.id(rt.onceGetOrInit(cell2, rt.closure((): Guard.Guard => {
@@ -151,8 +162,8 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part12, f)];
 			Log.note(log, rt.fmtFormat(["kept ", args12[0]]));
 			other = new rt.OnceCell(undefined);
-			unwind = 230;
-			_410 = true;
+			unwind = 254;
+			_450 = true;
 			const captured11 = guard(15);
 			const captured12 = guard;
 			rt.onceGetOrInit(other, rt.closure((): Held.Held => {
@@ -172,35 +183,74 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			}, (): void => {
 				rt.drop(captured11);
 			}), drop$Held, rt.drop);
-			_410 = false;
+			_450 = false;
 			drop$Option_Held(other.v);
+			fresh = new rt.OnceCell(undefined);
+			unwind = 233;
+			_142 = guard(17);
+			unwind = 232;
+			const _145: Guard.Guard = guard(18);
+			unwind = 250;
+			_449 = true;
+			first = _142;
+			_448 = true;
+			second = _145;
+			_449 = false;
+			const captured13 = first;
+			const captured14 = guard;
+			const first2: () => Guard.Guard = rt.closure((): Guard.Guard => {
+				Guard.note(captured13, "init");
+				return captured14(19);
+			}, (): void => {
+				rt.drop(captured13);
+			});
+			_448 = false;
+			_447 = true;
+			const captured15 = second;
+			const captured16 = guard;
+			second2 = rt.closure((): Guard.Guard => {
+				Guard.note(captured15, "init");
+				return captured16(20);
+			}, (): void => {
+				rt.drop(captured15);
+			});
+			const made2: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(first2), rt.drop, rt.drop)), id);
+			_447 = false;
+			const _161: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(second2), rt.drop, rt.drop)), id);
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(made2, f), (f: rt.Formatter) => rt.u32Display(_161, f)];
+			Log.note(log, rt.fmtFormat(["by ref ", args14[0], " ", args14[1]]));
+			unwind = 254;
+			_447 = false;
+			_448 = false;
+			_449 = false;
+			rt.drop(fresh);
 			unwind = 0;
-			_410 = false;
+			_450 = false;
 			rt.drop(cell2);
 		} else if (_6 === 2) {
 			cell3 = new rt.OnceCell(guard(21));
-			unwind = 228;
-			_409 = true;
+			unwind = 248;
+			_446 = true;
 			taken = rt.onceTake(cell3);
-			unwind = 226;
-			_408 = true;
+			unwind = 246;
+			_445 = true;
 			const part8 = taken !== undefined;
-			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part8, f)];
-			Log.note(log, rt.fmtFormat(["taken ", args14[0]]));
-			_408 = false;
+			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part8, f)];
+			Log.note(log, rt.fmtFormat(["taken ", args16[0]]));
+			_445 = false;
 			rt.drop(taken);
-			_166 = rt.onceTake(cell3);
-			unwind = 213;
-			const part9 = _166 === undefined;
-			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part9, f)];
-			const _160: string = rt.fmtFormat(["empty ", args16[0]]);
-			unwind = 226;
-			rt.drop(_166);
-			Log.note(log, _160);
-			const _174: Guard.Guard = guard(22);
-			drop$Result_unit_Guard(rt.onceSet(cell3, _174, rt.drop));
+			_201 = rt.onceTake(cell3);
+			unwind = 229;
+			const part9 = _201 === undefined;
+			const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part9, f)];
+			const _195: string = rt.fmtFormat(["empty ", args18[0]]);
+			unwind = 246;
+			rt.drop(_201);
+			Log.note(log, _195);
+			const _209: Guard.Guard = guard(22);
+			drop$Result_unit_Guard(rt.onceSet(cell3, _209, rt.drop));
 			rt.drop(new rt.OnceLock(guard(23)).v);
-			_409 = false;
+			_446 = false;
 			const part10 = mapOr$Option_Guard_u32_drained_closure4(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
 				let unwind5: number = 0;
 				try {
@@ -217,13 +267,13 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 					throw e5;
 				}
 			});
-			const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part10, f)];
-			Log.note(log, rt.fmtFormat(["inner ", args18[0]]));
-			_408 = false;
-			_409 = false;
+			const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part10, f)];
+			Log.note(log, rt.fmtFormat(["inner ", args20[0]]));
+			_445 = false;
+			_446 = false;
 		} else if (_6 === 3) {
 			cell4 = new rt.OnceCell(undefined);
-			unwind = 212;
+			unwind = 228;
 			const owned3: Guard.Guard = guard(31);
 			const captured5 = guard;
 			const captured6 = owned3;
@@ -251,10 +301,10 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(cell4);
 		} else if (_6 === 4) {
 			cell5 = new rt.OnceCell(undefined);
-			unwind = 211;
-			const _209: Guard.Guard = guard(40);
-			unwind = 210;
-			_probe = new CellProbe.CellProbe(cell5, _209);
+			unwind = 227;
+			const _244: Guard.Guard = guard(40);
+			unwind = 226;
+			_probe = new CellProbe.CellProbe(cell5, _244);
 			const captured3 = guard(42);
 			const captured4 = id;
 			rt.onceGetOrInit(cell5, rt.closure((): Guard.Guard => {
@@ -262,8 +312,8 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				try {
 					unwind3 = 5;
 					Guard.note(captured3, "init");
-					const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured4, f)];
-					rt.panicFmt(["d", args38[0], " init"]);
+					const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured4, f)];
+					rt.panicFmt(["d", args40[0], " init"]);
 				} catch (e3) {
 					if (unwind3 === 0) {
 						throw e3;
@@ -274,16 +324,16 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			}, (): void => {
 				rt.drop(captured3);
 			}), rt.drop, rt.drop);
-			unwind = 211;
+			unwind = 227;
 			rt.drop(_probe);
 			unwind = 0;
 			rt.drop(cell5);
 		} else if (_6 === 5) {
 			lock3 = new rt.OnceLock(undefined);
-			unwind = 209;
-			const _221: Guard.Guard = guard(50);
-			unwind = 208;
-			_probe2 = new LockProbe.LockProbe(lock3, _221);
+			unwind = 225;
+			const _256: Guard.Guard = guard(50);
+			unwind = 224;
+			_probe2 = new LockProbe.LockProbe(lock3, _256);
 			const captured = guard(52);
 			const captured2 = id;
 			rt.onceGetOrInit(lock3, rt.closure((): Guard.Guard => {
@@ -291,8 +341,8 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				try {
 					unwind2 = 5;
 					Guard.note(captured, "init");
-					const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured2, f)];
-					rt.panicFmt(["d", args36[0], " init"]);
+					const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured2, f)];
+					rt.panicFmt(["d", args38[0], " init"]);
 				} catch (e2) {
 					if (unwind2 === 0) {
 						throw e2;
@@ -303,88 +353,88 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			}, (): void => {
 				rt.drop(captured);
 			}), rt.drop, rt.drop);
-			unwind = 209;
+			unwind = 225;
 			rt.drop(_probe2);
 			unwind = 0;
 			rt.drop(lock3);
 		} else if (_6 === 6) {
-			_232 = new rt.OnceLock(undefined);
-			unwind = 207;
-			const _233: Guard.Guard = guard(61);
+			_267 = new rt.OnceLock(undefined);
+			unwind = 223;
+			const _268: Guard.Guard = guard(61);
 			unwind = 0;
-			shared = new rt.Arc(new Cached.Cached({ sweep: _232, guard: _233 }));
-			unwind = 224;
-			_407 = true;
+			shared = new rt.Arc(new Cached.Cached({ sweep: _267, guard: _268 }));
+			unwind = 244;
+			_444 = true;
 			other2 = rt.arcClone(shared);
-			unwind = 222;
-			_406 = true;
+			unwind = 242;
+			_443 = true;
 			rt.onceGetOrInit(shared.value.sweep, (): Held.Held => {
 				return { tag: "One", _0: guard(62) } as Held.Held;
 			}, drop$Held);
-			_407 = false;
+			_444 = false;
 			rt.drop(shared);
 			const part6 = other2.value.sweep.v !== undefined;
-			const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part6, f)];
-			Log.note(log, rt.fmtFormat(["swept ", args20[0]]));
-			_406 = false;
+			const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part6, f)];
+			Log.note(log, rt.fmtFormat(["swept ", args22[0]]));
+			_443 = false;
 			rt.drop(other2);
 			v = [];
-			unwind = 206;
-			const _268: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(63));
-			v.push(_268);
-			const _274: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
-			v.push(_274);
-			const _277: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(64));
-			v.push(_277);
-			unwind = 220;
-			_405 = true;
+			unwind = 222;
+			const _303: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(63));
+			v.push(_303);
+			const _309: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
+			v.push(_309);
+			const _312: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(64));
+			v.push(_312);
+			unwind = 240;
+			_442 = true;
 			cells = v;
 			const part7 = cells.length;
-			const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part7, f)];
-			Log.note(log, rt.fmtFormat(["cells ", args22[0]]));
-			_405 = false;
+			const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part7, f)];
+			Log.note(log, rt.fmtFormat(["cells ", args24[0]]));
+			_442 = false;
 			rt.dropAll(cells);
 			rt.drop(new rt.OnceLock(guard(65)));
-			_405 = false;
-			_406 = false;
-			_407 = false;
+			_442 = false;
+			_443 = false;
+			_444 = false;
 		} else {
 			cell6 = new rt.OnceCell(rt.None);
-			unwind = 205;
-			_310 = rt.onceSet(cell6, undefined as Guard.Guard | undefined, rt.drop, rt.None);
-			unwind = 204;
-			const part = _310.ok;
-			const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part, f)];
-			const _304: string = rt.fmtFormat(["none ", args24[0]]);
-			unwind = 205;
-			drop$Result_unit_Option_Guard(_310);
-			Log.note(log, _304);
-			const _327: Guard.Guard | undefined = guard(71);
-			_325 = rt.onceSet(cell6, _327, rt.drop, rt.None);
-			unwind = 203;
-			const part2 = !_325.ok;
-			const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
-			const _319: string = rt.fmtFormat(["full ", args26[0]]);
-			unwind = 205;
-			drop$Result_unit_Option_Guard(_325);
-			Log.note(log, _319);
+			unwind = 221;
+			_345 = rt.onceSet(cell6, undefined as Guard.Guard | undefined, rt.drop, rt.None);
+			unwind = 220;
+			const part = _345.ok;
+			const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part, f)];
+			const _339: string = rt.fmtFormat(["none ", args26[0]]);
+			unwind = 221;
+			drop$Result_unit_Option_Guard(_345);
+			Log.note(log, _339);
+			const _362: Guard.Guard | undefined = guard(71);
+			_360 = rt.onceSet(cell6, _362, rt.drop, rt.None);
+			unwind = 219;
+			const part2 = !_360.ok;
+			const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
+			const _354: string = rt.fmtFormat(["full ", args28[0]]);
+			unwind = 221;
+			drop$Result_unit_Option_Guard(_360);
+			Log.note(log, _354);
 			const unit: rt.OnceLock<undefined, rt.None> = new rt.OnceLock(rt.None);
-			unwind = 202;
+			unwind = 218;
 			const part3 = rt.onceSet(unit, undefined, undefined, rt.None).ok;
-			const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
-			Log.note(log, rt.fmtFormat(["unit ", args28[0]]));
+			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
+			Log.note(log, rt.fmtFormat(["unit ", args30[0]]));
 			const part4 = !rt.onceSet(unit, undefined, undefined, rt.None).ok;
-			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
-			Log.note(log, rt.fmtFormat(["again ", args30[0]]));
+			const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
+			Log.note(log, rt.fmtFormat(["again ", args32[0]]));
 			const part5 = cell6.v !== rt.None;
-			const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
-			Log.note(log, rt.fmtFormat(["got ", args32[0]]));
+			const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
+			Log.note(log, rt.fmtFormat(["got ", args34[0]]));
 			unwind = 0;
 			rt.drop(cell6);
 		}
 		unwind = 0;
-		const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
-		Log.note(log, rt.fmtFormat(["d", args34[0], " cells done"]));
+		const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
+		Log.note(log, rt.fmtFormat(["d", args36[0], " cells done"]));
 	} catch (e) {
 		b1: {
 			b2: {
@@ -396,113 +446,137 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 									b8: {
 										b9: {
 											b10: {
-												if (unwind === 0) {
-													throw e;
-												}
-												if (unwind === 202) {
-													break b2;
-												}
-												if (unwind === 203) {
-													drop$Result_unit_Option_Guard(_325);
-													break b2;
-												}
-												if (unwind === 204) {
-													drop$Result_unit_Option_Guard(_310);
-													break b2;
-												}
-												if (unwind === 205) {
-													break b2;
-												}
-												if (unwind === 206) {
-													rt.dropAll(v);
-													break b4;
-												}
-												if (unwind === 207) {
-													drop$Option_Held(_232.v);
-													break b1;
-												}
-												if (unwind === 208) {
-													rt.drop(_probe2);
-													break b5;
-												}
-												if (unwind === 209) {
-													break b5;
-												}
-												if (unwind === 210) {
-													rt.drop(_probe);
-													break b6;
-												}
-												if (unwind === 211) {
-													break b6;
-												}
-												if (unwind === 212) {
-													rt.drop(cell4);
-													break b1;
-												}
-												if (unwind === 213) {
-													rt.drop(_166);
-													break b8;
-												}
-												if (unwind === 214) {
-													break b9;
-												}
-												if (unwind === 215) {
-													drop$Option_Held(lock.v);
-												} else if (unwind === 216) {
-													rt.drop(_64);
-												} else {
-													if (unwind === 217) {
-														drop$Result_unit_Guard(_17);
-														break b10;
-													}
-													if (unwind === 220) {
-														if (!_405) {
+												b11: {
+													b12: {
+														if (unwind === 0) {
+															throw e;
+														}
+														if (unwind === 218) {
+															break b2;
+														}
+														if (unwind === 219) {
+															drop$Result_unit_Option_Guard(_360);
+															break b2;
+														}
+														if (unwind === 220) {
+															drop$Result_unit_Option_Guard(_345);
+															break b2;
+														}
+														if (unwind === 221) {
+															break b2;
+														}
+														if (unwind === 222) {
+															rt.dropAll(v);
 															break b4;
 														}
-														rt.dropAll(cells);
-														break b4;
-													}
-													if (unwind === 222) {
-														break b4;
-													}
-													if (unwind === 224) {
-														break b3;
-													}
-													if (unwind === 226) {
-														break b8;
-													}
-													if (unwind === 228) {
-														break b7;
-													}
-													if (unwind === 230) {
-														if (!_410) {
+														if (unwind === 223) {
+															drop$Option_Held(_267.v);
+															break b1;
+														}
+														if (unwind === 224) {
+															rt.drop(_probe2);
+															break b5;
+														}
+														if (unwind === 225) {
+															break b5;
+														}
+														if (unwind === 226) {
+															rt.drop(_probe);
+															break b6;
+														}
+														if (unwind === 227) {
+															break b6;
+														}
+														if (unwind === 228) {
+															rt.drop(cell4);
+															break b1;
+														}
+														if (unwind === 229) {
+															rt.drop(_201);
+															break b8;
+														}
+														if (unwind === 232) {
+															rt.drop(_142);
+															break b11;
+														}
+														if (unwind === 233) {
+															break b11;
+														}
+														if (unwind === 234) {
 															break b9;
 														}
-														drop$Option_Held(other.v);
-														break b9;
+														if (unwind === 235) {
+															drop$Option_Held(lock.v);
+														} else if (unwind === 236) {
+															rt.drop(_64);
+														} else {
+															if (unwind === 237) {
+																drop$Result_unit_Guard(_17);
+																break b12;
+															}
+															if (unwind === 240) {
+																if (!_442) {
+																	break b4;
+																}
+																rt.dropAll(cells);
+																break b4;
+															}
+															if (unwind === 242) {
+																break b4;
+															}
+															if (unwind === 244) {
+																break b3;
+															}
+															if (unwind === 246) {
+																break b8;
+															}
+															if (unwind === 248) {
+																break b7;
+															}
+															if (unwind === 250) {
+																if (_447) {
+																	rt.drop(second2);
+																}
+																if (_448) {
+																	rt.drop(second);
+																}
+																if (!_449) {
+																	break b11;
+																}
+																rt.drop(first);
+																break b11;
+															}
+															if (unwind === 254) {
+																break b10;
+															}
+															if (unwind !== 256) {
+																break b12;
+															}
+														}
+														if (_451) {
+															drop$Result_unit_Guard(refused);
+														}
 													}
-													if (unwind !== 232) {
-														break b10;
+													if (!_452) {
+														break b1;
 													}
+													rt.drop(cell);
+													break b1;
 												}
-												if (_411) {
-													drop$Result_unit_Guard(refused);
-												}
+												rt.drop(fresh);
 											}
-											if (!_412) {
-												break b1;
+											if (_450) {
+												drop$Option_Held(other.v);
 											}
-											rt.drop(cell);
-											break b1;
 										}
 										rt.drop(cell2);
 										break b1;
 									}
-									if (_408) {
+									if (_445) {
 										rt.drop(taken);
 									}
 								}
-								if (!_409) {
+								if (!_446) {
 									break b1;
 								}
 								rt.drop(cell3);
@@ -514,11 +588,11 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 						rt.drop(lock3);
 						break b1;
 					}
-					if (_406) {
+					if (_443) {
 						rt.drop(other2);
 					}
 				}
-				if (!_407) {
+				if (!_444) {
 					break b1;
 				}
 				rt.drop(shared);

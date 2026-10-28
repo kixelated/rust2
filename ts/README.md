@@ -233,11 +233,11 @@ elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
 panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
-function of its type's own (`drop$Held`). `Option`'s, `Result`'s, and `Poll`'s methods lower
-from core's MIR, so they drop what core's do, where core's do. The runtime functions for
-std's collections, `Arc`, and the std functions that may discard an operand
-(`then_some`, a map's `insert`) take what drops each value they may drop, and drop it
-where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
+function of its type's own (`drop$Held`). `bool`'s, `Option`'s, `Result`'s, and `Poll`'s
+methods lower from core's MIR, so they drop what core's do, where core's do. The runtime
+functions for std's collections, `Arc`, and the std functions that may discard an operand
+(`OnceCell::get_or_init`, a map's `insert`) take what drops each value they may drop, and
+drop it where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
 map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
 what it skips or rejects, and a consumer that takes an iterator by value drops it, a
 panic included: through each `rt.Iter`'s own `fold` where std's folds, which drops each
@@ -501,8 +501,8 @@ a pointer's address (`{:p}`), writing to a
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
 reference, a switch on or a field of another crate's type without a mapping, and std
-functions without a mapping in `src/lower/library.rs`, but for `Option`'s and `Result`'s
-methods that take no `&mut`, which lower from core's MIR.
+functions without a mapping in `src/lower/library.rs`, but for `bool`'s, `Option`'s,
+`Result`'s, and `Poll`'s methods that take no `&mut`, which lower from core's MIR.
 
 ## Tests
 

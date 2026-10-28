@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import * as Stats from "./atomics.Stats.ts";
+import { thenSome$bool_i16, thenSome$bool_i32, thenSome$bool_i64, thenSome$bool_i8, thenSome$bool_isize, thenSome$bool_u16, thenSome$bool_u32$2, thenSome$bool_u64, thenSome$bool_u8, thenSome$bool_usize } from "./core/bool.ts";
 import { isSomeAnd$Option_u8_bools_closure0 } from "./core/option.ts";
 import { unwrapOr$Result_i16_i16, unwrapOr$Result_i32_i32, unwrapOr$Result_i64_i64, unwrapOr$Result_i8_i8, unwrapOr$Result_isize_isize, unwrapOr$Result_u16_u16, unwrapOr$Result_u32_u32, unwrapOr$Result_u64_u64, unwrapOr$Result_u8_u8, unwrapOr$Result_usize_usize } from "./core/result.ts";
 
@@ -120,7 +121,7 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_i16_i16(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i16): rt.i16 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_i16(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i16> = atomic;
@@ -233,7 +234,7 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_i32_i32(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i32): rt.i32 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_i32(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i32> = atomic;
@@ -346,7 +347,7 @@ export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}, rt.i64Eq);
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_i64_i64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
-				return rt.thenSome(rt.i64Ne(x4, v), v);
+				return thenSome$bool_i64(rt.i64Ne(x4, v), v);
 			}, rt.i64Eq), v);
 		} else {
 			const _116: rt.Place<rt.i64> = atomic;
@@ -459,7 +460,7 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_i8_i8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i8): rt.i8 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_i8(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i8> = atomic;
@@ -572,7 +573,7 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_isize_isize(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.isize): rt.isize | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_isize(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.isize> = atomic;
@@ -685,7 +686,7 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_u16_u16(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u16): rt.u16 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_u16(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u16> = atomic;
@@ -798,7 +799,7 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_u32_u32(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u32): rt.u32 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_u32$2(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u32> = atomic;
@@ -911,7 +912,7 @@ export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}, rt.u64Eq);
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_u64_u64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
-				return rt.thenSome(rt.u64Ne(x4, v), v);
+				return thenSome$bool_u64(rt.u64Ne(x4, v), v);
 			}, rt.u64Eq), v);
 		} else {
 			const _116: rt.Place<rt.u64> = atomic;
@@ -1024,7 +1025,7 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_u8_u8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u8): rt.u8 | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_u8(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u8> = atomic;
@@ -1137,7 +1138,7 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_usize_usize(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.usize): rt.usize | undefined => {
-				return rt.thenSome(x4 !== v, v);
+				return thenSome$bool_usize(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.usize> = atomic;
