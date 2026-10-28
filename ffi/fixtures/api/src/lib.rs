@@ -293,6 +293,12 @@ impl Channel {
 		.await
 	}
 
+	/// Wakes `waker` on the next send, keeping it until then, as a driver's poll keeps the
+	/// waker it is given.
+	pub fn notify(&self, waker: Waker) {
+		self.state.lock().unwrap().1 = Some(waker);
+	}
+
 	/// Sends at once, as a function that is not `async` runs when called, and returns a
 	/// future that borrows nothing.
 	pub fn send_later(&self, payload: Bytes) -> impl Future<Output = ()> + use<> {
@@ -461,6 +467,28 @@ impl Drop for Token {
 	}
 }
 
+/// Retry settings: each field is unset until C sets it, and the method of its name
+/// resolves it, as Rust's accessors do. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Retry {
+	pub limit: Option<u32>,
+	pub delay: Option<u32>,
+}
+
+impl Retry {
+	pub fn new(limit: Option<u32>) -> Self {
+		Self { limit, delay: None }
+	}
+
+	pub fn limit(&self) -> u32 {
+		self.limit.unwrap_or(3)
+	}
+
+	pub fn delay(&self) -> u32 {
+		self.delay.unwrap_or(100)
+	}
+}
+
 /// How many tokens have dropped.
 pub fn dropped() -> u32 {
 	DROPPED.load(std::sync::atomic::Ordering::Relaxed)
@@ -593,4 +621,24 @@ pub fn grow(area: &dep::Area, by: u32) -> dep::Area {
 		width: size.width + by,
 		height: size.height + by,
 	})
+}
+
+/// A slot whose method `value` only `Slot<u8>` has, so its path alone names `Slot<u32>`'s
+/// field and `Slot<u8>`'s method. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Slot<T> {
+	pub value: T,
+}
+
+impl<T> Slot<T> {
+	pub fn new(value: T) -> Self {
+		Self { value }
+	}
+}
+
+impl Slot<u8> {
+	/// The value widened and doubled, apart from the field.
+	pub fn value(&self) -> u16 {
+		u16::from(self.value) * 2
+	}
 }

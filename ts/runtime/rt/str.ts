@@ -7,8 +7,10 @@
 // surrogate pair.
 
 import { fmtCharDebug, panic, panicFmt, stringLen } from "../rt.ts";
-import type { char, usize } from "./int.ts";
-import { DONE, type Done, Iter } from "./iter.ts";
+import type { char, u8, usize } from "./int.ts";
+import { DONE, type Done, Iter, iterSlice } from "./iter.ts";
+
+const encoder = /* @__PURE__ */ new TextEncoder();
 
 /** A pattern: a `char` or a `&str`, as its text, or a `FnMut(char) -> bool`. */
 export type Pattern = string | ((c: char) => boolean);
@@ -330,4 +332,34 @@ export function strTrimEndMatches(s: string, p: Pattern): string {
 export function strRfind(s: string, p: Pattern): usize | undefined {
 	const m = new Searcher(s, p);
 	return m.nextMatchBack() ? (utf8Len(s, 0, m.start) as usize) : undefined;
+}
+
+/** A pattern of `[char; N]` or `&[char]`: whether a char is any of `cs`. */
+export function patternChars(cs: ArrayLike<char>): (c: char) => boolean {
+	return (c) => {
+		for (let i = 0; i < cs.length; i++) if (cs[i] === c) return true;
+		return false;
+	};
+}
+
+/** `str::ends_with`. */
+export function strEndsWith(s: string, p: Pattern): boolean {
+	if (typeof p === "string") return s.endsWith(p);
+	return s.length > 0 && p(s.codePointAt(before(s, s.length)) as char);
+}
+
+/** `str::split_once`: the text before the first match and after it. */
+export function strSplitOnce(s: string, p: Pattern): [string, string] | undefined {
+	const m = new Searcher(s, p);
+	return m.nextMatch() ? [s.slice(0, m.start), s.slice(m.end)] : undefined;
+}
+
+/** `str::is_char_boundary`: whether byte `i` starts a char, or is the end. */
+export function strIsCharBoundary(s: string, i: number): boolean {
+	return unitAt(s, 0, 0, i) >= 0;
+}
+
+/** `str::bytes`: its UTF-8 bytes. */
+export function strBytes(s: string): Iter<u8> {
+	return iterSlice(encoder.encode(s));
 }

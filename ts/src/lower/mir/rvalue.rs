@@ -230,6 +230,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			},
 			// An async body's context passes through `ResumeTy` and `NonNull`.
 			CastKind::Transmute if context_like(self, from) && context_like(self, to) => self.operand(op, span, out),
+			// A pattern type, as `NonZero` holds, is its base type's value.
+			CastKind::Transmute if peel_pat(from) == peel_pat(to) => self.operand(op, span, out),
 			_ => self.err(span, format!("a `{kind:?}` cast from `{from}` to `{to}`")),
 		}
 	}
@@ -263,6 +265,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The value is its discriminant.
 					Some(Std::Ordering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
+					Some(Std::Bound) => {
+						let table = discrs
+							.iter()
+							.map(|(i, d)| (Key::Name(adt.variant(*i).name.to_string()), int.lit(*d as i128)))
+							.collect();
+						Expr::Index(Box::new(Expr::Object(table)), Box::new(scrut.member("tag")))
+					}
 					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -308,7 +317,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for op in ops.iter() {
 			let v = self.operand(op, span, out);
 			let is_ref = op.ty(&self.mir.local_decls, self.tcx).is_ref();
-			let reread = is_ref && self.rereadable(&v);
+			let reread = is_ref && v.is_path() && op.place().is_none_or(|place| self.rereads(place));
 			let v = match parts_read && is_ref && !reread {
 				true => self.path(v, "part", out),
 				false => v,
@@ -427,7 +436,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let def = adt.variant(variant);
 		if let Some(std) = Std::of(tcx, def_id) {
 			return match (std, variant.index()) {
-				(Std::Option, 0) => Expr::undefined(),
+				(Std::Option, 0) => self.b.t.none(args.type_at(0)),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				// Either variant is its text.
@@ -436,7 +445,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
-				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
+				(Std::RangeTo | Std::RangeToInclusive, _) => {
+					crate::lower::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
+				}
+				(Std::Reverse, _) => values.pop().unwrap(),
+				(Std::Bound, _) => {
+					let ts_ty = self.b.t.ty(ty, span);
+					crate::lower::library::bound(def.name.as_str(), values.pop(), ts_ty)
+				}
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
@@ -460,7 +476,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => self.err(span, format!("constructing `{ty}`")),
 			};
 		}
-		if super::place::transparent(self.b.t, ty) {
+		if super::place::transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() {
 			return values.pop().unwrap_or_else(Expr::undefined);
 		}
 		match crate::lower::library::std_path(tcx, def_id)
@@ -670,5 +686,13 @@ pub fn memory<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 		Rvalue::Ref(_, _, p) | Rvalue::Discriminant(p) | Rvalue::CopyForDeref(p) | Rvalue::RawPtr(_, p) => place(p),
 		Rvalue::Aggregate(_, ops) => ops.iter().any(operand),
 		Rvalue::ThreadLocalRef(_) | Rvalue::WrapUnsafeBinder(..) | Rvalue::Reborrow(..) => true,
+	}
+}
+
+/// A pattern type's base, or `ty` itself.
+fn peel_pat(ty: Ty<'_>) -> Ty<'_> {
+	match ty.kind() {
+		ty::Pat(base, _) => *base,
+		_ => ty,
 	}
 }

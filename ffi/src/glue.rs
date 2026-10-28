@@ -77,10 +77,11 @@ impl Crate<'_> {
 			packages = self.packages(),
 			lib = self.abi.prefix,
 		);
-		let header = crate::c::header(self.abi, &self.packages());
+		let (header, contract) = crate::c::header(self.abi, &self.packages());
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
+			contract,
 			dependencies: self.exports.iter().map(|export| dependency(&export.root())).collect(),
 			out: String::new(),
 		};
@@ -96,6 +97,8 @@ struct Gen<'a> {
 	abi: &'a Abi<'a>,
 	/// The exported packages, for the docs.
 	packages: String,
+	/// The header's contract, which `<prefix>_contract` returns.
+	contract: u64,
 	/// The name the crate depends on each export by.
 	dependencies: Vec<String>,
 	out: String,
@@ -184,6 +187,7 @@ impl Gen<'_> {
 			Type::Slice | Type::Vec => format!("unsafe {{ {e}.bytes(w) }}.to_vec()"),
 			Type::Bytes => format!("::bytes::Bytes::copy_from_slice(unsafe {{ {e}.bytes(w) }})"),
 			Type::Duration => format!("{e}.lift(w)"),
+			Type::Waker => format!("{e}.lift()"),
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("if {e}.is_null() {{ None }} else {{ Some({}) }}", self.lift(inner, e)),
 				base if Abi::is_buf(base) => {
@@ -260,6 +264,7 @@ impl Gen<'_> {
 			Type::Enum(i) => format!("lower_{}({e})", self.abi.enumeration(*i)),
 			Type::Object(_) => format!("rt::Object::new({e})"),
 			Type::Callback(..) => unreachable!("a callback is never returned"),
+			Type::Waker => unreachable!("a waker is never returned"),
 			Type::Range(_) => format!("rt::Range::lower({e})"),
 			Type::Bound(_) => format!("rt::Bound::lower({e})"),
 			Type::Bounds(_) => format!("rt::Bounds::lower({e})"),
@@ -327,6 +332,10 @@ impl Gen<'_> {
 		let p = self.abi.prefix.clone();
 		self.line(format!(
 			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {p}_buf_free(buf: rt::Buf) {{\n\tunsafe {{ buf.free() }}\n}}\n"
+		));
+		self.line(format!(
+			"#[unsafe(no_mangle)]\npub extern \"C\" fn {p}_contract() -> u64 {{\n\t0x{:016x}\n}}\n",
+			self.contract
 		));
 
 		for (name, ty) in &self.abi.ranges {
@@ -895,7 +904,7 @@ impl Gen<'_> {
 		}
 		let call = match function.access {
 			Access::Call => format!("{callee}({})", args.join(", ")),
-			Access::Field => format!("&({}).{}", args[0], function.name()),
+			Access::Field { .. } => format!("&({}).{}", args[0], function.name()),
 			Access::Const => callee,
 		};
 		let body = stmts.join("\n\t");

@@ -278,6 +278,10 @@ static int script(void) {
 		printf("%zu\n", len);
 	}
 	api_channel_recv_sized_future_free(sized);
+	/* The waker moves into Rust, which drops it once it wakes. */
+	api_channel_notify(channel, waker);
+	api_channel_send(channel, str("rung"));
+	printf("woken %d\n", wakes);
 	api_channel_free(channel);
 
 	/* A value that holds itself is an object. */
@@ -347,8 +351,17 @@ static int script(void) {
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());
 	api_token_free(token);
 	printf("dropped %u\n", api_dropped());
-	/* Each future dropped its waker once it finished. */
-	return drops == 4 ? 0 : 1;
+
+	/* A field and the method of its name, each its own function. */
+	api_retry *retry = api_retry_new((api_option_u32){.some = true, .value = 5});
+	api_option_u32 limit = api_retry_limit_setting(retry);
+	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
+	api_retry_free(retry);
+	api_byte_slot *slot = api_byte_slot_new(200);
+	printf("slot %u\n", api_byte_slot_value(slot));
+	api_byte_slot_free(slot);
+	/* Each future dropped its waker once it finished, and Rust the one it was given. */
+	return drops == 5 ? 0 : 1;
 }
 
 /* Each breaks a contract, which must abort with a message naming the function. */
@@ -384,6 +397,10 @@ static int broken(const char *which) {
 }
 
 int main(int argc, char **argv) {
+	if (api_contract() != API_CONTRACT) {
+		fprintf(stderr, "api.h and the library are from different builds\n");
+		return 1;
+	}
 	if (argc > 1) {
 		return broken(argv[1]);
 	}

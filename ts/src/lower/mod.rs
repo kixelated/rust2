@@ -224,11 +224,29 @@ pub enum ObjectKind {
 }
 
 /// The JS values a type's own can be that `Option` and `Poll` erase to: `None` is
-/// `undefined`, and `Pending` is `rt.Pending`.
+/// `undefined`, or `rt.None` where `Some` can already be `undefined`, and `Pending` is
+/// `rt.Pending`.
 #[derive(Clone, Copy, Default)]
 pub struct Erased {
 	pub undefined: bool,
+	pub none: bool,
 	pub pending: bool,
+	/// A type parameter's value, which each instance decides.
+	pub param: bool,
+}
+
+impl Erased {
+	/// What an `Option` of a type erased so erases to: its `None` is `undefined`, or
+	/// `rt.None` where `Some` can already be `undefined`.
+	fn option(self) -> Self {
+		match self.undefined {
+			true => Self { none: true, ..self },
+			false => Self {
+				undefined: true,
+				..self
+			},
+		}
+	}
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
@@ -916,6 +934,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
 				_ => Some(ObjectKind::Array),
 			},
+			// A JS array, whose elements change in place as an array's do.
+			ty::Tuple(tys) if !tys.is_empty() => Some(ObjectKind::Array),
 			// A binding's value: an object, unless Rust copies it, which JS can't.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
 				(!self.is_copy(ty)).then_some(ObjectKind::Class)
@@ -1041,6 +1061,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			ty::Pat(base, _) => self.ty(*base, span),
 			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
@@ -1101,8 +1122,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match library::Std::of(self.tcx, adt.did())? {
 			library::Std::Option => {
 				let inner = args.type_at(0);
-				self.erases_to(inner).undefined.then(|| {
-					format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`")
+				let erased = self.erases_to(inner);
+				(erased.undefined && erased.none).then(|| {
+					format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `rt.None`")
 				})
 			}
 			library::Std::Poll => {
@@ -1112,10 +1134,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					.then(|| format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"))
 			}
 			library::Std::ControlFlow if library::Flow::of(self.tcx, args) == library::Flow::Option => {
-				let inner = args.type_at(1);
-				self.erases_to(inner)
-					.undefined
-					.then(|| format!("`{ty}` is not supported: its break and its continue would both be `undefined`"))
+				let erased = self.erases_to(args.type_at(1));
+				(erased.undefined && erased.none)
+					.then(|| format!("`{ty}` is not supported: its break and its continue would both be `rt.None`"))
 			}
 			_ => None,
 		}
@@ -1147,11 +1168,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(std) = library::Std::of(tcx, adt.did()) {
 			return match std {
 				library::Std::Option => {
-					let inner = args.type_at(0);
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
 						self.err(span, msg);
 					}
-					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
+					self.option_ty(args.type_at(0), span)
 				}
 				// A lock's result, which is never an error: its guard.
 				library::Std::Result if self.std_of(args.type_at(1)) == Some(library::Std::PoisonError) => {
@@ -1171,8 +1191,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box => self.ty(args.type_at(0), span),
+				library::Std::Box | library::Std::Reverse | library::Std::NonZero => self.ty(args.type_at(0), span),
+				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
+				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),
 				library::Std::Arguments => Type::Rt("Arguments", vec![]),
@@ -1201,6 +1223,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeToInclusive => Type::Object(vec![
+					("end".into(), self.ty(args.type_at(0), span)),
+					("inclusive".into(), Type::Builtin("true")),
+				]),
 				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
@@ -1243,11 +1269,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							};
 							Type::Rt("Result", vec![self.ty(value, span), self.ty(residual.type_at(1), span)])
 						}
-						library::Flow::Option => Type::Union(vec![self.ty(value, span), Type::Builtin("undefined")]),
+						library::Flow::Option => self.option_ty(value, span),
 						library::Flow::Other => Type::Rt("Result", vec![self.ty(value, span), self.ty(residual, span)]),
 					}
 				}
 			};
+		}
+		if let Some(inner) = library::wrapped(tcx, Ty::new_adt(tcx, adt, args)) {
+			return self.ty(inner, span);
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
 		if !adt.did().is_local()
@@ -1263,8 +1292,45 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return Type::Builtin("unknown");
 		}
 		let info = self.adt(adt, span);
+		if let Some(msg) = self.generic_none(adt, args) {
+			self.err(span, msg);
+		}
 		let args = args.types().map(|t| self.ty(t, span)).collect();
 		Type::Sym(info.sym, args)
+	}
+
+	/// Why an instance of the crate's generic `adt` with `args` can't hold its fields' values,
+	/// if it can't: an `Option` over a type parameter that its definition types `T |
+	/// undefined`, whose `None` this instance's `T` makes `rt.None`.
+	fn generic_none(&self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>) -> Option<String> {
+		let tcx = self.tcx;
+		if !args.types().any(|t| self.erases_to(t).undefined) {
+			return None;
+		}
+		adt.all_fields().find_map(|field| {
+			let generic = tcx.type_of(field.did).instantiate_identity().skip_norm_wip();
+			generic.walk().filter_map(|arg| arg.as_type()).find_map(|part| {
+				let ty::Adt(option, option_args) = part.kind() else {
+					return None;
+				};
+				if library::Std::of(tcx, option.did()) != Some(library::Std::Option) {
+					return None;
+				}
+				let inner = option_args.type_at(0);
+				let erased = self.erases_to(inner);
+				if !erased.param || erased.undefined {
+					return None;
+				}
+				let instance = ty::EarlyBinder::bind(tcx, inner).instantiate(tcx, args).skip_norm_wip();
+				self.erases_to(instance).undefined.then(|| {
+					let ty = Ty::new_adt(tcx, adt, args);
+					format!(
+						"`{ty}` is not supported: its field `{}` is `Option<{inner}>`, typed `{inner} | undefined`, whose `None` would be `rt.None` as `Option<{instance}>`",
+						field.name
+					)
+				})
+			})
+		})
 	}
 
 	/// The type of an iterator's items, which every iterator has.
@@ -1278,31 +1344,60 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// The TypeScript type of an `Option<inner>`: `T | undefined`, or `T | rt.None` where
+	/// `T` can already be `undefined`.
+	fn option_ty(&mut self, inner: Ty<'tcx>, span: Span) -> Type {
+		let none = match self.erases_to(inner).undefined {
+			true => Type::Rt("None", vec![]),
+			false => Type::Builtin("undefined"),
+		};
+		Type::Union(vec![self.ty(inner, span), none])
+	}
+
+	/// The JS value of `None` in an `Option<inner>`, and of `Break` in a `ControlFlow`
+	/// that `?` on one makes: `undefined`, or `rt.None` where `inner` can already be
+	/// `undefined`.
+	pub fn none(&self, inner: Ty<'tcx>) -> ts::Expr {
+		self.none_arg(inner).unwrap_or_else(ts::Expr::undefined)
+	}
+
+	/// `rt.None`, if it is an `Option<inner>`'s `None`, which a runtime function taking
+	/// one takes after its own arguments.
+	pub fn none_arg(&self, inner: Ty<'tcx>) -> Option<ts::Expr> {
+		self.erases_to(inner).undefined.then(|| ts::Expr::Rt("None".into()))
+	}
+
 	/// Which of the values `Option` and `Poll` erase to a `ty`'s JS value can already be,
 	/// seen through the wrappers that erase to their contents.
 	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
 			ty::Tuple(tys) if tys.is_empty() => Erased {
 				undefined: true,
-				pending: false,
+				..Erased::default()
 			},
+			ty::Param(_) => Erased {
+				param: true,
+				..Erased::default()
+			},
+			// An `rt.Place`, which is an object.
+			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Box | library::Std::Pin) => self.erases_to(args.type_at(0)),
-				Some(library::Std::Option) => Erased {
-					undefined: true,
-					..self.erases_to(args.type_at(0))
-				},
+				Some(library::Std::Box | library::Std::Pin | library::Std::Reverse | library::Std::NonZero) => {
+					self.erases_to(args.type_at(0))
+				}
+				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
 				Some(library::Std::Poll) => Erased {
 					pending: true,
 					..self.erases_to(args.type_at(0))
 				},
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
-					Erased {
-						undefined: true,
-						..self.erases_to(args.type_at(1))
-					}
+					self.erases_to(args.type_at(1)).option()
 				}
+				Some(library::Std::RangeFull) => Erased {
+					undefined: true,
+					..Erased::default()
+				},
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),

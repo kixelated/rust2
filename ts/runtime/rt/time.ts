@@ -7,7 +7,8 @@
 
 import { type FmtResult, type Formatter, fmtPad, panic } from "../rt.ts";
 import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
-import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u128Add, u128Cast, u128Mul } from "./int.ts";
+import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
+import { type Iter, iterFold } from "./iter.ts";
 
 /** `core::time::Duration`: whole seconds, and the nanoseconds past them, below 10^9. */
 export interface Duration {
@@ -49,6 +50,23 @@ export function durationFromMicros(micros: u64): Duration {
 /** `Duration::from_nanos`. */
 export function durationFromNanos(nanos: u64): Duration {
 	return { secs: u64Div(nanos, NANOS_PER_SEC), nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
+}
+
+/** `Duration::from_mins`, panicking past `u64::MAX` seconds. */
+export function durationFromMins(mins: u64): Duration {
+	return { secs: u64CheckedMul(mins, 60 as u64) ?? panic("overflow in Duration::from_mins"), nanos: 0 };
+}
+
+/** `Duration::from_hours`, panicking past `u64::MAX` seconds. */
+export function durationFromHours(hours: u64): Duration {
+	return { secs: u64CheckedMul(hours, 3600 as u64) ?? panic("overflow in Duration::from_hours"), nanos: 0 };
+}
+
+/** `Duration::from_nanos_u128`, panicking past `u64::MAX` seconds. */
+export function durationFromNanosU128(nanos: u128): Duration {
+	const secs = u64TryFrom(u128Div(nanos, NANOS_PER_SEC));
+	if (!secs.ok) panic("overflow in `Duration::from_nanos_u128`");
+	return { secs: secs.value, nanos: u128Rem(nanos, NANOS_PER_SEC) as number };
 }
 
 /** `Duration::is_zero`. */
@@ -201,6 +219,34 @@ export function durationDiv(d: Duration, n: u32): Duration {
 	return durationCheckedDiv(d, n) ?? panic("divisor should not be zero");
 }
 
+/**
+ * `Sum`, as std sums: the seconds as it goes, and the nanoseconds in a `u64` that carries
+ * into them only when it would overflow and at the end, each overflow past `u64::MAX`
+ * seconds a panic.
+ */
+export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) => void): Duration {
+	const overflow = "sum over duration iterator should not overflow u64::MAX";
+	let secs = 0 as u64;
+	let nanos = 0 as u64;
+	iterFold<Duration, void>(
+		it,
+		undefined,
+		(_, d) => {
+			secs = u64CheckedAdd(secs, d.secs) ?? panic(overflow);
+			const sum = u64CheckedAdd(nanos, d.nanos as u64);
+			if (sum !== undefined) {
+				nanos = sum;
+			} else {
+				secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+				nanos = (u64Rem(nanos, NANOS_PER_SEC) as number) + d.nanos;
+			}
+		},
+		dropIt,
+	);
+	secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+	return { secs, nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
+}
+
 /** `PartialEq::eq`. */
 export function durationEq(a: Duration, b: Duration): boolean {
 	return a.nanos === b.nanos && u64Eq(a.secs, b.secs);
@@ -219,26 +265,39 @@ export function durationHash(d: Duration, s: Hasher): void {
 
 /** `Debug`, as std writes it: `1.5s`, `20ms`, `3µs`, or `0ns`, padded to the width. */
 export function durationDebug(d: Duration, f: Formatter): FmtResult {
-	let whole: u64;
-	let fraction: number;
-	let divisor: number;
-	let unit: string;
-	if (d.secs !== 0) {
-		[whole, fraction, divisor, unit] = [d.secs, d.nanos, NANOS_PER_SEC / 10, "s"];
-	} else if (d.nanos >= 1_000_000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, "ms"];
-	} else if (d.nanos >= 1000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1000), d.nanos % 1000, 100, "µs"];
-	} else {
-		[whole, fraction, divisor, unit] = [d.nanos as u64, 0, 1, "ns"];
-	}
-	// The fraction's digits up to its last nonzero one; no precision is ever given.
+	const prefix = f.spec.plus ? "+" : "";
+	if (d.secs !== 0) return decimal(f, d.secs, d.nanos, NANOS_PER_SEC / 10, prefix, "s");
+	if (d.nanos >= 1_000_000) return decimal(f, Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, prefix, "ms");
+	if (d.nanos >= 1000) return decimal(f, Math.floor(d.nanos / 1000), d.nanos % 1000, 100, prefix, "µs");
+	return decimal(f, d.nanos as u64, 0, 1, prefix, "ns");
+}
+
+/**
+ * std's `fmt_decimal`: `whole`, then the digits of `fraction` from `divisor` down, rounded
+ * half to even to the precision or else up to the last nonzero one.
+ */
+function decimal(f: Formatter, whole: u64, fraction: number, divisor: number, prefix: string, unit: string): FmtResult {
+	const precision = f.spec.precision;
 	let digits = "";
-	while (fraction > 0) {
+	while (fraction > 0 && digits.length < (precision ?? 9)) {
 		digits += Math.floor(fraction / divisor);
 		fraction %= divisor;
 		divisor /= 10;
 	}
-	const text = typeof whole === "number" ? String(whole) : ((BigInt(whole.hi) << 32n) | BigInt(whole.lo)).toString();
-	return fmtPad(f, text + (digits === "" ? "" : `.${digits}`) + unit);
+	let carry = false;
+	if (fraction > 0 && fraction >= divisor * 5) {
+		const last = digits.length > 0 ? Number(digits[digits.length - 1]) : typeof whole === "number" ? whole : whole.lo;
+		if (fraction > divisor * 5 || last % 2 === 1) {
+			const nines = /9*$/.exec(digits)![0].length;
+			const at = digits.length - nines - 1;
+			carry = at < 0;
+			digits = (carry ? "" : digits.slice(0, at) + (Number(digits[at]) + 1)) + "0".repeat(nines);
+		}
+	}
+	const big = typeof whole === "number" ? BigInt(whole) : (BigInt(whole.hi) << 32n) | BigInt(whole.lo);
+	const int = carry ? String(big + 1n) : String(big);
+	const point = Math.min(precision ?? digits.length, 9) > 0 ? `.${digits.padEnd(precision ?? digits.length, "0")}` : "";
+	// A width pads the whole text, which the precision has already cut.
+	const uncut = precision === undefined ? f : { out: f.out, spec: { ...f.spec, precision: undefined } };
+	return fmtPad(uncut, `${prefix}${int}${point}${unit}`);
 }

@@ -182,6 +182,9 @@ fn main() {
 	if let Poll::Ready((payload, len)) = sized.as_mut().poll(&mut cx) {
 		println!("sized {} {len}", String::from_utf8_lossy(&payload));
 	}
+	channel.notify(waker.clone());
+	channel.send(Bytes::from_static(b"rung"));
+	println!("woken {}", count.0.load(Ordering::Relaxed));
 
 	let list = Node {
 		value: 1,
@@ -241,4 +244,15 @@ fn main() {
 	println!("token {} dropped {}", token.id, api_lib::dropped());
 	drop(token);
 	println!("dropped {}", api_lib::dropped());
+
+	let retry = api_lib::Retry::new(Some(5));
+	let limit = retry.limit;
+	println!(
+		"retry {} {} {} {}",
+		u8::from(limit.is_some()),
+		limit.unwrap_or(0),
+		retry.limit(),
+		retry.delay()
+	);
+	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
 }

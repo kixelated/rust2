@@ -31,7 +31,8 @@ package = "moq-net"
 # The prefix of every C name, the package's name in snake case by default.
 prefix = "moq"
 # Paths from the crate root left out: a module, an item, or one method or field. Each
-# must name something exported. Nothing else leaves an item out.
+# must name something exported. Nothing else leaves an item out. As in rustdoc, a path a
+# method or constant shares with a field names the method, and `field@` the field.
 exclude = ["track::Producer::poll_closed"]
 
 # C names, without the prefix, for paths whose names the naming rule makes clash.
@@ -78,6 +79,7 @@ export's, and adds nothing; another crate's type is refused.
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `Duration` | `<prefix>_duration` |
+| `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
@@ -111,9 +113,16 @@ refused, and the census counts why.
   cancelled read never loses a value. The future reuses the last waker when given the same
   one again, and owns what it borrowed: the handle it was called on stays borrowed until
   it finishes or is freed.
+- **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
+  state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
+  from the caller's event loop.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is
@@ -121,7 +130,8 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by `instances`, and a type instance's
+  `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
+  `Backoff::initial`; `field@Backoff::initial` names the field. An instance is named by `instances`, and a type instance's
   methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
   instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
   out of that one; a `rename` of a method by the generic type's path names it at every
@@ -162,5 +172,5 @@ fixture's expected errors, each with its notes, are `fixtures/reject/expected.tx
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
-hands it to a client to publish, reads an OpusHead into hang's catalog through moq-mux,
+hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
 and publishes a binary track the catalog lists.

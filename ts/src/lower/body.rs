@@ -120,8 +120,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
-				self.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
-				return Expr::rt("iterToOption", vec![call]);
+				let option = tcx.instantiate_bound_regions_with_erased(sig).output();
+				self.t.ty(option, span);
+				let ty::Adt(_, option_args) = option.kind() else {
+					unreachable!("`next` returns an `Option`")
+				};
+				let none = self.t.none_arg(option_args.type_at(0));
+				return Expr::rt("iterToOption", [call].into_iter().chain(none).collect());
 			}
 			return call;
 		}
@@ -182,6 +187,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
 				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
+				(library::Std::Reverse, _) => values.pop().unwrap(),
+				(library::Std::Bound, _) => {
+					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
+					library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
+				}
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
 		}

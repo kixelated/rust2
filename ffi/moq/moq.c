@@ -45,6 +45,7 @@ static void wake(void *data) {
 int main(void) {
 	moq_waker waker = {.wake = wake};
 	moq_error *err = NULL;
+	CHECK(moq_contract() == MOQ_CONTRACT);
 
 	moq_broadcast_info *info = moq_broadcast_info_new();
 	moq_broadcast_producer *broadcast = moq_broadcast_info_produce(info);
@@ -201,7 +202,16 @@ int main(void) {
 	moq_path_free(path);
 	moq_broadcast_info_free(stamped);
 	moq_broadcast_producer_free(created);
-	moq_origin_driver_free(driver);
+
+	/* The driver, polled as a language's event loop would: at the time, and with a waiter
+	 * made from the waker and held across polls, since what a poll registers lives only
+	 * as long as its waiter. It runs until every owner of the origin is gone. */
+	moq_waiter *waiter = moq_waiter_new(waker);
+	now = moq_now();
+	moq_instant *deadline = NULL;
+	CHECK(moq_origin_driver_poll(driver, now, waiter, &deadline, &err));
+	moq_instant_free(deadline);
+	moq_instant_free(now);
 	/* A client publishes the origin through moq-net's generic `with_publisher`, which a
 	 * consumer moves into. */
 	moq_client *client = moq_client_new();
@@ -211,7 +221,20 @@ int main(void) {
 	moq_client_free(publishing);
 	moq_origin_consumer_free(published);
 	moq_client_free(client);
+	int before = wakes;
 	moq_origin_producer_free(origin);
+	/* The last owner's drop wakes the driver, which then finishes, cleanly. */
+	CHECK(wakes > before);
+	now = moq_now();
+	deadline = NULL;
+	err = NULL;
+	CHECK(!moq_origin_driver_poll(driver, now, waiter, &deadline, &err));
+	CHECK(deadline == NULL && err != NULL && is(moq_error_to_string(err), "closed"));
+	moq_error_free(err);
+	err = NULL;
+	moq_instant_free(now);
+	moq_waiter_free(waiter);
+	moq_origin_driver_free(driver);
 
 	/* moq-mux reads an OpusHead into hang's catalog config: 44.1 kHz in, stereo, which
 	 * the catalog lists at the decoder's 48 kHz, keeping the head as its description. */
@@ -267,6 +290,13 @@ int main(void) {
 	moq_connect_error unauthorized = MOQ_CONNECT_ERROR_UNAUTHORIZED;
 	CHECK(moq_connect_error_is_auth(&unauthorized));
 	CHECK(is(moq_connect_error_to_string(&unauthorized), "unauthorized"));
+
+	/* A backoff's fields are settings left unset, and the methods of their names resolve them. */
+	moq_backoff *backoff = moq_backoff_default();
+	CHECK(moq_backoff_initial_setting(backoff) == NULL);
+	moq_duration initial = moq_backoff_initial(backoff);
+	CHECK(initial.secs == 1 && initial.nanos == 0);
+	moq_backoff_free(backoff);
 
 	if (failures == 0) {
 		printf("ok\n");

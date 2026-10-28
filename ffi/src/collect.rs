@@ -1173,13 +1173,28 @@ impl<'tcx> Collector<'tcx> {
 	fn getters(&mut self, site: &Site<'tcx>) -> Vec<Function> {
 		let tcx = self.tcx;
 		let mut getters = Vec::new();
+		let self_ty = self.site_ty(site);
 		for field in &tcx.adt_def(site.key.def_id).non_enum_variant().fields {
 			if !field.vis.is_public() {
 				continue;
 			}
 			let name = field.name.to_string();
 			let shown = [&site.shown[..], std::slice::from_ref(&name)].concat();
-			if self.exclude(&shown) {
+			// As in rustdoc, `field@` and the path name the field, and the path alone does
+			// unless a method or constant of this instance takes the name, which it then names.
+			let shared = (tcx.inherent_impls(site.key.def_id).iter())
+				.filter_map(|&imp| Some((imp, self.impl_args(imp, self_ty)?)))
+				.flat_map(|(imp, parent)| {
+					(tcx.associated_items(imp).filter_by_name_unhygienic(field.name)).map(move |item| (item, parent))
+				})
+				.any(|(item, parent)| {
+					matches!(item.kind, ty::AssocKind::Fn { .. } | ty::AssocKind::Const { .. })
+						&& tcx.visibility(item.def_id).is_public()
+						&& self.applies(item.def_id, parent)
+				});
+			let mut key = shown.clone();
+			key[1].insert_str(0, "field@");
+			if self.exclude(&key) || (!shared && self.exclude(&shown)) {
 				continue;
 			}
 			let span = tcx.def_span(field.did);
@@ -1196,10 +1211,10 @@ impl<'tcx> Collector<'tcx> {
 					err: None,
 					future: false,
 					eager: false,
-					access: Access::Field,
+					access: Access::Field { shared },
 					instance: None,
 				}),
-				Err(why) => self.refuse(&shown, "field", span, vec![why], false),
+				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, vec![why], false),
 			}
 		}
 		getters
@@ -2163,6 +2178,11 @@ impl<'tcx> Collector<'tcx> {
 					Type::Bytes
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
 					Type::Duration
+				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Waker"), did) {
+					match pos {
+						Pos::Param => Type::Waker,
+						_ => return Err(why("Waker outside a parameter taken by value", "")),
+					}
 				} else if tcx.lang_items().range_struct() == Some(did) {
 					Type::Range(int(args.type_at(0)).ok_or_else(|| why("Range", args.type_at(0).to_string()))?)
 				} else if Some(did) == self.bound {

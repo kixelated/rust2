@@ -40,15 +40,12 @@ exclude = [
     "auth::Tokens::new",
     "auth::Tokens::set",
     "bytes",
-    "cache::Pool::poll",
     "frame::Buffer",
     "frame::Producer::group",
     "goaway::Consumer::poll",
     "group::Consumer::poll_read_frames",
     "group::Consumer::read_frames",
     "group::Producer::write_frames",
-    "kio",
-    "origin::Driver::poll",
     "origin::Requesting",
     "origin::Routing",
     "server::Handshake",
@@ -118,7 +115,6 @@ exclude = ["Pattern::captures", "Pattern::new", "Pattern::segments", "Patterns::
 exclude = [
     "Deadline::poll",
     "Deadlines::enter",
-    "Deadlines::park",
     "Elapsed",
     "Entered",
     "Instant::from_std",
@@ -140,11 +136,6 @@ exclude = [
 [crates.moq-tokio]
 exclude = [
     "Addrs",
-    # Not refused: each names both a field and a method, whose getters `rename` cannot
-    # tell apart, so both are left out.
-    "Backoff::initial",
-    "Backoff::max",
-    "Backoff::timeout",
     "Client::connect",
     "Listener::accept_health",
     "Listener::local_addr",
@@ -181,6 +172,7 @@ exclude = [
     "crypto::install_default",
     "crypto::provider",
     "failover::Attempt",
+    "field@Log::level",
     "listen::Config::preferred_v4",
     "listen::Config::preferred_v6",
     "listen::Config::version",
@@ -326,6 +318,11 @@ exclude = [
 "connect::Error" = "connect_target_error"
 # The rule makes both this type and `Connection::monitor` `moq_connection_monitor`.
 "connection::Monitor" = "monitor"
+# The rule makes each of these fields and the method of its name, which resolves its
+# default, `moq_backoff_<field>`.
+"field@Backoff::initial" = "backoff_initial_setting"
+"field@Backoff::max" = "backoff_max_setting"
+"field@Backoff::timeout" = "backoff_timeout_setting"
 
 [crates.hang]
 exclude = [
@@ -529,3 +526,37 @@ exclude = [
 # The rule makes these methods and the variants' tags `moq_container_fmp4_chunk_<variant>`.
 "container::fmp4::Chunk::init" = "container_fmp4_chunk_into_init"
 "container::fmp4::Chunk::fragment" = "container_fmp4_chunk_into_fragment"
+
+# The waiter a driver's poll registers, which C makes from its waker and holds across polls.
+[crates.kio]
+exclude = [
+    "Closed",
+    "Consumer",
+    "ConsumerWeak",
+    "Lock",
+    "LockGuard",
+    "MaybeSend",
+    "Mut",
+    "Park::hold",
+    "Pending",
+    "Producer",
+    "ProducerWeak",
+    "PushError",
+    "Queue",
+    "Ref",
+    "Shared",
+    "Task",
+    "Tasks",
+    "Unused",
+    "Waiter::batch",
+    "Waiter::context",
+    "Waiter::poll_future",
+    "Waiter::waker",
+    "Weak",
+    "coop::Budget::poll_yield",
+    "log::Evicted",
+    "log::Read",
+    "log::Reader",
+    "log::Writer",
+    "wait",
+]

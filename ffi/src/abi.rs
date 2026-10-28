@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use rustc_span::Span;
 
-use crate::ir::{Api, Dyn, Function, Int, Receiver, Type};
+use crate::ir::{Access, Api, Dyn, Function, Int, Receiver, Type};
 
 /// A C name claimed twice: the name, then what claimed it first and second.
 pub type Clash = (String, (String, Span), (String, Span));
@@ -161,16 +161,29 @@ impl<'a> Abi<'a> {
 	}
 
 	/// A function's C name: an instance's as the config names it, else a method's through
-	/// its type's, unless renamed itself.
+	/// its type's, unless renamed itself. A field is renamed by `field@` and its path, or
+	/// by its path unless a method or constant takes it.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
 		if let Some(instance) = &function.instance {
 			return format!("{}_{}", self.prefix, instance.name);
 		}
+		let path = function.path.join("::");
+		let shared = match function.access {
+			Access::Field { shared } => {
+				let key = format!("field@{path}");
+				if let Some(renamed) = self.rename.get(&key) {
+					self.renamed.borrow_mut().insert(key);
+					return format!("{}_{renamed}", self.prefix);
+				}
+				shared
+			}
+			_ => false,
+		};
 		let owner = match owner {
 			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
 			_ => return self.name(&function.path),
 		};
-		match self.rename.contains_key(&function.path.join("::")) {
+		match !shared && self.rename.contains_key(&path) {
 			true => self.name(&function.path),
 			false => format!("{owner}_{}", snake(function.name())),
 		}
@@ -234,6 +247,7 @@ impl<'a> Abi<'a> {
 			Type::Char => Ty::Char,
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => Ty::Buf,
 			Type::Duration => Ty::Duration,
+			Type::Waker => Ty::Waker,
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => self.ty(inner),
 				base if Self::is_buf(base) => Ty::Buf,
@@ -387,10 +401,10 @@ impl<'a> Abi<'a> {
 			.map(|r| r.span)
 			.or_else(|| api.objects.first().map(|o| o.span))
 			.unwrap_or(rustc_span::DUMMY_SP);
-		for runtime in ["buf", "buf_free", "duration", "waker", "poll"] {
+		for runtime in ["contract", "buf", "buf_free", "duration", "waker", "poll"] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}
-		for constant in ["POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
+		for constant in ["CONTRACT", "POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
 			let name = format!("{}_{constant}", self.prefix.to_uppercase());
 			self.claim(name, "the runtime".to_string(), crate_span);
 		}
@@ -454,7 +468,10 @@ impl<'a> Abi<'a> {
 		functions.extend(api.functions.iter().map(|f| (f, None)));
 		for (function, owner) in functions {
 			let export = self.export(function, owner.as_ref());
-			let what = format!("fn `{}`", function.path.join("::"));
+			let what = match function.access {
+				Access::Field { .. } => format!("field `{}`", function.path.join("::")),
+				_ => format!("fn `{}`", function.path.join("::")),
+			};
 			self.claim(export.call.name.clone(), what.clone(), function.span);
 			if let Some((handle, poll, free)) = &export.future {
 				self.claim(handle.clone(), what.clone(), function.span);

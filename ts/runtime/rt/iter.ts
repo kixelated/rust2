@@ -18,7 +18,7 @@
 // of iterator has its own, the `owned` functions follow it, dispatching on the kind, so a
 // bundle that never drops an item carries none of it.
 
-import { ByteVec, byteVecPush, Err, Ok, panic, type Result } from "../rt.ts";
+import { ByteVec, byteVecPush, Err, type None, Ok, panic, type RangeBound, type Result } from "../rt.ts";
 import { BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -101,6 +101,29 @@ abstract class Adaptor<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
+/**
+ * An adaptor of `inner` that calls `f`, which drops after it, as std's fields do, once:
+ * a consumer may drop `inner` before dropping the adaptor that holds it.
+ */
+abstract class Calling<S, T, F> extends Adaptor<S, T> {
+	protected readonly f: F;
+	private dropped = false;
+
+	constructor(inner: Iter<S>, f: F) {
+		super(inner);
+		this.f = f;
+	}
+
+	override [Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
+		both(
+			() => dispose(this.inner),
+			() => dispose(this.f),
+		);
+	}
+}
+
 /** Run `a`, then `b` even if `a` panics, as glue drops each field after one panics. */
 function both(a: () => void, b: () => void): void {
 	try {
@@ -111,13 +134,17 @@ function both(a: () => void, b: () => void): void {
 }
 
 /** The item `next` returned, as an `Option`. */
-export function iterToOption<T>(item: T | Done): T | undefined {
-	return item === DONE ? undefined : item;
+export function iterToOption<T>(item: T | Done): T | undefined;
+export function iterToOption<T>(item: T | Done, none: None): T | None;
+export function iterToOption<T>(item: T | Done, none?: None): T | undefined | None {
+	return item === DONE ? none : item;
 }
 
 /** An `Option`, as `next` returns it. */
-export function iterFromOption<T>(option: T | undefined): T | Done {
-	return option === undefined ? DONE : option;
+export function iterFromOption<T>(option: T | undefined): T | Done;
+export function iterFromOption<T>(option: T | None, none: None): T | Done;
+export function iterFromOption<T>(option: T | undefined | None, none?: None): T | Done {
+	return option === none ? DONE : (option as T);
 }
 
 // Where std's iterators come from.
@@ -128,8 +155,10 @@ export function iterSlice<T>(s: ArrayLike<T>, drop?: Drop<T>): Iter<T> {
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */
-export function iterOption<T>(o: T | undefined, drop?: Drop<T>): Iter<T> {
-	return new OptionIter(o, o !== undefined, drop);
+export function iterOption<T>(o: T | undefined, drop?: Drop<T>): Iter<T>;
+export function iterOption<T>(o: T | None, drop: Drop<T> | undefined, none: None): Iter<T>;
+export function iterOption<T>(o: T | undefined | None, drop?: Drop<T>, none?: None): Iter<T> {
+	return new OptionIter(o as T, o !== none, drop);
 }
 
 /** `iter::once`. */
@@ -142,22 +171,17 @@ export function iterEmpty<T>(): Iter<T> {
 	return new OptionIter<T>(undefined, false);
 }
 
-/** `iter::from_fn`, whose closure returns an `Option`. */
+/** `iter::from_fn`, whose closure returns an `Option`, and drops with it. */
 export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
-	return new FromNext(f, (f) => iterFromOption(f()));
+	return new FromNext(f, (f) => iterFromOption(f()), dispose);
 }
 
-/** `iter::successors`: `first`, then `succ` of each item, called as that item is yielded. */
-export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined): Iter<T> {
-	let next = first;
-	return iterFromFn(() => {
-		const item = next;
-		if (item === undefined) return undefined;
-		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
-		next = undefined;
-		next = succ(item);
-		return item;
-	});
+/**
+ * `iter::successors`: `first`, then `succ` of each item, called as that item is yielded.
+ * The item it holds next drops by `drop`, and then `succ`, as std's fields drop.
+ */
+export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>): Iter<T> {
+	return new SuccessorsIter(first, succ, drop);
 }
 
 /** An `impl Iterator` of the translated crate, which `next` calls the `next` of, and `drop` drops. */
@@ -335,8 +359,11 @@ export function iterNth<T>(it: Iter<T>, n: number, drop?: Drop<T>): T | undefine
 }
 
 /** `DoubleEndedIterator::nth_back`, dropping what it skips by `drop`, as its own `nth_back` does. */
-export function iterNthBack<T>(it: Iter<T>, n: number, drop?: Drop<T>): T | undefined {
-	return iterToOption(it.nthBack(n, drop));
+export function iterNthBack<T>(it: Iter<T>, n: number, drop?: Drop<T>): T | undefined;
+export function iterNthBack<T>(it: Iter<T>, n: number, drop: Drop<T> | undefined, none: None): T | None;
+export function iterNthBack<T>(it: Iter<T>, n: number, drop?: Drop<T>, none?: None): T | undefined | None {
+	const item = it.nthBack(n, drop);
+	return item === DONE ? none : item;
 }
 
 /** `Iterator::any`. */
@@ -374,7 +401,7 @@ function rfindItem<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>): T |
 }
 
 /** `f(item)`, dropping `item` by `drop` if it panics. */
-function test<T>(f: (item: T) => boolean, item: T, drop: Drop<T>): boolean {
+function test<T, R>(f: (item: T) => R, item: T, drop: Drop<T>): R {
 	try {
 		return f(item);
 	} catch (e) {
@@ -987,6 +1014,44 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
+/** `Successors`, holding the item it yields next, which drops once, as `Calling` does. */
+class SuccessorsIter<T> extends Iter<T> implements Disposable {
+	private item: T | undefined;
+	private readonly succ: (item: T) => T | undefined;
+	private readonly drop: Drop<T> | undefined;
+	private dropped = false;
+
+	constructor(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>) {
+		super();
+		this.item = first;
+		this.succ = succ;
+		this.drop = drop;
+	}
+
+	next(): T | Done {
+		const item = this.item;
+		if (item === undefined) return DONE;
+		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
+		this.item = undefined;
+		if (this.drop === undefined) this.item = this.succ(item);
+		else this.item = test(this.succ, item, this.drop);
+		return item;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
+		const item = this.item;
+		this.item = undefined;
+		both(
+			() => {
+				if (item !== undefined) this.drop?.(item);
+			},
+			() => dispose(this.succ),
+		);
+	}
+}
+
 /**
  * An iterator borrowed by `&mut`, which forwards only what std's `impl Iterator for &mut
  * I` does, and which dropping drops nothing.
@@ -1028,12 +1093,10 @@ class Borrowed<T> extends Iter<T> {
 	}
 }
 
-class MapIter<T, U> extends Adaptor<T, U> {
-	readonly f: (item: T) => U;
+class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1067,13 +1130,11 @@ class CopiedIter<R, T> extends MapIter<R, T> {
 	}
 }
 
-class FilterIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1086,12 +1147,10 @@ class FilterIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class FilterMapIter<T, U> extends Adaptor<T, U> {
-	private readonly f: (item: T) => U | undefined;
+class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1518,14 +1577,12 @@ class TakeIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class SkipWhileIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 	private flag = false;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1544,14 +1601,12 @@ class SkipWhileIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class TakeWhileIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 	private flag = false;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1567,12 +1622,10 @@ class TakeWhileIter<T> extends Adaptor<T, T> {
 }
 
 /** `MapWhile`, which reads on after `f` returns `None` if called again, as std's does. */
-class MapWhileIter<T, U> extends Adaptor<T, U> {
-	private readonly f: (item: T) => U | undefined;
+class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1659,13 +1712,11 @@ class StepByIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class InspectIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => void;
+class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 	private readonly drop: Drop<T> | undefined;
 
 	constructor(inner: Iter<T>, f: (item: T) => void, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -2122,19 +2173,18 @@ export class RangeInclusive<T> extends Iter<T> {
 		this.int = int;
 	}
 
+	/** std's: `start` steps past the item, so it passes `end`, and only wrapping exhausts it. */
 	next(): T | Done {
 		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const lo = this.lo;
-		if (lt(lo, this.hi)) this.lo = step(lo, 1, this.int)!;
-		else this.exhausted = true;
+		[this.lo, this.exhausted] = stepOverflowing(lo, 1, this.int);
 		return lo;
 	}
 
 	override nextBack(): T | Done {
 		if (rangeInclusiveIsEmpty(this)) return DONE;
 		const hi = this.hi;
-		if (lt(this.lo, hi)) this.hi = step(hi, -1, this.int)!;
-		else this.exhausted = true;
+		[this.hi, this.exhausted] = stepOverflowing(hi, -1, this.int);
 		return hi;
 	}
 
@@ -2191,7 +2241,23 @@ export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> 
 	return range;
 }
 
+/** `RangeInclusive::start_bound`: its start, included. */
+export function rangeInclusiveStartBound<T>(r: RangeInclusive<T>): RangeBound<T> {
+	return { tag: "Included", _0: r.lo };
+}
+
+/** `RangeInclusive::end_bound`: its end, included, until wrapping exhausts it and it excludes its start, as std's. */
+export function rangeInclusiveEndBound<T>(r: RangeInclusive<T>): RangeBound<T> {
+	return r.exhausted ? { tag: "Excluded", _0: r.lo } : { tag: "Included", _0: r.hi };
+}
+
 /** `Step::forward_overflowing` and `backward_overflowing`: `n + by`, wrapped within `int`, and whether it wrapped. */
+/** `Step::forward_overflowing` by `by`, of an integer type's step or a safe number's. */
+function stepOverflowing<T>(n: T, by: number, int: Step<T> | undefined): [T, boolean] {
+	if (int !== undefined) return int(n, by);
+	return [step(n, by, int)!, false];
+}
+
 function overflowing<T>(n: T, by: number, int: Step<T> | undefined): [T, boolean] {
 	if (int === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
 	return int(n, by);

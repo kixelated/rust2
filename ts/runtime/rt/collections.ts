@@ -14,7 +14,7 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { type Place, panic } from "../rt.ts";
+import { type None, type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterSlice, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
@@ -66,8 +66,33 @@ export function cmpTuple<T extends readonly unknown[], O extends Ordering | unde
 }
 
 /** `Ord::cmp` of `Option`s, or `PartialOrd::partial_cmp`, from their values': `None` first. */
-export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O {
-	return (a, b) => (a === undefined ? (b === undefined ? 0 : -1) : b === undefined ? 1 : cmp(a, b)) as O;
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O;
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O, none: None): (a: T | None, b: T | None) => O;
+export function cmpOption<T, O extends Ordering | undefined>(
+	cmp: (a: T, b: T) => O,
+	none?: None,
+): (a: T | undefined | None, b: T | undefined | None) => O {
+	return (a, b) => (a === none ? (b === none ? 0 : -1) : b === none ? 1 : cmp(a as T, b as T)) as O;
+}
+
+/** `Ord::cmp` of `Reverse`s, or `PartialOrd::partial_cmp`: their values', the other way. */
+export function cmpReverse<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T, b: T) => O {
+	return (a, b) => cmp(b, a);
+}
+
+/**
+ * `Ord::cmp` of slices, or `PartialOrd::partial_cmp`, by their elements' in order, then
+ * by length.
+ */
+export function cmpSlice<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: ArrayLike<T>, b: ArrayLike<T>) => O {
+	return (a, b) => {
+		const n = Math.min(a.length, b.length);
+		for (let i = 0; i < n; i++) {
+			const c = cmp(a[i], b[i]);
+			if (c !== 0) return c;
+		}
+		return (a.length < b.length ? -1 : a.length > b.length ? 1 : 0) as O;
+	};
 }
 
 /** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp`: their values'. */
@@ -75,19 +100,40 @@ export function cmpArc<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O
 	return (a, b) => cmp(a.value, b.value);
 }
 
-/** `cmp(a, b)`, which drops `b` and then `a` if it panics, as `max_by`'s unwinding does. */
-function compare<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): Ordering {
+/**
+ * `other < self` of `Ord::max` and `min`, by `cmp`, a `partial_cmp`, which drops `other` and
+ * then `self` if it panics, as their unwinding does.
+ */
+function less<T>(self: T, other: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): boolean {
 	try {
-		return cmp(a, b);
+		return cmp(other, self) === -1;
 	} catch (e) {
-		dropPair(b, a, drop, drop);
+		dropPair(other, self, drop, drop);
 		throw e;
 	}
 }
 
-/** `Ord::max`, by `cmp`: `b` unless `a` is greater, and the other drops. */
-export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
-	if (compare(a, b, cmp, drop) > 0) {
+/**
+ * `Ord::clamp`, by `cmp`, a `partial_cmp`: `min` if `a` is less, `max` if greater, or else
+ * `a`, once `min <= max` is asserted. The operands it does not return drop, the last
+ * first, as std's do.
+ */
+export function ordClamp<T>(a: T, min: T, max: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): T {
+	let out: 0 | 1 | 2 | undefined;
+	try {
+		const order = cmp(min, max);
+		if (order === undefined || order > 0) panic("assertion failed: min <= max");
+		out = cmp(a, min) === -1 ? 1 : cmp(a, max) === 1 ? 2 : 0;
+	} finally {
+		// A panic in one drop still drops the rest, as unwinding does.
+		if (drop !== undefined) dropAll([max, min, a].filter((_, i) => 2 - i !== out), drop);
+	}
+	return out === 1 ? min : out === 2 ? max : a;
+}
+
+/** `Ord::max`, by `cmp`, a `partial_cmp`: `a` if `b < a`, or else `b`, and the other drops. */
+export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): T {
+	if (less(a, b, cmp, drop)) {
 		drop?.(b);
 		return a;
 	}
@@ -95,9 +141,9 @@ export function ordMax<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (val
 	return b;
 }
 
-/** `Ord::min`, by `cmp`: `a` unless it is greater, and the other drops. */
-export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering, drop?: (value: T) => void): T {
-	if (compare(a, b, cmp, drop) > 0) {
+/** `Ord::min`, by `cmp`, a `partial_cmp`: `b` if `b < a`, or else `a`, and the other drops. */
+export function ordMin<T>(a: T, b: T, cmp: (a: T, b: T) => Ordering | undefined, drop?: (value: T) => void): T {
+	if (less(a, b, cmp, drop)) {
 		drop?.(a);
 		return b;
 	}
@@ -131,9 +177,23 @@ export function eqTuple<T extends readonly unknown[]>(fields: readonly ((a: neve
 	};
 }
 
+/** `PartialEq::eq` of slices: their lengths', then their elements' in order. */
+export function eqSlice<T>(eq: (a: T, b: T) => boolean): (a: ArrayLike<T>, b: ArrayLike<T>) => boolean {
+	return (a, b) => {
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+		return true;
+	};
+}
+
 /** `PartialEq::eq` of `Option`s, from their values'. */
-export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean {
-	return (a, b) => (a === undefined || b === undefined ? a === b : eq(a, b));
+export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean;
+export function eqOption<T>(eq: (a: T, b: T) => boolean, none: None): (a: T | None, b: T | None) => boolean;
+export function eqOption<T>(
+	eq: (a: T, b: T) => boolean,
+	none?: None,
+): (a: T | undefined | None, b: T | undefined | None) => boolean {
+	return (a, b) => (a === none || b === none ? a === b : eq(a as T, b as T));
 }
 
 /**
@@ -193,11 +253,24 @@ export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value
 	};
 }
 
-/** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
-export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void {
+/** `Hash::hash` of a slice: its length, then its elements' in order. */
+export function hashSlice<T>(hash: (value: T, s: Hasher) => void): (value: ArrayLike<T>, s: Hasher) => void {
 	return (value, s) => {
-		mix(s, value === undefined ? 0 : 1);
-		if (value !== undefined) hash(value, s);
+		mix(s, value.length);
+		for (let i = 0; i < value.length; i++) hash(value[i], s);
+	};
+}
+
+/** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
+export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void;
+export function hashOption<T>(hash: (value: T, s: Hasher) => void, none: None): (value: T | None, s: Hasher) => void;
+export function hashOption<T>(
+	hash: (value: T, s: Hasher) => void,
+	none?: None,
+): (value: T | undefined | None, s: Hasher) => void {
+	return (value, s) => {
+		mix(s, value === none ? 0 : 1);
+		if (value !== none) hash(value as T, s);
 	};
 }
 
@@ -1155,6 +1228,23 @@ export function btreeClear<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (v
 }
 
 /**
+ * `split_off` of a map or set: the entries from `key` on, moved in order into a tree of
+ * their own. It compares before it moves any, so a panic in `cmp` leaves `m` whole, as
+ * std's does. Like std's, the new tree has a root unless `m` was empty.
+ */
+export function btreeSplitOff<K, V>(m: BTreeMap<K, V>, key: K): BTreeMap<K, V> {
+	const out = btreeNew<K, V>(m.c);
+	if (m.n === 0) return out;
+	const [keys, values] = flatten(m);
+	const i = search(keys, key, m.c);
+	const at = i < 0 ? ~i : i;
+	build(out, keys.slice(at), values.slice(at));
+	build(m, keys.slice(0, at), values.slice(0, at));
+	out.r = true;
+	return out;
+}
+
+/**
  * `retain`, which visits the keys in order and keeps each entry `f` returns true for,
  * dropping each other one as `f` rejects it. A panic in `f` leaves the entries from the
  * one it panicked on, as std's.
@@ -1324,15 +1414,20 @@ export function btreeValues<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (
  * A range of keys or indices, as its value is: `a..b`, `a..=b`, `a..` as `{ start }`, `..b`
  * as `{ end }`, or `..` as `undefined`.
  */
-export type Bounds<K> = { readonly start: K; readonly end: K } | RangeInclusive<K> | { readonly start: K } | { readonly end: K } | undefined;
+export type Bounds<K> =
+	| { readonly start: K; readonly end: K }
+	| RangeInclusive<K>
+	| { readonly start: K }
+	| { readonly end: K; readonly inclusive?: true }
+	| undefined;
 
-/** `RangeBounds`: the start, the end, and whether the end is in the range. */
+/** `RangeBounds`: the start, the end, and whether the end is in the range, as `..=end`'s is. */
 function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefined, boolean] {
 	if (r === undefined) return [undefined, undefined, false];
-	// Exhausted, an inclusive range ends before its end, as its `end_bound` says. A field
-	// test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
-	if ("exhausted" in r) return [{ key: r.lo }, { key: r.hi }, !r.exhausted];
-	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, false];
+	// Exhausted by wrapping, an inclusive range excludes its start, as its `end_bound` says.
+	// A field test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
+	if ("exhausted" in r) return [{ key: r.lo }, { key: r.exhausted ? r.lo : r.hi }, !r.exhausted];
+	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, "inclusive" in r];
 }
 
 /** `BTreeMap::range` and `range_mut`: the entries within `r`. */

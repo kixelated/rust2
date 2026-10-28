@@ -19,8 +19,8 @@ pub fn increment(v: &mut [u32]) {
 	}
 }
 
-/// `None` and `Some(None)` would both be `undefined`.
-pub fn nested(x: Option<Option<u8>>) -> bool {
+/// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
+pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
@@ -28,8 +28,24 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
+/// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
+/// of an `Option<()>`.
+pub struct Maybe<T> {
+	pub value: Option<T>,
+}
+
+pub fn generic_unit(value: Option<()>) -> bool {
+	Maybe { value }.value.is_some()
+}
+
+/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
+pub fn collected(v: &[u8]) -> Option<Vec<()>> {
+	v.iter().map(|&b| (b > 1).then_some(())).collect()
+}
+
+/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
+	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -38,11 +54,13 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// A closure that owns a value that drops, which `map` would hold but never drop.
-pub fn owning_closure(v: &[u8]) -> usize {
+/// A closure that owns a value that drops, which `count`'s `fold` drops before the items
+/// `map` holds, where dropping `map` drops it after.
+pub fn owning_closure(v: Vec<Noisy>) -> usize {
 	let n = Noisy(1);
-	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
-	v.iter().map(f).count()
+	// Through a reference, it owns `n` whole rather than a copy of its field.
+	let f = move |x: Noisy| x.0 + (&n).0;
+	v.into_iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -61,19 +79,9 @@ pub fn async_closure() -> u8 {
 	0
 }
 
-/// Format specs outside what moq uses.
-pub fn specs(n: u8, w: usize) -> [String; 9] {
-	[
-		format!("{n:.2}"),
-		format!("{n:+}"),
-		format!("{n:-}"),
-		format!("{n:b}"),
-		format!("{n:o}"),
-		format!("{n:e}"),
-		format!("{n:x?}"),
-		format!("{n:w$}"),
-		format!("{:p}", &n),
-	]
+/// A pointer's address, which JS has no counterpart of.
+pub fn pointer(n: u8) -> String {
+	format!("{:p}", &n)
 }
 
 /// `fmt::Write` for a `String`, which has no mapping.
@@ -112,11 +120,6 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 /// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
 pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
-}
-
-/// `None` and `Some(Ready(()))` would both be `undefined`.
-pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
-	matches!(p, None)
 }
 
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
@@ -276,11 +279,6 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
-pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
-	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -364,32 +362,61 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
-/// supported.
-pub fn split_chars(s: &str) -> usize {
-	s.split(['a', 'b']).count()
+/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
+/// translation calls `partial_cmp`.
+#[derive(PartialEq, Eq, Ord)]
+pub struct Lopsided(u8);
+
+impl PartialOrd for Lopsided {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.0.cmp(&other.0))
+	}
+
+	fn lt(&self, other: &Self) -> bool {
+		self.0 > other.0
+	}
 }
 
-/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
-/// never drop.
-pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
-	fn id(n: &Noisy) -> u8 {
-		n.0
+pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
+	v.sort();
+	let wins = (1, &a) < (2, &b);
+	wins && a.max(b).0 > 0
+}
+
+/// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
+/// element.
+#[derive(PartialEq, Eq)]
+pub struct Batched(u8);
+
+impl std::hash::Hash for Batched {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
 	}
+
+	fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len());
+	}
+}
+
+pub fn batched(v: Vec<Batched>) -> usize {
+	let mut set = std::collections::HashSet::new();
+	set.insert(v);
+	set.len()
+}
+
+/// Closures that own a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there, and which `for_each` drops before the items it doesn't reach.
+pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
 	let (a, b) = (Noisy(1), Noisy(2));
 	m.entry(1).or_insert_with(move || b);
-	v.iter().any(move |&x| x == id(&a))
+	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
-/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
-/// `successors` does the item it holds next.
-pub fn owning_lazy() -> usize {
-	let (b, c) = (Noisy(2), Noisy(3));
-	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
-	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
-	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
-	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
-	walked + made + held
+/// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
+/// call but never drop.
+pub fn pattern_closure(s: &str) -> bool {
+	let n = Noisy(1);
+	s.contains(move |c: char| c as u8 == (&n).0)
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
@@ -416,12 +443,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 		drop(c);
 	}
 	std::sync::Arc::strong_count(a)
-}
-
-/// `AddAssign` for a `Duration`, which has no mapping.
-pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
-	d += by;
-	d
 }
 
 /// std makes a `&mut` to a value JS copies, which its mapping has as the value.
@@ -451,4 +472,23 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 /// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
 pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
+}
+
+pub struct Part(pub u64);
+
+impl std::iter::Sum<Part> for std::time::Duration {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		std::time::Duration::from_secs(parts.map(|p| p.0 * 2).sum())
+	}
+}
+
+impl std::iter::Sum<Part> for u64 {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		parts.map(|p| p.0 * 2).sum()
+	}
+}
+
+/// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
+pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
+	(a.into_iter().sum(), b.into_iter().sum())
 }

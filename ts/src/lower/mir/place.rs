@@ -108,8 +108,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				part
 			}
 			// A field of an aggregate made once and never changed is its operand: a
-			// reference, held in a path when the aggregate is made, which borrow checking
-			// keeps as it was, or a name that stays put.
+			// reference, held in a path when the aggregate is made unless it reads the same
+			// later, or a name that stays put.
 			(_, _)
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
@@ -415,7 +415,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (breaks, continues) = (args.type_at(0), args.type_at(1));
 				Some(match (Flow::of(tcx, args), variant.index()) {
 					(Flow::Option, 0) => self.b.t.ty(continues, span),
-					(Flow::Option, _) => crate::ts::Type::Builtin("undefined"),
+					(Flow::Option, _) => match self.b.t.erases_to(continues).undefined {
+						true => crate::ts::Type::Rt("None", vec![]),
+						false => crate::ts::Type::Builtin("undefined"),
+					},
 					(Flow::Result | Flow::Other, 0) => result(true, self.b.t.ty(continues, span)),
 					(Flow::Result, _) => self.b.t.ty(breaks, span),
 					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
@@ -450,7 +453,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin) => base,
+				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				// Cast to its variant, which a test narrows only where it reads the field.
+				Some(Std::Bound) => {
+					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
+					let fields = vec![
+						(
+							"tag".to_string(),
+							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
+						),
+						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
+					];
+					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
+				}
 				// A variant MIR reads without a test, since the other can't be, is cast to it.
 				Some(Std::Result) => {
 					let ok = variant.map_or(0, VariantIdx::index) == 0;
@@ -477,13 +493,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					base.member(name)
 				}
-				Some(Std::Range | Std::RangeInclusive) => {
+				Some(Std::Range | Std::RangeInclusive | Std::RangeTo | Std::RangeFrom | Std::RangeToInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
-				_ if transparent(self.b.t, ty) => base,
+				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
 				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
@@ -844,7 +860,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.field(info.state)
 					.binary("===", Expr::lit(value.to_string()))
 			}
-			ty::Adt(adt, _) if adt.is_enum() => {
+			ty::Adt(adt, args) if adt.is_enum() => {
 				let Some((index, _)) = adt.discriminants(tcx).find(|(_, d)| d.val == value) else {
 					return self.err(span, format!("no variant of `{ty}` has discriminant {value}"));
 				};
@@ -866,8 +882,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 					}
 					Some(Std::Option) => match index.index() {
-						0 => scrut.clone().binary("===", Expr::undefined()),
-						_ => scrut.clone().binary("!==", Expr::undefined()),
+						0 => scrut.clone().binary("===", self.b.t.none(args.type_at(0))),
+						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
 						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
@@ -892,6 +908,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Ordering) => scrut
 						.clone()
 						.binary("===", crate::lower::collections::ordering_variant(index)),
+					Some(Std::Bound) => scrut
+						.clone()
+						.member("tag")
+						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}

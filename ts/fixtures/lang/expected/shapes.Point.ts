@@ -6,9 +6,9 @@ import { copy$Point } from "./lib.ts";
 export function fmt$Debug(self: Point, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Point";
 	const _4: string = "x";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.i32Display(self.x, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.i32Debug(self.x, f);
 	const _7: string = "y";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.i32Display(self.y, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.i32Debug(self.y, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
