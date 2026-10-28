@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Option_u8_u8, copy$u32s } from "./lib.ts";
+import { thenSome$bool_u32 } from "./core/bool.ts";
 import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
 import * as Counts from "./refs.Counts.ts";
 import * as Cursor from "./refs.Cursor.ts";
@@ -373,7 +374,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		const _61: rt.Place<rt.u32 | undefined> = rt.place(() => seen, (value8) => seen = value8);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(mapOr$Option_u32_u32_lent_closure4(andThen$Option_u32_u32_lent_closure3(_61.v === undefined ? undefined : rt.place(() => _61.v as rt.u32, (value9) => _61.v = value9), (x4: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined => {
-			return rt.thenSome(rt.u32Rem(x4.v, 3) === 0, x4);
+			return thenSome$bool_u32(rt.u32Rem(x4.v, 3) === 0, x4);
 		}), 0, (x5: rt.Place<rt.u32>): rt.u32 => {
 			x5.v = rt.u32Mul(x5.v, 2);
 			return x5.v;

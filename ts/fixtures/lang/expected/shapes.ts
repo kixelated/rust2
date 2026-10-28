@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Option_Shape, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
+import { then$bool_Vec_u8_new, then$bool_u8_library_closure4 } from "./core/bool.ts";
 import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_iters_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
 import { map$Result_u8_str_u8_library_closure1, mapErr$Result_u8_str_u8_library_closure2 } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
@@ -2106,11 +2107,11 @@ export function library(data: rt.ByteSlice, out: rt.ByteVec): void {
 			break;
 		}
 		const x: rt.u8 = _66;
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(unwrapOr$Option_u8(rt.boolThen(rt.u8Rem(x, 2) === 0, (): rt.u8 => {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(unwrapOr$Option_u8(then$bool_u8_library_closure4(rt.u8Rem(x, 2) === 0, (): rt.u8 => {
 			calls = rt.u8Add(calls, 1);
 			return rt.u8Div(x, 2);
 		}), 238), calls)));
-		rt.byteVecPush(out, mapOr$Option_Vec_u8_u8_library_closure5(rt.boolThen(x > 128, (): rt.ByteVec => {
+		rt.byteVecPush(out, mapOr$Option_Vec_u8_u8_library_closure5(then$bool_Vec_u8_new(x > 128, (): rt.ByteVec => {
 			return new rt.ByteVec();
 		}), 2, (v: rt.ByteVec): rt.u8 => {
 			return v.length & 0xff;

@@ -29,6 +29,8 @@
   `ownedStepBy`: `iterNth`, `iterNthBack`, `iterSkip`, `iterTake`, and `iterStepBy` take
   what drops an item last. `rt.Iter`'s `nthItem` and `nthBackItem` are `nth` and
   `nthBack`, which return `rt.DONE` past the end.
+- `bool::then` and `then_some` lower from core's MIR into `core/bool.ts`, so the runtime
+  no longer exports `boolThen` or `thenSome`.
 - Translation builds std from source for `wasm32-unknown-unknown`, so the toolchain needs
   its `rust-src` component, as the flake's has, and the first run compiles std.
 - `Option`'s and `Result`'s combinators lower from core's MIR into `core/option.ts` and
