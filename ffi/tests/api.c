@@ -143,6 +143,9 @@ static int script(void) {
 	api_counter_free(c);
 	print("label ", api_label_debug(&label), "\n");
 	api_label_free(&label);
+	/* Empty text is not none: only a null pointer is. */
+	api_note empty = {.text = {.ptr = (const uint8_t *)"", .len = 0}};
+	printf("note %s %s\n", api_has_text(empty) ? "true" : "false", api_has_text((api_note){0}) ? "true" : "false");
 
 	/* A tuple returns through one out pointer per element. */
 	api_counter *whole = api_counter_new(str("s"), 7);
