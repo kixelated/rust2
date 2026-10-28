@@ -358,6 +358,7 @@ int script() {
 	std::printf("apply %u\n", api::apply_u32(sides, [](std::uint32_t side) { return side * 3; }));
 	std::printf("report %u\n", api::report_u32(sides, std::make_unique<print_log>()));
 	std::printf("wrapped %llu\n", ull(api::kept_wrap_u32({4})));
+	std::printf("keeps %u\n", api::keeps(std::make_unique<print_log>()).value);
 
 	// Its Drop runs when C++ destroys the handle, not before.
 	{

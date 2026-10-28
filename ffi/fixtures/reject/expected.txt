@@ -12,20 +12,22 @@ fixtures/reject/src/lib.rs:149:1: rust2-ffi: cannot export instance `Cell<std::v
 fixtures/reject/src/lib.rs:14:1: rust2-ffi: cannot export fn `map`: foreign type `std::collections::HashMap`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:159:2: rust2-ffi: cannot export method `Cell<u8>::nest`: instance holding an instance of a type inside it `reject_fixture::Cell<reject_fixture::Cell<u8>>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:178:2: rust2-ffi: cannot export method `Pong<reject_fixture::Ping<u8>>::ping`: instance holding an instance of a type inside it `reject_fixture::Ping<reject_fixture::Pong<reject_fixture::Ping<u8>>>`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:188:1: rust2-ffi: cannot export fn `excluded_cell`: excluded type `reject_fixture::Cell<u16>`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:193:1: rust2-ffi: cannot export fn `listed`: refused type `reject_fixture::Cell<std::vec::Vec<String>>`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:198:1: rust2-ffi: cannot export struct `Fixed`: generic type; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:189:1: rust2-ffi: cannot export instance `Grow<(u32,)>`: tuple; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:192:2: rust2-ffi: cannot export method `Grow<u32>::grow`: refused type `reject_fixture::Grow<(u32,)>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:19:1: rust2-ffi: cannot export fn `generic`: generic parameter `std::marker::Copy`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:201:1: rust2-ffi: cannot export fn `fixed`: const generic `reject_fixture::Fixed`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:206:9: rust2-ffi: cannot export use `HashSet`: re-export of another crate's item `std`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:209:1: rust2-ffi: cannot export fn `lend`: Waker outside a parameter taken by value; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:224:2: rust2-ffi: fn `reject_fixture::Limit::max` and field `reject_fixture::Limit::max` are both `reject_limit_max` in C
-	fixtures/reject/src/lib.rs:216:2: note: field `reject_fixture::Limit::max` is here
-fixtures/reject/src/lib.rs:230:1: rust2-ffi: cannot export fn `spawn`: closure kept past the call `impl FnOnce() + Send + 'static`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:235:1: rust2-ffi: cannot export fn `later`: closure kept past the call `impl FnOnce()`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:240:1: rust2-ffi: cannot export fn `twice`: closure bound `std::clone::Clone`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:246:1: rust2-ffi: cannot export fn `both`: closure type taken twice `F`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:252:1: rust2-ffi: cannot export fn `read`: lent object that borrows `&Text<'_>`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:202:1: rust2-ffi: cannot export fn `excluded_cell`: excluded type `reject_fixture::Cell<u16>`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:207:1: rust2-ffi: cannot export fn `listed`: refused type `reject_fixture::Cell<std::vec::Vec<String>>`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:212:1: rust2-ffi: cannot export struct `Fixed`: generic type; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:215:1: rust2-ffi: cannot export fn `fixed`: const generic `reject_fixture::Fixed`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:220:9: rust2-ffi: cannot export use `HashSet`: re-export of another crate's item `std`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:223:1: rust2-ffi: cannot export fn `lend`: Waker outside a parameter taken by value; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:238:2: rust2-ffi: fn `reject_fixture::Limit::max` and field `reject_fixture::Limit::max` are both `reject_limit_max` in C
+	fixtures/reject/src/lib.rs:230:2: note: field `reject_fixture::Limit::max` is here
+fixtures/reject/src/lib.rs:244:1: rust2-ffi: cannot export fn `spawn`: closure kept past the call `impl FnOnce() + Send + 'static`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:249:1: rust2-ffi: cannot export fn `later`: closure kept past the call `impl FnOnce()`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:254:1: rust2-ffi: cannot export fn `twice`: closure bound `std::clone::Clone`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:260:1: rust2-ffi: cannot export fn `both`: closure type taken twice `F`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:266:1: rust2-ffi: cannot export fn `read`: lent object that borrows `&Text<'_>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:26:1: rust2-ffi: cannot export fn `borrowing`: borrowing future from a function that is not async; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:31:1: rust2-ffi: cannot export fn `nested`: nested Option `std::option::Option<std::boxed::Box<std::option::Option<u32>>>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:40:1: rust2-ffi: cannot export fn `peek`: reference to a handle inside a value `std::boxed::Box<Opaque>`; exclude it in the config to leave it out

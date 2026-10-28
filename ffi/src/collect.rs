@@ -475,7 +475,9 @@ impl<'tcx> Collector<'tcx> {
 				_ => {}
 			}
 		}
-		sites.extend(self.instances.clone());
+		// Typing refuses an instance whose arguments cannot name one, and maps none of its
+		// members, which could name ever larger instances, as `Grow<(T,)>` from `Grow<T>`.
+		sites.extend((self.instances.iter()).filter(|site| self.arguable(site)).cloned());
 		for site in sites {
 			let adt = tcx.adt_def(site.key.def_id);
 			// An object's private fields are no part of its API.
@@ -492,6 +494,19 @@ impl<'tcx> Collector<'tcx> {
 			}
 		}
 		named
+	}
+
+	/// Whether each type argument an instance is named by could map as [`Self::arg`]
+	/// requires: `()`, a primitive, `String`, or an export's type.
+	fn arguable(&self, site: &Site<'tcx>) -> bool {
+		let tcx = self.tcx;
+		site.args.types().take(site.explicit).all(|ty| match ty.kind() {
+			ty::Tuple(list) => list.is_empty(),
+			ty::Bool | ty::Char | ty::Float(_) => true,
+			ty::Int(_) | ty::Uint(_) => int(ty).is_some(),
+			ty::Adt(adt, _) => tcx.lang_items().string() == Some(adt.did()) || self.exported(adt.did().krate),
+			_ => false,
+		})
 	}
 
 	/// The types a function's signature names, bounds included, at each instantiation it
@@ -1467,7 +1482,7 @@ impl<'tcx> Collector<'tcx> {
 		let mut impls = Vec::new();
 		for &param in &instance.kept {
 			let taken = self.closure(def_id, param, args).unwrap_or_else(|| {
-				let callback = self.foreign(def_id, param).expect("a kept parameter takes a callback");
+				let callback = self.taken(def_id, param).expect("a kept parameter takes a callback");
 				Ok(Type::Callback(callback, Dyn::Impl))
 			});
 			match taken {
@@ -1652,11 +1667,18 @@ impl<'tcx> Collector<'tcx> {
 					Err(Why {
 						construct: "callback bound",
 						..
-					}) if self.foreign(def_id, param).is_some() => kept.push(param),
-					Err(why) => match self.each(def_id, param, &base)[..] {
-						[] => errs.push(why),
-						ref each => several.push((i, each.to_vec())),
-					},
+					}) if self.taken(def_id, param).is_some() => kept.push(param),
+					Err(why) => {
+						let mut each = self.each(def_id, param, &base);
+						// Before any trait is declared, it may stay for a foreign implementation.
+						if self.inferring && self.foreign(def_id, param).is_some() {
+							each.push(param);
+						}
+						match each[..] {
+							[] => errs.push(why),
+							_ => several.push((i, each)),
+						}
+					}
 				},
 			}
 		}
@@ -2004,9 +2026,10 @@ impl<'tcx> Collector<'tcx> {
 		Some(Ok(Type::Closure(params, Box::new(ret))))
 	}
 
-	/// The callback a type parameter takes a foreign implementation of: one bounded by a
-	/// single exported trait, and otherwise only by what that implementation meets.
-	fn foreign(&self, def_id: DefId, param: Ty<'tcx>) -> Option<usize> {
+	/// The trait a type parameter may take a foreign implementation of: one bounded by a
+	/// single exported trait without type parameters, and otherwise only by what that
+	/// implementation meets. It does once the trait is declared a callback.
+	fn foreign(&self, def_id: DefId, param: Ty<'tcx>) -> Option<DefId> {
 		let tcx = self.tcx;
 		let mut callback = None;
 		for clause in tcx.clauses_of(def_id).instantiate_identity(tcx).clauses {
@@ -2017,13 +2040,22 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			let tr = bound.def_id();
-			match self.trait_decl(tr) {
-				Some(Decl::Callback(i)) if callback.is_none() => callback = Some(*i),
+			let exported = self.items.iter().any(|(item, _)| *item == tr) && !self.typed(tr);
+			match callback {
+				None if tcx.def_kind(tr) == DefKind::Trait && exported => callback = Some(tr),
 				_ if marker(tcx, tr) => {}
 				_ => return None,
 			}
 		}
 		callback
+	}
+
+	/// The callback a type parameter takes a foreign implementation of, as declared.
+	fn taken(&self, def_id: DefId, param: Ty<'tcx>) -> Option<usize> {
+		match self.trait_decl(self.foreign(def_id, param)?) {
+			Some(Decl::Callback(i)) => Some(*i),
+			_ => None,
+		}
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.

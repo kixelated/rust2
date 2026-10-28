@@ -740,6 +740,14 @@ pub struct Boxed<T> {
 
 pub const BOXED: Boxed<u16> = Boxed { value: 42 };
 
+/// Whether `log` kept a line, boxed: an instance only a function taking a foreign
+/// implementation names.
+pub fn keeps(log: impl Log) -> Boxed<u8> {
+	Boxed {
+		value: u8::from(log.log(2, "keeps")),
+	}
+}
+
 /// `from`'s weight.
 pub fn weigh(from: impl Seed<u32>) -> u32 {
 	from.seed()

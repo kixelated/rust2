@@ -432,6 +432,7 @@ static int script(void) {
 	printf("apply %u\n", api_apply_u32(sides, triple, NULL));
 	printf("report %u\n", api_report_u32(sides, (api_log){.vtable = &print_log}));
 	printf("wrapped %llu\n", (unsigned long long)api_kept_wrap_u32((api_wrap_u32){.value = 4}));
+	printf("keeps %u\n", api_keeps((api_log){.vtable = &print_log}).value);
 
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);

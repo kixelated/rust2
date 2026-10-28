@@ -184,6 +184,20 @@ pub fn ping(value: u8) -> Ping<u8> {
 	Ping(value)
 }
 
+/// A generic type whose method wraps its argument in a tuple: `Grow<(u32,)>` is refused,
+/// as a tuple is no type argument, so inference names nothing through its `grow`.
+pub struct Grow<T>(T);
+
+impl<T> Grow<T> {
+	pub fn grow(self) -> Grow<(T,)> {
+		Grow((self.0,))
+	}
+}
+
+pub fn grow(value: u32) -> Grow<u32> {
+	Grow(value)
+}
+
 /// An instance the config excludes.
 pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0

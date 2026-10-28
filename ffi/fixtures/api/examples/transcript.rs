@@ -284,6 +284,7 @@ fn main() {
 	println!("apply {}", api_lib::apply(sides, |side| side * 3));
 	println!("report {}", api_lib::report(sides, Print));
 	println!("wrapped {}", api_lib::kept(api_lib::Wrap { value: 4u32 }));
+	println!("keeps {}", api_lib::keeps(Print).value);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());
