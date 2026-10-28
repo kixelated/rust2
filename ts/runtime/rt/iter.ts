@@ -101,9 +101,13 @@ abstract class Adaptor<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
-/** An adaptor of `inner` that calls `f`, which drops after it, as std's fields do. */
+/**
+ * An adaptor of `inner` that calls `f`, which drops after it, as std's fields do, once:
+ * a consumer may drop `inner` before dropping the adaptor that holds it.
+ */
 abstract class Calling<S, T, F> extends Adaptor<S, T> {
 	protected readonly f: F;
+	private dropped = false;
 
 	constructor(inner: Iter<S>, f: F) {
 		super(inner);
@@ -111,6 +115,8 @@ abstract class Calling<S, T, F> extends Adaptor<S, T> {
 	}
 
 	override [Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
 		both(
 			() => dispose(this.inner),
 			() => dispose(this.f),
@@ -999,11 +1005,12 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
-/** `Successors`, holding the item it yields next. */
+/** `Successors`, holding the item it yields next, which drops once, as `Calling` does. */
 class SuccessorsIter<T> extends Iter<T> implements Disposable {
 	private item: T | undefined;
 	private readonly succ: (item: T) => T | undefined;
 	private readonly drop: Drop<T> | undefined;
+	private dropped = false;
 
 	constructor(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>) {
 		super();
@@ -1023,6 +1030,8 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 	}
 
 	[Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
 		const item = this.item;
 		this.item = undefined;
 		both(

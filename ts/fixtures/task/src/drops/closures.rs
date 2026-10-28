@@ -281,6 +281,13 @@ pub(super) fn iterated(log: &Log, id: u32, at: u8) {
 		.iter()
 		.for_each(move |&x| log.note(format!("each {}", x + o.id())));
 	log.note(format!("sum {sum}"));
+	// Consumers that count or end an adaptor through what it wraps, which drop its closure
+	// once.
+	let (t, u, v) = (guard(44), guard(45), guard(46));
+	let peeked = [1u32, 2].iter().map(move |&x| x + t.id()).peekable().count();
+	let skipped = [1u32, 2, 3].iter().map(move |&x| x + u.id()).skip(1).count();
+	let last = [1u32, 2].iter().map(move |&x| x + v.id()).skip(1).last();
+	log.note(format!("counted {peeked} {skipped} {last:?}"));
 	// Items made as it goes, which it drops but for the best, before its key's closure.
 	let r = guard(36);
 	let best = [1u32, 2, 3].iter().map(|&n| guard(36 + n)).max_by_key(move |g| {

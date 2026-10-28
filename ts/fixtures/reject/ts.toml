@@ -49,6 +49,7 @@ roots = [
     "cow_made",
     "split_chars",
     "called_closure",
+    "pattern_closure",
     "duration_assign",
     "last_bumped",
     "modified",

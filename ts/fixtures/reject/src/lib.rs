@@ -380,6 +380,13 @@ pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy
 	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
+/// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
+/// call but never drop.
+pub fn pattern_closure(s: &str) -> bool {
+	let n = Noisy(1);
+	s.contains(move |c: char| c as u8 == (&n).0)
+}
+
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
 pub fn cow_matched(c: std::borrow::Cow<'_, str>) -> String {
 	match c {

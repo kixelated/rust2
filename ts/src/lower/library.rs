@@ -504,7 +504,6 @@ fn called_closures<'tcx>(
 	let sig = tcx.instantiate_bound_regions_with_erased(sig);
 	let inputs = sig.inputs().to_vec();
 	let output = sig.output();
-	let bounds = tcx.param_env(call.def_id).caller_bounds();
 	for (i, &input) in inputs.iter().enumerate() {
 		let ty::Param(param) = *input.kind() else {
 			continue;
@@ -513,18 +512,7 @@ fn called_closures<'tcx>(
 		let ty::Closure(_, closure) = ty.kind() else {
 			continue;
 		};
-		// The trait it is called by: `Fn`, then `FnMut`, whichever it is bound by, or else `FnOnce`.
-		let Some(bound) = bounds
-			.clone()
-			.filter_map(|p| p.as_trait_clause())
-			.filter(|t| t.self_ty().skip_binder() == input)
-			.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
-			.min_by_key(|kind| match kind {
-				ty::ClosureKind::Fn => 0,
-				ty::ClosureKind::FnMut => 1,
-				ty::ClosureKind::FnOnce => 2,
-			})
-		else {
+		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
 		if !b.t.drops(ty) {
@@ -564,10 +552,27 @@ fn called_closures<'tcx>(
 	closures
 }
 
-/// The first type `call` takes by value that drops, but for a closure, which
-/// `called_closures` decides.
+/// The trait `def_id` calls its parameter of type `input` by: `Fn`, then `FnMut`,
+/// whichever it is bound by, or else `FnOnce`, or `None` if no function trait bounds it.
+fn called_by<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, input: Ty<'tcx>) -> Option<ty::ClosureKind> {
+	tcx.param_env(def_id)
+		.caller_bounds()
+		.filter_map(|p| p.as_trait_clause())
+		.filter(|t| t.self_ty().skip_binder() == input)
+		.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
+		.min_by_key(|kind| match kind {
+			ty::ClosureKind::Fn => 0,
+			ty::ClosureKind::FnMut => 1,
+			ty::ClosureKind::FnOnce => 2,
+		})
+}
+
+/// The first type `call` takes by value that drops, but for a closure a function trait
+/// bounds, which `called_closures` decides.
 fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = b.t.tcx;
+	let generic = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
+	let generic = tcx.instantiate_bound_regions_with_erased(generic).inputs().to_vec();
 	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
 	let env = b.t.typing_env_pub();
 	// A census's call over type parameters may leave a projection unnormalized.
@@ -580,9 +585,14 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
+	let called = |i: usize, ty: Ty<'tcx>| {
+		matches!(ty.kind(), ty::Closure(..)) && called_by(tcx, call.def_id, generic[i]).is_some()
+	};
 	inputs
 		.into_iter()
-		.find(|&ty| !matches!(ty.kind(), ty::Closure(..)) && b.t.drops(ty))
+		.enumerate()
+		.find(|&(i, ty)| !called(i, ty) && b.t.drops(ty))
+		.map(|(_, ty)| ty)
 }
 
 /// `owner::name` for a standard library function.
