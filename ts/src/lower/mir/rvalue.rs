@@ -436,7 +436,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let def = adt.variant(variant);
 		if let Some(std) = Std::of(tcx, def_id) {
 			return match (std, variant.index()) {
-				(Std::Option, 0) => Expr::undefined(),
+				(Std::Option, 0) => self.b.t.none(args.type_at(0)),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				// Either variant is its text.

@@ -95,7 +95,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				[(field_ty, field)] => self.value(*field_ty, *field, span),
 				_ => self.err(span, format!("a constant of type `{ty}` without one field")),
 			},
-			ty::Adt(adt, _) => {
+			ty::Adt(adt, args) => {
 				let fields = children(valtree);
 				// Its nanoseconds are a pattern type, which only it reads.
 				if Std::of(tcx, adt.did()) == Some(Std::Duration) {
@@ -117,7 +117,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let mut values: Vec<Expr> = fields.into_iter().map(|(t, v)| self.value(t, v, span)).collect();
 				if let Some(std) = Std::of(tcx, adt.did()) {
 					return match (std, variant.index()) {
-						(Std::Option, 0) => Expr::undefined(),
+						(Std::Option, 0) => self.t.none(args.type_at(0)),
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 						(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
@@ -126,9 +126,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
 						{
 							values.pop();
-							let ty::Adt(_, args) = ty.kind() else {
-								unreachable!("matched above")
-							};
 							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}

@@ -282,7 +282,8 @@ pub fn std_impl<'tcx>(
 			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);
-				rt("option", vec![value, f, some])
+				let none = b.t.none_arg(args.type_at(0));
+				rt("option", [vec![value, f, some], none.into_iter().collect()].concat())
 			}
 			(Std::Result, Trait::Debug) => {
 				let ok = b.fmt_fn(tr, args.type_at(0), span);

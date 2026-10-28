@@ -123,7 +123,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				None => v().member("slice").call(Vec::new()),
 			}),
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option) => ret(self.copy_unless(Expr::undefined(), args.type_at(0), span)),
+				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(Expr::Rt("Pending".into()), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
 				Some(Std::Reverse) => ret(self.copied(v(), args.type_at(0), span)),
@@ -144,7 +144,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let (residual, value) = (args.type_at(0), args.type_at(1));
 					ret(match (Flow::of(tcx, args), residual.kind()) {
 						(Flow::Result, ty::Adt(_, residual)) => self.copy_result(value, residual.type_at(1), span),
-						(Flow::Option, _) => self.copy_unless(Expr::undefined(), value, span),
+						(Flow::Option, _) => self.copy_unless(self.none(value), value, span),
 						_ => self.copy_result(value, residual, span),
 					})
 				}

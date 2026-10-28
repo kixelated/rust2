@@ -1040,7 +1040,8 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
 		}
 		ty::Adt(..) if let Some(inner) = option_of(b, ty) => {
-			Expr::rt("cmpOption", vec![cmp_fn(b, inner, partial, span)])
+			let cmp = cmp_fn(b, inner, partial, span);
+			Expr::rt("cmpOption", [cmp].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
@@ -1080,9 +1081,9 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
 		}
 		ty::Adt(..) if let Some(inner) = option_of(b, ty) => match eq_fn(b, inner, span) {
-			// No value of `inner` is `undefined`, so `===` tells `None` from each.
+			// `None` is no value of `inner`, so `===` tells it from each.
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
-			eq => Expr::rt("eqOption", vec![eq]),
+			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
 		// A slice compares its elements by `!=`, which `!eq` stands for only while that is
@@ -1131,7 +1132,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashTuple", vec![Expr::Array(fns)])
 		}
 		ty::Adt(..) if let Some(inner) = option_of(b, ty) => {
-			Expr::rt("hashOption", vec![hash_fn(b, inner, hasher, span)])
+			let hash = hash_fn(b, inner, hasher, span);
+			Expr::rt("hashOption", [hash].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
