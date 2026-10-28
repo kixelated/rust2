@@ -248,6 +248,71 @@ export interface Waker extends Disposable {
 	willWake(other: Waker): boolean;
 }
 
+/**
+ * `Waker::from(arc)`: a waker that holds a count of `arc` and wakes through its `Wake`
+ * impl, `wake` taking that count. Without a `wakeByRef` of its own, one wakes a clone, as
+ * `Wake`'s default does.
+ */
+export class ArcWaker<W> implements Waker {
+	readonly #arc: Arc<W>;
+	readonly #wake: (arc: Arc<W>) => void;
+	readonly #drop: (arc: Arc<W>) => void;
+	readonly #wakeByRef: ((arc: Arc<W>) => void) | undefined;
+
+	constructor(
+		arc: Arc<W>,
+		wake: (arc: Arc<W>) => void,
+		drop: (arc: Arc<W>) => void,
+		wakeByRef?: (arc: Arc<W>) => void,
+	) {
+		this.#arc = arc;
+		this.#wake = wake;
+		this.#drop = drop;
+		this.#wakeByRef = wakeByRef;
+	}
+
+	wake(): void {
+		this.#wake(this.#arc);
+	}
+
+	wakeByRef(): void {
+		if (this.#wakeByRef === undefined) this.#wake(arcClone(this.#arc));
+		else this.#wakeByRef(this.#arc);
+	}
+
+	clone(): Waker {
+		return new ArcWaker(arcClone(this.#arc), this.#wake, this.#drop, this.#wakeByRef);
+	}
+
+	willWake(other: Waker): boolean {
+		return other instanceof ArcWaker && other.#arc === this.#arc;
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop(this.#arc);
+	}
+}
+
+/** `Waker::noop()`'s waker, which does nothing. */
+class NoopWaker implements Waker {
+	wake(): void {}
+
+	wakeByRef(): void {}
+
+	clone(): Waker {
+		return this;
+	}
+
+	willWake(other: Waker): boolean {
+		return other === this;
+	}
+
+	[Symbol.dispose](): void {}
+}
+
+/** `Waker::noop()`: one waker for every call. */
+export const NOOP_WAKER: Waker = /* @__PURE__ */ new NoopWaker();
+
 /** `Context`, which carries only its waker. */
 export type Context = Waker;
 
@@ -255,6 +320,40 @@ export type Context = Waker;
 export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
+
+/**
+ * `future::poll_fn`'s future: each poll calls `f`, which drops with it by `drop`, if it
+ * drops at all: a borrowed `f` does not.
+ */
+export class PollFn<T> implements Future<T> {
+	readonly #f: (cx: Context) => Poll<T>;
+	readonly #drop: ((f: (cx: Context) => Poll<T>) => void) | undefined;
+
+	constructor(f: (cx: Context) => Poll<T>, drop?: (f: (cx: Context) => Poll<T>) => void) {
+		this.#f = f;
+		this.#drop = drop;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#f(cx);
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop?.(this.#f);
+	}
+}
+
+/** `future::Pending`: never ready, and drops as nothing. */
+class Never implements Future<never> {
+	poll(): Poll<never> {
+		return Pending;
+	}
+
+	[Symbol.dispose](): void {}
+}
+
+/** `future::pending()`: one future for every call, since none holds anything. */
+export const NEVER: Future<never> = /* @__PURE__ */ new Never();
 
 /** An `async fn` polled again after it returned. */
 export function asyncFnResumed(): never {

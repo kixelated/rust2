@@ -1,7 +1,9 @@
 //! Rvalues: arithmetic, casts, aggregates, and closures.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::FxHashSet;
 use rustc_index::IndexVec;
+use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, AggregateKind, BinOp, CastKind, Operand, Place, Rvalue, UnOp};
 use rustc_middle::ty::adjustment::PointerCoercion;
 use rustc_middle::ty::{self, Instance, Ty};
@@ -438,7 +440,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(Std::Option, 0) => self.b.t.none(args.type_at(0)),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
-				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
+				(Std::Option | Std::Poll | Std::Pin, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
@@ -546,10 +548,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let tcx = self.tcx;
+		let instance = Instance::new_raw(def_id, args);
+		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {
+			return Expr::undefined();
+		};
+		let rebound = rebound_captures(&mir);
 		// A capture by reference reads the place it borrows; one by value is the value as
-		// it was when the closure was made, a reference held in a variable included.
+		// it was when the closure was made, a reference held in a variable included, which
+		// a closure that assigns it whole reassigns.
 		let mut captures = Vec::with_capacity(ops.len());
-		for op in ops.iter() {
+		for (field, op) in ops.iter_enumerated() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
 			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does.
 			if let Some(local) = op.place().and_then(|p| p.as_local())
@@ -575,17 +583,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				false => value,
 				true => {
 					let name = self.b.fresh("captured");
-					let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
+					let stmt = StmtKind::decl(rebound.contains(&field), name.clone(), None, Some(value)).at(None);
 					self.emit(vec![stmt], None, false, out);
 					Expr::ident(name)
 				}
 			};
 			captures.push(Capture { value, pointee: false });
 		}
-		let instance = Instance::new_raw(def_id, args);
-		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {
-			return Expr::undefined();
-		};
 		let sig = tcx.instantiate_bound_regions_with_erased(args.as_closure().sig());
 		let ret = self
 			.b
@@ -606,6 +610,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			None => f,
 		}
 	}
+}
+
+/// The captures a closure's body `mir` assigns whole or borrows mutably, other than to
+/// drop them: what JS rebinds where Rust writes the closure's own copy.
+fn rebound_captures(mir: &mir::Body<'_>) -> FxHashSet<FieldIdx> {
+	struct Rebound(FxHashSet<FieldIdx>);
+	impl<'tcx> Visitor<'tcx> for Rebound {
+		fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+			if place.local.as_u32() != 1
+				|| !cx.is_mutating_use()
+				|| cx == PlaceContext::MutatingUse(MutatingUseContext::Drop)
+			{
+				return;
+			}
+			let projection = match place.projection.as_slice() {
+				[mir::ProjectionElem::Deref, rest @ ..] => rest,
+				all => all,
+			};
+			if let [mir::ProjectionElem::Field(field, _)] = projection {
+				self.0.insert(*field);
+			}
+		}
+	}
+	let mut rebound = Rebound(FxHashSet::default());
+	rebound.visit_body(mir);
+	rebound.0
 }
 
 /// Whether a `ty`'s JS value is the task's context: `&mut Context`, or the `ResumeTy` and
