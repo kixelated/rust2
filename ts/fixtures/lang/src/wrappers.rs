@@ -128,6 +128,19 @@ pub fn wrappers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let mut queued = lo..=hi;
 			out.push(queued.by_ref().collect::<std::collections::VecDeque<_>>().len() as u8);
 			bounds(out, queued);
+			let mut hashed = lo..=hi;
+			out.push(hashed.by_ref().collect::<std::collections::HashSet<_>>().len() as u8);
+			bounds(out, hashed);
+			let mut extended = lo..=hi;
+			let mut held = Vec::new();
+			held.extend(extended.by_ref());
+			out.push(held.len() as u8);
+			bounds(out, extended);
+			// Bytes, which collect into their own `Vec<u8>`.
+			let mut narrow = (lo as u8)..=(hi as u8);
+			out.extend(narrow.by_ref().collect::<Vec<u8>>());
+			out.push(*narrow.start());
+			out.push(narrow.is_empty() as u8);
 			bounds(out, ..b);
 			bounds(out, ..=b);
 			bounds(out, a..);
