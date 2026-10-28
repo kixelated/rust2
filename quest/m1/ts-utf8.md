@@ -11,7 +11,7 @@ past [moq-dev/moq#6843](https://github.com/moq-dev/moq/pull/6843), whose decoder
 
 Decided with the maintainer on 2026-10-27: the exporter and the translator share one moq
 pin, so [the exporter's pin bump](https://github.com/kixelated/rust2/pull/144) merges once
-this and [the `Vec` view fix](/quest/m1/ts-vec-view.md) pass at its revision.
+this passes at its revision.
 
 - `TextDecoder` with `fatal` rejects what std rejects, but the error position must be std's
   `valid_up_to` and `error_len`, so check its edge cases (truncated sequences, surrogates,

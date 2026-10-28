@@ -24,3 +24,4 @@ generic std gap is planned here even when moq never calls it.
 - [An inclusive range drained by a fold](/quest/m3/ts-range-fold.md) - a folded `RangeInclusive` ends in core's state
 - [bool's combinators from core's MIR](/quest/m3/ts-bool-core.md) - `bool::then` lowers from core, retiring `rt.boolThen`
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
+- [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
