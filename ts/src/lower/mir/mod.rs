@@ -3273,6 +3273,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			{
 				*e = Expr::result(ctor == "Ok", arg.clone());
 			}
+			// An `Ok` made in place unwraps to its value, as a lock's does, unless what would
+			// show or replace an error has an effect.
+			if let Expr::Call(f, args) = &*e
+				&& let (Expr::Rt(unwrap), [result, rest @ ..]) = (&**f, args.as_slice())
+				&& matches!(unwrap.as_str(), "resultUnwrap" | "resultExpect" | "resultUnwrapOrElse")
+				&& let Expr::Call(ok, value) = result.unlocated()
+				&& matches!(&**ok, Expr::Rt(ok) if ok == "Ok")
+				&& let [value] = value.as_slice()
+				&& rest
+					.iter()
+					.all(|e| e.is_path() || matches!(e.unlocated(), Expr::Arrow(..) | Expr::Lambda(..)))
+			{
+				*e = value.clone();
+			}
 			true
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),

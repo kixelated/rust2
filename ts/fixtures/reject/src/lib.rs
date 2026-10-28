@@ -530,3 +530,10 @@ pub fn rebound_reference(a: &u32, b: &u32) -> (u32, u32) {
 	let mut y = c;
 	(x(), y())
 }
+
+/// `get_mut` of a mutex of a number, whose `&mut` the mapping would copy.
+pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
+	let n = m.get_mut().unwrap();
+	*n += 1;
+	*n
+}

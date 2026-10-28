@@ -250,4 +250,11 @@ const shared = [[], [1], [0, 0], [255, 255, 0, 1, 2, 3, 4, 5], [7, 0xff, 255, 25
 	Uint8Array.of(op("dyns::shared"), 0, ...bytes),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells, ...shared];
+/**
+ * `locks` scripts: writes through guards and reads, `get_mut`, and a lock matched.
+ */
+const locks = [[0, 1, 5, 6, 2, 7, 3, 8, 3, 0, 1], [4, 0, 4, 1], [2, 9, 2, 10, 4, 1], [3, 3, 4, 0]].map(
+	(bytes) => Uint8Array.of(op("locks::locks"), 0, ...bytes),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells, ...shared, ...locks];
