@@ -61,8 +61,12 @@ pub enum Std {
 	Context,
 	/// `rt.Poll<T>`: `T` itself, or `rt.Pending`.
 	Poll,
-	/// Its pointer.
+	/// Its pointer, or the value `pin!` pins in a `PinMacroHelper`.
 	Pin,
+	/// `rt.PollFn`: `poll_fn`'s future, which owns its function.
+	PollFn,
+	/// `future::Pending`: `rt.NEVER`, a future never ready.
+	Pending,
 	/// `rt.Range`, an iterator with `start` and `end` fields.
 	Range,
 	/// `rt.RangeInclusive`.
@@ -138,6 +142,7 @@ impl Std {
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
 			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
 			(rustc_span::Symbol::intern("HashSet"), Self::HashSet),
 			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
@@ -189,6 +194,8 @@ impl Std {
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
+			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
 			["cmp", "Reverse"] => Some(Self::Reverse),
@@ -449,7 +456,7 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 }
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
-/// than mapping here: a method of `Option` or `Result`, or their `Clone`. Not one taking a
+/// than mapping here: a method of `Option`, `Result`, or `Poll`, or their `Clone`. Not one taking a
 /// `&mut` or a raw pointer, whose writes the crate's analysis of what it writes into
 /// would miss, nor an `unsafe` one, nor one mapped below as one expression or as the
 /// runtime's panic.
@@ -467,7 +474,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
 		return false;
 	};
-	let Some(std @ (Std::Option | Std::Result)) = Std::of(tcx, adt.did()) else {
+	let Some(std @ (Std::Option | Std::Result | Std::Poll)) = Std::of(tcx, adt.did()) else {
 		return false;
 	};
 	let sig = tcx.fn_sig(did).instantiate_identity().skip_norm_wip().skip_binder();
@@ -639,8 +646,10 @@ fn called_closures<'tcx>(
 		}
 		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
 		if mentions(output) {
+			// An `rt.Iter` or `rt.PollFn` drops the closure it holds.
 			let held = matches!(output.kind(), ty::Adt(adt, args)
-				if super::iter::holds_closure(tcx, adt.did()) && args.types().any(|a| a == input));
+				if (super::iter::holds_closure(tcx, adt.did()) || Std::of(tcx, adt.did()) == Some(Std::PollFn))
+					&& args.types().any(|a| a == input));
 			if !held {
 				closures.leaked = closures.leaked.or(Some(ty));
 			}

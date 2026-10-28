@@ -78,6 +78,13 @@ impl Header<'_> {
 			Ty::Poll => space(&self.abi.rt("poll")),
 			Ty::Out(inner) => self.decl(inner, &format!("*{name}")),
 			Ty::In(inner) => format!("const {}", self.decl(inner, &format!("*{name}"))),
+			Ty::Fn(params, ret) => {
+				let params: Vec<String> = std::iter::once("void *data".to_string())
+					.chain(params.iter().map(|p| self.decl(p, "")))
+					.collect();
+				self.decl(ret, &format!("(*{name})({})", params.join(", ")))
+			}
+			Ty::Data => format!("void *{name}"),
 		}
 	}
 
@@ -384,6 +391,8 @@ impl Header<'_> {
 			.call
 			.params
 			.iter()
+			// A lent function's data follows it, and is no parameter of its own.
+			.filter(|(_, ty)| *ty != Ty::Data)
 			.zip(by_value)
 			.filter(|((_, ty), by_value)| *by_value && matches!(ty, Ty::Handle { constant: false, .. }))
 			.map(|((name, _), _)| format!("`{name}`"))
@@ -393,6 +402,24 @@ impl Header<'_> {
 				"\n\nMoves the value out of {}: free the handle after.",
 				moved.join(" and ")
 			));
+		}
+		for param in &function.params {
+			let Type::Closure(params, _) = &param.ty else {
+				continue;
+			};
+			let name = abi::escape(&param.name);
+			let at = (export.call.params.iter())
+				.position(|(n, _)| *n == name)
+				.expect("a C parameter for each");
+			let data = &export.call.params[at + 1].0;
+			docs.push_str(&format!(
+				"\n\nRust calls `{name}` with `{data}` only during the call, from any thread."
+			));
+			if params.iter().any(|p| matches!(p.base(), Type::Object(_))) {
+				docs.push_str(&format!(
+					"\nA handle it lends lives only for that call of `{name}`: free none, nor move out of one."
+				));
+			}
 		}
 		self.out.push_str(&comment(docs.trim(), ""));
 		if let Some((handle, poll, free)) = &export.future {

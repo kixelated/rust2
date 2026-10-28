@@ -166,8 +166,8 @@ struct Collector<'tcx> {
 	/// Items the walk left out, and why: `excluded` or `doc(hidden)`.
 	left_out: rustc_data_structures::fx::FxHashMap<DefId, &'static str>,
 	/// The type parameters of the function being mapped that take a foreign
-	/// implementation, with the callback each takes.
-	impls: std::cell::RefCell<Vec<(Ty<'tcx>, usize)>>,
+	/// implementation or a lent closure, with the type each takes.
+	impls: std::cell::RefCell<Vec<(Ty<'tcx>, Type)>>,
 	bytes: Option<DefId>,
 	/// `std::ops::Bound`, and `std::ops::RangeBounds`, which names it.
 	bound: Option<DefId>,
@@ -956,6 +956,12 @@ impl<'tcx> Collector<'tcx> {
 					if let Some(err) = &function.err {
 						returns(api, err, &mut reached);
 					}
+					// A closure's objects are lent to C for each call of it.
+					for param in &function.params {
+						if let Type::Closure(params, _) = &param.ty {
+							params.iter().for_each(|ty| returns(api, ty, &mut reached));
+						}
+					}
 				}
 			}
 			reached.retain(|&i| !held[i]);
@@ -1366,11 +1372,7 @@ impl<'tcx> Collector<'tcx> {
 			let (clause, _) = clause.skip_norm_wip();
 			if let Some(trait_pred) = clause.as_trait_clause() {
 				let tr = trait_pred.def_id();
-				let auto = [sym::Send, sym::Sync]
-					.iter()
-					.any(|&item| tcx.is_diagnostic_item(item, tr))
-					|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
-				if !auto {
+				if !marker(tcx, tr) {
 					errs.push(why("supertrait", tcx.def_path_str(tr)));
 				}
 			}
@@ -1641,6 +1643,13 @@ impl<'tcx> Collector<'tcx> {
 				_ if i < count => {}
 				GenericArgKind::Lifetime(_) => {}
 				GenericArgKind::Const(_) => errs.push(why("const generic", "")),
+				// The parameter stays, and `ty` maps it to the closure.
+				GenericArgKind::Type(param) if let Some(closure) = self.closure(def_id, param, &base) => {
+					match closure {
+						Ok(closure) => self.impls.borrow_mut().push((param, closure)),
+						Err(why) => errs.push(why),
+					}
+				}
 				GenericArgKind::Type(param) => match self.choose(def_id, param, &base) {
 					Ok(ty) => args[i] = ty.into(),
 					// The parameter stays, and `ty` maps it to the foreign implementation.
@@ -1648,7 +1657,9 @@ impl<'tcx> Collector<'tcx> {
 						construct: "callback bound",
 						..
 					}) if let Some(callback) = self.foreign(def_id, param) => {
-						self.impls.borrow_mut().push((param, callback));
+						self.impls
+							.borrow_mut()
+							.push((param, Type::Callback(callback, Dyn::Impl)));
 					}
 					Err(why) => errs.push(why),
 				},
@@ -1802,6 +1813,106 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
+	/// The closure a type parameter takes, if an `Fn` trait bounds it: one the callee calls
+	/// only during the call, which C lends as a function. A closure that may outlive the
+	/// call, by a lifetime bound or by what the function returns, is refused.
+	fn closure(&self, def_id: DefId, param: Ty<'tcx>, base: &[ty::GenericArg<'tcx>]) -> Option<Result<Type, Why>> {
+		let tcx = self.tcx;
+		let clauses = tcx.clauses_of(def_id).instantiate(tcx, tcx.mk_args(base)).clauses;
+		let clauses: Vec<_> = clauses.iter().map(|clause| clause.skip_norm_wip()).collect();
+		let output = tcx.lang_items().fn_once_output();
+		let mut inputs = None;
+		let mut ret = None;
+		let mut kept = false;
+		let mut other = Vec::new();
+		// Whether a bound on another type names it, such as `T: From<F>`.
+		let mentions = |clause: ty::Clause<'tcx>| {
+			let args: Vec<ty::GenericArg<'tcx>> = match (clause.as_trait_clause(), clause.as_projection_clause()) {
+				(Some(pred), _) => pred.skip_binder().trait_ref.args.to_vec(),
+				(_, Some(pred)) => (pred.skip_binder().projection_term.args.iter())
+					.chain(pred.skip_binder().term.as_type().map(Into::into))
+					.collect(),
+				_ => Vec::new(),
+			};
+			args.iter().any(|arg| arg.walk().any(|arg| arg == param.into()))
+		};
+		for &clause in &clauses {
+			if let Some(pred) = clause.as_trait_clause()
+				&& pred.self_ty().skip_binder() == param
+			{
+				let tr = pred.def_id();
+				if tcx.fn_trait_kind_from_def_id(tr).is_some() {
+					inputs = Some(pred.map_bound(|pred| pred.trait_ref.args.type_at(1)));
+				} else if !marker(tcx, tr) {
+					other.push(tcx.def_path_str(tr));
+				}
+			} else if let Some(pred) = clause.as_projection_clause()
+				&& pred.skip_binder().projection_term.self_ty() == param
+				&& Some(pred.skip_binder().projection_term.expect_projection_def_id()) == output
+			{
+				ret = tcx.instantiate_bound_regions_with_erased(pred).term.as_type();
+			} else if let Some(pred) = clause.as_type_outlives_clause()
+				&& pred.skip_binder().0 == param
+			{
+				kept = true;
+			} else if mentions(clause) {
+				other.push(clause.to_string());
+			}
+		}
+		let inputs = inputs?;
+		// The lifetimes the closure is generic over, which erasing loses.
+		let bound = inputs.skip_binder();
+		let inputs = tcx.instantiate_bound_regions_with_erased(inputs);
+		let sig = tcx.fn_sig(def_id).instantiate(tcx, tcx.mk_args(base)).skip_norm_wip();
+		// An `async fn`'s future, or a returned `impl Trait`, captures it.
+		kept |= sig.skip_binder().output().walk().any(|arg| arg == param.into());
+		if kept {
+			return Some(Err(why("closure kept past the call", param.to_string())));
+		}
+		// Each parameter makes its own closure, which one type parameter cannot name twice.
+		if sig
+			.skip_binder()
+			.inputs()
+			.iter()
+			.filter(|&&input| input == param)
+			.count()
+			> 1
+		{
+			return Some(Err(why("closure type taken twice", param.to_string())));
+		}
+		if !other.is_empty() {
+			return Some(Err(why("closure bound", other.join(" + "))));
+		}
+		let (ty::Tuple(inputs), ty::Tuple(bound)) = (inputs.kind(), bound.kind()) else {
+			return Some(Err(why("closure signature", inputs.to_string())));
+		};
+		let mut params = Vec::new();
+		for (input, bound) in inputs.iter().zip(bound.iter()) {
+			// A handle holds its object at `'static`, which one borrowing for the call isn't.
+			if let ty::Ref(_, inner, _) = bound.kind()
+				&& inner.has_escaping_bound_vars()
+			{
+				return Some(Err(why("lent object that borrows", bound.to_string())));
+			}
+			match self.ty(input, Pos::Param) {
+				// An object is lent as a handle for the call.
+				Ok(ty)
+					if foreign_arg(&ty) || matches!(&ty, Type::Ref(_, inner) if matches!(**inner, Type::Object(_))) =>
+				{
+					params.push(ty)
+				}
+				Ok(_) => return Some(Err(why("closure signature", input.to_string()))),
+				Err(why) => return Some(Err(why)),
+			}
+		}
+		let ret = match ret.map(|ret| self.ty(ret, Pos::Return)) {
+			Some(Ok(ret)) if foreign_return(&ret) => ret,
+			Some(Err(why)) => return Some(Err(why)),
+			_ => return Some(Err(why("closure signature", param.to_string()))),
+		};
+		Some(Ok(Type::Closure(params, Box::new(ret))))
+	}
+
 	/// The callback a type parameter takes a foreign implementation of: one bounded by a
 	/// single exported trait, and otherwise only by what that implementation meets.
 	fn foreign(&self, def_id: DefId, param: Ty<'tcx>) -> Option<usize> {
@@ -1815,13 +1926,9 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			let tr = bound.def_id();
-			let met = [sym::Send, sym::Sync]
-				.iter()
-				.any(|&item| tcx.is_diagnostic_item(item, tr))
-				|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr));
 			match self.trait_decl(tr) {
 				Some(Decl::Callback(i)) if callback.is_none() => callback = Some(*i),
-				_ if met => {}
+				_ if marker(tcx, tr) => {}
 				_ => return None,
 			}
 		}
@@ -2262,7 +2369,7 @@ impl<'tcx> Collector<'tcx> {
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
 			ty::Dynamic(..) => return Err(why("trait object", ty.to_string())),
 			ty::Param(_) => match self.impls.borrow().iter().find(|(param, _)| *param == ty) {
-				Some((_, callback)) if pos == Pos::Param => Type::Callback(*callback, Dyn::Impl),
+				Some((_, taken)) if pos == Pos::Param => taken.clone(),
 				_ => return Err(why("type parameter", ty.to_string())),
 			},
 			ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..) => return Err(why("function value", "")),
@@ -2416,6 +2523,15 @@ fn docs(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 		})
 		.collect();
 	lines.join("\n").trim().to_string()
+}
+
+/// Whether `tr` is `Send`, `Sync`, or `Sized`, which a foreign implementation or a lent
+/// closure meets.
+fn marker(tcx: TyCtxt<'_>, tr: DefId) -> bool {
+	[sym::Send, sym::Sync]
+		.iter()
+		.any(|&item| tcx.is_diagnostic_item(item, tr))
+		|| [tcx.lang_items().sized_trait(), tcx.lang_items().meta_sized_trait()].contains(&Some(tr))
 }
 
 /// Whether `ty`, the type `def_id` at some arguments, implements the std trait `item`.

@@ -255,7 +255,7 @@ export function scoped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const held: Guard.Guard[] = [];
 		unwind = 77;
 		_179 = true;
-		const captured13 = held;
+		let captured13 = held;
 		push = rt.closure((g2: Guard.Guard): rt.usize => {
 			captured13.push(g2);
 			return captured13.length;
