@@ -142,6 +142,20 @@ export function orElse$Result_u8_u16_u16_results_closure4(self: rt.Result<rt.u8,
 	return op(self.error);
 }
 
+export function unwrapOr$Result_u16_TryFromIntError(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_u64_TryFromIntError(self: rt.Result<rt.u64, rt.TryFromIntError>, default_: rt.u64): rt.u64 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8): rt.u8 {
 	if (self.ok) {
 		return self.value;

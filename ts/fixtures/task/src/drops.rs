@@ -799,9 +799,9 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 	log.note(format!("unreached"));
 }
 
-/// What a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults drop, scenario
-/// `at`'s alone, and what is left to drop when a closure, a clone, a drop, or an index
-/// panics partway.
+/// What a `Vec`'s edits, its, a tuple's, and a box's `clone`, `Ord`'s defaults, and an
+/// iterator's `max` and `min` drop, scenario `at`'s alone, and what is left to drop when a
+/// closure, a clone, a comparison, a drop, or an index panics partway.
 pub fn edited(log: &Log, id: u32, at: u8) {
 	let key = |n: u32| Key::new(id + n, log.clone());
 	let fault = |n: u32, fault: Fault| Key::faulty(id + n, log.clone(), fault);
@@ -857,6 +857,34 @@ pub fn edited(log: &Log, id: u32, at: u8) {
 			drop(pair.clone());
 			let tripped = (key(1), fault(2, Fault::Trips));
 			drop(tripped.clone());
+		}
+		7 => {
+			let mut v = list![key(1), key(2), key(3)];
+			v.insert(1, key(4));
+			log.note(format!("inserted {}", ids(&v)));
+			drop(v.remove(0));
+			log.note(format!("removed {}", ids(&v)));
+			v.truncate(1);
+			log.note(format!("truncated {}", ids(&v)));
+			v.clear();
+			// Past the end, the key it was given drops as it panics.
+			v.insert(1, key(5));
+		}
+		8 => {
+			// Each loser drops as it loses.
+			let best = list![key(1), key(3), key(5)].into_iter().max_by_key(|k| (k.id - id) % 3);
+			log.note(format!("max {}", best.map_or(0, |k| k.id - id)));
+			let least = list![key(3), key(1), key(2)].into_iter().min();
+			log.note(format!("min {}", least.map_or(0, |k| k.id - id)));
+			// A comparison that panics drops the item, the best, and then the rest.
+			drop(list![key(1), key(2), fault(3, Fault::Trips), key(4)].into_iter().max());
+		}
+		9 => {
+			let boxed = Box::new(key(1));
+			log.note(format!("boxed {}", boxed.clone().id - id));
+			// A drop that panics still drops the rest.
+			let mut v = list![key(2), fault(3, Fault::Blows), key(4)];
+			v.clear();
 		}
 		_ => {
 			log.note(format!("max {}", key(1).max(key(2)).id - id));

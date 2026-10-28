@@ -19,7 +19,7 @@
 // bundle that never drops an item carries none of it.
 
 import { ByteVec, byteVecPush, Err, type None, Ok, panic, type RangeBound, type Result } from "../rt.ts";
-import { BTreeIter, HashIter } from "./collections.ts";
+import { BTreeIter, HashIter, type Ordering } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
 
@@ -424,6 +424,21 @@ export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U
 	return undefined;
 }
 
+/** `DoubleEndedIterator::rfind`, dropping what `f` rejects by `drop`. */
+export function iterRfind<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>): T | undefined {
+	return iterToOption(rfindItem(it, f, drop));
+}
+
+/** `Iterator::rposition`: from the back, where its item is counting from the front. */
+export function iterRposition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
+	let i = it.len();
+	for (let item = it.nextBack(); item !== DONE; item = it.nextBack()) {
+		i--;
+		if (f(item)) return i;
+	}
+	return undefined;
+}
+
 /** `Iterator::position`. */
 export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | undefined {
 	let i = 0;
@@ -488,40 +503,47 @@ export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, drop
 	return iterFold(it, one, mul, dropIt);
 }
 
-/** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
-export function iterMax<K extends number | Limbs | boolean>(it: Iter<K>, dropIt?: Drop<Iter<K>>): K | undefined {
-	return iterMaxByKey(it, (item) => item, dropIt);
+/**
+ * `max`, by `cmp`, its items' `partial_cmp`, which stands for their `<` as `Ord::max`
+ * compares them: the last of the greatest.
+ */
+export function iterMax<T>(it: Iter<T>, cmp: Compare<T>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
+	return best(it, (item: T) => item, cmp, false, dropIt, drop);
 }
 
-/** `min` of integers or booleans: the first of the least. */
-export function iterMin<K extends number | Limbs | boolean>(it: Iter<K>, dropIt?: Drop<Iter<K>>): K | undefined {
-	return iterMinByKey(it, (item) => item, dropIt);
+/** `min`, by `cmp`, as `iterMax`: the first of the least. */
+export function iterMin<T>(it: Iter<T>, cmp: Compare<T>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
+	return best(it, (item: T) => item, cmp, true, dropIt, drop);
 }
 
-/** `max_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMaxByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	return best(it, f, false, dropIt, drop);
+/** `max_by_key`, by `cmp` of the keys, as `iterMax`, each item's key taken once. */
+export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, cmp: Compare<K>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
+	return best(it, f, cmp, false, dropIt, drop);
 }
 
-/** `min_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMinByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	return best(it, f, true, dropIt, drop);
+/** `min_by_key`, by `cmp` of the keys, as `iterMin`, each item's key taken once. */
+export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, cmp: Compare<K>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
+	return best(it, f, cmp, true, dropIt, drop);
 }
+
+/** A `partial_cmp`, or an `Ord::cmp`. */
+type Compare<T> = (a: T, b: T) => Ordering | undefined;
 
 /**
  * The item of the greatest key, the last of equal ones, or of the least if `least`, the
- * first, as std's `reduce` keeps it: each other drops as it loses. A panic in `f` drops
- * its item, then the best, then the iterator; one dropping a loser leaks the winner, as
- * std's unwinding does a returned value.
+ * first, as std's `reduce` by `Ord::max` or `min` keeps it: each next key is tested for
+ * `<` the best's, and the item that loses drops. A panic in `f` or `cmp` drops the item,
+ * then the best, then the iterator; one dropping a loser leaks the winner, as std's
+ * unwinding does a returned value.
  */
-function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, least: boolean, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
+function best<T, K>(it: Iter<T>, f: (item: T) => K, cmp: Compare<K>, least: boolean, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
 	if (dropIt === undefined && drop === undefined) {
 		let best = it.next();
 		if (best === DONE) return undefined;
 		let key = f(best);
 		for (let item = it.next(); item !== DONE; item = it.next()) {
 			const k = f(item);
-			if (least ? lt(k, key) : !lt(k, key)) [best, key] = [item, k];
+			if ((cmp(k, key) === -1) === least) [best, key] = [item, k];
 		}
 		return best;
 	}
@@ -530,20 +552,18 @@ function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) =
 	try {
 		for (let item = it.next(); item !== DONE; item = it.next()) {
 			let k: K;
+			let wins: boolean;
 			try {
 				k = f(item);
+				wins = best === DONE || (cmp(k, key as K) === -1) === least;
 			} catch (e) {
 				drop?.(item);
 				throw e;
 			}
-			if (best === DONE) {
-				[best, key] = [item, k];
-				continue;
-			}
-			const wins = least ? lt(k, key as K) : !lt(k, key as K);
-			const loser = wins ? best : item;
+			const prev = best;
 			if (wins) [best, key] = [item, k];
-			if (drop !== undefined) {
+			const loser = wins ? prev : item;
+			if (drop !== undefined && loser !== DONE) {
 				const held: T | Done = best;
 				best = DONE;
 				drop(loser);

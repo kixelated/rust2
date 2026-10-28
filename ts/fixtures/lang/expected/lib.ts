@@ -94,6 +94,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined] | undefined): [rt.u8, rt.u8 | undefined] | undefined {
+	return v === undefined ? v : copy$u8_Reverse_Option_u8(v);
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -162,6 +166,10 @@ export function copy$u32s(v: rt.u32[]): rt.u32[] {
 
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
 	return [v[0], copy$Horizon(v[1])];
+}
+
+export function copy$u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
