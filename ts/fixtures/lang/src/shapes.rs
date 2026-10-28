@@ -1604,6 +1604,48 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 			_ => 26,
 		});
 	}
+	// An `if` or a guard between the matches keeps what the outer one decided.
+	out.push(match s {
+		Shape::Line(from, _) => {
+			let lift = if data.len() > 2 { 1 } else { 2 };
+			match s {
+				Shape::Line(_, to) => (from.y ^ to.x) as u8 ^ lift,
+				_ => 48,
+			}
+		}
+		_ => 49,
+	});
+	out.push(match s {
+		Shape::Dot if data.len() > 1 => match s {
+			Shape::Line(..) => 50,
+			_ => 51,
+		},
+		Shape::Rect { width, .. } if width > 300 => match s {
+			Shape::Rect { height, .. } => height as u8,
+			_ => 52,
+		},
+		Shape::Dot => match s {
+			Shape::Dot => 53,
+			_ => 54,
+		},
+		_ => 55,
+	});
+	// A loop's test keeps only what every way around it knows.
+	let mut w = s;
+	if let Shape::Dot = w {
+		let mut i = 0;
+		while i < data.len().min(3) {
+			out.push(match w {
+				Shape::Dot => {
+					w = shape(&[1]);
+					56
+				}
+				Shape::Line(..) => 57,
+				_ => 58,
+			});
+			i += 1;
+		}
+	}
 	reseated(data, out);
 }
 

@@ -589,13 +589,8 @@ impl<'tcx> Flow<'tcx> {
 				}
 				decided = Some((def, kept, otherwise));
 			}
-			// A test of anything else changes nothing. What is known stays with the
-			// switches on a variant, which fold by it.
+			// A test of anything else, as an `if` or a match guard, changes nothing.
 			TerminatorKind::SwitchInt { targets, .. } => {
-				let facts = Facts {
-					known: Vec::new(),
-					narrowed: facts.narrowed.clone(),
-				};
 				for &to in targets.all_targets() {
 					if !out.iter().any(|(t, _)| *t == to) {
 						out.push((to, facts.clone()));

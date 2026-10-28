@@ -3008,8 +3008,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 }
 
-/// Whether `place` is part of its local's own value, rather than reached through a
-/// reference or pointer.
 /// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
 /// which TypeScript types as the whole union already.
 pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
@@ -3024,6 +3022,8 @@ pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
 	}
 }
 
+/// Whether `place` is part of its local's own value, rather than reached through a
+/// reference or pointer.
 pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
