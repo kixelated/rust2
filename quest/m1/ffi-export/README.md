@@ -51,6 +51,7 @@ Every generator on the C ABI:
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in a session's config, as Rust assigns it
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
+- [Slices of any type, and SocketAddrV4/V6](/quest/m1/ffi-export/slices.md) - `&[T]` and the typed socket addresses cross the C ABI, as `Vec<T>` and `SocketAddr` do
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings: zero-copy payloads and the read path](/quest/m1/ffi-export/kotlin.md) - the Kotlin lends bytes without a copy, and reads at JNI's cost
