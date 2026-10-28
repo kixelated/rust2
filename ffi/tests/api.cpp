@@ -479,8 +479,11 @@ int script() {
 		std::printf("%llu", static_cast<unsigned long long>(counters[i].get()));
 	}
 	std::printf("\n");
-	auto worth = api::worth(std::move(counters));
-	std::printf("worth %llu %llu\n", ull(worth), ull(api::worth(std::nullopt)));
+	std::vector<api::counter> some, boxed;
+	some.push_back(std::move(counters[0]));
+	boxed.push_back(std::move(counters[1]));
+	auto worth = api::worth(std::move(some), std::move(boxed));
+	std::printf("worth %llu %llu\n", ull(worth), ull(api::worth(std::nullopt, {})));
 
 	auto sums = api::sums({{1, 2}, {}, {3}});
 	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);

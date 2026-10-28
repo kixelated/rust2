@@ -343,13 +343,14 @@ fn main() {
 	);
 	println!("sentence {}|", api_lib::sentence(Some(Vec::new())));
 	println!("chunks {:?}", api_lib::chunks(b"abcde", 2));
-	let counters = api_lib::counters(vec!["x".to_string(), "y".to_string()]);
+	let mut counters = api_lib::counters(vec!["x".to_string(), "y".to_string()]);
 	let names: Vec<String> = counters.iter().map(|c| format!("{} {}", c.name(), c.get())).collect();
 	println!("counters {}", names.join(", "));
+	let boxed = counters.split_off(1);
 	println!(
 		"worth {} {}",
-		api_lib::worth(Some(Box::new(counters))),
-		api_lib::worth(None)
+		api_lib::worth(Some(counters), Box::new(boxed)),
+		api_lib::worth(None, Box::default())
 	);
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
 	let site = api_lib::Site::new(base);

@@ -598,8 +598,9 @@ static int script(void) {
 	}
 	printf("\n");
 	/* Each counter moves in, leaving its handle only to free. */
-	uint64_t worth = api_worth(counters);
-	printf("worth %llu %llu\n", (unsigned long long)worth, (unsigned long long)api_worth((api_vec_counter){0}));
+	uint64_t worth = api_worth((api_vec_counter){.ptr = counters.ptr, .len = 1}, (api_vec_counter){.ptr = counters.ptr + 1, .len = 1});
+	uint64_t none = api_worth((api_vec_counter){0}, (api_vec_counter){.ptr = counters.ptr, .len = 0});
+	printf("worth %llu %llu\n", (unsigned long long)worth, (unsigned long long)none);
 	api_vec_counter_free(counters);
 
 	uint32_t row0[] = {1, 2};
