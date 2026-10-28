@@ -41,6 +41,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
+			_ if super::float::is(ty) => match leaf(valtree) {
+				Some(scalar) => super::float::lit(f64::from_bits(scalar.to_u64())),
+				None => self.err(span, "a float constant without a value"),
+			},
 			ty::Char => match leaf(valtree) {
 				Some(scalar) => Expr::lit(scalar.to_u32().to_string()),
 				None => self.err(span, "a char constant without a value"),

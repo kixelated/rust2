@@ -63,4 +63,54 @@ function wide(n: bigint): Uint8Array {
 	return bytes;
 }
 
-export const cases: Uint8Array[] = [...loops, ...durations];
+/** A double's bits, big-endian, as `floats` takes them. */
+function double(x: number | bigint): number[] {
+	const bytes = new Uint8Array(8);
+	const view = new DataView(bytes.buffer);
+	if (typeof x === "bigint") view.setBigUint64(0, x);
+	else view.setFloat64(0, x);
+	return [...bytes];
+}
+
+/**
+ * `floats`' operands: each side of a half, of 2^52 and 2^53, where each integer type
+ * saturates, of a nanosecond and `u64::MAX` seconds, subnormals, infinities, and NaNs,
+ * one of them negative and one with a payload.
+ */
+const doubles: (number | bigint)[] = [
+	0, -0, 0.5, -0.5, 1.5, 2.5, -2.5, 0.49999999999999994, 1, -1, 3, 0.1, 1 / 3, 2 ** 52 - 0.5, 2 ** 52, 2 ** 53, 2 ** 53 + 2,
+	255.5, -128.5, 2147483647.5, -2147483648.5, 4294967295.9, 2 ** 63, -(2 ** 63), -(2 ** 63) - 2048, 2 ** 64, 2 ** 64 - 2048,
+	2 ** 127, 2 ** 128, -(2 ** 128), 1e-9, 0.5e-9, 1.5e-9, 0.999999999, 0.9999999995, 1.0000000005, 4.656612873077393e-10,
+	1e-310, 5e-324, 2.2250738585072014e-308, Number.MAX_VALUE, -Number.MAX_VALUE, Infinity, -Infinity, NaN,
+	0xfff8000000000000n, 0x7ff0000000000001n,
+];
+/** Integers whose `f64` rounds, as `floats`' kind 2 takes them: 16 bytes of a `u128`. */
+const wides = [0n, 1n, (1n << 53n) + 1n, (1n << 53n) + 3n, (1n << 54n) + 2n, (1n << 63n) + 1025n, (1n << 64n) - 1n, (1n << 64n) - 1025n, (1n << 64n) + (1n << 11n) + 1n, (1n << 127n) + 1n, (1n << 128n) - 1n, (1n << 128n) - (1n << 74n), -(1n << 100n) - 1n];
+const floats = [
+	...Array.from({ length: 10 }, (_, kind) => doubles.flatMap((a) => doubles.map((b) => Uint8Array.of(54, kind, ...double(a), ...double(b), 1)))).flat(),
+	// `from_secs_f64`, `mul_f64`, and `div_f64` panicking, and `Duration::MAX.mul_f64`.
+	...[18, 28, 38].flatMap((kind) => doubles.map((a) => Uint8Array.of(54, kind, ...double(a), ...double(a), 3))),
+	...wides.map((v) => {
+		const bytes = new Uint8Array(16);
+		new DataView(bytes.buffer).setBigUint64(0, BigInt.asUintN(64, v >> 64n));
+		new DataView(bytes.buffer).setBigUint64(8, BigInt.asUintN(64, v));
+		return Uint8Array.of(54, 2, ...bytes);
+	}),
+];
+
+/** How many ULPs from native Rust's each `f64` of `floats`' kind 7 may be, which Rust leaves to libm. */
+const ULPS = 2n;
+
+export function within(input: Uint8Array, native: Uint8Array, translated: Uint8Array): boolean {
+	if (input[0] % 56 !== 54 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
+	const [a, b] = [native, translated].map((v) => new DataView(v.buffer, v.byteOffset, v.length));
+	// Bits as a line through zero, so the distance between two is how many doubles apart they are.
+	const line = (v: bigint) => (v < 0n ? -(v & 0x7fffffffffffffffn) : v);
+	for (let i = 0; i < native.length; i += 8) {
+		const d = line(a.getBigInt64(i)) - line(b.getBigInt64(i));
+		if (d > ULPS || d < -ULPS) return false;
+	}
+	return true;
+}
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...floats];

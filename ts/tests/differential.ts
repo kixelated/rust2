@@ -7,7 +7,9 @@
 // random bytes rarely make: every pair of values next to a power of two.
 //
 // A harness, or a hand-written caller wrapping one, exports `run(input: rt.ByteSlice):
-// Vec<u8>`, and may export `cases`, inputs it names, which run with the generated ones.
+// Vec<u8>`, and may export `cases`, inputs it names, which run with the generated ones,
+// and `within(input, native, translated)`, which accepts outputs that differ only where
+// Rust leaves the result to the platform, as libm's are.
 // The wasm build exports `input`, `run`, and `output` around the crate's entry, which
 // `wasm.ts` calls. A panic traps natively and throws `Panic` in
 // TypeScript, and the two agree only if their messages do.
@@ -188,7 +190,8 @@ for (const input of cases) {
 		continue;
 	}
 	if (called === "panic") panics++;
-	if (show(want) !== show(got)) {
+	const close = want instanceof Uint8Array && got instanceof Uint8Array && harness.within?.(input, want, got) === true;
+	if (show(want) !== show(got) && !close) {
 		failures++;
 		if (failures <= 20) {
 			console.error(`input  ${show(input)}\nnative ${display(want)}\nts     ${display(got)}\n`);

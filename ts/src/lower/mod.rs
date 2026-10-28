@@ -12,6 +12,7 @@ mod collections;
 mod consts;
 mod copy;
 mod drop;
+mod float;
 mod fmt;
 mod iter;
 mod library;
@@ -1020,6 +1021,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
 			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
+			_ if float::is(ty) => float::ty(),
 			ty::Char => Type::Rt("char", Vec::new()),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),
@@ -1191,6 +1193,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Box => self.ty(args.type_at(0), span),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),
 				library::Std::Arguments => Type::Rt("Arguments", vec![]),
 				library::Std::FmtError => Type::Rt("FmtError", vec![]),

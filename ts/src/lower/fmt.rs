@@ -294,6 +294,8 @@ pub fn std_impl<'tcx>(
 			(Std::FmtError, Trait::Display) => rt("errorDisplay", vec![value, f]),
 			(Std::TryFromIntError, Trait::Debug) => rt("tryFromIntErrorDebug", vec![value, f]),
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Debug) => rt("tryFromFloatSecsErrorDebug", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Display) => rt("tryFromFloatSecsErrorDisplay", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Debug) => rt("fromUtf8ErrorDebug", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Display) => rt("fromUtf8ErrorDisplay", vec![value, f]),
 			(Std::Duration, Trait::Debug) => Expr::rt("durationDebug", vec![value, f]),
