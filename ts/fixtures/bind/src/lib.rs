@@ -1,6 +1,6 @@
-//! Items outside the subset, bound to hand-written TypeScript: `blob::Blob`, which
-//! contains `unsafe`, and the crate's own function and type that read through raw
-//! pointers, one of them dropping where Rust drops it.
+//! Items outside the subset, bound to hand-written TypeScript: `buf::Blob`, a renamed
+//! dependency's type that contains `unsafe`, and the crate's own function and type that
+//! read through raw pointers, one of them dropping where Rust drops it.
 //!
 //! `harness::run` is the entry point both sides of the differential test run.
 

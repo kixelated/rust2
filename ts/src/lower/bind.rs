@@ -9,6 +9,7 @@ use std::path::{Component, Path, PathBuf};
 
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CRATE_DEF_ID, DefId};
+use rustc_metadata::creader::CStore;
 use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
@@ -153,7 +154,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
-	/// depends on, through modules and then a type's inherent functions.
+	/// depends on, through modules and then a type's inherent functions. A dependency goes
+	/// by the name the crate's source gives it, which a renamed one's isn't its own; a crate
+	/// reached only through another goes by its own name, where one crate of it is built.
 	fn resolve_bound(&self, path: &str) -> Option<DefId> {
 		let segments: Vec<&str> = path.split("::").collect();
 		if let Some(def_id) = resolve_in(self.tcx, CRATE_DEF_ID.to_def_id(), &segments) {
@@ -161,18 +164,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let (name, rest) = segments.split_first()?;
 		let tcx = self.tcx;
-		let named: Vec<_> = tcx
-			.crates(())
-			.iter()
-			.copied()
-			.filter(|&cnum| tcx.crate_name(cnum).as_str() == *name)
-			.collect();
-		// The one the crate names, where several versions are built.
-		let cnum = match named[..] {
-			[cnum] => cnum,
-			_ => *named
-				.iter()
-				.find(|&&cnum| tcx.extern_crate(cnum).is_some_and(|e| e.is_direct()))?,
+		let named = CStore::from_tcx(tcx).resolved_extern_crate(rustc_span::Symbol::intern(name));
+		let cnum = match named {
+			Some(cnum) => cnum,
+			None => {
+				let mut own = tcx.crates(()).iter().copied().filter(|&cnum| {
+					tcx.crate_name(cnum).as_str() == *name && !tcx.extern_crate(cnum).is_some_and(|e| e.is_direct())
+				});
+				match (own.next(), own.next()) {
+					(Some(cnum), None) => cnum,
+					_ => return None,
+				}
+			}
 		};
 		resolve_in(tcx, cnum.as_def_id(), rest)
 	}
