@@ -165,6 +165,12 @@ static int script(void) {
 	print("only ", api_counter_name(only), " ");
 	printf("%llu\n", (unsigned long long)api_counter_get(only));
 	api_counter_free(only);
+	uint8_t w8;
+	int16_t w16;
+	uint32_t w32;
+	uint64_t w64;
+	api_widths(98305, &w8, &w16, &w32, &w64);
+	printf("widths %u %d %u %llu\n", w8, w16, w32, (unsigned long long)w64);
 	uint64_t divisors[] = {2, 0};
 	for (int i = 0; i < 2; i++) {
 		uint64_t q, r;

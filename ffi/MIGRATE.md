@@ -25,3 +25,8 @@
   and `Counter::seeded` at `polar::Point` beside `Point` is
   `api_counter_seeded_polar_point`. An instance an upstream change adds can lengthen
   another's name.
+- Every export writes `kotlin/<prefix>.kt`, whose runtime object `Native` makes the C
+  name `native` one the naming rule claims. An item Kotlin names as a type its runtime
+  uses unqualified, such as `String` or `Unit`, or as another item, such as a type
+  `FooException` beside an error type `Foo`, is an error: give it another name with a
+  `rename`.
