@@ -65,11 +65,12 @@ dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src
 passing `{closure@fixtures/reject/src/lib.rs:422:32: 422:39}`, a closure that owns a value that drops, to `from_fn::from_fn`, which is not supported yet at fixtures/reject/src/lib.rs:422:13
 dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:422:32: 422:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:422:62
 an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:423:13
-unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:455:2
-`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:461:21
-`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:468:15
-a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:478:12
-unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:485:2
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:498:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:498:38
+`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:455:21
+`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:462:15
+a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:472:12
+unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:479:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:153:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:173:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:207:2
