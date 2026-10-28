@@ -17,7 +17,7 @@ export function fmt$Debug(self: SessionError, f: rt.Formatter): rt.Result<undefi
 		return rt.fmtWriteStr(f, "ProtocolViolation");
 	}
 	const _6: string = "App";
-	const _7: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self._0, f);
+	const _7: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self._0, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 }
 

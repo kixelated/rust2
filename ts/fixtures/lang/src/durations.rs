@@ -135,6 +135,26 @@ pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out,
 				&format!("{a:?}|{c:?}|{d:?}|{c:>16?}|{d:*^14?}|{c:<12?}|{a:08?}|{:?}", Some(b)),
 			);
+			// A precision rounds the fraction half to even, carrying into the whole part.
+			let p = (n % 13) as usize;
+			put(
+				out,
+				&format!(
+					"{a:.0?}|{a:.3?}|{c:.1?}|{d:.12?}|{a:+?}|{c:+12.2?}|{d:<10.1?}|{a:.p$?}|{:.1?}",
+					Some(b)
+				),
+			);
+			for d in [
+				1_500_000_000,
+				2_500_000_000,
+				1_250_000,
+				1_350_000,
+				999_500,
+				1_999_999_999,
+			] {
+				let d = Duration::from_nanos(d);
+				put(out, &format!("{d:.0?} {d:.1?} {d:.2?}"));
+			}
 		}
 		_ => {
 			// Constants, `Default`, and a field.

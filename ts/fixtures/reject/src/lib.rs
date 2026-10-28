@@ -61,19 +61,9 @@ pub fn async_closure() -> u8 {
 	0
 }
 
-/// Format specs outside what moq uses.
-pub fn specs(n: u8, w: usize) -> [String; 9] {
-	[
-		format!("{n:.2}"),
-		format!("{n:+}"),
-		format!("{n:-}"),
-		format!("{n:b}"),
-		format!("{n:o}"),
-		format!("{n:e}"),
-		format!("{n:x?}"),
-		format!("{n:w$}"),
-		format!("{:p}", &n),
-	]
+/// A pointer's address, which JS has no counterpart of.
+pub fn pointer(n: u8) -> String {
+	format!("{:p}", &n)
 }
 
 /// `fmt::Write` for a `String`, which has no mapping.

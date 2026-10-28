@@ -14,14 +14,14 @@ export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.
 	}
 	if (self.tag === "One") {
 		const _8: string = "One";
-		const _9: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self._0, f);
+		const _9: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _8), _9));
 	}
 	const _13: string = "Many";
 	const _14: string = "count";
-	const _15: rt.Fmt = (f: rt.Formatter) => rt.u32Display(self.count, f);
+	const _15: rt.Fmt = (f: rt.Formatter) => rt.u32Debug(self.count, f);
 	const _16: string = "items";
-	const _17: rt.Fmt = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Display);
+	const _17: rt.Fmt = (f: rt.Formatter) => rt.fmtList(rt.byteVecView(self.items), f, rt.u8Debug);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _13), _14, _15), _16, _17));
 }
 
