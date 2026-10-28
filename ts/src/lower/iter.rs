@@ -400,6 +400,8 @@ pub fn call<'tcx>(
 			let dropper = iter_dropper(b, self_ty, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
+		// std's `Sum` and `Product` are of the type or a reference to it: another is the crate's.
+		"sum" | "product" if item.peel_refs() != targ(1)? => None,
 		// `Duration`'s carries its nanoseconds and panics as std's does, not as `+` would.
 		"sum" if b.t.std_of(targ(1)?) == Some(Std::Duration) => {
 			let dropper = iter_dropper(b, self_ty, span);

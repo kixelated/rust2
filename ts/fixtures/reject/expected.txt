@@ -1,5 +1,4 @@
 a root must not be generic at fixtures/reject/src/lib.rs:102:1
-no item `duration_assign` in the crate
 no item `missing` in the crate
 a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:100:1
 unsupported type `f64` at fixtures/reject/src/lib.rs:7:14
@@ -75,6 +74,8 @@ dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src
 passing `{closure@fixtures/reject/src/lib.rs:390:32: 390:39}`, a closure that owns a value that drops, to `from_fn::from_fn`, which is not supported yet at fixtures/reject/src/lib.rs:390:13
 dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:390:32: 390:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:390:62
 an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:391:13
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:466:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:466:38
 `core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:423:21
 `std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:430:15
 a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:440:12

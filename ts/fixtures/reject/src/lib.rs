@@ -446,3 +446,22 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
 }
+
+pub struct Part(pub u64);
+
+impl std::iter::Sum<Part> for std::time::Duration {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		std::time::Duration::from_secs(parts.map(|p| p.0 * 2).sum())
+	}
+}
+
+impl std::iter::Sum<Part> for u64 {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		parts.map(|p| p.0 * 2).sum()
+	}
+}
+
+/// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
+pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
+	(a.into_iter().sum(), b.into_iter().sum())
+}
