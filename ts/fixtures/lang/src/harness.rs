@@ -3,7 +3,7 @@
 
 use crate::{
 	chars, chunks, collections, combinators, cows, durations, edits, fmt, generics, ints, iters, keys, nested, refs,
-	shapes, splits, strs, wrappers,
+	shapes, splits, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -79,6 +79,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::skips", iters::skips),
 		("wrappers::wrappers", wrappers::wrappers),
 		("edits::edits", edits::edits),
+		("utf8::decodes", utf8::decodes),
 	]
 }
 
