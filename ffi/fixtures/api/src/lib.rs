@@ -745,6 +745,14 @@ pub struct Boxed<T> {
 
 pub const BOXED: Boxed<u16> = Boxed { value: 42 };
 
+/// Whether `log` kept a line, boxed: an instance only a function taking a foreign
+/// implementation names.
+pub fn keeps(log: impl Log) -> Boxed<u8> {
+	Boxed {
+		value: u8::from(log.log(2, "keeps")),
+	}
+}
+
 /// `from`'s weight.
 pub fn weigh(from: impl Seed<u32>) -> u32 {
 	from.seed()
@@ -771,6 +779,34 @@ impl Seed<u64> for Point {
 impl Seed<u64> for Size {
 	fn seed(&self) -> u64 {
 		u64::from(self.width) * u64::from(self.height)
+	}
+}
+
+/// Each side of `pair` through `f`, summed: a function inferred at each instance of
+/// `Pair` whose sides are alike, taking a lent closure of the inferred type.
+pub fn apply<T: Copy, F: Fn(T) -> u32>(pair: Pair<T>, f: F) -> u32 {
+	f(pair.left) + f(pair.right)
+}
+
+/// Each side of `pair` to `log`, returning how many it kept: inferred as `apply` is,
+/// taking a foreign implementation.
+pub fn report<T: Copy + fmt::Debug, L: Log>(pair: Pair<T>, log: L) -> u32 {
+	[pair.left, pair.right]
+		.iter()
+		.filter(|side| log.log(1, &format!("{side:?}")))
+		.count() as u32
+}
+
+/// A wrapped value, which only its impl of `Seed<u64>` at `Wrap<u32>` names: each
+/// function taking a seed infers that instance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Wrap<T> {
+	pub value: T,
+}
+
+impl Seed<u64> for Wrap<u32> {
+	fn seed(&self) -> u64 {
+		u64::from(self.value) * 10
 	}
 }
 

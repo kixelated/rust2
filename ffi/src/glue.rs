@@ -969,7 +969,9 @@ impl Gen<'_> {
 			None => self.path(&function.path),
 		};
 		if let Some(instance) = function.instance.as_ref().filter(|i| !i.args.is_empty()) {
-			let args: Vec<String> = instance.args.iter().map(|ty| self.rust(ty)).collect();
+			let args: Vec<String> = (instance.args.iter())
+				.map(|ty| ty.as_ref().map_or_else(|| "_".to_string(), |ty| self.rust(ty)))
+				.collect();
 			callee = format!("{callee}::<{}>", args.join(", "));
 		}
 		let call = match function.access {
