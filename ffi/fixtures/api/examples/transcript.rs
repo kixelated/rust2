@@ -72,6 +72,14 @@ fn main() {
 	println!("debug {c:?}");
 	let label = c.into_label(Some(p));
 	println!("label {label:?}");
+	let empty = api_lib::Note {
+		text: Some(String::new()),
+	};
+	println!(
+		"note {} {}",
+		api_lib::has_text(empty),
+		api_lib::has_text(api_lib::Note::default())
+	);
 
 	let (below, above) = Counter::new("s", 7).split(5);
 	println!(

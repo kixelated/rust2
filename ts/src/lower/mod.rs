@@ -19,6 +19,7 @@ mod iter;
 mod library;
 mod mir;
 mod num;
+mod stock;
 mod task;
 mod time;
 
@@ -221,8 +222,8 @@ pub struct Translator<'a, 'tcx> {
 }
 
 /// The crates that translate as one program: the package, and every crate it depends on
-/// but std's. What the roots reach of them translates; any function of std's is its
-/// mapping, a binding, or refused.
+/// but std's and those [`stock`] maps. What the roots reach of them translates; any
+/// function of the others is its mapping, a binding, or refused.
 pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
 
 impl Crates {
@@ -231,7 +232,11 @@ impl Crates {
 			tcx.crates(())
 				.iter()
 				.copied()
-				.filter(|&krate| !tcx.crate_dep_kind(krate).macros_only() && !of_std(tcx, krate))
+				.filter(|&krate| {
+					!tcx.crate_dep_kind(krate).macros_only()
+						&& !of_std(tcx, krate)
+						&& !stock::is_stock_crate(tcx, krate)
+				})
 				.collect(),
 		)
 	}
@@ -1103,7 +1108,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::BTreeSet
 					| library::Std::VecDeque
 					| library::Std::Entry
-					| library::Std::Hasher,
+					| library::Std::Hasher
+					| library::Std::ThreadRng,
 				) => Some(ObjectKind::Class),
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
@@ -1423,6 +1429,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Ordering => Type::Rt("Ordering", vec![]),
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
 				library::Std::Duration => Type::Rt("Duration", vec![]),
+				library::Std::Bytes => Type::Rt("ByteSlice", vec![]),
+				library::Std::ThreadRng => Type::Rt("ThreadRng", vec![]),
 				library::Std::ControlFlow => {
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
 						self.err(span, msg);
@@ -1643,18 +1651,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		(!doc.trim().is_empty()).then_some(doc)
 	}
 
-	/// Where the invocation of a left-out macro that made `span` is written, if one did.
+	/// Where the invocation of a left-out macro that made `span` is written, if one did:
+	/// the outermost of `tracing`'s events, which expand to one another. Translated code
+	/// installs no subscriber, and without one an event evaluates none of its fields and
+	/// does nothing, so leaving it out is exact.
 	pub fn ignored_site(&self, mut span: Span) -> Option<Span> {
+		let mut site = None;
 		while span.from_expansion() {
 			let data = span.ctxt().outer_expn_data();
 			if let Some(def_id) = data.macro_def_id
-				&& self.config.ignore_macros.contains(&self.tcx.def_path_str(def_id))
-			{
-				return Some(data.call_site);
+				&& self.tcx.crate_name(def_id.krate).as_str() == "tracing"
+				&& matches!(
+					self.tcx.item_name(def_id).as_str(),
+					"event" | "trace" | "debug" | "info" | "warn" | "error"
+				) {
+				site = Some(data.call_site);
 			}
 			span = data.call_site;
 		}
-		None
+		site
 	}
 }
 

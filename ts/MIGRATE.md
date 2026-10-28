@@ -23,6 +23,10 @@
   `true`.
 - `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
   `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
+- `ts.toml` no longer takes `ignore-macros`: `tracing`'s events are left out without it,
+  and no other macro is. Delete the key.
+- `bytes::Bytes` and `rand::rngs::ThreadRng` can't be bound: translation maps them, a
+  `Bytes` as an `rt.ByteSlice`. Delete their `[bind]` entries and the files they name.
 - The runtime no longer exports `ownedNth`, `ownedNthBack`, `ownedSkip`, `ownedTake`, or
   `ownedStepBy`: `iterNth`, `iterNthBack`, `iterSkip`, `iterTake`, and `iterStepBy` take
   what drops an item last. `rt.Iter`'s `nthItem` and `nthBackItem` are `nth` and

@@ -38,7 +38,7 @@ impl Crate<'_> {
 		names.join(", ")
 	}
 
-	/// Write the crate into `out`: `Cargo.toml`, `src/`, and `include/<prefix>.h`.
+	/// Write the crate into `out`: `Cargo.toml`, `src/`, and `include/<prefix>.h` and `.hpp`.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
 		// Cargo unifies in what the configured package enables in each other export.
 		let dependencies: String = (self.exports.iter())
@@ -78,6 +78,7 @@ impl Crate<'_> {
 			lib = self.abi.prefix,
 		);
 		let (header, contract) = crate::c::header(self.abi, &self.packages());
+		let cpp = crate::cpp::header(self.abi, &self.packages())?;
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
@@ -89,7 +90,8 @@ impl Crate<'_> {
 		crate::driver::write(&out.join("Cargo.toml"), &manifest)?;
 		crate::driver::write(&out.join("src/lib.rs"), &generator.out)?;
 		crate::driver::write(&out.join("src/rt.rs"), RUNTIME)?;
-		crate::driver::write(&out.join("include").join(format!("{}.h", self.abi.prefix)), &header)
+		crate::driver::write(&out.join("include").join(format!("{}.h", self.abi.prefix)), &header)?;
+		crate::driver::write(&out.join("include").join(format!("{}.hpp", self.abi.prefix)), &cpp)
 	}
 }
 

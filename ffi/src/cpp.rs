@@ -1,0 +1,1295 @@
+//! The C++ header: header-only classes over the C header's declarations, from C++17, with
+//! exceptions and RTTI on or off.
+//!
+//! Each name is its C name without the prefix, in a namespace of the prefix: `moq_track`
+//! is `moq::track`, and a method is its C name without its type's (`moq_track_close` is
+//! `moq::track::close`). C names are unique, so these are too, once a keyword, or a member
+//! named as its class or a field, takes a trailing `_`. An object is a move-only class
+//! owning its handle, copyable if `Clone`; a record a struct; an enum an `enum class`, or
+//! for one with data a `std::variant` of a struct per variant, with its methods free
+//! functions; a closure lent for the call a template parameter. The runtime they share,
+//! [`runtime/rt.hpp`](../runtime/rt.hpp), holds the bytes, results, wakers, and futures.
+
+use std::collections::BTreeSet;
+
+use crate::abi::{self, Abi, Ty};
+use crate::c::decl;
+use crate::ir::{Function, Int, Literal, Receiver, Traits, Type};
+
+const RUNTIME: &str = include_str!("../runtime/rt.hpp");
+
+/// The header for `abi`, as `<prefix>.hpp`, or the members two items name alike.
+pub fn header(abi: &Abi<'_>, packages: &str) -> Result<String, String> {
+	let mut h = Header {
+		abi,
+		ns: abi.prefix.clone(),
+		out: String::new(),
+		defs: String::new(),
+		defined: BTreeSet::new(),
+		errors: Vec::new(),
+	};
+	h.write(packages);
+	match h.errors.is_empty() {
+		true => Ok(h.out),
+		false => Err(h.errors.join("\n")),
+	}
+}
+
+/// How a method's type holds it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Owner {
+	/// A class's member.
+	Member,
+	/// A free function whose first parameter is the value: an enum's.
+	Free,
+}
+
+struct Header<'a> {
+	abi: &'a Abi<'a>,
+	ns: String,
+	/// The declarations, in the order C++ needs them.
+	out: String,
+	/// The definitions, after every type is complete.
+	defs: String,
+	/// The value types written so far, so each is written after what it holds.
+	defined: BTreeSet<String>,
+	errors: Vec<String>,
+}
+
+impl<'a> Header<'a> {
+	fn line(&mut self, line: impl AsRef<str>) {
+		self.out.push_str(line.as_ref());
+		self.out.push('\n');
+	}
+
+	fn def(&mut self, line: impl AsRef<str>) {
+		self.defs.push_str(line.as_ref());
+		self.defs.push('\n');
+	}
+
+	/// A C name without the prefix, as C++ names it.
+	fn name(&self, c: &str) -> String {
+		escape(&c[self.abi.prefix.len() + 1..])
+	}
+
+	/// A C name's C++ name, qualified.
+	fn q(&self, c: &str) -> String {
+		format!("::{}::{}", self.ns, self.name(c))
+	}
+
+	/// The namespace's `detail`, qualified.
+	fn d(&self) -> String {
+		format!("::{}::detail", self.ns)
+	}
+
+	/// The C++ type of `ty` as a value: a field, or what a function returns, owning what
+	/// it holds.
+	fn owned(&self, ty: &Type) -> String {
+		let abi = self.abi;
+		match ty {
+			Type::Unit => "void".to_string(),
+			Type::Bool => "bool".to_string(),
+			Type::Int(int) => cpp_int(*int).to_string(),
+			Type::F32 => "float".to_string(),
+			Type::F64 => "double".to_string(),
+			Type::Char => "char32_t".to_string(),
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => format!("::{}::buf", self.ns),
+			Type::Duration => format!("::{}::duration", self.ns),
+			Type::Waker => format!("::{}::waker", self.ns),
+			Type::Option(inner) => format!("::std::optional<{}>", self.owned(inner)),
+			Type::Box(inner) | Type::Ref(_, inner) => self.owned(inner),
+			Type::Record(i) => self.q(&abi.record(*i)),
+			Type::Enum(i) => self.q(&abi.enumeration(*i)),
+			Type::Object(i) => self.q(&abi.object(*i)),
+			Type::Callback(i, _) => format!("::std::unique_ptr<{}>", self.q(&abi.callback(*i))),
+			Type::Closure(..) => unreachable!("a closure is a template parameter"),
+			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => self.q(&abi.range(ty)),
+			Type::Tuple(elements) => {
+				let elements: Vec<String> = elements.iter().map(|e| self.owned(e)).collect();
+				format!("::std::tuple<{}>", elements.join(", "))
+			}
+		}
+	}
+
+	/// The C++ type of a parameter of type `ty`.
+	fn param(&self, ty: &Type) -> String {
+		let abi = self.abi;
+		if Abi::is_buf(ty) {
+			return format!("::{}::view", self.ns);
+		}
+		match ty {
+			Type::Option(inner) if Abi::is_buf(inner) => format!("::std::optional<::{}::view>", self.ns),
+			Type::Option(inner) => match &**inner {
+				// Lent, or copied out: a pointer, null for none.
+				Type::Ref(m, object) if matches!(**object, Type::Object(_)) => {
+					let constant = match m {
+						crate::ir::Mutability::Not => "const ",
+						crate::ir::Mutability::Mut => "",
+					};
+					format!("{constant}{} *", self.owned(object))
+				}
+				Type::Object(i) if abi.api.objects[*i].copy => format!("const {} *", self.owned(inner)),
+				// Moved out of, as a handle taken by value is.
+				_ if matches!(inner.base(), Type::Object(_)) => format!("::std::optional<{}>", self.owned(inner)),
+				_ => format!("const ::std::optional<{}> &", self.owned(inner)),
+			},
+			Type::Waker => format!("const ::{}::waker &", self.ns),
+			Type::Ref(m, inner) if matches!(**inner, Type::Object(_)) => match m {
+				crate::ir::Mutability::Not => format!("const {} &", self.owned(inner)),
+				crate::ir::Mutability::Mut => format!("{} &", self.owned(inner)),
+			},
+			Type::Ref(_, inner) | Type::Box(inner) => self.param(inner),
+			Type::Object(i) if abi.api.objects[*i].copy => format!("const {} &", self.owned(ty)),
+			Type::Record(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => {
+				format!("const {} &", self.owned(ty))
+			}
+			Type::Enum(i) if !abi.api.enums[*i].plain() => format!("const {} &", self.owned(ty)),
+			ty => self.owned(ty),
+		}
+	}
+
+	/// The C value of the C++ value `e` of type `ty`, as a parameter or a field passes it.
+	fn lower(&self, ty: &Type, e: &str) -> String {
+		let abi = self.abi;
+		let d = self.d();
+		let ns = &self.ns;
+		if Abi::is_buf(ty) {
+			return format!("{d}::access::raw(::{ns}::view({e}))");
+		}
+		match ty {
+			Type::Unit => unreachable!("no value is unit"),
+			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
+			Type::Char => format!("static_cast<uint32_t>({e})"),
+			Type::Duration | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
+			Type::Option(inner) => match inner.base() {
+				Type::Object(_) => format!("({e} ? {d}::access::raw(*{e}) : nullptr)"),
+				// Through a view, so an empty buffer C++ made crosses as `Some`, not as null.
+				_ if Abi::is_buf(inner) => format!("({e} ? {d}::access::raw(::{ns}::view(*{e})) : {d}::none())"),
+				_ => {
+					let c = abi.option(inner);
+					let value = self.lower(inner, &format!("(*{e})"));
+					format!("({e} ? ::{c}{{true, {value}}} : ::{c}{{}})")
+				}
+			},
+			Type::Box(inner) | Type::Ref(_, inner) => self.lower(inner, e),
+			Type::Record(_) => format!("{d}::lower({e})"),
+			Type::Enum(i) => match abi.api.enums[*i].plain() {
+				true => format!("static_cast<::{}>({e})", abi.enumeration(*i)),
+				false => format!("{d}::lower({e})"),
+			},
+			Type::Object(_) => format!("{d}::access::raw({e})"),
+			Type::Callback(..) => format!("{d}::lower(::std::move({e}))"),
+			Type::Closure(..) => unreachable!("a closure lowers to its trampoline"),
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => unreachable!("a buffer is above"),
+			Type::Tuple(_) => unreachable!("a tuple is only returned"),
+		}
+	}
+
+	/// The C++ value of the C value `e` of type `ty`, which it takes ownership of. `e` is
+	/// named, so it may be read more than once.
+	fn lift(&self, ty: &Type, e: &str) -> String {
+		let abi = self.abi;
+		let d = self.d();
+		if Abi::is_buf(ty) {
+			return format!("{d}::access::adopt({e})");
+		}
+		match ty {
+			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
+			Type::Char => format!("static_cast<char32_t>({e})"),
+			Type::Duration | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Option(inner) => {
+				let owned = self.owned(inner);
+				match inner.base() {
+					Type::Object(_) => {
+						format!("({e} ? ::std::optional<{owned}>({d}::access::wrap<{owned}>({e})) : ::std::nullopt)")
+					}
+					_ if Abi::is_buf(inner) => format!("{d}::access::adopt_option({e})"),
+					_ => format!(
+						"({e}.some ? ::std::optional<{owned}>({}) : ::std::nullopt)",
+						self.lift(inner, &format!("{e}.value"))
+					),
+				}
+			}
+			Type::Box(inner) | Type::Ref(_, inner) => self.lift(inner, e),
+			Type::Record(_) => format!("{d}::lift({e})"),
+			Type::Enum(i) => match abi.api.enums[*i].plain() {
+				true => format!("static_cast<{}>({e})", self.owned(ty)),
+				false => format!("{d}::lift({e})"),
+			},
+			Type::Object(_) => format!("{d}::access::wrap<{}>({e})", self.owned(ty)),
+			other => unreachable!("{other:?} is never returned"),
+		}
+	}
+
+	/// The C++ type of a callback's parameter of type `ty`, lent for the call.
+	fn lent(&self, ty: &Type) -> String {
+		match ty {
+			ty if Abi::is_buf(ty) => format!("::{}::view", self.ns),
+			Type::Option(inner) => format!("::std::optional<{}>", self.lent(inner)),
+			ty => self.owned(ty),
+		}
+	}
+
+	/// The C++ value of a callback's C parameter `e` of type `ty`, lent for the call.
+	fn lift_lent(&self, ty: &Type, e: &str) -> String {
+		match ty {
+			ty if Abi::is_buf(ty) => format!("::{}::view({e}.ptr, {e}.len)", self.ns),
+			Type::Option(inner) if Abi::is_buf(inner) => format!(
+				"({e}.ptr ? ::std::optional<::{ns}::view>(::{ns}::view({e}.ptr, {e}.len)) : ::std::nullopt)",
+				ns = self.ns
+			),
+			Type::Option(inner) => format!(
+				"({e}.some ? ::std::optional<{}>({}) : ::std::nullopt)",
+				self.lent(inner),
+				self.lift_lent(inner, &format!("{e}.value"))
+			),
+			ty => self.lift(ty, e),
+		}
+	}
+
+	fn write(&mut self, packages: &str) {
+		let abi = self.abi;
+		let api = abi.api;
+		let p = abi.prefix.clone();
+		let ns = self.ns.clone();
+		let guard = format!("{}_HPP", p.to_uppercase());
+		self.line(format!(
+			"// Generated by rust2-ffi: C++ over the C ABI of the pub API of {packages}. Do not edit.\n"
+		));
+		self.line(format!("#ifndef {guard}\n#define {guard}\n"));
+		self.line(format!("#include \"{p}.h\"\n"));
+		for include in [
+			"atomic",
+			"condition_variable",
+			"cstddef",
+			"cstdint",
+			"cstdio",
+			"cstdlib",
+			"cstring",
+			"memory",
+			"mutex",
+			"optional",
+			"string_view",
+			"thread",
+			"tuple",
+			"type_traits",
+			"utility",
+			"variant",
+		] {
+			self.line(format!("#include <{include}>"));
+		}
+		self.line(
+			"#if defined(__cpp_impl_coroutine) && __cpp_impl_coroutine >= 201902L && __has_include(<coroutine>)\n#include <coroutine>\n#endif\n",
+		);
+		self.line(format!("namespace {ns} {{\n"));
+		self.line(format!(
+			"namespace detail {{\n\nusing c_buf = ::{p}_buf;\nusing c_waker = ::{p}_waker;\n\ninline void c_buf_free(c_buf buf) noexcept {{\n\t::{p}_buf_free(buf);\n}}\n\n}} // namespace detail\n"
+		));
+		self.out.push_str(RUNTIME);
+		self.line(format!(
+			"\nnamespace detail {{\n\n// Checked at load, before any other call: a header and a library from different builds\n// must not mix.\ninline const bool contract = ::{p}_contract() == {upper}_CONTRACT ||\n\t(fail(\"{p}.hpp and the library are from different builds\"), false);\n\n}} // namespace detail\n",
+			upper = p.to_uppercase()
+		));
+		self.line(format!("using duration = ::{p}_duration;"));
+		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
+			self.line(format!("using bound = ::{};", abi.rt("bound")));
+		}
+		for name in abi.ranges.keys() {
+			self.line(format!("using {} = ::{name};", self.name(name)));
+		}
+		self.line("");
+
+		// Plain enums, complete at once.
+		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| e.plain()) {
+			let name = self.name(&abi.enumeration(i));
+			let variants: Vec<String> = e
+				.variants
+				.iter()
+				.map(|v| format!("\t{} = {},", escape(&abi::snake(&v.name)), v.discriminant))
+				.collect();
+			self.line(format!(
+				"{}enum class {name} {{\n{}\n}};\n",
+				docs(&e.docs, ""),
+				variants.join("\n")
+			));
+		}
+
+		// Every class and struct, declared so any signature may name it.
+		for i in 0..api.records.len() {
+			self.line(format!("struct {};", self.name(&abi.record(i))));
+		}
+		for i in 0..api.objects.len() {
+			self.line(format!("class {};", self.name(&abi.object(i))));
+		}
+		for i in 0..api.callbacks.len() {
+			self.line(format!("class {};", self.name(&abi.callback(i))));
+		}
+		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
+			let name = abi.enumeration(i);
+			let payloads: Vec<String> = e
+				.variants
+				.iter()
+				.map(|v| self.name(&format!("{name}_{}", abi::snake(&v.name))))
+				.collect();
+			for payload in &payloads {
+				self.line(format!("struct {payload};"));
+			}
+			self.line(format!(
+				"{}using {} = ::std::variant<{}>;",
+				docs(&e.docs, ""),
+				self.name(&name),
+				payloads.join(", ")
+			));
+		}
+		self.line("");
+
+		// Each future's type, by the operations it polls with.
+		let futures = self.functions();
+		for (function, owner) in &futures {
+			let export = abi.export(function, owner.as_ref());
+			if let Some((handle, _, _)) = &export.future {
+				let name = self.name(handle);
+				self.line(format!(
+					"namespace detail {{\nstruct {name}_op;\n}}\nusing {name} = ::{ns}::future<detail::{name}_op>;"
+				));
+			}
+		}
+		self.line("");
+
+		for constant in &api.constants {
+			let ty = match constant.value {
+				Literal::Bool(_) => "bool",
+				Literal::Int(int, _) => cpp_int(int),
+			};
+			self.line(format!(
+				"{}inline constexpr {ty} {} = {};",
+				docs(&constant.docs, ""),
+				self.name(&abi.name(&constant.path)),
+				abi.constant(&constant.path)
+			));
+		}
+		if !api.constants.is_empty() {
+			self.line("");
+		}
+
+		for i in 0..api.objects.len() {
+			self.object(i);
+		}
+		for i in 0..api.callbacks.len() {
+			self.callback(i);
+		}
+
+		// Value types, each after the values it holds.
+		for i in 0..api.records.len() {
+			self.value(&Type::Record(i));
+		}
+		for (i, e) in api.enums.iter().enumerate() {
+			match e.plain() {
+				true => self.enumeration(i),
+				false => self.value(&Type::Enum(i)),
+			}
+		}
+
+		self.conversions();
+		for (function, owner) in &futures {
+			self.future(function, owner.as_ref());
+		}
+
+		let defs = std::mem::take(&mut self.defs);
+		self.out.push_str(&defs);
+		for function in &api.functions {
+			self.function(function, None, None);
+		}
+		let defs = std::mem::take(&mut self.defs);
+		self.out.push_str(&defs);
+		self.line(format!("}} // namespace {ns}\n"));
+		self.line(format!("#endif // {guard}"));
+	}
+
+	/// Every exported function, with the C type of its owner if a method.
+	fn functions(&self) -> Vec<(&'a Function, Option<Ty>)> {
+		let abi = self.abi;
+		let api = abi.api;
+		let mut functions = Vec::new();
+		for (i, record) in api.records.iter().enumerate() {
+			let owner = Ty::Struct(abi.record(i));
+			functions.extend(record.methods.iter().map(|m| (m, Some(owner.clone()))));
+		}
+		for (i, e) in api.enums.iter().enumerate() {
+			let owner = abi.ty(&Type::Enum(i));
+			functions.extend(e.methods.iter().map(|m| (m, Some(owner.clone()))));
+		}
+		for (i, object) in api.objects.iter().enumerate() {
+			let owner = Ty::Handle {
+				name: abi.object(i),
+				constant: false,
+			};
+			functions.extend(object.methods.iter().map(|m| (m, Some(owner.clone()))));
+		}
+		functions.extend(api.functions.iter().map(|f| (f, None)));
+		functions
+	}
+
+	/// The member name of the C function `c` of the type named `owner` in C, kept apart from
+	/// the class's name and its fields.
+	fn member(&self, c: &str, owner: &str, taken: &[String]) -> String {
+		let bare = match c.strip_prefix(owner).and_then(|rest| rest.strip_prefix('_')) {
+			Some(rest) => escape(rest),
+			None => self.name(c),
+		};
+		match taken.contains(&bare) {
+			true => format!("{bare}_"),
+			false => bare,
+		}
+	}
+
+	/// Check that no two members of `class`, the Rust type `rust`, share a name.
+	fn distinct(&mut self, class: &str, rust: &str, members: &[String]) {
+		let mut seen = BTreeSet::new();
+		for member in members {
+			if !seen.insert(member) {
+				self.errors.push(format!(
+					"two members of `{rust}` are both `{}::{class}::{member}` in C++: rename one in the config",
+					self.ns
+				));
+			}
+		}
+	}
+
+	fn object(&mut self, i: usize) {
+		let abi = self.abi;
+		let object = &abi.api.objects[i];
+		let c = abi.object(i);
+		let name = self.name(&c);
+		let t = object.traits;
+		let text = format!("{}\n\n{}", abi.api.rust(&object.path, &object.args), object.docs);
+		let mut body = vec![
+			format!("\t::{c} *raw_;\n"),
+			format!("\texplicit {name}(::{c} *raw) noexcept : raw_(raw) {{}}\n"),
+			format!("\tfriend struct {}::access;\n", self.d()),
+			"public:".to_string(),
+			format!(
+				"\t{name}({name} &&other) noexcept : raw_(::std::exchange(other.raw_, nullptr)) {{}}\n\t{name} &operator=({name} &&other) noexcept {{\n\t\t::std::swap(raw_, other.raw_);\n\t\treturn *this;\n\t}}\n\t~{name}() {{\n\t\t::{c}_free(raw_);\n\t}}"
+			),
+		];
+		if t.clone {
+			body.push(format!(
+				"\t{name}(const {name} &other) : raw_(::{c}_clone(other.raw_)) {{}}\n\t{name} &operator=(const {name} &other) {{\n\t\tif (this != &other) {{\n\t\t\t*this = {name}(other);\n\t\t}}\n\t\treturn *this;\n\t}}"
+			));
+		} else {
+			body.push(format!(
+				"\t{name}(const {name} &) = delete;\n\t{name} &operator=(const {name} &) = delete;"
+			));
+		}
+		if t.eq {
+			body.push(format!(
+				"\tfriend bool operator==(const {name} &a, const {name} &b) {{\n\t\treturn ::{c}_eq(a.raw_, b.raw_);\n\t}}\n\tfriend bool operator!=(const {name} &a, const {name} &b) {{\n\t\treturn !(a == b);\n\t}}"
+			));
+		}
+		let mut members = Vec::new();
+		self.traits(&name, &c, t, true, &mut body, &mut members);
+		let owner = Ty::Handle {
+			name: c.clone(),
+			constant: false,
+		};
+		let taken = vec![name.clone()];
+		for method in &object.methods {
+			let (decl, member) = self.function(method, Some(&owner), Some((&taken, Owner::Member)));
+			body.push(decl);
+			members.push(member);
+		}
+		self.distinct(&name, &abi.api.rust(&object.path, &object.args), &members);
+		self.line(format!(
+			"{}class {name} {{\n{}\n}};\n",
+			docs(text.trim(), ""),
+			body.join("\n")
+		));
+	}
+
+	/// The members a type's std traits export beyond its operators: an object's, which
+	/// holds a handle, or a record's, which is lowered.
+	fn traits(
+		&mut self,
+		name: &str,
+		c: &str,
+		t: Traits,
+		object: bool,
+		body: &mut Vec<String>,
+		members: &mut Vec<String>,
+	) {
+		let ns = self.ns.clone();
+		let d = self.d();
+		let (this, lower) = match object {
+			true => ("raw_", String::new()),
+			false => ("&c_self_", format!("\tauto c_self_ = {d}::lower(*this);\n")),
+		};
+		if t.display {
+			body.push(format!("\t::{ns}::buf to_string() const;"));
+			members.push("to_string".to_string());
+			self.def(format!(
+				"inline ::{ns}::buf {name}::to_string() const {{\n{lower}\treturn {d}::access::adopt(::{c}_to_string({this}));\n}}\n"
+			));
+		}
+		if t.debug {
+			body.push(format!("\t::{ns}::buf debug() const;"));
+			members.push("debug".to_string());
+			self.def(format!(
+				"inline ::{ns}::buf {name}::debug() const {{\n{lower}\treturn {d}::access::adopt(::{c}_debug({this}));\n}}\n"
+			));
+		}
+		if t.default {
+			body.push(format!("\tstatic {name} default_();"));
+			members.push("default_".to_string());
+			let make = match object {
+				true => format!("{d}::access::wrap<{name}>(c_ret_)"),
+				false => format!("{d}::lift(c_ret_)"),
+			};
+			self.def(format!(
+				"inline {name} {name}::default_() {{\n\tauto c_ret_ = ::{c}_default();\n\treturn {make};\n}}\n"
+			));
+		}
+	}
+
+	fn callback(&mut self, i: usize) {
+		let abi = self.abi;
+		let callback = &abi.api.callbacks[i];
+		let c = abi.callback(i);
+		let name = self.name(&c);
+		let text = format!(
+			"{}: implemented in C++. Rust deletes it once it drops the implementation, and may\ncall its methods from any thread.\n\n{}",
+			callback.path.join("::"),
+			callback.docs
+		);
+		let mut body = vec!["public:".to_string(), format!("\tvirtual ~{name}() = default;")];
+		let mut members = Vec::new();
+		let mut trampolines = vec![format!(
+			"\t\tstatic void free(void *data) noexcept {{\n\t\t\tdelete static_cast<::{}::{name} *>(data);\n\t\t}}",
+			self.ns
+		)];
+		let mut table = vec!["&t::free".to_string()];
+		for (n, method) in callback.methods.iter().enumerate() {
+			let mut member = escape(method.name());
+			if member == name {
+				member.push('_');
+			}
+			members.push(member.clone());
+			let constant = match method.receiver {
+				Some(Receiver::Mut) => "",
+				_ => " const",
+			};
+			let params: Vec<String> = method
+				.params
+				.iter()
+				.map(|p| declare(&self.lent(&p.ty), &escape(&p.name)))
+				.collect();
+			body.push(format!(
+				"{}\tvirtual {} {member}({}){constant} = 0;",
+				docs(&method.docs, "\t"),
+				self.owned(&method.ok),
+				params.join(", ")
+			));
+			let c_params: Vec<String> = std::iter::once("void *data".to_string())
+				.chain(
+					method
+						.params
+						.iter()
+						.enumerate()
+						.map(|(k, p)| decl(abi, &abi.ty(&p.ty), &format!("p{k}"))),
+				)
+				.collect();
+			let args: Vec<String> = method
+				.params
+				.iter()
+				.enumerate()
+				.map(|(k, p)| self.lift_lent(&p.ty, &format!("p{k}")))
+				.collect();
+			let call = format!(
+				"static_cast<::{}::{name}{constant} *>(data)->{member}({})",
+				self.ns,
+				args.join(", ")
+			);
+			let ret = match &method.ok {
+				Type::Unit => format!("{call};"),
+				ok => format!("return {};", self.lower(ok, &call)),
+			};
+			trampolines.push(format!(
+				"\t\tstatic {} m{n}({}) noexcept {{\n\t\t\t{ret}\n\t\t}}",
+				decl(abi, &abi.ty(&method.ok), ""),
+				c_params.join(", ")
+			));
+			table.push(format!("&t::m{n}"));
+		}
+		self.distinct(&name, &callback.path.join("::"), &members);
+		self.line(format!(
+			"{}class {name} {{\n{}\n}};\n",
+			docs(text.trim(), ""),
+			body.join("\n")
+		));
+		self.def(format!(
+			"namespace detail {{\n\ninline ::{c} lower(::std::unique_ptr<::{ns}::{name}> impl) {{\n\tif (!impl) {{\n\t\tfail(\"{c}: a null implementation\");\n\t}}\n\tstruct t {{\n{}\n\t}};\n\tstatic const ::{c}_vtable vtable = {{{}}};\n\treturn ::{c}{{&vtable, impl.release()}};\n}}\n\n}} // namespace detail\n",
+			trampolines.join("\n"),
+			table.join(", "),
+			ns = self.ns,
+		));
+	}
+
+	/// A record's struct or a data enum's payloads, after the values they hold.
+	fn value(&mut self, ty: &Type) {
+		let abi = self.abi;
+		let c = match ty {
+			Type::Record(i) => abi.record(*i),
+			Type::Enum(i) if !abi.api.enums[*i].plain() => abi.enumeration(*i),
+			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => return self.value(inner),
+			Type::Tuple(elements) => {
+				for element in elements {
+					self.value(element);
+				}
+				return;
+			}
+			_ => return,
+		};
+		if !self.defined.insert(c.clone()) {
+			return;
+		}
+		match ty {
+			Type::Record(i) => {
+				let record = &abi.api.records[*i];
+				for field in &record.fields {
+					self.value(&field.ty);
+				}
+				let name = self.name(&c);
+				let fields: Vec<String> = record.fields.iter().map(|f| escape(&f.name)).collect();
+				let mut body: Vec<String> = record
+					.fields
+					.iter()
+					.zip(&fields)
+					.map(|(f, field)| format!("{}\t{} {field}{};", docs(&f.docs, "\t"), self.owned(&f.ty), init(&f.ty)))
+					.collect();
+				body.push(String::new());
+				let mut members = fields.clone();
+				let t = record.traits;
+				if t.eq {
+					body.push(format!(
+						"\tbool operator==(const {name} &other) const;\n\tbool operator!=(const {name} &other) const {{\n\t\treturn !(*this == other);\n\t}}"
+					));
+					self.def(format!(
+						"inline bool {name}::operator==(const {name} &other) const {{\n\tauto a = {d}::lower(*this);\n\tauto b = {d}::lower(other);\n\treturn ::{c}_eq(&a, &b);\n}}\n",
+						d = self.d()
+					));
+				}
+				self.traits(&name, &c, t, false, &mut body, &mut members);
+				let owner = Ty::Struct(c.clone());
+				let mut taken = fields.clone();
+				taken.push(name.clone());
+				for method in &record.methods {
+					let (decl, member) = self.function(method, Some(&owner), Some((&taken, Owner::Member)));
+					body.push(decl);
+					members.push(member);
+				}
+				self.distinct(&name, &abi.api.rust(&record.path, &record.args), &members);
+				while body.last().is_some_and(String::is_empty) {
+					body.pop();
+				}
+				self.line(format!(
+					"{}struct {name} {{\n{}\n}};\n",
+					docs(&record.docs, ""),
+					body.join("\n")
+				));
+			}
+			Type::Enum(i) => {
+				let e = &abi.api.enums[*i];
+				for variant in &e.variants {
+					for field in &variant.fields {
+						self.value(&field.ty);
+					}
+				}
+				for variant in &e.variants {
+					let payload = self.name(&format!("{c}_{}", abi::snake(&variant.name)));
+					let fields: Vec<String> = variant
+						.fields
+						.iter()
+						.map(|f| format!("\t{} {}{};", self.owned(&f.ty), escape(&f.name), init(&f.ty)))
+						.collect();
+					self.line(format!("struct {payload} {{\n{}\n}};\n", fields.join("\n")).replace("{\n\n}", "{}"));
+				}
+				self.enumeration(*i);
+			}
+			_ => unreachable!(),
+		}
+	}
+
+	/// An enum's methods and std traits, as free functions taking it first: C++ enums
+	/// hold no members.
+	fn enumeration(&mut self, i: usize) {
+		let abi = self.abi;
+		let e = &abi.api.enums[i];
+		let c = abi.enumeration(i);
+		let name = self.name(&c);
+		let ns = self.ns.clone();
+		let ty = Type::Enum(i);
+		let param = self.param(&ty);
+		let lifted = self.lift(&ty, "c_ret_");
+		let lower = |e: &str| self.lower(&ty, e);
+		let (a, b, this) = (lower("a"), lower("b"), lower("self"));
+		let t = e.traits;
+		if t.eq {
+			let (a_, b_) = (declare(&param, "a"), declare(&param, "b"));
+			self.def(format!(
+				"inline bool operator==({a_}, {b_}) {{\n\tauto c_a_ = {a};\n\tauto c_b_ = {b};\n\treturn ::{c}_eq(&c_a_, &c_b_);\n}}\n\ninline bool operator!=({a_}, {b_}) {{\n\treturn !(a == b);\n}}\n"
+			));
+		}
+		for (on, trait_name) in [(t.display, "to_string"), (t.debug, "debug")] {
+			if on {
+				self.def(format!(
+					"inline ::{ns}::buf {name}_{trait_name}({}) {{\n\tauto c_self_ = {this};\n\treturn {d}::access::adopt(::{c}_{trait_name}(&c_self_));\n}}\n",
+					declare(&param, "self"),
+					d = self.d()
+				));
+			}
+		}
+		if t.default {
+			self.def(format!(
+				"inline {name} {name}_default() {{\n\tauto c_ret_ = ::{c}_default();\n\treturn {lifted};\n}}\n"
+			));
+		}
+		let owner = abi.ty(&ty);
+		for method in &e.methods {
+			self.function(method, Some(&owner), Some((&[], Owner::Free)));
+		}
+	}
+
+	/// Each record's and data enum's conversions to and from C.
+	fn conversions(&mut self) {
+		let abi = self.abi;
+		let api = abi.api;
+		let ns = self.ns.clone();
+		self.line("namespace detail {\n");
+		for i in 0..api.records.len() {
+			let c = abi.record(i);
+			let name = self.name(&c);
+			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v);"));
+			self.line(format!("inline ::{ns}::{name} lift(const ::{c} &c);"));
+		}
+		for (i, _) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
+			let c = abi.enumeration(i);
+			let name = self.name(&c);
+			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v);"));
+			self.line(format!("inline ::{ns}::{name} lift(const ::{c} &c);"));
+		}
+		for i in 0..api.callbacks.len() {
+			let c = abi.callback(i);
+			let name = self.name(&c);
+			self.line(format!("inline ::{c} lower(::std::unique_ptr<::{ns}::{name}> impl);"));
+		}
+		self.line("");
+		for (i, record) in api.records.iter().enumerate() {
+			let c = abi.record(i);
+			let name = self.name(&c);
+			let lowered: Vec<String> = record
+				.fields
+				.iter()
+				.map(|f| self.lower(&f.ty, &format!("v.{}", escape(&f.name))))
+				.collect();
+			let lifted: Vec<String> = record
+				.fields
+				.iter()
+				.map(|f| self.lift(&f.ty, &format!("c.{}", abi::escape(&f.name))))
+				.collect();
+			let (v, cc) = match record.fields.is_empty() {
+				true => ("", ""),
+				false => (" &v", " &c"),
+			};
+			self.line(format!(
+				"inline ::{c} lower(const ::{ns}::{name}{v}) {{\n\treturn ::{c}{{{}}};\n}}\n",
+				lowered.join(", ")
+			));
+			self.line(format!(
+				"inline ::{ns}::{name} lift(const ::{c}{cc}) {{\n\treturn ::{ns}::{name}{{{}}};\n}}\n",
+				lifted.join(", ")
+			));
+		}
+		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
+			let c = abi.enumeration(i);
+			let name = self.name(&c);
+			let upper = c.to_uppercase();
+			let mut lower = Vec::new();
+			let mut lift = Vec::new();
+			for (n, variant) in e.variants.iter().enumerate() {
+				let tag = format!("{upper}_{}", abi::snake(&variant.name).to_uppercase());
+				let payload = self.name(&format!("{c}_{}", abi::snake(&variant.name)));
+				let member = abi::escape(&abi::snake(&variant.name));
+				let mut set = vec![format!("c.tag = {tag};")];
+				let mut fields = Vec::new();
+				for field in &variant.fields {
+					set.push(format!(
+						"c.{member}.{} = {};",
+						abi::escape(&field.name),
+						self.lower(&field.ty, &format!("p.{}", escape(&field.name)))
+					));
+					fields.push(self.lift(&field.ty, &format!("c.{member}.{}", abi::escape(&field.name))));
+				}
+				let bind = match variant.fields.is_empty() {
+					true => String::new(),
+					false => format!("const auto &p = *::std::get_if<{n}>(&v);\n\t\t"),
+				};
+				lower.push(format!(
+					"\tcase {n}: {{\n\t\t{bind}{}\n\t\tbreak;\n\t}}",
+					set.join("\n\t\t")
+				));
+				lift.push(format!(
+					"\tcase {tag}:\n\t\treturn ::{ns}::{name}(::std::in_place_index<{n}>, ::{ns}::{payload}{{{}}});",
+					fields.join(", ")
+				));
+			}
+			self.line(format!(
+				"inline ::{c} lower(const ::{ns}::{name} &v) {{\n\t::{c} c{{}};\n\tswitch (v.index()) {{\n{}\n\t}}\n\treturn c;\n}}\n",
+				lower.join("\n")
+			));
+			self.line(format!(
+				"inline ::{ns}::{name} lift(const ::{c} &c) {{\n\tswitch (c.tag) {{\n{}\n\t}}\n\tfail(\"{c}: an invalid tag\");\n}}\n",
+				lift.join("\n")
+			));
+		}
+		self.line("} // namespace detail\n");
+	}
+
+	/// The return type a C++ function or future gives for `function`'s result.
+	fn output(&self, function: &Function) -> String {
+		let ok = self.owned(&function.ok);
+		match &function.err {
+			Some(err) => format!("::{}::result<{ok}, {}>", self.ns, self.owned(err)),
+			None => ok,
+		}
+	}
+
+	/// Declarations of the out values a C call writes through `outs`, and the C++ value they
+	/// make, ok then error, for a result `output`.
+	fn outs(&self, function: &Function, outs: &[(String, Ty)], output: &str) -> (Vec<String>, String, Option<String>) {
+		let abi = self.abi;
+		let declared: Vec<String> = outs
+			.iter()
+			.map(|(name, ty)| {
+				let Ty::Out(inner) = ty else {
+					unreachable!("an out parameter is a pointer")
+				};
+				format!("{}{{}};", decl(abi, inner, &format!("c_{name}_")))
+			})
+			.collect();
+		let owned = strip_refs;
+		let ok = match &function.ok {
+			Type::Unit => String::new(),
+			Type::Tuple(elements) => {
+				let lifted: Vec<String> = elements
+					.iter()
+					.enumerate()
+					.map(|(n, e)| self.lift(&owned(e), &format!("c_out{n}_")))
+					.collect();
+				format!("{}({})", self.owned(&function.ok), lifted.join(", "))
+			}
+			ok => self.lift(&owned(ok), "c_out_"),
+		};
+		let ok = match function.err.is_some() {
+			true => format!("{output}::ok({ok})"),
+			false => ok,
+		};
+		let err = function
+			.err
+			.as_ref()
+			.map(|err| format!("{output}::err({})", self.lift(&owned(err), "c_err_")));
+		(declared, ok, err)
+	}
+
+	/// `function`'s declaration in its class, and its member name, with its definition
+	/// among the definitions; or as a free function if it has no class.
+	fn function(
+		&mut self,
+		function: &Function,
+		owner: Option<&Ty>,
+		class: Option<(&[String], Owner)>,
+	) -> (String, String) {
+		let abi = self.abi;
+		let export = abi.export(function, owner);
+		let d = self.d();
+		let owner_c = match owner {
+			Some(Ty::Struct(n) | Ty::Enum(n) | Ty::Handle { name: n, .. }) => Some(n.clone()),
+			_ => None,
+		};
+		let member = match (class, &owner_c) {
+			(Some((taken, Owner::Member)), Some(owner)) => self.member(&export.call.name, owner, taken),
+			_ => self.name(&export.call.name),
+		};
+		let free = !matches!(class, Some((_, Owner::Member)));
+		let ret = match &export.future {
+			Some((handle, _, _)) => self.q(handle),
+			None => self.output(function),
+		};
+		let mut params: Vec<String> = Vec::new();
+		let mut args: Vec<String> = Vec::new();
+		let mut prelude = Vec::new();
+		let receiver = function.receiver.filter(|_| owner.is_some());
+		let mut c_params = export.call.params.iter();
+		if receiver.is_some() {
+			let (_, ty) = c_params.next().expect("a method has its receiver");
+			match (ty, free) {
+				(Ty::Handle { .. }, _) => args.push("raw_".to_string()),
+				(_, false) => {
+					prelude.push(format!("auto c_self_ = {d}::lower(*this);"));
+					args.push("&c_self_".to_string());
+				}
+				(_, true) => {
+					let ty = enumeration(abi, owner_c.as_deref().expect("a free method has its enum"));
+					params.push(declare(&self.param(&ty), "self"));
+					prelude.push(format!("auto c_self_ = {};", self.lower(&ty, "self")));
+					args.push("&c_self_".to_string());
+				}
+			}
+		}
+		let mut templates = Vec::new();
+		for param in &function.params {
+			let (_, c_ty) = c_params.next().expect("each parameter has its C one");
+			let name = escape(&param.name);
+			if let (Type::Closure(lent, ret), Ty::Fn(c_lent, c_ret)) = (&param.ty, c_ty) {
+				c_params.next().expect("a closure has its data");
+				let f = format!("F{}", templates.len());
+				params.push(format!("{f} &&{name}"));
+				prelude.push(self.closure(&f, &name, (lent, ret), (c_lent, c_ret)));
+				args.push(format!("c_{name}_"));
+				args.push(format!(
+					"const_cast<void *>(static_cast<const void *>(::std::addressof({name})))"
+				));
+				templates.push(format!("class {f}"));
+				continue;
+			}
+			params.push(declare(&self.param(&param.ty), &name));
+			args.push(self.lower(&param.ty, &name));
+		}
+		let outs: Vec<(String, Ty)> = c_params.cloned().collect();
+		for (name, _) in &outs {
+			args.push(format!("&c_{name}_"));
+		}
+		let call = format!("::{}({})", export.call.name, args.join(", "));
+		let mut body = prelude;
+		if let Some((handle, _, _)) = &export.future {
+			body.push(format!("return {d}::access::wrap<{}>({call});", self.q(handle)));
+		} else {
+			let (declared, ok, err) = self.outs(function, &outs, &ret);
+			body.extend(declared);
+			match (&function.err, &function.ok) {
+				(Some(_), _) => {
+					body.push(format!("if ({call}) {{\n\t\treturn {ok};\n\t}}"));
+					body.push(format!("return {};", err.expect("an error lifts")));
+				}
+				(None, Type::Tuple(_)) => {
+					body.push(format!("{call};"));
+					body.push(format!("return {ok};"));
+				}
+				(None, Type::Unit) => body.push(format!("{call};")),
+				(None, ok_ty) => {
+					body.push(format!("auto c_out_ = {call};"));
+					let lifted = self.lift(&strip_refs(ok_ty), "c_out_");
+					body.push(format!("return {lifted};"));
+				}
+			}
+		}
+		let qualifier = match (receiver, free) {
+			(_, true) | (None, _) => String::new(),
+			(Some(Receiver::Ref), _) => " const".to_string(),
+			(Some(Receiver::Mut), _) => String::new(),
+			(Some(Receiver::Owned), _) => match owner {
+				Some(Ty::Handle { name, .. }) if !copy(abi, name) => " &&".to_string(),
+				_ => " const".to_string(),
+			},
+		};
+		let is_static = receiver.is_none() && !free;
+		let class_name = owner_c.as_deref().map(|c| self.name(c));
+		let scope = match (&class_name, free) {
+			(Some(class), false) => format!("{class}::"),
+			_ => String::new(),
+		};
+		let template = match templates.is_empty() {
+			true => String::new(),
+			false => format!("template <{}>\n", templates.join(", ")),
+		};
+		self.def(format!(
+			"{template}inline {ret} {scope}{member}({}){qualifier} {{\n\t{}\n}}\n",
+			params.join(", "),
+			body.join("\n\t")
+		));
+		let mut text = function.docs.clone();
+		for param in &function.params {
+			if let Type::Closure(lent, _) = &param.ty {
+				let name = escape(&param.name);
+				text.push_str(&format!(
+					"\n\nRust calls `{name}` only during the call, from any thread."
+				));
+				if lent.iter().any(|p| matches!(p.base(), Type::Object(_))) {
+					text.push_str(&format!(
+						"\nAn object it lends lives only for that call of `{name}`: move none out of it."
+					));
+				}
+			}
+		}
+		let declaration = format!(
+			"{}\t{}{}{ret} {member}({}){qualifier};",
+			docs(text.trim(), "\t"),
+			template.replace('\n', "\n\t"),
+			match is_static {
+				true => "static ",
+				false => "",
+			},
+			params.join(", ")
+		);
+		(declaration, member)
+	}
+
+	/// The trampoline C calls for the closure parameter `name`, of type `f`, taking `lent`
+	/// and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends each object
+	/// as its class.
+	fn closure(&self, f: &str, name: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
+		let abi = self.abi;
+		let d = self.d();
+		let c_params: Vec<String> = std::iter::once("void *data".to_string())
+			.chain(c_lent.iter().enumerate().map(|(k, ty)| decl(abi, ty, &format!("p{k}"))))
+			.collect();
+		let mut body = vec![format!(
+			"auto &f = *static_cast<::std::remove_reference_t<{f}> *>(data);"
+		)];
+		let mut args = Vec::new();
+		for (k, (ty, c_ty)) in lent.iter().zip(c_lent).enumerate() {
+			let p = format!("p{k}");
+			match (ty, c_ty) {
+				(Type::Ref(m, object), Ty::Handle { name: c, constant }) => {
+					let constant = match constant {
+						true => "const ",
+						false => "",
+					};
+					body.push(format!("{d}::lent<{}, {constant}::{c}> l{k}({p});", self.owned(object)));
+					args.push(match m {
+						crate::ir::Mutability::Not => format!("::std::as_const(l{k}.get())"),
+						crate::ir::Mutability::Mut => format!("l{k}.get()"),
+					});
+				}
+				_ => args.push(self.lift_lent(ty, &p)),
+			}
+		}
+		let call = format!("f({})", args.join(", "));
+		body.push(match ret {
+			Type::Unit => format!("{call};"),
+			ret => format!("return {};", self.lower(ret, &call)),
+		});
+		format!(
+			"auto c_{name}_ = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
+			c_params.join(", "),
+			decl(abi, c_ret, ""),
+			body.join("\n\t\t")
+		)
+	}
+
+	/// The operations a future's type polls with.
+	fn future(&mut self, function: &Function, owner: Option<&Ty>) {
+		let abi = self.abi;
+		let export = abi.export(function, owner);
+		let Some((handle, poll, free)) = &export.future else {
+			return;
+		};
+		let name = self.name(handle);
+		let output = self.output(function);
+		let outs: Vec<(String, Ty)> = poll.params[2..].to_vec();
+		let (declared, ok, err) = self.outs(function, &outs, &output);
+		let ok = match (&function.err, &function.ok) {
+			(None, Type::Unit) => "out.emplace();".to_string(),
+			_ => format!("out.emplace({ok});"),
+		};
+		let mut args = vec!["f".to_string(), "w".to_string()];
+		args.extend(outs.iter().map(|(name, _)| format!("&c_{name}_")));
+		let upper = abi.prefix.to_uppercase();
+		let mut cases = vec![format!("\t\tcase {upper}_POLL_READY:\n\t\t\t{ok}\n\t\t\tbreak;")];
+		if let Some(err) = err {
+			cases.push(format!(
+				"\t\tcase {upper}_POLL_ERROR:\n\t\t\tout.emplace({err});\n\t\t\tbreak;"
+			));
+		}
+		cases.push("\t\tdefault:\n\t\t\tbreak;".to_string());
+		let declared: String = declared.iter().map(|d| format!("\t\t{d}\n")).collect();
+		self.line(format!(
+			"namespace detail {{\n\nstruct {name}_op {{\n\tusing raw = ::{handle};\n\tusing output = {output};\n\n\tstatic void free(raw *f) noexcept {{\n\t\t::{}(f);\n\t}}\n\n\tstatic void poll(raw *f, c_waker w, slot<output> &out) {{\n{declared}\t\tswitch (::{}({})) {{\n{}\n\t\t}}\n\t}}\n}};\n\n}} // namespace detail\n",
+			free.name,
+			poll.name,
+			args.join(", "),
+			cases.join("\n")
+		));
+	}
+}
+
+/// The enum named `c` in C.
+fn enumeration(abi: &Abi<'_>, c: &str) -> Type {
+	let i = (0..abi.api.enums.len()).find(|&i| abi.enumeration(i) == c);
+	Type::Enum(i.expect("a free method's owner is an enum"))
+}
+
+/// Whether the object named `c` in C is `Copy`.
+fn copy(abi: &Abi<'_>, c: &str) -> bool {
+	(0..abi.api.objects.len()).any(|i| abi.api.objects[i].copy && abi.object(i) == c)
+}
+
+/// `ty` returned: a borrow is returned as a clone, so owned.
+fn strip_refs(ty: &Type) -> Type {
+	match ty {
+		Type::Ref(_, inner) => strip_refs(inner),
+		Type::Option(inner) => Type::Option(Box::new(strip_refs(inner))),
+		Type::Box(inner) => Type::Box(Box::new(strip_refs(inner))),
+		ty => ty.clone(),
+	}
+}
+
+/// A parameter of C++ type `ty` named `name`.
+fn declare(ty: &str, name: &str) -> String {
+	match ty.ends_with('&') || ty.ends_with('*') {
+		true => format!("{ty}{name}"),
+		false => format!("{ty} {name}"),
+	}
+}
+
+/// A field's initializer, so a default-constructed struct holds no garbage: none for a
+/// type with no default constructor.
+fn init(ty: &Type) -> &'static str {
+	match ty {
+		Type::Object(_) | Type::Enum(_) | Type::Record(_) => "",
+		Type::Box(inner) => init(inner),
+		_ => "{}",
+	}
+}
+
+/// C++ comments holding `docs`, each line indented by `indent`, or nothing for none.
+fn docs(docs: &str, indent: &str) -> String {
+	docs.lines()
+		.map(|line| match line.is_empty() {
+			true => format!("{indent}///\n"),
+			false => format!("{indent}/// {line}\n"),
+		})
+		.collect()
+}
+
+fn cpp_int(int: Int) -> &'static str {
+	match int {
+		Int::U8 => "::std::uint8_t",
+		Int::U16 => "::std::uint16_t",
+		Int::U32 => "::std::uint32_t",
+		Int::U64 => "::std::uint64_t",
+		Int::Usize => "::std::size_t",
+		Int::I8 => "::std::int8_t",
+		Int::I16 => "::std::int16_t",
+		Int::I32 => "::std::int32_t",
+		Int::I64 => "::std::int64_t",
+		Int::Isize => "::std::ptrdiff_t",
+	}
+}
+
+/// A name C++ would read as a keyword with `_` appended, and one starting with a digit
+/// with `_` prepended, as C's are.
+pub fn escape(name: &str) -> String {
+	const KEYWORDS: &[&str] = &[
+		"alignas",
+		"alignof",
+		"and",
+		"and_eq",
+		"asm",
+		"auto",
+		"bitand",
+		"bitor",
+		"bool",
+		"break",
+		"case",
+		"catch",
+		"char",
+		"char8_t",
+		"char16_t",
+		"char32_t",
+		"class",
+		"compl",
+		"concept",
+		"const",
+		"consteval",
+		"constexpr",
+		"constinit",
+		"const_cast",
+		"continue",
+		"co_await",
+		"co_return",
+		"co_yield",
+		"decltype",
+		"default",
+		"delete",
+		"do",
+		"double",
+		"dynamic_cast",
+		"else",
+		"enum",
+		"explicit",
+		"export",
+		"extern",
+		"false",
+		"float",
+		"for",
+		"friend",
+		"goto",
+		"if",
+		"inline",
+		"int",
+		"long",
+		"mutable",
+		"namespace",
+		"new",
+		"noexcept",
+		"not",
+		"not_eq",
+		"nullptr",
+		"operator",
+		"or",
+		"or_eq",
+		"private",
+		"protected",
+		"public",
+		"register",
+		"reinterpret_cast",
+		"requires",
+		"restrict",
+		"return",
+		"short",
+		"signed",
+		"sizeof",
+		"static",
+		"static_assert",
+		"static_cast",
+		"struct",
+		"switch",
+		"template",
+		"this",
+		"thread_local",
+		"throw",
+		"true",
+		"try",
+		"typedef",
+		"typeid",
+		"typename",
+		"union",
+		"unsigned",
+		"using",
+		"virtual",
+		"void",
+		"volatile",
+		"wchar_t",
+		"while",
+		"xor",
+		"xor_eq",
+		// What the generated code names unqualified.
+		"std",
+		"self",
+	];
+	match name.chars().next() {
+		Some(c) if c.is_ascii_digit() => format!("_{name}"),
+		_ if KEYWORDS.contains(&name) => format!("{name}_"),
+		_ => name.to_string(),
+	}
+}
