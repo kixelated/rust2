@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Result_u32s_u16, copy$u32s } from "./lib.ts";
-import { isSomeAnd$Option_u8_options_closure0, isNoneOr$Option_u8_options_closure1, unwrapOr$Option_u8, unwrapOrElse$Option_String_owned_closure3, unwrapOrElse$Option_u8_options_closure9, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, unwrapOrDefault$Option_u8, map$Option_u8_String_owned_closure0, map$Option_u8_Vec_u8_owned_closure4, map$Option_u8_u32s_owned_closure9, map$Option_u8_u8_made_closure0_closure0, inspect$Option_u8_options_closure11, mapOr$Option_u16_u8_hash_maps_closure0, mapOr$Option_u8_u8_iters_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOrElse$Option_u8_u8_options_closure7_options_closure8, okOr$Option_u32s_u8, okOr$Option_u8_u16, okOr$Option_u8_u8, okOrElse$Option_Vec_u8_String_owned_closure5, okOrElse$Option_u8_u16_options_closure12, and$Option_u8_u8, andThen$Option_u8_u8_options_closure2, filter$Option_String_owned_closure1, filter$Option_u8_combinators_closure0, or$Option_u8, orElse$Option_String_owned_closure2, orElse$Option_u8_options_closure6, xor$Option_u8, zip$Option_u8_u8, clone$Clone_Option_String } from "./core/option.ts";
+import { isSomeAnd$Option_u8_bools_closure0, isNoneOr$Option_u8_options_closure1, unwrapOr$Option_u8, unwrapOrElse$Option_String_owned_closure3, unwrapOrElse$Option_u8_options_closure9, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, unwrapOrDefault$Option_u8, map$Option_u8_String_owned_closure0, map$Option_u8_Vec_u8_owned_closure4, map$Option_u8_u32s_owned_closure9, map$Option_u8_u8_elements_closure8, inspect$Option_u8_options_closure11, mapOr$Option_u16_u8_hash_maps_closure0, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOrElse$Option_u8_u8_options_closure7_options_closure8, okOr$Option_u32s_u8, okOr$Option_u8_u16, okOr$Option_u8_u8, okOrElse$Option_Vec_u8_String_owned_closure5, okOrElse$Option_u8_u16_options_closure12, and$Option_u8_u8, andThen$Option_u8_u8_options_closure2, filter$Option_String_owned_closure1, filter$Option_u8_combinators_closure0, or$Option_u8, orElse$Option_String_owned_closure2, orElse$Option_u8_options_closure6, xor$Option_u8, zip$Option_u8_u8, clone$Clone_Option_String } from "./core/option.ts";
 import { isOkAnd$Result_u8_u16_results_closure5, isErrAnd$Result_u8_u16_results_closure6, ok$Result_u8_u16, err$Result_u8_u16, asRef$Result_u8_u16, map$Result_Vec_u8_String_Vec_u8_owned_closure6, map$Result_u8_u16_u8_options_closure13, mapOr$Result_u8_u16_u8_results_closure7, mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9, mapErr$Result_u32s_u8_u16_from, mapErr$Result_u8_u16_u16_results_closure14, inspect$Result_u8_u16_results_closure12, inspectErr$Result_u8_u16_results_closure13, unwrapOrDefault$Result_u8_u16, and$Result_u8_u16_u8, andThen$Result_u8_u16_u8_results_closure3, or$Result_u8_u16_u16, orElse$Result_u8_u16_u16_results_closure4, unwrapOr$Result_u8_u16, unwrapOrElse$Result_u8_u16_results_closure11, unwrapOrElse$Result_u8_u8_panics_closure1, copied$Result_u8_u16, clone$Clone_Result_Vec_u8_String } from "./core/result.ts";
 
 /** Run case `kind % 4` over `data`, whose bytes pick each `Some` or `None`, `Ok` or `Err`. */
@@ -27,7 +27,7 @@ export function combinators(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): v
 }
 
 export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8, out: rt.ByteVec): void {
-	rt.byteVecPush(out, isSomeAnd$Option_u8_options_closure0(a, (x: rt.u8): boolean => {
+	rt.byteVecPush(out, isSomeAnd$Option_u8_bools_closure0(a, (x: rt.u8): boolean => {
 		rt.byteVecPush(out, 160);
 		return x > limit;
 	}) ? 1 : 0);
@@ -39,11 +39,11 @@ export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 		return rt.u8CheckedAdd(x3, limit);
 	}), (x4: rt.u8): rt.u8 | undefined => {
 		rt.byteVecPush(out, 162);
-		return map$Option_u8_u8_made_closure0_closure0(b, (y: rt.u8): rt.u8 => {
+		return map$Option_u8_u8_elements_closure8(b, (y: rt.u8): rt.u8 => {
 			return x4 ^ y;
 		});
 	}), 238));
-	rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(filter$Option_u8_combinators_closure0(a, (x5: rt.u8): boolean => {
+	rt.byteVecPush(out, mapOr$Option_u8_u8_elements_closure3(filter$Option_u8_combinators_closure0(a, (x5: rt.u8): boolean => {
 		rt.byteVecPush(out, 163);
 		return x5 > limit;
 	}), 221, (x6: rt.u8): rt.u8 => {

@@ -3,8 +3,8 @@
 ## Goal
 
 rust2-ts translates the std calls the model's census still refuses after
-[std gaps](/quest/m2/ts-model/std-more.md) and [core's MIR](https://github.com/kixelated/rust2/pull/129),
-outside [Places](/quest/m2/ts-model/std-places.md), proven by differential tests against
+[std gaps](https://github.com/kixelated/rust2/pull/124) and [core's MIR](https://github.com/kixelated/rust2/pull/129),
+outside [Places](https://github.com/kixelated/rust2/pull/149), proven by differential tests against
 native Rust.
 
 ## Plan
@@ -19,7 +19,3 @@ calls core's bodies reach (`Default::default`, a payload's `Clone`).
   refuses in std rather than only this list.
 
 Public API: the translator's output.
-
-## Required
-
-- [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods

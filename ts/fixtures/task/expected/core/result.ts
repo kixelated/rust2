@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import { drop$Result_Guard_Guard, drop$Result_u8_Key } from "../lib.ts";
 import type * as Key from "../drops.Key.ts";
-import type * as Guard from "../model.Guard.ts";
+import * as Guard from "../model.Guard.ts";
 
 export function ok$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>): Guard.Guard | undefined {
 	let _0!: Guard.Guard | undefined;
@@ -33,6 +33,13 @@ export function err$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>
 	return _0;
 }
 
+export function asRef$Result_Guard_u8(self: rt.Result<Guard.Guard, rt.u8>): rt.Result<Guard.Guard, rt.u8> {
+	if (self.ok) {
+		return rt.Ok(self.value);
+	}
+	return rt.Err(self.error);
+}
+
 export function map$Result_u32_u32_u32_discarded_closure4(self: rt.Result<rt.u32, rt.u32>, op: (a0: rt.u32) => rt.u32): rt.Result<rt.u32, rt.u32> {
 	let _0!: rt.Result<rt.u32, rt.u32>;
 	let _9: boolean = false;
@@ -49,6 +56,13 @@ export function map$Result_u32_u32_u32_discarded_closure4(self: rt.Result<rt.u32
 		return _0;
 	}
 	return _0;
+}
+
+export function mapOr$Result_Guard_u8_u32_id(self: rt.Result<Guard.Guard, rt.u8>, default_: rt.u32, _: (a0: Guard.Guard) => rt.u32): rt.u32 {
+	if (self.ok) {
+		return Guard.id(self.value);
+	}
+	return default_;
 }
 
 export function mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10(self: rt.Result<Guard.Guard, Guard.Guard>, default_: (a0: Guard.Guard) => rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {

@@ -8,6 +8,7 @@ import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
+import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -94,6 +95,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8] | undefined {
+	return v === undefined ? v : copy$u8_u8(v);
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -152,6 +157,10 @@ export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap({ value: v.value, count: v.count });
 }
 
+export function copy$chars(v: rt.char[]): rt.char[] {
+	return v.slice();
+}
+
 export function copy$u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
 }
@@ -190,6 +199,10 @@ export function copy$u8s(v: Uint8Array): Uint8Array {
 
 export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
 	return [v[0], v[1]];
+}
+
+export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
+	rt.drop(_1[1]);
 }
 
 //# sourceMappingURL=lib.ts.map

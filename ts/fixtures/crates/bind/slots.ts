@@ -8,7 +8,7 @@ export function withBase(base: rt.i16): Slots {
 	return { base };
 }
 
-export function fill(self: Slots, out: rt.i16[]): void {
+export function fill(self: Slots, out: rt.i16[]): undefined {
 	out[0] = self.base;
 	out[1] = rt.i16Sub(self.base, 1 as rt.i16);
 }

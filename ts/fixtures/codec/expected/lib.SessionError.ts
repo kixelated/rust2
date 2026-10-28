@@ -7,8 +7,8 @@ export function fmt$Display(self: SessionError, __formatter: rt.Formatter): rt.R
 	if (self.tag === "ProtocolViolation") {
 		return rt.fmtWriteStr(__formatter, "protocol violation");
 	}
-	const part2 = asDisplay$AsDisplay_u16(self._0);
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(part2, f)];
+	const arg = asDisplay$AsDisplay_u16(self._0);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f)];
 	return rt.fmtWriteFmt(__formatter, ["app code=", args2[0]]);
 }
 

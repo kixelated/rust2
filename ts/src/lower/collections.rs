@@ -57,19 +57,47 @@ pub fn call<'tcx>(
 				let f = hash_fn(b, t, hasher, span);
 				return Ok(Some(f.call(args)));
 			}
-			("Ord", "max" | "min", ..) if let Some(t) = self_ty => {
+			// `Ord`'s defaults, of a std type or the crate's, which compare by `PartialOrd`'s `<`,
+			// `<=`, and `>`.
+			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
-				if !std_key(b, t) || Int::of(t).is_some() {
+				let local = matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
+				if !(std_key(b, t) || local) || Int::of(t).is_some() {
 					return Err(args);
 				}
+				let tests: &[&str] = if name == "clamp" { &["le", "lt", "gt"] } else { &["lt"] };
 				let mut values = args;
-				values.push(cmp_fn(b, t, false, span));
-				// What drops the operand it does not return.
+				values.extend(tests.iter().map(|test| test_fn(b, t, test, span)));
+				// What drops the operands it does not return.
 				let Some(droppers) = b.t.droppers(self_ty, span) else {
 					return Ok(Some(Expr::undefined()));
 				};
 				values.extend(droppers);
-				return Ok(Some(Expr::rt(if name == "max" { "ordMax" } else { "ordMin" }, values)));
+				let f = match name {
+					"max" => "ordMax",
+					"min" => "ordMin",
+					_ => "ordClamp",
+				};
+				return Ok(Some(Expr::rt(f, values)));
+			}
+			// A std type's own comparisons, as a tuple's are, by its `partial_cmp`. The library
+			// maps the integers' and `bool`'s.
+			("PartialOrd", "lt" | "le" | "gt" | "ge", ..) if let Some(t) = self_ty => {
+				let t = peel(b, t);
+				if matches!(t.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_)) || !std_key(b, t) {
+					return Err(args);
+				}
+				if own_test(b, t, name) {
+					return Ok(Some(test_fn(b, t, name, span).call(args)));
+				}
+				let order = cmp_fn(b, t, true, span).call(args);
+				let test = match name {
+					"lt" => library::Inherited::Lt,
+					"le" => library::Inherited::Le,
+					"gt" => library::Inherited::Gt,
+					_ => library::Inherited::Ge,
+				};
+				return Ok(Some(test.test(b, order, out)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers' and `bool`'s.
@@ -217,7 +245,7 @@ fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &
 		(
 			_,
 			"get" | "get_mut" | "get_key_value" | "contains_key" | "contains" | "remove" | "remove_entry" | "take"
-			| "range" | "range_mut",
+			| "range" | "range_mut" | "split_off",
 		) => {
 			let tcx = b.t.tcx;
 			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
@@ -249,8 +277,9 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
-/// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
+/// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
+/// mapping makes an `rt.Place` of: returned as `get_mut` and an entry's do, yielded as
+/// `iter_mut`'s, or handed to a closure as `retain`'s. An atomic is that place itself.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let Some(std) = library::inherent_std(tcx, call.def_id) else {
@@ -258,20 +287,27 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	};
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
-	let methods: &[&str] = match std {
-		Std::HashMap | Std::BTreeMap => &["get_mut"],
-		Std::Entry if is_vacant(b, coll) => &["insert"],
-		Std::Entry => &[
-			"or_insert",
-			"or_insert_with",
-			"or_insert_with_key",
-			"or_default",
-			"get_mut",
-			"into_mut",
-		],
+	let (methods, value): (&[&str], usize) = match std {
+		Std::VecDeque => (&["get_mut", "front_mut", "back_mut", "iter_mut", "retain_mut"], 0),
+		Std::HashMap => (&["get_mut", "iter_mut", "values_mut", "retain"], 1),
+		Std::BTreeMap => (&["get_mut", "iter_mut", "values_mut", "range_mut", "retain"], 1),
+		Std::Entry if is_vacant(b, coll) => (&["insert"], 1),
+		Std::Entry => (
+			&[
+				"or_insert",
+				"or_insert_with",
+				"or_insert_with_key",
+				"or_default",
+				"get_mut",
+				"into_mut",
+				"and_modify",
+			],
+			1,
+		),
+		Std::Atomic => (&["get_mut"], 0),
 		_ => return false,
 	};
-	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 1))
+	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, value))
 }
 
 /// The type an inherent method's impl is of, such as `HashMap<K, V, RandomState>`.
@@ -295,11 +331,13 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 }
 
 /// What a JS value of `ty` is: through references and boxes, which are their pointee,
-/// up to a `&mut` that is an `rt.Place`.
+/// up to a `&mut` that is an `rt.Place`, and a `NonZero`, which is its integer.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 	match ty.kind() {
 		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel(b, *inner),
-		ty::Adt(adt, args) if Std::of(b.t.tcx, adt.did()) == Some(Std::Box) => peel(b, args.type_at(0)),
+		ty::Adt(adt, args) if matches!(Std::of(b.t.tcx, adt.did()), Some(Std::Box | Std::NonZero)) => {
+			peel(b, args.type_at(0))
+		}
 		_ => ty,
 	}
 }
@@ -349,7 +387,10 @@ fn hash<'tcx>(
 		(_, "remove") if set => Expr::rt("hashDelete", values),
 		(_, "remove") => Expr::rt("hashRemove", values),
 		(_, "remove_entry") => Expr::rt("hashRemoveEntry", values),
+		(_, "retain") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("hashRetainMut", values),
 		(_, "retain") => Expr::rt("hashRetain", values),
+		(_, "iter_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("hashIterMut", values),
+		(_, "values_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("hashValuesMut", values),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("hashIter", values),
 		(_, "iter" | "keys") => Expr::rt("hashKeys", values),
 		(_, "values" | "values_mut") => Expr::rt("hashValues", values),
@@ -415,7 +456,8 @@ fn hash_extend<'tcx>(
 	span: Span,
 ) -> Expr {
 	let mut droppers = entry_droppers(b, coll, span);
-	droppers.push(super::iter::iter_dropper(b, iter, span));
+	// By `for_each`.
+	droppers.push(super::iter::iter_take(b, iter, true, span));
 	droppers.push(Expr::lit(if fresh && b.t.drops(coll) { "true" } else { "false" }));
 	let f = match b.t.std_of(coll) {
 		Some(Std::HashSet) => "hashExtendKeys",
@@ -467,14 +509,16 @@ fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
 }
 
-/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples
-/// and `Arc`s, but not an `Option`, whose `ne` is `!eq`.
+/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples,
+/// `Arc`s, `Reverse`s, and the elements of slices, but not an `Option`, whose `ne` is
+/// `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
-		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
+		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
 		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
@@ -483,6 +527,59 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 				.is_some_and(|instance| instance.def_id() != ne)
 		}
 		_ => false,
+	}
+}
+
+/// Whether `ty`'s `PartialOrd::{test}`, `lt` or another of its tests, reaches the crate's
+/// own `test` of a type it holds, which `partial_cmp` stands for only while that is the
+/// default: through a tuple's last element, `Arc`s, and `Reverse`s.
+fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	match ty.kind() {
+		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+			let f = trait_fn(tcx, "PartialOrd", test);
+			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
+				.ok()
+				.flatten()
+				.is_some_and(|instance| instance.def_id() != f)
+		}
+		_ => false,
+	}
+}
+
+/// `PartialOrd::{test}` of `ty` as a function, `lt` or another of its tests: the crate's own
+/// where `ty` reaches it, or else by `partial_cmp`, as the trait's defaults test it.
+pub fn test_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str, span: Span) -> Expr {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	if !own_test(b, ty, test) {
+		let by = match test {
+			"lt" => "cmpLt",
+			"le" => "cmpLe",
+			"gt" => "cmpGt",
+			_ => "cmpGe",
+		};
+		return Expr::rt(by, vec![cmp_fn(b, ty, true, span)]);
+	}
+	match ty.kind() {
+		// The fields before the last chain by `partial_cmp`, which no crate's type overrides.
+		ty::Tuple(tys) if let Some((&last, init)) = tys.split_last() => {
+			let cmps = init.iter().map(|&t| cmp_fn(b, t, true, span)).collect();
+			let order = if matches!(test, "lt" | "le") { "-1" } else { "1" };
+			let last = test_fn(b, last, test, span);
+			Expr::rt("testTuple", vec![Expr::Array(cmps), last, Expr::lit(order)])
+		}
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![test_fn(b, inner, test, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
+			Expr::rt("cmpReverse", vec![test_fn(b, inner, test, span)])
+		}
+		_ => {
+			let f = trait_fn(tcx, "PartialOrd", test);
+			b.fn_value(f, tcx.mk_args(&[ty.into(), ty.into()]), span)
+		}
 	}
 }
 
@@ -547,6 +644,7 @@ fn btree<'tcx>(
 		(_, "remove") if set => Expr::rt("btreeDelete", values),
 		(_, "remove") => Expr::rt("btreeRemove", values),
 		(_, "remove_entry") => Expr::rt("btreeRemoveEntry", values),
+		(_, "retain") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRetainMut", values),
 		(_, "retain") => Expr::rt("btreeRetain", values),
 		(_, "first_key_value") => Expr::rt("btreeFirst", values),
 		(_, "last_key_value") => Expr::rt("btreeFirst", last(values)),
@@ -558,6 +656,8 @@ fn btree<'tcx>(
 		(_, "last") => Expr::rt("btreeFirstKey", last(values)),
 		(_, "first_entry") => Expr::rt("btreeFirstEntry", values),
 		(_, "last_entry") => Expr::rt("btreeFirstEntry", last(values)),
+		(_, "iter_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeIterMut", values),
+		(_, "values_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeValuesMut", values),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("btreeIter", values),
 		(_, "iter" | "keys") => Expr::rt("btreeKeys", values),
 		(_, "values" | "values_mut") => Expr::rt("btreeValues", values),
@@ -576,8 +676,10 @@ fn btree<'tcx>(
 			Expr::rt(f, super::iter::tail(values, droppers))
 		}
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
+		(_, "range_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRangeMut", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
 		(_, "entry") => Expr::rt("entry", values),
+		(_, "split_off") => Expr::rt("btreeSplitOff", values),
 		("Index", "index") => Expr::rt("btreeIndex", values),
 		("Clone", "clone") => {
 			let k = clone_fn(b, key, span);
@@ -592,7 +694,8 @@ fn btree<'tcx>(
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
 			let mut droppers = vec![Expr::lit("false")];
 			droppers.extend(entry_droppers(b, coll, span));
-			droppers.push(super::iter::iter_dropper(b, iter, span));
+			// By `for_each`.
+			droppers.push(super::iter::iter_take(b, iter, true, span));
 			let target = values.pop()?;
 			let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
 			Expr::rt(f, super::iter::tail(vec![target, source], droppers))
@@ -619,7 +722,9 @@ fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr,
 		if !set {
 			droppers.push(Expr::undefined());
 		}
-		droppers.push(super::iter::iter_dropper(b, iter, span));
+		// Into a `Vec` first.
+		let folds = super::iter::implements(b.t, iter, "TrustedLen");
+		droppers.push(super::iter::iter_take(b, iter, folds, span));
 		let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
 		return Expr::rt(f, super::iter::tail(vec![target, source], droppers));
 	}
@@ -712,10 +817,14 @@ fn deque<'tcx>(
 		(_, "push_front") => Expr::rt("dequePushFront", values),
 		(_, "pop_back") => Expr::rt("dequePopBack", values),
 		(_, "pop_front") => Expr::rt("dequePopFront", values),
+		(_, "front_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", values),
+		(_, "back_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", back(values)),
+		(_, "get_mut") if b.t.needs_place(item) => Expr::rt("dequeGetMut", values),
 		(_, "front" | "front_mut") => Expr::rt("dequeEnd", values),
 		(_, "back" | "back_mut") => Expr::rt("dequeEnd", back(values)),
 		(_, "get" | "get_mut") => Expr::rt("dequeGet", values),
 		(_, "truncate") => Expr::rt("dequeTruncate", values),
+		(_, "retain_mut") if b.t.needs_place(item) => Expr::rt("dequeRetainMut", values),
 		(_, "retain" | "retain_mut") => Expr::rt("dequeRetain", values),
 		(_, "remove") => Expr::rt("dequeRemove", values),
 		(_, "insert") => Expr::rt("dequeInsert", values),
@@ -723,6 +832,7 @@ fn deque<'tcx>(
 			values.push(eq_fn(b, peel(b, item), span));
 			Expr::rt("dequeContains", values)
 		}
+		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
 		(_, "drain") => {
 			let droppers = entry_droppers(b, coll, span);
@@ -743,8 +853,10 @@ fn deque<'tcx>(
 				"From" => deque_new(b, coll, span),
 				_ => values.pop()?,
 			};
-			let dropper = super::iter::iter_dropper(b, iter, span);
-			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![dropper]))
+			// Of a `TrustedLen` iterator, by `for_each`.
+			let folds = super::iter::implements(b.t, iter, "TrustedLen");
+			let take = super::iter::iter_take(b, iter, folds, span);
+			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![take]))
 		}
 		_ => return None,
 	};
@@ -763,8 +875,6 @@ fn extend_source<'tcx>(
 	// `Extend<A>::extend::<T>` and `From<T>::from`.
 	let ty = library::targ(call.args, if owner == "Extend" { 2 } else { 1 });
 	let iter = super::iter::iter_of(b.t, ty)?;
-	// Each but a `Vec`'s, by `for_each`.
-	super::iter::folds(b, iter, owner, call.span);
 	let Some(items) = super::iter::into_iter(b, ty, source, call.span) else {
 		return Some((
 			b.err(call.span, format!("`{owner}` from `{ty}`, which is not supported yet")),
@@ -813,7 +923,7 @@ fn entry<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, name: &str, args: Vec
 			values.push(b.fn_value(default, tcx.mk_args(&[value.into()]), span));
 			Expr::rt(mutable("entryOrInsertWith"), values)
 		}
-		"and_modify" => Expr::rt("entryAndModify", values),
+		"and_modify" => Expr::rt(mutable("entryAndModify"), values),
 		"key" => Expr::rt("entryKey", values),
 		"into_key" => values.pop()?.member("k"),
 		"get" => Expr::rt("entryGet", values),
@@ -926,9 +1036,13 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
 	};
 	match ty.kind() {
-		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
+		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
-		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => held(inner),
+		_ if let Some(elem) = elements_of(b, ty) => held(elem),
+		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
+			held(inner)
+		}
 		ty::Adt(..) => library::string(b.t.tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::Duration)),
 		_ => false,
 	}
@@ -939,6 +1053,22 @@ fn option_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Option)).then(|| arg(ty, 0))
 }
 
+/// What `ty` holds if it is a `Reverse`.
+fn reverse_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	(b.t.std_of(ty) == Some(Std::Reverse)).then(|| arg(ty, 0))
+}
+
+/// The elements of `ty` if it is a `Vec`, a slice, or an array that is a JS array: of any
+/// type but `u8`, whose bytes are typed arrays.
+fn elements_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	let elem = match ty.kind() {
+		ty::Slice(elem) | ty::Array(elem, _) => *elem,
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Vec) => arg(ty, 0),
+		_ => return None,
+	};
+	(!matches!(elem.kind(), ty::Uint(ty::UintTy::U8))).then_some(elem)
+}
+
 /// What `ty` holds if it is an `Arc`.
 fn arc_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Arc)).then(|| arg(ty, 0))
@@ -946,11 +1076,13 @@ fn arc_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 
 /// `Ord::cmp` of `ty` as a function, or `PartialOrd::partial_cmp` if `partial`: the
 /// runtime's for a std type, which calls the same of what it holds, or the crate's.
-fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
+pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
+		// `None` for a NaN: only `PartialOrd`, since a float is no `Ord`.
+		ty::Float(_) if partial => Expr::Rt("f64PartialCmp".into()),
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
@@ -964,6 +1096,10 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 			Expr::rt("cmpOption", [cmp].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
+			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
+		}
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
@@ -979,7 +1115,7 @@ fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: S
 }
 
 /// `PartialEq::eq` of `ty`, as a function: the runtime's for a std type, or the crate's.
-fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
@@ -989,7 +1125,7 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 		{
 			int.func("eq")
 		}
-		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
 		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
@@ -1001,6 +1137,20 @@ fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
+		// A slice compares its elements by `!=`, which `!eq` stands for only while that is
+		// the default.
+		_ if let Some(elem) = elements_of(b, ty)
+			&& own_ne(b, elem) =>
+		{
+			b.err(
+				span,
+				format!(
+					"comparing `{ty}` by `<{elem} as PartialEq>::ne` through a held type's own, which is not supported yet"
+				),
+			)
+		}
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![eq_fn(b, elem, span)]),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
 			let mut values = vec![eq_fn(b, inner, span)];
 			// std's `Arc` finds itself equal before comparing a value that is `Eq`.
@@ -1038,6 +1188,15 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", [hash].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
+		_ if let Some(elem) = elements_of(b, ty) => {
+			if own_hash_slice(b, elem, hasher) {
+				let msg =
+					format!("hashing `{ty}` through `{elem}`'s own `Hash::hash_slice`, which is not supported yet");
+				return b.err(span, msg);
+			}
+			Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)])
+		}
 		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
@@ -1045,6 +1204,22 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("hashing `{ty}` as a key, which is not supported yet")),
 	}
+}
+
+/// Whether the crate's own `Hash` of `elem` overrides `hash_slice`, which a slice of it
+/// hashes through in place of each element's `hash`.
+fn own_hash_slice<'tcx>(b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>, hasher: Ty<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	let elem = peel(b, elem);
+	let ty::Adt(adt, _) = elem.kind() else {
+		return false;
+	};
+	let f = trait_fn(tcx, "Hash", "hash_slice");
+	b.t.own(adt.did())
+		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[elem.into(), hasher.into()]))
+			.ok()
+			.flatten()
+			.is_some_and(|instance| instance.def_id() != f)
 }
 
 /// `Clone::clone` of `ty`, as a function, or `undefined` where it is the value itself.
@@ -1078,7 +1253,12 @@ pub fn trait_fn(tcx: ty::TyCtxt<'_>, tr: &str, item: &str) -> rustc_hir::def_id:
 /// `rt.Iter` of its entries, keys, or items, which by value drops those it still holds.
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let coll = ty.peel_refs();
+	// A `&mut` lends each value JS copies as its place.
+	let places = |n: usize| ty.ref_mutability() == Some(ty::Mutability::Mut) && b.t.needs_place(arg(coll, n));
 	let name = match b.t.std_of(coll)? {
+		Std::HashMap if places(1) => "hashIterMut",
+		Std::BTreeMap if places(1) => "btreeIterMut",
+		Std::VecDeque if places(0) => "dequeIterMut",
 		Std::HashMap => "hashIter",
 		Std::HashSet => "hashKeys",
 		Std::BTreeMap => "btreeIter",
@@ -1113,8 +1293,9 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from:
 			let target = deque_new(b, ty, span);
 			let item = arg(ty, 0);
 			if !b.t.drops(item) {
-				let dropper = super::iter::iter_dropper(b, from, span);
-				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![dropper]))
+				let folds = super::iter::implements(b.t, from, "TrustedLen");
+				let take = super::iter::iter_take(b, from, folds, span);
+				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![take]))
 			} else {
 				let items = super::iter::to_array(b, iter, from, item, span);
 				Expr::rt("dequeExtend", vec![target, Expr::rt("iterSlice", vec![items])])

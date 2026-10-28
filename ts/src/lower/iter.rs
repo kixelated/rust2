@@ -152,19 +152,36 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		true => by_ref(iter, elem),
 		false => iter,
 	};
+	// Elements a `&mut` lends as their places, which JS copies.
+	let places = |b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>| {
+		ty.ref_mutability() == Some(ty::Mutability::Mut) && b.t.needs_place(elem)
+	};
 	match ty.peel_refs().kind() {
+		ty::Slice(elem) | ty::Array(elem, _) if places(b, *elem) => {
+			Some(Expr::rt("iterSliceMut", vec![library::elements(value, ty)]))
+		}
 		ty::Slice(elem) | ty::Array(elem, _) => {
 			let values = each(b, *elem, vec![library::elements(value, ty)]);
 			Some(items(Expr::rt("iterSlice", values), *elem))
 		}
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
+			Std::Vec if places(b, args.type_at(0)) => {
+				Some(Expr::rt("iterSliceMut", vec![library::elements(value, ty)]))
+			}
 			Std::Vec => {
 				let values = each(b, args.type_at(0), vec![library::elements(value, ty)]);
 				Some(items(Expr::rt("iterSlice", values), args.type_at(0)))
 			}
+			// A `&mut` lends the payload JS copies as the `Option`'s own place, while it has one.
+			Std::Option if places(b, args.type_at(0)) => {
+				let mut values = vec![value];
+				values.extend(b.t.none_arg(args.type_at(0)));
+				Some(Expr::rt("iterOption", vec![Expr::rt("optionAsMut", values)]))
+			}
+			// A `&mut` to one of another payload is its place, and yields the payload itself.
 			Std::Option => {
 				let inner = args.type_at(0);
-				let mut values = each(b, inner, vec![value]);
+				let mut values = each(b, inner, vec![b.t.pointee_value(ty, value)]);
 				if let Some(none) = b.t.none_arg(inner) {
 					values.resize(2, Expr::undefined());
 					values.push(none);
@@ -242,6 +259,10 @@ pub fn call<'tcx>(
 
 	// Where iterators come from.
 	match (owner, name) {
+		("slice", "iter_mut") if b.t.needs_place(targ(0)?) => {
+			let s = library::elements(args.pop()?, Ty::new_slice(tcx, targ(0)?));
+			return Some(Expr::rt("iterSliceMut", vec![s]));
+		}
 		("slice", "iter" | "iter_mut") => {
 			let s = args.pop()?;
 			let s = library::elements(s, Ty::new_slice(tcx, targ(0)?));
@@ -269,16 +290,10 @@ pub fn call<'tcx>(
 		// A closure that owns a value that drops is refused as any std mapping refuses one
 		// it calls but never drops.
 		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		// What drops the item it holds next.
 		["iter", "sources", "successors", "successors"] => {
-			// `rt.iterSuccessors` would leave the item it holds next undropped.
-			let item = targ(0)?;
-			if b.t.drops(item) {
-				b.t.err(
-					span,
-					format!("an iterator that owns `{item}`, which drops, which is not supported yet"),
-				);
-			}
-			return Some(Expr::rt("iterSuccessors", args));
+			let dropper = b.t.dropper(targ(0)?, span);
+			return Some(Expr::rt("iterSuccessors", tail(args, vec![dropper])));
 		}
 		_ => {}
 	}
@@ -294,10 +309,6 @@ pub fn call<'tcx>(
 		}
 		let [v, items] = <[Expr; 2]>::try_from(args).ok()?;
 		let iter = iter_of(b.t, source)?;
-		// Of a `TrustedLen` iterator, by `for_each`.
-		if implements(b.t, iter, "TrustedLen") {
-			folds(b, iter, "extend", span);
-		}
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
 		if item != vec_args.type_at(0)
@@ -309,8 +320,9 @@ pub fn call<'tcx>(
 			ty::Uint(ty::UintTy::U8) => "iterExtendBytes",
 			_ => "iterExtend",
 		};
-		let dropper = iter_dropper(b, iter, span);
-		return Some(Expr::rt(extend, tail(vec![v, items], vec![dropper])));
+		// Of a `TrustedLen` iterator, by `for_each`.
+		let take = iter_take(b, iter, implements(b.t, iter, "TrustedLen"), span);
+		return Some(Expr::rt(extend, tail(vec![v, items], vec![take])));
 	}
 
 	let self_ty = match (owner, name) {
@@ -355,19 +367,15 @@ pub fn call<'tcx>(
 		};
 		Some(Expr::rt_of(of, name).call([vec![recv.clone()], args].concat()))
 	};
-	// `rt.owned<Name>`, which drops by `droppers` as std's own does, where any drops: else
-	// `rt.iter<Name>`, so a bundle that never drops doesn't carry it.
-	let owned = |name: &str, args: Vec<Expr>, droppers: Vec<Expr>| match droppers.iter().all(undefined) {
-		true => method(name, args),
-		false => Some(Expr::rt_of("owned", name).call([vec![recv.clone()], args, tail(Vec::new(), droppers)].concat())),
+	// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as std's
+	// own does, where either drops: else `rt.iter<Name>`, so a bundle that never drops
+	// doesn't carry it.
+	let owned = |b: &mut Body<'_, '_, 'tcx>, name: &str, dropper: Expr| match drops_iter(b, self_ty, span)
+		|| !undefined(&dropper)
+	{
+		true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], vec![dropper]))),
+		false => method(name, Vec::new()),
 	};
-	// Each consumer that takes the iterator by value drops it, by `fold` but for `nth`'s.
-	if matches!(
-		name,
-		"count" | "last" | "fold" | "for_each" | "sum" | "product" | "max" | "min" | "max_by_key" | "min_by_key"
-	) {
-		folds(b, self_ty, name, span);
-	}
 	let camel = super::camel(name);
 	match name {
 		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "any" | "all" | "find_map" | "position" => {
@@ -379,16 +387,35 @@ pub fn call<'tcx>(
 			method(&camel, tail(rest, vec![dropper]))
 		}
 		"fuse" => {
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, None);
 			method(name, tail(rest, vec![fused]))
 		}
-		"count" => {
-			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
-			owned(name, rest, droppers)
+		"count" | "last" => {
+			let dropper = b.t.dropper(item, span);
+			owned(b, name, dropper)
 		}
 		"for_each" => {
-			let dropper = iter_dropper(b, self_ty, span);
-			method(&camel, tail(rest, vec![dropper]))
+			let drops = iter_drops(b, self_ty, span);
+			method(&camel, tail(rest, vec![drops]))
+		}
+		// std's `Sum` and `Product` are of the type or a reference to it: another is the crate's.
+		"sum" | "product" if item.peel_refs() != targ(1)? => None,
+		// `Duration`'s carries its nanoseconds and panics as std's does, not as `+` would.
+		"sum" if b.t.std_of(targ(1)?) == Some(Std::Duration) => {
+			let drops = iter_drops(b, self_ty, span);
+			Some(Expr::rt("durationSum", tail(vec![recv.clone()], vec![drops])))
+		}
+		// std's float sum starts from -0.0, so a sum of none, or of -0.0s, is -0.0.
+		"sum" | "product" if super::float::is(targ(1)?) => {
+			let (op, unit) = match name {
+				"sum" => ("add", -0.0),
+				_ => ("mul", 1.0),
+			};
+			let drops = iter_drops(b, self_ty, span);
+			method(
+				name,
+				tail(vec![Expr::rt_of("f64", op), super::float::lit(unit)], vec![drops]),
+			)
 		}
 		"sum" | "product" => {
 			let int = Int::of(targ(1)?)?;
@@ -396,20 +423,16 @@ pub fn call<'tcx>(
 				"sum" => ("add", 0),
 				_ => ("mul", 1),
 			};
-			let dropper = iter_dropper(b, self_ty, span);
-			method(name, tail(vec![int.func(op), int.lit(unit)], vec![dropper]))
+			let drops = iter_drops(b, self_ty, span);
+			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
 		}
 		// `fold::<B, F>`, whose accumulator drops if reading an item panics.
 		"fold" => {
-			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(targ(1)?, span)];
+			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(targ(1)?, span)];
 			method(name, tail(rest, droppers))
 		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
-		"last" => {
-			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
-			owned(name, rest, droppers)
-		}
 		"nth" => {
 			let dropper = b.t.dropper(item, span);
 			method(name, tail(rest, vec![dropper]))
@@ -421,7 +444,8 @@ pub fn call<'tcx>(
 			};
 			method(&camel, tail(rest, droppers))
 		}
-		"max" | "min" if primitive(item.peel_refs()) => {
+		// Not of places, which the runtime would compare as the objects they are.
+		"max" | "min" if primitive(item.peel_refs()) && !b.t.has_place(item) => {
 			// A `BTreeMap`'s `into_keys` reads the one end and drops the rest with it.
 			if std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
 				&& b.t.drops(self_ty)
@@ -431,11 +455,11 @@ pub fn call<'tcx>(
 					format!("`{name}` of `{self_ty}`, which drops its values, which is not supported yet"),
 				));
 			}
-			let dropper = iter_dropper(b, self_ty, span);
-			method(name, tail(rest, vec![dropper]))
+			let drops = iter_drops(b, self_ty, span);
+			method(name, tail(rest, vec![drops]))
 		}
 		"max_by_key" | "min_by_key" if primitive(targ(1)?) => {
-			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
+			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
 			method(&camel, tail(rest, droppers))
 		}
 		"chain" => {
@@ -478,14 +502,14 @@ pub fn call<'tcx>(
 			let inner = iter_of(b.t, targ(1)?)?;
 			flattens(b, inner, span);
 			let into = into_fn(b, targ(1)?, span)?.unwrap_or_else(Expr::undefined);
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, Some(targ(2)?));
 			method("flatMap", tail(rest, vec![into, fused]))
 		}
 		"flatten" => {
 			let inner = iter_of(b.t, item)?;
 			flattens(b, inner, span);
 			let into = into_fn(b, item, span)?.unwrap_or_else(Expr::undefined);
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, None);
 			method("flatten", tail(Vec::new(), vec![into, fused]))
 		}
 		"copied" | "cloned" => {
@@ -536,10 +560,11 @@ fn undefined(e: &Expr) -> bool {
 	matches!(e, Expr::Lit(l) if l == "undefined")
 }
 
-/// Whether an iterator of type `ty` that drops is a `FusedIterator`, which std's `fuse` and
-/// `flatten` keep once it ends rather than drop: `true` or `false`.
-fn fused<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Expr {
-	Expr::lit(match b.t.drops(ty) && implements(b.t, ty, "FusedIterator") {
+/// Whether an iterator of type `ty`, with `held` beside it, drops and is a `FusedIterator`,
+/// which std's `fuse` and `flatten` keep once it ends rather than drop: `true` or `false`.
+fn fused<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, held: Option<Ty<'tcx>>) -> Expr {
+	let drops = b.t.drops(ty) || held.is_some_and(|held| b.t.drops(held));
+	Expr::lit(match drops && implements(b.t, ty, "FusedIterator") {
 		true => "true",
 		false => "false",
 	})
@@ -551,6 +576,24 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 		return None;
 	};
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
+}
+
+/// Whether std's iterator `did` holds a closure that its `rt.Iter` drops after the iterator
+/// it wraps, as std's fields order them.
+pub(super) fn holds_closure(tcx: ty::TyCtxt<'_>, did: DefId) -> bool {
+	let path = library::std_path(tcx, did);
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	matches!(
+		path.as_slice(),
+		[
+			"iter",
+			"adapters",
+			_,
+			"Map" | "Filter" | "FilterMap" | "SkipWhile" | "TakeWhile" | "MapWhile" | "Inspect"
+		] | ["iter", "adapters", "flatten", "FlatMap"]
+			| ["iter", "sources", "from_fn", "FromFn"]
+			| ["iter", "sources", "successors", "Successors"]
+	)
 }
 
 /// Refuse a `flatten` or `flat_map` of `inner` iterators that drop and may hold what drops
@@ -580,47 +623,6 @@ fn flattens<'tcx>(b: &mut Body<'_, '_, 'tcx>, inner: Ty<'tcx>, span: Span) {
 			span,
 			format!("a `flatten` of `{inner}`, which drops what it may hold once it ends, which is not supported yet"),
 		);
-	}
-}
-
-/// Refuse std's `name` folding `ty` through a `flatten` or `flat_map` whose source and
-/// iterators both drop: a panic in `fold` drops the iterator it took before the source,
-/// as a panic in `next` does not.
-pub(super) fn folds<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, name: &str, span: Span) {
-	let tcx = b.t.tcx;
-	let flattens: Vec<Ty<'tcx>> = ty
-		.walk()
-		.filter_map(|arg| arg.as_type())
-		.filter(|&t| {
-			std_iter_path(tcx, t).is_some_and(|p| {
-				p.len() == 4
-					&& p[..3] == ["iter", "adapters", "flatten"]
-					&& matches!(p[3].as_str(), "Flatten" | "FlatMap")
-			})
-		})
-		.collect();
-	for t in flattens {
-		let ty::Adt(_, args) = t.kind() else {
-			continue;
-		};
-		let outer = args.type_at(0);
-		// `Flatten<I>` of `I::Item`s, or `FlatMap<I, U, F>` of `U`s by `F`.
-		let (outer_drops, inner) = match args.types().count() {
-			1 => (b.t.drops(outer), b.t.iter_item(outer).and_then(|i| iter_of(b.t, i))),
-			_ => (
-				b.t.drops(outer) || b.t.drops(args.type_at(2)),
-				iter_of(b.t, args.type_at(1)),
-			),
-		};
-		if outer_drops && inner.is_some_and(|i| b.t.drops(i)) {
-			b.t.err(
-				span,
-				format!(
-					"`{name}` of `{ty}`, which folds a `flatten` whose source and iterators both drop, which is not supported yet"
-				),
-			);
-			return;
-		}
 	}
 }
 
@@ -697,15 +699,11 @@ fn collect<'tcx>(
 		return None;
 	};
 	let std = Std::of(tcx, adt.did())?;
-	// Into a `Vec` of a `TrustedLen` iterator, and into any other collection, by `for_each`.
-	if !matches!(std, Std::Result | Std::Option) && (std != Std::Vec || implements(b.t, from, "TrustedLen")) {
-		folds(b, from, "collect", span);
-	}
 	match std {
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
-				let dropper = iter_dropper(b, from, span);
-				Expr::rt("iterToByteVec", tail(vec![iter], vec![dropper]))
+				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
+				Expr::rt("iterToByteVec", tail(vec![iter], vec![take]))
 			}
 			_ => to_array(b, iter, from, args.type_at(0), span),
 		}),
@@ -744,17 +742,36 @@ fn collect<'tcx>(
 	}
 }
 
-/// What drops an iterator of type `ty` that a runtime function takes by value: `rt.drop`,
-/// since each is an `rt.Iter`, or `undefined` for one that drops nothing.
-pub(super) fn iter_dropper<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
-	if !b.t.drops(ty) {
-		return Expr::undefined();
+/// Whether an iterator of type `ty` that a runtime function takes by value drops what it
+/// holds, which its `rt.Iter` drops as std's does: `true`, or `undefined` for one that
+/// drops nothing.
+pub(super) fn iter_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+	match drops_iter(b, ty, span) {
+		true => Expr::lit("true"),
+		false => Expr::undefined(),
 	}
-	// The crate's own drops through `rt.iterFrom`; any other refuses one it can't drop.
+}
+
+/// How a runtime function takes an iterator of type `ty` by value, as `rt.Take` says: by its
+/// own `fold` where std's `folds` it, else by `next`, or `undefined` for one that drops
+/// nothing.
+pub(super) fn iter_take<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, folds: bool, span: Span) -> Expr {
+	match drops_iter(b, ty, span) {
+		true => Expr::Str(if folds { "fold" } else { "next" }.into()),
+		false => Expr::undefined(),
+	}
+}
+
+/// Whether an iterator of type `ty` drops, refusing one it can't drop: the crate's own
+/// drops through `rt.iterFrom`.
+fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> bool {
+	if !b.t.drops(ty) {
+		return false;
+	}
 	if own_next(b, ty).is_none() {
 		b.t.dropper(ty, span);
 	}
-	Expr::Rt("drop".into())
+	true
 }
 
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
@@ -766,19 +783,20 @@ pub(super) fn to_array<'tcx>(
 	elem: Ty<'tcx>,
 	span: Span,
 ) -> Expr {
-	let drop_it = iter_dropper(b, from, span);
+	let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
 	let drop_elem = b.t.dropper(elem, span);
-	let drops = !matches!(&drop_it, Expr::Lit(l) if l == "undefined")
-		|| !matches!(&drop_elem, Expr::Lit(l) if l == "undefined");
-	let in_place = drops && in_place(b.t, from, elem);
+	let in_place = (!undefined(&take) || !undefined(&drop_elem)) && in_place(b.t, from, elem);
 	if in_place && let Some(zip) = zip_holding(b, from) {
 		return b.err(
 			span,
 			format!("a `collect` in place of `{zip}`, whose second iterator drops, which is not supported yet"),
 		);
 	}
-	let droppers = vec![Expr::lit(if in_place { "true" } else { "false" }), drop_it, drop_elem];
-	Expr::rt("iterToArray", tail(vec![iter], droppers))
+	let take = match in_place {
+		true => Expr::Str("place".into()),
+		false => take,
+	};
+	Expr::rt("iterToArray", tail(vec![iter], vec![take, drop_elem]))
 }
 
 /// A `Zip` in `ty` whose second iterator drops, which std's `collect` in place drops after

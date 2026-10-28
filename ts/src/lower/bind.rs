@@ -310,7 +310,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				tcx.fn_sig(def_id).instantiate(tcx, instance.args).skip_norm_wip(),
 			);
 			let sig = tcx.normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(sig));
-			let ty = self.fn_ty(sig.inputs(), sig.output(), span);
+			// `=> undefined` for `()`, not `fn_ty`'s `=> void`, which accepts any return value.
+			let params = sig.inputs().iter().map(|t| self.ty(*t, span)).collect();
+			let ty = Type::Func(params, Box::new(self.ty(sig.output(), span)));
 			let body = vec![StmtKind::Return(Some(Expr::Sym(sym))).at(None)];
 			let what = ty::print::with_no_trimmed_paths!(format!(
 				"the binding of `{instance}` in {}",

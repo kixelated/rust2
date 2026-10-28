@@ -193,6 +193,20 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	n = 9;
 	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
 
+	// So does a tuple of references, though the variables they came from are assigned
+	// others: a swap in a loop.
+	let (mut s, mut t) = ("ab", "cde");
+	let (mut x, mut y) = (&p, &q);
+	let (mut i, mut j) = (data.len() as u8, 1u8);
+	for _ in 0..data.len() % 3 {
+		(s, t) = (t, s);
+		(x, y) = (y, x);
+		(i, j) = (j, i);
+		out.extend_from_slice(s.as_bytes());
+		out.push(x.x as u8 ^ i);
+	}
+	out.push(t.len() as u8 ^ y.y as u8 ^ j);
+
 	// A value computed from a call keeps that call before a later one, though it is read
 	// after.
 	// A conversion reads its bytes before they change.
@@ -1589,6 +1603,48 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 			Shape::Line(..) => 25,
 			_ => 26,
 		});
+	}
+	// An `if` or a guard between the matches keeps what the outer one decided.
+	out.push(match s {
+		Shape::Line(from, _) => {
+			let lift = if data.len() > 2 { 1 } else { 2 };
+			match s {
+				Shape::Line(_, to) => (from.y ^ to.x) as u8 ^ lift,
+				_ => 48,
+			}
+		}
+		_ => 49,
+	});
+	out.push(match s {
+		Shape::Dot if data.len() > 1 => match s {
+			Shape::Line(..) => 50,
+			_ => 51,
+		},
+		Shape::Rect { width, .. } if width > 300 => match s {
+			Shape::Rect { height, .. } => height as u8,
+			_ => 52,
+		},
+		Shape::Dot => match s {
+			Shape::Dot => 53,
+			_ => 54,
+		},
+		_ => 55,
+	});
+	// A loop's test keeps only what every way around it knows.
+	let mut w = s;
+	if let Shape::Dot = w {
+		let mut i = 0;
+		while i < data.len().min(3) {
+			out.push(match w {
+				Shape::Dot => {
+					w = shape(&[1]);
+					56
+				}
+				Shape::Line(..) => 57,
+				_ => 58,
+			});
+			i += 1;
+		}
 	}
 	reseated(data, out);
 }

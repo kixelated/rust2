@@ -49,7 +49,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.filter(|&l| !self.is_arg(l) && l != mir::RETURN_PLACE && self.defs[l] == 1)
 			.filter(|&l| {
 				let ty = mir.local_decls[l].ty;
-				array_iter(tcx, ty).is_some() || super::small_range(tcx, ty)
+				// An element JS copies is lent as its place, which `rt.iterSliceMut` makes.
+				let places = || self.b.t.iter_item(ty).is_some_and(|item| self.b.t.has_place(item));
+				array_iter(tcx, ty).is_some() && !places() || super::small_range(tcx, ty)
 			})
 			.collect();
 		if iters.is_empty() {

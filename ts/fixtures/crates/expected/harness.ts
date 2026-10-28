@@ -38,7 +38,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		unwind = 57;
 		guards = rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(input)), 3), (_26: rt.u8): Guard.Guard => {
 			return Guard.new(_26, log);
-		}), false, undefined, rt.drop);
+		}), undefined, rt.drop);
 		unwind = 63;
 		_114 = true;
 		held = Guard.new(255, log);
