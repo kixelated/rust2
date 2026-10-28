@@ -32,6 +32,7 @@ pub enum Std {
 	/// Its contents.
 	Box,
 	FromUtf8Error,
+	Utf8Error,
 	TryFromIntError,
 	/// `rt.Formatter`.
 	Formatter,
@@ -167,6 +168,7 @@ impl Std {
 			.collect::<Vec<_>>()
 			.as_slice()
 		{
+			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
 			["fmt", "Formatter"] => Some(Self::Formatter),
 			["fmt", "Arguments"] => Some(Self::Arguments),
 			["fmt", "Error"] => Some(Self::FmtError),
@@ -957,6 +959,10 @@ fn mapping<'tcx>(
 		// Strings.
 		("String" | "str", "as_bytes") => Expr::rt("stringAsBytes", args),
 		("String", "from_utf8") => Expr::rt("stringFromUtf8", args),
+		// `str::from_utf8` is `core::str::converts::from_utf8`, or `str`'s own.
+		("converts" | "str", "from_utf8") => Expr::rt("strFromUtf8", args),
+		("Utf8Error", "valid_up_to") => args.pop()?.member("validUpTo"),
+		("Utf8Error", "error_len") => args.pop()?.member("errorLen"),
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),

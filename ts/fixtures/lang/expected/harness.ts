@@ -16,6 +16,7 @@ import { refs } from "./refs.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
 import { strs, slices } from "./strs.ts";
+import { decodes } from "./utf8.ts";
 
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
@@ -26,7 +27,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 54);
+	const _14: rt.u8 = rt.u8Rem(op, 55);
 	if (_14 === 0) {
 		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 1) {
@@ -150,6 +151,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		counts(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 52) {
 		rounding(out);
+	} else if (_14 === 53) {
+		decodes(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else {
 		skips(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	}

@@ -3,7 +3,7 @@
 
 use crate::{
 	chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, refs, shapes, splits,
-	strs,
+	strs, utf8,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -22,7 +22,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 54 {
+	match op % 55 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -86,6 +86,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		50 => refs::refs(data, &mut out),
 		51 => fmt::counts(data, &mut out),
 		52 => fmt::rounding(&mut out),
+		53 => utf8::decodes(kind, data, &mut out),
 		_ => iters::skips(kind, data, &mut out),
 	}
 	out
