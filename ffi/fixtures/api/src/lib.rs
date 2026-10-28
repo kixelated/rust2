@@ -176,6 +176,12 @@ impl Registry {
 	pub fn push(&mut self, counter: Counter) {
 		self.last = Some(counter);
 	}
+
+	/// The first counter lent to `edit` for the call, returning what `edit` does: a closure
+	/// called only during the call, which C lends as a function.
+	pub fn edit(&mut self, edit: impl FnOnce(&mut Counter) -> bool) -> bool {
+		edit(&mut self.first)
+	}
 }
 
 /// A name that may borrow its text: its only generic parameter is a lifetime, so a
@@ -381,6 +387,15 @@ pub trait Log: Send + Sync {
 /// Each line to `log` as a type parameter takes it, returning how many it kept.
 pub fn emit(log: impl Log, lines: Vec<u8>) -> u32 {
 	lines.iter().filter(|&&n| log.log(n, &format!("line {n}"))).count() as u32
+}
+
+/// Each line to `keep` on another thread, returning how many it kept: a lent closure may
+/// run on any thread until the call returns.
+pub fn filter(lines: Vec<u8>, mut keep: impl FnMut(u8, &str) -> bool + Send) -> u32 {
+	std::thread::scope(|scope| {
+		let kept = scope.spawn(move || lines.iter().filter(|&&n| keep(n, &format!("line {n}"))).count());
+		kept.join().expect("the thread finishes") as u32
+	})
 }
 
 /// Holds a foreign implementation as a trait object, dropping it with itself.

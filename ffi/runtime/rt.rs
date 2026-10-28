@@ -1,5 +1,5 @@
-//! The runtime every export shares: buffers, handles, wakers, and futures across the
-//! C ABI. rust2-ffi copies it beside the generated code.
+//! The runtime every export shares: buffers, handles, lent functions, wakers, and futures
+//! across the C ABI. rust2-ffi copies it beside the generated code.
 //!
 //! A broken contract across the ABI (a null or consumed handle, a handle borrowed in a
 //! way Rust's rules forbid, invalid UTF-8, a future polled after it finished) aborts with
@@ -371,6 +371,38 @@ impl<T> Object<T> {
 		}
 	}
 
+	/// Lend `value` to C as a handle while `f` runs, then put it back: C borrows it as any
+	/// other handle, but neither frees it nor moves it out, nor keeps a borrow past `f`.
+	pub fn lend<R>(value: &mut T, what: &str, f: impl FnOnce(*const c_void) -> R) -> R {
+		/// Aborts if `value` is left moved out by an unwind.
+		struct Lent;
+		impl Drop for Lent {
+			fn drop(&mut self) {
+				fail("a lent handle", "a panic left its value moved out");
+			}
+		}
+		let lent = Lent;
+		let object = Arc::new(Self {
+			state: AtomicUsize::new(0),
+			depth: UnsafeCell::new(0),
+			// SAFETY: written back below before `value` is used again, or `lent` aborts.
+			value: UnsafeCell::new(ManuallyDrop::new(unsafe { std::ptr::read(value) })),
+		});
+		// A second count, which a free by C would take, so the handle outlives it.
+		let spare = Arc::clone(&object);
+		let result = f(Arc::as_ptr(&object).cast());
+		match Arc::strong_count(&object) {
+			2 => {}
+			1 => fail(what, "a lent handle was freed"),
+			_ => fail(what, "a lent handle is still borrowed"),
+		}
+		drop(spare);
+		// SAFETY: the value moves back out once, and TAKEN keeps the drop from dropping it.
+		unsafe { std::ptr::write(value, Self::take(Arc::as_ptr(&object).cast(), what)) };
+		std::mem::forget(lent);
+		result
+	}
+
 	/// Move the value out, leaving the handle to be freed.
 	///
 	/// # Safety
@@ -564,6 +596,26 @@ impl Drop for Foreign {
 			// SAFETY: the waker's contract; this is the last reference.
 			unsafe { drop(self.0.data) };
 		}
+	}
+}
+
+/// The data of a function C lends for a call, which Rust only passes back to it.
+#[derive(Clone, Copy)]
+pub struct Data(*mut c_void);
+
+// SAFETY: the lent function's contract: it may be called from any thread.
+unsafe impl Send for Data {}
+// SAFETY: as above.
+unsafe impl Sync for Data {}
+
+impl Data {
+	pub fn new(data: *mut c_void) -> Self {
+		Self(data)
+	}
+
+	/// The pointer, through a method so a closure captures `Data` whole, not its field.
+	pub fn get(self) -> *mut c_void {
+		self.0
 	}
 }
 

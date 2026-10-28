@@ -70,6 +70,7 @@ export's, and adds nothing; another crate's type is refused.
 | a generic function or method, at each instance `instances` names | that instance in place of the rules below, at each instance of its type; one whose bounds fail, or that nothing exported reaches, is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
+| a type parameter or `impl` bounded by `Fn`, `FnMut`, or `FnOnce`, which no lifetime bound or return lets outlive the call | a C function and its `void *` data, which Rust calls only during the call; any other closure is refused |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
@@ -114,6 +115,11 @@ refused, and the census counts why.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **Closures** lent for a call are a function and its data, which Rust calls only during
+  the call, from any thread. One takes what a callback takes, and objects by `&mut T`, each
+  lent as a handle for that call: C may borrow it as any other, but freeing it, moving out
+  of it, or keeping a borrow past the call aborts. An object lent `&T` is refused, as it
+  cannot move into a handle and back.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is
@@ -163,4 +169,5 @@ moq's crates export through `target/moq-ffi`, an empty library on each that `jus
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, reads an OpusHead into hang's catalog through moq-mux,
-and publishes a binary track the catalog lists.
+publishes a binary track the catalog lists, and reads the catalog lent to C through
+`catalog::Producer::mutate`.

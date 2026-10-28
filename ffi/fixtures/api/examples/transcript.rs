@@ -100,6 +100,12 @@ fn main() {
 	let mut last = registry.last().unwrap().clone();
 	let _ = last.add(10);
 	println!("last {} lent {}", registry.last().unwrap().get(), last.get());
+	// A closure lent for the call edits the first counter through a handle.
+	let edited = registry.edit(|counter| {
+		let _ = counter.add(5);
+		counter.get() == 6
+	});
+	println!("edit {edited} {}", registry.first.get());
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));
@@ -148,6 +154,11 @@ fn main() {
 	println!("write {}", logger.write("hi"));
 	drop(logger);
 	println!("dropped");
+	let kept = api_lib::filter(vec![1, 2, 3, 4], |level, line| {
+		println!("filter {level} {line}");
+		level > 2
+	});
+	println!("filtered {kept}");
 
 	let channel = Channel::new();
 	let count = Arc::new(Count(AtomicUsize::new(0)));

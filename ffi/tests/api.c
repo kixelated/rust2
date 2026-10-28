@@ -43,6 +43,32 @@ static void log_free(void *data) {
 	printf("freed\n");
 }
 
+/* A lent closure: adds data's amount to the counter lent for the call. */
+static bool edit(void *data, api_counter *counter) {
+	api_counter_add(counter, *(const uint64_t *)data, NULL, NULL);
+	return api_counter_get(counter) == 6;
+}
+
+/* A lent closure, which Rust calls on another thread: keeps levels above data's. */
+static bool keep_line(void *data, uint8_t level, api_buf line) {
+	printf("filter %u %.*s\n", level, (int)line.len, (const char *)line.ptr);
+	return level > *(const uint8_t *)data;
+}
+
+/* Breaks a lent handle's contract: frees it, or moves its value out. */
+static bool free_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_counter_free(counter);
+	return false;
+}
+
+static bool move_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_label label = api_counter_into_label(counter, (api_option_point){0});
+	api_label_free(&label);
+	return false;
+}
+
 /* A bound, as Rust's Debug prints it. */
 static void print_bound(api_bound_u64 bound) {
 	switch (bound.kind) {
@@ -149,6 +175,11 @@ static int script(void) {
 		   (unsigned long long)api_counter_get(last));
 	api_counter_free(lent);
 	api_counter_free(last);
+	uint64_t by = 5;
+	bool edited = api_registry_edit(registry, edit, &by);
+	first = api_registry_first(registry);
+	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
+	api_counter_free(first);
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -235,6 +266,8 @@ static int script(void) {
 	printf("write %s\n", api_logger_write(logger, str("hi")) ? "true" : "false");
 	api_logger_free(logger);
 	printf("dropped\n");
+	uint8_t threshold = 2;
+	printf("filtered %u\n", api_filter(lines, keep_line, &threshold));
 
 	api_channel *channel = api_channel_new();
 	api_waker waker = {.wake = wake, .drop = drop, .data = NULL};
@@ -377,6 +410,12 @@ static int broken(const char *which) {
 		api_channel_recv_poll(recv, waker, &payload);
 	} else if (strcmp(which, "enum") == 0) {
 		api_greet(str("x"), (api_shape)2);
+	} else if (strcmp(which, "lent") == 0 || strcmp(which, "lent moved") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, strcmp(which, "lent") == 0 ? free_lent : move_lent, NULL);
+	} else if (strcmp(which, "null") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, NULL, NULL);
 	} else if (strcmp(which, "bound") == 0) {
 		api_count((api_bounds_u64){.start = {.kind = (api_bound)3}});
 	}

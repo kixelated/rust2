@@ -187,3 +187,18 @@ impl<T: Copy> Bounded<T> {
 		U::from(self.0)
 	}
 }
+
+/// A closure kept past the call, as a `'static` bound lets it be.
+pub fn spawn(task: impl FnOnce() + Send + 'static) {
+	std::thread::spawn(task);
+}
+
+/// A closure the future holds past the call.
+pub async fn later(task: impl FnOnce()) {
+	task()
+}
+
+/// An object lent shared, which cannot move into a handle and back.
+pub fn inspect(opaque: &Opaque, f: impl Fn(&Opaque)) {
+	f(opaque)
+}

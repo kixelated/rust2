@@ -13,7 +13,8 @@ maintainer on 2026-10-27 to plan it.
 
 - A closure the callee keeps past the call stays refused; only a lent one exports.
 - A panic or an error in the callback must not unwind across the C ABI.
-- Decide whether `mutate` is moq's API or the exporter's rewrite of `modify`; moq's own
-  change belongs in moq's tree.
+- Decided with the maintainer on 2026-10-27: `mutate` is moq's own API, a change in moq's
+  tree, and the exporter exports any function taking a closure it calls only during the
+  call, with no rewrite of `modify` and no config.
 
 Public API: the exporter's C ABI for callbacks.

@@ -247,6 +247,9 @@ pub enum Type {
 	Object(usize),
 	/// A foreign implementation of a callback trait, in the form the parameter takes.
 	Callback(usize, Dyn),
+	/// A closure the callee calls only during the call, as a foreign function: what it
+	/// takes, then what it returns.
+	Closure(Vec<Type>, Box<Type>),
 	/// `std::ops::Range` of an integer.
 	Range(Int),
 	/// `std::ops::Bound` of an integer.

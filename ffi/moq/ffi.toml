@@ -412,7 +412,6 @@ exclude = [
     "catalog::Producer::json_snapshot",
     "catalog::Producer::json_stream",
     "catalog::Producer::modify",
-    "catalog::Producer::mutate",
     "catalog::Producer::stats",
     "catalog::Producer::text",
     "catalog::Producer::track",

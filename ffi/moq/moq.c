@@ -1,7 +1,7 @@
 /* moq's exported C API against the real library: a broadcast's track, published and
  * subscribed to in one process, with every read polled as a future, and an origin.
  * moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export into the same library, and
- * each names the others' types.
+ * each names the others' types, and the catalog is lent to C for a call.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -33,6 +33,21 @@ static int is(moq_buf buf, const char *s) {
 	}
 	moq_buf_free(buf);
 	return same;
+}
+
+/* The catalog `mutate` lends for its call, which lists the binary track: counts it in
+ * data. */
+static void lists_state(void *data, moq_hang_catalog *catalog) {
+	moq_buf json;
+	moq_hang_error *hang_err = NULL;
+	CHECK(moq_hang_catalog_to_json(catalog, &json, &hang_err));
+	for (size_t i = 0; i + 5 <= json.len; i++) {
+		if (memcmp(json.ptr + i, "state", 5) == 0) {
+			(*(int *)data)++;
+			break;
+		}
+	}
+	moq_buf_free(json);
 }
 
 static int wakes = 0;
@@ -239,6 +254,9 @@ int main(void) {
 	moq_track_producer_free(state);
 	CHECK(is(moq_binary_snapshot_name(snapshot), "state"));
 	CHECK(moq_binary_snapshot_update(snapshot, str("latest"), &mux_err));
+	int listed_state = 0;
+	CHECK(moq_catalog_producer_mutate(catalog, lists_state, &listed_state, &mux_err));
+	CHECK(listed_state == 1);
 	moq_binary_snapshot_free(snapshot);
 	moq_catalog_producer_free(catalog);
 	moq_broadcast_producer_free(publisher);
