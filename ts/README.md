@@ -78,9 +78,10 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
+| `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
@@ -144,7 +145,7 @@ std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or i
 an `rt.Iter` with `for ... of`.
 
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
-`char`, a `&str`, or a predicate, as in `rt.strSplit(s, "/")`, takes the text or the
+`char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the
 closure, which it calls on each char it reads, in the order std reads them. An offset it
 returns, from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does, and so does
 one `&s[a..b]` takes, which reads the string up to it and panics as std does inside a
@@ -394,6 +395,11 @@ they need.
   are a JS `Map`'s, the engine's own hash table; its other keys go into a second `Map`
   by their translated hash, chained by `Eq`. `VecDeque` is a ring buffer over an array
   whose length is a power of two.
+- A slice's `sort` and `sort_unstable` are one stable merge sort of the runtime's own,
+  calling only the comparator, as std permits of an unstable sort: JS's `sort` moves
+  `undefined`, a `None`, to the end without comparing it, and each engine orders its
+  comparisons differently. A comparator that panics leaves each element once, in an
+  order std's sort would not match.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
   raw pointers, ES helpers lack most of them
@@ -445,7 +451,7 @@ without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partiti
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), writing to a
 `String` with `write!`, a `str` pattern other than a
-`char`, a `&str`, or a predicate, a mutable `str` slice, a copy of a closure that changes
+`char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
 reference, a switch on or a field of another crate's type without a mapping, and std
@@ -480,9 +486,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, and `&mut`
+  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
-  returned, kept in a struct, and captured. Its differential test runs through `caller.ts`, a
+  returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
+  that log what each is called with, and std's `Bound`, `Reverse`, and `NonZero`. Its
+  differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow,
@@ -511,7 +519,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
 rejects when a future panics as it drops. `tests/retain.ts` panics in a collection's
-`retain` at each item, and `retain_unwinds` checks that it leaves what std's leaves.
+`retain` and `Vec::dedup_by` at each item, and `retain_unwinds` checks that each leaves and
+drops what std's does; a sort whose comparator panics must leave each item once.
 
 ## Bench
 

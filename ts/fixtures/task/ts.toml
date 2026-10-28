@@ -1,4 +1,4 @@
 package = "task-fixture"
 # What the hand-written harness, tests/task.ts, calls: the futures it spawns, and the
 # channels and log it drives them with.
-roots = ["log::Log", "model::Channel", "model::Guard", "model::sum", "model::drain", "model::blocks", "drops::run", "drops::held", "futures::helpers"]
+roots = ["log::Log", "model::Channel", "model::Guard", "model::sum", "model::drain", "model::blocks", "drops::run", "drops::held", "drops::edited", "futures::helpers"]

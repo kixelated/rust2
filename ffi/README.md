@@ -119,6 +119,10 @@ refused, and the census counts why.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is

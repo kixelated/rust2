@@ -274,7 +274,8 @@ pub fn std_impl<'tcx>(
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
-			(Std::Box, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `NonZero` writes its integer, by each trait.
+			(Std::Box | Std::NonZero, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])

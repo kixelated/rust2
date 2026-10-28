@@ -46,7 +46,11 @@ export interface Fixture<V> {
 	sum(rx: Consumer, guard: Guard): Future<V>;
 	drain(rx: Consumer, depth: number): Future<V>;
 	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
-	drops: { run(log: Log, id: number, arg: number): void; held(rx: Consumer, guard: Guard): Future<V> };
+	drops: {
+		run(log: Log, id: number, arg: number): void;
+		held(rx: Consumer, guard: Guard): Future<V>;
+		edited(log: Log, id: number, at: number): void;
+	};
 	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
 }
 
@@ -198,7 +202,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 		function step(op: number, arg: number): void {
 			const pick = (len: number) => (len > 0 ? arg % len : undefined);
 			const c = pick(channels.length);
-			switch (op % 14) {
+			switch (op % 15) {
 				case 0:
 					note(`c${channels.length} open`);
 					channels.push(f.Channel.open());
@@ -254,6 +258,9 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 				case 12:
 					if (c !== undefined) exec.spawn(f.drops.held(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log))));
 					break;
+				case 13:
+					f.drops.edited(log, 1000 * exec.tasks.length, arg % 8);
+					break;
 				default:
 					if (c !== undefined) exec.spawn(f.futures.helpers(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log))));
 			}
@@ -286,9 +293,11 @@ export const cases: Uint8Array[] = [
 	[0, 0, 12, 0, 12, 1, 6, 0, 9, 1, 9, 0],
 	// std's helpers: a `poll_fn` over a pinned `recv` and `future::pending`, returning,
 	// cancelled with the guard it owns, and panicking inside it.
-	[0, 0, 13, 0, 6, 0, 3, 5, 6, 0, 3, 77, 6, 0],
-	[0, 0, 13, 0, 13, 1, 6, 0, 3, 4, 7, 0, 9, 1, 9, 0],
-	[0, 0, 13, 0, 6, 0, 3, 99, 6, 0, 8, 0],
+	[0, 0, 14, 0, 6, 0, 3, 5, 6, 0, 3, 77, 6, 0],
+	[0, 0, 14, 0, 14, 1, 6, 0, 3, 4, 7, 0, 9, 1, 9, 0],
+	[0, 0, 14, 0, 6, 0, 3, 99, 6, 0, 8, 0],
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => [11, arg]),
+	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
+	...Array.from({ length: 8 }, (_, at) => [13, at]),
 ].map((script) => Uint8Array.from(script));
