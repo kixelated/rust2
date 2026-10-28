@@ -24,6 +24,7 @@ macro_rules! list {
 mod closures;
 mod iters;
 mod objects;
+mod once;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
@@ -68,6 +69,11 @@ pub struct Entries<K, V>(Vec<(K, V)>);
 /// What boxed trait objects drop, panicking at the point `at` names, if any.
 pub fn dyns(log: &Log, id: u32, at: u8) {
 	objects::boxed(log, id, at)
+}
+
+/// Run one-time cells' scenario `at`.
+pub fn cells(log: &Log, id: u32, at: u8) {
+	once::run(log, id, at);
 }
 
 /// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what

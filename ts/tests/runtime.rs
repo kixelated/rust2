@@ -25,6 +25,17 @@ fn nan_payloads() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
+/// A recursive `OnceLock` init drops what it took as it panics, which `once.ts` checks.
+#[test]
+fn once_recursive() {
+	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("once.ts");
+	let output = Command::new("node")
+		.arg(script)
+		.output()
+		.expect("running node, which the dev shell provides");
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+}
+
 /// The runtime's B-tree runs `btree.ts`'s script of random operations as std's does.
 #[test]
 fn btree_script() {
