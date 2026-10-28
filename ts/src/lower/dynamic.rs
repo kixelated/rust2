@@ -61,7 +61,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 		if let Some(object) = self.objects.get(&principal) {
 			return Some(object.clone());
 		}
-		if !principal.is_local() && !is_any(tcx, principal) {
+		// A trait of a crate translated from source is as the crate's own.
+		if !self.own(principal) && !is_any(tcx, principal) {
 			self.unrepresented(
 				span,
 				format!("`{ty}`, a trait object of another crate's trait, which is not supported yet"),

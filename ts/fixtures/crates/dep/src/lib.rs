@@ -1,6 +1,6 @@
 //! The dependency `crates-fixture` translates with: a type the package copies, which only
-//! this crate writes into, a generic function over the package's type, drops, an
-//! iterator, and `unsafe` with a safe twin where it translates and without one.
+//! this crate writes into, a generic function over the package's type, drops, an iterator,
+//! `unsafe` with a safe twin where it translates and without one, and a trait for objects.
 
 use std::sync::{Arc, Mutex};
 
@@ -127,4 +127,47 @@ pub fn last(bytes: &[u8]) -> u8 {
 	assert!(!bytes.is_empty(), "no last byte");
 	// SAFETY: it holds a byte.
 	unsafe { *bytes.as_ptr().add(bytes.len() - 1) }
+}
+
+/// What [`tally`] counts with, through trait objects of either crate's types.
+pub trait Tally {
+	fn add(&mut self, by: u8);
+	fn count(&self) -> u32;
+	/// Provided, and overridden by one impl.
+	fn scale(&self) -> u32 {
+		1
+	}
+}
+
+/// A number, which JS copies, so `&mut self` reaches it through a place.
+impl Tally for u32 {
+	fn add(&mut self, by: u8) {
+		*self = self.wrapping_add(u32::from(by));
+	}
+	fn count(&self) -> u32 {
+		*self
+	}
+}
+
+impl Tally for Guard {
+	fn add(&mut self, by: u8) {
+		self.id = self.id.wrapping_add(by);
+	}
+	fn count(&self) -> u32 {
+		u32::from(self.id)
+	}
+	fn scale(&self) -> u32 {
+		2
+	}
+}
+
+/// Add `by` to each of `tallies`, then sum their counts by their scales.
+pub fn tally(tallies: &mut [&mut dyn Tally], by: u8) -> u32 {
+	let mut sum = 0u32;
+	for i in 0..tallies.len() {
+		let t = &mut *tallies[i];
+		t.add(by);
+		sum = sum.wrapping_add(t.count().wrapping_mul(t.scale()));
+	}
+	sum
 }
