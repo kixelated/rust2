@@ -219,6 +219,13 @@ export function map$Option_u8_u8_elements_closure8(self: rt.u8 | undefined, f: (
 	return f(self);
 }
 
+export function map$Option_u8_u8_u8_elements_closure9(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;

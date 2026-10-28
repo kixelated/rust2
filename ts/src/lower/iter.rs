@@ -179,9 +179,10 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 				values.extend(b.t.none_arg(args.type_at(0)));
 				Some(Expr::rt("iterOption", vec![Expr::rt("optionAsMut", values)]))
 			}
+			// A `&mut` to one of another payload is its place, and yields the payload itself.
 			Std::Option => {
 				let inner = args.type_at(0);
-				let mut values = each(b, inner, vec![value]);
+				let mut values = each(b, inner, vec![b.t.pointee_value(ty, value)]);
 				if let Some(none) = b.t.none_arg(inner) {
 					values.resize(2, Expr::undefined());
 					values.push(none);

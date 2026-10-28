@@ -458,6 +458,21 @@ fn elements(data: &[u8], out: &mut Vec<u8>) {
 		out.push((&mut o).into_iter().count() as u8);
 		out.push(o.unwrap_or(0xee));
 	}
+	// Of a payload JS doesn't copy, a tuple or a `&mut`: the payload itself, or nothing.
+	for o in [seen_of(data).map(|b| (b, 1u8)), None] {
+		let mut o = o;
+		for p in &mut o {
+			p.0 ^= 0x5a;
+		}
+		out.push((&mut o).into_iter().count() as u8);
+		out.push(o.map_or(0xee, |p| p.0));
+	}
+	let mut n = seen_of(data).unwrap_or(0);
+	for o in [Some(&mut n), None] {
+		let mut o = o;
+		out.push((&mut o).into_iter().count() as u8);
+	}
+	out.push(n);
 	for x in seen_of(data).iter_mut() {
 		*x ^= 0xff;
 		tree.insert(9, u32::from(*x));
