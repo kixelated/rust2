@@ -219,26 +219,39 @@ export function durationHash(d: Duration, s: Hasher): void {
 
 /** `Debug`, as std writes it: `1.5s`, `20ms`, `3µs`, or `0ns`, padded to the width. */
 export function durationDebug(d: Duration, f: Formatter): FmtResult {
-	let whole: u64;
-	let fraction: number;
-	let divisor: number;
-	let unit: string;
-	if (d.secs !== 0) {
-		[whole, fraction, divisor, unit] = [d.secs, d.nanos, NANOS_PER_SEC / 10, "s"];
-	} else if (d.nanos >= 1_000_000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, "ms"];
-	} else if (d.nanos >= 1000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1000), d.nanos % 1000, 100, "µs"];
-	} else {
-		[whole, fraction, divisor, unit] = [d.nanos as u64, 0, 1, "ns"];
-	}
-	// The fraction's digits up to its last nonzero one; no precision is ever given.
+	const prefix = f.spec.plus ? "+" : "";
+	if (d.secs !== 0) return decimal(f, d.secs, d.nanos, NANOS_PER_SEC / 10, prefix, "s");
+	if (d.nanos >= 1_000_000) return decimal(f, Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, prefix, "ms");
+	if (d.nanos >= 1000) return decimal(f, Math.floor(d.nanos / 1000), d.nanos % 1000, 100, prefix, "µs");
+	return decimal(f, d.nanos as u64, 0, 1, prefix, "ns");
+}
+
+/**
+ * std's `fmt_decimal`: `whole`, then the digits of `fraction` from `divisor` down, rounded
+ * half to even to the precision or else up to the last nonzero one.
+ */
+function decimal(f: Formatter, whole: u64, fraction: number, divisor: number, prefix: string, unit: string): FmtResult {
+	const precision = f.spec.precision;
 	let digits = "";
-	while (fraction > 0) {
+	while (fraction > 0 && digits.length < (precision ?? 9)) {
 		digits += Math.floor(fraction / divisor);
 		fraction %= divisor;
 		divisor /= 10;
 	}
-	const text = typeof whole === "number" ? String(whole) : ((BigInt(whole.hi) << 32n) | BigInt(whole.lo)).toString();
-	return fmtPad(f, text + (digits === "" ? "" : `.${digits}`) + unit);
+	let carry = false;
+	if (fraction > 0 && fraction >= divisor * 5) {
+		const last = digits.length > 0 ? Number(digits[digits.length - 1]) : typeof whole === "number" ? whole : whole.lo;
+		if (fraction > divisor * 5 || last % 2 === 1) {
+			const nines = /9*$/.exec(digits)![0].length;
+			const at = digits.length - nines - 1;
+			carry = at < 0;
+			digits = (carry ? "" : digits.slice(0, at) + (Number(digits[at]) + 1)) + "0".repeat(nines);
+		}
+	}
+	const big = typeof whole === "number" ? BigInt(whole) : (BigInt(whole.hi) << 32n) | BigInt(whole.lo);
+	const int = carry ? String(big + 1n) : String(big);
+	const point = Math.min(precision ?? digits.length, 9) > 0 ? `.${digits.padEnd(precision ?? digits.length, "0")}` : "";
+	// A width pads the whole text, which the precision has already cut.
+	const uncut = precision === undefined ? f : { out: f.out, spec: { ...f.spec, precision: undefined } };
+	return fmtPad(uncut, `${prefix}${int}${point}${unit}`);
 }
