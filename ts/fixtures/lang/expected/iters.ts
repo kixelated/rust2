@@ -52,11 +52,16 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 				}
 			}
 			if (_4 === 2) {
-				const _56: [rt.ByteSlice, rt.ByteSlice] = rt.byteSliceSplitAt(data, rt.usizeDiv(data.length, 2));
-				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(rt.byteSliceView(_56[0])), rt.iterRev(rt.iterSlice(rt.byteSliceView(_56[1])))), (_216: [rt.u8, rt.u8]): rt.u8 => {
+				const mid: number = rt.usizeDiv(data.length, 2);
+				if (mid > data.length) {
+					rt.panic("mid > len");
+				}
+				const front: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, mid);
+				const back: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + mid, data.length - mid);
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(rt.byteSliceView(front)), rt.iterRev(rt.iterSlice(rt.byteSliceView(back)))), (_216: [rt.u8, rt.u8]): rt.u8 => {
 					return _216[0] ^ _216[1];
 				}))));
-				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterRev(rt.iterChain(rt.iterSlice(rt.byteSliceView(_56[0])), rt.iterSlice(rt.byteSliceView(_56[1])))))));
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterRev(rt.iterChain(rt.iterSlice(rt.byteSliceView(front)), rt.iterSlice(rt.byteSliceView(back)))))));
 			} else if (_4 === 3) {
 				const taken: rt.ByteVec = rt.iterToByteVec(rt.iterTakeWhile(rt.iterSlice(rt.byteSliceView(data)), (_213: rt.u8): boolean => {
 					return _213 !== 0;

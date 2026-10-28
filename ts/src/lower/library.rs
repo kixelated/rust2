@@ -750,8 +750,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		("bool", "then") => Expr::rt("boolThen", args),
 
 		// Slices, whose byte functions take an `rt.ByteSlice`.
-		("slice", "len") => args.pop()?.member("length"),
-		("slice", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
+		("slice", "len") => super::mir::slice_member(args.pop()?, "length"),
+		("slice", "is_empty") => super::mir::slice_member(args.pop()?, "length").binary("===", Expr::lit("0")),
 		("slice", "split_first" | "split_at" | "split_at_checked" | "first" | "get")
 			if name != "get" || Int::of(targ(gargs, 1)).is_some() =>
 		{

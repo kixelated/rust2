@@ -30,6 +30,5 @@ Public API: the translator's output for byte slices.
 
 ## Required
 
-- [Byte slices in locals](/quest/m2/ts-byte-views/locals.md) - a slice local never borrowed mutably is three values
 - [Byte slices returned](/quest/m2/ts-byte-views/returns.md) - a function returns a split's parts without an object
 - [Byte slices in fields](/quest/m2/ts-byte-views/fields.md) - a private slice field is three fields

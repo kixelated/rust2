@@ -46,13 +46,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			Slot::Alias(Some(target)) => target.clone(),
 			Slot::Alias(None) => self.err(span, "a reference read before its borrow"),
-			Slot::Discr(_) => self.err(span, "a discriminant read other than by a switch"),
+			Slot::Discr(_) | Slot::Flag(_) => self.err(span, "a discriminant read other than by a switch"),
 		}
 	}
 
 	/// The JS expression of `place`, read without a copy.
 	pub fn place_expr(&mut self, place: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.tcx;
+		// A local held as its parts reads them, as far as they go.
+		if self.scalars.contains_key(&place.local) {
+			let (e, n) = self.scalar_place(place, span);
+			let mut pty = PlaceTy::from_ty(self.mir.local_decls[place.local].ty);
+			for elem in &place.projection[..n] {
+				pty = pty.projection_ty(tcx, *elem);
+			}
+			return self.project(e, pty, place, n, span, out);
+		}
 		let decls = &self.mir.local_decls;
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
 		let mut projection = place.projection.iter().peekable();
@@ -63,7 +72,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => None,
 		};
 		// A closure's captures, and a coroutine's state, are `_1`'s fields.
-		let mut e = match (&self.env, place.local.as_u32()) {
+		let e = match (&self.env, place.local.as_u32()) {
 			(Env::Closure(captures), 1) => {
 				let captures = captures.clone();
 				if matches!(projection.peek(), Some(ProjectionElem::Deref)) {
@@ -140,10 +149,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => unreachable!("a checked pair is a tuple"),
 			});
 		}
+		let from = place.projection.len() - projection.len();
+		self.project(e, pty, place, from, span, out)
+	}
+
+	/// `e`, the value of `place` projected as far as `from`, a `pty`, projected the rest of
+	/// the way.
+	fn project(
+		&mut self,
+		mut e: Expr,
+		mut pty: PlaceTy<'tcx>,
+		place: Place<'tcx>,
+		from: usize,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
+		let tcx = self.tcx;
+		let decls = &self.mir.local_decls;
 		// Whether `e` is an `rt.ByteSlice` of the place's bytes: a `[u8]`, or a `[u8; N]`
 		// behind a reference.
 		let mut in_bytes = false;
-		while let Some(elem) = projection.next() {
+		for (read, elem) in place.projection.iter().enumerate().skip(from) {
 			let ty = pty.ty;
 			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
@@ -167,7 +193,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					e = self.field(e, ty, pty.variant_index, field, span);
 				}
 				ProjectionElem::Downcast(_, variant) => {
-					let read = place.projection.len() - projection.len() - 1;
 					let base = Place {
 						local: place.local,
 						projection: tcx.mk_place_elems(&place.projection[..read]),
@@ -199,7 +224,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let i = match from_end {
 						false => Expr::lit(offset.to_string()),
-						true => base.clone().member("length").binary("-", Expr::lit(offset.to_string())),
+						true => super::scalar::sub(slice_member(base.clone(), "length"), Expr::lit(offset.to_string())),
 					};
 					e = match in_bytes {
 						true => byte_at(base, i),
@@ -213,11 +238,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					from_end: true,
 				} if byte_slice(ty) => {
 					let base = self.slice_path(e, out);
-					let mut values = vec![base.clone(), Expr::lit(from.to_string())];
-					if to != 0 {
-						values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
+					// A range of parts, which the pattern that took it checked the length for.
+					if let Some([data, start, length]) = made_slice(&base) {
+						let len = super::scalar::sub(length.clone(), Expr::lit((from + to).to_string()));
+						let start = super::scalar::add(start.clone(), Expr::lit(from.to_string()));
+						e = Expr::New(Box::new(Expr::Rt("ByteSlice".into())), vec![data.clone(), start, len]);
+					} else {
+						let mut values = vec![base.clone(), Expr::lit(from.to_string())];
+						if to != 0 {
+							values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
+						}
+						e = Expr::rt("byteSliceRange", values);
 					}
-					e = Expr::rt("byteSliceRange", values);
 				}
 				// Part of a `[u8; N]` behind a reference, as `[a, rest @ ..]` of a `&[u8; N]`.
 				ProjectionElem::Subslice { from, to, from_end } if in_bytes => {
@@ -227,8 +259,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => return self.err(span, format!("a subslice of `{ty}`")),
 					};
 					let base = self.slice_path(e, out);
-					let values = vec![base, Expr::lit(from.to_string()), Expr::lit(end.to_string())];
-					e = Expr::rt("byteSliceRange", values);
+					e = match made_slice(&base) {
+						// In bounds of the array's.
+						Some([data, start, _]) => Expr::New(
+							Box::new(Expr::Rt("ByteSlice".into())),
+							vec![
+								data.clone(),
+								super::scalar::add(start.clone(), Expr::lit(from.to_string())),
+								Expr::lit((end - from).to_string()),
+							],
+						),
+						None => {
+							let values = vec![base, Expr::lit(from.to_string()), Expr::lit(end.to_string())];
+							Expr::rt("byteSliceRange", values)
+						}
+					};
 				}
 				ProjectionElem::Subslice { from, to, from_end } => {
 					let elem_ty = match ty.kind() {
@@ -1038,8 +1083,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let slice = slice.clone();
 		let p = self.pending.remove(i);
-		// A path, or a subslice of one in bounds, reads only bytes nothing changed since.
-		let path = |e: &Expr| e.is_path() || matches!(e, Expr::Index(base, i) if base.is_path() && i.is_constant());
+		// A path, a subslice of one in bounds, or a local's parts, reads only bytes nothing
+		// changed since.
+		let path = |e: &Expr| {
+			e.is_path()
+				|| made_slice(e).is_some()
+				|| matches!(e, Expr::Index(base, i) if base.is_path() && i.is_constant())
+		};
 		let stable = match &slice {
 			Expr::Call(f, args) if matches!(&**f, Expr::Rt(name) if name == "byteSliceRange") => {
 				matches!(args.as_slice(), [base, Expr::Lit(_), ..] if path(base))
@@ -1095,11 +1145,30 @@ pub fn byte_slice(ty: Ty<'_>) -> bool {
 
 /// Byte `i` of `slice`, an `rt.ByteSlice` that reading twice reads the same.
 pub fn byte_at(slice: Expr, i: Expr) -> Expr {
-	let at = match &i {
-		Expr::Lit(text) if text == "0" => slice.clone().member("start"),
-		_ => slice.clone().member("start").binary("+", i),
-	};
-	slice.member("data").index(at)
+	let at = super::scalar::add(slice_member(slice.clone(), "start"), i);
+	slice_member(slice, "data").index(at)
+}
+
+/// The field `key` of `slice`, an `rt.ByteSlice`: its part, if it is made in place of parts
+/// that do nothing, as a local held as its parts reads.
+pub fn slice_member(slice: Expr, key: &str) -> Expr {
+	if let Some([data, start, length]) = made_slice(&slice) {
+		return match key {
+			"data" => data.clone(),
+			"start" => start.clone(),
+			"length" => length.clone(),
+			_ => unreachable!("a field of a byte slice"),
+		};
+	}
+	slice.member(key)
+}
+
+/// The parts of `slice`, if it is an `rt.ByteSlice` made in place.
+pub fn made_slice(slice: &Expr) -> Option<&[Expr; 3]> {
+	match slice {
+		Expr::New(f, args) if matches!(&**f, Expr::Rt(name) if name == "ByteSlice") => args.as_slice().try_into().ok(),
+		_ => None,
+	}
 }
 
 /// Whether `ty` is a struct of one field that JS represents as that field: a wrapper

@@ -106,10 +106,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					UnOp::Not | UnOp::Neg => num::unary(self.b, *op, value, aty, span),
 					UnOp::PtrMetadata => match aty.builtin_deref(true).map(|t| t.kind()) {
 						Some(ty::Str) => Expr::rt("stringLen", vec![value]),
-						Some(ty::Slice(_)) => value.member("length"),
+						Some(ty::Slice(_)) => super::place::slice_member(value, "length"),
 						_ => self.err(span, format!("the metadata of `{aty}`")),
 					},
 				}
+			}
+			// A local held as its parts has its flag.
+			Rvalue::Discriminant(place) if self.scalar_enum(*place) => {
+				let flag = self.scalar_flag(*place, span);
+				let pty = place.ty(&self.mir.local_decls, tcx).ty;
+				let int = Int::of(pty.discriminant_ty(tcx)).expect("an enum's discriminant is an integer");
+				Expr::Cond(Box::new(flag), Box::new(int.lit(1)), Box::new(int.lit(0)))
 			}
 			Rvalue::Discriminant(place) => {
 				let pty = place.ty(&self.mir.local_decls, tcx).ty;

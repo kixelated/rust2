@@ -17,36 +17,34 @@ import type * as Version from "./lite/version.Version.ts";
 /** Run one workload. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
-	const _5: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(input);
-	if (_5 !== undefined) {
-		const op: rt.u8 = _5[0];
-		const _9: [rt.u8, rt.ByteSlice] | undefined = rt.byteSliceSplitFirst(_5[1]);
-		if (_9 !== undefined) {
-			const selector: rt.u8 = _9[0];
+	if (input.length !== 0) {
+		const op: rt.u8 = input.data[input.start];
+		if (input.length - 1 !== 0) {
+			const selector: rt.u8 = input.data[input.start + 1];
 			if (op === 0) {
-				encoded(encodeVarints(_9[1], form(selector), out), out);
+				encoded(encodeVarints(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), form(selector), out), out);
 			} else if (op === 1) {
-				decoded(decodeVarints(_9[1], form(selector), out), out);
+				decoded(decodeVarints(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), form(selector), out), out);
 			} else if (op === 2) {
-				encoded(encodeFrames(_9[1], liteVersion(selector), out), out);
+				encoded(encodeFrames(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			} else if (op === 3) {
-				decoded(decodeFrames(_9[1], liteVersion(selector), out), out);
+				decoded(decodeFrames(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			} else if (op === 4) {
-				encoded(encodeGroup(_9[1], liteVersion(selector), out), out);
+				encoded(encodeGroup(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			} else if (op === 6) {
-				iterate(selector, _9[1], out);
+				iterate(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else if (op === 7) {
-				decoded(decodeSplit(_9[1], liteVersion(selector), out), out);
+				decoded(decodeSplit(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			} else if (op === 8) {
-				ordered(_9[1], out);
+				ordered(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else if (op === 9) {
-				rescale(selector, _9[1], out);
+				rescale(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else if (op === 10) {
-				stamp(_9[1], out);
+				stamp(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else if (op === 11) {
-				interleave(_9[1], out);
+				interleave(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else {
-				decoded(decodeGroup(_9[1], liteVersion(selector), out), out);
+				decoded(decodeGroup(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			}
 			return out;
 		}
