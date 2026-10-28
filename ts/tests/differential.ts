@@ -126,10 +126,5 @@ for (const input of cases) {
 	}
 }
 
-{
-	const { createHash } = await import("node:crypto");
-	const lines = cases.map((input) => { const c = wasm.call(input); return show(input) + " " + (c === "panic" ? "panic " + wasm.panicMessage : show(c)); }).sort();
-	console.log("digest", createHash("sha256").update(lines.join("\n")).digest("hex"));
-}
 console.log(`${cases.length} cases, ${panics} panics, ${failures} differences`);
 if (failures > 0) process.exit(1);

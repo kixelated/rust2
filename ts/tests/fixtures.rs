@@ -420,7 +420,7 @@ import {{ blocks, drain, sum }} from "./model.ts";
 import * as drops from "./drops.ts";
 import {{ harness }} from {harness:?};
 
-export {{ cases }} from {harness:?};
+export {{ cases, steps }} from {harness:?};
 const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops }};
 const script = harness(fixture);
 export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
