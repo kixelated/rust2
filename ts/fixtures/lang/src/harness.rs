@@ -2,8 +2,8 @@
 //! case and the rest is its input.
 
 use crate::{
-	args, chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, nested, refs, shapes,
-	splits, strs,
+	args, chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, nested, refs,
+	shapes, splits, strs,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a

@@ -738,10 +738,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			for (i, pair) in data.statements.windows(2).enumerate() {
 				if let (Some((t, x)), Some((x2, t2))) = (moved(&pair[0]), moved(&pair[1]))
-					&& x == x2
-					&& t == t2
-					&& t != x
-					&& mentions.0[t] == 2
+					&& x == x2 && t == t2
+					&& t != x && mentions.0[t] == 2
 				{
 					self.noops.insert((bb, i));
 					self.noops.insert((bb, i + 1));
@@ -2176,8 +2174,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					&& let Some(Stmt {
 						kind: StmtKind::Expr(Expr::Assign(_, value)),
 						..
-					}) = out.last()
-					&& let Some(parts) = parts_of(value)
+					}) = out.last() && let Some(parts) = parts_of(value)
 				{
 					self.var_parts.insert(local, parts);
 				}
@@ -3192,26 +3189,16 @@ fn reads_only(name: &str) -> bool {
 	matches!(
 		op,
 		"Add"
-			| "Sub"
-			| "Mul"
-			| "Div"
-			| "Rem"
-			| "Neg"
-			| "Shl"
-			| "Shr"
-			| "And"
-			| "Or"
-			| "Xor"
-			| "Not"
-			| "Eq"
-			| "Ne"
-			| "Lt"
-			| "Le"
-			| "Gt"
-			| "Ge"
-			| "Max"
-			| "Min"
-			| "Cast"
+			| "Sub" | "Mul"
+			| "Div" | "Rem"
+			| "Neg" | "Shl"
+			| "Shr" | "And"
+			| "Or" | "Xor"
+			| "Not" | "Eq"
+			| "Ne" | "Lt"
+			| "Le" | "Gt"
+			| "Ge" | "Max"
+			| "Min" | "Cast"
 			| "Low"
 	)
 }
