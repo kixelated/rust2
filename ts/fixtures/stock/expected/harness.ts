@@ -29,33 +29,48 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
  */
 export function slices(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let part!: rt.ByteSlice;
+	let range!: rt.RangeInclusive<rt.usize>;
 	if (data.length >= 3) {
 		const bytes: rt.ByteSlice = rt.bytesCopyFromSlice(new rt.ByteSlice(data.data, data.start + 3, data.length - 3));
 		const past: boolean = data.data[data.start + 2] === 255;
 		const _14: [rt.usize, rt.usize] = [rt.usizeRem(data.data[data.start + 1] as rt.usize, rt.usizeAdd(data.length - 3, 2)), rt.usizeRem(data.data[data.start + 2] as rt.usize, rt.usizeAdd(data.length - 3, 2))];
 		const a: rt.usize = _14[0];
 		const b: rt.usize = _14[1];
-		const _30: rt.u8 = rt.u8Rem(data.data[data.start], 6);
-		if (_30 === 0) {
+		if ((data.data[data.start] & 128) !== 0) {
+			rt.bytesSlice(bytes, b);
+		}
+		const _35: rt.u8 = rt.u8Rem(data.data[data.start], 7);
+		if (_35 === 0) {
 			part = rt.bytesSlice(bytes, a, b);
-		} else if (_30 === 1) {
+		} else if (_35 === 1) {
 			part = rt.bytesSlice(bytes, a);
-		} else if (_30 === 2) {
+		} else if (_35 === 2) {
 			part = rt.bytesSlice(bytes, 0, b);
-		} else if (_30 === 3) {
+		} else if (_35 === 3) {
 			part = rt.bytesSlice(bytes, 0);
-		} else if (_30 === 4) {
+		} else if (_35 === 4) {
 			if (!past) {
-				const _41: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
-				part = rt.bytesSliceInclusive(bytes, _41);
+				const _46: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+				part = rt.bytesSliceInclusive(bytes, _46);
 			} else {
-				const _39: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, 4294967295, rt.usizeStep);
-				part = rt.bytesSliceInclusive(bytes, _39);
+				const _44: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, 4294967295, rt.usizeStep);
+				part = rt.bytesSliceInclusive(bytes, _44);
 			}
-		} else if (!past) {
-			part = rt.bytesSliceToInclusive(bytes, b);
+		} else if (_35 === 5) {
+			if (!past) {
+				part = rt.bytesSliceToInclusive(bytes, b);
+			} else {
+				part = rt.bytesSliceToInclusive(bytes, 4294967295);
+			}
 		} else {
-			part = rt.bytesSliceToInclusive(bytes, 4294967295);
+			if (!past) {
+				range = new rt.RangeInclusive(a, b, rt.usizeStep);
+			} else {
+				range = new rt.RangeInclusive(4294967295, 4294967295, rt.usizeStep);
+			}
+			while (rt.iterToOption(range.next()) !== undefined) {
+			}
+			part = rt.bytesSliceInclusive(bytes, range);
 		}
 		rt.byteVecPush(out, part.length & 0xff);
 		rt.byteVecPush(out, part.length === 0 ? 1 : 0);

@@ -34,15 +34,25 @@ fn slices(data: &[u8], out: &mut Vec<u8>) {
 	// One past `usize::MAX`, which an inclusive range can't end at.
 	let past = *b == 0xff;
 	let (a, b) = (*a as usize % (rest.len() + 2), *b as usize % (rest.len() + 2));
-	let part = match kind % 6 {
+	if kind & 0x80 != 0 {
+		// Unused, but still checked: past the end, it panics.
+		let _ = bytes.slice(b..);
+	}
+	let part = match kind % 7 {
 		0 => bytes.slice(a..b),
 		1 => bytes.slice(a..),
 		2 => bytes.slice(..b),
 		3 => bytes.slice(..),
 		4 if past => bytes.slice(a..=usize::MAX),
 		4 => bytes.slice(a..=b),
-		_ if past => bytes.slice(..=usize::MAX),
-		_ => bytes.slice(..=b),
+		5 if past => bytes.slice(..=usize::MAX),
+		5 => bytes.slice(..=b),
+		_ => {
+			// Drained: `start` moves past `end`, or at `usize::MAX` the range is exhausted.
+			let mut range = if past { usize::MAX..=usize::MAX } else { a..=b };
+			while range.next().is_some() {}
+			bytes.slice(range)
+		}
 	};
 	out.push(part.len() as u8);
 	out.push(part.is_empty() as u8);

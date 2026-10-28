@@ -24,9 +24,9 @@ export function bytesSlice(b: Bytes, begin: usize, end: usize = b.length as usiz
 	return new ByteSlice(b.data, b.start + begin, end - begin);
 }
 
-/** `Bytes::slice` of `a..=b`, which an exhausted range ends before. */
+/** `Bytes::slice` of `a..=b`; one exhausted by overflowing is empty, ending before its start. */
 export function bytesSliceInclusive(b: Bytes, range: RangeInclusive<usize>): Bytes {
-	if (range.exhausted) return bytesSlice(b, range.lo, range.hi);
+	if (range.exhausted) return bytesSlice(b, range.lo, range.lo);
 	if (range.hi === 0xffffffff) panic("out of range");
 	return bytesSlice(b, range.lo, (range.hi + 1) as usize);
 }
