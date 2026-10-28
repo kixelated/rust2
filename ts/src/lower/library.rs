@@ -1119,7 +1119,10 @@ fn mapping<'tcx>(
 		("raw", "from_ref") if std_path(tcx, call.def_id) == ["slice", "raw", "from_ref"] => {
 			let value = args.pop()?;
 			match is_u8(targ(gargs, 0)) {
-				true => Expr::rt("byteSliceFrom", vec![Expr::ident("Uint8Array").member("of").call(vec![value])]),
+				true => Expr::rt(
+					"byteSliceFrom",
+					vec![Expr::ident("Uint8Array").member("of").call(vec![value])],
+				),
 				false => Expr::Array(vec![value]),
 			}
 		}

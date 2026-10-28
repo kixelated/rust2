@@ -242,13 +242,6 @@ export function map$Option_usize_str_str_slices_closure2(self: [rt.usize, string
 	return f(self);
 }
 
-export function map$Option_usize_u8_usize_ranked_closure10(self: [rt.usize, rt.u8] | undefined, f: (a0: [rt.usize, rt.u8]) => rt.usize): rt.usize | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
 export function inspect$Option_u8_options_closure11(self: rt.u8 | undefined, f: (a0: rt.u8) => void): rt.u8 | undefined {
 	if (self !== undefined) {
 		f(self);
@@ -326,7 +319,7 @@ export function mapOr$Option_Tally_u8_hash_maps_closure10(self: Tally.Tally | un
 	return f(self);
 }
 
-export function mapOr$Option_Tilt_u8_ranked_closure17_closure0(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
+export function mapOr$Option_Tilt_u8_ranked_closure11_closure0(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

@@ -98,6 +98,10 @@ export function copy$Option_u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined] |
 	return v === undefined ? v : copy$u8_Reverse_Option_u8(v);
 }
 
+export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usize, rt.u8] | undefined {
+	return v === undefined ? v : copy$usize_u8(v);
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -201,6 +205,10 @@ export function copy$u8s(v: Uint8Array): Uint8Array {
 }
 
 export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
+	return [v[0], v[1]];
+}
+
+export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
 }
 

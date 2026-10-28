@@ -450,7 +450,10 @@ pub fn call<'tcx>(
 					"max" => recv.member("nextBack").call(Vec::new()),
 					_ => recv.member("next").call(Vec::new()),
 				};
-				return Some(Expr::rt("iterToOption", [end].into_iter().chain(b.t.none_arg(item)).collect()));
+				return Some(Expr::rt(
+					"iterToOption",
+					[end].into_iter().chain(b.t.none_arg(item)).collect(),
+				));
 			}
 			if super::collections::own_test(b, key, "lt") {
 				return Some(b.err(span, super::collections::own_test_err(key, "lt")));
@@ -959,11 +962,19 @@ fn btree_end(tcx: ty::TyCtxt<'_>, ty: Ty<'_>, name: &str) -> bool {
 	};
 	let path: Vec<&str> = path.iter().map(String::as_str).collect();
 	match path[..] {
-		["collections", "btree", "map", "Iter" | "IterMut" | "Keys" | "Range" | "RangeMut" | "IntoKeys"]
+		[
+			"collections",
+			"btree",
+			"map",
+			"Iter" | "IterMut" | "Keys" | "Range" | "RangeMut" | "IntoKeys",
+		]
 		| ["collections", "btree", "set", "Iter" | "Range"] => true,
-		["collections", "btree", "set", "Difference" | "SymmetricDifference" | "Intersection" | "Union"] => {
-			name == "min"
-		}
+		[
+			"collections",
+			"btree",
+			"set",
+			"Difference" | "SymmetricDifference" | "Intersection" | "Union",
+		] => name == "min",
 		_ => false,
 	}
 }

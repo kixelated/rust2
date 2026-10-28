@@ -872,7 +872,9 @@ pub fn edited(log: &Log, id: u32, at: u8) {
 		}
 		8 => {
 			// Each loser drops as it loses.
-			let best = list![key(1), key(3), key(5)].into_iter().max_by_key(|k| (k.id - id) % 3);
+			let best = list![key(1), key(3), key(5)]
+				.into_iter()
+				.max_by_key(|k| (k.id - id) % 3);
 			log.note(format!("max {}", best.map_or(0, |k| k.id - id)));
 			let least = list![key(3), key(1), key(2)].into_iter().min();
 			log.note(format!("min {}", least.map_or(0, |k| k.id - id)));

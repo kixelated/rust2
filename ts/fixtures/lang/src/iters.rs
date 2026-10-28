@@ -312,7 +312,8 @@ impl Ord for Tilt {
 /// `min_by_key` and `max_by_key` by keys that are tuples, `Reverse`s, `Option`s, and the
 /// crate's own orders, `min` and `max` of such items, and `rposition` and `rfind`.
 pub fn ranked(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	let put = |out: &mut Vec<u8>, found: Option<usize>| out.push(found.map_or(0xff, |i| i as u8));
+	// Where the item found was, by its index.
+	let put = |out: &mut Vec<u8>, found: Option<(usize, u8)>| out.push(found.map_or(0xff, |(i, _)| i as u8));
 	let tier = |b: u8| match b % 3 {
 		0 => None,
 		1 => Some(Reverse(b / 3 % 4)),
@@ -323,24 +324,24 @@ pub fn ranked(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	match kind % 4 {
 		0 => {
 			// Of equal keys, `min_by_key` keeps the first and `max_by_key` the last.
-			put(out, items().min_by_key(|&(_, b)| (Reverse(b % 4), tier(b))).map(|(i, _)| i));
-			put(out, items().max_by_key(|&(_, b)| (Reverse(b % 4), tier(b))).map(|(i, _)| i));
-			put(out, items().filter(|&(_, b)| b > 0x40).max_by_key(|&(_, b)| tier(b)).map(|(i, _)| i));
-			put(out, items().min_by_key(|&(_, b)| (b % 2 == 0, Reverse((b % 3) as u64))).map(|(i, _)| i));
+			put(out, items().min_by_key(|&(_, b)| (Reverse(b % 4), tier(b))));
+			put(out, items().max_by_key(|&(_, b)| (Reverse(b % 4), tier(b))));
+			put(out, items().filter(|&(_, b)| b > 0x40).max_by_key(|&(_, b)| tier(b)));
+			put(out, items().min_by_key(|&(_, b)| (b % 2 == 0, Reverse((b % 3) as u64))));
 		}
 		1 => {
 			// By the crate's own order, and by keys that borrow from the items.
-			put(out, items().min_by_key(|&(_, b)| Tilt(b % 8)).map(|(i, _)| i));
-			put(out, items().max_by_key(|&(_, b)| (b % 2 == 0, Tilt(b % 8))).map(|(i, _)| i));
+			put(out, items().min_by_key(|&(_, b)| Tilt(b % 8)));
+			put(out, items().max_by_key(|&(_, b)| (b % 2 == 0, Tilt(b % 8))));
 			let first = |t: Option<&Tilt>| t.map_or(0xff, |t| t.0);
 			out.push(first(tilts.iter().min_by_key(|&t| Reverse(Some(t)))));
 			out.push(first(tilts.iter().max_by_key(|&t| (Reverse(t), t.0 / 2))));
 		}
 		2 => {
 			// Items that are tuples, and the crate's own.
-			let pairs = || data.iter().map(|&b| (b % 4, Reverse(Some(b / 4).filter(|b| b % 3 != 0))));
-			for pair in [pairs().max(), pairs().min()] {
-				match pair {
+			let pair = |b: u8| (b % 4, Reverse(Some(b / 4).filter(|b| b % 3 != 0)));
+			for best in [data.iter().map(|&b| pair(b)).max(), data.iter().map(|&b| pair(b)).min()] {
+				match best {
 					Some((a, Reverse(b))) => out.extend_from_slice(&[a, b.unwrap_or(0xff)]),
 					None => out.push(0xfe),
 				}
@@ -350,18 +351,16 @@ pub fn ranked(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		_ => {
 			// From the back, counting from the front, of what is left.
-			put(out, data.iter().rposition(|&b| b % 3 == 0));
+			out.push(data.iter().rposition(|&b| b % 3 == 0).map_or(0xff, |i| i as u8));
 			out.push(data.iter().rfind(|&&b| b > 0x80).copied().unwrap_or(0));
 			let mut seen = Vec::new();
 			let mut rest = tilts.iter();
 			rest.next();
-			put(
-				out,
-				rest.rposition(|t| {
-					seen.push(t.0);
-					t.0 == 2
-				}),
-			);
+			let found = rest.rposition(|t| {
+				seen.push(t.0);
+				t.0 == 2
+			});
+			out.push(found.map_or(0xff, |i| i as u8));
 			out.extend_from_slice(&seen);
 			out.push(rest.len() as u8);
 			out.push(rest.rfind(|t| t.0 > 3).map_or(0xff, |t| t.0));
