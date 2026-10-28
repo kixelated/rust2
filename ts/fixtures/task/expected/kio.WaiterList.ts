@@ -4,47 +4,88 @@ import * as rt from "./rt.ts";
 import type * as Waiter from "./kio.Waiter.ts";
 
 /** Wakers waiting for one event, held weakly. */
-export interface WaiterList {
+export class WaiterList {
 	entries: rt.Weak<rt.Waker>[];
 	cursor: rt.usize;
+
+	constructor(fields: { entries: rt.Weak<rt.Waker>[]; cursor: rt.usize }) {
+		this.entries = fields.entries;
+		this.cursor = fields.cursor;
+	}
+
+	[Symbol.dispose](): void {
+		rt.dropAll(this.entries);
+	}
 }
 
 function new_(): WaiterList {
 	const _1: rt.Weak<rt.Waker>[] = [];
-	return { entries: _1, cursor: 0 };
+	return new WaiterList({ entries: _1, cursor: 0 });
 }
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
+	let _58: boolean = false;
+	let _57: boolean = false;
 	const weak: rt.Weak<rt.Waker> = new rt.Weak(waiter.shared);
-	b1: {
-		for (const _8 of self.entries) {
-			if (_8.arc === weak.arc) {
-				break b1;
-			}
-		}
-		let probes: rt.usize = rt.min(self.entries.length, 2);
-		while (probes > 0) {
-			if (!(self.entries[rt.idx(self.entries, self.cursor)].arc.strong === 0)) {
-				self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
-				probes = rt.usizeSub(probes, 1);
-			} else {
-				self.entries[rt.idx(self.entries, self.cursor)] = weak;
-				break b1;
-			}
-		}
-		if (self.entries.length >= 4) {
-			const live: rt.Weak<rt.Waker>[] = [];
-			const taken = self.entries;
-			self.entries = [];
-			for (const entry of taken) {
-				if (entry.arc.strong > 0) {
-					live.push(entry);
+	_58 = true;
+	b0: {
+		b1: {
+			for (const _8 of self.entries) {
+				if (_8.arc === weak.arc) {
+					break b1;
 				}
 			}
-			self.entries = live;
-			self.cursor = 0;
+			let probes: rt.usize = rt.min(self.entries.length, 2);
+			while (probes > 0) {
+				if (!(self.entries[rt.idx(self.entries, self.cursor)].arc.strong === 0)) {
+					self.cursor = rt.usizeRem(rt.usizeAdd(self.cursor, 1), self.entries.length);
+					probes = rt.usizeSub(probes, 1);
+				} else {
+					_58 = false;
+					const _24: rt.Weak<rt.Waker> = weak;
+					const at2 = rt.idx(self.entries, self.cursor);
+					rt.drop(self.entries[at2]);
+					self.entries[at2] = _24;
+					break b1;
+				}
+			}
+			if (self.entries.length >= 4) {
+				const live: rt.Weak<rt.Waker>[] = [];
+				const taken = self.entries;
+				self.entries = [];
+				const iterS2: rt.Weak<rt.Waker>[] = taken;
+				let iterI2: number = 0;
+				while (true) {
+					const _43: rt.Weak<rt.Waker> | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+					if (_43 === rt.DONE) {
+						break;
+					}
+					_57 = true;
+					const entry: rt.Weak<rt.Waker> = _43;
+					if (entry.arc.strong > 0) {
+						_57 = false;
+						live.push(entry);
+					}
+					if (_57) {
+						rt.drop(entry);
+					}
+					_57 = false;
+				}
+				rt.dropAll(iterS2, rt.drop, iterI2);
+				const _53: rt.Weak<rt.Waker>[] = live;
+				rt.dropAll(self.entries);
+				self.entries = _53;
+				self.cursor = 0;
+			}
+			_58 = false;
+			self.entries.push(weak);
+			_58 = false;
+			break b0;
 		}
-		self.entries.push(weak);
+		if (_58) {
+			rt.drop(weak);
+		}
+		_58 = false;
 	}
 }
 
@@ -53,7 +94,7 @@ export function take(self: WaiterList): WaiterList {
 	self.cursor = 0;
 	const taken = self.entries;
 	self.entries = [];
-	return { entries: taken, cursor: 0 };
+	return new WaiterList({ entries: taken, cursor: 0 });
 }
 
 /** Wake every live waiter, draining the list. */
@@ -61,14 +102,23 @@ export function wake(self: WaiterList): void {
 	self.cursor = 0;
 	const taken = self.entries;
 	self.entries = [];
-	for (const _6 of taken) {
-		const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
+	const iterS: rt.Weak<rt.Waker>[] = taken;
+	let iterI: number = 0;
+	while (true) {
+		const _6: rt.Weak<rt.Waker> | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+		if (_6 === rt.DONE) {
+			break;
+		}
+		const entry: rt.Weak<rt.Waker> = _6;
+		const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(entry);
 		if (_10 !== undefined) {
 			const waker: rt.Arc<rt.Waker> = _10;
 			waker.value.wakeByRef();
 			rt.drop(waker);
 		}
+		rt.drop(entry);
 	}
+	rt.dropAll(iterS, rt.drop, iterI);
 }
 
 export { new_ as new };

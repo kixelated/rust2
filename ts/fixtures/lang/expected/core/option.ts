@@ -5,6 +5,8 @@ import { copy$u8s_u8s } from "../lib.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import type * as Id from "../counts.Id.ts";
+import type * as Noisy from "../counts.Noisy.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
@@ -305,6 +307,20 @@ export function inspect$Option_u8_options_closure11(self: rt.u8 | undefined, f: 
 		f(self);
 	}
 	return self;
+}
+
+export function mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(self: rt.Arc<Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<Noisy.Noisy>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(self: rt.Arc<Id.Id> | undefined, default_: rt.u8, f: (a0: rt.Arc<Id.Id>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
 }
 
 export function mapOr$Option_Hop_u64_options_closure2(self: Hop.Hop | undefined, default_: rt.u64, f: (a0: Hop.Hop) => rt.u64): rt.u64 {

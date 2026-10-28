@@ -31,8 +31,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				// A guard unlocks its mutex.
-				Some(Std::Arc | Std::Waker | Std::MutexGuard) => true,
+				// A guard unlocks its mutex, and a `Weak` uncounts itself.
+				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard) => true,
 				Some(
 					Std::Option
 					| Std::Result
@@ -123,8 +123,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Its binding's `[Symbol.dispose]`.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				// Each drops by what it was given.
-				Some(Std::Waker | Std::PollFn) => true,
+				// Each drops by what it was given, or a `Weak` by its own count.
+				Some(Std::Waker | Std::PollFn | Std::Weak) => true,
 				Some(
 					Std::Arc
 					| Std::Mutex

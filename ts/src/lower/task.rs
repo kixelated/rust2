@@ -1,5 +1,5 @@
 //! The standard library's ownership and async types, as `rt/task.ts` gives them: `Arc`,
-//! `Weak`, `Mutex`, atomics, `Waker`, `Context`, `Poll`, `Pin`, and std's futures.
+//! `Rc`, `Weak`, `Mutex`, atomics, `Waker`, `Context`, `Poll`, `Pin`, and std's futures.
 
 use rustc_abi::VariantIdx;
 use rustc_middle::mir::{BinOp, UnOp};
@@ -130,7 +130,7 @@ pub fn call<'tcx>(
 	let self_ty = call.args.types().next();
 	let self_std = self_ty.and_then(std_of);
 	let e = match (owner, name) {
-		("Arc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
+		("Arc" | "Rc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
 		// An `Arc<str>` of a string, which JS shares as it is.
 		("From", "from")
 			if let [arc, from] = call.args.as_slice()
@@ -151,16 +151,18 @@ pub fn call<'tcx>(
 		}
 		("Waker", "noop") => Expr::Rt("NOOP_WAKER".into()),
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
-		("Arc", "downgrade") | ("Weak", "new") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
-		("Arc", "strong_count") => first(args).member("strong"),
+		("Arc" | "Rc", "downgrade") | ("Weak", "new") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
+		("Arc" | "Rc", "strong_count") => first(args).member("strong"),
+		("Arc" | "Rc", "weak_count") => first(args).member("weak"),
 		// Two `Arc`s of trait objects are views of the `Arc`s they were made from.
-		("Arc", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => Expr::rt("arcPtrEq", args),
-		("Arc", "ptr_eq") => {
+		("Arc" | "Rc", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => Expr::rt("arcPtrEq", args),
+		("Arc" | "Rc", "ptr_eq") => {
 			let [l, r] = two(args);
 			l.binary("===", r)
 		}
 		("Weak", "upgrade") => Expr::rt("weakUpgrade", args),
 		("Weak", "strong_count") => first(args).member("arc").member("strong"),
+		("Weak", "weak_count") => Expr::rt("weakWeakCount", args),
 		("Weak", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => {
 			let [l, r] = two(args);
 			Expr::rt("arcPtrEq", vec![l.member("arc"), r.member("arc")])
