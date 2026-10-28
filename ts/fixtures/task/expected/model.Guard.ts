@@ -5,20 +5,9 @@ import * as Log from "./log.Log.ts";
 
 /** Consumes the box, dropping it on return. */
 export function take$Part(self: Guard): rt.u32 {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
-		unwind = 0;
-		rt.drop(self);
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(self);
-		throw e;
-	}
+	const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
+	rt.drop(self);
+	return _0;
 }
 
 export function id$Part(self: Guard): rt.u32 {
@@ -36,17 +25,8 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this.log);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.log);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this.log);
 	}
 }
 
@@ -72,37 +52,15 @@ export function note(self: Guard, event: string): void {
 
 /** Log `event`, then drop: `self`, taken by value, drops as the call returns. */
 export function finish(self: Guard, event: string): rt.u32 {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		note(self, event);
-		unwind = 0;
-		const _0: rt.u32 = self.id;
-		rt.drop(self);
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(self);
-		throw e;
-	}
+	note(self, event);
+	const _0: rt.u32 = self.id;
+	rt.drop(self);
+	return _0;
 }
 
 /** [`Self::finish`], moved out of its box: freeing the box must not drop it again. */
 export function unbox(self: Guard, event: string): rt.u32 {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		const _0: rt.u32 = finish(self, event);
-		unwind = 0;
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		throw e;
-	}
+	return finish(self, event);
 }
 
 export function drop$Drop(self: Guard): void {

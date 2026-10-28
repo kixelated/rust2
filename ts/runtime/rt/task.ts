@@ -14,23 +14,14 @@ export function drop(value: unknown): void {
 	if (dispose !== undefined) dispose.call(value);
 }
 
-/**
- * Drop every element of `values` from `from` on, in order, by `f` if it has no
- * `[Symbol.dispose]`. A panic in one still drops the rest, and then goes on, as std's
- * slices do.
- */
+/** Drop every element of `values` from `from` on, in order, by `f` if it has no `[Symbol.dispose]`. */
 export function dropAll<T>(values: ArrayLike<T> | undefined, f: (value: T) => void = drop, from = 0): void {
 	if (values !== undefined) dropRange(values, f, from, values.length);
 }
 
 /** Drop `values[from..to]` as `dropAll` does. */
 export function dropRange<T>(values: ArrayLike<T>, f: (value: T) => void, from: number, to: number): void {
-	try {
-		for (; from < to; from++) f(values[from]);
-	} catch (e) {
-		dropRange(values, f, from + 1, to);
-		throw e;
-	}
+	for (; from < to; from++) f(values[from]);
 }
 
 // Closures. One that owns a value that drops is an arrow function with
@@ -43,25 +34,18 @@ export function closure<F extends (...args: never[]) => unknown>(f: F, dispose: 
 	return Object.assign(f, { [Symbol.dispose]: dispose });
 }
 
-/** `FnOnce::call_once` of a closure that `Fn` or `FnMut` call: `f(...args)`, then `f` drops, a panic included. */
+/** `FnOnce::call_once` of a closure that `Fn` or `FnMut` call: `f(...args)`, then `f` drops. */
 export function callOnce<A extends unknown[], R>(f: (...args: A) => R, ...args: A): R {
-	try {
-		return f(...args);
-	} finally {
-		drop(f);
-	}
+	const r = f(...args);
+	drop(f);
+	return r;
 }
 
-/**
- * `call()`, then `f` drops, a panic included: a std function that calls `f` and keeps
- * nothing of it drops it as it returns.
- */
+/** `call()`, then `f` drops: a std function that calls `f` and keeps nothing of it drops it as it returns. */
 export function dropAfter<R>(f: unknown, call: () => R): R {
-	try {
-		return call();
-	} finally {
-		drop(f);
-	}
+	const r = call();
+	drop(f);
+	return r;
 }
 
 /** A closure that `Fn` or `FnMut` call, as one `FnOnce` calls: a call drops it after. */
@@ -295,24 +279,16 @@ export class OnceLock<T, N extends None | undefined = undefined> extends OnceCel
 	running = false;
 }
 
-/**
- * A `OnceLock` initialized from within its own initialization panics, as wasm32's `Once`
- * does, dropping `dropped`, what the call took, as it unwinds.
- */
-function recursive(cell: OnceCell<unknown, None | undefined>, dropped: () => void): void {
-	if (!(cell instanceof OnceLock && cell.running)) return;
-	try {
-		panic("one-time initialization may not be performed recursively");
-	} finally {
-		dropped();
-	}
+/** A `OnceLock` initialized from within its own initialization panics, as wasm32's `Once` does. */
+function recursive(cell: OnceCell<unknown, None | undefined>): void {
+	if (cell instanceof OnceLock && cell.running) panic("one-time initialization may not be performed recursively");
 }
 
 /** `OnceCell::set`: `Err(value)` back if it holds one already. */
-export function onceSet<T>(cell: OnceCell<T>, value: T, dropValue?: (value: T) => void): Result<undefined, T>;
-export function onceSet<T>(cell: OnceCell<T, None>, value: T, dropValue: ((value: T) => void) | undefined, none: None): Result<undefined, T>;
-export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, dropValue?: (value: T) => void, none?: None): Result<undefined, T> {
-	recursive(cell, () => dropValue?.(value));
+export function onceSet<T>(cell: OnceCell<T>, value: T): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None>, value: T, none: None): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, none?: None): Result<undefined, T> {
+	recursive(cell);
 	if (cell.v !== none) return Err(value);
 	cell.v = value;
 	return Ok(undefined);
@@ -329,45 +305,23 @@ export function onceTake<T>(cell: OnceCell<T, None | undefined>, none?: None): T
 
 /**
  * `OnceCell::get_or_init`: what it holds, which `f` makes first if it holds nothing,
- * dropping `f` by `dropF` if not, or if a `OnceLock` panics as `recursive` does. A panic in `f` leaves it empty. A `OnceCell` that `f`
- * sets itself drops what `f` made by `dropValue` and panics, as std's does. `f` of a
- * `()` returns `void`.
+ * dropping `f` by `dropF` if not. A `OnceLock` initialized again from within `f` panics
+ * as `recursive` does, and a `OnceCell` that `f` sets itself panics, as std's do. `f` of
+ * a `()` returns `void`.
  */
-export function onceGetOrInit<T>(cell: OnceCell<T>, f: () => T | void, dropValue?: (value: T) => void, dropF?: (f: () => T | void) => void): T;
-export function onceGetOrInit<T>(
-	cell: OnceCell<T, None>,
-	f: () => T | void,
-	dropValue: ((value: T) => void) | undefined,
-	dropF: ((f: () => T | void) => void) | undefined,
-	none: None,
-): T;
-export function onceGetOrInit<T>(
-	cell: OnceCell<T, None | undefined>,
-	f: () => T | void,
-	dropValue?: (value: T) => void,
-	dropF?: (f: () => T | void) => void,
-	none?: None,
-): T {
+export function onceGetOrInit<T>(cell: OnceCell<T>, f: () => T | void, dropF?: (f: () => T | void) => void): T;
+export function onceGetOrInit<T>(cell: OnceCell<T, None>, f: () => T | void, dropF: ((f: () => T | void) => void) | undefined, none: None): T;
+export function onceGetOrInit<T>(cell: OnceCell<T, None | undefined>, f: () => T | void, dropF?: (f: () => T | void) => void, none?: None): T {
 	if (cell.v !== none) {
 		dropF?.(f);
 		return cell.v as T;
 	}
-	recursive(cell, () => dropF?.(f));
-	let value: T;
-	if (cell instanceof OnceLock) {
-		cell.running = true;
-		try {
-			value = f() as T;
-		} finally {
-			cell.running = false;
-		}
-	} else {
-		value = f() as T;
-		if (cell.v !== none) {
-			dropValue?.(value);
-			panic("reentrant init");
-		}
-	}
+	recursive(cell);
+	const lock = cell instanceof OnceLock;
+	if (lock) cell.running = true;
+	const value = f() as T;
+	if (lock) cell.running = false;
+	else if (cell.v !== none) panic("reentrant init");
 	cell.v = value;
 	return value;
 }

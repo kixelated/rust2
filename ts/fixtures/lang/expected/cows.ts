@@ -22,143 +22,125 @@ export function cow(s: string, owned: boolean): string {
 }
 
 export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let shared!: rt.Arc<string>;
 	let r!: rt.Result<string, rt.u8>;
-	let unwind: number = 0;
-	try {
-		const s: string = text(data);
-		const owned: boolean = (kind & 128) !== 0;
-		const first: string = unwrapOr$Option_Cow_str(rt.iterToOption(rt.strSplit(s, "/").next()), "");
-		const _14: rt.u8 = rt.u8Rem(kind, 6);
-		if (_14 === 0) {
-			const c: string = cow(s, owned);
-			rt.byteVecPush(out, rt.stringLen(c) & 0xff);
-			rt.byteVecPush(out, c.length === 0 ? 1 : 0);
-			rt.byteVecPush(out, rt.iterCount(rt.strChars(c)) & 0xff);
-			put(out, c);
-			put(out, c);
-			put(out, c);
-			put(out, c);
-			put(out, c);
-			put(out, "");
-			put(out, "fallback");
-			put(out, s);
-			shared = new rt.Arc(s);
-			unwind = 267;
-			put(out, shared.value);
-			const part: string = unwrapOr$Option_Cow_str(map$Option_str_Cow_str_Borrowed(rt.iterNth(rt.strSplit(s, "\\"), 1), (a03: string): string => {
-				return a03;
-			}), "fallback");
-			unwind = 266;
-			put(out, part);
-			const into: string = cow(first, owned);
-			unwind = 265;
-			put(out, into);
-			const fromStr: string = first;
-			unwind = 264;
-			put(out, fromStr);
-			unwind = 0;
-			rt.drop(shared);
-		} else if (_14 === 1) {
-			let c2: string = cow(s, owned);
-			c2 = c2 + "!";
-			c2 = c2 + "?";
-			c2 = c2 + "𐀀";
-			put(out, c2);
-			put(out, s);
-			const v: string[] = [cow(first, owned), cow(s, !owned)];
-			const at = rt.idx(v, 1);
-			v[at] = v[at] + "v";
-			for (const _126 of v) {
-				put(out, _126);
-			}
-			put(out, c2);
-			if ((kind & 64) === 0) {
-				r = rt.Ok(cow(first, owned));
-			} else {
-				r = rt.Err(kind);
-			}
-			const _140: rt.Result<string, rt.u8> = exclaimed(r);
-			if (_140.ok) {
-				put(out, _140.value);
-			} else {
-				rt.byteVecPush(out, _140.error);
-			}
-		} else if (_14 === 2) {
-			const a: string = cow(s, owned);
-			const b: string = cow(first, !owned);
-			const iter2: rt.Iter<boolean> = rt.iterSlice([a === first, a === first, a === s, first === a, s === a, a === b, a !== b, rt.cmpStr(a, b) < 0, rt.cmpStr(a, b) >= 0, rt.cmpStr(a, b) === 1]);
-			while (true) {
-				const _189: boolean | rt.Done = iter2.next();
-				if (_189 === rt.DONE) {
-					break;
-				}
-				rt.byteVecPush(out, _189 ? 1 : 0);
-			}
-			rt.byteVecPush(out, rt.ordMax(a, b, rt.cmpLt(rt.cmpStr)) === b ? 1 : 0);
-		} else if (_14 === 3) {
-			const n: Named.Named = Named.new(first, kind);
-			const m2: Named.Named = Named.clone$Clone(n);
-			Named.tag(n, 120);
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => Named.fmt$Debug(n, f), (f: rt.Formatter) => Named.fmt$Debug(m2, f)];
-			put(out, rt.fmtFormat([args2[0], " ", args2[1]]));
-			rt.byteVecPush(out, Named.eq$PartialEq(n, m2) ? 1 : 0);
-			rt.byteVecPush(out, Named.cmp$Ord(n, m2) > 0 ? 1 : 0);
-			rt.byteVecPush(out, Named.partialCmp$PartialOrd(n, m2) === -1 ? 1 : 0);
-			put(out, Named.intoOwned(n).name);
-			const _255: Named.Named = Named.default$Default();
-			const _257: Named.Named = Named.new("", kind);
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => Named.fmt$Debug(_255, f), (f: rt.Formatter) => Named.fmt$Debug(_257, f)];
-			put(out, rt.fmtFormat([args4[0], " ", args4[1]]));
-		} else if (_14 === 4) {
-			const counts: rt.BTreeMap<string, rt.u8> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.u8>;
-			const iter3: rt.Iter<[rt.usize, string]> = rt.iterEnumerate(rt.strSplit(s, "/"));
-			while (true) {
-				const _271: [rt.usize, string] | rt.Done = iter3.next();
-				if (_271 === rt.DONE) {
-					break;
-				}
-				const _279: string = cow(_271[1], rt.usizeRem(_271[0], 2) === 1 === owned);
-				const _276: rt.Place<rt.u8> = rt.entryOrInsertMut(rt.entry(counts, _279), 0);
-				_276.v = rt.u8Add(_276.v, 1);
-			}
-			const iter4: rt.Iter<[string, rt.u8]> = rt.btreeIter(counts);
-			while (true) {
-				const _288: [string, rt.u8] | rt.Done = iter4.next();
-				if (_288 === rt.DONE) {
-					break;
-				}
-				put(out, _288[0]);
-				rt.byteVecPush(out, _288[1]);
-			}
-			rt.byteVecPush(out, unwrapOr$Option_u8(rt.btreeGet(counts, first), 255));
-			const names: rt.HashSet<Named.Named> = rt.hashNew(rt.hashing(Named.hash$Hash_DefaultHasher, Named.eq$PartialEq)) as rt.HashSet<Named.Named>;
-			const iter5: rt.Iter<string> = rt.strSplit(s, "/");
-			while (true) {
-				const _308: string | rt.Done = iter5.next();
-				if (_308 === rt.DONE) {
-					break;
-				}
-				const _314: Named.Named = Named.new(_308, 0);
-				rt.hashAdd(names, _314);
-			}
-			rt.byteVecPush(out, rt.hashLen(names) & 0xff);
-			const _324: Named.Named = Named.new(first, 0);
-			rt.byteVecPush(out, rt.hashContains(names, _324) ? 1 : 0);
-		} else {
-			const c4: string = cow(s, owned);
-			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, c4), (f: rt.Formatter) => rt.fmtStr(c4, f)];
-			put(out, rt.fmtFormat(["[", args6[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args6[0]), "|", rt.fmtSpec({ align: "<", width: 5 }, args6[0]), "|", rt.fmtSpec({ align: "^", width: 7 }, args6[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 3 }, args6[0]), "|", args6[1], "]"]));
-			const part2 = cow(first, owned);
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.fmtStr)];
-			put(out, rt.fmtFormat([args8[0]]));
-		}
-	} catch (e2) {
-		if (unwind === 0) {
-			throw e2;
-		}
+	const s: string = text(data);
+	const owned: boolean = (kind & 128) !== 0;
+	const first: string = unwrapOr$Option_Cow_str(rt.iterToOption(rt.strSplit(s, "/").next()), "");
+	const _14: rt.u8 = rt.u8Rem(kind, 6);
+	if (_14 === 0) {
+		const c: string = cow(s, owned);
+		rt.byteVecPush(out, rt.stringLen(c) & 0xff);
+		rt.byteVecPush(out, c.length === 0 ? 1 : 0);
+		rt.byteVecPush(out, rt.iterCount(rt.strChars(c)) & 0xff);
+		put(out, c);
+		put(out, c);
+		put(out, c);
+		put(out, c);
+		put(out, c);
+		put(out, "");
+		put(out, "fallback");
+		put(out, s);
+		const shared: rt.Arc<string> = new rt.Arc(s);
+		put(out, shared.value);
+		put(out, unwrapOr$Option_Cow_str(map$Option_str_Cow_str_Borrowed(rt.iterNth(rt.strSplit(s, "\\"), 1), (a03: string): string => {
+			return a03;
+		}), "fallback"));
+		put(out, cow(first, owned));
+		put(out, first);
 		rt.drop(shared);
-		throw e2;
+	} else if (_14 === 1) {
+		let c2: string = cow(s, owned);
+		c2 = c2 + "!";
+		c2 = c2 + "?";
+		c2 = c2 + "𐀀";
+		put(out, c2);
+		put(out, s);
+		const v: string[] = [cow(first, owned), cow(s, !owned)];
+		const at = rt.idx(v, 1);
+		v[at] = v[at] + "v";
+		for (const _124 of v) {
+			put(out, _124);
+		}
+		put(out, c2);
+		if ((kind & 64) === 0) {
+			r = rt.Ok(cow(first, owned));
+		} else {
+			r = rt.Err(kind);
+		}
+		const _138: rt.Result<string, rt.u8> = exclaimed(r);
+		if (_138.ok) {
+			put(out, _138.value);
+		} else {
+			rt.byteVecPush(out, _138.error);
+		}
+	} else if (_14 === 2) {
+		const a: string = cow(s, owned);
+		const b: string = cow(first, !owned);
+		const iter2: rt.Iter<boolean> = rt.iterSlice([a === first, a === first, a === s, first === a, s === a, a === b, a !== b, rt.cmpStr(a, b) < 0, rt.cmpStr(a, b) >= 0, rt.cmpStr(a, b) === 1]);
+		while (true) {
+			const _187: boolean | rt.Done = iter2.next();
+			if (_187 === rt.DONE) {
+				break;
+			}
+			rt.byteVecPush(out, _187 ? 1 : 0);
+		}
+		rt.byteVecPush(out, rt.ordMax(a, b, rt.cmpLt(rt.cmpStr)) === b ? 1 : 0);
+	} else if (_14 === 3) {
+		const n: Named.Named = Named.new(first, kind);
+		const m2: Named.Named = Named.clone$Clone(n);
+		Named.tag(n, 120);
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => Named.fmt$Debug(n, f), (f: rt.Formatter) => Named.fmt$Debug(m2, f)];
+		put(out, rt.fmtFormat([args2[0], " ", args2[1]]));
+		rt.byteVecPush(out, Named.eq$PartialEq(n, m2) ? 1 : 0);
+		rt.byteVecPush(out, Named.cmp$Ord(n, m2) > 0 ? 1 : 0);
+		rt.byteVecPush(out, Named.partialCmp$PartialOrd(n, m2) === -1 ? 1 : 0);
+		put(out, Named.intoOwned(n).name);
+		const _252: Named.Named = Named.default$Default();
+		const _254: Named.Named = Named.new("", kind);
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => Named.fmt$Debug(_252, f), (f: rt.Formatter) => Named.fmt$Debug(_254, f)];
+		put(out, rt.fmtFormat([args4[0], " ", args4[1]]));
+	} else if (_14 === 4) {
+		const counts: rt.BTreeMap<string, rt.u8> = rt.btreeNew(rt.cmpStr) as rt.BTreeMap<string, rt.u8>;
+		const iter3: rt.Iter<[rt.usize, string]> = rt.iterEnumerate(rt.strSplit(s, "/"));
+		while (true) {
+			const _268: [rt.usize, string] | rt.Done = iter3.next();
+			if (_268 === rt.DONE) {
+				break;
+			}
+			const _276: string = cow(_268[1], rt.usizeRem(_268[0], 2) === 1 === owned);
+			const _273: rt.Place<rt.u8> = rt.entryOrInsertMut(rt.entry(counts, _276), 0);
+			_273.v = rt.u8Add(_273.v, 1);
+		}
+		const iter4: rt.Iter<[string, rt.u8]> = rt.btreeIter(counts);
+		while (true) {
+			const _285: [string, rt.u8] | rt.Done = iter4.next();
+			if (_285 === rt.DONE) {
+				break;
+			}
+			put(out, _285[0]);
+			rt.byteVecPush(out, _285[1]);
+		}
+		rt.byteVecPush(out, unwrapOr$Option_u8(rt.btreeGet(counts, first), 255));
+		const names: rt.HashSet<Named.Named> = rt.hashNew(rt.hashing(Named.hash$Hash_DefaultHasher, Named.eq$PartialEq)) as rt.HashSet<Named.Named>;
+		const iter5: rt.Iter<string> = rt.strSplit(s, "/");
+		while (true) {
+			const _305: string | rt.Done = iter5.next();
+			if (_305 === rt.DONE) {
+				break;
+			}
+			const _311: Named.Named = Named.new(_305, 0);
+			rt.hashAdd(names, _311);
+		}
+		rt.byteVecPush(out, rt.hashLen(names) & 0xff);
+		const _321: Named.Named = Named.new(first, 0);
+		rt.byteVecPush(out, rt.hashContains(names, _321) ? 1 : 0);
+	} else {
+		const c4: string = cow(s, owned);
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, c4), (f: rt.Formatter) => rt.fmtStr(c4, f)];
+		put(out, rt.fmtFormat(["[", args6[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args6[0]), "|", rt.fmtSpec({ align: "<", width: 5 }, args6[0]), "|", rt.fmtSpec({ align: "^", width: 7 }, args6[0]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 3 }, args6[0]), "|", args6[1], "]"]));
+		const part2 = cow(first, owned);
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.fmtStr)];
+		put(out, rt.fmtFormat([args8[0]]));
 	}
 }
 

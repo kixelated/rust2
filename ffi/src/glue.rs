@@ -38,7 +38,8 @@ impl Crate<'_> {
 		names.join(", ")
 	}
 
-	/// Write the crate into `out`: `Cargo.toml`, `src/`, and `include/<prefix>.h` and `.hpp`.
+	/// Write the crate into `out`: `Cargo.toml`, `src/`, `include/<prefix>.h` and `.hpp`,
+	/// and `kotlin/<prefix>.kt`, whose JNI functions the crate's `kotlin` feature builds.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
 		// Cargo unifies in what the configured package enables in each other export.
 		let dependencies: String = (self.exports.iter())
@@ -69,6 +70,11 @@ impl Crate<'_> {
 			[dependencies]\n\
 			{dependencies}\
 			bytes = \"1\"\n\
+			jni-sys = {{ version = \"0.4\", optional = true }}\n\
+			\n\
+			[features]\n\
+			# The JNI functions kotlin/{lib}.kt calls.\n\
+			kotlin = [\"dep:jni-sys\"]\n\
 			\n\
 			[workspace]\n\
 			{patch}",
@@ -79,6 +85,7 @@ impl Crate<'_> {
 		);
 		let (header, contract) = crate::c::header(self.abi, &self.packages());
 		let cpp = crate::cpp::header(self.abi, &self.packages())?;
+		let kotlin = crate::kotlin::generate(self.abi, &self.packages(), contract)?;
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
@@ -91,7 +98,13 @@ impl Crate<'_> {
 		crate::driver::write(&out.join("src/lib.rs"), &generator.out)?;
 		crate::driver::write(&out.join("src/rt.rs"), RUNTIME)?;
 		crate::driver::write(&out.join("include").join(format!("{}.h", self.abi.prefix)), &header)?;
-		crate::driver::write(&out.join("include").join(format!("{}.hpp", self.abi.prefix)), &cpp)
+		crate::driver::write(&out.join("include").join(format!("{}.hpp", self.abi.prefix)), &cpp)?;
+		crate::driver::write(&out.join("src/jni/mod.rs"), &kotlin.glue)?;
+		crate::driver::write(&out.join("src/jni/rt.rs"), crate::kotlin::GLUE_RUNTIME)?;
+		crate::driver::write(
+			&out.join("kotlin").join(format!("{}.kt", self.abi.prefix)),
+			&kotlin.kotlin,
+		)
 	}
 }
 
@@ -372,6 +385,7 @@ impl Gen<'_> {
 		self.line("#![allow(clippy::all, reason = \"generated\")]");
 		self.line("#![allow(dead_code, reason = \"the runtime serves every API\")]\n");
 		self.line("mod rt;\n");
+		self.line("#[cfg(feature = \"kotlin\")]\nmod jni;\n");
 		self.line("use std::ffi::c_void;\n");
 		// An export may export nothing and only enable features in the others, as a
 		// package standing in for a binding crate does, which cargo would call unused.
@@ -955,7 +969,9 @@ impl Gen<'_> {
 			None => self.path(&function.path),
 		};
 		if let Some(instance) = function.instance.as_ref().filter(|i| !i.args.is_empty()) {
-			let args: Vec<String> = instance.args.iter().map(|ty| self.rust(ty)).collect();
+			let args: Vec<String> = (instance.args.iter())
+				.map(|ty| ty.as_ref().map_or_else(|| "_".to_string(), |ty| self.rust(ty)))
+				.collect();
 			callee = format!("{callee}::<{}>", args.join(", "));
 		}
 		let call = match function.access {

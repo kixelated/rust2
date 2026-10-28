@@ -73,8 +73,7 @@ export function rebox(b: rt.Place<Pair.Pair>, by: rt.u8): void {
 	const _3: rt.u8 = rt.u8WrappingAdd(b.v.n, by);
 	b.v.n = _3;
 	if (rt.u8Rem(by, 2) === 0) {
-		const _8: Pair.Pair = { n: rt.u8WrappingAdd(b.v.n, b.v.n) };
-		b.v = _8;
+		b.v = { n: rt.u8WrappingAdd(b.v.n, b.v.n) };
 	}
 }
 

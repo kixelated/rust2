@@ -11,117 +11,66 @@ import * as Tally from "./bind/tally.ts";
  * count tallies down as they drop. A first byte of 1 slices out of order, which panics.
  */
 export function run(input: rt.ByteSlice): rt.ByteVec {
-	let count!: rt.Arc<rt.u32>;
-	let a!: Tally.Tally;
-	let b!: Tally.Tally;
-	let held!: Tally.Tally | undefined;
-	let _127!: boolean;
-	let _128!: boolean;
-	let _129!: boolean;
-	let unwind: number = 0;
-	try {
-		_129 = false;
-		_128 = false;
-		_127 = false;
-		const out: rt.ByteVec = new rt.ByteVec();
-		const bytes: Blob.Blob = Blob.copyFromSlice(input);
-		const mid: rt.usize = rt.usizeDiv(Blob.len(bytes), 2);
-		const head: Blob.Blob = Blob.slice(bytes, { end: mid });
-		const tail: Blob.Blob = Blob.slice(bytes, { start: mid });
-		const _16: rt.Range<rt.usize> = new rt.Range(rt.min(1, mid), mid);
-		const inner: Blob.Blob = Blob.slice(bytes, _16);
-		const _20: rt.u8 = Blob.len(head) & 0xff;
-		rt.byteVecPush(out, _20);
-		const _25: rt.u8 = Blob.len(inner) & 0xff;
-		rt.byteVecPush(out, _25);
-		const _30: rt.ByteSlice = Blob.deref$Deref(tail);
-		rt.byteVecExtendFromSlice(out, _30);
-		const _34: rt.u8 = Blob.eq$PartialEq(head, tail) ? 1 : 0;
-		rt.byteVecPush(out, _34);
-		const _40: rt.u8 = Blob.eq$PartialEq(Blob.clone$Clone(head), head) ? 1 : 0;
-		rt.byteVecPush(out, _40);
-		const _48: rt.u8 = Blob.eq$PartialEq(Blob.from$From_Vec_u8(rt.byteSliceToByteVec(input)), bytes) ? 1 : 0;
-		rt.byteVecPush(out, _48);
-		const _56: rt.u8 = Blob.isEmpty(bytes) ? 1 : 0;
-		rt.byteVecPush(out, _56);
-		const sum: rt.u32 = checksum.checksum(Blob.deref$Deref(tail));
-		const iter: rt.Iter<rt.i32> = rt.iterSlice([0, 8, 16, 24]);
-		while (true) {
-			const _65: rt.i32 | rt.Done = iter.next();
-			if (_65 === rt.DONE) {
-				break;
-			}
-			rt.byteVecPush(out, rt.u32Shr(sum, _65) & 0xff);
+	let _125: boolean = false;
+	const out: rt.ByteVec = new rt.ByteVec();
+	const bytes: Blob.Blob = Blob.copyFromSlice(input);
+	const mid: rt.usize = rt.usizeDiv(Blob.len(bytes), 2);
+	const head: Blob.Blob = Blob.slice(bytes, { end: mid });
+	const tail: Blob.Blob = Blob.slice(bytes, { start: mid });
+	const _16: rt.Range<rt.usize> = new rt.Range(rt.min(1, mid), mid);
+	const inner: Blob.Blob = Blob.slice(bytes, _16);
+	const _20: rt.u8 = Blob.len(head) & 0xff;
+	rt.byteVecPush(out, _20);
+	const _25: rt.u8 = Blob.len(inner) & 0xff;
+	rt.byteVecPush(out, _25);
+	const _30: rt.ByteSlice = Blob.deref$Deref(tail);
+	rt.byteVecExtendFromSlice(out, _30);
+	const _34: rt.u8 = Blob.eq$PartialEq(head, tail) ? 1 : 0;
+	rt.byteVecPush(out, _34);
+	const _40: rt.u8 = Blob.eq$PartialEq(Blob.clone$Clone(head), head) ? 1 : 0;
+	rt.byteVecPush(out, _40);
+	const _48: rt.u8 = Blob.eq$PartialEq(Blob.from$From_Vec_u8(rt.byteSliceToByteVec(input)), bytes) ? 1 : 0;
+	rt.byteVecPush(out, _48);
+	const _56: rt.u8 = Blob.isEmpty(bytes) ? 1 : 0;
+	rt.byteVecPush(out, _56);
+	const sum: rt.u32 = checksum.checksum(Blob.deref$Deref(tail));
+	const iter: rt.Iter<rt.i32> = rt.iterSlice([0, 8, 16, 24]);
+	while (true) {
+		const _65: rt.i32 | rt.Done = iter.next();
+		if (_65 === rt.DONE) {
+			break;
 		}
-		let at: rt.usize = 0;
-		skip.skip(input, rt.place(() => at, (value) => at = value));
-		rt.byteVecPush(out, at & 0xff);
-		if (rt.byteSliceFirst(input) === 1) {
-			const _88: rt.Range<rt.usize> = new rt.Range(mid, rt.usizeSaturatingSub(mid, 1));
-			Blob.slice(bytes, _88);
-		}
-		count = new rt.Arc(input.length as rt.u32);
-		unwind = 69;
-		a = Tally.new(count);
-		unwind = 84;
-		_129 = true;
-		b = Tally.new(count);
-		unwind = 82;
-		_128 = true;
-		rt.byteVecPush(out, count.strong & 0xff);
-		_129 = false;
-		rt.drop(a);
-		rt.byteVecPush(out, count.strong & 0xff);
-		const _111: rt.u8 = Tally.get(b) & 0xff;
-		rt.byteVecPush(out, _111);
-		unwind = 80;
-		_128 = false;
-		const _115: Tally.Tally = b;
-		_127 = true;
-		held = _115;
-		if (rt.byteSliceFirst(input) === 2) {
-			_127 = false;
-			rt.drop(held);
-		}
-		rt.byteVecPush(out, count.strong & 0xff);
-		const _0: rt.ByteVec = out;
-		if (_127) {
-			unwind = 82;
-			rt.drop(held);
-		}
-		unwind = 0;
-		_127 = false;
-		_128 = false;
-		_129 = false;
-		rt.drop(count);
-		return _0;
-	} catch (e) {
-		b5: {
-			b6: {
-				if (unwind === 0) {
-					throw e;
-				}
-				if (unwind === 69) {
-					break b5;
-				}
-				if (unwind === 80) {
-					if (_127) {
-						rt.drop(held);
-					}
-				} else if (unwind !== 82) {
-					break b6;
-				}
-				if (_128) {
-					rt.drop(b);
-				}
-			}
-			if (_129) {
-				rt.drop(a);
-			}
-		}
-		rt.drop(count);
-		throw e;
+		rt.byteVecPush(out, rt.u32Shr(sum, _65) & 0xff);
 	}
+	let at: rt.usize = 0;
+	skip.skip(input, rt.place(() => at, (value) => at = value));
+	rt.byteVecPush(out, at & 0xff);
+	if (rt.byteSliceFirst(input) === 1) {
+		const _88: rt.Range<rt.usize> = new rt.Range(mid, rt.usizeSaturatingSub(mid, 1));
+		Blob.slice(bytes, _88);
+	}
+	const count: rt.Arc<rt.u32> = new rt.Arc(input.length as rt.u32);
+	const a: Tally.Tally = Tally.new(count);
+	const b: Tally.Tally = Tally.new(count);
+	rt.byteVecPush(out, count.strong & 0xff);
+	rt.drop(a);
+	rt.byteVecPush(out, count.strong & 0xff);
+	const _110: rt.u8 = Tally.get(b) & 0xff;
+	rt.byteVecPush(out, _110);
+	_125 = true;
+	const held: Tally.Tally | undefined = b;
+	if (rt.byteSliceFirst(input) === 2) {
+		_125 = false;
+		rt.drop(held);
+	}
+	rt.byteVecPush(out, count.strong & 0xff);
+	const _0: rt.ByteVec = out;
+	if (_125) {
+		rt.drop(held);
+	}
+	_125 = false;
+	rt.drop(count);
+	return _0;
 }
 
 //# sourceMappingURL=harness.ts.map

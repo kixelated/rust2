@@ -53,4 +53,4 @@ Every generator on the C ABI:
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
-- [Kotlin bindings](/quest/m1/ffi-export/kotlin.md) - JNI or Panama over the C ABI, with native futures
+- [Kotlin bindings: zero-copy payloads and the read path](/quest/m1/ffi-export/kotlin.md) - the Kotlin lends bytes without a copy, and reads at JNI's cost

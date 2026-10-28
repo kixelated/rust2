@@ -161,6 +161,69 @@ impl Cell<u8> {
 	}
 }
 
+/// Two generic types whose methods each wrap the other's instance in their own: inferring
+/// from `Ping<u8>` names `Pong<Ping<u8>>`, whose `ping` names `Ping<Pong<Ping<u8>>>`, which
+/// holds a `Ping` inside a `Ping` and ends inference there.
+pub struct Ping<T>(T);
+
+pub struct Pong<T>(T);
+
+impl<T> Ping<T> {
+	pub fn pong(self) -> Pong<Ping<T>> {
+		Pong(self)
+	}
+}
+
+impl<T> Pong<T> {
+	pub fn ping(self) -> Ping<Pong<T>> {
+		Ping(self)
+	}
+}
+
+pub fn ping(value: u8) -> Ping<u8> {
+	Ping(value)
+}
+
+/// A generic type whose method wraps its argument in a tuple: `Grow<(u32,)>` is refused,
+/// as a tuple is no type argument, so inference names nothing through its `grow`.
+pub struct Grow<T>(T);
+
+impl<T> Grow<T> {
+	pub fn grow(self) -> Grow<(T,)> {
+		Grow((self.0,))
+	}
+}
+
+pub fn grow(value: u32) -> Grow<u32> {
+	Grow(value)
+}
+
+/// A record whose instance at a tuple is refused before its fields map, so `Core<u8>`,
+/// which only those fields name, is neither inferred nor needed.
+pub struct Shell<T> {
+	pub core: Core<u8>,
+	pub tag: T,
+}
+
+pub struct Core<T> {
+	pub value: T,
+}
+
+pub fn shell() -> Shell<(u32,)> {
+	Shell {
+		core: Core { value: 1 },
+		tag: (2,),
+	}
+}
+
+/// A const generic function whose bound names an instance nothing else does: refused at
+/// its const parameter, before any candidate for the other is mapped.
+pub struct Probe<T>(T);
+
+pub fn probe<const N: usize>(x: impl Into<Probe<u8>>) {
+	let _ = x;
+}
+
 /// An instance the config excludes.
 pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0

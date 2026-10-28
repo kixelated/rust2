@@ -197,17 +197,16 @@ pub fn call<'tcx>(
 /// What a method of a collection of type `std` may drop rather than return or keep, as the
 /// indices of the collection's type arguments whose runtime function takes what drops each,
 /// after its own arguments: the key `insert` and `entry` are given if an equal one is there
-/// already, and the value `insert` is given if the key's `Hash`, `Eq`, or `Ord` panics,
-/// the key `remove` takes out, the value `or_insert` is given if one is, the key an
-/// `or_insert_with` keeps if its closure panics, and what `clear`, `retain`, and
-/// `truncate` discard. An iterator, and `extend` and `from`, take theirs where they map.
+/// already, the key `remove` takes out, the value `or_insert` is given if one is, and what
+/// `clear`, `retain`, and `truncate` discard. An iterator, and `extend` and `from`, take
+/// theirs where they map.
 fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 	let map = matches!(std, Std::HashMap | Std::BTreeMap);
 	let set = matches!(std, Std::HashSet | Std::BTreeSet);
 	Some(match (owner, name) {
-		(_, "insert") if map => &[0, 1],
 		(_, "insert" | "entry" | "remove") if map || set => &[0],
-		(_, "remove" | "or_insert_with" | "or_insert_with_key" | "or_default") if std == Std::Entry => &[0],
+		(_, "or_insert_with" | "or_insert_with_key" | "or_default") if std == Std::Entry => &[],
+		(_, "remove") if std == Std::Entry => &[0],
 		(_, "or_insert") if std == Std::Entry => &[1],
 		(_, "clear" | "retain" | "retain_mut") if map => &[0, 1],
 		(_, "clear" | "retain" | "retain_mut") if set => &[0],
@@ -437,7 +436,7 @@ fn hash<'tcx>(
 				"From" => hash_new(b, coll, span)?,
 				_ => values.pop()?,
 			};
-			hash_extend(b, coll, target, source, iter, owner == "From", span)
+			hash_extend(b, coll, target, source, iter, span)
 		}
 		_ => return None,
 	};
@@ -445,20 +444,18 @@ fn hash<'tcx>(
 }
 
 /// `extend` of `target`, a hash collection of type `coll`, from `source`, an iterator of
-/// type `iter`, or with `fresh`, `collect` into an empty one, which drops if a panic does.
+/// type `iter`, or `collect` into an empty one.
 fn hash_extend<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	coll: Ty<'tcx>,
 	target: Expr,
 	source: Expr,
 	iter: Ty<'tcx>,
-	fresh: bool,
 	span: Span,
 ) -> Expr {
 	let mut droppers = entry_droppers(b, coll, span);
 	// By `for_each`.
 	droppers.push(super::iter::iter_take(b, iter, true, span));
-	droppers.push(Expr::lit(if fresh && b.t.drops(coll) { "true" } else { "false" }));
 	let f = match b.t.std_of(coll) {
 		Some(Std::HashSet) => "hashExtendKeys",
 		_ => "hashExtend",
@@ -1285,7 +1282,7 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from:
 	Some(match std {
 		Std::HashMap | Std::HashSet => {
 			let target = hash_new(b, ty, span)?;
-			hash_extend(b, ty, target, iter, from, true, span)
+			hash_extend(b, ty, target, iter, from, span)
 		}
 		Std::BTreeMap | Std::BTreeSet => btree_collect(b, ty, iter, from, span),
 		// std's collects into a `Vec` first.

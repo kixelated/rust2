@@ -13,17 +13,8 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this.log);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.log);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this.log);
 	}
 }
 

@@ -64,7 +64,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let part!: string | undefined;
 	let part3!: string | undefined;
 	let item!: [rt.usize, string] | undefined;
-	let _237!: rt.char;
+	let _236!: rt.char;
 	const s: string = text(data);
 	const _7: rt.usize = rt.u8Rem(rt.u8Div(kind, 8), 16) as rt.usize;
 	if (!(_7 < 16)) {
@@ -212,25 +212,25 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				const each: string[] = ["", ""];
 				const iter4: rt.Iter<[rt.usize, rt.char]> = rt.iterEnumerate(rt.strChars(s));
 				while (true) {
-					const _228: [rt.usize, rt.char] | rt.Done = iter4.next();
-					if (_228 === rt.DONE) {
+					const _227: [rt.usize, rt.char] | rt.Done = iter4.next();
+					if (_227 === rt.DONE) {
 						break;
 					}
-					const i5: rt.usize = _228[0];
-					const c3: rt.char = _228[1];
+					const i5: rt.usize = _227[0];
+					const c3: rt.char = _227[1];
 					built = built + String.fromCodePoint(c3);
 					if (!(rt.usizeRem(i5, 2) === 0)) {
-						_237 = sep;
+						_236 = sep;
 					} else {
-						_237 = c3;
+						_236 = c3;
 					}
-					named.name = named.name + String.fromCodePoint(_237);
+					named.name = named.name + String.fromCodePoint(_236);
 					Named.add(named, c3);
 					const at2 = rt.idx(each, rt.usizeRem(i5, 2));
 					each[at2] = each[at2] + String.fromCodePoint(c3);
-					const _248: rt.char | undefined = rt.charFromU32(rt.u32Add(c3 as rt.u32, 1));
-					if (_248 !== undefined) {
-						built = built + String.fromCodePoint(_248);
+					const _247: rt.char | undefined = rt.charFromU32(rt.u32Add(c3 as rt.u32, 1));
+					if (_247 !== undefined) {
+						built = built + String.fromCodePoint(_247);
 					}
 				}
 				named.name = named.name + "􏿿";
