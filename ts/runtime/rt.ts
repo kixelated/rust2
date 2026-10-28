@@ -10,6 +10,7 @@ import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDe
 import type { Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
+export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/str.ts";
