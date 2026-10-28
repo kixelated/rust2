@@ -303,6 +303,9 @@ of them:
 ## Bindings
 
 A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
+Its path goes from the crate root, or else from a crate it depends on by the name the crate
+gives it, as `buf::Blob` for `buf = { package = "blob" }`. A crate it reaches only through
+another goes by its own name, where one crate of that name is built.
 Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
 runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/blob.ts`,
 and may import the translated modules and npm packages too. Callers import it whole, as a
@@ -576,7 +579,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `rand::rng()` reads the fixture's own getrandom backend on wasm32. It checks `Bytes`'s
   slices and panics, how each is made and printed, that no event evaluates a field, and
   that each random value is in its range, every value of a small range drawn.
-- `bind` binds `blob::Blob`, a dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
+- `bind` binds `buf::Blob`, a renamed dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
   pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
   the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use blob::Blob;
+use buf::Blob;
 
 use crate::raw::{Tally, checksum, skip};
 

@@ -7,11 +7,13 @@ roots = ["harness::run", "harness::refused"]
 "nowhere::Thing" = "bind/thing.ts"
 "std::vec::Vec" = "bind/vec.ts"
 "raw" = "bind/raw.ts"
-"blob::Source" = "bind/source.ts"
+"buf::Source" = "bind/source.ts"
 "raw::Tally::get" = { file = "bind/get.ts", drop = true }
 "raw::Tally::new" = "rt/tally.ts"
 "raw::Held::new" = "RT/held.ts"
-"blob::empty" = "../blob.ts"
+"buf::empty" = "../blob.ts"
+"buf::Blob" = "bind/blob.ts"
+# The crate renames the dependency, so its own name names nothing.
 "blob::Blob" = "bind/blob.ts"
 "raw::Tally" = "bind/blob.ts"
 "checksum" = "bind/missing.ts"
