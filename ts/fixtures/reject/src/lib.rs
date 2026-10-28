@@ -4,7 +4,7 @@
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
 #![feature(cow_is_borrowed)]
 
-pub fn float(a: f64) -> f64 {
+pub fn float(a: f32) -> f32 {
 	a * 2.0
 }
 
@@ -12,15 +12,8 @@ pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }
 
-/// Each element would be a copy, so the increments would be lost.
-pub fn increment(v: &mut [u32]) {
-	for x in v {
-		*x += 1;
-	}
-}
-
-/// `None` and `Some(None)` would both be `undefined`.
-pub fn nested(x: Option<Option<u8>>) -> bool {
+/// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
+pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
@@ -28,21 +21,30 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
+/// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
+/// of an `Option<()>`.
+pub struct Maybe<T> {
+	pub value: Option<T>,
+}
+
+pub fn generic_unit(value: Option<()>) -> bool {
+	Maybe { value }.value.is_some()
+}
+
+/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
+pub fn collected(v: &[u8]) -> Option<Vec<()>> {
+	v.iter().map(|&b| (b > 1).then_some(())).collect()
+}
+
+/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
+	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
 }
 
 pub struct Noisy(pub u8);
 
 impl Drop for Noisy {
 	fn drop(&mut self) {}
-}
-
-/// A closure that owns a value that drops, which `map` would hold but never drop.
-pub fn owning_closure(v: &[u8]) -> usize {
-	let n = Noisy(1);
-	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
-	v.iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -89,9 +91,9 @@ pub fn replaced(a: &mut Meters) -> Meters {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f64
+	(*t).into() as f32
 }
 
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
@@ -102,11 +104,6 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 /// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
 pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
-}
-
-/// `None` and `Some(Ready(()))` would both be `undefined`.
-pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
-	matches!(p, None)
 }
 
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
@@ -219,11 +216,6 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// A panic in `fold` drops the `Vec` `flatten` took mid-way before the rest, as `next` does not.
-pub fn flattened(v: Vec<Vec<Noisy>>) -> usize {
-	v.into_iter().flatten().fold(0, |n, _| n + 1)
-}
-
 /// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
 pub fn zip_dropped(v: &[u8]) -> usize {
 	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
@@ -264,11 +256,6 @@ pub fn copied_closure(n: u8) -> u8 {
 	};
 	let mut h = g;
 	g().wrapping_add(h())
-}
-
-/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
-pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
-	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
 }
 
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
@@ -354,32 +341,40 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
-/// supported.
-pub fn split_chars(s: &str) -> usize {
-	s.split(['a', 'b']).count()
+/// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
+/// element.
+#[derive(PartialEq, Eq)]
+pub struct Batched(u8);
+
+impl std::hash::Hash for Batched {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+	}
+
+	fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len());
+	}
 }
 
-/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
-/// never drop.
-pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
-	fn id(n: &Noisy) -> u8 {
-		n.0
-	}
+pub fn batched(v: Vec<Batched>) -> usize {
+	let mut set = std::collections::HashSet::new();
+	set.insert(v);
+	set.len()
+}
+
+/// Closures that own a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there, and which `for_each` drops before the items it doesn't reach.
+pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
 	let (a, b) = (Noisy(1), Noisy(2));
 	m.entry(1).or_insert_with(move || b);
-	v.iter().any(move |&x| x == id(&a))
+	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
-/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
-/// `successors` does the item it holds next.
-pub fn owning_lazy() -> usize {
-	let (b, c) = (Noisy(2), Noisy(3));
-	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
-	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
-	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
-	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
-	walked + made + held
+/// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
+/// call but never drop.
+pub fn pattern_closure(s: &str) -> bool {
+	let n = Noisy(1);
+	s.contains(move |c: char| c as u8 == (&n).0)
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
@@ -408,24 +403,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// `AddAssign` for a `Duration`, which has no mapping.
-pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
-	d += by;
-	d
-}
-
-/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
-pub fn last_bumped(v: &mut Vec<u32>) {
-	if let Some(x) = v.last_mut() {
-		*x += 1;
-	}
-}
-
-/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
-pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
-	map.entry(1).and_modify(|v| *v += 1);
-}
-
 fn bumped(x: &mut u8) {
 	*x += 1;
 }
@@ -441,4 +418,86 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 /// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
 pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
+}
+
+pub struct Part(pub u64);
+
+impl std::iter::Sum<Part> for std::time::Duration {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		std::time::Duration::from_secs(parts.map(|p| p.0 * 2).sum())
+	}
+}
+
+impl std::iter::Sum<Part> for u64 {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		parts.map(|p| p.0 * 2).sum()
+	}
+}
+
+/// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
+pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
+	(a.into_iter().sum(), b.into_iter().sum())
+}
+
+/// One rounding, which JS has no cheap form of.
+pub fn fma(a: f64) -> f64 {
+	a.mul_add(2.0, 1.0)
+}
+
+/// Float formatting is not translated yet.
+pub fn float_printed(a: f64) -> String {
+	format!("{a}")
+}
+
+pub trait Reading {
+	fn read(&self) -> u8;
+}
+
+impl Reading for u8 {
+	fn read(&self) -> u8 {
+		*self
+	}
+}
+
+/// A `Weak` of a trait object, which would need an object made of a value that may be
+/// gone.
+pub fn weak_object(n: std::sync::Weak<u8>) -> Option<u8> {
+	let r: std::sync::Weak<dyn Reading> = n;
+	r.upgrade().map(|r| r.read())
+}
+
+pub trait Scaled<T> {
+	fn scale(&self, by: T) -> T;
+}
+
+/// A trait object of a generic trait.
+pub fn generic_object(s: &dyn Scaled<u8>) -> u8 {
+	s.scale(2)
+}
+
+pub trait First {
+	fn first(&self) -> u8;
+}
+
+impl First for [u8; 4] {
+	fn first(&self) -> u8 {
+		self[0]
+	}
+}
+
+/// A trait object of a byte array, which a box holds as a `Uint8Array` and a reference as
+/// an `rt.ByteSlice`.
+pub fn first_of(n: u8) -> u8 {
+	let b: Box<dyn First> = Box::new([n, 8, 9, 10]);
+	b.first()
+}
+
+pub struct Tail<T: ?Sized> {
+	pub value: T,
+}
+
+/// A struct whose last field unsizes to a trait object.
+pub fn tail_read(t: &Tail<u8>) -> u8 {
+	let r: &Tail<dyn Reading> = t;
+	r.value.read()
 }

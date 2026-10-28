@@ -41,6 +41,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
+			_ if super::float::is(ty) => match leaf(valtree) {
+				Some(scalar) => super::float::lit(f64::from_bits(scalar.to_u64())),
+				None => self.err(span, "a float constant without a value"),
+			},
 			ty::Char => match leaf(valtree) {
 				Some(scalar) => Expr::lit(scalar.to_u32().to_string()),
 				None => self.err(span, "a char constant without a value"),
@@ -89,7 +93,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					.map(|(t, v)| self.value(t, v, span))
 					.collect(),
 			),
-			ty::Adt(adt, _) => {
+			// What core's wrappers of one value hold is that value, as is a pattern type's.
+			ty::Pat(base, _) => self.value(*base, valtree, span),
+			ty::Adt(..) if super::library::wrapped(tcx, ty).is_some() => match &children(valtree)[..] {
+				[(field_ty, field)] => self.value(*field_ty, *field, span),
+				_ => self.err(span, format!("a constant of type `{ty}` without one field")),
+			},
+			ty::Adt(adt, args) => {
 				let fields = children(valtree);
 				// Its nanoseconds are a pattern type, which only it reads.
 				if Std::of(tcx, adt.did()) == Some(Std::Duration) {
@@ -111,7 +121,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				let mut values: Vec<Expr> = fields.into_iter().map(|(t, v)| self.value(t, v, span)).collect();
 				if let Some(std) = Std::of(tcx, adt.did()) {
 					return match (std, variant.index()) {
-						(Std::Option, 0) => Expr::undefined(),
+						(Std::Option, 0) => self.t.none(args.type_at(0)),
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 						(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
@@ -120,13 +130,19 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
 						{
 							values.pop();
-							let ty::Adt(_, args) = ty.kind() else {
-								unreachable!("matched above")
-							};
 							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
+						(Std::AtomicOrdering, _) => super::task::atomic_ordering(variant),
+						(Std::Bound, _) => {
+							let ts_ty = self.t.ty(ty, span);
+							super::library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
+						}
+						(Std::RangeTo | Std::RangeToInclusive, _) => {
+							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
+						}
+						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}

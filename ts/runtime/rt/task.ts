@@ -1,10 +1,10 @@
-// Ownership and async, for rust2-ts output: what Rust's `Drop`, `Arc`, `Mutex`, and
-// futures do that plain JS does not. `rt.ts` re-exports all of it.
+// Ownership and async, for rust2-ts output: what Rust's `Drop`, `Arc`, `Mutex`, atomics,
+// one-time cells, and futures do that plain JS does not. `rt.ts` re-exports all of it.
 //
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Panic } from "../rt.ts";
+import { Err, type None, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -52,6 +52,18 @@ export function callOnce<A extends unknown[], R>(f: (...args: A) => R, ...args: 
 	}
 }
 
+/**
+ * `call()`, then `f` drops, a panic included: a std function that calls `f` and keeps
+ * nothing of it drops it as it returns.
+ */
+export function dropAfter<R>(f: unknown, call: () => R): R {
+	try {
+		return call();
+	} finally {
+		drop(f);
+	}
+}
+
 /** A closure that `Fn` or `FnMut` call, as one `FnOnce` calls: a call drops it after. */
 export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A) => R) & Disposable {
 	return closure((...args: A) => callOnce(f, ...args), () => drop(f));
@@ -71,6 +83,42 @@ export class Arc<T> implements Disposable {
 	[Symbol.dispose](): void {
 		if (--this.strong === 0) drop(this.value);
 	}
+}
+
+/**
+ * `Arc<dyn Trait>` unsized from `arc`, which it shares one count with, as Rust's one
+ * allocation does: `value` is the trait object over `arc`'s value, which the last of
+ * either drops.
+ */
+export class ArcDyn<T, U> implements Disposable {
+	readonly arc: Arc<T>;
+	readonly value: U;
+
+	constructor(arc: Arc<T>, value: U) {
+		this.arc = arc;
+		this.value = value;
+	}
+
+	get strong(): number {
+		return this.arc.strong;
+	}
+
+	set strong(strong: number) {
+		this.arc.strong = strong;
+	}
+
+	[Symbol.dispose](): void {
+		if (--this.arc.strong === 0) drop(this.value);
+	}
+}
+
+/** `Arc::ptr_eq` of trait objects, which compares the `Arc`s they were made from. */
+export function arcPtrEq<T>(l: Arc<T>, r: Arc<T>): boolean {
+	return arcRoot(l) === arcRoot(r);
+}
+
+function arcRoot(arc: Arc<unknown>): Arc<unknown> {
+	return arc instanceof ArcDyn ? arc.arc : arc;
 }
 
 /**
@@ -122,6 +170,208 @@ export class Mutex<T> implements Disposable {
 	}
 }
 
+// Atomics, which one thread never races: each operation reads and writes as it would
+// alone, and an ordering it can't take panics as std's does.
+
+/** `atomic::Ordering`: its discriminant, 0 to 4 for `Relaxed`, `Release`, `Acquire`, `AcqRel`, and `SeqCst`. */
+export type AtomicOrdering = number;
+
+/** `Atomic<T>` of a `bool` or an integer: the place that holds it. */
+export class Atomic<T> implements Place<T> {
+	v: T;
+
+	constructor(v: T) {
+		this.v = v;
+	}
+}
+
+/** `Atomic::load`. */
+export function atomicLoad<T>(atomic: Atomic<T>, order: AtomicOrdering): T {
+	if (order === 1) panic("there is no such thing as a release load");
+	if (order === 3) panic("there is no such thing as an acquire-release load");
+	return atomic.v;
+}
+
+/** `Atomic::store`. */
+export function atomicStore<T>(atomic: Atomic<T>, value: T, order: AtomicOrdering): void {
+	if (order === 2) panic("there is no such thing as an acquire store");
+	if (order === 3) panic("there is no such thing as an acquire-release store");
+	atomic.v = value;
+}
+
+/** `Atomic::swap`, which any ordering can do. */
+export function atomicSwap<T>(atomic: Atomic<T>, value: T, _order: AtomicOrdering): T {
+	const old = atomic.v;
+	atomic.v = value;
+	return old;
+}
+
+/** A read-modify-write such as `Atomic::fetch_add`: the value becomes `f(old, value)`, and `old` returns. */
+export function atomicFetch<T, U>(atomic: Atomic<T>, f: (old: T, value: U) => T, value: U, _order: AtomicOrdering): T {
+	const old = atomic.v;
+	atomic.v = f(old, value);
+	return old;
+}
+
+/**
+ * `Atomic::compare_exchange`, and `compare_exchange_weak`, which never fails spuriously
+ * on one thread. `eq` compares a wide integer, and `===` anything else.
+ */
+export function atomicCompareExchange<T>(
+	atomic: Atomic<T>,
+	current: T,
+	next: T,
+	_success: AtomicOrdering,
+	failure: AtomicOrdering,
+	eq?: (a: T, b: T) => boolean,
+): Result<T, T> {
+	if (failure === 3) panic("there is no such thing as an acquire-release failure ordering");
+	if (failure === 1) panic("there is no such thing as a release failure ordering");
+	const old = atomic.v;
+	if (eq === undefined ? old !== current : !eq(old, current)) return Err(old);
+	atomic.v = next;
+	return Ok(old);
+}
+
+/**
+ * `Atomic::try_update`: `f` of the value it loads, compare-exchanged unless `None`, and
+ * again if `f` itself changed the atomic. `eq` is as `atomicCompareExchange`'s.
+ */
+export function atomicTryUpdate<T>(
+	atomic: Atomic<T>,
+	set: AtomicOrdering,
+	fetch: AtomicOrdering,
+	f: (value: T) => T | undefined,
+	eq?: (a: T, b: T) => boolean,
+): Result<T, T> {
+	let prev = atomicLoad(atomic, fetch);
+	for (let next = f(prev); next !== undefined; next = f(prev)) {
+		const result = atomicCompareExchange(atomic, prev, next, set, fetch, eq);
+		if (result.ok) return result;
+		prev = result.error;
+	}
+	return Err(prev);
+}
+
+/** `Atomic::update`: `f` of the value it loads, compare-exchanged until it holds. */
+export function atomicUpdate<T>(atomic: Atomic<T>, set: AtomicOrdering, fetch: AtomicOrdering, f: (value: T) => T, eq?: (a: T, b: T) => boolean): T {
+	let prev = atomicLoad(atomic, fetch);
+	for (;;) {
+		const result = atomicCompareExchange(atomic, prev, f(prev), set, fetch, eq);
+		if (result.ok) return result.value;
+		prev = result.error;
+	}
+}
+
+/** `atomic::fence` and `compiler_fence`, which order nothing on one thread. */
+export function fence(order: AtomicOrdering): void {
+	if (order === 0) panic("there is no such thing as a relaxed fence");
+}
+
+// One-time cells
+
+/**
+ * `OnceCell<T>`: the `Option<T>` it holds, whose `None`, `N`, is `undefined`, or
+ * `rt.None` where `T` can already be `undefined`.
+ */
+export class OnceCell<T, N extends None | undefined = undefined> implements Disposable {
+	v: T | N;
+
+	// The cell's type is its place's: its first value, often its `None`, would narrow it.
+	constructor(v: NoInfer<T | N>) {
+		this.v = v;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.v);
+	}
+}
+
+/**
+ * `OnceLock<T>`, which one thread never races, but which knows it is being initialized:
+ * initializing it again from within panics, as wasm32's `Once` does.
+ */
+export class OnceLock<T, N extends None | undefined = undefined> extends OnceCell<T, N> {
+	running = false;
+}
+
+/**
+ * A `OnceLock` initialized from within its own initialization panics, as wasm32's `Once`
+ * does, dropping `dropped`, what the call took, as it unwinds.
+ */
+function recursive(cell: OnceCell<unknown, None | undefined>, dropped: () => void): void {
+	if (!(cell instanceof OnceLock && cell.running)) return;
+	try {
+		panic("one-time initialization may not be performed recursively");
+	} finally {
+		dropped();
+	}
+}
+
+/** `OnceCell::set`: `Err(value)` back if it holds one already. */
+export function onceSet<T>(cell: OnceCell<T>, value: T, dropValue?: (value: T) => void): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None>, value: T, dropValue: ((value: T) => void) | undefined, none: None): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, dropValue?: (value: T) => void, none?: None): Result<undefined, T> {
+	recursive(cell, () => dropValue?.(value));
+	if (cell.v !== none) return Err(value);
+	cell.v = value;
+	return Ok(undefined);
+}
+
+/** `OnceCell::take`: what it holds, leaving it empty. */
+export function onceTake<T>(cell: OnceCell<T>): T | undefined;
+export function onceTake<T>(cell: OnceCell<T, None>, none: None): T | None;
+export function onceTake<T>(cell: OnceCell<T, None | undefined>, none?: None): T | None | undefined {
+	const v = cell.v;
+	cell.v = none;
+	return v;
+}
+
+/**
+ * `OnceCell::get_or_init`: what it holds, which `f` makes first if it holds nothing,
+ * dropping `f` by `dropF` if not, or if a `OnceLock` panics as `recursive` does. A panic in `f` leaves it empty. A `OnceCell` that `f`
+ * sets itself drops what `f` made by `dropValue` and panics, as std's does. `f` of a
+ * `()` returns `void`.
+ */
+export function onceGetOrInit<T>(cell: OnceCell<T>, f: () => T | void, dropValue?: (value: T) => void, dropF?: (f: () => T | void) => void): T;
+export function onceGetOrInit<T>(
+	cell: OnceCell<T, None>,
+	f: () => T | void,
+	dropValue: ((value: T) => void) | undefined,
+	dropF: ((f: () => T | void) => void) | undefined,
+	none: None,
+): T;
+export function onceGetOrInit<T>(
+	cell: OnceCell<T, None | undefined>,
+	f: () => T | void,
+	dropValue?: (value: T) => void,
+	dropF?: (f: () => T | void) => void,
+	none?: None,
+): T {
+	if (cell.v !== none) {
+		dropF?.(f);
+		return cell.v as T;
+	}
+	recursive(cell, () => dropF?.(f));
+	let value: T;
+	if (cell instanceof OnceLock) {
+		cell.running = true;
+		try {
+			value = f() as T;
+		} finally {
+			cell.running = false;
+		}
+	} else {
+		value = f() as T;
+		if (cell.v !== none) {
+			dropValue?.(value);
+			panic("reentrant init");
+		}
+	}
+	cell.v = value;
+	return value;
+}
+
 // Futures
 
 /** `Poll::Pending`; `Poll::Ready(v)` is `v` itself. */
@@ -138,6 +388,71 @@ export interface Waker extends Disposable {
 	willWake(other: Waker): boolean;
 }
 
+/**
+ * `Waker::from(arc)`: a waker that holds a count of `arc` and wakes through its `Wake`
+ * impl, `wake` taking that count. Without a `wakeByRef` of its own, one wakes a clone, as
+ * `Wake`'s default does.
+ */
+export class ArcWaker<W> implements Waker {
+	readonly #arc: Arc<W>;
+	readonly #wake: (arc: Arc<W>) => void;
+	readonly #drop: (arc: Arc<W>) => void;
+	readonly #wakeByRef: ((arc: Arc<W>) => void) | undefined;
+
+	constructor(
+		arc: Arc<W>,
+		wake: (arc: Arc<W>) => void,
+		drop: (arc: Arc<W>) => void,
+		wakeByRef?: (arc: Arc<W>) => void,
+	) {
+		this.#arc = arc;
+		this.#wake = wake;
+		this.#drop = drop;
+		this.#wakeByRef = wakeByRef;
+	}
+
+	wake(): void {
+		this.#wake(this.#arc);
+	}
+
+	wakeByRef(): void {
+		if (this.#wakeByRef === undefined) this.#wake(arcClone(this.#arc));
+		else this.#wakeByRef(this.#arc);
+	}
+
+	clone(): Waker {
+		return new ArcWaker(arcClone(this.#arc), this.#wake, this.#drop, this.#wakeByRef);
+	}
+
+	willWake(other: Waker): boolean {
+		return other instanceof ArcWaker && other.#arc === this.#arc;
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop(this.#arc);
+	}
+}
+
+/** `Waker::noop()`'s waker, which does nothing. */
+class NoopWaker implements Waker {
+	wake(): void {}
+
+	wakeByRef(): void {}
+
+	clone(): Waker {
+		return this;
+	}
+
+	willWake(other: Waker): boolean {
+		return other === this;
+	}
+
+	[Symbol.dispose](): void {}
+}
+
+/** `Waker::noop()`: one waker for every call. */
+export const NOOP_WAKER: Waker = /* @__PURE__ */ new NoopWaker();
+
 /** `Context`, which carries only its waker. */
 export type Context = Waker;
 
@@ -145,6 +460,69 @@ export type Context = Waker;
 export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
+
+/**
+ * `future::poll_fn`'s future: each poll calls `f`, which drops with it by `drop`, if it
+ * drops at all: a borrowed `f` does not.
+ */
+export class PollFn<T> implements Future<T> {
+	readonly #f: (cx: Context) => Poll<T>;
+	readonly #drop: ((f: (cx: Context) => Poll<T>) => void) | undefined;
+
+	constructor(f: (cx: Context) => Poll<T>, drop?: (f: (cx: Context) => Poll<T>) => void) {
+		this.#f = f;
+		this.#drop = drop;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#f(cx);
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop?.(this.#f);
+	}
+}
+
+/**
+ * A `dyn Future` of a type whose `Future` impl is a function: each poll calls `poll` on
+ * `value`, which drops with it by `drop`, if it drops at all: a borrowed one does not.
+ */
+export class DynFuture<S, T> implements Future<T> {
+	readonly #value: S;
+	readonly #poll: (value: S, cx: Context) => Poll<T>;
+	readonly #drop: ((value: S) => void) | undefined;
+
+	constructor(value: S, poll: (value: S, cx: Context) => Poll<T>, drop?: (value: S) => void) {
+		this.#value = value;
+		this.#poll = poll;
+		this.#drop = drop;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#poll(this.#value, cx);
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop?.(this.#value);
+	}
+}
+
+/** `future.poll(cx)`: the `poll` of an `rt.DynFuture` over a future it borrows. */
+export function futurePoll<T>(future: Future<T>, cx: Context): Poll<T> {
+	return future.poll(cx);
+}
+
+/** `future::Pending`: never ready, and drops as nothing. */
+class Never implements Future<never> {
+	poll(): Poll<never> {
+		return Pending;
+	}
+
+	[Symbol.dispose](): void {}
+}
+
+/** `future::pending()`: one future for every call, since none holds anything. */
+export const NEVER: Future<never> = /* @__PURE__ */ new Never();
 
 /** An `async fn` polled again after it returned. */
 export function asyncFnResumed(): never {

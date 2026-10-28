@@ -108,8 +108,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				part
 			}
 			// A field of an aggregate made once and never changed is its operand: a
-			// reference, held in a path when the aggregate is made, which borrow checking
-			// keeps as it was, or a name that stays put.
+			// reference, held in a path when the aggregate is made unless it reads the same
+			// later, or a name that stays put.
 			(_, _)
 				if let Some(parts) = self.var_parts.get(&place.local)
 					&& let Some(ProjectionElem::Field(field, field_ty)) = projection.peek()
@@ -415,7 +415,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (breaks, continues) = (args.type_at(0), args.type_at(1));
 				Some(match (Flow::of(tcx, args), variant.index()) {
 					(Flow::Option, 0) => self.b.t.ty(continues, span),
-					(Flow::Option, _) => crate::ts::Type::Builtin("undefined"),
+					(Flow::Option, _) => match self.b.t.erases_to(continues).undefined {
+						true => crate::ts::Type::Rt("None", vec![]),
+						false => crate::ts::Type::Builtin("undefined"),
+					},
 					(Flow::Result | Flow::Other, 0) => result(true, self.b.t.ty(continues, span)),
 					(Flow::Result, _) => self.b.t.ty(breaks, span),
 					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
@@ -450,7 +453,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin) => base,
+				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				// Cast to its variant, which a test narrows only where it reads the field.
+				Some(Std::Bound) => {
+					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
+					let fields = vec![
+						(
+							"tag".to_string(),
+							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
+						),
+						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
+					];
+					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
+				}
 				// A variant MIR reads without a test, since the other can't be, is cast to it.
 				Some(Std::Result) => {
 					let ok = variant.map_or(0, VariantIdx::index) == 0;
@@ -477,13 +493,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					base.member(name)
 				}
-				Some(Std::Range | Std::RangeInclusive) => {
+				Some(Std::Range | Std::RangeInclusive | Std::RangeTo | Std::RangeFrom | Std::RangeToInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
-				_ if transparent(self.b.t, ty) => base,
+				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
 				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
@@ -600,6 +616,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
+				// A tuple's array has a fixed length, so its parts copy over in place.
+				Some(ObjectKind::Array) if matches!(pointee.kind(), ty::Tuple(_)) => {
+					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
+				}
 				_ => None,
 			};
 			match (e, alias) {
@@ -743,24 +763,50 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 			}
 		}
-		self.stable_path(target, super::own(place), span, out)
+		if super::own(place) {
+			return self.stable_path(target, true, span, out);
+		}
+		// A field or element of what one reference points at: only the reference can change
+		// while the borrow lives.
+		let through_one = match place.projection.as_slice() {
+			[ProjectionElem::Deref, inner @ .., last] => {
+				!matches!(last, ProjectionElem::Deref)
+					&& inner
+						.iter()
+						.all(|e| matches!(e, ProjectionElem::Field(..) | ProjectionElem::Downcast(..)))
+			}
+			_ => false,
+		};
+		let reference = match &self.slots[place.local] {
+			Slot::Var(name) if through_one && starts_from(&target, name) => name.clone(),
+			_ => return self.stable_path(target, false, span, out),
+		};
+		let held = self.held_now(Expr::ident(&reference), out);
+		let ty = self.decl_ty(place.local);
+		self.spilled_as(&held, ty);
+		let target = from_held(target, &held);
+		self.stable_path(target, true, span, out)
 	}
 
 	/// `target`, a path, with the index it goes through held where it is now, and the
-	/// object too unless it is a local's `own` value, which can't change while borrowed.
-	pub(super) fn stable_path(&mut self, target: Expr, own: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	/// object too unless it is `fixed`, which can't change while borrowed.
+	pub(super) fn stable_path(&mut self, target: Expr, fixed: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		self.materialize(&target, out);
-		let mut base = |fx: &mut Self, e: Expr| match own {
+		let mut base = |fx: &mut Self, e: Expr| match fixed {
 			true => e,
 			false => fx.held_now(e, out),
 		};
 		match target {
-			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			Expr::Located(_, e) => self.stable_path(*e, fixed, span, out),
+			// A payload `Option::insert` lends, read as its type.
+			Expr::As(e, ty) => Expr::As(Box::new(self.stable_path(*e, fixed, span, out)), ty),
 			Expr::Ident(_) | Expr::This => target,
 			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
 			Expr::Index(object, i) => {
 				let object = base(self, *object);
-				Expr::Index(Box::new(object), Box::new(self.held_now(*i, out)))
+				let i = self.held_now(*i, out);
+				self.spilled_as(&i, crate::ts::Type::Builtin("number"));
+				Expr::Index(Box::new(object), Box::new(i))
 			}
 			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
 		}
@@ -844,7 +890,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.field(info.state)
 					.binary("===", Expr::lit(value.to_string()))
 			}
-			ty::Adt(adt, _) if adt.is_enum() => {
+			ty::Adt(adt, args) if adt.is_enum() => {
 				let Some((index, _)) = adt.discriminants(tcx).find(|(_, d)| d.val == value) else {
 					return self.err(span, format!("no variant of `{ty}` has discriminant {value}"));
 				};
@@ -866,8 +912,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 					}
 					Some(Std::Option) => match index.index() {
-						0 => scrut.clone().binary("===", Expr::undefined()),
-						_ => scrut.clone().binary("!==", Expr::undefined()),
+						0 => scrut.clone().binary("===", self.b.t.none(args.type_at(0))),
+						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
 						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
@@ -892,6 +938,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Ordering) => scrut
 						.clone()
 						.binary("===", crate::lower::collections::ordering_variant(index)),
+					Some(Std::AtomicOrdering) => {
+						scrut.clone().binary("===", crate::lower::task::atomic_ordering(index))
+					}
+					Some(Std::Bound) => scrut
+						.clone()
+						.member("tag")
+						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}
@@ -974,6 +1027,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::Scalar(Scalar::Int(int)) => match ty.kind() {
 				ty::Bool => Expr::lit((int.to_bits_unchecked() != 0).to_string()),
 				ty::Char => Expr::lit(int.to_u32().to_string()),
+				_ if crate::lower::float::is(ty) => crate::lower::float::lit(f64::from_bits(int.to_u64())),
 				_ => match Int::of(ty) {
 					Some(i) => {
 						let size = rustc_abi::Size::from_bits(i.bits);
@@ -1218,5 +1272,26 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		),
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,
+	}
+}
+
+/// Whether `path` reads through the variable `name` first.
+fn starts_from(path: &Expr, name: &str) -> bool {
+	match path {
+		Expr::Located(_, e) | Expr::Member(e, _) | Expr::Index(e, _) | Expr::As(e, _) => starts_from(e, name),
+		Expr::Ident(n) => n == name,
+		_ => false,
+	}
+}
+
+/// `path`, reading through `held` where it reads through the variable it starts from.
+fn from_held(path: Expr, held: &Expr) -> Expr {
+	let from = |e: Box<Expr>| Box::new(from_held(*e, held));
+	match path {
+		Expr::Located(loc, e) => Expr::Located(loc, from(e)),
+		Expr::Member(e, key) => Expr::Member(from(e), key),
+		Expr::Index(e, i) => Expr::Index(from(e), i),
+		Expr::As(e, ty) => Expr::As(from(e), ty),
+		_ => held.clone(),
 	}
 }

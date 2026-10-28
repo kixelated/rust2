@@ -77,10 +77,11 @@ impl Crate<'_> {
 			packages = self.packages(),
 			lib = self.abi.prefix,
 		);
-		let header = crate::c::header(self.abi, &self.packages());
+		let (header, contract) = crate::c::header(self.abi, &self.packages());
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
+			contract,
 			dependencies: self.exports.iter().map(|export| dependency(&export.root())).collect(),
 			out: String::new(),
 		};
@@ -96,6 +97,8 @@ struct Gen<'a> {
 	abi: &'a Abi<'a>,
 	/// The exported packages, for the docs.
 	packages: String,
+	/// The header's contract, which `<prefix>_contract` returns.
+	contract: u64,
 	/// The name the crate depends on each export by.
 	dependencies: Vec<String>,
 	out: String,
@@ -145,6 +148,7 @@ impl Gen<'_> {
 			Type::Duration => "::std::time::Duration".to_string(),
 			Type::Option(inner) => format!("Option<{}>", self.rust(inner)),
 			Type::Ref(Mutability::Not, inner) => format!("&{}", self.rust(inner)),
+			Type::Ref(Mutability::Mut, inner) => format!("&mut {}", self.rust(inner)),
 			Type::Record(i) => generic(&api.records[*i].path, 0, &api.records[*i].args),
 			Type::Enum(i) => generic(&api.enums[*i].path, 0, &api.enums[*i].args),
 			Type::Object(i) => generic(&api.objects[*i].path, api.objects[*i].lifetimes, &api.objects[*i].args),
@@ -171,6 +175,17 @@ impl Gen<'_> {
 			Ty::Waker => "rt::Waker".to_string(),
 			Ty::Out(inner) => format!("*mut {}", self.rs(inner)),
 			Ty::In(inner) => format!("*const {}", self.rs(inner)),
+			Ty::Fn(params, ret) => {
+				let params: Vec<String> = std::iter::once("*mut c_void".to_string())
+					.chain(params.iter().map(|p| self.rs(p)))
+					.collect();
+				format!(
+					"Option<unsafe extern \"C\" fn({}) -> {}>",
+					params.join(", "),
+					self.rs(ret)
+				)
+			}
+			Ty::Data => "*mut c_void".to_string(),
 		}
 	}
 
@@ -211,10 +226,47 @@ impl Gen<'_> {
 				false => format!("unsafe {{ rt::Object::<{}>::take({e}, w) }}", self.object_path(*i)),
 			},
 			Type::Callback(i, form) => abi::dyn_wrap(*form, &format!("Foreign_{}({e})", self.abi.callback(*i))),
+			Type::Closure(params, ret) => self.closure(params, ret, e),
 			Type::Range(_) => format!("{e}.lift()"),
 			Type::Bound(_) | Type::Bounds(_) => format!("{e}.lift(w)"),
 			Type::Tuple(_) => unreachable!("a tuple is never taken"),
 		}
+	}
+
+	/// The Rust closure calling the function C lends as `e`, with its data `e_data`, which
+	/// lends each object the closure takes as a handle for that call.
+	fn closure(&self, params: &[Type], ret: &Type, e: &str) -> String {
+		let typed: Vec<String> = (params.iter().enumerate())
+			.map(|(n, ty)| format!("c{n}: {}", self.rust(ty)))
+			.collect();
+		// Each object the closure takes, and how it is lent.
+		let lent = |ty: &Type| match ty {
+			Type::Ref(m, inner) => match (&**inner, m) {
+				(&Type::Object(i), Mutability::Mut) => Some((i, "lend_mut")),
+				(&Type::Object(i), Mutability::Not) if self.abi.api.objects[i].sync => Some((i, "lend")),
+				(&Type::Object(i), Mutability::Not) => Some((i, "lend_local")),
+				_ => None,
+			},
+			_ => None,
+		};
+		let args: Vec<String> = std::iter::once("data.get()".to_string())
+			.chain(params.iter().enumerate().map(|(n, ty)| match lent(ty) {
+				Some(_) => format!("h{n}"),
+				None => self.view(ty, &format!("c{n}")),
+			}))
+			.collect();
+		let mut call = format!("unsafe {{ f({}) }}", args.join(", "));
+		for (n, ty) in params.iter().enumerate().rev() {
+			if let Some((i, lend)) = lent(ty) {
+				call = format!("rt::Object::<{}>::{lend}(c{n}, w, |h{n}| {call})", self.object_path(i));
+			}
+		}
+		format!(
+			"{{\n\t\tlet f = {e}.unwrap_or_else(|| rt::fail(w, \"a function is null\"));\n\t\tlet data = rt::Data::new({e}_data);\n\t\tmove |{}| -> {} {{\n\t\t\tlet result = {call};\n\t\t\t{}\n\t\t}}\n\t}}",
+			typed.join(", "),
+			self.rust(ret),
+			self.lift(ret, "result"),
+		)
 	}
 
 	/// How a call borrows object `i` shared: across threads if it is `Sync`, else on one.
@@ -260,7 +312,7 @@ impl Gen<'_> {
 			Type::Record(i) => format!("lower_{}({e})", self.abi.record(*i)),
 			Type::Enum(i) => format!("lower_{}({e})", self.abi.enumeration(*i)),
 			Type::Object(_) => format!("rt::Object::new({e})"),
-			Type::Callback(..) => unreachable!("a callback is never returned"),
+			Type::Callback(..) | Type::Closure(..) => unreachable!("a callback is never returned"),
 			Type::Waker => unreachable!("a waker is never returned"),
 			Type::Range(_) => format!("rt::Range::lower({e})"),
 			Type::Bound(_) => format!("rt::Bound::lower({e})"),
@@ -329,6 +381,10 @@ impl Gen<'_> {
 		let p = self.abi.prefix.clone();
 		self.line(format!(
 			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {p}_buf_free(buf: rt::Buf) {{\n\tunsafe {{ buf.free() }}\n}}\n"
+		));
+		self.line(format!(
+			"#[unsafe(no_mangle)]\npub extern \"C\" fn {p}_contract() -> u64 {{\n\t0x{:016x}\n}}\n",
+			self.contract
 		));
 
 		for (name, ty) in &self.abi.ranges {
@@ -881,8 +937,13 @@ impl Gen<'_> {
 				}
 			}
 		}
-		for (n, (param, (_, c_ty))) in function.params.iter().zip(c_params).enumerate() {
+		for (n, param) in function.params.iter().enumerate() {
+			let (_, c_ty) = c_params.next().expect("a C parameter for each");
 			params.push(format!("p{n}: {}", self.rs(c_ty)));
+			if let Type::Closure(..) = param.ty {
+				let (_, data) = c_params.next().expect("a lent function's data");
+				params.push(format!("p{n}_data: {}", self.rs(data)));
+			}
 			let (stmt, arg) = self.arg(&param.ty, &format!("p{n}"), &format!("a{n}"), future);
 			stmts.push(stmt);
 			args.push(arg);
@@ -897,7 +958,7 @@ impl Gen<'_> {
 		}
 		let call = match function.access {
 			Access::Call => format!("{callee}({})", args.join(", ")),
-			Access::Field => format!("&({}).{}", args[0], function.name()),
+			Access::Field { .. } => format!("&({}).{}", args[0], function.name()),
 			Access::Const => callee,
 		};
 		let body = stmts.join("\n\t");

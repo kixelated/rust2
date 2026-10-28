@@ -5,10 +5,13 @@
 // left only where a call dispatches on its receiver: an iterator's `next`, a writer's
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
-import { type char, type TryFromIntError, type u32, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import type { Ordering } from "./rt/collections.ts";
+import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Pending } from "./rt/task.ts";
 
+import { AtIndex } from "./rt/collections.ts";
 export * from "./rt/collections.ts";
+export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/str.ts";
@@ -73,6 +76,16 @@ class Accessed<T> implements Place<T> {
 	set v(value: T) {
 		this.write(value);
 	}
+}
+
+/**
+ * The payload's place of the `Option` at `p`, whose `None` is `none`: `p` itself, as
+ * `Some(x)` is `x`, or `undefined` while it is `None`.
+ */
+export function optionAsMut<T>(p: Place<T | undefined>): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | None>, none: None): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | undefined | None>, none?: None): Place<T> | undefined {
+	return p.v === none ? undefined : (p as Place<T>);
 }
 
 /** The place `get` reads and `set` writes. */
@@ -159,33 +172,48 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (
 	return r.error;
 }
 
-// Options, which are `T | undefined`.
+// Options, which are `T | undefined`, or `T | None` where `T` can already be `undefined`.
+// A function taking one takes that `None` after its own arguments.
+
+/** `None` of an `Option` whose `Some` can already be `undefined`, as `Option<()>`'s is. */
+export const None: unique symbol = /* @__PURE__ */ Symbol("None");
+
+/** The type of `None`. */
+export type None = typeof None;
 
 /** `Option::unwrap`: the value, or a panic. */
-export function optionUnwrap<T>(o: T | undefined): T {
-	if (o === undefined) panic("called `Option::unwrap()` on a `None` value");
-	return o;
+export function optionUnwrap<T>(o: T | undefined): T;
+export function optionUnwrap<T>(o: T | None, none: None): T;
+export function optionUnwrap<T>(o: T | undefined | None, none?: None): T {
+	if (o === none) panic("called `Option::unwrap()` on a `None` value");
+	return o as T;
 }
 
 /** `Option::expect`: the value, or a panic with `message`. */
-export function optionExpect<T>(o: T | undefined, message: string): T {
-	if (o === undefined) panic(message);
-	return o;
+export function optionExpect<T>(o: T | undefined, message: string): T;
+export function optionExpect<T>(o: T | None, message: string, none: None): T;
+export function optionExpect<T>(o: T | undefined | None, message: string, none?: None): T {
+	if (o === none) panic(message);
+	return o as T;
 }
 
 /** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined {
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined;
+export function thenSome<T>(cond: boolean, value: T, drop: ((value: T) => void) | undefined, none: None): T | None;
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void, none?: None): T | undefined | None {
 	if (cond) return value;
 	drop?.(value);
-	return undefined;
+	return none;
 }
 
 // Not `then`, which would make the module's namespace a thenable that `await` calls.
 /** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined {
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined;
+export function boolThen<T>(cond: boolean, f: () => T, drop: ((f: () => T) => void) | undefined, none: None): T | None;
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void, none?: None): T | undefined | None {
 	if (cond) return f();
 	drop?.(f);
-	return undefined;
+	return none;
 }
 
 // Slices: arrays, but for bytes, which are `ByteSlice`s.
@@ -236,13 +264,244 @@ export function sliceSplitAtChecked<T>(s: T[], n: number): [T[], T[]] | undefine
 }
 
 /** `first`: the first element, or `undefined` if empty. */
-export function sliceFirst<T>(s: ArrayLike<T>): T | undefined {
-	return s.length === 0 ? undefined : s[0];
+export function sliceFirst<T>(s: ArrayLike<T>): T | undefined;
+export function sliceFirst<T>(s: ArrayLike<T>, none: None): T | None;
+export function sliceFirst<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
+	return s.length === 0 ? none : s[0];
 }
 
 /** `get`: the element at `index`, or `undefined` past the end. */
-export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
-	return index < s.length ? s[index] : undefined;
+export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined;
+export function sliceGet<T>(s: ArrayLike<T>, index: number, none: None): T | None;
+export function sliceGet<T>(s: ArrayLike<T>, index: number, none?: None): T | undefined | None {
+	return index < s.length ? s[index] : none;
+}
+
+/** `core::ops::Bound`, tagged as the crate's own enums are. */
+export type RangeBound<T> = { readonly tag: "Included"; readonly _0: T } | { readonly tag: "Excluded"; readonly _0: T } | { readonly tag: "Unbounded" };
+
+/** `Bound::cloned` and `copied`: `b` with `clone` of what it holds. */
+export function boundMap<T>(b: RangeBound<T>, clone: (value: T) => T): RangeBound<T> {
+	return b.tag === "Unbounded" ? b : { tag: b.tag, _0: clone(b._0) };
+}
+
+/** `NonZero::new`: `n`, unless it is 0. */
+export function nonZero<T>(n: T): T | undefined {
+	return n === 0 ? undefined : n;
+}
+
+/** `reverse`, in place. */
+export function sliceReverse<T>(s: T[]): void {
+	s.reverse();
+}
+
+/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
+export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
+	return s.length === 0 ? undefined : s[s.length - 1];
+}
+
+/** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
+export function sliceGetMut<T>(s: { [i: number]: T; length: number }, index: number): Place<T> | undefined {
+	return index < s.length ? new AtIndex(s, index) : undefined;
+}
+
+/** `first_mut` of an element JS copies. */
+export function sliceFirstMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return sliceGetMut(s, 0);
+}
+
+/** `last_mut` of an element JS copies. */
+export function sliceLastMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return s.length === 0 ? undefined : new AtIndex(s, s.length - 1);
+}
+
+/** `contains`, by `eq` of each element and then `x`, as std's `==` reads them. */
+export function sliceContains<T>(s: ArrayLike<T>, x: T, eq: (a: T, b: T) => boolean): boolean {
+	for (let i = 0; i < s.length; i++) if (eq(s[i], x)) return true;
+	return false;
+}
+
+/** `swap`, panicking on either index past the end, `a` first, as std's indexing does. */
+export function sliceSwap<T>(s: T[], a: number, b: number): void {
+	const x = s[idx(s, a)];
+	s[a] = s[idx(s, b)];
+	s[b] = x;
+}
+
+/** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
+export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering): void {
+	sliceSort(s, (a, b) => cmp(a, b) === -1);
+}
+
+/** `sort_by_key` and `sort_unstable_by_key`: by `lt` of each element's `key`, as `sliceSort` sorts. */
+export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
+	sliceSort(s, (a, b) => lt(key(a), key(b)));
+}
+
+/**
+ * `sort` and `sort_unstable`, by `less`, the elements' `lt`, which std's sorts test: a
+ * stable merge sort over runs that insertion sorts first. The unstable sorts may order
+ * equal elements either way and here keep them in order. It calls only `less`, never
+ * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
+ * orders its calls differently in each engine. If `less` panics, the slice holds each
+ * element once, in an order std leaves unspecified, as std's does.
+ */
+export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
+	const n = s.length;
+	const RUN = 16;
+	for (let lo = 0; lo < n; lo += RUN) {
+		const hi = Math.min(lo + RUN, n);
+		for (let i = lo + 1; i < hi; i++) {
+			const x = s[i];
+			let j = i;
+			// Shifted elements leave a hole at `j`, which `x` fills if `less` panics.
+			try {
+				while (j > lo && less(x, s[j - 1])) {
+					s[j] = s[j - 1];
+					j--;
+				}
+			} finally {
+				s[j] = x;
+			}
+		}
+	}
+	if (n <= RUN) return;
+	const left: T[] = [];
+	for (let width = RUN; width < n; width *= 2) {
+		for (let lo = 0; lo + width < n; lo += 2 * width) {
+			const mid = lo + width;
+			const hi = Math.min(mid + width, n);
+			if (!less(s[mid], s[mid - 1])) continue;
+			// The left run moves aside, and the merge fills `s` from `lo`, never past the
+			// right run's next element. If `less` panics, what is left of the left run fills
+			// the gap.
+			left.length = 0;
+			for (let i = lo; i < mid; i++) left.push(s[i]);
+			let i = 0;
+			let j = mid;
+			let k = lo;
+			try {
+				// `k` moves only once `less` returns, so a panic leaves no slot written twice.
+				while (i < left.length && j < hi) {
+					s[k] = less(s[j], left[i]) ? s[j++] : left[i++];
+					k++;
+				}
+			} finally {
+				while (i < left.length) s[k++] = left[i++];
+			}
+		}
+	}
+}
+
+/**
+ * `Vec::retain` and `retain_mut`: keeps each element `f` returns true for, in order, and
+ * drops each other one once `f` rejects it. If `f` or a drop panics, what `f` kept and
+ * what it had not yet seen stay, as std's do.
+ */
+export function vecRetain<T>(v: T[], f: (item: T) => boolean, drop?: (item: T) => void): void {
+	const n = v.length;
+	let read = 0;
+	let write = 0;
+	try {
+		while (read < n) {
+			const item = v[read];
+			if (f(item)) {
+				v[write++] = item;
+				read++;
+			} else {
+				read++;
+				drop?.(item);
+			}
+		}
+	} finally {
+		v.copyWithin(write, read, n);
+		v.length = write + n - read;
+	}
+}
+
+/**
+ * `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order.
+ * If `same` or a drop panics, what it kept and what it had not yet seen stay, as std's do.
+ */
+export function vecDedupBy<T>(v: T[], same: (a: T, b: T) => boolean, drop?: (item: T) => void): void {
+	const n = v.length;
+	let first = 1;
+	while (first < n && !same(v[first], v[first - 1])) first++;
+	if (first >= n) return;
+	let read = first + 1;
+	let write = first;
+	try {
+		drop?.(v[first]);
+		while (read < n) {
+			const item = v[read];
+			if (same(item, v[write - 1])) {
+				read++;
+				drop?.(item);
+			} else {
+				v[write++] = item;
+				read++;
+			}
+		}
+	} finally {
+		v.copyWithin(write, read, n);
+		v.length = write + n - read;
+	}
+}
+
+/** `Vec::dedup_by_key`: as `vecDedupBy`, by `eq` of `key` of each element, then of the previous kept. */
+export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K) => boolean, drop?: (item: T) => void): void {
+	vecDedupBy(v, (a, b) => eq(key(a), key(b)), drop);
+}
+
+/** `Vec::swap_remove`: the element at `i`, with the last moved into its place. */
+export function vecSwapRemove<T>(v: T[], i: number): T {
+	if (i >= v.length) panic(`swap_remove index (is ${i}) should be < len (is ${v.length})`);
+	const item = v[i];
+	v[i] = v[v.length - 1];
+	v.pop();
+	return item;
+}
+
+/**
+ * `Clone` of a `Vec`, and `to_vec`, by `clone` of each element in order. If one panics, the
+ * clones made so far drop, in order, as std's do.
+ */
+export function vecClone<T>(s: ArrayLike<T>, clone: (item: T) => T, drop?: (item: T) => void): T[] {
+	const out: T[] = [];
+	try {
+		for (let i = 0; i < s.length; i++) out.push(clone(s[i]));
+	} catch (e) {
+		if (drop !== undefined) for (const item of out) drop(item);
+		throw e;
+	}
+	return out;
+}
+
+/** `Vec::extend_from_slice`: a clone of each element of `s`, pushed in order, as far as they clone. */
+export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone?: (item: T) => T): void {
+	for (let i = 0; i < s.length; i++) v.push(clone === undefined ? s[i] : clone(s[i]));
+}
+
+/**
+ * `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is
+ * itself. If one panics, the clones made so far drop, the last first, by `drops`.
+ */
+export function tupleClone<T extends readonly unknown[]>(
+	t: T,
+	clones: readonly (((value: never) => unknown) | undefined)[],
+	drops: readonly (((value: never) => void) | undefined)[],
+): T {
+	const out: unknown[] = [];
+	try {
+		for (let i = 0; i < clones.length; i++) {
+			const clone = clones[i] as ((value: unknown) => unknown) | undefined;
+			out.push(clone === undefined ? t[i] : clone(t[i]));
+		}
+	} catch (e) {
+		for (let i = out.length - 1; i >= 0; i--) (drops[i] as ((value: unknown) => void) | undefined)?.(out[i]);
+		throw e;
+	}
+	return out as unknown as T;
 }
 
 /**
@@ -467,22 +726,27 @@ const encoder = /* @__PURE__ */ new TextEncoder();
 // `ignoreBOM` keeps a leading U+FEFF, as Rust does.
 const decoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
+/** `core::str::Utf8Error`: where bytes stop being UTF-8. */
+export type Utf8Error = {
+	/** `Utf8Error::valid_up_to`. */
+	readonly validUpTo: usize;
+	/** `Utf8Error::error_len`: `undefined` if the input ended mid-character. */
+	readonly errorLen: usize | undefined;
+};
+
 /** `alloc::string::FromUtf8Error`: the bytes that were not UTF-8, and where they stop being. */
 export class FromUtf8Error {
 	readonly bytes: ByteVec;
-	/** `Utf8Error::valid_up_to`. */
-	readonly validUpTo: number;
-	/** `Utf8Error::error_len`: `undefined` if the input ended mid-character. */
-	readonly errorLen: number | undefined;
+	readonly error: Utf8Error;
 
 	constructor(bytes: ByteVec) {
 		this.bytes = bytes;
-		[this.validUpTo, this.errorLen] = utf8Error(byteVecView(bytes));
+		this.error = utf8Error(byteVecView(bytes));
 	}
 }
 
-/** Where `v` stops being UTF-8 and how many bytes are invalid there, as std reports it. */
-function utf8Error(v: Uint8Array): [number, number | undefined] {
+/** Where `v`, which is not UTF-8, stops being so, and how many bytes are invalid there, as std reports it. */
+function utf8Error(v: Uint8Array): Utf8Error {
 	const tail = (b: number | undefined) => b !== undefined && b >= 0x80 && b <= 0xbf;
 	for (let i = 0; i < v.length; ) {
 		const first = v[i];
@@ -491,19 +755,29 @@ function utf8Error(v: Uint8Array): [number, number | undefined] {
 			i++;
 			continue;
 		}
-		if (width === 0) return [i, 1];
+		if (width === 0) return { validUpTo: i, errorLen: 1 };
 		const second = v[i + 1];
-		if (second === undefined) return [i, undefined];
+		if (second === undefined) return { validUpTo: i, errorLen: undefined };
 		const [lo, hi] =
 			first === 0xe0 ? [0xa0, 0xbf] : first === 0xed ? [0x80, 0x9f] : first === 0xf0 ? [0x90, 0xbf] : first === 0xf4 ? [0x80, 0x8f] : [0x80, 0xbf];
-		if (second < lo || second > hi) return [i, 1];
+		if (second < lo || second > hi) return { validUpTo: i, errorLen: 1 };
 		for (let k = 2; k < width; k++) {
-			if (i + k >= v.length) return [i, undefined];
-			if (!tail(v[i + k])) return [i, k];
+			if (i + k >= v.length) return { validUpTo: i, errorLen: undefined };
+			if (!tail(v[i + k])) return { validUpTo: i, errorLen: k };
 		}
 		i += width;
 	}
 	throw new Error("utf8Error: the bytes are valid UTF-8");
+}
+
+/** `str::from_utf8`. */
+export function strFromUtf8(bytes: ByteSlice): Result<string, Utf8Error> {
+	const v = byteSliceView(bytes);
+	try {
+		return Ok(decoder.decode(v));
+	} catch {
+		return Err(utf8Error(v));
+	}
 }
 
 /** `String::from_utf8`. */
@@ -958,9 +1232,11 @@ export function fmtUnit(_: undefined, f: Formatter): FmtResult {
 }
 
 /** `Debug` of an `Option`, through its value's. */
-export function fmtOption<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult {
-	if (o === undefined) return f.out.writeStr("None");
-	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "Some"), (f) => debug(o, f)));
+export function fmtOption<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult;
+export function fmtOption<T>(o: T | None, f: Formatter, debug: Debug<T>, none: None): FmtResult;
+export function fmtOption<T>(o: T | undefined | None, f: Formatter, debug: Debug<T>, none?: None): FmtResult {
+	if (o === none) return f.out.writeStr("None");
+	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "Some"), (f) => debug(o as T, f)));
 }
 
 /** `Debug` of a `Result`, through its value's and error's. */
@@ -1007,28 +1283,36 @@ export function fmtTryFromIntErrorDisplay(e: TryFromIntError, f: Formatter): Fmt
 	return fmtPad(f, `number too ${positive ? "large" : "small"} to fit in target type`);
 }
 
-/** `Debug` of `FromUtf8Error`. */
-export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
-	const error: Fmt = (f) =>
-		debugStructFinish(
-			debugStructField(
-				debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDebug(e.validUpTo, f)),
-				"error_len",
-				(f) => fmtOption(e.errorLen, f, u8Debug),
-			),
-		);
+/** `Debug` of `Utf8Error`. */
+export function fmtUtf8ErrorDebug(e: Utf8Error, f: Formatter): FmtResult {
 	return debugStructFinish(
 		debugStructField(
-			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Debug)),
-			"error",
-			error,
+			debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDebug(e.validUpTo, f)),
+			"error_len",
+			(f) => fmtOption(e.errorLen, f, usizeDebug),
 		),
 	);
 }
 
-/** `Display` of the error, which `write!`s and so ignores the formatter's options. */
-export function fmtFromUtf8ErrorDisplay(e: FromUtf8Error, f: Formatter): FmtResult {
+/** `Display` of `Utf8Error`, which `write!`s and so ignores the formatter's options. */
+export function fmtUtf8ErrorDisplay(e: Utf8Error, f: Formatter): FmtResult {
 	if (e.errorLen === undefined) return f.out.writeStr(`incomplete utf-8 byte sequence from index ${e.validUpTo}`);
 	return f.out.writeStr(`invalid utf-8 sequence of ${e.errorLen} bytes from index ${e.validUpTo}`);
+}
+
+/** `Debug` of `FromUtf8Error`. */
+export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
+	return debugStructFinish(
+		debugStructField(
+			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Debug)),
+			"error",
+			(f) => fmtUtf8ErrorDebug(e.error, f),
+		),
+	);
+}
+
+/** `Display` of `FromUtf8Error`: its `Utf8Error`'s. */
+export function fmtFromUtf8ErrorDisplay(e: FromUtf8Error, f: Formatter): FmtResult {
+	return fmtUtf8ErrorDisplay(e.error, f);
 }
 

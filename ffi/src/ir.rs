@@ -177,8 +177,10 @@ pub struct Instance {
 pub enum Access {
 	/// It calls the function.
 	Call,
-	/// It reads a `pub` field of its receiver.
-	Field,
+	/// It reads a `pub` field of its receiver. `shared` when a method or constant of its
+	/// type takes its name, which its path then names, so the config names the field
+	/// `field@<path>`, as rustdoc does.
+	Field { shared: bool },
 	/// It reads a constant that is not a `bool` or integer.
 	Const,
 }
@@ -249,6 +251,9 @@ pub enum Type {
 	Object(usize),
 	/// A foreign implementation of a callback trait, in the form the parameter takes.
 	Callback(usize, Dyn),
+	/// A closure the callee calls only during the call, as a foreign function: what it
+	/// takes, then what it returns.
+	Closure(Vec<Type>, Box<Type>),
 	/// `std::ops::Range` of an integer.
 	Range(Int),
 	/// `std::ops::Bound` of an integer.
