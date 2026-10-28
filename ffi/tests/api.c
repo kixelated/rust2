@@ -199,6 +199,14 @@ static int script(void) {
 	first = api_registry_first(registry);
 	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
 	api_counter_free(first);
+	/* A setter moves an object in, as assignment does, leaving the handle to be freed. */
+	api_counter *second = api_counter_new(str("second"), 3);
+	api_registry_set_first(registry, second);
+	api_counter_free(second);
+	first = api_registry_first(registry);
+	printf("set first %llu ", (unsigned long long)api_counter_get(first));
+	print("", api_counter_name(first), "\n");
+	api_counter_free(first);
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
@@ -277,6 +285,18 @@ static int script(void) {
 	print("stamp ", api_stamp_debug(read), "\n");
 	api_stamp_free(read);
 	printf("sent %s\n", api_message_sent(message) ? "true" : "false");
+	/* Setters assign in place: the bytes are copied in, and a `Copy` handle copied. */
+	api_stamp *reset = api_stamp_from_millis(4000);
+	api_message_set_stamp(message, reset);
+	api_message_set_payload(message, str("edited"));
+	print("payload ", api_message_payload(message), "\n");
+	read = api_message_stamp(message);
+	print("stamp ", api_stamp_debug(read), "\n");
+	api_stamp_free(read);
+	printf("secs %llu\n", (unsigned long long)api_stamp_secs(reset));
+	api_stamp_free(reset);
+	api_message_set_stamp(message, NULL);
+	printf("stamp %s\n", api_message_stamp(message) != NULL ? "true" : "false");
 	api_message_free(message);
 
 	static const api_log_vtable print_log = {.free = log_free, .log = log_line};
@@ -431,6 +451,9 @@ static int script(void) {
 	api_retry *retry = api_retry_new((api_option_u32){.some = true, .value = 5});
 	api_option_u32 limit = api_retry_limit_setting(retry);
 	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
+	/* The renamed field's setter, named as its getter. */
+	api_retry_set_limit_setting(retry, (api_option_u32){0});
+	printf("retry %u\n", api_retry_limit(retry));
 	api_retry_free(retry);
 	api_slot_u8 *slot = api_slot_u8_new(200);
 	printf("slot %u\n", api_slot_u8_value(slot));

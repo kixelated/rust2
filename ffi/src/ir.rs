@@ -157,7 +157,7 @@ pub struct Function {
 	/// For a future, whether the call itself runs code, as a function that is not
 	/// `async` returning one does: the export calls it at once, and polls what it returns.
 	pub eager: bool,
-	/// What it reads: Rust's function, or a field or constant named as it is.
+	/// What it reads: Rust's function, a field it reads or writes, or a constant named as it is.
 	pub access: Access,
 	/// The instance it is, if a type parameter exports at several.
 	pub instance: Option<Instance>,
@@ -178,10 +178,10 @@ pub struct Instance {
 pub enum Access {
 	/// It calls the function.
 	Call,
-	/// It reads a `pub` field of its receiver. `shared` when a method or constant of its
-	/// type takes its name, which its path then names, so the config names the field
-	/// `field@<path>`, as rustdoc does.
-	Field { shared: bool },
+	/// It reads a `pub` field of its receiver, or with `set` assigns it. `shared` when a
+	/// method or constant of its type takes its name, which its path then names, so the
+	/// config names the field `field@<path>`, as rustdoc does.
+	Field { shared: bool, set: bool },
 	/// It reads a constant that is not a `bool` or integer.
 	Const,
 }
