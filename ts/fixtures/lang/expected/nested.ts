@@ -196,33 +196,34 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const it: rt.Iter<rt.u8 | undefined> = rt.iterSlice(items);
 	rt.byteVecPush(out, code(rt.iterToOption(it.next(), rt.None)));
 	rt.byteVecPush(out, code(rt.iterToOption(it.nextBack(), rt.None)));
+	rt.byteVecPush(out, code(rt.iterNthBack(it, 1, undefined, rt.None)));
 	const iter: rt.Iter<rt.u8 | undefined> = it;
 	while (true) {
-		const _42: rt.u8 | undefined | rt.Done = iter.next();
-		if (_42 === rt.DONE) {
+		const _46: rt.u8 | undefined | rt.Done = iter.next();
+		if (_46 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, unwrapOr$Option_u8(_42, 225));
+		rt.byteVecPush(out, unwrapOr$Option_u8(_46, 225));
 	}
 	const own: Halves.Halves = { _0: rt.u8Rem(data.length & 0xff, 8) };
 	rt.byteVecPush(out, code(rt.iterToOption(Halves.next$Iterator(own), rt.None)));
 	const iter2: Halves.Halves = own;
 	while (true) {
-		const _60: rt.u8 | undefined | rt.Done = Halves.next$Iterator(iter2);
-		if (_60 === rt.DONE) {
+		const _64: rt.u8 | undefined | rt.Done = Halves.next$Iterator(iter2);
+		if (_64 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(_60, 225, (x: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(_64, 225, (x: rt.u8): rt.u8 => {
 			return x;
 		}));
 	}
-	for (const _68 of rt.byteSliceView(data)) {
-		const o: rt.u8 | undefined | rt.None = pick(_68);
+	for (const _72 of rt.byteSliceView(data)) {
+		const o: rt.u8 | undefined | rt.None = pick(_72);
 		rt.byteVecPush(out, rt.iterCount(rt.iterOption(o, undefined, rt.None)) & 0xff);
 		rt.iterForEach(rt.iterOption(o, undefined, rt.None), (x2: rt.u8 | undefined): void => {
 			rt.byteVecPush(out, unwrapOr$Option_u8(x2, 225));
 		});
-		rt.iterForEach(rt.iterOption(unit(_68), undefined, rt.None), (_: undefined): void => {
+		rt.iterForEach(rt.iterOption(unit(_72), undefined, rt.None), (_: undefined): void => {
 			rt.byteVecPush(out, 209);
 		});
 	}

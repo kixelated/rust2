@@ -151,6 +151,7 @@ fn iters(data: &[u8], out: &mut Vec<u8>) {
 	let mut it = items.iter().copied();
 	out.push(code(it.next()));
 	out.push(code(it.next_back()));
+	out.push(code(it.nth_back(1)));
 	for item in it {
 		out.push(item.unwrap_or(0xe1));
 	}

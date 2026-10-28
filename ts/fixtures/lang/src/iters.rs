@@ -221,6 +221,73 @@ impl RotateFree for u8 {
 	}
 }
 
+/// `nth` and `nth_back` through each adaptor, of a source whose reads `by_ref` or
+/// `inspect` shows: each reads on past a `take`'s limit, or stops at it, as std's does.
+pub fn skips(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let n = data.first().map_or(0, |&b| b as usize % 4);
+	let limit = data.get(1).map_or(0, |&b| b as usize % 3);
+	let back = kind & 1 == 1;
+	// `nth` or `nth_back` of `$it`, as a byte by `$f`.
+	macro_rules! skip {
+		($it:expr, $f:expr) => {{
+			let mut it = $it;
+			let item = if back { it.nth_back(n) } else { it.nth(n) };
+			out.push(item.map_or(0xee, $f));
+		}};
+	}
+	// `skip!` of `$adapt` over a `by_ref` source, then over an `inspect`ed one, and what each read.
+	macro_rules! sources {
+		(|$src:ident| $adapt:expr, $f:expr) => {{
+			let mut rest = data.iter();
+			{
+				let $src = rest.by_ref();
+				skip!($adapt, $f);
+			}
+			out.push(rest.len() as u8);
+			let mut log = Vec::new();
+			{
+				let $src = data.iter().inspect(|&&b| log.push(b));
+				skip!($adapt, $f);
+			}
+			out.extend_from_slice(&log);
+		}};
+	}
+	match (kind / 2) % 14 {
+		0 => sources!(|src| src.take(limit).fuse(), |&b| b),
+		1 => sources!(|src| src.take(limit + 1).skip(1), |&b| b),
+		2 => sources!(|src| src.take(limit).chain([0x11].iter()), |&b| b),
+		3 => sources!(|src| [0x11].iter().chain(src.take(limit)), |&b| b),
+		4 => sources!(|src| src.take(limit + 1).step_by(2), |&b| b),
+		5 => sources!(|src| src.take(limit).peekable(), |&b| b),
+		6 => sources!(
+			|src| {
+				let mut it = src.take(limit + 1).peekable();
+				it.peek();
+				it
+			},
+			|&b| b
+		),
+		7 => sources!(|src| std::iter::once(src.take(limit)).flatten(), |&b| b),
+		8 => sources!(|src| src.take(limit).copied(), |b| b),
+		9 => sources!(|src| src.take(limit).cloned(), |b| b),
+		10 => sources!(|src| src.take(limit).enumerate(), |(i, &b)| b ^ i as u8),
+		11 => sources!(|src| src.take(limit).rev(), |&b| b),
+		// `fuse` advances by `next`, where `take` would read on past its limit.
+		12 => sources!(|src| [0x11].iter().chain(src.take(limit).fuse()), |&b| b),
+		_ => {
+			// Copies that JS makes by a function, which std's `copied` skips through.
+			let pairs: Vec<(u8, u8)> = data.iter().map(|&b| (b, !b)).collect();
+			let mut rest = pairs.iter();
+			skip!(rest.by_ref().take(limit).copied(), |(a, b)| a ^ b);
+			out.push(rest.len() as u8);
+			let arrays: Vec<[u8; 2]> = data.iter().map(|&b| [b, !b]).collect();
+			let mut rest = arrays.iter();
+			skip!(rest.by_ref().take(limit).copied(), |[a, _]| a);
+			out.push(rest.len() as u8);
+		}
+	}
+}
+
 /// Ranges as values and as iterators.
 pub fn ranges(data: &[u8], out: &mut Vec<u8>) {
 	let a = data.first().copied().unwrap_or(0);
