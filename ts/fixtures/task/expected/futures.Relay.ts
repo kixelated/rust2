@@ -14,8 +14,17 @@ export class Relay {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.task);
-		rt.drop(this.guard);
+		let dropped: number = 0;
+		try {
+			rt.drop(this.task);
+			dropped = 1;
+			rt.drop(this.guard);
+		} catch (e) {
+			if (dropped < 1) {
+				rt.drop(this.guard);
+			}
+			throw e;
+		}
 	}
 }
 

@@ -2,7 +2,9 @@
 
 import * as rt from "./rt.ts";
 import { okOr$Option_u64_u64 } from "./core/option.ts";
-import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2 } from "./core/task/poll.ts";
+import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2 } from "./core/task/poll.ts";
+import * as Blast from "./futures.Blast.ts";
+import * as Fused from "./futures.Fused.ts";
 import * as Plain from "./futures.Plain.ts";
 import * as Relay from "./futures.Relay.ts";
 import { recvFuture } from "./kio.ts";
@@ -17,7 +19,9 @@ import * as Guard from "./model.Guard.ts";
  * wakes; and `Poll`'s methods on what each poll returns. `recv` wakes the task through
  * a relay, a waker the `poll_fn` makes on its first poll from an `Arc` of a `Wake` impl,
  * which an even value also wakes by value, and which logs its own drop. It stops at a
- * value of 77, and panics on 99 inside the `poll_fn`.
+ * value of 77, and panics on 99 inside the `poll_fn`. First, a `poll_fn` of a borrowed
+ * function drops in an `Arc` without dropping the function, and for one guard in eight,
+ * a waker whose last drop panics goes before a guard that unwinding still drops.
  */
 export function helpers(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return new helpersFuture(rx, guard);
@@ -27,11 +31,13 @@ export class helpersFuture {
 	#state: number = 0;
 	#rx: Consumer.Consumer;
 	#guard: Guard.Guard;
+	#lend!: (a0: rt.Context) => rt.Poll<rt.u32>;
 	#total!: rt.u64;
 	#pinned!: rt.Future<rt.u64>;
 	#pinned$2!: rt.Future<rt.u64 | undefined>;
 	#awaitee!: rt.Future<rt.Result<rt.u64, rt.u64>>;
 	#saved!: boolean;
+	#saved$2!: boolean;
 
 	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
 		this.#rx = rx;
@@ -42,17 +48,18 @@ export class helpersFuture {
 		let unwind: number = 0;
 		try {
 			if (this.#state === 0) {
-				unwind = 21;
+				unwind = 27;
 				rt.drop(this.#rx);
 				unwind = 0;
 				rt.drop(this.#guard);
 			} else if (this.#state === 3) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
 				unwind = 15;
+				rt.drop(this.#awaitee);
+				unwind = 18;
 				rt.drop(this.#pinned$2);
-				unwind = 17;
 				this.#saved = false;
+				this.#saved$2 = false;
+				unwind = 23;
 				rt.drop(this.#guard);
 				unwind = 0;
 				rt.drop(this.#rx);
@@ -63,16 +70,17 @@ export class helpersFuture {
 					if (unwind === 0) {
 						throw e;
 					}
-					if (unwind === 12) {
+					if (unwind === 15) {
 						rt.drop(this.#pinned$2);
-					} else if (unwind !== 15) {
-						if (unwind === 17) {
+					} else if (unwind !== 18) {
+						if (unwind === 23) {
 							break b1;
 						}
 						rt.drop(this.#guard);
 						break b0;
 					}
 					this.#saved = false;
+					this.#saved$2 = false;
 					rt.drop(this.#guard);
 				}
 				rt.drop(this.#rx);
@@ -82,8 +90,9 @@ export class helpersFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let _36!: rt.Waker;
 		let owned!: Guard.Guard;
-		let _34!: rt.u64;
+		let _77!: rt.u64;
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
@@ -91,9 +100,34 @@ export class helpersFuture {
 				switch (bb0) {
 					case 0:
 						if (this.#state === 0) {
+							unwind = 64;
+							this.#saved$2 = false;
 							this.#saved = false;
-							this.#total = 0;
-							bb0 = 1;
+							const lent: Guard.Guard = Guard.new(rt.u32Add(Guard.id(this.#guard), 900), Log.clone$Clone(Guard.log(this.#guard)));
+							unwind = 68;
+							this.#saved$2 = true;
+							const captured = lent;
+							this.#lend = rt.closure((_23: rt.Context): rt.Poll<rt.u32> => {
+								return Guard.id(captured);
+							}, (): void => {
+								rt.drop(captured);
+							});
+							rt.drop(new rt.Arc(new rt.PollFn(this.#lend)));
+							Guard.note(this.#guard, "lent");
+							this.#saved$2 = false;
+							rt.drop(this.#lend);
+							if (!(rt.u32Rem(Guard.id(this.#guard), 8) === 7)) {
+								bb0 = 26;
+								continue;
+							}
+							_36 = new rt.ArcWaker(new rt.Arc(new Blast.Blast(Guard.new(rt.u32Add(Guard.id(this.#guard), 700), Log.clone$Clone(Guard.log(this.#guard))))), Blast.wake$Wake, (arc: rt.Arc<Blast.Blast>) => rt.drop(arc));
+							unwind = 62;
+							const _42: rt.u32 = rt.u32Add(Guard.id(this.#guard), 800);
+							unwind = 61;
+							const _38: Guard.Guard = Guard.new(_42, Log.clone$Clone(Guard.log(this.#guard)));
+							unwind = 68;
+							rt.drop(new Fused.Fused({ waker: _36, after: _38 }));
+							bb0 = 26;
 							continue;
 						}
 						if (this.#state === 1) {
@@ -101,59 +135,63 @@ export class helpersFuture {
 						} else if (this.#state === 2) {
 							rt.asyncFnResumedPanic();
 						} else {
-							bb0 = 13;
+							bb0 = 39;
 							continue;
 						}
-					case 1:
-						unwind = 34;
+					case 26:
+						this.#total = 0;
+						bb0 = 27;
+						continue;
+					case 27:
+						unwind = 60;
 						owned = Guard.new(rt.u32Add(Guard.id(this.#guard), 500), Log.clone$Clone(Guard.log(this.#guard)));
-						unwind = 33;
+						unwind = 59;
 						this.#saved = true;
 						this.#pinned = rt.NEVER;
 						const never: rt.Future<rt.u64> = this.#pinned;
-						const _15: rt.Future<rt.u64 | undefined> = new recvFuture(this.#rx);
-						unwind = 32;
-						this.#pinned$2 = _15;
+						const _58: rt.Future<rt.u64 | undefined> = new recvFuture(this.#rx);
+						unwind = 58;
+						this.#pinned$2 = _58;
 						const next: rt.Future<rt.u64 | undefined> = this.#pinned$2;
 						this.#saved = false;
-						let captured = never;
-						let captured2 = undefined as rt.Waker | undefined;
-						const captured3 = owned;
-						let captured4 = next;
-						const captured5 = this.#total;
+						let captured2 = never;
+						let captured3 = undefined as rt.Waker | undefined;
+						const captured4 = owned;
+						let captured5 = next;
+						const captured6 = this.#total;
 						this.#awaitee = new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.Result<rt.u64, rt.u64>> => {
 							let _152!: Log.Log;
 							let _81!: boolean;
 							let unwind2: number = 0;
 							try {
 								_81 = false;
-								const waiting: rt.Poll<rt.u64> = captured.poll(rt.NOOP_WAKER);
-								if (captured2 === undefined) {
+								const waiting: rt.Poll<rt.u64> = captured2.poll(rt.NOOP_WAKER);
+								if (captured3 === undefined) {
 									const _132: rt.Waker = cx;
-									const _16: Log.Log = Guard.log(captured3);
+									const _16: Log.Log = Guard.log(captured4);
 									_81 = true;
 									_152 = Log.clone$Clone(_16);
 									unwind2 = 51;
-									const _18: rt.u32 = rt.u32Add(Guard.id(captured3), 100);
+									const _18: rt.u32 = rt.u32Add(Guard.id(captured4), 100);
 									_81 = false;
 									const _122: rt.Waker = relayed(_132, _152, _18);
 									unwind2 = 0;
 									_81 = false;
 									const _11: rt.Waker | undefined = _122;
-									rt.drop(captured2);
-									captured2 = _11;
+									rt.drop(captured3);
+									captured3 = _11;
 								}
-								const relay2: rt.Waker = rt.optionUnwrap(captured2);
-								const polled: rt.Poll<rt.u64 | undefined> = captured4.poll(relay2);
-								const _39: boolean = isPending$Poll_u64(waiting);
+								const relay2: rt.Waker = rt.optionUnwrap(captured3);
+								const polled: rt.Poll<rt.u64 | undefined> = captured5.poll(relay2);
+								const _392: boolean = isPending$Poll_u64(waiting);
 								const _422: boolean = isReady$Poll_Option_u64(polled);
-								const _45: boolean = isPending$Poll_Option_u64(polled);
-								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_39, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_45, f)];
-								Guard.note(captured3, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
+								const _452: boolean = isPending$Poll_Option_u64(polled);
+								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_392, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_452, f)];
+								Guard.note(captured4, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
 								if (polled !== rt.Pending) {
 									if (polled !== undefined) {
 										if (polled === 99) {
-											const part = Guard.id(captured3);
+											const part = Guard.id(captured4);
 											const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 											rt.panicFmt(["g", args4[0], " poisoned"]);
 										} else if (rt.u64Rem(polled, 2) === 0) {
@@ -161,8 +199,8 @@ export class helpersFuture {
 										}
 									}
 								}
-								return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0(polled, (value3: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
-									return okOr$Option_u64_u64(value3, captured5);
+								return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0(polled, (value3: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
+									return okOr$Option_u64_u64(value3, captured6);
 								}), (value4: rt.u64): rt.u64 => {
 									return rt.u64Mul(value4, 2);
 								}), (total: rt.u64): rt.u64 => {
@@ -178,48 +216,58 @@ export class helpersFuture {
 								throw e2;
 							}
 						}, (): void => {
-							rt.drop(captured2);
-							rt.drop(captured3);
-						}));
-						bb0 = 13;
+							let dropped: number = 0;
+							try {
+								rt.drop(captured3);
+								dropped = 1;
+								rt.drop(captured4);
+							} catch (e) {
+								if (dropped < 1) {
+									rt.drop(captured4);
+								}
+								throw e;
+							}
+						}), rt.drop);
+						bb0 = 39;
 						continue;
-					case 13:
-						unwind = 31;
-						const _22: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
-						if (_22 !== rt.Pending) {
-							unwind = 32;
-							const read: rt.Result<rt.u64, rt.u64> = _22;
+					case 39:
+						unwind = 57;
+						const _65: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
+						if (_65 !== rt.Pending) {
+							unwind = 58;
+							const read: rt.Result<rt.u64, rt.u64> = _65;
 							rt.drop(this.#awaitee);
 							if (read.ok) {
 								if (read.value === 154) {
-									_34 = this.#total;
-									bb0 = 26;
+									_77 = this.#total;
+									bb0 = 52;
 									continue;
 								}
-								const _32: rt.u64 = rt.u64Add(this.#total, read.value);
-								unwind = 33;
-								this.#total = _32;
+								const _75: rt.u64 = rt.u64Add(this.#total, read.value);
+								unwind = 59;
+								this.#total = _75;
 								rt.drop(this.#pinned$2);
 								this.#saved = false;
-								bb0 = 1;
+								bb0 = 27;
 								continue;
 							}
-							_34 = read.error;
-							bb0 = 26;
+							_77 = read.error;
+							bb0 = 52;
 							continue;
 						}
 						this.#state = 3;
 						return rt.Pending;
-					case 26:
-						unwind = 33;
+					case 52:
+						unwind = 59;
 						rt.drop(this.#pinned$2);
-						unwind = 35;
+						unwind = 65;
 						this.#saved = false;
+						this.#saved$2 = false;
 						rt.drop(this.#guard);
-						unwind = 37;
+						unwind = 69;
 						rt.drop(this.#rx);
 						this.#state = 1;
-						return _34;
+						return _77;
 				}
 			}
 		} catch (e) {
@@ -227,30 +275,52 @@ export class helpersFuture {
 				b2: {
 					b3: {
 						b4: {
-							if (unwind === 0) {
-								throw e;
+							b5: {
+								b6: {
+									if (unwind === 0) {
+										throw e;
+									}
+									if (unwind === 57) {
+										rt.drop(this.#awaitee);
+									} else if (unwind !== 58) {
+										if (unwind === 59) {
+											break b6;
+										}
+										if (unwind === 60) {
+											break b5;
+										}
+										if (unwind === 61) {
+											rt.drop(_36);
+											break b4;
+										}
+										if (unwind === 62) {
+											rt.drop(_36);
+											break b4;
+										}
+										if (unwind === 64) {
+											break b3;
+										}
+										if (unwind === 65) {
+											break b2;
+										}
+										if (unwind === 68) {
+											break b4;
+										}
+										break b1;
+									}
+									rt.drop(this.#pinned$2);
+								}
+								if (this.#saved) {
+									rt.drop(owned);
+								}
 							}
-							if (unwind === 31) {
-								rt.drop(this.#awaitee);
-							} else if (unwind !== 32) {
-								if (unwind === 33) {
-									break b4;
-								}
-								if (unwind === 34) {
-									break b3;
-								}
-								if (unwind === 35) {
-									break b2;
-								}
-								break b1;
-							}
-							rt.drop(this.#pinned$2);
+							this.#saved = false;
 						}
-						if (this.#saved) {
-							rt.drop(owned);
+						if (this.#saved$2) {
+							rt.drop(this.#lend);
 						}
+						this.#saved$2 = false;
 					}
-					this.#saved = false;
 					rt.drop(this.#guard);
 				}
 				rt.drop(this.#rx);

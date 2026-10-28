@@ -16,8 +16,22 @@ use crate::model::Guard;
 /// wakes; and `Poll`'s methods on what each poll returns. `recv` wakes the task through
 /// a relay, a waker the `poll_fn` makes on its first poll from an `Arc` of a `Wake` impl,
 /// which an even value also wakes by value, and which logs its own drop. It stops at a
-/// value of 77, and panics on 99 inside the `poll_fn`.
+/// value of 77, and panics on 99 inside the `poll_fn`. First, a `poll_fn` of a borrowed
+/// function drops in an `Arc` without dropping the function, and for one guard in eight,
+/// a waker whose last drop panics goes before a guard that unwinding still drops.
 pub async fn helpers(mut rx: Consumer, guard: Guard) -> u64 {
+	let lent = Guard::new(guard.id() + 900, guard.log().clone());
+	let mut lend = move |_: &mut Context<'_>| Poll::Ready(lent.id());
+	drop(Arc::new(future::poll_fn(&mut lend)));
+	guard.note("lent");
+	drop(lend);
+	if guard.id() % 8 == 7 {
+		let blast = Blast(Guard::new(guard.id() + 700, guard.log().clone()));
+		drop(Fused {
+			waker: Waker::from(Arc::new(blast)),
+			after: Guard::new(guard.id() + 800, guard.log().clone()),
+		});
+	}
 	let mut total = 0;
 	loop {
 		let owned = Guard::new(guard.id() + 500, guard.log().clone());
@@ -94,5 +108,25 @@ impl Wake for Plain {
 	fn wake(self: Arc<Self>) {
 		self.0.guard.note("plain wake");
 		self.0.task.wake_by_ref();
+	}
+}
+
+/// A waker, then a guard: glue that drops the waker first must still drop the guard when
+/// the waker's drop panics.
+struct Fused {
+	waker: Waker,
+	after: Guard,
+}
+
+/// Panics as its last waker drops, after which its guard drops.
+struct Blast(Guard);
+
+impl Wake for Blast {
+	fn wake(self: Arc<Self>) {}
+}
+
+impl Drop for Blast {
+	fn drop(&mut self) {
+		panic!("g{} blew", self.0.id());
 	}
 }

@@ -223,12 +223,17 @@ export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
 
-/** `future::poll_fn`'s future: each poll calls `f`, which drops with it. */
+/**
+ * `future::poll_fn`'s future: each poll calls `f`, which drops with it by `drop`, if it
+ * drops at all: a borrowed `f` does not.
+ */
 export class PollFn<T> implements Future<T> {
-	#f: (cx: Context) => Poll<T>;
+	readonly #f: (cx: Context) => Poll<T>;
+	readonly #drop: ((f: (cx: Context) => Poll<T>) => void) | undefined;
 
-	constructor(f: (cx: Context) => Poll<T>) {
+	constructor(f: (cx: Context) => Poll<T>, drop?: (f: (cx: Context) => Poll<T>) => void) {
 		this.#f = f;
+		this.#drop = drop;
 	}
 
 	poll(cx: Context): Poll<T> {
@@ -236,7 +241,7 @@ export class PollFn<T> implements Future<T> {
 	}
 
 	[Symbol.dispose](): void {
-		drop(this.#f);
+		this.#drop?.(this.#f);
 	}
 }
 

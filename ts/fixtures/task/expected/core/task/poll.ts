@@ -2,7 +2,7 @@
 
 import * as rt from "../../rt.ts";
 
-export function map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0(self: rt.Poll<rt.u64 | undefined>, f: (a0: rt.u64 | undefined) => rt.Result<rt.u64, rt.u64>): rt.Poll<rt.Result<rt.u64, rt.u64>> {
+export function map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0(self: rt.Poll<rt.u64 | undefined>, f: (a0: rt.u64 | undefined) => rt.Result<rt.u64, rt.u64>): rt.Poll<rt.Result<rt.u64, rt.u64>> {
 	if (self !== rt.Pending) {
 		return f(self);
 	}
@@ -31,7 +31,7 @@ export function isPending$Poll_u64(self: rt.Poll<rt.u64>): boolean {
 	return !isReady$Poll_u64(self);
 }
 
-export function mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1(self: rt.Poll<rt.Result<rt.u64, rt.u64>>, f: (a0: rt.u64) => rt.u64): rt.Poll<rt.Result<rt.u64, rt.u64>> {
+export function mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1(self: rt.Poll<rt.Result<rt.u64, rt.u64>>, f: (a0: rt.u64) => rt.u64): rt.Poll<rt.Result<rt.u64, rt.u64>> {
 	if (self !== rt.Pending) {
 		if (self.ok) {
 			return rt.Ok(f(self.value));
@@ -41,7 +41,7 @@ export function mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1
 	return rt.Pending;
 }
 
-export function mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2(self: rt.Poll<rt.Result<rt.u64, rt.u64>>, f: (a0: rt.u64) => rt.u64): rt.Poll<rt.Result<rt.u64, rt.u64>> {
+export function mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2(self: rt.Poll<rt.Result<rt.u64, rt.u64>>, f: (a0: rt.u64) => rt.u64): rt.Poll<rt.Result<rt.u64, rt.u64>> {
 	if (self !== rt.Pending) {
 		if (self.ok) {
 			return self;
