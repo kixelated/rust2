@@ -108,7 +108,9 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(model::blocks(channels[c].consumer(), guard, arg >= 128));
 			}
 		}),
-		("drops", |log, exec, _, arg| drops::run(log, 1000 * exec.len() as u32, arg)),
+		("drops", |log, exec, _, arg| {
+			drops::run(log, 1000 * exec.len() as u32, arg)
+		}),
 		("held", |log, exec, channels, arg| {
 			if let Some(c) = pick(channels.len(), arg) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
