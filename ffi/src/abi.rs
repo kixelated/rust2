@@ -50,6 +50,10 @@ pub enum Ty {
 	Out(Box<Ty>),
 	/// A pointer the callee only reads through: a value's receiver.
 	In(Box<Ty>),
+	/// A function lent for the call, taking its data first: what it takes and returns.
+	Fn(Vec<Ty>, Box<Ty>),
+	/// The data a lent function takes, which Rust only passes back to it.
+	Data,
 }
 
 /// A C function: its name, parameters, and return type.
@@ -271,6 +275,7 @@ impl<'a> Abi<'a> {
 				constant: false,
 			},
 			Type::Callback(i, _) => Ty::Struct(self.callback(*i)),
+			Type::Closure(params, ret) => Ty::Fn(params.iter().map(|p| self.ty(p)).collect(), Box::new(self.ty(ret))),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => Ty::Struct(self.range(ty)),
 			Type::Tuple(_) => unreachable!("a tuple is only returned, through out parameters"),
 		}
@@ -325,7 +330,18 @@ impl<'a> Abi<'a> {
 				},
 				_ => self.ty(&param.ty),
 			};
-			params.push((escape(&param.name), ty));
+			let name = escape(&param.name);
+			if let Type::Closure(..) = param.ty {
+				// Named apart from every parameter of the function, which C requires.
+				let mut data = format!("{name}_data");
+				while function.params.iter().any(|p| escape(&p.name) == data) {
+					data.push('_');
+				}
+				params.push((name, ty));
+				params.push((data, Ty::Data));
+				continue;
+			}
+			params.push((name, ty));
 		}
 		let mut outs = Vec::new();
 		match &function.ok {
@@ -502,6 +518,10 @@ impl<'a> Abi<'a> {
 				}
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),
 				Type::Tuple(elements) => stack.extend(elements),
+				Type::Closure(params, ret) => {
+					stack.extend(params);
+					stack.push(ret);
+				}
 				Type::Range(_) | Type::Bound(_) => {
 					ranges.insert(self.range(ty), ty.clone());
 				}

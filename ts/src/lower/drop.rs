@@ -41,6 +41,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Mutex
 					| Std::Poll
 					| Std::Pin
+					| Std::PollFn
 					| Std::HashMap
 					| Std::HashSet
 					| Std::BTreeMap
@@ -116,7 +117,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Its binding's `[Symbol.dispose]`.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Waker) => true,
+				// Each drops by what it was given.
+				Some(Std::Waker | Std::PollFn) => true,
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::Reverse) => {
 					self.disposable(args.type_at(0), span)
 				}
@@ -164,7 +166,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Waker) => false,
+				// One from an `Arc` runs the crate's `Drop`, which a waker's type doesn't name.
+				Some(Std::Waker) => true,
 				// What it holds of its own, or of its items.
 				None | Some(Std::Peekable) if self.std_iter(ty) => {
 					args.types().any(|t| self.drop_panics(t, seen))

@@ -48,7 +48,6 @@ Every generator on the C ABI:
 ## Required
 
 - [Instances the config can't name yet](/quest/m1/ffi-export/instance-keys.md) - `&T` keys, `IntoIterator` as a `Vec`, `serde_json::Value`, and `Catalog<()>`
-- [Closures lent for the call](/quest/m1/ffi-export/lent-closures.md) - a callback borrowed for one call, as `modify`'s `Guard` needs
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
