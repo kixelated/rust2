@@ -38,7 +38,7 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
 - Each child measures this target by the census of `ts/moq/model.toml`, rooted at those
   types with the boundaries bound, which nightly reports beside the whole crate.
 - The end-to-end work stays here: the model's roots, its differential harness, and the
-  `frames.ts` workload.
+  `frames.ts` workload. moq writes the binding files `model.toml` names, in its own tree.
 
 Public API: the translator's output for moq-net's model.
 
@@ -48,4 +48,6 @@ Public API: the translator's output for moq-net's model.
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
+- [Std's mutable references to values JS copies](/quest/m2/ts-model/std-places.md) - `as_mut`, `get_or_insert`, `iter_mut`, and the rest give an `rt.Place`
+- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures
