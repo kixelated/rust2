@@ -14,6 +14,9 @@
   and `rt.vecClone` is gone: clone an array with `map`.
 - `Mutex::lock`'s result is an `rt.Result` of the guard, always `Ok`, rather than the
   guard itself.
+- A `Weak` and a `MutexGuard` drop: an `rt.Weak` uncounts itself from its `rt.Arc` and a
+  guard unlocks its `rt.Mutex`. A struct holding either is a class made with `new` rather
+  than an object literal, and a caller drops an `rt.Weak` it holds with `rt.drop`.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not
   `=> void`: type its export `: undefined`.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a
