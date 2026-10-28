@@ -6,6 +6,7 @@ import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapO
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
+import { boxed } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
@@ -21,6 +22,11 @@ import { recvFuture } from "./kio.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
+
+/** What boxed trait objects drop, panicking at the point `at` names, if any. */
+export function dyns(log: Log.Log, id: rt.u32, at: rt.u8): void {
+	boxed(log, id, at);
+}
 
 /** Run one-time cells' scenario `at`. */
 export function cells(log: Log.Log, id: rt.u32, at: rt.u8): void {
@@ -40,7 +46,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let cloned!: rt.Arc<Held.Held>;
 	let mutex!: rt.Mutex<Held.Held[]>;
 	let v2!: Held.Held[];
-	let boxed!: Held.Held;
+	let boxed_!: Held.Held;
 	let _91!: Guard.Guard;
 	let maybe!: Held.Held | undefined;
 	let wrapped!: Wrap.Wrap<Held.Held>;
@@ -185,7 +191,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			unwind = 215;
 			const _94: Guard.Guard = guard(7);
 			unwind = 235;
-			boxed = { tag: "Two", _0: _91, _1: _94 } as Held.Held;
+			boxed_ = { tag: "Two", _0: _91, _1: _94 } as Held.Held;
 			unwind = 233;
 			_383 = true;
 			const _98: Held.Held = { tag: "One", _0: guard(8) };
@@ -197,7 +203,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_112, f), (f: rt.Formatter) => rt.fmtBool(_115, f)];
 			Log.note(log, rt.fmtFormat(["held ", args6[0], " ", args6[1]]));
 			_383 = false;
-			drop$Held(boxed);
+			drop$Held(boxed_);
 			check(4);
 			_384 = false;
 			rt.dropAll(mutex.value, drop$Held);
@@ -536,7 +542,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																							break b1;
 																						}
 																						if (_383) {
-																							drop$Held(boxed);
+																							drop$Held(boxed_);
 																						}
 																					}
 																					if (_384) {

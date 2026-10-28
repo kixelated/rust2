@@ -216,6 +216,14 @@ const utf8 = [
 ].map((bytes) => Uint8Array.of(op("utf8::decodes"), 0, ...bytes));
 
 /**
+ * `dyns::dyns` too short to run, with a `Tri` of each variant, at the ends of each side and
+ * count, and boxing each kind of shape.
+ */
+const dyns = [[], [1, 2], [3, 0, 7], [255, 1, 255, 0, 1, 2, 3, 4, 5], [0, 3, 2, 9, 255, 6, 128]].map((bytes) =>
+	Uint8Array.of(op("dyns::dyns"), 0, ...bytes),
+);
+
+/**
  * `cells` scripts of (op, operand) pairs on every kind, so each cell and value type: reads
  * and sets, a `None` and a `()` held, initializing from within initialization and
  * panicking in it, empty and full, and a cell replaced.
@@ -234,4 +242,4 @@ const cellScripts = [
 ];
 const cells = Array.from({ length: 256 }, (_, kind) => cellScripts.map((script) => Uint8Array.of(cellsOp, kind, ...script))).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...cells];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells];

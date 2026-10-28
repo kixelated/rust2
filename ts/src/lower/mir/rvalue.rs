@@ -212,7 +212,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let value = self.operand(op, span, out);
 					self.b.dyn_future(from, to, value, span)
 				}
-				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
+				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(|t| t.is_trait()) => {
+					let value = self.operand(op, span, out);
+					self.b.object_of(value, from, to, span)
+				}
 				// An array's bytes, as a slice of all of it: a reference to them is one already.
 				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
 					match to.builtin_deref(true) {
