@@ -515,3 +515,10 @@ pub fn tail_read(t: &Tail<u8>) -> u8 {
 	let r: &Tail<dyn Reading> = t;
 	r.value.read()
 }
+
+/// `get_mut` of a mutex of a number, whose `&mut` the mapping would copy.
+pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
+	let n = m.get_mut().unwrap();
+	*n += 1;
+	*n
+}
