@@ -501,6 +501,22 @@ fn elements(data: &[u8], out: &mut Vec<u8>) {
 		*x += 1;
 		*x % 3 != 0
 	});
+	// Keys that are their own JS map keys, of values JS copies.
+	let mut scalars: HashMap<u8, u32> = HashMap::new();
+	for &b in data {
+		*scalars.entry(b % 5).or_default() += u32::from(b);
+	}
+	for (k, x) in scalars.iter_mut() {
+		*x += u32::from(*k);
+	}
+	for x in scalars.values_mut() {
+		*x *= 3;
+	}
+	let scalars: BTreeMap<u8, u32> = scalars.into_iter().collect();
+	for (k, x) in scalars {
+		out.push(k);
+		out.extend_from_slice(&x.to_be_bytes());
+	}
 	// Keys that are objects, which the runtime chains by hash.
 	let mut paired: HashMap<(u8, u8), u32> = HashMap::new();
 	for &b in data {

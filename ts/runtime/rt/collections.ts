@@ -639,8 +639,8 @@ function retainHash<K, V>(m: HashMap<K, V>, f: (key: K, value: V | Place<V>) => 
 }
 
 /**
- * What a collection's iterator yields: its entries as `[key, value]`, keys, values, or a
- * B-tree's entries as `[key, place]`, the place of a value JS copies.
+ * What a collection's iterator yields: its entries as `[key, value]`, keys, values, or
+ * `[key, place]`, the place of a value JS copies.
  */
 type Pick = 0 | 1 | 2 | 3;
 const ENTRIES = 0;
@@ -654,6 +654,7 @@ const PLACES = 3;
  * and drops each entry it still holds as it drops.
  */
 export class HashIter<K, V, T> extends Iter<T> implements Disposable {
+	private readonly m: Map<K, V>;
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
 	private at: Slot<K, V> | undefined;
@@ -666,6 +667,7 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 
 	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
+		this.m = m.p;
 		this.p = m.p.entries();
 		this.o = m.o?.values();
 		this.pick = pick;
@@ -679,15 +681,30 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 	private entry(): [K, V] {
 		const entry = this.p.next();
 		if (!entry.done) return entry.value;
+		const s = this.slot();
+		return [s.k, s.v];
+	}
+
+	/** The next entry of the `left` it has, as its key and the place of its value. */
+	private place(): [K, Place<V>] {
+		const entry = this.p.next();
+		if (!entry.done) return [entry.value[0], new AtKey(this.m, entry.value[0])];
+		const s = this.slot();
+		return [s.k, s];
+	}
+
+	/** The next chained entry, once the primitive keys are done. */
+	private slot(): Slot<K, V> {
 		if (this.at === undefined) this.at = (this.o as Iterator<Slot<K, V>>).next().value;
 		const s = this.at as Slot<K, V>;
 		this.at = s.next;
-		return [s.k, s.v];
+		return s;
 	}
 
 	next(): T | Done {
 		if (this.left === 0) return DONE;
 		this.left--;
+		if (this.pick === PLACES) return this.place() as T;
 		const entry = this.entry();
 		if (this.pick === ENTRIES) return entry as T;
 		return (this.pick === KEYS ? entry[0] : entry[1]) as unknown as T;
@@ -730,10 +747,7 @@ export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void): Iter
 
 /** `iter_mut` of values JS copies: each key and the place of its value, in `hashIter`'s order. */
 export function hashIterMut<K, V>(m: HashMap<K, V>): Iter<[K, Place<V>]> {
-	const entries: [K, Place<V>][] = [];
-	for (const key of m.p.keys()) entries.push([key, new AtKey(m.p, key)]);
-	for (const first of m.o?.values() ?? []) for (let s: Slot<K, V> | undefined = first; s !== undefined; s = s.next) entries.push([s.k, s]);
-	return iterSlice(entries);
+	return new HashIter<K, V, [K, Place<V>]>(m, PLACES);
 }
 
 /** `values_mut` of values JS copies: the place of each. */
@@ -2029,9 +2043,32 @@ export function dequeIter<T>(q: VecDeque<T>, drop?: (item: T) => void): Iter<T> 
 
 /** `iter_mut` of items JS copies: the place of each. */
 export function dequeIterMut<T>(q: VecDeque<T>): Iter<Place<T>> {
-	const places: Place<T>[] = [];
-	for (let i = 0; i < q.n; i++) places.push(new AtIndex(q.b as T[], at(q, i)));
-	return iterSlice(places);
+	return new DequePlaces(q);
+}
+
+/** A deque's `iter_mut` of items JS copies, which lends each as its place. */
+class DequePlaces<T> extends Iter<Place<T>> {
+	private readonly q: VecDeque<T>;
+	private front = 0;
+	private back: number;
+
+	constructor(q: VecDeque<T>) {
+		super();
+		this.q = q;
+		this.back = q.n;
+	}
+
+	next(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.q.b as T[], at(this.q, this.front++)) : DONE;
+	}
+
+	override nextBack(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.q.b as T[], at(this.q, --this.back)) : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
 }
 
 /** `drain`: the items within `r`, taken out at once, which drop by `drop` as `dequeIter`'s. */
