@@ -20,9 +20,10 @@ fixtures/reject/src/lib.rs:180:1: rust2-ffi: cannot export fn `copied(T: String)
 fixtures/reject/src/lib.rs:180:1: rust2-ffi: instance `copied()` in the config exports nothing: it needs an argument for `T`
 fixtures/reject/src/lib.rs:180:1: rust2-ffi: instance `copied(U: u8)` in the config exports nothing: `U` is none of its type parameters `T`
 fixtures/reject/src/lib.rs:186:2: rust2-ffi: instance `Bounded::get(U: u64)` in the config exports nothing: nothing exported reaches it
+fixtures/reject/src/lib.rs:192:1: rust2-ffi: cannot export fn `lend`: Waker outside a parameter taken by value; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:19:1: rust2-ffi: cannot export fn `generic`: generic parameter `std::marker::Copy`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:202:2: rust2-ffi: fn `reject_fixture::Limit::max` and field `reject_fixture::Limit::max` are both `reject_limit_max` in C
-	fixtures/reject/src/lib.rs:194:2: note: field `reject_fixture::Limit::max` is here
+fixtures/reject/src/lib.rs:207:2: rust2-ffi: fn `reject_fixture::Limit::max` and field `reject_fixture::Limit::max` are both `reject_limit_max` in C
+	fixtures/reject/src/lib.rs:199:2: note: field `reject_fixture::Limit::max` is here
 fixtures/reject/src/lib.rs:26:1: rust2-ffi: cannot export fn `borrowing`: borrowing future from a function that is not async; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:31:1: rust2-ffi: cannot export fn `nested`: nested Option `std::option::Option<std::boxed::Box<std::option::Option<u32>>>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:36:1: rust2-ffi: instance `Opaque<u8>` in the config exports nothing: `reject_fixture::Opaque` takes no type arguments

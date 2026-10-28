@@ -36,15 +36,12 @@ exclude = [
     "announce::Announce",
     "announce::Consumer::poll_synced",
     "bytes",
-    "cache::Pool::poll",
     "frame::Buffer",
     "frame::Producer::group",
     "goaway::Consumer::poll",
     "group::Consumer::poll_read_frames",
     "group::Consumer::read_frames",
     "group::Producer::write_frames",
-    "kio",
-    "origin::Driver::poll",
     "origin::Requesting",
     "origin::Routing",
     "path::Relative::borrow",
@@ -117,7 +114,6 @@ exclude = ["Pattern::captures", "Pattern::new", "Pattern::segments", "Patterns::
 exclude = [
     "Deadline::poll",
     "Deadlines::enter",
-    "Deadlines::park",
     "Elapsed",
     "Entered",
     "Instant::from_std",
@@ -533,3 +529,37 @@ exclude = [
 # The rule makes these methods and the variants' tags `moq_container_fmp4_chunk_<variant>`.
 "container::fmp4::Chunk::init" = "container_fmp4_chunk_into_init"
 "container::fmp4::Chunk::fragment" = "container_fmp4_chunk_into_fragment"
+
+# The waiter a driver's poll registers, which C makes from its waker and holds across polls.
+[crates.kio]
+exclude = [
+    "Closed",
+    "Consumer",
+    "ConsumerWeak",
+    "Lock",
+    "LockGuard",
+    "MaybeSend",
+    "Mut",
+    "Park::hold",
+    "Pending",
+    "Producer",
+    "ProducerWeak",
+    "PushError",
+    "Queue",
+    "Ref",
+    "Shared",
+    "Task",
+    "Tasks",
+    "Unused",
+    "Waiter::batch",
+    "Waiter::context",
+    "Waiter::poll_future",
+    "Waiter::waker",
+    "Weak",
+    "coop::Budget::poll_yield",
+    "log::Evicted",
+    "log::Read",
+    "log::Reader",
+    "log::Writer",
+    "wait",
+]

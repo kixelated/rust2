@@ -10,7 +10,7 @@ roots = [
     "owning_closure",
     "keys",
     "async_closure",
-    "specs",
+    "pointer",
     "written",
     "statics",
     "swapped",

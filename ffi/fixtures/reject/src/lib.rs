@@ -188,6 +188,11 @@ impl<T: Copy> Bounded<T> {
 	}
 }
 
+/// A borrowed waker: one crosses only into Rust, which keeps it.
+pub fn lend(waker: &std::task::Waker) {
+	waker.wake_by_ref();
+}
+
 /// A field and a method of one name, which claim one C name until `field@` renames one.
 #[non_exhaustive]
 pub struct Limit {

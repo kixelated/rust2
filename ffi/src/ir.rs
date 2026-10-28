@@ -240,6 +240,8 @@ pub enum Type {
 	Bytes,
 	/// `std::time::Duration`
 	Duration,
+	/// `std::task::Waker`, only as a parameter taken by value.
+	Waker,
 	Option(Box<Type>),
 	/// `Box<T>`, of a non-trait type.
 	Box(Box<Type>),

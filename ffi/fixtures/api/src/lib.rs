@@ -293,6 +293,12 @@ impl Channel {
 		.await
 	}
 
+	/// Wakes `waker` on the next send, keeping it until then, as a driver's poll keeps the
+	/// waker it is given.
+	pub fn notify(&self, waker: Waker) {
+		self.state.lock().unwrap().1 = Some(waker);
+	}
+
 	/// Sends at once, as a function that is not `async` runs when called, and returns a
 	/// future that borrows nothing.
 	pub fn send_later(&self, payload: Bytes) -> impl Future<Output = ()> + use<> {

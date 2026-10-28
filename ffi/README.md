@@ -79,6 +79,7 @@ export's, and adds nothing; another crate's type is refused.
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `Duration` | `<prefix>_duration` |
+| `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
@@ -112,6 +113,9 @@ refused, and the census counts why.
   cancelled read never loses a value. The future reuses the last waker when given the same
   one again, and owns what it borrowed: the handle it was called on stays borrowed until
   it finishes or is freed.
+- **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
+  state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
+  from the caller's event loop.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
@@ -164,5 +168,5 @@ fixture's expected errors, each with its notes, are `fixtures/reject/expected.tx
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
-hands it to a client to publish, reads an OpusHead into hang's catalog through moq-mux,
+hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
 and publishes a binary track the catalog lists.
