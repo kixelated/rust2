@@ -726,6 +726,20 @@ pub struct Inner<T> {
 	pub value: T,
 }
 
+/// `from`'s seed, which outlives the call, so a reference to a value C passes cannot be
+/// it: each instance takes its value.
+pub fn kept(from: impl Seed<u64> + 'static) -> u64 {
+	from.seed()
+}
+
+/// A generic record only a constant names, which infers its instance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Boxed<T> {
+	pub value: T,
+}
+
+pub const BOXED: Boxed<u16> = Boxed { value: 42 };
+
 /// `from`'s weight.
 pub fn weigh(from: impl Seed<u32>) -> u32 {
 	from.seed()

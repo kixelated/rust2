@@ -1736,10 +1736,22 @@ impl<'tcx> Collector<'tcx> {
 		let tcx = self.tcx;
 		let env = TypingEnv::post_analysis(tcx, def_id);
 		let at = |candidate: Ty<'tcx>| self.at(def_id, param, base, candidate);
+		// A lifetime bound, such as `'static`, which a reference to a value C passes for the
+		// call cannot meet, though `at` holds modulo regions.
+		let outlives = (tcx
+			.clauses_of(def_id)
+			.instantiate(tcx, tcx.mk_args(base))
+			.clauses
+			.iter())
+		.filter_map(|clause| clause.skip_norm_wip().as_type_outlives_clause())
+		.any(|pred| pred.skip_binder().0 == param);
 		let mut found: Vec<Ty<'tcx>> = Vec::new();
 		for ty in self.implementors(def_id, param) {
+			if outlives && ty.is_ref() {
+				continue;
+			}
 			// An implementation for `&X` is taken as it is: C passes no reference to one.
-			let borrowed = (!ty.is_ref()).then(|| Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty));
+			let borrowed = (!ty.is_ref() && !outlives).then(|| Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty));
 			let ty = match borrowed.filter(|&borrowed| at(borrowed).is_some()) {
 				Some(borrowed) => borrowed,
 				None if at(ty).is_some() => ty,
@@ -2160,7 +2172,8 @@ impl<'tcx> Collector<'tcx> {
 				tcx.type_of(def_id).instantiate_identity().skip_norm_wip()
 			}
 		};
-		match self.ty(ty, Pos::Return) {
+		// Through `naming`, so an instance only a constant names is inferred.
+		match self.naming(|| self.ty(ty, Pos::Return).map_err(|why| vec![why])) {
 			Ok(ok) => Some(Function {
 				path,
 				span,
@@ -2175,7 +2188,7 @@ impl<'tcx> Collector<'tcx> {
 				instance: None,
 			}),
 			Err(why) => {
-				self.refuse(&path, "const", span, vec![why]);
+				self.refuse(&path, "const", span, why);
 				None
 			}
 		}

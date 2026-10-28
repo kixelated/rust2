@@ -418,6 +418,8 @@ static int script(void) {
 	       api_cross((api_left_right_u8){.value = {.value = 1}}, (api_right_left_u8){.value = {.value = 2}}),
 	       api_outer_inner_u8_get(outer));
 	api_outer_inner_u8_free(outer);
+	/* A bound that outlives the call takes a value, and an instance only a constant names. */
+	printf("kept %llu boxed %u\n", (unsigned long long)api_kept_point((api_point){.x = 1, .y = -2}), api_boxed().value);
 
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);

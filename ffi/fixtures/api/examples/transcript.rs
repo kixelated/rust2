@@ -275,6 +275,11 @@ fn main() {
 		api_lib::cross(left, right),
 		api_lib::Outer::new(4).get()
 	);
+	println!(
+		"kept {} boxed {}",
+		api_lib::kept(Point { x: 1, y: -2 }),
+		api_lib::BOXED.value
+	);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());
