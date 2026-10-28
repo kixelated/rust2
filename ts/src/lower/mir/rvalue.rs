@@ -275,7 +275,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						)
 					}
 					// The value is its discriminant.
-					Some(Std::Ordering) => scrut,
+					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					Some(Std::Bound) => {
 						let table = discrs
@@ -468,6 +468,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
+				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {

@@ -3,12 +3,13 @@
 //! `Cow<str>`, `Duration`, control flow, patterns, byte slices split apart, `Copy`
 //! aggregates, closures, traits, generic types, formatting, collections, UTF-8
 //! decoding, `&mut` to values JS copies, the standard library calls it maps,
-//! `Option`'s and `Result`'s combinators from core's MIR, and `Option`s of values that
-//! can already be `undefined`, and trait objects.
+//! `Option`'s and `Result`'s combinators from core's MIR, `Option`s of values that can
+//! already be `undefined`, atomics, and trait objects.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
+mod atomics;
 mod chars;
 mod chunks;
 mod collections;
