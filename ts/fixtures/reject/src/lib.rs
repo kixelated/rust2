@@ -12,11 +12,6 @@ pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }
 
-/// JS has no reference to a number: the caller's `u32` would not change.
-pub fn bump(x: &mut u32) {
-	*x += 1;
-}
-
 /// Each element would be a copy, so the increments would be lost.
 pub fn increment(v: &mut [u32]) {
 	for x in v {
@@ -43,11 +38,11 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// Dropping the closure would drop what it captured, which lives in an arrow function.
-pub fn owning_closure() -> u8 {
+/// A closure that owns a value that drops, which `map` would hold but never drop.
+pub fn owning_closure(v: &[u8]) -> usize {
 	let n = Noisy(1);
-	let f = move || std::mem::size_of_val(&n) as u8;
-	f()
+	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
+	v.iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -57,16 +52,6 @@ pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
 		sum += k;
 	}
 	sum
-}
-
-/// The async block's generator would change its own copy of `n`.
-pub fn async_borrow() -> u8 {
-	let mut n = 1u8;
-	let f = async {
-		n += 1;
-	};
-	drop(f);
-	n
 }
 
 /// An async closure is a coroutine closure, not an async body.
@@ -91,7 +76,7 @@ pub fn specs(n: u8, w: usize) -> [String; 9] {
 	]
 }
 
-/// `fmt::Write` for a `String`, which a JS string can't be changed through.
+/// `fmt::Write` for a `String`, which has no mapping.
 pub fn written(s: &mut String, n: u8) {
 	use std::fmt::Write;
 	let _ = write!(s, "{n}");
@@ -356,7 +341,7 @@ pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<
 	a.max(b)
 }
 
-/// A reference to a value a map holds that JS copies, passed on, where no `rt.Place` follows it.
+/// std hands its closure a `&mut` to a value JS copies, which its mapping has as the value.
 pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	map.get_mut(&1).map_or(0, |v| {
 		*v += 1;
@@ -372,11 +357,6 @@ pub fn shifted(v: &mut [(u8, u8)]) {
 /// An `Arc`'s bytes would need a `ByteSlice` made inside it.
 pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
-}
-
-/// A `String` pushed to through a parameter, whose JS value is the caller's copy.
-pub fn pushed(s: &mut String) {
-	s.push('a');
 }
 
 /// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
@@ -400,31 +380,26 @@ pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
 	wins && a.max(b).0 > 0
 }
 
-/// `Option::map` drops its closure on `None`, as `Result::map_err` does on `Ok`, and with
-/// it what it captured, which lives in an arrow function.
-pub fn discarded_closure(a: Option<u8>, b: Result<u8, u8>) -> u8 {
-	let (m, n) = (Noisy(1), Noisy(2));
-	let a = a.map(move |x| {
-		drop(m);
-		x
-	});
-	let b = b.map_err(move |e| {
-		drop(n);
-		e
-	});
-	a.unwrap_or(0) + b.unwrap_or(0)
+/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
+/// never drop.
+pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
+	fn id(n: &Noisy) -> u8 {
+		n.0
+	}
+	let (a, b) = (Noisy(1), Noisy(2));
+	m.entry(1).or_insert_with(move || b);
+	v.iter().any(move |&x| x == id(&a))
 }
 
 /// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
 /// `successors` does the item it holds next.
-pub fn owning_lazy(cond: bool) -> usize {
-	let (a, b, c) = (Noisy(1), Noisy(2), Noisy(3));
-	let then = cond.then(move || a).is_some() as usize;
+pub fn owning_lazy() -> usize {
+	let (b, c) = (Noisy(2), Noisy(3));
 	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
 	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
 	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
 	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
-	then + walked + made + held
+	walked + made + held
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
@@ -453,8 +428,37 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// A `Duration` is a value JS copies, which a `&mut` can't change in place.
+/// `AddAssign` for a `Duration`, which has no mapping.
 pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
 	d += by;
 	d
+}
+
+/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
+pub fn last_bumped(v: &mut Vec<u32>) {
+	if let Some(x) = v.last_mut() {
+		*x += 1;
+	}
+}
+
+/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
+pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
+	map.entry(1).and_modify(|v| *v += 1);
+}
+
+fn bumped(x: &mut u8) {
+	*x += 1;
+}
+
+/// A `Result`'s value passed on: a store through it makes the `Result` again, which no
+/// `rt.Place` of a path does.
+pub fn ok_passed(r: &mut Result<u8, u8>) {
+	if let Ok(v) = r {
+		bumped(v);
+	}
+}
+
+/// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
+pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
+	Some(a) == Some(b)
 }

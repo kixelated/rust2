@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::print;
-use crate::ts::{FieldId, Function, Item, SymId};
+use crate::ts::{self, FieldId, Function, Item, SymId};
 
 /// The runtime every module imports helpers from, written beside the crate root: each
 /// file's path from there, and its text.
@@ -91,7 +91,37 @@ pub struct Program {
 	pub methods: HashMap<SymId, Vec<Function>>,
 	/// The structs whose values are plain objects; the others are classes.
 	pub plain: HashSet<SymId>,
+	/// The instances of std's functions, which [`Program::merge`] merges.
+	pub std: HashSet<SymId>,
+	/// Those merged into another, which have no name of their own.
+	merged: HashSet<SymId>,
 	pub sources: Vec<Source>,
+	/// The hand-written files that bindings reach, copied into the output, by module.
+	pub bound: BTreeMap<ModPath, Bound>,
+	/// What `tsc` checks each binding against: a function of the check module each.
+	pub checks: Vec<Check>,
+}
+
+/// A binding's file, which callers import whole, as they do a type's module.
+#[derive(Debug)]
+pub struct Bound {
+	/// The file it is copied from.
+	pub source: PathBuf,
+	pub text: String,
+	/// What callers import it as: the type bound to it, or else its file's name.
+	pub namespace: String,
+	/// Its file's name as an identifier, which callers prefix the namespace with where it
+	/// is taken.
+	pub prefix: String,
+}
+
+/// A function that type-checks only if a binding is what translated code takes it for.
+#[derive(Debug)]
+pub struct Check {
+	pub item: Item,
+	/// The Rust item, which a failed check reports.
+	pub span: rustc_span::Span,
+	pub what: String,
 }
 
 impl Program {
@@ -109,6 +139,59 @@ impl Program {
 		self.fields.len() - 1
 	}
 
+	/// Make one function of the instances of a std function whose output is the same, as
+	/// those over closures of one signature are: the first in order, which the others'
+	/// callers then call. Each merge can make their callers the same too.
+	pub fn merge(&mut self) {
+		loop {
+			let mut same: HashMap<SymId, SymId> = HashMap::new();
+			let mut kept: HashMap<Output, SymId> = HashMap::new();
+			let mut functions: Vec<&Function> = (self.items.iter())
+				.filter_map(|item| match item {
+					Item::Function(f) if self.std.contains(&f.sym) => Some(f),
+					_ => None,
+				})
+				.collect();
+			functions.sort_by_key(|f| self.syms[f.sym].key());
+			for f in functions {
+				let sym = &self.syms[f.sym];
+				let key = (&sym.module, sym.base.as_str(), &f.params[..], &f.ret, &f.body[..]);
+				let first = *kept.entry(key).or_insert(f.sym);
+				if first != f.sym {
+					same.insert(f.sym, first);
+				}
+			}
+			if same.is_empty() {
+				return;
+			}
+			self.items
+				.retain(|item| !matches!(item, Item::Function(f) if same.contains_key(&f.sym)));
+			let mut rename = |id: &mut SymId| {
+				if let Some(&to) = same.get(id) {
+					*id = to;
+				}
+			};
+			let functions = self.items.iter_mut().filter_map(|item| match item {
+				Item::Function(f) => Some(f),
+				_ => None,
+			});
+			for f in functions.chain(self.methods.values_mut().flatten()) {
+				ts::syms_mut(&mut f.body, &mut rename);
+			}
+			for item in &mut self.items {
+				if let Item::Struct { fields, .. } = item {
+					for field in fields {
+						if let ts::FieldInit::Value(e) = &mut field.init {
+							e.syms_mut(&mut rename);
+						}
+					}
+				}
+			}
+			self.std.retain(|id| !same.contains_key(id));
+			self.merged.extend(same.into_keys());
+		}
+	}
+
 	/// Put every item and method in order, and name every symbol and field, resolving
 	/// collisions within each scope in that order.
 	pub fn name(&mut self) {
@@ -121,6 +204,9 @@ impl Program {
 
 		let mut scopes: BTreeMap<Scope, Vec<SymId>> = BTreeMap::new();
 		for (id, sym) in self.syms.iter().enumerate() {
+			if self.merged.contains(&id) {
+				continue;
+			}
 			let scope = match sym.owner {
 				Some(owner) => Scope::Owner(owner),
 				None => Scope::Module(sym.module.clone()),
@@ -132,6 +218,10 @@ impl Program {
 		}
 
 		for (scope, mut ids) in scopes {
+			// A binding's names are its file's exports, which lowering named already.
+			if matches!(&scope, Scope::Module(module) if self.bound.contains_key(module)) {
+				continue;
+			}
 			ids.sort_by(|&a, &b| self.syms[a].key().cmp(&self.syms[b].key()));
 			let mut taken = HashSet::new();
 			match &scope {
@@ -175,6 +265,19 @@ impl Program {
 
 	/// Write every module, the runtime, and their source maps to `out`.
 	pub fn write(&self, out: &Path) -> Result<(), String> {
+		// A copy, or a clean, would replace or remove the source.
+		if let Ok(dir) = out.canonicalize()
+			&& let Some(bound) = self
+				.bound
+				.values()
+				.find(|b| b.source.canonicalize().is_ok_and(|s| s.starts_with(&dir)))
+		{
+			return Err(format!(
+				"the binding {} is inside the output, {}, which a translation replaces",
+				bound.source.display(),
+				out.display()
+			));
+		}
 		clean(out)?;
 		let mut modules: BTreeMap<&ModPath, Vec<&Item>> = BTreeMap::new();
 		for item in &self.items {
@@ -193,10 +296,16 @@ impl Program {
 		// Two types whose names differ only in case would share a file where file names
 		// ignore case, as on macOS and Windows.
 		let mut files = HashMap::new();
-		for module in modules.keys() {
+		for module in modules.keys().copied().chain(self.bound.keys()) {
 			let file = module_file(module);
 			let folded = file.to_string_lossy().to_lowercase();
 			if let Some(other) = files.insert(folded, file.clone()) {
+				if other == file {
+					return Err(format!(
+						"{} is a binding's file, which would replace a translated module's",
+						file.display()
+					));
+				}
 				return Err(format!(
 					"{} and {} differ only in case, which a case-insensitive file system can't tell apart",
 					other.display(),
@@ -210,9 +319,26 @@ impl Program {
 			write_file(&path, &printed.code)?;
 			write_file(&path.with_extension("ts.map"), &printed.map)?;
 		}
+		for (module, bound) in &self.bound {
+			write_file(&out.join(module_file(module)), &format!("{HEADER}\n{}", bound.text))?;
+		}
 		Ok(())
 	}
+
+	/// How a module's importers bind it whole, if they do: a type's module, or a binding's
+	/// file. The name its importers give it, and what they prefix that with where it is taken.
+	pub fn namespace<'p>(&'p self, module: &'p ModPath) -> Option<(&'p str, &'p str)> {
+		if let Some(bound) = self.bound.get(module) {
+			return Some((&bound.prefix, &bound.namespace));
+		}
+		// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
+		module.last()?.split_once('.')
+	}
 }
+
+/// What a function of a module prints as, but for its own name: its item, parameters,
+/// return type, and body.
+type Output<'a> = (&'a ModPath, &'a str, &'a [ts::Param], &'a ts::Type, &'a [ts::Stmt]);
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Scope {
@@ -252,11 +378,6 @@ pub fn type_module(module: &[String], ty: &str) -> ModPath {
 	path
 }
 
-/// Whether `module` is a type's, from [`type_module`].
-pub fn is_type_module(module: &[String]) -> bool {
-	module.last().is_some_and(|last| last.contains('.'))
-}
-
 /// The file a module is written to, relative to the output directory.
 pub fn module_file(module: &[String]) -> PathBuf {
 	match module {
@@ -266,7 +387,7 @@ pub fn module_file(module: &[String]) -> PathBuf {
 }
 
 /// Remove what an earlier run generated, and nothing else.
-fn clean(out: &Path) -> Result<(), String> {
+pub fn clean(out: &Path) -> Result<(), String> {
 	let Ok(entries) = std::fs::read_dir(out) else {
 		return Ok(());
 	};

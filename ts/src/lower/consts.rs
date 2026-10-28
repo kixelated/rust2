@@ -120,8 +120,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::Option, 0) => Expr::undefined(),
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
-						(Std::Result, 0) => Expr::rt("Ok", values),
-						(Std::Result, _) => Expr::rt("Err", values),
+						(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 						// `start..=end`, not yet stepped past its end.
 						(Std::RangeInclusive, _)
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
@@ -145,8 +144,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
-				if !adt.did().is_local() {
-					return self.err(span, format!("a constant of type `{ty}` from another crate"));
+				if !self.t.own(adt.did()) {
+					let foreign = self.t.foreign(adt.did());
+					return self.err(span, format!("a constant of type `{ty}` {foreign}"));
 				}
 				let info = self.t.adt(*adt, span);
 				let def = adt.variant(variant);

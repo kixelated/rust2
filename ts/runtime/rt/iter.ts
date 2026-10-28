@@ -17,7 +17,7 @@
 // iterator has its own, the `owned` functions follow it, dispatching on the kind, so a
 // bundle that never drops an item carries none of it.
 
-import { type Bound, ByteVec, byteVecPush, Err, Ok, panic, type Result } from "../rt.ts";
+import { ByteVec, byteVecPush, Err, Ok, panic, type RangeBound, type Result } from "../rt.ts";
 import { BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -2255,12 +2255,12 @@ export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> 
 }
 
 /** `RangeInclusive::start_bound`: its start, included. */
-export function rangeInclusiveStartBound<T>(r: RangeInclusive<T>): Bound<T> {
+export function rangeInclusiveStartBound<T>(r: RangeInclusive<T>): RangeBound<T> {
 	return { tag: "Included", _0: r.lo };
 }
 
 /** `RangeInclusive::end_bound`: its end, included, until wrapping exhausts it and it excludes its start, as std's. */
-export function rangeInclusiveEndBound<T>(r: RangeInclusive<T>): Bound<T> {
+export function rangeInclusiveEndBound<T>(r: RangeInclusive<T>): RangeBound<T> {
 	return r.exhausted ? { tag: "Excluded", _0: r.lo } : { tag: "Included", _0: r.hi };
 }
 

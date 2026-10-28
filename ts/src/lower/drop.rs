@@ -10,6 +10,7 @@ use rustc_middle::ty::{self, AdtDef, Instance, Ty, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::library::Std;
+use super::mir::Capture;
 use super::{Adt, AdtRepr, Translator};
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, Param, Stmt, StmtKind, Type};
@@ -28,6 +29,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let outer_cycle = std::mem::replace(&mut self.drops_cycle, false);
 		let tcx = self.tcx;
 		let drops = match ty.kind() {
+			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Arc | Std::Waker) => true,
 				Some(
@@ -111,6 +113,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.inert(ty);
 		}
 		match ty.kind() {
+			// Its binding's `[Symbol.dispose]`.
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::Reverse) => {
@@ -133,7 +137,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			ty::Coroutine(..) | ty::Param(_) => true,
+			// A closure's `[Symbol.dispose]` drops what it owns.
+			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		}
 	}
@@ -147,6 +152,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		match ty.kind() {
+			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Waker) => false,
 				// What it holds of its own, or of its items.
@@ -193,6 +199,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		match ty.kind() {
 			ty::Ref(_, inner, _) => self.inert(*inner),
+			// A binding's value that drops nothing has no `[Symbol.dispose]` to call.
+			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each is its contents in JS.
 				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin | Std::Reverse) => {
@@ -274,14 +282,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let rustc = match ty.kind() {
 			ty::Tuple(_) => true,
 			ty::Adt(adt, _) => adt.is_enum() || adt.did().is_local(),
-			ty::Closure(..) => {
-				// Its captures live in an arrow function's scope, where nothing outside can drop them.
-				self.err(
-					span,
-					"dropping a closure that owns a value that drops, which is not supported yet",
-				);
-				return None;
-			}
 			_ => false,
 		};
 		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
@@ -339,9 +339,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let body = self.drop_value(Expr::ident("value"), ty, span)?;
 			return Some(Expr::Lambda(vec![param], Box::new(body)));
 		}
-		if let ty::Closure(..) = ty.kind() {
-			return self.drop_glue_call(Expr::undefined(), ty, span);
-		}
 		super::mir::glue::shim(self, ty, span).map(Expr::Sym)
 	}
 
@@ -382,6 +379,23 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			_ => None,
 		}
+	}
+
+	/// Statements dropping what a closure of type `ty` owns, whose captures are `captures`:
+	/// each that drops, in order, the rest still dropping after one panics, as rustc's glue
+	/// drops a closure. Its `[Symbol.dispose]`, and what ends an `FnOnce` body that drops
+	/// its closure whole.
+	pub fn closure_glue(&mut self, ty: Ty<'tcx>, captures: &[Capture], span: Span) -> Vec<Stmt> {
+		let ty::Closure(_, args) = ty.kind() else {
+			unreachable!("closure glue of a closure")
+		};
+		let mut steps = Vec::new();
+		for (capture, ty) in captures.iter().zip(args.as_closure().upvar_tys()) {
+			if let Some(dropped) = self.drop_value(capture.value.clone(), ty, span) {
+				steps.push((dropped, self.drop_panics(ty, &mut Default::default())));
+			}
+		}
+		unwinding(steps)
 	}
 
 	/// Give a class whose own fields or `Drop` impl drop its drop glue up front, so JS

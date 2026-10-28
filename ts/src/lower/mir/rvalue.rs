@@ -7,11 +7,11 @@ use rustc_middle::ty::adjustment::PointerCoercion;
 use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
-use super::{Env, Fx, Slot};
+use super::{Capture, Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
 use crate::lower::{AdtRepr, byte_array, field_name};
-use crate::ts::{Expr, Key, Stmt, StmtKind};
+use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The value of `rvalue`, assigned to `dest`, or `None` if it has none to assign.
@@ -34,9 +34,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				if let mir::BorrowKind::Mut { .. } = kind {
 					let pointee = place.ty(&self.mir.local_decls, tcx).ty;
-					if self.b.t.object_kind(pointee).is_none()
-						&& !matches!(pointee.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut))
-					{
+					if self.b.t.needs_place(pointee) {
+						if let Some(reborrowed) = self.reborrowed(*kind, *place, span, out) {
+							return Some(reborrowed);
+						}
+						let target = self.place_expr(*place, span, out);
+						return Some(self.make_place(*place, target, span, out));
+					}
+					if matches!(pointee.kind(), ty::Ref(_, _, rustc_ast::Mutability::Not)) {
 						return Some(self.err(
 							span,
 							format!("a mutable reference to `{pointee}`, which is no object it can change in place"),
@@ -101,10 +106,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					UnOp::Not | UnOp::Neg => num::unary(self.b, *op, value, aty, span),
 					UnOp::PtrMetadata => match aty.builtin_deref(true).map(|t| t.kind()) {
 						Some(ty::Str) => Expr::rt("stringLen", vec![value]),
-						Some(ty::Slice(_)) => value.member("length"),
+						Some(ty::Slice(_)) => super::place::slice_member(value, "length"),
 						_ => self.err(span, format!("the metadata of `{aty}`")),
 					},
 				}
+			}
+			// A local held as its parts has its flag.
+			Rvalue::Discriminant(place) if self.scalar_enum(*place) => {
+				let flag = self.scalar_flag(*place, span);
+				let pty = place.ty(&self.mir.local_decls, tcx).ty;
+				let int = Int::of(pty.discriminant_ty(tcx)).expect("an enum's discriminant is an integer");
+				Expr::Cond(Box::new(flag), Box::new(int.lit(1)), Box::new(int.lit(0)))
 			}
 			Rvalue::Discriminant(place) => {
 				let pty = place.ty(&self.mir.local_decls, tcx).ty;
@@ -260,7 +272,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							.collect();
 						Expr::Index(Box::new(Expr::Object(table)), Box::new(scrut.member("tag")))
 					}
-					None if adt.did().is_local() => {
+					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
 							.iter()
@@ -328,9 +340,85 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if active.is_some() {
 					return Some(self.err(span, "unions are not supported"));
 				}
+				if let Some(same) = self.rebuilt_result(kind, ops, &values, ty, span, out) {
+					return Some(same);
+				}
 				self.adt(*def_id, *variant, args, values, ty, span)
 			}
 			_ => unreachable!(),
+		})
+	}
+
+	/// The `Result` a variant of one is rebuilt from, if it takes what that same variant of
+	/// another held, as `map_err` returns its `Ok`: that one's object, since a write into
+	/// an `rt.Result`'s payload replaces the result, so none changes in place. The payload,
+	/// held back for this one read, goes unread.
+	fn rebuilt_result(
+		&mut self,
+		kind: &AggregateKind<'tcx>,
+		ops: &IndexVec<FieldIdx, Operand<'tcx>>,
+		values: &[Expr],
+		ty: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
+		let &AggregateKind::Adt(def_id, variant, ..) = kind else {
+			return None;
+		};
+		if Std::of(self.tcx, def_id) != Some(Std::Result) {
+			return None;
+		}
+		let ([Operand::Copy(place) | Operand::Move(place)], [value]) = (&ops.raw[..], values) else {
+			return None;
+		};
+		let (place, temp) = match self.def_rvalue(place.local) {
+			Some(Rvalue::Use(Operand::Copy(from) | Operand::Move(from), _)) if place.projection.is_empty() => {
+				(*from, Some(place.local))
+			}
+			_ => (*place, None),
+		};
+		let [
+			ref outer @ ..,
+			mir::ProjectionElem::Downcast(_, from),
+			mir::ProjectionElem::Field(..),
+		] = place.projection[..]
+		else {
+			return None;
+		};
+		let whole = Place {
+			local: place.local,
+			projection: self.tcx.mk_place_elems(outer),
+		};
+		// What the place holds now is what the payload was read from.
+		let stable = self.frozen(whole) && self.defs[whole.local] + u32::from(self.is_arg(whole.local)) <= 1;
+		let held = match variant.index() {
+			0 => "value",
+			_ => "error",
+		};
+		let payload = |e: &Expr| matches!(e, Expr::Member(_, Key::Name(field)) if field == held);
+		// Only the payload read as it is: a copy the operand made must still be made.
+		let pending = match (temp.and_then(|temp| self.var(temp)), value) {
+			(_, value) if payload(value) => None,
+			(Some(name), Expr::Ident(read)) if name == *read => Some(
+				self.pending
+					.iter()
+					.position(|p| p.name == name && !p.effect && payload(&p.value))?,
+			),
+			_ => return None,
+		};
+		let whole_ty = whole.ty(&self.mir.local_decls, self.tcx).ty;
+		if from != variant || !stable || self.b.t.std_of(whole_ty) != Some(Std::Result) {
+			return None;
+		}
+		if let Some(i) = pending {
+			self.pending.remove(i);
+		}
+		let same = self.place_expr(whole, span, out);
+		let ts_ty = self.b.t.ty(ty, span);
+		Some(match self.b.t.ty(whole_ty, span) == ts_ty {
+			true => same,
+			// Of the variant both share.
+			false => Expr::As(Box::new(same), ts_ty),
 		})
 	}
 
@@ -353,8 +441,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
-				(Std::Result, 0) => Expr::rt("Ok", values),
-				(Std::Result, _) => Expr::rt("Err", values),
+				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
@@ -402,8 +489,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			["iter", "sources", "empty", "Empty"] => return Expr::rt("iterEmpty", Vec::new()),
 			_ => {}
 		}
-		if !def_id.is_local() {
-			return self.err(span, format!("constructing `{ty}` from another crate"));
+		if !self.b.t.own(def_id) {
+			return self.err(span, format!("constructing `{ty}` {}", self.b.t.foreign(def_id)));
 		}
 		let info = self.b.t.adt(adt, span);
 		match info.repr {
@@ -463,6 +550,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut captures = Vec::with_capacity(ops.len());
 		for op in ops.iter() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
+			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does.
+			if let Some(local) = op.place().and_then(|p| p.as_local())
+				&& self.points_at_place(local)
+				&& let Slot::Alias(Some(target)) = &self.slots[local]
+			{
+				captures.push(Capture {
+					value: target.clone(),
+					pointee: true,
+				});
+				continue;
+			}
 			let value = self.operand(op, span, out);
 			let in_var = op
 				.place()
@@ -481,7 +579,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Expr::ident(name)
 				}
 			};
-			captures.push(value);
+			captures.push(Capture { value, pointee: false });
 		}
 		let instance = Instance::new_raw(def_id, args);
 		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {
@@ -492,10 +590,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.b
 			.t
 			.ret_ty(sig.output(), mir.local_decls[mir::RETURN_PLACE].source_info.span);
+		let ty = Ty::new_closure(tcx, def_id, args);
+		let glue = match self.b.t.drops(ty) {
+			true => Some(self.b.t.closure_glue(ty, &captures, span)),
+			false => None,
+		};
 		let mut inner = Fx::new(&mut *self.b, &mir, Env::Closure(captures), span);
 		let params = inner.params();
 		let body = inner.lower();
-		Expr::Arrow(params, ret, body)
+		let f = Expr::Arrow(params, ret, body);
+		// One that owns what drops carries the glue that drops it.
+		match glue {
+			Some(glue) => Expr::rt("closure", vec![f, Expr::Arrow(Vec::new(), Type::Builtin("void"), glue)]),
+			None => f,
+		}
 	}
 }
 

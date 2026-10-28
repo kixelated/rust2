@@ -35,15 +35,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// gets here, and `tsc` sees that through `rt.unreachable`.
 			Slot::Unit if self.mir.local_decls[local].ty.is_never() => Expr::rt("unreachable", vec![Expr::undefined()]),
 			Slot::Unit => Expr::undefined(),
+			// Passed on or kept, a `&mut` to a borrowed place JS copies is its `rt.Place`.
+			Slot::Alias(Some(target)) if self.points_at_place(local) => {
+				let target = target.clone();
+				let payload = match self.def_rvalue(local) {
+					Some(mir::Rvalue::Ref(_, _, p)) => self.payload_ty(*p, span),
+					_ => None,
+				};
+				self.place_of(target, payload)
+			}
 			Slot::Alias(Some(target)) => target.clone(),
 			Slot::Alias(None) => self.err(span, "a reference read before its borrow"),
-			Slot::Discr(_) => self.err(span, "a discriminant read other than by a switch"),
+			Slot::Discr(_) | Slot::Flag(_) => self.err(span, "a discriminant read other than by a switch"),
 		}
 	}
 
 	/// The JS expression of `place`, read without a copy.
 	pub fn place_expr(&mut self, place: Place<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.tcx;
+		// A local held as its parts reads them, as far as they go.
+		if self.scalars.contains_key(&place.local) {
+			let (e, n) = self.scalar_place(place, span);
+			let mut pty = PlaceTy::from_ty(self.mir.local_decls[place.local].ty);
+			for elem in &place.projection[..n] {
+				pty = pty.projection_ty(tcx, *elem);
+			}
+			return self.project(e, pty, place, n, span, out);
+		}
 		let decls = &self.mir.local_decls;
 		let mut pty = PlaceTy::from_ty(decls[place.local].ty);
 		let mut projection = place.projection.iter().peekable();
@@ -54,7 +72,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => None,
 		};
 		// A closure's captures, and a coroutine's state, are `_1`'s fields.
-		let mut e = match (&self.env, place.local.as_u32()) {
+		let e = match (&self.env, place.local.as_u32()) {
 			(Env::Closure(captures), 1) => {
 				let captures = captures.clone();
 				if matches!(projection.peek(), Some(ProjectionElem::Deref)) {
@@ -64,9 +82,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				match projection.next() {
 					Some(elem @ ProjectionElem::Field(field, _)) => {
 						pty = pty.projection_ty(tcx, elem);
-						match captures.get(field.as_usize()) {
-							Some(capture) => capture.clone(),
-							None => return self.err(span, "a capture the closure doesn't have"),
+						let Some(capture) = captures.get(field.as_usize()) else {
+							return self.err(span, "a capture the closure doesn't have");
+						};
+						let (value, pointee) = (capture.value.clone(), capture.pointee);
+						match projection.peek() {
+							Some(ProjectionElem::Deref) if pointee => {
+								pty = pty.projection_ty(tcx, ProjectionElem::<Local, Ty<'tcx>>::Deref);
+								projection.next();
+								value
+							}
+							// Passed on or kept whole, it is the place's `rt.Place`.
+							None if pointee => self.place_of(value, None),
+							_ => value,
 						}
 					}
 					_ => return self.err(span, "a closure's environment read whole"),
@@ -94,6 +122,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				projection.next();
 				part
 			}
+			// An alias of a borrowed place is that place, which the dereference reads.
+			_ if matches!(projection.peek(), Some(ProjectionElem::Deref)) && self.points_at_place(place.local) => {
+				let Slot::Alias(Some(target)) = &self.slots[place.local] else {
+					return self.err(span, "a reference read before its borrow");
+				};
+				let target = target.clone();
+				pty = pty.projection_ty(tcx, ProjectionElem::<Local, Ty<'tcx>>::Deref);
+				projection.next();
+				target
+			}
 			_ => self.local_expr(place.local, span),
 		};
 		// Checked arithmetic's pair is its value, and `.1` is whether it overflowed, which
@@ -111,14 +149,37 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => unreachable!("a checked pair is a tuple"),
 			});
 		}
+		let from = place.projection.len() - projection.len();
+		self.project(e, pty, place, from, span, out)
+	}
+
+	/// `e`, the value of `place` projected as far as `from`, a `pty`, projected the rest of
+	/// the way.
+	fn project(
+		&mut self,
+		mut e: Expr,
+		mut pty: PlaceTy<'tcx>,
+		place: Place<'tcx>,
+		from: usize,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
+		let tcx = self.tcx;
+		let decls = &self.mir.local_decls;
 		// Whether `e` is an `rt.ByteSlice` of the place's bytes: a `[u8]`, or a `[u8; N]`
 		// behind a reference.
 		let mut in_bytes = false;
-		while let Some(elem) = projection.next() {
+		for (read, elem) in place.projection.iter().enumerate().skip(from) {
 			let ty = pty.ty;
 			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
 				ProjectionElem::Deref => {
+					// Drop glue's pointer is the value it drops.
+					let glue =
+						matches!(self.env, Env::Shim) && place.local.as_u32() == 1 && pty.ty == decls[place.local].ty;
+					if self.b.t.place_pointee(ty).is_some() && !glue {
+						e = e.member("v");
+					}
 					// A box's pointer is the box in JS: one to an object shares it.
 					if let ty::RawPtr(pointee, _) = ty.kind()
 						&& !matches!(self.slots[place.local], Slot::Alias(_))
@@ -132,7 +193,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					e = self.field(e, ty, pty.variant_index, field, span);
 				}
 				ProjectionElem::Downcast(_, variant) => {
-					let read = place.projection.len() - projection.len() - 1;
 					let base = Place {
 						local: place.local,
 						projection: tcx.mk_place_elems(&place.projection[..read]),
@@ -164,7 +224,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let i = match from_end {
 						false => Expr::lit(offset.to_string()),
-						true => base.clone().member("length").binary("-", Expr::lit(offset.to_string())),
+						true => super::scalar::sub(slice_member(base.clone(), "length"), Expr::lit(offset.to_string())),
 					};
 					e = match in_bytes {
 						true => byte_at(base, i),
@@ -178,11 +238,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					from_end: true,
 				} if byte_slice(ty) => {
 					let base = self.slice_path(e, out);
-					let mut values = vec![base.clone(), Expr::lit(from.to_string())];
-					if to != 0 {
-						values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
+					// A range of parts, which the pattern that took it checked the length for.
+					if let Some([data, start, length]) = made_slice(&base) {
+						let len = super::scalar::sub(length.clone(), Expr::lit((from + to).to_string()));
+						let start = super::scalar::add(start.clone(), Expr::lit(from.to_string()));
+						e = Expr::New(Box::new(Expr::Rt("ByteSlice".into())), vec![data.clone(), start, len]);
+					} else {
+						let mut values = vec![base.clone(), Expr::lit(from.to_string())];
+						if to != 0 {
+							values.push(base.member("length").binary("-", Expr::lit(to.to_string())));
+						}
+						e = Expr::rt("byteSliceRange", values);
 					}
-					e = Expr::rt("byteSliceRange", values);
 				}
 				// Part of a `[u8; N]` behind a reference, as `[a, rest @ ..]` of a `&[u8; N]`.
 				ProjectionElem::Subslice { from, to, from_end } if in_bytes => {
@@ -192,8 +259,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => return self.err(span, format!("a subslice of `{ty}`")),
 					};
 					let base = self.slice_path(e, out);
-					let values = vec![base, Expr::lit(from.to_string()), Expr::lit(end.to_string())];
-					e = Expr::rt("byteSliceRange", values);
+					e = match made_slice(&base) {
+						// In bounds of the array's.
+						Some([data, start, _]) => Expr::New(
+							Box::new(Expr::Rt("ByteSlice".into())),
+							vec![
+								data.clone(),
+								super::scalar::add(start.clone(), Expr::lit(from.to_string())),
+								Expr::lit((end - from).to_string()),
+							],
+						),
+						None => {
+							let values = vec![base, Expr::lit(from.to_string()), Expr::lit(end.to_string())];
+							Expr::rt("byteSliceRange", values)
+						}
+					};
 				}
 				ProjectionElem::Subslice { from, to, from_end } => {
 					let elem_ty = match ty.kind() {
@@ -341,7 +421,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
 				})
 			}
-			None if adt.did().is_local() && matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) => {
+			None if self.b.t.own(adt.did()) && matches!(self.b.t.adt(*adt, span).repr, AdtRepr::Union) => {
 				let def = adt.variant(variant);
 				let mut fields = vec![("tag".to_string(), crate::ts::Type::StrLit(def.name.to_string()))];
 				for (i, field) in def.fields.iter().enumerate() {
@@ -417,7 +497,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
-				None if adt.did().is_local() => {
+				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
@@ -517,16 +597,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		// `*r = v` replaces the object `r` points at in place, which other references and
 		// captures share. An alias of a borrowed place, or of a reference to no object,
-		// assigns the place.
+		// assigns the place, and an `rt.Place` its `v`.
 		if let [ProjectionElem::Deref] = place.projection.as_slice()
 			&& !self.alias_of_place(place.local)
+			&& self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_none()
 			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)))
 		{
 			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
 			let alias = matches!(self.slots[place.local], Slot::Alias(_));
 			let target = self.local_expr(place.local, span);
+			// A binding's value may keep what it holds where `Object.assign` can't reach.
+			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
 			let e = match self.b.t.object_kind(pointee) {
-				Some(ObjectKind::Class) if !shared(self, pointee) => {
+				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
@@ -603,11 +686,151 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn alias_of_place(&self, local: Local) -> bool {
 		matches!(self.slots[local], Slot::Alias(_))
 			&& match self.def_rvalue(local) {
-				Some(mir::Rvalue::Ref(_, _, p)) => !matches!(p.projection.last(), Some(ProjectionElem::Deref)),
+				// A reborrow of what an alias of a borrowed place points at borrows that place.
+				Some(mir::Rvalue::Ref(_, _, p)) => match p.projection.as_slice() {
+					[ProjectionElem::Deref] => self.points_at_place(p.local),
+					[.., ProjectionElem::Deref] => false,
+					_ => true,
+				},
+				// A copy of a `&mut` the closure captured by reference.
+				Some(mir::Rvalue::CopyForDeref(p) | mir::Rvalue::Use(Operand::Copy(p) | Operand::Move(p), _)) => {
+					self.pointee_capture(*p).is_some()
+				}
 				Some(_) => false,
 				// An element `index_mut` borrows.
 				None => true,
 			}
+	}
+
+	/// The place `place` borrows, if it is a `&mut` the closure captured by reference.
+	pub(super) fn pointee_capture(&self, place: Place<'tcx>) -> Option<Expr> {
+		let Env::Closure(captures) = &self.env else {
+			return None;
+		};
+		let ([ProjectionElem::Field(field, _)] | [ProjectionElem::Deref, ProjectionElem::Field(field, _)]) =
+			place.projection.as_slice()
+		else {
+			return None;
+		};
+		let capture = captures
+			.get(field.as_usize())
+			.filter(|c| c.pointee && place.local.as_u32() == 1)?;
+		Some(capture.value.clone())
+	}
+
+	/// Whether `local` is an `rt.Place` reference that aliases the place it borrows, so its
+	/// target is that place rather than the `rt.Place`.
+	pub(super) fn points_at_place(&self, local: Local) -> bool {
+		self.b.t.place_pointee(self.mir.local_decls[local].ty).is_some() && self.alias_of_place(local)
+	}
+
+	/// The `rt.Place` of `target`, the JS path of the borrowed `place`, fixed where it is now.
+	pub(super) fn make_place(&mut self, place: Place<'tcx>, target: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let target = self.stable_target(place, target, span, out);
+		let payload = self.payload_ty(place, span);
+		self.place_of(target, payload)
+	}
+
+	/// The type of `place` if it is a variant's payload, whose JS path is its whole enum,
+	/// as `Some`'s is the `Option`.
+	pub(super) fn payload_ty(&mut self, place: Place<'tcx>, span: Span) -> Option<crate::ts::Type> {
+		let downcast = place.iter_projections().any(|(base, e)| {
+			matches!(e, ProjectionElem::Downcast(..)) && base.ty(&self.mir.local_decls, self.tcx).ty.is_enum()
+		});
+		downcast.then(|| self.b.t.ty(place.ty(&self.mir.local_decls, self.tcx).ty, span))
+	}
+
+	/// `target`, the JS path of the borrowed `place`, with the objects and index it goes
+	/// through held where they are now, as the borrow fixes them, for an `rt.Place` that
+	/// reads and writes it later.
+	pub(super) fn stable_target(&mut self, place: Place<'tcx>, target: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		// A store into a `Result`'s value makes the `Result` again, which a path can't.
+		for (base, elem) in place.iter_projections() {
+			if let ProjectionElem::Downcast(..) = elem
+				&& let Some(std @ (Std::Result | Std::ControlFlow)) =
+					self.b.t.std_of(base.ty(&self.mir.local_decls, self.tcx).ty)
+			{
+				return self.err(
+					span,
+					format!("a mutable reference into a `{std:?}`'s payload, passed on or kept"),
+				);
+			}
+		}
+		self.stable_path(target, super::own(place), span, out)
+	}
+
+	/// `target`, a path, with the index it goes through held where it is now, and the
+	/// object too unless it is a local's `own` value, which can't change while borrowed.
+	pub(super) fn stable_path(&mut self, target: Expr, own: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		self.materialize(&target, out);
+		let mut base = |fx: &mut Self, e: Expr| match own {
+			true => e,
+			false => fx.held_now(e, out),
+		};
+		match target {
+			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			Expr::Ident(_) | Expr::This => target,
+			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
+			Expr::Index(object, i) => {
+				let object = base(self, *object);
+				Expr::Index(Box::new(object), Box::new(self.held_now(*i, out)))
+			}
+			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
+		}
+	}
+
+	/// `e`, evaluated now into a constant unless reading it later reads the same.
+	fn held_now(&mut self, e: Expr, out: &mut Vec<Stmt>) -> Expr {
+		if e.is_constant() || matches!(e, Expr::This) || self.stable_name(&e) {
+			return e;
+		}
+		let name = self.b.fresh("borrowed");
+		let stmt = StmtKind::decl(false, name.clone(), None, Some(e)).at(None);
+		self.emit(vec![stmt], None, false, out);
+		Expr::ident(name)
+	}
+
+	/// The `rt.Place` that reads and writes `target`, a path that stays put, read as
+	/// `payload` if it is a variant's.
+	pub(super) fn place_of(&mut self, target: Expr, payload: Option<crate::ts::Type>) -> Expr {
+		let value = self.b.fresh("value");
+		let param = crate::ts::Param {
+			name: value.clone(),
+			ty: None,
+		};
+		let read = match payload {
+			Some(ty) => Expr::As(Box::new(target.clone()), ty),
+			None => target.clone(),
+		};
+		let get = Expr::Lambda(Vec::new(), Box::new(read));
+		let set = Expr::Lambda(vec![param], Box::new(target.assign(Expr::ident(value))));
+		Expr::rt("place", vec![get, set])
+	}
+
+	/// The `rt.Place` of `place`, a reborrow `&mut *r` of a reference `r` that is one, which is `r`'s.
+	/// A shared reborrow `&*r` is what `r` points at instead.
+	pub(super) fn reborrowed(
+		&mut self,
+		kind: mir::BorrowKind,
+		place: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
+		if !matches!(kind, mir::BorrowKind::Mut { .. }) {
+			return None;
+		}
+		let [rest @ .., ProjectionElem::Deref] = place.projection.as_slice() else {
+			return None;
+		};
+		let base = Place {
+			local: place.local,
+			projection: self.tcx.mk_place_elems(rest),
+		};
+		let base_ty = base.ty(&self.mir.local_decls, self.tcx).ty;
+		if self.b.t.place_pointee(base_ty).is_none() || base.as_local().is_some_and(|l| self.alias_of_place(l)) {
+			return None;
+		}
+		Some(self.place_expr(base, span, out))
 	}
 
 	/// `SetDiscriminant`: a coroutine's state.
@@ -667,7 +890,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						0 => scrut.clone().member("ok"),
 						_ => scrut.clone().member("ok").not(),
 					},
-					None if adt.did().is_local() => {
+					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let name = Expr::Str(adt.variant(index).name.to_string());
 						match info.repr {
@@ -726,7 +949,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An aggregate, field by field.
 		if let ty::Adt(..) | ty::Tuple(_) | ty::Array(..) = ty.kind()
 			&& !matches!(ty.kind(), ty::Tuple(tys) if tys.is_empty())
-			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() && adt.all_fields().next().is_none())
+			&& !matches!(ty.kind(), ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) && adt.all_fields().next().is_none())
 		{
 			let Some(d) = tcx.try_destructure_mir_constant_for_user_output(val, ty) else {
 				return self.err(span, format!("a constant of type `{ty}` that can't be taken apart"));
@@ -756,7 +979,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::ZeroSized => match *ty.kind() {
 				ty::FnDef(def_id, args) => self.b.fn_value(def_id, args.skip_binder(), span),
 				ty::Tuple(tys) if tys.is_empty() => Expr::undefined(),
-				ty::Adt(adt, _) if adt.is_struct() && adt.did().is_local() => {
+				ty::Adt(adt, _) if adt.is_struct() && self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(adt, span);
 					self.b.t.construct(info.sym, &crate::ts::Ctor::Unit, &[], Vec::new())
 				}
@@ -877,8 +1100,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let slice = slice.clone();
 		let p = self.pending.remove(i);
-		// A path, or a subslice of one in bounds, reads only bytes nothing changed since.
-		let path = |e: &Expr| e.is_path() || matches!(e, Expr::Index(base, i) if base.is_path() && i.is_constant());
+		// A path, a subslice of one in bounds, or a local's parts, reads only bytes nothing
+		// changed since.
+		let path = |e: &Expr| {
+			e.is_path()
+				|| made_slice(e).is_some()
+				|| matches!(e, Expr::Index(base, i) if base.is_path() && i.is_constant())
+		};
 		let stable = match &slice {
 			Expr::Call(f, args) if matches!(&**f, Expr::Rt(name) if name == "byteSliceRange") => {
 				matches!(args.as_slice(), [base, Expr::Lit(_), ..] if path(base))
@@ -934,11 +1162,30 @@ pub fn byte_slice(ty: Ty<'_>) -> bool {
 
 /// Byte `i` of `slice`, an `rt.ByteSlice` that reading twice reads the same.
 pub fn byte_at(slice: Expr, i: Expr) -> Expr {
-	let at = match &i {
-		Expr::Lit(text) if text == "0" => slice.clone().member("start"),
-		_ => slice.clone().member("start").binary("+", i),
-	};
-	slice.member("data").index(at)
+	let at = super::scalar::add(slice_member(slice.clone(), "start"), i);
+	slice_member(slice, "data").index(at)
+}
+
+/// The field `key` of `slice`, an `rt.ByteSlice`: its part, if it is made in place of parts
+/// that do nothing, as a local held as its parts reads.
+pub fn slice_member(slice: Expr, key: &str) -> Expr {
+	if let Some([data, start, length]) = made_slice(&slice) {
+		return match key {
+			"data" => data.clone(),
+			"start" => start.clone(),
+			"length" => length.clone(),
+			_ => unreachable!("a field of a byte slice"),
+		};
+	}
+	slice.member(key)
+}
+
+/// The parts of `slice`, if it is an `rt.ByteSlice` made in place.
+pub fn made_slice(slice: &Expr) -> Option<&[Expr; 3]> {
+	match slice {
+		Expr::New(f, args) if matches!(&**f, Expr::Rt(name) if name == "ByteSlice") => args.as_slice().try_into().ok(),
+		_ => None,
+	}
 }
 
 /// Whether `ty` is a struct of one field that JS represents as that field: a wrapper

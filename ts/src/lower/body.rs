@@ -96,6 +96,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			Ok(None) if self.t.polymorphic() && gargs.has_param() => return Expr::undefined(),
 			_ => return self.err(span, format!("`{}` does not resolve", tcx.def_path_str(def_id))),
 		};
+		if let Some(sym) = self.t.bound_fn(instance, span) {
+			return Expr::Sym(sym).call(args.into_iter().map(Expr::typed).collect());
+		}
 		// An `async` body's `Future::poll`, which its future has itself.
 		if let ty::InstanceKind::Item(did) = instance.def
 			&& tcx.is_coroutine(did)
@@ -105,14 +108,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return future.member("poll").call(values);
 		}
 		if let ty::InstanceKind::Item(did) = instance.def
-			&& did.is_local()
+			&& self.t.lowers(instance)
 		{
 			let values: Vec<Expr> = args.into_iter().map(Expr::typed).collect();
 			// An `async fn` that only makes its future: the future, made here.
 			if let Some(class) = super::mir::coroutine::of_async_fn(self.t, instance, span) {
 				return Expr::New(Box::new(Expr::Sym(class)), values);
 			}
-			let sym = self.t.instance(instance);
+			let sym = self.t.callee(instance, span);
 			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
@@ -123,6 +126,18 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return call;
 		}
 		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
+			// An operand that was a reference to an `rt.Place`, as `&&mut u32` is, passes
+			// what the Place points at.
+			let inputs = |gargs| {
+				let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
+				tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec()
+			};
+			let args = std::iter::zip(args, std::iter::zip(inputs(gargs), inputs(referent)))
+				.map(|(arg, (was, now))| match was.kind() {
+					ty::Ref(_, inner, _) if was != now => self.t.pointee_value(*inner, arg),
+					_ => arg,
+				})
+				.collect();
 			return self.call_def(def_id, referent, args, span, out);
 		}
 		if let Some(inherited) = library::Inherited::of(tcx, instance) {
@@ -166,8 +181,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
-				(library::Std::Result, 0) => Expr::rt("Ok", values),
-				(library::Std::Result, _) => Expr::rt("Err", values),
+				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(library::Std::Reverse, _) => values.pop().unwrap(),
 				(library::Std::Bound, _) => {
 					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
@@ -176,10 +190,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};
 		}
-		if !adt_id.is_local() {
+		if !self.t.own(adt_id) {
 			return self.err(
 				span,
-				format!("constructing `{}` from another crate", tcx.def_path_str(adt_id)),
+				format!("constructing `{}` {}", tcx.def_path_str(adt_id), self.t.foreign(adt_id)),
 			);
 		}
 		let info = self.t.adt(adt, span);
@@ -216,13 +230,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
 		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
-		// A local function is named directly.
+		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
-			&& let ty::InstanceKind::Item(did) = instance.def
-			&& did.is_local()
 		{
-			return Expr::Sym(self.t.instance(instance));
+			if let Some(sym) = self.t.bound_fn(instance, span) {
+				return Expr::Sym(sym);
+			}
+			if self.t.lowers(instance) {
+				return Expr::Sym(self.t.callee(instance, span));
+			}
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, values, span, &mut body);

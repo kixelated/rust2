@@ -21,6 +21,7 @@ macro_rules! list {
 	}};
 }
 
+mod closures;
 mod iters;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
@@ -63,17 +64,20 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// Run scenario `arg % 20`, panicking at the point `arg / 20 % 8` names, if any: what
+/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 8` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 20 % 8;
+	let at = arg / 23 % 8;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 20 {
+	match arg % 22 {
+		19 => closures::scoped(log, id, at),
+		20 => closures::discarded(log, id, at),
+		21 => closures::blasted(log, id, at),
 		13 => iters::looped(log, id, at),
 		14 => iters::collected(log, id, at),
 		15 => iters::drained(log, id, at),
@@ -89,7 +93,7 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 		10 => tripped(log, id, at, false),
 		11 => grown(log, id, at, true),
 		12 => grown(log, id, at, false),
-		19 => edited(log, id, at),
+		22 => edited(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -510,6 +514,33 @@ fn options(log: &Log, id: u32, at: u8) {
 	let never = false.then_some(guard(18));
 	log.note(format!("then_some {} {}", then.is_some(), never.is_some()));
 	check(5);
+	// Lowered from core's MIR, whose cleanups drop what a panic in a closure leaves.
+	let kept = Some(guard(19)).filter(|g| {
+		check(6);
+		g.id() % 2 == 0
+	});
+	let dropped = Some(guard(20)).filter(|_| false);
+	let zipped = Some(guard(21)).zip(if at % 2 == 0 { Some(guard(22)) } else { None });
+	let other = None.or_else(|| Some(guard(23)));
+	let flag = Some(guard(24)).is_some_and(|g| g.id() > id);
+	log.note(format!(
+		"filter {} {} zip {} or_else {} is_some_and {flag}",
+		kept.is_some(),
+		dropped.is_some(),
+		zipped.is_some(),
+		other.is_some()
+	));
+	let chained = Ok::<Guard, Guard>(guard(25)).and_then(|g| {
+		check(7);
+		Err::<Guard, Guard>(g)
+	});
+	let error = Err::<Guard, Guard>(guard(26)).map_or_else(|e| e.id(), |v| v.id());
+	let cloned = Some(Arc::new(guard(27))).clone();
+	log.note(format!(
+		"and_then {} map_or_else {error} clone {}",
+		chained.is_ok(),
+		cloned.is_some()
+	));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and

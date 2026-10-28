@@ -14,7 +14,7 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { panic } from "../rt.ts";
+import { type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterSlice, iterToArray, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
@@ -296,14 +296,6 @@ export function hashing<K>(hash: (key: K, s: Hasher) => void, eq: (a: K, b: K) =
 /** A value as its own clone. */
 function itself<T>(value: T): T {
 	return value;
-}
-
-/**
- * A `&mut` to a value a collection holds that JS copies, such as a number, which no JS
- * value can point at: where the value is, read and written through `v`.
- */
-export interface Place<T> {
-	v: T;
 }
 
 /** The place of index `i` of `a`. */

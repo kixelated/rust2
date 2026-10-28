@@ -68,7 +68,7 @@ export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Vers
 					return _15;
 				}
 			}
-			return rt.Ok(undefined);
+			return rt.OK;
 		}
 		return _9;
 	}
@@ -84,7 +84,7 @@ export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: 
 			const _49: rt.Result<undefined, EncodeError.EncodeError> = Encoder.fill(w, prefix);
 			if (_49.ok) {
 				w.control = undefined;
-				return rt.Ok(undefined);
+				return rt.OK;
 			}
 			return _49;
 		}

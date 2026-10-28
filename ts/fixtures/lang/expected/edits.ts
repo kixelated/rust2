@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$chars } from "./lib.ts";
+import { unwrapOr$Option_u16, unwrapOr$Option_u8, mapOr$Option_u16_u16_edits_closure21 } from "./core/option.ts";
 import * as Lean from "./edits.Lean.ts";
 import * as Named from "./edits.Named.ts";
 import * as Stamp from "./edits.Stamp.ts";
@@ -24,7 +25,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		return rt.u16Mul(_2 as rt.u16, 3);
 	}));
 	const at: (a0: rt.usize) => rt.u8 = (i3: rt.usize): rt.u8 => {
-		return rt.optionUnwrapOr(rt.byteSliceGet(data, i3), 0);
+		return unwrapOr$Option_u8(rt.byteSliceGet(data, i3), 0);
 	};
 	const _8: rt.u8 = rt.u8Rem(kind, 7);
 	if (_8 === 0) {
@@ -140,7 +141,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}));
 		rt.sliceSortBy(options, rt.cmpOption(rt.cmp));
 		for (const _215 of options) {
-			putU16s(out, [rt.optionMapOr(_215, 65535, (o: rt.u16): rt.u16 => {
+			putU16s(out, [mapOr$Option_u16_u16_edits_closure21(_215, 65535, (o: rt.u16): rt.u16 => {
 				return o;
 			})]);
 		}
@@ -154,7 +155,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_8 === 3) {
 		const v5: rt.u16[] = words.slice();
-		putU16s(out, [rt.optionUnwrapOr(rt.sliceLast(v5), 65535)]);
+		putU16s(out, [unwrapOr$Option_u16(rt.sliceLast(v5), 65535)]);
 		const runs: [rt.u16, rt.u16 | undefined][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_28: rt.u16): [rt.u16, rt.u16 | undefined] => {
 			return [_28, undefined] as [rt.u16, rt.u16 | undefined];
 		}));
@@ -167,7 +168,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			_263[0] = rt.u16Add(_263[0], 1);
 		}
 		for (const _272 of runs) {
-			putU16s(out, [_272[0], rt.optionUnwrapOr(_272[1], 65535)]);
+			putU16s(out, [_272[0], unwrapOr$Option_u16(_272[1], 65535)]);
 		}
 		rt.sliceReverse(v5);
 		putU16s(out, v5);

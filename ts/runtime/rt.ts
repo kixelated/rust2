@@ -7,6 +7,7 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
+import type { Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
@@ -46,6 +47,66 @@ export function assertFailed(op: string, left: Fmt, right: Fmt, args?: Arguments
 	panicFmt(["assertion `left ", op, " right`", ...failed, "\n  left: ", left, "\n right: ", right]);
 }
 
+// Places
+
+/**
+ * A `&mut` to a value JS copies, such as a number, which no JS value can point at: where
+ * the value is, read and written through `v`.
+ */
+export interface Place<T> {
+	v: T;
+}
+
+/** A place read and written by `get` and `set`: a local's, a field's, or an element's. */
+class Accessed<T> implements Place<T> {
+	private readonly read: () => T;
+	private readonly write: (value: T) => void;
+
+	constructor(read: () => T, write: (value: T) => void) {
+		this.read = read;
+		this.write = write;
+	}
+
+	get v(): T {
+		return this.read();
+	}
+
+	set v(value: T) {
+		this.write(value);
+	}
+}
+
+/** The place `get` reads and `set` writes. */
+export function place<T>(get: () => T, set: (value: T) => void): Place<T> {
+	return new Accessed(get, set);
+}
+
+// Bindings
+
+/**
+ * `T` if it can be a bound Rust type's value, or else why not: never `undefined` or
+ * `Pending`, which `None` and `Poll::Pending` are, an object unless Rust copies it, and
+ * disposable exactly when it drops.
+ */
+export type Bound<T, Copy extends boolean, Drop extends boolean> = [undefined] extends [T]
+	? "a bound value can't be undefined, which None is"
+	: [typeof Pending] extends [T]
+		? "a bound value can't be Pending, which Poll::Pending is"
+		: [Copy, T] extends [false, object]
+			? Disposes<T, Drop>
+			: Copy extends true
+				? Disposes<T, Drop>
+				: "a bound value Rust doesn't copy must be an object, which a reference changes in place";
+
+/** `T` if it has a `[Symbol.dispose]` exactly when `Drop`, or else why not. */
+type Disposes<T, Drop extends boolean> = Drop extends true
+	? [T] extends [Disposable]
+		? T
+		: "a bound value that drops must have a [Symbol.dispose]"
+	: [T] extends [{ [Symbol.dispose]: unknown }]
+		? "a bound value with a [Symbol.dispose] must bind with drop = true"
+		: T;
+
 // Results
 
 /** `Result<T, E>`. */
@@ -61,6 +122,12 @@ export function Err<E, T = never>(error: E): Result<T, E> {
 	return { ok: false, error };
 }
 
+/** `Ok(())`, one frozen object every evaluation shares, as nothing can change it. */
+export const OK: Result<undefined, never> = /* @__PURE__ */ Object.freeze({ ok: true, value: undefined });
+
+/** `Err(())`, shared as `OK` is. */
+export const ERR: Result<never, undefined> = /* @__PURE__ */ Object.freeze({ ok: false, error: undefined });
+
 /** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
 function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
 	try {
@@ -74,57 +141,6 @@ function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (val
 // A function that may drop an operand std's would, rather than return it, takes what
 // drops it, and drops it where std's does: as it returns, after any closure it calls, or
 // as a panic in that closure unwinds.
-
-/** `Result::ok`: the value, or `undefined` for an error, which drops. */
-export function resultOk<T, E>(r: Result<T, E>, drop?: (error: E) => void): T | undefined {
-	if (r.ok) return r.value;
-	drop?.(r.error);
-	return undefined;
-}
-
-/** `Result::err`: the error, or `undefined` for a value, which drops. */
-export function resultErr<T, E>(r: Result<T, E>, drop?: (value: T) => void): E | undefined {
-	if (!r.ok) return r.error;
-	drop?.(r.value);
-	return undefined;
-}
-
-/** `Result::map`. */
-export function resultMap<T, E, U>(r: Result<T, E>, f: (value: T) => U): Result<U, E> {
-	return r.ok ? Ok(f(r.value)) : r;
-}
-
-/** `Result::map_err`. */
-export function resultMapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F): Result<T, F> {
-	return r.ok ? r : Err(f(r.error));
-}
-
-/** `Result::and_then`. */
-export function resultAndThen<T, E, U>(r: Result<T, E>, f: (value: T) => Result<U, E>): Result<U, E> {
-	return r.ok ? f(r.value) : r;
-}
-
-/** `Result::inspect_err`, whose error drops if `f` panics. */
-export function resultInspectErr<T, E>(r: Result<T, E>, f: (error: E) => void, drop?: (error: E) => void): Result<T, E> {
-	if (r.ok) return r;
-	try {
-		f(r.error);
-	} catch (e) {
-		drop?.(r.error);
-		throw e;
-	}
-	return r;
-}
-
-/** `Result::unwrap_or`: the value, and the fallback drops, or else the fallback, and the error drops. */
-export function resultUnwrapOr<T, E>(r: Result<T, E>, fallback: T, value?: (value: T) => void, error?: (error: E) => void): T {
-	if (r.ok) {
-		value?.(fallback);
-		return r.value;
-	}
-	error?.(r.error);
-	return fallback;
-}
 
 /** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
 export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
@@ -145,41 +161,6 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (
 }
 
 // Options, which are `T | undefined`.
-
-/** `Option::map`. */
-export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
-	return o === undefined ? undefined : f(o);
-}
-
-/** `Option::unwrap_or`: the value, and the fallback drops, or else the fallback. */
-export function optionUnwrapOr<T>(o: T | undefined, fallback: T, drop?: (value: T) => void): T {
-	if (o === undefined) return fallback;
-	drop?.(fallback);
-	return o;
-}
-
-// `f` decides `U`, since a literal fallback would infer a literal type.
-/** `Option::map_or`: `f` of the value, and the fallback drops, or else the fallback, and `f` drops. */
-export function optionMapOr<T, U>(o: T | undefined, fallback: NoInfer<U>, f: (value: T) => U, drop?: (value: U) => void, dropF?: (f: (value: T) => U) => void): U {
-	if (o === undefined) {
-		dropF?.(f);
-		return fallback;
-	}
-	let mapped: U;
-	try {
-		mapped = f(o);
-	} finally {
-		drop?.(fallback);
-	}
-	return mapped;
-}
-
-/** `Option::ok_or`: the value, and the error drops, or else the error. */
-export function optionOkOr<T, E>(o: T | undefined, error: E, drop?: (error: E) => void): Result<T, E> {
-	if (o === undefined) return Err(error);
-	drop?.(error);
-	return Ok(o);
-}
 
 /** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T {
@@ -266,10 +247,10 @@ export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 }
 
 /** `core::ops::Bound`, tagged as the crate's own enums are. */
-export type Bound<T> = { readonly tag: "Included"; readonly _0: T } | { readonly tag: "Excluded"; readonly _0: T } | { readonly tag: "Unbounded" };
+export type RangeBound<T> = { readonly tag: "Included"; readonly _0: T } | { readonly tag: "Excluded"; readonly _0: T } | { readonly tag: "Unbounded" };
 
 /** `Bound::cloned` and `copied`: `b` with `clone` of what it holds. */
-export function boundMap<T>(b: Bound<T>, clone: (value: T) => T): Bound<T> {
+export function boundMap<T>(b: RangeBound<T>, clone: (value: T) => T): RangeBound<T> {
 	return b.tag === "Unbounded" ? b : { tag: b.tag, _0: clone(b._0) };
 }
 
@@ -777,8 +758,6 @@ export class FmtError {}
 /** `fmt::Result`. */
 export type FmtResult = Result<undefined, FmtError>;
 
-const written: FmtResult = /* @__PURE__ */ Ok(undefined);
-
 /** A value ready to write: `&dyn Display`, `&dyn Debug`, or one placeholder's argument. */
 export type Fmt = (f: Formatter) => FmtResult;
 
@@ -809,7 +788,7 @@ class StringWriter implements Write {
 
 	writeStr(s: string): FmtResult {
 		this.s += s;
-		return written;
+		return OK;
 	}
 }
 
@@ -833,7 +812,7 @@ class PadAdapter implements Write {
 			const r = this.out.writeStr(line);
 			if (!r.ok) return r;
 		}
-		return written;
+		return OK;
 	}
 }
 
@@ -849,7 +828,7 @@ function write(out: Write, args: Arguments): FmtResult {
 		const r = typeof part === "string" ? out.writeStr(part) : part({ out, spec: {} });
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** The number of chars in `s`, as Rust counts them for padding. */
@@ -954,7 +933,7 @@ export interface DebugStruct {
 export function debugStructField(b: DebugStruct, name: string, value: Fmt): DebugStruct {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr(" {\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr(" {\n");
 			b.result = head.ok ? pretty(b.fmt, [name, ": ", value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr((b.hasFields ? ", " : " { ") + name + ": ");
@@ -993,7 +972,7 @@ export interface DebugTuple {
 export function debugTupleField(b: DebugTuple, value: Fmt): DebugTuple {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.fields > 0 ? written : b.fmt.out.writeStr("(\n");
+			const head = b.fields > 0 ? OK : b.fmt.out.writeStr("(\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
 			b.result = b.fmt.out.writeStr(b.fields === 0 ? "(" : ", ");
@@ -1034,10 +1013,10 @@ export interface DebugList {
 export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	if (b.result.ok) {
 		if (fmtAlternate(b.fmt)) {
-			const head = b.hasFields ? written : b.fmt.out.writeStr("\n");
+			const head = b.hasFields ? OK : b.fmt.out.writeStr("\n");
 			b.result = head.ok ? pretty(b.fmt, [value, ",\n"]) : head;
 		} else {
-			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : written;
+			b.result = b.hasFields ? b.fmt.out.writeStr(", ") : OK;
 			if (b.result.ok) b.result = value(b.fmt);
 		}
 	}
@@ -1072,7 +1051,7 @@ function pretty(f: Formatter, parts: Arguments): FmtResult {
 		const r = typeof part === "string" ? writer.out.writeStr(part) : part(writer);
 		if (!r.ok) return r;
 	}
-	return written;
+	return OK;
 }
 
 /** A pretty builder's `finish_non_exhaustive`: an indented `..`, then `close`. */

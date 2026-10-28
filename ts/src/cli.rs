@@ -38,14 +38,37 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		Output::Dir(out) => (config::env::OUT, out.as_os_str()),
 		Output::Census(census) => (config::env::CENSUS, census.as_os_str()),
 	};
-	let env = [(config::env::CONFIG, args.config.as_os_str()), output];
+	// `cargo clean` reads the profiles too.
+	let env = [
+		(config::env::CONFIG, args.config.as_os_str()),
+		output,
+		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
+	];
+	let mut cargo = std_from_source();
+	cargo.extend(args.cargo);
 	Check {
 		tool: "rust2-ts",
 		manifest: &args.manifest,
 		package: &config.package,
 		target: Some(TARGET),
-		args: &args.cargo,
+		args: &cargo,
 		env: &env,
 	}
 	.run()
+}
+
+/// Cargo args that build std from source, unwinding and with every function's MIR, so
+/// the bodies of std's combinators lower as the crate's do, cleanups included: the
+/// target's prebuilt std aborts, so its MIR has none. Set through the profile, which
+/// cargo's fingerprint sees. `panic_abort` keeps aborting, since a `cdylib` dependency
+/// links it.
+fn std_from_source() -> Vec<String> {
+	let mut args = vec!["-Zbuild-std=core,alloc,std,panic_unwind,panic_abort".to_string()];
+	for krate in ["core", "alloc", "std"] {
+		args.push("--config".into());
+		args.push(format!(
+			"profile.dev.package.{krate}.rustflags=[\"-Cpanic=unwind\", \"-Zalways-encode-mir\"]"
+		));
+	}
+	args
 }

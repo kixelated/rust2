@@ -2,7 +2,6 @@ package = "reject-fixture"
 roots = [
     "float",
     "dynamic",
-    "bump",
     "increment",
     "nested",
     "sorted",
@@ -10,7 +9,6 @@ roots = [
     "Noisy",
     "owning_closure",
     "keys",
-    "async_borrow",
     "async_closure",
     "specs",
     "written",
@@ -48,11 +46,14 @@ roots = [
     "cow_borrowed",
     "cow_bytes",
     "cow_made",
-    "pushed",
     "lopsided",
-    "discarded_closure",
+    "called_closure",
     "owning_lazy",
     "duration_assign",
+    "last_bumped",
+    "modified",
+    "ok_passed",
+    "places_equal",
     "missing",
 ]
 printable = ["Meters"]

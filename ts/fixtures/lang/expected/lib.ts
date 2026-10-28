@@ -114,6 +114,14 @@ export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8]
 	return v.ok ? rt.Ok(copy$Mutex_u8_u8(v.value)) : rt.Err(v.error);
 }
 
+export function copy$Result_u32s_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
+	return v.ok ? rt.Ok(copy$u32s(v.value)) : rt.Err(v.error);
+}
+
+export function copy$Result_u8s_u8s_Option_u8(v: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined>): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
+	return v.ok ? rt.Ok(copy$u8s_u8s(v.value)) : rt.Err(v.error);
+}
+
 export function copy$Shape(v: Shape.Shape): Shape.Shape {
 	if (v.tag === "Line") {
 		return { tag: "Line", _0: copy$Point(v._0), _1: copy$Point(v._1) };
@@ -148,6 +156,10 @@ export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
 
+export function copy$u32s(v: rt.u32[]): rt.u32[] {
+	return v.slice();
+}
+
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
 	return [v[0], copy$Horizon(v[1])];
 }
@@ -178,6 +190,10 @@ export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
 
 export function copy$u8s(v: Uint8Array): Uint8Array {
 	return v.slice();
+}
+
+export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
+	return [v[0], v[1]];
 }
 
 //# sourceMappingURL=lib.ts.map

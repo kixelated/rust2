@@ -7,8 +7,9 @@ rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
-`wasm32-unknown-unknown`. Every crate compiles as rustc would; the configured library is
-also translated, after type and borrow checking, starting from its roots and following
+`wasm32-unknown-unknown`, with std built from source for it, unwinding and with every
+function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
+would; the configured library is also translated, after type and borrow checking, starting from its roots and following
 what they reach. A construct outside the subset is a compile error with its span, and
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
@@ -26,6 +27,12 @@ roots = ["coding::Decoder", "lite::Group"]
 printable = ["coding::DecodeError"]
 # Macros whose invocations are left out, such as logging. Each must evaluate to `()`.
 ignore-macros = ["tracing::trace"]
+
+# Hand-written TypeScript that stands in for an item, by its path from the crate root or
+# else from a crate it depends on: a function, or a type and its functions.
+[bind]
+"bytes::Bytes" = "bind/bytes.ts"
+"util::TaskSet" = { file = "bind/tasks.ts", drop = true }
 ```
 
 moq consumes it as the `ts` package of this repository's flake. In this repository,
@@ -33,16 +40,18 @@ moq consumes it as the `ts` package of this repository's flake. In this reposito
 
 ## Census
 
-`--census file.md` translates nothing. It treats every item in the library as a root,
-except derived impls, which come along only when called or printable, and writes a Markdown report of
-every construct translation refuses, with counts and spans. Refusals are ranked by
-construct, by the type or module they name, and by each type or path. A generic function
-that no instance reaches is lowered over its own type parameters, refusing nothing that
-hinges on what they are, since each instance decides that. A census succeeds whatever
-it finds; translation still fails on any refusal.
+`--census file.md` translates nothing. It writes a Markdown report of every construct
+translation refuses, with counts and spans, ranked by construct, by the type or module
+they name, and by each type or path. It starts from the config's roots, as translation
+does. A config that names none makes every item in the library a root, except derived
+impls, which come along only when called or printable, and lowers a generic function
+that no instance reaches over its own type parameters, refusing nothing that hinges on
+what they are, since each instance decides that. A census succeeds whatever it finds;
+translation still fails on any refusal.
 
-`just ts census` runs it on moq-net and kio at the pinned moq revision, into
-`target/census`, and the nightly job publishes their tables.
+`just ts census` runs it at the pinned moq revision, into `target/census`, on moq-net
+whole (`moq/net.toml`), on its model's public types with their boundaries bound
+(`moq/model.toml`), and on kio, and the nightly job publishes their tables.
 
 ## Output
 
@@ -52,7 +61,9 @@ and each type a module of its own beside it, holding the type and its functions
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
-`rt/task.ts`, and `Duration` in `rt/time.ts`.
+`rt/task.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
+`Option`'s and `Result`'s combinators, goes in a module under its crate's name, as
+`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -64,17 +75,17 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
 | `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
-| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }` |
+| `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value: a `&mut` must point at an object JS can change in place, or at a map's value through an `rt.Place` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
-| `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.Bound<T>`, a union tagged by variant |
+| `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
-| closure | an arrow function |
+| closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -162,6 +173,16 @@ a std function's parameters take, where the crate calls it or takes it as a valu
 one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
 not change in place what it passes to or gets from the translation either.
 
+A `&mut` to a value JS copies, which no JS value can point at, such as a number, an
+`Option`, an enum, a tuple, a `Box`, or a `String`, is an `rt.Place` whose `v` reads and
+writes where it points. Where it is only read and written through, in the function that
+borrows it, it is the place it borrows, so a body that passes none on makes none. Passed
+on, returned, kept in a field, or captured by a value, it is
+`rt.place(() => x, (value) => x = value)` over that place, the objects and index it goes
+through held as they were when it was borrowed; a reborrow of one is the same
+`rt.Place`. A caller passes one as `{ v }`, or as any object whose `v` it reads and writes.
+std's mappings take a `&mut` parameter as what it points at.
+
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
@@ -181,12 +202,14 @@ elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
 panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
-function of its type's own (`drop$Held`). The runtime functions for std's collections,
-`Arc`, and the std functions that may discard an operand (`unwrap_or`, a map's `insert`)
-take what drops each value they may drop, and drop it where std's do. So do iterators: one
-that owns its items, as a `Vec`'s `into_iter` or a map's `drain` does, drops those it still
-holds by `[Symbol.dispose]`, an adaptor drops what it skips or rejects, and a consumer that
-takes an iterator by value drops it, a panic included. A `Drop` impl that
+function of its type's own (`drop$Held`). `Option`'s and `Result`'s combinators lower
+from core's MIR, so they drop what core's do, where core's do. The runtime functions for
+std's collections, `Arc`, and the std functions that may discard an operand
+(`then_some`, a map's `insert`) take what drops each value they may drop, and drop it
+where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
+map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
+what it skips or rejects, and a consumer that takes an iterator by value drops it, a
+panic included. A `Drop` impl that
 panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.
@@ -206,6 +229,48 @@ full type arguments.
 
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
+
+## Bindings
+
+A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
+Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
+runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/bytes.ts`,
+and may import the translated modules and npm packages too. Callers import it whole, as a
+type's module, `import * as Bytes from "./bind/bytes.ts"`.
+
+A bound type is the file's export of its name, `Bytes.Bytes`, with the Rust type's type
+parameters. A call of a bound function, or of a function that an impl for a bound type in
+the type's own crate defines, calls the file's export. The export is named as the
+translated function would be, without the type's or the function's type arguments, so one
+export serves every instance and a generic one is a generic TS function. `Bytes::slice` is
+`Bytes.slice`, `<Bytes as PartialEq>::eq` is `Bytes.eq$PartialEq`, and
+`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. A trait's provided function
+that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
+stay the trait's, as for any other type. A generic export sees a type argument only in the
+values it takes, so a function with a bounded type parameter that no argument holds, such
+as `fn zero<T: Default>() -> T`, or with a const parameter, can't be bound. `tsc` checks a
+generic bound type's value at each of its instantiations translation reaches.
+
+Translation can't see into a bound type, so a field, variant, or constructor of one is
+refused, as are iterating one, keying a collection by one, and assigning a whole one
+through a `&mut`. Its value is never `undefined` or `rt.Pending`, which `None` and
+`Poll::Pending` are, and is an object unless the Rust type is `Copy`. A `&mut` to one
+passes that object, which the binding's functions change in place. Where the type is
+`Copy`, such a `&mut` is refused, since JS shares the value where Rust copies it, and a
+binding never changes a `Copy` value in place. Nor does a binding change in place what it
+takes by value or by `&`, or share with a clone what a `&mut` changes, and an integer it
+returns is in its Rust type's range.
+
+Once the output is written, `tsc` 7.0 or later, from `PATH`, checks each export against the
+translated signature of every instance translation calls, and each bound type's value. A
+missing or mismatched binding fails the translation at the Rust item's span, and the
+output is removed. Only the binding files translation reaches are copied, so one imports
+another only where translation reaches both. A binding inside the output is refused, since
+a translation replaces it.
+
+A bound type with `drop = true` drops where Rust drops it, through its
+`[Symbol.dispose]`, which `tsc` checks it has. Without it, dropping one does nothing JS
+sees, `tsc` checks it has no `[Symbol.dispose]`, and a type argument that drops is refused.
 
 ## Design
 
@@ -286,8 +351,13 @@ they need.
   of nanoseconds, so its overflow, `checked_*`, and ordering are std's exactly, and a
   lowering of its methods from core's MIR would read the same fields.
 - `Result` is a plain `{ ok, value } | { ok, error }` object rather than an exception, so
-  `?` and `match` keep Rust's control flow exactly. Making no `Ok` objects at all measured
-  no faster on `just ts bench`, in V8 or JavaScriptCore.
+  `?` and `match` keep Rust's control flow exactly. One whose payload is `undefined`, such
+  as `Ok(())`, is one frozen object every evaluation shares, since nothing writes into a
+  result in place and engines don't remove one returned through a call they don't inline:
+  `just ts bench` measured the codec's encode workloads at 0.90 times their time without
+  it in Chrome, 0.75 in Firefox, and 0.75 in Bun at the geometric mean, with A/A within
+  0.03 in Chrome and Node within its noise. Sharing a result of any other constant, such
+  as `Err(DecodeError::Short)`, measured no faster on the decodes that return it.
 - A `&[u8]` is an `rt.ByteSlice` rather than a `Uint8Array` view, since a view costs
   several times what an object does to make in V8 and JavaScriptCore, and a varint's
   decode splits its slice once to four times. `just ts bench` measured the codec's decode
@@ -296,8 +366,17 @@ they need.
   and encode no slower. A `&[u8; N]`, such as `split_first_chunk`'s chunk, is an
   `rt.ByteSlice` too, its bytes read in place: the decode workloads then took 0.72 times
   a view's time in Chrome, 0.67 in Firefox, 0.87 in Node, and 0.71 in Bun at the
-  geometric mean, with the A/A route within 0.03, and encode no slower. Each split still
-  makes a `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
+  geometric mean, with the A/A route within 0.03, and encode no slower.
+- A local built of byte slices and scalars, in tuples, `Option`s, `Result`s, and
+  `ControlFlow`s, is a JS value per part: a slice's `data`, `start`, and `length`, and an
+  enum's variant as a flag, when nothing borrows or writes into it and only std's splits,
+  `ok_or`, `?`, aggregates, and copies assign it. A read that takes it apart reads its
+  parts; any other makes its object there, and a local whose object would be made more
+  often than before stays one. `just ts bench` measured the codec's varint decode at 0.49
+  times the objects' time in Chrome, 0.57 in Firefox, 0.64 in Node, and 0.56 in Bun at
+  the geometric mean, and frame decode at 0.61, 0.56, 0.70, and 0.61, with the A/A route
+  within 0.04 and encode no slower. A parameter, a return, and a field are still a
+  `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
@@ -330,30 +409,41 @@ they need.
   in the middle and becomes a loop over a `switch` on the next block. Temporaries
   assigned once and read once fold back into the expression that reads them unless that
   would reorder an effect.
+- `Option`'s and `Result`'s combinators lower from core's own MIR rather than runtime
+  functions, each of which restated core's drops and unwinding by hand. The wasm32
+  sysroot aborts on panic, so its MIR has no cleanups: std builds from source with
+  `-C panic=unwind`, which took a cold check from 33 to 42 seconds. Each closure gets
+  its own instance, keeping call sites monomorphic, and instances that print the same are
+  merged into one. An `Ok` rebuilt from a stable `Result`'s payload is that `Result`,
+  without which Node ran the codec 1.31x slower. Against the runtime functions, the codec
+  and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
+  them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
 ## Never
 
 Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, will
-bind to hand-written TS through config ([model](/quest/m2/ts-model/README.md)).
+`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
+to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
-These fail translation: floats, statics, async blocks that borrow a number
-mutably and async closures, values that drop in a closure dropped without a call that
-takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+These fail translation: floats, statics, async closures, a closure that owns a value
+that drops given to std's iterators or collections, and values that drop in some
+iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
-another type it borrows as through the crate's own `Borrow`, a `&mut` to a value a map
-holds that JS copies kept other than to read and write it, `Hasher::write` of bytes, the adaptors
+another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
+copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
+`and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
 format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
-`String` with `write!` or pushing to one through a parameter, a `str` pattern other than a
+`String` with `write!`, a `str` pattern other than a
 `char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
 reference, a switch on or a field of another crate's type without a mapping, and std
-functions without a mapping in `src/lower/library.rs`.
+functions without a mapping in `src/lower/library.rs`, but for `Option`'s and `Result`'s
+methods that take no `&mut`, which lower from core's MIR.
 
 ## Tests
 
@@ -381,10 +471,13 @@ built natively for wasm32 and run beside its translation on the same inputs by
   only in another module, behind a type parameter, or through a box, formatting, methods
   on generic types, iterators, with
   closures that log what each
-  adaptor reads, and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, and `vec![x; n]` of types whose `Clone` counts its clones, a `Vec`'s
-  edits and sorts, with closures that log what each is called with, and std's `Bound`,
-  `Reverse`, and `NonZero`. Its differential test runs through `caller.ts`, a
+  adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
+  and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
+  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
+  to values JS copies, of locals, fields, elements, and a map's values, passed on,
+  returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
+  that log what each is called with, and std's `Bound`, `Reverse`, and `NonZero`. Its
+  differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
   where the runtime switches between numbers and limbs, and its limbs carry and borrow,
@@ -402,6 +495,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
+- `bind` binds `bytes::Bytes`, and a function and a type of its own that read through raw
+  pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
+  differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
+  the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.
+  `refused.toml` holds bindings the config can't make, with the errors in `refused.txt`.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

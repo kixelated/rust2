@@ -280,12 +280,6 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether a value of type `ty` a collection holds is one JS copies, such as a number, so
-/// a `&mut` to it is an `rt.Place` rather than the value.
-fn copied<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
-	b.t.object_kind(ty).is_none() && !matches!(ty.kind(), ty::Ref(..))
-}
-
 /// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
 /// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
@@ -308,7 +302,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 		],
 		_ => return false,
 	};
-	methods.contains(&name.as_str()) && copied(b, arg(coll, 1))
+	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 1))
 }
 
 /// The type an inherent method's impl is of, such as `HashMap<K, V, RandomState>`.
@@ -331,11 +325,11 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 	args.types().nth(n).expect("a collection's type argument")
 }
 
-/// What a JS value of `ty` is: through references and boxes, which are their pointee, and
-/// a `NonZero`, which is its integer.
+/// What a JS value of `ty` is: through references and boxes, which are their pointee,
+/// up to a `&mut` that is an `rt.Place`, and a `NonZero`, which is its integer.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	let ty = ty.peel_refs();
 	match ty.kind() {
+		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel(b, *inner),
 		ty::Adt(adt, args) if matches!(Std::of(b.t.tcx, adt.did()), Some(Std::Box | Std::NonZero)) => {
 			peel(b, args.type_at(0))
 		}
@@ -376,7 +370,7 @@ fn hash<'tcx>(
 		(_, "is_empty") => Expr::rt("hashLen", values).binary("===", Expr::lit("0")),
 		(_, "clear") => Expr::rt("hashClear", values),
 		(_, "contains_key" | "contains") => Expr::rt("hashContains", values),
-		(_, "get_mut") if !set && copied(b, arg(coll, 1)) => Expr::rt("hashGetMut", values),
+		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("hashGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("hashGet", values),
 		(_, "get") => Expr::rt("hashKey", values),
 		(_, "take") => {
@@ -484,7 +478,7 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 		ty::Bool | ty::Char | ty::Str => true,
 		ty::Int(_) | ty::Uint(_) => !Int::of(key)?.big(),
 		ty::Adt(..) if library::string(b.t.tcx, key) => true,
-		ty::Adt(adt, _) if adt.did().is_local() && fieldless(*adt) => derived_eq(b, key),
+		ty::Adt(adt, _) if b.t.own(adt.did()) && fieldless(*adt) => derived_eq(b, key),
 		_ => false,
 	};
 	if primitive {
@@ -516,7 +510,7 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
 		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -605,7 +599,7 @@ fn btree<'tcx>(
 		(_, "is_empty") => Expr::rt("btreeLen", values).binary("===", Expr::lit("0")),
 		(_, "clear") => Expr::rt("btreeClear", values),
 		(_, "contains_key" | "contains") => Expr::rt("btreeContains", values),
-		(_, "get_mut") if !set && copied(b, arg(coll, 1)) => Expr::rt("btreeGetMut", values),
+		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("btreeGet", values),
 		(_, "get_key_value") => Expr::rt("btreeGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("btreeAdd", values),
@@ -720,7 +714,7 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
-		ty::Adt(adt, args) if adt.did().is_local() => {
+		ty::Adt(adt, args) if b.t.own(adt.did()) => {
 			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
 				let f = trait_fn(tcx, tr, item);
 				Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(args))
@@ -863,7 +857,7 @@ fn entry<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, name: &str, args: Vec
 	let value = arg(coll, 1);
 	let mut values = args;
 	// What these return a `&mut` to is a place where JS would copy it.
-	let place = copied(b, value);
+	let place = b.t.needs_place(value);
 	let mutable = |f: &str| match place {
 		true => format!("{f}Mut"),
 		false => f.to_string(),
@@ -961,7 +955,7 @@ fn discriminant<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, spa
 	let ty::Adt(adt, _) = ty.kind() else {
 		return b.err(span, format!("the discriminant of `{ty}`"));
 	};
-	if !adt.is_enum() || !adt.did().is_local() {
+	if !adt.is_enum() || !b.t.own(adt.did()) {
 		return b.err(span, format!("the discriminant of `{ty}`"));
 	}
 	let info = b.t.adt(*adt, span);
@@ -990,7 +984,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	// What a std type holds may be the crate's, which compares and hashes by its own impls.
 	let held = |t: Ty<'tcx>| {
 		let t = peel(b, t);
-		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local())
+		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
 	};
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
@@ -1053,11 +1047,11 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
-		ty::Adt(adt, _) if adt.did().is_local() && partial => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1112,7 +1106,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			}
 			Expr::rt("eqArc", values)
 		}
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
@@ -1142,7 +1136,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)]),
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}

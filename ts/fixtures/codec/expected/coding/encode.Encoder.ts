@@ -6,6 +6,8 @@ import type * as Prefix from "../coding/encode.Prefix.ts";
 import type * as PrefixKind from "../coding/encode.PrefixKind.ts";
 import { write } from "../coding/varint.ts";
 import type * as Form from "../coding/varint.Form.ts";
+import { okOr$Option_u64_EncodeError } from "../core/option.ts";
+import { mapErr$Result_u16_TryFromIntError_EncodeError_fill_closure0 } from "../core/result.ts";
 import type * as Control from "../stats.Control.ts";
 
 /**
@@ -47,7 +49,7 @@ export function bool(self: Encoder, v: boolean): void {
 /** Write a varint, or fail with [`EncodeError::BoundsExceeded`] if the form cannot carry it. */
 export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeError.EncodeError> {
 	if (write(v, self.form, self.buf).ok) {
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 }
@@ -58,7 +60,7 @@ export function varintOpt(self: Encoder, v: rt.u64 | undefined): rt.Result<undef
 	if (v === undefined) {
 		v2 = 0;
 	} else {
-		const _6: rt.Result<rt.u64, EncodeError.EncodeError> = rt.optionOkOr(rt.u64CheckedAdd(v, 1), "TooLarge" as EncodeError.EncodeError);
+		const _6: rt.Result<rt.u64, EncodeError.EncodeError> = okOr$Option_u64_EncodeError(rt.u64CheckedAdd(v, 1), "TooLarge" as EncodeError.EncodeError);
 		if (_6.ok) {
 			v2 = _6.value;
 		} else {
@@ -73,7 +75,7 @@ export function bytes(self: Encoder, v: rt.ByteSlice): rt.Result<undefined, Enco
 	const _3: rt.Result<undefined, EncodeError.EncodeError> = varint(self, v.length as rt.u64);
 	if (_3.ok) {
 		slice(self, v);
-		return rt.Ok(undefined);
+		return rt.OK;
 	}
 	return _3;
 }
@@ -138,13 +140,13 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 				const _79: rt.ByteVec = self.buf;
 				_79.data[rt.idx(_79, rt.usizeSub(body, 1))] = _35;
 				rt.byteVecTruncate(self.buf, end);
-				return rt.Ok(undefined);
+				return rt.OK;
 			}
 		} else {
 			return rt.Err(EncodeError.from$From_BoundsExceeded({}));
 		}
 	} else {
-		const _7: rt.Result<rt.u16, EncodeError.EncodeError> = rt.resultMapErr(rt.u16TryFrom(rt.usizeSub(end, body)), (_2: rt.TryFromIntError): EncodeError.EncodeError => {
+		const _7: rt.Result<rt.u16, EncodeError.EncodeError> = mapErr$Result_u16_TryFromIntError_EncodeError_fill_closure0(rt.u16TryFrom(rt.usizeSub(end, body)), (_2: rt.TryFromIntError): EncodeError.EncodeError => {
 			return "TooLarge" as EncodeError.EncodeError;
 		});
 		if (_7.ok) {
@@ -156,7 +158,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 			return _7;
 		}
 	}
-	return rt.Ok(undefined);
+	return rt.OK;
 }
 
 export { new_ as new };

@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
+import { unwrapOr$Option_u64 } from "./core/option.ts";
 import { recvFuture } from "./kio.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
@@ -173,10 +174,11 @@ export class sumFuture {
 /**
  * One value read through the captures only an async block makes: a borrow, which
  * dropping the block must not drop; a copy, which a later change to the original must
- * not reach; a mutable borrow the block replaces whole, which the caller must see; a
- * move on one path only; and a move the block only borrows, which drops when the block
- * returns or is cancelled. Between them, a value of two types that hold each other, and
- * guards held across awaits that read values first.
+ * not reach; a mutable borrow the block replaces whole, and one of a number it writes
+ * across an await, which the caller must see; a move on one path only; and a move the
+ * block only borrows, which drops when the block returns or is cancelled. Between them,
+ * a value of two types that hold each other, and guards held across awaits that read
+ * values first.
  */
 export function blocks(rx: Consumer.Consumer, guard: Guard.Guard, moves: boolean): rt.Future<rt.u64> {
 	return new blocksFuture(rx, guard, moves);
@@ -198,6 +200,8 @@ export class blocksFuture {
 	#saved$2!: rt.u32;
 	#awaitee$3!: rt.Future<rt.u32>;
 	#mark!: Mark.Mark;
+	#count!: rt.u32;
+	#counted!: rt.u32;
 	#nested!: Inner.Inner;
 	#looped!: rt.u32;
 	#awaitee$4!: rt.Future<rt.u64>;
@@ -222,71 +226,78 @@ export class blocksFuture {
 				b1: {
 					b2: {
 						b3: {
-							if (this.#state === 0) {
-								unwind = 89;
-								rt.drop(this.#rx);
-								unwind = 0;
-								rt.drop(this.#guard);
-								return;
-							}
-							if (this.#state === 3) {
-								unwind = 63;
-								rt.drop(this.#awaitee);
-								unwind = 64;
-								rt.drop(this.#saved);
-								this.#saved$9 = false;
-								break b0;
-							}
-							if (this.#state === 4) {
-								unwind = 58;
-								rt.drop(this.#awaitee$2);
-								unwind = 59;
-								rt.drop(this.#saved);
-								this.#saved$8 = false;
-								break b1;
-							}
-							if (this.#state === 5) {
-								unwind = 54;
-								rt.drop(this.#awaitee$3);
-								break b2;
-							}
-							if (this.#state === 6) {
+							b4: {
+								if (this.#state === 0) {
+									unwind = 96;
+									rt.drop(this.#rx);
+									unwind = 0;
+									rt.drop(this.#guard);
+									return;
+								}
+								if (this.#state === 3) {
+									unwind = 70;
+									rt.drop(this.#awaitee);
+									unwind = 71;
+									rt.drop(this.#saved);
+									this.#saved$9 = false;
+									break b0;
+								}
+								if (this.#state === 4) {
+									unwind = 65;
+									rt.drop(this.#awaitee$2);
+									unwind = 66;
+									rt.drop(this.#saved);
+									this.#saved$8 = false;
+									break b1;
+								}
+								if (this.#state === 5) {
+									unwind = 61;
+									rt.drop(this.#awaitee$3);
+									break b2;
+								}
+								if (this.#state === 6) {
+									unwind = 58;
+									rt.drop(this.#awaitee$3);
+									break b3;
+								}
+								if (this.#state === 7) {
+									unwind = 55;
+									rt.drop(this.#awaitee$3);
+									break b4;
+								}
+								if (this.#state === 8) {
+									unwind = 48;
+									rt.drop(this.#awaitee$3);
+								} else if (this.#state === 9) {
+									unwind = 45;
+									rt.drop(this.#awaitee$4);
+								} else {
+									return;
+								}
 								unwind = 51;
-								rt.drop(this.#awaitee$3);
-								break b3;
+								rt.drop(this.#saved);
+								unwind = 53;
+								rt.drop(this.#nested);
 							}
-							if (this.#state === 7) {
-								unwind = 44;
-								rt.drop(this.#awaitee$3);
-							} else if (this.#state === 8) {
-								unwind = 41;
-								rt.drop(this.#awaitee$4);
-							} else {
-								return;
-							}
-							unwind = 47;
-							rt.drop(this.#saved);
-							unwind = 49;
-							rt.drop(this.#nested);
 						}
 					}
 					this.#saved$7 = false;
 				}
-				unwind = 62;
+				unwind = 69;
 				rt.dropAll(this.#slots);
 			}
 			if (this.#saved$4) {
-				unwind = 67;
+				unwind = 74;
 				rt.drop(this.#second);
 			}
 			this.#saved$4 = false;
 			if (this.#saved$5) {
-				unwind = 68;
+				unwind = 75;
 				rt.drop(this.#first);
 			}
 			this.#saved$5 = false;
 			if (this.#saved$3) {
-				unwind = 69;
+				unwind = 76;
 				rt.drop(this.#guard);
 			}
 			this.#saved$3 = false;
@@ -296,74 +307,79 @@ export class blocksFuture {
 			}
 			this.#saved$6 = false;
 		} catch (e) {
-			b9: {
-				b10: {
-					b11: {
-						b12: {
-							b13: {
-								b14: {
-									b15: {
-										b16: {
-											b17: {
-												b18: {
-													b19: {
-														b20: {
-															b21: {
-																if (unwind === 0) {
-																	throw e;
-																}
-																if (unwind === 41) {
-																	break b20;
-																}
-																if (unwind === 44) {
-																	break b20;
-																}
-																if (unwind === 47) {
-																	break b19;
-																}
-																if (unwind === 49) {
-																	break b18;
-																}
-																if (unwind === 51) {
-																	break b17;
-																}
-																if (unwind === 54) {
-																	break b16;
-																}
-																if (unwind === 58) {
-																	rt.drop(this.#saved);
-																	break b21;
-																}
-																if (unwind === 59) {
-																	break b21;
-																}
-																if (unwind === 62) {
-																	break b14;
-																}
-																if (unwind === 63) {
-																	rt.drop(this.#saved);
-																} else if (unwind !== 64) {
-																	if (unwind === 67) {
-																		break b12;
+			b10: {
+				b11: {
+					b12: {
+						b13: {
+							b14: {
+								b15: {
+									b16: {
+										b17: {
+											b18: {
+												b19: {
+													b20: {
+														b21: {
+															b22: {
+																b23: {
+																	if (unwind === 0) {
+																		throw e;
 																	}
-																	if (unwind === 68) {
-																		break b11;
+																	if (unwind === 45) {
+																		break b22;
+																	}
+																	if (unwind === 48) {
+																		break b22;
+																	}
+																	if (unwind === 51) {
+																		break b21;
+																	}
+																	if (unwind === 53) {
+																		break b20;
+																	}
+																	if (unwind === 55) {
+																		break b19;
+																	}
+																	if (unwind === 58) {
+																		break b18;
+																	}
+																	if (unwind === 61) {
+																		break b17;
+																	}
+																	if (unwind === 65) {
+																		rt.drop(this.#saved);
+																		break b23;
+																	}
+																	if (unwind === 66) {
+																		break b23;
 																	}
 																	if (unwind === 69) {
+																		break b15;
+																	}
+																	if (unwind === 70) {
+																		rt.drop(this.#saved);
+																	} else if (unwind !== 71) {
+																		if (unwind === 74) {
+																			break b13;
+																		}
+																		if (unwind === 75) {
+																			break b12;
+																		}
+																		if (unwind === 76) {
+																			break b11;
+																		}
+																		rt.drop(this.#guard);
 																		break b10;
 																	}
-																	rt.drop(this.#guard);
-																	break b9;
+																	this.#saved$9 = false;
+																	break b14;
 																}
-																this.#saved$9 = false;
-																break b13;
+																this.#saved$8 = false;
+																break b16;
 															}
-															this.#saved$8 = false;
-															break b15;
+															rt.drop(this.#saved);
 														}
-														rt.drop(this.#saved);
+														rt.drop(this.#nested);
 													}
-													rt.drop(this.#nested);
 												}
 											}
 										}
@@ -400,7 +416,7 @@ export class blocksFuture {
 		let _40!: Guard.Guard;
 		let result2!: rt.usize;
 		let seen!: rt.Future<rt.u32>;
-		let _141!: Inner.Inner | undefined;
+		let _167!: Inner.Inner | undefined;
 		let unwind: number = 0;
 		try {
 			b0: {
@@ -408,323 +424,355 @@ export class blocksFuture {
 					b2: {
 						b3: {
 							b4: {
-								if (this.#state === 0) {
-									unwind = 148;
-									this.#saved$6 = false;
-									this.#saved$3 = false;
-									this.#saved$5 = false;
-									this.#saved$4 = false;
-									this.#saved$9 = false;
-									this.#saved$8 = false;
-									this.#saved$7 = false;
-									this.#saved$6 = true;
-									this.#saved$3 = true;
-									this.#first = Guard.new(rt.u32Add(this.#guard.id, 200), Log.clone$Clone(this.#guard.log));
-									unwind = 147;
-									this.#saved$5 = true;
-									this.#second = Guard.new(rt.u32Add(this.#guard.id, 300), Log.clone$Clone(this.#guard.log));
+								b5: {
+									if (this.#state === 0) {
+										unwind = 165;
+										this.#saved$6 = false;
+										this.#saved$3 = false;
+										this.#saved$5 = false;
+										this.#saved$4 = false;
+										this.#saved$9 = false;
+										this.#saved$8 = false;
+										this.#saved$7 = false;
+										this.#saved$6 = true;
+										this.#saved$3 = true;
+										this.#first = Guard.new(rt.u32Add(this.#guard.id, 200), Log.clone$Clone(this.#guard.log));
+										unwind = 164;
+										this.#saved$5 = true;
+										this.#second = Guard.new(rt.u32Add(this.#guard.id, 300), Log.clone$Clone(this.#guard.log));
+										unwind = 175;
+										this.#saved$4 = true;
+										rt.drop(new blocksFuture$2(this.#first));
+										turns(this.#guard.log, rt.u32Rem(this.#guard.id, 5));
+										temporaries(this.#guard.log, this.#guard.id);
+										unwind = 163;
+										this.#saved = Guard.new(rt.u32Add(this.#guard.id, 900), Log.clone$Clone(this.#guard.log));
+										unwind = 161;
+										this.#saved$9 = true;
+										this.#awaitee = new recvFuture(this.#rx);
+									} else if (this.#state === 1) {
+										rt.asyncFnResumed();
+									} else if (this.#state === 2) {
+										rt.asyncFnResumedPanic();
+									} else if (this.#state !== 3) {
+										if (this.#state === 4) {
+											break b5;
+										}
+										if (this.#state === 5) {
+											break b4;
+										}
+										if (this.#state === 6) {
+											break b3;
+										}
+										if (this.#state === 7) {
+											break b2;
+										}
+										if (this.#state === 8) {
+											break b1;
+										}
+										break b0;
+									}
 									unwind = 158;
-									this.#saved$4 = true;
-									rt.drop(new blocksFuture$2(this.#first));
-									turns(this.#guard.log, rt.u32Rem(this.#guard.id, 5));
-									temporaries(this.#guard.log, this.#guard.id);
-									unwind = 146;
-									this.#saved = Guard.new(rt.u32Add(this.#guard.id, 900), Log.clone$Clone(this.#guard.log));
-									unwind = 144;
-									this.#saved$9 = true;
-									this.#awaitee = new recvFuture(this.#rx);
-								} else if (this.#state === 1) {
-									rt.asyncFnResumed();
-								} else if (this.#state === 2) {
-									rt.asyncFnResumedPanic();
-								} else if (this.#state !== 3) {
-									if (this.#state === 4) {
-										break b4;
+									const _32: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+									if (_32 !== rt.Pending) {
+										unwind = 159;
+										const result: rt.u64 | undefined = _32;
+										rt.drop(this.#awaitee);
+										this.#saved$9 = false;
+										this.#waited = consume(this.#saved, result);
+										unwind = 175;
+										this.#saved$9 = false;
+										_40 = Guard.new(rt.u32Add(this.#guard.id, 910), Log.clone$Clone(this.#guard.log));
+										unwind = 157;
+										const _46: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 920), Log.clone$Clone(this.#guard.log));
+										unwind = 155;
+										this.#slots = [_40, _46];
+										this.#saved = Guard.new(rt.u32Add(this.#guard.id, 930), Log.clone$Clone(this.#guard.log));
+										unwind = 153;
+										this.#saved$8 = true;
+										this.#awaitee$2 = new slotFuture(this.#rx, this.#slots.length);
+									} else {
+										this.#state = 3;
+										return rt.Pending;
 									}
-									if (this.#state === 5) {
-										break b3;
-									}
-									if (this.#state === 6) {
-										break b2;
-									}
-									if (this.#state === 7) {
-										break b1;
-									}
-									break b0;
 								}
-								unwind = 141;
-								const _32: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-								if (_32 !== rt.Pending) {
-									unwind = 142;
-									const result: rt.u64 | undefined = _32;
-									rt.drop(this.#awaitee);
-									this.#saved$9 = false;
-									this.#waited = consume(this.#saved, result);
-									unwind = 158;
-									this.#saved$9 = false;
-									_40 = Guard.new(rt.u32Add(this.#guard.id, 910), Log.clone$Clone(this.#guard.log));
-									unwind = 140;
-									const _46: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 920), Log.clone$Clone(this.#guard.log));
-									unwind = 138;
-									this.#slots = [_40, _46];
-									this.#saved = Guard.new(rt.u32Add(this.#guard.id, 930), Log.clone$Clone(this.#guard.log));
-									unwind = 136;
-									this.#saved$8 = true;
-									this.#awaitee$2 = new slotFuture(this.#rx, this.#slots.length);
+								unwind = 151;
+								const _63: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
+								if (_63 !== rt.Pending) {
+									unwind = 172;
+									result2 = _63;
+									rt.drop(this.#awaitee$2);
+									if (!(result2 < 2)) {
+										rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
+									}
+									unwind = 44;
+									rt.drop(this.#slots[result2]);
+									unwind = 156;
+									this.#saved$8 = false;
+									this.#slots[result2] = this.#saved;
+									this.#saved$8 = false;
+									const arg = this.#waited;
+									const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+									const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
+									unwind = 150;
+									Guard.note(this.#slots[0], _78);
+									unwind = 170;
+									this.#tally = { n: this.#guard.id };
+									this.#saved$7 = true;
+									seen = new blocksFuture$3(copy$Tally(this.#tally));
+									this.#tally.n = rt.u32Add(this.#tally.n, 1000);
+									this.#saved = this.#guard;
+									this.#saved$2 = this.#tally.n;
+									this.#saved$7 = false;
+									this.#awaitee$3 = seen;
 								} else {
-									this.#state = 3;
+									this.#state = 4;
 									return rt.Pending;
 								}
 							}
-							unwind = 134;
-							const _63: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
-							if (_63 !== rt.Pending) {
-								unwind = 155;
-								result2 = _63;
-								rt.drop(this.#awaitee$2);
-								if (!(result2 < 2)) {
-									rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
-								}
-								unwind = 44;
-								rt.drop(this.#slots[result2]);
-								unwind = 139;
-								this.#saved$8 = false;
-								this.#slots[result2] = this.#saved;
-								this.#saved$8 = false;
-								const arg = this.#waited;
-								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-								const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
-								unwind = 133;
-								Guard.note(this.#slots[0], _78);
-								unwind = 153;
-								this.#tally = { n: this.#guard.id };
-								this.#saved$7 = true;
-								seen = new blocksFuture$3(copy$Tally(this.#tally));
-								this.#tally.n = rt.u32Add(this.#tally.n, 1000);
-								this.#saved = this.#guard;
-								this.#saved$2 = this.#tally.n;
-								this.#saved$7 = false;
-								this.#awaitee$3 = seen;
+							unwind = 148;
+							const _101: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+							if (_101 !== rt.Pending) {
+								unwind = 170;
+								const _98: rt.u32 = _101;
+								rt.drop(this.#awaitee$3);
+								const arg2 = this.#saved$2;
+								const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
+								const _93: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
+								unwind = 147;
+								Guard.note(this.#saved, _93);
+								unwind = 170;
+								this.#mark = { n: 1 };
+								this.#awaitee$3 = new blocksFuture$4(this.#mark);
 							} else {
-								this.#state = 4;
+								this.#state = 5;
 								return rt.Pending;
 							}
 						}
-						unwind = 131;
-						const _101: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-						if (_101 !== rt.Pending) {
-							unwind = 153;
-							const _98: rt.u32 = _101;
+						unwind = 146;
+						const _117: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+						if (_117 !== rt.Pending) {
+							unwind = 170;
+							this.#saved$2 = _117;
 							rt.drop(this.#awaitee$3);
-							const arg2 = this.#saved$2;
-							const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
-							const _93: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
-							unwind = 130;
-							Guard.note(this.#saved, _93);
-							unwind = 153;
-							this.#mark = { n: 1 };
-							this.#awaitee$3 = new blocksFuture$4(this.#mark);
+							const arg3 = this.#saved$2;
+							const _136: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
+							const arg4 = this.#mark.n;
+							const args6: rt.Fmt[] = [_136, (f: rt.Formatter) => rt.u32Display(arg4, f)];
+							const _129: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
+							unwind = 145;
+							Guard.note(this.#guard, _129);
+							unwind = 170;
+							this.#count = this.#guard.id;
+							this.#awaitee$3 = new blocksFuture$5(rt.place(() => this.#count, (value) => this.#count = value));
 						} else {
-							this.#state = 5;
+							this.#state = 6;
 							return rt.Pending;
 						}
 					}
-					unwind = 129;
-					const _117: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-					if (_117 !== rt.Pending) {
-						unwind = 153;
-						this.#saved$2 = _117;
+					unwind = 144;
+					const _143: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+					if (_143 !== rt.Pending) {
+						unwind = 170;
+						this.#counted = _143;
 						rt.drop(this.#awaitee$3);
-						const arg3 = this.#saved$2;
-						const _136: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
-						const arg4 = this.#mark.n;
-						const args6: rt.Fmt[] = [_136, (f: rt.Formatter) => rt.u32Display(arg4, f)];
-						const _129: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
-						unwind = 128;
-						Guard.note(this.#guard, _129);
-						unwind = 127;
-						_141 = undefined;
-						const _142: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 800), Log.clone$Clone(this.#guard.log));
-						unwind = 153;
-						const _149: Outer.Outer = new Outer.Outer({ inner: _141, guard: _142 });
-						unwind = 126;
-						this.#nested = new Inner.Inner({ outer: _149 });
+						const arg5 = this.#counted;
+						const _162: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg5, f);
+						const arg6 = this.#count;
+						const args8: rt.Fmt[] = [_162, (f: rt.Formatter) => rt.u32Display(arg6, f)];
+						const _155: string = rt.fmtFormat(["count ", args8[0], " ", args8[1]]);
+						unwind = 143;
+						Guard.note(this.#guard, _155);
+						unwind = 142;
+						_167 = undefined;
+						const _168: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 800), Log.clone$Clone(this.#guard.log));
+						unwind = 170;
+						const _175: Outer.Outer = new Outer.Outer({ inner: _167, guard: _168 });
+						unwind = 141;
+						this.#nested = new Inner.Inner({ outer: _175 });
 						const third: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 400), Log.clone$Clone(this.#guard.log));
 						if (!this.#moves) {
 							this.#saved = third;
 						} else {
 							this.#saved = third;
 						}
-						unwind = 125;
+						unwind = 140;
 						Guard.note(this.#saved, "chosen");
-						this.#awaitee$3 = new blocksFuture$5(this.#guard.id);
+						this.#awaitee$3 = new blocksFuture$7(this.#guard.id);
 					} else {
-						this.#state = 6;
+						this.#state = 7;
 						return rt.Pending;
 					}
 				}
-				unwind = 124;
-				const _162: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-				if (_162 !== rt.Pending) {
-					unwind = 125;
-					this.#looped = _162;
+				unwind = 139;
+				const _188: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+				if (_188 !== rt.Pending) {
+					unwind = 140;
+					this.#looped = _188;
 					rt.drop(this.#awaitee$3);
-					const arg5 = this.#looped;
-					const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg5, f)];
-					const _174: string = rt.fmtFormat(["looped ", args8[0]]);
-					unwind = 123;
-					Guard.note(this.#saved, _174);
+					const arg7 = this.#looped;
+					const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg7, f)];
+					const _200: string = rt.fmtFormat(["looped ", args10[0]]);
+					unwind = 138;
+					Guard.note(this.#saved, _200);
 					if (this.#moves) {
-						unwind = 125;
+						unwind = 140;
 						this.#saved$3 = false;
-						rt.drop(new blocksFuture$7(this.#guard));
+						rt.drop(new blocksFuture$9(this.#guard));
 					}
-					unwind = 125;
+					unwind = 140;
 					this.#saved$5 = false;
 					this.#saved$4 = false;
 					this.#saved$6 = false;
-					this.#awaitee$4 = new blocksFuture$8(this.#first, this.#second, this.#rx);
+					this.#awaitee$4 = new blocksFuture$10(this.#first, this.#second, this.#rx);
 				} else {
-					this.#state = 7;
+					this.#state = 8;
 					return rt.Pending;
 				}
 			}
-			unwind = 122;
-			const _188: rt.Poll<rt.u64> = this.#awaitee$4.poll(_2);
-			if (_188 !== rt.Pending) {
-				unwind = 125;
-				const result6: rt.u64 = _188;
+			unwind = 137;
+			const _214: rt.Poll<rt.u64> = this.#awaitee$4.poll(_2);
+			if (_214 !== rt.Pending) {
+				unwind = 140;
+				const result7: rt.u64 = _214;
 				rt.drop(this.#awaitee$4);
-				unwind = 126;
+				unwind = 141;
 				rt.drop(this.#saved);
-				unwind = 153;
+				unwind = 170;
 				rt.drop(this.#nested);
-				unwind = 158;
+				unwind = 175;
 				this.#saved$7 = false;
 				rt.dropAll(this.#slots);
 				this.#saved$4 = false;
 				this.#saved$5 = false;
 				if (this.#saved$3) {
-					unwind = 149;
+					unwind = 166;
 					rt.drop(this.#guard);
 				}
 				this.#saved$3 = false;
 				this.#saved$6 = false;
 				this.#state = 1;
-				return result6;
+				return result7;
 			}
-			this.#state = 8;
+			this.#state = 9;
 			return rt.Pending;
 		} catch (e) {
-			b9: {
-				b10: {
-					b11: {
-						b12: {
-							b13: {
-								b14: {
-									b15: {
-										b16: {
-											b17: {
+			b10: {
+				b11: {
+					b12: {
+						b13: {
+							b14: {
+								b15: {
+									b16: {
+										b17: {
+											b18: {
 												if (unwind === 0) {
 													throw e;
 												}
 												if (unwind === 44) {
 													this.#saved$8 = false;
 													this.#slots[result2] = this.#saved;
-													break b14;
+													break b15;
 												}
-												if (unwind === 122) {
+												if (unwind === 137) {
 													rt.drop(this.#awaitee$4);
-													break b17;
-												}
-												if (unwind === 123) {
-													break b17;
-												}
-												if (unwind === 124) {
-													rt.drop(this.#awaitee$3);
-													break b17;
-												}
-												if (unwind === 125) {
-													break b17;
-												}
-												if (unwind === 126) {
-													break b16;
-												}
-												if (unwind === 127) {
-													rt.drop(_141);
-													break b15;
-												}
-												if (unwind === 128) {
-													break b15;
-												}
-												if (unwind === 129) {
-													rt.drop(this.#awaitee$3);
-													break b15;
-												}
-												if (unwind === 130) {
-													break b15;
-												}
-												if (unwind === 131) {
-													rt.drop(this.#awaitee$3);
-													break b15;
-												}
-												if (unwind === 133) {
-													break b13;
-												}
-												if (unwind === 134) {
-													rt.drop(this.#awaitee$2);
-													break b14;
-												}
-												if (unwind === 136) {
-													rt.drop(this.#saved);
-													this.#saved$8 = false;
-													break b13;
+													break b18;
 												}
 												if (unwind === 138) {
-													this.#saved$8 = false;
-													break b13;
+													break b18;
 												}
 												if (unwind === 139) {
-													break b13;
+													rt.drop(this.#awaitee$3);
+													break b18;
 												}
 												if (unwind === 140) {
-													rt.drop(_40);
-													break b12;
+													break b18;
 												}
 												if (unwind === 141) {
+													break b17;
+												}
+												if (unwind === 142) {
+													rt.drop(_167);
+													break b16;
+												}
+												if (unwind === 143) {
+													break b16;
+												}
+												if (unwind === 144) {
+													rt.drop(this.#awaitee$3);
+													break b16;
+												}
+												if (unwind === 145) {
+													break b16;
+												}
+												if (unwind === 146) {
+													rt.drop(this.#awaitee$3);
+													break b16;
+												}
+												if (unwind === 147) {
+													break b16;
+												}
+												if (unwind === 148) {
+													rt.drop(this.#awaitee$3);
+													break b16;
+												}
+												if (unwind === 150) {
+													break b14;
+												}
+												if (unwind === 151) {
+													rt.drop(this.#awaitee$2);
+													break b15;
+												}
+												if (unwind === 153) {
+													rt.drop(this.#saved);
+													this.#saved$8 = false;
+													break b14;
+												}
+												if (unwind === 155) {
+													this.#saved$8 = false;
+													break b14;
+												}
+												if (unwind === 156) {
+													break b14;
+												}
+												if (unwind === 157) {
+													rt.drop(_40);
+													break b13;
+												}
+												if (unwind === 158) {
 													rt.drop(this.#awaitee);
-												} else if (unwind !== 142) {
-													if (unwind === 144) {
+												} else if (unwind !== 159) {
+													if (unwind === 161) {
 														rt.drop(this.#saved);
 														this.#saved$9 = false;
-														break b12;
+														break b13;
 													}
-													if (unwind === 146) {
+													if (unwind === 163) {
 														this.#saved$9 = false;
+														break b13;
+													}
+													if (unwind === 164) {
 														break b12;
 													}
-													if (unwind === 147) {
+													if (unwind === 165) {
 														break b11;
 													}
-													if (unwind === 148) {
+													if (unwind === 166) {
 														break b10;
 													}
-													if (unwind === 149) {
-														break b9;
+													if (unwind === 170) {
+														break b16;
 													}
-													if (unwind === 153) {
+													if (unwind === 172) {
 														break b15;
 													}
-													if (unwind === 155) {
-														break b14;
-													}
-													break b12;
+													break b13;
 												}
 												if (this.#saved$9) {
 													rt.drop(this.#saved);
 												}
 												this.#saved$9 = false;
-												break b12;
+												break b13;
 											}
 											rt.drop(this.#saved);
 										}
@@ -734,7 +782,7 @@ export class blocksFuture {
 										rt.drop(seen);
 									}
 									this.#saved$7 = false;
-									break b13;
+									break b14;
 								}
 								if (this.#saved$8) {
 									rt.drop(this.#saved);
@@ -863,6 +911,72 @@ export class blocksFuture$4 {
 
 export class blocksFuture$5 {
 	#state: number = 0;
+	#count: rt.Place<rt.u32>;
+	#awaitee!: rt.Future<undefined>;
+
+	constructor(count: rt.Place<rt.u32>) {
+		this.#count = count;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u32> {
+		let unwind: number = 0;
+		try {
+			if (this.#state === 0) {
+				unwind = 13;
+				this.#count.v = rt.u32Add(this.#count.v, 1);
+				this.#awaitee = new blocksFuture$6();
+			} else if (this.#state === 1) {
+				rt.asyncFnResumed();
+			} else if (this.#state === 2) {
+				rt.asyncFnResumedPanic();
+			}
+			unwind = 12;
+			if (this.#awaitee.poll(_2) !== rt.Pending) {
+				unwind = 13;
+				rt.drop(this.#awaitee);
+				this.#count.v = rt.u32Add(this.#count.v, 1);
+				const _0: rt.Poll<rt.u32> = this.#count.v;
+				this.#state = 1;
+				return _0;
+			}
+			this.#state = 3;
+			return rt.Pending;
+		} catch (e) {
+			if (unwind === 0) {
+				throw e;
+			}
+			if (unwind === 12) {
+				rt.drop(this.#awaitee);
+			}
+			this.#state = 2;
+			throw e;
+		}
+	}
+}
+
+export class blocksFuture$6 {
+	#state: number = 0;
+
+	[Symbol.dispose](): void {
+	}
+
+	poll(_2: rt.Context): rt.Poll<undefined> {
+		if (this.#state === 0) {
+			this.#state = 1;
+			return undefined;
+		}
+		rt.asyncFnResumed();
+	}
+}
+
+export class blocksFuture$7 {
+	#state: number = 0;
 	#base: rt.u32;
 	#total!: rt.u32;
 	#passes!: rt.i32;
@@ -909,7 +1023,7 @@ export class blocksFuture$5 {
 						unwind = 17;
 						this.#x = this.#base;
 						this.#x = rt.u32Add(this.#x, 1);
-						this.#awaitee = new blocksFuture$6();
+						this.#awaitee = new blocksFuture$8();
 						bb0 = 5;
 						continue;
 					case 5:
@@ -939,7 +1053,7 @@ export class blocksFuture$5 {
 	}
 }
 
-export class blocksFuture$6 {
+export class blocksFuture$8 {
 	#state: number = 0;
 
 	[Symbol.dispose](): void {
@@ -954,7 +1068,7 @@ export class blocksFuture$6 {
 	}
 }
 
-export class blocksFuture$7 {
+export class blocksFuture$9 {
 	#state: number = 0;
 	#guard: Guard.Guard;
 
@@ -997,7 +1111,7 @@ export class blocksFuture$7 {
 	}
 }
 
-export class blocksFuture$8 {
+export class blocksFuture$10 {
 	#state: number = 0;
 	#first: Guard.Guard;
 	#second: Guard.Guard;
@@ -1152,7 +1266,7 @@ export class blocksFuture$8 {
 
 /** `v`, or 0, plus the id of `guard`, which it drops. */
 export function consume(guard: Guard.Guard, v: rt.u64 | undefined): rt.u64 {
-	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, rt.optionUnwrapOr(v, 0));
+	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, unwrapOr$Option_u64(v, 0));
 }
 
 export class slotFuture {
@@ -1291,8 +1405,10 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
 		Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
 		const captured = guard(1100);
-		const part3 = ((): rt.u32 => {
+		const part3 = rt.closure((): rt.u32 => {
 			return Guard.finish(captured, "closure");
+		}, (): void => {
+			rt.drop(captured);
 		})();
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 		Log.note(log, rt.fmtFormat(["closed ", args10[0]]));
