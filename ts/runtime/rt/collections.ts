@@ -867,7 +867,7 @@ export function hashExtend<K, V>(
 	fresh = false,
 ): HashMap<K, V> {
 	const f = () => {
-		for (let item = items.next(); item !== DONE; item = items.next()) {
+		for (let item = items.foldNext(); item !== DONE; item = items.foldNext()) {
 			const old = hashInsert(m, item[0], item[1], k, v);
 			if (old !== undefined) v?.(old);
 		}
@@ -878,7 +878,7 @@ export function hashExtend<K, V>(
 /** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
 export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void, fresh = false): HashSet<K> {
 	const f = () => {
-		for (let key = keys.next(); key !== DONE; key = keys.next()) hashAdd(m, key, k);
+		for (let key = keys.foldNext(); key !== DONE; key = keys.foldNext()) hashAdd(m, key, k);
 	};
 	return extending(m, keys, f, dropIt, fresh, (m) => hashDrop(m, k));
 }
@@ -1599,7 +1599,7 @@ export function btreeExtend<K, V>(
 	dropIt?: (it: Iter<[K, V]>) => void,
 ): BTreeMap<K, V> {
 	const f = () => {
-		for (let item = items.next(); item !== DONE; item = items.next()) {
+		for (let item = items.foldNext(); item !== DONE; item = items.foldNext()) {
 			if (!last) {
 				const old = btreeInsert(m, item[0], item[1], k, v);
 				if (old !== undefined) v?.(old);
@@ -1620,7 +1620,7 @@ export function btreeExtend<K, V>(
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
 export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void): BTreeSet<K> {
 	const f = () => {
-		for (let key = keys.next(); key !== DONE; key = keys.next()) {
+		for (let key = keys.foldNext(); key !== DONE; key = keys.foldNext()) {
 			if (!last) {
 				btreeAdd(m, key, k);
 				continue;
@@ -2146,7 +2146,7 @@ export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T
 /** `extend`, and `collect` into a deque through `dequeNew`, which drops `items` by `dropIt` once done. */
 export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, dropIt?: (it: Iter<T>) => void): VecDeque<T> {
 	const f = () => {
-		for (let item = items.next(); item !== DONE; item = items.next()) dequePushBack(q, item);
+		for (let item = items.foldNext(); item !== DONE; item = items.foldNext()) dequePushBack(q, item);
 	};
 	return extending(q, items, f, dropIt);
 }
