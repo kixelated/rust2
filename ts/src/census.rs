@@ -167,6 +167,8 @@ const VERBATIM: &[&str] = &[
 	"collect",
 	"copy_nonoverlapping",
 	"dyn Future",
+	"f64",
+	"f64::mul_add",
 	"flatten",
 	"fold",
 	"for",

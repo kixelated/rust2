@@ -34,6 +34,7 @@ pub enum Std {
 	FromUtf8Error,
 	Utf8Error,
 	TryFromIntError,
+	TryFromFloatSecsError,
 	/// `rt.Formatter`.
 	Formatter,
 	/// `rt.Arguments`: what `format_args!` makes.
@@ -173,6 +174,7 @@ impl Std {
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"TryFromFloatSecsError" => return Some(Self::TryFromFloatSecsError),
 			"PoisonError" => return Some(Self::PoisonError),
 			_ => {}
 		}
@@ -735,7 +737,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Str => "str".into(),
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
-			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
+			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -840,6 +842,9 @@ fn mapping<'tcx>(
 		};
 		return Some(int.method(method, args));
 	}
+	if owner == "f64" {
+		return super::float::method(b, &name, args, span);
+	}
 
 	let self_ty = || gargs.types().next();
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
@@ -865,9 +870,9 @@ fn mapping<'tcx>(
 			if to == from || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
-			// Each `From` between integers and `char`, or from `bool`, keeps the value, as
-			// `as` then does.
-			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
+			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
+			// value, as `as` then does.
+			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char() || super::float::is(t);
 			if !scalar(to) || !(scalar(from) || from.is_bool()) {
 				return None;
 			}
@@ -1591,7 +1596,7 @@ fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 }
 
 fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
+	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char) || super::float::is(ty)
 }
 
 /// A `Vec` of `elem`s as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
@@ -1637,6 +1642,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		_ if super::float::is(ty) => super::float::lit(0.0),
 		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt(

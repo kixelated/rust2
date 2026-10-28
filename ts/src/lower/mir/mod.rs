@@ -3552,9 +3552,11 @@ pub fn fold(e: Expr) -> Expr {
 				_ => None,
 			};
 			if let (Some(a), Some(b)) = (num(&l), num(&r)) {
-				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators.
+				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators. An
+				// `f64` literal is spelled with a point or an exponent, and its -0.0 is no integer.
+				let int = |e: &Expr| matches!(e, Expr::Lit(t) if !t.contains(['.', 'e']));
 				let small = |v: f64| v.fract() == 0.0 && v.abs() < 2f64.powi(31);
-				if small(a) && small(b) {
+				if int(&l) && int(&r) && small(a) && small(b) {
 					let (x, y) = (a as i64, b as i64);
 					let int = match op {
 						"<<" if (0..31).contains(&y) => Some((x as i32).wrapping_shl(y as u32) as i64),
