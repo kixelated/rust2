@@ -438,7 +438,12 @@ impl<'tcx> Collector<'tcx> {
 					.map(|args| Ty::new_adt(tcx, adt, tcx.mk_args(&args))),
 			);
 		}
-		candidates.extend(named.iter().flat_map(|ty| ty.walk()).filter_map(|arg| arg.as_type()));
+		candidates.extend(named);
+		// Each with the instances inside it, which its export needs.
+		let candidates: Vec<Ty<'tcx>> = (candidates.iter())
+			.flat_map(|ty| ty.walk())
+			.filter_map(|arg| arg.as_type())
+			.collect();
 		for ty in candidates {
 			let Some((key, site)) = self.admit(ty) else {
 				continue;

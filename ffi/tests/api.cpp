@@ -347,6 +347,9 @@ int script() {
 
 	// A trait implemented for `Point` and `&Point` apart: one instance.
 	std::printf("weigh %u\n", api::weigh_point({-1, 2}));
+	// Instances that name each other, and one made only by an impl of it.
+	std::printf("cross %u outer %u\n", api::cross(api::left_right_u8{api::right_u8{1}}, api::right_left_u8{api::left_u8{2}}),
+	            api::outer_inner_u8::new_(4).get());
 
 	// Its Drop runs when C++ destroys the handle, not before.
 	{

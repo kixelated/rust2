@@ -264,6 +264,17 @@ fn main() {
 	);
 
 	println!("weigh {}", api_lib::weigh(Point { x: -1, y: 2 }));
+	let left = api_lib::Left {
+		value: api_lib::Right { value: 1u8 },
+	};
+	let right = api_lib::Right {
+		value: api_lib::Left { value: 2u8 },
+	};
+	println!(
+		"cross {} outer {}",
+		api_lib::cross(left, right),
+		api_lib::Outer::new(4).get()
+	);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());

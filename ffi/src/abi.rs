@@ -191,30 +191,41 @@ impl<'a> Abi<'a> {
 			return format!("{}_{suffix}", key.1);
 		}
 		let group = group();
-		let segments: Vec<Vec<Vec<String>>> = (group.iter())
-			.map(|args| args.iter().map(|arg| self.arg_segments(arg)).collect())
+		let forms: Vec<Vec<Vec<String>>> = (group.iter())
+			.map(|args| args.iter().map(|arg| self.arg_forms(arg)).collect())
 			.collect();
-		let suffixes: Suffixes = group.into_iter().zip(shortest(&segments)).collect();
+		let suffixes: Suffixes = group.into_iter().zip(shortest(&forms)).collect();
 		let suffix = suffixes[args].clone();
 		self.suffixes.borrow_mut().insert(key.clone(), suffixes);
 		format!("{}_{suffix}", key.1)
 	}
 
-	/// The segments an instance's argument `ty` is named by, of which it takes the
-	/// fewest at the end that tell it apart: a type's path's, the last holding the
-	/// suffix of the instance it is.
-	fn arg_segments(&self, ty: &Type) -> Vec<String> {
-		let (path, name) = match ty {
-			Type::Record(i) => (&self.api.records[*i].path, self.record(*i)),
-			Type::Enum(i) => (&self.api.enums[*i].path, self.enumeration(*i)),
-			Type::Object(i) => (&self.api.objects[*i].path, self.object(*i)),
-			Type::Ref(_, inner) | Type::Box(inner) => return self.arg_segments(inner),
+	/// The names an instance's argument `ty` may take, shortest first: a type's path's
+	/// last segment, then its own arguments' names, lengthened in step until whole, then
+	/// its path's segments, one more at a time. They read only `ty` itself, never another
+	/// instance's name, so two items whose instances name each other, as `A<B<u8>>` and
+	/// `B<A<u8>>`, name each without the other.
+	fn arg_forms(&self, ty: &Type) -> Vec<String> {
+		let (path, args) = match ty {
+			Type::Record(i) => (&self.api.records[*i].path, &self.api.records[*i].args),
+			Type::Enum(i) => (&self.api.enums[*i].path, &self.api.enums[*i].args),
+			Type::Object(i) => (&self.api.objects[*i].path, &self.api.objects[*i].args),
+			Type::Ref(_, inner) | Type::Box(inner) => return self.arg_forms(inner),
 			ty => return vec![self.key(ty)],
 		};
-		let mut segments = self.segments(path);
-		let suffix = &name[self.name(path).len()..];
-		segments.last_mut().expect("a path names its item").push_str(suffix);
-		segments
+		let segments = self.segments(path);
+		let nested: Vec<Vec<String>> = args.iter().map(|arg| self.arg_forms(arg)).collect();
+		let steps = nested.iter().map(Vec::len).max().unwrap_or(1);
+		let form = |len: usize, step: usize| {
+			std::iter::once(segments[segments.len() - len..].join("_"))
+				.chain(nested.iter().map(|forms| forms[step.min(forms.len() - 1)].clone()))
+				.collect::<Vec<_>>()
+				.join("_")
+		};
+		let mut forms: Vec<String> = (0..steps).map(|step| form(1, step)).collect();
+		forms.extend((2..=segments.len()).map(|len| form(len, steps - 1)));
+		forms.dedup();
+		forms
 	}
 
 	/// A function's C name: a method's through its type's, unless renamed itself, then
@@ -654,13 +665,11 @@ impl<'a> Abi<'a> {
 	}
 }
 
-/// A Rust identifier in snake case: `TrackProducer` is `track_producer`, and a name
-/// already in snake case stays as it is.
-/// The suffix naming each of a generic item's instances, given the segments each of its
-/// arguments is named by: each argument's last segment, lengthened by one more at a time
-/// only where two instances' suffixes are alike while their arguments differ there. Each
-/// suffix depends on the whole group, not its order, so an instance added later can
-/// lengthen another's name. Instances alike at every segment keep their clash, which
+/// The suffix naming each of a generic item's instances, given the names each of its
+/// arguments may take, shortest first: each argument's shortest, lengthened by one at a
+/// time only where two instances' suffixes are alike while their arguments differ there.
+/// Each suffix depends on the whole group, not its order, so an instance added later can
+/// lengthen another's name. Instances alike at every length keep their clash, which
 /// claiming their C names reports.
 fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
 	let mut lens: Vec<Vec<usize>> = group.iter().map(|args| vec![1; args.len()]).collect();
@@ -668,7 +677,7 @@ fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
 		let names: Vec<String> = (group.iter().zip(&lens))
 			.map(|(args, lens)| {
 				(args.iter().zip(lens))
-					.map(|(segments, &len)| segments[segments.len() - len..].join("_"))
+					.map(|(forms, &len)| forms[len - 1].as_str())
 					.collect::<Vec<_>>()
 					.join("_")
 			})
@@ -678,8 +687,8 @@ fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
 			if a == b || names[a] != names[b] {
 				continue;
 			}
-			for (j, segments) in group[a].iter().enumerate() {
-				if group[b].get(j) != Some(segments) && lens[a][j] < segments.len() {
+			for (j, forms) in group[a].iter().enumerate() {
+				if group[b].get(j) != Some(forms) && lens[a][j] < forms.len() {
 					grow.insert((a, j));
 				}
 			}
@@ -693,6 +702,8 @@ fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
 	}
 }
 
+/// A Rust identifier in snake case: `TrackProducer` is `track_producer`, and a name
+/// already in snake case stays as it is.
 pub fn snake(name: &str) -> String {
 	let chars: Vec<char> = name.chars().collect();
 	let mut out = String::new();
@@ -842,12 +853,17 @@ pub fn dyn_wrap(form: Dyn, expr: &str) -> String {
 mod tests {
 	use super::shortest;
 
-	/// Each instance's arguments, each by its segments.
+	/// Each instance's arguments, each by its path's segments, whose forms are their
+	/// suffixes, shortest first.
 	fn group(instances: &[&[&[&str]]]) -> Vec<Vec<Vec<String>>> {
 		(instances.iter())
 			.map(|args| {
 				(args.iter())
-					.map(|segments| segments.iter().map(|s| s.to_string()).collect())
+					.map(|segments| {
+						(1..=segments.len())
+							.map(|len| segments[segments.len() - len..].join("_"))
+							.collect()
+					})
 					.collect()
 			})
 			.collect()

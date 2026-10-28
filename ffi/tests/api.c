@@ -412,6 +412,12 @@ static int script(void) {
 
 	/* A trait implemented for `Point` and `&Point` apart: one instance. */
 	printf("weigh %u\n", api_weigh_point((api_point){.x = -1, .y = 2}));
+	/* Instances that name each other, and one made only by an impl of it. */
+	api_outer_inner_u8 *outer = api_outer_inner_u8_new(4);
+	printf("cross %u outer %u\n",
+	       api_cross((api_left_right_u8){.value = {.value = 1}}, (api_right_left_u8){.value = {.value = 2}}),
+	       api_outer_inner_u8_get(outer));
+	api_outer_inner_u8_free(outer);
 
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);

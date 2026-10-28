@@ -690,6 +690,42 @@ impl Seed<u32> for &Point {
 	}
 }
 
+/// Two generic records whose instances name each other, as `Left<Right<u8>>` and
+/// `Right<Left<u8>>` do: each instance is named without the other's name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Left<T> {
+	pub value: T,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Right<T> {
+	pub value: T,
+}
+
+/// The sum of what each holds inside.
+pub fn cross(left: Left<Right<u8>>, right: Right<Left<u8>>) -> u8 {
+	left.value.value + right.value.value
+}
+
+/// A handle made only by an impl of an instance holding another, which nothing else
+/// names: inferring the outer instance infers the inner one.
+pub struct Outer<T>(T);
+
+impl Outer<Inner<u8>> {
+	pub fn new(value: u8) -> Self {
+		Self(Inner { value })
+	}
+
+	pub fn get(&self) -> u8 {
+		self.0.value
+	}
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Inner<T> {
+	pub value: T,
+}
+
 /// `from`'s weight.
 pub fn weigh(from: impl Seed<u32>) -> u32 {
 	from.seed()
