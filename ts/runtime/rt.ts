@@ -10,10 +10,12 @@ import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDe
 import { dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
+export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
+export * from "./rt/rand.ts";
 export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 export * from "./rt/time.ts";
