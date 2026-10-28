@@ -40,10 +40,16 @@ export function panicking(): boolean {
 	return panics > 0;
 }
 
+/** The panics `panicCaught` stopped, each of which counts down once however often it is caught. */
+const caught = new WeakSet<Panic>();
+
 /** Whether `e`, caught, is a `Panic`, which then stops unwinding, as `catch_unwind` stops it. */
 export function panicCaught(e: unknown): e is Panic {
 	if (!(e instanceof Panic)) return false;
-	panics--;
+	if (!caught.has(e)) {
+		caught.add(e);
+		panics--;
+	}
 	return true;
 }
 
