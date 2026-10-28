@@ -48,7 +48,6 @@ Public API: the translator's output for moq-net's model.
 
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
-- [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
 - [Std's mutable references to values JS copies](/quest/m2/ts-model/std-places.md) - `as_mut`, `get_or_insert`, `iter_mut`, and the rest give an `rt.Place`
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses

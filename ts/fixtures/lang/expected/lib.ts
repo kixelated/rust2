@@ -152,6 +152,10 @@ export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap({ value: v.value, count: v.count });
 }
 
+export function copy$chars(v: rt.char[]): rt.char[] {
+	return v.slice();
+}
+
 export function copy$u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
 }

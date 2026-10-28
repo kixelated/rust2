@@ -62,7 +62,16 @@ export function floats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			putF64(out, _23);
 		}
-		const iter2: rt.Iter<boolean> = rt.iterSlice([a === b, a !== b, a < b, a <= b, a > b, a >= b, a === 0.0, a < b, a >= b]);
+		const _30: boolean = a === b;
+		const _31: boolean = a !== b;
+		const _32: boolean = a < b;
+		const _33: boolean = a <= b;
+		const _34: boolean = a > b;
+		const _35: boolean = a >= b;
+		const _36: boolean = a === 0.0;
+		const _37: boolean = rt.f64PartialCmp(a, b) === -1;
+		const order = rt.f64PartialCmp(a, b);
+		const iter2: rt.Iter<boolean> = rt.iterSlice([_30, _31, _32, _33, _34, _35, _36, _37, order !== undefined && order >= 0]);
 		while (true) {
 			const _45: boolean | rt.Done = iter2.next();
 			if (_45 === rt.DONE) {

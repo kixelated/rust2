@@ -87,14 +87,14 @@ const doubles: (number | bigint)[] = [
 /** Integers whose `f64` rounds, as `floats`' kind 2 takes them: 16 bytes of a `u128`. */
 const wides = [0n, 1n, (1n << 53n) + 1n, (1n << 53n) + 3n, (1n << 54n) + 2n, (1n << 63n) + 1025n, (1n << 64n) - 1n, (1n << 64n) - 1025n, (1n << 64n) + (1n << 11n) + 1n, (1n << 127n) + 1n, (1n << 128n) - 1n, (1n << 128n) - (1n << 74n), -(1n << 100n) - 1n];
 const floats = [
-	...Array.from({ length: 10 }, (_, kind) => doubles.flatMap((a) => doubles.map((b) => Uint8Array.of(54, kind, ...double(a), ...double(b), 1)))).flat(),
+	...Array.from({ length: 10 }, (_, kind) => doubles.flatMap((a) => doubles.map((b) => Uint8Array.of(57, kind, ...double(a), ...double(b), 1)))).flat(),
 	// `from_secs_f64`, `mul_f64`, and `div_f64` panicking, and `Duration::MAX.mul_f64`.
-	...[18, 28, 38].flatMap((kind) => doubles.map((a) => Uint8Array.of(54, kind, ...double(a), ...double(a), 3))),
+	...[18, 28, 38].flatMap((kind) => doubles.map((a) => Uint8Array.of(57, kind, ...double(a), ...double(a), 3))),
 	...wides.map((v) => {
 		const bytes = new Uint8Array(16);
 		new DataView(bytes.buffer).setBigUint64(0, BigInt.asUintN(64, v >> 64n));
 		new DataView(bytes.buffer).setBigUint64(8, BigInt.asUintN(64, v));
-		return Uint8Array.of(54, 2, ...bytes);
+		return Uint8Array.of(57, 2, ...bytes);
 	}),
 ];
 
@@ -102,7 +102,7 @@ const floats = [
 const ULPS = 2n;
 
 export function within(input: Uint8Array, native: Uint8Array, translated: Uint8Array): boolean {
-	if (input[0] % 56 !== 54 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
+	if (input[0] % 58 !== 57 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
 	const [a, b] = [native, translated].map((v) => new DataView(v.buffer, v.byteOffset, v.length));
 	// Bits as a line through zero, so the distance between two is how many doubles apart they are.
 	const line = (v: bigint) => (v < 0n ? -(v & 0x7fffffffffffffffn) : v);

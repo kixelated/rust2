@@ -935,6 +935,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
 				_ => Some(ObjectKind::Array),
 			},
+			// A JS array, whose elements change in place as an array's do.
+			ty::Tuple(tys) if !tys.is_empty() => Some(ObjectKind::Array),
 			// A binding's value: an object, unless Rust copies it, which JS can't.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
 				(!self.is_copy(ty)).then_some(ObjectKind::Class)
@@ -1061,6 +1063,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			ty::Pat(base, _) => self.ty(*base, span),
 			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
@@ -1190,7 +1193,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box => self.ty(args.type_at(0), span),
+				library::Std::Box | library::Std::Reverse | library::Std::NonZero => self.ty(args.type_at(0), span),
+				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
 				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
@@ -1221,6 +1225,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeToInclusive => Type::Object(vec![
+					("end".into(), self.ty(args.type_at(0), span)),
+					("inclusive".into(), Type::Builtin("true")),
+				]),
 				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
@@ -1268,6 +1276,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					}
 				}
 			};
+		}
+		if let Some(inner) = library::wrapped(tcx, Ty::new_adt(tcx, adt, args)) {
+			return self.ty(inner, span);
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
 		if !adt.did().is_local()
@@ -1374,7 +1385,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Box | library::Std::Pin) => self.erases_to(args.type_at(0)),
+				Some(library::Std::Box | library::Std::Pin | library::Std::Reverse | library::Std::NonZero) => {
+					self.erases_to(args.type_at(0))
+				}
 				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
 				Some(library::Std::Poll) => Erased {
 					pending: true,

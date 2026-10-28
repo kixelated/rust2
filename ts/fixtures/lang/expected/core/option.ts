@@ -37,6 +37,13 @@ export function unwrapOr$Option_Cow_str(self: string | undefined, default_: stri
 	return self;
 }
 
+export function unwrapOr$Option_NonZero_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$Option_char(self: rt.char | undefined, default_: rt.char): rt.char {
 	if (self === undefined) {
 		return default_;
@@ -59,13 +66,6 @@ export function unwrapOr$Option_i64(self: rt.i64 | undefined, default_: rt.i64):
 }
 
 export function unwrapOr$Option_u16(self: rt.u16 | undefined, default_: rt.u16): rt.u16 {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
-export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -311,6 +311,13 @@ export function mapOr$Option_Vec_u16_u8_consumers_closure23(self: rt.u16[] | und
 }
 
 export function mapOr$Option_Vec_u8_u8_library_closure5(self: rt.ByteVec | undefined, default_: rt.u8, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u16_u16_edits_closure21(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
 	}

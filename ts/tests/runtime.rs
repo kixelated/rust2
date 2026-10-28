@@ -128,8 +128,18 @@ fn btree_script() {
 	assert_eq!(got.lines().count(), want.len());
 }
 
-/// A `retain` whose predicate panics leaves a B-tree and a deque as std's do, which
-/// `retain.ts` prints for every keep mask of up to 6 items and each item to panic on.
+/// A value that logs itself when it drops.
+struct Logged<'a, T: Copy>(T, &'a std::cell::RefCell<Vec<T>>);
+
+impl<T: Copy> Drop for Logged<'_, T> {
+	fn drop(&mut self) {
+		self.1.borrow_mut().push(self.0);
+	}
+}
+
+/// A `retain` whose predicate panics leaves a B-tree, a deque, and a `Vec` as std's do,
+/// and a `dedup_by` whose test panics leaves a `Vec`, each dropping what std's drops,
+/// which `retain.ts` prints for every keep mask of up to 6 items and each item to panic on.
 #[test]
 fn retain_unwinds() {
 	use std::collections::{BTreeMap, VecDeque};
@@ -163,9 +173,45 @@ fn retain_unwinds() {
 				}
 				deque.extend(n / 2..n);
 				let _ = catch_unwind(AssertUnwindSafe(|| deque.retain(|&i| keep(i))));
+				let dropped = std::cell::RefCell::new(Vec::new());
+				let mut vec: Vec<Logged<u32>> = (0..n).map(|i| Logged(i, &dropped)).collect();
+				let _ = catch_unwind(AssertUnwindSafe(|| vec.retain(|i| keep(i.0))));
+				let vec: Vec<u32> = vec.iter().map(|i| i.0).collect();
+				let dropped = std::mem::take(&mut *dropped.borrow_mut());
+				// A run ends at each item the mask clears, and `same` panics comparing `p`.
+				let deduped = std::cell::RefCell::new(Vec::new());
+				let mut run = 0;
+				let mut runs: Vec<Logged<(u32, u32)>> = (0..n)
+					.map(|i| {
+						if (mask >> i) & 1 == 0 {
+							run += 1;
+						}
+						Logged((i, run), &deduped)
+					})
+					.collect();
+				let _ = catch_unwind(AssertUnwindSafe(|| {
+					runs.dedup_by(|a, b| {
+						assert!(a.0.0 != p);
+						a.0.1 == b.0.1
+					})
+				}));
+				let ran: Vec<u32> = runs.iter().map(|r| r.0.0).collect();
+				let deduped: Vec<u32> = std::mem::take(&mut *deduped.borrow_mut())
+					.into_iter()
+					.map(|r| r.0)
+					.collect();
 				let entries: Vec<String> = tree.iter().map(|(k, v)| format!("{k},{v}")).collect();
 				let items: Vec<String> = deque.iter().map(u32::to_string).collect();
-				want += &format!("{n} {mask} {p} btree {} deque {}\n", entries.join(";"), items.join(","));
+				let join = |v: &[u32]| v.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+				want += &format!(
+					"{n} {mask} {p} btree {} deque {} vec {} dropped {} dedup {} dropped {}\n",
+					entries.join(";"),
+					items.join(","),
+					join(&vec),
+					join(&dropped),
+					join(&ran),
+					join(&deduped),
+				);
 			}
 		}
 	}

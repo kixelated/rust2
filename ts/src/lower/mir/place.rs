@@ -453,7 +453,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin) => base,
+				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				// Cast to its variant, which a test narrows only where it reads the field.
+				Some(Std::Bound) => {
+					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
+					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
+					let fields = vec![
+						(
+							"tag".to_string(),
+							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
+						),
+						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
+					];
+					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
+				}
 				// A variant MIR reads without a test, since the other can't be, is cast to it.
 				Some(Std::Result) => {
 					let ok = variant.map_or(0, VariantIdx::index) == 0;
@@ -480,13 +493,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					base.member(name)
 				}
-				Some(Std::Range | Std::RangeInclusive) => {
+				Some(Std::Range | Std::RangeInclusive | Std::RangeTo | Std::RangeFrom | Std::RangeToInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
-				_ if transparent(self.b.t, ty) => base,
+				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
 				None if self.b.t.own(adt.did()) => {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
@@ -895,6 +908,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Ordering) => scrut
 						.clone()
 						.binary("===", crate::lower::collections::ordering_variant(index)),
+					Some(Std::Bound) => scrut
+						.clone()
+						.member("tag")
+						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}

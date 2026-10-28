@@ -14,6 +14,7 @@ mod collections;
 mod combinators;
 mod cows;
 mod durations;
+mod edits;
 mod floats;
 mod fmt;
 mod generics;
@@ -29,5 +30,6 @@ mod strs;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
 mod wasm;
+mod wrappers;
 #[cfg(target_arch = "wasm32")]
 use harness::entry;
