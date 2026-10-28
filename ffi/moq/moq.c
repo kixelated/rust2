@@ -304,12 +304,12 @@ int main(void) {
 	/* Outside any tokio runtime, as C is, moq-tokio runs on the fallback it starts. */
 	moq_origin_producer *spawned = moq_origin_spawn();
 	moq_origin_producer_free(spawned);
-	moq_connect_config *connect = moq_connect_config_default();
+	moq_connect_config *client_config = moq_connect_config_default();
 	moq_quic_config *quic = moq_quic_config_default();
 	moq_tokio_client *tokio_client = NULL;
 	moq_tokio_error *tokio_err = NULL;
-	CHECK(moq_connect_config_init(connect, quic, &tokio_client, &tokio_err));
-	moq_connect_config_free(connect);
+	CHECK(moq_connect_config_init(client_config, quic, &tokio_client, &tokio_err));
+	moq_connect_config_free(client_config);
 	moq_quic_config_free(quic);
 	moq_tokio_client_free(tokio_client);
 
