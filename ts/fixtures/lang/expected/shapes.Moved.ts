@@ -4,8 +4,8 @@ import * as rt from "./rt.ts";
 
 export function fmt$Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Moved";
-	const _4: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self._0, f);
-	const _6: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self._1, f);
+	const _4: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self._0, f);
+	const _6: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self._1, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _3), _4), _6));
 }
 

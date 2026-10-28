@@ -21,16 +21,15 @@ runtime such as Node or Bun calls Rust through [rust2-ffi](/ffi/README.md), so N
 Bun matter only as proxies for V8 and JavaScriptCore, and a speed call that splits them
 from the browsers goes to the browsers.
 
-The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
+The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README.md);
 [m1](/quest/m1/README.md#plan) records why.
 
 ## Required
 
+- [Byte-slice locals that crash the translator](/quest/m2/ts-scalar-ice.md) - `take_apart` never reaches the arm `find_scalars` promised it wouldn't
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
-- [Iterator skips that read as std's](/quest/m2/ts-iter-nth.md) - `nth` and `nth_back` of what drops nothing read the items std's do
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model/README.md) - the model translates with kio, moq-clock, and moq-pattern, for moq to compare against WASM
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

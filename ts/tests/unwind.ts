@@ -6,7 +6,7 @@
 // usage: node unwind.ts <unwind binary> <caller.ts> [scripts]
 //
 // The caller exports `unwind`, the translation's harness with panics caught per step,
-// and `cases`, the scripts it names. The rest are random, with sends of the value that
+// `steps`, what a script's ops pick from, and `cases`, the scripts it names. The rest are random, with sends of the value that
 // panics mixed in.
 
 import { spawnSync } from "node:child_process";
@@ -31,7 +31,7 @@ for (let i = 0; i < count; i++) {
 	const steps = 4 + (next() % 20);
 	const script = new Uint8Array(steps * 2);
 	for (let s = 0; s < steps; s++) {
-		script[2 * s] = next() % 13;
+		script[2 * s] = next() % caller.steps.length;
 		// A send of 99 panics the `sum` reading it.
 		script[2 * s + 1] = next() % 4 === 0 ? 99 : next() % 256;
 	}

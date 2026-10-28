@@ -1,10 +1,12 @@
 //! Rvalues: arithmetic, casts, aggregates, and closures.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::FxHashSet;
 use rustc_index::IndexVec;
+use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, AggregateKind, BinOp, CastKind, Operand, Place, Rvalue, UnOp};
 use rustc_middle::ty::adjustment::PointerCoercion;
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::{Capture, Env, Fx, Slot};
@@ -189,7 +191,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tcx = self.tcx;
 		let from = op.ty(&self.mir.local_decls, tcx);
 		match kind {
-			CastKind::IntToInt => {
+			CastKind::IntToInt | CastKind::IntToFloat | CastKind::FloatToInt | CastKind::FloatToFloat => {
 				let value = self.operand(op, span, out);
 				let operand = num::Operand {
 					expr: value,
@@ -203,7 +205,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let value = self.path(value, "arg", out);
 					self.b.fmt_value(tr, from, value, span, out)
 				}
-				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
+				PointerCoercion::Unsize if let Some((pointee, object)) = arc_object(tcx, from, to) => {
+					let value = self.operand(op, span, out);
+					self.arc_object(value, pointee, object, span, out)
+				}
+				// A future, as the `rt.Future` a `dyn Future` is.
+				PointerCoercion::Unsize
+					if unsized_to(from, to).is_some_and(|part| self.b.t.dyn_future(part).is_some()) =>
+				{
+					let value = self.operand(op, span, out);
+					self.b.dyn_future(from, to, value, span)
+				}
+				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(|t| t.is_trait()) => {
+					let value = self.operand(op, span, out);
+					self.b.object_of(value, from, to, span)
+				}
 				// An array's bytes, as a slice of all of it: a reference to them is one already.
 				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
 					match to.builtin_deref(true) {
@@ -230,7 +246,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			},
 			// An async body's context passes through `ResumeTy` and `NonNull`.
 			CastKind::Transmute if context_like(self, from) && context_like(self, to) => self.operand(op, span, out),
+			// A pattern type, as `NonZero` holds, is its base type's value.
+			CastKind::Transmute if peel_pat(from) == peel_pat(to) => self.operand(op, span, out),
 			_ => self.err(span, format!("a `{kind:?}` cast from `{from}` to `{to}`")),
+		}
+	}
+
+	/// `arc`, an `Arc` of `pointee` unsized to one of the trait object `object`: an
+	/// `rt.ArcDyn` sharing its count, over what a box of its value unsizes to, or the same
+	/// `Arc` upcast.
+	fn arc_object(&mut self, arc: Expr, pointee: Ty<'tcx>, object: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let tcx = self.tcx;
+		// An upcast is of an `rt.ArcDyn` already, whose object has the supertraits' methods.
+		let (arc, value) = match pointee.is_trait() {
+			true => (None, arc),
+			false => {
+				let arc = self.path(arc, "arc", out);
+				(Some(arc.clone()), arc.member("value"))
+			}
+		};
+		let (from, to) = (Ty::new_box(tcx, pointee), Ty::new_box(tcx, object));
+		let value = match self.b.t.dyn_future(object) {
+			Some(_) => self.b.dyn_future(from, to, value, span),
+			None => self.b.object_of(value, from, to, span),
+		};
+		match arc {
+			Some(arc) => Expr::New(Box::new(Expr::Rt("ArcDyn".into())), vec![arc, value]),
+			None => value,
 		}
 	}
 
@@ -261,8 +303,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						)
 					}
 					// The value is its discriminant.
-					Some(Std::Ordering) => scrut,
+					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
+					Some(Std::Bound) => {
+						let table = discrs
+							.iter()
+							.map(|(i, d)| (Key::Name(adt.variant(*i).name.to_string()), int.lit(*d as i128)))
+							.collect();
+						Expr::Index(Box::new(Expr::Object(table)), Box::new(scrut.member("tag")))
+					}
 					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
 						let table = discrs
@@ -308,7 +357,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for op in ops.iter() {
 			let v = self.operand(op, span, out);
 			let is_ref = op.ty(&self.mir.local_decls, self.tcx).is_ref();
-			let reread = is_ref && self.rereadable(&v);
+			let reread = is_ref && v.is_path() && op.place().is_none_or(|place| self.rereads(place));
 			let v = match parts_read && is_ref && !reread {
 				true => self.path(v, "part", out),
 				false => v,
@@ -427,19 +476,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let def = adt.variant(variant);
 		if let Some(std) = Std::of(tcx, def_id) {
 			return match (std, variant.index()) {
-				(Std::Option, 0) => Expr::undefined(),
+				(Std::Option, 0) => self.b.t.none(args.type_at(0)),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
-				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
+				(Std::Option | Std::Poll | Std::Pin, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
-				(Std::RangeTo, _) => Expr::Object(vec![(Key::Name("end".into()), values.pop().unwrap())]),
+				(Std::RangeTo | Std::RangeToInclusive, _) => {
+					crate::lower::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
+				}
+				(Std::Reverse, _) => values.pop().unwrap(),
+				(Std::Bound, _) => {
+					let ts_ty = self.b.t.ty(ty, span);
+					crate::lower::library::bound(def.name.as_str(), values.pop(), ts_ty)
+				}
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
+				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {
@@ -460,7 +517,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => self.err(span, format!("constructing `{ty}`")),
 			};
 		}
-		if super::place::transparent(self.b.t, ty) {
+		if super::place::transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() {
 			return values.pop().unwrap_or_else(Expr::undefined);
 		}
 		match crate::lower::library::std_path(tcx, def_id)
@@ -529,10 +586,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let tcx = self.tcx;
+		let instance = Instance::new_raw(def_id, args);
+		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {
+			return Expr::undefined();
+		};
+		let rebound = rebound_captures(&mir);
 		// A capture by reference reads the place it borrows; one by value is the value as
-		// it was when the closure was made, a reference held in a variable included.
+		// it was when the closure was made, a reference held in a variable included, which
+		// a closure that assigns it whole reassigns.
 		let mut captures = Vec::with_capacity(ops.len());
-		for op in ops.iter() {
+		for (field, op) in ops.iter_enumerated() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
 			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does.
 			if let Some(local) = op.place().and_then(|p| p.as_local())
@@ -554,21 +617,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ty::Ref(..) => in_var && !self.stable_name(&value),
 				_ => true,
 			};
-			let value = match snapshot && !value.is_constant() {
+			// A constant is its own snapshot, unless the closure reassigns it.
+			let rebinds = rebound.contains(&field);
+			let constant = value.is_constant();
+			let value = match snapshot && (rebinds || !constant) {
 				false => value,
 				true => {
 					let name = self.b.fresh("captured");
-					let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
+					// Typed, so a reassigned literal keeps its integer's type.
+					let ts_ty = constant.then(|| self.b.t.held_ty(ty, span));
+					let stmt = StmtKind::decl(rebinds, name.clone(), ts_ty, Some(value)).at(None);
 					self.emit(vec![stmt], None, false, out);
 					Expr::ident(name)
 				}
 			};
 			captures.push(Capture { value, pointee: false });
 		}
-		let instance = Instance::new_raw(def_id, args);
-		let Some(mir) = super::instance_mir(self.b.t, instance, span) else {
-			return Expr::undefined();
-		};
 		let sig = tcx.instantiate_bound_regions_with_erased(args.as_closure().sig());
 		let ret = self
 			.b
@@ -589,6 +653,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			None => f,
 		}
 	}
+}
+
+/// The captures a closure's body `mir` assigns whole or borrows mutably, other than to
+/// drop them: what JS rebinds where Rust writes the closure's own copy.
+fn rebound_captures(mir: &mir::Body<'_>) -> FxHashSet<FieldIdx> {
+	struct Rebound(FxHashSet<FieldIdx>);
+	impl<'tcx> Visitor<'tcx> for Rebound {
+		fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+			if place.local.as_u32() != 1
+				|| !cx.is_mutating_use()
+				|| cx == PlaceContext::MutatingUse(MutatingUseContext::Drop)
+			{
+				return;
+			}
+			let projection = match place.projection.as_slice() {
+				[mir::ProjectionElem::Deref, rest @ ..] => rest,
+				all => all,
+			};
+			if let [mir::ProjectionElem::Field(field, _)] = projection {
+				self.0.insert(*field);
+			}
+		}
+	}
+	let mut rebound = Rebound(FxHashSet::default());
+	rebound.visit_body(mir);
+	rebound.0
 }
 
 /// Whether a `ty`'s JS value is the task's context: `&mut Context`, or the `ResumeTy` and
@@ -617,6 +707,15 @@ fn unsized_to<'tcx>(from: Ty<'tcx>, to: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		}
 		_ => None,
 	}
+}
+
+/// What an `Arc` unsized to an `Arc` of a trait object points at, and that object.
+fn arc_object<'tcx>(tcx: TyCtxt<'tcx>, from: Ty<'tcx>, to: Ty<'tcx>) -> Option<(Ty<'tcx>, Ty<'tcx>)> {
+	let (ty::Adt(adt, from_args), ty::Adt(_, to_args)) = (from.kind(), to.kind()) else {
+		return None;
+	};
+	let object = to_args.type_at(0);
+	(Std::of(tcx, adt.did()) == Some(Std::Arc) && object.is_trait()).then(|| (from_args.type_at(0), object))
 }
 
 /// Whether evaluating `rvalue` can do or throw anything.
@@ -670,5 +769,13 @@ pub fn memory<'tcx>(rvalue: &Rvalue<'tcx>, fx: &Fx<'_, '_, '_, 'tcx>) -> bool {
 		Rvalue::Ref(_, _, p) | Rvalue::Discriminant(p) | Rvalue::CopyForDeref(p) | Rvalue::RawPtr(_, p) => place(p),
 		Rvalue::Aggregate(_, ops) => ops.iter().any(operand),
 		Rvalue::ThreadLocalRef(_) | Rvalue::WrapUnsafeBinder(..) | Rvalue::Reborrow(..) => true,
+	}
+}
+
+/// A pattern type's base, or `ty` itself.
+fn peel_pat(ty: Ty<'_>) -> Ty<'_> {
+	match ty.kind() {
+		ty::Pat(base, _) => *base,
+		_ => ty,
 	}
 }

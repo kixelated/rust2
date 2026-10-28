@@ -12,7 +12,7 @@ export function fmt$Debug(self: Doubled, f: rt.Formatter): rt.Result<undefined, 
 	const _6: rt.Iter<rt.u16> = rt.iterMap(rt.iterSlice(rt.byteSliceView(self._0)), (_2: rt.u8): rt.u16 => {
 		return rt.u16Mul(_2 as rt.u16, 2);
 	});
-	return rt.debugListFinish(rt.debugListEntries(_5, _6, rt.u16Display));
+	return rt.debugListFinish(rt.debugListEntries(_5, _6, rt.u16Debug));
 }
 
 //# sourceMappingURL=iters.Doubled.ts.map
