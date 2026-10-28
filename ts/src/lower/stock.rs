@@ -5,7 +5,7 @@
 //! [`super::Translator::ignored_site`].
 
 use rustc_hir::def::DefKind;
-use rustc_hir::def_id::DefId;
+use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 
 use super::body::Body;
@@ -28,7 +28,12 @@ pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Std> {
 /// Whether `did` is an item of one of these crates, rather than of the crate translated,
 /// whatever its name.
 pub fn is_stock(tcx: TyCtxt<'_>, did: DefId) -> bool {
-	!did.is_local() && matches!(tcx.crate_name(did.krate).as_str(), "bytes" | "rand")
+	!did.is_local() && is_stock_crate(tcx, did.krate)
+}
+
+/// Whether `krate`, a dependency, is one of these crates, which maps rather than translates.
+pub fn is_stock_crate(tcx: TyCtxt<'_>, krate: CrateNum) -> bool {
+	matches!(tcx.crate_name(krate).as_str(), "bytes" | "rand")
 }
 
 /// A call of one of these crates' functions, or of a std trait's on one of their types:

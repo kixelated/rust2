@@ -445,7 +445,7 @@ pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool
 		ty::Array(elem, _) => clone_copies(t, *elem),
 		// A binding's `Clone` is its own.
 		ty::Adt(adt, _) if t.bound_drops(adt.did()).is_some() => false,
-		ty::Adt(adt, args) if !adt.did().is_local() => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) if !t.crates.translates(adt.did()) => args.types().all(|arg| clone_copies(t, arg)),
 		ty::Adt(adt, args) => {
 			let Some(clone) = tcx.lang_items().clone_fn() else {
 				return false;
@@ -774,14 +774,6 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 
 pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
-	// thiserror's `Display` derive reads each field through `AsDisplay`, which is the
-	// field itself for anything but a path.
-	if tcx.crate_name(call.def_id.krate).as_str() == "thiserror"
-		&& tcx.item_name(call.def_id).as_str() == "as_display"
-		&& matches!(targ(call.args, 0).kind(), ty::Ref(..))
-	{
-		return args.into_iter().next_back();
-	}
 	let args = match super::stock::call(b, call, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,

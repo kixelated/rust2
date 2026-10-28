@@ -516,6 +516,30 @@ fn bind() {
 	);
 }
 
+/// A package and its dependency translate as one program, the dependency's safe twin of
+/// its `unsafe` included, and run as native Rust does. Its `unsafe` that nothing binds is
+/// refused at its span, and so are its iterator that runs from either end and a module of
+/// the package's that would share the dependency's files.
+#[test]
+fn crates() {
+	let out = translated("crates");
+	snapshot("crates", &out);
+	typecheck(&out);
+	differential("crates-fixture", &[], &out, "harness.ts", 1_000);
+	let cases: [(&str, &str, &[&str]); 3] = [
+		("refused", "refused.toml", &[]),
+		("rev", "ts.toml", &["--", "--features", "rev"]),
+		("shared", "ts.toml", &["--", "--features", "shared"]),
+	];
+	for (case, config, cargo) in cases {
+		let out = scratch().join("crates").join(case);
+		let mut args: Vec<&std::ffi::OsStr> = vec!["--out".as_ref(), out.as_ref()];
+		args.extend(cargo.iter().map(std::ffi::OsStr::new));
+		let output = driver("crates", &fixture("crates").join(config), &args, "build");
+		rejected(&out, &output, &fixture("crates").join(format!("{case}.txt")));
+	}
+}
+
 /// The errors of a failed translation, each with where it points, against `expected`.
 fn rejected(out: &Path, output: &Output, expected: &Path) {
 	assert!(!output.status.success(), "translating {} succeeded", expected.display());

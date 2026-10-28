@@ -65,6 +65,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "crates-dep"
+version = "0.0.0"
+
+[[package]]
+name = "crates-fixture"
+version = "0.0.0"
+dependencies = [
+ "crates-dep",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
