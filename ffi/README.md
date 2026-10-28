@@ -24,7 +24,9 @@ to what the library builds with on any platform, read off cargo's resolution, wh
 it was declared (the manifest, cargo's config, `--config`, or the environment), keyed by
 its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
-Beside the C header, `include/<prefix>.hpp` holds the same API in C++.
+Beside the C header, `include/<prefix>.hpp` holds the same API in C++, and
+`kotlin/<prefix>.kt` holds it in Kotlin, over JNI functions the crate builds with
+`--features kotlin`.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -182,6 +184,37 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 - **The contract** is checked when the program loads, before any other call: a header
   and a library from different builds abort.
 
+## Kotlin
+
+`<prefix>.kt` is Kotlin for the JVM and Android over the crate's JNI functions, which
+`--features kotlin` builds into the same library, loaded by `System.loadLibrary`. It needs
+kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes as a
+`ByteArray`, and anything else encoded into one as its C struct holds it.
+
+- **Names** are in a package of the prefix: types in PascalCase without it, members in
+  camelCase without their type's name (`moq.TrackProducer.appendGroup`). A keyword is
+  quoted in backticks, and a member named as one Kotlin gives its type takes a trailing
+  `_`. A constructor such as `new` stays a companion function: `Counter.new(1)`.
+- **Objects** are classes owning their handle, `AutoCloseable`, which `close()` frees once
+  no call holds it; a call after it throws. A `self` method, or passing the object by
+  value, closes it once the call returns. `Clone` is `clone()`, and `PartialEq` is `equals`.
+- **Records** are data classes, compared by their fields, and **enums** an `enum class`,
+  or for one with data a sealed class of a data class per variant. `Display` is
+  `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
+- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair` or
+  `Triple`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+  holding it, whose message is its `Display`.
+- **Traits** are interfaces; once Rust drops an implementation, it is closed if
+  `AutoCloseable`.
+- **Closures** lent for a call are function types, which Rust calls only during the call,
+  from any thread. An object it lends is closed once the call returns.
+- **Futures** are `suspend fun`s, which resume on the coroutine's dispatcher, as C++ resumes
+  on its executor, and never inside a wake. Cancelling the coroutine frees the future and
+  loses nothing. Each call is its own future, so it has one poller.
+- A **waker** is a `Waker`, which Rust may call from any thread.
+- **The contract** is checked when the library loads, before any other call: a Kotlin
+  file and a library from different builds throw.
+
 ## IR
 
 [`src/ir.rs`](src/ir.rs) is the API as each generator reads it, with no language decided:
@@ -189,10 +222,11 @@ records, enums, objects, callbacks, functions, and constants of every export, ea
 its Rust path, its span, and its docs. A type is in the exact form Rust takes or returns it
 (`&str` apart from `String`, `Box<dyn Trait>` apart from `impl Trait`), so a generator can
 borrow where Rust borrows. [`src/abi.rs`](src/abi.rs) decides the C ABI from it once,
-names and signatures, so [`src/c.rs`](src/c.rs), [`src/cpp.rs`](src/cpp.rs), and
-[`src/glue.rs`](src/glue.rs) agree; the runtime the glue includes is
-[`runtime/rt.rs`](runtime/rt.rs), and the one the C++ header includes
-[`runtime/rt.hpp`](runtime/rt.hpp).
+names and signatures, so [`src/c.rs`](src/c.rs), [`src/cpp.rs`](src/cpp.rs),
+[`src/kotlin.rs`](src/kotlin.rs), and [`src/glue.rs`](src/glue.rs) agree; the runtime the
+glue includes is [`runtime/rt.rs`](runtime/rt.rs), the one the C++ header includes
+[`runtime/rt.hpp`](runtime/rt.hpp), and the ones Kotlin and its JNI glue include
+[`runtime/rt.kt`](runtime/rt.kt) and [`runtime/jni.rs`](runtime/jni.rs).
 
 ## Census
 
@@ -205,8 +239,8 @@ rest, and the refused instances to drop from `instances`. It ignores the config'
 ## Tests
 
 ```bash
-just ffi test     # export the fixtures, build them, and drive api from C and C++
-just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c and moq/moq.cpp
+just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
+just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
 just ffi census   # census each into target/census
 nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C and C++, and moq's rs/moq-c
 ```
@@ -217,7 +251,9 @@ fixture's `examples/transcript.rs`, and the two transcripts must match line for 
 then it breaks each runtime check, which must abort with its message. `tests/api.cpp`
 runs the script through the C++ header at C++17, 20, and 23, with exceptions and RTTI off
 at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
-wake and its poll that loses nothing, and a coroutine resumed or destroyed. The `reject`
+wake and its poll that loses nothing, and a coroutine resumed or destroyed. `tests/api.kt`
+runs the script through the Kotlin on the JVM, checks its futures the same way, and breaks
+each runtime check, which must throw or abort with its message. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
@@ -225,4 +261,4 @@ track in one process, polling each read, scopes an origin to moq-pattern's patte
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
 publishes a binary track the catalog lists, and reads the catalog lent to C through
 `catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
-C++17 without exceptions or RTTI, as OBS builds it.
+C++17 without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.

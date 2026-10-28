@@ -14,3 +14,8 @@
   `detail`) and every variant's payload name (`<enum>_<variant>`, even without fields)
   join the names the naming rule claims, so an exported item named one clashes: give it
   another name with a `rename`.
+- Every export writes `kotlin/<prefix>.kt`, whose runtime object `Native` makes the C
+  name `native` one the naming rule claims. An item Kotlin names as a type its runtime
+  uses unqualified, such as `String` or `Unit`, or as another item, such as a type
+  `FooException` beside an error type `Foo`, is an error: give it another name with a
+  `rename`.
