@@ -18,7 +18,6 @@ roots = [
     "generic",
     "replace_shared",
     "nested_poll",
-    "generic_pending",
     "pending_output",
     "replace_pinned",
     "replace_guard",
@@ -59,5 +58,6 @@ roots = [
     "first_of",
     "tail_read",
     "missing",
+    "generic_pending",
 ]
 printable = ["Meters"]

@@ -1242,13 +1242,18 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 	)
 }
 
-/// Whether `ty` holds an `FnMut` closure by value: a copy of its arrow function shares
-/// the variables it captured, which in Rust each copy has its own of.
+/// Whether `ty` holds an `FnMut` closure by value that owns a capture: a copy of its arrow
+/// function shares the variables it captured, which in Rust each copy has its own of. One
+/// that only borrows them shared, which is `FnMut` where its bound asks for one, changes
+/// none of them.
 fn changes_captures(ty: Ty<'_>) -> bool {
 	match ty.kind() {
 		ty::Closure(_, args) => {
 			let closure = args.as_closure();
-			closure.kind() == ty::ClosureKind::FnMut || closure.upvar_tys().iter().any(changes_captures)
+			closure.upvar_tys().iter().any(|t| {
+				let shared = matches!(t.kind(), ty::Ref(_, _, ty::Mutability::Not));
+				closure.kind() == ty::ClosureKind::FnMut && !shared || changes_captures(t)
+			})
 		}
 		ty::Tuple(tys) => tys.iter().any(changes_captures),
 		ty::Array(t, _) => changes_captures(*t),

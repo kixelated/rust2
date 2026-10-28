@@ -106,16 +106,6 @@ pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<std::task::Poll<u8>
 	matches!(p, std::task::Poll::Pending)
 }
 
-/// A generic type's `Poll<T>` is `rt.Poll<T>`, which can't hold `rt.OuterPending`, the
-/// `Pending` of a `Poll<Poll<u8>>`.
-pub struct Waiting<T> {
-	pub poll: std::task::Poll<T>,
-}
-
-pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
-	Waiting { poll }.poll.is_pending()
-}
-
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
 pub async fn pending_output() -> std::task::Poll<u8> {
 	std::task::Poll::Pending
@@ -510,4 +500,14 @@ pub struct Tail<T: ?Sized> {
 pub fn tail_read(t: &Tail<u8>) -> u8 {
 	let r: &Tail<dyn Reading> = t;
 	r.value.read()
+}
+
+/// A generic type's `Poll<T>` is `rt.Poll<T>`, which can't hold `rt.OuterPending`, the
+/// `Pending` of a `Poll<Poll<u8>>`.
+pub struct Waiting<T> {
+	pub poll: std::task::Poll<T>,
+}
+
+pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
+	Waiting { poll }.poll.is_pending()
 }

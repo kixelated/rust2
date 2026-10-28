@@ -183,6 +183,7 @@ const VERBATIM: &[&str] = &[
 	"ref mut",
 	"rt.None",
 	"rt.OuterPending",
+	"rt.Pending",
 	"self",
 	"undefined",
 	"zip",

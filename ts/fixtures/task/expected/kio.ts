@@ -13,6 +13,10 @@ export function poll$Task_boxed_closure0_closure5(self: (a0: Waiter.Waiter) => r
 	return self(waiter);
 }
 
+export function poll$Task_closed_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<undefined>, waiter: Waiter.Waiter): rt.Poll<undefined> {
+	return self(waiter);
+}
+
 export function poll$Task_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	return self(waiter);
 }
@@ -32,6 +36,11 @@ export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
+export function wait$closed_closure0_closure0_unit(poll: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
+	return Pending.new$closed_closure0_closure0(poll);
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
 	return Pending.new$recv_closure0_closure0(poll);
 }
@@ -39,6 +48,40 @@ export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter)
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$watch_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
 	return Pending.new$watch_closure0_closure0(poll);
+}
+
+export class closedFuture {
+	#state: number = 0;
+	#self: Consumer.Consumer;
+	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>>;
+
+	constructor(self: Consumer.Consumer) {
+		this.#self = self;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<undefined> {
+		if (this.#state === 0) {
+			const self: Consumer.Consumer = this.#self;
+			this.#awaitee = wait$closed_closure0_closure0_unit((waiter: Waiter.Waiter): rt.Poll<undefined> => {
+				return Consumer.pollClosed(self, waiter);
+			});
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
+		}
+		if (Pending.poll$Future_closed_closure0_closure0(this.#awaitee, _2) !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return undefined;
+		}
+		this.#state = 3;
+		return rt.Pending;
+	}
 }
 
 export class recvFuture {

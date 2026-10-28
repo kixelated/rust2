@@ -18,15 +18,14 @@ A handoff through 1, 4, and 16 async functions measured 1.5-2.7x faster than #16
 generators in Node, 1.8-5.5x in Bun, and 1.4-3.5x in Chrome, and past depth 1 faster
 than moq's hand-written promises. `rt.spawn` stays.
 
-std's future helpers translate: `Poll`'s methods, `pin!`, `poll_fn`, `future::pending`,
+std's future helpers translate: `Poll`'s methods, `Poll<Poll<T>>`, `pin!`, `poll_fn`, `future::pending`,
 `Waker::from(Arc<W>)`, and `Waker::noop`, and so do `Box::pin` and `dyn Future`. What
 moq-net still needs, by its census from MIR at the pinned revision:
 
 - Async closures, which only moq-net's tests write today.
-- kio's own API, reached across crates (`Pending`, `Consumer::poll`,
-  `Waiter::poll_future`, `Tasks`), translates from source as a
-  [dependency](/ts/README.md), and kio's `RawWaker` vtable and
-  `Box<dyn FnMut>` tasks are [bindings](/ts/README.md#bindings).
+- kio's `Tasks`, whose `RawWaker` vtable and `Box<dyn FnMut>` tasks are
+  [bindings](/ts/README.md#bindings). The rest of kio's API translates from source
+  across crates; what it still refuses is std's.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a

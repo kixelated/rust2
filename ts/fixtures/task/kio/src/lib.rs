@@ -309,6 +309,21 @@ impl Consumer {
 		Poll::Pending
 	}
 
+	/// Ready once the channel closed, registering `waiter` until then.
+	pub fn poll_closed(&self, waiter: &Waiter) -> Poll<()> {
+		let mut state = self.state.lock().unwrap();
+		if state.closed {
+			return Poll::Ready(());
+		}
+		waiter.register(&mut state.waiters);
+		Poll::Pending
+	}
+
+	/// Wait for the channel to close, through a closure that only borrows `self`.
+	pub async fn closed(&self) {
+		wait(move |waiter| self.poll_closed(waiter)).await
+	}
+
 	/// kio's one-line wrapper over a `poll_*` method.
 	pub async fn recv(&mut self) -> Option<u64> {
 		wait(|waiter| self.poll_recv(waiter)).await

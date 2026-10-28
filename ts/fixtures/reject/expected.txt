@@ -21,8 +21,8 @@ a constant of type `&u8` at fixtures/reject/src/lib.rs:80:2
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:85:2
 replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs:89:2
 an assignment through a reference to `std::sync::Arc<u8>` at fixtures/reject/src/lib.rs:101:2
-`Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:105:20
-`Poll<std::task::Poll<u8>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:110:54
+`Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:105:20
+a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:110:34
 an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:116:2
 an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:121:2
 unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:126:11
@@ -65,6 +65,7 @@ a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixt
 `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:475:4
 a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:491:26
 a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:501:30
+`Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:512:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:139:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:159:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:193:2

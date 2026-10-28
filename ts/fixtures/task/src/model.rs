@@ -137,6 +137,7 @@ pub async fn watch(mut rx: Consumer, guard: Guard) -> u64 {
 		pending.index += 1;
 	}
 	let watch = pending.into_inner();
+	watch.rx.closed().await;
 	guard.note(&format!("watched to {}", watch.index));
 	total
 }
@@ -170,7 +171,7 @@ fn at(rx: &Consumer, index: usize, waiter: &Waiter) -> Poll<Option<u64>> {
 		Poll::Ready(Err(Closed)) => Poll::Ready(None),
 		Poll::Pending => Poll::Pending,
 	};
-	if res.is_pending() && rx.poll(waiter, |_| Poll::<()>::Pending).is_ready() {
+	if res.is_pending() && rx.poll_closed(waiter).is_ready() {
 		return Poll::Ready(None);
 	}
 	res

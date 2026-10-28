@@ -57,20 +57,14 @@ export function poll$at_closure0_Poll_Option_u64(self: Consumer, waiter: Waiter.
 	return rt.Err({});
 }
 
-/**
- * `f` of every value sent so far, once it is ready, or the error once the channel
- * closed and `f` is not, registering `waiter` otherwise.
- */
-export function poll$at_closure1_unit(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<undefined>): rt.Poll<rt.Result<undefined, Closed.Closed>> {
+/** Ready once the channel closed, registering `waiter` until then. */
+export function pollClosed(self: Consumer, waiter: Waiter.Waiter): rt.Poll<undefined> {
 	const state: rt.Mutex<State.State> = self.state.value;
-	if (f(state.value.queue) !== rt.Pending) {
-		return rt.OK;
-	}
 	if (!state.value.closed) {
 		Waiter.register(waiter, state.value.waiters);
 		return rt.Pending;
 	}
-	return rt.Err({});
+	return undefined;
 }
 
 //# sourceMappingURL=kio.Consumer.ts.map

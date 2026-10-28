@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 73
-- Function instances: 83
+- Refusals: 74
+- Function instances: 86
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -13,7 +13,6 @@
 | 4 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:101:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:85:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
-| 2 | `_` is not supported: it would be pending two ways with one value | fixtures/reject/src/lib.rs:105:20 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:42 |
 | 2 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:247:16 |
@@ -25,7 +24,9 @@
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:369:13 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:2 |
 | 1 | `_` is not supported yet | fixtures/reject/src/lib.rs:393:18 |
+| 1 | `_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` | fixtures/reject/src/lib.rs:105:20 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | fixtures/reject/src/lib.rs:31:2 |
+| 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | fixtures/reject/src/lib.rs:512:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:318:2 |
@@ -38,6 +39,7 @@
 | 1 | a coercion to `_` | fixtures/reject/src/lib.rs:341:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:80:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:257:14 |
+| 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:413:12 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:92:1 |
@@ -87,11 +89,14 @@ The type or module each refused type or path belongs to.
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:501:30 |
+| 1 | `Waiting` | fixtures/reject/src/lib.rs:512:2 |
 | 1 | `[u16; 1]` | fixtures/reject/src/lib.rs:240:22 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:491:26 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `f64` | fixtures/reject/src/lib.rs:449:2 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `poll` | fixtures/reject/src/lib.rs:512:2 |
+| 1 | `rt.Poll` | fixtures/reject/src/lib.rs:512:2 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:172:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:166:14 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:420:2 |
@@ -99,6 +104,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:121:2 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:465:40 |
+| 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | `str` | fixtures/reject/src/lib.rs:377:4 |
 | 1 | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:96:2 |
@@ -111,14 +117,15 @@ The type or module each refused type or path belongs to.
 | ---: | --- | --- | --- |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | `std::borrow::Cow` | fixtures/reject/src/lib.rs:382:2 |
 | 3 | unsupported type `_` | `f32` | fixtures/reject/src/lib.rs:7:14 |
-| 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:105:20 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:474:23 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:116:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:85:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:439:17 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:393:18 |
+| 1 | `_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` | `Poll` | fixtures/reject/src/lib.rs:105:20 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
+| 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:512:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashMap::get`, `Option` | fixtures/reject/src/lib.rs:263:6 |
@@ -135,6 +142,7 @@ The type or module each refused type or path belongs to.
 | 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:501:30 |
 | 1 | a coercion to `_`, which is not supported yet | `std::sync::Weak` | fixtures/reject/src/lib.rs:465:40 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:80:2 |
+| 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:491:26 |
@@ -219,13 +227,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_` is not supported: it would be pending two ways with one value (2)</summary>
-
-- fixtures/reject/src/lib.rs:105:20: `Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value
-- fixtures/reject/src/lib.rs:110:54: `Poll<std::task::Poll<u8>>` is not supported: it would be pending two ways with one value
-
-</details>
-
 <details><summary>`_` is not supported: its `None` and `Some` would both be `rt.None` (2)</summary>
 
 - fixtures/reject/src/lib.rs:16:15: `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None`
@@ -301,9 +302,21 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` (1)</summary>
+
+- fixtures/reject/src/lib.rs:105:20: `Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending`
+
+</details>
+
 <details><summary>`_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:31:2: `Maybe<()>` is not supported: its field `value` is `Option<T>`, typed `T | undefined`, whose `None` would be `rt.None` as `Option<()>`
+
+</details>
+
+<details><summary>`_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:512:2: `Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>`
 
 </details>
 
@@ -376,6 +389,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a copy of a closure that changes what it captured (1)</summary>
 
 - fixtures/reject/src/lib.rs:257:14: a copy of a closure that changes what it captured
+
+</details>
+
+<details><summary>a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is (1)</summary>
+
+- fixtures/reject/src/lib.rs:110:34: a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is
 
 </details>
 
