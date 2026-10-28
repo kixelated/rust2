@@ -47,7 +47,7 @@ impl Part for u32 {
 	}
 }
 
-/// Boxed parts of each kind, panicking at point `at`, if any, or in a `Drop` at 9.
+/// Boxed parts of each kind, panicking at point `at`, if any, or in a `Drop` at 5.
 pub(super) fn boxed(log: &Log, id: u32, at: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
@@ -62,7 +62,7 @@ pub(super) fn boxed(log: &Log, id: u32, at: u8) {
 	parts.push(Box::new(Bomb {
 		id: id + 4,
 		log: log.clone(),
-		blows: at == 9,
+		blows: at == 5,
 	}));
 	parts.push(Box::new(Held::One(guard(5))));
 	parts.swap(2, 3);

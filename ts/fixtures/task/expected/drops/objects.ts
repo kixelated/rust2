@@ -17,7 +17,7 @@ export function id$Part_u32(self: rt.u32): rt.u32 {
 	return self;
 }
 
-/** Boxed parts of each kind, panicking at point `at`, if any, or in a `Drop` at 9. */
+/** Boxed parts of each kind, panicking at point `at`, if any, or in a `Drop` at 5. */
 export function boxed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let first!: Part.Part;
 	let parts!: Part.Part[];
@@ -56,7 +56,7 @@ export function boxed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		parts.push(_17);
 		const _28: Part.Part = new Part.u32(7);
 		parts.push(_28);
-		const _32: Part.Part = new Part.Bomb(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 9 }));
+		const _32: Part.Part = new Part.Bomb(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 5 }));
 		parts.push(_32);
 		const _41: Part.Part = new Part.Held({ tag: "One", _0: guard(5) } as Held.Held);
 		parts.push(_41);
