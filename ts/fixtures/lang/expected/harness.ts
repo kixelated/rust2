@@ -18,6 +18,7 @@ import { refs } from "./refs.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
 import { strs, slices } from "./strs.ts";
+import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
 
 /** Run one case. */
@@ -29,7 +30,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 57);
+	const _14: rt.u8 = rt.u8Rem(op, 58);
 	if (_14 === 0) {
 		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 1) {
@@ -159,8 +160,10 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		skips(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	} else if (_14 === 55) {
 		wrappers(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else {
+	} else if (_14 === 56) {
 		edits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+	} else {
+		decodes(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	}
 	return out;
 }
