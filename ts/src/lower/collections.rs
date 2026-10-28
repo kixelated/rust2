@@ -249,8 +249,9 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
-/// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
+/// Whether `call` lends a value a collection holds that JS copies, which its mapping makes
+/// an `rt.Place` of: returned as `get_mut` and an entry's do, yielded as `iter_mut`'s, or
+/// handed to a closure as `retain`'s.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let Some(std) = library::inherent_std(tcx, call.def_id) else {
@@ -258,8 +259,13 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	};
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
+	if std == Std::VecDeque {
+		let methods = ["get_mut", "front_mut", "back_mut", "iter_mut", "retain_mut"];
+		return methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 0));
+	}
 	let methods: &[&str] = match std {
-		Std::HashMap | Std::BTreeMap => &["get_mut"],
+		Std::HashMap => &["get_mut", "iter_mut", "values_mut", "retain"],
+		Std::BTreeMap => &["get_mut", "iter_mut", "values_mut", "range_mut", "retain"],
 		Std::Entry if is_vacant(b, coll) => &["insert"],
 		Std::Entry => &[
 			"or_insert",
@@ -268,6 +274,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 			"or_default",
 			"get_mut",
 			"into_mut",
+			"and_modify",
 		],
 		_ => return false,
 	};
@@ -349,7 +356,10 @@ fn hash<'tcx>(
 		(_, "remove") if set => Expr::rt("hashDelete", values),
 		(_, "remove") => Expr::rt("hashRemove", values),
 		(_, "remove_entry") => Expr::rt("hashRemoveEntry", values),
+		(_, "retain") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("hashRetainMut", values),
 		(_, "retain") => Expr::rt("hashRetain", values),
+		(_, "iter_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("hashIterMut", values),
+		(_, "values_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("hashValuesMut", values),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("hashIter", values),
 		(_, "iter" | "keys") => Expr::rt("hashKeys", values),
 		(_, "values" | "values_mut") => Expr::rt("hashValues", values),
@@ -547,6 +557,7 @@ fn btree<'tcx>(
 		(_, "remove") if set => Expr::rt("btreeDelete", values),
 		(_, "remove") => Expr::rt("btreeRemove", values),
 		(_, "remove_entry") => Expr::rt("btreeRemoveEntry", values),
+		(_, "retain") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRetainMut", values),
 		(_, "retain") => Expr::rt("btreeRetain", values),
 		(_, "first_key_value") => Expr::rt("btreeFirst", values),
 		(_, "last_key_value") => Expr::rt("btreeFirst", last(values)),
@@ -558,6 +569,8 @@ fn btree<'tcx>(
 		(_, "last") => Expr::rt("btreeFirstKey", last(values)),
 		(_, "first_entry") => Expr::rt("btreeFirstEntry", values),
 		(_, "last_entry") => Expr::rt("btreeFirstEntry", last(values)),
+		(_, "iter_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeIterMut", values),
+		(_, "values_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeValuesMut", values),
 		(_, "iter" | "iter_mut") if !set => Expr::rt("btreeIter", values),
 		(_, "iter" | "keys") => Expr::rt("btreeKeys", values),
 		(_, "values" | "values_mut") => Expr::rt("btreeValues", values),
@@ -576,6 +589,7 @@ fn btree<'tcx>(
 			Expr::rt(f, super::iter::tail(values, droppers))
 		}
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
+		(_, "range_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRangeMut", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
 		(_, "entry") => Expr::rt("entry", values),
 		("Index", "index") => Expr::rt("btreeIndex", values),
@@ -712,10 +726,14 @@ fn deque<'tcx>(
 		(_, "push_front") => Expr::rt("dequePushFront", values),
 		(_, "pop_back") => Expr::rt("dequePopBack", values),
 		(_, "pop_front") => Expr::rt("dequePopFront", values),
+		(_, "front_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", values),
+		(_, "back_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", back(values)),
+		(_, "get_mut") if b.t.needs_place(item) => Expr::rt("dequeGetMut", values),
 		(_, "front" | "front_mut") => Expr::rt("dequeEnd", values),
 		(_, "back" | "back_mut") => Expr::rt("dequeEnd", back(values)),
 		(_, "get" | "get_mut") => Expr::rt("dequeGet", values),
 		(_, "truncate") => Expr::rt("dequeTruncate", values),
+		(_, "retain_mut") if b.t.needs_place(item) => Expr::rt("dequeRetainMut", values),
 		(_, "retain" | "retain_mut") => Expr::rt("dequeRetain", values),
 		(_, "remove") => Expr::rt("dequeRemove", values),
 		(_, "insert") => Expr::rt("dequeInsert", values),
@@ -723,6 +741,7 @@ fn deque<'tcx>(
 			values.push(eq_fn(b, peel(b, item), span));
 			Expr::rt("dequeContains", values)
 		}
+		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
 		(_, "drain") => {
 			let droppers = entry_droppers(b, coll, span);
@@ -813,7 +832,7 @@ fn entry<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, name: &str, args: Vec
 			values.push(b.fn_value(default, tcx.mk_args(&[value.into()]), span));
 			Expr::rt(mutable("entryOrInsertWith"), values)
 		}
-		"and_modify" => Expr::rt("entryAndModify", values),
+		"and_modify" => Expr::rt(mutable("entryAndModify"), values),
 		"key" => Expr::rt("entryKey", values),
 		"into_key" => values.pop()?.member("k"),
 		"get" => Expr::rt("entryGet", values),
@@ -1076,7 +1095,12 @@ pub fn trait_fn(tcx: ty::TyCtxt<'_>, tr: &str, item: &str) -> rustc_hir::def_id:
 /// `rt.Iter` of its entries, keys, or items, which by value drops those it still holds.
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let coll = ty.peel_refs();
+	// A `&mut` lends each value JS copies as its place.
+	let places = |n: usize| ty.ref_mutability() == Some(ty::Mutability::Mut) && b.t.needs_place(arg(coll, n));
 	let name = match b.t.std_of(coll)? {
+		Std::HashMap if places(1) => "hashIterMut",
+		Std::BTreeMap if places(1) => "btreeIterMut",
+		Std::VecDeque if places(0) => "dequeIterMut",
 		Std::HashMap => "hashIter",
 		Std::HashSet => "hashKeys",
 		Std::BTreeMap => "btreeIter",

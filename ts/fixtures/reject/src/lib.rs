@@ -12,13 +12,6 @@ pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }
 
-/// Each element would be a copy, so the increments would be lost.
-pub fn increment(v: &mut [u32]) {
-	for x in v {
-		*x += 1;
-	}
-}
-
 /// `None` and `Some(None)` would both be `undefined`.
 pub fn nested(x: Option<Option<u8>>) -> bool {
 	x.is_some()
@@ -422,18 +415,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
 	d += by;
 	d
-}
-
-/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
-pub fn last_bumped(v: &mut Vec<u32>) {
-	if let Some(x) = v.last_mut() {
-		*x += 1;
-	}
-}
-
-/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
-pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
-	map.entry(1).and_modify(|v| *v += 1);
 }
 
 fn bumped(x: &mut u8) {

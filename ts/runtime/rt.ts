@@ -8,6 +8,7 @@
 import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
 import type { Pending } from "./rt/task.ts";
 
+import { AtIndex } from "./rt/collections.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
@@ -243,6 +244,26 @@ export function sliceFirst<T>(s: ArrayLike<T>): T | undefined {
 /** `get`: the element at `index`, or `undefined` past the end. */
 export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
 	return index < s.length ? s[index] : undefined;
+}
+
+/** `last`, and `last_mut` of an element that is an object. */
+export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
+	return s.length === 0 ? undefined : s[s.length - 1];
+}
+
+/** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
+export function sliceGetMut<T>(s: { [i: number]: T; length: number }, index: number): Place<T> | undefined {
+	return index < s.length ? new AtIndex(s, index) : undefined;
+}
+
+/** `first_mut` of an element JS copies. */
+export function sliceFirstMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return sliceGetMut(s, 0);
+}
+
+/** `last_mut` of an element JS copies. */
+export function sliceLastMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return s.length === 0 ? undefined : new AtIndex(s, s.length - 1);
 }
 
 /**

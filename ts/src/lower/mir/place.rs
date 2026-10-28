@@ -756,6 +756,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		match target {
 			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			// A payload `Option::insert` lends, read as its type.
+			Expr::As(e, ty) => Expr::As(Box::new(self.stable_path(*e, own, span, out)), ty),
 			Expr::Ident(_) | Expr::This => target,
 			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
 			Expr::Index(object, i) => {

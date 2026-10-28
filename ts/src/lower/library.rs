@@ -842,6 +842,17 @@ fn mapping<'tcx>(
 			};
 			rt2(args, of, &super::camel(&name))
 		}
+		// An element JS copies is lent as its place, and an object as itself.
+		("slice", "first_mut" | "last_mut" | "get_mut") if name != "get_mut" || Int::of(targ(gargs, 1)).is_some() => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
+			let name = match b.t.needs_place(elem) {
+				true => name.as_str(),
+				false => name.strip_suffix("_mut")?,
+			};
+			rt2(values, "slice", &super::camel(name))
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;

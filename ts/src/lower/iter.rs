@@ -153,12 +153,22 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		true => by_ref(iter, elem),
 		false => iter,
 	};
+	// Elements a `&mut` lends as their places, which JS copies.
+	let places = |b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>| {
+		ty.ref_mutability() == Some(ty::Mutability::Mut) && b.t.needs_place(elem)
+	};
 	match ty.peel_refs().kind() {
+		ty::Slice(elem) | ty::Array(elem, _) if places(b, *elem) => {
+			Some(Expr::rt("iterSliceMut", vec![library::elements(value, ty)]))
+		}
 		ty::Slice(elem) | ty::Array(elem, _) => {
 			let values = each(b, *elem, vec![library::elements(value, ty)]);
 			Some(items(Expr::rt("iterSlice", values), *elem))
 		}
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
+			Std::Vec if places(b, args.type_at(0)) => {
+				Some(Expr::rt("iterSliceMut", vec![library::elements(value, ty)]))
+			}
 			Std::Vec => {
 				let values = each(b, args.type_at(0), vec![library::elements(value, ty)]);
 				Some(items(Expr::rt("iterSlice", values), args.type_at(0)))
@@ -248,6 +258,10 @@ pub fn call<'tcx>(
 
 	// Where iterators come from.
 	match (owner, name) {
+		("slice", "iter_mut") if b.t.needs_place(targ(0)?) => {
+			let s = library::elements(args.pop()?, Ty::new_slice(tcx, targ(0)?));
+			return Some(Expr::rt("iterSliceMut", vec![s]));
+		}
 		("slice", "iter" | "iter_mut") => {
 			let s = args.pop()?;
 			let s = library::elements(s, Ty::new_slice(tcx, targ(0)?));
@@ -427,7 +441,8 @@ pub fn call<'tcx>(
 			};
 			method(&camel, tail(rest, droppers))
 		}
-		"max" | "min" if primitive(item.peel_refs()) => {
+		// Not of places, which the runtime would compare as the objects they are.
+		"max" | "min" if primitive(item.peel_refs()) && !b.t.has_place(item) => {
 			option_ok(b, item, span);
 			// A `BTreeMap`'s `into_keys` reads the one end and drops the rest with it.
 			if std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
