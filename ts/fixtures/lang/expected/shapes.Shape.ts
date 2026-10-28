@@ -17,9 +17,9 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	const _15: string = "corner";
 	const _16: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
 	const _17: string = "width";
-	const _18: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self.width, f);
+	const _18: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self.width, f);
 	const _19: string = "height";
-	const _20: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self.height, f);
+	const _20: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self.height, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 }
 

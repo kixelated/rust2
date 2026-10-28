@@ -132,11 +132,11 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecExtendFromSlice(out, chosen2);
 		rt.byteVecPush(out, chosen2.data[chosen2.start + 1]);
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chosen2), f, rt.u8Display), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(lit), f, rt.u8Display)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chosen2), f, rt.u8Debug), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(lit), f, rt.u8Debug)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1]])));
 		if (data.length >= 3) {
 			const chunk: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, 3);
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chunk), f, rt.u8Display), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chunk), f, rt.u8Display)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chunk), f, rt.u8Debug), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(chunk), f, rt.u8Debug)];
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0], " ", args4[1]])));
 		}
 	} else if (_4 === 4) {
