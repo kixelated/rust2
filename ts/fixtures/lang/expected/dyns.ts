@@ -3,6 +3,7 @@
 import * as rt from "./rt.ts";
 import * as Named from "./dyns.Named.ts";
 import * as Shape from "./dyns.Shape.ts";
+import * as Shown from "./dyns.Shown.ts";
 import * as Square from "./dyns.Square.ts";
 import * as Tri from "./dyns.Tri.ts";
 import { put } from "./fmt.ts";
@@ -14,6 +15,11 @@ export function sides$Shape_u32(_self: rt.u32): rt.u8 {
 
 export function intoArea$Shape_u32(self: rt.u32): rt.u32 {
 	return rt.u32WrappingAdd(area$Shape_u32(self), 1);
+}
+
+/** Writes through a `&mut` to a number, which is an `rt.Place`. */
+export function tally$Shape_u32(self: rt.u32, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$Shape_u32(self));
 }
 
 export function area$Shape_u32(self: rt.u32): rt.u32 {
@@ -66,12 +72,12 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let tri!: Tri.Tri;
 	let shapes!: Named.Named[];
 	let _109!: rt.usize;
-	let iterS!: Named.Named[];
-	let iterI!: number;
-	let _192!: boolean;
+	let iterS2!: Named.Named[];
+	let iterI2!: number;
+	let _222!: boolean;
 	let unwind: number = 0;
 	try {
-		_192 = false;
+		_222 = false;
 		if (data.length >= 3) {
 			const _12: [rt.u8, rt.u8, rt.u8] = [data.data[data.start], data.data[data.start + 1], data.data[data.start + 2]];
 			const a: rt.u8 = _12[0];
@@ -97,9 +103,9 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _82: rt.u8 = sidesOf$Square(sq);
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(_78, f), (f: rt.Formatter) => rt.u8Display(_82, f)];
 			put(out, rt.fmtFormat([args6[0], " ", args6[1], " "]));
-			_192 = true;
+			_222 = true;
 			shapes = [];
-			unwind = 102;
+			unwind = 116;
 			const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + 3, data.length - 3))));
 			while (true) {
 				const _94: [rt.usize, rt.u8] | rt.Done = iter.next();
@@ -122,48 +128,59 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 					s.v.grow$Shape(a);
 				}
 				const _129: string = s.v.label$Named();
-				unwind = 96;
+				unwind = 110;
 				const _132: rt.u32 = s.v.area$Shape();
 				const _135: rt.u8 = sidesOf$dyn_Shape(upcast(s.v));
 				const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _129), (f: rt.Formatter) => rt.u32Display(_132, f), (f: rt.Formatter) => rt.u8Display(_135, f), (f: rt.Formatter) => s.v.fmt$Debug(f)];
 				const _125: string = rt.fmtFormat([args8[0], ":", args8[1], ":", args8[2], ":", args8[3], " "]);
-				unwind = 102;
+				unwind = 116;
 				const _124: string = _125;
-				unwind = 95;
+				unwind = 109;
 				put(out, _124);
 			}
 			let sum: rt.u32 = 0;
-			_192 = false;
-			iterS = shapes;
-			iterI = 0;
+			for (const _150 of shapes) {
+				_150.tally$Shape(rt.place(() => sum, (value4) => sum = value4));
+			}
+			const _167: Tri.Tri = tri;
+			const _168: rt.u32 = sum;
+			const _165: Shown.Shown = { _0: (f: rt.Formatter) => Tri.fmt$Debug(_167, f) };
+			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_168, f), (f: rt.Formatter) => Shown.fmt$Debug(_165, f)];
+			const _160: string = rt.fmtFormat([args10[0], " ", args10[1], " "]);
+			unwind = 108;
+			put(out, _160);
+			unwind = 116;
+			_222 = false;
+			iterS2 = shapes;
+			iterI2 = 0;
 			while (true) {
-				unwind = 94;
-				const _150: Named.Named | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
-				if (_150 === rt.DONE) {
+				unwind = 107;
+				const _177: Named.Named | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
+				if (_177 === rt.DONE) {
 					break;
 				}
-				sum = rt.u32WrappingAdd(sum, _150.intoArea$Shape());
+				sum = rt.u32WrappingAdd(sum, _177.intoArea$Shape());
 			}
-			unwind = 102;
-			rt.dropAll(iterS, rt.drop, iterI);
-			const _169: rt.u32 = sum;
-			const _168: rt.u32 = new Shape.u32(n).intoArea$Shape();
-			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_169, f), (f: rt.Formatter) => rt.u32Display(_168, f)];
-			const _163: string = rt.fmtFormat([args10[0], " ", args10[1]]);
-			unwind = 93;
-			put(out, _163);
-			_192 = false;
+			unwind = 116;
+			rt.dropAll(iterS2, rt.drop, iterI2);
+			const _196: rt.u32 = sum;
+			const _195: rt.u32 = new Shape.u32(n).intoArea$Shape();
+			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_196, f), (f: rt.Formatter) => rt.u32Display(_195, f)];
+			const _190: string = rt.fmtFormat([args12[0], " ", args12[1]]);
+			unwind = 106;
+			put(out, _190);
+			_222 = false;
 		}
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		if (unwind !== 93) {
-			if (unwind === 94) {
-				rt.dropAll(iterS, rt.drop, iterI);
+		if (unwind !== 106) {
+			if (unwind === 107) {
+				rt.dropAll(iterS2, rt.drop, iterI2);
 			}
 		}
-		if (_192) {
+		if (_222) {
 			rt.dropAll(shapes);
 		}
 		throw e;

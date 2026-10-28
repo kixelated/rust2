@@ -3,7 +3,7 @@
 //! through `&mut self` wherever it is, a provided method, a supertrait's, `Debug` among
 //! them, `self: Box<Self>`, and an upcast to the supertrait.
 
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 
 use crate::fmt::put;
 
@@ -16,6 +16,10 @@ trait Shape {
 	}
 	fn into_area(self: Box<Self>) -> u32 {
 		self.area().wrapping_add(1)
+	}
+	/// Writes through a `&mut` to a number, which is an `rt.Place`.
+	fn tally(&self, sum: &mut u32) {
+		*sum = sum.wrapping_add(self.area());
 	}
 }
 
@@ -88,6 +92,15 @@ impl Shape for u32 {
 	}
 }
 
+/// Writes a `&dyn Debug` by calling its `fmt`, not through a placeholder.
+struct Shown<'a>(&'a dyn Debug);
+
+impl Debug for Shown<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.0.fmt(f)
+	}
+}
+
 fn total(shapes: &[&dyn Shape]) -> u32 {
 	shapes.iter().fold(0, |sum, s| sum.wrapping_add(s.area()))
 }
@@ -148,6 +161,10 @@ pub fn dyns(data: &[u8], out: &mut Vec<u8>) {
 		);
 	}
 	let mut sum = 0u32;
+	for s in &shapes {
+		s.tally(&mut sum);
+	}
+	put(out, &format!("{sum} {:?} ", Shown(&tri)));
 	for s in shapes {
 		sum = sum.wrapping_add(s.into_area());
 	}

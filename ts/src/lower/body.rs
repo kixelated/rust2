@@ -99,7 +99,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(sym) = self.t.bound_fn(instance, span) {
 			return Expr::Sym(sym).call(args.into_iter().map(Expr::typed).collect());
 		}
-		if let ty::InstanceKind::Virtual(method, _) = instance.def {
+		if let ty::InstanceKind::Virtual(method, _) = instance.def
+			&& self.t.dispatches(instance)
+		{
 			return self.virtual_call(method, gargs.type_at(0), args, span);
 		}
 		// An `async` body's `Future::poll`, which its future has itself.

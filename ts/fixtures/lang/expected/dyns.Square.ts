@@ -11,6 +11,11 @@ export function intoArea$Shape(self: Square): rt.u32 {
 	return rt.u32WrappingAdd(area$Shape(self), 1);
 }
 
+/** Writes through a `&mut` to a number, which is an `rt.Place`. */
+export function tally$Shape(self: Square, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));
+}
+
 export function fmt$Debug(self: Square, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Square";
 	const _4: string = "side";

@@ -2,6 +2,11 @@
 
 import * as rt from "./rt.ts";
 
+/** Writes through a `&mut` to a number, which is an `rt.Place`. */
+export function tally$Shape(self: Tri, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));
+}
+
 export function fmt$Debug(self: Tri, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Flat") {
 		return rt.fmtWriteStr(f, "Flat");

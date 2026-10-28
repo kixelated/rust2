@@ -6,7 +6,7 @@
 //! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Interner as _, Ty};
+use rustc_middle::ty::{self, Instance, Interner as _, Ty};
 use rustc_span::Span;
 
 use super::Translator;
@@ -117,6 +117,21 @@ impl<'tcx> Translator<'_, 'tcx> {
 			doc: self.doc(principal),
 		});
 		Some(object)
+	}
+
+	/// Whether `instance` is a call through a trait object's method, whose wrapper takes
+	/// its arguments as the crate's functions do. A `&dyn Debug` or `&dyn Display` is a
+	/// function writing its value instead.
+	pub fn dispatches(&self, instance: Instance<'tcx>) -> bool {
+		let ty::InstanceKind::Virtual(..) = instance.def else {
+			return false;
+		};
+		let ty::Dynamic(preds, ..) = instance.args.type_at(0).kind() else {
+			return false;
+		};
+		preds
+			.principal_def_id()
+			.is_none_or(|principal| super::fmt::Trait::of(self.tcx, principal).is_none())
 	}
 
 	/// The class wrapping a `from` as the trait object `to`, held as `held`, made the first
