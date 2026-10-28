@@ -1633,6 +1633,21 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					.map(|key| (super::place::slice_member(slice.clone(), key), true))
 					.collect()
 			}
+			// A tuple made here of items that do nothing is those items.
+			Shape::Tuple(_, fields)
+				if let Some(items) = array_items(self.held_back(&value).unwrap_or(&value))
+					&& items.iter().all(|item| !self.part_reads(item).0) =>
+			{
+				let items = items.to_vec();
+				if let Expr::Ident(name) = &value {
+					self.pending.retain(|p| p.name != *name);
+				}
+				let mut parts = Vec::new();
+				for (item, field) in items.into_iter().zip(fields) {
+					parts.extend(self.take_apart(item, field, span, out));
+				}
+				parts
+			}
 			Shape::Tuple(ty, fields) => {
 				let ts_ty = self.b.t.ty(*ty, span);
 				let (tuple, _) = self.steady_value(value, "tuple", ts_ty, out);
@@ -1731,6 +1746,16 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 		let steady = self.steady_expr(&value);
 		(value, steady)
+	}
+
+	/// The value `e` names, if it is a temporary held back that does and reads nothing
+	/// else can change, and so can be made where it is read instead.
+	fn held_back(&self, e: &Expr) -> Option<&Expr> {
+		let Expr::Ident(name) = e else {
+			return None;
+		};
+		let p = self.pending.iter().find(|p| p.name == *name)?;
+		(!p.effect && !p.memory && !p.copy).then_some(&p.value)
 	}
 
 	/// Whether `e` reads the same wherever it is read later, and does nothing: a constant,
@@ -1878,6 +1903,15 @@ pub(super) fn sub(e: Expr, k: Expr) -> Expr {
 			Expr::Binary(base, "-", Box::new(Expr::lit((a + b).to_string())))
 		}
 		(e, _) => e.binary("-", k),
+	}
+}
+
+/// The items of `e`, if it is an array literal.
+fn array_items(e: &Expr) -> Option<&[Expr]> {
+	match e {
+		Expr::Array(items) => Some(items),
+		Expr::As(e, _) | Expr::Located(_, e) => array_items(e),
+		_ => None,
 	}
 }
 

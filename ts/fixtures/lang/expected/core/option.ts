@@ -8,6 +8,7 @@ import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
+import { pop, popOut } from "../returns.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
@@ -190,7 +191,44 @@ export function map$Option_u8_u8_options_closure3_closure0(self: rt.u8 | undefin
 	return f(self);
 }
 
+export const mapOut$Option_u8_u8s_u8_u8s_returns_closure3: { p1: rt.u8; p2: Uint8Array; p3: number; p4: number } = { p1: 0, p2: undefined!, p3: 0, p4: 0 };
+
+export function map$Option_u8_u8s_u8_u8s_returns_closure3(self: [rt.u8, rt.ByteSlice] | undefined, f: (a0: [rt.u8, rt.ByteSlice]) => [rt.u8, rt.ByteSlice]): boolean {
+	if (self === undefined) {
+		return false;
+	}
+	const tuple: [rt.u8, rt.ByteSlice] = f(self);
+	const slice: rt.ByteSlice = tuple[1];
+	mapOut$Option_u8_u8s_u8_u8s_returns_closure3.p1 = tuple[0];
+	mapOut$Option_u8_u8s_u8_u8s_returns_closure3.p2 = slice.data;
+	mapOut$Option_u8_u8s_u8_u8s_returns_closure3.p3 = slice.start;
+	mapOut$Option_u8_u8s_u8_u8s_returns_closure3.p4 = slice.length;
+	return true;
+}
+
+export const mapOut$Option_u8s_u8s_u8_u8s_returns_closure4: { p1: rt.u8; p2: Uint8Array; p3: number; p4: number } = { p1: 0, p2: undefined!, p3: 0, p4: 0 };
+
+export function map$Option_u8s_u8s_u8_u8s_returns_closure4(self: [rt.ByteSlice, rt.ByteSlice] | undefined, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => [rt.u8, rt.ByteSlice]): boolean {
+	if (self === undefined) {
+		return false;
+	}
+	const tuple: [rt.u8, rt.ByteSlice] = f(self);
+	const slice: rt.ByteSlice = tuple[1];
+	mapOut$Option_u8s_u8s_u8_u8s_returns_closure4.p1 = tuple[0];
+	mapOut$Option_u8s_u8s_u8_u8s_returns_closure4.p2 = slice.data;
+	mapOut$Option_u8s_u8s_u8_u8s_returns_closure4.p3 = slice.start;
+	mapOut$Option_u8s_u8s_u8_u8s_returns_closure4.p4 = slice.length;
+	return true;
+}
+
 export function map$Option_usize_str_str_slices_closure2(self: [rt.usize, string] | undefined, f: (a0: [rt.usize, string]) => string): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_usize_u8_returns_closure1(self: rt.usize | undefined, f: (a0: rt.usize) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -310,6 +348,13 @@ export function mapOr$Option_u8_u8_u8_btree_maps_closure0(self: [rt.u8, rt.u8] |
 }
 
 export function mapOr$Option_u8_u8_u8s_stores_closure2_closure0(self: [rt.u8, rt.u8] | undefined, default_: Uint8Array, f: (a0: [rt.u8, rt.u8]) => Uint8Array): Uint8Array {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8_u8s_u8_returns_closure0(self: [rt.u8, rt.ByteSlice] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.ByteSlice]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -516,6 +561,25 @@ export function andThen$Option_u8_u8_options_closure2(self: rt.u8 | undefined, f
 		return undefined;
 	}
 	return f(self);
+}
+
+export const andThenOut$Option_u8s_u8_u8s_pop: { p1: rt.u8; p2: Uint8Array; p3: number; p4: number } = { p1: 0, p2: undefined!, p3: 0, p4: 0 };
+
+export function andThen$Option_u8s_u8_u8s_pop(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => [rt.u8, rt.ByteSlice] | undefined): boolean {
+	let _0!: [rt.u8, rt.ByteSlice] | undefined;
+	if (self === undefined) {
+		_0 = undefined;
+	} else {
+		_0 = (pop(self) ? [popOut.p1, new rt.ByteSlice(popOut.p2, popOut.p3, popOut.p4)] as [rt.u8, rt.ByteSlice] : undefined) as [rt.u8, rt.ByteSlice] | undefined;
+	}
+	if (_0 !== undefined) {
+		andThenOut$Option_u8s_u8_u8s_pop.p1 = _0[0];
+		const item2 = _0[1];
+		andThenOut$Option_u8s_u8_u8s_pop.p2 = item2.data;
+		andThenOut$Option_u8s_u8_u8s_pop.p3 = item2.start;
+		andThenOut$Option_u8s_u8_u8s_pop.p4 = item2.length;
+	}
+	return _0 !== undefined;
 }
 
 export function filter$Option_String_owned_closure1(self: string | undefined, predicate: (a0: string) => boolean): string | undefined {

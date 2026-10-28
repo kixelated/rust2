@@ -65,6 +65,13 @@ export function mapOr$Result_u8_u16_u8_results_closure7(self: rt.Result<rt.u8, r
 	return default_;
 }
 
+export function mapOr$Result_u8s_u8s_u8_u8s_returns_closure2(self: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8>, default_: rt.ByteSlice, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice {
+	if (self.ok) {
+		return f(self.value);
+	}
+	return default_;
+}
+
 export function mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(self: rt.Result<rt.u8, rt.u16>, default_: (a0: rt.u16) => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);

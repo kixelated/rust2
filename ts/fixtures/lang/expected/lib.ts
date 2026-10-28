@@ -94,6 +94,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u8_u8s(v: [rt.u8, rt.ByteSlice] | undefined): [rt.u8, rt.ByteSlice] | undefined {
+	return v === undefined ? v : copy$u8_u8s(v);
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -176,7 +180,11 @@ export function copy$u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	return [v[0], v[1]];
 }
 
-export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
+export function copy$u8_u8s(v: [rt.u8, rt.ByteSlice]): [rt.u8, rt.ByteSlice] {
+	return [v[0], v[1]];
+}
+
+export function copy$u8_u8s$2(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
 	return v.map(copy$u8_u8);
 }
 
