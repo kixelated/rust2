@@ -1503,7 +1503,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		drop_self_assignments(&mut out);
 		let mut caught = Vec::new();
 		handler_reads(&out, &mut caught);
-		return_in_place(&mut out, &caught.into_iter().collect());
+		// A return folds in the value assigned only to a local: a closure's captures are
+		// read after it returns, and a cleanup that reads a local runs after its assignment,
+		// were the statements between to throw.
+		let caught: FxHashSet<String> = caught.into_iter().collect();
+		let returnable = (self.slots.iter())
+			.filter_map(|slot| match slot {
+				Slot::Var(name) if !caught.contains(name) => Some(name.clone()),
+				_ => None,
+			})
+			.collect();
+		return_in_place(&mut out, &returnable);
 		prune_unread(&mut out);
 		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
 			cfg::strip_return(&mut out);
@@ -3263,6 +3273,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			{
 				*e = Expr::result(ctor == "Ok", arg.clone());
 			}
+			// An `Ok` made in place unwraps to its value, as a lock's does, unless what would
+			// show or replace an error has an effect.
+			if let Expr::Call(f, args) = &*e
+				&& let (Expr::Rt(unwrap), [result, rest @ ..]) = (&**f, args.as_slice())
+				&& matches!(unwrap.as_str(), "resultUnwrap" | "resultExpect" | "resultUnwrapOrElse")
+				&& let Expr::Call(ok, value) = result.unlocated()
+				&& matches!(&**ok, Expr::Rt(ok) if ok == "Ok")
+				&& let [value] = value.as_slice()
+				&& rest
+					.iter()
+					.all(|e| e.is_path() || matches!(e.unlocated(), Expr::Arrow(..) | Expr::Lambda(..)))
+			{
+				*e = value.clone();
+			}
 			true
 		}
 		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
@@ -3736,36 +3760,37 @@ fn same_path(a: &Expr, b: &Expr) -> bool {
 	}
 }
 
-/// Return values in place throughout `stmts`, given the names cleanups read.
-fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
+/// Return values in place throughout `stmts`, given the names of the body's own locals
+/// that no cleanup reads.
+fn return_in_place(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) {
 	sink_return(stmts);
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
-				return_in_place(then, caught);
-				return_in_place(els, caught);
+				return_in_place(then, returnable);
+				return_in_place(els, returnable);
 			}
 			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
-				return_in_place(body, caught)
+				return_in_place(body, returnable)
 			}
 			StmtKind::Switch { cases, default, .. } => {
-				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
-				return_in_place(default, caught);
+				cases.iter_mut().for_each(|(_, body)| return_in_place(body, returnable));
+				return_in_place(default, returnable);
 			}
 			StmtKind::Catch { body, handler, .. } => {
-				return_in_place(body, caught);
-				return_in_place(handler, caught);
+				return_in_place(body, returnable);
+				return_in_place(handler, returnable);
 			}
 			_ => {}
 		}
 	}
-	while return_assigned(stmts, caught) {}
+	while return_assigned(stmts, returnable) {}
 }
 
 /// `x = v; ...; return x;` at the end of `stmts` as `...; return v;`, where moving `v`
 /// past the statements between changes nothing (there are none, or `v` is a constant or a
-/// name none of them assigns) and no cleanup reads `x`; whether it was.
-fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
+/// name none of them assigns) and `x` is `returnable`; whether it was.
+fn return_assigned(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) -> bool {
 	let Some(Stmt {
 		kind: StmtKind::Return(Some(Expr::Ident(name))),
 		..
@@ -3773,9 +3798,7 @@ fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
 	else {
 		return false;
 	};
-	// A cleanup reading it would run after its assignment, were the statements between to
-	// throw.
-	if caught.contains(name) {
+	if !returnable.contains(name) {
 		return false;
 	}
 	let name = name.clone();
