@@ -19,8 +19,8 @@ pub fn increment(v: &mut [u32]) {
 	}
 }
 
-/// `None` and `Some(None)` would both be `undefined`.
-pub fn nested(x: Option<Option<u8>>) -> bool {
+/// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
+pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
@@ -28,8 +28,19 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
+/// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
+/// of an `Option<()>`.
+pub struct Maybe<T> {
+	pub value: Option<T>,
+}
+
+pub fn generic_unit(value: Option<()>) -> bool {
+	Maybe { value }.value.is_some()
+}
+
+/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
+	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -112,11 +123,6 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 /// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
 pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
-}
-
-/// `None` and `Some(Ready(()))` would both be `undefined`.
-pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
-	matches!(p, None)
 }
 
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.

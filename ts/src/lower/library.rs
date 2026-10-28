@@ -200,7 +200,7 @@ impl Std {
 pub enum Flow {
 	/// Breaking with a `Result<!, E>`: the `rt.Result<C, E>` `?` was applied to.
 	Result,
-	/// Breaking with an `Option<!>`: the `C | undefined` `?` was applied to.
+	/// Breaking with an `Option<!>`: the `Option<C>` `?` was applied to.
 	Option,
 	/// Any other: an `rt.Result<C, B>`, `Ok` to continue and `Err` to break.
 	Other,
@@ -221,13 +221,13 @@ impl Flow {
 		}
 	}
 
-	/// The test that `value`, a `ControlFlow` represented so, continues, or breaks.
-	pub fn test(self, value: Expr, continues: bool) -> Expr {
-		match (self, continues) {
+	/// The test that `value`, a `ControlFlow` with `args`, continues, or breaks.
+	pub fn test<'tcx>(t: &Translator<'_, 'tcx>, args: GenericArgsRef<'tcx>, value: Expr, continues: bool) -> Expr {
+		match (Self::of(t.tcx, args), continues) {
 			(Self::Result | Self::Other, true) => value.member("ok"),
 			(Self::Result | Self::Other, false) => value.member("ok").not(),
-			(Self::Option, true) => value.binary("!==", Expr::undefined()),
-			(Self::Option, false) => value.binary("===", Expr::undefined()),
+			(Self::Option, true) => value.binary("!==", t.none(args.type_at(1))),
+			(Self::Option, false) => value.binary("===", t.none(args.type_at(1))),
 		}
 	}
 }
@@ -475,6 +475,67 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	})
 }
 
+/// Whether the mapping of `owner::name` tells an `Option`'s `None` from its `Some` where
+/// the `None` is `rt.None`, as the runtime's functions that take `None` to be `undefined`
+/// do not.
+fn takes_none(owner: &str, name: &str) -> bool {
+	none_last(owner, name)
+		|| matches!(
+			(owner, name),
+			(
+				"Option",
+				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
+			) | ("Iterator", "next")
+				| ("DoubleEndedIterator", "next_back" | "nth_back")
+		)
+}
+
+/// Whether the runtime function `owner::name` maps to takes the `None` of the `Option` it
+/// makes or reads, where that is `rt.None`, last: after what drops its operands.
+fn none_last(owner: &str, name: &str) -> bool {
+	matches!(
+		(owner, name),
+		("Option", "unwrap" | "expect") | ("slice", "first" | "get") | ("bool", "then" | "then_some")
+	)
+}
+
+/// The type of the first `Some` whose `Option`'s `None` is `rt.None`, of those in the
+/// signature and bounds of the function `call` calls, over its type arguments: what the
+/// mapping of a std function would make or read with `undefined` for `None`.
+fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
+	let tcx = t.tcx;
+	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let bounds = tcx.param_env(call.def_id).caller_bounds();
+	let bound_args = bounds.flat_map(|clause| {
+		let trait_args = clause.as_trait_clause().map(|c| c.skip_binder().trait_ref.args);
+		let projection = clause.as_projection_clause().map(|c| c.skip_binder());
+		let projection_args = projection.map(|p| p.projection_term.args);
+		let term = projection.and_then(|p| p.term.as_type());
+		(trait_args.into_iter().chain(projection_args))
+			.flat_map(|args| args.types().collect::<Vec<_>>())
+			.chain(term)
+	});
+	let env = t.typing_env_pub();
+	sig.inputs_and_output
+		.iter()
+		.chain(bound_args)
+		.flat_map(|ty| ty.walk().filter_map(|arg| arg.as_type()).collect::<Vec<_>>())
+		.filter_map(|ty| match ty.kind() {
+			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Option) => Some(args.type_at(0)),
+			_ => None,
+		})
+		.map(|inner| {
+			let inner = ty::EarlyBinder::bind(tcx, inner)
+				.instantiate(tcx, call.args)
+				.skip_norm_wip();
+			let inner = tcx.erase_and_anonymize_regions(inner);
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(inner))
+				.unwrap_or(inner)
+		})
+		.find(|&inner| t.erases_to(inner).undefined)
+}
+
 /// The first closure `call` calls that owns a value that drops, of those its mapping does
 /// not drop where std would: not in `discarded`, the types it may drop by their index among
 /// the call's type arguments. A closure that `Fn` or `FnMut` call, given to one that calls
@@ -590,6 +651,14 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		return None;
 	}
 	let (owner, name) = key(tcx, call.def_id)?;
+	if !takes_none(&owner, &name)
+		&& let Some(inner) = sentinel_option(b.t, call)
+	{
+		return Some(b.err(
+			call.span,
+			format!("`{owner}::{name}` of `Option<{inner}>`, whose `None` is `rt.None`, which is not supported yet"),
+		));
+	}
 	let discarded = discards(&owner, &name);
 	let mut args = args;
 	let leaked = called_closures(b, call, discarded, &mut args);
@@ -780,10 +849,9 @@ fn mapping<'tcx>(
 		("Default", "default") => default_value(b, targ(gargs, 0))?,
 
 		// Options, whose other combinators lower from core's MIR.
-		("Option", "unwrap") => rt2(args, "option", "unwrap"),
-		("Option", "expect") => rt2(args, "option", "expect"),
-		("Option", "is_some") => args.pop()?.binary("!==", Expr::undefined()),
-		("Option", "is_none") => args.pop()?.binary("===", Expr::undefined()),
+		("Option", "unwrap" | "expect") => rt2(args, "option", &name),
+		("Option", "is_some") => args.pop()?.binary("!==", b.t.none(targ(gargs, 0))),
+		("Option", "is_none") => args.pop()?.binary("===", b.t.none(targ(gargs, 0))),
 		("Option", "as_ref" | "as_mut") => args.pop()?,
 		("Option", "copied" | "cloned") => {
 			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
@@ -807,7 +875,7 @@ fn mapping<'tcx>(
 			Expr::rt_of("result", method).call(values)
 		}
 
-		("ControlFlow", "is_continue" | "is_break") => Flow::of(tcx, gargs).test(args.pop()?, name == "is_continue"),
+		("ControlFlow", "is_continue" | "is_break") => Flow::test(b.t, gargs, args.pop()?, name == "is_continue"),
 
 		// Ranges, which are their own iterators.
 		// An integer range wraps within its type's bounds where std's `nth` does.
@@ -1091,11 +1159,19 @@ fn mapping<'tcx>(
 			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 		));
 	}
-	// What drops each operand the mapping may discard.
+	// What drops each operand the mapping may discard, then `rt.None` where it is one.
 	let lost = discarded.unwrap_or_default().iter().map(|&n| targ(gargs, n));
-	let Some(droppers) = b.t.droppers(lost, span) else {
+	let Some(mut droppers) = b.t.droppers(lost, span) else {
 		return Some(Expr::undefined());
 	};
+	let none = match none_last(&owner, &name) {
+		true => sentinel_option(b.t, call).and_then(|inner| b.t.none_arg(inner)),
+		false => None,
+	};
+	if let Some(none) = none {
+		droppers.resize(discarded.unwrap_or_default().len(), Expr::undefined());
+		droppers.push(none);
+	}
 	Some(match e {
 		Expr::Call(f, mut args) if !droppers.is_empty() => {
 			args.extend(droppers);
@@ -1280,7 +1356,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			_ => return None,
 		},
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did())? {
-			Std::Option => Expr::undefined(),
+			Std::Option => b.t.none(args.type_at(0)),
 			Std::Vec => match args.type_at(0).kind() {
 				ty::Uint(ty::UintTy::U8) => Expr::New(Box::new(Expr::Rt("ByteVec".into())), Vec::new()),
 				_ => Expr::Array(Vec::new()),

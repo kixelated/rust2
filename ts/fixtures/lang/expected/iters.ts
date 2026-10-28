@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped } from "./lib.ts";
-import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_options_closure3_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_options_closure5, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_made_closure0_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_iters_closure3, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -453,7 +453,7 @@ export function fullRange(out: rt.ByteVec): undefined {
 export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _83: (a0: rt.u8, a1: rt.ByteVec) => rt.u8 | undefined = (b2: rt.u8, calls2: rt.ByteVec): rt.u8 | undefined => {
 		rt.byteVecPush(calls2, b2);
-		return map$Option_u8_u8_options_closure3_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
+		return map$Option_u8_u8_made_closure0_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
 			return rt.u8Div(b3, 2);
 		});
 	};
@@ -539,7 +539,7 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_114 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(_114, 170, (b10: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(_114, 170, (b10: rt.u8): rt.u8 => {
 			return b10;
 		}));
 	}

@@ -372,6 +372,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Array(elem, _) => Some(*elem),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
+				Std::Option if self.erases_to(args.type_at(0)).undefined => None,
 				Std::Option | Std::Box | Std::Pin => self.elements(args.type_at(0)),
 				_ => None,
 			},

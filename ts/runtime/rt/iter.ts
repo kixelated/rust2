@@ -17,7 +17,7 @@
 // iterator has its own, the `owned` functions follow it, dispatching on the kind, so a
 // bundle that never drops an item carries none of it.
 
-import { ByteVec, byteVecPush, Err, Ok, panic, type Result } from "../rt.ts";
+import { ByteVec, byteVecPush, Err, type None, Ok, panic, type Result } from "../rt.ts";
 import { BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -92,13 +92,17 @@ function both(a: () => void, b: () => void): void {
 }
 
 /** The item `next` returned, as an `Option`. */
-export function iterToOption<T>(item: T | Done): T | undefined {
-	return item === DONE ? undefined : item;
+export function iterToOption<T>(item: T | Done): T | undefined;
+export function iterToOption<T>(item: T | Done, none: None): T | None;
+export function iterToOption<T>(item: T | Done, none?: None): T | undefined | None {
+	return item === DONE ? none : item;
 }
 
 /** An `Option`, as `next` returns it. */
-export function iterFromOption<T>(option: T | undefined): T | Done {
-	return option === undefined ? DONE : option;
+export function iterFromOption<T>(option: T | undefined): T | Done;
+export function iterFromOption<T>(option: T | None, none: None): T | Done;
+export function iterFromOption<T>(option: T | undefined | None, none?: None): T | Done {
+	return option === none ? DONE : (option as T);
 }
 
 // Where std's iterators come from.
@@ -109,8 +113,10 @@ export function iterSlice<T>(s: ArrayLike<T>, drop?: Drop<T>): Iter<T> {
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */
-export function iterOption<T>(o: T | undefined, drop?: Drop<T>): Iter<T> {
-	return new OptionIter(o, o !== undefined, drop);
+export function iterOption<T>(o: T | undefined, drop?: Drop<T>): Iter<T>;
+export function iterOption<T>(o: T | None, drop: Drop<T> | undefined, none: None): Iter<T>;
+export function iterOption<T>(o: T | undefined | None, drop?: Drop<T>, none?: None): Iter<T> {
+	return new OptionIter(o as T, o !== none, drop);
 }
 
 /** `iter::once`. */

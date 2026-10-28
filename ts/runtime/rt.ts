@@ -159,33 +159,48 @@ export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (
 	return r.error;
 }
 
-// Options, which are `T | undefined`.
+// Options, which are `T | undefined`, or `T | None` where `T` can already be `undefined`.
+// A function taking one takes that `None` after its own arguments.
+
+/** `None` of an `Option` whose `Some` can already be `undefined`, as `Option<()>`'s is. */
+export const None: unique symbol = /* @__PURE__ */ Symbol("None");
+
+/** The type of `None`. */
+export type None = typeof None;
 
 /** `Option::unwrap`: the value, or a panic. */
-export function optionUnwrap<T>(o: T | undefined): T {
-	if (o === undefined) panic("called `Option::unwrap()` on a `None` value");
-	return o;
+export function optionUnwrap<T>(o: T | undefined): T;
+export function optionUnwrap<T>(o: T | None, none: None): T;
+export function optionUnwrap<T>(o: T | undefined | None, none?: None): T {
+	if (o === none) panic("called `Option::unwrap()` on a `None` value");
+	return o as T;
 }
 
 /** `Option::expect`: the value, or a panic with `message`. */
-export function optionExpect<T>(o: T | undefined, message: string): T {
-	if (o === undefined) panic(message);
-	return o;
+export function optionExpect<T>(o: T | undefined, message: string): T;
+export function optionExpect<T>(o: T | None, message: string, none: None): T;
+export function optionExpect<T>(o: T | undefined | None, message: string, none?: None): T {
+	if (o === none) panic(message);
+	return o as T;
 }
 
 /** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined {
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined;
+export function thenSome<T>(cond: boolean, value: T, drop: ((value: T) => void) | undefined, none: None): T | None;
+export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void, none?: None): T | undefined | None {
 	if (cond) return value;
 	drop?.(value);
-	return undefined;
+	return none;
 }
 
 // Not `then`, which would make the module's namespace a thenable that `await` calls.
 /** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined {
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined;
+export function boolThen<T>(cond: boolean, f: () => T, drop: ((f: () => T) => void) | undefined, none: None): T | None;
+export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void, none?: None): T | undefined | None {
 	if (cond) return f();
 	drop?.(f);
-	return undefined;
+	return none;
 }
 
 // Slices: arrays, but for bytes, which are `ByteSlice`s.
@@ -236,13 +251,17 @@ export function sliceSplitAtChecked<T>(s: T[], n: number): [T[], T[]] | undefine
 }
 
 /** `first`: the first element, or `undefined` if empty. */
-export function sliceFirst<T>(s: ArrayLike<T>): T | undefined {
-	return s.length === 0 ? undefined : s[0];
+export function sliceFirst<T>(s: ArrayLike<T>): T | undefined;
+export function sliceFirst<T>(s: ArrayLike<T>, none: None): T | None;
+export function sliceFirst<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
+	return s.length === 0 ? none : s[0];
 }
 
 /** `get`: the element at `index`, or `undefined` past the end. */
-export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined {
-	return index < s.length ? s[index] : undefined;
+export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined;
+export function sliceGet<T>(s: ArrayLike<T>, index: number, none: None): T | None;
+export function sliceGet<T>(s: ArrayLike<T>, index: number, none?: None): T | undefined | None {
+	return index < s.length ? s[index] : none;
 }
 
 /**
@@ -921,9 +940,11 @@ export function fmtUnit(_: undefined, f: Formatter): FmtResult {
 }
 
 /** `Debug` of an `Option`, through its value's. */
-export function fmtOption<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult {
-	if (o === undefined) return f.out.writeStr("None");
-	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "Some"), (f) => debug(o, f)));
+export function fmtOption<T>(o: T | undefined, f: Formatter, debug: Debug<T>): FmtResult;
+export function fmtOption<T>(o: T | None, f: Formatter, debug: Debug<T>, none: None): FmtResult;
+export function fmtOption<T>(o: T | undefined | None, f: Formatter, debug: Debug<T>, none?: None): FmtResult {
+	if (o === none) return f.out.writeStr("None");
+	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "Some"), (f) => debug(o as T, f)));
 }
 
 /** `Debug` of a `Result`, through its value's and error's. */
