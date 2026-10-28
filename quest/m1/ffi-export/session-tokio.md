@@ -29,13 +29,12 @@ use unless the caller supplies one. Each entry point and future that needs tokio
 the caller's `Handle::try_current()`, else in that process-wide runtime. C gets no new
 names, a Rust caller inside tokio sees no change, and one outside gets a runtime instead
 of `NoRuntime`. It landed in [moq-dev/moq#7123](https://github.com/moq-dev/moq/pull/7123);
-the pin bump brings it here.
+rust2's moq pin includes it.
 
 Public API: the C names moq's bindings get.
 
 ## Required
 
-- [Bump the moq pin past the fallback runtime](/quest/m1/moq-pin.md) - C reaches moq-tokio's fallback runtime
 - [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in the session config
 - [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
 

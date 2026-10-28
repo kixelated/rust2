@@ -125,7 +125,9 @@ int main() {
 		CHECK(is(path.as_str(), "room/alice"));
 
 		// Paths own their segments, so C++ builds them, and relative ones, from a string.
-		auto cam = moq::path::new_("/cam/");
+		auto empty = moq::path::new_("/cam/");
+		CHECK(!empty && empty.error() == moq::path_invalid::empty_segment);
+		auto cam = moq::path::new_("cam");
 		CHECK(cam && is(cam->as_str(), "cam"));
 		auto joined = path.join(*cam);
 		CHECK(joined && is(joined->as_str(), "room/alice/cam"));
@@ -172,29 +174,25 @@ int main() {
 	auto truncated = moq::codec_opus_audio_config(moq::view(head, 8));
 	CHECK(!truncated && !truncated.error().to_string().empty());
 
-	// A binary track the catalog lists, published through moq-mux's generic
-	// `binary_snapshot` at the config C++ builds, by a catalog at moq-mux's untyped
-	// extension, each instance named by the last segment of each argument.
+	// A catalog at moq-mux's untyped extension, from the config C++ builds, whose generic
+	// `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
+	// the catalog to C++.
 	{
 		moq::broadcast_producer publisher = moq::broadcast_info::new_().produce();
 		moq::catalog_config_extra extra =
 		    moq::catalog_config::default_().with_catalog_extra(moq::hang_catalog_extra::default_());
 		auto catalog = moq::catalog_producer_extra::new_(publisher, std::move(extra));
 		CHECK(catalog);
-		auto state = publisher.create_track("state", std::nullopt);
-		CHECK(state);
-		auto snapshot = catalog->binary_snapshot_config(std::move(*state), moq::binary_config::default_());
-		CHECK(snapshot && is(snapshot->name(), "state"));
-		CHECK(snapshot->update("latest"));
-		int listed_state = 0;
+		CHECK(!catalog->is_claimed_binary_config("state"));
+		int read_catalog = 0;
 		CHECK(catalog->mutate([&](moq::hang_catalog_extra &lent) {
 			auto json = lent.to_json();
 			CHECK(json);
-			if (json && json.value().str().find("state") != std::string_view::npos) {
-				listed_state++;
+			if (json && json.value().str().substr(0, 1) == "{") {
+				read_catalog++;
 			}
 		}));
-		CHECK(listed_state == 1);
+		CHECK(read_catalog == 1);
 	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.

@@ -537,3 +537,15 @@ pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
 	*n += 1;
 	*n
 }
+
+pub trait Source {
+	type Item: Reading;
+	fn item(&self) -> &Self::Item;
+}
+
+/// A trait object of a type only an instance decides, which a census lowering this over
+/// its type parameter can't make.
+pub fn source_reading<S: Source>(s: &S) -> u8 {
+	let r: &dyn Reading = s.item();
+	r.read()
+}
