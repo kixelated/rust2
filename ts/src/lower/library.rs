@@ -54,7 +54,7 @@ pub enum Std {
 	/// `rt.Mutex`, which is also its own guard.
 	Mutex,
 	MutexGuard,
-	/// What a `Mutex` can't be locked with on one thread: never.
+	/// What it holds, a lock's guard or value.
 	PoisonError,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,

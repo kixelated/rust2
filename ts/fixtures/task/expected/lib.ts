@@ -209,6 +209,22 @@ export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>)
 	}
 }
 
+export function drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_1: rt.Result<rt.Mutex<Guard.Guard>, rt.Mutex<Guard.Guard>>): void {
+	if (_1.ok) {
+		rt.drop(_1.value);
+	} else {
+		rt.drop(_1.error);
+	}
+}
+
+export function drop$Result_MutexGuard_u32_PoisonError_MutexGuard_u32(_1: rt.Result<rt.Mutex<rt.u32>, rt.Mutex<rt.u32>>): void {
+	if (_1.ok) {
+		rt.drop(_1.value);
+	} else {
+		rt.drop(_1.error);
+	}
+}
+
 export function drop$Result_Vec_Guard_Guard(_1: rt.Result<Guard.Guard[], Guard.Guard>): void {
 	if (_1.ok) {
 		rt.dropAll(_1.value);

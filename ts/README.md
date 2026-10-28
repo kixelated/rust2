@@ -91,7 +91,8 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership, atomics, and asyn
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
-| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
+| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard, which a lock gives in an `rt.Result`, `Err` once a guard dropped as a panic unwound, as std's poisons; locking it again while a guard is held panics, as wasm32's does |
+| `PoisonError<T>` | the `T` it holds |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
@@ -109,7 +110,10 @@ bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it g
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
-wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with,
+and unwinds, as `thread::panicking()` says, until JS that catches it calls
+`rt.panicCaught(err)`, as `catch_unwind` would stop it. One no caller stops stays
+unwinding, as one escaping wasm32's exports does, so a mutex locked after it never poisons.
 
 Each integer type is its own type to `tsc`, named as Rust's: `rt.u8` is a `number` with a
 type-only brand, so a `u16` where a `u8` goes fails the type check, while a plain

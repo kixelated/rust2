@@ -453,7 +453,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				Some(
+					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
+				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
 				Some(Std::Bound) => {
 					let ty::Adt(_, args) = ty.kind() else { unreachable!() };

@@ -4,7 +4,7 @@
 //! aggregates, closures, traits, generic types, formatting, collections, UTF-8
 //! decoding, `&mut` to values JS copies, the standard library calls it maps,
 //! `Option`'s and `Result`'s combinators from core's MIR, `Option`s of values that can
-//! already be `undefined`, atomics, trait objects, and one-time cells.
+//! already be `undefined`, atomics, trait objects, one-time cells, and mutexes.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -26,6 +26,7 @@ pub mod harness;
 mod ints;
 mod iters;
 mod keys;
+mod locks;
 mod nested;
 mod refs;
 mod shapes;

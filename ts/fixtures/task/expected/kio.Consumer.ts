@@ -25,18 +25,36 @@ export class Consumer {
 
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	const state: rt.Mutex<State.State> = self.state.value;
-	if (!(self.next < state.value.queue.length)) {
-		if (!state.value.closed) {
-			Waiter.register(waiter, state.value.waiters);
-			return rt.Pending;
+	let _0!: rt.Poll<rt.u64 | undefined>;
+	let state!: rt.Mutex<State.State>;
+	let unwind: number = 0;
+	try {
+		state = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
+		unwind = 19;
+		if (!(self.next < state.value.queue.length)) {
+			if (!state.value.closed) {
+				Waiter.register(waiter, state.value.waiters);
+				unwind = 0;
+				rt.drop(state);
+				return rt.Pending;
+			}
+			_0 = undefined;
+		} else {
+			const _16: State.State = state.value;
+			const value: rt.u64 = _16.queue[rt.idx(_16.queue, self.next)];
+			self.next = rt.usizeAdd(self.next, 1);
+			_0 = value;
 		}
-		return undefined;
+		unwind = 0;
+		rt.drop(state);
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(state);
+		throw e;
 	}
-	const _16: State.State = state.value;
-	const value: rt.u64 = _16.queue[rt.idx(_16.queue, self.next)];
-	self.next = rt.usizeAdd(self.next, 1);
-	return value;
 }
 
 //# sourceMappingURL=kio.Consumer.ts.map

@@ -31,7 +31,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Arc | Std::Waker) => true,
+				// A guard unlocks its mutex.
+				Some(Std::Arc | Std::Waker | Std::MutexGuard) => true,
 				Some(
 					Std::Option
 					| Std::Result
@@ -39,6 +40,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Poll
@@ -120,11 +122,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Its binding's `[Symbol.dispose]`.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				// Each drops by what it was given.
-				Some(Std::Waker | Std::PollFn) => true,
+				// Each drops by what it was given, and a guard is its mutex, which unlocks.
+				Some(Std::Waker | Std::PollFn | Std::MutexGuard) => true,
 				Some(
 					Std::Arc
 					| Std::Mutex
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Option
@@ -179,6 +182,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				// One from an `Arc` runs the crate's `Drop`, which a waker's type doesn't name.
 				Some(Std::Waker) => true,
+				// Unlocking drops nothing it guards.
+				Some(Std::MutexGuard) => false,
 				// What it holds of its own, or of its items.
 				None | Some(Std::Peekable) if self.std_iter(ty) => {
 					args.types().any(|t| self.drop_panics(t, seen))
@@ -231,7 +236,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Std::Option
 					| Std::Box
 					| Std::Mutex
-					| Std::MutexGuard
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Poll
@@ -285,7 +290,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);
 				}
-				Std::Box | Std::Pin | Std::Reverse => return self.drop_value(value, args.type_at(0), span),
+				Std::Box | Std::Pin | Std::Reverse | Std::PoisonError => {
+					return self.drop_value(value, args.type_at(0), span);
+				}
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),

@@ -17,10 +17,35 @@ export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 export * from "./rt/time.ts";
 
-/** A Rust panic. */
+/**
+ * How many panics have started and none has caught: `thread::panicking()` while above 0,
+ * as std's panic count is. JS that catches a `Panic` stops it with `panicCaught`, as
+ * `catch_unwind` does; one it doesn't stays counted, as one escaping wasm32's exports does.
+ */
+let panics = 0;
+
+/** A Rust panic, which counts itself as started. */
 export class Panic extends Error {
 	override name = "Panic";
+
+	constructor(message: string) {
+		super(message);
+		panics++;
+	}
 }
+
+/** `thread::panicking()`: whether a panic is unwinding. */
+export function panicking(): boolean {
+	return panics > 0;
+}
+
+/** Whether `e`, caught, is a `Panic`, which then stops unwinding, as `catch_unwind` stops it. */
+export function panicCaught(e: unknown): e is Panic {
+	if (!(e instanceof Panic)) return false;
+	panics--;
+	return true;
+}
+
 
 /** Panic with `message`. */
 export function panic(message: string): never {
@@ -1249,6 +1274,16 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `PoisonError`. */
+export function fmtPoisonErrorDebug(_: unknown, f: Formatter): FmtResult {
+	return f.out.writeStr("PoisonError { .. }");
+}
+
+/** `Display` of `PoisonError`. */
+export function fmtPoisonErrorDisplay(_: unknown, f: Formatter): FmtResult {
+	return fmtPad(f, "poisoned lock: another task failed inside");
 }
 
 /** `Display` of `TryFromIntError`. */

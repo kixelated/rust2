@@ -34,9 +34,23 @@ function new_(): Producer {
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
 export function send(self: Producer, value: rt.u64): void {
-	const state: rt.Mutex<State.State> = self.state.value;
-	state.value.queue.push(value);
-	WaiterList.wake(WaiterList.take(state.value.waiters));
+	let state!: rt.Mutex<State.State>;
+	let unwind: number = 0;
+	try {
+		state = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
+		unwind = 13;
+		state.value.queue.push(value);
+		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
+		unwind = 0;
+		rt.drop(state);
+		WaiterList.wake(waiters);
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(state);
+		throw e;
+	}
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -44,18 +58,50 @@ export function consume(self: Producer): Consumer.Consumer {
 }
 
 export function clone$Clone(self: Producer): Producer {
-	const _2: State.State = self.state.value.value;
-	_2.producers = rt.usizeAdd(_2.producers, 1);
-	return new Producer({ state: rt.arcClone(self.state) });
+	let _4!: rt.Mutex<State.State>;
+	let unwind: number = 0;
+	try {
+		_4 = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
+		unwind = 9;
+		const _2: State.State = _4.value;
+		const _8: rt.usize = rt.usizeAdd(_2.producers, 1);
+		unwind = 0;
+		_2.producers = _8;
+		rt.drop(_4);
+		return new Producer({ state: rt.arcClone(self.state) });
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_4);
+		throw e;
+	}
 }
 
 export function drop$Drop(self: Producer): void {
-	const state: rt.Mutex<State.State> = self.state.value;
-	const _7: State.State = state.value;
-	_7.producers = rt.usizeSub(_7.producers, 1);
-	if (!(state.value.producers > 0)) {
-		state.value.closed = true;
-		WaiterList.wake(WaiterList.take(state.value.waiters));
+	let state!: rt.Mutex<State.State>;
+	let unwind: number = 0;
+	try {
+		state = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
+		unwind = 17;
+		const _7: State.State = state.value;
+		_7.producers = rt.usizeSub(_7.producers, 1);
+		if (!(state.value.producers > 0)) {
+			state.value.closed = true;
+			const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
+			unwind = 0;
+			rt.drop(state);
+			WaiterList.wake(waiters);
+		} else {
+			unwind = 0;
+			rt.drop(state);
+		}
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(state);
+		throw e;
 	}
 }
 

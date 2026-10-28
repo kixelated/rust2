@@ -6,6 +6,7 @@ import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapO
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
+import { run as locks_run } from "./drops/locks.ts";
 import { boxed } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
@@ -31,6 +32,11 @@ export function dyns(log: Log.Log, id: rt.u32, at: rt.u8): void {
 /** Run one-time cells' scenario `at`. */
 export function cells(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	once_run(log, id, at);
+}
+
+/** Run mutexes' scenario `at`. */
+export function locks(log: Log.Log, id: rt.u32, at: rt.u8): void {
+	locks_run(log, id, at);
 }
 
 /**
@@ -74,6 +80,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let arc2!: rt.Arc<rt.Mutex<Held.Held>>;
 	let _308!: Guard.Guard;
 	let other!: rt.Arc<rt.Mutex<Held.Held>>;
+	let _327!: rt.Mutex<Held.Held>;
 	let lent!: Guard.Guard;
 	let borrowed!: rt.Arc<Guard.Guard>;
 	let again!: rt.Arc<Guard.Guard>;
@@ -342,10 +349,11 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_380 = false;
 			rt.arcDrop(arc2, drop$Mutex_Held);
 			check(2);
-			const _327: rt.Mutex<Held.Held> = other.value;
+			_327 = rt.resultUnwrap(rt.mutexLock(other.value), rt.fmtPoisonErrorDebug, rt.drop);
 			unwind = 191;
 			const held2: boolean = Held.isSome(_327.value);
 			unwind = 192;
+			rt.drop(_327);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(held2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args14[0]]));
 			lent = guard(83);
@@ -402,6 +410,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																									break b4;
 																								}
 																								if (unwind === 191) {
+																									rt.drop(_327);
 																									break b3;
 																								}
 																								if (unwind === 192) {

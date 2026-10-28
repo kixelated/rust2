@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A host that catches an `rt.Panic` and goes on calls `rt.panicCaught(err)`, which stops
+  it unwinding as `catch_unwind` does: until then, a mutex a guard locks no longer poisons.
+  `Mutex::lock`'s result is an `rt.Result` of the guard, `Err` once a panic poisoned it,
+  rather than the guard itself.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a
   `partial_cmp`, and `rt.ordClamp` takes `le`, `lt`, and `gt`; `rt.cmpLt` makes one from a
   `partial_cmp`. `rt.sliceSortBy` takes only an `Ord::cmp`-like comparator: sort by an
