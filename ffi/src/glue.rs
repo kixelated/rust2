@@ -951,7 +951,7 @@ impl Gen<'_> {
 		}
 		let call = match function.access {
 			Access::Call => format!("{callee}({})", args.join(", ")),
-			Access::Field => format!("&({}).{}", args[0], function.name()),
+			Access::Field { .. } => format!("&({}).{}", args[0], function.name()),
 			Access::Const => callee,
 		};
 		let body = stmts.join("\n\t");

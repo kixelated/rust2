@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use rustc_span::Span;
 
-use crate::ir::{Api, Dyn, Function, Int, Receiver, Type};
+use crate::ir::{Access, Api, Dyn, Function, Int, Receiver, Type};
 
 /// A C name claimed twice: the name, then what claimed it first and second.
 pub type Clash = (String, (String, Span), (String, Span));
@@ -165,16 +165,29 @@ impl<'a> Abi<'a> {
 	}
 
 	/// A function's C name: an instance's as the config names it, else a method's through
-	/// its type's, unless renamed itself.
+	/// its type's, unless renamed itself. A field is renamed by `field@` and its path, or
+	/// by its path unless a method or constant takes it.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
 		if let Some(instance) = &function.instance {
 			return format!("{}_{}", self.prefix, instance.name);
 		}
+		let path = function.path.join("::");
+		let shared = match function.access {
+			Access::Field { shared } => {
+				let key = format!("field@{path}");
+				if let Some(renamed) = self.rename.get(&key) {
+					self.renamed.borrow_mut().insert(key);
+					return format!("{}_{renamed}", self.prefix);
+				}
+				shared
+			}
+			_ => false,
+		};
 		let owner = match owner {
 			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
 			_ => return self.name(&function.path),
 		};
-		match self.rename.contains_key(&function.path.join("::")) {
+		match !shared && self.rename.contains_key(&path) {
 			true => self.name(&function.path),
 			false => format!("{owner}_{}", snake(function.name())),
 		}
@@ -471,7 +484,10 @@ impl<'a> Abi<'a> {
 		functions.extend(api.functions.iter().map(|f| (f, None)));
 		for (function, owner) in functions {
 			let export = self.export(function, owner.as_ref());
-			let what = format!("fn `{}`", function.path.join("::"));
+			let what = match function.access {
+				Access::Field { .. } => format!("field `{}`", function.path.join("::")),
+				_ => format!("fn `{}`", function.path.join("::")),
+			};
 			self.claim(export.call.name.clone(), what.clone(), function.span);
 			if let Some((handle, poll, free)) = &export.future {
 				self.claim(handle.clone(), what.clone(), function.span);

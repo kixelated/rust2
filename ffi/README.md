@@ -31,7 +31,8 @@ package = "moq-net"
 # The prefix of every C name, the package's name in snake case by default.
 prefix = "moq"
 # Paths from the crate root left out: a module, an item, or one method or field. Each
-# must name something exported. Nothing else leaves an item out.
+# must name something exported. Nothing else leaves an item out. As in rustdoc, a path a
+# method or constant shares with a field names the method, and `field@` the field.
 exclude = ["track::Producer::poll_closed"]
 
 # C names, without the prefix, for paths whose names the naming rule makes clash.
@@ -131,7 +132,8 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by `instances`, and a type instance's
+  `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
+  `Backoff::initial`; `field@Backoff::initial` names the field. An instance is named by `instances`, and a type instance's
   methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
   instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
   out of that one; a `rename` of a method by the generic type's path names it at every

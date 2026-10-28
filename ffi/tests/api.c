@@ -403,6 +403,15 @@ static int script(void) {
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());
 	api_token_free(token);
 	printf("dropped %u\n", api_dropped());
+
+	/* A field and the method of its name, each its own function. */
+	api_retry *retry = api_retry_new((api_option_u32){.some = true, .value = 5});
+	api_option_u32 limit = api_retry_limit_setting(retry);
+	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
+	api_retry_free(retry);
+	api_byte_slot *slot = api_byte_slot_new(200);
+	printf("slot %u\n", api_byte_slot_value(slot));
+	api_byte_slot_free(slot);
 	/* Each future dropped its waker once it finished, and Rust the one it was given. */
 	return drops == 5 ? 0 : 1;
 }

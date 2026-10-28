@@ -193,6 +193,22 @@ pub fn lend(waker: &std::task::Waker) {
 	waker.wake_by_ref();
 }
 
+/// A field and a method of one name, which claim one C name until `field@` renames one.
+#[non_exhaustive]
+pub struct Limit {
+	pub max: u32,
+}
+
+impl Limit {
+	pub fn new(max: u32) -> Self {
+		Self { max }
+	}
+
+	pub fn max(&self) -> u32 {
+		self.max.max(1)
+	}
+}
+
 /// A closure kept past the call, as a `'static` bound lets it be.
 pub fn spawn(task: impl FnOnce() + Send + 'static) {
 	std::thread::spawn(task);
