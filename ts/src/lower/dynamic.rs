@@ -6,7 +6,7 @@
 //! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Instance, Interner as _, Ty};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::Translator;
@@ -104,7 +104,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 		self.objects.insert(principal, object.clone());
 		let mut members = Vec::new();
 		for method in &object.methods {
-			let args = tcx.mk_args(&[ty.into()]);
+			let args = method_args(tcx, method.def_id, ty);
 			let sig = tcx.fn_sig(method.def_id).instantiate(tcx, args).skip_norm_wip();
 			let sig = tcx.instantiate_bound_regions_with_erased(sig);
 			let func = self.fn_ty(&sig.inputs()[1..], sig.output(), span);
@@ -182,7 +182,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 		});
 		let value = Expr::This.field(v);
 		for method in &object.methods {
-			let args = tcx.mk_args(&[from.into()]);
+			let args = method_args(tcx, method.def_id, from);
 			let sig = tcx.fn_sig(method.def_id).instantiate(tcx, args).skip_norm_wip();
 			let sig = tcx.instantiate_bound_regions_with_erased(sig);
 			let receiver = match self.receiver(sig.inputs()[0], from, held, value.clone()) {
@@ -275,6 +275,15 @@ impl<'tcx> Translator<'_, 'tcx> {
 			_ => None,
 		}
 	}
+}
+
+/// The arguments of a trait object's method `def_id` for `self_ty`: the trait's `Self`,
+/// then its own early-bound lifetimes, erased, which are all a dispatchable method takes.
+fn method_args<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, self_ty: Ty<'tcx>) -> GenericArgsRef<'tcx> {
+	ty::GenericArgs::for_item(tcx, def_id, |param, _| match param.index {
+		0 => self_ty.into(),
+		_ => tcx.lifetimes.re_erased.into(),
+	})
 }
 
 impl<'tcx> Body<'_, '_, 'tcx> {

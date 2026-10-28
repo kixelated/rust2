@@ -17,6 +17,10 @@ trait Shape {
 	fn into_area(self: Box<Self>) -> u32 {
 		self.area().wrapping_add(1)
 	}
+	/// Over early-bound lifetimes, which its signature takes as arguments too.
+	fn larger<'a: 'b, 'b>(&'a self, other: &'b u32) -> u32 {
+		self.area().max(*other)
+	}
 	/// Writes through a `&mut` to a number, which is an `rt.Place`.
 	fn tally(&self, sum: &mut u32) {
 		*sum = sum.wrapping_add(self.area());
@@ -164,7 +168,10 @@ pub fn dyns(data: &[u8], out: &mut Vec<u8>) {
 	for s in &shapes {
 		s.tally(&mut sum);
 	}
-	put(out, &format!("{sum} {:?} ", Shown(&tri)));
+	put(
+		out,
+		&format!("{sum} {:?} {} ", Shown(&tri), shapes[0].larger(&u32::from(b))),
+	);
 	for s in shapes {
 		sum = sum.wrapping_add(s.into_area());
 	}
