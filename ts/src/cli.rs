@@ -45,6 +45,8 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
 	];
 	let mut cargo = std_from_source();
+	cargo.push("--config".into());
+	cargo.push(format!("profile.dev.rustflags={}", toml_list(FLAGS)));
 	cargo.extend(args.cargo);
 	Check {
 		tool: "rust2-ts",
@@ -55,6 +57,29 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		env: &env,
 	}
 	.run()
+}
+
+/// What every crate compiles with, through the profile, which cargo's fingerprint sees,
+/// for a crate cached without them to compile again: the package and every crate it
+/// depends on translate as one program.
+///
+/// Every function's MIR, which a `cargo check` encodes for no dependency's functions
+/// otherwise. Without the checks of undefined behavior that debug builds add around raw
+/// pointers, such as a box's: JS has no pointers to check. With every call where the
+/// source has it, as a release build's inlining would not keep it, since a call is what a
+/// binding or a std function's translation stands in for. And with `rust2_ts` set, so a
+/// crate can give translation a safe twin of its `unsafe`. std's crates have their own
+/// below, and the rest of std's take these to no effect, since none translates.
+const FLAGS: &[&str] = &[
+	"-Zalways-encode-mir",
+	"-Zub-checks=no",
+	"-Zinline-mir=no",
+	"--cfg=rust2_ts",
+];
+
+fn toml_list(items: &[&str]) -> String {
+	let items: Vec<String> = items.iter().map(|item| format!("{item:?}")).collect();
+	format!("[{}]", items.join(", "))
 }
 
 /// Cargo args that build std from source, unwinding and with every function's MIR, so
