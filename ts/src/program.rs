@@ -170,8 +170,10 @@ impl Program {
 					body
 				})
 				.collect();
-			let outs: HashMap<SymId, SymId> =
-				functions.iter().filter_map(|f| Some((f.sym, f.out.as_ref()?.sym))).collect();
+			let outs: HashMap<SymId, SymId> = functions
+				.iter()
+				.filter_map(|f| Some((f.sym, f.out.as_ref()?.sym)))
+				.collect();
 			for (f, body) in functions.iter().zip(&bodies) {
 				let sym = &self.syms[f.sym];
 				let key = (&sym.module, sym.base.as_str(), &f.params[..], &f.ret, &body[..]);

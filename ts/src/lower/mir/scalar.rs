@@ -21,8 +21,8 @@ use rustc_middle::ty::{self, Instance, InstanceKind, Ty};
 use rustc_span::{Span, Spanned};
 
 use super::Fx;
-use crate::lower::body::Body;
 use crate::lower::Translator;
+use crate::lower::body::Body;
 use crate::lower::library::{self, Std};
 use crate::program::{SymKind, Symbol};
 use crate::ts::{Expr, Key, Stmt, StmtKind, SymId, Type};
@@ -326,9 +326,7 @@ fn shape<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Shape<'tcx>> {
 				if tys.iter().any(|t| uninhabited(*t)) {
 					return Some(None);
 				}
-				Some(Some(
-					tys.into_iter().map(|f| shape(t, f)).collect::<Option<Vec<_>>>()?,
-				))
+				Some(Some(tys.into_iter().map(|f| shape(t, f)).collect::<Option<Vec<_>>>()?))
 			};
 			Some(Shape::Enum(ty, [variant(0)?, variant(1)?]))
 		}
@@ -510,7 +508,9 @@ fn walk<'s, 'tcx>(shape: &'s Shape<'tcx>, elems: &[PlaceElem<'tcx>]) -> (Node<'s
 enum Producer {
 	SplitFirst,
 	SplitFirstChunk(u64),
-	SplitAt { checked: bool },
+	SplitAt {
+		checked: bool,
+	},
 	OkOr,
 	Branch,
 	/// `?`'s return of what it was applied to: `None`, or an `Err` of its error.
@@ -588,7 +588,10 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				Shape::Enum(ty, [_, Some(err)])
 					if self.b.t.std_of(*ty) == Some(Std::Option)
 						|| self.b.t.std_of(*ty) == Some(Std::Result)
-							&& gargs.types().nth(1).is_some_and(|r| self.b.t.std_of(r) == Some(Std::Result))
+							&& gargs
+								.types()
+								.nth(1)
+								.is_some_and(|r| self.b.t.std_of(r) == Some(Std::Result))
 							&& err.iter().all(|e| !e.has_enum()) =>
 				{
 					Some(Producer::FromResidual)
@@ -1290,7 +1293,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let value = self.place_expr(place, span, out);
 		let value = self.path(value, "result", out);
 		let mut stmts = Vec::new();
-		let flag = self.store_out(own, &own.shape.clone(), value, 0, span, &mut stmts);
+		let flag = self.store_out(own, &own.shape.clone(), value, 0, &mut stmts);
 		self.emit(stmts, None, false, out);
 		flag
 	}
@@ -1304,7 +1307,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		shape: &Shape<'tcx>,
 		value: Expr,
 		at: usize,
-		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Option<Expr> {
 		let write = |at: usize, value: Expr| StmtKind::Expr(own.part(at).assign(value)).at(None);
@@ -1320,7 +1322,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				let mut at = at;
 				for (i, field) in fields.iter().enumerate() {
 					let item = self.b.spill(value.clone().index(Expr::lit(i.to_string())), "item", out);
-					if let Some(flag) = self.store_out(own, field, item, at, span, out) {
+					if let Some(flag) = self.store_out(own, field, item, at, out) {
 						out.push(write(at, flag));
 					}
 					at += field.size();
@@ -1345,7 +1347,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 							true => payload,
 							false => self.b.spill(payload, "payload", arm),
 						};
-						if let Some(flag) = self.store_out(own, field, payload, at, span, arm) {
+						if let Some(flag) = self.store_out(own, field, payload, at, arm) {
 							arm.push(write(at, flag));
 						}
 						at += field.size();
@@ -1524,10 +1526,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					let value = self.operand(&args[0].node, span, out);
 					let error = self.residual_error(value, from, span, out);
 					let error = self.b.convert(error, from, to, span, out);
-					let mut at = shape.variant_at(1);
-					for part in self.take_apart(error, &err[0], span, out) {
+					let error = self.take_apart(error, &err[0], span, out);
+					for (at, part) in (shape.variant_at(1)..).zip(error) {
 						parts[at] = Some(part);
-						at += 1;
 					}
 				}
 				if shape.flagged() {
@@ -1543,7 +1544,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				let (instance, callee) = self.outs[&fn_ty].clone();
 				let result = self.mir.local_decls[local].ty;
 				let values = self.operands(true, &[], args, result, span, out);
-				let call = Expr::Sym(self.b.t.callee(instance, span)).call(values.into_iter().map(Expr::typed).collect());
+				let call =
+					Expr::Sym(self.b.t.callee(instance, span)).call(values.into_iter().map(Expr::typed).collect());
 				let call = match self.b.t.loc(span) {
 					Some(loc) => Expr::Located(loc, Box::new(call)),
 					None => call,
@@ -1808,7 +1810,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			}
 			if let Some(flag) = flag {
 				let n = self.scalars[&local].shape.size();
-				self.set_parts(local, [flag].into_iter().chain(std::iter::repeat_n(None, n - 1)).collect(), out);
+				self.set_parts(
+					local,
+					[flag].into_iter().chain(std::iter::repeat_n(None, n - 1)).collect(),
+					out,
+				);
 			}
 			self.emit(rest, None, false, out);
 			return;
