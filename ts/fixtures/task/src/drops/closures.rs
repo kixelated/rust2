@@ -270,6 +270,15 @@ pub(super) fn iterated(log: &Log, id: u32, at: u8) {
 		.iter()
 		.for_each(move |&x| log.note(format!("each {}", x + o.id())));
 	log.note(format!("sum {sum}"));
+	// Items made as it goes, which it drops but for the best, before its key's closure.
+	let r = guard(36);
+	let best = [1u32, 2, 3].iter().map(|&n| guard(36 + n)).max_by_key(move |g| {
+		if g.id() == id + 38 {
+			check(7);
+		}
+		g.id() % 2 + r.id()
+	});
+	log.note(format!("best {:?}", best.map(|g| g.id())));
 	// What `retain` drops of its own before the closure.
 	let mut map = BTreeMap::new();
 	for (k, n) in [(1u32, 29), (2, 30), (3, 31)] {
@@ -288,7 +297,6 @@ pub(super) fn iterated(log: &Log, id: u32, at: u8) {
 	let q = guard(35);
 	queue.retain(move |g| g.id() + 2 != q.id());
 	log.note(format!("retained {} {}", map.len(), queue.len()));
-	check(7);
 }
 
 /// What drops of a closure's captures when one's `Drop` panics: the rest still drop, in
