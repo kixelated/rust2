@@ -9,6 +9,7 @@ import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Pending } from "./rt/task.ts";
 
+import { AtIndex } from "./rt/collections.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
 export * from "./rt/int.ts";
@@ -75,6 +76,16 @@ class Accessed<T> implements Place<T> {
 	set v(value: T) {
 		this.write(value);
 	}
+}
+
+/**
+ * The payload's place of the `Option` at `p`, whose `None` is `none`: `p` itself, as
+ * `Some(x)` is `x`, or `undefined` while it is `None`.
+ */
+export function optionAsMut<T>(p: Place<T | undefined>): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | None>, none: None): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | undefined | None>, none?: None): Place<T> | undefined {
+	return p.v === none ? undefined : (p as Place<T>);
 }
 
 /** The place `get` reads and `set` writes. */
@@ -284,9 +295,24 @@ export function sliceReverse<T>(s: T[]): void {
 	s.reverse();
 }
 
-/** `last` and `last_mut`: the last element, or `undefined` if empty. */
+/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
 export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[s.length - 1];
+}
+
+/** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
+export function sliceGetMut<T>(s: { [i: number]: T; length: number }, index: number): Place<T> | undefined {
+	return index < s.length ? new AtIndex(s, index) : undefined;
+}
+
+/** `first_mut` of an element JS copies. */
+export function sliceFirstMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return sliceGetMut(s, 0);
+}
+
+/** `last_mut` of an element JS copies. */
+export function sliceLastMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return s.length === 0 ? undefined : new AtIndex(s, s.length - 1);
 }
 
 /** `contains`, by `eq` of each element and then `x`, as std's `==` reads them. */

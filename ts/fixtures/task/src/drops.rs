@@ -553,6 +553,29 @@ fn options(log: &Log, id: u32, at: u8) {
 		chained.is_ok(),
 		cloned.is_some()
 	));
+	// What a `&mut Option`'s methods drop: the value `get_or_insert` doesn't insert, the
+	// closure `get_or_insert_with` doesn't call, and what `insert` replaces.
+	let mut slot = None;
+	slot.get_or_insert(guard(28));
+	slot.get_or_insert(guard(29));
+	let owned = guard(30);
+	slot.get_or_insert_with(move || owned);
+	let owned = guard(31);
+	let mut empty = None;
+	let made = empty
+		.get_or_insert_with(move || {
+			check(5);
+			owned
+		})
+		.id();
+	let replaced = slot.insert(guard(32)).id();
+	log.note(format!("get_or_insert {made} {replaced}"));
+	// Of a payload JS copies, which the methods lend as its place, as moq's `answered` is.
+	let mut answered: Option<Result<Guard, u8>> = None;
+	answered.get_or_insert(Ok(guard(33)));
+	let kept = answered.get_or_insert(Ok(guard(34))).as_ref().map_or(0, Guard::id);
+	*answered.insert(Err(3)) = Err(4);
+	log.note(format!("answered {kept} {}", matches!(answered, Some(Err(4)))));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and

@@ -616,6 +616,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
+				// A tuple's array has a fixed length, so its parts copy over in place.
+				Some(ObjectKind::Array) if matches!(pointee.kind(), ty::Tuple(_)) => {
+					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
+				}
 				_ => None,
 			};
 			match (e, alias) {
@@ -794,6 +798,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		match target {
 			Expr::Located(_, e) => self.stable_path(*e, fixed, span, out),
+			// A payload `Option::insert` lends, read as its type.
+			Expr::As(e, ty) => Expr::As(Box::new(self.stable_path(*e, fixed, span, out)), ty),
 			Expr::Ident(_) | Expr::This => target,
 			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
 			Expr::Index(object, i) => {

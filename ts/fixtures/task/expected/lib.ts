@@ -179,6 +179,12 @@ export function drop$Option_Key_Guard(_1: [Key.Key, Guard.Guard] | undefined): v
 	}
 }
 
+export function drop$Option_Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8> | undefined): void {
+	if (_1 !== undefined) {
+		drop$Result_Guard_u8(_1);
+	}
+}
+
 export function drop$Option_u32_Bomb(_1: [rt.u32, Bomb.Bomb] | undefined): void {
 	if (_1 !== undefined) {
 		drop$u32_Bomb(_1);
@@ -206,6 +212,12 @@ export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>)
 		rt.drop(_1.value);
 	} else {
 		rt.drop(_1.error);
+	}
+}
+
+export function drop$Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8>): void {
+	if (_1.ok) {
+		rt.drop(_1.value);
 	}
 }
 
