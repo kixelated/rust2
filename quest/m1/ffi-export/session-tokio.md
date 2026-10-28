@@ -33,7 +33,3 @@ of `NoRuntime`. It landed in [moq-dev/moq#7123](https://github.com/moq-dev/moq/p
 rust2's moq pin includes it.
 
 Public API: the C names moq's bindings get.
-
-## Required
-
-
