@@ -65,6 +65,8 @@ pub enum SymKind {
 	/// A class's method, called on its receiver: drop glue's `[Symbol.dispose]`, and a
 	/// coroutine's `poll`.
 	Method,
+	/// A module-level `const`.
+	Const,
 }
 
 #[derive(Debug)]
@@ -153,12 +155,32 @@ impl Program {
 				})
 				.collect();
 			functions.sort_by_key(|f| self.syms[f.sym].key());
-			for f in functions {
+			// A function's own scratch is the same in each.
+			let bodies: Vec<Vec<ts::Stmt>> = functions
+				.iter()
+				.map(|f| {
+					let mut body = f.body.clone();
+					if let Some(out) = &f.out {
+						ts::syms_mut(&mut body, &mut |id| {
+							if *id == out.sym {
+								*id = SymId::MAX;
+							}
+						});
+					}
+					body
+				})
+				.collect();
+			let outs: HashMap<SymId, SymId> =
+				functions.iter().filter_map(|f| Some((f.sym, f.out.as_ref()?.sym))).collect();
+			for (f, body) in functions.iter().zip(&bodies) {
 				let sym = &self.syms[f.sym];
-				let key = (&sym.module, sym.base.as_str(), &f.params[..], &f.ret, &f.body[..]);
+				let key = (&sym.module, sym.base.as_str(), &f.params[..], &f.ret, &body[..]);
 				let first = *kept.entry(key).or_insert(f.sym);
 				if first != f.sym {
 					same.insert(f.sym, first);
+					if let (Some(&out), Some(&to)) = (outs.get(&f.sym), outs.get(&first)) {
+						same.insert(out, to);
+					}
 				}
 			}
 			if same.is_empty() {

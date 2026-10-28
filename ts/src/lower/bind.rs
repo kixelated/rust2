@@ -420,6 +420,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				body,
 				loc: None,
 				doc: None,
+			out: None,
 			}),
 			span,
 			what,

@@ -263,6 +263,10 @@ impl Refs {
 	}
 
 	fn function(&mut self, program: &Program, f: &Function) {
+		if let Some(out) = &f.out {
+			self.ty(program, &out.ty);
+			self.expr(program, &out.init);
+		}
 		self.params(program, &f.params);
 		self.ty(program, &f.ret);
 		self.stmts(program, &f.body);
@@ -578,7 +582,16 @@ impl Printer<'_> {
 					}
 				}
 			}
-			Item::Function(f) => self.function(f, true),
+			Item::Function(f) => {
+				if let Some(out) = &f.out {
+					let ty = self.ty(&out.ty);
+					self.start();
+					self.write(&format!("export const {}: {ty} = ", self.sym_name(out.sym)));
+					self.expr(&out.init, 0);
+					self.write(";\n\n");
+				}
+				self.function(f, true)
+			}
 		}
 	}
 

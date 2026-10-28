@@ -440,7 +440,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
-				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
+				(Std::ControlFlow, _) => super::call::control_flow(tcx, ty, variant, values),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {
 						unreachable!("a range is a struct")

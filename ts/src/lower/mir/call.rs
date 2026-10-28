@@ -201,7 +201,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// first, but for a `Copy` aggregate std `keeps`, copied unless moved out of a local's
 	/// own value, which the analysis then made the local's own. Each argument `pointees`
 	/// marks is what an `rt.Place` it is reads, as std's mappings take a `&mut` parameter.
-	fn operands(
+	pub(super) fn operands(
 		&mut self,
 		translated: bool,
 		pointees: &[bool],
@@ -637,23 +637,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						if from == to {
 							return done(value, false);
 						}
-						let error = match value {
-							// Made in place: its error.
-							Expr::Call(f, mut items)
-								if matches!(&*f, Expr::Rt(n) if n == "Err") && items.len() == 1 =>
-							{
-								items.pop().expect("checked above")
-							}
-							value => {
-								let value = self.path(value, "residual", out);
-								// The residual is an `Err`.
-								let err = crate::ts::Type::Object(vec![
-									("ok".into(), crate::ts::Type::Builtin("false")),
-									("error".into(), self.b.t.ty(from, span)),
-								]);
-								Expr::As(Box::new(value), err).member("error")
-							}
-						};
+						let error = self.residual_error(value, from, span, out);
 						let converted = self.b.convert(error, from, to, span, out);
 						done(Expr::result(false, converted), true)
 					}
@@ -672,6 +656,36 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::rt("debugListEntries", vec![list, items, debug]), true)
 			}
 			_ => None,
+		}
+	}
+
+	/// The error of `value`, a `Result` residual of error type `from`, which is an `Err`.
+	pub(super) fn residual_error(&mut self, value: Expr, from: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let err = |e: &Expr| matches!(e, Expr::Call(f, items) if matches!(&**f, Expr::Rt(n) if n == "Err") && items.len() == 1);
+		// Held back, doing nothing, it is made here instead.
+		let value = match &value {
+			Expr::Ident(name)
+				if let Some(i) = self.pending.iter().position(|p| p.name == *name)
+					&& !self.pending[i].effect
+					&& err(&self.pending[i].value) =>
+			{
+				self.pending.remove(i).value
+			}
+			_ => value,
+		};
+		match value {
+			// Made in place: its error.
+			Expr::Call(f, mut items) if matches!(&*f, Expr::Rt(n) if n == "Err") && items.len() == 1 => {
+				items.pop().expect("checked above")
+			}
+			value => {
+				let value = self.path(value, "residual", out);
+				let err = crate::ts::Type::Object(vec![
+					("ok".into(), crate::ts::Type::Builtin("false")),
+					("error".into(), self.b.t.ty(from, span)),
+				]);
+				Expr::As(Box::new(value), err).member("error")
+			}
 		}
 	}
 
@@ -997,14 +1011,9 @@ pub fn control_flow_field<'tcx>(
 }
 
 /// A `ControlFlow` made in place.
-pub fn control_flow<'tcx>(
-	fx: &mut Fx<'_, '_, '_, 'tcx>,
-	ty: Ty<'tcx>,
-	variant: VariantIdx,
-	mut values: Vec<Expr>,
-) -> Expr {
+pub fn control_flow<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, variant: VariantIdx, mut values: Vec<Expr>) -> Expr {
 	let value = values.pop().unwrap_or_else(Expr::undefined);
-	match (flow(fx.tcx, ty), variant.index()) {
+	match (flow(tcx, ty), variant.index()) {
 		(Flow::Result | Flow::Other, 0) => Expr::result(true, value),
 		(Flow::Result, _) => value,
 		(Flow::Other, _) => Expr::result(false, value),

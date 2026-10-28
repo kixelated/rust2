@@ -5,8 +5,10 @@ import { copy$Window } from "./lib.ts";
 import * as Window from "./durations.Window.ts";
 import { put } from "./fmt.ts";
 
+export const takeOut: { p0: rt.u64; p1: rt.u32; p2: Uint8Array; p3: number; p4: number } = { p0: 0, p1: 0, p2: undefined!, p3: 0, p4: 0 };
+
 /** A `u64` and a `u32` from the front of `data`, big-endian and zero-padded. */
-export function take(data: rt.ByteSlice): [rt.u64, rt.u32, rt.ByteSlice] {
+export function take(data: rt.ByteSlice): void {
 	const buf: Uint8Array = rt.bytes(12);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -22,13 +24,29 @@ export function take(data: rt.ByteSlice): [rt.u64, rt.u32, rt.ByteSlice] {
 	const n1: rt.u8 = buf[9];
 	const n2: rt.u8 = buf[10];
 	const n3: rt.u8 = buf[11];
-	return [rt.u64FromBeBytes(Uint8Array.of(s0, s1, s2, s3, s4, s5, s6, s7)), ((n0 << 24) | (n1 << 16) | (n2 << 8) | n3) >>> 0, rt.byteSliceRange(data, n)] as [rt.u64, rt.u32, rt.ByteSlice];
+	const secs: rt.u64 = rt.u64FromBeBytes(Uint8Array.of(s0, s1, s2, s3, s4, s5, s6, s7));
+	const slice: rt.ByteSlice = rt.byteSliceRange(data, n);
+	takeOut.p0 = secs;
+	takeOut.p1 = ((n0 << 24) | (n1 << 16) | (n2 << 8) | n3) >>> 0;
+	takeOut.p2 = slice.data;
+	takeOut.p3 = slice.start;
+	takeOut.p4 = slice.length;
 }
 
+export const durationOut: { p0: rt.Duration; p1: Uint8Array; p2: number; p3: number } = { p0: undefined!, p1: undefined!, p2: 0, p3: 0 };
+
 /** A `Duration` from the front of `data`, whose nanoseconds never carry. */
-export function duration(data: rt.ByteSlice): [rt.Duration, rt.ByteSlice] {
-	const _5: [rt.u64, rt.u32, rt.ByteSlice] = take(data);
-	return [rt.durationNew(_5[0], rt.u32Rem(_5[1], 1000000000)), _5[2]] as [rt.Duration, rt.ByteSlice];
+export function duration(data: rt.ByteSlice): void {
+	take(data);
+	const _5_0: rt.u64 = takeOut.p0;
+	const _5_1: rt.u32 = takeOut.p1;
+	const _5_2Data: Uint8Array = takeOut.p2;
+	const _5_2Start: number = takeOut.p3;
+	const _5_2Len: number = takeOut.p4;
+	durationOut.p0 = rt.durationNew(_5_0, rt.u32Rem(_5_1, 1000000000));
+	durationOut.p1 = _5_2Data;
+	durationOut.p2 = _5_2Start;
+	durationOut.p3 = _5_2Len;
 }
 
 export function putDuration(out: rt.ByteVec, d: rt.Duration): void {
@@ -47,20 +65,29 @@ export function putOpt(out: rt.ByteVec, d: rt.Duration | undefined): void {
 }
 
 export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _6: [rt.Duration, rt.ByteSlice] = duration(data);
-	const a: rt.Duration = _6[0];
-	const _9: [rt.Duration, rt.ByteSlice] = duration(_6[1]);
-	const b: rt.Duration = _9[0];
+	duration(data);
+	const _6_0: rt.Duration = durationOut.p0;
+	const _6_1Data: Uint8Array = durationOut.p1;
+	const _6_1Start: number = durationOut.p2;
+	const _6_1Len: number = durationOut.p3;
+	const a: rt.Duration = _6_0;
+	duration(new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len));
+	const _9_0: rt.Duration = durationOut.p0;
+	const _9_1Data: Uint8Array = durationOut.p1;
+	const _9_1Start: number = durationOut.p2;
+	const _9_1Len: number = durationOut.p3;
+	const b: rt.Duration = _9_0;
 	const word: Uint8Array = rt.bytes(4);
-	const k: rt.usize = rt.min(_9[1].length, rt.byteSliceFrom(word).length);
-	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(word), 0, k), rt.byteSliceRange(_9[1], 0, k));
+	const k: rt.usize = rt.min(_9_1Len, rt.byteSliceFrom(word).length);
+	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(word), 0, k), rt.byteSliceRange(new rt.ByteSlice(_9_1Data, _9_1Start, _9_1Len), 0, k));
 	const n: rt.u32 = rt.u32FromBeBytes(word);
 	const _24: rt.u8 = rt.u8Rem(kind, 10);
 	if (_24 === 0) {
-		const _28: [rt.u64, rt.u32, rt.ByteSlice] = take(data);
-		putDuration(out, rt.durationNew(_28[0], _28[1]));
+		take(data);
+		putDuration(out, rt.durationNew(takeOut.p0, takeOut.p1));
 	} else if (_24 === 1) {
-		const units: rt.u64 = take(data)[0];
+		take(data);
+		const units: rt.u64 = takeOut.p0;
 		putDuration(out, rt.durationFromSecs(units));
 		putDuration(out, rt.durationFromMillis(units));
 		putDuration(out, rt.durationFromMicros(units));

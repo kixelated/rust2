@@ -34,11 +34,21 @@ export function mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0(s
 	return rt.Err(op(self.error));
 }
 
-export function inspectErr$Result_u8s_DecodeError_bytes_closure1(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => void): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
+export const inspectErrOut$Result_u8s_DecodeError_bytes_closure1: { p1: Uint8Array; p2: number; p3: number; p4: DecodeError.DecodeError } = { p1: undefined!, p2: 0, p3: 0, p4: undefined! };
+
+export function inspectErr$Result_u8s_DecodeError_bytes_closure1(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => void): boolean {
 	if (!self.ok) {
 		f(self.error);
 	}
-	return self;
+	const _0: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = self;
+	if (!_0.ok) {
+		inspectErrOut$Result_u8s_DecodeError_bytes_closure1.p4 = _0.error;
+	} else {
+		inspectErrOut$Result_u8s_DecodeError_bytes_closure1.p1 = _0.value.data;
+		inspectErrOut$Result_u8s_DecodeError_bytes_closure1.p2 = _0.value.start;
+		inspectErrOut$Result_u8s_DecodeError_bytes_closure1.p3 = _0.value.length;
+	}
+	return !_0.ok;
 }
 
 export function andThen$Result_Group_DecodeError_Group_decode_with_closure0(self: rt.Result<Group.Group, DecodeError.DecodeError>, op: (a0: Group.Group) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {

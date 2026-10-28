@@ -421,6 +421,17 @@ pub struct Function {
 	pub body: Vec<Stmt>,
 	pub loc: Option<Loc>,
 	pub doc: Option<String>,
+	/// Where it hands back its result's parts, if it does.
+	pub out: Option<Out>,
+}
+
+/// The module-level object a function writes its result's parts into, which its caller
+/// reads at once: `const name: ty = init`.
+#[derive(Clone, Debug)]
+pub struct Out {
+	pub sym: SymId,
+	pub ty: Type,
+	pub init: Expr,
 }
 
 #[derive(Clone, Debug)]

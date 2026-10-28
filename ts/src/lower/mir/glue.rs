@@ -84,6 +84,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 		body,
 		loc: None,
 		doc: None,
+			out: None,
 	}));
 	Some(sym)
 }

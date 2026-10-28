@@ -197,6 +197,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 			body,
 			loc,
 			doc: None,
+			out: None,
 		});
 	}
 	// `[Symbol.dispose]`: the drop, by the state it is in.
@@ -232,6 +233,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		body,
 		loc: None,
 		doc: None,
+		out: None,
 	});
 	info
 }

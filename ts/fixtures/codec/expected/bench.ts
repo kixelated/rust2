@@ -10,7 +10,7 @@ import * as Encoder from "./coding/encode.Encoder.ts";
 import { zigzag, unzigzag } from "./coding/varint.ts";
 import * as Form from "./coding/varint.Form.ts";
 import { unwrapOr$Option_u32, map$Option_u64_u64_encode_msg_closure0 } from "./core/option.ts";
-import { form, liteVersion, putU64, putUsize, takeU64, decodeError, encodeError } from "./harness.ts";
+import { form, liteVersion, putU64, putUsize, takeU64, takeU64Out, decodeError, encodeError } from "./harness.ts";
 import * as Group from "./lite/group.Group.ts";
 import type * as Version from "./lite/version.Version.ts";
 
@@ -67,9 +67,14 @@ export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, o
 
 /** The same value, `count` times. */
 export function encodeVarints(data: rt.ByteSlice, form_: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const count: rt.u64 = _6[0];
-	const value: rt.u64 = takeU64(_6[1])[0];
+	takeU64(data);
+	const _6_0: rt.u64 = takeU64Out.p0;
+	const _6_1Data: Uint8Array = takeU64Out.p1;
+	const _6_1Start: number = takeU64Out.p2;
+	const _6_1Len: number = takeU64Out.p3;
+	const count: rt.u64 = _6_0;
+	takeU64(new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len));
+	const value: rt.u64 = takeU64Out.p0;
 	const w: Encoder.Encoder = Encoder.new(out, form_);
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = rt.u64Low(count);
@@ -109,20 +114,40 @@ export function decodeVarints(wire: rt.ByteSlice, form_: Form.Form, out: rt.Byte
 export function encodeFrames(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
 	let _32!: rt.usize;
 	let _38!: [rt.i64, rt.u64];
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
-	const delta: rt.u64 = _9[0];
-	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
-	const first: rt.u64 = _12[0];
-	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
-	const size: rt.u64 = _15[0];
-	const _18: [rt.u64, rt.ByteSlice] = takeU64(_15[1]);
-	const keyEvery: rt.u64 = _18[0];
-	const keySize: rt.u64 = takeU64(_18[1])[0];
-	const _24: rt.i64 = rt.i64Cast(delta);
-	const _23: [rt.i64, rt.usize] = [_24, rt.u64Low(keyEvery)];
-	const delta2: rt.i64 = _24;
+	takeU64(data);
+	const _6_0: rt.u64 = takeU64Out.p0;
+	const _6_1Data: Uint8Array = takeU64Out.p1;
+	const _6_1Start: number = takeU64Out.p2;
+	const _6_1Len: number = takeU64Out.p3;
+	const count: rt.u64 = _6_0;
+	takeU64(new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len));
+	const _9_0: rt.u64 = takeU64Out.p0;
+	const _9_1Data: Uint8Array = takeU64Out.p1;
+	const _9_1Start: number = takeU64Out.p2;
+	const _9_1Len: number = takeU64Out.p3;
+	const delta: rt.u64 = _9_0;
+	takeU64(new rt.ByteSlice(_9_1Data, _9_1Start, _9_1Len));
+	const _12_0: rt.u64 = takeU64Out.p0;
+	const _12_1Data: Uint8Array = takeU64Out.p1;
+	const _12_1Start: number = takeU64Out.p2;
+	const _12_1Len: number = takeU64Out.p3;
+	const first: rt.u64 = _12_0;
+	takeU64(new rt.ByteSlice(_12_1Data, _12_1Start, _12_1Len));
+	const _15_0: rt.u64 = takeU64Out.p0;
+	const _15_1Data: Uint8Array = takeU64Out.p1;
+	const _15_1Start: number = takeU64Out.p2;
+	const _15_1Len: number = takeU64Out.p3;
+	const size: rt.u64 = _15_0;
+	takeU64(new rt.ByteSlice(_15_1Data, _15_1Start, _15_1Len));
+	const _18_0: rt.u64 = takeU64Out.p0;
+	const _18_1Data: Uint8Array = takeU64Out.p1;
+	const _18_1Start: number = takeU64Out.p2;
+	const _18_1Len: number = takeU64Out.p3;
+	const keyEvery: rt.u64 = _18_0;
+	takeU64(new rt.ByteSlice(_18_1Data, _18_1Start, _18_1Len));
+	const keySize: rt.u64 = takeU64Out.p0;
+	const _23: [rt.i64, rt.usize] = [rt.i64Cast(delta), rt.u64Low(keyEvery)];
+	const delta2: rt.i64 = _23[0];
 	const keyEvery2: rt.usize = _23[1];
 	const w: Encoder.Encoder = Encoder.new(out, Form.from$From_Version(version));
 	let iterStart: rt.usize = 0;
@@ -193,21 +218,27 @@ export function decodeFrames(wire: rt.ByteSlice, version: Version.Version, out: 
  * and how many decodes came up short.
  */
 export function decodeSplit(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const read2: rt.usize = rt.max(rt.u64Low(_6[0]), 1);
+	takeU64(data);
+	const _6_0: rt.u64 = takeU64Out.p0;
+	const _6_1Data: Uint8Array = takeU64Out.p1;
+	const _6_1Start: number = takeU64Out.p2;
+	const _6_1Len: number = takeU64Out.p3;
+	const read: rt.u64 = _6_0;
+	const wire: rt.ByteSlice = new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len);
+	const read2: rt.usize = rt.max(rt.u64Low(read), 1);
 	let start: rt.usize = 0;
 	let end: rt.usize = 0;
 	let count: rt.usize = 0;
 	let total: rt.u64 = 0;
 	let last: rt.i64 = 0;
 	let short: rt.usize = 0;
-	l2: while (end < _6[1].length) {
-		end = rt.min(_6[1].length, rt.usizeAdd(end, read2));
+	l2: while (end < wire.length) {
+		end = rt.min(wire.length, rt.usizeAdd(end, read2));
 		while (true) {
 			if (!(start < end)) {
 				continue l2;
 			}
-			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(_6[1], start, end), Form.from$From_Version(version));
+			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(wire, start, end), Form.from$From_Version(version));
 			const _32: rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError> = frameHeader(r);
 			if (_32.ok) {
 				const delta: rt.i64 = _32.value[0];
@@ -251,8 +282,14 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 
 /** One size-prefixed GROUP header, starting at the first frame. */
 export function encodeGroup(data: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const group: Group.Group = { subscribe: _6[0], sequence: takeU64(_6[1])[0], frameStart: 0 };
+	takeU64(data);
+	const _6_0: rt.u64 = takeU64Out.p0;
+	const _6_1Data: Uint8Array = takeU64Out.p1;
+	const _6_1Start: number = takeU64Out.p2;
+	const _6_1Len: number = takeU64Out.p3;
+	const subscribe: rt.u64 = _6_0;
+	takeU64(new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len));
+	const group: Group.Group = { subscribe, sequence: takeU64Out.p0, frameStart: 0 };
 	return Group.encode$Encode_Version(group, Encoder.new(out, Form.from$From_Version(version)), version);
 }
 
@@ -268,7 +305,8 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _10: (a0: rt.u32) => rt.u32 = (i4: rt.u32): rt.u32 => {
 		return rt.u32Rem(rt.u32Mul(i4, 40503), 1 << 16);
 	};
-	const count2: rt.u32 = rt.u64Low(rt.u64Min(takeU64(data)[0], 65536));
+	takeU64(data);
+	const count2: rt.u32 = rt.u64Low(rt.u64Min(takeU64Out.p0, 65536));
 	const map: rt.BTreeMap<rt.u32, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
 	let iterStart: rt.u32 = 0;
 	const iterEnd: rt.u32 = count2;
@@ -354,15 +392,32 @@ export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _26!: rt.usize;
 	let scaled!: rt.u64 | undefined;
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
-	const start: rt.u64 = _9[0];
-	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
-	const step: rt.u64 = _12[0];
-	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
-	const from: rt.u64 = _15[0];
-	const to: rt.u64 = takeU64(_15[1])[0];
+	takeU64(data);
+	const _6_0: rt.u64 = takeU64Out.p0;
+	const _6_1Data: Uint8Array = takeU64Out.p1;
+	const _6_1Start: number = takeU64Out.p2;
+	const _6_1Len: number = takeU64Out.p3;
+	const count: rt.u64 = _6_0;
+	takeU64(new rt.ByteSlice(_6_1Data, _6_1Start, _6_1Len));
+	const _9_0: rt.u64 = takeU64Out.p0;
+	const _9_1Data: Uint8Array = takeU64Out.p1;
+	const _9_1Start: number = takeU64Out.p2;
+	const _9_1Len: number = takeU64Out.p3;
+	const start: rt.u64 = _9_0;
+	takeU64(new rt.ByteSlice(_9_1Data, _9_1Start, _9_1Len));
+	const _12_0: rt.u64 = takeU64Out.p0;
+	const _12_1Data: Uint8Array = takeU64Out.p1;
+	const _12_1Start: number = takeU64Out.p2;
+	const _12_1Len: number = takeU64Out.p3;
+	const step: rt.u64 = _12_0;
+	takeU64(new rt.ByteSlice(_12_1Data, _12_1Start, _12_1Len));
+	const _15_0: rt.u64 = takeU64Out.p0;
+	const _15_1Data: Uint8Array = takeU64Out.p1;
+	const _15_1Start: number = takeU64Out.p2;
+	const _15_1Len: number = takeU64Out.p3;
+	const from: rt.u64 = _15_0;
+	takeU64(new rt.ByteSlice(_15_1Data, _15_1Start, _15_1Len));
+	const to: rt.u64 = takeU64Out.p0;
 	let converted: rt.u64 = 0;
 	let overflowed: rt.u64 = 0;
 	let last: rt.u64 = 0;
@@ -416,13 +471,26 @@ export function bounded(value: rt.u128): rt.u64 | undefined {
  * publisher stamps them. How many were stamped, how many overflowed, and the last.
  */
 export function stamp(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _5: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const count: rt.u64 = _5[0];
-	const _8: [rt.u64, rt.ByteSlice] = takeU64(_5[1]);
-	const start: rt.u64 = _8[0];
-	const _11: [rt.u64, rt.ByteSlice] = takeU64(_8[1]);
-	const step: rt.u64 = _11[0];
-	const scale: rt.u64 = takeU64(_11[1])[0];
+	takeU64(data);
+	const _5_0: rt.u64 = takeU64Out.p0;
+	const _5_1Data: Uint8Array = takeU64Out.p1;
+	const _5_1Start: number = takeU64Out.p2;
+	const _5_1Len: number = takeU64Out.p3;
+	const count: rt.u64 = _5_0;
+	takeU64(new rt.ByteSlice(_5_1Data, _5_1Start, _5_1Len));
+	const _8_0: rt.u64 = takeU64Out.p0;
+	const _8_1Data: Uint8Array = takeU64Out.p1;
+	const _8_1Start: number = takeU64Out.p2;
+	const _8_1Len: number = takeU64Out.p3;
+	const start: rt.u64 = _8_0;
+	takeU64(new rt.ByteSlice(_8_1Data, _8_1Start, _8_1Len));
+	const _11_0: rt.u64 = takeU64Out.p0;
+	const _11_1Data: Uint8Array = takeU64Out.p1;
+	const _11_1Start: number = takeU64Out.p2;
+	const _11_1Len: number = takeU64Out.p3;
+	const step: rt.u64 = _11_0;
+	takeU64(new rt.ByteSlice(_11_1Data, _11_1Start, _11_1Len));
+	const scale: rt.u64 = takeU64Out.p0;
 	let time: Timestamp.Timestamp = { value: start, scale };
 	let stamped: rt.u64 = 0;
 	let overflowed: rt.u64 = 0;
@@ -452,9 +520,13 @@ export function stamp(data: rt.ByteSlice, out: rt.ByteVec): void {
  * interleave switched tracks.
  */
 export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _5: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const count: rt.u64 = _5[0];
-	const _9: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_5[1]);
+	takeU64(data);
+	const _5_0: rt.u64 = takeU64Out.p0;
+	const _5_1Data: Uint8Array = takeU64Out.p1;
+	const _5_1Start: number = takeU64Out.p2;
+	const _5_1Len: number = takeU64Out.p3;
+	const count: rt.u64 = _5_0;
+	const _9: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(new rt.ByteSlice(_5_1Data, _5_1Start, _5_1Len));
 	const a: Timestamp.Timestamp = copy$Timestamp(_9[0]);
 	const aStep: rt.u64 = _9[1];
 	const _12: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_9[2]);
@@ -486,12 +558,20 @@ export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** A track's first timestamp and its frame duration: start, step, and scale. */
 export function track(data: rt.ByteSlice): [Timestamp.Timestamp, rt.u64, rt.ByteSlice] {
-	const _4: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const value: rt.u64 = _4[0];
-	const _7: [rt.u64, rt.ByteSlice] = takeU64(_4[1]);
-	const step: rt.u64 = _7[0];
-	const _10: [rt.u64, rt.ByteSlice] = takeU64(_7[1]);
-	return [{ value, scale: _10[0] }, step, _10[1]] as [Timestamp.Timestamp, rt.u64, rt.ByteSlice];
+	takeU64(data);
+	const _4_0: rt.u64 = takeU64Out.p0;
+	const _4_1Data: Uint8Array = takeU64Out.p1;
+	const _4_1Start: number = takeU64Out.p2;
+	const _4_1Len: number = takeU64Out.p3;
+	const value: rt.u64 = _4_0;
+	takeU64(new rt.ByteSlice(_4_1Data, _4_1Start, _4_1Len));
+	const _7_0: rt.u64 = takeU64Out.p0;
+	const _7_1Data: Uint8Array = takeU64Out.p1;
+	const _7_1Start: number = takeU64Out.p2;
+	const _7_1Len: number = takeU64Out.p3;
+	const step: rt.u64 = _7_0;
+	takeU64(new rt.ByteSlice(_7_1Data, _7_1Start, _7_1Len));
+	return [{ value, scale: takeU64Out.p0 }, step, new rt.ByteSlice(takeU64Out.p1, takeU64Out.p2, takeU64Out.p3)] as [Timestamp.Timestamp, rt.u64, rt.ByteSlice];
 }
 
 export function decodeGroup(wire: rt.ByteSlice, version: Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {

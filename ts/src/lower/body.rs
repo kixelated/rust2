@@ -15,6 +15,8 @@ pub struct Body<'b, 'a, 'tcx> {
 	pub args: GenericArgsRef<'tcx>,
 	/// Every name in the function, so none shadows another.
 	names: FxHashSet<String>,
+	/// Where the function hands back its result's parts, if it does.
+	pub out: Option<super::mir::Out<'tcx>>,
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
@@ -23,6 +25,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			t,
 			args,
 			names: FxHashSet::default(),
+			out: None,
 		}
 	}
 
@@ -117,6 +120,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 			let sym = self.t.callee(instance, span);
 			let call = Expr::Sym(sym).call(values);
+			if let Some(own) = self.t.out(instance) {
+				return self.out_value(&own, call, span, out);
+			}
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
@@ -232,7 +238,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if let Some(sym) = self.t.bound_fn(instance, span) {
 				return Expr::Sym(sym);
 			}
-			if self.t.lowers(instance) {
+			// One that hands back its result's parts is wrapped to make the result.
+			if self.t.lowers(instance) && self.t.out(instance).is_none() {
 				return Expr::Sym(self.t.callee(instance, span));
 			}
 		}

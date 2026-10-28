@@ -31,6 +31,7 @@ use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
 pub use self::place::slice_member;
+pub(crate) use self::scalar::Out;
 use super::Translator;
 use super::body::Body;
 
@@ -47,7 +48,9 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		super::iter::check_impl(t, def_id);
 	}
 	let ret_ty = mir.return_ty();
+	let out = t.out(instance);
 	let mut b = Body::new(t, instance.args);
+	b.out = out.clone();
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
@@ -56,8 +59,11 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		(true, ty::Adt(_, args)) => {
 			Type::Union(vec![fx.b.t.ty(args.type_at(0), ret_span), Type::Rt("Done", Vec::new())])
 		}
+		// Which variant it made, its parts being in its `out`.
+		_ if let Some(out) = &out => Type::Builtin(if out.flagged() { "boolean" } else { "void" }),
 		_ => fx.b.t.ret_ty(ret_ty, ret_span),
 	};
+	let out = out.map(|out| out.item(fx.b.t, ret_span));
 	Some(ts::Function {
 		sym: 0,
 		params,
@@ -65,6 +71,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		body,
 		loc: None,
 		doc: None,
+		out,
 	})
 }
 
@@ -298,6 +305,11 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	steady: FxHashSet<String>,
 	/// Those slices, with their types, which need declarations.
 	scalar_binds: Vec<(String, Type)>,
+	/// Where this function hands back its result's parts, if it does: not a closure's,
+	/// which lowers with its function's `Body`.
+	ret_out: Option<scalar::Out<'tcx>>,
+	/// The callees, by type, that hand back their results' parts, and where.
+	outs: FxHashMap<Ty<'tcx>, (Instance<'tcx>, scalar::Out<'tcx>)>,
 	/// The tests and payload reads TypeScript may have narrowed stale.
 	narrowing: decided::Narrowing<'tcx>,
 	/// The statement or terminator being lowered.
@@ -308,6 +320,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
+		let ret_out = match env {
+			Env::Plain => b.out.take(),
+			_ => None,
+		};
 		let mut fx = Fx {
 			b,
 			mir,
@@ -362,6 +378,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			scalars: FxHashMap::default(),
 			steady: FxHashSet::default(),
 			scalar_binds: Vec::new(),
+			ret_out,
+			outs: FxHashMap::default(),
 			narrowing: decided::narrowing(tcx, mir),
 			at: mir::START_BLOCK.start_location(),
 		};
@@ -1462,7 +1480,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		handler_reads(&out, &mut caught);
 		return_in_place(&mut out, &caught.into_iter().collect());
 		prune_unread(&mut out);
-		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
+		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty)
+			|| self.ret_out.as_ref().is_some_and(|own| !own.flagged())
+		{
 			cfg::strip_return(&mut out);
 		}
 		cfg::hoist_else(&mut out);
@@ -2336,6 +2356,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let ret = self.mir.local_decls[mir::RETURN_PLACE].ty;
 				let value = match self.zero_sized(ret) {
 					true => None,
+					false if let Some(own) = self.ret_out.clone() => self.out_return(&own, span, out),
 					false => {
 						let mut pre = Vec::new();
 						// Uncopied: a caller that changes the result in place copies it.

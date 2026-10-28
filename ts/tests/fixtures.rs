@@ -258,7 +258,6 @@ fn shake(out: &Path) {
 			"byteSliceFrom",
 			"checked",
 			"clamp",
-			"idx",
 			"max",
 			"panic",
 			"u32SaturatingAdd",
@@ -270,6 +269,7 @@ fn shake(out: &Path) {
 			"run",
 			"short",
 			"slice",
+			"sliceOut",
 			"u8",
 		];
 		let mut want: Vec<String> = want.map(unnumbered).to_vec();

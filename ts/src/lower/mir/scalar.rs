@@ -17,12 +17,15 @@ use rustc_middle::mir::{
 	StatementKind, TerminatorKind,
 };
 use rustc_middle::ty::adjustment::PointerCoercion;
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, Instance, InstanceKind, Ty};
 use rustc_span::{Span, Spanned};
 
 use super::Fx;
+use crate::lower::body::Body;
+use crate::lower::Translator;
 use crate::lower::library::{self, Std};
-use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
+use crate::program::{SymKind, Symbol};
+use crate::ts::{Expr, Key, Stmt, StmtKind, SymId, Type};
 
 /// How a local held as its parts lays them out.
 #[derive(Clone, Debug)]
@@ -67,6 +70,19 @@ impl<'tcx> Shape<'tcx> {
 			Shape::Enum(..) => true,
 			Shape::Unit | Shape::Leaf(_) | Shape::Slice => false,
 			Shape::Tuple(_, fields) => fields.iter().any(Shape::has_enum),
+		}
+	}
+
+	/// Whether its value is an object of its own beyond its slices': a tuple, or a
+	/// `Result` or `ControlFlow`, which an `Option` is not.
+	fn has_object(&self, tcx: ty::TyCtxt<'tcx>) -> bool {
+		match self {
+			Shape::Tuple(..) => true,
+			Shape::Enum(ty, variants) => {
+				!matches!(ty.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Option))
+					|| variants.iter().flatten().flatten().any(|s| s.has_object(tcx))
+			}
+			Shape::Unit | Shape::Leaf(_) | Shape::Slice => false,
 		}
 	}
 
@@ -180,6 +196,247 @@ fn uninhabited(ty: Ty<'_>) -> bool {
 	ty.is_never() || matches!(ty.kind(), ty::Adt(adt, _) if adt.is_enum() && adt.variants().is_empty())
 }
 
+/// Where a function hands back its result's parts: the object, of its own, it writes
+/// each into but the flag, which it returns.
+#[derive(Clone, Debug)]
+pub(crate) struct Out<'tcx> {
+	sym: SymId,
+	shape: Shape<'tcx>,
+}
+
+impl<'tcx> Out<'tcx> {
+	/// Where it holds part `i`.
+	fn part(&self, i: usize) -> Expr {
+		Expr::Sym(self.sym).member(format!("p{i}"))
+	}
+
+	/// Whether its function returns a flag.
+	pub(super) fn flagged(&self) -> bool {
+		self.shape.flagged()
+	}
+
+	/// Its declaration: each part but the flag starts as a value of its type if that is a
+	/// number, so V8 keeps it in place, and else as `undefined`, which a bundler can drop
+	/// unread, as it can't a `new`.
+	pub(super) fn item(&self, t: &mut Translator<'_, 'tcx>, span: Span) -> crate::ts::Out {
+		let mut parts = Vec::new();
+		self.shape.parts("", &mut parts);
+		let mut fields = Vec::new();
+		let mut init = Vec::new();
+		for (i, (_, part)) in parts.into_iter().enumerate().skip(usize::from(self.flagged())) {
+			let (ty, value) = match part {
+				Part::Flag => (Type::Builtin("boolean"), "false"),
+				Part::Data => (Type::Builtin("Uint8Array"), "undefined!"),
+				Part::Number => (Type::Builtin("number"), "0"),
+				Part::Value(ty) if number(ty) && ty.is_bool() => (t.held_ty(ty, span), "false"),
+				Part::Value(ty) if number(ty) => (t.held_ty(ty, span), "0"),
+				Part::Value(ty) => (t.held_ty(ty, span), "undefined!"),
+			};
+			fields.push((format!("p{i}"), ty));
+			init.push((Key::Name(format!("p{i}")), Expr::lit(value)));
+		}
+		crate::ts::Out {
+			sym: self.sym,
+			ty: Type::Object(fields),
+			init: Expr::Object(init),
+		}
+	}
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// Where a call of `instance` hands back its result's parts, if it does: a function
+	/// only translated code calls directly, whose result is built of byte slices and
+	/// scalars around an object of its own, which it then never makes.
+	pub(crate) fn out(&mut self, instance: Instance<'tcx>) -> Option<Out<'tcx>> {
+		if let Some(out) = self.outs.get(&instance) {
+			return out.clone();
+		}
+		let out = self.find_out(instance);
+		self.outs.insert(instance, out.clone());
+		out
+	}
+
+	fn find_out(&mut self, instance: Instance<'tcx>) -> Option<Out<'tcx>> {
+		let tcx = self.tcx;
+		let InstanceKind::Item(did) = instance.def else {
+			return None;
+		};
+		// A census writes nothing, and the outside takes a root's result whole.
+		if self.refusals.is_some()
+			|| self.roots.contains(&instance)
+			|| !self.lowers(instance)
+			|| tcx.is_closure_like(did)
+			|| crate::lower::iter::is_next(tcx, did)
+		{
+			return None;
+		}
+		let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
+		let ret = tcx.instantiate_bound_regions_with_erased(sig).output();
+		let ret = tcx
+			.try_normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(ret))
+			.unwrap_or(ret);
+		let shape = shape(self, ret)?;
+		if !shape.has_slice() || !shape.has_object(tcx) || self.drops(ret) {
+			return None;
+		}
+		let callee = self.instance(instance);
+		let callee = &self.program.syms[callee];
+		let sym = self.program.sym(Symbol {
+			module: callee.module.clone(),
+			base: format!("{}Out", callee.base),
+			suffix: callee.suffix.clone(),
+			owner: None,
+			kind: SymKind::Const,
+			order: callee.order,
+			instance: String::new(),
+			name: String::new(),
+			alias: None,
+		});
+		Some(Out { sym, shape })
+	}
+}
+
+/// How a value of `ty` is laid out as its parts, if it can be.
+fn shape<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Shape<'tcx>> {
+	let tcx = t.tcx;
+	match ty.kind() {
+		ty::Ref(_, inner, rustc_ast::Mutability::Not)
+			if super::place::byte_slice(*inner) || crate::lower::byte_array(*inner) =>
+		{
+			Some(Shape::Slice)
+		}
+		ty::Tuple(tys) if tys.is_empty() => Some(Shape::Unit),
+		ty::Tuple(tys) => {
+			let fields = tys.iter().map(|f| shape(t, f)).collect::<Option<Vec<_>>>()?;
+			Some(Shape::Tuple(ty, fields))
+		}
+		ty::Adt(adt, args)
+			if matches!(
+				Std::of(tcx, adt.did()),
+				Some(Std::Option | Std::Result | Std::ControlFlow)
+			) =>
+		{
+			let variant = |v: usize| -> Option<Option<Vec<Shape<'tcx>>>> {
+				let tys: Vec<Ty<'tcx>> = adt
+					.variant(VariantIdx::from_usize(v))
+					.fields
+					.iter()
+					.map(|f| f.ty(tcx, args).skip_norm_wip())
+					.collect();
+				if tys.iter().any(|t| uninhabited(*t)) {
+					return Some(None);
+				}
+				Some(Some(
+					tys.into_iter().map(|f| shape(t, f)).collect::<Option<Vec<_>>>()?,
+				))
+			};
+			Some(Shape::Enum(ty, [variant(0)?, variant(1)?]))
+		}
+		ty::Ref(_, _, rustc_ast::Mutability::Mut) | ty::RawPtr(..) => None,
+		_ if t.needs_copy(ty) => None,
+		_ => Some(Shape::Leaf(ty)),
+	}
+}
+
+/// The object of `shape` its `parts` make, of `variant` if it is an enum known to be one.
+fn build<'tcx>(
+	t: &mut Translator<'_, 'tcx>,
+	shape: &Shape<'tcx>,
+	variant: Option<usize>,
+	parts: &[Expr],
+	span: Span,
+) -> Expr {
+	match shape {
+		Shape::Unit => Expr::undefined(),
+		Shape::Leaf(_) => parts[0].clone(),
+		// The parts of a slice bound whole are that slice.
+		Shape::Slice => match members(parts) {
+			Some(slice) => Expr::ident(slice),
+			None => Expr::New(Box::new(Expr::Rt("ByteSlice".into())), parts.to_vec()),
+		},
+		Shape::Tuple(ty, fields) => {
+			let mut at = 0;
+			let mut items = Vec::with_capacity(fields.len());
+			for field in fields {
+				items.push(build(t, field, None, &parts[at..at + field.size()], span));
+				at += field.size();
+			}
+			let ts_ty = t.ty(*ty, span);
+			Expr::As(Box::new(Expr::Array(items)), ts_ty)
+		}
+		Shape::Enum(ty, variants) => {
+			let known = variant.or(match variants {
+				[None, Some(_)] => Some(1),
+				[_, None] => Some(0),
+				_ => match &parts[0] {
+					Expr::Lit(t) if t == "true" => Some(1),
+					Expr::Lit(t) if t == "false" => Some(0),
+					_ => None,
+				},
+			});
+			let make = |t: &mut Translator<'_, 'tcx>, v: usize| {
+				let mut at = shape.variant_at(v);
+				let mut values = Vec::new();
+				for field in variants[v].iter().flatten() {
+					values.push(build(t, field, None, &parts[at..at + field.size()], span));
+					at += field.size();
+				}
+				variant_value(t.tcx, *ty, VariantIdx::from_usize(v), values)
+			};
+			match known {
+				Some(v) => make(t, v),
+				None => {
+					let second = make(t, 1);
+					let first = make(t, 0);
+					let ts_ty = t.ty(*ty, span);
+					Expr::As(
+						Box::new(Expr::Cond(
+							Box::new(parts[0].clone()),
+							Box::new(second),
+							Box::new(first),
+						)),
+						ts_ty,
+					)
+				}
+			}
+		}
+	}
+}
+
+/// Variant `variant` of an `Option`, `Result`, or `ControlFlow` of `ty`, of its `values`.
+fn variant_value<'tcx>(tcx: ty::TyCtxt<'tcx>, ty: Ty<'tcx>, variant: VariantIdx, mut values: Vec<Expr>) -> Expr {
+	let ty::Adt(adt, _) = ty.kind() else {
+		unreachable!("an enum's shape is of an enum")
+	};
+	match Std::of(tcx, adt.did()) {
+		Some(Std::Option) => values.pop().unwrap_or_else(Expr::undefined),
+		Some(Std::Result) => Expr::result(variant.index() == 0, values.pop().unwrap_or_else(Expr::undefined)),
+		_ => super::call::control_flow(tcx, ty, variant, values),
+	}
+}
+
+impl<'tcx> Body<'_, '_, 'tcx> {
+	/// The value of `call`, which hands back its result's parts through `own`: the object
+	/// they make, read at once, before anything can call it again.
+	pub fn out_value(&mut self, own: &Out<'tcx>, call: Expr, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let shape = &own.shape;
+		let flagged = shape.flagged();
+		let mut parts = Vec::with_capacity(shape.size());
+		if flagged {
+			parts.push(call);
+		} else {
+			out.push(StmtKind::Expr(call).at(None));
+		}
+		parts.extend((usize::from(flagged)..shape.size()).map(|i| own.part(i)));
+		let value = build(self.t, shape, None, &parts, span);
+		match flagged {
+			// One expression, whose call runs before it reads.
+			true => value,
+			false => self.spill(value, "result", out),
+		}
+	}
+}
+
 /// A local held as its parts.
 #[derive(Debug)]
 pub(super) struct Scalar<'tcx> {
@@ -256,6 +513,10 @@ enum Producer {
 	SplitAt { checked: bool },
 	OkOr,
 	Branch,
+	/// `?`'s return of what it was applied to: `None`, or an `Err` of its error.
+	FromResidual,
+	/// A function that hands back its result's parts through its `out`.
+	Out,
 }
 
 /// A part of a local, by index, and the part of another held local it copies, if any.
@@ -271,44 +532,7 @@ struct Made {
 impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// How a local of `ty` is laid out as its parts, if it can be.
 	fn shape(&self, ty: Ty<'tcx>) -> Option<Shape<'tcx>> {
-		let tcx = self.tcx;
-		match ty.kind() {
-			ty::Ref(_, inner, rustc_ast::Mutability::Not)
-				if super::place::byte_slice(*inner) || crate::lower::byte_array(*inner) =>
-			{
-				Some(Shape::Slice)
-			}
-			ty::Tuple(tys) if tys.is_empty() => Some(Shape::Unit),
-			ty::Tuple(tys) => {
-				let fields = tys.iter().map(|t| self.shape(t)).collect::<Option<Vec<_>>>()?;
-				Some(Shape::Tuple(ty, fields))
-			}
-			ty::Adt(adt, args)
-				if matches!(
-					Std::of(tcx, adt.did()),
-					Some(Std::Option | Std::Result | Std::ControlFlow)
-				) =>
-			{
-				let variant = |v: usize| -> Option<Option<Vec<Shape<'tcx>>>> {
-					let tys: Vec<Ty<'tcx>> = adt
-						.variant(VariantIdx::from_usize(v))
-						.fields
-						.iter()
-						.map(|f| f.ty(tcx, args).skip_norm_wip())
-						.collect();
-					if tys.iter().any(|t| uninhabited(*t)) {
-						return Some(None);
-					}
-					Some(Some(
-						tys.into_iter().map(|t| self.shape(t)).collect::<Option<Vec<_>>>()?,
-					))
-				};
-				Some(Shape::Enum(ty, [variant(0)?, variant(1)?]))
-			}
-			ty::Ref(_, _, rustc_ast::Mutability::Mut) | ty::RawPtr(..) => None,
-			_ if self.b.t.needs_copy(ty) => None,
-			_ => Some(Shape::Leaf(ty)),
-		}
+		shape(self.b.t, ty)
 	}
 
 	/// The std call `func` makes into a local of `shape`, if its parts can be made from
@@ -322,14 +546,18 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		shapes: &FxHashMap<Local, Shape<'tcx>>,
 	) -> Option<Producer> {
 		let tcx = self.tcx;
-		let ty::FnDef(def_id, gargs) = *func.ty(&self.mir.local_decls, tcx).kind() else {
-			return None;
+		let fn_ty = func.ty(&self.mir.local_decls, tcx);
+		let out = self.outs.contains_key(&fn_ty).then_some(Producer::Out);
+		let ty::FnDef(def_id, gargs) = *fn_ty.kind() else {
+			return out;
 		};
 		if !library::is_std(tcx, def_id) {
-			return None;
+			return out;
 		}
 		let gargs = gargs.skip_binder();
-		let (owner, name) = library::key(tcx, def_id)?;
+		let Some((owner, name)) = library::key(tcx, def_id) else {
+			return out;
+		};
 		// What `ok_or` and `?` take apart: a local held as its parts, read whole, an enum
 		// whose variants both can be, as the result's.
 		let held = |op: &Operand<'tcx>| match op {
@@ -356,6 +584,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			("Option", "ok_or") if held(&args[0].node) && self.ok_or_error(&args[1].node, shape, shapes) => {
 				Some(Producer::OkOr)
 			}
+			("FromResidual", "from_residual") => match shape {
+				Shape::Enum(ty, [_, Some(err)])
+					if self.b.t.std_of(*ty) == Some(Std::Option)
+						|| self.b.t.std_of(*ty) == Some(Std::Result)
+							&& gargs.types().nth(1).is_some_and(|r| self.b.t.std_of(r) == Some(Std::Result))
+							&& err.iter().all(|e| !e.has_enum()) =>
+				{
+					Some(Producer::FromResidual)
+				}
+				_ => out,
+			},
 			("Try", "branch")
 				if held(&args[0].node)
 					&& gargs
@@ -365,7 +604,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			{
 				Some(Producer::Branch)
 			}
-			_ => None,
+			_ => out,
 		}
 	}
 
@@ -472,10 +711,25 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Find the locals to hold as their parts.
 	pub(super) fn find_scalars(&mut self) {
 		let mir = self.mir;
+		let tcx = self.tcx;
+		for data in mir.basic_blocks.iter() {
+			if let TerminatorKind::Call { func, .. } = &data.terminator().kind
+				&& let fn_ty = func.ty(&mir.local_decls, tcx)
+				&& let ty::FnDef(def_id, gargs) = *fn_ty.kind()
+				&& let Ok(Some(instance)) =
+					Instance::try_resolve(tcx, self.b.t.typing_env_pub(), def_id, gargs.skip_binder())
+				&& let Some(out) = self.b.t.out(instance)
+			{
+				self.outs.insert(fn_ty, (instance, out));
+			}
+		}
+		// The result of a function that hands back its parts, written into its `out` where
+		// it is assigned, which nothing can then call it again before it returns.
+		let ret = self.ret_out.is_some() && self.quiet_returns();
 		let mut shapes: FxHashMap<Local, Shape<'tcx>> = FxHashMap::default();
 		for local in mir.local_decls.indices() {
 			if self.is_arg(local)
-				|| local == mir::RETURN_PLACE
+				|| local == mir::RETURN_PLACE && !ret
 				|| self.defs[local] == 0
 				|| self.borrowed[local]
 				|| self.stepped.contains(&local)
@@ -578,6 +832,10 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				block: bb,
 				statement_index: data.statements.len(),
 			};
+			// What a function that hands back its parts returns, they are written already.
+			if let TerminatorKind::Return = data.terminator().kind {
+				taken.insert(at);
+			}
 			if let TerminatorKind::Call {
 				func,
 				args,
@@ -593,7 +851,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 							parted.insert(local);
 							let size = shapes[&local].size();
 							for part in 0..size {
-								copies.push((local, part, self.produced_copy(producer, part, &args[0].node, shapes)));
+								copies.push((local, part, self.produced_copy(producer, part, args, shapes)));
 							}
 						}
 						None => {
@@ -612,7 +870,12 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			}
 		}
 		// Held as the parts of the one object it is, a local saves nothing.
-		bad.extend(shapes.keys().filter(|l| !parted.contains(l)));
+		// The result is never made, so any assignment saves its object.
+		bad.extend(
+			shapes
+				.keys()
+				.filter(|&&l| l != mir::RETURN_PLACE && !parted.contains(&l)),
+		);
 		// What reads them otherwise, and which reads make their objects.
 		struct Reads<'s, 'tcx> {
 			shapes: &'s FxHashMap<Local, Shape<'tcx>>,
@@ -793,21 +1056,25 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		out.extend(parts.into_iter().enumerate().map(|(i, p)| (local, i, p)));
 	}
 
-	/// The part of its argument a producer's `part` copies, if any: `ok_or`'s value, and
-	/// all `?` branches on but an `Option`'s flag.
+	/// The part of its first argument a producer's `part` copies, if any: `ok_or`'s value,
+	/// and all `?` branches on but an `Option`'s flag.
 	fn produced_copy(
 		&self,
 		producer: Producer,
 		part: usize,
-		arg: &Operand<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
 		shapes: &FxHashMap<Local, Shape<'tcx>>,
 	) -> Option<(Local, usize)> {
-		let (Operand::Copy(p) | Operand::Move(p)) = arg else {
+		let (Operand::Copy(p) | Operand::Move(p)) = &args.first()?.node else {
 			return None;
 		};
 		let (node, _) = walk(shapes.get(&p.local)?, p.projection);
 		match producer {
-			Producer::SplitFirst | Producer::SplitFirstChunk(_) | Producer::SplitAt { .. } => None,
+			Producer::SplitFirst
+			| Producer::SplitFirstChunk(_)
+			| Producer::SplitAt { .. }
+			| Producer::FromResidual
+			| Producer::Out => None,
 			// The `Option`'s flag, then its value, then the error.
 			Producer::OkOr => (part >= 1 && part < node.shape.size()).then_some((p.local, node.at + part)),
 			Producer::Branch => {
@@ -831,6 +1098,51 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			stack.extend(self.successors(self.mir.basic_blocks[bb].terminator()));
 		}
 		false
+	}
+
+	/// Whether nothing can run between each assignment of the result and the return after
+	/// it, no call and no drop JS can see, so nothing can call this function again
+	/// between them.
+	fn quiet_returns(&mut self) -> bool {
+		let mir = self.mir;
+		let mut stack = Vec::new();
+		for (bb, data) in mir.basic_blocks.iter_enumerated() {
+			match &data.terminator().kind {
+				TerminatorKind::Call {
+					destination, target, ..
+				} if destination.local == mir::RETURN_PLACE => stack.extend(*target),
+				_ if data.statements.iter().any(
+					|s| matches!(&s.kind, StatementKind::Assign(assign) if assign.0.local == mir::RETURN_PLACE),
+				) =>
+				{
+					stack.push(bb)
+				}
+				_ => {}
+			}
+		}
+		let mut seen = FxHashSet::default();
+		while let Some(bb) = stack.pop() {
+			if !seen.insert(bb) {
+				continue;
+			}
+			let term = mir.basic_blocks[bb].terminator();
+			match &term.kind {
+				TerminatorKind::Return | TerminatorKind::Unreachable => {}
+				TerminatorKind::Goto { .. }
+				| TerminatorKind::SwitchInt { .. }
+				| TerminatorKind::Assert { .. }
+				| TerminatorKind::FalseEdge { .. }
+				| TerminatorKind::FalseUnwind { .. } => stack.extend(self.successors(term)),
+				TerminatorKind::Drop { place, .. } => {
+					if self.b.t.drops(place.ty(&mir.local_decls, self.tcx).ty) {
+						return false;
+					}
+					stack.extend(self.successors(term));
+				}
+				_ => return false,
+			}
+		}
+		true
 	}
 
 	/// Whether `local`, which a switch reads alone, holds the discriminant of a local held
@@ -905,7 +1217,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			let span = self.local_span(local);
 			let mut parts = Vec::new();
 			self.scalars[&local].shape.parts("", &mut parts);
-			let vars = self.scalars[&local].vars.clone();
+			let mut vars = self.scalars[&local].vars.clone();
+			// The result's other parts are its `out`'s.
+			if local == mir::RETURN_PLACE && self.ret_out.is_some() {
+				vars.truncate(usize::from(self.scalars[&local].shape.flagged()));
+			}
 			for ((_, part), name) in parts.into_iter().zip(vars) {
 				let ty = match part {
 					Part::Flag => Type::Builtin("boolean"),
@@ -963,66 +1279,117 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 	}
 
-	/// The object of `shape` its `parts` make, of `variant` if it is an enum known to be one.
-	fn build(&mut self, shape: &Shape<'tcx>, variant: Option<usize>, parts: &[Expr], span: Span) -> Expr {
+	/// What a function that hands back its result's parts returns, its flag, once they
+	/// are in its `out`: written where the result was assigned if it is held as its parts,
+	/// or else now, from the object it is.
+	pub(super) fn out_return(&mut self, own: &Out<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
+		let place = Place::return_place();
+		if self.scalars.contains_key(&mir::RETURN_PLACE) {
+			return own.flagged().then(|| self.scalar_flag(place, span));
+		}
+		let value = self.place_expr(place, span, out);
+		let value = self.path(value, "result", out);
+		let mut stmts = Vec::new();
+		let flag = self.store_out(own, &own.shape.clone(), value, 0, span, &mut stmts);
+		self.emit(stmts, None, false, out);
+		flag
+	}
+
+	/// Write the parts of `value`, a path to an object of `shape`, into `own` from part
+	/// `at`; an enum's flag, whether it is its second variant, is returned rather than
+	/// written.
+	fn store_out(
+		&mut self,
+		own: &Out<'tcx>,
+		shape: &Shape<'tcx>,
+		value: Expr,
+		at: usize,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
+		let write = |at: usize, value: Expr| StmtKind::Expr(own.part(at).assign(value)).at(None);
 		match shape {
-			Shape::Unit => Expr::undefined(),
-			Shape::Leaf(_) => parts[0].clone(),
-			// The parts of a slice bound whole are that slice.
-			Shape::Slice => match members(parts) {
-				Some(slice) => Expr::ident(slice),
-				None => Expr::New(Box::new(Expr::Rt("ByteSlice".into())), parts.to_vec()),
-			},
-			Shape::Tuple(ty, fields) => {
-				let mut at = 0;
-				let mut items = Vec::with_capacity(fields.len());
-				for field in fields {
-					items.push(self.build(field, None, &parts[at..at + field.size()], span));
+			Shape::Unit => {}
+			Shape::Leaf(_) => out.push(write(at, value)),
+			Shape::Slice => {
+				for (i, key) in ["data", "start", "length"].into_iter().enumerate() {
+					out.push(write(at + i, super::place::slice_member(value.clone(), key)));
+				}
+			}
+			Shape::Tuple(_, fields) => {
+				let mut at = at;
+				for (i, field) in fields.iter().enumerate() {
+					let item = self.b.spill(value.clone().index(Expr::lit(i.to_string())), "item", out);
+					if let Some(flag) = self.store_out(own, field, item, at, span, out) {
+						out.push(write(at, flag));
+					}
 					at += field.size();
 				}
-				let ts_ty = self.b.t.ty(*ty, span);
-				Expr::As(Box::new(Expr::Array(items)), ts_ty)
 			}
 			Shape::Enum(ty, variants) => {
-				let ty::Adt(adt, args) = ty.kind() else {
-					unreachable!("an enum's shape is of an enum")
+				let second = match self.b.t.std_of(*ty) {
+					Some(Std::Option) => value.clone().binary("!==", Expr::undefined()),
+					Some(Std::Result) => value.clone().member("ok").not(),
+					_ => super::call::control_flow_test(self, &value, *ty, VariantIdx::from_usize(1)),
 				};
-				let known = variant.or(match variants {
-					[None, Some(_)] => Some(1),
-					[_, None] => Some(0),
-					_ => match &parts[0] {
-						Expr::Lit(t) if t == "true" => Some(1),
-						Expr::Lit(t) if t == "false" => Some(0),
-						_ => None,
-					},
-				});
-				let make = |fx: &mut Self, v: usize| {
-					let mut at = shape.variant_at(v);
-					let mut values = Vec::new();
-					for field in variants[v].iter().flatten() {
-						values.push(fx.build(field, None, &parts[at..at + field.size()], span));
+				let mut arms: [Vec<Stmt>; 2] = Default::default();
+				for (v, arm) in arms.iter_mut().enumerate() {
+					let Some(fields) = &variants[v] else {
+						continue;
+					};
+					let variant = VariantIdx::from_usize(v);
+					let mut at = at + shape.variant_at(v);
+					for field in fields {
+						let payload = self.payload(value.clone(), *ty, variant);
+						let payload = match payload.is_path() {
+							true => payload,
+							false => self.b.spill(payload, "payload", arm),
+						};
+						if let Some(flag) = self.store_out(own, field, payload, at, span, arm) {
+							arm.push(write(at, flag));
+						}
 						at += field.size();
 					}
-					fx.adt(adt.did(), VariantIdx::from_usize(v), args, values, *ty, span)
-				};
-				match known {
-					Some(v) => make(self, v),
-					None => {
-						let second = make(self, 1);
-						let first = make(self, 0);
-						let ts_ty = self.b.t.ty(*ty, span);
-						Expr::As(
-							Box::new(Expr::Cond(
-								Box::new(parts[0].clone()),
-								Box::new(second),
-								Box::new(first),
-							)),
-							ts_ty,
-						)
-					}
 				}
+				let [first, second_arm] = arms;
+				return match variants {
+					[Some(_), Some(_)] => {
+						out.push(
+							StmtKind::If {
+								cond: second.clone(),
+								then: second_arm,
+								els: first,
+							}
+							.at(None),
+						);
+						Some(second)
+					}
+					[None, _] => {
+						out.extend(second_arm);
+						None
+					}
+					[_, None] => {
+						out.extend(first);
+						None
+					}
+				};
 			}
 		}
+		None
+	}
+
+	/// The one field of `variant` of `value`, an `Option`, `Result`, or `ControlFlow`.
+	fn payload(&mut self, value: Expr, ty: Ty<'tcx>, variant: VariantIdx) -> Expr {
+		match self.b.t.std_of(ty) {
+			Some(Std::Option) => value,
+			Some(Std::Result) => value.member(if variant.index() == 0 { "value" } else { "error" }),
+			_ => super::call::control_flow_field(self, value, ty, Some(variant)),
+		}
+	}
+
+	/// The object of `shape` its `parts` make, of `variant` if it is an enum known to be one.
+	fn build(&mut self, shape: &Shape<'tcx>, variant: Option<usize>, parts: &[Expr], span: Span) -> Expr {
+		build(self.b.t, shape, variant, parts, span)
 	}
 
 	/// Assign `local`, held as its parts, `rvalue`.
@@ -1136,6 +1503,58 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				let mut parts: Vec<Option<(Expr, bool)>> =
 					std::iter::once((some.not(), steady)).chain(parts).map(Some).collect();
 				parts.extend(err.into_iter().map(Some));
+				parts
+			}
+			// The second variant: `None`'s flag is false, and `Err`'s true.
+			Producer::FromResidual => {
+				let Shape::Enum(ty, [_, Some(err)]) = &shape else {
+					unreachable!("checked by producer")
+				};
+				let mut parts = vec![None; shape.size()];
+				if self.b.t.std_of(*ty) == Some(Std::Result) {
+					let ty::FnDef(_, gargs) = *func.ty(&self.mir.local_decls, self.tcx).kind() else {
+						unreachable!("checked by producer")
+					};
+					let gargs = gargs.skip_binder();
+					let (to, residual) = (gargs.type_at(0), gargs.type_at(1));
+					let (ty::Adt(_, to), ty::Adt(_, from)) = (to.kind(), residual.kind()) else {
+						unreachable!("checked by producer")
+					};
+					let (from, to) = (from.type_at(1), to.type_at(1));
+					let value = self.operand(&args[0].node, span, out);
+					let error = self.residual_error(value, from, span, out);
+					let error = self.b.convert(error, from, to, span, out);
+					let mut at = shape.variant_at(1);
+					for part in self.take_apart(error, &err[0], span, out) {
+						parts[at] = Some(part);
+						at += 1;
+					}
+				}
+				if shape.flagged() {
+					let err = self.b.t.std_of(*ty) == Some(Std::Result);
+					parts[0] = Some((Expr::lit(err.to_string()), true));
+				}
+				parts
+			}
+			// Its flag, the call, then its `out`, read at once, before anything can call it
+			// again.
+			Producer::Out => {
+				let fn_ty = func.ty(&self.mir.local_decls, self.tcx);
+				let (instance, callee) = self.outs[&fn_ty].clone();
+				let result = self.mir.local_decls[local].ty;
+				let values = self.operands(true, &[], args, result, span, out);
+				let call = Expr::Sym(self.b.t.callee(instance, span)).call(values.into_iter().map(Expr::typed).collect());
+				let call = match self.b.t.loc(span) {
+					Some(loc) => Expr::Located(loc, Box::new(call)),
+					None => call,
+				};
+				let flagged = shape.flagged();
+				let mut parts = Vec::with_capacity(shape.size());
+				match flagged {
+					true => parts.push(Some((call, false))),
+					false => self.emit(vec![StmtKind::Expr(call).at(None)], None, false, out),
+				}
+				parts.extend((usize::from(flagged)..shape.size()).map(|i| Some((callee.part(i), false))));
 				parts
 			}
 			// The parts of what it was applied to, whose `Some` continues, where the flag is
@@ -1349,6 +1768,31 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Set `local`'s parts to `parts`, leaving those of a variant it isn't as they are.
 	fn set_scalar(&mut self, local: Local, parts: Vec<Option<(Expr, bool)>>, out: &mut Vec<Stmt>) {
+		if local == mir::RETURN_PLACE
+			&& let Some(own) = self.ret_out.clone()
+		{
+			let flagged = own.flagged();
+			let mut parts = parts.into_iter();
+			let flag = flagged.then(|| parts.next().expect("a flag"));
+			let mut rest = Vec::new();
+			for (i, part) in parts.enumerate() {
+				if let Some((value, _)) = part {
+					let at = i + usize::from(flagged);
+					rest.push(StmtKind::Expr(own.part(at).assign(value)).at(None));
+				}
+			}
+			if let Some(flag) = flag {
+				let n = self.scalars[&local].shape.size();
+				self.set_parts(local, [flag].into_iter().chain(std::iter::repeat_n(None, n - 1)).collect(), out);
+			}
+			self.emit(rest, None, false, out);
+			return;
+		}
+		self.set_parts(local, parts, out);
+	}
+
+	/// Set `local`'s parts to `parts`, each into its variable.
+	fn set_parts(&mut self, local: Local, parts: Vec<Option<(Expr, bool)>>, out: &mut Vec<Stmt>) {
 		let vars = self.scalars[&local].vars.clone();
 		if self.defs[local] == 1 {
 			let mut held = Vec::with_capacity(parts.len());
