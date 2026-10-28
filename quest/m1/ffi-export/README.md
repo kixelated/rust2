@@ -37,8 +37,11 @@ Every generator on the C ABI:
   moq-tokio helpers, which would tie bindings to tokio. A binding holds one `kio::Waiter`
   per driver, made from its waker, since what a poll registers lives only as long as its
   waiter; it polls on each wake and at the deadline the poll returns, and frees the driver
-  to cancel it. Open: Go's cancel contract, which moq's `go/wrapper/doc.go` makes end the
-  stream on a cancelled read, though a cancelled C ABI future loses nothing.
+  to cancel it. Decided with the maintainer on 2026-10-27, for Go: a cancel ends only that
+  read and leaves the stream usable, as in Rust, since a cancelled C ABI future loses
+  nothing; moq's `go/wrapper/doc.go`, which ends the stream, changes with the generator.
+  Each driver runs on a goroutine that lives as long as its object, and a call's `ctx`
+  bounds only that call.
 
 ## Required
 
