@@ -54,7 +54,7 @@ export function drop$Drop(self: Probe): void {
 		unwind = 20;
 		Guard.note(self._1, _12);
 		unwind = 0;
-		rt.drop(held);
+		rt.mutexUnlock(held);
 	} catch (e) {
 		b0: {
 			if (unwind === 0) {
@@ -66,7 +66,7 @@ export function drop$Drop(self: Probe): void {
 					break b0;
 				}
 			}
-			rt.drop(held);
+			rt.mutexUnlock(held);
 		}
 		throw e;
 	}

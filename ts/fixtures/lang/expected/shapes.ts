@@ -299,12 +299,12 @@ export function bump(slot: rt.Mutex<rt.u8>): void {
 		const _4: rt.u8 = rt.u8WrappingAdd(held.value, 1);
 		unwind = 0;
 		held.value = _4;
-		rt.drop(held);
+		rt.mutexUnlock(held);
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(held);
+		rt.mutexUnlock(held);
 		throw e;
 	}
 }
@@ -418,12 +418,12 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		unwind = 116;
 		rt.byteVecPush(out, _143.value);
 		unwind = 117;
-		rt.drop(_143);
+		rt.mutexUnlock(_143);
 		_150 = rt.resultUnwrap(rt.mutexLock(other), rt.fmtPoisonErrorDebug, rt.drop);
 		unwind = 115;
 		rt.byteVecPush(out, _150.value);
 		unwind = 117;
-		rt.drop(_150);
+		rt.mutexUnlock(_150);
 		const source: Held.Held = { at: copy$Point(Point.new(a as rt.i32, 0)) };
 		const kept: Held.Held = hold(copy$Point(source.at));
 		source.at.x = 9;
@@ -452,9 +452,9 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		if (unwind !== 114) {
 			if (unwind === 115) {
-				rt.drop(_150);
+				rt.mutexUnlock(_150);
 			} else if (unwind === 116) {
-				rt.drop(_143);
+				rt.mutexUnlock(_143);
 			}
 		}
 		rt.drop(arc);
@@ -2320,21 +2320,21 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 				held.value = x2;
 			}
 			unwind = 0;
-			rt.drop(held);
+			rt.mutexUnlock(held);
 		}
 		_148 = rt.resultUnwrap(rt.mutexLock(slot), rt.fmtPoisonErrorDebug, rt.drop);
 		unwind = 102;
 		rt.byteVecPush(out, unwrapOr$Option_u8(_148.value, 252));
 		unwind = 0;
-		rt.drop(_148);
+		rt.mutexUnlock(_148);
 	} catch (e4) {
 		if (unwind === 0) {
 			throw e4;
 		}
 		if (unwind === 102) {
-			rt.drop(_148);
+			rt.mutexUnlock(_148);
 		} else {
-			rt.drop(held);
+			rt.mutexUnlock(held);
 		}
 		throw e4;
 	}

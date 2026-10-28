@@ -32,12 +32,12 @@ export function note(self: Log, event: string): void {
 		unwind = 8;
 		_6.value.push(event);
 		unwind = 0;
-		rt.drop(_6);
+		rt.mutexUnlock(_6);
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(_6);
+		rt.mutexUnlock(_6);
 		throw e;
 	}
 }
@@ -62,13 +62,13 @@ export function text(self: Log): rt.ByteVec {
 			rt.byteVecPush(out, 10);
 		}
 		unwind = 0;
-		rt.drop(events);
+		rt.mutexUnlock(events);
 		return out;
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(events);
+		rt.mutexUnlock(events);
 		throw e;
 	}
 }

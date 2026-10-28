@@ -270,6 +270,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			return Some(Expr::rt("dropAll", args));
 		}
+		// A guard is its mutex, whose `[Symbol.dispose]` would ask which it is.
+		if self.std_of(ty) == Some(Std::MutexGuard) {
+			return Some(Expr::rt("mutexUnlock", vec![value]));
+		}
 		if self.disposable(ty, span) {
 			return Some(Expr::rt("drop", vec![value]));
 		}

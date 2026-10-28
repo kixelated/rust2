@@ -42,13 +42,13 @@ export function send(self: Producer, value: rt.u64): void {
 		state.value.queue.push(value);
 		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 		unwind = 0;
-		rt.drop(state);
+		rt.mutexUnlock(state);
 		WaiterList.wake(waiters);
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(state);
+		rt.mutexUnlock(state);
 		throw e;
 	}
 }
@@ -67,13 +67,13 @@ export function clone$Clone(self: Producer): Producer {
 		const _8: rt.usize = rt.usizeAdd(_2.producers, 1);
 		unwind = 0;
 		_2.producers = _8;
-		rt.drop(_4);
+		rt.mutexUnlock(_4);
 		return new Producer({ state: rt.arcClone(self.state) });
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(_4);
+		rt.mutexUnlock(_4);
 		throw e;
 	}
 }
@@ -90,17 +90,17 @@ export function drop$Drop(self: Producer): void {
 			state.value.closed = true;
 			const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 			unwind = 0;
-			rt.drop(state);
+			rt.mutexUnlock(state);
 			WaiterList.wake(waiters);
 		} else {
 			unwind = 0;
-			rt.drop(state);
+			rt.mutexUnlock(state);
 		}
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(state);
+		rt.mutexUnlock(state);
 		throw e;
 	}
 }

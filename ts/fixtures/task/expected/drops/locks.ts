@@ -54,7 +54,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		if (_11 === 0) {
 			mutex = new rt.Mutex(guard(1));
 			unwind = 145;
-			rt.drop(rt.resultUnwrap(rt.mutexLock(mutex), rt.fmtPoisonErrorDebug, rt.drop));
+			rt.mutexUnlock(rt.resultUnwrap(rt.mutexLock(mutex), rt.fmtPoisonErrorDebug, rt.drop));
 			const _23: Guard.Guard = guard(2);
 			unwind = 144;
 			_probe = new Probe.Probe(mutex, _23);
@@ -63,7 +63,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			Guard.note(held.value, "held");
 			if (!fail) {
 				unwind = 144;
-				rt.drop(held);
+				rt.mutexUnlock(held);
 				unwind = 145;
 				rt.drop(_probe);
 				unwind = 0;
@@ -130,7 +130,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 						unwind2 = 11;
 						const _02: rt.u32 = Guard.id(captured2.value);
 						unwind2 = 0;
-						rt.drop(captured2);
+						rt.mutexUnlock(captured2);
 						return _02;
 					}
 					unwind2 = 11;
@@ -141,11 +141,11 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 					if (unwind2 === 0) {
 						throw e2;
 					}
-					rt.drop(captured2);
+					rt.mutexUnlock(captured2);
 					throw e2;
 				}
 			}, (): void => {
-				rt.drop(captured2);
+				rt.mutexUnlock(captured2);
 			})), 0, (n2: rt.u32): rt.u32 => {
 				return rt.u32Sub(n2, id);
 			});
@@ -174,7 +174,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 					rt.panicFmt(["g", args16[0], " iterated"]);
 				}
 			}, (): void => {
-				rt.drop(captured);
+				rt.mutexUnlock(captured);
 			});
 			rt.dropAfter(_135, () => rt.iterForEach(_133, _135));
 			unwind = 133;
@@ -193,7 +193,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			_probe6 = new Probe.Probe(mutex6, _146);
 			held4 = rt.resultUnwrap(rt.mutexLock(mutex6), rt.fmtPoisonErrorDebug, rt.drop);
 			if (!fail) {
-				rt.drop(held4);
+				rt.mutexUnlock(held4);
 				unwind = 130;
 				rt.drop(_probe6);
 				unwind = 131;
@@ -217,7 +217,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			if (!fail) {
 				unwind = 148;
 				_223 = false;
-				rt.drop(held5);
+				rt.mutexUnlock(held5);
 				Guard.note(owned._1, "owned");
 				unwind = 0;
 				_223 = false;
@@ -238,7 +238,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			_shown = new Shown.Shown(_196, _198);
 			held6 = rt.resultUnwrap(rt.mutexLock(mutex7.value), rt.fmtPoisonErrorDebug, rt.drop);
 			if (!fail) {
-				rt.drop(held6);
+				rt.mutexUnlock(held6);
 				unwind = 125;
 				rt.drop(_shown);
 				unwind = 0;
@@ -270,7 +270,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 																		throw e;
 																	}
 																	if (unwind === 122) {
-																		rt.drop(held6);
+																		rt.mutexUnlock(held6);
 																		break b3;
 																	}
 																	if (unwind === 123) {
@@ -291,7 +291,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 																		break b1;
 																	}
 																	if (unwind === 128) {
-																		rt.drop(held4);
+																		rt.mutexUnlock(held4);
 																		break b7;
 																	}
 																	if (unwind === 129) {
@@ -331,7 +331,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 																		break b14;
 																	}
 																	if (unwind === 140) {
-																		rt.drop(_54);
+																		rt.mutexUnlock(_54);
 																		break b14;
 																	}
 																	if (unwind === 141) {
@@ -341,7 +341,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 																		break b13;
 																	}
 																	if (unwind === 143) {
-																		rt.drop(held);
+																		rt.mutexUnlock(held);
 																	} else if (unwind !== 144) {
 																		if (unwind === 145) {
 																			break b15;
@@ -350,13 +350,13 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 																			if (!_223) {
 																				break b4;
 																			}
-																			rt.drop(held5);
+																			rt.mutexUnlock(held5);
 																			break b4;
 																		}
 																		if (!_224) {
 																			break b9;
 																		}
-																		rt.drop(held3);
+																		rt.mutexUnlock(held3);
 																		break b9;
 																	}
 																	rt.drop(_probe);

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 75
-- Function instances: 83
+- Refusals: 76
+- Function instances: 84
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -30,6 +30,7 @@
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:62:13 |
 | 1 | `_` of `_`, which folds a closure that drops beside what else drops, which is not supported yet | fixtures/reject/src/lib.rs:56:23 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:332:2 |
+| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:521:12 |
 | 1 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:308:9 |
 | 1 | `f64::mul_add`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:458:4 |
@@ -102,6 +103,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:135:11 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:83:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:130:2 |
+| 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:521:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:479:40 |
 | 1 | `str` | fixtures/reject/src/lib.rs:391:4 |
 | 1 | `u32` | fixtures/reject/src/lib.rs:240:13 |
@@ -131,6 +133,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:261:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:261:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:332:2 |
+| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:521:12 |
 | 1 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:308:9 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | `std::iter::Flatten` | fixtures/reject/src/lib.rs:230:26 |
@@ -334,6 +337,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` through a held type's own, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:332:2: `<std::sync::Arc<Picky> as PartialEq>::ne` through a held type's own, which is not supported yet
+
+</details>
+
+<details><summary>`_` with a mutable reference to a value JS copies, which its mapping would copy (1)</summary>
+
+- fixtures/reject/src/lib.rs:521:12: `std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy
 
 </details>
 

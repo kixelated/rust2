@@ -18,12 +18,12 @@ export class Locked {
 		try {
 			drop$Drop(this);
 			dropped = 1;
-			rt.drop(this.inner);
+			rt.mutexUnlock(this.inner);
 			dropped = 2;
 			rt.drop(this.tag);
 		} catch (e) {
 			if (dropped < 1) {
-				rt.drop(this.inner);
+				rt.mutexUnlock(this.inner);
 			}
 			if (dropped < 2) {
 				rt.drop(this.tag);

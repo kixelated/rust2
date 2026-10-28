@@ -35,7 +35,7 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 			if (!state.value.closed) {
 				Waiter.register(waiter, state.value.waiters);
 				unwind = 0;
-				rt.drop(state);
+				rt.mutexUnlock(state);
 				return rt.Pending;
 			}
 			_0 = undefined;
@@ -46,13 +46,13 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
 			_0 = value;
 		}
 		unwind = 0;
-		rt.drop(state);
+		rt.mutexUnlock(state);
 		return _0;
 	} catch (e) {
 		if (unwind === 0) {
 			throw e;
 		}
-		rt.drop(state);
+		rt.mutexUnlock(state);
 		throw e;
 	}
 }

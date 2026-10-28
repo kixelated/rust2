@@ -41,14 +41,14 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 				_23.n = rt.u64Add(_23.n, _22);
 				rt.byteVecPush(tally.value.seen, op);
 				unwind = 75;
-				rt.drop(tally);
+				rt.mutexUnlock(tally);
 			} else if (_16 === 1) {
 				tally2 = rt.resultUnwrap(rt.mutexLock(other.value), rt.fmtPoisonErrorDebug, rt.drop);
 				unwind = 68;
 				rt.byteVecPush(out, rt.u64Low(tally2.value.n) & 0xff);
 				rt.byteVecPush(out, tally2.value.seen.length & 0xff);
 				unwind = 75;
-				rt.drop(tally2);
+				rt.mutexUnlock(tally2);
 			} else if (_16 === 2) {
 				rt.byteVecPush(rt.resultUnwrap(rt.mutexGetMut(own), rt.fmtPoisonErrorDebug), op);
 			} else if (_16 === 3) {
@@ -58,12 +58,12 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const _54: rt.u32 = rt.u32Add(_51.value, _48);
 				unwind = 75;
 				_51.value = _54;
-				rt.drop(_51);
+				rt.mutexUnlock(_51);
 				_60 = rt.resultUnwrap(rt.mutexLock(number), rt.fmtPoisonErrorDebug, rt.drop);
 				unwind = 66;
 				rt.byteVecPush(out, _60.value & 0xff);
 				unwind = 75;
-				rt.drop(_60);
+				rt.mutexUnlock(_60);
 			} else if (_16 === 4) {
 				const _64: rt.Mutex<Tally.Tally> = rt.resultUnwrap(rt.mutexLock(shared.value), rt.fmtPoisonErrorDebug, rt.drop);
 				unwind = 51;
@@ -105,13 +105,13 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 						_86 = true;
 						held = _68;
 					} else if (unwind === 66) {
-						rt.drop(_60);
+						rt.mutexUnlock(_60);
 					} else if (unwind === 67) {
-						rt.drop(_51);
+						rt.mutexUnlock(_51);
 					} else if (unwind === 68) {
-						rt.drop(tally2);
+						rt.mutexUnlock(tally2);
 					} else if (unwind === 69) {
-						rt.drop(tally);
+						rt.mutexUnlock(tally);
 					} else {
 						if (unwind === 70) {
 							break b4;

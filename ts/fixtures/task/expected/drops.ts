@@ -363,7 +363,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			unwind = 191;
 			const held2: boolean = Held.isSome(_327.value);
 			unwind = 192;
-			rt.drop(_327);
+			rt.mutexUnlock(_327);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(held2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args14[0]]));
 			lent = guard(83);
@@ -420,7 +420,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																									break b4;
 																								}
 																								if (unwind === 191) {
-																									rt.drop(_327);
+																									rt.mutexUnlock(_327);
 																									break b3;
 																								}
 																								if (unwind === 192) {

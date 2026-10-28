@@ -164,6 +164,8 @@ export class Mutex<T> implements Disposable {
 	/** 0 unlocked, 1 locked, or 2 locked as a panic unwound. */
 	held: 0 | 1 | 2 = 0;
 	poisoned = false;
+	/** `Ok` of its guard, which every lock that isn't poisoned returns rather than make one. */
+	ok: Result<Mutex<T>, Mutex<T>> | undefined;
 
 	constructor(value: T) {
 		this.value = value;
@@ -172,10 +174,7 @@ export class Mutex<T> implements Disposable {
 	/** Unlock, as the guard, or else drop the value: a mutex can't drop while a guard borrows it. */
 	[Symbol.dispose](): void {
 		if (this.held === 0) drop(this.value);
-		else {
-			if (this.held === 1 && panicking()) this.poisoned = true;
-			this.held = 0;
-		}
+		else mutexUnlock(this);
 	}
 }
 
@@ -186,7 +185,16 @@ export class Mutex<T> implements Disposable {
 export function mutexLock<T>(m: Mutex<T>): Result<Mutex<T>, Mutex<T>> {
 	if (m.held !== 0) panic("assertion `left == right` failed: cannot recursively acquire mutex\n  left: true\n right: false");
 	m.held = panicking() ? 2 : 1;
-	return m.poisoned ? Err(m) : Ok(m);
+	if (m.poisoned) return Err(m);
+	// Frozen, as nothing can change it: a guard can't be assigned through a reference.
+	m.ok ??= Object.freeze(Ok(m));
+	return m.ok;
+}
+
+/** Drop a `MutexGuard`: unlock, poisoning the mutex if a panic that started since it locked is unwinding. */
+export function mutexUnlock<T>(m: Mutex<T>): void {
+	if (m.held === 1 && panicking()) m.poisoned = true;
+	m.held = 0;
 }
 
 /** `Mutex::get_mut`: its value, in a `PoisonError` if a panic poisoned it. */

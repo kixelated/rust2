@@ -48,7 +48,7 @@ export function drop$Drop(self: Shown): void {
 			unwind = 31;
 			Guard.note(self._1, _10);
 			unwind = 0;
-			rt.drop(held);
+			rt.mutexUnlock(held);
 		} else {
 			unwind = 30;
 			err = _2.error;
@@ -72,7 +72,7 @@ export function drop$Drop(self: Shown): void {
 				if (unwind === 30) {
 					break b2;
 				}
-				rt.drop(held);
+				rt.mutexUnlock(held);
 				break b1;
 			}
 			rt.drop(err);
