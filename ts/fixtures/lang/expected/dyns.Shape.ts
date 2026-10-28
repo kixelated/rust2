@@ -2,8 +2,41 @@
 
 import * as rt from "./rt.ts";
 import { sides$Shape_u32, intoArea$Shape_u32, larger$Shape_u32, tally$Shape_u32, area$Shape_u32, grow$Shape_u32 } from "./dyns.ts";
+import * as dyns_Hits from "./dyns.Hits.ts";
 import * as dyns_Square from "./dyns.Square.ts";
 import * as dyns_Tri from "./dyns.Tri.ts";
+
+export class Hits {
+	v: dyns_Hits.Hits;
+
+	constructor(v: dyns_Hits.Hits) {
+		this.v = v;
+	}
+
+	area$Shape(): rt.u32 {
+		return dyns_Hits.area$Shape(this.v);
+	}
+
+	grow$Shape(a: rt.u8): void {
+		return dyns_Hits.grow$Shape(this.v, a);
+	}
+
+	intoArea$Shape(): rt.u32 {
+		return dyns_Hits.intoArea$Shape(this.v);
+	}
+
+	larger$Shape(a: rt.u32): rt.u32 {
+		return dyns_Hits.larger$Shape(this.v, a);
+	}
+
+	sides$Shape(): rt.u8 {
+		return dyns_Hits.sides$Shape(this.v);
+	}
+
+	tally$Shape(a: rt.Place<rt.u32>): void {
+		return dyns_Hits.tally$Shape(this.v, a);
+	}
+}
 
 export type Shape =
 	| { area$Shape: () => rt.u32; grow$Shape: (a0: rt.u8) => void; sides$Shape: () => rt.u8; intoArea$Shape: () => rt.u32; larger$Shape: (a0: rt.u32) => rt.u32; tally$Shape: (a0: rt.Place<rt.u32>) => void };

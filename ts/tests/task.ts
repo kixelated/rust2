@@ -52,7 +52,7 @@ export interface Fixture<V> {
 		run(log: Log, id: number, arg: number): void;
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
-		dyns(log: Log, id: number, at: number): void;
+		dyns(log: Log, id: number, arg: number): void;
 		cells(log: Log, id: number, at: number): void;
 		locks(log: Log, id: number, at: number): void;
 	};
@@ -290,7 +290,7 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.futures.boxed(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
-	["dyns", (r, arg) => r.f.drops.dyns(r.log, 1000 * r.exec.tasks.length, arg % 6)],
+	["dyns", (r, arg) => r.f.drops.dyns(r.log, 1000 * r.exec.tasks.length, arg)],
 	["cells", (r, arg) => r.f.drops.cells(r.log, 1000 * r.exec.tasks.length, arg)],
 	["locks", (r, arg) => r.f.drops.locks(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
@@ -377,8 +377,8 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
 	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
-	// What boxed trait objects drop, panicking at each point, in a `Drop`, or none.
-	...Array.from({ length: 6 }, (_, at) => script(["dyns", at])),
+	// What boxed and shared trait objects drop, panicking at each point, in a `Drop`, or none.
+	...Array.from({ length: 12 }, (_, arg) => script(["dyns", arg])),
 	// What one-time cells drop, for every argument, which picks the scenario.
 	...Array.from({ length: 256 }, (_, at) => script(["cells", at])),
 	// What a mutex's guard does as it drops, for every argument, which picks the scenario;

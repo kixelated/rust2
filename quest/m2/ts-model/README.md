@@ -28,8 +28,8 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
 
 - This is an epic; each group of refusals is a child below. moq must work, but nothing in
   the translator is specific to moq: dependencies follow general rules, and moq's own
-  changes (safe `cfg` twins of its `unsafe`, `dyn Expiry` as an enum, dropping or binding
-  `hashlink`, `slab`, and `smallvec`) are one research-tier quest in moq's tree.
+  changes (safe `cfg` twins of its `unsafe`, dropping or binding `hashlink`, `slab`, and
+  `smallvec`) are one research-tier quest in moq's tree.
 - Until `unsafe` and trait objects translate, internal `unsafe` in moq-net and kio gets
   safe `cfg` twins in moq, so differential tests cover it, and a dependency containing
   `unsafe` is bound by the consumer. These are stopgaps: decided with the maintainer on
@@ -49,7 +49,6 @@ Public API: the translator's output for moq-net's model.
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
-- [Std's mutable references to values JS copies](/quest/m2/ts-model/std-places.md) - `as_mut`, `get_or_insert`, `iter_mut`, and the rest give an `rt.Place`
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses
 - [Well-known crates without config](/quest/m2/ts-model/stock.md) - rust2-ts maps `bytes`, `rand`, and `tracing` itself, so `model.toml` stops binding and ignoring them
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

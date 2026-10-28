@@ -3,8 +3,8 @@
 //! expression through a temporary: a place to replace (`mem::take`), a range to slice
 //! by, an array of bytes to read, `format_args!`'s parts, and `?`'s `ControlFlow`.
 
-use rustc_abi::VariantIdx;
-use rustc_middle::mir::{Operand, Place};
+use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_middle::mir::{Operand, Place, ProjectionElem};
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
@@ -12,7 +12,7 @@ use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
 use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
-use crate::ts::{Expr, Stmt, StmtKind};
+use crate::ts::{Expr, Stmt, StmtKind, Type};
 
 /// What a `&mut` borrows: its path, and the place a store through the reference writes,
 /// unless the reference is refused.
@@ -340,6 +340,37 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		}
 		let t = &*self.b.t;
+		// Mappings that lend an element JS copies as its place, as a map's `get_mut` does.
+		let lends = match library::key(tcx, def_id) {
+			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
+				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut") => true,
+				("IntoIterator", "into_iter") => gargs.types().next().is_some_and(|ty| {
+					ty.ref_mutability() == Some(ty::Mutability::Mut)
+						&& match ty.peel_refs().kind() {
+							ty::Slice(_) | ty::Array(..) => true,
+							_ => matches!(
+								t.std_of(ty.peel_refs()),
+								Some(Std::Vec | Std::Option | Std::HashMap | Std::BTreeMap | Std::VecDeque)
+							),
+						}
+				}),
+				_ => false,
+			},
+			None => false,
+		};
+		// Places held in what it is given, not one it is given, or that the iterator it adapts
+		// yields, were made where they came from, as are what it hands a closure of them.
+		let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
+		let adapts = tcx
+			.instantiate_bound_regions_with_erased(sig)
+			.inputs()
+			.iter()
+			.any(|&i| {
+				t.place_pointee(i).is_none() && t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item))
+			});
+		if lends || adapts {
+			return None;
+		}
 		let handed = gargs.types().any(|ty| {
 			let sig = match ty.kind() {
 				ty::Closure(_, args) => args.as_closure().sig(),
@@ -513,6 +544,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let none = self.b.t.none(targ(0)?);
 				let option = dest.ty(&self.mir.local_decls, tcx).ty;
 				done(self.swap_out(place, option, none, "taken", span, out), true)
+			}
+			// The place of the payload, if any: `as_mut`'s, or what `iter_mut` yields.
+			("Option", "as_mut" | "iter_mut") if self.b.t.needs_place(targ(0)?) => {
+				let (target, payload) = self.payload_place(&args[0].node, targ(0)?, span, out)?;
+				let Some(payload) = payload else {
+					return done(target, true);
+				};
+				let none = target.clone().binary("===", self.b.t.none(targ(0)?));
+				let place = self.make_place(payload, target, span, out);
+				let lent = Expr::Cond(Box::new(none), Box::new(Expr::undefined()), Box::new(place));
+				match name.as_str() {
+					"as_mut" => done(lent, true),
+					_ => done(Expr::rt("iterOption", vec![lent]), true),
+				}
+			}
+			("Option", "get_or_insert" | "get_or_insert_with" | "get_or_insert_default" | "insert") => {
+				self.option_insert(&name, targ(0)?, args, dest, span, out)
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
@@ -761,6 +809,112 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// The path of the `Option` a `&mut` operand borrows, and the place of its `Some`'s
+	/// payload, of type `payload`, unless the reference is refused.
+	fn payload_place(
+		&mut self,
+		op: &Operand<'tcx>,
+		payload: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Borrowed<'tcx>> {
+		let (target, place) = self.borrowed_place(op, span, out)?;
+		let elems = [
+			ProjectionElem::Downcast(None, VariantIdx::from_u32(1)),
+			ProjectionElem::Field(FieldIdx::ZERO, payload),
+		];
+		Some((target, place.map(|p| p.project_deeper(&elems, self.tcx))))
+	}
+
+	/// `get_or_insert`, `get_or_insert_with`, `get_or_insert_default`, or `insert` of the
+	/// `Option` a `&mut` borrows: the store, then the payload it lends, an alias of it where
+	/// the destination is read only as one.
+	fn option_insert(
+		&mut self,
+		name: &str,
+		payload_ty: Ty<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		dest: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Option<(Expr, bool)>> {
+		let tcx = self.tcx;
+		let (target, payload) = self.payload_place(&args[0].node, payload_ty, span, out)?;
+		let Some(payload) = payload else {
+			return Some(Some((target, true)));
+		};
+		let whole = tcx.mk_place_deref(args[0].node.place()?);
+		let option_ty = whole.ty(&self.mir.local_decls, tcx).ty;
+		// What it inserts, made before the `Option` is read, as Rust makes the argument.
+		let value = match name {
+			"get_or_insert" | "insert" => {
+				let value = self.operand(&args[1].node, span, out);
+				Some(self.path(value, "value", out))
+			}
+			_ => None,
+		};
+		if name == "insert" {
+			// What it replaced drops, as `*self = Some(value)` drops it.
+			let old = self.b.fresh("old");
+			let drop = self.b.t.drop_value(Expr::ident(&old), option_ty, span);
+			if drop.is_some() {
+				out.push(StmtKind::decl(false, old, None, Some(target.clone())).at(None));
+			}
+			out.extend(self.store(whole, value?, span));
+			out.extend(drop.map(|drop| StmtKind::Expr(drop).at(None)));
+		} else {
+			let mut then = Vec::new();
+			let mut els = Vec::new();
+			let value = match name {
+				"get_or_insert" => {
+					let value = value?;
+					if let Some(drop) = self.b.t.drop_value(value.clone(), payload_ty, span) {
+						els.push(StmtKind::Expr(drop).at(None));
+					}
+					value
+				}
+				"get_or_insert_default" => library::default_value(self.b, payload_ty)?,
+				_ => {
+					let f_ty = args[1].node.ty(&self.mir.local_decls, tcx);
+					if let ty::FnDef(f, f_args) = *f_ty.kind() {
+						self.b.call_def(f, f_args.skip_binder(), Vec::new(), span, &mut then)
+					} else {
+						// A closure it doesn't call drops; one it calls drops as `FnOnce` does.
+						let f = self.operand(&args[1].node, span, out);
+						let f = self.path(f, "f", out);
+						if let Some(drop) = self.b.t.drop_value(f.clone(), f_ty, span) {
+							els.push(StmtKind::Expr(drop).at(None));
+						}
+						match f_ty.kind() {
+							ty::Closure(_, c)
+								if c.as_closure().kind() != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) =>
+							{
+								Expr::rt("callOnce", vec![f])
+							}
+							_ => f.call(Vec::new()),
+						}
+					}
+				}
+			};
+			then.extend(self.store(whole, value, span));
+			let cond = target.clone().binary("===", self.b.t.none(payload_ty));
+			out.push(StmtKind::If { cond, then, els }.at(None));
+		}
+		let read = Expr::As(Box::new(target.clone()), self.b.t.ty(payload_ty, span));
+		if let Some(local) = dest.as_local()
+			&& self.defs[local] == 1
+			&& matches!(self.slots[local], Slot::Var(_))
+		{
+			self.slots[local] = Slot::Alias(Some(read));
+			self.reborrows.insert(local, payload);
+			return Some(None);
+		}
+		match self.b.t.needs_place(payload_ty) {
+			true => Some(Some((self.make_place(payload, target, span, out), true))),
+			false => Some(Some((read, true))),
+		}
+	}
+
 	/// The place a reference operand reads in place, if it is one.
 	fn alias_place(&self, op: &Operand<'tcx>) -> Option<Expr> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
@@ -872,10 +1026,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(_) => {
 				// A `Vec`'s element is its storage's, a byte vector's in `data`.
 				let base = self.path(base, "slice", out);
+				let base_ty = self.b.t.ty(args[0].node.ty(&self.mir.local_decls, self.tcx), span);
+				self.spilled_as(&base, base_ty);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
+				let index = self.b.t.ty(index_ty, span);
+				self.spilled_as(&i, index);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
 				let checked = self.path(checked, "at", out);
+				self.spilled_as(&checked, Type::Builtin("number"));
 				let place = match container.kind() {
 					ty::Adt(..) if bytes => base.member("data").index(checked),
 					// An array's bytes come through a reference, which is a slice of them.

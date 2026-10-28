@@ -12,13 +12,6 @@ pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
 }
 
-/// Each element would be a copy, so the increments would be lost.
-pub fn increment(v: &mut [u32]) {
-	for x in v {
-		*x += 1;
-	}
-}
-
 /// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
 pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
@@ -424,18 +417,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
-pub fn last_bumped(v: &mut Vec<u32>) {
-	if let Some(x) = v.last_mut() {
-		*x += 1;
-	}
-}
-
-/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
-pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
-	map.entry(1).and_modify(|v| *v += 1);
-}
-
 fn bumped(x: &mut u8) {
 	*x += 1;
 }
@@ -482,22 +463,6 @@ pub fn float_printed(a: f64) -> String {
 	format!("{a}")
 }
 
-/// An `Arc` around a future of the crate's: a `dyn Future` behind it would need the `Arc`'s
-/// own count around an `rt.Future`.
-pub fn shared_future() -> std::sync::Arc<dyn std::future::Future<Output = u8>> {
-	std::sync::Arc::new(Ready(1))
-}
-
-pub struct Ready(u8);
-
-impl std::future::Future for Ready {
-	type Output = u8;
-
-	fn poll(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<u8> {
-		std::task::Poll::Ready(self.0)
-	}
-}
-
 pub trait Reading {
 	fn read(&self) -> u8;
 }
@@ -508,10 +473,11 @@ impl Reading for u8 {
 	}
 }
 
-/// An `Arc` of a trait object, whose count the `Arc` it was made from shares.
-pub fn shared_object(n: u8) -> u8 {
-	let r: std::sync::Arc<dyn Reading> = std::sync::Arc::new(n);
-	r.read()
+/// A `Weak` of a trait object, which would need an object made of a value that may be
+/// gone.
+pub fn weak_object(n: std::sync::Weak<u8>) -> Option<u8> {
+	let r: std::sync::Weak<dyn Reading> = n;
+	r.upgrade().map(|r| r.read())
 }
 
 pub trait Scaled<T> {

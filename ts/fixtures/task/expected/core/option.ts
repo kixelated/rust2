@@ -104,6 +104,13 @@ export function map$Option_u32_u32_discarded_closure16(self: rt.u32 | undefined,
 	return _0;
 }
 
+export function mapOr$Option_Arc_dyn_Part_u32_shared_closure4(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Box_dyn_Part_u32_boxed_closure3(self: Part.Part | undefined, default_: rt.u32, f: (a0: Part.Part) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
