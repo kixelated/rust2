@@ -109,15 +109,17 @@ export abstract class Iter<T> implements Iterable<T> {
 }
 
 /**
- * std's default `fold`, or `rfold` if `back`: each item by `next`, the accumulator dropped
- * by `dropAcc` if reading one panics, and then `release` and `it`.
+ * std's default `fold`, or `rfold` if `back`: each item as `folded` steps it, or by
+ * `next_back`, the accumulator dropped by `dropAcc` if reading one panics, and then
+ * `release` and `it`.
  */
 function foldBy<T, A>(it: Iter<T>, back: boolean, acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+	const folded = it.folded();
 	try {
 		for (;;) {
 			let item: T | Done;
 			try {
-				item = back ? it.nextBack() : it.next();
+				item = back ? it.nextBack() : folded.next();
 			} catch (e) {
 				dropAcc?.(acc);
 				throw e;

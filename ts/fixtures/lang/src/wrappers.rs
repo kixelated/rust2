@@ -57,6 +57,13 @@ fn bounds(out: &mut Vec<u8>, r: impl RangeBounds<u64>) {
 	out.push(start.is_some() as u8 + 2 * end.is_some() as u8);
 }
 
+/// A sum that drops, as a fold's accumulator may.
+struct Tally(u64);
+
+impl Drop for Tally {
+	fn drop(&mut self) {}
+}
+
 /// A bound of `a` picked by `kind`, held by value.
 fn bound_of(kind: u8, a: u64) -> Bound<u64> {
 	match kind % 3 {
@@ -122,6 +129,10 @@ pub fn wrappers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let mut collected = lo..=hi;
 			out.push(collected.by_ref().collect::<Vec<_>>().len() as u8);
 			bounds(out, collected);
+			// Of an accumulator that drops, which takes the range's own `fold`.
+			let mut gathered = lo..=hi;
+			put_u64(out, gathered.by_ref().fold(Tally(0), |t, x| Tally(t.0 + x)).0);
+			bounds(out, gathered);
 			let mut keyed = lo..=hi;
 			out.push(keyed.by_ref().collect::<BTreeSet<_>>().len() as u8);
 			bounds(out, keyed);
