@@ -12,6 +12,7 @@ mod collections;
 mod consts;
 mod copy;
 mod drop;
+mod dynamic;
 mod float;
 mod fmt;
 mod iter;
@@ -184,6 +185,10 @@ pub struct Translator<'a, 'tcx> {
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
+	/// The trait of each trait object, by its principal trait.
+	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
+	/// The class wrapping each type as each trait object.
+	object_classes: rustc_data_structures::fx::FxHashMap<(Ty<'tcx>, SymId, dynamic::Held), SymId>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
@@ -274,6 +279,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			drops_cycle: false,
 			glued: Default::default(),
 			coroutines: Default::default(),
+			objects: Default::default(),
+			object_classes: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
 			// Once the bindings are known.
@@ -725,7 +732,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// crate's own or std's from its MIR, rather than a mapping.
 	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => self.lowers(instance),
+			Ok(Some(instance)) => self.lowers(instance) || self.dispatches(instance),
 			_ => false,
 		}
 	}
@@ -745,7 +752,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// parameter as what it points at, rather than a body that translates or a binding's export.
 	pub fn mapped(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => !self.lowers(instance) && self.bound_module(instance).is_none(),
+			Ok(Some(instance)) => {
+				!self.lowers(instance) && !self.dispatches(instance) && self.bound_module(instance).is_none()
+			}
 			_ => true,
 		}
 	}
@@ -975,8 +984,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
-			ty::Coroutine(..) => Some(ObjectKind::Class),
-			ty::Dynamic(..) if self.dyn_future(ty).is_some() => Some(ObjectKind::Class),
+			ty::Coroutine(..) | ty::Dynamic(..) => Some(ObjectKind::Class),
 			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
@@ -1081,6 +1089,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			{
 				Type::Rt("Fmt", vec![])
 			}
+			ty::Dynamic(..) => match self.object(ty, span) {
+				Some(object) => Type::Sym(object.sym, Vec::new()),
+				None => Type::Builtin("unknown"),
+			},
 			_ if self.deferred(ty) => Type::Builtin("unknown"),
 			_ => {
 				self.unrepresented(span, format!("unsupported type `{ty}`"));

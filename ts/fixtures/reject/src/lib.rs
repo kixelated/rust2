@@ -478,3 +478,55 @@ impl std::future::Future for Ready {
 		std::task::Poll::Ready(self.0)
 	}
 }
+
+pub trait Reading {
+	fn read(&self) -> u8;
+}
+
+impl Reading for u8 {
+	fn read(&self) -> u8 {
+		*self
+	}
+}
+
+/// An `Arc` of a trait object, whose count the `Arc` it was made from shares.
+pub fn shared_object(n: u8) -> u8 {
+	let r: std::sync::Arc<dyn Reading> = std::sync::Arc::new(n);
+	r.read()
+}
+
+pub trait Scaled<T> {
+	fn scale(&self, by: T) -> T;
+}
+
+/// A trait object of a generic trait.
+pub fn generic_object(s: &dyn Scaled<u8>) -> u8 {
+	s.scale(2)
+}
+
+pub trait First {
+	fn first(&self) -> u8;
+}
+
+impl First for [u8; 4] {
+	fn first(&self) -> u8 {
+		self[0]
+	}
+}
+
+/// A trait object of a byte array, which a box holds as a `Uint8Array` and a reference as
+/// an `rt.ByteSlice`.
+pub fn first_of(n: u8) -> u8 {
+	let b: Box<dyn First> = Box::new([n, 8, 9, 10]);
+	b.first()
+}
+
+pub struct Tail<T: ?Sized> {
+	pub value: T,
+}
+
+/// A struct whose last field unsizes to a trait object.
+pub fn tail_read(t: &Tail<u8>) -> u8 {
+	let r: &Tail<dyn Reading> = t;
+	r.value.read()
+}
