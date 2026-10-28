@@ -270,6 +270,13 @@ int main(void) {
 	CHECK(moq_connect_error_is_auth(&unauthorized));
 	CHECK(is(moq_connect_error_to_string(&unauthorized), "unauthorized"));
 
+	/* A backoff's fields are settings left unset, and the methods of their names resolve them. */
+	moq_backoff *backoff = moq_backoff_default();
+	CHECK(moq_backoff_initial_setting(backoff) == NULL);
+	moq_duration initial = moq_backoff_initial(backoff);
+	CHECK(initial.secs == 1 && initial.nanos == 0);
+	moq_backoff_free(backoff);
+
 	if (failures == 0) {
 		printf("ok\n");
 	}

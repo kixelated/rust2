@@ -1,8 +1,14 @@
 package = "api-fixture"
 prefix = "api"
 # The list's tail is not `Clone`, so its getter has no copy to return, one instance leaves
-# out a method the others keep, and `Seed` is generic, so no callback implements it.
-exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed"]
+# out a method the others keep, `Seed` is generic, so no callback implements it, and
+# `field@` leaves out a field alone where a method takes its path, as `Retry`'s and
+# `Slot<u8>`'s do. `Slot<u32>` has no such method, so its path alone names its field.
+exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed", "Slot<u32>::value", "field@Retry::delay", "field@Slot<u8>::value"]
+
+# The field `Retry::limit`, whose name its method takes.
+[rename]
+"field@Retry::limit" = "retry_limit_setting"
 
 # Generic types at the instances C uses, each with its C name: `Pair<u32>` is
 # `Pair<u32, u32>`, and `swap` returns each `Pair` of a `Size` as the other.
@@ -11,6 +17,8 @@ exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed"]
 "Pair<dep_fixture::Size, u8>" = "size_pair"
 "Pair<u8, dep_fixture::Size>" = "pair_size"
 "Stack<api_fixture::Counter>" = "counters"
+"Slot<u8>" = "byte_slot"
+"Slot<u32>" = "slot"
 # Generic functions and methods likewise, each type parameter by name, an `impl Trait` one
 # by its argument's, in any order.
 "Counter::seeded(from: api_fixture::Point)" = "counter_seeded_point"
