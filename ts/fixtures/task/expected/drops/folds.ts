@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { drop$Guard_u64, drop$u32_Guard, drop$usize_Guard } from "../lib.ts";
+import { thenSome$bool_Guard, then$bool_Guard_folded_closure55_closure0, then$bool_u32_folded_closure48_closure0 } from "../core/bool.ts";
 import { map$Option_Guard_u32_folded_closure100, map$Option_usize_Guard_usize_u32_folded_closure103 } from "../core/option.ts";
 import * as Bomb from "../drops.Bomb.ts";
 import * as Log from "../log.Log.ts";
@@ -258,7 +259,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 					captured122(g91);
 					const _7111: boolean = rt.u32Rem(Guard.id(g91), 3) !== rt.u32Rem(Guard.id(captured123), 3);
 					_1717 = false;
-					return rt.thenSome(_7111, g91, rt.drop);
+					return thenSome$bool_Guard(_7111, g91);
 				} catch (e73) {
 					if (unwind72 === 0) {
 						throw e73;
@@ -719,7 +720,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 					captured94(g73);
 					const _7102: boolean = Guard.id(g73) !== Guard.id(captured95);
 					_1323 = false;
-					return rt.thenSome(_7102, g73, rt.drop);
+					return thenSome$bool_Guard(_7102, g73);
 				} catch (e59) {
 					if (unwind58 === 0) {
 						throw e59;
@@ -1149,7 +1150,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				try {
 					unwind40 = 8;
 					captured63(g47);
-					const _051: rt.u32 | undefined = rt.boolThen(Guard.id(g47) !== rt.u32Sub(Guard.id(captured64), 7), (): rt.u32 => {
+					const _051: rt.u32 | undefined = then$bool_u32_folded_closure48_closure0(Guard.id(g47) !== rt.u32Sub(Guard.id(captured64), 7), (): rt.u32 => {
 						return rt.u32Sub(Guard.id(g47), captured65);
 					});
 					unwind40 = 0;
@@ -1387,7 +1388,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const captured51 = d;
 			const m8: rt.u32 = rt.iterFold(rt.iterSuccessors(_634, rt.closure((g41: Guard.Guard): Guard.Guard | undefined => {
 				captured49(g41);
-				return rt.boolThen(Guard.id(g41) < rt.u32Add(captured50, 7), (): Guard.Guard => {
+				return then$bool_Guard_folded_closure55_closure0(Guard.id(g41) < rt.u32Add(captured50, 7), (): Guard.Guard => {
 					return Guard.new(rt.u32Sub(rt.u32Add(rt.u32Add(Guard.id(g41), 1), Guard.id(captured51)), Guard.id(captured51)), Log.clone$Clone(log));
 				});
 			}, (): void => {
@@ -1893,7 +1894,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 					captured20(g16);
 					const _740: boolean = Guard.id(g16) !== rt.u32Sub(Guard.id(captured21), 5);
 					_1510 = false;
-					return rt.thenSome(_740, g16, rt.drop);
+					return thenSome$bool_Guard(_740, g16);
 				} catch (e13) {
 					if (unwind12 === 0) {
 						throw e13;
@@ -2524,7 +2525,7 @@ export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 					captured35(g26);
 					const _722: boolean = Guard.id(g26) !== Guard.id(captured36);
 					_1313 = false;
-					return rt.thenSome(_722, g26, rt.drop);
+					return thenSome$bool_Guard(_722, g26);
 				} catch (e24) {
 					if (unwind23 === 0) {
 						throw e24;
