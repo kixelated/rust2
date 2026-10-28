@@ -116,10 +116,10 @@ refused, and the census counts why.
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
 - **Closures** lent for a call are a function and its data, which Rust calls only during
-  the call, from any thread. One takes what a callback takes, and objects by `&mut T`, each
-  lent as a handle for that call: C may borrow it as any other, but freeing it, moving out
-  of it, or keeping a borrow past the call aborts. An object lent `&T` is refused, as it
-  cannot move into a handle and back.
+  the call, from any thread. One takes what a callback takes, and objects by reference,
+  each lent as a handle to the value where it is for that call: C borrows it no further
+  than Rust lent it, and moving out of it, freeing it, or keeping a borrow past the call
+  aborts.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is

@@ -7,7 +7,7 @@
 
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
-use std::mem::ManuallyDrop;
+use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -217,7 +217,9 @@ const TAKEN: usize = usize::MAX - 1;
 pub struct Object<T> {
 	state: AtomicUsize,
 	depth: UnsafeCell<usize>,
-	value: UnsafeCell<ManuallyDrop<T>>,
+	/// The value a lent handle points at, where Rust lent it, or null if it owns `value`.
+	lent: *mut T,
+	value: UnsafeCell<MaybeUninit<T>>,
 }
 
 /// This thread's id for [`Object::borrow_local`]: the address of a thread local, which no
@@ -242,9 +244,18 @@ impl<T> Object<T> {
 		Arc::into_raw(Arc::new(Self {
 			state: AtomicUsize::new(0),
 			depth: UnsafeCell::new(0),
-			value: UnsafeCell::new(ManuallyDrop::new(value)),
+			lent: std::ptr::null_mut(),
+			value: UnsafeCell::new(MaybeUninit::new(value)),
 		}))
 		.cast()
+	}
+
+	/// The value: its own, or the one it was lent.
+	fn value(&self) -> *mut T {
+		match self.lent.is_null() {
+			true => self.value.get().cast(),
+			false => self.lent,
+		}
 	}
 
 	/// # Safety
@@ -371,35 +382,43 @@ impl<T> Object<T> {
 		}
 	}
 
-	/// Lend `value` to C as a handle while `f` runs, then put it back: C borrows it as any
-	/// other handle, but neither frees it nor moves it out, nor keeps a borrow past `f`.
-	pub fn lend<R>(value: &mut T, what: &str, f: impl FnOnce(*const c_void) -> R) -> R {
-		/// Aborts if `value` is left moved out by an unwind.
-		struct Lent;
-		impl Drop for Lent {
-			fn drop(&mut self) {
-				fail("a lent handle", "a panic left its value moved out");
-			}
-		}
-		let lent = Lent;
+	/// Lend `value` to C as a handle while `f` runs, shared as `&T` lends it.
+	pub fn lend<R>(value: &T, what: &str, f: impl FnOnce(*const c_void) -> R) -> R
+	where
+		T: Sync,
+	{
+		Self::lending(std::ptr::from_ref(value).cast_mut(), 1, 0, what, f)
+	}
+
+	/// Lend a value that is not `Sync` shared, as [`Self::lend`], on this thread alone.
+	pub fn lend_local<R>(value: &T, what: &str, f: impl FnOnce(*const c_void) -> R) -> R {
+		Self::lending(std::ptr::from_ref(value).cast_mut(), thread(), 1, what, f)
+	}
+
+	/// Lend `value` exclusively, as `&mut T` lends it.
+	pub fn lend_mut<R>(value: &mut T, what: &str, f: impl FnOnce(*const c_void) -> R) -> R {
+		Self::lending(std::ptr::from_mut(value), 0, 0, what, f)
+	}
+
+	/// Lend the value at `ptr` to C as a handle while `f` runs, holding the borrow `state`
+	/// and `depth` describe, if any, so C borrows it no further than Rust lent it. C may
+	/// neither move it out, nor free the handle, nor keep a borrow past `f`.
+	fn lending<R>(ptr: *mut T, state: usize, depth: usize, what: &str, f: impl FnOnce(*const c_void) -> R) -> R {
 		let object = Arc::new(Self {
-			state: AtomicUsize::new(0),
-			depth: UnsafeCell::new(0),
-			// SAFETY: written back below before `value` is used again, or `lent` aborts.
-			value: UnsafeCell::new(ManuallyDrop::new(unsafe { std::ptr::read(value) })),
+			state: AtomicUsize::new(state),
+			depth: UnsafeCell::new(depth),
+			lent: ptr,
+			value: UnsafeCell::new(MaybeUninit::uninit()),
 		});
 		// A second count, which a free by C would take, so the handle outlives it.
 		let spare = Arc::clone(&object);
 		let result = f(Arc::as_ptr(&object).cast());
 		match Arc::strong_count(&object) {
-			2 => {}
+			2 if object.state.load(Ordering::Acquire) == state => {}
 			1 => fail(what, "a lent handle was freed"),
 			_ => fail(what, "a lent handle is still borrowed"),
 		}
 		drop(spare);
-		// SAFETY: the value moves back out once, and TAKEN keeps the drop from dropping it.
-		unsafe { std::ptr::write(value, Self::take(Arc::as_ptr(&object).cast(), what)) };
-		std::mem::forget(lent);
 		result
 	}
 
@@ -410,6 +429,9 @@ impl<T> Object<T> {
 	pub unsafe fn take(handle: *const c_void, what: &str) -> T {
 		// SAFETY: the caller's contract.
 		let object = unsafe { Self::get(handle, what) };
+		if !object.lent.is_null() {
+			fail(what, "a lent handle's value cannot move out");
+		}
 		if let Err(state) = object
 			.state
 			.compare_exchange(0, TAKEN, Ordering::Acquire, Ordering::Relaxed)
@@ -420,7 +442,7 @@ impl<T> Object<T> {
 			}
 		}
 		// SAFETY: TAKEN excludes every other access, and the value is never read again.
-		unsafe { ManuallyDrop::take(&mut *object.value.get()) }
+		unsafe { (*object.value.get()).assume_init_read() }
 	}
 
 	/// Release the caller's handle.
@@ -437,9 +459,9 @@ impl<T> Object<T> {
 
 impl<T> Drop for Object<T> {
 	fn drop(&mut self) {
-		if *self.state.get_mut() != TAKEN {
-			// SAFETY: the last reference is gone and the value was never taken.
-			unsafe { ManuallyDrop::drop(self.value.get_mut()) };
+		if self.lent.is_null() && *self.state.get_mut() != TAKEN {
+			// SAFETY: the last reference is gone, and the value is its own and never taken.
+			unsafe { self.value.get_mut().assume_init_drop() };
 		}
 	}
 }
@@ -452,7 +474,7 @@ impl<T> Deref for Shared<'_, T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		// SAFETY: a shared borrow is held.
-		unsafe { &*self.object.value.get() }
+		unsafe { &*self.object.value() }
 	}
 }
 
@@ -470,7 +492,7 @@ impl<T> Deref for Local<'_, T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		// SAFETY: this thread holds the value shared.
-		unsafe { &*self.object.value.get() }
+		unsafe { &*self.object.value() }
 	}
 }
 
@@ -493,14 +515,14 @@ impl<T> Deref for Exclusive<'_, T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		// SAFETY: the exclusive borrow is held.
-		unsafe { &*self.object.value.get() }
+		unsafe { &*self.object.value() }
 	}
 }
 
 impl<T> DerefMut for Exclusive<'_, T> {
 	fn deref_mut(&mut self) -> &mut T {
 		// SAFETY: the exclusive borrow is held.
-		unsafe { &mut *self.object.value.get() }
+		unsafe { &mut *self.object.value() }
 	}
 }
 
@@ -518,7 +540,7 @@ impl<T> Deref for SharedArc<T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		// SAFETY: a shared borrow is held.
-		unsafe { &*self.object.value.get() }
+		unsafe { &*self.object.value() }
 	}
 }
 
@@ -536,14 +558,14 @@ impl<T> Deref for ExclusiveArc<T> {
 	type Target = T;
 	fn deref(&self) -> &T {
 		// SAFETY: the exclusive borrow is held.
-		unsafe { &*self.object.value.get() }
+		unsafe { &*self.object.value() }
 	}
 }
 
 impl<T> DerefMut for ExclusiveArc<T> {
 	fn deref_mut(&mut self) -> &mut T {
 		// SAFETY: the exclusive borrow is held.
-		unsafe { &mut *self.object.value.get() }
+		unsafe { &mut *self.object.value() }
 	}
 }
 

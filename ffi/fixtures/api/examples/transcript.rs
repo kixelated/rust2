@@ -103,9 +103,10 @@ fn main() {
 	// A closure lent for the call edits the first counter through a handle.
 	let edited = registry.edit(|counter| {
 		let _ = counter.add(5);
-		counter.get() == 6
+		counter.edited() && counter.get() == 6
 	});
 	println!("edit {edited} {}", registry.first.get());
+	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));
@@ -204,6 +205,7 @@ fn main() {
 	tally.bump();
 	println!("tally {} {}", tally.bump(), tally == tally);
 	println!("both {}", api_lib::bump_both(&tally, &tally));
+	println!("peek {}", api_lib::peek(&tally, |tally| tally.bump()));
 
 	let area = api_lib::grow(&dep::Area::new(Size { width: 2, height: 3 }), 1);
 	let size = area.size();

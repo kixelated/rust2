@@ -397,7 +397,7 @@ impl Header<'_> {
 			));
 			if params.iter().any(|p| matches!(p.base(), Type::Object(_))) {
 				docs.push_str(&format!(
-					"\nA handle it lends lives only for that call of `{name}`: free none, nor move out of it."
+					"\nA handle it lends lives only for that call of `{name}`: free none, nor move out of one."
 				));
 			}
 		}

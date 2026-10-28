@@ -46,7 +46,18 @@ static void log_free(void *data) {
 /* A lent closure: adds data's amount to the counter lent for the call. */
 static bool edit(void *data, api_counter *counter) {
 	api_counter_add(counter, *(const uint64_t *)data, NULL, NULL);
-	return api_counter_get(counter) == 6;
+	return api_counter_edited(counter) && api_counter_get(counter) == 6;
+}
+
+/* Lent closures borrowing their object shared: one `Sync`, one not. */
+static uint64_t visit(void *data, const api_cursor *cursor) {
+	(void)data;
+	return api_cursor_at(cursor) * 2;
+}
+
+static uint32_t peek_tally(void *data, const api_tally *tally) {
+	(void)data;
+	return api_tally_bump(tally);
 }
 
 /* A lent closure, which Rust calls on another thread: keeps levels above data's. */
@@ -180,6 +191,7 @@ static int script(void) {
 	first = api_registry_first(registry);
 	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
 	api_counter_free(first);
+	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -324,6 +336,7 @@ static int script(void) {
 	uint32_t count = api_tally_bump(tally);
 	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
 	printf("both %u\n", api_bump_both(tally, tally));
+	printf("peek %u\n", api_peek(tally, peek_tally, NULL));
 	api_tally_free(tally);
 
 	/* Another export's types, which this export's function takes and returns. */

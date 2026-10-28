@@ -235,9 +235,12 @@ impl Gen<'_> {
 		let typed: Vec<String> = (params.iter().enumerate())
 			.map(|(n, ty)| format!("c{n}: {}", self.rust(ty)))
 			.collect();
+		// Each object the closure takes, and how it is lent.
 		let lent = |ty: &Type| match ty {
-			Type::Ref(Mutability::Mut, inner) => match **inner {
-				Type::Object(i) => Some(i),
+			Type::Ref(m, inner) => match (&**inner, m) {
+				(&Type::Object(i), Mutability::Mut) => Some((i, "lend_mut")),
+				(&Type::Object(i), Mutability::Not) if self.abi.api.objects[i].sync => Some((i, "lend")),
+				(&Type::Object(i), Mutability::Not) => Some((i, "lend_local")),
 				_ => None,
 			},
 			_ => None,
@@ -250,8 +253,8 @@ impl Gen<'_> {
 			.collect();
 		let mut call = format!("unsafe {{ f({}) }}", args.join(", "));
 		for (n, ty) in params.iter().enumerate().rev() {
-			if let Some(i) = lent(ty) {
-				call = format!("rt::Object::<{}>::lend(c{n}, w, |h{n}| {call})", self.object_path(i));
+			if let Some((i, lend)) = lent(ty) {
+				call = format!("rt::Object::<{}>::{lend}(c{n}, w, |h{n}| {call})", self.object_path(i));
 			}
 		}
 		format!(

@@ -198,7 +198,8 @@ pub async fn later(task: impl FnOnce()) {
 	task()
 }
 
-/// An object lent shared, which cannot move into a handle and back.
-pub fn inspect(opaque: &Opaque, f: impl Fn(&Opaque)) {
-	f(opaque)
+/// A closure bound by more than C's function can meet.
+pub fn twice(f: impl Fn() + Clone) {
+	f.clone()();
+	f()
 }

@@ -114,6 +114,12 @@ impl Counter {
 		}
 	}
 
+	/// Whether this is the counter [`Registry::edit`] lends, by its address, which a handle
+	/// lent for the call keeps.
+	pub fn edited(&self) -> bool {
+		std::ptr::from_ref(self) as usize == EDITING.load(std::sync::atomic::Ordering::Relaxed)
+	}
+
 	/// Consumes the counter.
 	pub fn into_label(self, at: Option<Point>) -> Label {
 		Label {
@@ -180,9 +186,16 @@ impl Registry {
 	/// The first counter lent to `edit` for the call, returning what `edit` does: a closure
 	/// called only during the call, which C lends as a function.
 	pub fn edit(&mut self, edit: impl FnOnce(&mut Counter) -> bool) -> bool {
+		EDITING.store(
+			std::ptr::from_ref(&self.first) as usize,
+			std::sync::atomic::Ordering::Relaxed,
+		);
 		edit(&mut self.first)
 	}
 }
+
+/// The address of the counter [`Registry::edit`] lends.
+static EDITING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// A name that may borrow its text: its only generic parameter is a lifetime, so a
 /// handle holds `Name<'static>`, which borrows nothing.
@@ -484,6 +497,27 @@ pub fn dropped() -> u32 {
 /// Both tallies bumped: C may pass one handle twice, which Rust allows of `&`.
 pub fn bump_both(a: &Tally, b: &Tally) -> u32 {
 	a.bump() + b.bump()
+}
+
+/// A position, which C reaches only as [`walk`] lends it.
+pub struct Cursor {
+	at: u64,
+}
+
+impl Cursor {
+	pub fn at(&self) -> u64 {
+		self.at
+	}
+}
+
+/// A cursor at each of `0..steps` lent shared to `visit`, summing what it returns.
+pub fn walk(steps: u64, mut visit: impl FnMut(&Cursor) -> u64) -> u64 {
+	(0..steps).map(|at| visit(&Cursor { at })).sum()
+}
+
+/// The tally lent shared to `peek` for the call, on one thread, as it is not `Sync`.
+pub fn peek(tally: &Tally, peek: impl FnOnce(&Tally) -> u32) -> u32 {
+	peek(tally)
 }
 
 /// The length of a payload, borrowed for the call.

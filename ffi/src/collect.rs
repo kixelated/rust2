@@ -956,6 +956,12 @@ impl<'tcx> Collector<'tcx> {
 					if let Some(err) = &function.err {
 						returns(api, err, &mut reached);
 					}
+					// A closure's objects are lent to C for each call of it.
+					for param in &function.params {
+						if let Type::Closure(params, _) = &param.ty {
+							params.iter().for_each(|ty| returns(api, ty, &mut reached));
+						}
+					}
 				}
 			}
 			reached.retain(|&i| !held[i]);
@@ -1855,13 +1861,9 @@ impl<'tcx> Collector<'tcx> {
 		let mut params = Vec::new();
 		for input in inputs.iter() {
 			match self.ty(input, Pos::Param) {
-				// A shared borrow cannot move into a handle and back, as an exclusive one does.
-				Ok(Type::Ref(Mutability::Not, inner)) if matches!(*inner, Type::Object(_)) => {
-					return Some(Err(why("object lent shared to a closure", input.to_string())));
-				}
+				// An object is lent as a handle for the call.
 				Ok(ty)
-					if foreign_arg(&ty)
-						|| matches!(&ty, Type::Ref(Mutability::Mut, inner) if matches!(**inner, Type::Object(_))) =>
+					if foreign_arg(&ty) || matches!(&ty, Type::Ref(_, inner) if matches!(**inner, Type::Object(_))) =>
 				{
 					params.push(ty)
 				}

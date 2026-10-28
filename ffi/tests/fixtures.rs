@@ -107,7 +107,10 @@ fn api() {
 		("enum", "api_greet: an enum value is invalid"),
 		("bound", "api_count: a bound's kind is invalid"),
 		("lent", "api_registry_edit: a lent handle was freed"),
-		("lent moved", "api_registry_edit: a handle's value was moved out"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
 		("null", "api_registry_edit: a function is null"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();
