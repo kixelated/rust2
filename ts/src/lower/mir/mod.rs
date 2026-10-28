@@ -185,6 +185,8 @@ struct Pending {
 	copy: bool,
 	/// Whether it is an aggregate's part, with no variable of its own until emitted.
 	decl: bool,
+	/// Whether reading it again, wherever and however often, reads the same.
+	rereads: bool,
 }
 
 pub struct Fx<'m, 'b, 'a, 'tcx> {
@@ -1650,6 +1652,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// The value held back for `local`, if it is.
+	fn held(&self, local: Local) -> Option<&Pending> {
+		let name = self.var(local)?;
+		self.pending.iter().find(|p| p.name == name)
+	}
+
 	/// Whether `local` can be held back as a pending temporary: one assignment, one read.
 	fn foldable(&self, local: Local) -> bool {
 		matches!(self.slots[local], Slot::Var(_))
@@ -1670,21 +1678,61 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.mutated[local]
 	}
 
-	/// Whether the operand `e` reads the same wherever and however often it is read: a
-	/// path, with what it folds in that is held back a constant, a name nothing changes, or
-	/// a reference to a path, which borrow checking keeps as it is.
-	fn rereadable(&self, e: &Expr) -> bool {
-		let mut names = Vec::new();
-		reads_of(e, &mut names);
-		e.is_path()
-			&& self.pending.iter().filter(|p| names.contains(&p.name)).all(|p| {
-				p.value.is_constant()
-					|| self.stable_name(&p.value)
-					|| p.value.is_path()
-						&& self
-							.local_named(&p.name)
-							.is_some_and(|local| self.mir.local_decls[local].ty.is_ref())
-			})
+	/// Whether reading `place` again, wherever and however often, reads what it reads now:
+	/// a place nothing changes, a value held back that rereads the same, or a reference
+	/// read as what it is assigned.
+	fn rereads(&self, place: Place<'tcx>) -> bool {
+		match (self.held(place.local), &self.slots[place.local]) {
+			(Some(p), _) => place.projection.is_empty() && p.rereads,
+			(None, Slot::Alias(_)) => {
+				place.projection.is_empty()
+					&& self
+						.def_rvalue(place.local)
+						.is_some_and(|rvalue| self.rvalue_rereads(rvalue))
+			}
+			_ => {
+				self.stable(place)
+					&& !self.mutated[place.local]
+					&& place
+						.projection
+						.iter()
+						.all(|e| !matches!(e, mir::ProjectionElem::Deref))
+			}
+		}
+	}
+
+	/// Whether `rvalue`, read again, reads what it reads now: a constant, a copy of a place
+	/// that rereads the same, or a borrow, which borrow checking keeps as it is, unless the
+	/// path to it goes through a reference that can be replaced first. A copy of a
+	/// reference is read from where it is copied, which can be assigned another.
+	fn rvalue_rereads(&self, rvalue: &Rvalue<'tcx>) -> bool {
+		match rvalue {
+			Rvalue::Use(Operand::Constant(_), _) => true,
+			Rvalue::Use(Operand::Copy(from) | Operand::Move(from), _) | Rvalue::CopyForDeref(from) => {
+				self.rereads(*from)
+			}
+			Rvalue::Ref(_, _, from) => {
+				let fixed = |l: Local| self.defs[l] <= 1 && (!self.is_arg(l) || self.defs[l] == 0);
+				let root = Place::from(from.local);
+				from.projection.iter().all(|e| match e {
+					mir::ProjectionElem::Index(index) => fixed(index),
+					_ => true,
+				}) && match from
+					.projection
+					.iter()
+					.rposition(|e| matches!(e, mir::ProjectionElem::Deref))
+				{
+					// The borrow keeps a variable as it is, but not a value held back.
+					None => match self.slots[from.local] {
+						Slot::Var(_) if self.held(from.local).is_none() => true,
+						_ => self.rereads(root),
+					},
+					Some(0) => self.rereads(root),
+					Some(_) => false,
+				}
+			}
+			_ => false,
+		}
 	}
 
 	// Emission
@@ -1867,7 +1915,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Hold back `value`, the assignment of `local`, to fold into what reads it.
-	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<(Expr, bool)>>) {
+	fn hold(
+		&mut self,
+		local: Local,
+		value: Expr,
+		effect: bool,
+		memory: bool,
+		parts: Option<Vec<(Expr, bool)>>,
+		rereads: bool,
+	) {
 		let name = self.var(local).expect("a pending local is a variable").to_string();
 		self.order += 1;
 		let mut reads = Vec::new();
@@ -1883,6 +1939,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			reads,
 			copy,
 			decl: false,
+			rereads,
 		});
 	}
 
@@ -1902,6 +1959,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			reads,
 			copy: false,
 			decl: false,
+			rereads: false,
 		});
 	}
 
@@ -1955,6 +2013,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					reads,
 					copy: false,
 					decl: true,
+					rereads: false,
 				},
 			);
 			held += 1;
@@ -2031,6 +2090,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return;
 				}
 				if self.foldable(local) {
+					// A borrow rereads the same by what it borrows, judged before what that
+					// reads that is held back folds into it; anything else only as a constant
+					// or a name that stays put.
+					let borrow = self
+						.def_rvalue(local)
+						.is_some_and(|rvalue| matches!(rvalue, Rvalue::Ref(..)) && self.rvalue_rereads(rvalue));
 					// What it reads that is held back folds into it first, so nothing held
 					// back reads another, and its effects and reads go with it.
 					let mut reads = Vec::new();
@@ -2044,7 +2109,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let value = folded.pop().unwrap();
 					let parts =
 						parts.and_then(|rereadable| Some(parts_of(&value)?.into_iter().zip(rereadable).collect()));
-					self.hold(local, value, effect, memory, parts);
+					let mut bare = &value;
+					while let Expr::Located(_, e) = bare {
+						bare = e;
+					}
+					let rereads = borrow || value.is_constant() || self.stable_name(bare);
+					self.hold(local, value, effect, memory, parts, rereads);
 					return;
 				}
 				self.assigned[local] = true;
