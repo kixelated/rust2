@@ -164,8 +164,13 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 				Some(items(Expr::rt("iterSlice", values), args.type_at(0)))
 			}
 			Std::Option => {
-				option_ok(b, args.type_at(0), span);
-				Some(Expr::rt("iterOption", each(b, args.type_at(0), vec![value])))
+				let inner = args.type_at(0);
+				let mut values = each(b, inner, vec![value]);
+				if let Some(none) = b.t.none_arg(inner) {
+					values.resize(2, Expr::undefined());
+					values.push(none);
+				}
+				Some(Expr::rt("iterOption", values))
 			}
 			_ => super::collections::into_iter(b, ty, value, span),
 		},
@@ -219,16 +224,6 @@ fn not_bound<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
 	}
 }
 
-/// Refuse an `Option` of `ty` that `T | undefined` can't hold, as the type would be.
-pub fn option_ok<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
-	if b.t.erases_to(ty).undefined {
-		b.t.err(
-			span,
-			format!("`Option<{ty}>` is not supported: its `None` and `Some` would both be `undefined`"),
-		);
-	}
-}
-
 /// The mapping of a call on or to an iterator, if it is one. Where std drops an item it
 /// skips, rejects, or holds, or an iterator it takes by value, the runtime function is
 /// given what drops it after its own arguments.
@@ -254,7 +249,10 @@ pub fn call<'tcx>(
 			return Some(by_ref(Expr::rt("iterSlice", vec![s]), targ(0)?));
 		}
 		("Option", "iter" | "iter_mut") => {
-			option_ok(b, targ(0)?, span);
+			let mut args = args;
+			if let Some(none) = b.t.none_arg(targ(0)?) {
+				args.extend([Expr::undefined(), none]);
+			}
 			return Some(Expr::rt("iterOption", args));
 		}
 		("IntoIterator", "into_iter") => {
@@ -327,16 +325,16 @@ pub fn call<'tcx>(
 
 	// `next` by the protocol, as an `Option`.
 	if matches!(name, "next" | "next_back" | "nth_back") {
-		option_ok(b, item, span);
+		let none = b.t.none_arg(item);
 		let item = match name {
 			"next" => next(b, self_ty, recv),
 			"next_back" => recv.member("nextBack").call(Vec::new()),
 			_ => {
-				let args = tail([vec![recv], rest].concat(), vec![b.t.dropper(item, span)]);
-				return Some(Expr::rt("iterNthBack", args));
+				let droppers = [b.t.dropper(item, span)].into_iter().chain(none).collect();
+				return Some(Expr::rt("iterNthBack", tail([vec![recv], rest].concat(), droppers)));
 			}
 		};
-		return Some(Expr::rt("iterToOption", vec![item]));
+		return Some(Expr::rt("iterToOption", [item].into_iter().chain(none).collect()));
 	}
 	// The same object, borrowed.
 	if name == "by_ref" {
@@ -404,17 +402,14 @@ pub fn call<'tcx>(
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
 		"last" => {
-			option_ok(b, item, span);
 			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
 			owned(name, rest, droppers)
 		}
 		"nth" => {
-			option_ok(b, item, span);
 			let dropper = b.t.dropper(item, span);
 			method(name, tail(rest, vec![dropper]))
 		}
 		"find" | "peek" | "next_if" => {
-			option_ok(b, item, span);
 			let droppers = match name {
 				"find" => vec![b.t.dropper(item, span)],
 				_ => Vec::new(),
@@ -422,7 +417,6 @@ pub fn call<'tcx>(
 			method(&camel, tail(rest, droppers))
 		}
 		"max" | "min" if primitive(item.peel_refs()) => {
-			option_ok(b, item, span);
 			// A `BTreeMap`'s `into_keys` reads the one end and drops the rest with it.
 			if std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
 				&& b.t.drops(self_ty)
@@ -436,7 +430,6 @@ pub fn call<'tcx>(
 			method(name, tail(rest, vec![dropper]))
 		}
 		"max_by_key" | "min_by_key" if primitive(targ(1)?) => {
-			option_ok(b, item, span);
 			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
 			method(&camel, tail(rest, droppers))
 		}
@@ -775,8 +768,14 @@ fn collect<'tcx>(
 				return None;
 			};
 			let value = item_args.type_at(0);
-			if std == Std::Option {
-				option_ok(b, args.type_at(0), span);
+			// The runtime ends at the first `undefined` item, and returns `undefined` for `None`.
+			if std == Std::Option
+				&& let Some(some) = [value, args.type_at(0)]
+					.into_iter()
+					.find(|&t| b.t.erases_to(t).undefined)
+			{
+				let msg = format!("collecting `Option<{some}>`, whose `None` is `rt.None`, which is not supported yet");
+				b.t.err(span, msg);
 			}
 			let value_ty = b.t.ty(value, span);
 			// What it collects from is what `from` yields up to the first `Err` or `None`, which
