@@ -79,6 +79,14 @@ pub enum Std {
 	RangeTo,
 	RangeFrom,
 	RangeFull,
+	/// `..=end`: `{ end, inclusive: true }`.
+	RangeToInclusive,
+	/// `rt.RangeBound<T>`, tagged as the crate's own enums are: `{ tag: "Included", _0 }`.
+	Bound,
+	/// What it holds, which orders the other way.
+	Reverse,
+	/// Its integer, which is never 0.
+	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
 	/// Its pointee: what an async body passes its context in.
@@ -155,6 +163,7 @@ impl Std {
 			(rustc_attr_ir::LangItem::RangeTo, Self::RangeTo),
 			(rustc_attr_ir::LangItem::RangeFrom, Self::RangeFrom),
 			(rustc_attr_ir::LangItem::RangeFull, Self::RangeFull),
+			(rustc_attr_ir::LangItem::RangeToInclusive, Self::RangeToInclusive),
 		] {
 			if tcx.is_lang_item(did, item) {
 				return Some(std);
@@ -186,6 +195,9 @@ impl Std {
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
+			["cmp", "Reverse"] => Some(Self::Reverse),
+			["ops", "range", "Bound"] => Some(Self::Bound),
+			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
@@ -250,6 +262,45 @@ pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 		},
 		_ => false,
 	}
+}
+
+/// What a value of `ty` is in JS if `ty` wraps one value it is represented as: `Reverse<T>`'s
+/// and `NonZero<T>`'s `T`, which differ only in their order and range, a pattern type's
+/// base, and the field of each of core's `niche_types` structs that hold one.
+pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Pat(base, _) => Some(*base),
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+			Some(Std::Reverse | Std::NonZero) => Some(args.type_at(0)),
+			Some(_) => None,
+			None => {
+				let path = std_path(tcx, adt.did());
+				if !(path.len() == 3 && path[0] == "num" && path[1] == "niche_types" && adt.is_struct()) {
+					return None;
+				}
+				let field = adt.non_enum_variant().fields.iter().next()?;
+				Some(field.ty(tcx, args).skip_norm_wip())
+			}
+		},
+		_ => None,
+	}
+}
+
+/// A `Bound` of type `ty`, an `rt.RangeBound`: its variant, by name, and the value it holds, if
+/// any.
+pub fn bound(variant: &str, value: Option<Expr>, ty: crate::ts::Type) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("tag".into()), Expr::Str(variant.into()))];
+	props.extend(value.map(|v| (crate::ts::Key::Name("_0".into()), v)));
+	Expr::As(Box::new(Expr::Object(props)), ty)
+}
+
+/// `..end`, or `..=end` if `inclusive`: `{ end }`, or `{ end, inclusive: true }`.
+pub fn range_to(end: Expr, inclusive: bool) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("end".into()), end)];
+	if inclusive {
+		props.push((crate::ts::Key::Name("inclusive".into()), Expr::lit("true")));
+	}
+	Expr::Object(props)
 }
 
 /// The refusal of code that tells a `Cow<str>`'s variants apart.
@@ -474,6 +525,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `unwrap` and `expect` drop the error they panic with, and `unwrap_err` the value.
 		("Result", "unwrap" | "expect") => &[1],
 		("Result", "unwrap_err") => &[0],
+		// `Vec<T>` drops each element `retain` rejects and `dedup` removes.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => &[0],
 		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
 		("bool", "then") => &[1],
@@ -772,8 +825,12 @@ fn mapping<'tcx>(
 			"checked_mul" => "checkedMul",
 			"saturating_add" => "saturatingAdd",
 			"saturating_sub" => "saturatingSub",
+			"saturating_mul" => "saturatingMul",
 			"wrapping_add" => "wrappingAdd",
 			"wrapping_sub" => "wrappingSub",
+			"wrapping_mul" => "wrappingMul",
+			"div_ceil" => "divCeil",
+			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
 		return Some(int.method(method, args));
@@ -795,7 +852,8 @@ fn mapping<'tcx>(
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
 		("From", "from") => {
-			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
+			// A `NonZero` converts as its integer.
+			let (to, from) = (targ(gargs, 0), unwrapped(tcx, targ(gargs, 1)));
 			let mut values = args;
 			let value = values.pop()?;
 			// One between strings, such as into a `Cow<str>` or out of one, keeps the text.
@@ -860,7 +918,7 @@ fn mapping<'tcx>(
 			)
 		}
 		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge")
-			if primitive(targ(gargs, 0).peel_refs()) =>
+			if primitive(unwrapped(tcx, targ(gargs, 0))) =>
 		{
 			let js = match name.as_str() {
 				"eq" => "===",
@@ -872,18 +930,22 @@ fn mapping<'tcx>(
 			};
 			let values = args;
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
-			match Int::of(targ(gargs, 0).peel_refs()) {
+			match Int::of(unwrapped(tcx, targ(gargs, 0))) {
 				Some(int) => int.compare(js, l, r),
 				None => l.binary(js, r),
 			}
 		}
-		("Ord", "max" | "min") if let Some(int) = Int::of(targ(gargs, 0)) => {
+		("Ord", "max" | "min") if let Some(int) = Int::of(unwrapped(tcx, targ(gargs, 0))) => {
 			let values = args;
 			match int.big() {
 				true => int.method(name.as_str(), values),
 				false => Expr::rt(if name == "max" { "max" } else { "min" }, values),
 			}
 		}
+		("Ord", "clamp") if let Some(int) = Int::of(targ(gargs, 0)) => match int.big() {
+			true => int.method("clamp", args),
+			false => Expr::rt("clamp", args),
+		},
 		("Clone", "clone") => {
 			let ty = targ(gargs, 0);
 			let values = args;
@@ -893,6 +955,18 @@ fn mapping<'tcx>(
 					Expr::rt("byteVecFrom", vec![Expr::rt("byteVecView", vec![value])])
 				}
 				ty::Adt(..) if string(tcx, ty) => value,
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
+					return vec_clone(b, value, args.type_at(0), span);
+				}
+				ty::Tuple(tys) if !(b.t.is_copy(ty) && clone_copies(b.t, ty)) => {
+					let mut clones = Vec::new();
+					let mut drops = Vec::new();
+					for t in tys.iter() {
+						clones.push(super::collections::clone_fn(b, t, span));
+						drops.push(b.t.drop_fn(t, span).unwrap_or_else(Expr::undefined));
+					}
+					Expr::rt("tupleClone", vec![value, Expr::Array(clones), Expr::Array(drops)])
+				}
 				// Through the reference, a slice of the bytes.
 				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
 				ty::Adt(adt, _) if int_range(ty) => {
@@ -948,6 +1022,50 @@ fn mapping<'tcx>(
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
 
+		// A `NonZero` is its integer.
+		("NonZero", "get") => args.pop()?,
+		("NonZero", "new") => Expr::rt("nonZero", args),
+		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
+		("Bound", "cloned") => {
+			let value = args.pop()?;
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let bound = tcx.instantiate_bound_regions_with_erased(sig).output();
+			match super::collections::clone_fn(b, targ(gargs, 0), span) {
+				Expr::Lit(l) if l == "undefined" => b.t.copied(value, bound, span),
+				clone => Expr::rt("boundMap", vec![value, clone]),
+			}
+		}
+		("Bound", "as_ref") => args.pop()?,
+		("RangeBounds", "start_bound" | "end_bound") => {
+			let start = name == "start_bound";
+			let range = targ(gargs, 0).peel_refs();
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let ts = b.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
+			let r = args.pop()?;
+			let (variant, field) = match (range.kind(), b.t.std_of(range)) {
+				// `(Bound<T>, Bound<T>)`, whose bounds are its own.
+				(ty::Tuple(_), _) => return Some(r.index(Expr::lit(if start { "0" } else { "1" }))),
+				(_, Some(Std::Range)) if start => ("Included", Some("start")),
+				(_, Some(Std::Range)) => ("Excluded", Some("end")),
+				(_, Some(Std::RangeFrom)) if start => ("Included", Some("start")),
+				(_, Some(Std::RangeTo)) if !start => ("Excluded", Some("end")),
+				(_, Some(Std::RangeToInclusive)) if !start => ("Included", Some("end")),
+				(_, Some(Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull)) => {
+					("Unbounded", None)
+				}
+				// Exhausted, it ends before its end.
+				(_, Some(Std::RangeInclusive)) => {
+					let f = if start {
+						"rangeInclusiveStartBound"
+					} else {
+						"rangeInclusiveEndBound"
+					};
+					return Some(Expr::As(Box::new(Expr::rt(f, vec![r])), ts));
+				}
+				_ => return None,
+			};
+			bound(variant, field.map(|f| r.member(f)), ts)
+		}
 		("bool", "then_some") => {
 			let values = args;
 			Expr::rt("thenSome", values)
@@ -981,17 +1099,58 @@ fn mapping<'tcx>(
 		}
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
-			let values = args;
+			let slice = args.pop()?;
 			match is_u8(elem) {
-				true => Expr::rt("byteSliceToByteVec", values),
-				false if b.t.is_copy(elem) => {
-					let slice = values.into_iter().next()?;
-					match b.t.copy_fn(elem, span) {
-						Some(copy) => slice.member("map").call(vec![copy]),
-						None => slice.member("slice").call(Vec::new()),
-					}
+				true => Expr::rt("byteSliceToByteVec", vec![slice]),
+				false => return vec_clone(b, slice, elem, span),
+			}
+		}
+		("slice", "first_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceFirst", args),
+		("slice", "last" | "last_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
+		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
+		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
+		("slice", "contains") => {
+			let elem = targ(gargs, 0);
+			let [s, x] = <[Expr; 2]>::try_from(args).ok()?;
+			match is_u8(elem) {
+				true => Expr::rt("byteSliceView", vec![s]).method("includes", vec![x]),
+				false => {
+					let eq = super::collections::eq_fn(b, elem, span);
+					Expr::rt("sliceContains", vec![s, x, eq])
 				}
-				false => return None,
+			}
+		}
+		// Sorted by `lt` of `Ord`, or by a comparator, or by `lt` of the keys a function makes.
+		(
+			"slice",
+			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
+		) if !is_u8(targ(gargs, 0)) => {
+			let mut values = args;
+			match name.as_str() {
+				// By `<`, which is `partial_cmp`'s while it is the default.
+				"sort" | "sort_unstable" => {
+					let elem = targ(gargs, 0);
+					if super::collections::own_test(b, elem, "lt") {
+						return Some(b.err(span, super::collections::own_test_err(elem, "lt")));
+					}
+					values.push(super::collections::cmp_fn(b, elem, true, span));
+					Expr::rt("sliceSortBy", values)
+				}
+				"sort_by" | "sort_unstable_by" => Expr::rt("sliceSortBy", values),
+				_ => {
+					let key = targ(gargs, 1);
+					if b.t.drops(key) {
+						return Some(b.err(
+							span,
+							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
+					}
+					if super::collections::own_test(b, key, "lt") {
+						return Some(b.err(span, super::collections::own_test_err(key, "lt")));
+					}
+					values.push(super::collections::cmp_fn(b, key, true, span));
+					Expr::rt("sliceSortByKey", values)
+				}
 			}
 		}
 		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
@@ -1060,6 +1219,45 @@ fn mapping<'tcx>(
 		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", args),
 		("Vec", "clear") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecClear", args),
 		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecExtendFromSlice", args),
+		("Vec", "extend_from_slice") => {
+			let mut values = args;
+			let clone = super::collections::clone_fn(b, targ(gargs, 0), span);
+			if !matches!(&clone, Expr::Lit(l) if l == "undefined") {
+				values.push(clone);
+			}
+			Expr::rt("vecExtendFromSlice", values)
+		}
+		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
+		// What each takes by value is a closure, which it drops once done.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
+			if let Some(ty) = dropping_operand(b, call) {
+				return Some(b.err(
+					span,
+					format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+				));
+			}
+			let mut values = args;
+			match name.as_str() {
+				"retain" | "retain_mut" => Expr::rt("vecRetain", values),
+				"dedup" => {
+					values.push(super::collections::eq_fn(b, targ(gargs, 0), span));
+					Expr::rt("vecDedupBy", values)
+				}
+				"dedup_by" => Expr::rt("vecDedupBy", values),
+				_ => {
+					// `Vec<T, A>::dedup_by_key::<F, K>`.
+					let key = targ(gargs, 3);
+					if b.t.drops(key) {
+						return Some(b.err(
+							span,
+							format!("`Vec::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
+					}
+					values.push(super::collections::eq_fn(b, key, span));
+					Expr::rt("vecDedupByKey", values)
+				}
+			}
+		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;
 			vec_view(v, targ(gargs, 0))
@@ -1086,8 +1284,10 @@ fn mapping<'tcx>(
 		("String", "new") => Expr::Str(String::new()),
 		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("str", "chars") => Expr::rt("strChars", args),
+		("str", "bytes") => Expr::rt("strBytes", args),
+		("str", "is_char_boundary") => Expr::rt("strIsCharBoundary", args),
 		// Searches by a pattern.
-		("str", "split" | "match_indices" | "contains" | "starts_with" | "rfind")
+		("str", "split" | "match_indices" | "contains" | "starts_with" | "ends_with" | "rfind" | "split_once")
 		| ("str", "trim_start_matches" | "trim_end_matches") => {
 			let [s, p] = <[Expr; 2]>::try_from(args).ok()?;
 			Expr::rt_of("str", &super::camel(&name)).call(vec![s, pattern(b.t, targ(gargs, 0), p)?])
@@ -1290,13 +1490,35 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 	}
 }
 
-/// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text,
-/// or a string or a predicate as it is. `None` for any other pattern.
+/// A clone of `value`, a slice, array, or `Vec` of `elem` other than bytes, as a `Vec`: a
+/// copy of the array if each element's clone is itself or a copy, or else each element
+/// cloned, the clones dropping if one panics.
+fn vec_clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, elem: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let clone = super::collections::clone_fn(b, elem, span);
+	if matches!(&clone, Expr::Lit(l) if l == "undefined") {
+		return Some(value.method("slice", Vec::new()));
+	}
+	if b.t.is_copy(elem) && clone_copies(b.t, elem) {
+		return Some(value.method("map", vec![clone]));
+	}
+	let mut values = vec![value, clone];
+	values.extend(b.t.drop_fn(elem, span));
+	Some(Expr::rt("vecClone", values))
+}
+
+/// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text, a
+/// string or a predicate as it is, or a predicate for an array or slice of chars. `None`
+/// for any other pattern.
 fn pattern<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, p: Expr) -> Option<Expr> {
 	match ty.kind() {
 		ty::Char => Some(char_text(p)),
 		ty::Closure(..) | ty::FnDef(..) => Some(p),
 		ty::Ref(..) if is_text(t, ty) => Some(p),
+		// Any of the chars of an array or slice.
+		ty::Array(c, _) | ty::Slice(c) if c.is_char() => Some(Expr::rt("patternChars", vec![p])),
+		ty::Ref(_, inner, _) if matches!(inner.kind(), ty::Array(c, _) | ty::Slice(c) if c.is_char()) => {
+			Some(Expr::rt("patternChars", vec![p]))
+		}
 		_ => None,
 	}
 }
@@ -1348,6 +1570,15 @@ fn int_named(name: &str) -> Option<Int> {
 		_ => return None,
 	};
 	Some(Int { bits, signed, pointer })
+}
+
+/// What a JS value of `ty` is through references and `NonZero`, which is its integer.
+fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty = ty.peel_refs();
+	match ty.kind() {
+		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::NonZero) => args.type_at(0),
+		_ => ty,
+	}
 }
 
 fn primitive(ty: Ty<'_>) -> bool {

@@ -89,6 +89,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 					.map(|(t, v)| self.value(t, v, span))
 					.collect(),
 			),
+			// What core's wrappers of one value hold is that value, as is a pattern type's.
+			ty::Pat(base, _) => self.value(*base, valtree, span),
+			ty::Adt(..) if super::library::wrapped(tcx, ty).is_some() => match &children(valtree)[..] {
+				[(field_ty, field)] => self.value(*field_ty, *field, span),
+				_ => self.err(span, format!("a constant of type `{ty}` without one field")),
+			},
 			ty::Adt(adt, args) => {
 				let fields = children(valtree);
 				// Its nanoseconds are a pattern type, which only it reads.
@@ -125,6 +131,14 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
 						(Std::AtomicOrdering, _) => super::task::atomic_ordering(variant),
+						(Std::Bound, _) => {
+							let ts_ty = self.t.ty(ty, span);
+							super::library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
+						}
+						(Std::RangeTo | Std::RangeToInclusive, _) => {
+							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
+						}
+						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
