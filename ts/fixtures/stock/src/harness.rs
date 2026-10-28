@@ -4,18 +4,23 @@
 use bytes::Bytes;
 use rand::RngExt;
 
+/// What a case runs on the rest of the input.
+type Case = fn(&[u8], &mut Vec<u8>);
+
+/// Each case, which the first byte picks modulo their count, so a case added at the end
+/// moves no other.
+fn cases() -> Vec<Case> {
+	vec![slices, made, events, random]
+}
+
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();
 	let Some((&op, data)) = input.split_first() else {
 		return out;
 	};
-	match op % 4 {
-		0 => slices(data, &mut out),
-		1 => made(data, &mut out),
-		2 => events(data, &mut out),
-		_ => random(data, &mut out),
-	}
+	let cases = cases();
+	cases[usize::from(op) % cases.len()](data, &mut out);
 	out
 }
 

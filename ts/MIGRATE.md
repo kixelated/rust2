@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- `tsc` checks a binding of a function returning `()` against `=> undefined`, not
+  `=> void`: type its export `: undefined`.
+- `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a
+  `partial_cmp`, and `rt.ordClamp` takes `le`, `lt`, and `gt`; `rt.cmpLt` makes one from a
+  `partial_cmp`. `rt.sliceSortBy` takes only an `Ord::cmp`-like comparator: sort by an
+  `lt` with `rt.sliceSort`.
+- A trait object in a function's suffix is named for its trait and the types it binds:
+  `show$dynstdfmtDebug` is `show$dyn_Debug`, and `poll$dyn_Future_u64` is a
+  `dyn Future<Output = u64>`'s.
+- A runtime consumer that takes an iterator by value is told whether it drops rather than
+  given `rt.drop`: `iterFold`, `iterForEach`, `iterSum`, `iterProduct`, `iterMax`,
+  `iterMin`, `iterMaxByKey`, `iterMinByKey`, and `durationSum` take `true`, and
+  `ownedCount` and `ownedLast` take only what drops an item. `iterToArray`,
+  `iterToByteVec`, `iterExtend`, `iterExtendBytes`, `dequeExtend`, `hashExtend`,
+  `hashExtendKeys`, `btreeExtend`, and `btreeExtendKeys` take an `rt.Take`, `"next"` or
+  `"fold"`, for how std's reads it; `iterToArray` takes `"place"` where its `inPlace` was
+  `true`.
+- `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
+  `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
 - `ts.toml` no longer takes `ignore-macros`: `tracing`'s events are left out without it,
   and no other macro is. Delete the key.
 - `bytes::Bytes` and `rand::rngs::ThreadRng` can't be bound: translation maps them, a

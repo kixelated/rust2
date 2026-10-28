@@ -150,9 +150,8 @@ fn typecheck(out: &Path) {
 
 /// Run the harness natively, as wasm32, and translated, on the same inputs: the
 /// translated side through `entry`, a module in `out`. `build` are the native build's
-/// arguments, such as `--features`, and `extra` are `differential.ts`'s after the case
-/// count.
-fn differential(package: &str, build: &[&str], out: &Path, entry: &str, cases: u32, extra: &[&str]) {
+/// arguments, such as `--features`.
+fn differential(package: &str, build: &[&str], out: &Path, entry: &str, cases: u32) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
 		.args([
@@ -182,7 +181,6 @@ fn differential(package: &str, build: &[&str], out: &Path, entry: &str, cases: u
 		.arg(&wasm)
 		.arg(out.join(entry))
 		.arg(cases.to_string())
-		.args(extra)
 		.output()
 		.expect("running node, which the dev shell provides");
 	let stdout = String::from_utf8_lossy(&output.stdout);
@@ -200,7 +198,7 @@ fn codec() {
 	snapshot("codec", &out);
 	std::fs::write(out.join("shake.ts"), SHAKE).unwrap();
 	typecheck(&out);
-	differential("codec-fixture", &[], &out, "harness.ts", 20_000, &[]);
+	differential("codec-fixture", &[], &out, "harness.ts", 20_000);
 	shake(&out);
 }
 
@@ -259,10 +257,10 @@ fn shake(out: &Path) {
 			"Panic",
 			"byteSliceFrom",
 			"checked",
-			"clamp",
 			"idx",
 			"max",
 			"panic",
+			"saturate",
 			"u32SaturatingAdd",
 			"u32Sub",
 			"usizeSaturatingAdd",
@@ -300,12 +298,12 @@ fn source_order() {
 /// impl of a method, renames nothing the old roots reach.
 #[test]
 fn stable_names() {
-	let roots = r#"roots = ["harness::run", "fmt::Fault"]"#;
+	let roots = r#"roots = ["harness::run", "harness::op", "fmt::Fault"]"#;
 	added_root(
 		"lang",
 		roots,
 		roots,
-		r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#,
+		r#"roots = ["fmt::added", "harness::run", "harness::op", "fmt::Fault"]"#,
 	);
 }
 
@@ -373,7 +371,7 @@ fn lang_differential(out: &Path) {
 		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
 	}
 	typecheck(out);
-	differential("lang-fixture", &[], out, "caller.ts", 50_000, &["wide"]);
+	differential("lang-fixture", &[], out, "caller.ts", 50_000);
 }
 
 /// A copy that only one write in the crate keeps, of each kind: one per feature.
@@ -382,7 +380,7 @@ fn share() {
 	let out = translated("share");
 	snapshot("share", &out);
 	typecheck(&out);
-	differential("share-fixture", &[], &out, "harness.ts", 1_000, &[]);
+	differential("share-fixture", &[], &out, "harness.ts", 1_000);
 	let config = fixture("share").join("ts.toml");
 	for feature in ["call", "pointer"] {
 		let out = scratch().join("share").join(feature);
@@ -400,14 +398,7 @@ fn share() {
 			String::from_utf8_lossy(&output.stderr)
 		);
 		typecheck(&out);
-		differential(
-			"share-fixture",
-			&["--features", feature],
-			&out,
-			"harness.ts",
-			1_000,
-			&[],
-		);
+		differential("share-fixture", &["--features", feature], &out, "harness.ts", 1_000);
 	}
 }
 
@@ -429,10 +420,11 @@ import * as Channel from "./model.Channel.ts";
 import * as Guard from "./model.Guard.ts";
 import {{ blocks, drain, sum }} from "./model.ts";
 import * as drops from "./drops.ts";
+import * as futures from "./futures.ts";
 import {{ harness }} from {harness:?};
 
-export {{ cases }} from {harness:?};
-const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops }};
+export {{ cases, steps }} from {harness:?};
+const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops, futures }};
 const script = harness(fixture);
 export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
 export const unwind = harness(fixture, true);
@@ -440,7 +432,7 @@ export const unwind = harness(fixture, true);
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
 	typecheck(out);
-	differential("task-fixture", &[], out, "caller.ts", 20_000, &[]);
+	differential("task-fixture", &[], out, "caller.ts", 20_000);
 	unwinding(out, "caller.ts", 5_000);
 }
 
@@ -496,7 +488,7 @@ fn bind() {
 	let out = translated("bind");
 	snapshot("bind", &out);
 	typecheck(&out);
-	differential("bind-fixture", &[], &out, "harness.ts", 1_000, &[]);
+	differential("bind-fixture", &[], &out, "harness.ts", 1_000);
 	for config in ["wrong", "refused"] {
 		let out = scratch().join("bind").join(config);
 		let toml = fixture("bind").join(format!("{config}.toml"));
@@ -621,6 +613,5 @@ fn stock() {
 		&out,
 		"harness.ts",
 		5_000,
-		&[],
 	);
 }

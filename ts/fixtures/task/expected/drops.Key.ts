@@ -81,6 +81,10 @@ export function eq$PartialEq(self: Key, other: Key): boolean {
 	return read(self) === read(other);
 }
 
+export function partialCmp$PartialOrd(self: Key, other: Key): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 export function cmp$Ord(self: Key, other: Key): rt.Ordering {
 	return rt.cmp(read(self), read(other));
 }
@@ -101,8 +105,17 @@ export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 	rt.hashInt(read(self), state);
 }
 
+export function clone$Clone(self: Key): Key {
+	const id: rt.u32 = read(self);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
+	const _5: string = rt.fmtFormat(["k", args2[0], " cloned"]);
+	Log.note(self.log, _5);
+	const _14: Log.Log = Log.clone$Clone(self.log);
+	return faulty(id, _14, self.fault);
+}
+
 export function fmt$Debug(self: Key, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Display(self.id, f)));
+	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Debug(self.id, f)));
 }
 
 export { new_ as new };

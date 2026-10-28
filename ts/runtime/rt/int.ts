@@ -44,6 +44,8 @@ export type i16 = Num<"i16">;
 export type i32 = Num<"i32">;
 /** 32 bits, as on wasm32. */
 export type isize = Num<"isize">;
+/** Rust's `f64`: a number, which is the same IEEE 754 double. */
+export type f64 = Num<"f64">;
 /** Rust's `char`: a Unicode scalar value, which is at most 0x10ffff and no surrogate. */
 export type char = Num<"char">;
 /**
@@ -111,6 +113,12 @@ export function min(a: number, b: number): number {
 	return a <= b ? a : b;
 }
 
+/** `Ord::clamp` of integers in numbers: `a` within `[min, max]`, panicking unless `min <= max`. */
+export function clamp(a: number, min: number, max: number): number {
+	if (min > max) panic(`min > max. min = ${min}, max = ${max}`);
+	return a < min ? min : a > max ? max : a;
+}
+
 // Integers of 32 bits or less, in numbers. Sums, differences, and quotients are exact; a
 // product is inexact only past 2^53, far outside every type's range, so its check still
 // fails. JS's 32-bit operators do the rest. Each type's functions pass its bounds to
@@ -125,8 +133,19 @@ function inRange(value: number, min: number, max: number): number | undefined {
 	return value >= min && value <= max ? value : undefined;
 }
 
-function clamp(value: number, min: number, max: number): number {
+function saturate(value: number, min: number, max: number): number {
 	return value < min ? min : value > max ? max : value;
+}
+
+/** An unsigned `a / b`, rounded up, panicking on a zero divisor. */
+function ceilDivide(a: number, b: number): number {
+	if (b === 0) panic("attempt to divide by zero");
+	return a % b === 0 ? a / b : Math.trunc(a / b) + 1;
+}
+
+/** Whether `a` is a multiple of `b`: of 0, only 0 is. */
+function multipleOf(a: number, b: number): boolean {
+	return b === 0 ? a === 0 : a % b === 0;
 }
 
 function divide(a: number, b: number, min: number, max: number): number {
@@ -174,15 +193,56 @@ function narrowStep(n: number, by: number, min: number, max: number, wrap: (v: n
 	return v >= min && v <= max ? [v, false] : [wrap(v), true];
 }
 
-/** `Display` and `Debug` of an integer in a number, which write the same. */
+/** `Display` of an integer in a number. */
 function display(a: number, f: Formatter): FmtResult {
 	return fmtPadIntegral(f, a >= 0, "", String(a < 0 ? -a : a));
+}
+
+/** `Debug` of `a`, an integer in a number whose bits as unsigned are `bits`. */
+function debug(a: number, bits: number, f: Formatter): FmtResult {
+	const hexDigits = f.spec.debugHex;
+	return hexDigits === undefined ? display(a, f) : hex(bits, f, hexDigits === "X");
 }
 
 /** `LowerHex` or `UpperHex` of `bits`, a value's bits as unsigned. */
 function hex(bits: number | bigint, f: Formatter, upper: boolean): FmtResult {
 	const digits = bits.toString(16);
 	return fmtPadIntegral(f, true, "0x", upper ? digits.toUpperCase() : digits);
+}
+
+/** `Binary` or `Octal` of `bits`, a value's bits as unsigned. */
+function radix(bits: number | bigint, f: Formatter, base: 2 | 8, prefix: "0b" | "0o"): FmtResult {
+	return fmtPadIntegral(f, true, prefix, bits.toString(base));
+}
+
+/**
+ * `LowerExp` or `UpperExp` of an integer, from its sign and its magnitude's decimal
+ * `digits`: rounded half to even to the precision, else without trailing zeros.
+ */
+function exp(nonnegative: boolean, digits: string, f: Formatter, letter: "e" | "E"): FmtResult {
+	let exponent = digits.length - 1;
+	// The significant digits, the first before the point, and the zeros after them.
+	let coef = digits;
+	let zeros = 0;
+	const precision = f.spec.precision;
+	if (precision === undefined) {
+		coef = digits.replace(/(?<=.)0+$/, "");
+	} else if (precision >= exponent) {
+		zeros = precision - exponent;
+	} else {
+		coef = digits.slice(0, precision + 1);
+		const over = digits.slice(precision + 1);
+		const tie = over[0] === "5" && !/[1-9]/.test(over.slice(1));
+		const up = tie ? Number(coef[coef.length - 1]) % 2 === 1 : over[0]! >= "5";
+		if (up) coef = String(BigInt(coef) + 1n);
+		// Rounding 9s up carries into one more digit: a power of ten higher.
+		if (coef.length > precision + 1) {
+			coef = coef.slice(0, -1);
+			exponent++;
+		}
+	}
+	const point = coef.length > 1 || zeros > 0 ? `.${coef.slice(1)}${"0".repeat(zeros)}` : "";
+	return fmtPadIntegral(f, nonnegative, "", `${coef[0]}${point}${letter}${exponent}`);
 }
 
 const wrapU8 = (v: number) => v & 0xff;
@@ -213,13 +273,21 @@ export const u8CheckedSub = (a: u8, b: u8): u8 | undefined => inRange(a - b, 0, 
 /** `u8`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const u8CheckedMul = (a: u8, b: u8): u8 | undefined => inRange(a * b, 0, 0xff);
 /** `u8`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const u8SaturatingAdd = (a: u8, b: u8): u8 => clamp(a + b, 0, 0xff);
+export const u8SaturatingAdd = (a: u8, b: u8): u8 => saturate(a + b, 0, 0xff);
 /** `u8`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const u8SaturatingSub = (a: u8, b: u8): u8 => clamp(a - b, 0, 0xff);
+export const u8SaturatingSub = (a: u8, b: u8): u8 => saturate(a - b, 0, 0xff);
 /** `u8`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const u8WrappingAdd = (a: u8, b: u8): u8 => (a + b) & 0xff;
 /** `u8`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const u8WrappingSub = (a: u8, b: u8): u8 => (a - b) & 0xff;
+/** `u8`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const u8SaturatingMul = (a: u8, b: u8): u8 => saturate(a * b, 0, 0xff);
+/** `u8`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const u8WrappingMul = (a: u8, b: u8): u8 => Math.imul(a, b) & 0xff;
+/** `u8`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const u8DivCeil = (a: u8, b: u8): u8 => ceilDivide(a, b);
+/** `u8`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const u8IsMultipleOf = (a: u8, b: u8): boolean => multipleOf(a, b);
 /** `u8`'s `leading_ones`: the count of leading one bits. */
 export const u8LeadingOnes = (a: u8): number => Math.clz32(~(a << 24));
 /** `u8`'s `leading_zeros`: the count of leading zero bits. */
@@ -234,6 +302,16 @@ export const u8TryFrom = (value: number | Limbs): Result<u8, TryFromIntError> =>
 export const u8LowerHex = (a: u8, f: Formatter): FmtResult => hex(a, f, false);
 /** `u8`'s `UpperHex`, `{:X}`. */
 export const u8UpperHex = (a: u8, f: Formatter): FmtResult => hex(a, f, true);
+/** `u8`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u8Debug = (a: u8, f: Formatter): FmtResult => debug(a, a, f);
+/** `u8`'s `Binary`, `{:b}`. */
+export const u8Binary = (a: u8, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u8`'s `Octal`, `{:o}`. */
+export const u8Octal = (a: u8, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u8`'s `LowerExp`, `{:e}`. */
+export const u8LowerExp = (a: u8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u8`'s `UpperExp`, `{:E}`. */
+export const u8UpperExp = (a: u8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u8`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u8Step: Step<u8> = (n, by) => narrowStep(n, by, 0, 0xff, wrapU8);
 
@@ -258,13 +336,21 @@ export const u16CheckedSub = (a: u16, b: u16): u16 | undefined => inRange(a - b,
 /** `u16`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const u16CheckedMul = (a: u16, b: u16): u16 | undefined => inRange(a * b, 0, 0xffff);
 /** `u16`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const u16SaturatingAdd = (a: u16, b: u16): u16 => clamp(a + b, 0, 0xffff);
+export const u16SaturatingAdd = (a: u16, b: u16): u16 => saturate(a + b, 0, 0xffff);
 /** `u16`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const u16SaturatingSub = (a: u16, b: u16): u16 => clamp(a - b, 0, 0xffff);
+export const u16SaturatingSub = (a: u16, b: u16): u16 => saturate(a - b, 0, 0xffff);
 /** `u16`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const u16WrappingAdd = (a: u16, b: u16): u16 => (a + b) & 0xffff;
 /** `u16`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const u16WrappingSub = (a: u16, b: u16): u16 => (a - b) & 0xffff;
+/** `u16`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const u16SaturatingMul = (a: u16, b: u16): u16 => saturate(a * b, 0, 0xffff);
+/** `u16`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const u16WrappingMul = (a: u16, b: u16): u16 => Math.imul(a, b) & 0xffff;
+/** `u16`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const u16DivCeil = (a: u16, b: u16): u16 => ceilDivide(a, b);
+/** `u16`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const u16IsMultipleOf = (a: u16, b: u16): boolean => multipleOf(a, b);
 /** `u16`'s `leading_ones`: the count of leading one bits. */
 export const u16LeadingOnes = (a: u16): number => Math.clz32(~(a << 16));
 /** `u16`'s `leading_zeros`: the count of leading zero bits. */
@@ -279,6 +365,16 @@ export const u16TryFrom = (value: number | Limbs): Result<u16, TryFromIntError> 
 export const u16LowerHex = (a: u16, f: Formatter): FmtResult => hex(a, f, false);
 /** `u16`'s `UpperHex`, `{:X}`. */
 export const u16UpperHex = (a: u16, f: Formatter): FmtResult => hex(a, f, true);
+/** `u16`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u16Debug = (a: u16, f: Formatter): FmtResult => debug(a, a, f);
+/** `u16`'s `Binary`, `{:b}`. */
+export const u16Binary = (a: u16, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u16`'s `Octal`, `{:o}`. */
+export const u16Octal = (a: u16, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u16`'s `LowerExp`, `{:e}`. */
+export const u16LowerExp = (a: u16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u16`'s `UpperExp`, `{:E}`. */
+export const u16UpperExp = (a: u16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u16`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u16Step: Step<u16> = (n, by) => narrowStep(n, by, 0, 0xffff, wrapU16);
 
@@ -303,13 +399,21 @@ export const u32CheckedSub = (a: u32, b: u32): u32 | undefined => inRange(a - b,
 /** `u32`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const u32CheckedMul = (a: u32, b: u32): u32 | undefined => inRange(a * b, 0, 0xffffffff);
 /** `u32`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const u32SaturatingAdd = (a: u32, b: u32): u32 => clamp(a + b, 0, 0xffffffff);
+export const u32SaturatingAdd = (a: u32, b: u32): u32 => saturate(a + b, 0, 0xffffffff);
 /** `u32`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const u32SaturatingSub = (a: u32, b: u32): u32 => clamp(a - b, 0, 0xffffffff);
+export const u32SaturatingSub = (a: u32, b: u32): u32 => saturate(a - b, 0, 0xffffffff);
 /** `u32`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const u32WrappingAdd = (a: u32, b: u32): u32 => (a + b) >>> 0;
 /** `u32`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const u32WrappingSub = (a: u32, b: u32): u32 => (a - b) >>> 0;
+/** `u32`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const u32SaturatingMul = (a: u32, b: u32): u32 => saturate(a * b, 0, 0xffffffff);
+/** `u32`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const u32WrappingMul = (a: u32, b: u32): u32 => Math.imul(a, b) >>> 0;
+/** `u32`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const u32DivCeil = (a: u32, b: u32): u32 => ceilDivide(a, b);
+/** `u32`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const u32IsMultipleOf = (a: u32, b: u32): boolean => multipleOf(a, b);
 /** `u32`'s `leading_ones`: the count of leading one bits. */
 export const u32LeadingOnes = (a: u32): number => Math.clz32(~a);
 /** `u32`'s `leading_zeros`: the count of leading zero bits. */
@@ -324,6 +428,16 @@ export const u32TryFrom = (value: number | Limbs): Result<u32, TryFromIntError> 
 export const u32LowerHex = (a: u32, f: Formatter): FmtResult => hex(a, f, false);
 /** `u32`'s `UpperHex`, `{:X}`. */
 export const u32UpperHex = (a: u32, f: Formatter): FmtResult => hex(a, f, true);
+/** `u32`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u32Debug = (a: u32, f: Formatter): FmtResult => debug(a, a, f);
+/** `u32`'s `Binary`, `{:b}`. */
+export const u32Binary = (a: u32, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u32`'s `Octal`, `{:o}`. */
+export const u32Octal = (a: u32, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u32`'s `LowerExp`, `{:e}`. */
+export const u32LowerExp = (a: u32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u32`'s `UpperExp`, `{:E}`. */
+export const u32UpperExp = (a: u32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u32`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u32Step: Step<u32> = (n, by) => narrowStep(n, by, 0, 0xffffffff, wrapU32);
 
@@ -350,13 +464,17 @@ export const i8CheckedSub = (a: i8, b: i8): i8 | undefined => inRange(a - b, -0x
 /** `i8`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const i8CheckedMul = (a: i8, b: i8): i8 | undefined => inRange(a * b, -0x80, 0x7f);
 /** `i8`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const i8SaturatingAdd = (a: i8, b: i8): i8 => clamp(a + b, -0x80, 0x7f);
+export const i8SaturatingAdd = (a: i8, b: i8): i8 => saturate(a + b, -0x80, 0x7f);
 /** `i8`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const i8SaturatingSub = (a: i8, b: i8): i8 => clamp(a - b, -0x80, 0x7f);
+export const i8SaturatingSub = (a: i8, b: i8): i8 => saturate(a - b, -0x80, 0x7f);
 /** `i8`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const i8WrappingAdd = (a: i8, b: i8): i8 => ((a + b) << 24) >> 24;
 /** `i8`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const i8WrappingSub = (a: i8, b: i8): i8 => ((a - b) << 24) >> 24;
+/** `i8`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const i8SaturatingMul = (a: i8, b: i8): i8 => saturate(a * b, -0x80, 0x7f);
+/** `i8`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const i8WrappingMul = (a: i8, b: i8): i8 => (Math.imul(a, b) << 24) >> 24;
 /** `i8`'s `leading_ones`: the count of leading one bits. */
 export const i8LeadingOnes = (a: i8): number => Math.clz32(~(a << 24));
 /** `i8`'s `leading_zeros`: the count of leading zero bits. */
@@ -371,6 +489,16 @@ export const i8TryFrom = (value: number | Limbs): Result<i8, TryFromIntError> =>
 export const i8LowerHex = (a: i8, f: Formatter): FmtResult => hex(a & 0xff, f, false);
 /** `i8`'s `UpperHex`, `{:X}`. */
 export const i8UpperHex = (a: i8, f: Formatter): FmtResult => hex(a & 0xff, f, true);
+/** `i8`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i8Debug = (a: i8, f: Formatter): FmtResult => debug(a, a & 0xff, f);
+/** `i8`'s `Binary`, `{:b}`. */
+export const i8Binary = (a: i8, f: Formatter): FmtResult => radix(a & 0xff, f, 2, "0b");
+/** `i8`'s `Octal`, `{:o}`. */
+export const i8Octal = (a: i8, f: Formatter): FmtResult => radix(a & 0xff, f, 8, "0o");
+/** `i8`'s `LowerExp`, `{:e}`. */
+export const i8LowerExp = (a: i8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i8`'s `UpperExp`, `{:E}`. */
+export const i8UpperExp = (a: i8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i8`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i8Step: Step<i8> = (n, by) => narrowStep(n, by, -0x80, 0x7f, wrapI8);
 
@@ -397,13 +525,17 @@ export const i16CheckedSub = (a: i16, b: i16): i16 | undefined => inRange(a - b,
 /** `i16`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const i16CheckedMul = (a: i16, b: i16): i16 | undefined => inRange(a * b, -0x8000, 0x7fff);
 /** `i16`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const i16SaturatingAdd = (a: i16, b: i16): i16 => clamp(a + b, -0x8000, 0x7fff);
+export const i16SaturatingAdd = (a: i16, b: i16): i16 => saturate(a + b, -0x8000, 0x7fff);
 /** `i16`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const i16SaturatingSub = (a: i16, b: i16): i16 => clamp(a - b, -0x8000, 0x7fff);
+export const i16SaturatingSub = (a: i16, b: i16): i16 => saturate(a - b, -0x8000, 0x7fff);
 /** `i16`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const i16WrappingAdd = (a: i16, b: i16): i16 => ((a + b) << 16) >> 16;
 /** `i16`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const i16WrappingSub = (a: i16, b: i16): i16 => ((a - b) << 16) >> 16;
+/** `i16`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const i16SaturatingMul = (a: i16, b: i16): i16 => saturate(a * b, -0x8000, 0x7fff);
+/** `i16`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const i16WrappingMul = (a: i16, b: i16): i16 => (Math.imul(a, b) << 16) >> 16;
 /** `i16`'s `leading_ones`: the count of leading one bits. */
 export const i16LeadingOnes = (a: i16): number => Math.clz32(~(a << 16));
 /** `i16`'s `leading_zeros`: the count of leading zero bits. */
@@ -418,6 +550,16 @@ export const i16TryFrom = (value: number | Limbs): Result<i16, TryFromIntError> 
 export const i16LowerHex = (a: i16, f: Formatter): FmtResult => hex(a & 0xffff, f, false);
 /** `i16`'s `UpperHex`, `{:X}`. */
 export const i16UpperHex = (a: i16, f: Formatter): FmtResult => hex(a & 0xffff, f, true);
+/** `i16`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i16Debug = (a: i16, f: Formatter): FmtResult => debug(a, a & 0xffff, f);
+/** `i16`'s `Binary`, `{:b}`. */
+export const i16Binary = (a: i16, f: Formatter): FmtResult => radix(a & 0xffff, f, 2, "0b");
+/** `i16`'s `Octal`, `{:o}`. */
+export const i16Octal = (a: i16, f: Formatter): FmtResult => radix(a & 0xffff, f, 8, "0o");
+/** `i16`'s `LowerExp`, `{:e}`. */
+export const i16LowerExp = (a: i16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i16`'s `UpperExp`, `{:E}`. */
+export const i16UpperExp = (a: i16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i16`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i16Step: Step<i16> = (n, by) => narrowStep(n, by, -0x8000, 0x7fff, wrapI16);
 
@@ -444,13 +586,17 @@ export const i32CheckedSub = (a: i32, b: i32): i32 | undefined => inRange(a - b,
 /** `i32`'s `checked_mul`: `a * b`, or `undefined` on overflow. */
 export const i32CheckedMul = (a: i32, b: i32): i32 | undefined => inRange(a * b, -0x80000000, 0x7fffffff);
 /** `i32`'s `saturating_add`: `a + b`, clamped to the type's range. */
-export const i32SaturatingAdd = (a: i32, b: i32): i32 => clamp(a + b, -0x80000000, 0x7fffffff);
+export const i32SaturatingAdd = (a: i32, b: i32): i32 => saturate(a + b, -0x80000000, 0x7fffffff);
 /** `i32`'s `saturating_sub`: `a - b`, clamped to the type's range. */
-export const i32SaturatingSub = (a: i32, b: i32): i32 => clamp(a - b, -0x80000000, 0x7fffffff);
+export const i32SaturatingSub = (a: i32, b: i32): i32 => saturate(a - b, -0x80000000, 0x7fffffff);
 /** `i32`'s `wrapping_add`: `a + b`, wrapped into the type's range. */
 export const i32WrappingAdd = (a: i32, b: i32): i32 => (a + b) | 0;
 /** `i32`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const i32WrappingSub = (a: i32, b: i32): i32 => (a - b) | 0;
+/** `i32`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const i32SaturatingMul = (a: i32, b: i32): i32 => saturate(a * b, -0x80000000, 0x7fffffff);
+/** `i32`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const i32WrappingMul = (a: i32, b: i32): i32 => Math.imul(a, b);
 /** `i32`'s `leading_ones`: the count of leading one bits. */
 export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
@@ -465,6 +611,16 @@ export const i32TryFrom = (value: number | Limbs): Result<i32, TryFromIntError> 
 export const i32LowerHex = (a: i32, f: Formatter): FmtResult => hex(a >>> 0, f, false);
 /** `i32`'s `UpperHex`, `{:X}`. */
 export const i32UpperHex = (a: i32, f: Formatter): FmtResult => hex(a >>> 0, f, true);
+/** `i32`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i32Debug = (a: i32, f: Formatter): FmtResult => debug(a, a >>> 0, f);
+/** `i32`'s `Binary`, `{:b}`. */
+export const i32Binary = (a: i32, f: Formatter): FmtResult => radix(a >>> 0, f, 2, "0b");
+/** `i32`'s `Octal`, `{:o}`. */
+export const i32Octal = (a: i32, f: Formatter): FmtResult => radix(a >>> 0, f, 8, "0o");
+/** `i32`'s `LowerExp`, `{:e}`. */
+export const i32LowerExp = (a: i32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i32`'s `UpperExp`, `{:E}`. */
+export const i32UpperExp = (a: i32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i32`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i32Step: Step<i32> = (n, by) => narrowStep(n, by, -0x80000000, 0x7fffffff, wrapI32);
 
@@ -507,6 +663,14 @@ export const usizeSaturatingSub: (a: usize, b: usize) => usize = u32SaturatingSu
 export const usizeWrappingAdd: (a: usize, b: usize) => usize = u32WrappingAdd as never;
 /** `usize`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const usizeWrappingSub: (a: usize, b: usize) => usize = u32WrappingSub as never;
+/** `usize`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const usizeSaturatingMul: (a: usize, b: usize) => usize = u32SaturatingMul as never;
+/** `usize`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const usizeWrappingMul: (a: usize, b: usize) => usize = u32WrappingMul as never;
+/** `usize`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const usizeDivCeil: (a: usize, b: usize) => usize = u32DivCeil as never;
+/** `usize`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const usizeIsMultipleOf: (a: usize, b: usize) => boolean = u32IsMultipleOf as never;
 /** `usize`'s `leading_ones`: the count of leading one bits. */
 export const usizeLeadingOnes: (a: usize) => number = u32LeadingOnes as never;
 /** `usize`'s `leading_zeros`: the count of leading zero bits. */
@@ -521,6 +685,16 @@ export const usizeTryFrom: (value: number | Limbs) => Result<usize, TryFromIntEr
 export const usizeLowerHex: (a: usize, f: Formatter) => FmtResult = u32LowerHex as never;
 /** `usize`'s `UpperHex`, `{:X}`. */
 export const usizeUpperHex: (a: usize, f: Formatter) => FmtResult = u32UpperHex as never;
+/** `usize`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const usizeDebug: (a: usize, f: Formatter) => FmtResult = u32Debug as never;
+/** `usize`'s `Binary`, `{:b}`. */
+export const usizeBinary: (a: usize, f: Formatter) => FmtResult = u32Binary as never;
+/** `usize`'s `Octal`, `{:o}`. */
+export const usizeOctal: (a: usize, f: Formatter) => FmtResult = u32Octal as never;
+/** `usize`'s `LowerExp`, `{:e}`. */
+export const usizeLowerExp: (a: usize, f: Formatter) => FmtResult = u32LowerExp as never;
+/** `usize`'s `UpperExp`, `{:E}`. */
+export const usizeUpperExp: (a: usize, f: Formatter) => FmtResult = u32UpperExp as never;
 /** `usize`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const usizeStep: Step<usize> = u32Step as never;
 /** `isize`'s `a + b`, panicking on overflow. */
@@ -553,6 +727,10 @@ export const isizeSaturatingSub: (a: isize, b: isize) => isize = i32SaturatingSu
 export const isizeWrappingAdd: (a: isize, b: isize) => isize = i32WrappingAdd as never;
 /** `isize`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const isizeWrappingSub: (a: isize, b: isize) => isize = i32WrappingSub as never;
+/** `isize`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const isizeSaturatingMul: (a: isize, b: isize) => isize = i32SaturatingMul as never;
+/** `isize`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const isizeWrappingMul: (a: isize, b: isize) => isize = i32WrappingMul as never;
 /** `isize`'s `leading_ones`: the count of leading one bits. */
 export const isizeLeadingOnes: (a: isize) => number = i32LeadingOnes as never;
 /** `isize`'s `leading_zeros`: the count of leading zero bits. */
@@ -567,6 +745,16 @@ export const isizeTryFrom: (value: number | Limbs) => Result<isize, TryFromIntEr
 export const isizeLowerHex: (a: isize, f: Formatter) => FmtResult = i32LowerHex as never;
 /** `isize`'s `UpperHex`, `{:X}`. */
 export const isizeUpperHex: (a: isize, f: Formatter) => FmtResult = i32UpperHex as never;
+/** `isize`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const isizeDebug: (a: isize, f: Formatter) => FmtResult = i32Debug as never;
+/** `isize`'s `Binary`, `{:b}`. */
+export const isizeBinary: (a: isize, f: Formatter) => FmtResult = i32Binary as never;
+/** `isize`'s `Octal`, `{:o}`. */
+export const isizeOctal: (a: isize, f: Formatter) => FmtResult = i32Octal as never;
+/** `isize`'s `LowerExp`, `{:e}`. */
+export const isizeLowerExp: (a: isize, f: Formatter) => FmtResult = i32LowerExp as never;
+/** `isize`'s `UpperExp`, `{:E}`. */
+export const isizeUpperExp: (a: isize, f: Formatter) => FmtResult = i32UpperExp as never;
 /** `isize`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const isizeStep: Step<isize> = i32Step as never;
 
@@ -729,6 +917,37 @@ function saturated(v: Wide, bits: number, signed: boolean): Wide {
 	return overflow === 0 ? v : extreme(overflow > 0, bits, signed);
 }
 
+/** Whether a wide value is negative: only a signed type's can be. */
+function negative(v: Wide): boolean {
+	return typeof v === "number" ? v < 0 : v.hi < 0;
+}
+
+/** `a * b`, clamped to the type's range: past it, toward the sign the product has. */
+function saturatingProduct(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
+	return product(a, b, bits, signed) ?? extreme(negative(a) === negative(b), bits, signed);
+}
+
+/** `a * b`, wrapped into the type's range. */
+function wrappingProduct(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
+	return product(a, b, bits, signed) ?? one(box(exact(limbs(a, bits, signed)) * exact(limbs(b, bits, signed)), bits, signed));
+}
+
+/** Whether `a` is a multiple of `b`, unsigned: of 0, only 0 is. */
+function multiple(a: Wide, b: Wide, bits: number): boolean {
+	return b === 0 ? a === 0 : rem(a, b, bits, false) === 0;
+}
+
+/** A wide value's decimal text, as its `Debug` writes it. */
+function decimal(v: Wide): string {
+	return typeof v === "number" ? String(v) : String(exact(v));
+}
+
+/** `Ord::clamp` of wide values: `a` within `[min, max]`, panicking unless `min <= max`. */
+function clampWide(a: Wide, min: Wide, max: Wide): Wide {
+	if (lt(max, min)) panic(`min > max. min = ${decimal(min)}, max = ${decimal(max)}`);
+	return lt(a, min) ? min : lt(max, a) ? max : a;
+}
+
 function mul(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
 	const v = product(a, b, bits, signed);
 	if (v === undefined) panic("attempt to multiply with overflow");
@@ -802,6 +1021,18 @@ function product128(a: number, b: number): Limbs {
 	const n2 = (~w2 + (lo === 0 && n1 === 0 ? 1 : 0)) >>> 0;
 	const n3 = ~w3 + (lo === 0 && n1 === 0 && n2 === 0 ? 1 : 0);
 	return { hi: n3 | 0, w2: n2, w1: n1, lo } as Limbs;
+}
+
+/** An unsigned 64-bit `a / b`, rounded up, panicking on a zero divisor. */
+function ceil64(a: Wide, b: Wide): Wide {
+	const q = div(a, b, 64, false);
+	return rem(a, b, 64, false) === 0 ? q : sum64(q, 1, 1, false);
+}
+
+/** An unsigned 128-bit `a / b`, rounded up, panicking on a zero divisor. */
+function ceil128(a: Wide, b: Wide): Wide {
+	const q = div(a, b, 128, false);
+	return rem(a, b, 128, false) === 0 ? q : sum128(q, 1, 1, false);
 }
 
 function div(a: Wide, b: Wide, bits: number, signed: boolean): Wide {
@@ -1044,8 +1275,23 @@ function wideDisplay(a: Wide, f: Formatter): FmtResult {
 	return fmtPadIntegral(f, v >= 0n, "", (v < 0n ? -v : v).toString());
 }
 
+function wideDebug(a: Wide, bits: number, signed: boolean, f: Formatter): FmtResult {
+	const hexDigits = f.spec.debugHex;
+	return hexDigits === undefined ? wideDisplay(a, f) : wideHex(a, bits, signed, f, hexDigits === "X");
+}
+
+/** A value's bits as unsigned. */
+function wideBits(a: Wide, bits: number, signed: boolean): bigint {
+	return BigInt.asUintN(bits, exact(limbs(a, bits, signed)));
+}
+
 function wideHex(a: Wide, bits: number, signed: boolean, f: Formatter, upper: boolean): FmtResult {
-	return hex(BigInt.asUintN(bits, exact(limbs(a, bits, signed))), f, upper);
+	return hex(wideBits(a, bits, signed), f, upper);
+}
+
+function wideExp(a: Wide, f: Formatter, letter: "e" | "E"): FmtResult {
+	const v = typeof a === "number" ? BigInt(a) : exact(a);
+	return exp(v >= 0n, (v < 0n ? -v : v).toString(), f, letter);
 }
 
 /** A value from a safe integer, or from a bigint of any size, wrapped into range. */
@@ -1136,6 +1382,14 @@ export const u64SaturatingSub = (a: u64, b: u64): u64 => (typeof a === "number" 
 export const u64WrappingAdd = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum64(a, b, 1, false)) as u64;
 /** `u64`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const u64WrappingSub = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum64(a, b, -1, false)) as u64;
+/** `u64`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const u64SaturatingMul = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 64, false)) as u64;
+/** `u64`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const u64WrappingMul = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 64, false)) as u64;
+/** `u64`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const u64DivCeil = (a: u64, b: u64): u64 => (typeof a === "number" && typeof b === "number" ? ceilDivide(a, b) : ceil64(a, b)) as u64;
+/** `u64`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const u64IsMultipleOf = (a: u64, b: u64): boolean => (typeof a === "number" && typeof b === "number" ? multipleOf(a, b) : multiple(a, b, 64));
 /** `u64`'s `leading_ones`: the count of leading one bits. */
 export const u64LeadingOnes = (a: u64): number => leadingOnes64(a, false);
 /** `u64`'s `leading_zeros`: the count of leading zero bits. */
@@ -1152,6 +1406,16 @@ export const u64Display = (a: u64, f: Formatter): FmtResult => wideDisplay(a, f)
 export const u64LowerHex = (a: u64, f: Formatter): FmtResult => wideHex(a, 64, false, f, false);
 /** `u64`'s `UpperHex`, `{:X}`. */
 export const u64UpperHex = (a: u64, f: Formatter): FmtResult => wideHex(a, 64, false, f, true);
+/** `u64`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u64Debug = (a: u64, f: Formatter): FmtResult => wideDebug(a, 64, false, f);
+/** `u64`'s `Binary`, `{:b}`. */
+export const u64Binary = (a: u64, f: Formatter): FmtResult => radix(wideBits(a, 64, false), f, 2, "0b");
+/** `u64`'s `Octal`, `{:o}`. */
+export const u64Octal = (a: u64, f: Formatter): FmtResult => radix(wideBits(a, 64, false), f, 8, "0o");
+/** `u64`'s `LowerExp`, `{:e}`. */
+export const u64LowerExp = (a: u64, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `u64`'s `UpperExp`, `{:E}`. */
+export const u64UpperExp = (a: u64, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `u64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u64Of = (value: number | bigint): u64 => of(value, 64, false) as u64;
 /** `value as u64`. */
@@ -1176,6 +1440,8 @@ export const u64Ge = (a: u64, b: u64): boolean => typeof a === "number" && typeo
 export const u64Max = (a: u64, b: u64): u64 => (lt(b, a) ? a : b);
 /** `u64`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const u64Min = (a: u64, b: u64): u64 => (lt(b, a) ? b : a);
+/** `u64`'s `Ord::clamp`: `a` within `[min, max]`, panicking unless `min <= max`. */
+export const u64Clamp = (a: u64, min: u64, max: u64): u64 => clampWide(a, min, max) as u64;
 /** `u64`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u64Step: Step<u64> = (n, by) => stepped(sum64(n, Math.abs(by), by < 0 ? -1 : 1, false)) as [u64, boolean];
 
@@ -1226,6 +1492,10 @@ export const i64SaturatingSub = (a: i64, b: i64): i64 => (typeof a === "number" 
 export const i64WrappingAdd = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum64(a, b, 1, true)) as i64;
 /** `i64`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const i64WrappingSub = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum64(a, b, -1, true)) as i64;
+/** `i64`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const i64SaturatingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 64, true)) as i64;
+/** `i64`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const i64WrappingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 64, true)) as i64;
 /** `i64`'s `leading_ones`: the count of leading one bits. */
 export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
@@ -1242,6 +1512,16 @@ export const i64Display = (a: i64, f: Formatter): FmtResult => wideDisplay(a, f)
 export const i64LowerHex = (a: i64, f: Formatter): FmtResult => wideHex(a, 64, true, f, false);
 /** `i64`'s `UpperHex`, `{:X}`. */
 export const i64UpperHex = (a: i64, f: Formatter): FmtResult => wideHex(a, 64, true, f, true);
+/** `i64`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i64Debug = (a: i64, f: Formatter): FmtResult => wideDebug(a, 64, true, f);
+/** `i64`'s `Binary`, `{:b}`. */
+export const i64Binary = (a: i64, f: Formatter): FmtResult => radix(wideBits(a, 64, true), f, 2, "0b");
+/** `i64`'s `Octal`, `{:o}`. */
+export const i64Octal = (a: i64, f: Formatter): FmtResult => radix(wideBits(a, 64, true), f, 8, "0o");
+/** `i64`'s `LowerExp`, `{:e}`. */
+export const i64LowerExp = (a: i64, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `i64`'s `UpperExp`, `{:E}`. */
+export const i64UpperExp = (a: i64, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `i64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i64Of = (value: number | bigint): i64 => of(value, 64, true) as i64;
 /** `value as i64`. */
@@ -1264,6 +1544,8 @@ export const i64Ge = (a: i64, b: i64): boolean => typeof a === "number" && typeo
 export const i64Max = (a: i64, b: i64): i64 => (lt(b, a) ? a : b);
 /** `i64`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const i64Min = (a: i64, b: i64): i64 => (lt(b, a) ? b : a);
+/** `i64`'s `Ord::clamp`: `a` within `[min, max]`, panicking unless `min <= max`. */
+export const i64Clamp = (a: i64, min: i64, max: i64): i64 => clampWide(a, min, max) as i64;
 /** `i64`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i64Step: Step<i64> = (n, by) => stepped(sum64(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i64, boolean];
 
@@ -1312,6 +1594,14 @@ export const u128SaturatingSub = (a: u128, b: u128): u128 => (typeof a === "numb
 export const u128WrappingAdd = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a + b, false) ? a + b : sum128(a, b, 1, false)) as u128;
 /** `u128`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const u128WrappingSub = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && fits(a - b, false) ? a - b : sum128(a, b, -1, false)) as u128;
+/** `u128`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const u128SaturatingMul = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 128, false)) as u128;
+/** `u128`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const u128WrappingMul = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 128, false)) as u128;
+/** `u128`'s `div_ceil`: `a / b`, rounded up, panicking on a zero divisor. */
+export const u128DivCeil = (a: u128, b: u128): u128 => (typeof a === "number" && typeof b === "number" ? ceilDivide(a, b) : ceil128(a, b)) as u128;
+/** `u128`'s `is_multiple_of`: whether `b` divides `a`; of 0, only 0 is a multiple. */
+export const u128IsMultipleOf = (a: u128, b: u128): boolean => (typeof a === "number" && typeof b === "number" ? multipleOf(a, b) : multiple(a, b, 128));
 /** `u128`'s `leading_ones`: the count of leading one bits. */
 export const u128LeadingOnes = (a: u128): number => leadingOnes128(a, false);
 /** `u128`'s `leading_zeros`: the count of leading zero bits. */
@@ -1328,6 +1618,16 @@ export const u128Display = (a: u128, f: Formatter): FmtResult => wideDisplay(a, 
 export const u128LowerHex = (a: u128, f: Formatter): FmtResult => wideHex(a, 128, false, f, false);
 /** `u128`'s `UpperHex`, `{:X}`. */
 export const u128UpperHex = (a: u128, f: Formatter): FmtResult => wideHex(a, 128, false, f, true);
+/** `u128`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u128Debug = (a: u128, f: Formatter): FmtResult => wideDebug(a, 128, false, f);
+/** `u128`'s `Binary`, `{:b}`. */
+export const u128Binary = (a: u128, f: Formatter): FmtResult => radix(wideBits(a, 128, false), f, 2, "0b");
+/** `u128`'s `Octal`, `{:o}`. */
+export const u128Octal = (a: u128, f: Formatter): FmtResult => radix(wideBits(a, 128, false), f, 8, "0o");
+/** `u128`'s `LowerExp`, `{:e}`. */
+export const u128LowerExp = (a: u128, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `u128`'s `UpperExp`, `{:E}`. */
+export const u128UpperExp = (a: u128, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `u128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u128Of = (value: number | bigint): u128 => of(value, 128, false) as u128;
 /** `value as u128`. */
@@ -1350,6 +1650,8 @@ export const u128Ge = (a: u128, b: u128): boolean => typeof a === "number" && ty
 export const u128Max = (a: u128, b: u128): u128 => (lt(b, a) ? a : b);
 /** `u128`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const u128Min = (a: u128, b: u128): u128 => (lt(b, a) ? b : a);
+/** `u128`'s `Ord::clamp`: `a` within `[min, max]`, panicking unless `min <= max`. */
+export const u128Clamp = (a: u128, min: u128, max: u128): u128 => clampWide(a, min, max) as u128;
 /** `u128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u128Step: Step<u128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, false)) as [u128, boolean];
 
@@ -1400,6 +1702,10 @@ export const i128SaturatingSub = (a: i128, b: i128): i128 => (typeof a === "numb
 export const i128WrappingAdd = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a + b, true) ? a + b : sum128(a, b, 1, true)) as i128;
 /** `i128`'s `wrapping_sub`: `a - b`, wrapped into the type's range. */
 export const i128WrappingSub = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && fits(a - b, true) ? a - b : sum128(a, b, -1, true)) as i128;
+/** `i128`'s `saturating_mul`: `a * b`, clamped to the type's range. */
+export const i128SaturatingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 128, true)) as i128;
+/** `i128`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
+export const i128WrappingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 128, true)) as i128;
 /** `i128`'s `leading_ones`: the count of leading one bits. */
 export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */
@@ -1416,6 +1722,16 @@ export const i128Display = (a: i128, f: Formatter): FmtResult => wideDisplay(a, 
 export const i128LowerHex = (a: i128, f: Formatter): FmtResult => wideHex(a, 128, true, f, false);
 /** `i128`'s `UpperHex`, `{:X}`. */
 export const i128UpperHex = (a: i128, f: Formatter): FmtResult => wideHex(a, 128, true, f, true);
+/** `i128`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i128Debug = (a: i128, f: Formatter): FmtResult => wideDebug(a, 128, true, f);
+/** `i128`'s `Binary`, `{:b}`. */
+export const i128Binary = (a: i128, f: Formatter): FmtResult => radix(wideBits(a, 128, true), f, 2, "0b");
+/** `i128`'s `Octal`, `{:o}`. */
+export const i128Octal = (a: i128, f: Formatter): FmtResult => radix(wideBits(a, 128, true), f, 8, "0o");
+/** `i128`'s `LowerExp`, `{:e}`. */
+export const i128LowerExp = (a: i128, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `i128`'s `UpperExp`, `{:E}`. */
+export const i128UpperExp = (a: i128, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `i128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i128Of = (value: number | bigint): i128 => of(value, 128, true) as i128;
 /** `value as i128`. */
@@ -1438,5 +1754,67 @@ export const i128Ge = (a: i128, b: i128): boolean => typeof a === "number" && ty
 export const i128Max = (a: i128, b: i128): i128 => (lt(b, a) ? a : b);
 /** `i128`'s `Ord::min`: the lesser, `a` if they are equal. */
 export const i128Min = (a: i128, b: i128): i128 => (lt(b, a) ? b : a);
+/** `i128`'s `Ord::clamp`: `a` within `[min, max]`, panicking unless `min <= max`. */
+export const i128Clamp = (a: i128, min: i128, max: i128): i128 => clampWide(a, min, max) as i128;
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];
+
+// Casts between integers and `f64`. An integer of at most 32 bits is already its `f64`;
+// a wider one rounds to the nearest, ties to even, once. An `f64` to an integer
+// truncates toward zero, saturates at the type's bounds, and sends NaN to 0.
+
+/** `x as T` into a type of at most 32 bits, whose bounds are int32s or uint32s. */
+function narrowFromF64(x: number, min: number, max: number): number {
+	// NaN fails both comparisons; `+ 0` turns a truncated -0 into 0.
+	return x >= min ? (x <= max ? Math.trunc(x) + 0 : max) : x < min ? min : 0;
+}
+
+/** `x as T` into a 64- or 128-bit type. */
+function wideFromF64(x: number, bits: number, signed: boolean): Wide {
+	const t = Math.trunc(x) + 0;
+	if (fits(t, signed)) return t;
+	if (t !== t) return 0;
+	// Every integer past 2^53 is exact in a double, and so is each type's bound.
+	const bound = 2 ** (signed ? bits - 1 : bits);
+	const min = signed ? -bound : 0;
+	if (t >= bound) return of((1n << BigInt(signed ? bits - 1 : bits)) - 1n, bits, signed);
+	if (t < min) return of(BigInt(min), bits, signed);
+	if (bits === 64) {
+		const hi = Math.floor(t / TWO32);
+		return join(hi, t - hi * TWO32);
+	}
+	return of(BigInt(t), bits, signed);
+}
+
+/** `x as u8`. */
+export const u8FromF64 = (x: f64): u8 => narrowFromF64(x, 0, 0xff);
+/** `x as u16`. */
+export const u16FromF64 = (x: f64): u16 => narrowFromF64(x, 0, 0xffff);
+/** `x as u32`. */
+export const u32FromF64 = (x: f64): u32 => narrowFromF64(x, 0, 0xffffffff);
+/** `x as usize`. */
+export const usizeFromF64: (x: f64) => usize = u32FromF64 as never;
+/** `x as i8`. */
+export const i8FromF64 = (x: f64): i8 => narrowFromF64(x, -0x80, 0x7f);
+/** `x as i16`. */
+export const i16FromF64 = (x: f64): i16 => narrowFromF64(x, -0x8000, 0x7fff);
+/** `x as i32`. */
+export const i32FromF64 = (x: f64): i32 => narrowFromF64(x, -0x80000000, 0x7fffffff);
+/** `x as isize`. */
+export const isizeFromF64: (x: f64) => isize = i32FromF64 as never;
+/** `x as u64`. */
+export const u64FromF64 = (x: f64): u64 => wideFromF64(x, 64, false) as u64;
+/** `x as i64`. */
+export const i64FromF64 = (x: f64): i64 => wideFromF64(x, 64, true) as i64;
+/** `x as u128`. */
+export const u128FromF64 = (x: f64): u128 => wideFromF64(x, 128, false) as u128;
+/** `x as i128`. */
+export const i128FromF64 = (x: f64): i128 => wideFromF64(x, 128, true) as i128;
+/** `a as f64`: limbs' one sum is exact before it rounds. */
+export const u64ToF64 = (a: u64): f64 => (typeof a === "number" ? (a as number) : a.hi * TWO32 + a.lo);
+/** `a as f64`: limbs' one sum is exact before it rounds. */
+export const i64ToF64 = (a: i64): f64 => (typeof a === "number" ? (a as number) : a.hi * TWO32 + a.lo);
+/** `a as f64`: a bigint converts to the nearest double. */
+export const u128ToF64 = (a: u128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
+/** `a as f64`: a bigint converts to the nearest double. */
+export const i128ToF64 = (a: i128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));

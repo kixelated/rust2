@@ -185,6 +185,8 @@ struct Pending {
 	copy: bool,
 	/// Whether it is an aggregate's part, with no variable of its own until emitted.
 	decl: bool,
+	/// Whether reading it again, wherever and however often, reads the same.
+	rereads: bool,
 }
 
 pub struct Fx<'m, 'b, 'a, 'tcx> {
@@ -296,6 +298,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// Names nothing assigns again that `scalar` reads in place: variables of parts assigned
 	/// once, and the slices it took apart.
 	steady: FxHashSet<String>,
+	/// The type of each temporary a place names, which a cleanup that reads the place
+	/// declares before the `try`.
+	spilled: FxHashMap<String, Type>,
 	/// Those slices, with their types, which need declarations.
 	scalar_binds: Vec<(String, Type)>,
 	/// The tests and payload reads TypeScript may have narrowed stale.
@@ -361,6 +366,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			widened: FxHashSet::default(),
 			scalars: FxHashMap::default(),
 			steady: FxHashSet::default(),
+			spilled: FxHashMap::default(),
 			scalar_binds: Vec::new(),
 			narrowing: decided::narrowing(tcx, mir),
 			at: mir::START_BLOCK.start_location(),
@@ -1229,6 +1235,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// An `Option` this `Iterator::next` returns, as it returns it: the item, or
+	/// `rt.DONE` for `None`.
+	pub(super) fn done_of(&self, option: Expr) -> Expr {
+		let ty::Adt(_, args) = self.mir.return_ty().kind() else {
+			unreachable!("`next` returns an `Option`")
+		};
+		let none = self.b.t.none(args.type_at(0));
+		match option {
+			option if option == none => Expr::Rt("DONE".into()),
+			option => {
+				let none = self.b.t.none_arg(args.type_at(0));
+				Expr::rt("iterFromOption", [option].into_iter().chain(none).collect())
+			}
+		}
+	}
+
 	/// `value`, the `rvalue` assigned to `place`, as a value of its whole type where
 	/// something tests `place`'s variant or std takes it: TypeScript narrows a variable to
 	/// the type of what it was assigned, as a `Poll` made `Ready` to its payload's, and
@@ -1427,8 +1449,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut labels = self.labels;
 		let body = cfg::structure(&graph, self, &mut labels);
 		self.labels = labels;
-		let body = self.catch(body);
+		let mut body = self.catch(body);
 		let mut out = Vec::new();
+		self.declare_caught(&mut body, &mut out);
 		for local in self.mir.local_decls.indices() {
 			// Parameters are declared by the signature.
 			if self.is_arg(local) || !self.assigned[local] {
@@ -1654,6 +1677,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// The value held back for `local`, if it is.
+	fn held(&self, local: Local) -> Option<&Pending> {
+		let name = self.var(local)?;
+		self.pending.iter().find(|p| p.name == name)
+	}
+
 	/// Whether `local` can be held back as a pending temporary: one assignment, one read.
 	fn foldable(&self, local: Local) -> bool {
 		matches!(self.slots[local], Slot::Var(_))
@@ -1674,21 +1703,61 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			&& !self.mutated[local]
 	}
 
-	/// Whether the operand `e` reads the same wherever and however often it is read: a
-	/// path, with what it folds in that is held back a constant, a name nothing changes, or
-	/// a reference to a path, which borrow checking keeps as it is.
-	fn rereadable(&self, e: &Expr) -> bool {
-		let mut names = Vec::new();
-		reads_of(e, &mut names);
-		e.is_path()
-			&& self.pending.iter().filter(|p| names.contains(&p.name)).all(|p| {
-				p.value.is_constant()
-					|| self.stable_name(&p.value)
-					|| p.value.is_path()
-						&& self
-							.local_named(&p.name)
-							.is_some_and(|local| self.mir.local_decls[local].ty.is_ref())
-			})
+	/// Whether reading `place` again, wherever and however often, reads what it reads now:
+	/// a place nothing changes, a value held back that rereads the same, or a reference
+	/// read as what it is assigned.
+	fn rereads(&self, place: Place<'tcx>) -> bool {
+		match (self.held(place.local), &self.slots[place.local]) {
+			(Some(p), _) => place.projection.is_empty() && p.rereads,
+			(None, Slot::Alias(_)) => {
+				place.projection.is_empty()
+					&& self
+						.def_rvalue(place.local)
+						.is_some_and(|rvalue| self.rvalue_rereads(rvalue))
+			}
+			_ => {
+				self.stable(place)
+					&& !self.mutated[place.local]
+					&& place
+						.projection
+						.iter()
+						.all(|e| !matches!(e, mir::ProjectionElem::Deref))
+			}
+		}
+	}
+
+	/// Whether `rvalue`, read again, reads what it reads now: a constant, a copy of a place
+	/// that rereads the same, or a borrow, which borrow checking keeps as it is, unless the
+	/// path to it goes through a reference that can be replaced first. A copy of a
+	/// reference is read from where it is copied, which can be assigned another.
+	fn rvalue_rereads(&self, rvalue: &Rvalue<'tcx>) -> bool {
+		match rvalue {
+			Rvalue::Use(Operand::Constant(_), _) => true,
+			Rvalue::Use(Operand::Copy(from) | Operand::Move(from), _) | Rvalue::CopyForDeref(from) => {
+				self.rereads(*from)
+			}
+			Rvalue::Ref(_, _, from) => {
+				let fixed = |l: Local| self.defs[l] <= 1 && (!self.is_arg(l) || self.defs[l] == 0);
+				let root = Place::from(from.local);
+				from.projection.iter().all(|e| match e {
+					mir::ProjectionElem::Index(index) => fixed(index),
+					_ => true,
+				}) && match from
+					.projection
+					.iter()
+					.rposition(|e| matches!(e, mir::ProjectionElem::Deref))
+				{
+					// The borrow keeps a variable as it is, but not a value held back.
+					None => match self.slots[from.local] {
+						Slot::Var(_) if self.held(from.local).is_none() => true,
+						_ => self.rereads(root),
+					},
+					Some(0) => self.rereads(root),
+					Some(_) => false,
+				}
+			}
+			_ => false,
+		}
 	}
 
 	// Emission
@@ -1871,7 +1940,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// Hold back `value`, the assignment of `local`, to fold into what reads it.
-	fn hold(&mut self, local: Local, value: Expr, effect: bool, memory: bool, parts: Option<Vec<(Expr, bool)>>) {
+	fn hold(
+		&mut self,
+		local: Local,
+		value: Expr,
+		effect: bool,
+		memory: bool,
+		parts: Option<Vec<(Expr, bool)>>,
+		rereads: bool,
+	) {
 		let name = self.var(local).expect("a pending local is a variable").to_string();
 		self.order += 1;
 		let mut reads = Vec::new();
@@ -1887,6 +1964,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			reads,
 			copy,
 			decl: false,
+			rereads,
 		});
 	}
 
@@ -1906,6 +1984,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			reads,
 			copy: false,
 			decl: false,
+			rereads: false,
 		});
 	}
 
@@ -1959,6 +2038,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					reads,
 					copy: false,
 					decl: true,
+					rereads: false,
 				},
 			);
 			held += 1;
@@ -2035,6 +2115,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return;
 				}
 				if self.foldable(local) {
+					// A borrow rereads the same by what it borrows, judged before what that
+					// reads that is held back folds into it; anything else only as a constant
+					// or a name that stays put.
+					let borrow = self
+						.def_rvalue(local)
+						.is_some_and(|rvalue| matches!(rvalue, Rvalue::Ref(..)) && self.rvalue_rereads(rvalue));
 					// What it reads that is held back folds into it first, so nothing held
 					// back reads another, and its effects and reads go with it.
 					let mut reads = Vec::new();
@@ -2048,7 +2134,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let value = folded.pop().unwrap();
 					let parts =
 						parts.and_then(|rereadable| Some(parts_of(&value)?.into_iter().zip(rereadable).collect()));
-					self.hold(local, value, effect, memory, parts);
+					let mut bare = &value;
+					while let Expr::Located(_, e) = bare {
+						bare = e;
+					}
+					let rereads = borrow || value.is_constant() || self.stable_name(bare);
+					self.hold(local, value, effect, memory, parts, rereads);
 					return;
 				}
 				self.assigned[local] = true;
@@ -2260,7 +2351,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				value
 			}
-			(true, _) => done_of(value),
+			(true, _) => self.done_of(value),
 		};
 		let effect = rvalue::effect(rvalue, self);
 		// A copy shared until it folds into its argument reads its source there.
@@ -2294,6 +2385,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
 		self.emit(vec![stmt], None, false, out);
 		Expr::ident(name)
+	}
+
+	/// Note `ty` as the type of `held` if `path` made it a temporary, for a place that
+	/// names it.
+	pub(super) fn spilled_as(&mut self, held: &Expr, ty: Type) {
+		if let Expr::Ident(name) = held
+			&& self.local_named(name).is_none()
+		{
+			self.spilled.insert(name.clone(), ty);
+		}
+	}
+
+	/// Declare up front each temporary the `try` holds that the `catch` reads, which the
+	/// `try`'s block would otherwise scope.
+	fn declare_caught(&mut self, body: &mut [Stmt], out: &mut Vec<Stmt>) {
+		let mut held = Vec::new();
+		assign_caught(body, &FxHashSet::default(), &mut held);
+		for name in held {
+			match self.spilled.get(&name) {
+				Some(ty) => out.push(StmtKind::Declare { name, ty: ty.clone() }.at(None)),
+				None => _ = self.err(self.span, format!("a cleanup that reads `{name}`, of no known type")),
+			}
+		}
 	}
 
 	/// Hold `slice`, an `rt.ByteSlice` to read more than once, in a path, as a tuple's part
@@ -2926,8 +3040,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 }
 
-/// Whether `place` is part of its local's own value, rather than reached through a
-/// reference or pointer.
 /// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
 /// which TypeScript types as the whole union already.
 pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
@@ -2942,6 +3054,8 @@ pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
 	}
 }
 
+/// Whether `place` is part of its local's own value, rather than reached through a
+/// reference or pointer.
 pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
@@ -3470,9 +3584,11 @@ pub fn fold(e: Expr) -> Expr {
 				_ => None,
 			};
 			if let (Some(a), Some(b)) = (num(&l), num(&r)) {
-				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators.
+				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators. An
+				// `f64` literal is spelled with a point or an exponent, and its -0.0 is no integer.
+				let int = |e: &Expr| matches!(e, Expr::Lit(t) if !t.contains(['.', 'e']));
 				let small = |v: f64| v.fract() == 0.0 && v.abs() < 2f64.powi(31);
-				if small(a) && small(b) {
+				if int(&l) && int(&r) && small(a) && small(b) {
 					let (x, y) = (a as i64, b as i64);
 					let int = match op {
 						"<<" if (0..31).contains(&y) => Some((x as i32).wrapping_shl(y as u32) as i64),
@@ -3545,14 +3661,6 @@ fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
 			| AssertKind::RemainderByZero(_)
 			| AssertKind::Overflow(BinOp::Div | BinOp::Rem | BinOp::Shl | BinOp::Shr, ..)
 	)
-}
-
-/// An `Option` as `Iterator::next` returns it: the item, or `rt.DONE` for `None`.
-pub fn done_of(option: Expr) -> Expr {
-	match option {
-		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE".into()),
-		option => Expr::rt("iterFromOption", vec![option]),
-	}
 }
 
 /// Whether `term` is an assert of a constant that fails.
@@ -3713,6 +3821,67 @@ fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
 			}
 			_ => {}
 		}
+	}
+}
+
+/// Turn each declaration in a `try` of a name its `catch` reads, or one around it does,
+/// into an assignment to it, adding the name to `held`.
+fn assign_caught(stmts: &mut [Stmt], reads: &FxHashSet<String>, held: &mut Vec<String>) {
+	for stmt in stmts {
+		match &mut stmt.kind {
+			StmtKind::Decl {
+				name, init: Some(init), ..
+			} if reads.contains(name.as_str()) => {
+				held.push(name.clone());
+				let value = std::mem::replace(init, Expr::undefined());
+				stmt.kind = StmtKind::Expr(Expr::ident(name.clone()).assign(value));
+			}
+			StmtKind::If { then, els, .. } => {
+				assign_caught(then, reads, held);
+				assign_caught(els, reads, held);
+			}
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				assign_caught(body, reads, held)
+			}
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| assign_caught(body, reads, held));
+				assign_caught(default, reads, held);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				// What the handler declares itself, as inline drop glue does, it reads its own.
+				let mut caught = Vec::new();
+				handler.iter().for_each(|s| scan_reads(s, &mut caught));
+				let mut own = Vec::new();
+				handler.iter().for_each(|s| declared(s, &mut own));
+				let mut inner = reads.clone();
+				inner.extend(caught.into_iter().filter(|n| !own.contains(n)));
+				assign_caught(body, &inner, held);
+				assign_caught(handler, reads, held);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Every name `stmt` declares, in it and its blocks.
+fn declared(stmt: &Stmt, out: &mut Vec<String>) {
+	let mut each = |stmts: &[Stmt]| stmts.iter().for_each(|s| declared(s, out));
+	match &stmt.kind {
+		StmtKind::Decl { name, .. } | StmtKind::Declare { name, .. } => out.push(name.clone()),
+		StmtKind::If { then, els, .. } => {
+			each(then);
+			each(els);
+		}
+		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => each(body),
+		StmtKind::Catch { body, handler, .. } => {
+			each(body);
+			each(handler);
+		}
+		StmtKind::Switch { cases, default, .. } => {
+			cases.iter().for_each(|(_, body)| each(body));
+			each(default);
+		}
+		_ => {}
 	}
 }
 

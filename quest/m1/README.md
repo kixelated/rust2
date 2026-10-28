@@ -17,7 +17,5 @@ are folded into the [exporter's](/quest/m1/ffi-export/README.md). The
 ## Required
 
 - [Waiting: publish the UniFFI fork](/quest/m1/uniffi-release.md) - the fork publishes to crates.io under `rust2-*` names, once the maintainer decides it should
-- [Vec views of the right type](/quest/m1/ts-vec-view.md) - rust2-ts never translates a `Vec` of non-bytes as bytes, and the exporter's pin bump unblocks
-- [Strings from UTF-8 bytes](/quest/m1/ts-utf8.md) - `str::from_utf8` translates, so the translator follows moq past its owned `Path`
 - [Exporter](/quest/m1/ffi-export/README.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
 - [Land main through quest land](/quest/m1/land.md) - every queued PR lands as one tested batch through the shared gate
