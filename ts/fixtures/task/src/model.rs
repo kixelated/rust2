@@ -7,6 +7,7 @@ use std::pin::{Pin, pin};
 use std::task::Poll;
 
 use kio::{Closed, Consumer, Producer, Waiter};
+
 use crate::log::Log;
 
 /// A channel's open producers, and a consumer to clone for each task.

@@ -1290,7 +1290,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				let inner = args.type_at(0);
 				let erased = self.erases_to(inner);
 				(erased.pending && erased.outer_pending).then(|| {
-					format!("`Poll<{inner}>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending`")
+					format!(
+						"`Poll<{inner}>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending`"
+					)
 				})
 			}
 			library::Std::ControlFlow if library::Flow::of(self.tcx, args) == library::Flow::Option => {
