@@ -354,6 +354,13 @@ int script() {
 	            api::outer_inner_u8::new_(4).get());
 	// A bound that outlives the call takes a value, and an instance only a constant names.
 	std::printf("kept %llu boxed %u\n", ull(api::kept_point({1, -2})), api::boxed().value);
+	// Inferred instances taking a lent closure and a foreign implementation, and one only
+	// its impl of a trait names.
+	api::pair_u32 sides{2, 5};
+	std::printf("apply %u\n", api::apply_u32(sides, [](std::uint32_t side) { return side * 3; }));
+	std::printf("report %u\n", api::report_u32(sides, std::make_unique<print_log>()));
+	std::printf("wrapped %llu\n", ull(api::kept_wrap_u32({4})));
+	std::printf("keeps %u\n", api::keeps(std::make_unique<print_log>()).value);
 
 	// Its Drop runs when C++ destroys the handle, not before.
 	{

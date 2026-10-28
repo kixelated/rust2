@@ -218,22 +218,6 @@ export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
 }
 
-export function drop$PoisonError_MutexGuard_Option_u8(value: rt.Mutex<rt.u8 | undefined>): void {
-	rt.mutexUnlock(value);
-}
-
-export function drop$PoisonError_MutexGuard_Tally(value: rt.Mutex<locks_Tally.Tally>): void {
-	rt.mutexUnlock(value);
-}
-
-export function drop$PoisonError_MutexGuard_u32(value: rt.Mutex<rt.u32>): void {
-	rt.mutexUnlock(value);
-}
-
-export function drop$PoisonError_MutexGuard_u8(value: rt.Mutex<rt.u8>): void {
-	rt.mutexUnlock(value);
-}
-
 export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
 	if (_1.ok) {
 		rt.mutexUnlock(_1.value);

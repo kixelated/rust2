@@ -11,8 +11,4 @@ export function copy$i16s(v: rt.i16[]): rt.i16[] {
 	return v.slice();
 }
 
-export function drop$PoisonError_MutexGuard_Vec_u8(value: rt.Mutex<rt.ByteVec>): void {
-	rt.mutexUnlock(value);
-}
-
 //# sourceMappingURL=lib.ts.map

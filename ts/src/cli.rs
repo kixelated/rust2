@@ -85,17 +85,15 @@ fn toml_list(items: &[&str]) -> String {
 	format!("[{}]", items.join(", "))
 }
 
-/// Cargo args that build std from source, unwinding and with every function's MIR, so
-/// the bodies of std's combinators lower as the crate's do, cleanups included: the
-/// target's prebuilt std aborts, so its MIR has none. Set through the profile, which
-/// cargo's fingerprint sees. `panic_abort` keeps aborting, since a `cdylib` dependency
-/// links it.
+/// Cargo args that build std from source with every function's MIR, so the bodies of
+/// std's combinators lower as the crate's do: the target's prebuilt std encodes the MIR
+/// of few, optimized. Set through the profile, which cargo's fingerprint sees.
 fn std_from_source() -> Vec<String> {
-	let mut args = vec!["-Zbuild-std=core,alloc,std,panic_unwind,panic_abort".to_string()];
+	let mut args = vec!["-Zbuild-std=core,alloc,std,panic_abort".to_string()];
 	for krate in ["core", "alloc", "std"] {
 		args.push("--config".into());
 		args.push(format!(
-			"profile.dev.package.{krate}.rustflags=[\"-Cpanic=unwind\", \"-Zalways-encode-mir\"]"
+			"profile.dev.package.{krate}.rustflags=[\"-Zalways-encode-mir\"]"
 		));
 	}
 	args

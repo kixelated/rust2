@@ -292,22 +292,10 @@ export function unwritten(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Adds one to what `slot` holds. */
 export function bump(slot: rt.Mutex<rt.u8>): void {
-	let held!: rt.Mutex<rt.u8>;
-	let unwind: number = 0;
-	try {
-		held = rt.mutexLock(slot);
-		unwind = 8;
-		const _4: rt.u8 = rt.u8WrappingAdd(held.value, 1);
-		unwind = 0;
-		held.value = _4;
-		rt.mutexUnlock(held);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(held);
-		throw e;
-	}
+	const held: rt.Mutex<rt.u8> = rt.mutexLock(slot);
+	const _4: rt.u8 = rt.u8WrappingAdd(held.value, 1);
+	held.value = _4;
+	rt.mutexUnlock(held);
 }
 
 /**
@@ -317,150 +305,120 @@ export function bump(slot: rt.Mutex<rt.u8>): void {
 export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let res!: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>;
 	let n!: rt.u8;
-	let arc!: rt.Arc<rt.u8>;
 	let flow!: rt.Result<Uint8Array, rt.Arc<rt.u8>>;
-	let _143!: rt.Mutex<rt.u8>;
-	let _150!: rt.Mutex<rt.u8>;
-	let unwind: number = 0;
-	try {
-		const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
-		const slot: rt.Mutex<rt.u8> = new rt.Mutex(a);
-		const other: rt.Mutex<rt.u8> = new rt.Mutex(0);
-		const pair: [rt.Mutex<rt.u8>, rt.u8] = [slot, a];
-		const copy: [rt.Mutex<rt.u8>, rt.u8] = copy$Mutex_u8_u8(pair);
-		copy[1] = rt.u8WrappingAdd(copy[1], 1);
-		bump(copy[0]);
-		bump(slot);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, copy[1])));
-		const refs: rt.Mutex<rt.u8>[] = [slot, other];
-		const copy2: rt.Mutex<rt.u8>[] = copy$Mutex_u8s(refs);
-		bump(copy2[0]);
-		copy2[1] = slot;
-		bump(copy2[1]);
-		bump(refs[1]);
-		const held: [rt.Mutex<rt.u8>, rt.u8] | undefined = [slot, a];
-		const copy3: [rt.Mutex<rt.u8>, rt.u8] | undefined = copy$Option_Mutex_u8_u8(held);
-		if (copy3 !== undefined) {
-			bump(copy3[0]);
-			const _45: rt.u8 = rt.u8WrappingAdd(copy3[1], 2);
-			copy3[1] = _45;
-		}
-		unwind = 0;
-		const _49: [rt.Mutex<rt.u8>, rt.u8] | undefined = copy$Option_Mutex_u8_u8(copy3);
-		const iter: rt.Iter<[rt.Mutex<rt.u8>, rt.u8] | undefined> = rt.iterSlice([copy$Option_Mutex_u8_u8(held), _49]);
-		while (true) {
-			unwind = 0;
-			const _51: [rt.Mutex<rt.u8>, rt.u8] | undefined | rt.Done = iter.next();
-			if (_51 === rt.DONE) {
-				break;
-			}
-			rt.byteVecPush(out, mapOr$Option_Mutex_u8_u8_u8_shares_closure0(_51, 0, (_2: [rt.Mutex<rt.u8>, rt.u8]): rt.u8 => {
-				return _2[1];
-			}));
-		}
-		if (!(rt.u8Rem(a, 2) === 0)) {
-			res = rt.Err(a);
-		} else {
-			res = rt.Ok([slot, a] as [rt.Mutex<rt.u8>, rt.u8]);
-		}
-		const copy4: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> = copy$Result_Mutex_u8_u8_u8(res);
-		if (copy4.ok) {
-			bump(copy4.value[0]);
-			const _69: rt.u8 = rt.u8WrappingAdd(copy4.value[1], 3);
-			copy4.value[1] = _69;
-		}
-		unwind = 0;
-		const iter2: rt.Iter<rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>> = rt.iterSlice([copy$Result_Mutex_u8_u8_u8(res), copy$Result_Mutex_u8_u8_u8(copy4)]);
-		while (true) {
-			const _76: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> | rt.Done = iter2.next();
-			if (_76 === rt.DONE) {
-				break;
-			}
-			const r: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> = _76;
-			if (r.ok) {
-				n = r.value[1];
-			} else {
-				n = r.error;
-			}
-			rt.byteVecPush(out, n);
-		}
-		const lens: Lens.Lens = { slot, n: a };
-		const copy5: Lens.Lens = copy$Lens(lens);
-		copy5.n = rt.u8WrappingAdd(copy5.n, 4);
-		bump(copy5.slot);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, copy5.n)));
-		rt.byteVecPush(out, lensBumped(lens));
-		for (const _104 of Array.from({ length: 2 }, (): Lens.Lens => {
-			return copy$Lens(lens);
-		}).map(copy$Lens)) {
-			bump(_104.slot);
-		}
-		const lenses: Lens.Lens[] = [];
-		lenses.push(copy$Lens(lens));
-		const _114: rt.Iter<Lens.Lens> = rt.iterSlice([lens]);
-		rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens));
-		const iter4: rt.Iter<Lens.Lens> = rt.iterCopied(rt.iterSlice(lenses), copy$Lens);
-		while (true) {
-			const _124: Lens.Lens | rt.Done = iter4.next();
-			if (_124 === rt.DONE) {
-				break;
-			}
-			bump(_124.slot);
-		}
-		arc = new rt.Arc(a);
-		unwind = 117;
-		if (rt.u8Rem(a, 3) === 0) {
-			flow = rt.Ok(Uint8Array.of(a));
-		} else {
-			flow = rt.Err(arc);
-		}
-		rt.byteVecPush(out, sameArc(flow, arc));
-		_143 = rt.mutexLock(slot);
-		unwind = 116;
-		rt.byteVecPush(out, _143.value);
-		unwind = 117;
-		rt.mutexUnlock(_143);
-		_150 = rt.mutexLock(other);
-		unwind = 115;
-		rt.byteVecPush(out, _150.value);
-		unwind = 117;
-		rt.mutexUnlock(_150);
-		const source: Held.Held = { at: copy$Point(Point.new(a as rt.i32, 0)) };
-		const kept: Held.Held = hold(copy$Point(source.at));
-		source.at.x = 9;
-		const read: rt.i32 = movedThenRead(copy$Point(source.at), source);
-		const by: rt.i32 = movedBy(copy$Point(source.at), { held: source });
-		const part: rt.i32 = partMovedThenRead(copy$Held(source), source.at);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(kept.at.x & 0xff, read & 0xff, by & 0xff, part & 0xff, source.at.x & 0xff)));
-		unwind = 117;
-		const bytes: Uint8Array = Uint8Array.of(a, 1);
-		rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
-		rt.byteVecPush(out, bytes[0]);
-		const at: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
-			return rt.usizeRem(_22 as rt.usize, 3);
-		});
-		rt.byteVecPush(out, writeAt(rt.byteSliceFrom(bytes), at, a));
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
-		const points: Point.Point[] = rt.vecFromElem(copy$Point(Point.new(a as rt.i32, 0)), 2, copy$Point);
-		unwind = 114;
-		movedAt(points, at);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(points[rt.idx(points, 0)].x & 0xff, points[rt.idx(points, 1)].x & 0xff, points[rt.idx(points, 1)].y & 0xff)));
-		unwind = 0;
-		rt.drop(arc);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 114) {
-			if (unwind === 115) {
-				rt.mutexUnlock(_150);
-			} else if (unwind === 116) {
-				rt.mutexUnlock(_143);
-			}
-		}
-		rt.drop(arc);
-		throw e;
+	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
+	const slot: rt.Mutex<rt.u8> = new rt.Mutex(a);
+	const other: rt.Mutex<rt.u8> = new rt.Mutex(0);
+	const pair: [rt.Mutex<rt.u8>, rt.u8] = [slot, a];
+	const copy: [rt.Mutex<rt.u8>, rt.u8] = copy$Mutex_u8_u8(pair);
+	copy[1] = rt.u8WrappingAdd(copy[1], 1);
+	bump(copy[0]);
+	bump(slot);
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, copy[1])));
+	const refs: rt.Mutex<rt.u8>[] = [slot, other];
+	const copy2: rt.Mutex<rt.u8>[] = copy$Mutex_u8s(refs);
+	bump(copy2[0]);
+	copy2[1] = slot;
+	bump(copy2[1]);
+	bump(refs[1]);
+	const held: [rt.Mutex<rt.u8>, rt.u8] | undefined = [slot, a];
+	const copy3: [rt.Mutex<rt.u8>, rt.u8] | undefined = copy$Option_Mutex_u8_u8(held);
+	if (copy3 !== undefined) {
+		bump(copy3[0]);
+		const _45: rt.u8 = rt.u8WrappingAdd(copy3[1], 2);
+		copy3[1] = _45;
 	}
+	const _49: [rt.Mutex<rt.u8>, rt.u8] | undefined = copy$Option_Mutex_u8_u8(copy3);
+	const iter: rt.Iter<[rt.Mutex<rt.u8>, rt.u8] | undefined> = rt.iterSlice([copy$Option_Mutex_u8_u8(held), _49]);
+	while (true) {
+		const _51: [rt.Mutex<rt.u8>, rt.u8] | undefined | rt.Done = iter.next();
+		if (_51 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, mapOr$Option_Mutex_u8_u8_u8_shares_closure0(_51, 0, (_2: [rt.Mutex<rt.u8>, rt.u8]): rt.u8 => {
+			return _2[1];
+		}));
+	}
+	if (!(rt.u8Rem(a, 2) === 0)) {
+		res = rt.Err(a);
+	} else {
+		res = rt.Ok([slot, a] as [rt.Mutex<rt.u8>, rt.u8]);
+	}
+	const copy4: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> = copy$Result_Mutex_u8_u8_u8(res);
+	if (copy4.ok) {
+		bump(copy4.value[0]);
+		const _69: rt.u8 = rt.u8WrappingAdd(copy4.value[1], 3);
+		copy4.value[1] = _69;
+	}
+	const iter2: rt.Iter<rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>> = rt.iterSlice([copy$Result_Mutex_u8_u8_u8(res), copy$Result_Mutex_u8_u8_u8(copy4)]);
+	while (true) {
+		const _76: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> | rt.Done = iter2.next();
+		if (_76 === rt.DONE) {
+			break;
+		}
+		const r: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> = _76;
+		if (r.ok) {
+			n = r.value[1];
+		} else {
+			n = r.error;
+		}
+		rt.byteVecPush(out, n);
+	}
+	const lens: Lens.Lens = { slot, n: a };
+	const copy5: Lens.Lens = copy$Lens(lens);
+	copy5.n = rt.u8WrappingAdd(copy5.n, 4);
+	bump(copy5.slot);
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, copy5.n)));
+	rt.byteVecPush(out, lensBumped(lens));
+	for (const _104 of Array.from({ length: 2 }, (): Lens.Lens => {
+		return copy$Lens(lens);
+	}).map(copy$Lens)) {
+		bump(_104.slot);
+	}
+	const lenses: Lens.Lens[] = [];
+	lenses.push(copy$Lens(lens));
+	const _114: rt.Iter<Lens.Lens> = rt.iterSlice([lens]);
+	rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens));
+	const iter4: rt.Iter<Lens.Lens> = rt.iterCopied(rt.iterSlice(lenses), copy$Lens);
+	while (true) {
+		const _124: Lens.Lens | rt.Done = iter4.next();
+		if (_124 === rt.DONE) {
+			break;
+		}
+		bump(_124.slot);
+	}
+	const arc: rt.Arc<rt.u8> = new rt.Arc(a);
+	if (rt.u8Rem(a, 3) === 0) {
+		flow = rt.Ok(Uint8Array.of(a));
+	} else {
+		flow = rt.Err(arc);
+	}
+	rt.byteVecPush(out, sameArc(flow, arc));
+	const _143: rt.Mutex<rt.u8> = rt.mutexLock(slot);
+	rt.byteVecPush(out, _143.value);
+	rt.mutexUnlock(_143);
+	const _150: rt.Mutex<rt.u8> = rt.mutexLock(other);
+	rt.byteVecPush(out, _150.value);
+	rt.mutexUnlock(_150);
+	const source: Held.Held = { at: copy$Point(Point.new(a as rt.i32, 0)) };
+	const kept: Held.Held = hold(copy$Point(source.at));
+	source.at.x = 9;
+	const read: rt.i32 = movedThenRead(copy$Point(source.at), source);
+	const by: rt.i32 = movedBy(copy$Point(source.at), { held: source });
+	const part: rt.i32 = partMovedThenRead(copy$Held(source), source.at);
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(kept.at.x & 0xff, read & 0xff, by & 0xff, part & 0xff, source.at.x & 0xff)));
+	const bytes: Uint8Array = Uint8Array.of(a, 1);
+	rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
+	rt.byteVecPush(out, bytes[0]);
+	const at: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+		return rt.usizeRem(_22 as rt.usize, 3);
+	});
+	rt.byteVecPush(out, writeAt(rt.byteSliceFrom(bytes), at, a));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
+	const points: Point.Point[] = rt.vecFromElem(copy$Point(Point.new(a as rt.i32, 0)), 2, copy$Point);
+	movedAt(points, at);
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(points[rt.idx(points, 0)].x & 0xff, points[rt.idx(points, 1)].x & 0xff, points[rt.idx(points, 1)].y & 0xff)));
+	rt.drop(arc);
 }
 
 /**
@@ -2210,135 +2168,115 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let result!: rt.Result<rt.u16, rt.u8>;
 	let option!: rt.u8 | undefined;
 	let _116!: rt.u8;
-	let held!: rt.Mutex<rt.u8 | undefined>;
 	let _132!: boolean;
-	let _148!: rt.Mutex<rt.u8 | undefined>;
-	let unwind: number = 0;
-	try {
-		let total: rt.u16 = 0;
-		for (const x of rt.byteSliceView(data)) {
-			const flow: rt.Result<rt.u16, rt.u8 | undefined> = step(total, x);
-			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(!flow.ok ? 1 : 0, flow.ok ? 1 : 0)));
-			if (flow.ok) {
-				total = flow.value;
-			} else if (flow.error === undefined) {
-				rt.byteVecPush(out, 254);
+	let total: rt.u16 = 0;
+	for (const x of rt.byteSliceView(data)) {
+		const flow: rt.Result<rt.u16, rt.u8 | undefined> = step(total, x);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(!flow.ok ? 1 : 0, flow.ok ? 1 : 0)));
+		if (flow.ok) {
+			total = flow.value;
+		} else if (flow.error === undefined) {
+			rt.byteVecPush(out, 254);
+		} else {
+			rt.byteVecPush(out, flow.error);
+		}
+		const _28: rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>> = polled(x);
+		if (_28 !== rt.Pending) {
+			if (_28.ok) {
+				rt.byteVecPush(out, rt.u8Add(2, !_28.value.ok ? 1 : 0));
 			} else {
-				rt.byteVecPush(out, flow.error);
+				rt.byteVecPush(out, _28.error);
 			}
-			const _28: rt.Poll<rt.Result<rt.Result<undefined, undefined>, rt.u8>> = polled(x);
-			if (_28 !== rt.Pending) {
-				if (_28.ok) {
-					rt.byteVecPush(out, rt.u8Add(2, !_28.value.ok ? 1 : 0));
-				} else {
-					rt.byteVecPush(out, _28.error);
-				}
-			} else {
-				rt.byteVecPush(out, 0);
-			}
-		}
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(total)));
-		const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
-		if (rt.u8Rem(a, 3) === 0) {
-			result = rt.Err(a) as rt.Result<rt.u16, rt.u8>;
 		} else {
-			result = rt.Ok(rt.u16Add(a as rt.u16, 256));
+			rt.byteVecPush(out, 0);
 		}
-		rt.byteVecPush(out, result.ok ? 1 : 0);
-		if (result.ok) {
-			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(result.value)));
-		} else {
-			rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
-		}
-		if (rt.u8Rem(a, 5) === 0) {
-			option = undefined as rt.u8 | undefined;
-		} else {
-			option = rt.u8Div(a, 5) as rt.u8 | undefined;
-		}
-		rt.byteVecPush(out, option === undefined ? 1 : 0);
-		if (option !== undefined) {
-			rt.byteVecPush(out, option);
-		} else {
-			rt.byteVecPush(out, 253);
-		}
-		const original: rt.Result<Uint8Array, undefined> = rt.Ok(Uint8Array.of(a, 1));
-		const copied: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(original);
-		if (copied.ok) {
-			const v: rt.ByteSlice = rt.byteSliceFrom(copied.value);
-			const _83: rt.u8 = rt.u8WrappingAdd(v.data[v.start], 1);
-			v.data[v.start] = _83;
-		}
-		const _91: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(copied);
-		const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([copy$ControlFlow_unit_u8s(original), _91]);
-		while (true) {
-			unwind = 0;
-			const _93: rt.Result<Uint8Array, undefined> | rt.Done = iter2.next();
-			if (_93 === rt.DONE) {
-				break;
-			}
-			const flow3: rt.Result<Uint8Array, undefined> = _93;
-			if (flow3.ok) {
-				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(flow3.value));
-			}
-		}
-		let set: rt.Result<rt.u8 | undefined, rt.u8> = unset();
-		if (set.ok) {
-			set = rt.Ok(a);
-		}
-		const iter3: rt.Iter<rt.Result<rt.u8 | undefined, rt.u8>> = rt.iterSlice([set, unset()]);
-		while (true) {
-			const _111: rt.Result<rt.u8 | undefined, rt.u8> | rt.Done = iter3.next();
-			if (_111 === rt.DONE) {
-				break;
-			}
-			const result2: rt.Result<rt.u8 | undefined, rt.u8> = _111;
-			if (result2.ok) {
-				if (result2.value === undefined) {
-					_116 = 254;
-				} else {
-					_116 = result2.value;
-				}
-			} else {
-				_116 = result2.error;
-			}
-			rt.byteVecPush(out, _116);
-		}
-		const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
-		for (const x2 of rt.byteSliceView(data)) {
-			held = rt.mutexLock(slot);
-			unwind = 103;
-			const _133: rt.u8 | undefined = held.value;
-			b16: {
-				if (_133 !== undefined) {
-					if (_133 >= x2) {
-						_132 = true;
-						break b16;
-					}
-				}
-				_132 = false;
-			}
-			if (!_132) {
-				held.value = x2;
-			}
-			unwind = 0;
-			rt.mutexUnlock(held);
-		}
-		_148 = rt.mutexLock(slot);
-		unwind = 102;
-		rt.byteVecPush(out, unwrapOr$Option_u8(_148.value, 252));
-		unwind = 0;
-		rt.mutexUnlock(_148);
-	} catch (e4) {
-		if (unwind === 0) {
-			throw e4;
-		}
-		if (unwind === 102) {
-			rt.mutexUnlock(_148);
-		} else {
-			rt.mutexUnlock(held);
-		}
-		throw e4;
 	}
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(total)));
+	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
+	if (rt.u8Rem(a, 3) === 0) {
+		result = rt.Err(a) as rt.Result<rt.u16, rt.u8>;
+	} else {
+		result = rt.Ok(rt.u16Add(a as rt.u16, 256));
+	}
+	rt.byteVecPush(out, result.ok ? 1 : 0);
+	if (result.ok) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(result.value)));
+	} else {
+		rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
+	}
+	if (rt.u8Rem(a, 5) === 0) {
+		option = undefined as rt.u8 | undefined;
+	} else {
+		option = rt.u8Div(a, 5) as rt.u8 | undefined;
+	}
+	rt.byteVecPush(out, option === undefined ? 1 : 0);
+	if (option !== undefined) {
+		rt.byteVecPush(out, option);
+	} else {
+		rt.byteVecPush(out, 253);
+	}
+	const original: rt.Result<Uint8Array, undefined> = rt.Ok(Uint8Array.of(a, 1));
+	const copied: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(original);
+	if (copied.ok) {
+		const v: rt.ByteSlice = rt.byteSliceFrom(copied.value);
+		const _83: rt.u8 = rt.u8WrappingAdd(v.data[v.start], 1);
+		v.data[v.start] = _83;
+	}
+	const _91: rt.Result<Uint8Array, undefined> = copy$ControlFlow_unit_u8s(copied);
+	const iter2: rt.Iter<rt.Result<Uint8Array, undefined>> = rt.iterSlice([copy$ControlFlow_unit_u8s(original), _91]);
+	while (true) {
+		const _93: rt.Result<Uint8Array, undefined> | rt.Done = iter2.next();
+		if (_93 === rt.DONE) {
+			break;
+		}
+		const flow3: rt.Result<Uint8Array, undefined> = _93;
+		if (flow3.ok) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(flow3.value));
+		}
+	}
+	let set: rt.Result<rt.u8 | undefined, rt.u8> = unset();
+	if (set.ok) {
+		set = rt.Ok(a);
+	}
+	const iter3: rt.Iter<rt.Result<rt.u8 | undefined, rt.u8>> = rt.iterSlice([set, unset()]);
+	while (true) {
+		const _111: rt.Result<rt.u8 | undefined, rt.u8> | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
+			break;
+		}
+		const result2: rt.Result<rt.u8 | undefined, rt.u8> = _111;
+		if (result2.ok) {
+			if (result2.value === undefined) {
+				_116 = 254;
+			} else {
+				_116 = result2.value;
+			}
+		} else {
+			_116 = result2.error;
+		}
+		rt.byteVecPush(out, _116);
+	}
+	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
+	for (const x2 of rt.byteSliceView(data)) {
+		const held: rt.Mutex<rt.u8 | undefined> = rt.mutexLock(slot);
+		const _133: rt.u8 | undefined = held.value;
+		b16: {
+			if (_133 !== undefined) {
+				if (_133 >= x2) {
+					_132 = true;
+					break b16;
+				}
+			}
+			_132 = false;
+		}
+		if (!_132) {
+			held.value = x2;
+		}
+		rt.mutexUnlock(held);
+	}
+	const _148: rt.Mutex<rt.u8 | undefined> = rt.mutexLock(slot);
+	rt.byteVecPush(out, unwrapOr$Option_u8(_148.value, 252));
+	rt.mutexUnlock(_148);
 }
 
 //# sourceMappingURL=shapes.ts.map

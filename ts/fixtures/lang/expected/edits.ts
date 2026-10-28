@@ -31,10 +31,10 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _75: (a0: rt.u16) => Named.Named = (w: rt.u16): Named.Named => {
 		return { id: w, name: text(rt.byteSliceFrom(Uint8Array.of(rt.u8Div(w & 0xff, 16)))) };
 	};
-	const _576: (a0: rt.u16) => Named.Named = (w2: rt.u16): Named.Named => {
+	const _575: (a0: rt.u16) => Named.Named = (w2: rt.u16): Named.Named => {
 		return { id: w2, name: text(rt.byteSliceFrom(Uint8Array.of(w2 & 0xff))) };
 	};
-	const _577: (a0: Named.Named[]) => rt.u16[] = (v7: Named.Named[]): rt.u16[] => {
+	const _576: (a0: Named.Named[]) => rt.u16[] = (v7: Named.Named[]): rt.u16[] => {
 		return rt.iterToArray(rt.iterMap(rt.iterSlice(v7), (n: Named.Named): rt.u16 => {
 			return n.id;
 		}));
@@ -212,9 +212,9 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const w4: rt.u16 = _28;
 			return { id: w4, name: text(rt.byteSliceFrom(Uint8Array.of(w4 & 0xff))) };
 		}));
-		const cloned: Named.Named[] = rt.vecClone(named2, Named.clone$Clone);
+		const cloned: Named.Named[] = named2.map(Named.clone$Clone);
 		rt.byteVecPush(out, rt.eqSlice(Named.eq$PartialEq)(cloned, named2) ? 1 : 0);
-		const changed: Named.Named[] = rt.vecClone(named2, Named.clone$Clone);
+		const changed: Named.Named[] = named2.map(Named.clone$Clone);
 		const _382: Named.Named | undefined = rt.sliceFirst(changed);
 		if (_382 !== undefined) {
 			_382.name = _382.name + "!";
@@ -231,12 +231,12 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u16Add(i4 as rt.u16, b5 as rt.u16);
 			}));
 		}));
-		const _424: rt.u16[][] = rt.vecClone(nested, (a027: rt.u16[]): rt.u16[] => {
+		const _424: rt.u16[][] = nested.map((a027: rt.u16[]): rt.u16[] => {
 			return a027.slice();
 		});
 		rt.byteVecPush(out, rt.eqSlice(rt.eqSlice(rt.same))(_424, nested) ? 1 : 0);
 		const pair: [string, rt.u8] = [text(data), at(0)];
-		const copy: [string, rt.u8] = rt.tupleClone(pair, [undefined, undefined], [undefined, undefined]);
+		const copy: [string, rt.u8] = rt.tupleClone(pair, [undefined, undefined]);
 		put(out, copy[0]);
 		const _441: [rt.u8, string] = [copy[1], copy[0]];
 		const _445: [rt.u8, string] = [at(1), pair[0]];
@@ -255,49 +255,49 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, taken3.n);
 		rt.byteVecPush(out, tally.n);
 		put(out, tally.names[rt.idx(tally.names, 0)]);
-		const _497: rt.Iter<rt.u16> = rt.iterSlice(words);
-		let queue: rt.VecDeque<rt.u16> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u16>, _497);
+		const _496: rt.Iter<rt.u16> = rt.iterSlice(words);
+		let queue: rt.VecDeque<rt.u16> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u16>, _496);
 		const default_2 = rt.dequeNew() as rt.VecDeque<rt.u16>;
 		const taken4 = queue;
 		queue = default_2;
 		rt.byteVecPush(out, taken4.n & 0xff);
 		rt.byteVecPush(out, queue.n & 0xff);
-		const _512: rt.Iter<rt.u16> = rt.iterSlice(words);
-		let set: rt.BTreeSet<rt.u16> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>, _512, true);
+		const _511: rt.Iter<rt.u16> = rt.iterSlice(words);
+		let set: rt.BTreeSet<rt.u16> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>, _511, true);
 		const default_3 = rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u16>;
 		const taken5 = set;
 		set = default_3;
 		rt.byteVecPush(out, rt.btreeLen(taken5) & 0xff);
 		rt.byteVecPush(out, rt.btreeLen(set) === 0 ? 1 : 0);
-		const _529: [Stamp.Stamp, Stamp.Stamp, Stamp.Stamp] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
-		const x: Stamp.Stamp = _529[0];
-		const lo: Stamp.Stamp = _529[1];
-		const hi: Stamp.Stamp = _529[2];
+		const _528: [Stamp.Stamp, Stamp.Stamp, Stamp.Stamp] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
+		const x: Stamp.Stamp = _528[0];
+		const lo: Stamp.Stamp = _528[1];
+		const hi: Stamp.Stamp = _528[2];
 		rt.byteVecPush(out, rt.ordMax(x, lo, rt.cmpLt(Stamp.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordMin(x, lo, rt.cmpLt(Stamp.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordClamp(x, lo, hi, rt.cmpLe(Stamp.partialCmp$PartialOrd), rt.cmpLt(Stamp.partialCmp$PartialOrd), rt.cmpGt(Stamp.partialCmp$PartialOrd))._0);
-		const _554: [Lean.Lean, Lean.Lean, Lean.Lean] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
-		const p: Lean.Lean = _554[0];
-		const q: Lean.Lean = _554[1];
-		const r: Lean.Lean = _554[2];
+		const _553: [Lean.Lean, Lean.Lean, Lean.Lean] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
+		const p: Lean.Lean = _553[0];
+		const q: Lean.Lean = _553[1];
+		const r: Lean.Lean = _553[2];
 		rt.byteVecPush(out, rt.ordMax(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordMin(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordClamp(p, q, r, rt.cmpLe(Lean.partialCmp$PartialOrd), rt.cmpLt(Lean.partialCmp$PartialOrd), rt.cmpGt(Lean.partialCmp$PartialOrd))._0);
 	} else if (_8 === 6) {
 		const v6: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_23: rt.u16): Named.Named => {
-			return _576(_23);
+			return _575(_23);
 		}));
-		const _587: rt.usize = rt.usizeRem(at(0) as rt.usize, 8);
-		const _593: Named.Named = _576(511);
-		rt.vecInsert(v6, _587, _593);
-		putU16s(out, _577(v6));
-		const _606: rt.usize = rt.usizeRem(at(1) as rt.usize, 8);
-		const removed: Named.Named = rt.vecRemove(v6, _606);
+		const _586: rt.usize = rt.usizeRem(at(0) as rt.usize, 8);
+		const _592: Named.Named = _575(511);
+		rt.vecInsert(v6, _586, _592);
+		putU16s(out, _576(v6));
+		const _605: rt.usize = rt.usizeRem(at(1) as rt.usize, 8);
+		const removed: Named.Named = rt.vecRemove(v6, _605);
 		putU16s(out, [removed.id]);
-		const kept: Named.Named[] = rt.vecClone(v6, Named.clone$Clone);
-		const _621: rt.usize = rt.usizeRem(at(2) as rt.usize, 4);
-		rt.vecTruncate(v6, _621);
-		putU16s(out, _577(v6));
+		const kept: Named.Named[] = v6.map(Named.clone$Clone);
+		const _620: rt.usize = rt.usizeRem(at(2) as rt.usize, 4);
+		rt.vecTruncate(v6, _620);
+		putU16s(out, _576(v6));
 		rt.vecTruncate(v6, 0);
 		rt.byteVecPush(out, v6.length === 0 ? 1 : 0);
 		const boxed: Named.Named = removed;
@@ -313,28 +313,28 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}) === map$Option_Box_Named_u16_edits_closure31(held, (b4: Named.Named): rt.u16 => {
 			return b4.id;
 		}) ? 1 : 0);
-		const some: Named.Named[] | undefined = rt.vecClone(kept, Named.clone$Clone);
-		const _676: Named.Named[] | undefined = rt.vecClone(kept, Named.clone$Clone);
-		rt.byteVecPush(out, rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _676) ? 1 : 0);
+		const some: Named.Named[] | undefined = kept.map(Named.clone$Clone);
+		const _672: Named.Named[] | undefined = kept.map(Named.clone$Clone);
+		rt.byteVecPush(out, rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _672) ? 1 : 0);
 		rt.byteVecPush(out, rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, undefined) ? 1 : 0);
-		const _689: Named.Named[] | undefined = [];
-		rt.byteVecPush(out, !rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _689) ? 1 : 0);
-		const _695: Named.Named | undefined = optional$Named(_576(5));
-		const _700: Named.Named | undefined = optional$Option_Named(undefined);
-		rt.byteVecPush(out, rt.eqOption(Named.eq$PartialEq)(_695, _700) ? 1 : 0);
+		const _686: Named.Named[] = [];
+		rt.byteVecPush(out, !rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _686) ? 1 : 0);
+		const _691: Named.Named | undefined = optional$Named(_575(5));
+		const _696: Named.Named | undefined = optional$Option_Named(undefined);
+		rt.byteVecPush(out, rt.eqOption(Named.eq$PartialEq)(_691, _696) ? 1 : 0);
 		const part3 = at(4) as rt.u16;
-		rt.byteVecPush(out, mapOr$Option_Named_u16_edits_closure33(optional$Named(_576(part3)), 65535, (n2: Named.Named): rt.u16 => {
+		rt.byteVecPush(out, mapOr$Option_Named_u16_edits_closure33(optional$Named(_575(part3)), 65535, (n2: Named.Named): rt.u16 => {
 			return n2.id;
 		}) & 0xff);
 		const part4 = unwrapOr$Option_Nameds(map$Option_Named_Nameds_from_ref(rt.sliceFirst(kept), (a09: Named.Named): Named.Named[] => {
 			return [a09];
 		}), kept);
-		putU16s(out, _577(part4));
-		const part5 = [_576(7)];
-		putU16s(out, _577(part5));
-		const _739: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(at(5)));
-		rt.idx(_739, 0);
-		rt.byteVecPush(out, _739.data[_739.start]);
+		putU16s(out, _576(part4));
+		const part5 = [_575(7)];
+		putU16s(out, _576(part5));
+		const _735: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(at(5)));
+		rt.idx(_735, 0);
+		rt.byteVecPush(out, _735.data[_735.start]);
 		const part6 = rt.fromUtf8ErrorClone(rt.resultUnwrapErr(rt.stringFromUtf8(rt.byteVecFrom(Uint8Array.of(97, 255, at(6)))), rt.fmtStr));
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(part6, f)];
 		put(out, rt.fmtFormat([args2[0]]));
@@ -354,27 +354,27 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.strEndsWith(s, (c: rt.char): boolean => {
 			return rt.charIsAsciiDigit(c);
 		}) ? 1 : 0);
-		const _824: [string, string] | undefined = rt.strSplitOnce(s, "/");
-		if (_824 === undefined) {
+		const _819: [string, string] | undefined = rt.strSplitOnce(s, "/");
+		if (_819 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _824[0]);
-			put(out, _824[1]);
+			put(out, _819[0]);
+			put(out, _819[1]);
 		}
-		const _833: [string, string] | undefined = rt.strSplitOnce(s, "a0");
-		if (_833 === undefined) {
+		const _828: [string, string] | undefined = rt.strSplitOnce(s, "a0");
+		if (_828 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _833[0]);
-			put(out, _833[1]);
+			put(out, _828[0]);
+			put(out, _828[1]);
 		}
 		const iter10: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, rt.usizeAdd(rt.stringLen(s), 1), rt.usizeStep);
 		while (true) {
-			const _848: rt.usize | rt.Done = iter10.next();
-			if (_848 === rt.DONE) {
+			const _843: rt.usize | rt.Done = iter10.next();
+			if (_843 === rt.DONE) {
 				break;
 			}
-			rt.byteVecPush(out, rt.strIsCharBoundary(s, _848) ? 1 : 0);
+			rt.byteVecPush(out, rt.strIsCharBoundary(s, _843) ? 1 : 0);
 		}
 		rt.iterExtendBytes(out, rt.strBytes(s));
 		rt.iterExtendBytes(out, rt.iterTake(rt.iterRev(rt.strBytes(s)), 3));

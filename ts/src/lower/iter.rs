@@ -378,11 +378,10 @@ pub fn call<'tcx>(
 	};
 	let camel = super::camel(name);
 	match name {
-		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "any" | "all" | "find_map" | "position" => {
-			method(&camel, rest)
-		}
+		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "inspect" | "any" | "all" | "find_map"
+		| "position" => method(&camel, rest),
 		// What each drops: an item it skips or rejects, or one it peeked.
-		"filter" | "skip_while" | "take_while" | "inspect" | "peekable" | "skip" | "take" | "step_by" => {
+		"filter" | "skip_while" | "take_while" | "peekable" | "skip" | "take" | "step_by" => {
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
@@ -394,7 +393,7 @@ pub fn call<'tcx>(
 			let dropper = b.t.dropper(item, span);
 			owned(b, name, dropper)
 		}
-		"for_each" => {
+		"for_each" | "fold" => {
 			let drops = iter_drops(b, self_ty, span);
 			method(&camel, tail(rest, vec![drops]))
 		}
@@ -425,11 +424,6 @@ pub fn call<'tcx>(
 			};
 			let drops = iter_drops(b, self_ty, span);
 			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
-		}
-		// `fold::<B, F>`, whose accumulator drops if reading an item panics.
-		"fold" => {
-			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(targ(1)?, span)];
-			method(name, tail(rest, droppers))
 		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
@@ -756,13 +750,13 @@ fn collect<'tcx>(
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
 			};
-			let (collect, mut droppers) = match std {
-				Std::Result => ("iterCollectResult", vec![b.t.dropper(args.type_at(1), span)]),
-				_ => ("iterCollectOption", Vec::new()),
+			let collect = match std {
+				Std::Result => "iterCollectResult",
+				_ => "iterCollectOption",
 			};
-			droppers.insert(0, b.t.dropper(args.type_at(0), span));
+			let dropper = b.t.dropper(args.type_at(0), span);
 			let args = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
-			Some(Expr::rt(collect, tail(args, droppers)))
+			Some(Expr::rt(collect, tail(args, vec![dropper])))
 		}
 		_ => super::collections::collect(b, ty, iter, from, span),
 	}
@@ -801,7 +795,9 @@ fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> boo
 }
 
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
-/// std's does: in place of the `Vec` its items come from, where it can.
+/// std's does: by `next` where it collects in place of the `Vec` its items come from, by
+/// `try_fold`, which drops the closures the iterator holds only with it, where its own
+/// `fold` drops them first.
 pub(super) fn to_array<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	iter: Expr,
@@ -809,40 +805,14 @@ pub(super) fn to_array<'tcx>(
 	elem: Ty<'tcx>,
 	span: Span,
 ) -> Expr {
-	let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
-	let drop_elem = b.t.dropper(elem, span);
-	let in_place = (!undefined(&take) || !undefined(&drop_elem)) && in_place(b.t, from, elem);
-	if in_place && let Some(zip) = zip_holding(b, from) {
-		return b.err(
-			span,
-			format!("a `collect` in place of `{zip}`, whose second iterator drops, which is not supported yet"),
-		);
-	}
-	let take = match in_place {
-		true => Expr::Str("place".into()),
-		false => take,
-	};
-	Expr::rt("iterToArray", tail(vec![iter], vec![take, drop_elem]))
-}
-
-/// A `Zip` in `ty` whose second iterator drops, which std's `collect` in place drops after
-/// what it collected, where `rt.iterToArray` drops the whole iterator before.
-fn zip_holding<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	let tcx = b.t.tcx;
-	let zips: Vec<Ty<'tcx>> = ty
-		.walk()
-		.filter_map(|arg| arg.as_type())
-		.filter(|&t| std_iter_path(tcx, t).is_some_and(|p| p == ["iter", "adapters", "zip", "Zip"]))
-		.collect();
-	zips.into_iter().find(|t| match t.kind() {
-		ty::Adt(_, args) => b.t.drops(args.type_at(1)),
-		_ => false,
-	})
+	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
+	let take = iter_take(b, from, folds, span);
+	Expr::rt("iterToArray", tail(vec![iter], vec![take]))
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place
 /// of the `Vec` its items come from, as its adaptors let it where each item's layout leaves
-/// room: then a panic drops what it collected before the rest of the source.
+/// room.
 fn in_place<'tcx>(t: &Translator<'_, 'tcx>, iter: Ty<'tcx>, elem: Ty<'tcx>) -> bool {
 	let tcx = t.tcx;
 	let env = t.typing_env_pub();

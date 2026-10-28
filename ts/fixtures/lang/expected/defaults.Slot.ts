@@ -15,21 +15,9 @@ export interface Slot {
 
 export function get(self: Slot): rt.u64 | undefined {
 	return map$Option_Arc_Made_u64_get_closure0(rt.weakUpgrade(self.weak), (made: rt.Arc<Made.Made>): rt.u64 => {
-		let unwind: number = 0;
-		try {
-			unwind = 4;
-			const _3: Made.Made = made.value;
-			unwind = 0;
-			const _02: rt.u64 = _3.n;
-			rt.drop(made);
-			return _02;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			rt.drop(made);
-			throw e;
-		}
+		const _02: rt.u64 = made.value.n;
+		rt.drop(made);
+		return _02;
 	});
 }
 

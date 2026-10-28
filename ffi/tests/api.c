@@ -55,6 +55,12 @@ static uint32_t seven(void *data) {
 	return 7;
 }
 
+/* A lent closure of an inferred instance's type. */
+static uint32_t triple(void *data, uint32_t side) {
+	(void)data;
+	return side * 3;
+}
+
 static uint64_t visit(void *data, const api_cursor *cursor) {
 	(void)data;
 	return api_cursor_at(cursor) * 2;
@@ -426,6 +432,13 @@ static int script(void) {
 	api_outer_inner_u8_free(outer);
 	/* A bound that outlives the call takes a value, and an instance only a constant names. */
 	printf("kept %llu boxed %u\n", (unsigned long long)api_kept_point((api_point){.x = 1, .y = -2}), api_boxed().value);
+	/* Inferred instances taking a lent closure and a foreign implementation, and one only
+	 * its impl of a trait names. */
+	api_pair_u32 sides = {.left = 2, .right = 5};
+	printf("apply %u\n", api_apply_u32(sides, triple, NULL));
+	printf("report %u\n", api_report_u32(sides, (api_log){.vtable = &print_log}));
+	printf("wrapped %llu\n", (unsigned long long)api_kept_wrap_u32((api_wrap_u32){.value = 4}));
+	printf("keeps %u\n", api_keeps((api_log){.vtable = &print_log}).value);
 
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);

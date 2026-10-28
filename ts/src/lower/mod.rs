@@ -1669,19 +1669,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	fn lower_function(&mut self, instance: Instance<'tcx>, sym: SymId, span: Span) -> Option<ts::Function> {
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
-		// Without unwinding, std's MIR has none of the cleanups a panic runs.
-		if !self.crates.translates(def_id)
-			&& tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort)
-		{
-			self.err(
-				span,
-				format!(
-					"`{}` was built to abort on panic, so its MIR drops nothing a panic unwinds through: rust2-ts builds std from source to unwind",
-					tcx.crate_name(def_id.krate)
-				),
-			);
-			return None;
-		}
 		let mut function = mir::function(self, instance)?;
 		function.sym = sym;
 		function.loc = self.loc(span);

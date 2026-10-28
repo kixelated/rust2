@@ -316,10 +316,6 @@ impl Refs {
 					self.stmts(program, body);
 				}
 				StmtKind::Block { body, .. } => self.stmts(program, body),
-				StmtKind::Catch { body, handler, .. } => {
-					self.stmts(program, body);
-					self.stmts(program, handler);
-				}
 				StmtKind::Switch {
 					disc, cases, default, ..
 				} => {
@@ -331,7 +327,6 @@ impl Refs {
 					self.stmts(program, default);
 				}
 				StmtKind::Declare { ty, .. } => self.ty(program, ty),
-				StmtKind::Throw(e) => self.expr(program, e),
 				StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 			}
 		}
@@ -766,16 +761,6 @@ impl Printer<'_> {
 				self.start();
 				self.write("}\n");
 			}
-			StmtKind::Catch { body, name, handler } => {
-				self.write("try {\n");
-				self.block_body(body);
-				self.start();
-				let name = self.local(name).to_string();
-				self.write(&format!("}} catch ({name}) {{\n"));
-				self.block_body(handler);
-				self.start();
-				self.write("}\n");
-			}
 			StmtKind::Switch {
 				label,
 				disc,
@@ -807,11 +792,6 @@ impl Printer<'_> {
 				let name = self.local(name).to_string();
 				let ty = self.ty(ty);
 				self.write(&format!("let {name}!: {ty};\n"));
-			}
-			StmtKind::Throw(value) => {
-				self.write("throw ");
-				self.expr(value, 0);
-				self.write(";\n");
 			}
 			StmtKind::Break(label) => match label {
 				Some(label) => self.write(&format!("break {label};\n")),
@@ -1174,11 +1154,6 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(body, out);
 			}
 			StmtKind::Block { body, .. } => collect_locals(body, out),
-			StmtKind::Catch { body, name, handler } => {
-				collect_locals(body, out);
-				out.push(name.clone());
-				collect_locals(handler, out);
-			}
 			StmtKind::Switch {
 				disc, cases, default, ..
 			} => {
@@ -1190,7 +1165,6 @@ fn collect_locals(stmts: &[Stmt], out: &mut Vec<String>) {
 				collect_locals(default, out);
 			}
 			StmtKind::Declare { name, .. } => out.push(name.clone()),
-			StmtKind::Throw(e) => collect_expr_locals(e, out),
 			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
 		}
 	}

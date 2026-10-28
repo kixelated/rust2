@@ -18,20 +18,9 @@ export class Plain {
 }
 
 export function wake$Wake(self: rt.Arc<Plain>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 7;
-		Guard.note(self.value._0.guard, "plain wake");
-		self.value._0.task.wakeByRef();
-		unwind = 0;
-		rt.drop(self);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(self);
-		throw e;
-	}
+	Guard.note(self.value._0.guard, "plain wake");
+	self.value._0.task.wakeByRef();
+	rt.drop(self);
 }
 
 //# sourceMappingURL=futures.Plain.ts.map

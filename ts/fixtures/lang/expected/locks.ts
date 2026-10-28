@@ -8,281 +8,99 @@ import * as Tally from "./locks.Tally.ts";
 
 /** Each byte an operation on the mutexes, its value the operand; each puts what it read. */
 export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let shared!: rt.Arc<rt.Mutex<Tally.Tally>>;
-	let other!: rt.Arc<rt.Mutex<Tally.Tally>>;
-	let tally!: rt.Mutex<Tally.Tally>;
-	let tally2!: rt.Mutex<Tally.Tally>;
-	let _53!: rt.Mutex<rt.u32>;
-	let _62!: rt.Mutex<rt.u32>;
-	let held!: rt.Mutex<Tally.Tally>;
 	let _71!: boolean;
-	let _72!: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>>;
-	let tally3!: rt.Mutex<Tally.Tally>;
-	let _95!: rt.Mutex<Tally.Tally>;
-	let _99!: rt.Mutex<rt.u32>;
-	let guard!: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>>;
-	let tally4!: rt.Mutex<Tally.Tally>;
-	let _159!: rt.Mutex<Tally.Tally>;
-	let _176!: boolean;
-	let unwind: number = 0;
-	try {
-		_176 = false;
-		shared = new rt.Arc(new rt.Mutex(Tally.default$Default()));
-		unwind = 138;
-		other = rt.arcClone(shared);
-		unwind = 137;
-		const own: rt.Mutex<rt.ByteVec> = new rt.Mutex(new rt.ByteVec());
-		unwind = 136;
-		const number: rt.Mutex<rt.u32> = new rt.Mutex(0);
-		const lock: Lock.Lock = { _0: new rt.Mutex(7) };
-		for (const op of rt.byteSliceView(data)) {
-			const _17: rt.u8 = rt.u8Rem(op, 8);
-			if (_17 === 0) {
-				tally = rt.mutexLock(shared.value);
-				unwind = 135;
-				const _23: rt.u64 = op as rt.u64;
-				const _24: Tally.Tally = tally.value;
-				_24.n = rt.u64Add(_24.n, _23);
-				rt.byteVecPush(tally.value.seen, op);
-				unwind = 136;
-				rt.mutexUnlock(tally);
-			} else if (_17 === 1) {
-				tally2 = rt.mutexLock(other.value);
-				unwind = 134;
-				rt.byteVecPush(out, rt.u64Low(tally2.value.n) & 0xff);
-				rt.byteVecPush(out, tally2.value.seen.length & 0xff);
-				unwind = 136;
-				rt.mutexUnlock(tally2);
-			} else if (_17 === 2) {
-				rt.byteVecPush(own.value, op);
-			} else if (_17 === 3) {
-				const _50: rt.u32 = op as rt.u32;
-				_53 = rt.mutexLock(number);
-				unwind = 133;
-				const _56: rt.u32 = rt.u32Add(_53.value, _50);
-				unwind = 136;
-				_53.value = _56;
-				rt.mutexUnlock(_53);
-				_62 = rt.mutexLock(number);
-				unwind = 132;
-				rt.byteVecPush(out, _62.value & 0xff);
-				unwind = 136;
-				rt.mutexUnlock(_62);
-			} else if (_17 === 4) {
-				held = rt.mutexLock(shared.value);
-				unwind = 142;
-				_176 = true;
-				_72 = rt.mutexTryLock(other.value);
-				b2: {
-					if (!_72.ok) {
-						if (_72.error.tag === "WouldBlock") {
-							_71 = true;
-							break b2;
-						}
-					}
-					_71 = false;
-				}
-				unwind = 131;
-				rt.byteVecPush(out, _71 ? 1 : 0);
-				unwind = 142;
-				drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_72);
-				_176 = false;
-				rt.mutexUnlock(held);
-				const _79: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>> = rt.mutexTryLock(other.value);
-				if (_79.ok) {
-					unwind = 130;
-					tally3 = _79.value;
-					rt.byteVecPush(out, tally3.value.seen.length & 0xff);
-					unwind = 142;
-					rt.mutexUnlock(tally3);
-				} else if (_79.error.tag === "Poisoned") {
-					_95 = (_79.error as { tag: "Poisoned"; _0: rt.Mutex<Tally.Tally> })._0;
-					unwind = 129;
-					rt.byteVecPush(out, rt.u64Low(_95.value.n) & 0xff);
-					unwind = 142;
-					rt.mutexUnlock(_95);
-				} else {
-					rt.byteVecPush(out, 254);
-				}
-				_176 = false;
-			} else if (_17 === 5) {
-				const _96: rt.u32 = op as rt.u32;
-				_99 = rt.mutexLock(lock._0);
-				unwind = 128;
-				const _102: rt.u32 = rt.u32Add(_99.value, _96);
-				unwind = 136;
-				_99.value = _102;
-				rt.mutexUnlock(_99);
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
-				const free: string = rt.fmtFormat([args2[0]]);
-				unwind = 127;
-				guard = rt.mutexTryLock(lock._0);
-				unwind = 126;
-				const args4: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
-				const held2: string = rt.fmtFormat([args4[0]]);
-				unwind = 125;
-				const _131: boolean = guard.ok;
-				const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, free), (f: rt.Formatter) => rt.fmtPad(f, held2), (f: rt.Formatter) => rt.fmtBool(_131, f)];
-				const _126: string = rt.fmtFormat([args6[0], " ", args6[1], " ", args6[2]]);
-				unwind = 124;
-				rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_126));
-				unwind = 127;
-				drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(guard);
-			} else if (_17 === 6) {
-				rt.byteVecPush(out, false ? 1 : 0);
+	const shared: rt.Arc<rt.Mutex<Tally.Tally>> = new rt.Arc(new rt.Mutex(Tally.default$Default()));
+	const other: rt.Arc<rt.Mutex<Tally.Tally>> = rt.arcClone(shared);
+	const own: rt.Mutex<rt.ByteVec> = new rt.Mutex(new rt.ByteVec());
+	const number: rt.Mutex<rt.u32> = new rt.Mutex(0);
+	const lock: Lock.Lock = { _0: new rt.Mutex(7) };
+	for (const op of rt.byteSliceView(data)) {
+		const _17: rt.u8 = rt.u8Rem(op, 8);
+		if (_17 === 0) {
+			const tally: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			const _23: rt.u64 = op as rt.u64;
+			const _24: Tally.Tally = tally.value;
+			_24.n = rt.u64Add(_24.n, _23);
+			rt.byteVecPush(tally.value.seen, op);
+			rt.mutexUnlock(tally);
+		} else if (_17 === 1) {
+			const tally2: rt.Mutex<Tally.Tally> = rt.mutexLock(other.value);
+			rt.byteVecPush(out, rt.u64Low(tally2.value.n) & 0xff);
+			rt.byteVecPush(out, tally2.value.seen.length & 0xff);
+			rt.mutexUnlock(tally2);
+		} else if (_17 === 2) {
+			rt.byteVecPush(own.value, op);
+		} else if (_17 === 3) {
+			const _50: rt.u32 = op as rt.u32;
+			const _53: rt.Mutex<rt.u32> = rt.mutexLock(number);
+			_53.value = rt.u32Add(_53.value, _50);
+			rt.mutexUnlock(_53);
+			const _62: rt.Mutex<rt.u32> = rt.mutexLock(number);
+			rt.byteVecPush(out, _62.value & 0xff);
+			rt.mutexUnlock(_62);
+		} else if (_17 === 4) {
+			const held: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			const _72: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>> = rt.mutexTryLock(other.value);
+			if (!_72.ok) {
+				_71 = true;
 			} else {
-				const _143: rt.Result<rt.Mutex<Tally.Tally>, rt.Mutex<Tally.Tally>> = rt.Ok(rt.mutexLock(shared.value));
-				if (_143.ok) {
-					unwind = 123;
-					tally4 = _143.value;
-					rt.byteVecPush(out, tally4.value.seen.length & 0xff);
-					unwind = 136;
-					rt.mutexUnlock(tally4);
-				} else {
-					_159 = _143.error;
-					unwind = 122;
-					rt.byteVecPush(out, (rt.u64Low(_159.value.n) & 0xff) ^ 255);
-					unwind = 136;
-					rt.mutexUnlock(_159);
-				}
+				_71 = false;
 			}
-		}
-		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(own.value));
-		rt.byteVecPush(out, shared.strong & 0xff);
-		unwind = 138;
-		rt.drop(other);
-		unwind = 0;
-		rt.drop(shared);
-	} catch (e) {
-		b5: {
-			b6: {
-				b7: {
-					b8: {
-						b9: {
-							b10: {
-								if (unwind === 0) {
-									throw e;
-								}
-								if (unwind === 122) {
-									rt.mutexUnlock(_159);
-									break b7;
-								}
-								if (unwind === 123) {
-									rt.mutexUnlock(tally4);
-									break b7;
-								}
-								if (unwind === 124) {
-									break b10;
-								}
-								if (unwind === 125) {
-									break b10;
-								}
-								if (unwind === 126) {
-									break b9;
-								}
-								if (unwind === 127) {
-									break b8;
-								}
-								if (unwind === 128) {
-									rt.mutexUnlock(_99);
-									break b7;
-								}
-								if (unwind === 129) {
-									rt.mutexUnlock(_95);
-								} else if (unwind === 130) {
-									rt.mutexUnlock(tally3);
-								} else if (unwind === 131) {
-									drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_72);
-								} else {
-									if (unwind === 132) {
-										rt.mutexUnlock(_62);
-										break b7;
-									}
-									if (unwind === 133) {
-										rt.mutexUnlock(_53);
-										break b7;
-									}
-									if (unwind === 134) {
-										rt.mutexUnlock(tally2);
-										break b7;
-									}
-									if (unwind === 135) {
-										rt.mutexUnlock(tally);
-										break b7;
-									}
-									if (unwind === 136) {
-										break b7;
-									}
-									if (unwind === 137) {
-										break b6;
-									}
-									if (unwind === 138) {
-										break b5;
-									}
-								}
-								if (!_176) {
-									break b7;
-								}
-								rt.mutexUnlock(held);
-								break b7;
-							}
-						}
-						drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(guard);
-					}
-				}
+			rt.byteVecPush(out, _71 ? 1 : 0);
+			drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_72);
+			rt.mutexUnlock(held);
+			const _78: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>> = rt.mutexTryLock(other.value);
+			if (_78.ok) {
+				const tally3: rt.Mutex<Tally.Tally> = _78.value;
+				rt.byteVecPush(out, tally3.value.seen.length & 0xff);
+				rt.mutexUnlock(tally3);
+			} else {
+				rt.byteVecPush(out, 254);
 			}
-			rt.drop(other);
+		} else if (_17 === 5) {
+			const _90: rt.u32 = op as rt.u32;
+			const _93: rt.Mutex<rt.u32> = rt.mutexLock(lock._0);
+			_93.value = rt.u32Add(_93.value, _90);
+			rt.mutexUnlock(_93);
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
+			const free: string = rt.fmtFormat([args2[0]]);
+			const guard: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>> = rt.mutexTryLock(lock._0);
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
+			const held2: string = rt.fmtFormat([args4[0]]);
+			const _125: boolean = guard.ok;
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, free), (f: rt.Formatter) => rt.fmtPad(f, held2), (f: rt.Formatter) => rt.fmtBool(_125, f)];
+			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args6[0], " ", args6[1], " ", args6[2]])));
+			drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(guard);
+		} else if (_17 === 6) {
+			rt.byteVecPush(out, false ? 1 : 0);
+		} else {
+			const tally4: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			rt.byteVecPush(out, tally4.value.seen.length & 0xff);
+			rt.mutexUnlock(tally4);
 		}
-		rt.drop(shared);
-		throw e;
 	}
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(own.value));
+	rt.byteVecPush(out, shared.strong & 0xff);
+	rt.drop(other);
+	rt.drop(shared);
 }
 
 /** Locks a mutex while a guard of it is held, if the first byte is odd, which panics. */
 export function relock(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let guard!: rt.Mutex<rt.u8>;
-	let _19!: rt.Mutex<rt.u8>;
-	let _28!: rt.Mutex<rt.u8>;
-	let _31!: boolean;
-	let unwind: number = 0;
-	try {
-		_31 = false;
-		const mutex: rt.Mutex<rt.u8> = new rt.Mutex(data.length & 0xff);
-		guard = rt.mutexLock(mutex);
-		unwind = 25;
-		_31 = true;
-		rt.byteVecPush(out, guard.value);
-		if (isSomeAnd$Option_u8_bools_closure0(rt.byteSliceFirst(data), (b: rt.u8): boolean => {
-			return rt.u8Rem(b, 2) === 1;
-		})) {
-			_19 = rt.mutexLock(mutex);
-			unwind = 22;
-			rt.byteVecPush(out, _19.value);
-			unwind = 25;
-			rt.mutexUnlock(_19);
-		}
-		_31 = false;
-		rt.mutexUnlock(guard);
-		_28 = rt.mutexLock(mutex);
-		unwind = 21;
-		rt.byteVecPush(out, _28.value);
-		unwind = 25;
-		rt.mutexUnlock(_28);
-		_31 = false;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind === 21) {
-			rt.mutexUnlock(_28);
-		} else if (unwind === 22) {
-			rt.mutexUnlock(_19);
-		}
-		if (_31) {
-			rt.mutexUnlock(guard);
-		}
-		throw e;
+	const mutex: rt.Mutex<rt.u8> = new rt.Mutex(data.length & 0xff);
+	const guard: rt.Mutex<rt.u8> = rt.mutexLock(mutex);
+	rt.byteVecPush(out, guard.value);
+	if (isSomeAnd$Option_u8_bools_closure0(rt.byteSliceFirst(data), (b: rt.u8): boolean => {
+		return rt.u8Rem(b, 2) === 1;
+	})) {
+		const _19: rt.Mutex<rt.u8> = rt.mutexLock(mutex);
+		rt.byteVecPush(out, _19.value);
+		rt.mutexUnlock(_19);
 	}
+	rt.mutexUnlock(guard);
+	const _27: rt.Mutex<rt.u8> = rt.mutexLock(mutex);
+	rt.byteVecPush(out, _27.value);
+	rt.mutexUnlock(_27);
 }
 
 //# sourceMappingURL=locks.ts.map
