@@ -315,6 +315,45 @@ int main(void) {
 	CHECK(initial.secs == 1 && initial.nanos == 0);
 	moq_backoff_free(backoff);
 
+	/* Session config's foreign types. A URL is parsed from text, failing with why. */
+	moq_url *url = NULL;
+	moq_buf parse_err;
+	CHECK(!moq_url_parse(str("relay.example"), &url, &parse_err));
+	CHECK(is(parse_err, "relative URL without a base"));
+	CHECK(moq_url_parse(str("https://relay.example:4443/demo"), &url, &parse_err));
+	moq_auth_tokens *tokens = moq_auth_tokens_new((moq_vec_auth_token){0});
+	moq_versions *versions = moq_versions_default();
+	moq_auth_dial *dial = moq_auth_tokens_dial(tokens, url, versions);
+	moq_url *dialed = moq_auth_dial_url(dial);
+	CHECK(moq_url_eq(dialed, url));
+	CHECK(is(moq_url_to_string(dialed), "https://relay.example:4443/demo"));
+	moq_url_free(dialed);
+	moq_auth_dial_free(dial);
+	moq_auth_tokens_free(tokens);
+	moq_url_free(url);
+	/* A `Vec<String>`, each element a buffer the array frees. */
+	moq_vec_string alpns = moq_versions_alpns(versions);
+	CHECK(alpns.len > 0);
+	for (size_t i = 0; i < alpns.len; i++) {
+		CHECK(alpns.ptr[i].len > 0);
+	}
+	moq_vec_string_free(alpns);
+	moq_versions_free(versions);
+	/* A socket address, crossing in a listener's bind. */
+	moq_listen_bind bind = {.tag = MOQ_LISTEN_BIND_ADDR, .addr = {._0 = {.ip = {[15] = 1}, .port = 4443, .v6 = true}}};
+	CHECK(is(moq_listen_bind_to_string(&bind), "[::1]:4443"));
+	moq_listen_bind v4 = {.tag = MOQ_LISTEN_BIND_ADDR, .addr = {._0 = {.ip = {127, 0, 0, 1}, .port = 0}}};
+	CHECK(is(moq_listen_bind_to_string(&v4), "127.0.0.1:0"));
+	CHECK(!moq_listen_bind_eq(&bind, &v4));
+	/* TLS files, as OS paths, and fingerprints, as strings: none by default. */
+	moq_tls_connect *tls = moq_tls_connect_default();
+	moq_vec_path roots = moq_tls_connect_root(tls);
+	moq_vec_string fingerprints = moq_tls_connect_fingerprint(tls);
+	CHECK(roots.ptr != NULL && roots.len == 0 && fingerprints.len == 0);
+	moq_vec_path_free(roots);
+	moq_vec_string_free(fingerprints);
+	moq_tls_connect_free(tls);
+
 	if (failures == 0) {
 		printf("ok\n");
 	}

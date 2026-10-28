@@ -184,6 +184,9 @@ pub enum Access {
 	Field { shared: bool },
 	/// It reads a constant that is not a `bool` or integer.
 	Const,
+	/// It parses its receiver's type from text, with `FromStr`, failing with the parse
+	/// error's message: a foreign type exported as an object.
+	Parse,
 }
 
 impl Function {
@@ -241,6 +244,14 @@ pub enum Type {
 	Bytes,
 	/// `std::time::Duration`
 	Duration,
+	/// `std::path::Path`, only behind a reference.
+	Path,
+	/// `std::path::PathBuf`
+	PathBuf,
+	/// `std::net::SocketAddr`
+	SocketAddr,
+	/// `Vec<T>` of any `T` but `u8`, which is [`Type::Vec`].
+	List(Box<Type>),
 	/// `std::task::Waker`, only as a parameter taken by value.
 	Waker,
 	Option(Box<Type>),

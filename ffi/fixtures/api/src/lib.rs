@@ -833,3 +833,79 @@ impl Slot<u8> {
 pub fn wide(value: u32) -> Slot<u32> {
 	Slot::new(value)
 }
+
+/// A peer: a record of a socket address and its names, which holds a `Vec`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Peer {
+	pub addr: std::net::SocketAddr,
+	pub names: Vec<String>,
+}
+
+impl Peer {
+	/// Its names, each borrowed.
+	pub fn aliases(&self) -> Vec<&str> {
+		self.names.iter().map(String::as_str).collect()
+	}
+
+	/// The peer at the next port, also named `name`.
+	pub fn next(&self, name: &str) -> Peer {
+		let mut addr = self.addr;
+		addr.set_port(addr.port() + 1);
+		let mut names = self.names.clone();
+		names.push(name.to_string());
+		Peer { addr, names }
+	}
+}
+
+/// `url`'s host, if it has one.
+pub fn host(url: &url::Url) -> Option<String> {
+	url.host_str().map(str::to_string)
+}
+
+/// `path` resolved against `base`, or why it does not resolve.
+pub fn resolve(base: url::Url, path: &str) -> Result<url::Url, String> {
+	base.join(path).map_err(|err| err.to_string())
+}
+
+/// Each address's port.
+pub fn ports(addrs: Vec<std::net::SocketAddr>) -> Vec<u16> {
+	addrs.iter().map(std::net::SocketAddr::port).collect()
+}
+
+/// `name` in `dir`.
+pub fn file(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+	dir.join(name)
+}
+
+/// Each path's parent, if it has one.
+pub fn parents(paths: Vec<std::path::PathBuf>) -> Vec<Option<std::path::PathBuf>> {
+	paths
+		.iter()
+		.map(|path| path.parent().map(std::path::Path::to_path_buf))
+		.collect()
+}
+
+/// The words of `text`.
+pub fn words(text: &str) -> Vec<String> {
+	text.split_whitespace().map(str::to_string).collect()
+}
+
+/// `words` joined by spaces, or `none` for none.
+pub fn sentence(words: Option<Vec<String>>) -> String {
+	words.map_or_else(|| "none".to_string(), |words| words.join(" "))
+}
+
+/// `bytes` in chunks of up to `size`, which is not 0.
+pub fn chunks(bytes: &[u8], size: usize) -> Vec<Vec<u8>> {
+	bytes.chunks(size).map(<[u8]>::to_vec).collect()
+}
+
+/// A counter for each name, at 1.
+pub fn counters(names: Vec<String>) -> Vec<Counter> {
+	names.iter().map(|name| Counter::new(name, 1)).collect()
+}
+
+/// Each row's sum.
+pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
+	rows.iter().map(|row| row.iter().sum()).collect()
+}

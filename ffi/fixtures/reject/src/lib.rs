@@ -229,3 +229,8 @@ pub fn both<F: Fn()>(a: F, b: F) {
 pub fn read(f: impl FnOnce(&Text<'_>)) {
 	f(&Text(""))
 }
+
+/// Words C would lend inside an array, which C lends nothing inside.
+pub fn count_words(words: Vec<&str>) -> usize {
+	words.len()
+}

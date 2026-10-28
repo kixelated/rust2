@@ -70,7 +70,11 @@ export's, and adds nothing; another crate's type is refused.
 | `poll_x`, when `x` exports as a future | left out: the future is its poll |
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
+| `&Path`, `PathBuf` | `<prefix>_buf` of the path's bytes as the OS holds them on Unix, which need not be UTF-8, else UTF-8 |
 | `Duration` | `<prefix>_duration` |
+| `SocketAddr` | `<prefix>_socket_addr`: its IP's bytes, port, and whether it is IPv6 |
+| `url::Url` | an object `<prefix>_url`, made by `<prefix>_url_parse`, which fails with the parse error's message, and printed by `_to_string` |
+| `Vec<T>` of any other `T` | `<prefix>_vec_<T>`: an array of `T`'s C values, viewed passed in and owned returned; `Vec<&T>` only returned |
 | `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
@@ -107,6 +111,11 @@ refused, and the census counts why.
   future, which may be polled on any thread. A borrow Rust would
   refuse at compile time aborts, naming the function, as does a null or moved-out handle:
   there is no Rust caller to return an error to.
+- **Arrays** of a `Vec` are a pointer, a length, and an owner, as a buffer is: passed
+  in, Rust copies each element out of C's array; returned, `<prefix>_vec_<T>_free` frees
+  the array and its first `len` elements, so a binding that takes the elements sets
+  `len` to 0 first. A null pointer is `None`, so C passes a non-null one for `Some` of
+  an empty array.
 - **Values** are copied in from the caller's memory, which Rust never frees, and lowered
   into memory the caller frees once with the type's `_free`.
 - **Futures** run no runtime: C polls with a `<prefix>_waker` and polls again when woken.
@@ -172,7 +181,8 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
   traits are free functions taking it first. `PartialEq` is `==`, `Display` `to_string()`,
   `Debug` `debug()`, and `Default` `default_()`.
 - **Bytes** are passed as a `view`, which any contiguous bytes convert to, and returned as
-  a `buf`, which owns Rust's buffer without a copy. `Option<T>` is `std::optional<T>`, a
+  a `buf`, which owns Rust's buffer without a copy. A `Vec<T>` is a `std::vector`, of
+  `view`s for bytes passed in, and a socket address `socket_addr`, the C struct. `Option<T>` is `std::optional<T>`, a
   tuple `std::tuple`, and `Result<T, E>` a `result<T, E>`, whose `value()` aborts on an
   error.
 - **Traits** are abstract classes, passed as a `std::unique_ptr` that Rust deletes.

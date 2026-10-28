@@ -50,7 +50,6 @@ Every generator on the C ABI:
 - [Iterator and JSON arguments the exporter can't map yet](/quest/m1/ffi-export/instance-keys.md) - `IntoIterator` as a `Vec`, and `serde_json::Value`
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in a session's config, as Rust assigns it
-- [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux

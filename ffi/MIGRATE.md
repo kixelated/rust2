@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `Vec<T>`, `PathBuf`, `SocketAddr`, and `url::Url` map, so a struct or enum whose
+  fields were refused only for them is a value now, not an object: moq-tokio's
+  `listen::Bind` is the C enum `moq_listen_bind`, freed with `moq_listen_bind_free(&b)`,
+  not a handle. An item that clashes with the new names `<prefix>_socket_addr`,
+  `<prefix>_url`, or a `<prefix>_vec_<T>` takes a `rename`.
+
 - In `exclude` and `rename`, a path that a field shares with a method or constant of its
   type, such as `Backoff::initial`, names only the method, as in rustdoc. Name the field
   `field@Backoff::initial`: an `exclude` that left out both now needs both entries.
