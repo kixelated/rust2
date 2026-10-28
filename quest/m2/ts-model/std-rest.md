@@ -4,7 +4,7 @@
 
 rust2-ts translates the std calls the model's census still refuses after
 [std gaps](/quest/m2/ts-model/std-more.md) and [core's MIR](https://github.com/kixelated/rust2/pull/129),
-outside [Places](/quest/m2/ts-model/std-places.md), proven by differential tests against
+outside [Places](https://github.com/kixelated/rust2/pull/149), proven by differential tests against
 native Rust.
 
 ## Plan
