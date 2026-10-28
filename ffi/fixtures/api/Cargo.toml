@@ -13,6 +13,7 @@ name = "api_lib"
 [dependencies]
 bytes = "1.11.1"
 dep-fixture = { path = "../dep" }
+url = "2.5.8"
 
 [lints]
 workspace = true

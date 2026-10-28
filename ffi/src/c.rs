@@ -79,6 +79,9 @@ impl Header<'_> {
 			"typedef struct {p}_duration {{\n\tuint64_t secs;\n\tuint32_t nanos;\n}} {p}_duration;\n"
 		));
 		self.line(format!(
+			"/* A socket address: IPv4 in the first 4 bytes of ip, with the rest of ip, flowinfo,\n * and scope_id zero, or IPv6 if v6. ip is in network order and port in the host's. */\ntypedef struct {p}_socket_addr {{\n\tuint8_t ip[16];\n\tuint16_t port;\n\tbool v6;\n\tuint32_t flowinfo;\n\tuint32_t scope_id;\n}} {p}_socket_addr;\n"
+		));
+		self.line(format!(
 			"/* Wakes a future's poller: wake may be called from any thread, any number of\n * times, until drop releases data. A poll passing the same wake and data again\n * reuses the waker. Either function may be null. */\ntypedef struct {p}_waker {{\n\tvoid (*wake)(void *data);\n\tvoid (*drop)(void *data);\n\tvoid *data;\n}} {p}_waker;\n"
 		));
 		self.line(format!(
@@ -117,6 +120,9 @@ impl Header<'_> {
 		}
 
 		// Value structs, each after the values it holds.
+		for name in abi.lists.keys() {
+			self.value(&Ty::Struct(name.clone()));
+		}
 		for name in abi.ranges.keys() {
 			self.value(&Ty::Struct(name.clone()));
 		}
@@ -254,6 +260,18 @@ impl Header<'_> {
 				other => unreachable!("{other:?} is no range"),
 			};
 			self.line(format!("typedef struct {name} {{\n{fields}\n}} {name};\n"));
+			return;
+		}
+		if let Some(elem) = abi.lists.get(name) {
+			let elem = abi.ty(elem);
+			self.value(&elem);
+			let ptr = match elem {
+				Ty::Handle { name, .. } => format!("{name} *const *ptr"),
+				elem => self.decl(&Ty::In(Box::new(elem)), "ptr"),
+			};
+			self.line(format!(
+				"/* A Vec. Passed in, an array Rust reads during the call and never frees. Returned,\n * an array to free once with {name}_free, which frees its first len elements too:\n * set len to 0 first to keep them. A null ptr is None. */\ntypedef struct {name} {{\n\t{ptr};\n\tsize_t len;\n\tvoid *owner;\n}} {name};\n\nvoid {name}_free({name} vec);\n"
+			));
 			return;
 		}
 		if let Some(inner) = abi.options.get(name) {
@@ -421,6 +439,7 @@ pub fn decl(abi: &Abi<'_>, ty: &Ty, name: &str) -> String {
 		Ty::Char => space("uint32_t"),
 		Ty::Buf => space(&abi.rt("buf")),
 		Ty::Duration => space(&abi.rt("duration")),
+		Ty::SocketAddr => space(&abi.rt("socket_addr")),
 		Ty::Struct(n) | Ty::Enum(n) => space(n),
 		Ty::Handle { name: n, constant } => match constant {
 			true => format!("const {n} *{name}"),

@@ -31,6 +31,8 @@ pub enum Ty {
 	Buf,
 	/// `<prefix>_duration`
 	Duration,
+	/// `<prefix>_socket_addr`
+	SocketAddr,
 	/// A struct: a record, a data enum, an option, or a callback's table and data.
 	Struct(String),
 	/// A plain enum, passed as its C enum, which is an `int`.
@@ -71,6 +73,17 @@ pub struct Export {
 	pub future: Option<(String, Sig, Sig)>,
 }
 
+/// `ty` as a clone of each borrow it holds.
+fn owned(ty: &Type) -> Type {
+	match ty {
+		Type::Ref(_, inner) => owned(inner),
+		Type::Option(inner) => Type::Option(Box::new(owned(inner))),
+		Type::Box(inner) => Type::Box(Box::new(owned(inner))),
+		Type::List(inner) => Type::List(Box::new(owned(inner))),
+		ty => ty.clone(),
+	}
+}
+
 /// The suffix naming each instance of a generic item, by its arguments.
 type Suffixes = HashMap<Vec<Type>, String>;
 
@@ -89,6 +102,8 @@ pub struct Abi<'a> {
 	pub options: BTreeMap<String, Type>,
 	/// Each range, bound, and pair of bounds struct by C name, with its type.
 	pub ranges: BTreeMap<String, Type>,
+	/// Each `Vec<T>` struct by C name, with `T`.
+	pub lists: BTreeMap<String, Type>,
 	/// Every C name claimed, with what claimed it.
 	names: HashMap<String, (String, Span)>,
 	/// Each name claimed twice.
@@ -105,6 +120,7 @@ impl<'a> Abi<'a> {
 			suffixes: Default::default(),
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
+			lists: BTreeMap::new(),
 			names: HashMap::new(),
 			clashes: Vec::new(),
 		};
@@ -298,6 +314,11 @@ impl<'a> Abi<'a> {
 		format!("{}_option_{}", self.prefix, self.key(inner))
 	}
 
+	/// The C name of `Vec<elem>`'s struct: `<prefix>_vec_string`.
+	pub fn list(&self, elem: &Type) -> String {
+		format!("{}_vec_{}", self.prefix, self.key(elem))
+	}
+
 	/// The C name of a range, bound, or pair of bounds struct: `<prefix>_range_u64`.
 	pub fn range(&self, ty: &Type) -> String {
 		format!("{}_{}", self.prefix, self.key(ty))
@@ -309,12 +330,17 @@ impl<'a> Abi<'a> {
 		match ty {
 			Type::Unit => "unit".to_string(),
 			Type::Bool => "bool".to_string(),
-			Type::String => "string".to_string(),
+			Type::Str | Type::String => "string".to_string(),
+			Type::Slice | Type::Vec | Type::Bytes => "bytes".to_string(),
+			Type::Path | Type::PathBuf => "path".to_string(),
 			Type::Int(int) => int.rust().to_string(),
 			Type::F32 => "f32".to_string(),
 			Type::F64 => "f64".to_string(),
 			Type::Char => "char".to_string(),
 			Type::Duration => "duration".to_string(),
+			Type::SocketAddr => "socket_addr".to_string(),
+			Type::Option(inner) => format!("option_{}", self.key(inner)),
+			Type::List(inner) => format!("vec_{}", self.key(inner)),
 			Type::Record(i) => strip(self.record(*i)),
 			Type::Enum(i) => strip(self.enumeration(*i)),
 			Type::Object(i) => strip(self.object(*i)),
@@ -330,8 +356,14 @@ impl<'a> Abi<'a> {
 	pub fn is_buf(ty: &Type) -> bool {
 		matches!(
 			ty.base(),
-			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf
 		)
+	}
+
+	/// Whether `Option<ty>` crosses as `ty`, with a null pointer for `None`: a handle, a
+	/// buffer, or a `Vec`'s array.
+	pub fn nullable(ty: &Type) -> bool {
+		matches!(ty.base(), Type::Object(_) | Type::List(_)) || Self::is_buf(ty)
 	}
 
 	/// The C type of `ty` as a value: a parameter, field, or what a function returns.
@@ -343,13 +375,14 @@ impl<'a> Abi<'a> {
 			Type::F32 => Ty::F32,
 			Type::F64 => Ty::F64,
 			Type::Char => Ty::Char,
-			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => Ty::Buf,
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => Ty::Buf,
 			Type::Duration => Ty::Duration,
+			Type::SocketAddr => Ty::SocketAddr,
 			Type::Waker => Ty::Waker,
-			Type::Option(inner) => match inner.base() {
-				Type::Object(_) => self.ty(inner),
-				base if Self::is_buf(base) => Ty::Buf,
-				_ => Ty::Struct(self.option(inner)),
+			Type::List(inner) => Ty::Struct(self.list(inner)),
+			Type::Option(inner) => match Self::nullable(inner) {
+				true => self.ty(inner),
+				false => Ty::Struct(self.option(inner)),
 			},
 			Type::Box(inner) => self.ty(inner),
 			Type::Ref(m, inner) => match &**inner {
@@ -378,14 +411,6 @@ impl<'a> Abi<'a> {
 	/// The C type of `ty` returned: a borrow is returned as a clone, so a handle in it is
 	/// the caller's own.
 	fn returned(&self, ty: &Type) -> Ty {
-		fn owned(ty: &Type) -> Type {
-			match ty {
-				Type::Ref(_, inner) => owned(inner),
-				Type::Option(inner) => Type::Option(Box::new(owned(inner))),
-				Type::Box(inner) => Type::Box(Box::new(owned(inner))),
-				ty => ty.clone(),
-			}
-		}
 		self.ty(&owned(ty))
 	}
 
@@ -514,8 +539,20 @@ impl<'a> Abi<'a> {
 		// C's runtime, then what C++'s adds in the namespace its types share, and Kotlin's
 		// in its package.
 		for runtime in [
-			"contract", "buf", "buf_free", "duration", "waker", "poll", "view", "result", "task", "future", "poll_t",
-			"detail", "native",
+			"contract",
+			"buf",
+			"buf_free",
+			"duration",
+			"socket_addr",
+			"waker",
+			"poll",
+			"view",
+			"result",
+			"task",
+			"future",
+			"poll_t",
+			"detail",
+			"native",
 		] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}
@@ -608,13 +645,19 @@ impl<'a> Abi<'a> {
 		}
 		let mut options = BTreeMap::new();
 		let mut ranges = BTreeMap::new();
+		let mut lists = BTreeMap::new();
 		let mut stack = types;
 		while let Some(ty) = stack.pop() {
 			match ty {
 				Type::Option(inner) => {
-					if !matches!(inner.base(), Type::Object(_)) && !Self::is_buf(inner) {
+					if !Self::nullable(inner) {
 						options.insert(self.option(inner), (**inner).clone());
 					}
+					stack.push(inner);
+				}
+				Type::List(inner) => {
+					// A returned `Vec<&T>` holds clones, which its free frees.
+					lists.insert(self.list(inner), owned(inner));
 					stack.push(inner);
 				}
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),
@@ -639,6 +682,10 @@ impl<'a> Abi<'a> {
 		for name in ranges.keys() {
 			self.claim(name.clone(), "a range".to_string(), crate_span);
 		}
+		for name in lists.keys() {
+			self.claim(name.clone(), "a Vec".to_string(), crate_span);
+			self.claim(format!("{name}_free"), "a Vec".to_string(), crate_span);
+		}
 		if ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
 			let bound = self.rt("bound");
 			for kind in ["", "_UNBOUNDED", "_INCLUDED", "_EXCLUDED"] {
@@ -651,6 +698,7 @@ impl<'a> Abi<'a> {
 		}
 		self.options = options;
 		self.ranges = ranges;
+		self.lists = lists;
 	}
 
 	/// Claim the functions a type's std traits export.
