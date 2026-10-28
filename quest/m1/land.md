@@ -14,7 +14,7 @@ Decided 2026-10-26 (maintainer), planning moq-dev/moq's merge throughput
 gate is shared through kixelated/quest, and this repository adopts it.
 
 [kixelated/rust2#137](https://github.com/kixelated/rust2/pull/137) added the
-Land workflow, a test that only its land job uses the `land` environment, and
+Land workflow, a test that only its land job names an environment, and
 `CONTRIBUTING.md`'s landing rule. What remains is the maintainer's setup and
 the live verification.
 
