@@ -177,8 +177,10 @@ pub struct Instance {
 pub enum Access {
 	/// It calls the function.
 	Call,
-	/// It reads a `pub` field of its receiver.
-	Field,
+	/// It reads a `pub` field of its receiver. `shared` when a method or constant of its
+	/// type takes its name, which its path then names, so the config names the field
+	/// `field@<path>`, as rustdoc does.
+	Field { shared: bool },
 	/// It reads a constant that is not a `bool` or integer.
 	Const,
 }

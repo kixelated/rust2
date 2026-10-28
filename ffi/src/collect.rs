@@ -1179,7 +1179,17 @@ impl<'tcx> Collector<'tcx> {
 			}
 			let name = field.name.to_string();
 			let shown = [&site.shown[..], std::slice::from_ref(&name)].concat();
-			if self.exclude(&shown) {
+			// As in rustdoc, `field@` and the path name the field, and the path alone does
+			// unless a method or constant takes the name, which it then names.
+			let shared = (tcx.inherent_impls(site.key.def_id).iter())
+				.flat_map(|&imp| tcx.associated_items(imp).filter_by_name_unhygienic(field.name))
+				.any(|item| {
+					matches!(item.kind, ty::AssocKind::Fn { .. } | ty::AssocKind::Const { .. })
+						&& tcx.visibility(item.def_id).is_public()
+				});
+			let mut key = shown.clone();
+			key[1].insert_str(0, "field@");
+			if self.exclude(&key) || (!shared && self.exclude(&shown)) {
 				continue;
 			}
 			let span = tcx.def_span(field.did);
@@ -1196,10 +1206,10 @@ impl<'tcx> Collector<'tcx> {
 					err: None,
 					future: false,
 					eager: false,
-					access: Access::Field,
+					access: Access::Field { shared },
 					instance: None,
 				}),
-				Err(why) => self.refuse(&shown, "field", span, vec![why], false),
+				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, vec![why], false),
 			}
 		}
 		getters

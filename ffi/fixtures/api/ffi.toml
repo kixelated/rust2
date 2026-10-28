@@ -1,8 +1,13 @@
 package = "api-fixture"
 prefix = "api"
 # The list's tail is not `Clone`, so its getter has no copy to return, one instance leaves
-# out a method the others keep, and `Seed` is generic, so no callback implements it.
-exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed"]
+# out a method the others keep, `Seed` is generic, so no callback implements it, and
+# `field@` leaves out the field `Retry::delay` alone, which the method takes the name of.
+exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed", "field@Retry::delay"]
+
+# The field `Retry::limit`, whose name its method takes.
+[rename]
+"field@Retry::limit" = "retry_limit_setting"
 
 # Generic types at the instances C uses, each with its C name: `Pair<u32>` is
 # `Pair<u32, u32>`, and `swap` returns each `Pair` of a `Size` as the other.

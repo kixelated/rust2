@@ -461,6 +461,28 @@ impl Drop for Token {
 	}
 }
 
+/// Retry settings: each field is unset until C sets it, and the method of its name
+/// resolves it, as Rust's accessors do. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Retry {
+	pub limit: Option<u32>,
+	pub delay: Option<u32>,
+}
+
+impl Retry {
+	pub fn new(limit: Option<u32>) -> Self {
+		Self { limit, delay: None }
+	}
+
+	pub fn limit(&self) -> u32 {
+		self.limit.unwrap_or(3)
+	}
+
+	pub fn delay(&self) -> u32 {
+		self.delay.unwrap_or(100)
+	}
+}
+
 /// How many tokens have dropped.
 pub fn dropped() -> u32 {
 	DROPPED.load(std::sync::atomic::Ordering::Relaxed)
