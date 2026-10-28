@@ -66,6 +66,7 @@ a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixt
 `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:480:4
 a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:496:26
 a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:506:30
+`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:536:12
 `Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:517:2
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:529:14
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:530:14

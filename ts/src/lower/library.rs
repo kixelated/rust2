@@ -55,7 +55,7 @@ pub enum Std {
 	/// `rt.Mutex`, which is also its own guard.
 	Mutex,
 	MutexGuard,
-	/// What a `Mutex` can't be locked with on one thread: never.
+	/// What it holds, a lock's guard or value.
 	PoisonError,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,
@@ -515,6 +515,10 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			&& t.self_ty(instance)
 				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
 	}
+	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
+	let lock = std == Some(Std::Result)
+		&& name.as_str() == "unwrap_or_else"
+		&& matches!(instance.args.type_at(1).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::PoisonError));
 	!matches!(
 		(std, name.as_str()),
 		(
@@ -524,7 +528,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			Some(Std::Result),
 			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
 		)
-	)
+	) && !lock
 }
 
 pub struct Call<'tcx> {
