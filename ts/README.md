@@ -242,7 +242,8 @@ copies holds its `rt.Place`, so `&mut self` writes where the value is. An upcast
 same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose]`, which
 a TS caller's object may leave out. A trait object of another crate's trait, but for
 `&dyn Debug`, `&dyn Display`, and `dyn Future`, of a generic trait or one with an
-associated type, or behind any other pointer, such as an `Arc`, is refused.
+associated type, of a byte array, or behind any other pointer, such as an `Arc` or a
+struct's last field, is refused.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the

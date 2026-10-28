@@ -543,3 +543,30 @@ pub trait Scaled<T> {
 pub fn generic_object(s: &dyn Scaled<u8>) -> u8 {
 	s.scale(2)
 }
+
+pub trait First {
+	fn first(&self) -> u8;
+}
+
+impl First for [u8; 4] {
+	fn first(&self) -> u8 {
+		self[0]
+	}
+}
+
+/// A trait object of a byte array, which a box holds as a `Uint8Array` and a reference as
+/// an `rt.ByteSlice`.
+pub fn first_of(n: u8) -> u8 {
+	let b: Box<dyn First> = Box::new([n, 8, 9, 10]);
+	b.first()
+}
+
+pub struct Tail<T: ?Sized> {
+	pub value: T,
+}
+
+/// A struct whose last field unsizes to a trait object.
+pub fn tail_read(t: &Tail<u8>) -> u8 {
+	let r: &Tail<dyn Reading> = t;
+	r.value.read()
+}

@@ -61,6 +61,8 @@ roots = [
     "float_printed",
     "shared_object",
     "generic_object",
+    "first_of",
+    "tail_read",
     "missing",
 ]
 printable = ["Meters"]

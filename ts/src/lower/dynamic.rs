@@ -312,6 +312,18 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		let (Some(pointee), Some(object)) = (from.builtin_deref(true), to.builtin_deref(true)) else {
 			return unsupported(self);
 		};
+		// The pointer itself, not a struct whose last field unsizes.
+		if !object.is_trait() {
+			return unsupported(self);
+		}
+		// A box holds one as a `Uint8Array` and a reference as an `rt.ByteSlice`, which one
+		// class's methods can't both take.
+		if super::byte_array(pointee) {
+			return self.err(
+				span,
+				format!("a trait object of `{pointee}`, which is not supported yet"),
+			);
+		}
 		if self.t.object(object, span).is_none() {
 			return Expr::undefined();
 		}
