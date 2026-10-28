@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 85
-- Function instances: 72
-- Generic functions no instance reached, lowered over their type parameters: 2
+- Refusals: 87
+- Function instances: 75
+- Generic functions no instance reached, lowered over their type parameters: 4
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 9 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
+| 11 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:23:15 |
 | 5 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:45:11 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:397:2 |
@@ -79,6 +79,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:193:8 |
 | 2 | `std::option::Option` | fixtures/reject/src/lib.rs:286:6 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:129:2 |
+| 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:466:17 |
 | 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:291:52 |
 | 2 | `u8` | fixtures/reject/src/lib.rs:88:2 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:172:1 |
@@ -119,6 +120,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:129:2 |
 | 2 | dropping `_`, which is not supported yet | `std::iter::Take` | fixtures/reject/src/lib.rs:389:79 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:93:2 |
+| 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:466:17 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:408:18 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:309:6 |
@@ -174,7 +176,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (9)</summary>
+<details><summary>unsupported call to `_` (11)</summary>
 
 - fixtures/reject/src/lib.rs:28:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:44:29: unsupported call to `std::mem::size_of_val::<Noisy>`
@@ -185,6 +187,8 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:370:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 - fixtures/reject/src/lib.rs:409:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
 - fixtures/reject/src/lib.rs:447:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
+- fixtures/reject/src/lib.rs:466:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
+- fixtures/reject/src/lib.rs:466:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
 
 </details>
 
