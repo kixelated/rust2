@@ -952,6 +952,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Weak
 					| library::Std::Mutex
 					| library::Std::MutexGuard
+					| library::Std::Atomic
 					| library::Std::Waker
 					| library::Std::Context
 					| library::Std::Pin
@@ -1220,6 +1221,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Mutex", vec![self.ty(inner, span)])
 				}
 				library::Std::PoisonError => Type::Builtin("never"),
+				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
+				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {
