@@ -194,12 +194,12 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return m._0;
 	}))));
 	const res: rt.Result<Point.Point, rt.u8> = rt.Ok(p);
-	const first: Point.Point = copy$Point(rt.resultUnwrap(res, rt.u8Display));
+	const first: Point.Point = copy$Point(rt.resultUnwrap(res, rt.u8Debug));
 	first.x = 2;
 	const fail: rt.Result<rt.u8, Point.Point> = rt.Err(copy$Point(q));
-	const err: Point.Point = copy$Point(rt.resultUnwrapErr(fail, rt.u8Display));
+	const err: Point.Point = copy$Point(rt.resultUnwrapErr(fail, rt.u8Debug));
 	err.y = 3;
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(first.x & 0xff, rt.resultUnwrap(res, rt.u8Display).x & 0xff, err.y & 0xff, rt.resultUnwrapErr(fail, rt.u8Display).y & 0xff)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(first.x & 0xff, rt.resultUnwrap(res, rt.u8Debug).x & 0xff, err.y & 0xff, rt.resultUnwrapErr(fail, rt.u8Debug).y & 0xff)));
 	const shape_: Shape.Shape = copy$Shape(shape(data));
 	const before: Shape.Shape = copy$Shape(shape_);
 	if (shape_.tag !== "Dot") {
@@ -609,7 +609,7 @@ export function order(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _87: rt.usize = rt.usizeDiv(rt.min(mark(out, 15), len), 2);
 	const _103: rt.usize = sum;
 	const _82: rt.ByteSlice = rt.byteSliceRange(_83, _87, _85);
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(taken, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_82), f, rt.u8Display)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => Shape.fmt$Debug(rect, f), (f: rt.Formatter) => Shape.fmt$Debug(line, f), (f: rt.Formatter) => Pair.fmt$Debug(pair, f), (f: rt.Formatter) => Point.fmt$Debug(read, f), (f: rt.Formatter) => Moved.fmt$Debug(updated, f), (f: rt.Formatter) => Shape.fmt$Debug(taken, f), (f: rt.Formatter) => rt.usizeDisplay(_64, f), (f: rt.Formatter) => rt.usizeDisplay(_63, f), (f: rt.Formatter) => rt.usizeDisplay(_103, f), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_82), f, rt.u8Debug)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7], " ", args2[8], " ", args2[9]])));
 	const _125: rt.usize = mark(out, 16);
 	const _127: rt.usize = out.length;
@@ -1392,7 +1392,7 @@ export function patterns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const parsed: rt.Result<rt.u8, Void.Void> = rt.Ok(data.length & 0xff);
 	const a2: rt.u8 = (parsed as { ok: true; value: rt.u8 }).value;
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a2, (parsed as { ok: true; value: rt.u8 }).value, (parsed as { ok: true; value: rt.u8 }).value, early(a2))));
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(parsed, f, rt.u8Display, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(parsed, f, rt.u8Debug, (value: Void.Void, f: rt.Formatter) => Void.fmt$Debug(value, f))];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 	payloads(data, out);
 	known(data, out);
