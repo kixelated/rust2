@@ -237,6 +237,13 @@ fun script() {
 	println("cross ${cross(LeftRightU8(RightU8(1u)), RightLeftU8(LeftU8(2u)))} outer ${OuterInnerU8.new(4u).get()}")
 	// A bound that outlives the call takes a value, and an instance only a constant names.
 	println("kept ${keptPoint(Point(1, -2))} boxed ${BOXED.value}")
+	// Inferred instances taking a lent closure and a foreign implementation, and one only
+	// its impl of a trait names.
+	val sides = PairU32(2u, 5u)
+	println("apply ${applyU32(sides) { side -> side * 3u }}")
+	println("report ${reportU32(sides, PrintLog())}")
+	println("wrapped ${keptWrapU32(WrapU32(4u))}")
+	println("keeps ${keeps(PrintLog()).value}")
 
 	// Its Drop runs when Kotlin closes the handle, not before.
 	val token = Token.new(7u)
