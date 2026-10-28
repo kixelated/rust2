@@ -77,16 +77,31 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 		return None;
 	}
 	let body = tcx.optimized_mir(def_id).clone();
-	let mut body =
-		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
+	let mut body = match instance.try_instantiate_mir_and_normalize_erasing_regions(
+		tcx,
+		t.typing_env_pub(),
+		EarlyBinder::bind(tcx, body),
+	) {
+		Ok(body) => body,
+		Err(err) => {
+			t.err(
+				span,
+				format!(
+					"`{instance}` names `{}`, which does not normalize",
+					err.get_type_for_failure()
+				),
+			);
+			return None;
+		}
+	};
 	vec::literals(tcx, &mut body);
-	if !def_id.is_local()
+	if !t.crates.translates(def_id)
 		&& let Some(why) = std_refused(tcx, &body)
 	{
 		t.err(span, why);
 		return None;
 	}
-	decided::fold(tcx, &mut body);
+	decided::fold(tcx, &t.crates, &mut body);
 	Some(body)
 }
 
@@ -313,6 +328,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
+		let narrowing = decided::narrowing(tcx, &b.t.crates, mir);
 		let mut fx = Fx {
 			b,
 			mir,
@@ -368,7 +384,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			steady: FxHashSet::default(),
 			spilled: FxHashMap::default(),
 			scalar_binds: Vec::new(),
-			narrowing: decided::narrowing(tcx, mir),
+			narrowing,
 			at: mir::START_BLOCK.start_location(),
 		};
 		fx.analyze();

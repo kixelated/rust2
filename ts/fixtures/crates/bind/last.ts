@@ -1,0 +1,8 @@
+// `crates_dep::last`, which reads through a raw pointer.
+
+import * as rt from "../rt.ts";
+
+export function last(bytes: rt.ByteSlice): rt.u8 {
+	if (bytes.length === 0) rt.panic("no last byte");
+	return bytes.data[bytes.start + bytes.length - 1] as rt.u8;
+}
