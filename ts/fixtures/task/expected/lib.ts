@@ -183,6 +183,12 @@ export function drop$Option_Key_Guard(_1: [Key.Key, Guard.Guard] | undefined): v
 	}
 }
 
+export function drop$Option_Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8> | undefined): void {
+	if (_1 !== undefined) {
+		drop$Result_Guard_u8(_1);
+	}
+}
+
 export function drop$Option_u32_Bomb(_1: [rt.u32, Bomb.Bomb] | undefined): void {
 	if (_1 !== undefined) {
 		drop$u32_Bomb(_1);
@@ -213,6 +219,12 @@ export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>)
 	}
 }
 
+export function drop$Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8>): void {
+	if (_1.ok) {
+		rt.drop(_1.value);
+	}
+}
+
 export function drop$Result_Vec_Guard_Guard(_1: rt.Result<Guard.Guard[], Guard.Guard>): void {
 	if (_1.ok) {
 		rt.dropAll(_1.value);
@@ -228,6 +240,24 @@ export function drop$Result_u32_Guard(_1: rt.Result<rt.u32, Guard.Guard>): void 
 }
 
 export function drop$Result_u8_Key(_1: rt.Result<rt.u8, Key.Key>): void {
+	if (!_1.ok) {
+		rt.drop(_1.error);
+	}
+}
+
+export function drop$Result_unit_Guard(_1: rt.Result<undefined, Guard.Guard>): void {
+	if (!_1.ok) {
+		rt.drop(_1.error);
+	}
+}
+
+export function drop$Result_unit_Held(_1: rt.Result<undefined, Held.Held>): void {
+	if (!_1.ok) {
+		drop$Held(_1.error);
+	}
+}
+
+export function drop$Result_unit_Option_Guard(_1: rt.Result<undefined, Guard.Guard | undefined>): void {
 	if (!_1.ok) {
 		rt.drop(_1.error);
 	}

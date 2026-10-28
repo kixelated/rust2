@@ -1659,6 +1659,10 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _127!: rt.u8;
 	let _131!: Shape.Shape;
 	let _189!: rt.u8;
+	let _192!: rt.u8;
+	let lift!: rt.u8;
+	let _206!: rt.u8;
+	let _226!: rt.u8;
 	const s: Shape.Shape = shape(data);
 	if (s.tag === "Dot") {
 		_5 = 2;
@@ -1819,6 +1823,57 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_189 = 26;
 		}
 		rt.byteVecPush(out, _189);
+	}
+	if (s.tag === "Line") {
+		const from3: Point.Point = s._0;
+		if (!(data.length > 2)) {
+			lift = 2;
+		} else {
+			lift = 1;
+		}
+		_192 = ((from3.y ^ s._1.x) & 0xff) ^ lift;
+	} else {
+		_192 = 49;
+	}
+	rt.byteVecPush(out, _192);
+	b30: {
+		if (s.tag === "Dot") {
+			if (!(data.length > 1)) {
+				_206 = 53;
+				break b30;
+			}
+			_206 = 51;
+			break b30;
+		}
+		if (s.tag === "Rect") {
+			if (s.width > 300) {
+				_206 = s.height & 0xff;
+				break b30;
+			}
+		}
+		_206 = 55;
+	}
+	rt.byteVecPush(out, _206);
+	b32: {
+		let w: Shape.Shape = s;
+		if (w.tag === "Dot") {
+			let i2: rt.usize = 0;
+			while (true) {
+				if (!(i2 < rt.min(data.length, 3))) {
+					break b32;
+				}
+				if (w.tag === "Dot") {
+					w = shape(rt.byteSliceFrom(Uint8Array.of(1)));
+					_226 = 56;
+				} else if (w.tag === "Line") {
+					_226 = 57;
+				} else {
+					_226 = 58;
+				}
+				rt.byteVecPush(out, _226);
+				i2 = rt.usizeAdd(i2, 1);
+			}
+		}
 	}
 	reseated(data, out);
 }

@@ -2,7 +2,6 @@ package = "reject-fixture"
 roots = [
     "float",
     "dynamic",
-    "increment",
     "nested",
     "sorted",
     "iterators",
@@ -20,7 +19,6 @@ roots = [
     "replace_shared",
     "nested_poll",
     "pending_output",
-    "shared_future",
     "replace_pinned",
     "replace_guard",
     "cycled",
@@ -51,12 +49,14 @@ roots = [
     "called_closure",
     "pattern_closure",
     "parts_summed",
-    "last_bumped",
-    "modified",
     "ok_passed",
     "places_equal",
     "fma",
     "float_printed",
+    "weak_object",
+    "generic_object",
+    "first_of",
+    "tail_read",
     "missing",
 ]
 printable = ["Meters"]

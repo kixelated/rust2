@@ -60,6 +60,9 @@ pub enum Std {
 	Atomic,
 	/// `rt.AtomicOrdering`: its discriminant.
 	AtomicOrdering,
+	/// `rt.OnceCell<T>` and `rt.OnceLock<T>`: the `Option<T>` each holds.
+	OnceCell,
+	OnceLock,
 	/// `rt.Waker`.
 	Waker,
 	/// `rt.Context`: its waker.
@@ -206,6 +209,8 @@ impl Std {
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
+			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
+			["sync", "once_lock", "OnceLock"] => Some(Self::OnceLock),
 			["cmp", "Reverse"] => Some(Self::Reverse),
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
@@ -541,6 +546,9 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
 		("bool", "then") => &[1],
+		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
+		// `OnceLock` is initializing, and what it made if it set the cell itself.
+		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
 		_ => return None,
 	})
 }
@@ -556,6 +564,10 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				"Option",
 				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
 			) | ("Iterator", "next")
+				| (
+					"OnceCell" | "OnceLock",
+					"get" | "set" | "get_or_init" | "take" | "into_inner"
+				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 		)
 }
@@ -1100,6 +1112,17 @@ fn mapping<'tcx>(
 			};
 			rt2(args, of, &super::camel(&name))
 		}
+		// An element JS copies is lent as its place, and an object as itself.
+		("slice", "first_mut" | "last_mut" | "get_mut") if name != "get_mut" || Int::of(targ(gargs, 1)).is_some() => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
+			let name = match b.t.needs_place(elem) {
+				true => name.as_str(),
+				false => name.strip_suffix("_mut")?,
+			};
+			rt2(values, "slice", &super::camel(name))
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -1121,8 +1144,7 @@ fn mapping<'tcx>(
 				false => return vec_clone(b, slice, elem, span),
 			}
 		}
-		("slice", "first_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceFirst", args),
-		("slice", "last" | "last_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
+		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
 		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
 		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
 		("slice", "contains") => {
@@ -1664,6 +1686,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 				Box::new(Expr::Rt("Atomic".into())),
 				vec![default_value(b, args.type_at(0))?],
 			),
+			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
 			_ => return None,
 		},
 		_ => return None,

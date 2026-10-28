@@ -16,7 +16,7 @@
 
 import { type None, type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
+import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
 import { type Arc, drop as dispose, dropAll } from "./task.ts";
 
 // Ordering
@@ -366,11 +366,11 @@ function itself<T>(value: T): T {
 }
 
 /** The place of index `i` of `a`. */
-class AtIndex<T> implements Place<T> {
-	private readonly a: T[];
+export class AtIndex<T> implements Place<T> {
+	private readonly a: { [i: number]: T };
 	private readonly i: number;
 
-	constructor(a: T[], i: number) {
+	constructor(a: { [i: number]: T }, i: number) {
 		this.a = a;
 		this.i = i;
 	}
@@ -660,16 +660,27 @@ export function hashClear<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (val
  * `f` rejects it, so a panic in `f` leaves the map whole, as std's.
  */
 export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
+	retainHash(m, f as (key: K, value: V | Place<V>) => boolean, false, k, v);
+}
+
+/** `retain` of values JS copies: `f` takes the place of each. */
+export function hashRetainMut<K, V>(m: HashMap<K, V>, f: (key: K, value: Place<V>) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
+	retainHash(m, f as (key: K, value: V | Place<V>) => boolean, true, k, v);
+}
+
+/** `retain`, handing `f` each value or, if `lend`, its place. */
+function retainHash<K, V>(m: HashMap<K, V>, f: (key: K, value: V | Place<V>) => boolean, lend: boolean, k?: (key: K) => void, v?: (value: V) => void): void {
 	for (const [key, value] of m.p) {
-		if (f(key, value)) continue;
+		if (f(key, lend ? new AtKey(m.p, key) : value)) continue;
+		const now = lend ? (m.p.get(key) as V) : value;
 		m.p.delete(key);
-		dropPair(key, value, k, v);
+		dropPair(key, now, k, v);
 	}
 	if (m.o === undefined) return;
 	for (const [hash, first] of m.o) {
 		let prev: Slot<K, V> | undefined;
 		for (let s: Slot<K, V> | undefined = first; s !== undefined; s = s.next) {
-			if (f(s.k, s.v)) {
+			if (f(s.k, lend ? s : s.v)) {
 				prev = s;
 				continue;
 			}
@@ -682,11 +693,15 @@ export function hashRetain<K, V>(m: HashMap<K, V>, f: (key: K, value: V) => bool
 	}
 }
 
-/** What a collection's iterator yields: its entries as `[key, value]`, keys, or values. */
-type Pick = 0 | 1 | 2;
+/**
+ * What a collection's iterator yields: its entries as `[key, value]`, keys, values, or
+ * `[key, place]`, the place of a value JS copies.
+ */
+type Pick = 0 | 1 | 2 | 3;
 const ENTRIES = 0;
 const KEYS = 1;
 const VALUES = 2;
+const PLACES = 3;
 
 /**
  * An iterator of a hash collection: `iter`, `keys`, `values`, `drain`, and the rest.
@@ -694,6 +709,7 @@ const VALUES = 2;
  * and drops each entry it still holds as it drops.
  */
 export class HashIter<K, V, T> extends Iter<T> implements Disposable {
+	private readonly m: Map<K, V>;
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
 	private at: Slot<K, V> | undefined;
@@ -706,6 +722,7 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 
 	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
+		this.m = m.p;
 		this.p = m.p.entries();
 		this.o = m.o?.values();
 		this.pick = pick;
@@ -719,15 +736,30 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 	private entry(): [K, V] {
 		const entry = this.p.next();
 		if (!entry.done) return entry.value;
+		const s = this.slot();
+		return [s.k, s.v];
+	}
+
+	/** The next entry of the `left` it has, as its key and the place of its value. */
+	private place(): [K, Place<V>] {
+		const entry = this.p.next();
+		if (!entry.done) return [entry.value[0], new AtKey(this.m, entry.value[0])];
+		const s = this.slot();
+		return [s.k, s];
+	}
+
+	/** The next chained entry, once the primitive keys are done. */
+	private slot(): Slot<K, V> {
 		if (this.at === undefined) this.at = (this.o as Iterator<Slot<K, V>>).next().value;
 		const s = this.at as Slot<K, V>;
 		this.at = s.next;
-		return [s.k, s.v];
+		return s;
 	}
 
 	next(): T | Done {
 		if (this.left === 0) return DONE;
 		this.left--;
+		if (this.pick === PLACES) return this.place() as T;
 		const entry = this.entry();
 		if (this.pick === ENTRIES) return entry as T;
 		return (this.pick === KEYS ? entry[0] : entry[1]) as unknown as T;
@@ -766,6 +798,16 @@ export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void): Iter<K> 
 /** `values` and `values_mut`, and with what drops each value, `into_values` of keys that don't drop. */
 export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void): Iter<V> {
 	return new HashIter<K, V, V>(m, VALUES, undefined, v);
+}
+
+/** `iter_mut` of values JS copies: each key and the place of its value, in `hashIter`'s order. */
+export function hashIterMut<K, V>(m: HashMap<K, V>): Iter<[K, Place<V>]> {
+	return new HashIter<K, V, [K, Place<V>]>(m, PLACES);
+}
+
+/** `values_mut` of values JS copies: the place of each. */
+export function hashValuesMut<K, V>(m: HashMap<K, V>): Iter<Place<V>> {
+	return iterMap(hashIterMut(m), (entry) => entry[1]);
 }
 
 /** `drain` of a map: every entry, taken out at once, which drops as `hashIter`'s. */
@@ -1304,14 +1346,25 @@ export function btreeSplitOff<K, V>(m: BTreeMap<K, V>, key: K): BTreeMap<K, V> {
  * one it panicked on, as std's.
  */
 export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
+	retainBTree(m, f as (key: K, value: V | Place<V>) => boolean, false, k, v);
+}
+
+/** `retain` of values JS copies: `f` takes the place of each. */
+export function btreeRetainMut<K, V>(m: BTreeMap<K, V>, f: (key: K, value: Place<V>) => boolean, k?: (key: K) => void, v?: (value: V) => void): void {
+	retainBTree(m, f as (key: K, value: V | Place<V>) => boolean, true, k, v);
+}
+
+/** `retain`, handing `f` each value or, if `lend`, its place, which the map is built from again. */
+function retainBTree<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V | Place<V>) => boolean, lend: boolean, k?: (key: K) => void, v?: (value: V) => void): void {
 	const [keys, values] = flatten(m);
 	let kept = 0;
 	let i = 0;
 	try {
 		while (i < keys.length) {
 			const key = keys[i];
+			const keep = f(key, lend ? new AtIndex(values, i) : values[i]);
 			const value = values[i];
-			if (!f(key, value)) {
+			if (!keep) {
 				i++;
 				dropPair(key, value, k, v);
 				continue;
@@ -1322,7 +1375,7 @@ export function btreeRetain<K, V>(m: BTreeMap<K, V>, f: (key: K, value: V) => bo
 			i++;
 		}
 	} finally {
-		if (kept < i) {
+		if (kept < i || lend) {
 			keys.splice(kept, i - kept);
 			values.splice(kept, i - kept);
 			build(m, keys, values);
@@ -1402,6 +1455,7 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 	 */
 	private picked(l: Leaf<K, V>, i: number): T {
 		if (this.pick === ENTRIES) return [l.k[i], l.v[i]] as T;
+		if (this.pick === PLACES) return [l.k[i], new AtIndex(l.v, i)] as T;
 		if (this.pick === KEYS) {
 			this.v?.(l.v[i]);
 			return l.k[i] as unknown as T;
@@ -1459,6 +1513,16 @@ export function btreeKeys<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (va
 	return whole(m, KEYS, k, v, back);
 }
 
+/** `iter_mut` of values JS copies: each key and the place of its value, in key order. */
+export function btreeIterMut<K, V>(m: BTreeMap<K, V>): Iter<[K, Place<V>]> {
+	return whole(m, PLACES);
+}
+
+/** `values_mut` of values JS copies: the place of each. */
+export function btreeValuesMut<K, V>(m: BTreeMap<K, V>): Iter<Place<V>> {
+	return iterMap(btreeIterMut(m), (entry) => entry[1]);
+}
+
 /** `values` and `values_mut`, and with droppers as `btreeIter`'s, `into_values`. */
 export function btreeValues<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<V> {
 	return whole(m, VALUES, k, v, k !== undefined || v !== undefined);
@@ -1487,6 +1551,11 @@ function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefine
 /** `BTreeMap::range` and `range_mut`: the entries within `r`. */
 export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, V]> {
 	return range(m, r, ENTRIES, "BTreeMap");
+}
+
+/** `range_mut` of values JS copies: each key within `r` and the place of its value. */
+export function btreeRangeMut<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, Place<V>]> {
+	return range(m, r, PLACES, "BTreeMap");
 }
 
 /** `BTreeSet::range`: the keys within `r`. */
@@ -1724,6 +1793,12 @@ export function entryOccupied<K, V>(e: Entry<K, V>): boolean {
 	return e.o;
 }
 
+/** `Entry::and_modify` of a value JS copies: `f` of its place, if any. */
+export function entryAndModifyMut<K, V>(e: Entry<K, V>, f: (value: Place<V>) => void): Entry<K, V> {
+	if (e.o) f(entryGetMut(e));
+	return e;
+}
+
 /** `Entry::and_modify`: `f` of the value there, if any. */
 export function entryAndModify<K, V>(e: Entry<K, V>, f: (value: V) => void): Entry<K, V> {
 	if (e.o) f(entryGet(e));
@@ -1868,6 +1943,16 @@ export function dequeEnd<T>(q: VecDeque<T>, back = false): T | undefined {
 	return q.n === 0 ? undefined : q.b[at(q, back ? q.n - 1 : 0)];
 }
 
+/** `get_mut` of an item JS copies: its place, or `undefined` past the end. */
+export function dequeGetMut<T>(q: VecDeque<T>, i: number): Place<T> | undefined {
+	return i < q.n ? new AtIndex(q.b as T[], at(q, i)) : undefined;
+}
+
+/** `front_mut` of an item JS copies, and with `back`, `back_mut`. */
+export function dequeEndMut<T>(q: VecDeque<T>, back = false): Place<T> | undefined {
+	return q.n === 0 ? undefined : new AtIndex(q.b as T[], at(q, back ? q.n - 1 : 0));
+}
+
 /** `index` and `index_mut`: `q[i]`. */
 export function dequeIndex<T>(q: VecDeque<T>, i: number): T {
 	if (i >= q.n) panic("out of bounds access");
@@ -1913,10 +1998,21 @@ export function dequeTruncate<T>(q: VecDeque<T>, len: number, f?: (item: T) => v
  * each kept item into place, as std's does, so a panic in `f` leaves every item.
  */
 export function dequeRetain<T>(q: VecDeque<T>, f: (item: T) => boolean, drop?: (item: T) => void): void {
+	retainDeque(q, f as (item: T | Place<T>) => boolean, false, drop);
+}
+
+/** `retain_mut` of items JS copies: `f` takes the place of each. */
+export function dequeRetainMut<T>(q: VecDeque<T>, f: (item: Place<T>) => boolean, drop?: (item: T) => void): void {
+	retainDeque(q, f as (item: T | Place<T>) => boolean, true, drop);
+}
+
+/** `retain`, handing `f` each item or, if `lend`, its place. */
+function retainDeque<T>(q: VecDeque<T>, f: (item: T | Place<T>) => boolean, lend: boolean, drop?: (item: T) => void): void {
 	let kept = 0;
 	for (let i = 0; i < q.n; i++) {
+		const keep = f(lend ? new AtIndex(q.b as T[], at(q, i)) : (q.b[at(q, i)] as T));
 		const item = q.b[at(q, i)] as T;
-		if (!f(item)) continue;
+		if (!keep) continue;
 		q.b[at(q, i)] = q.b[at(q, kept)];
 		q.b[at(q, kept++)] = item;
 	}
@@ -1993,6 +2089,36 @@ export function dequeIter<T>(q: VecDeque<T>, drop?: (item: T) => void): Iter<T> 
 	const items: T[] = [];
 	for (let i = 0; i < q.n; i++) items.push(q.b[at(q, i)] as T);
 	return iterSlice(items, drop);
+}
+
+/** `iter_mut` of items JS copies: the place of each. */
+export function dequeIterMut<T>(q: VecDeque<T>): Iter<Place<T>> {
+	return new DequePlaces(q);
+}
+
+/** A deque's `iter_mut` of items JS copies, which lends each as its place. */
+class DequePlaces<T> extends Iter<Place<T>> {
+	private readonly q: VecDeque<T>;
+	private front = 0;
+	private back: number;
+
+	constructor(q: VecDeque<T>) {
+		super();
+		this.q = q;
+		this.back = q.n;
+	}
+
+	next(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.q.b as T[], at(this.q, this.front++)) : DONE;
+	}
+
+	override nextBack(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.q.b as T[], at(this.q, --this.back)) : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
 }
 
 /** `drain`: the items within `r`, taken out at once, which drop by `drop` as `dequeIter`'s. */

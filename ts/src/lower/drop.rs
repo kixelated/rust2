@@ -39,6 +39,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
+					| Std::OnceCell
+					| Std::OnceLock
 					| Std::Poll
 					| Std::Pin
 					| Std::PollFn
@@ -64,8 +66,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Tuple(tys) => tys.iter().any(|t| self.drops(t)),
 			ty::Array(elem, _) => self.drops(*elem),
 			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drops(t)),
-			ty::Coroutine(..) | ty::Param(_) => true,
-			ty::Dynamic(..) => self.dyn_future(ty).is_some(),
+			// Whatever it was made of may drop.
+			ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		};
 		self.drops_open.remove(&ty);
@@ -120,9 +122,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each drops by what it was given.
 				Some(Std::Waker | Std::PollFn) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::Reverse) => {
-					self.disposable(args.type_at(0), span)
-				}
+				Some(
+					Std::Arc
+					| Std::Mutex
+					| Std::OnceCell
+					| Std::OnceLock
+					| Std::Option
+					| Std::Box
+					| Std::Pin
+					| Std::Reverse,
+				) => self.disposable(args.type_at(0), span),
 				// An `rt.Iter` drops what it was given to.
 				None | Some(Std::Peekable) if self.std_iter(ty) => self.closures_held(ty),
 				Some(_) => false,
@@ -137,7 +146,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			// A closure's `[Symbol.dispose]` drops what it owns, and a `dyn Future`'s what it is.
+			// A closure's `[Symbol.dispose]` drops what it owns, a `dyn Future`'s what it is, and
+			// another trait object's what it wraps.
 			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		}
@@ -217,9 +227,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each is its contents in JS.
-				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin | Std::Reverse) => {
-					args.types().all(|t| self.inert(t))
-				}
+				Some(
+					Std::Option
+					| Std::Box
+					| Std::Mutex
+					| Std::MutexGuard
+					| Std::OnceCell
+					| Std::OnceLock
+					| Std::Poll
+					| Std::Pin
+					| Std::Reverse,
+				) => args.types().all(|t| self.inert(t)),
 				// Its waker.
 				Some(Std::Context) => false,
 				Some(_) => true,
@@ -263,6 +281,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let (name, args) = match std {
 				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
 				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
+				Std::OnceCell | Std::OnceLock => {
+					let option = Ty::new_option(self.tcx, args.type_at(0));
+					return self.drop_value(value.member("v"), option, span);
+				}
 				Std::Box | Std::Pin | Std::Reverse => return self.drop_value(value, args.type_at(0), span),
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
