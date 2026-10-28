@@ -1148,21 +1148,16 @@ fn mapping<'tcx>(
 				}
 			}
 		}
-		// Sorted by `lt` of `Ord`, or by a comparator, or by `lt` of the keys a function makes.
+		// Sorted by `PartialOrd::lt`, or by a comparator, or by `lt` of the keys a function makes.
 		(
 			"slice",
 			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
 		) if !is_u8(targ(gargs, 0)) => {
 			let mut values = args;
 			match name.as_str() {
-				// By `<`, which is `partial_cmp`'s while it is the default.
 				"sort" | "sort_unstable" => {
-					let elem = targ(gargs, 0);
-					if super::collections::own_test(b, elem, "lt") {
-						return Some(b.err(span, super::collections::own_test_err(elem, "lt")));
-					}
-					values.push(super::collections::cmp_fn(b, elem, true, span));
-					Expr::rt("sliceSortBy", values)
+					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
+					Expr::rt("sliceSort", values)
 				}
 				"sort_by" | "sort_unstable_by" => Expr::rt("sliceSortBy", values),
 				_ => {
@@ -1173,10 +1168,7 @@ fn mapping<'tcx>(
 							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
 						));
 					}
-					if super::collections::own_test(b, key, "lt") {
-						return Some(b.err(span, super::collections::own_test_err(key, "lt")));
-					}
-					values.push(super::collections::cmp_fn(b, key, true, span));
+					values.push(super::collections::test_fn(b, key, "lt", span));
 					Expr::rt("sliceSortByKey", values)
 				}
 			}

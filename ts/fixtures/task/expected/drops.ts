@@ -2146,7 +2146,7 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_196 = true;
 		const _78: rt.Arc<string> = rt.arcClone(other);
 		_196 = false;
-		max = rt.ordMax(_76, _78, rt.cmpArc(rt.cmpStr), rt.drop);
+		max = rt.ordMax(_76, _78, rt.cmpLt(rt.cmpArc(rt.cmpStr)), rt.drop);
 		unwind = 98;
 		_195 = true;
 		_196 = false;
@@ -2155,7 +2155,7 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_194 = true;
 		const _83: rt.Arc<string> = rt.arcClone(other);
 		_194 = false;
-		min = rt.ordMin(_81, _83, rt.cmpArc(rt.cmpStr), rt.drop);
+		min = rt.ordMin(_81, _83, rt.cmpLt(rt.cmpArc(rt.cmpStr)), rt.drop);
 		unwind = 94;
 		_193 = true;
 		_194 = false;
@@ -2748,7 +2748,7 @@ export function tripped(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): voi
 				_155 = true;
 				const _114: rt.Arc<Key.Key> = new rt.Arc(trip(4));
 				_155 = false;
-				const _109: rt.Arc<Key.Key> = rt.ordMax(_110, _114, rt.cmpArc(Key.partialCmp$PartialOrd), rt.drop);
+				const _109: rt.Arc<Key.Key> = rt.ordMax(_110, _114, rt.cmpLt(rt.cmpArc(Key.partialCmp$PartialOrd)), rt.drop);
 				unwind = 100;
 				_155 = false;
 				rt.drop(_109);
@@ -3418,7 +3418,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _78: Key.Key = fault(3, "Blows" as Fault.Fault);
 			_451 = false;
 			_450 = false;
-			const _71: Key.Key = rt.ordClamp(_72, _75, _78, Key.partialCmp$PartialOrd, rt.drop);
+			const _71: Key.Key = rt.ordClamp(_72, _75, _78, rt.cmpLe(Key.partialCmp$PartialOrd), rt.cmpLt(Key.partialCmp$PartialOrd), rt.cmpGt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 236;
 			_450 = false;
 			_451 = false;
@@ -3497,7 +3497,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _194: Key.Key = key(1);
 			_449 = false;
 			_448 = false;
-			const _187: Key.Key = rt.ordClamp(_188, _191, _194, Key.partialCmp$PartialOrd, rt.drop);
+			const _187: Key.Key = rt.ordClamp(_188, _191, _194, rt.cmpLe(Key.partialCmp$PartialOrd), rt.cmpLt(Key.partialCmp$PartialOrd), rt.cmpGt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 230;
 			_448 = false;
 			_449 = false;
@@ -3597,7 +3597,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			unwind = 252;
 			const _343: Key.Key = key(2);
 			_447 = false;
-			_339 = rt.ordMax(_340, _343, Key.partialCmp$PartialOrd, rt.drop);
+			_339 = rt.ordMax(_340, _343, rt.cmpLt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 211;
 			_447 = false;
 			const part = rt.u32Sub(_339.id, id);
@@ -3611,7 +3611,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			unwind = 250;
 			const _363: Key.Key = key(4);
 			_446 = false;
-			_359 = rt.ordMin(_360, _363, Key.partialCmp$PartialOrd, rt.drop);
+			_359 = rt.ordMin(_360, _363, rt.cmpLt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 210;
 			_446 = false;
 			const part2 = rt.u32Sub(_359.id, id);
@@ -3629,7 +3629,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _386: Key.Key = key(3);
 			_445 = false;
 			_444 = false;
-			_379 = rt.ordClamp(_380, _383, _386, Key.partialCmp$PartialOrd, rt.drop);
+			_379 = rt.ordClamp(_380, _383, _386, rt.cmpLe(Key.partialCmp$PartialOrd), rt.cmpLt(Key.partialCmp$PartialOrd), rt.cmpGt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 209;
 			_444 = false;
 			_445 = false;
@@ -3648,7 +3648,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _409: Key.Key = key(3);
 			_443 = false;
 			_442 = false;
-			_402 = rt.ordClamp(_403, _406, _409, Key.partialCmp$PartialOrd, rt.drop);
+			_402 = rt.ordClamp(_403, _406, _409, rt.cmpLe(Key.partialCmp$PartialOrd), rt.cmpLt(Key.partialCmp$PartialOrd), rt.cmpGt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 208;
 			_442 = false;
 			_443 = false;
@@ -3663,7 +3663,7 @@ export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			unwind = 240;
 			const _422: Key.Key = fault(2, "Trips" as Fault.Fault);
 			_441 = false;
-			const _418: Key.Key = rt.ordMax(_419, _422, Key.partialCmp$PartialOrd, rt.drop);
+			const _418: Key.Key = rt.ordMax(_419, _422, rt.cmpLt(Key.partialCmp$PartialOrd), rt.drop);
 			unwind = 0;
 			_441 = false;
 			rt.drop(_418);

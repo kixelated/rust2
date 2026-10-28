@@ -152,7 +152,7 @@ export function keys(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const a: rt.u8 | undefined | rt.None = _16;
 		const b: rt.u8 | undefined | rt.None = _15[1];
 		rt.byteVecPush(out, (a === b ? 1 : 0) | (((a !== b ? 1 : 0) << 1) & 0xff) | (((rt.cmpOption(rt.cmpOption(rt.cmp), rt.None)(a, b) === -1 ? 1 : 0) << 2) & 0xff) | ((order(rt.cmpOption(rt.cmpOption(rt.cmp), rt.None)(a, b)) << 3) & 0xff));
-		rt.byteVecPush(out, (rt.ordMax(a, b, rt.cmpOption(rt.cmpOption(rt.cmp), rt.None)) === b ? 1 : 0) | (((rt.u64Eq(hashOf$Option_Option_u8(a), hashOf$Option_Option_u8(b)) ? 1 : 0) << 1) & 0xff));
+		rt.byteVecPush(out, (rt.ordMax(a, b, rt.cmpLt(rt.cmpOption(rt.cmpOption(rt.cmp), rt.None))) === b ? 1 : 0) | (((rt.u64Eq(hashOf$Option_Option_u8(a), hashOf$Option_Option_u8(b)) ? 1 : 0) << 1) & 0xff));
 		rt.idx(data, i);
 		const _75: [rt.u8, rt.u8 | undefined | rt.None] = [rt.u8Rem(data.data[data.start + i], 2), a];
 		rt.byteVecPush(out, unwrapOr$Option_u8(rt.hashInsert(hashed, _75, i & 0xff), 204));

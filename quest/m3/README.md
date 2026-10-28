@@ -20,7 +20,6 @@ generic std gap is planned here even when moq never calls it.
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Trait` and `Box<dyn Future>` translate, so a consumer neither rewrites nor binds them
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [Fold matches across tests that aren't variant switches](/quest/m3/ts-fold-guards.md) - a match an `if` or guard decided drops its dead arms
-- [A crate's own comparison operators](/quest/m3/ts-partial-ord.md) - an overridden `lt`/`le`/`gt`/`ge` is called where std calls it
 - [An inclusive range drained by a fold](/quest/m3/ts-range-fold.md) - a folded `RangeInclusive` ends in core's state
 - [bool's combinators from core's MIR](/quest/m3/ts-bool-core.md) - `bool::then` lowers from core, retiring `rt.boolThen`
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
