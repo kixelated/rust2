@@ -1,35 +1,26 @@
-# [L] Floats
+# [M] Float formatting
 
 ## Goal
 
-[rust2-ts](/ts/README.md) translates `f64`: its arithmetic, comparisons, `as` casts to and
-from every integer width, its methods and constants, `str::parse`, its formatting, and
-`Duration`'s `f64` methods, proven by differential tests against native Rust. moq-net's
-`Bandwidth::scaled`, its probe thresholds, and its `Duration::mul_f64` jitter translate.
+[rust2-ts](/ts/README.md) formats and parses `f64` as std does, proven by differential
+tests against native Rust: `Display`, `Debug` (which switches to an exponent), a precision,
+and `{:e}`/`{:E}`, byte for byte as `core::fmt`, and `str::parse::<f64>` by std's grammar,
+not `Number`'s. `f64::clamp`, whose panic prints its bounds with `Debug`, translates with
+them.
 
 ## Plan
 
 Decided with the maintainer on 2026-10-27, from
-[#135](https://github.com/kixelated/rust2/pull/135):
+[#135](https://github.com/kixelated/rust2/pull/135): this quest owns float formatting; the
+other types' format specs already translate. The rest of `f64`, its arithmetic, casts,
+methods, and `Duration`'s `f64` methods, landed in
+[#165](https://github.com/kixelated/rust2/pull/165).
 
-- `f64` here, since moq-net uses it; [`f32`](/quest/m3/ts-f32.md) follows in m3.
-- An `f64` is a JS number. Every operation std specifies exactly matches native bit for
-  bit, including where JS differs: `round` rounds half away from zero, `max` and `min`
-  ignore a NaN, a cast to an integer saturates and sends NaN to 0, and a 64- or 128-bit
-  integer rounds to the nearest `f64` once. `str::parse` follows std's grammar, not
-  `Number`'s.
-- The functions std leaves to the platform's libm (`sin`, `exp`, `ln`, `powf`, `powi`, and
-  the rest) map to `Math.*`. Their tests compare within a small ULP bound the README
-  states, not an exact libm port. `mul_add` is specified as one rounding, which `Math`
-  has no cheap form of, so it is refused with a span until a consumer needs it.
-- `to_bits` and `from_bits` go through a `DataView`. JS does not guarantee a NaN's
-  payload, so the tests cover payloads in Node and Chrome and the README notes it.
-- This quest owns float formatting byte for byte as `core::fmt`: `Display`, `Debug`
-  (which switches to an exponent), a precision, and `{:e}`/`{:E}`.
-  The other types' format specs already translate.
-- `Duration`'s `f64` methods (`as_secs_f64`, `from_secs_f64`, `mul_f64`, `div_f64`,
-  `div_duration_f64`, and the `try_` forms) port std's integer algorithms, with its
-  panics and `Err`s at `u64::MAX` seconds, negative values, and NaN.
-- Report the model's census before and after.
+- `Display` and `Debug` without a precision print the shortest digits that read back as
+  the value. JS's `Number.prototype.toString` picks the same digits, which leaves only the
+  layout, `1e-7` against `0.0000001`, to port.
+- A precision rounds the exact decimal value half to even, where `toFixed` rounds half up,
+  so it needs the exact expansion rather than `toFixed`.
+- `str::parse` takes std's grammar (`inf`, `NaN`, no hex, no `_`) and its errors.
 
 Public API: the translator's output.

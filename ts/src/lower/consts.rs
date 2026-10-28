@@ -41,6 +41,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
+			_ if super::float::is(ty) => match leaf(valtree) {
+				Some(scalar) => super::float::lit(f64::from_bits(scalar.to_u64())),
+				None => self.err(span, "a float constant without a value"),
+			},
 			ty::Char => match leaf(valtree) {
 				Some(scalar) => Expr::lit(scalar.to_u32().to_string()),
 				None => self.err(span, "a char constant without a value"),
@@ -130,6 +134,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
+						(Std::AtomicOrdering, _) => super::task::atomic_ordering(variant),
 						(Std::Bound, _) => {
 							let ts_ty = self.t.ty(ty, span);
 							super::library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)

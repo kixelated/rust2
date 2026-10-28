@@ -9,7 +9,9 @@ import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
+import { AtIndex } from "./rt/collections.ts";
 export * from "./rt/collections.ts";
+export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/str.ts";
@@ -74,6 +76,16 @@ class Accessed<T> implements Place<T> {
 	set v(value: T) {
 		this.write(value);
 	}
+}
+
+/**
+ * The payload's place of the `Option` at `p`, whose `None` is `none`: `p` itself, as
+ * `Some(x)` is `x`, or `undefined` while it is `None`.
+ */
+export function optionAsMut<T>(p: Place<T | undefined>): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | None>, none: None): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | undefined | None>, none?: None): Place<T> | undefined {
+	return p.v === none ? undefined : (p as Place<T>);
 }
 
 /** The place `get` reads and `set` writes. */
@@ -283,9 +295,24 @@ export function sliceReverse<T>(s: T[]): void {
 	s.reverse();
 }
 
-/** `last` and `last_mut`: the last element, or `undefined` if empty. */
+/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
 export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[s.length - 1];
+}
+
+/** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
+export function sliceGetMut<T>(s: { [i: number]: T; length: number }, index: number): Place<T> | undefined {
+	return index < s.length ? new AtIndex(s, index) : undefined;
+}
+
+/** `first_mut` of an element JS copies. */
+export function sliceFirstMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return sliceGetMut(s, 0);
+}
+
+/** `last_mut` of an element JS copies. */
+export function sliceLastMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return s.length === 0 ? undefined : new AtIndex(s, s.length - 1);
 }
 
 /** `contains`, by `eq` of each element and then `x`, as std's `==` reads them. */
@@ -301,27 +328,25 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 	s[b] = x;
 }
 
+/** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
+export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering): void {
+	sliceSort(s, (a, b) => cmp(a, b) === -1);
+}
+
+/** `sort_by_key` and `sort_unstable_by_key`: by `lt` of each element's `key`, as `sliceSort` sorts. */
+export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
+	sliceSort(s, (a, b) => lt(key(a), key(b)));
+}
+
 /**
- * `sort` and `sort_by`, and the unstable sorts, which may order equal elements either way
- * and here keep them in order: stable, by `cmp`, which moves an element before another
- * only if it orders `Less`, as std's sorts test `lt`. If `cmp` panics, the slice holds each
+ * `sort` and `sort_unstable`, by `less`, the elements' `lt`, which std's sorts test: a
+ * stable merge sort over runs that insertion sorts first. The unstable sorts may order
+ * equal elements either way and here keep them in order. It calls only `less`, never
+ * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
+ * orders its calls differently in each engine. If `less` panics, the slice holds each
  * element once, in an order std leaves unspecified, as std's does.
  */
-export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(a, b) === -1);
-}
-
-/** `sort_by_key` and `sort_unstable_by_key`: by `cmp` of each element's `key`, as `sliceSortBy` sorts. */
-export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, cmp: (a: K, b: K) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(key(a), key(b)) === -1);
-}
-
-/**
- * A stable merge sort of `s` by `less`, over runs that insertion sorts first. It calls only
- * `less`, never JS's `sort`, which moves `undefined`, a `None`, to the end without
- * comparing it, and orders its calls differently in each engine.
- */
-function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
+export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 	const n = s.length;
 	const RUN = 16;
 	for (let lo = 0; lo < n; lo += RUN) {

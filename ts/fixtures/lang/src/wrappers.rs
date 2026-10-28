@@ -57,6 +57,13 @@ fn bounds(out: &mut Vec<u8>, r: impl RangeBounds<u64>) {
 	out.push(start.is_some() as u8 + 2 * end.is_some() as u8);
 }
 
+/// A sum that drops, as a fold's accumulator may.
+struct Tally(u64);
+
+impl Drop for Tally {
+	fn drop(&mut self) {}
+}
+
 /// A bound of `a` picked by `kind`, held by value.
 fn bound_of(kind: u8, a: u64) -> Bound<u64> {
 	match kind % 3 {
@@ -91,6 +98,60 @@ pub fn wrappers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let mut down = 0..=(b % 3);
 			while down.next_back().is_some() {}
 			bounds(out, down);
+			// Drained by a fold, as std's `try_fold` takes it, `start` stops at `end`, exhausted.
+			let (lo, hi) = (a % 4, b % 4);
+			let mut found = lo..=hi;
+			out.push(found.any(|x| x == hi) as u8);
+			bounds(out, found);
+			let mut rejected = lo..=hi;
+			out.push(rejected.all(|x| x < hi) as u8);
+			bounds(out, rejected.clone());
+			out.push(rejected.find(|_| true).is_some() as u8);
+			let mut placed = lo..=hi;
+			out.push(placed.position(|x| x == lo + 1).map_or(0xee, |i| i as u8));
+			bounds(out, placed);
+			let mut each = lo..=hi;
+			each.by_ref().for_each(|x| out.push(x as u8));
+			bounds(out, each);
+			let mut summed = lo..=hi;
+			put_u64(out, summed.by_ref().sum());
+			bounds(out, summed);
+			let mut top = (u64::MAX - a % 3)..=u64::MAX;
+			put_u64(out, top.by_ref().count() as u64);
+			bounds(out, top);
+			let mut last = lo..=hi;
+			put_u64(out, last.by_ref().last().unwrap_or(0xee));
+			bounds(out, last);
+			// `max` reads its first by `next`, so one alone passes `end`, and folds the rest.
+			let mut most = lo..=hi;
+			put_u64(out, most.by_ref().max().unwrap_or(0xee));
+			bounds(out, most);
+			let mut collected = lo..=hi;
+			out.push(collected.by_ref().collect::<Vec<_>>().len() as u8);
+			bounds(out, collected);
+			// Of an accumulator that drops, which takes the range's own `fold`.
+			let mut gathered = lo..=hi;
+			put_u64(out, gathered.by_ref().fold(Tally(0), |t, x| Tally(t.0 + x)).0);
+			bounds(out, gathered);
+			let mut keyed = lo..=hi;
+			out.push(keyed.by_ref().collect::<BTreeSet<_>>().len() as u8);
+			bounds(out, keyed);
+			let mut queued = lo..=hi;
+			out.push(queued.by_ref().collect::<std::collections::VecDeque<_>>().len() as u8);
+			bounds(out, queued);
+			let mut hashed = lo..=hi;
+			out.push(hashed.by_ref().collect::<std::collections::HashSet<_>>().len() as u8);
+			bounds(out, hashed);
+			let mut extended = lo..=hi;
+			let mut held = Vec::new();
+			held.extend(extended.by_ref());
+			out.push(held.len() as u8);
+			bounds(out, extended);
+			// Bytes, which collect into their own `Vec<u8>`.
+			let mut narrow = (lo as u8)..=(hi as u8);
+			out.extend(narrow.by_ref().collect::<Vec<u8>>());
+			out.push(*narrow.start());
+			out.push(narrow.is_empty() as u8);
 			bounds(out, ..b);
 			bounds(out, ..=b);
 			bounds(out, a..);

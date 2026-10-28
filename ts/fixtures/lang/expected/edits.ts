@@ -120,7 +120,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, names2.length & 0xff);
 	} else if (_8 === 2) {
 		const v3: rt.u16[] = words.slice();
-		rt.sliceSortBy(v3, rt.cmp);
+		rt.sliceSort(v3, rt.cmpLt(rt.cmp));
 		putU16s(out, v3);
 		const v4: rt.u16[] = words.slice();
 		rt.sliceSortBy(v4, (a: rt.u16, b6: rt.u16): rt.Ordering => {
@@ -132,7 +132,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}));
 		rt.sliceSortByKey(pairs2, (p2: [rt.u16, rt.u16]): rt.u16 => {
 			return p2[0];
-		}, rt.cmp);
+		}, rt.cmpLt(rt.cmp));
 		for (const _159 of pairs2) {
 			putU16s(out, [_159[0], _159[1]]);
 		}
@@ -140,7 +140,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const a2: rt.u16 = _216[0];
 			const b7: rt.u16 = _216[1];
 			return [rt.u16Rem(b7, 3), a2, b7] as [rt.u16, rt.u16, rt.u16];
-		}, rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]));
+		}, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
 		for (const _176 of pairs2) {
 			putU16s(out, [_176[0], _176[1]]);
 		}
@@ -157,7 +157,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			return undefined;
 		}));
-		rt.sliceSortBy(options, rt.cmpOption(rt.cmp));
+		rt.sliceSort(options, rt.cmpLt(rt.cmpOption(rt.cmp)));
 		for (const _215 of options) {
 			putU16s(out, [mapOr$Option_u16_u16_edits_closure21(_215, 65535, (o: rt.u16): rt.u16 => {
 				return o;
@@ -167,7 +167,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const b8: rt.u8 = _218;
 			return text(rt.byteSliceFrom(Uint8Array.of(b8, rt.u8Div(b8, 16))));
 		}));
-		rt.sliceSortBy(names3, rt.cmpStr);
+		rt.sliceSort(names3, rt.cmpLt(rt.cmpStr));
 		for (const _234 of names3) {
 			put(out, _234);
 		}
@@ -231,8 +231,8 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u16Add(i4 as rt.u16, b5 as rt.u16);
 			}));
 		}));
-		const _424: rt.u16[][] = rt.vecClone(nested, (a023: rt.u16[]): rt.u16[] => {
-			return a023.slice();
+		const _424: rt.u16[][] = rt.vecClone(nested, (a027: rt.u16[]): rt.u16[] => {
+			return a027.slice();
 		});
 		rt.byteVecPush(out, rt.eqSlice(rt.eqSlice(rt.same))(_424, nested) ? 1 : 0);
 		const pair: [string, rt.u8] = [text(data), at(0)];
@@ -273,16 +273,16 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const x: Stamp.Stamp = _529[0];
 		const lo: Stamp.Stamp = _529[1];
 		const hi: Stamp.Stamp = _529[2];
-		rt.byteVecPush(out, rt.ordMax(x, lo, Stamp.partialCmp$PartialOrd)._0);
-		rt.byteVecPush(out, rt.ordMin(x, lo, Stamp.partialCmp$PartialOrd)._0);
-		rt.byteVecPush(out, rt.ordClamp(x, lo, hi, Stamp.partialCmp$PartialOrd)._0);
+		rt.byteVecPush(out, rt.ordMax(x, lo, rt.cmpLt(Stamp.partialCmp$PartialOrd))._0);
+		rt.byteVecPush(out, rt.ordMin(x, lo, rt.cmpLt(Stamp.partialCmp$PartialOrd))._0);
+		rt.byteVecPush(out, rt.ordClamp(x, lo, hi, rt.cmpLe(Stamp.partialCmp$PartialOrd), rt.cmpLt(Stamp.partialCmp$PartialOrd), rt.cmpGt(Stamp.partialCmp$PartialOrd))._0);
 		const _554: [Lean.Lean, Lean.Lean, Lean.Lean] = [{ _0: at(0) }, { _0: at(1) }, { _0: at(2) }];
 		const p: Lean.Lean = _554[0];
 		const q: Lean.Lean = _554[1];
 		const r: Lean.Lean = _554[2];
-		rt.byteVecPush(out, rt.ordMax(p, q, Lean.partialCmp$PartialOrd)._0);
-		rt.byteVecPush(out, rt.ordMin(p, q, Lean.partialCmp$PartialOrd)._0);
-		rt.byteVecPush(out, rt.ordClamp(p, q, r, Lean.partialCmp$PartialOrd)._0);
+		rt.byteVecPush(out, rt.ordMax(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
+		rt.byteVecPush(out, rt.ordMin(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
+		rt.byteVecPush(out, rt.ordClamp(p, q, r, rt.cmpLe(Lean.partialCmp$PartialOrd), rt.cmpLt(Lean.partialCmp$PartialOrd), rt.cmpGt(Lean.partialCmp$PartialOrd))._0);
 	} else if (_8 === 6) {
 		const v6: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_23: rt.u16): Named.Named => {
 			return _576(_23);

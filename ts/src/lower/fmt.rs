@@ -113,12 +113,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		Trait::of(self.t.tcx, preds.principal_def_id()?)
 	}
 
-	/// Whether `ty` points to a trait object.
-	pub fn trait_object(&self, ty: Ty<'tcx>) -> bool {
-		ty.builtin_deref(true)
-			.is_some_and(|pointee| matches!(pointee.kind(), ty::Dynamic(..)))
-	}
-
 	/// `value`, a `ty`, written by `tr` to `f`, through the impl for `ty`.
 	pub fn fmt_call(&mut self, tr: Trait, ty: Ty<'tcx>, value: Expr, f: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
@@ -295,6 +289,8 @@ pub fn std_impl<'tcx>(
 			(Std::FmtError, Trait::Display) => rt("errorDisplay", vec![value, f]),
 			(Std::TryFromIntError, Trait::Debug) => rt("tryFromIntErrorDebug", vec![value, f]),
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Debug) => rt("tryFromFloatSecsErrorDebug", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Display) => rt("tryFromFloatSecsErrorDisplay", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Debug) => rt("fromUtf8ErrorDebug", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Display) => rt("fromUtf8ErrorDisplay", vec![value, f]),
 			(Std::Utf8Error, Trait::Debug) => rt("utf8ErrorDebug", vec![value, f]),

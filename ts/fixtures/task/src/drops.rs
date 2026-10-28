@@ -22,7 +22,10 @@ macro_rules! list {
 }
 
 mod closures;
+mod folds;
 mod iters;
+mod objects;
+mod once;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
@@ -63,6 +66,21 @@ pub struct Named<'a>(Text<'a>);
 /// Pairs of its type parameters, as a map's entries are: each pair drops its halves in
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
+
+/// Run trait object scenario `arg % 12`, boxed or shared, panicking at the point
+/// `arg % 6` names, if any.
+pub fn dyns(log: &Log, id: u32, arg: u8) {
+	let at = arg % 6;
+	match arg / 6 % 2 {
+		0 => objects::boxed(log, id, at),
+		_ => objects::shared(log, id, at),
+	}
+}
+
+/// Run one-time cells' scenario `at`.
+pub fn cells(log: &Log, id: u32, at: u8) {
+	once::run(log, id, at);
+}
 
 /// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
@@ -541,6 +559,29 @@ fn options(log: &Log, id: u32, at: u8) {
 		chained.is_ok(),
 		cloned.is_some()
 	));
+	// What a `&mut Option`'s methods drop: the value `get_or_insert` doesn't insert, the
+	// closure `get_or_insert_with` doesn't call, and what `insert` replaces.
+	let mut slot = None;
+	slot.get_or_insert(guard(28));
+	slot.get_or_insert(guard(29));
+	let owned = guard(30);
+	slot.get_or_insert_with(move || owned);
+	let owned = guard(31);
+	let mut empty = None;
+	let made = empty
+		.get_or_insert_with(move || {
+			check(5);
+			owned
+		})
+		.id();
+	let replaced = slot.insert(guard(32)).id();
+	log.note(format!("get_or_insert {made} {replaced}"));
+	// Of a payload JS copies, which the methods lend as its place, as moq's `answered` is.
+	let mut answered: Option<Result<Guard, u8>> = None;
+	answered.get_or_insert(Ok(guard(33)));
+	let kept = answered.get_or_insert(Ok(guard(34))).as_ref().map_or(0, Guard::id);
+	*answered.insert(Err(3)) = Err(4);
+	log.note(format!("answered {kept} {}", matches!(answered, Some(Err(4)))));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and
@@ -628,6 +669,46 @@ impl Drop for Shell {
 	}
 }
 
+/// Slots that may hold a value, replaced in place.
+struct Slots(Vec<Option<Bomb>>);
+
+impl Slots {
+	fn put(&mut self, index: usize, bomb: Bomb) {
+		self.0[index] = Some(bomb);
+	}
+}
+
+/// Slots in an array, replaced through a reference to one.
+struct Ring {
+	slots: [Option<Bomb>; 2],
+}
+
+impl Ring {
+	fn lent(&mut self, index: usize, bomb: Bomb) {
+		let slot = &mut self.slots[index];
+		lend(slot);
+		*slot = Some(bomb);
+	}
+}
+
+/// Each slot from `from` on, replaced through a reference to it.
+fn refill(slots: &mut [Option<Bomb>], from: usize, mut bomb: impl FnMut(u32) -> Bomb) {
+	let mut i = from;
+	while i < slots.len() {
+		let slot = &mut slots[i];
+		lend(slot);
+		*slot = Some(bomb(i as u32));
+		i += 1;
+	}
+}
+
+/// Logs the value a reference to a slot reads.
+fn lend(slot: &mut Option<Bomb>) {
+	if let Some(bomb) = slot {
+		bomb.log.note(format!("b{} lent", bomb.id));
+	}
+}
+
 /// What drops after a value's `Drop` panics, scenario `at`'s alone: the rest of the
 /// value, and the rest of what holds it, as std's glue and collections go on.
 fn blown(log: &Log, id: u32, at: u8) {
@@ -679,12 +760,38 @@ fn blown(log: &Log, id: u32, at: u8) {
 			queue.push_front(bomb(0, false));
 			queue.truncate(1);
 		}
-		_ => {
+		7 => {
 			// One entry, whose order std's hash table leaves no room to differ in, and
 			// which leaves the map empty as unwinding drops it.
 			let mut map = HashMap::new();
 			map.insert(key(1, Fault::Blows), guard(1));
 			map.clear();
+		}
+		8 => {
+			// The old element drops before the new one takes its place; past the end, the
+			// index panics with nothing dropped but the new value.
+			let mut v = list![bomb(1, false), bomb(2, false)];
+			v[0] = bomb(3, false);
+			v[2] = bomb(4, false);
+		}
+		9 => {
+			// As kio's slab replaces an occupant through `&mut self`: as the old one panics,
+			// the new one still takes its place.
+			let mut slots = Slots(list![None, Some(bomb(1, false)), Some(bomb(2, true))]);
+			slots.put(0, bomb(3, false));
+			slots.put(1, bomb(4, false));
+			slots.put(2, bomb(5, false));
+		}
+		_ => {
+			// The same through a reference to the slot, lent out first, and in a loop where
+			// the cleanup only stores the new value.
+			let mut ring = Ring {
+				slots: [None, Some(bomb(1, false))],
+			};
+			ring.lent(0, bomb(2, false));
+			ring.lent(1, bomb(3, false));
+			let mut slots = list![Some(bomb(4, false)), Some(bomb(5, true))];
+			refill(&mut slots, 0, |n| bomb(n + 6, false));
 		}
 	}
 	log.note(format!("unreached"));
@@ -797,6 +904,18 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 		_ => drop(hashed.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
 	}
 	log.note(format!("unreached"));
+}
+
+/// Run scenario `arg % 32` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, panicking as a closure reads item `arg / 32`, if any.
+pub fn folded(log: &Log, id: u32, arg: u8) {
+	folds::folded(log, id, arg);
+}
+
+/// Run scenario `arg % 9` of what folds back to front, and through what wraps a closure
+/// beside another, panicking as a closure reads item `arg / 9 % 8`, if any.
+pub fn rfolded(log: &Log, id: u32, arg: u8) {
+	folds::rfolded(log, id, arg);
 }
 
 /// What a `Vec`'s edits, its, a tuple's, and a box's `clone`, `Ord`'s defaults, and an

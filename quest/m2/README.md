@@ -26,8 +26,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 ## Required
 
-- [Byte-slice locals that crash the translator](/quest/m2/ts-scalar-ice.md) - `take_apart` never reaches the arm `find_scalars` promised it wouldn't
-- [Fixture cases by name](/quest/m2/ts-harness-names.md) - adding a harness case never renumbers another
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values

@@ -34,6 +34,7 @@ pub enum Std {
 	FromUtf8Error,
 	Utf8Error,
 	TryFromIntError,
+	TryFromFloatSecsError,
 	/// `rt.Formatter`.
 	Formatter,
 	/// `rt.Arguments`: what `format_args!` makes.
@@ -55,6 +56,13 @@ pub enum Std {
 	MutexGuard,
 	/// What a `Mutex` can't be locked with on one thread: never.
 	PoisonError,
+	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
+	Atomic,
+	/// `rt.AtomicOrdering`: its discriminant.
+	AtomicOrdering,
+	/// `rt.OnceCell<T>` and `rt.OnceLock<T>`: the `Option<T>` each holds.
+	OnceCell,
+	OnceLock,
 	/// `rt.Waker`.
 	Waker,
 	/// `rt.Context`: its waker.
@@ -141,6 +149,7 @@ impl Std {
 			(sym::ArcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
+			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
 			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
 			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
@@ -173,6 +182,7 @@ impl Std {
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"TryFromFloatSecsError" => return Some(Self::TryFromFloatSecsError),
 			"PoisonError" => return Some(Self::PoisonError),
 			_ => {}
 		}
@@ -198,6 +208,9 @@ impl Std {
 			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
+			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
+			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
+			["sync", "once_lock", "OnceLock"] => Some(Self::OnceLock),
 			["cmp", "Reverse"] => Some(Self::Reverse),
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
@@ -520,7 +533,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
-		| ("Box", "new")
+		| ("Box", "new" | "pin")
 		| ("mem", "replace" | "take" | "swap")
 		| ("hint", "must_use")
 		| ("From", "from")
@@ -536,6 +549,9 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
 		("bool", "then") => &[1],
+		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
+		// `OnceLock` is initializing, and what it made if it set the cell itself.
+		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
 		_ => return None,
 	})
 }
@@ -551,6 +567,10 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				"Option",
 				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
 			) | ("Iterator", "next")
+				| (
+					"OnceCell" | "OnceLock",
+					"get" | "set" | "get_or_init" | "take" | "into_inner"
+				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 		)
 }
@@ -738,7 +758,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Str => "str".into(),
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
-			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
+			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -804,7 +824,7 @@ fn mapping<'tcx>(
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let gargs = call.args;
-	let args = match super::task::call(b, call, &owner, &name, args) {
+	let args = match super::task::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
@@ -848,6 +868,9 @@ fn mapping<'tcx>(
 			_ => e,
 		});
 	}
+	if owner == "f64" {
+		return super::float::method(b, &name, args, span);
+	}
 
 	let self_ty = || gargs.types().next();
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
@@ -876,9 +899,9 @@ fn mapping<'tcx>(
 			if to == from || some || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
-			// Each `From` between integers and `char`, or from `bool`, keeps the value, as
-			// `as` then does.
-			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
+			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
+			// value, as `as` then does.
+			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char() || super::float::is(t);
 			if !scalar(to) || !(scalar(from) || from.is_bool()) {
 				return None;
 			}
@@ -1117,6 +1140,17 @@ fn mapping<'tcx>(
 			};
 			rt2(args, of, &super::camel(&name))
 		}
+		// An element JS copies is lent as its place, and an object as itself.
+		("slice", "first_mut" | "last_mut" | "get_mut") if name != "get_mut" || Int::of(targ(gargs, 1)).is_some() => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
+			let name = match b.t.needs_place(elem) {
+				true => name.as_str(),
+				false => name.strip_suffix("_mut")?,
+			};
+			rt2(values, "slice", &super::camel(name))
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -1149,8 +1183,7 @@ fn mapping<'tcx>(
 				false => return vec_clone(b, slice, elem, span),
 			}
 		}
-		("slice", "first_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceFirst", args),
-		("slice", "last" | "last_mut") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
+		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
 		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
 		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
 		("slice", "contains") => {
@@ -1164,21 +1197,16 @@ fn mapping<'tcx>(
 				}
 			}
 		}
-		// Sorted by `lt` of `Ord`, or by a comparator, or by `lt` of the keys a function makes.
+		// Sorted by `PartialOrd::lt`, or by a comparator, or by `lt` of the keys a function makes.
 		(
 			"slice",
 			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
 		) if !is_u8(targ(gargs, 0)) => {
 			let mut values = args;
 			match name.as_str() {
-				// By `<`, which is `partial_cmp`'s while it is the default.
 				"sort" | "sort_unstable" => {
-					let elem = targ(gargs, 0);
-					if super::collections::own_test(b, elem, "lt") {
-						return Some(b.err(span, super::collections::own_test_err(elem, "lt")));
-					}
-					values.push(super::collections::cmp_fn(b, elem, true, span));
-					Expr::rt("sliceSortBy", values)
+					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
+					Expr::rt("sliceSort", values)
 				}
 				"sort_by" | "sort_unstable_by" => Expr::rt("sliceSortBy", values),
 				_ => {
@@ -1189,10 +1217,7 @@ fn mapping<'tcx>(
 							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
 						));
 					}
-					if super::collections::own_test(b, key, "lt") {
-						return Some(b.err(span, super::collections::own_test_err(key, "lt")));
-					}
-					values.push(super::collections::cmp_fn(b, key, true, span));
+					values.push(super::collections::test_fn(b, key, "lt", span));
 					Expr::rt("sliceSortByKey", values)
 				}
 			}
@@ -1644,7 +1669,7 @@ fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 }
 
 fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
+	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char) || super::float::is(ty)
 }
 
 /// A `Vec` of `elem`s as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
@@ -1690,6 +1715,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 	Some(match ty.kind() {
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		_ if super::float::is(ty) => super::float::lit(0.0),
 		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt(
@@ -1709,6 +1735,11 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			Std::String => Expr::Str(String::new()),
 			Std::Cow if string(tcx, ty) => Expr::Str(String::new()),
 			Std::Duration => super::time::zero(),
+			Std::Atomic => Expr::New(
+				Box::new(Expr::Rt("Atomic".into())),
+				vec![default_value(b, args.type_at(0))?],
+			),
+			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
 			_ => return None,
 		},
 		_ => return None,

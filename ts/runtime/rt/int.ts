@@ -44,6 +44,8 @@ export type i16 = Num<"i16">;
 export type i32 = Num<"i32">;
 /** 32 bits, as on wasm32. */
 export type isize = Num<"isize">;
+/** Rust's `f64`: a number, which is the same IEEE 754 double. */
+export type f64 = Num<"f64">;
 /** Rust's `char`: a Unicode scalar value, which is at most 0x10ffff and no surrogate. */
 export type char = Num<"char">;
 /**
@@ -1746,3 +1748,63 @@ export const i128Min = (a: i128, b: i128): i128 => (lt(b, a) ? b : a);
 export const i128Clamp = (a: i128, min: i128, max: i128): i128 => clampWide(a, min, max) as i128;
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];
+
+// Casts between integers and `f64`. An integer of at most 32 bits is already its `f64`;
+// a wider one rounds to the nearest, ties to even, once. An `f64` to an integer
+// truncates toward zero, saturates at the type's bounds, and sends NaN to 0.
+
+/** `x as T` into a type of at most 32 bits, whose bounds are int32s or uint32s. */
+function narrowFromF64(x: number, min: number, max: number): number {
+	// NaN fails both comparisons; `+ 0` turns a truncated -0 into 0.
+	return x >= min ? (x <= max ? Math.trunc(x) + 0 : max) : x < min ? min : 0;
+}
+
+/** `x as T` into a 64- or 128-bit type. */
+function wideFromF64(x: number, bits: number, signed: boolean): Wide {
+	const t = Math.trunc(x) + 0;
+	if (fits(t, signed)) return t;
+	if (t !== t) return 0;
+	// Every integer past 2^53 is exact in a double, and so is each type's bound.
+	const bound = 2 ** (signed ? bits - 1 : bits);
+	const min = signed ? -bound : 0;
+	if (t >= bound) return of((1n << BigInt(signed ? bits - 1 : bits)) - 1n, bits, signed);
+	if (t < min) return of(BigInt(min), bits, signed);
+	if (bits === 64) {
+		const hi = Math.floor(t / TWO32);
+		return join(hi, t - hi * TWO32);
+	}
+	return of(BigInt(t), bits, signed);
+}
+
+/** `x as u8`. */
+export const u8FromF64 = (x: f64): u8 => narrowFromF64(x, 0, 0xff);
+/** `x as u16`. */
+export const u16FromF64 = (x: f64): u16 => narrowFromF64(x, 0, 0xffff);
+/** `x as u32`. */
+export const u32FromF64 = (x: f64): u32 => narrowFromF64(x, 0, 0xffffffff);
+/** `x as usize`. */
+export const usizeFromF64: (x: f64) => usize = u32FromF64 as never;
+/** `x as i8`. */
+export const i8FromF64 = (x: f64): i8 => narrowFromF64(x, -0x80, 0x7f);
+/** `x as i16`. */
+export const i16FromF64 = (x: f64): i16 => narrowFromF64(x, -0x8000, 0x7fff);
+/** `x as i32`. */
+export const i32FromF64 = (x: f64): i32 => narrowFromF64(x, -0x80000000, 0x7fffffff);
+/** `x as isize`. */
+export const isizeFromF64: (x: f64) => isize = i32FromF64 as never;
+/** `x as u64`. */
+export const u64FromF64 = (x: f64): u64 => wideFromF64(x, 64, false) as u64;
+/** `x as i64`. */
+export const i64FromF64 = (x: f64): i64 => wideFromF64(x, 64, true) as i64;
+/** `x as u128`. */
+export const u128FromF64 = (x: f64): u128 => wideFromF64(x, 128, false) as u128;
+/** `x as i128`. */
+export const i128FromF64 = (x: f64): i128 => wideFromF64(x, 128, true) as i128;
+/** `a as f64`: limbs' one sum is exact before it rounds. */
+export const u64ToF64 = (a: u64): f64 => (typeof a === "number" ? (a as number) : a.hi * TWO32 + a.lo);
+/** `a as f64`: limbs' one sum is exact before it rounds. */
+export const i64ToF64 = (a: i64): f64 => (typeof a === "number" ? (a as number) : a.hi * TWO32 + a.lo);
+/** `a as f64`: a bigint converts to the nearest double. */
+export const u128ToF64 = (a: u128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
+/** `a as f64`: a bigint converts to the nearest double. */
+export const i128ToF64 = (a: i128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));

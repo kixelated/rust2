@@ -9,17 +9,17 @@ rust2-ts translates the std calls the model's census still refuses outside other
 ## Plan
 
 Left by [#168](https://github.com/kixelated/rust2/pull/168) on 2026-10-28, which translated
-the rest of what the census refused in std:
+the rest of what the census refused in std. Decided with the maintainer on 2026-10-28:
 
-- moq-net reads `capacity` to decide when to prune (`cache.rs`'s `hold_head`,
-  `resume.rs`'s readers) and bills `VecDeque` growth by it (`group.rs`), so a capacity
-  other than std's changes what it does. std's growth (`RawVec::grow_amortized`, its
-  minimum non-zero capacity by element size, `with_capacity` exact, `shrink_to`) is
-  deterministic on the pinned toolchain. Open: whether every `Vec` and `VecDeque` carries
-  that capacity through every runtime function that allocates, or the translator tracks it
-  only where a program reads it.
-- `RandomState` keys a treap's priorities in `track/demand/ranges.rs`. Its values are
-  random in std, so a differential test can compare only what they decide. Open: whether
-  the runtime seeds it from `crypto.getRandomValues`, as std seeds from the OS.
+- **Capacity: std's exact growth, everywhere.** moq-net reads `capacity` to decide when to
+  prune (`cache.rs`'s `hold_head`, `resume.rs`'s readers) and bills `VecDeque` growth by
+  it (`group.rs`), so a capacity other than std's changes what it does. Every `Vec` and
+  `VecDeque` carries std's capacity (`RawVec::grow_amortized`, its minimum non-zero
+  capacity by element size, `with_capacity` exact, `shrink_to`, and what `collect` and
+  `clone` allocate), through every runtime function that allocates. Measure push cost on
+  the TS benchmark before and after.
+- **`RandomState`: random per state, from `crypto.getRandomValues`**, as std seeds from
+  the OS. It keys a treap's priorities in `track/demand/ranges.rs`, so a differential test
+  compares only what the values decide, such as equal inputs hashing equally.
 
 Public API: the translator's output.

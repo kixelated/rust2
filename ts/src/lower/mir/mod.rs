@@ -298,6 +298,9 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	/// Names nothing assigns again that `scalar` reads in place: variables of parts assigned
 	/// once, and the slices it took apart.
 	steady: FxHashSet<String>,
+	/// The type of each temporary a place names, which a cleanup that reads the place
+	/// declares before the `try`.
+	spilled: FxHashMap<String, Type>,
 	/// Those slices, with their types, which need declarations.
 	scalar_binds: Vec<(String, Type)>,
 	/// The tests and payload reads TypeScript may have narrowed stale.
@@ -363,6 +366,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			widened: FxHashSet::default(),
 			scalars: FxHashMap::default(),
 			steady: FxHashSet::default(),
+			spilled: FxHashMap::default(),
 			scalar_binds: Vec::new(),
 			narrowing: decided::narrowing(tcx, mir),
 			at: mir::START_BLOCK.start_location(),
@@ -1441,8 +1445,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut labels = self.labels;
 		let body = cfg::structure(&graph, self, &mut labels);
 		self.labels = labels;
-		let body = self.catch(body);
+		let mut body = self.catch(body);
 		let mut out = Vec::new();
+		self.declare_caught(&mut body, &mut out);
 		for local in self.mir.local_decls.indices() {
 			// Parameters are declared by the signature.
 			if self.is_arg(local) || !self.assigned[local] {
@@ -2378,6 +2383,29 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		Expr::ident(name)
 	}
 
+	/// Note `ty` as the type of `held` if `path` made it a temporary, for a place that
+	/// names it.
+	pub(super) fn spilled_as(&mut self, held: &Expr, ty: Type) {
+		if let Expr::Ident(name) = held
+			&& self.local_named(name).is_none()
+		{
+			self.spilled.insert(name.clone(), ty);
+		}
+	}
+
+	/// Declare up front each temporary the `try` holds that the `catch` reads, which the
+	/// `try`'s block would otherwise scope.
+	fn declare_caught(&mut self, body: &mut [Stmt], out: &mut Vec<Stmt>) {
+		let mut held = Vec::new();
+		assign_caught(body, &FxHashSet::default(), &mut held);
+		for name in held {
+			match self.spilled.get(&name) {
+				Some(ty) => out.push(StmtKind::Declare { name, ty: ty.clone() }.at(None)),
+				None => _ = self.err(self.span, format!("a cleanup that reads `{name}`, of no known type")),
+			}
+		}
+	}
+
 	/// Hold `slice`, an `rt.ByteSlice` to read more than once, in a path, as a tuple's part
 	/// already is.
 	pub(super) fn slice_path(&mut self, slice: Expr, out: &mut Vec<Stmt>) -> Expr {
@@ -3008,8 +3036,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 }
 
-/// Whether `place` is part of its local's own value, rather than reached through a
-/// reference or pointer.
 /// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
 /// which TypeScript types as the whole union already.
 pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
@@ -3024,6 +3050,8 @@ pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
 	}
 }
 
+/// Whether `place` is part of its local's own value, rather than reached through a
+/// reference or pointer.
 pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
@@ -3552,9 +3580,11 @@ pub fn fold(e: Expr) -> Expr {
 				_ => None,
 			};
 			if let (Some(a), Some(b)) = (num(&l), num(&r)) {
-				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators.
+				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators. An
+				// `f64` literal is spelled with a point or an exponent, and its -0.0 is no integer.
+				let int = |e: &Expr| matches!(e, Expr::Lit(t) if !t.contains(['.', 'e']));
 				let small = |v: f64| v.fract() == 0.0 && v.abs() < 2f64.powi(31);
-				if small(a) && small(b) {
+				if int(&l) && int(&r) && small(a) && small(b) {
 					let (x, y) = (a as i64, b as i64);
 					let int = match op {
 						"<<" if (0..31).contains(&y) => Some((x as i32).wrapping_shl(y as u32) as i64),
@@ -3787,6 +3817,67 @@ fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
 			}
 			_ => {}
 		}
+	}
+}
+
+/// Turn each declaration in a `try` of a name its `catch` reads, or one around it does,
+/// into an assignment to it, adding the name to `held`.
+fn assign_caught(stmts: &mut [Stmt], reads: &FxHashSet<String>, held: &mut Vec<String>) {
+	for stmt in stmts {
+		match &mut stmt.kind {
+			StmtKind::Decl {
+				name, init: Some(init), ..
+			} if reads.contains(name.as_str()) => {
+				held.push(name.clone());
+				let value = std::mem::replace(init, Expr::undefined());
+				stmt.kind = StmtKind::Expr(Expr::ident(name.clone()).assign(value));
+			}
+			StmtKind::If { then, els, .. } => {
+				assign_caught(then, reads, held);
+				assign_caught(els, reads, held);
+			}
+			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
+				assign_caught(body, reads, held)
+			}
+			StmtKind::Switch { cases, default, .. } => {
+				cases.iter_mut().for_each(|(_, body)| assign_caught(body, reads, held));
+				assign_caught(default, reads, held);
+			}
+			StmtKind::Catch { body, handler, .. } => {
+				// What the handler declares itself, as inline drop glue does, it reads its own.
+				let mut caught = Vec::new();
+				handler.iter().for_each(|s| scan_reads(s, &mut caught));
+				let mut own = Vec::new();
+				handler.iter().for_each(|s| declared(s, &mut own));
+				let mut inner = reads.clone();
+				inner.extend(caught.into_iter().filter(|n| !own.contains(n)));
+				assign_caught(body, &inner, held);
+				assign_caught(handler, reads, held);
+			}
+			_ => {}
+		}
+	}
+}
+
+/// Every name `stmt` declares, in it and its blocks.
+fn declared(stmt: &Stmt, out: &mut Vec<String>) {
+	let mut each = |stmts: &[Stmt]| stmts.iter().for_each(|s| declared(s, out));
+	match &stmt.kind {
+		StmtKind::Decl { name, .. } | StmtKind::Declare { name, .. } => out.push(name.clone()),
+		StmtKind::If { then, els, .. } => {
+			each(then);
+			each(els);
+		}
+		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => each(body),
+		StmtKind::Catch { body, handler, .. } => {
+			each(body);
+			each(handler);
+		}
+		StmtKind::Switch { cases, default, .. } => {
+			cases.iter().for_each(|(_, body)| each(body));
+			each(default);
+		}
+		_ => {}
 	}
 }
 

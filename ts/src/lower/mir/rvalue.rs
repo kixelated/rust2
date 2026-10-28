@@ -6,7 +6,7 @@ use rustc_index::IndexVec;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, AggregateKind, BinOp, CastKind, Operand, Place, Rvalue, UnOp};
 use rustc_middle::ty::adjustment::PointerCoercion;
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::{Capture, Env, Fx, Slot};
@@ -191,7 +191,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tcx = self.tcx;
 		let from = op.ty(&self.mir.local_decls, tcx);
 		match kind {
-			CastKind::IntToInt => {
+			CastKind::IntToInt | CastKind::IntToFloat | CastKind::FloatToInt | CastKind::FloatToFloat => {
 				let value = self.operand(op, span, out);
 				let operand = num::Operand {
 					expr: value,
@@ -205,7 +205,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let value = self.path(value, "arg", out);
 					self.b.fmt_value(tr, from, value, span, out)
 				}
-				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
+				PointerCoercion::Unsize if let Some((pointee, object)) = arc_object(tcx, from, to) => {
+					let value = self.operand(op, span, out);
+					self.arc_object(value, pointee, object, span, out)
+				}
+				// A future, as the `rt.Future` a `dyn Future` is.
+				PointerCoercion::Unsize
+					if unsized_to(from, to).is_some_and(|part| self.b.t.dyn_future(part).is_some()) =>
+				{
+					let value = self.operand(op, span, out);
+					self.b.dyn_future(from, to, value, span)
+				}
+				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(|t| t.is_trait()) => {
+					let value = self.operand(op, span, out);
+					self.b.object_of(value, from, to, span)
+				}
 				// An array's bytes, as a slice of all of it: a reference to them is one already.
 				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
 					match to.builtin_deref(true) {
@@ -238,6 +252,30 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// `arc`, an `Arc` of `pointee` unsized to one of the trait object `object`: an
+	/// `rt.ArcDyn` sharing its count, over what a box of its value unsizes to, or the same
+	/// `Arc` upcast.
+	fn arc_object(&mut self, arc: Expr, pointee: Ty<'tcx>, object: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		let tcx = self.tcx;
+		// An upcast is of an `rt.ArcDyn` already, whose object has the supertraits' methods.
+		let (arc, value) = match pointee.is_trait() {
+			true => (None, arc),
+			false => {
+				let arc = self.path(arc, "arc", out);
+				(Some(arc.clone()), arc.member("value"))
+			}
+		};
+		let (from, to) = (Ty::new_box(tcx, pointee), Ty::new_box(tcx, object));
+		let value = match self.b.t.dyn_future(object) {
+			Some(_) => self.b.dyn_future(from, to, value, span),
+			None => self.b.object_of(value, from, to, span),
+		};
+		match arc {
+			Some(arc) => Expr::New(Box::new(Expr::Rt("ArcDyn".into())), vec![arc, value]),
+			None => value,
+		}
+	}
+
 	/// A discriminant as its number.
 	fn discriminant(&mut self, scrut: Expr, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		match ty.kind() {
@@ -265,7 +303,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						)
 					}
 					// The value is its discriminant.
-					Some(Std::Ordering) => scrut,
+					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					Some(Std::Bound) => {
 						let table = discrs
@@ -458,6 +496,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
+				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
 					let ty::Adt(_, gargs) = ty.kind() else {
@@ -578,11 +617,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ty::Ref(..) => in_var && !self.stable_name(&value),
 				_ => true,
 			};
-			let value = match snapshot && !value.is_constant() {
+			// A constant is its own snapshot, unless the closure reassigns it.
+			let rebinds = rebound.contains(&field);
+			let constant = value.is_constant();
+			let value = match snapshot && (rebinds || !constant) {
 				false => value,
 				true => {
 					let name = self.b.fresh("captured");
-					let stmt = StmtKind::decl(rebound.contains(&field), name.clone(), None, Some(value)).at(None);
+					// Typed, so a reassigned literal keeps its integer's type.
+					let ts_ty = constant.then(|| self.b.t.held_ty(ty, span));
+					let stmt = StmtKind::decl(rebinds, name.clone(), ts_ty, Some(value)).at(None);
 					self.emit(vec![stmt], None, false, out);
 					Expr::ident(name)
 				}
@@ -663,6 +707,15 @@ fn unsized_to<'tcx>(from: Ty<'tcx>, to: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		}
 		_ => None,
 	}
+}
+
+/// What an `Arc` unsized to an `Arc` of a trait object points at, and that object.
+fn arc_object<'tcx>(tcx: TyCtxt<'tcx>, from: Ty<'tcx>, to: Ty<'tcx>) -> Option<(Ty<'tcx>, Ty<'tcx>)> {
+	let (ty::Adt(adt, from_args), ty::Adt(_, to_args)) = (from.kind(), to.kind()) else {
+		return None;
+	};
+	let object = to_args.type_at(0);
+	(Std::of(tcx, adt.did()) == Some(Std::Arc) && object.is_trait()).then(|| (from_args.type_at(0), object))
 }
 
 /// Whether evaluating `rvalue` can do or throw anything.

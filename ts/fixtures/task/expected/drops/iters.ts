@@ -179,7 +179,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				check(2);
 			}
 			return rt.u32Rem(Guard.id(g4), 2) === 0;
-		}, rt.drop), true, rt.drop, rt.drop);
+		}, rt.drop), "place", rt.drop);
 		unwind = 327;
 		const part3 = even.length;
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part3, f)];
@@ -220,7 +220,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		Log.note(log, rt.fmtFormat(["next ", args8[0]]));
 		check(3);
 		_610 = false;
-		const part5 = rt.ownedCount(rest, rt.drop, rt.drop);
+		const part5 = rt.ownedCount(rest, rt.drop);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
 		Log.note(log, rt.fmtFormat(["count ", args10[0]]));
 		v4 = [];
@@ -270,7 +270,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const pairs: rt.Iter<[Guard.Guard, Guard.Guard]> = rt.iterZip(_237, rt.iterSlice(_255, rt.drop), false, rt.drop, rt.drop);
 		unwind = 323;
 		_608 = false;
-		const part6 = rt.ownedCount(pairs, rt.drop, drop$Guard_Guard);
+		const part6 = rt.ownedCount(pairs, drop$Guard_Guard);
 		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part6, f)];
 		Log.note(log, rt.fmtFormat(["zip ", args14[0]]));
 		v7 = [];
@@ -330,7 +330,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 348;
 		best = rt.iterMaxByKey(rt.iterSlice(v9, rt.drop), (g9: Guard.Guard): rt.u32 => {
 			return rt.u32Rem(Guard.id(g9), 2);
-		}, rt.cmp, rt.drop, rt.drop);
+		}, rt.cmpLt(rt.cmp), true, rt.drop);
 		unwind = 346;
 		_605 = true;
 		v10 = [];
@@ -398,7 +398,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g12);
 				throw e5;
 			}
-		}, rt.drop);
+		}, true);
 		v12 = [];
 		unwind = 312;
 		const _408: Guard.Guard = guard(36);
@@ -408,7 +408,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _418: Guard.Guard = guard(38);
 		v12.push(_418);
 		unwind = 314;
-		const _427: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedLast(rt.iterStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop, rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
+		const _427: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedLast(rt.iterStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
 			let unwind6: number = 0;
 			try {
 				unwind6 = 4;
@@ -616,7 +616,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		});
 		unwind = 344;
 		rt.drop(_539);
-		const counted: rt.usize = rt.ownedCount(rt.iterTake(rt.iterRev(rt.iterSlice(five(74), rt.drop)), 3, rt.drop), rt.drop, rt.drop);
+		const counted: rt.usize = rt.ownedCount(rt.iterTake(rt.iterRev(rt.iterSlice(five(74), rt.drop)), 3, rt.drop), rt.drop);
 		const far: boolean = rt.iterNthBack(rt.iterStepBy(new rt.Range(0, 10), 4294967295), 4294967295) === undefined;
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(skipped, f), (f: rt.Formatter) => rt.u32Display(stepped, f), (f: rt.Formatter) => rt.u32Display(taken, f), (f: rt.Formatter) => rt.u32Display(passed, f), (f: rt.Formatter) => rt.u32Display(strode, f), (f: rt.Formatter) => rt.usizeDisplay(counted, f), (f: rt.Formatter) => rt.fmtBool(far, f)];
 		Log.note(log, rt.fmtFormat(["back ", args24[0], " ", args24[1], " ", args24[2], " ", args24[3], " ", args24[4], " ", args24[5], " ", args24[6]]));
@@ -949,7 +949,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g);
 				throw e2;
 			}
-		}), true, rt.drop, rt.drop);
+		}), "place", rt.drop);
 		unwind = 164;
 		v2 = [];
 		unwind = 163;
@@ -975,7 +975,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g2);
 				throw e3;
 			}
-		}), false, rt.drop, drop$Guard_u32);
+		}), "fold", drop$Guard_u32);
 		unwind = 162;
 		v3 = [];
 		unwind = 161;
@@ -1013,7 +1013,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g3);
 				throw e4;
 			}
-		}), false, rt.drop, rt.drop);
+		}), "fold", rt.drop);
 		unwind = 159;
 		const _89: rt.usize = same.length;
 		const _92: rt.usize = wider.length;
@@ -1044,7 +1044,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g4);
 				throw e5;
 			}
-		}), (values: rt.Iter<Guard.Guard>) => rt.iterToArray(values, true, rt.drop, rt.drop), drop$Vec_Guard, rt.drop);
+		}), (values: rt.Iter<Guard.Guard>) => rt.iterToArray(values, "place", rt.drop), drop$Vec_Guard, rt.drop);
 		unwind = 168;
 		_320 = true;
 		const part = results.ok;
@@ -1077,7 +1077,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g5);
 				throw e6;
 			}
-		}), (values: rt.Iter<Guard.Guard>) => rt.iterToArray(values, true, rt.drop, rt.drop), drop$Vec_Guard), 0, (v12: Guard.Guard[]): rt.usize => {
+		}), (values: rt.Iter<Guard.Guard>) => rt.iterToArray(values, "place", rt.drop), drop$Vec_Guard), 0, (v12: Guard.Guard[]): rt.usize => {
 			let unwind7: number = 0;
 			try {
 				unwind7 = 4;
@@ -1105,7 +1105,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		v7.push(_191);
 		unwind = 168;
 		const _174: rt.Iter<[rt.u32, Guard.Guard]> = rt.iterSlice(v7, drop$u32_Guard);
-		tree = rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>, rt.iterToArray(_174, true, rt.drop, drop$u32_Guard), undefined, rt.drop);
+		tree = rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>, rt.iterToArray(_174, "place", drop$u32_Guard), undefined, rt.drop);
 		unwind = 155;
 		const part3 = rt.btreeLen(tree);
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part3, f)];
@@ -1135,7 +1135,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(g6);
 				throw e8;
 			}
-		}), true, rt.drop);
+		}), "place");
 		unwind = 153;
 		const part4 = refs.length;
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part4, f)];
@@ -1164,7 +1164,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e9;
 			}
 		});
-		queue = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Guard.Guard>, rt.iterSlice(rt.iterToArray(_239, true, rt.drop, rt.drop)));
+		queue = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Guard.Guard>, rt.iterSlice(rt.iterToArray(_239, "place", rt.drop)));
 		unwind = 151;
 		v10 = [];
 		unwind = 150;
@@ -1190,7 +1190,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e11;
 			}
 		});
-		hashed = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u32, Guard.Guard>, _257, undefined, rt.drop, rt.drop, true);
+		hashed = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u32, Guard.Guard>, _257, undefined, rt.drop, "fold", true);
 		unwind = 149;
 		v11 = [];
 		unwind = 148;
@@ -1200,7 +1200,7 @@ export function collected(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		v11.push(_287);
 		unwind = 149;
 		const _277: rt.Iter<Key.Key> = rt.iterSlice(v11, rt.drop);
-		set = rt.hashExtendKeys(rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>, _277, rt.drop, rt.drop, true);
+		set = rt.hashExtendKeys(rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>, _277, rt.drop, "fold", true);
 		unwind = 147;
 		const _296: rt.usize = queue.n;
 		const _299: rt.usize = rt.hashLen(hashed);
@@ -1461,7 +1461,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rt.drop(it);
 		_300 = false;
 		drop$Option_Key_Guard(back);
-		keys = rt.iterToArray(rt.btreeKeys(tree(5), rt.drop, rt.drop, true), false, rt.drop, rt.drop);
+		keys = rt.iterToArray(rt.btreeKeys(tree(5), rt.drop, rt.drop, true), "fold", rt.drop);
 		unwind = 159;
 		check(2);
 		values = rt.btreeValues(tree(9), rt.drop, rt.drop);
@@ -1641,7 +1641,7 @@ export function drained(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_290 = true;
 		check(7);
 		_291 = false;
-		const _249: rt.usize = rt.ownedCount(values2, rt.drop, rt.drop);
+		const _249: rt.usize = rt.ownedCount(values2, rt.drop);
 		const _252: boolean = one !== undefined;
 		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_249, f), (f: rt.Formatter) => rt.fmtBool(_252, f)];
 		Log.note(log, rt.fmtFormat(["rest ", args16[0], " ", args16[1]]));
@@ -1910,7 +1910,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e2;
 			}
 		});
-		rt.iterExtend(list, _20, rt.drop);
+		rt.iterExtend(list, _20, "fold");
 		v3 = [];
 		unwind = 134;
 		const _50: Guard.Guard = guard(5);
@@ -1926,7 +1926,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			}
 			return Guard.id(g2) !== rt.u32Add(id, 5);
 		}, rt.drop);
-		rt.iterExtend(list, _44, rt.drop);
+		rt.iterExtend(list, _44, "next");
 		const part = list.length;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 		Log.note(log, rt.fmtFormat(["list ", args2[0]]));
@@ -1971,7 +1971,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e4;
 			}
 		});
-		rt.hashExtend(map, _89, rt.drop, rt.drop, rt.drop);
+		rt.hashExtend(map, _89, rt.drop, rt.drop, "fold");
 		set = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
 		unwind = 129;
 		const _117: Key.Key = key(11);
@@ -1983,7 +1983,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _131: Key.Key = key(11);
 		v5.push(_131);
 		unwind = 129;
-		rt.hashExtendKeys(set, rt.iterSlice(v5, rt.drop), rt.drop, rt.drop);
+		rt.hashExtendKeys(set, rt.iterSlice(v5, rt.drop), rt.drop, "fold");
 		const _140: rt.usize = rt.hashLen(map);
 		const _143: rt.usize = rt.hashLen(set);
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_140, f), (f: rt.Formatter) => rt.usizeDisplay(_143, f)];
@@ -2034,7 +2034,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e6;
 			}
 		});
-		rt.btreeExtend(tree, _161, false, rt.drop, rt.drop, rt.drop);
+		rt.btreeExtend(tree, _161, false, rt.drop, rt.drop, "fold");
 		check(5);
 		ordered = rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>;
 		unwind = 122;
@@ -2047,7 +2047,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _215: Key.Key = key(16);
 		v7.push(_215);
 		unwind = 122;
-		rt.btreeExtendKeys(ordered, rt.iterSlice(v7, rt.drop), false, rt.drop, rt.drop);
+		rt.btreeExtendKeys(ordered, rt.iterSlice(v7, rt.drop), false, rt.drop, "fold");
 		queue = rt.dequeNew() as rt.VecDeque<Guard.Guard>;
 		unwind = 120;
 		const _221: Guard.Guard = guard(18);
@@ -2076,7 +2076,7 @@ export function extended(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e7;
 			}
 		});
-		rt.dequeExtend(queue, _226, rt.drop);
+		rt.dequeExtend(queue, _226, "fold");
 		check(7);
 		const _252: rt.usize = rt.btreeLen(tree);
 		const _255: rt.usize = rt.btreeLen(ordered);
@@ -2287,7 +2287,7 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			unwind = 0;
 			rt.ownedCount(rt.iterFilter(rt.iterSlice(v3, rt.drop), (b: Bomb.Bomb): boolean => {
 				return !b.blows;
-			}, rt.drop), rt.drop, rt.drop);
+			}, rt.drop), rt.drop);
 		} else if (at === 3) {
 			_194 = true;
 			map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>;
@@ -2332,7 +2332,7 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			v4.push(_132);
 			unwind = 0;
 			const _115: rt.Iter<[rt.u32, Bomb.Bomb]> = rt.iterSlice(v4, drop$u32_Bomb);
-			rt.btreeDrop(rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>, rt.iterToArray(_115, true, rt.drop, drop$u32_Bomb), undefined, rt.drop), undefined, rt.drop);
+			rt.btreeDrop(rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Bomb.Bomb>, rt.iterToArray(_115, "place", drop$u32_Bomb), undefined, rt.drop), undefined, rt.drop);
 		} else if (at === 6) {
 			v5 = [];
 			unwind = 109;
@@ -2343,7 +2343,7 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _153: Bomb.Bomb = bomb(3, false);
 			v5.push(_153);
 			unwind = 0;
-			rt.ownedCount(rt.iterTake(rt.iterSlice(v5, rt.drop), 2, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.iterTake(rt.iterSlice(v5, rt.drop), 2, rt.drop), rt.drop);
 		} else {
 			v6 = [];
 			unwind = 108;
@@ -2513,7 +2513,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(rt.hashInsert(map, n, _23, undefined, rt.drop));
 			}
 			_176 = false;
-			rt.ownedCount(rt.hashIter(map, undefined, rt.drop), rt.drop, drop$u32_First);
+			rt.ownedCount(rt.hashIter(map, undefined, rt.drop), drop$u32_First);
 			_176 = false;
 		} else if (at === 1) {
 			unwind = 114;
@@ -2527,7 +2527,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.hashAdd(set, _40, rt.drop);
 			}
 			_175 = false;
-			rt.ownedCount(rt.hashKeys(set, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.hashKeys(set, rt.drop), rt.drop);
 			_175 = false;
 		} else if (at === 2) {
 			unwind = 114;
@@ -2540,7 +2540,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _64: First.First = first(2);
 			v.push(_64);
 			unwind = 114;
-			rt.ownedCount(rt.iterSkip(rt.iterSlice(v, rt.drop), 1, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.iterSkip(rt.iterSlice(v, rt.drop), 1, rt.drop), rt.drop);
 		} else if (at === 3) {
 			unwind = 114;
 			v2 = [];
@@ -2557,7 +2557,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			_174 = true;
 			rt.peekablePeek(peek) !== undefined;
 			_174 = false;
-			rt.ownedCount(peek, rt.drop, rt.drop);
+			rt.ownedCount(peek, rt.drop);
 			_174 = false;
 		} else if (at === 4) {
 			unwind = 114;
@@ -2581,7 +2581,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _95: rt.Iter<First.First> = rt.iterChain(_96, rt.iterSlice(_104, rt.drop));
 			unwind = 114;
 			_173 = false;
-			rt.ownedCount(_95, rt.drop, rt.drop);
+			rt.ownedCount(_95, rt.drop);
 		} else if (at === 5) {
 			unwind = 114;
 			map2 = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, First.First>;
@@ -2595,7 +2595,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.drop(rt.btreeInsert(map2, n3, _126, undefined, rt.drop));
 			}
 			_172 = false;
-			rt.ownedCount(rt.btreeIter(map2, undefined, rt.drop), rt.drop, drop$u32_First);
+			rt.ownedCount(rt.btreeIter(map2, undefined, rt.drop), drop$u32_First);
 			_172 = false;
 		} else if (at === 6) {
 			unwind = 114;
@@ -2609,7 +2609,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				rt.dequePushBack(queue, _143);
 			}
 			_171 = false;
-			rt.ownedCount(rt.dequeIter(queue, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.dequeIter(queue, rt.drop), rt.drop);
 			_171 = false;
 		} else {
 			unwind = 114;
@@ -2622,7 +2622,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				const _160: First.First = first(n5);
 				rt.drop(rt.hashInsert(map3, n5, _160, undefined, rt.drop));
 			}
-			rt.ownedCount(rt.hashDrain(map3, undefined, rt.drop), rt.drop, drop$u32_First);
+			rt.ownedCount(rt.hashDrain(map3, undefined, rt.drop), drop$u32_First);
 			unwind = 114;
 			rt.hashDrop(map3, undefined, rt.drop);
 		}

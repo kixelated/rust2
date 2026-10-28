@@ -142,7 +142,56 @@ export function orElse$Result_u8_u16_u16_results_closure4(self: rt.Result<rt.u8,
 	return op(self.error);
 }
 
+export function unwrapOr$Result_i16_i16(self: rt.Result<rt.i16, rt.i16>, default_: rt.i16): rt.i16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_i32_i32(self: rt.Result<rt.i32, rt.i32>, default_: rt.i32): rt.i32 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_i64_i64(self: rt.Result<rt.i64, rt.i64>, default_: rt.i64): rt.i64 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_i8_i8(self: rt.Result<rt.i8, rt.i8>, default_: rt.i8): rt.i8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_isize_isize(self: rt.Result<rt.isize, rt.isize>, default_: rt.isize): rt.isize {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$Result_u16_TryFromIntError(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_u16_u16(self: rt.Result<rt.u16, rt.u16>, default_: rt.u16): rt.u16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_u32_u32(self: rt.Result<rt.u32, rt.u32>, default_: rt.u32): rt.u32 {
 	if (self.ok) {
 		return self.value;
 	}
@@ -156,7 +205,28 @@ export function unwrapOr$Result_u64_TryFromIntError(self: rt.Result<rt.u64, rt.T
 	return default_;
 }
 
+export function unwrapOr$Result_u64_u64(self: rt.Result<rt.u64, rt.u64>, default_: rt.u64): rt.u64 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_u8_u8(self: rt.Result<rt.u8, rt.u8>, default_: rt.u8): rt.u8 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_usize_usize(self: rt.Result<rt.usize, rt.usize>, default_: rt.usize): rt.usize {
 	if (self.ok) {
 		return self.value;
 	}
