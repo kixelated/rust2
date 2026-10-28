@@ -308,7 +308,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		for op in ops.iter() {
 			let v = self.operand(op, span, out);
 			let is_ref = op.ty(&self.mir.local_decls, self.tcx).is_ref();
-			let reread = is_ref && self.rereadable(&v);
+			let reread = is_ref && v.is_path() && op.place().is_none_or(|place| self.rereads(place));
 			let v = match parts_read && is_ref && !reread {
 				true => self.path(v, "part", out),
 				false => v,

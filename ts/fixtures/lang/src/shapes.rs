@@ -193,6 +193,20 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 	n = 9;
 	out.extend_from_slice(&(both.0 + both.1 + n).to_be_bytes());
 
+	// So does a tuple of references, though the variables they came from are assigned
+	// others: a swap in a loop.
+	let (mut s, mut t) = ("ab", "cde");
+	let (mut x, mut y) = (&p, &q);
+	let (mut i, mut j) = (data.len() as u8, 1u8);
+	for _ in 0..data.len() % 3 {
+		(s, t) = (t, s);
+		(x, y) = (y, x);
+		(i, j) = (j, i);
+		out.extend_from_slice(s.as_bytes());
+		out.push(x.x as u8 ^ i);
+	}
+	out.push(t.len() as u8 ^ y.y as u8 ^ j);
+
 	// A value computed from a call keeps that call before a later one, though it is read
 	// after.
 	// A conversion reads its bytes before they change.
