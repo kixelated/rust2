@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { copy$u8s_u8s } from "../lib.ts";
+import { opaque, len } from "../args.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
@@ -191,6 +192,20 @@ export function map$Option_u8_u8_options_closure3_closure0(self: rt.u8 | undefin
 	return f(self);
 }
 
+export function map$Option_u8_u8s_u8s_args_closure1(self: [rt.u8, rt.ByteSlice] | undefined, f: (a0: [rt.u8, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8s_u8_opaque(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return opaque(self.data, self.start, self.length);
+}
+
 export function map$Option_usize_str_str_slices_closure2(self: [rt.usize, string] | undefined, f: (a0: [rt.usize, string]) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -343,6 +358,13 @@ export function mapOr$Option_u8s_u8s_u8s_chunks_closure0(self: [rt.ByteSlice, rt
 		return new rt.ByteSlice(defaultData, defaultStart, defaultLen);
 	}
 	return f(self);
+}
+
+export function mapOr$Option_u8s_usize_len(self: rt.ByteSlice | undefined, default_: rt.usize, _: (a0: rt.ByteSlice) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return len(self.data, self.start, self.length);
 }
 
 export function mapOr$Option_usize_str_slices_closure1_closure0_closure0(self: rt.usize | undefined, default_: string, f: (a0: rt.usize) => string): string {

@@ -534,7 +534,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			}
 		};
 		self.part_params.extend(names.iter().cloned());
-		let tys = [Type::Builtin("Uint8Array"), Type::Builtin("number"), Type::Builtin("number")];
+		let tys = [
+			Type::Builtin("Uint8Array"),
+			Type::Builtin("number"),
+			Type::Builtin("number"),
+		];
 		names
 			.into_iter()
 			.zip(tys)
@@ -713,7 +717,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 		// Held as the parts of the one object it is, a local saves nothing; a parameter
 		// passed as its parts is made on entry.
-		bad.extend(shapes.keys().filter(|l| !parted.contains(l) && !self.parted.contains(l)));
+		bad.extend(
+			shapes
+				.keys()
+				.filter(|l| !parted.contains(l) && !self.parted.contains(l)),
+		);
 		for &local in shapes.keys().filter(|l| self.parted.contains(l)) {
 			copies.extend((0..3).map(|part| (local, part, None)));
 		}

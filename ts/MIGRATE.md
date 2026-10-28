@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A function the config's roots don't name takes each `&[u8]` or `&[u8; N]` parameter as
+  its `data`, `start`, and `length`: `read(buf, form)` is
+  `read(buf.data, buf.start, buf.length, form)`. A root still takes an `rt.ByteSlice`.
 - The runtime no longer exports `ownedNth`, `ownedNthBack`, `ownedSkip`, `ownedTake`, or
   `ownedStepBy`: `iterNth`, `iterNthBack`, `iterSkip`, `iterTake`, and `iterStepBy` take
   what drops an item last. `rt.Iter`'s `nthItem` and `nthBackItem` are `nth` and

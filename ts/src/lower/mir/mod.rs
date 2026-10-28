@@ -322,7 +322,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Env::Plain => std::mem::take(&mut b.parted),
 			_ => Vec::new(),
 		};
-		let parted = mir.args_iter().zip(parted).filter(|&(_, p)| p).map(|(l, _)| l).collect();
+		let parted = mir
+			.args_iter()
+			.zip(parted)
+			.filter(|&(_, p)| p)
+			.map(|(l, _)| l)
+			.collect();
 		let mut fx = Fx {
 			b,
 			mir,

@@ -376,8 +376,13 @@ they need.
   often than before stays one. `just ts bench` measured the codec's varint decode at 0.49
   times the objects' time in Chrome, 0.57 in Firefox, 0.64 in Node, and 0.56 in Bun at
   the geometric mean, and frame decode at 0.61, 0.56, 0.70, and 0.61, with the A/A route
-  within 0.04 and encode no slower. A parameter, a return, and a field are still a
-  `ByteSlice` ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
+  within 0.04 and encode no slower. A return and a field are still a `ByteSlice`
+  ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
+- A function only translated code calls takes each `&[u8]` or `&[u8; N]` parameter as
+  three, its `data`, `start`, and `length`, which its body holds as that local's parts:
+  not a root, which the outside calls, a closure, or an `async fn`. One whose object the
+  body would make more often than once, or that it borrows, is made on entry, and the
+  function as a value is an arrow that takes the slice whole. BENCH
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
