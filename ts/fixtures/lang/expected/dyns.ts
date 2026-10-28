@@ -304,6 +304,8 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.drop(m);
 		rt.drop(n);
 		rt.drop(hits);
+		rt.drop(other);
+		rt.drop(weak);
 	}
 }
 

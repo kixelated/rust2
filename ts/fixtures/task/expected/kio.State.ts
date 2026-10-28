@@ -3,11 +3,22 @@
 import * as rt from "./rt.ts";
 import type * as WaiterList from "./kio.WaiterList.ts";
 
-export interface State {
+export class State {
 	queue: rt.u64[];
 	closed: boolean;
 	producers: rt.usize;
 	waiters: WaiterList.WaiterList;
+
+	constructor(fields: { queue: rt.u64[]; closed: boolean; producers: rt.usize; waiters: WaiterList.WaiterList }) {
+		this.queue = fields.queue;
+		this.closed = fields.closed;
+		this.producers = fields.producers;
+		this.waiters = fields.waiters;
+	}
+
+	[Symbol.dispose](): void {
+		rt.drop(this.waiters);
+	}
 }
 
 //# sourceMappingURL=kio.State.ts.map

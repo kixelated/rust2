@@ -513,6 +513,43 @@ inline c_buf none() noexcept {
 	return c_buf{nullptr, 0, nullptr};
 }
 
+// The arrays a call's lowered vectors point into, kept until the call returns.
+class arena {
+	::std::vector<::std::shared_ptr<void>> held_;
+
+public:
+	// `items` as the C array `C`, each lowered by `lower`: never null, so an empty one is
+	// told apart from a missing one.
+	template <class C, class R, class F>
+	C list(const R &items, F lower) {
+		using E = ::std::remove_const_t<::std::remove_pointer_t<decltype(C{}.ptr)>>;
+		auto array = ::std::make_shared<::std::vector<E>>();
+		array->reserve(items.size());
+		for (const auto &item : items) {
+			array->push_back(lower(item));
+		}
+		static const E empty{};
+		const E *ptr = array->empty() ? &empty : array->data();
+		::std::size_t len = array->size();
+		held_.push_back(::std::move(array));
+		return C{ptr, len, nullptr};
+	}
+};
+
+// The C array `c` Rust returned, as `T`s each lifted by `lift`, which takes what its
+// element holds; `free` then frees the array alone.
+template <class T, class C, class F, class Free>
+::std::vector<T> lift_list(C c, F lift, Free free) {
+	::std::vector<T> out;
+	out.reserve(c.len);
+	for (::std::size_t i = 0; i < c.len; i++) {
+		out.push_back(lift(c.ptr[i]));
+	}
+	c.len = 0;
+	free(c);
+	return out;
+}
+
 // An object Rust lends a closure for one call, as its class over the lent handle, which
 // it gives back unfreed. Moving out of it would keep the borrow past the call.
 template <class T, class R>

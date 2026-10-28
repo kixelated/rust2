@@ -59,6 +59,19 @@ class Writer {
 
 	fun string(v: String?) = bytes(v?.encodeToByteArray())
 
+	/** An address as Rust's `SocketAddr` holds it, which an unresolved one has no form of. */
+	fun socketAddr(v: java.net.InetSocketAddress) {
+		val ip = kotlin.requireNotNull(v.address) { "an unresolved address has no Rust SocketAddr" }
+		room(16)
+		b.put(ip.address)
+		repeat(16 - ip.address.size) { b.put(0) }
+		i16(v.port.toShort())
+		bool(ip is java.net.Inet6Address)
+		// Java keeps no flow label.
+		i32(0)
+		i32((ip as? java.net.Inet6Address)?.scopeId ?: 0)
+	}
+
 	fun duration(v: kotlin.time.Duration) {
 		kotlin.require(!v.isNegative()) { "a negative duration has no Rust Duration" }
 		v.toComponents { secs, nanos ->
@@ -128,6 +141,26 @@ class Reader(bytes: ByteArray) {
 		val v = String(b.array(), b.arrayOffset() + b.position(), n, kotlin.text.Charsets.UTF_8)
 		b.position(b.position() + n)
 		return v
+	}
+
+	/** A path, which on Unix may hold bytes no String holds: those throw. */
+	fun path(): String? = bytes()?.decodeToString(throwOnInvalidSequence = true)
+
+	fun socketAddr(): java.net.InetSocketAddress {
+		val ip = ByteArray(16)
+		b.get(ip)
+		val port = b.getShort().toInt() and 0xffff
+		val v6 = bool()
+		val flowinfo = b.getInt()
+		val scope = b.getInt()
+		kotlin.check(flowinfo == 0) { "an IPv6 flow label has no Java form" }
+		// Built as Inet6Address directly, as InetAddress would read an IPv4-mapped one as IPv4.
+		val address = when {
+			!v6 -> java.net.InetAddress.getByAddress(ip.copyOf(4))
+			scope == 0 -> java.net.Inet6Address.getByAddress(null, ip, null as java.net.NetworkInterface?)
+			else -> java.net.Inet6Address.getByAddress(null, ip, scope)
+		}
+		return java.net.InetSocketAddress(address, port)
 	}
 
 	fun duration(): kotlin.time.Duration {
