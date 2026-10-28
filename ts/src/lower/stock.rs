@@ -15,6 +15,9 @@ use crate::ts::{Expr, Stmt};
 
 /// The type `did` is, if it is one of these crates' that has a representation of its own.
 pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Std> {
+	if !is_stock(tcx, did) {
+		return None;
+	}
 	match (tcx.crate_name(did.krate).as_str(), tcx.opt_item_name(did)?.as_str()) {
 		("bytes", "Bytes") => Some(Std::Bytes),
 		("rand", "ThreadRng") => Some(Std::ThreadRng),
@@ -22,9 +25,10 @@ pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Std> {
 	}
 }
 
-/// Whether `did` is an item of one of these crates.
+/// Whether `did` is an item of one of these crates, rather than of the crate translated,
+/// whatever its name.
 pub fn is_stock(tcx: TyCtxt<'_>, did: DefId) -> bool {
-	matches!(tcx.crate_name(did.krate).as_str(), "bytes" | "rand")
+	!did.is_local() && matches!(tcx.crate_name(did.krate).as_str(), "bytes" | "rand")
 }
 
 /// A call of one of these crates' functions, or of a std trait's on one of their types:

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 86
-- Function instances: 73
+- Refusals: 87
+- Function instances: 74
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
@@ -24,6 +24,7 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:158:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:152:2 |
 | 1 | `Binary` formatting, as in `{:b}`, is not supported | fixtures/reject/src/lib.rs:70:3 |
+| 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:458:2 |
 | 1 | `LowerExp` formatting, as in `{:e}`, is not supported | fixtures/reject/src/lib.rs:72:3 |
 | 1 | `Octal` formatting, as in `{:o}`, is not supported | fixtures/reject/src/lib.rs:71:3 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:75:3 |
@@ -67,10 +68,10 @@ The type or module each refused type or path belongs to.
 | 6 | `f64` | fixtures/reject/src/lib.rs:7:14 |
 | 5 | `{closure}` | fixtures/reject/src/lib.rs:45:11 |
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:45:11 |
+| 4 | `std::sync::Arc` | fixtures/reject/src/lib.rs:109:2 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:51:13 |
 | 3 | `std::iter::Map` | fixtures/reject/src/lib.rs:45:18 |
 | 3 | `std::slice` | fixtures/reject/src/lib.rs:28:4 |
-| 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:109:2 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:93:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:51:13 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:113:20 |
@@ -120,6 +121,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:129:2 |
 | 2 | dropping `_`, which is not supported yet | `std::iter::Take` | fixtures/reject/src/lib.rs:389:79 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:93:2 |
+| 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | `std::sync::Arc` | fixtures/reject/src/lib.rs:458:2 |
 | 1 | `_` holds `_`, which is `undefined` as `None` is, which is not supported | `std::collections::HashMap`, `std::option::Option` | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:408:18 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:309:6 |
@@ -308,6 +310,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`Binary` formatting, as in `{:b}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:70:3: `Binary` formatting, as in `{:b}`, is not supported
+
+</details>
+
+<details><summary>`Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported (1)</summary>
+
+- fixtures/reject/src/lib.rs:458:2: `Bytes::from_owner` of `std::sync::Arc<[u8]>`, which would drop with the last clone of what it makes, which is not supported
 
 </details>
 
