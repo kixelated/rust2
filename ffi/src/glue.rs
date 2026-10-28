@@ -77,10 +77,11 @@ impl Crate<'_> {
 			packages = self.packages(),
 			lib = self.abi.prefix,
 		);
-		let header = crate::c::header(self.abi, &self.packages());
+		let (header, contract) = crate::c::header(self.abi, &self.packages());
 		let mut generator = Gen {
 			abi: self.abi,
 			packages: self.packages(),
+			contract,
 			dependencies: self.exports.iter().map(|export| dependency(&export.root())).collect(),
 			out: String::new(),
 		};
@@ -96,6 +97,8 @@ struct Gen<'a> {
 	abi: &'a Abi<'a>,
 	/// The exported packages, for the docs.
 	packages: String,
+	/// The header's contract, which `<prefix>_contract` returns.
+	contract: u64,
 	/// The name the crate depends on each export by.
 	dependencies: Vec<String>,
 	out: String,
@@ -327,6 +330,10 @@ impl Gen<'_> {
 		let p = self.abi.prefix.clone();
 		self.line(format!(
 			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {p}_buf_free(buf: rt::Buf) {{\n\tunsafe {{ buf.free() }}\n}}\n"
+		));
+		self.line(format!(
+			"#[unsafe(no_mangle)]\npub extern \"C\" fn {p}_contract() -> u64 {{\n\t0x{:016x}\n}}\n",
+			self.contract
 		));
 
 		for (name, ty) in &self.abi.ranges {

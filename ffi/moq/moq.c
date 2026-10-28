@@ -45,6 +45,7 @@ static void wake(void *data) {
 int main(void) {
 	moq_waker waker = {.wake = wake};
 	moq_error *err = NULL;
+	CHECK(moq_contract() == MOQ_CONTRACT);
 
 	moq_broadcast_info *info = moq_broadcast_info_new();
 	moq_broadcast_producer *broadcast = moq_broadcast_info_produce(info);
