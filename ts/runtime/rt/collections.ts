@@ -16,8 +16,8 @@
 
 import { type None, type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive } from "./iter.ts";
-import { type Arc, dropAll } from "./task.ts";
+import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
+import { type Arc, drop as dispose, dropAll } from "./task.ts";
 
 // Ordering
 
@@ -829,23 +829,29 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
 }
 
 /**
- * Run `f`, which extends `c` from `items`, and then drop `items` by `dropIt`, as std's
- * `extend` drops the iterator it takes. A panic drops `items`, and then, if `c` is
- * `fresh`, one `collect` made, `c` by `drop`.
+ * Extend `c` by `add` of each of `items`, taken as `take` says, as std's `extend` takes
+ * the iterator. A panic drops `items`, and then, if `c` is `fresh`, one `collect` made,
+ * `c` by `drop`.
  */
-function extending<C, T>(c: C, items: Iter<T>, f: () => void, dropIt?: (it: Iter<T>) => void, fresh = false, drop?: (c: C) => void): C {
-	if (dropIt === undefined && !fresh) {
-		f();
+function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Take, fresh = false, drop?: (c: C) => void): C {
+	// By `next` where std's reads by it, and else as its `try_fold` steps.
+	const read = take === "next" ? items : items.folded();
+	if (take === undefined && !fresh) {
+		for (let item = read.next(); item !== DONE; item = read.next()) add(item);
 		return c;
 	}
+	const all = () => {
+		if (take === "fold") items.fold<void>(undefined, (_, item) => add(item));
+		else for (let item = read.next(); item !== DONE; item = read.next()) add(item);
+	};
 	try {
 		try {
-			f();
+			all();
 		} catch (e) {
-			dropIt?.(items);
+			if (take === "next") dispose(items);
 			throw e;
 		}
-		dropIt?.(items);
+		if (take === "next") dispose(items);
 	} catch (e) {
 		if (fresh) drop?.(c);
 		throw e;
@@ -863,26 +869,19 @@ export function hashExtend<K, V>(
 	items: Iter<[K, V]>,
 	k?: (key: K) => void,
 	v?: (value: V) => void,
-	dropIt?: (it: Iter<[K, V]>) => void,
+	take?: Take,
 	fresh = false,
 ): HashMap<K, V> {
-	const f = () => {
-		const folded = items.folded();
-		for (let item = folded.next(); item !== DONE; item = folded.next()) {
-			const old = hashInsert(m, item[0], item[1], k, v);
-			if (old !== undefined) v?.(old);
-		}
+	const add = (item: [K, V]) => {
+		const old = hashInsert(m, item[0], item[1], k, v);
+		if (old !== undefined) v?.(old);
 	};
-	return extending(m, items, f, dropIt, fresh, (m) => hashDrop(m, k, v));
+	return extending(m, items, add, take, fresh, (m) => hashDrop(m, k, v));
 }
 
 /** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
-export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void, fresh = false): HashSet<K> {
-	const f = () => {
-		const folded = keys.folded();
-		for (let key = folded.next(); key !== DONE; key = folded.next()) hashAdd(m, key, k);
-	};
-	return extending(m, keys, f, dropIt, fresh, (m) => hashDrop(m, k));
+export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take, fresh = false): HashSet<K> {
+	return extending(m, keys, (key) => hashAdd(m, key, k), take, fresh, (m) => hashDrop(m, k));
 }
 
 /** `clone`, with each key and value through its `Clone`, or as itself without one. */
@@ -1588,7 +1587,7 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, numb
 
 /**
  * `extend` of a map with `[key, value]`s, which keeps an equal key already there and drops
- * the one given, then the value it replaced, and drops `items` by `dropIt` once done. With
+ * the one given, then the value it replaced, and takes `items` as `take` says. With
  * `last`, `collect` and `from` of entries that drop nothing into an empty one, which keep
  * the last of equal keys, as `btreeCollect` does.
  */
@@ -1598,44 +1597,38 @@ export function btreeExtend<K, V>(
 	last = false,
 	k?: (key: K) => void,
 	v?: (value: V) => void,
-	dropIt?: (it: Iter<[K, V]>) => void,
+	take?: Take,
 ): BTreeMap<K, V> {
-	const f = () => {
-		const folded = items.folded();
-		for (let item = folded.next(); item !== DONE; item = folded.next()) {
-			if (!last) {
-				const old = btreeInsert(m, item[0], item[1], k, v);
-				if (old !== undefined) v?.(old);
-				continue;
-			}
-			const l = leafOf(m, item[0]);
-			const i = search(l.k, item[0], m.c);
-			if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
-			else {
-				l.k[i] = item[0];
-				l.v[i] = item[1];
-			}
+	const add = (item: [K, V]) => {
+		if (!last) {
+			const old = btreeInsert(m, item[0], item[1], k, v);
+			if (old !== undefined) v?.(old);
+			return;
+		}
+		const l = leafOf(m, item[0]);
+		const i = search(l.k, item[0], m.c);
+		if (i < 0) insertAt(m, l, ~i, item[0], item[1]);
+		else {
+			l.k[i] = item[0];
+			l.v[i] = item[1];
 		}
 	};
-	return extending(m, items, f, dropIt);
+	return extending(m, items, add, take);
 }
 
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
-export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, dropIt?: (it: Iter<K>) => void): BTreeSet<K> {
-	const f = () => {
-		const folded = keys.folded();
-		for (let key = folded.next(); key !== DONE; key = folded.next()) {
-			if (!last) {
-				btreeAdd(m, key, k);
-				continue;
-			}
-			const l = leafOf(m, key);
-			const i = search(l.k, key, m.c);
-			if (i < 0) insertAt(m, l, ~i, key, undefined);
-			else l.k[i] = key;
+export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, take?: Take): BTreeSet<K> {
+	const add = (key: K) => {
+		if (!last) {
+			btreeAdd(m, key, k);
+			return;
 		}
+		const l = leafOf(m, key);
+		const i = search(l.k, key, m.c);
+		if (i < 0) insertAt(m, l, ~i, key, undefined);
+		else l.k[i] = key;
 	};
-	return extending(m, keys, f, dropIt);
+	return extending(m, keys, add, take);
 }
 
 /**
@@ -2147,13 +2140,9 @@ export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T
 	return new DequeIter(taken, 0, taken.n, drop);
 }
 
-/** `extend`, and `collect` into a deque through `dequeNew`, which drops `items` by `dropIt` once done. */
-export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, dropIt?: (it: Iter<T>) => void): VecDeque<T> {
-	const f = () => {
-		const folded = items.folded();
-		for (let item = folded.next(); item !== DONE; item = folded.next()) dequePushBack(q, item);
-	};
-	return extending(q, items, f, dropIt);
+/** `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take` says. */
+export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take): VecDeque<T> {
+	return extending(q, items, (item) => dequePushBack(q, item), take);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */

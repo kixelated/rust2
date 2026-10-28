@@ -12,7 +12,10 @@ against native Rust.
 [#179](https://github.com/kixelated/rust2/pull/179) gave `rt.Iter` a `folded()`, which each
 consumer std folds reads through: the iterator itself, but a stepper of core's `try_fold`
 for a `RangeInclusive`, and its iterator's for a `&mut` borrow. A per-item method instead
-cost up to 58% on `just ts bench`. What remains is each adaptor:
+cost up to 58% on `just ts bench`. [#172](https://github.com/kixelated/rust2/pull/172)'s
+per-kind `fold`, which consumers take where the iterator drops, already forwards through
+each adaptor but reaches a range's default `fold`, by `next`: an override there is part of
+this. What remains is each adaptor:
 
 - One whose std `try_fold` folds its iterator overrides `folded()` to read its iterator's
   `folded()`, sharing its own state (`take`'s count, `peekable`'s peeked item) with it.

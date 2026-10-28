@@ -139,6 +139,12 @@ fn steps() -> Vec<(&'static str, Step)> {
 		("cells", |log, exec, _, arg| {
 			drops::cells(log, 1000 * exec.len() as u32, arg)
 		}),
+		("folded", |log, exec, _, arg| {
+			drops::folded(log, 1000 * exec.len() as u32, arg)
+		}),
+		("rfolded", |log, exec, _, arg| {
+			drops::rfolded(log, 1000 * exec.len() as u32, arg)
+		}),
 	]
 }
 
