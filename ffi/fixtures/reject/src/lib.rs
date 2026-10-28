@@ -230,3 +230,8 @@ pub fn both<F: Fn()>(a: F, b: F) {
 	a();
 	b()
 }
+
+/// An object lent only for as long as it borrows, which a handle's `'static` outlives.
+pub fn read(f: impl FnOnce(&Text<'_>)) {
+	f(&Text(""))
+}

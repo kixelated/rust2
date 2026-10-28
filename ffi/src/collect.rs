@@ -1842,8 +1842,7 @@ impl<'tcx> Collector<'tcx> {
 			{
 				let tr = pred.def_id();
 				if tcx.fn_trait_kind_from_def_id(tr).is_some() {
-					let pred = tcx.instantiate_bound_regions_with_erased(pred);
-					inputs = Some(pred.trait_ref.args.type_at(1));
+					inputs = Some(pred.map_bound(|pred| pred.trait_ref.args.type_at(1)));
 				} else if !marker(tcx, tr) {
 					other.push(tcx.def_path_str(tr));
 				}
@@ -1861,6 +1860,9 @@ impl<'tcx> Collector<'tcx> {
 			}
 		}
 		let inputs = inputs?;
+		// The lifetimes the closure is generic over, which erasing loses.
+		let bound = inputs.skip_binder();
+		let inputs = tcx.instantiate_bound_regions_with_erased(inputs);
 		let sig = tcx.fn_sig(def_id).instantiate(tcx, tcx.mk_args(base)).skip_norm_wip();
 		// An `async fn`'s future, or a returned `impl Trait`, captures it.
 		kept |= sig.skip_binder().output().walk().any(|arg| arg == param.into());
@@ -1881,11 +1883,17 @@ impl<'tcx> Collector<'tcx> {
 		if !other.is_empty() {
 			return Some(Err(why("closure bound", other.join(" + "))));
 		}
-		let ty::Tuple(inputs) = inputs.kind() else {
+		let (ty::Tuple(inputs), ty::Tuple(bound)) = (inputs.kind(), bound.kind()) else {
 			return Some(Err(why("closure signature", inputs.to_string())));
 		};
 		let mut params = Vec::new();
-		for input in inputs.iter() {
+		for (input, bound) in inputs.iter().zip(bound.iter()) {
+			// A handle holds its object at `'static`, which one borrowing for the call isn't.
+			if let ty::Ref(_, inner, _) = bound.kind()
+				&& inner.has_escaping_bound_vars()
+			{
+				return Some(Err(why("lent object that borrows", bound.to_string())));
+			}
 			match self.ty(input, Pos::Param) {
 				// An object is lent as a handle for the call.
 				Ok(ty)
