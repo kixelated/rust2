@@ -305,7 +305,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The value is its discriminant.
 					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
-					Some(Std::Bound) => {
+					Some(Std::Bound | Std::TryLockError) => {
 						let table = discrs
 							.iter()
 							.map(|(i, d)| (Key::Name(adt.variant(*i).name.to_string()), int.lit(*d as i128)))
@@ -489,9 +489,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					crate::lower::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 				}
 				(Std::Reverse, _) => values.pop().unwrap(),
-				(Std::Bound, _) => {
+				(Std::Bound | Std::TryLockError, _) => {
 					let ts_ty = self.b.t.ty(ty, span);
-					crate::lower::library::bound(def.name.as_str(), values.pop(), ts_ty)
+					crate::lower::library::tagged(def.name.as_str(), values.pop(), ts_ty)
 				}
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),

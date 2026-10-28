@@ -459,15 +459,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
 				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
-				Some(Std::Bound) => {
+				Some(Std::Bound | Std::TryLockError) => {
 					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
-					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
+					let variant = adt.variant(variant.unwrap_or(rustc_abi::FIRST_VARIANT));
+					let held = variant.fields[field].ty(tcx, args).skip_norm_wip();
 					let fields = vec![
-						(
-							"tag".to_string(),
-							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
-						),
-						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
+						("tag".to_string(), crate::ts::Type::StrLit(variant.name.to_string())),
+						("_0".to_string(), self.b.t.ty(held, span)),
 					];
 					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
 				}
@@ -947,7 +945,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::AtomicOrdering) => {
 						scrut.clone().binary("===", crate::lower::task::atomic_ordering(index))
 					}
-					Some(Std::Bound) => scrut
+					Some(Std::Bound | Std::TryLockError) => scrut
 						.clone()
 						.member("tag")
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),

@@ -31,7 +31,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Arc | Std::Waker) => true,
+				// A guard unlocks its mutex.
+				Some(Std::Arc | Std::Waker | Std::MutexGuard) => true,
 				Some(
 					Std::Option
 					| Std::Result
@@ -51,6 +52,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::BTreeSet
 					| Std::VecDeque
 					| Std::Bound
+					| Std::TryLockError
 					| Std::Reverse,
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
@@ -233,7 +235,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Std::Option
 					| Std::Box
 					| Std::Mutex
-					| Std::MutexGuard
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
@@ -284,6 +285,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let (name, args) = match std {
 				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
 				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
+				Std::MutexGuard => ("mutexUnlock", vec![value]),
 				Std::OnceCell | Std::OnceLock => {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);

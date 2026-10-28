@@ -34,9 +34,11 @@ function new_(): Producer {
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
 export function send(self: Producer, value: rt.u64): void {
-	const state: rt.Mutex<State.State> = self.state.value;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	state.value.queue.push(value);
-	WaiterList.wake(WaiterList.take(state.value.waiters));
+	const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
+	rt.mutexUnlock(state);
+	WaiterList.wake(waiters);
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -44,18 +46,24 @@ export function consume(self: Producer): Consumer.Consumer {
 }
 
 export function clone$Clone(self: Producer): Producer {
-	const _2: State.State = self.state.value.value;
+	const _4: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
+	const _2: State.State = _4.value;
 	_2.producers = rt.usizeAdd(_2.producers, 1);
+	rt.mutexUnlock(_4);
 	return new Producer({ state: rt.arcClone(self.state) });
 }
 
 export function drop$Drop(self: Producer): void {
-	const state: rt.Mutex<State.State> = self.state.value;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	const _7: State.State = state.value;
 	_7.producers = rt.usizeSub(_7.producers, 1);
 	if (!(state.value.producers > 0)) {
 		state.value.closed = true;
-		WaiterList.wake(WaiterList.take(state.value.waiters));
+		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
+		rt.mutexUnlock(state);
+		WaiterList.wake(waiters);
+	} else {
+		rt.mutexUnlock(state);
 	}
 }
 

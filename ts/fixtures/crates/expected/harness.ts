@@ -15,6 +15,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	let guards!: Guard.Guard[];
 	let held!: Guard.Guard;
 	let _late!: Guard.Guard;
+	let _60!: rt.Mutex<rt.ByteVec>;
 	let _113!: boolean;
 	let _114!: boolean;
 	let unwind: number = 0;
@@ -55,11 +56,12 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		unwind = 57;
 		_113 = false;
 		_114 = false;
-		const _60: rt.Mutex<rt.ByteVec> = log.value;
+		_60 = rt.mutexLock(log.value);
 		unwind = 55;
 		const _56: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_60.value)));
 		rt.iterExtendBytes(out, _56);
 		unwind = 57;
+		rt.mutexUnlock(_60);
 		const iter: Countdown.Countdown = Countdown.new(rt.min(input.length, 4) & 0xff);
 		while (true) {
 			const _70: rt.u8 | rt.Done = Countdown.next$Iterator(iter);
@@ -86,6 +88,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 					throw e;
 				}
 				if (unwind === 55) {
+					rt.mutexUnlock(_60);
 					break b4;
 				}
 				if (unwind === 56) {

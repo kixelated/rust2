@@ -9,6 +9,7 @@ import type * as Key from "./drops.Key.ts";
 import type * as Pair from "./drops.Pair.ts";
 import type * as Text from "./drops.Text.ts";
 import * as Wrap from "./drops.Wrap.ts";
+import type * as State from "./kio.State.ts";
 import type * as Guard from "./model.Guard.ts";
 import type * as Tally from "./model.Tally.ts";
 
@@ -209,6 +210,18 @@ export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
 		rt.drop(_1.second);
 		throw e;
 	}
+}
+
+export function drop$PoisonError_MutexGuard_Held(value: rt.Mutex<Held.Held>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$PoisonError_MutexGuard_State(value: rt.Mutex<State.State>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$PoisonError_MutexGuard_Vec_String(value: rt.Mutex<string[]>): void {
+	rt.mutexUnlock(value);
 }
 
 export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>): void {

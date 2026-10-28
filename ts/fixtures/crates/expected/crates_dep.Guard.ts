@@ -32,7 +32,9 @@ function new_(id: rt.u8, log: rt.Arc<rt.Mutex<rt.ByteVec>>): Guard {
 }
 
 export function drop$Drop(self: Guard): void {
-	rt.byteVecPush(self.log.value.value, self.id);
+	const _5: rt.Mutex<rt.ByteVec> = rt.mutexLock(self.log.value);
+	rt.byteVecPush(_5.value, self.id);
+	rt.mutexUnlock(_5);
 }
 
 export { new_ as new };

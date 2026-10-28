@@ -9,6 +9,7 @@ import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
+import type * as locks_Tally from "./locks.Tally.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -215,6 +216,50 @@ export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt
 
 export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
+}
+
+export function drop$PoisonError_MutexGuard_Option_u8(value: rt.Mutex<rt.u8 | undefined>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$PoisonError_MutexGuard_Tally(value: rt.Mutex<locks_Tally.Tally>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$PoisonError_MutexGuard_u32(value: rt.Mutex<rt.u32>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$PoisonError_MutexGuard_u8(value: rt.Mutex<rt.u8>): void {
+	rt.mutexUnlock(value);
+}
+
+export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
+	if (_1.ok) {
+		rt.mutexUnlock(_1.value);
+	} else {
+		drop$TryLockError_MutexGuard_Tally(_1.error);
+	}
+}
+
+export function drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(_1: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>>): void {
+	if (_1.ok) {
+		rt.mutexUnlock(_1.value);
+	} else {
+		drop$TryLockError_MutexGuard_u32(_1.error);
+	}
+}
+
+export function drop$TryLockError_MutexGuard_Tally(_1: rt.TryLockError<rt.Mutex<locks_Tally.Tally>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<locks_Tally.Tally> })._0);
+	}
+}
+
+export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt.u32>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
+	}
 }
 
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
