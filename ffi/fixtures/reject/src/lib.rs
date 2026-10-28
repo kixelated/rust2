@@ -161,6 +161,29 @@ impl Cell<u8> {
 	}
 }
 
+/// Two generic types whose methods each wrap the other's instance in their own: inferring
+/// from `Ping<u8>` names `Pong<Ping<u8>>`, whose `ping` names `Ping<Pong<Ping<u8>>>`, which
+/// holds a `Ping` inside a `Ping` and ends inference there.
+pub struct Ping<T>(T);
+
+pub struct Pong<T>(T);
+
+impl<T> Ping<T> {
+	pub fn pong(self) -> Pong<Ping<T>> {
+		Pong(self)
+	}
+}
+
+impl<T> Pong<T> {
+	pub fn ping(self) -> Ping<Pong<T>> {
+		Ping(self)
+	}
+}
+
+pub fn ping(value: u8) -> Ping<u8> {
+	Ping(value)
+}
+
 /// An instance the config excludes.
 pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0

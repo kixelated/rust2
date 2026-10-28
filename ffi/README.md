@@ -83,10 +83,12 @@ A generic type infers the instances it exports at, with no config: the one at it
 defaults, if each type parameter has one; the one each inherent impl is of, such as
 `impl Pair<u32>`; each choice, for each parameter, among its default and the types the
 exports implement a trait bounding it for, one of the exports', which are `()`, a
-primitive, `String`, or an exported type; and each instance a signature or field names,
-once that is all its export refuses, which may name more. An instance that holds an
-instance of a type inside it, such as `Cell<Cell<u8>>`, is refused, as it could name
-ever deeper ones.
+primitive, `String`, or an exported type or an instance of one, such as
+`impl Seed<u64> for Wrap<u32>`; and each instance a signature, `pub` field, or constant
+names at any choice its bounds allow, whether or not the rest of it maps, which may name
+more. Inference finishes before any type is mapped, so mapping never adds an instance.
+An instance that holds an instance of a type inside it, such as `Cell<Cell<u8>>`, is
+refused, as it could name ever deeper ones.
 
 A record or enum holds only values and `Copy` handles: one with a field that does not map,
 or that holds itself, is an object instead, and the census lists it. A borrowed return is
