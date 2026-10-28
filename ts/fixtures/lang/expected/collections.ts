@@ -1124,12 +1124,12 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const hash: rt.HashMap<rt.u8, [rt.u8, rt.u8]> = rt.hashNew() as rt.HashMap<rt.u8, [rt.u8, rt.u8]>;
 	rt.hashInsert(hash, 0, copy$u8_u8(pair));
 	rt.hashInsert(hash, 1, copy$u8_u8(pair));
-	const _88: rt.Place<[rt.u8, rt.u8]> | undefined = rt.hashGetMut(hash, 0);
+	const _88: [rt.u8, rt.u8] | undefined = rt.hashGet(hash, 0);
 	if (_88 !== undefined) {
-		_88.v[0] = _88.v[0] ^ 1;
+		_88[0] = _88[0] ^ 1;
 	}
-	const _93: rt.Place<[rt.u8, rt.u8]> = rt.entryOrInsertMut(rt.entry(hash, 2), copy$u8_u8(pair));
-	_93.v[1] = _93.v[1] ^ 2;
+	const _93: [rt.u8, rt.u8] = rt.entryOrInsert(rt.entry(hash, 2), copy$u8_u8(pair));
+	_93[1] = _93[1] ^ 2;
 	rt.iterExtendBytes(out, rt.iterFlatMap(new rt.Range(0, 3), (k: rt.u8): Uint8Array => {
 		return mapOr$Option_u8_u8_u8s_stores_closure2_closure0(rt.hashGet(hash, k), rt.bytes(2).fill(255), (p2: [rt.u8, rt.u8]): Uint8Array => {
 			return Uint8Array.of(p2[0], p2[1]);
@@ -1138,9 +1138,9 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const tree: rt.BTreeMap<rt.u8, [rt.u8, rt.u8]> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>;
 	rt.btreeInsert(tree, 0, copy$u8_u8(pair));
 	rt.btreeInsert(tree, 1, copy$u8_u8(pair));
-	const _106: rt.Place<[rt.u8, rt.u8]> | undefined = rt.btreeGetMut(tree, 1);
+	const _106: [rt.u8, rt.u8] | undefined = rt.btreeGet(tree, 1);
 	if (_106 !== undefined) {
-		_106.v[1] = _106.v[1] ^ 1;
+		_106[1] = _106[1] ^ 1;
 	}
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.btreeValues(tree), (p3: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(p3[0], p3[1]);

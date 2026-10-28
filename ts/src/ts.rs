@@ -138,8 +138,15 @@ impl Expr {
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
-			// Limbs keep theirs, which the brand of their type requires.
-			Self::As(e, ty) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) && !wide(&ty) => *e,
+			// Limbs keep theirs, which the brand of their type requires, and an `rt.RangeBound` its
+			// own, without which a declaration narrows to the one variant it is made as.
+			Self::As(e, ty)
+				if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_))
+					&& !wide(&ty)
+					&& !matches!(ty, Type::Rt("RangeBound", _)) =>
+			{
+				*e
+			}
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
 			Self::Call(f, args) if matches!(&*f, Self::Rt(name) if name == "Ok" || name == "Err") => {

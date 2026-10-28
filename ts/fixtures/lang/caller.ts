@@ -106,23 +106,27 @@ function ints(): Uint8Array[] {
 			const u = i % 3 === 0 ? x : values[(i * 7) % values.length];
 			const v = values[(i * 13 + 5) % values.length];
 			const shift = shifts[i++ % shifts.length];
-			for (let kind = 0; kind < 25; kind++) {
+			for (let kind = 0; kind < 30; kind++) {
 				for (const o of [u64, i64]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), shift));
 				for (const o of [u128, i128]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), ...be(u), ...be(v), shift));
 			}
+			// `clamp` between two values of the sweep, whose third operand follows the shift's place.
+			for (const o of [u64, i64]) cases.push(Uint8Array.of(o, 26, ...be(x), ...be(y), ...be(u)));
+			for (const o of [u128, i128]) cases.push(Uint8Array.of(o, 26, ...be(x), ...be(y), ...be(u), ...be(v), ...be(y), ...be(x)));
 			// Negating an `i64` and an `i128`.
 			cases.push(Uint8Array.of(neg, 3, ...be(x)), Uint8Array.of(neg, 4, ...be(x), ...be(y)));
-			// `x * y` and `x.checked_mul(y)` at 128 bits, extended in each type's sign: a product
-			// of two numbers, past 2^53, multiplies their halves.
+			// `x * y`, `checked_mul`, `saturating_mul`, and `wrapping_mul` at 128 bits, extended in
+			// each type's sign: a product of two numbers, past 2^53, multiplies their halves.
 			const signs = (v: bigint) => (v >> 63n === 1n ? 0xffffffffffffffffn : 0n);
-			for (const kind of [2, 13]) {
+			for (const kind of [2, 13, 24, 25]) {
 				cases.push(Uint8Array.of(u128, kind, ...be(0n), ...be(x), ...be(0n), ...be(y)));
 				cases.push(Uint8Array.of(i128, kind, ...be(signs(x)), ...be(x), ...be(signs(y)), ...be(y)));
 			}
-			// `x:y / d` and `x:y % d` at 128 bits by a divisor below 2^32 in magnitude, which
-			// divides limbs by a number, extended in each type's sign: -1 overflows `i128::MIN`.
+			// `x:y / d`, `x:y % d`, `div_ceil`, and `is_multiple_of` at 128 bits by a divisor
+			// below 2^32 in magnitude, which divides limbs by a number, extended in each type's
+			// sign: -1 overflows `i128::MIN`.
 			for (const d of [3n, 1_000_000n, 0xffffffffn, -1n, -0xffffffffn]) {
-				for (const kind of [3, 4]) {
+				for (const kind of [3, 4, 27, 28]) {
 					for (const o of [u128, i128]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), ...be(signs(d & 0xffffffffffffffffn)), ...be(d & 0xffffffffffffffffn)));
 				}
 			}

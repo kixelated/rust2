@@ -46,7 +46,11 @@ export interface Fixture<V> {
 	sum(rx: Consumer, guard: Guard): Future<V>;
 	drain(rx: Consumer, depth: number): Future<V>;
 	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
-	drops: { run(log: Log, id: number, arg: number): void; held(rx: Consumer, guard: Guard): Future<V> };
+	drops: {
+		run(log: Log, id: number, arg: number): void;
+		held(rx: Consumer, guard: Guard): Future<V>;
+		edited(log: Log, id: number, at: number): void;
+	};
 }
 
 /** What every waker of one task points at. */
@@ -262,6 +266,7 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.drops.held(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	["edited", (r, arg) => r.f.drops.edited(r.log, 1000 * r.exec.tasks.length, arg % 8)],
 ];
 
 /**
@@ -333,4 +338,6 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["held", 0], ["held", 1], ["run", 0], ["drop", 1], ["drop", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
+	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
+	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
 ];

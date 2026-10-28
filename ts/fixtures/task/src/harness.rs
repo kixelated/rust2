@@ -117,6 +117,9 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(drops::held(channels[c].consumer(), guard));
 			}
 		}),
+		("edited", |log, exec, _, arg| {
+			drops::edited(log, 1000 * exec.len() as u32, arg % 8)
+		}),
 	]
 }
 
