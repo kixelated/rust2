@@ -223,4 +223,23 @@ const dyns = [[], [1, 2], [3, 0, 7], [255, 1, 255, 0, 1, 2, 3, 4, 5], [0, 3, 2, 
 	Uint8Array.of(op("dyns::dyns"), 0, ...bytes),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns];
+/**
+ * `cells` scripts of (op, operand) pairs on every kind, so each cell and value type: reads
+ * and sets, a `None` and a `()` held, initializing from within initialization and
+ * panicking in it, empty and full, and a cell replaced.
+ */
+const cellsOp = op("cells::cells");
+const cellScripts = [
+	[0, 0, 1, 5, 0, 0, 1, 6, 2, 7, 4, 0, 0, 0, 4, 0, 2, 9, 0, 0],
+	[1, 3, 0, 0, 1, 4, 4, 0, 1, 6, 2, 3],
+	[3, 4, 3, 5],
+	[5, 3],
+	[6, 3],
+	[7, 1],
+	[2, 1, 5, 3, 6, 3, 7, 1],
+	[8, 4, 0, 0, 8, 5, 0, 0, 1, 3, 8, 6],
+	[],
+];
+const cells = Array.from({ length: 256 }, (_, kind) => cellScripts.map((script) => Uint8Array.of(cellsOp, kind, ...script))).flat();
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells];
