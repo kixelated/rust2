@@ -3,6 +3,7 @@
 PRs land on `main` only through `quest land`, each as one squash commit: the PR title becomes the commit subject and the PR's commit messages become the body.
 Queue a PR with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this), and the Land workflow runs Check's steps once on the batch, landing the longest passing prefix.
 The admin bypass of `main`'s ruleset is for emergencies.
+Until the land setup in `quest/m1/land.md` is done, `--land` fails: merge with `gh pr merge <pr> --squash --match-head-commit <reviewed sha>` instead.
 
 - Use conventional-commit subjects (`feat(ts): ...`, `fix: ...`, `chore: ...`, `docs: ...`).
 - AI commit attribution goes in a `Co-Authored-By:` trailer, not the commit body.
