@@ -430,8 +430,8 @@ another type it borrows as through the crate's own `Borrow`, a `&mut` to a value
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
-own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
-a pointer's address, `{:p}`, writing to a
+own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
+a pointer's address (`{:p}`), writing to a
 `String` with `write!`, a `str` pattern other than a
 `char`, a `&str`, or a predicate, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
