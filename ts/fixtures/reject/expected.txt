@@ -58,11 +58,12 @@ unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reje
 passing `{closure@fixtures/reject/src/lib.rs:380:28: 380:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:380:13
 passing `{closure@fixtures/reject/src/lib.rs:381:25: 381:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet at fixtures/reject/src/lib.rs:381:16
 passing `{closure@fixtures/reject/src/lib.rs:388:13: 388:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:388:4
-unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:419:2
-`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:425:21
-`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:432:15
-a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:442:12
-unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:449:2
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:462:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:462:38
+`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:419:21
+`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:426:15
+a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:436:12
+unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:443:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:155:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:175:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:209:2

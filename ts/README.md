@@ -426,7 +426,7 @@ they need.
 Until they translate, an item that needs one, such as a boxed future, binds to
 hand-written TS ([bindings](#bindings)).
 
-These fail translation: floats, statics, async closures, a closure that owns a value
+These fail translation: floats ([Floats](/quest/m2/ts-model/floats.md)), statics, async closures, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
