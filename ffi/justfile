@@ -37,7 +37,7 @@ run *args:
 census checkout="": (standin checkout)
     cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path target/moq-ffi/Cargo.toml --census target/census
 
-# Time frame writes through the export, from C and C++, and through moq's hand-written rs/moq-c, in the bench shell: nix develop .#bench.
+# Time frame writes through the export, from C, C++, and Kotlin, and through moq's hand-written rs/moq-c, in the bench shell: nix develop .#bench.
 bench checkout="": (moq checkout)
     #!/usr/bin/env bash
     set -euo pipefail
@@ -51,10 +51,13 @@ bench checkout="": (moq checkout)
     cc -O2 -std=c11 -Wall -Wextra -Werror -I "$out/include" moq/bench/export.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-export
     cc -O2 -std=c11 -Wall -Wextra -Werror -I "$moqc/include" moq/bench/moq-c.c "$src/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-moq-c
     c++ -O2 -std=c++17 -Wall -Wextra -Werror -I "$out/include" moq/bench/export.cpp "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/bench-export-cpp
+    rm -rf target/bench-kt
+    kotlinc -Werror -cp "$KOTLINX_COROUTINES" "$out/kotlin/moq.kt" moq/bench/export.kt -d target/bench-kt
     for _ in 1 2 3; do
         target/bench-moq-c
         target/bench-export
         target/bench-export-cpp
+        kotlin -Djava.library.path="$out/target/release" -cp "target/bench-kt:$KOTLINX_COROUTINES" ExportKt
     done
 
 # Export moq's crates' C ABI, build it, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt against it, from the moq revision `just ts moq` pins or a checkout.

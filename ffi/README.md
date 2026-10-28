@@ -242,7 +242,7 @@ rest, and the refused instances to drop from `instances`. It ignores the config'
 just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
 just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
 just ffi census   # census each into target/census
-nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C and C++, and moq's rs/moq-c
+nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
 
 The `api` fixture covers each rule once, and names the `dep` fixture's types, which
