@@ -1,8 +1,8 @@
 //! Rvalues: arithmetic, casts, aggregates, and closures.
 
 use rustc_abi::{FieldIdx, VariantIdx};
-use rustc_index::IndexVec;
 use rustc_data_structures::fx::FxHashSet;
+use rustc_index::IndexVec;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, AggregateKind, BinOp, CastKind, Operand, Place, Rvalue, UnOp};
 use rustc_middle::ty::adjustment::PointerCoercion;

@@ -9,8 +9,8 @@
 //! goes on, so what unwinding dropped shows in the log: `examples/unwind.rs`.
 
 use crate::drops;
-use crate::futures;
 use crate::exec::Executor;
+use crate::futures;
 use crate::log::Log;
 use crate::model::{self, Channel, Guard};
 

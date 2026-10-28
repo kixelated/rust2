@@ -127,17 +127,17 @@ pub fn call<'tcx>(
 fn arc_waker<'tcx>(b: &mut Body<'_, '_, 'tcx>, arc: Ty<'tcx>, value: Expr, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty::Adt(_, arc_args) = arc.kind() else {
-		unreachable!("an `Arc` is a struct")
+		unreachable!("an Arc is a struct")
 	};
 	let wake_trait = tcx
 		.get_diagnostic_item(Symbol::intern("Wake"))
-		.expect("`From<Arc<W>>` for `Waker` bounds `W` by `Wake`");
+		.expect("Waker::from bounds its Arc by Wake");
 	let items = tcx.associated_items(wake_trait);
 	let item = |name: &str| {
 		items
 			.filter_by_name_unhygienic(Symbol::intern(name))
 			.next()
-			.expect("a `Wake` method")
+			.expect("a method of Wake")
 			.def_id
 	};
 	let (wake, by_ref) = (item("wake"), item("wake_by_ref"));
