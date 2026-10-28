@@ -296,7 +296,7 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// Whether a type or trait takes type or const parameters: a type that does exports
-	/// only at the instances the config names.
+	/// only at the instances it infers.
 	fn typed(&self, def_id: DefId) -> bool {
 		(self.tcx.generics_of(def_id).own_params.iter())
 			.any(|p| p.name != rustc_span::kw::SelfUpper && !matches!(p.kind, ty::GenericParamDefKind::Lifetime))
@@ -1350,7 +1350,7 @@ impl<'tcx> Collector<'tcx> {
 		for instance in &instances {
 			let mut shown = shown.clone();
 			if !instance.named.is_empty() {
-				let spelled: Vec<String> = instance.named.iter().map(|&ty| self.spell(ty)).collect();
+				let spelled: Vec<String> = instance.named.iter().map(|&ty| self.spell(ty.peel_refs())).collect();
 				*shown.last_mut().expect("a path has a segment") += &format!("<{}>", spelled.join(", "));
 			}
 			let function = self.function(def_id, path.clone(), self_ty, instance);
@@ -1731,7 +1731,10 @@ impl<'tcx> Collector<'tcx> {
 		for site in self.instances.iter().filter(|_| argument) {
 			for candidate in site.args.types() {
 				let erased = tcx.erase_and_anonymize_regions(candidate);
-				if found.iter().any(|&f| tcx.erase_and_anonymize_regions(f) == erased) {
+				if found
+					.iter()
+					.any(|&f| tcx.erase_and_anonymize_regions(f.peel_refs()) == erased)
+				{
 					continue;
 				}
 				let Some(args) = at(candidate) else {

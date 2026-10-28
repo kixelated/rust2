@@ -39,18 +39,9 @@ exclude = ["track::Producer::poll_closed"]
 "session::Stats" = "session_stats_snapshot"
 
 # Another package exported into the same library, which the package builds with: its
-# own `exclude`, `rename`, and `instances`, by paths from its crate root.
+# own `exclude` and `rename`, by paths from its crate root.
 [crates.moq-pattern]
 exclude = ["Patterns::iter"]
-
-# The instances a generic type exports at, by its path, and their C names without the
-# prefix. An argument is `()`, a primitive, `String`, or an exported type by its path
-# from its package's name in snake case, itself an instance if generic. Trailing
-# arguments left out take their defaults. A generic function or method's key names the
-# argument of each of its type parameters, an `impl Trait` one by its argument's name.
-[crates.moq-mux.instances]
-"catalog::Producer<moq_mux::catalog::hang::Extra>" = "catalog_producer"
-"catalog::Producer::binary_stream(config: moq_mux::binary::Config)" = "catalog_producer_binary_stream"
 ```
 
 ## Rules
@@ -66,8 +57,7 @@ export's, and adds nothing; another crate's type is refused.
 | an enum whose fields map, with no `Drop` of its own | a C enum without fields, or a struct of a tag and a union |
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
-| a generic type, at each instance `instances` names | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
-| a generic function or method, at each instance `instances` names | that instance in place of the rules below, at each instance of its type; one whose bounds fail, or that nothing exported reaches, is refused |
+| a generic type, at each instance it infers | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | `fn` and inherent `pub` methods | functions named through their type |
@@ -83,7 +73,16 @@ export's, and adds nothing; another crate's type is refused.
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>` | `X` |
-| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, a foreign implementation of its one exported trait, or, as an argument of a generic type, the one argument of a named instance that meets its bounds and makes each generic type the signature names a named instance |
+| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
+
+A generic type infers the instances it exports at, with no config: the one at its
+defaults, if each type parameter has one; the one each inherent impl is of, such as
+`impl Pair<u32>`; each choice, for each parameter, among its default and the types the
+exports implement a trait bounding it for, one of the exports', which are `()`, a
+primitive, `String`, or an exported type; and each instance a signature or field names,
+once that is all its export refuses, which may name more. An instance that holds an
+instance of a type inside it, such as `Cell<Cell<u8>>`, is refused, as it could name
+ever deeper ones.
 
 A record or enum holds only values and `Copy` handles: one with a field that does not map,
 or that holds itself, is an object instead, and the census lists it. A borrowed return is
@@ -121,11 +120,16 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by `instances`, and a type instance's
-  methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
-  instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
-  out of that one; a `rename` of a method by the generic type's path names it at every
-  instance.
+  `moq_session_stats`. An instance is named by its generic item's name, then the name of
+  each argument but those at their defaults after the last that is not, so the instance at
+  its defaults is named as the item: by the rule, hang's `Catalog<()>` is `moq_catalog`,
+  and moq-mux's `catalog::Producer<catalog::hang::Extra>` is
+  `moq_catalog_producer_catalog_hang_extra`. A type instance's methods are named through
+  it, and a function instance appends its arguments' names, a reference's by what it
+  borrows. An `exclude` of a type or method by the generic type's path leaves it out of
+  every instance, and by the instance's path
+  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
+  `rename` by the generic item's path renames each of its instances.
 
 ## IR
 
@@ -142,8 +146,7 @@ the runtime the glue includes is [`runtime/rt.rs`](runtime/rt.rs).
 `--census dir` exports nothing. It writes `<package>.md` for each exported package,
 which counts what exports and ranks every refusal by construct and by the type it names,
 lists each refused item at its span, and ends with the `exclude` list that exports the
-rest, and the refused instances to drop from `instances`. It ignores the config's
-`exclude`, and reads its `instances`.
+rest. It ignores the config's `exclude`.
 
 ## Tests
 
