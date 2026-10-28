@@ -188,6 +188,11 @@ impl<T: Copy> Bounded<T> {
 	}
 }
 
+/// A borrowed waker: one crosses only into Rust, which keeps it.
+pub fn lend(waker: &std::task::Waker) {
+	waker.wake_by_ref();
+}
+
 /// A closure kept past the call, as a `'static` bound lets it be.
 pub fn spawn(task: impl FnOnce() + Send + 'static) {
 	std::thread::spawn(task);

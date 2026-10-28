@@ -21,6 +21,10 @@ pub enum Trait {
 	Debug,
 	LowerHex,
 	UpperHex,
+	Octal,
+	Binary,
+	LowerExp,
+	UpperExp,
 }
 
 impl Trait {
@@ -36,6 +40,10 @@ impl Trait {
 			["fmt", "Debug"] => Some(Self::Debug),
 			["fmt", "LowerHex"] => Some(Self::LowerHex),
 			["fmt", "UpperHex"] => Some(Self::UpperHex),
+			["fmt", "Octal"] => Some(Self::Octal),
+			["fmt", "Binary"] => Some(Self::Binary),
+			["fmt", "LowerExp"] => Some(Self::LowerExp),
+			["fmt", "UpperExp"] => Some(Self::UpperExp),
 			_ => None,
 		}
 	}
@@ -46,6 +54,10 @@ impl Trait {
 			Self::Debug => "Debug",
 			Self::LowerHex => "LowerHex",
 			Self::UpperHex => "UpperHex",
+			Self::Octal => "Octal",
+			Self::Binary => "Binary",
+			Self::LowerExp => "LowerExp",
+			Self::UpperExp => "UpperExp",
 		}
 	}
 
@@ -65,25 +77,24 @@ impl Trait {
 	}
 }
 
-/// The trait a `format_args!` argument's constructor, `Argument::new_display` and the
-/// like, writes its value by, or the construct outside the subset that it is.
-pub fn argument(name: &str) -> Result<Trait, &'static str> {
-	match name {
-		"new_display" => Ok(Trait::Display),
-		"new_debug" => Ok(Trait::Debug),
-		"new_lower_hex" => Ok(Trait::LowerHex),
-		"new_upper_hex" => Ok(Trait::UpperHex),
-		"from_usize" => Err(FROM_ARGUMENT),
-		"new_octal" => Err("`Octal` formatting, as in `{:o}`,"),
-		"new_binary" => Err("`Binary` formatting, as in `{:b}`,"),
-		"new_lower_exp" => Err("`LowerExp` formatting, as in `{:e}`,"),
-		"new_upper_exp" => Err("`UpperExp` formatting, as in `{:E}`,"),
-		"new_pointer" => Err("`Pointer` formatting, as in `{:p}`,"),
-		_ => Err("an unexpected `format_args!` lowering"),
-	}
+/// What a `format_args!` argument's constructor, `Argument::new_display` and the like,
+/// makes: a value written by a trait, or `None` for a width or precision, as in `{:1$}`.
+/// Otherwise, the construct outside the subset that it is.
+pub fn argument(name: &str) -> Result<Option<Trait>, &'static str> {
+	Ok(Some(match name {
+		"new_display" => Trait::Display,
+		"new_debug" => Trait::Debug,
+		"new_lower_hex" => Trait::LowerHex,
+		"new_upper_hex" => Trait::UpperHex,
+		"new_octal" => Trait::Octal,
+		"new_binary" => Trait::Binary,
+		"new_lower_exp" => Trait::LowerExp,
+		"new_upper_exp" => Trait::UpperExp,
+		"from_usize" => return Ok(None),
+		"new_pointer" => return Err("`Pointer` formatting, as in `{:p}`,"),
+		_ => return Err("an unexpected `format_args!` lowering"),
+	}))
 }
-
-const FROM_ARGUMENT: &str = "a width or precision from an argument, as in `{:1$}`,";
 
 /// A formatter's type, for the parameters of the functions written here.
 fn formatter() -> Type {
@@ -222,9 +233,14 @@ pub fn std_impl<'tcx>(
 		}
 		ty::Int(_) | ty::Uint(_) => {
 			let method = match tr {
-				Trait::Display | Trait::Debug => "display",
+				Trait::Display => "display",
+				Trait::Debug => "debug",
 				Trait::LowerHex => "lowerHex",
 				Trait::UpperHex => "upperHex",
+				Trait::Octal => "octal",
+				Trait::Binary => "binary",
+				Trait::LowerExp => "lowerExp",
+				Trait::UpperExp => "upperExp",
 			};
 			Int::of(ty)?.method(method, vec![value, f])
 		}
@@ -265,7 +281,8 @@ pub fn std_impl<'tcx>(
 			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);
-				rt("option", vec![value, f, some])
+				let none = b.t.none_arg(args.type_at(0));
+				rt("option", [vec![value, f, some], none.into_iter().collect()].concat())
 			}
 			(Std::Result, Trait::Debug) => {
 				let ok = b.fmt_fn(tr, args.type_at(0), span);
@@ -300,14 +317,28 @@ pub enum Piece {
 pub struct Spec {
 	fill: char,
 	align: Option<char>,
+	plus: bool,
 	alternate: bool,
 	zero: bool,
-	width: Option<u16>,
+	debug_hex: Option<char>,
+	width: Option<Count>,
+	precision: Option<Count>,
+}
+
+/// A width or precision: in the template, or the `index`th argument's.
+#[derive(Clone, Copy)]
+pub enum Count {
+	Is(u16),
+	Arg(usize),
 }
 
 impl Spec {
-	/// The runtime's `Spec` object, or `None` for the defaults.
-	pub fn object(&self) -> Option<Expr> {
+	/// The runtime's `Spec` object, or `None` for the defaults. `arg` reads an argument.
+	pub fn object(&self, arg: impl Fn(usize) -> Expr) -> Option<Expr> {
+		let count = |count: Count| match count {
+			Count::Is(n) => Expr::lit(n.to_string()),
+			Count::Arg(index) => Expr::rt("fmtCountOf", vec![arg(index)]),
+		};
 		let mut props = Vec::new();
 		if self.fill != ' ' {
 			props.push(("fill", Expr::Str(self.fill.to_string())));
@@ -315,14 +346,23 @@ impl Spec {
 		if let Some(align) = self.align {
 			props.push(("align", Expr::Str(align.to_string())));
 		}
+		if self.plus {
+			props.push(("plus", Expr::lit("true")));
+		}
 		if self.alternate {
 			props.push(("alternate", Expr::lit("true")));
 		}
 		if self.zero {
 			props.push(("zero", Expr::lit("true")));
 		}
+		if let Some(hex) = self.debug_hex {
+			props.push(("debugHex", Expr::Str(hex.to_string())));
+		}
 		if let Some(width) = self.width {
-			props.push(("width", Expr::lit(width.to_string())));
+			props.push(("width", count(width)));
+		}
+		if let Some(precision) = self.precision {
+			props.push(("precision", count(precision)));
 		}
 		let props: Vec<(Key, Expr)> = props.into_iter().map(|(k, v)| (Key::Name(k.into()), v)).collect();
 		(!props.is_empty()).then_some(Expr::Object(props))
@@ -331,17 +371,17 @@ impl Spec {
 
 // `FormattingOptions`' flags, as `core::fmt` lays them out.
 const SIGN_PLUS: u32 = 1 << 21;
-const SIGN_MINUS: u32 = 1 << 22;
 const ALTERNATE: u32 = 1 << 23;
 const ZERO_PAD: u32 = 1 << 24;
-const DEBUG_HEX: u32 = 0b11 << 25;
+const DEBUG_LOWER_HEX: u32 = 1 << 25;
+const DEBUG_UPPER_HEX: u32 = 1 << 26;
 const WIDTH: u32 = 1 << 27;
 const PRECISION: u32 = 1 << 28;
 const FILL: u32 = (1 << 21) - 1;
 const DEFAULT_FLAGS: u32 = ' ' as u32 | 3 << 29;
 
 /// Decode a template as `core::fmt::write` reads it: literal pieces, and placeholders
-/// with their argument and options. An option outside the subset is an error naming it.
+/// with their argument and options. The `-` flag is dropped, as std's impls ignore it.
 pub fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
 	const TRUNCATED: &str = "a truncated template";
 	let byte = |i: usize| template.get(i).copied().ok_or(TRUNCATED);
@@ -370,6 +410,7 @@ pub fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
 			0xc0..=0xff => {
 				let mut flags = DEFAULT_FLAGS;
 				let mut width = 0;
+				let mut precision = 0;
 				if n & 1 != 0 {
 					flags = u32::from_le_bytes([byte(i)?, byte(i + 1)?, byte(i + 2)?, byte(i + 3)?]);
 					i += 4;
@@ -379,27 +420,20 @@ pub fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
 					i += 2;
 				}
 				if n & 4 != 0 {
+					precision = u16_at(i)?;
 					i += 2;
 				}
 				if n & 8 != 0 {
 					next = usize::from(u16_at(i)?);
 					i += 2;
 				}
-				if n & (16 | 32) != 0 {
-					return Err(FROM_ARGUMENT);
-				}
-				if flags & PRECISION != 0 {
-					return Err("a precision, as in `{:.2}`,");
-				}
-				if flags & SIGN_PLUS != 0 {
-					return Err("the `+` flag of a format spec");
-				}
-				if flags & SIGN_MINUS != 0 {
-					return Err("the `-` flag of a format spec");
-				}
-				if flags & DEBUG_HEX != 0 {
-					return Err("hex `Debug`, as in `{:x?}`,");
-				}
+				// An indirect count is the index of the argument that holds it.
+				let count = |set: u32, indirect: u8, value: u16| {
+					(flags & set != 0).then_some(match n & indirect != 0 {
+						true => Count::Arg(value.into()),
+						false => Count::Is(value),
+					})
+				};
 				let spec = Spec {
 					fill: char::from_u32(flags & FILL).ok_or("a fill that is not a char")?,
 					align: match flags >> 29 & 3 {
@@ -408,9 +442,16 @@ pub fn decode(template: &[u8]) -> Result<Vec<Piece>, &'static str> {
 						2 => Some('^'),
 						_ => None,
 					},
+					plus: flags & SIGN_PLUS != 0,
 					alternate: flags & ALTERNATE != 0,
 					zero: flags & ZERO_PAD != 0,
-					width: (flags & WIDTH != 0).then_some(width),
+					debug_hex: match flags {
+						f if f & DEBUG_LOWER_HEX != 0 => Some('x'),
+						f if f & DEBUG_UPPER_HEX != 0 => Some('X'),
+						_ => None,
+					},
+					width: count(WIDTH, 16, width),
+					precision: count(PRECISION, 32, precision),
 				};
 				pieces.push(Piece::Arg { index: next, spec });
 				next += 1;

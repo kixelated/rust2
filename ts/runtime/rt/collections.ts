@@ -14,7 +14,7 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { type Place, panic } from "../rt.ts";
+import { type None, type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterSlice, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
@@ -66,8 +66,13 @@ export function cmpTuple<T extends readonly unknown[], O extends Ordering | unde
 }
 
 /** `Ord::cmp` of `Option`s, or `PartialOrd::partial_cmp`, from their values': `None` first. */
-export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O {
-	return (a, b) => (a === undefined ? (b === undefined ? 0 : -1) : b === undefined ? 1 : cmp(a, b)) as O;
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: T | undefined, b: T | undefined) => O;
+export function cmpOption<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O, none: None): (a: T | None, b: T | None) => O;
+export function cmpOption<T, O extends Ordering | undefined>(
+	cmp: (a: T, b: T) => O,
+	none?: None,
+): (a: T | undefined | None, b: T | undefined | None) => O {
+	return (a, b) => (a === none ? (b === none ? 0 : -1) : b === none ? 1 : cmp(a as T, b as T)) as O;
 }
 
 /** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp`: their values'. */
@@ -132,8 +137,13 @@ export function eqTuple<T extends readonly unknown[]>(fields: readonly ((a: neve
 }
 
 /** `PartialEq::eq` of `Option`s, from their values'. */
-export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean {
-	return (a, b) => (a === undefined || b === undefined ? a === b : eq(a, b));
+export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean;
+export function eqOption<T>(eq: (a: T, b: T) => boolean, none: None): (a: T | None, b: T | None) => boolean;
+export function eqOption<T>(
+	eq: (a: T, b: T) => boolean,
+	none?: None,
+): (a: T | undefined | None, b: T | undefined | None) => boolean {
+	return (a, b) => (a === none || b === none ? a === b : eq(a as T, b as T));
 }
 
 /**
@@ -194,10 +204,15 @@ export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value
 }
 
 /** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
-export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void {
+export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void;
+export function hashOption<T>(hash: (value: T, s: Hasher) => void, none: None): (value: T | None, s: Hasher) => void;
+export function hashOption<T>(
+	hash: (value: T, s: Hasher) => void,
+	none?: None,
+): (value: T | undefined | None, s: Hasher) => void {
 	return (value, s) => {
-		mix(s, value === undefined ? 0 : 1);
-		if (value !== undefined) hash(value, s);
+		mix(s, value === none ? 0 : 1);
+		if (value !== none) hash(value as T, s);
 	};
 }
 

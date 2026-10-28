@@ -196,6 +196,7 @@ impl Gen<'_> {
 			Type::Slice | Type::Vec => format!("unsafe {{ {e}.bytes(w) }}.to_vec()"),
 			Type::Bytes => format!("::bytes::Bytes::copy_from_slice(unsafe {{ {e}.bytes(w) }})"),
 			Type::Duration => format!("{e}.lift(w)"),
+			Type::Waker => format!("{e}.lift()"),
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("if {e}.is_null() {{ None }} else {{ Some({}) }}", self.lift(inner, e)),
 				base if Abi::is_buf(base) => {
@@ -309,6 +310,7 @@ impl Gen<'_> {
 			Type::Enum(i) => format!("lower_{}({e})", self.abi.enumeration(*i)),
 			Type::Object(_) => format!("rt::Object::new({e})"),
 			Type::Callback(..) | Type::Closure(..) => unreachable!("a callback is never returned"),
+			Type::Waker => unreachable!("a waker is never returned"),
 			Type::Range(_) => format!("rt::Range::lower({e})"),
 			Type::Bound(_) => format!("rt::Bound::lower({e})"),
 			Type::Bounds(_) => format!("rt::Bounds::lower({e})"),
