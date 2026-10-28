@@ -234,6 +234,12 @@ pub(super) fn iterated(log: &Log, id: u32, at: u8) {
 	log.note(format!("flat {:?}", flat.next()));
 	check(3);
 	drop(flat);
+	// Ended, it keeps its closure, since the source it maps is fused.
+	let w = guard(47);
+	let mut ended = [1u32].iter().flat_map(move |&n| [n, w.id()]);
+	while ended.next().is_some() {}
+	log.note(format!("flat_map ended"));
+	drop(ended);
 	let h = guard(18);
 	let whiles: Vec<u32> = [1u32, 2, 3]
 		.iter()

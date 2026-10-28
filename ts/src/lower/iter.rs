@@ -374,7 +374,7 @@ pub fn call<'tcx>(
 			method(&camel, tail(rest, vec![dropper]))
 		}
 		"fuse" => {
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, None);
 			method(name, tail(rest, vec![fused]))
 		}
 		"count" => {
@@ -473,14 +473,14 @@ pub fn call<'tcx>(
 			let inner = iter_of(b.t, targ(1)?)?;
 			flattens(b, inner, span);
 			let into = into_fn(b, targ(1)?, span)?.unwrap_or_else(Expr::undefined);
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, Some(targ(2)?));
 			method("flatMap", tail(rest, vec![into, fused]))
 		}
 		"flatten" => {
 			let inner = iter_of(b.t, item)?;
 			flattens(b, inner, span);
 			let into = into_fn(b, item, span)?.unwrap_or_else(Expr::undefined);
-			let fused = fused(b, self_ty);
+			let fused = fused(b, self_ty, None);
 			method("flatten", tail(Vec::new(), vec![into, fused]))
 		}
 		"copied" | "cloned" => {
@@ -531,10 +531,11 @@ fn undefined(e: &Expr) -> bool {
 	matches!(e, Expr::Lit(l) if l == "undefined")
 }
 
-/// Whether an iterator of type `ty` that drops is a `FusedIterator`, which std's `fuse` and
-/// `flatten` keep once it ends rather than drop: `true` or `false`.
-fn fused<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Expr {
-	Expr::lit(match b.t.drops(ty) && implements(b.t, ty, "FusedIterator") {
+/// Whether an iterator of type `ty`, with `held` beside it, drops and is a `FusedIterator`,
+/// which std's `fuse` and `flatten` keep once it ends rather than drop: `true` or `false`.
+fn fused<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, held: Option<Ty<'tcx>>) -> Expr {
+	let drops = b.t.drops(ty) || held.is_some_and(|held| b.t.drops(held));
+	Expr::lit(match drops && implements(b.t, ty, "FusedIterator") {
 		true => "true",
 		false => "false",
 	})
