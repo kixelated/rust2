@@ -17,6 +17,7 @@ generic std gap is planned here even when moq never calls it.
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [The rest of Duration](/quest/m3/ts-duration.md) - compound assignment, float conversions, and `Sum` on a `Duration` translate
+- [Trait objects](/quest/m3/ts-dyn.md) - `dyn Trait` and `Box<dyn Future>` translate, so a consumer neither rewrites nor binds them
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [Fold matches across tests that aren't variant switches](/quest/m3/ts-fold-guards.md) - a match an `if` or guard decided drops its dead arms
 - [A crate's own comparison operators](/quest/m3/ts-partial-ord.md) - an overridden `lt`/`le`/`gt`/`ge` is called where std calls it
