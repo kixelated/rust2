@@ -121,7 +121,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(rustc_middle::mir::RETURN_PLACE)
 				if self.next && !matches!(*fn_ty.kind(), ty::FnDef(d, _) if crate::lower::iter::is_next(tcx, d)) =>
 			{
-				super::done_of(value)
+				self.done_of(value)
 			}
 			_ => value,
 		};
@@ -350,7 +350,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							ty::Slice(_) | ty::Array(..) => true,
 							_ => matches!(
 								t.std_of(ty.peel_refs()),
-								Some(Std::Vec | Std::HashMap | Std::BTreeMap | Std::VecDeque)
+								Some(Std::Vec | Std::Option | Std::HashMap | Std::BTreeMap | Std::VecDeque)
 							),
 						}
 				}),
@@ -358,14 +358,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			},
 			None => false,
 		};
-		// Places it is given, or that the iterator it adapts yields, were made where they
-		// came from, as are what it hands a closure of them.
+		// Places held in what it is given, not one it is given, or that the iterator it adapts
+		// yields, were made where they came from, as are what it hands a closure of them.
 		let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
 		let adapts = tcx
 			.instantiate_bound_regions_with_erased(sig)
 			.inputs()
 			.iter()
-			.any(|&i| t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item)));
+			.any(|&i| {
+				t.place_pointee(i).is_none() && t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item))
+			});
 		if lends || adapts {
 			return None;
 		}
@@ -440,17 +442,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			("mem", "take") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let default = library::default_value(self.b, targ(0)?)?;
-				done(self.swap_out(place, default, "taken", span, out), true)
+				done(self.swap_out(place, targ(0)?, default, "taken", span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
-				done(self.swap_out(place, value, "old", span, out), true)
+				done(self.swap_out(place, targ(0)?, value, "old", span, out), true)
 			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
 				let c = self.borrowed_place(&args[1].node, span, out)?;
-				let old = self.swap_out(a, c.0.clone(), "swapped", span, out);
+				let old = self.swap_out(a, targ(0)?, c.0.clone(), "swapped", span, out);
 				self.set_borrowed(&c, old, span, out);
 				done(Expr::undefined(), false)
 			}
@@ -494,7 +496,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				done(self.swap_out(place, Expr::undefined(), "taken", span, out), true)
+				let none = self.b.t.none(targ(0)?);
+				let option = dest.ty(&self.mir.local_decls, tcx).ty;
+				done(self.swap_out(place, option, none, "taken", span, out), true)
 			}
 			// The place of the payload, if any: `as_mut`'s, or what `iter_mut` yields.
 			("Option", "as_mut" | "iter_mut") if self.b.t.needs_place(targ(0)?) => {
@@ -502,7 +506,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let Some(payload) = payload else {
 					return done(target, true);
 				};
-				let none = target.clone().binary("===", Expr::undefined());
+				let none = target.clone().binary("===", self.b.t.none(targ(0)?));
 				let place = self.make_place(payload, target, span, out);
 				let lent = Expr::Cond(Box::new(none), Box::new(Expr::undefined()), Box::new(place));
 				match name.as_str() {
@@ -681,7 +685,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					_ => None,
 				};
 				match (self.b.t.std_of(to), result.map(|r| r.kind()), residual.kind()) {
-					(Some(Std::Option), ..) => done(Expr::undefined(), false),
+					(Some(Std::Option), ..) => {
+						let ty::Adt(_, to_args) = to.kind() else {
+							unreachable!("an `Option` is an ADT")
+						};
+						done(self.b.t.none(to_args.type_at(0)), false)
+					}
 					(_, Some(ty::Adt(_, to_args)), ty::Adt(_, from_args))
 						if self.b.t.std_of(residual) == Some(Std::Result) =>
 					{
@@ -843,7 +852,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			};
 			then.extend(self.store(whole, value, span));
-			let cond = target.clone().binary("===", Expr::undefined());
+			let cond = target.clone().binary("===", self.b.t.none(payload_ty));
 			out.push(StmtKind::If { cond, then, els }.at(None));
 		}
 		let read = Expr::As(Box::new(target.clone()), self.b.t.ty(payload_ty, span));
@@ -917,9 +926,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The value at `place`, after setting `place` to `value`.
-	fn swap_out(&mut self, place: Borrowed<'tcx>, value: Expr, base: &str, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	fn swap_out(
+		&mut self,
+		place: Borrowed<'tcx>,
+		ty: Ty<'tcx>,
+		value: Expr,
+		base: &str,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
 		let name = self.b.fresh(base);
-		out.push(StmtKind::decl(false, name.clone(), None, Some(place.0.clone())).at(None));
+		// TypeScript widens `rt.None` read from a place narrowed to it into a `symbol`.
+		let declared = self.b.t.erases_to(ty).none.then(|| self.b.t.ty(ty, span));
+		out.push(StmtKind::decl(false, name.clone(), declared, Some(place.0.clone())).at(None));
 		self.set_borrowed(&place, value, span, out);
 		Expr::ident(name)
 	}
@@ -1133,7 +1152,10 @@ pub fn control_flow_test<'tcx>(fx: &mut Fx<'_, '_, '_, 'tcx>, scrut: &Expr, ty: 
 			false => scrut.clone().binary("===", Expr::Rt("DONE".into())),
 		};
 	}
-	flow(fx.tcx, ty).test(scrut.clone(), continues)
+	let ty::Adt(_, args) = ty.kind() else {
+		unreachable!("checked by the caller")
+	};
+	Flow::test(fx.b.t, args, scrut.clone(), continues)
 }
 
 /// A field of a `ControlFlow`: `Continue`'s value, or `Break`'s, which for `?` is the
@@ -1167,6 +1189,14 @@ pub fn control_flow<'tcx>(
 		(Flow::Result, _) => value,
 		(Flow::Other, _) => Expr::result(false, value),
 		(Flow::Option, 0) => value,
-		(Flow::Option, _) => Expr::undefined(),
+		(Flow::Option, _) => fx.b.t.none(continued(ty)),
+	}
+}
+
+/// What a `ControlFlow` continues with.
+fn continued(ty: Ty<'_>) -> Ty<'_> {
+	match ty.kind() {
+		ty::Adt(_, args) => args.type_at(1),
+		_ => unreachable!("checked by the caller"),
 	}
 }

@@ -424,6 +424,36 @@ fn elements(data: &[u8], out: &mut Vec<u8>) {
 	for (k, x) in tree.range_mut(1..3) {
 		*x += u32::from(*k) << 8;
 	}
+	// An `Option` whose payload can be `undefined`, whose `None` is apart from it.
+	let mut nested: Option<Option<u8>> = None;
+	for &b in data {
+		match b % 3 {
+			0 => *nested.get_or_insert(None) = b.checked_sub(50),
+			1 => {
+				if let Some(x) = nested.as_mut() {
+					*x = x.map(|x| x.wrapping_add(1));
+				}
+			}
+			_ => drop(nested.insert(Some(b))),
+		}
+		for x in &mut nested {
+			*x = x.or(Some(1));
+		}
+	}
+	out.push(match nested {
+		None => 0xee,
+		Some(None) => 0xdd,
+		Some(Some(x)) => x,
+	});
+	// A borrowed `Option` iterated: its payload's place, or nothing.
+	for o in [seen_of(data), None] {
+		let mut o = o;
+		for x in &mut o {
+			*x = x.wrapping_add(7);
+		}
+		out.push((&mut o).into_iter().count() as u8);
+		out.push(o.unwrap_or(0xee));
+	}
 	for x in seen_of(data).iter_mut() {
 		*x ^= 0xff;
 		tree.insert(9, u32::from(*x));

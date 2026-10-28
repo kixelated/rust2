@@ -14,7 +14,7 @@ what they reach. A construct outside the subset is a compile error with its span
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
 holding one; any variable or temporary that holds a type whose JS value is ambiguous, such
-as `Option<()>`, is refused at its own span.
+as `Option<Option<()>>`, is refused at its own span.
 
 ```toml
 # ts.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -74,7 +74,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
-| `Option<T>` | `T \| undefined`; refused if `T` can already be `undefined`, as `()` and `Option` can |
+| `Option<T>` | `T \| undefined`; `T \| rt.None` where `T` can already be `undefined`, as `()` and `Option` can, so `Option<()>` and `Option<Option<u64>>` keep `None` apart from each `Some` |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
@@ -345,6 +345,10 @@ they need.
   function of it is one instance's, typed by its `self`. A type per instance
   (`Wrap$Pair`) would rename the type for callers, and TS generics with trait
   dictionaries would undo monomorphization.
+- `None` is `undefined`, so a TS caller reads an `Option` with `?.` and `??`, except where
+  the `Some` can already be `undefined`: there it is `rt.None`, as `Pending` is
+  `rt.Pending`, chosen by the type alone, so every function agrees on it. A `rt.None`
+  for every `Option` would cost callers `?.` and `??` everywhere for the few that need it.
 - A `Cow<str>` is a JS string, as `str` and `String` are, rather than an object tagged by
   its variant: no `Cow<str>` in moq-net or kio tells its variants apart, and a tag would
   wrap every value and unwrap it at every read.
@@ -425,7 +429,11 @@ hand-written TS ([bindings](#bindings)).
 These fail translation: floats, statics, async closures, a closure that owns a value
 that drops given to std's iterators or collections, and values that drop in some
 iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
-a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
+a collection holding a type that can be `undefined`, as `()` and `Option` can, a std
+function without a mapping of its own that makes or reads an `Option` whose `None` is
+`rt.None`, as `find` over `Option`s does, an `Option` of an `Option` of `()` or another
+`Option`, an instance of a generic type whose field is an `Option` of a type parameter
+that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors

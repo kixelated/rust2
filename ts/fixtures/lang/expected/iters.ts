@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$u8_u8 } from "./lib.ts";
-import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_options_closure3_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_shares_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -343,10 +343,10 @@ export function skips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let item26!: rt.u8 | undefined;
 	let item27!: [rt.u8, rt.u8] | undefined;
 	let item28!: Uint8Array | undefined;
-	const n: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
+	const n: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
 		return rt.usizeRem(_2 as rt.usize, 4);
 	});
-	const limit: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+	const limit: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 		return rt.usizeRem(_22 as rt.usize, 3);
 	});
 	const back: boolean = (kind & 1) === 1;
@@ -865,7 +865,7 @@ export function fullRange(out: rt.ByteVec): undefined {
 export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _83: (a0: rt.u8, a1: rt.ByteVec) => rt.u8 | undefined = (b2: rt.u8, calls2: rt.ByteVec): rt.u8 | undefined => {
 		rt.byteVecPush(calls2, b2);
-		return map$Option_u8_u8_options_closure3_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
+		return map$Option_u8_u8_elements_closure8(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
 			return rt.u8Div(b3, 2);
 		});
 	};
