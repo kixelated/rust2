@@ -35,7 +35,7 @@ export class Probe {
 
 export function drop$Drop(self: Probe): void {
 	let _5!: rt.Result<rt.Mutex<Guard.Guard>, rt.Mutex<Guard.Guard>>;
-	let held!: rt.Mutex<Guard.Guard>;
+	let _9!: rt.Mutex<Guard.Guard>;
 	let unwind: number = 0;
 	try {
 		const panicking: boolean = rt.panicking();
@@ -44,29 +44,24 @@ export function drop$Drop(self: Probe): void {
 		const poisoned: boolean = !_5.ok;
 		unwind = 0;
 		drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_5);
-		held = unwrapOrElse$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard_into_inner(rt.mutexLock(self._0), (a0: rt.Mutex<Guard.Guard>): rt.Mutex<Guard.Guard> => {
+		_9 = unwrapOrElse$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard_into_inner(rt.mutexLock(self._0), (a0: rt.Mutex<Guard.Guard>): rt.Mutex<Guard.Guard> => {
 			return a0;
 		});
 		unwind = 21;
-		const _17: rt.u32 = Guard.id(held.value);
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(panicking, f), (f: rt.Formatter) => rt.fmtBool(poisoned, f), (f: rt.Formatter) => rt.u32Display(_17, f)];
-		const _12: string = rt.fmtFormat(["panicking ", args2[0], ", poisoned ", args2[1], ", holds g", args2[2]]);
-		unwind = 20;
-		Guard.note(self._1, _12);
+		const held: rt.u32 = Guard.id(_9.value);
 		unwind = 0;
-		rt.mutexUnlock(held);
+		rt.mutexUnlock(_9);
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(panicking, f), (f: rt.Formatter) => rt.fmtBool(poisoned, f), (f: rt.Formatter) => rt.u32Display(held, f)];
+		const _26: string = rt.fmtFormat(["panicking ", args2[0], ", poisoned ", args2[1], ", holds g", args2[2]]);
+		Guard.note(self._1, _26);
 	} catch (e) {
-		b0: {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind !== 20) {
-				if (unwind !== 21) {
-					drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_5);
-					break b0;
-				}
-			}
-			rt.mutexUnlock(held);
+		if (unwind === 0) {
+			throw e;
+		}
+		if (unwind === 21) {
+			rt.mutexUnlock(_9);
+		} else {
+			drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_5);
 		}
 		throw e;
 	}

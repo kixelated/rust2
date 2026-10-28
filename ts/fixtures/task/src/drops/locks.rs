@@ -18,8 +18,9 @@ impl Drop for Probe<'_> {
 	fn drop(&mut self) {
 		let panicking = std::thread::panicking();
 		let poisoned = self.0.lock().is_err();
-		let held = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-		self.1.note(&format!("panicking {panicking}, poisoned {poisoned}, holds g{}", held.id()));
+		let held = self.0.lock().unwrap_or_else(PoisonError::into_inner).id();
+		let seen = format!("panicking {panicking}, poisoned {poisoned}, holds g{held}");
+		self.1.note(&seen);
 	}
 }
 
