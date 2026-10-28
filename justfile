@@ -20,8 +20,8 @@ default:
 check:
     quest check
     actionlint
-    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh .github/*.sh bench/*/*.sh
-    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh .github/*.sh bench/*/*.sh
+    shellcheck .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
+    shfmt -d .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
     taplo format --check
     nixfmt --check flake.nix bench/build/nix.nix
     cargo fmt --all --check
@@ -34,7 +34,7 @@ check:
 # Run the tests.
 test:
     bash .claude/hooks/direnv.test.sh
-    bash .github/land.test.sh
+    bun .github/land.test.ts
     just ts test
     just ffi test
     just driver test
@@ -54,7 +54,7 @@ bench-ffi *args:
 
 # Apply formatters without changing program behavior.
 fix:
-    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh .github/*.sh bench/*/*.sh
+    shfmt -w .claude/hooks/*.sh .codex/hooks/*.sh bench/*/*.sh
     taplo format
     nixfmt flake.nix bench/build/nix.nix
     cargo fmt --all
