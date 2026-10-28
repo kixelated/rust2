@@ -22,8 +22,17 @@ pub fn is(ty: Ty<'_>) -> bool {
 }
 
 /// `v` as a literal: the shortest digits that read back as it, as Rust's `Debug` prints them.
+/// A NaN other than `f64::NAN` is made from its bits, which keeps its sign and payload.
 pub fn lit(v: f64) -> Expr {
 	match v {
+		_ if v.is_nan() && v.to_bits() != f64::NAN.to_bits() => {
+			let u64 = Int {
+				bits: 64,
+				signed: false,
+				pointer: false,
+			};
+			Expr::rt("f64FromBits", vec![u64.lit(i128::from(v.to_bits()))])
+		}
 		_ if v.is_nan() => Expr::lit("NaN"),
 		f64::INFINITY => Expr::lit("Infinity"),
 		f64::NEG_INFINITY => Expr::lit("-Infinity"),

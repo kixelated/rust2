@@ -224,6 +224,8 @@ export function floats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			putF64(out, _377);
 		}
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.f64ToBits(rt.f64FromBits({ hi: 0xfff80000, lo: 0x123 } as rt.u64)))));
+		rt.byteVecPush(out, rt.f64IsSignNegative(rt.f64FromBits({ hi: 0xfff80000, lo: 0x123 } as rt.u64)) ? 1 : 0);
 		const v2: rt.f64[] = [a, b, 0.5];
 		putF64(out, rt.iterSum(rt.iterSlice(v2), rt.f64Add, -0.0));
 		putF64(out, rt.iterProduct(rt.iterSlice(v2), rt.f64Mul, 1.0));
@@ -233,13 +235,13 @@ export function floats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const g: Gauge.Gauge = { level: a, peak: b };
 		raise(rt.place(() => g.level, (value) => g.level = value), b);
 		if (g.peak !== undefined) {
-			const _409: rt.f64 = rt.f64Max(g.peak, g.level);
-			g.peak = _409;
+			const _417: rt.f64 = rt.f64Max(g.peak, g.level);
+			g.peak = _417;
 		}
 		putF64(out, g.level);
 		putF64(out, unwrapOr$Option_f64(g.peak, -1.0));
-		const _422: Gauge.Gauge = Gauge.default$Default();
-		rt.byteVecPush(out, Gauge.eq$PartialEq(g, _422) ? 1 : 0);
+		const _430: Gauge.Gauge = Gauge.default$Default();
+		rt.byteVecPush(out, Gauge.eq$PartialEq(g, _430) ? 1 : 0);
 		rt.byteVecPush(out, g.peak === b ? 1 : 0);
 		let local: rt.f64 = a;
 		raise(rt.place(() => local, (value2) => local = value2), 1.0);

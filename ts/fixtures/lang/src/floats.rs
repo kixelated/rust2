@@ -51,6 +51,8 @@ fn raise(level: &mut f64, by: f64) {
 
 /// Each float constant std has, in a `const` of the crate's.
 const HALF: f64 = 0.5;
+/// A NaN whose sign and payload a constant keeps, which only its bits make.
+const PAYLOAD: f64 = f64::from_bits(0xfff8_0000_0000_0123);
 const CONSTANTS: [f64; 22] = [
 	f64::MAX,
 	f64::MIN,
@@ -275,6 +277,8 @@ pub fn floats(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			for x in CONSTANTS {
 				put_f64(out, x);
 			}
+			out.extend_from_slice(&PAYLOAD.to_bits().to_be_bytes());
+			out.push(PAYLOAD.is_sign_negative() as u8);
 			let v = [a, b, 0.5];
 			put_f64(out, v.iter().sum());
 			put_f64(out, v.into_iter().product());
