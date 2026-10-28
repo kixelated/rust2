@@ -15,30 +15,21 @@ import * as Group from "./lite/group.Group.ts";
 import * as Probe from "./lite/probe.Probe.ts";
 import type * as Version from "./lite/version.Version.ts";
 
+/**
+ * Each case, which the first byte picks modulo their count, so a case added at the end
+ * moves no other.
+ */
+export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
+	return [decodeScript, encodeScript, zigzag, sizes, roundtrip$Versions, roundtripLite$Group, roundtripLite$Probe, encodeMessages, errors];
+}
+
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
-		const _8: rt.u8 = rt.u8Rem(input.data[input.start], 9);
-		if (_8 === 0) {
-			decodeScript(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 1) {
-			encodeScript(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 2) {
-			zigzag(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 3) {
-			sizes(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 4) {
-			roundtrip$Versions(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 5) {
-			roundtripLite$Group(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 6) {
-			roundtripLite$Probe(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 7) {
-			encodeMessages(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else {
-			errors(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		}
+		const op: rt.u8 = input.data[input.start];
+		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
+		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;

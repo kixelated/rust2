@@ -12,7 +12,7 @@ import { edits } from "./edits.ts";
 import { floats } from "./floats.ts";
 import { ints, strings, derived, written, counts, rounding, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
-import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
+import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
 import { adaptors, consumers, skips, ranges, options, own, values } from "./iters.ts";
 import { keys } from "./keys.ts";
 import { nested } from "./nested.ts";
@@ -23,155 +23,112 @@ import { strs, slices } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
 
+/**
+ * Each case's name and what it runs. The first byte picks one modulo their count, so a
+ * case added at the end moves no other.
+ */
+export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][] {
+	return [["ints::u8_op", u8Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::u16_op", u16Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::u32_op", u32Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::u64_op", u64Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::u128_op", u128Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::usize_op", usizeOp] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::i8_op", i8Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::i16_op", i16Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::i32_op", i32Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::i64_op", i64Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::i128_op", i128Op] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::isize_op", isizeOp] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::neg", neg] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::cast", cast] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::convert", (_210: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void => {
+		convert(data, out);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::copies", (_211: rt.u8, data2: rt.ByteSlice, out2: rt.ByteVec): void => {
+		copies(data2, out2);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::loops", (_212: rt.u8, data3: rt.ByteSlice, out3: rt.ByteVec): void => {
+		loops(data3, out3);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::patterns", (_213: rt.u8, data4: rt.ByteSlice, out4: rt.ByteVec): void => {
+		patterns(data4, out4);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::closures", (_214: rt.u8, data5: rt.ByteSlice, out5: rt.ByteVec): void => {
+		closures(data5, out5);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::discriminants", (_215: rt.u8, data6: rt.ByteSlice, out6: rt.ByteVec): void => {
+		discriminants(data6, out6);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::library", (_216: rt.u8, data7: rt.ByteSlice, out7: rt.ByteVec): void => {
+		library(data7, out7);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::ints", ints] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::strings", (_217: rt.u8, data8: rt.ByteSlice, out8: rt.ByteVec): void => {
+		strings(data8, out8);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::derived", (_218: rt.u8, data9: rt.ByteSlice, out9: rt.ByteVec): void => {
+		derived(data9, out9);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::written", (_219: rt.u8, data10: rt.ByteSlice, out10: rt.ByteVec): void => {
+		written(data10, out10);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::panics", panics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["generics::methods", (_220: rt.u8, data11: rt.ByteSlice, out11: rt.ByteVec): void => {
+		methods(data11, out11);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::adaptors", adaptors] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::consumers", consumers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranges", (_221: rt.u8, data12: rt.ByteSlice, out12: rt.ByteVec): void => {
+		ranges(data12, out12);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::options", (_222: rt.u8, data13: rt.ByteSlice, out13: rt.ByteVec): void => {
+		options(data13, out13);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::own", (_223: rt.u8, data14: rt.ByteSlice, out14: rt.ByteVec): void => {
+		own(data14, out14);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::values", (_224: rt.u8, data15: rt.ByteSlice, out15: rt.ByteVec): void => {
+		values(data15, out15);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::order", (_225: rt.u8, data16: rt.ByteSlice, out16: rt.ByteVec): void => {
+		order(data16, out16);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::hash_maps", hashMaps] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::sets", sets] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::btree_maps", btreeMaps] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::deques", (_226: rt.u8, data17: rt.ByteSlice, out17: rt.ByteVec): void => {
+		deques(data17, out17);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::flows", (_227: rt.u8, data18: rt.ByteSlice, out18: rt.ByteVec): void => {
+		flows(data18, out18);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::keys", keys] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["chars::chars", chars] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::strs", strs] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::vecs", (_228: rt.u8, data19: rt.ByteSlice, out19: rt.ByteVec): void => {
+		vecs(data19, out19);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::slices", slices] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::stores", (_229: rt.u8, data20: rt.ByteSlice, out20: rt.ByteVec): void => {
+		stores(data20, out20);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["chunks::chunks", chunks] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["cows::cows", cows] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["durations::durations", durations] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["combinators::combinators", combinators] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["splits::splits", splits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["nested::nested", nested] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["refs::refs", (_230: rt.u8, data21: rt.ByteSlice, out21: rt.ByteVec): void => {
+		refs(data21, out21);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_231: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
+		counts(data22, out22);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_232: rt.u8, _310: rt.ByteSlice, out23: rt.ByteVec): void => {
+		rounding(out23);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", skips] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["wrappers::wrappers", wrappers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["edits::edits", edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["utf8::decodes", decodes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::floats", floats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["atomics::atomics", atomics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
+}
+
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (!(input.length >= 2)) {
 		return out;
 	}
-	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
-	const op: rt.u8 = _10[0];
-	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 60);
-	if (_14 === 0) {
-		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 1) {
-		u16Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 2) {
-		u32Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 3) {
-		u64Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 4) {
-		u128Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 5) {
-		usizeOp(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 6) {
-		i8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 7) {
-		i16Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 8) {
-		i32Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 9) {
-		i64Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 10) {
-		i128Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 11) {
-		isizeOp(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 12) {
-		const _28: rt.u8 = rt.u8Rem(kind, 6);
-		if (_28 === 0) {
-			i8Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else if (_28 === 1) {
-			i16Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else if (_28 === 2) {
-			i32Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else if (_28 === 3) {
-			i64Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else if (_28 === 4) {
-			i128Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else {
-			isizeNeg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		}
-	} else if (_14 === 13) {
-		if (input.length - 2 === 0) {
-			cast(kind, rt.u8Div(kind, 12), new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-		} else {
-			cast(kind, input.data[input.start + 2], new rt.ByteSlice(input.data, input.start + 3, input.length - 3), out);
-		}
-	} else if (_14 === 14) {
-		convert(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 15) {
-		copies(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 16) {
-		loops(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 17) {
-		patterns(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 18) {
-		closures(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 19) {
-		discriminants(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 20) {
-		library(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 21) {
-		ints(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 22) {
-		strings(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 23) {
-		derived(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 24) {
-		written(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 25) {
-		panics(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 26) {
-		methods(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 27) {
-		adaptors(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 28) {
-		consumers(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 29) {
-		ranges(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 30) {
-		options(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 31) {
-		own(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 32) {
-		values(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 33) {
-		order(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 34) {
-		hashMaps(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 35) {
-		sets(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 36) {
-		btreeMaps(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 37) {
-		deques(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 38) {
-		flows(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 39) {
-		keys(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 40) {
-		chars(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 41) {
-		strs(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 42) {
-		vecs(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 43) {
-		slices(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 44) {
-		stores(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 45) {
-		chunks(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 46) {
-		cows(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 47) {
-		durations(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 48) {
-		combinators(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 49) {
-		splits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 50) {
-		nested(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 51) {
-		refs(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 52) {
-		counts(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 53) {
-		rounding(out);
-	} else if (_14 === 54) {
-		skips(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 55) {
-		wrappers(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 56) {
-		edits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 57) {
-		decodes(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else if (_14 === 58) {
-		floats(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	} else {
-		atomics(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
-	}
+	const cases_: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][] = cases();
+	cases_[rt.idx(cases_, rt.usizeRem(input.data[input.start] as rt.usize, cases_.length))][1](input.data[input.start + 1], new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 	return out;
+}
+
+/** The first byte that picks the case named `name`, which `caller.ts` targets by. */
+export function op(name: string): rt.u8 {
+	const _2: rt.usize | undefined = rt.iterPosition(rt.iterSlice(cases()), (_22: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]): boolean => {
+		return _22[0] === name;
+	});
+	if (_2 === undefined) {
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, name)];
+		rt.panicFmt(["no case ", args2[0]]);
+	} else {
+		return _2 & 0xff;
+	}
+}
+
+/** Negate the signed type `kind` picks. */
+export function neg(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _4: rt.u8 = rt.u8Rem(kind, 6);
+	if (_4 === 0) {
+		i8Neg(data, out);
+	} else if (_4 === 1) {
+		i16Neg(data, out);
+	} else if (_4 === 2) {
+		i32Neg(data, out);
+	} else if (_4 === 3) {
+		i64Neg(data, out);
+	} else if (_4 === 4) {
+		i128Neg(data, out);
+	} else {
+		isizeNeg(data, out);
+	}
+}
+
+/**
+ * Cast from the type `kind` picks to the one the next byte does, or without one, to
+ * a type `kind` also picks.
+ */
+export function cast(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	if (data.length === 0) {
+		ints_cast(kind, rt.u8Div(kind, 12), data, out);
+	} else {
+		ints_cast(kind, data.data[data.start], new rt.ByteSlice(data.data, data.start + 1, data.length - 1), out);
+	}
 }
 
 //# sourceMappingURL=harness.ts.map
