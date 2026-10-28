@@ -5,6 +5,8 @@
 - The runtime's `iterMax`, `iterMin`, `iterMaxByKey`, and `iterMinByKey` take a comparator,
   a `partial_cmp`, after the iterator and any key function: `rt.iterMax(it, rt.cmp)`, for
   items or keys of any type.
+- `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
+  `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
 - The runtime no longer exports `ownedNth`, `ownedNthBack`, `ownedSkip`, `ownedTake`, or
   `ownedStepBy`: `iterNth`, `iterNthBack`, `iterSkip`, `iterTake`, and `iterStepBy` take
   what drops an item last. `rt.Iter`'s `nthItem` and `nthBackItem` are `nth` and

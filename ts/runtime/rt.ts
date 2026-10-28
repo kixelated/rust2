@@ -6,7 +6,7 @@
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
 import type { Ordering } from "./rt/collections.ts";
-import { type char, type TryFromIntError, type u32, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
@@ -729,17 +729,22 @@ const encoder = /* @__PURE__ */ new TextEncoder();
 // `ignoreBOM` keeps a leading U+FEFF, as Rust does.
 const decoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
+/** `core::str::Utf8Error`: where bytes stop being UTF-8. */
+export type Utf8Error = {
+	/** `Utf8Error::valid_up_to`. */
+	readonly validUpTo: usize;
+	/** `Utf8Error::error_len`: `undefined` if the input ended mid-character. */
+	readonly errorLen: usize | undefined;
+};
+
 /** `alloc::string::FromUtf8Error`: the bytes that were not UTF-8, and where they stop being. */
 export class FromUtf8Error {
 	readonly bytes: ByteVec;
-	/** `Utf8Error::valid_up_to`. */
-	readonly validUpTo: number;
-	/** `Utf8Error::error_len`: `undefined` if the input ended mid-character. */
-	readonly errorLen: number | undefined;
+	readonly error: Utf8Error;
 
 	constructor(bytes: ByteVec) {
 		this.bytes = bytes;
-		[this.validUpTo, this.errorLen] = utf8Error(byteVecView(bytes));
+		this.error = utf8Error(byteVecView(bytes));
 	}
 }
 
@@ -748,8 +753,8 @@ export function fromUtf8ErrorClone(e: FromUtf8Error): FromUtf8Error {
 	return new FromUtf8Error(byteVecFrom(byteVecView(e.bytes)));
 }
 
-/** Where `v` stops being UTF-8 and how many bytes are invalid there, as std reports it. */
-function utf8Error(v: Uint8Array): [number, number | undefined] {
+/** Where `v`, which is not UTF-8, stops being so, and how many bytes are invalid there, as std reports it. */
+function utf8Error(v: Uint8Array): Utf8Error {
 	const tail = (b: number | undefined) => b !== undefined && b >= 0x80 && b <= 0xbf;
 	for (let i = 0; i < v.length; ) {
 		const first = v[i];
@@ -758,19 +763,29 @@ function utf8Error(v: Uint8Array): [number, number | undefined] {
 			i++;
 			continue;
 		}
-		if (width === 0) return [i, 1];
+		if (width === 0) return { validUpTo: i, errorLen: 1 };
 		const second = v[i + 1];
-		if (second === undefined) return [i, undefined];
+		if (second === undefined) return { validUpTo: i, errorLen: undefined };
 		const [lo, hi] =
 			first === 0xe0 ? [0xa0, 0xbf] : first === 0xed ? [0x80, 0x9f] : first === 0xf0 ? [0x90, 0xbf] : first === 0xf4 ? [0x80, 0x8f] : [0x80, 0xbf];
-		if (second < lo || second > hi) return [i, 1];
+		if (second < lo || second > hi) return { validUpTo: i, errorLen: 1 };
 		for (let k = 2; k < width; k++) {
-			if (i + k >= v.length) return [i, undefined];
-			if (!tail(v[i + k])) return [i, k];
+			if (i + k >= v.length) return { validUpTo: i, errorLen: undefined };
+			if (!tail(v[i + k])) return { validUpTo: i, errorLen: k };
 		}
 		i += width;
 	}
 	throw new Error("utf8Error: the bytes are valid UTF-8");
+}
+
+/** `str::from_utf8`. */
+export function strFromUtf8(bytes: ByteSlice): Result<string, Utf8Error> {
+	const v = byteSliceView(bytes);
+	try {
+		return Ok(decoder.decode(v));
+	} catch {
+		return Err(utf8Error(v));
+	}
 }
 
 /** `String::from_utf8`. */
@@ -1276,28 +1291,36 @@ export function fmtTryFromIntErrorDisplay(e: TryFromIntError, f: Formatter): Fmt
 	return fmtPad(f, `number too ${positive ? "large" : "small"} to fit in target type`);
 }
 
-/** `Debug` of `FromUtf8Error`. */
-export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
-	const error: Fmt = (f) =>
-		debugStructFinish(
-			debugStructField(
-				debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDebug(e.validUpTo, f)),
-				"error_len",
-				(f) => fmtOption(e.errorLen, f, u8Debug),
-			),
-		);
+/** `Debug` of `Utf8Error`. */
+export function fmtUtf8ErrorDebug(e: Utf8Error, f: Formatter): FmtResult {
 	return debugStructFinish(
 		debugStructField(
-			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Debug)),
-			"error",
-			error,
+			debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDebug(e.validUpTo, f)),
+			"error_len",
+			(f) => fmtOption(e.errorLen, f, usizeDebug),
 		),
 	);
 }
 
-/** `Display` of the error, which `write!`s and so ignores the formatter's options. */
-export function fmtFromUtf8ErrorDisplay(e: FromUtf8Error, f: Formatter): FmtResult {
+/** `Display` of `Utf8Error`, which `write!`s and so ignores the formatter's options. */
+export function fmtUtf8ErrorDisplay(e: Utf8Error, f: Formatter): FmtResult {
 	if (e.errorLen === undefined) return f.out.writeStr(`incomplete utf-8 byte sequence from index ${e.validUpTo}`);
 	return f.out.writeStr(`invalid utf-8 sequence of ${e.errorLen} bytes from index ${e.validUpTo}`);
+}
+
+/** `Debug` of `FromUtf8Error`. */
+export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult {
+	return debugStructFinish(
+		debugStructField(
+			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Debug)),
+			"error",
+			(f) => fmtUtf8ErrorDebug(e.error, f),
+		),
+	);
+}
+
+/** `Display` of `FromUtf8Error`: its `Utf8Error`'s. */
+export function fmtFromUtf8ErrorDisplay(e: FromUtf8Error, f: Formatter): FmtResult {
+	return fmtUtf8ErrorDisplay(e.error, f);
 }
 
