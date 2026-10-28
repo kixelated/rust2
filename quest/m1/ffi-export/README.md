@@ -47,7 +47,6 @@ Every generator on the C ABI:
 
 ## Required
 
-- [Paths without a lifetime](/quest/m1/ffi-export/paths.md) - moq's owned `Path` exports, and its excludes go
 - [Instances the config can't name yet](/quest/m1/ffi-export/instance-keys.md) - `&T` keys, `IntoIterator` as a `Vec`, `serde_json::Value`, and `Catalog<()>`
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
