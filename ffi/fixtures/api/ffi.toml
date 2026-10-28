@@ -4,20 +4,6 @@ prefix = "api"
 # out a method the others keep, and `Seed` is generic, so no callback implements it.
 exclude = ["Node::next", "Pair<u8, dep_fixture::Size>::swap", "Seed"]
 
-# Generic types at the instances C uses, each with its C name: `Pair<u32>` is
-# `Pair<u32, u32>`, and `swap` returns each `Pair` of a `Size` as the other.
-[instances]
-"Pair<u32>" = "pair"
-"Pair<dep_fixture::Size, u8>" = "size_pair"
-"Pair<u8, dep_fixture::Size>" = "pair_size"
-"Stack<api_fixture::Counter>" = "counters"
-# Generic functions and methods likewise, each type parameter by name, an `impl Trait` one
-# by its argument's, in any order.
-"Counter::seeded(from: api_fixture::Point)" = "counter_seeded_point"
-"Counter::seeded(from: dep_fixture::Size)" = "counter_seeded_size"
-"Stack::depth_past(from: api_fixture::Point)" = "counters_depth_past_point"
-"seeds(from: dep_fixture::Size, T: api_fixture::Point)" = "seeds"
-
 # Exported into the same library: `grow` names its types.
 [crates.dep-fixture]
 exclude = ["HashSet"]

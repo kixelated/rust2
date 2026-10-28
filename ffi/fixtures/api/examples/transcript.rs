@@ -208,10 +208,7 @@ fn main() {
 		pair == swapped
 	);
 	println!("even {} {}", pair.even(), Pair { left: 7u32, right: 7 }.even());
-	let sized = Pair {
-		left: Size { width: 1, height: 2 },
-		right: 3u8,
-	};
+	let sized = api_lib::tag(Size { width: 1, height: 2 }, 3);
 	let flipped = sized.swap();
 	println!("sized {} {} {flipped:?}", flipped.left, flipped.right.width);
 	let beside = Pair { left: 258u32, right: 9 }.beside(sized.left);
@@ -229,12 +226,15 @@ fn main() {
 	);
 	let from_point = Counter::seeded("p", Point { x: -3, y: 4 });
 	let from_size = Counter::seeded("s", Size { width: 5, height: 6 });
+	let from_counter = Counter::seeded("c", &from_point);
 	println!(
-		"seeded {} {} past {} seeds {}",
+		"seeded {} {} {} {} past {} seeds {}",
 		from_point.get(),
 		from_size.get(),
-		stack.depth_past(Point { x: 1, y: 2 }),
-		api_lib::seeds::<Point>(Size { width: 2, height: 3 })
+		from_counter.get(),
+		from_point.get(),
+		stack.depth_past(&Point { x: 1, y: 2 }),
+		api_lib::seeds::<Point>(&Size { width: 2, height: 3 })
 	);
 
 	let token = api_lib::Token::new(7);

@@ -1,26 +1,7 @@
 package = "reject-fixture"
 prefix = "reject"
-# An exclusion leaves an item out, so nothing refuses it.
-exclude = ["Excluded"]
-
-# Instances that cannot export: an unmet bound, a default argument no key can spell, a
-# type that is not generic, and a path that names nothing. `Cell<u16>` and `Cell<u32>` export, and nothing else of `Cell` does.
-[instances]
-"Bounded<String>" = "bounded"
-"Cell<u16>" = "cell_u16"
-"Cell<u32>" = "cell"
-"Holder" = "holder"
-"Missing<u8>" = "missing"
-"Opaque<u8>" = "opaque_u8"
-# Function instances that cannot export: an unmet bound, a name that is none of its type
-# parameters, one left out, a function that is not generic, a method nothing exported
-# reaches, and a path that names nothing.
-"copied(T: String)" = "copied_string"
-"copied(U: u8)" = "copied_u8"
-"copied()" = "copied"
-"pair(T: u8)" = "pair_u8"
-"Bounded::get(U: u64)" = "bounded_get"
-"missing(T: u8)" = "missing_u8"
+# An exclusion leaves an item or an instance out, so nothing refuses it.
+exclude = ["Cell<u16>", "Excluded"]
 
 # Another export, whose `Size` claims the same C name as this one's.
 [crates.dep-fixture]

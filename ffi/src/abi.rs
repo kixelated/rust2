@@ -73,8 +73,6 @@ pub struct Abi<'a> {
 	/// C names for Rust paths, each starting with its crate's name, in place of the
 	/// rule's: an item's, and its methods' through it.
 	rename: &'a BTreeMap<String, String>,
-	/// Each instance's C name, without the prefix, which its members are named through.
-	instances: HashMap<Type, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
 	/// Each `Option<T>` struct by C name, with `T`.
@@ -88,12 +86,11 @@ pub struct Abi<'a> {
 }
 
 impl<'a> Abi<'a> {
-	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>, instances: &[(Type, String)]) -> Self {
+	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>) -> Self {
 		let mut abi = Self {
 			api,
 			prefix: prefix.to_string(),
 			rename,
-			instances: instances.iter().cloned().collect(),
 			renamed: Default::default(),
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
@@ -141,38 +138,40 @@ impl<'a> Abi<'a> {
 	}
 
 	pub fn record(&self, i: usize) -> String {
-		self.type_name(Type::Record(i), &self.api.records[i].path)
+		self.instance(self.name(&self.api.records[i].path), &self.api.records[i].args)
 	}
 
 	pub fn enumeration(&self, i: usize) -> String {
-		self.type_name(Type::Enum(i), &self.api.enums[i].path)
+		self.instance(self.name(&self.api.enums[i].path), &self.api.enums[i].args)
 	}
 
 	pub fn object(&self, i: usize) -> String {
-		self.type_name(Type::Object(i), &self.api.objects[i].path)
+		self.instance(self.name(&self.api.objects[i].path), &self.api.objects[i].args)
 	}
 
-	/// A type's C name: an instance's as the config names it, else its path's.
-	fn type_name(&self, ty: Type, path: &[String]) -> String {
-		match self.instances.get(&ty) {
-			Some(name) => format!("{}_{name}", self.prefix),
-			None => self.name(path),
+	/// An instance's C name: its generic item's, then each argument's.
+	fn instance(&self, mut name: String, args: &[Type]) -> String {
+		for arg in args {
+			name.push('_');
+			name.push_str(&self.key(arg));
 		}
+		name
 	}
 
-	/// A function's C name: an instance's as the config names it, else a method's through
-	/// its type's, unless renamed itself.
+	/// A function's C name: a method's through its type's, unless renamed itself, then
+	/// each argument of the instance it is.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
-		if let Some(instance) = &function.instance {
-			return format!("{}_{}", self.prefix, instance.name);
-		}
-		let owner = match owner {
-			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
-			_ => return self.name(&function.path),
+		let name = match owner {
+			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. })
+				if !self.rename.contains_key(&function.path.join("::")) =>
+			{
+				format!("{owner}_{}", snake(function.name()))
+			}
+			_ => self.name(&function.path),
 		};
-		match self.rename.contains_key(&function.path.join("::")) {
-			true => self.name(&function.path),
-			false => format!("{owner}_{}", snake(function.name())),
+		match &function.instance {
+			Some(instance) => self.instance(name, &instance.named),
+			None => name,
 		}
 	}
 
@@ -195,11 +194,13 @@ impl<'a> Abi<'a> {
 		format!("{}_{}", self.prefix, self.key(ty))
 	}
 
-	/// A type's name within the prefix, for naming the structs built from it.
+	/// A type's name within the prefix, for naming the structs and instances built from it.
 	fn key(&self, ty: &Type) -> String {
 		let strip = |name: String| name[self.prefix.len() + 1..].to_string();
 		match ty {
+			Type::Unit => "unit".to_string(),
 			Type::Bool => "bool".to_string(),
+			Type::String => "string".to_string(),
 			Type::Int(int) => int.rust().to_string(),
 			Type::F32 => "f32".to_string(),
 			Type::F64 => "f64".to_string(),
@@ -207,6 +208,7 @@ impl<'a> Abi<'a> {
 			Type::Duration => "duration".to_string(),
 			Type::Record(i) => strip(self.record(*i)),
 			Type::Enum(i) => strip(self.enumeration(*i)),
+			Type::Object(i) => strip(self.object(*i)),
 			Type::Range(int) => format!("range_{}", int.rust()),
 			Type::Bound(int) => format!("bound_{}", int.rust()),
 			Type::Bounds(int) => format!("bounds_{}", int.rust()),
