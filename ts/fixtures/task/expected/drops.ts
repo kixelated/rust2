@@ -22,7 +22,7 @@ import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
 /**
- * Run scenario `arg % 23`, panicking at the point `arg / 23 % 8` names, if any: what
+ * Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
  * every value std holds drops, where Rust drops it, and in Rust's order.
  */
 export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
@@ -85,7 +85,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		_380 = false;
 		_379 = false;
 		_378 = false;
-		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 23), 8);
+		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 23), 11);
 		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 		};

@@ -147,19 +147,10 @@ export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
 
 /**
  * `iter::successors`: `first`, then `succ` of each item, called as that item is yielded.
- * `succ` drops with it, and the item it holds next, of a type that drops nothing, needn't.
+ * The item it holds next drops by `drop`, and then `succ`, as std's fields drop.
  */
-export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined): Iter<T> {
-	let next = first;
-	const step = (succ: (item: T) => T | undefined): T | Done => {
-		const item = next;
-		if (item === undefined) return DONE;
-		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
-		next = undefined;
-		next = succ(item);
-		return item;
-	};
-	return new FromNext(succ, step, dispose);
+export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>): Iter<T> {
+	return new SuccessorsIter(first, succ, drop);
 }
 
 /** An `impl Iterator` of the translated crate, which `next` calls the `next` of, and `drop` drops. */
@@ -358,7 +349,7 @@ function rfindItem<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>): T |
 }
 
 /** `f(item)`, dropping `item` by `drop` if it panics. */
-function test<T>(f: (item: T) => boolean, item: T, drop: Drop<T>): boolean {
+function test<T, R>(f: (item: T) => R, item: T, drop: Drop<T>): R {
 	try {
 		return f(item);
 	} catch (e) {
@@ -1298,6 +1289,41 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 		const drop = this.drop;
 		this.drop = undefined;
 		drop?.(this.source);
+	}
+}
+
+/** `Successors`, holding the item it yields next. */
+class SuccessorsIter<T> extends Iter<T> implements Disposable {
+	private item: T | undefined;
+	private readonly succ: (item: T) => T | undefined;
+	private readonly drop: Drop<T> | undefined;
+
+	constructor(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>) {
+		super();
+		this.item = first;
+		this.succ = succ;
+		this.drop = drop;
+	}
+
+	next(): T | Done {
+		const item = this.item;
+		if (item === undefined) return DONE;
+		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
+		this.item = undefined;
+		if (this.drop === undefined) this.item = this.succ(item);
+		else this.item = test(this.succ, item, this.drop);
+		return item;
+	}
+
+	[Symbol.dispose](): void {
+		const item = this.item;
+		this.item = undefined;
+		both(
+			() => {
+				if (item !== undefined) this.drop?.(item);
+			},
+			() => dispose(this.succ),
+		);
 	}
 }
 

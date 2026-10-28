@@ -64,10 +64,10 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 8` names, if any: what
+/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 23 % 8;
+	let at = arg / 23 % 11;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {

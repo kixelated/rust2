@@ -35,7 +35,7 @@ export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64):
 	return self;
 }
 
-export function map$Option_Guard_u32_iterated_closure14(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
+export function map$Option_Guard_u32_iterated_closure15(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}

@@ -21,7 +21,8 @@ that takes an iterator by value takes `rt.drop` for it. A closure that owns a va
 drops carries `[Symbol.dispose]` (`rt.closure`), and one that `Fn` or `FnMut` call drops
 after a call through `FnOnce` (`rt.callOnce`, and `rt.once` for std's). Given to std, an
 iterator adaptor holds it and drops it after its iterator, as std's fields do
-(`iter::holds_closure`), and a function that calls it by `Fn` or `FnMut`, keeps nothing
+(`iter::holds_closure`), as `successors` drops the item it holds next before its own,
+and a function that calls it by `Fn` or `FnMut`, keeps nothing
 of it, and takes nothing else that drops by value drops it as it returns or unwinds
 (`rt.dropAfter`). The task fixture's `drops.rs`, `drops/iters.rs`, and
 `drops/closures.rs` check these against native Rust, natively unwinding too.
@@ -39,13 +40,7 @@ after the half it yields, `next` before); `zip` of two `TrustedRandomAccess` ite
 of items that drop; a `flatten` whose inner iterator holds items once ended, or that a
 `fold` reads where both its source and inner iterators drop; a B-tree's `collect` of
 entries that drop, sorted by the crate's own `Ord`; a `collect` in place of a `zip`
-whose second iterator drops; `successors` of items that drop, which holds the next one;
-and `DebugList::entries` of items that drop.
-
-Next, from [#115](https://github.com/kixelated/rust2/pull/115): `rt.iterFromFn` and
-`rt.iterSuccessors` take droppers for their closure and for `successors`' pending item,
-as std's fields drop them, which lifts both refusals and the reject fixture's second
-refusal of dropping the `Take` around them.
+whose second iterator drops; and `DebugList::entries` of items that drop.
 
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on

@@ -249,7 +249,18 @@ pub(super) fn iterated(log: &Log, id: u32, at: u8) {
 	.take(2)
 	.count();
 	let walked: u32 = std::iter::successors(Some(1u32), move |&n| (n < 3).then_some(n + 1 + j.id() - j.id())).sum();
-	log.note(format!("lazy {made} {walked}"));
+	// One of guards, which holds the next, made by a closure that owns one and may panic,
+	// and drops the one it holds before its closure.
+	let s = guard(43);
+	let mut chain = std::iter::successors(Some(guard(40)), move |g| {
+		if g.id() == id + 41 {
+			check(8);
+		}
+		(g.id() + 1 < s.id()).then(|| Guard::new(g.id() + 1, log.clone()))
+	});
+	log.note(format!("lazy {made} {walked} {:?}", chain.next().map(|g| g.id())));
+	log.note(format!("successor {:?}", chain.next().map(|g| g.id())));
+	drop(chain);
 	// Consumers that borrow the iterator, which drop the closure as they return.
 	let items = list![guard(21), guard(22), guard(23)];
 	let (k, l, m) = (guard(24), guard(25), guard(26));

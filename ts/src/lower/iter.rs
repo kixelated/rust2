@@ -272,16 +272,10 @@ pub fn call<'tcx>(
 		// A closure that owns a value that drops is refused as any std mapping refuses one
 		// it calls but never drops.
 		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		// What drops the item it holds next.
 		["iter", "sources", "successors", "successors"] => {
-			// `rt.iterSuccessors` would leave the item it holds next undropped.
-			let item = targ(0)?;
-			if b.t.drops(item) {
-				b.t.err(
-					span,
-					format!("an iterator that owns `{item}`, which drops, which is not supported yet"),
-				);
-			}
-			return Some(Expr::rt("iterSuccessors", args));
+			let dropper = b.t.dropper(targ(0)?, span);
+			return Some(Expr::rt("iterSuccessors", tail(args, vec![dropper])));
 		}
 		_ => {}
 	}

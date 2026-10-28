@@ -380,11 +380,6 @@ pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy
 	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
-/// `successors` holds the item it yields next, which `rt.iterSuccessors` would not drop.
-pub fn owning_lazy() -> usize {
-	std::iter::successors(Some(Noisy(4)), |_| None).count()
-}
-
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.
 pub fn cow_matched(c: std::borrow::Cow<'_, str>) -> String {
 	match c {
