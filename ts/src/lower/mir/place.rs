@@ -348,7 +348,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// discriminants. `tsc` narrows only what a switch tests.
 	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
 		match ty.kind() {
-			ty::Adt(adt, _) if adt.did().is_local() => match self.variant_ty(ty, variant, span) {
+			ty::Adt(adt, _) if self.b.t.crates.translates(adt.did()) => match self.variant_ty(ty, variant, span) {
 				Some(variant) => Expr::As(Box::new(base), variant),
 				None => base,
 			},

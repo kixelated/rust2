@@ -1,6 +1,8 @@
 # Commits
 
-PRs into `main` are squash-merged, so the PR title becomes the commit subject and the PR description becomes the body.
+PRs land on `main` only through `quest land`, each as one squash commit: the PR title becomes the commit subject and the PR's commit messages become the body.
+Queue a PR with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this), and the Land workflow runs Check's steps once on the batch, landing the longest passing prefix.
+The admin bypass of `main`'s ruleset is for emergencies.
 
 - Use conventional-commit subjects (`feat(ts): ...`, `fix: ...`, `chore: ...`, `docs: ...`).
 - AI commit attribution goes in a `Co-Authored-By:` trailer, not the commit body.
@@ -29,7 +31,7 @@ For each finding:
 - If you don't agree with it, reply to the finding and move on.
 - If it's a relatively easy improvement, fix it and push.
 
-Merge only after a review from a reviewer other than Grok has no findings, or every finding is fixed or replied to.
+Queue a PR only after a review from a reviewer other than Grok has no findings, or every finding is fixed or replied to.
 
 # Follow-ups
 
