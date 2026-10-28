@@ -1,5 +1,6 @@
 //! The api fixture is exported, built as a static library, and driven from C by
-//! `tests/api.c`, whose transcript must match the fixture's own script run natively.
+//! `tests/api.c` and from C++ by `tests/api.cpp`, whose transcripts must match the
+//! fixture's own script run natively.
 //! The reject fixture's export must fail at each item it cannot export.
 
 use std::path::{Path, PathBuf};
@@ -94,6 +95,46 @@ fn api() {
 		String::from_utf8_lossy(&native.stdout),
 		"the C transcript differs from the native one"
 	);
+
+	// The C++ header at each standard, with exceptions and RTTI on and off between them,
+	// runs the same script, then checks its futures' semantics.
+	let cxx = std::env::var_os("CXX").unwrap_or_else(|| "c++".into());
+	for (standard, flags) in [
+		("c++17", &["-fno-exceptions", "-fno-rtti"][..]),
+		("c++20", &[]),
+		("c++23", &["-fno-exceptions", "-fno-rtti"]),
+	] {
+		let exe = scratch().join("api").join(format!("api-{standard}"));
+		run(Command::new(&cxx)
+			.arg(format!("-std={standard}"))
+			.args(flags)
+			.args(["-pedantic", "-Wall", "-Wextra", "-Werror", "-I"])
+			.arg(out.join("include"))
+			.arg(manifest_dir().join("tests").join("api.cpp"))
+			.arg(target.join("debug").join("libapi.a"))
+			.args(["-lpthread", "-ldl", "-lm", "-o"])
+			.arg(&exe));
+		let cpp = run(&mut Command::new(&exe));
+		assert_eq!(
+			String::from_utf8_lossy(&cpp.stdout),
+			String::from_utf8_lossy(&native.stdout),
+			"the {standard} transcript differs from the native one"
+		);
+		run(Command::new(&exe).arg("futures"));
+		for (case, message) in [
+			("moved", "api_counter_get: a handle's value was moved out"),
+			("value", "value() of a result that holds an error"),
+			(
+				"finished",
+				"api_channel_recv_poll: a future is polled after it finished",
+			),
+		] {
+			let output = Command::new(&exe).arg(case).output().unwrap();
+			assert!(!output.status.success(), "{standard} {case} did not abort");
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			assert!(stderr.contains(message), "{standard} {case} printed {stderr}");
+		}
+	}
 
 	// Each broken contract aborts, naming the function and what broke.
 	for (case, message) in [

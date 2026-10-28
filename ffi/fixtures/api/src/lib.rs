@@ -335,6 +335,21 @@ impl Channel {
 	}
 }
 
+/// `value`, on its second poll: the first wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one.
+pub async fn yielded(value: u32) -> u32 {
+	let mut woken = false;
+	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
+		true => Poll::Ready(()),
+		false => {
+			cx.waker().wake_by_ref();
+			Poll::Pending
+		}
+	})
+	.await;
+	value
+}
+
 /// A time: an object, since its field is private, but `Copy`, so passing it by value
 /// copies it rather than moving it out of its handle.
 #[derive(Clone, Copy, Debug, PartialEq)]
