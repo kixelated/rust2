@@ -26,7 +26,7 @@ Decided with the maintainer on 2026-10-27, from
   payload, so the tests cover payloads in Node and Chrome and the README notes it.
 - This quest owns float formatting byte for byte as `core::fmt`: `Display`, `Debug`
   (which switches to an exponent), a precision, and `{:e}`/`{:E}`.
-  [Format specs](/quest/m3/ts-fmt-specs.md) covers the other types.
+  The other types' format specs already translate.
 - `Duration`'s `f64` methods (`as_secs_f64`, `from_secs_f64`, `mul_f64`, `div_f64`,
   `div_duration_f64`, and the `try_` forms) port std's integer algorithms, with its
   panics and `Err`s at `u64::MAX` seconds, negative values, and NaN.
