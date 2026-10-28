@@ -40,6 +40,17 @@ pub struct Label {
 	pub ttl: Option<Duration>,
 }
 
+/// A note whose text may be present but empty, which crosses as itself, not as none.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Note {
+	pub text: Option<String>,
+}
+
+/// Whether `note` has text, even empty.
+pub fn has_text(note: Note) -> bool {
+	note.text.is_some()
+}
+
 /// A plain enumeration.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Shape {
@@ -114,6 +125,12 @@ impl Counter {
 		}
 	}
 
+	/// Whether this is the counter [`Registry::edit`] lends, by its address, which a handle
+	/// lent for the call keeps.
+	pub fn edited(&self) -> bool {
+		std::ptr::from_ref(self) as usize == EDITING.load(std::sync::atomic::Ordering::Relaxed)
+	}
+
 	/// Consumes the counter.
 	pub fn into_label(self, at: Option<Point>) -> Label {
 		Label {
@@ -176,7 +193,20 @@ impl Registry {
 	pub fn push(&mut self, counter: Counter) {
 		self.last = Some(counter);
 	}
+
+	/// The first counter lent to `edit` for the call, returning what `edit` does: a closure
+	/// called only during the call, which C lends as a function.
+	pub fn edit(&mut self, edit: impl FnOnce(&mut Counter) -> bool) -> bool {
+		EDITING.store(
+			std::ptr::from_ref(&self.first) as usize,
+			std::sync::atomic::Ordering::Relaxed,
+		);
+		edit(&mut self.first)
+	}
 }
+
+/// The address of the counter [`Registry::edit`] lends.
+static EDITING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// A name that may borrow its text: its only generic parameter is a lifetime, so a
 /// handle holds `Name<'static>`, which borrows nothing.
@@ -293,6 +323,12 @@ impl Channel {
 		.await
 	}
 
+	/// Wakes `waker` on the next send, keeping it until then, as a driver's poll keeps the
+	/// waker it is given.
+	pub fn notify(&self, waker: Waker) {
+		self.state.lock().unwrap().1 = Some(waker);
+	}
+
 	/// Sends at once, as a function that is not `async` runs when called, and returns a
 	/// future that borrows nothing.
 	pub fn send_later(&self, payload: Bytes) -> impl Future<Output = ()> + use<> {
@@ -327,6 +363,21 @@ impl Channel {
 			payload => Ok(payload),
 		}
 	}
+}
+
+/// `value`, on its second poll: the first wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one.
+pub async fn yielded(value: u32) -> u32 {
+	let mut woken = false;
+	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
+		true => Poll::Ready(()),
+		false => {
+			cx.waker().wake_by_ref();
+			Poll::Pending
+		}
+	})
+	.await;
+	value
 }
 
 /// A time: an object, since its field is private, but `Copy`, so passing it by value
@@ -381,6 +432,15 @@ pub trait Log: Send + Sync {
 /// Each line to `log` as a type parameter takes it, returning how many it kept.
 pub fn emit(log: impl Log, lines: Vec<u8>) -> u32 {
 	lines.iter().filter(|&&n| log.log(n, &format!("line {n}"))).count() as u32
+}
+
+/// Each line to `keep` on another thread, returning how many it kept: a lent closure may
+/// run on any thread until the call returns.
+pub fn filter(lines: Vec<u8>, mut keep: impl FnMut(u8, &str) -> bool + Send) -> u32 {
+	std::thread::scope(|scope| {
+		let kept = scope.spawn(move || lines.iter().filter(|&&n| keep(n, &format!("line {n}"))).count());
+		kept.join().expect("the thread finishes") as u32
+	})
 }
 
 /// Holds a foreign implementation as a trait object, dropping it with itself.
@@ -461,6 +521,28 @@ impl Drop for Token {
 	}
 }
 
+/// Retry settings: each field is unset until C sets it, and the method of its name
+/// resolves it, as Rust's accessors do. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Retry {
+	pub limit: Option<u32>,
+	pub delay: Option<u32>,
+}
+
+impl Retry {
+	pub fn new(limit: Option<u32>) -> Self {
+		Self { limit, delay: None }
+	}
+
+	pub fn limit(&self) -> u32 {
+		self.limit.unwrap_or(3)
+	}
+
+	pub fn delay(&self) -> u32 {
+		self.delay.unwrap_or(100)
+	}
+}
+
 /// How many tokens have dropped.
 pub fn dropped() -> u32 {
 	DROPPED.load(std::sync::atomic::Ordering::Relaxed)
@@ -469,6 +551,32 @@ pub fn dropped() -> u32 {
 /// Both tallies bumped: C may pass one handle twice, which Rust allows of `&`.
 pub fn bump_both(a: &Tally, b: &Tally) -> u32 {
 	a.bump() + b.bump()
+}
+
+/// What `by` returns, plus `by_data`: a closure taking nothing, whose data C names apart.
+pub fn offset(by: impl Fn() -> u32, by_data: u32) -> u32 {
+	by() + by_data
+}
+
+/// A position, which C reaches only as [`walk`] lends it.
+pub struct Cursor {
+	at: u64,
+}
+
+impl Cursor {
+	pub fn at(&self) -> u64 {
+		self.at
+	}
+}
+
+/// A cursor at each of `0..steps` lent shared to `visit`, summing what it returns.
+pub fn walk(steps: u64, mut visit: impl FnMut(&Cursor) -> u64) -> u64 {
+	(0..steps).map(|at| visit(&Cursor { at })).sum()
+}
+
+/// The tally lent shared to `peek` for the call, on one thread, as it is not `Sync`.
+pub fn peek(tally: &Tally, peek: impl FnOnce(&Tally) -> u32) -> u32 {
+	peek(tally)
 }
 
 /// The length of a payload, borrowed for the call.
@@ -630,4 +738,29 @@ pub fn grow(area: &dep::Area, by: u32) -> dep::Area {
 		width: size.width + by,
 		height: size.height + by,
 	})
+}
+
+/// A slot whose method `value` only `Slot<u8>` has, so its path alone names `Slot<u32>`'s
+/// field and `Slot<u8>`'s method. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Slot<T> {
+	pub value: T,
+}
+
+impl<T> Slot<T> {
+	pub fn new(value: T) -> Self {
+		Self { value }
+	}
+}
+
+impl Slot<u8> {
+	/// The value widened and doubled, apart from the field.
+	pub fn value(&self) -> u16 {
+		u16::from(self.value) * 2
+	}
+}
+
+/// A wide slot: a signature that names `Slot<u32>`, which infers it.
+pub fn wide(value: u32) -> Slot<u32> {
+	Slot::new(value)
 }

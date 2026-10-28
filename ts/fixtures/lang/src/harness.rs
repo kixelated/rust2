@@ -2,8 +2,8 @@
 //! case and the rest is its input.
 
 use crate::{
-	chars, chunks, collections, combinators, cows, durations, fmt, generics, ints, iters, keys, refs, shapes, splits,
-	strs,
+	atomics, cells, chars, chunks, collections, combinators, cows, durations, dyns, edits, floats, fmt, generics, ints,
+	iters, keys, nested, refs, shapes, splits, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -15,76 +15,117 @@ pub fn entry(input: &[u8]) -> Vec<u8> {
 	}
 }
 
+/// What a case runs on the second byte and the rest.
+type Case = fn(u8, &[u8], &mut Vec<u8>);
+
+/// Each case's name and what it runs. The first byte picks one modulo their count, so a
+/// case added at the end moves no other.
+fn cases() -> Vec<(&'static str, Case)> {
+	vec![
+		("ints::u8_op", ints::u8_op),
+		("ints::u16_op", ints::u16_op),
+		("ints::u32_op", ints::u32_op),
+		("ints::u64_op", ints::u64_op),
+		("ints::u128_op", ints::u128_op),
+		("ints::usize_op", ints::usize_op),
+		("ints::i8_op", ints::i8_op),
+		("ints::i16_op", ints::i16_op),
+		("ints::i32_op", ints::i32_op),
+		("ints::i64_op", ints::i64_op),
+		("ints::i128_op", ints::i128_op),
+		("ints::isize_op", ints::isize_op),
+		("ints::neg", neg),
+		("ints::cast", cast),
+		("ints::convert", |_, data, out| ints::convert(data, out)),
+		("shapes::copies", |_, data, out| shapes::copies(data, out)),
+		("shapes::loops", |_, data, out| shapes::loops(data, out)),
+		("shapes::patterns", |_, data, out| shapes::patterns(data, out)),
+		("shapes::closures", |_, data, out| shapes::closures(data, out)),
+		("shapes::discriminants", |_, data, out| shapes::discriminants(data, out)),
+		("shapes::library", |_, data, out| shapes::library(data, out)),
+		("fmt::ints", fmt::ints),
+		("fmt::strings", |_, data, out| fmt::strings(data, out)),
+		("fmt::derived", |_, data, out| fmt::derived(data, out)),
+		("fmt::written", |_, data, out| fmt::written(data, out)),
+		("fmt::panics", fmt::panics),
+		("generics::methods", |_, data, out| generics::methods(data, out)),
+		("iters::adaptors", iters::adaptors),
+		("iters::consumers", iters::consumers),
+		("iters::ranges", |_, data, out| iters::ranges(data, out)),
+		("iters::options", |_, data, out| iters::options(data, out)),
+		("iters::own", |_, data, out| iters::own(data, out)),
+		("iters::values", |_, data, out| iters::values(data, out)),
+		("shapes::order", |_, data, out| shapes::order(data, out)),
+		("collections::hash_maps", collections::hash_maps),
+		("collections::sets", collections::sets),
+		("collections::btree_maps", collections::btree_maps),
+		("collections::deques", |_, data, out| collections::deques(data, out)),
+		("shapes::flows", |_, data, out| shapes::flows(data, out)),
+		("keys::keys", keys::keys),
+		("chars::chars", chars::chars),
+		("strs::strs", strs::strs),
+		("collections::vecs", |_, data, out| collections::vecs(data, out)),
+		("strs::slices", strs::slices),
+		("collections::stores", |_, data, out| collections::stores(data, out)),
+		("chunks::chunks", chunks::chunks),
+		("cows::cows", cows::cows),
+		("durations::durations", durations::durations),
+		("combinators::combinators", combinators::combinators),
+		("splits::splits", splits::splits),
+		("nested::nested", nested::nested),
+		("refs::refs", |_, data, out| refs::refs(data, out)),
+		("fmt::counts", |_, data, out| fmt::counts(data, out)),
+		("fmt::rounding", |_, _, out| fmt::rounding(out)),
+		("iters::skips", iters::skips),
+		("wrappers::wrappers", wrappers::wrappers),
+		("edits::edits", edits::edits),
+		("utf8::decodes", utf8::decodes),
+		("floats::floats", floats::floats),
+		("atomics::atomics", atomics::atomics),
+		("keys::overrides", keys::overrides),
+		("dyns::dyns", |_, data, out| dyns::dyns(data, out)),
+		("cells::cells", cells::cells),
+		("dyns::shared", |_, data, out| dyns::shared(data, out)),
+	]
+}
+
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();
 	let [op, kind, data @ ..] = input else {
 		return out;
 	};
-	let (op, kind) = (*op, *kind);
-	match op % 52 {
-		0 => ints::u8_op(kind, data, &mut out),
-		1 => ints::u16_op(kind, data, &mut out),
-		2 => ints::u32_op(kind, data, &mut out),
-		3 => ints::u64_op(kind, data, &mut out),
-		4 => ints::u128_op(kind, data, &mut out),
-		5 => ints::usize_op(kind, data, &mut out),
-		6 => ints::i8_op(kind, data, &mut out),
-		7 => ints::i16_op(kind, data, &mut out),
-		8 => ints::i32_op(kind, data, &mut out),
-		9 => ints::i64_op(kind, data, &mut out),
-		10 => ints::i128_op(kind, data, &mut out),
-		11 => ints::isize_op(kind, data, &mut out),
-		12 => match kind % 6 {
-			0 => ints::i8_neg(data, &mut out),
-			1 => ints::i16_neg(data, &mut out),
-			2 => ints::i32_neg(data, &mut out),
-			3 => ints::i64_neg(data, &mut out),
-			4 => ints::i128_neg(data, &mut out),
-			_ => ints::isize_neg(data, &mut out),
-		},
-		13 => match data.split_first() {
-			Some((&to, data)) => ints::cast(kind, to, data, &mut out),
-			None => ints::cast(kind, kind / 12, data, &mut out),
-		},
-		14 => ints::convert(data, &mut out),
-		15 => shapes::copies(data, &mut out),
-		16 => shapes::loops(data, &mut out),
-		17 => shapes::patterns(data, &mut out),
-		18 => shapes::closures(data, &mut out),
-		19 => shapes::discriminants(data, &mut out),
-		20 => shapes::library(data, &mut out),
-		21 => fmt::ints(kind, data, &mut out),
-		22 => fmt::strings(data, &mut out),
-		23 => fmt::derived(data, &mut out),
-		24 => fmt::written(data, &mut out),
-		25 => fmt::panics(kind, data, &mut out),
-		26 => generics::methods(data, &mut out),
-		27 => iters::adaptors(kind, data, &mut out),
-		28 => iters::consumers(kind, data, &mut out),
-		29 => iters::ranges(data, &mut out),
-		30 => iters::options(data, &mut out),
-		31 => iters::own(data, &mut out),
-		32 => iters::values(data, &mut out),
-		33 => shapes::order(data, &mut out),
-		34 => collections::hash_maps(kind, data, &mut out),
-		35 => collections::sets(kind, data, &mut out),
-		36 => collections::btree_maps(kind, data, &mut out),
-		37 => collections::deques(data, &mut out),
-		38 => shapes::flows(data, &mut out),
-		39 => keys::keys(kind, data, &mut out),
-		40 => chars::chars(kind, data, &mut out),
-		41 => strs::strs(kind, data, &mut out),
-		42 => collections::vecs(data, &mut out),
-		43 => strs::slices(kind, data, &mut out),
-		44 => collections::stores(data, &mut out),
-		45 => chunks::chunks(kind, data, &mut out),
-		46 => cows::cows(kind, data, &mut out),
-		47 => durations::durations(kind, data, &mut out),
-		48 => combinators::combinators(kind, data, &mut out),
-		49 => splits::splits(kind, data, &mut out),
-		50 => refs::refs(data, &mut out),
-		_ => iters::skips(kind, data, &mut out),
-	}
+	let cases = cases();
+	let (_, case) = cases[usize::from(*op) % cases.len()];
+	case(*kind, data, &mut out);
 	out
+}
+
+/// The first byte that picks the case named `name`, which `caller.ts` targets by.
+pub fn op(name: &str) -> u8 {
+	match cases().iter().position(|&(n, _)| n == name) {
+		Some(i) => i as u8,
+		None => panic!("no case {name}"),
+	}
+}
+
+/// Negate the signed type `kind` picks.
+fn neg(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 6 {
+		0 => ints::i8_neg(data, out),
+		1 => ints::i16_neg(data, out),
+		2 => ints::i32_neg(data, out),
+		3 => ints::i64_neg(data, out),
+		4 => ints::i128_neg(data, out),
+		_ => ints::isize_neg(data, out),
+	}
+}
+
+/// Cast from the type `kind` picks to the one the next byte does, or without one, to
+/// a type `kind` also picks.
+fn cast(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match data.split_first() {
+		Some((&to, data)) => ints::cast(kind, to, data, out),
+		None => ints::cast(kind, kind / 12, data, out),
+	}
 }

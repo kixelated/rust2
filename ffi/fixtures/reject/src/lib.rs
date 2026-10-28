@@ -173,3 +173,51 @@ pub fn listed(cell: Cell<Vec<String>>) -> usize {
 
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
+
+/// A borrowed waker: one crosses only into Rust, which keeps it.
+pub fn lend(waker: &std::task::Waker) {
+	waker.wake_by_ref();
+}
+
+/// A field and a method of one name, which claim one C name until `field@` renames one.
+#[non_exhaustive]
+pub struct Limit {
+	pub max: u32,
+}
+
+impl Limit {
+	pub fn new(max: u32) -> Self {
+		Self { max }
+	}
+
+	pub fn max(&self) -> u32 {
+		self.max.max(1)
+	}
+}
+
+/// A closure kept past the call, as a `'static` bound lets it be.
+pub fn spawn(task: impl FnOnce() + Send + 'static) {
+	std::thread::spawn(task);
+}
+
+/// A closure the future holds past the call.
+pub async fn later(task: impl FnOnce()) {
+	task()
+}
+
+/// A closure bound by more than C's function can meet.
+pub fn twice(f: impl Fn() + Clone) {
+	f.clone()();
+	f()
+}
+
+/// One closure type for two parameters, which C's two functions cannot be.
+pub fn both<F: Fn()>(a: F, b: F) {
+	a();
+	b()
+}
+
+/// An object lent only for as long as it borrows, which a handle's `'static` outlives.
+pub fn read(f: impl FnOnce(&Text<'_>)) {
+	f(&Text(""))
+}

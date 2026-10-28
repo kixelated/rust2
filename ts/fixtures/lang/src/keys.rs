@@ -1,10 +1,10 @@
 //! Keys a map compares, orders, and hashes through std's impls: `Option`s, which order
 //! `None` first, and `Arc`s, which compare as what they hold; lookups through `Borrow`;
 //! the references to values a map holds that JS copies, changed in place; and the `!=`,
-//! `<`, `<=`, `>`, and `>=` a type's `PartialEq` and `PartialOrd` inherit.
+//! `<`, `<=`, `>`, and `>=` a type's `PartialEq` and `PartialOrd` inherit or override.
 
 use std::borrow::Borrow;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, HashMap, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -71,6 +71,35 @@ impl PartialOrd for Skew {
 			true => None,
 			false => Some(other.0.cmp(&self.0)),
 		}
+	}
+}
+
+/// An `Ord` by value whose own `<`, `<=`, `>`, and `>=` each disagree with it: `<` and `>`
+/// reversed, `<=` by quarter and reversed, and `>=` by the value mod 4, so a test that std
+/// calls and the translation computes from `partial_cmp` shows. `<` is still a total
+/// order, which sorts need.
+#[derive(Clone, Copy, PartialEq, Eq, Ord)]
+struct Lopsided(u8);
+
+impl PartialOrd for Lopsided {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+
+	fn lt(&self, other: &Self) -> bool {
+		self.0 > other.0
+	}
+
+	fn le(&self, other: &Self) -> bool {
+		self.0 / 4 >= other.0 / 4
+	}
+
+	fn gt(&self, other: &Self) -> bool {
+		self.0 < other.0
+	}
+
+	fn ge(&self, other: &Self) -> bool {
+		self.0 % 4 >= other.0 % 4
 	}
 }
 
@@ -310,6 +339,46 @@ fn defaults(data: &[u8], out: &mut Vec<u8>) {
 				| ((&l[..0] == &r[..0]) as u8) << 4
 				| ((data[..i] == data[data.len() - i..]) as u8) << 5,
 		);
+	}
+}
+
+/// The comparisons std makes through a type's own `<`, `<=`, `>`, and `>=`: directly, as
+/// the last field of a tuple, in an `Arc`, and in a `Reverse`, and in `max`, `min`,
+/// `clamp`, and sorts. A field before a tuple's last, and an `Option`, compare by
+/// `partial_cmp`. The first three bytes clamp last, which panics unless `min <= max`.
+pub fn overrides(_: u8, data: &[u8], out: &mut Vec<u8>) {
+	for i in 1..data.len() {
+		let (c, d) = (data[i - 1], data[i]);
+		let (a, b) = (Lopsided(c), Lopsided(d));
+		out.push(compare(&a, &b));
+		out.push(compare(&(c % 2, a), &(d % 2, b)) | ((&(c % 2, &a) < &(d % 2, &b)) as u8) << 5);
+		out.push(compare(&((c % 2, c % 3), a), &((d % 2, d % 3), b)));
+		out.push(compare(&(a, c % 2), &(b, d % 2)));
+		out.push(compare(&Arc::new(a), &Arc::new(b)));
+		out.push(compare(&Reverse(a), &Reverse(b)));
+		out.push(compare(&Some(a), &Some(b)));
+		out.push(compare(&(c % 2, Reverse(Arc::new(a))), &(d % 2, Reverse(Arc::new(b)))));
+		out.extend([a.max(b).0, a.min(b).0, (&a).max(&b).0]);
+		let (m, n) = (
+			(c % 2, Reverse(a)).max((d % 2, Reverse(b))),
+			Arc::new(a).min(Arc::new(b)),
+		);
+		out.extend([m.0, m.1.0.0, n.0]);
+		let x = Lopsided(c ^ d);
+		if a <= b {
+			out.push(x.clamp(a, b).0);
+		}
+	}
+	let mut v: Vec<Lopsided> = data.iter().map(|&c| Lopsided(c)).collect();
+	v.sort();
+	out.extend(v.iter().map(|x| x.0));
+	v.sort_unstable_by_key(|&x| (x.0 % 3, Reverse(x)));
+	out.extend(v.iter().map(|x| x.0));
+	let mut pairs: Vec<(u8, Lopsided)> = data.iter().map(|&c| (c % 4, Lopsided(c))).collect();
+	pairs.sort_unstable();
+	out.extend(pairs.iter().map(|p| p.1.0));
+	if let [c, d, e, ..] = *data {
+		out.push(Lopsided(c).clamp(Lopsided(d), Lopsided(e)).0);
 	}
 }
 

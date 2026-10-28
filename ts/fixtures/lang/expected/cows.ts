@@ -95,7 +95,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				}
 				rt.byteVecPush(out, _189 ? 1 : 0);
 			}
-			rt.byteVecPush(out, rt.ordMax(a, b, rt.cmpStr) === b ? 1 : 0);
+			rt.byteVecPush(out, rt.ordMax(a, b, rt.cmpLt(rt.cmpStr)) === b ? 1 : 0);
 		} else if (_14 === 3) {
 			const n: Named.Named = Named.new(first, kind);
 			const m2: Named.Named = Named.clone$Clone(n);

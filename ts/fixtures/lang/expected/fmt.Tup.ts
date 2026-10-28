@@ -9,9 +9,9 @@ export interface Tup {
 
 export function fmt$Debug(self: Tup, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self._1 === undefined) {
-		return rt.debugTupleFinishNonExhaustive(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)));
+		return rt.debugTupleFinishNonExhaustive(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Debug(self._0, f)));
 	}
-	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Display(self._0, f)), (f: rt.Formatter) => rt.fmtOption(self._1, f, rt.u8Display)));
+	return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, "Tup"), (f: rt.Formatter) => rt.u8Debug(self._0, f)), (f: rt.Formatter) => rt.fmtOption(self._1, f, rt.u8Debug)));
 }
 
 //# sourceMappingURL=fmt.Tup.ts.map

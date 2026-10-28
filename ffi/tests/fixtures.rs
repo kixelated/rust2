@@ -1,5 +1,6 @@
 //! The api fixture is exported, built as a static library, and driven from C by
-//! `tests/api.c`, whose transcript must match the fixture's own script run natively.
+//! `tests/api.c` and from C++ by `tests/api.cpp`, whose transcripts must match the
+//! fixture's own script run natively.
 //! The reject fixture's export must fail at each item it cannot export.
 
 use std::path::{Path, PathBuf};
@@ -95,6 +96,75 @@ fn api() {
 		"the C transcript differs from the native one"
 	);
 
+	// The C++ header at each standard, with exceptions and RTTI on and off between them,
+	// runs the same script, then checks its futures' semantics.
+	let cxx = std::env::var_os("CXX").unwrap_or_else(|| "c++".into());
+	for (standard, flags) in [
+		("c++17", &["-fno-exceptions", "-fno-rtti"][..]),
+		("c++20", &[]),
+		("c++23", &["-fno-exceptions", "-fno-rtti"]),
+	] {
+		let exe = scratch().join("api").join(format!("api-{standard}"));
+		run(Command::new(&cxx)
+			.arg(format!("-std={standard}"))
+			.args(flags)
+			.args(["-pedantic", "-Wall", "-Wextra", "-Werror", "-I"])
+			.arg(out.join("include"))
+			.arg(manifest_dir().join("tests").join("api.cpp"))
+			.arg(target.join("debug").join("libapi.a"))
+			.args(["-lpthread", "-ldl", "-lm", "-o"])
+			.arg(&exe));
+		let cpp = run(&mut Command::new(&exe));
+		assert_eq!(
+			String::from_utf8_lossy(&cpp.stdout),
+			String::from_utf8_lossy(&native.stdout),
+			"the {standard} transcript differs from the native one"
+		);
+		run(Command::new(&exe).arg("futures"));
+		for (case, message) in [
+			("moved", "api_counter_get: a handle's value was moved out"),
+			("value", "value() of a result that holds an error"),
+			(
+				"finished",
+				"api_channel_recv_poll: a future is polled after it finished",
+			),
+			(
+				"lent moved",
+				"api_counter_into_label: a lent handle's value cannot move out",
+			),
+			("lent kept", "a lent object was moved out of"),
+			("null view", "a view of null bytes has a length"),
+		] {
+			let output = Command::new(&exe).arg(case).output().unwrap();
+			assert!(!output.status.success(), "{standard} {case} did not abort");
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			assert!(stderr.contains(message), "{standard} {case} printed {stderr}");
+		}
+	}
+
+	// A C++ program whose header names another contract than its library's aborts at load.
+	let mismatched = scratch().join("api").join("contract.cpp");
+	std::fs::write(
+		&mismatched,
+		"#include \"api.h\"\n#undef API_CONTRACT\n#define API_CONTRACT ((uint64_t)0)\n#include \"api.hpp\"\nint main() {}\n",
+	)
+	.unwrap();
+	let contract = scratch().join("api").join("contract");
+	run(Command::new(&cxx)
+		.args(["-std=c++17", "-I"])
+		.arg(out.join("include"))
+		.arg(&mismatched)
+		.arg(target.join("debug").join("libapi.a"))
+		.args(["-lpthread", "-ldl", "-lm", "-o"])
+		.arg(&contract));
+	let output = Command::new(&contract).output().unwrap();
+	assert!(!output.status.success(), "a mismatched contract did not abort");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("api.hpp and the library are from different builds"),
+		"a mismatched contract printed {stderr}"
+	);
+
 	// Each broken contract aborts, naming the function and what broke.
 	for (case, message) in [
 		("moved", "api_counter_get: a handle's value was moved out"),
@@ -106,6 +176,12 @@ fn api() {
 		),
 		("enum", "api_greet: an enum value is invalid"),
 		("bound", "api_count: a bound's kind is invalid"),
+		("lent", "api_registry_edit: a lent handle was freed"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
+		("null", "api_registry_edit: a function is null"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();
 		assert!(!output.status.success(), "{case} did not abort");

@@ -72,6 +72,14 @@ fn main() {
 	println!("debug {c:?}");
 	let label = c.into_label(Some(p));
 	println!("label {label:?}");
+	let empty = api_lib::Note {
+		text: Some(String::new()),
+	};
+	println!(
+		"note {} {}",
+		api_lib::has_text(empty),
+		api_lib::has_text(api_lib::Note::default())
+	);
 
 	let (below, above) = Counter::new("s", 7).split(5);
 	println!(
@@ -100,6 +108,14 @@ fn main() {
 	let mut last = registry.last().unwrap().clone();
 	let _ = last.add(10);
 	println!("last {} lent {}", registry.last().unwrap().get(), last.get());
+	// A closure lent for the call edits the first counter through a handle.
+	let edited = registry.edit(|counter| {
+		let _ = counter.add(5);
+		counter.edited() && counter.get() == 6
+	});
+	println!("edit {edited} {}", registry.first.get());
+	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
+	println!("offset {}", api_lib::offset(|| 7, 3));
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));
@@ -148,6 +164,11 @@ fn main() {
 	println!("write {}", logger.write("hi"));
 	drop(logger);
 	println!("dropped");
+	let kept = api_lib::filter(vec![1, 2, 3, 4], |level, line| {
+		println!("filter {level} {line}");
+		level > 2
+	});
+	println!("filtered {kept}");
 
 	let channel = Channel::new();
 	let count = Arc::new(Count(AtomicUsize::new(0)));
@@ -182,6 +203,9 @@ fn main() {
 	if let Poll::Ready((payload, len)) = sized.as_mut().poll(&mut cx) {
 		println!("sized {} {len}", String::from_utf8_lossy(&payload));
 	}
+	channel.notify(waker.clone());
+	channel.send(Bytes::from_static(b"rung"));
+	println!("woken {}", count.0.load(Ordering::Relaxed));
 
 	let list = Node {
 		value: 1,
@@ -193,6 +217,7 @@ fn main() {
 	tally.bump();
 	println!("tally {} {}", tally.bump(), tally == tally);
 	println!("both {}", api_lib::bump_both(&tally, &tally));
+	println!("peek {}", api_lib::peek(&tally, |tally| tally.bump()));
 
 	let area = api_lib::grow(&dep::Area::new(Size { width: 2, height: 3 }), 1);
 	let size = area.size();
@@ -242,4 +267,15 @@ fn main() {
 	println!("token {} dropped {}", token.id, api_lib::dropped());
 	drop(token);
 	println!("dropped {}", api_lib::dropped());
+
+	let retry = api_lib::Retry::new(Some(5));
+	let limit = retry.limit;
+	println!(
+		"retry {} {} {} {}",
+		u8::from(limit.is_some()),
+		limit.unwrap_or(0),
+		retry.limit(),
+		retry.delay()
+	);
+	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
 }

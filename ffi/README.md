@@ -24,6 +24,7 @@ to what the library builds with on any platform, read off cargo's resolution, wh
 it was declared (the manifest, cargo's config, `--config`, or the environment), keyed by
 its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
+Beside the C header, `include/<prefix>.hpp` holds the same API in C++.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -31,7 +32,8 @@ package = "moq-net"
 # The prefix of every C name, the package's name in snake case by default.
 prefix = "moq"
 # Paths from the crate root left out: a module, an item, or one method or field. Each
-# must name something exported. Nothing else leaves an item out.
+# must name something exported. Nothing else leaves an item out. As in rustdoc, a path a
+# method or constant shares with a field names the method, and `field@` the field.
 exclude = ["track::Producer::poll_closed"]
 
 # C names, without the prefix, for paths whose names the naming rule makes clash.
@@ -60,6 +62,7 @@ export's, and adds nothing; another crate's type is refused.
 | a generic type, at each instance it infers | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
+| a type parameter or `impl` bounded by `Fn`, `FnMut`, or `FnOnce`, which no lifetime bound or return lets outlive the call | a C function and its `void *` data, which Rust calls only during the call; any other closure is refused |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
@@ -68,6 +71,7 @@ export's, and adds nothing; another crate's type is refused.
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `Duration` | `<prefix>_duration` |
+| `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
@@ -110,9 +114,21 @@ refused, and the census counts why.
   cancelled read never loses a value. The future reuses the last waker when given the same
   one again, and owns what it borrowed: the handle it was called on stays borrowed until
   it finishes or is freed.
+- **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
+  state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
+  from the caller's event loop.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **Closures** lent for a call are a function and its data, which Rust calls only during
+  the call, from any thread. One takes what a callback takes, and objects by reference,
+  each lent as a handle to the value where it is for that call: C borrows it no further
+  than Rust lent it, and moving out of it, freeing it, or keeping a borrow past the call
+  aborts.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is
@@ -120,20 +136,61 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by its generic item's name, then each argument
-  but those at their defaults after the last that is not, so the instance at its defaults
-  is named as the item. Each argument takes the last segment of its C name, such as
-  `extra` for moq-mux's `catalog::hang::Extra`, so `catalog::Producer<catalog::hang::Extra>`
-  is `moq_catalog_producer_extra`. Where two instances of one item would still share a
-  name, each argument that tells them apart takes one more segment at a time, until they
+  `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
+  `Backoff::initial`; `field@Backoff::initial` names the field.
+
+  An instance is named by its generic item's name, then each argument but those at their
+  defaults after the last that is not, so the instance at its defaults is named as the
+  item. Each argument takes the last segment of its C name, such as `extra` for moq-mux's
+  `catalog::hang::Extra`, so `catalog::Producer<catalog::hang::Extra>` is
+  `moq_catalog_producer_extra`. Where two instances of one item would still share a name,
+  each argument that tells them apart takes one more segment at a time, until they
   differ: the api fixture's `Counter::seeded` is `api_counter_seeded_point` at its
   `Point`, and `api_counter_seeded_polar_point` at `polar::Point`. The names depend on
   every instance the item exports at, so one an upstream change adds can lengthen another's
   name. A type instance's methods are named through it, and a function instance appends
-  its arguments' names, a reference's by what it borrows. An `exclude` of a type or method by the generic type's path leaves it out of
-  every instance, and by the instance's path
+  its arguments' names, a reference's by what it borrows. An `exclude` of a type or method
+  by the generic type's path leaves it out of every instance, and by the instance's path
   (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
   `rename` by the generic item's path renames each of its instances.
+
+## C++
+
+`<prefix>.hpp` is header-only C++ over the C header, for C++17, 20, and 23, with
+exceptions and RTTI on or off: it throws nothing and reads no type information.
+
+- **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
+  is `moq::track_producer`, and its method `moq_track_producer_append_group` is
+  `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
+  as does a member named as its class or one of its fields.
+- **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
+  clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
+  the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
+  by a parameter taken by value.
+- **Records** are structs, and **enums** an `enum class`, or for one with data a
+  `std::variant` of a struct per variant, `<enum>_<variant>`. An enum's methods and
+  traits are free functions taking it first. `PartialEq` is `==`, `Display` `to_string()`,
+  `Debug` `debug()`, and `Default` `default_()`.
+- **Bytes** are passed as a `view`, which any contiguous bytes convert to, and returned as
+  a `buf`, which owns Rust's buffer without a copy. `Option<T>` is `std::optional<T>`, a
+  tuple `std::tuple`, and `Result<T, E>` a `result<T, E>`, whose `value()` aborts on an
+  error.
+- **Traits** are abstract classes, passed as a `std::unique_ptr` that Rust deletes.
+- **Closures** lent for a call are any callable, taken by a template parameter, which
+  Rust calls only during the call, from any thread. An object it lends is a reference to
+  its class for that call: moving out of it aborts.
+- **Futures** are move-only `future<...>`s, freed when destroyed, which cancels them and
+  loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
+  `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
+  a `task` that cancels when destroyed, after which the callback has finished or never
+  runs; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
+  executor. An executor is any callable taking a `void()` job to run once, later, on any
+  thread: never inline, since a wake may come from inside Rust. Each wake that lands while
+  the future polls polls it again, and a future has one poller at a time, since awaiting
+  it moves it.
+- A **waker** is a shared callable, which Rust may call from any thread.
+- **The contract** is checked when the program loads, before any other call: a header
+  and a library from different builds abort.
 
 ## IR
 
@@ -142,8 +199,10 @@ records, enums, objects, callbacks, functions, and constants of every export, ea
 its Rust path, its span, and its docs. A type is in the exact form Rust takes or returns it
 (`&str` apart from `String`, `Box<dyn Trait>` apart from `impl Trait`), so a generator can
 borrow where Rust borrows. [`src/abi.rs`](src/abi.rs) decides the C ABI from it once,
-names and signatures, so [`src/c.rs`](src/c.rs) and [`src/glue.rs`](src/glue.rs) agree;
-the runtime the glue includes is [`runtime/rt.rs`](runtime/rt.rs).
+names and signatures, so [`src/c.rs`](src/c.rs), [`src/cpp.rs`](src/cpp.rs), and
+[`src/glue.rs`](src/glue.rs) agree; the runtime the glue includes is
+[`runtime/rt.rs`](runtime/rt.rs), and the one the C++ header includes
+[`runtime/rt.hpp`](runtime/rt.hpp).
 
 ## Census
 
@@ -155,19 +214,24 @@ rest. It ignores the config's `exclude`.
 ## Tests
 
 ```bash
-just ffi test     # export the fixtures, build them, and drive api from C
-just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c
+just ffi test     # export the fixtures, build them, and drive api from C and C++
+just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c and moq/moq.cpp
 just ffi census   # census each into target/census
-nix develop .#bench --command just ffi bench  # frame writes, through the export and moq's rs/moq-c
+nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C and C++, and moq's rs/moq-c
 ```
 
 The `api` fixture covers each rule once, and names the `dep` fixture's types, which
 export into the same library. `tests/api.c` runs the same script as the
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
-then it breaks each runtime check, which must abort with its message. The `reject`
+then it breaks each runtime check, which must abort with its message. `tests/api.cpp`
+runs the script through the C++ header at C++17, 20, and 23, with exceptions and RTTI off
+at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
+wake and its poll that loses nothing, and a coroutine resumed or destroyed. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
-hands it to a client to publish, reads an OpusHead into hang's catalog through moq-mux,
-and publishes a binary track the catalog lists.
+hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
+publishes a binary track the catalog lists, and reads the catalog lent to C through
+`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
+C++17 without exceptions or RTTI, as OBS builds it.

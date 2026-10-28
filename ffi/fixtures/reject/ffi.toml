@@ -3,5 +3,9 @@ prefix = "reject"
 # An exclusion leaves an item or an instance out, so nothing refuses it.
 exclude = ["Cell<u16>", "Excluded"]
 
+# A field that is none: `min` names nothing of `Limit`.
+[rename]
+"field@Limit::min" = "limit_min"
+
 # Another export, whose `Size` claims the same C name as this one's.
 [crates.dep-fixture]

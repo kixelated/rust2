@@ -5,15 +5,17 @@
 //!
 //! `kio` trims moq's kio to what its futures hinge on: a `Waiter` holding the task's
 //! waker behind an `Arc` that `WaiterList`s hold weakly, `wait`, and a channel whose
-//! last producer closes it on drop. `model` holds the async functions. `exec` is a
-//! deterministic FIFO executor that logs every poll, wake, and waker clone and drop, and
-//! `harness` runs a script of executor steps through it; `tests/task.ts` runs the same
-//! script on the translation with its own executor. `bench` holds the handoff `just ts
-//! bench` times. None of `exec`, `harness`, and `bench` is translated.
+//! last producer closes it on drop. `model` holds the async functions, and `futures` one
+//! over std's future helpers. `exec` is a deterministic FIFO executor that logs every
+//! poll, wake, and waker clone and drop, and `harness` runs a script of executor steps
+//! through it; `tests/task.ts` runs the same script on the translation with its own
+//! executor. `bench` holds the handoff `just ts bench` times. None of `exec`, `harness`,
+//! and `bench` is translated.
 
 pub mod bench;
 pub mod drops;
 pub mod exec;
+pub mod futures;
 pub mod harness;
 pub mod kio;
 pub mod log;

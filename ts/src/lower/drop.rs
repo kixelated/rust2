@@ -39,13 +39,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
+					| Std::OnceCell
+					| Std::OnceLock
 					| Std::Poll
 					| Std::Pin
+					| Std::PollFn
 					| Std::HashMap
 					| Std::HashSet
 					| Std::BTreeMap
 					| Std::BTreeSet
-					| Std::VecDeque,
+					| Std::VecDeque
+					| Std::Bound
+					| Std::Reverse,
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
@@ -55,13 +60,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					false => self.fields_drop(*adt, args, true),
 				},
 				Some(_) => false,
-				None if adt.did().is_local() => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
+				None if self.crates.translates(adt.did()) => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
 				None => false,
 			},
 			ty::Tuple(tys) => tys.iter().any(|t| self.drops(t)),
 			ty::Array(elem, _) => self.drops(*elem),
 			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drops(t)),
-			ty::Coroutine(..) | ty::Param(_) => true,
+			// Whatever it was made of may drop.
+			ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		};
 		self.drops_open.remove(&ty);
@@ -78,7 +84,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// Whether `ty` is one of std's iterators, or a type they are built of, which an `rt.Iter`
 	/// stands for: it drops what it owns, of its fields or, with a `Drop` impl, its items.
-	fn std_iter(&self, ty: Ty<'tcx>) -> bool {
+	pub(super) fn std_iter(&self, ty: Ty<'tcx>) -> bool {
 		let ty::Adt(adt, _) = ty.kind() else {
 			return false;
 		};
@@ -114,15 +120,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Its binding's `[Symbol.dispose]`.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Waker) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
-					self.disposable(args.type_at(0), span)
-				}
-				// An `rt.Iter` drops what it was given to, but not a closure's captures.
-				None | Some(Std::Peekable) if self.std_iter(ty) => !ty
-					.walk()
-					.filter_map(|arg| arg.as_type())
-					.any(|t| matches!(t.kind(), ty::Closure(..)) && self.drops(t)),
+				// Each drops by what it was given.
+				Some(Std::Waker | Std::PollFn) => true,
+				Some(
+					Std::Arc
+					| Std::Mutex
+					| Std::OnceCell
+					| Std::OnceLock
+					| Std::Option
+					| Std::Box
+					| Std::Pin
+					| Std::Reverse,
+				) => self.disposable(args.type_at(0), span),
+				// An `rt.Iter` drops what it was given to.
+				None | Some(Std::Peekable) if self.std_iter(ty) => self.closures_held(ty),
 				Some(_) => false,
 				// A generic `Drop` impl has an instance per type, which one class's glue can't call.
 				None if adt.is_struct() && !self.generic_dtor(*adt) => {
@@ -135,10 +146,24 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			// A closure's `[Symbol.dispose]` drops what it owns.
-			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) => true,
+			// A closure's `[Symbol.dispose]` drops what it owns, a `dyn Future`'s what it is, and
+			// another trait object's what it wraps.
+			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		}
+	}
+
+	/// Whether each closure that drops in `ty`, one of std's iterators, is one an adaptor's
+	/// `rt.Iter` drops, as `iter::holds_closure` says.
+	fn closures_held(&mut self, ty: Ty<'tcx>) -> bool {
+		let ty::Adt(adt, args) = ty.kind() else {
+			return true;
+		};
+		let holds = super::iter::holds_closure(self.tcx, adt.did());
+		args.types().all(|t| match t.kind() {
+			ty::Closure(..) => holds || !self.drops(t),
+			_ => self.closures_held(t),
+		})
 	}
 
 	/// Whether dropping a `ty` may run a `Drop` impl of the crate's, which may panic: std's
@@ -152,14 +177,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Waker) => false,
+				// One from an `Arc` runs the crate's `Drop`, which a waker's type doesn't name.
+				Some(Std::Waker) => true,
 				// What it holds of its own, or of its items.
 				None | Some(Std::Peekable) if self.std_iter(ty) => {
 					args.types().any(|t| self.drop_panics(t, seen))
 						|| self.iter_item(ty).is_some_and(|item| self.drop_panics(item, seen))
 				}
 				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
-				None if adt.did().is_local() => {
+				None if self.crates.translates(adt.did()) => {
 					let env = self.typing_env_pub();
 					adt.has_dtor(tcx)
 						|| adt.all_fields().any(|field| {
@@ -201,9 +227,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Each is its contents in JS.
-				Some(Std::Option | Std::Box | Std::Mutex | Std::MutexGuard | Std::Poll | Std::Pin) => {
-					args.types().all(|t| self.inert(t))
-				}
+				Some(
+					Std::Option
+					| Std::Box
+					| Std::Mutex
+					| Std::MutexGuard
+					| Std::OnceCell
+					| Std::OnceLock
+					| Std::Poll
+					| Std::Pin
+					| Std::Reverse,
+				) => args.types().all(|t| self.inert(t)),
 				// Its waker.
 				Some(Std::Context) => false,
 				Some(_) => true,
@@ -247,7 +281,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let (name, args) = match std {
 				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
 				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
-				Std::Box | Std::Pin => return self.drop_value(value, args.type_at(0), span),
+				Std::OnceCell | Std::OnceLock => {
+					let option = Ty::new_option(self.tcx, args.type_at(0));
+					return self.drop_value(value.member("v"), option, span);
+				}
+				Std::Box | Std::Pin | Std::Reverse => return self.drop_value(value, args.type_at(0), span),
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
@@ -279,7 +317,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	fn drop_glue_call(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		let rustc = match ty.kind() {
 			ty::Tuple(_) => true,
-			ty::Adt(adt, _) => adt.is_enum() || adt.did().is_local(),
+			ty::Adt(adt, _) => adt.is_enum() || self.crates.translates(adt.did()),
 			_ => false,
 		};
 		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
@@ -292,7 +330,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		// A census lowers a generic function over its type parameters, where only an
 		// instance can say what the glue is.
-		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
+		if rustc && self.census && (ty.has_param() || ty.has_aliases()) {
 			return Some(Expr::rt("drop", vec![value]));
 		}
 		self.err(span, format!("dropping `{ty}`, which is not supported yet"));
@@ -372,7 +410,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Array(elem, _) => Some(*elem),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
-				Std::Option | Std::Box | Std::Pin => self.elements(args.type_at(0)),
+				Std::Option if self.erases_to(args.type_at(0)).undefined => None,
+				Std::Option | Std::Box | Std::Pin | Std::Reverse => self.elements(args.type_at(0)),
 				_ => None,
 			},
 			_ => None,

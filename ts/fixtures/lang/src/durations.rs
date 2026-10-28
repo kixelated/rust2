@@ -1,6 +1,6 @@
 //! `Duration`: made from each unit and read back in each, added, subtracted, scaled, and
-//! divided with std's checks and panics, compared, ordered, hashed, held in a field and
-//! as a key, printed, and made by constants. Seconds past 2^53 and up to `u64::MAX` take
+//! divided with std's checks and panics, in place through each kind of place, summed,
+//! compared, ordered, hashed, held in a field and as a key, printed, and made by constants. Seconds past 2^53 and up to `u64::MAX` take
 //! the runtime past its numbers; `caller.ts` names those cases.
 
 use std::cmp::Ordering;
@@ -50,6 +50,21 @@ fn put_opt(out: &mut Vec<u8>, d: Option<Duration>) {
 	}
 }
 
+/// The crate's own `+=` onto a `Duration`, which adds twice.
+struct Twice(Duration);
+
+impl std::ops::AddAssign<Twice> for Duration {
+	fn add_assign(&mut self, by: Twice) {
+		*self += by.0;
+		*self += by.0;
+	}
+}
+
+/// `-=` through a `&mut`, which is an `rt.Place`.
+fn shrink(d: &mut Duration, by: Duration) {
+	*d -= by;
+}
+
 pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let (a, rest) = duration(data);
 	let (b, rest) = duration(rest);
@@ -57,7 +72,7 @@ pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let k = rest.len().min(word.len());
 	word[..k].copy_from_slice(&rest[..k]);
 	let n = u32::from_be_bytes(word);
-	match kind % 10 {
+	match kind % 14 {
 		0 => {
 			// `new`, which carries nanoseconds past a second and panics past `u64::MAX`.
 			let (secs, nanos, _) = take(data);
@@ -135,6 +150,76 @@ pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out,
 				&format!("{a:?}|{c:?}|{d:?}|{c:>16?}|{d:*^14?}|{c:<12?}|{a:08?}|{:?}", Some(b)),
 			);
+			// A precision rounds the fraction half to even, carrying into the whole part.
+			let p = (n % 13) as usize;
+			put(
+				out,
+				&format!(
+					"{a:.0?}|{a:.3?}|{c:.1?}|{d:.12?}|{a:+?}|{c:+12.2?}|{d:<10.1?}|{a:.p$?}|{:.1?}",
+					Some(b)
+				),
+			);
+			for d in [
+				1_500_000_000,
+				2_500_000_000,
+				1_250_000,
+				1_350_000,
+				999_500,
+				1_999_999_999,
+			] {
+				let d = Duration::from_nanos(d);
+				put(out, &format!("{d:.0?} {d:.1?} {d:.2?}"));
+			}
+		}
+		10 => {
+			// `+=` and `-=` on a local, a field, what an `Option`'s `&mut` borrows, an
+			// element, and through a `&mut`, each panicking as `+` and `-` do, and the
+			// crate's own `+=`.
+			let mut c = a;
+			c += b;
+			put_duration(out, c);
+			let mut w = Window { start: c, len: Some(b) };
+			w.start -= b;
+			put_duration(out, w.start);
+			if let Some(len) = &mut w.len {
+				*len -= a.min(b);
+			}
+			put_opt(out, w.len);
+			let mut v = [a, b];
+			v[1] += a;
+			put_duration(out, v[1]);
+			shrink(&mut v[0], b);
+			put_duration(out, v[0]);
+			let mut d = a;
+			d += Twice(b);
+			put_duration(out, d);
+		}
+		11 => {
+			// `*=` and `/=` by a `u32`, the last by zero panicking.
+			let mut c = a;
+			c *= n;
+			put_duration(out, c);
+			let mut v = vec![a];
+			v[0] /= n;
+			put_duration(out, v[0]);
+		}
+		12 => {
+			// Each larger unit, panicking past `u64::MAX` seconds, minutes before hours.
+			let (units, _, _) = take(data);
+			let mut wide = [0u8; 16];
+			let k = data.len().min(wide.len());
+			wide[..k].copy_from_slice(&data[..k]);
+			put_duration(out, Duration::from_mins(units));
+			put_duration(out, Duration::from_hours(units));
+			put_duration(out, Duration::from_nanos_u128(u128::from_be_bytes(wide)));
+		}
+		13 => {
+			// `Sum` of values and of references, whose nanoseconds carry at the end, past
+			// `u64::MAX` seconds a panic.
+			let parts = [a, b, Duration::new(0, n % 1_000_000_000)];
+			put_duration(out, parts.iter().sum());
+			put_duration(out, [b, a].into_iter().sum::<Duration>());
+			put_duration(out, parts.iter().filter(|d| !d.is_zero()).copied().sum());
 		}
 		_ => {
 			// Constants, `Default`, and a field.

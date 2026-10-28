@@ -36,7 +36,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Their payload, or no object at all; a write into an `rt.Result`'s payload
 				// replaces the result.
-				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow) => (false, args.types().collect()),
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse) => {
+					(false, args.types().collect())
+				}
+				Some(Std::Bound) => (true, args.types().collect()),
 				Some(_) => return false,
 				None if self.own(adt.did()) && adt.all_fields().next().is_some() => {
 					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
@@ -120,14 +123,28 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				None => v().member("slice").call(Vec::new()),
 			}),
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option) => ret(self.copy_unless(Expr::undefined(), args.type_at(0), span)),
+				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(Expr::Rt("Pending".into()), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
+				Some(Std::Reverse) => ret(self.copied(v(), args.type_at(0), span)),
+				Some(Std::Bound) => {
+					let ts_ty = self.ty(ty, span);
+					let held = self.copied(v().member("_0"), args.type_at(0), span);
+					let copy = Expr::Object(vec![
+						(Key::Name("tag".into()), v().member("tag")),
+						(Key::Name("_0".into()), held),
+					]);
+					ret(Expr::Cond(
+						Box::new(v().member("tag").binary("===", Expr::Str("Unbounded".into()))),
+						Box::new(v()),
+						Box::new(Expr::As(Box::new(copy), ts_ty)),
+					))
+				}
 				Some(Std::ControlFlow) => {
 					let (residual, value) = (args.type_at(0), args.type_at(1));
 					ret(match (Flow::of(tcx, args), residual.kind()) {
 						(Flow::Result, ty::Adt(_, residual)) => self.copy_result(value, residual.type_at(1), span),
-						(Flow::Option, _) => self.copy_unless(Expr::undefined(), value, span),
+						(Flow::Option, _) => self.copy_unless(self.none(value), value, span),
 						_ => self.copy_result(value, residual, span),
 					})
 				}
@@ -206,7 +223,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
-/// The types the crate's code writes into in place: through a projection, as `p.x = 1`
+/// The types the translated crates' code writes into in place: through a projection, as `p.x = 1`
 /// writes into `p`; through a reference or a box, as `*r = v` does into what `r` points
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
 /// one, which counts as a write: one a parameter of a std function the crate names takes,
@@ -225,22 +242,36 @@ pub struct Writes<'tcx> {
 }
 
 impl<'tcx> Writes<'tcx> {
-	/// The writes of every function, closure, and coroutine body in the crate but those
-	/// `bound` says a binding stands in for, which count as code it doesn't read.
-	pub fn of_crate(tcx: TyCtxt<'tcx>, bound: &dyn Fn(DefId) -> bool) -> Self {
+	/// The writes of every function, closure, and coroutine body of `bodies` that `own`
+	/// says translates, and of the closures and coroutines they hold: a binding stands in
+	/// for any other, which counts as code it doesn't read.
+	pub fn of_bodies(tcx: TyCtxt<'tcx>, bodies: impl IntoIterator<Item = DefId>, own: &dyn Fn(DefId) -> bool) -> Self {
 		let mut writes = Writes::default();
-		for &def_id in tcx.mir_keys(()) {
-			let def_id = def_id.to_def_id();
-			if !tcx.def_kind(def_id).is_fn_like() || bound(def_id) {
+		let mut queue: Vec<DefId> = bodies.into_iter().collect();
+		let mut seen = FxHashSet::default();
+		while let Some(def_id) = queue.pop() {
+			// One without MIR, such as an import, is refused where it is reached.
+			if !seen.insert(def_id)
+				|| !tcx.def_kind(def_id).is_fn_like()
+				|| !own(def_id)
+				|| !tcx.is_mir_available(def_id)
+			{
 				continue;
 			}
 			let body = tcx.optimized_mir(def_id);
+			// Another crate lists none of its closures' bodies.
+			for local in body.local_decls.iter() {
+				queue.extend(local.ty.walk().filter_map(|arg| match *arg.as_type()?.kind() {
+					ty::Closure(nested, _) | ty::Coroutine(nested, _) | ty::CoroutineClosure(nested, _) => Some(nested),
+					_ => None,
+				}));
+			}
 			BodyWrites {
 				tcx,
 				body,
 				def_id,
 				writes: &mut writes,
-				bound,
+				own,
 			}
 			.visit_body(body);
 		}
@@ -364,7 +395,7 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	body: &'m mir::Body<'tcx>,
 	def_id: DefId,
 	writes: &'w mut Writes<'tcx>,
-	bound: &'w dyn Fn(DefId) -> bool,
+	own: &'w dyn Fn(DefId) -> bool,
 }
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
@@ -394,13 +425,13 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 		}
 	}
 
-	/// Whether the function item `def_id` with `args` is the crate's own, whose body is
+	/// Whether the function item `def_id` with `args` translates, whose body is
 	/// read, rather than std's or a trait method only an instance resolves.
 	fn crate_fn(&self, def_id: DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
 		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
 		matches!(
 			ty::Instance::try_resolve(self.tcx, env, def_id, args),
-			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local() && !(self.bound)(did))
+			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if (self.own)(did))
 		)
 	}
 }

@@ -15,12 +15,14 @@ pub struct Config {
 	/// The prefix of every C name, the package's name in snake case by default.
 	pub prefix: Option<String>,
 	/// Paths from the crate root left out of the export: a module, an item, or one
-	/// method (`track::Producer::poll_closed`). Each must name something exported.
+	/// method or field (`track::Producer::poll_closed`). Each must name something
+	/// exported. As in rustdoc, a path a method or constant shares with a field names the
+	/// method, and `field@` before it names the field.
 	#[serde(default)]
 	pub exclude: Vec<String>,
 	/// C names, without the prefix, for paths from the crate root whose names the rule
 	/// makes clash: `"session::Stats" = "session_stats_snapshot"`. A type's methods are
-	/// named through its new name.
+	/// named through its new name. A field is named by its path as `exclude` names it.
 	#[serde(default)]
 	pub rename: BTreeMap<String, String>,
 	/// Other packages exported into the same library, each a dependency of `package`, by

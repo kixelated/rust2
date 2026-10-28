@@ -5,9 +5,11 @@
 // A `Duration` never changes once made, so values share it. Its arithmetic is std's: a
 // sum past `u64::MAX` seconds is `None`, saturates, or panics with std's message.
 
-import { type FmtResult, type Formatter, fmtPad, panic } from "../rt.ts";
+import { Err, type FmtResult, type Formatter, fmtDebugStructFields, fmtPad, Ok, panic, type Result } from "../rt.ts";
 import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
-import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u128Add, u128Cast, u128Mul } from "./int.ts";
+import { f64ToBits } from "./float.ts";
+import { type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
+import { type Iter, iterFold } from "./iter.ts";
 
 /** `core::time::Duration`: whole seconds, and the nanoseconds past them, below 10^9. */
 export interface Duration {
@@ -49,6 +51,23 @@ export function durationFromMicros(micros: u64): Duration {
 /** `Duration::from_nanos`. */
 export function durationFromNanos(nanos: u64): Duration {
 	return { secs: u64Div(nanos, NANOS_PER_SEC), nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
+}
+
+/** `Duration::from_mins`, panicking past `u64::MAX` seconds. */
+export function durationFromMins(mins: u64): Duration {
+	return { secs: u64CheckedMul(mins, 60 as u64) ?? panic("overflow in Duration::from_mins"), nanos: 0 };
+}
+
+/** `Duration::from_hours`, panicking past `u64::MAX` seconds. */
+export function durationFromHours(hours: u64): Duration {
+	return { secs: u64CheckedMul(hours, 3600 as u64) ?? panic("overflow in Duration::from_hours"), nanos: 0 };
+}
+
+/** `Duration::from_nanos_u128`, panicking past `u64::MAX` seconds. */
+export function durationFromNanosU128(nanos: u128): Duration {
+	const secs = u64TryFrom(u128Div(nanos, NANOS_PER_SEC));
+	if (!secs.ok) panic("overflow in `Duration::from_nanos_u128`");
+	return { secs: secs.value, nanos: u128Rem(nanos, NANOS_PER_SEC) as number };
 }
 
 /** `Duration::is_zero`. */
@@ -176,6 +195,87 @@ export function durationAbsDiff(a: Duration, b: Duration): Duration {
 	return durationCheckedSub(a, b) ?? (durationCheckedSub(b, a) as Duration);
 }
 
+/** `core::time::TryFromFloatSecsError`: why seconds made no `Duration`. */
+export type TryFromFloatSecsError = { readonly kind: "Negative" | "OverflowOrNan" };
+
+/** `Duration::as_secs_f64`. */
+export function durationAsSecsF64(d: Duration): f64 {
+	return u64ToF64(d.secs) + d.nanos / NANOS_PER_SEC;
+}
+
+/** `Duration::div_duration_f64`: their nanoseconds, each rounded to an `f64`, divided. */
+export function durationDivDurationF64(a: Duration, b: Duration): f64 {
+	return (u64ToF64(a.secs) * NANOS_PER_SEC + a.nanos) / (u64ToF64(b.secs) * NANOS_PER_SEC + b.nanos);
+}
+
+/** `n`, the nanoseconds past a second times 2^`shift`, rounded to the nearest, half to even. */
+function roundNanos(n: bigint, shift: bigint): number {
+	const nanos = Number(n >> shift);
+	const rem = n & ((1n << shift) - 1n);
+	const half = 1n << (shift - 1n);
+	return rem > half || (rem === half && (nanos & 1) === 1) ? nanos + 1 : nanos;
+}
+
+/**
+ * `Duration::try_from_secs_f64`: `secs` to the nearest nanosecond, half to even, by
+ * std's integer algorithm on its bits.
+ */
+export function durationTryFromSecsF64(secs: f64): Result<Duration, TryFromFloatSecsError> {
+	if (secs < 0) return Err({ kind: "Negative" });
+	const bits = f64Bits(secs);
+	const mantMask = (1n << 52n) - 1n;
+	const mant = (bits & mantMask) | (mantMask + 1n);
+	const exp = Number((bits >> 52n) & 0x7ffn) - 1023;
+	let whole: bigint;
+	let nanos: number;
+	if (exp < -31) {
+		// Less than a nanosecond, which can't round up to one.
+		[whole, nanos] = [0n, 0];
+	} else if (exp < 0) {
+		nanos = roundNanos(BigInt(NANOS_PER_SEC) * (mant << BigInt(44 + exp)), 96n);
+		[whole, nanos] = nanos === NANOS_PER_SEC ? [1n, 0] : [0n, nanos];
+	} else if (exp < 52) {
+		whole = mant >> BigInt(52 - exp);
+		nanos = roundNanos(BigInt(NANOS_PER_SEC) * ((mant << BigInt(exp)) & mantMask), 52n);
+		if (nanos === NANOS_PER_SEC) [whole, nanos] = [whole + 1n, 0];
+	} else if (exp < 64) {
+		[whole, nanos] = [mant << BigInt(exp - 52), 0];
+	} else {
+		return Err({ kind: "OverflowOrNan" });
+	}
+	return Ok({ secs: u64Of(whole), nanos });
+}
+
+/** A double's bits. */
+function f64Bits(x: number): bigint {
+	const v = f64ToBits(x);
+	return typeof v === "number" ? BigInt(v) : (BigInt(v.hi) << 32n) | BigInt(v.lo);
+}
+
+/** `Duration::from_secs_f64`, panicking where `try_from_secs_f64` errs. */
+export function durationFromSecsF64(secs: f64): Duration {
+	const r = durationTryFromSecsF64(secs);
+	return r.ok ? r.value : panic(tryFromFloatSecsErrorText(r.error));
+}
+
+/** `Duration::mul_f64`: through seconds as an `f64`, as std computes it. */
+export const durationMulF64 = (d: Duration, rhs: f64): Duration => durationFromSecsF64(rhs * durationAsSecsF64(d));
+
+/** `Duration::div_f64`: through seconds as an `f64`, as std computes it. */
+export const durationDivF64 = (d: Duration, rhs: f64): Duration => durationFromSecsF64(durationAsSecsF64(d) / rhs);
+
+function tryFromFloatSecsErrorText(e: TryFromFloatSecsError): string {
+	const why = e.kind === "Negative" ? "value is negative" : "value is either too big or NaN";
+	return `cannot convert float seconds to Duration: ${why}`;
+}
+
+/** `Display` of `TryFromFloatSecsError`. */
+export const fmtTryFromFloatSecsErrorDisplay = (e: TryFromFloatSecsError, f: Formatter): FmtResult => fmtPad(f, tryFromFloatSecsErrorText(e));
+
+/** `Debug` of `TryFromFloatSecsError`. */
+export const fmtTryFromFloatSecsErrorDebug = (e: TryFromFloatSecsError, f: Formatter): FmtResult =>
+	fmtDebugStructFields(f, "TryFromFloatSecsError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+
 /** `a + b`, panicking past `u64::MAX` seconds. */
 export function durationAdd(a: Duration, b: Duration): Duration {
 	return durationCheckedAdd(a, b) ?? panic("adding durations should not exceed u64::MAX");
@@ -201,6 +301,34 @@ export function durationDiv(d: Duration, n: u32): Duration {
 	return durationCheckedDiv(d, n) ?? panic("divisor should not be zero");
 }
 
+/**
+ * `Sum`, as std sums: the seconds as it goes, and the nanoseconds in a `u64` that carries
+ * into them only when it would overflow and at the end, each overflow past `u64::MAX`
+ * seconds a panic.
+ */
+export function durationSum(it: Iter<Duration>, drops = false): Duration {
+	const overflow = "sum over duration iterator should not overflow u64::MAX";
+	let secs = 0 as u64;
+	let nanos = 0 as u64;
+	iterFold<Duration, void>(
+		it,
+		undefined,
+		(_, d) => {
+			secs = u64CheckedAdd(secs, d.secs) ?? panic(overflow);
+			const sum = u64CheckedAdd(nanos, d.nanos as u64);
+			if (sum !== undefined) {
+				nanos = sum;
+			} else {
+				secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+				nanos = (u64Rem(nanos, NANOS_PER_SEC) as number) + d.nanos;
+			}
+		},
+		drops,
+	);
+	secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+	return { secs, nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
+}
+
 /** `PartialEq::eq`. */
 export function durationEq(a: Duration, b: Duration): boolean {
 	return a.nanos === b.nanos && u64Eq(a.secs, b.secs);
@@ -219,26 +347,39 @@ export function durationHash(d: Duration, s: Hasher): void {
 
 /** `Debug`, as std writes it: `1.5s`, `20ms`, `3µs`, or `0ns`, padded to the width. */
 export function durationDebug(d: Duration, f: Formatter): FmtResult {
-	let whole: u64;
-	let fraction: number;
-	let divisor: number;
-	let unit: string;
-	if (d.secs !== 0) {
-		[whole, fraction, divisor, unit] = [d.secs, d.nanos, NANOS_PER_SEC / 10, "s"];
-	} else if (d.nanos >= 1_000_000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, "ms"];
-	} else if (d.nanos >= 1000) {
-		[whole, fraction, divisor, unit] = [Math.floor(d.nanos / 1000), d.nanos % 1000, 100, "µs"];
-	} else {
-		[whole, fraction, divisor, unit] = [d.nanos as u64, 0, 1, "ns"];
-	}
-	// The fraction's digits up to its last nonzero one; no precision is ever given.
+	const prefix = f.spec.plus ? "+" : "";
+	if (d.secs !== 0) return decimal(f, d.secs, d.nanos, NANOS_PER_SEC / 10, prefix, "s");
+	if (d.nanos >= 1_000_000) return decimal(f, Math.floor(d.nanos / 1_000_000), d.nanos % 1_000_000, 100_000, prefix, "ms");
+	if (d.nanos >= 1000) return decimal(f, Math.floor(d.nanos / 1000), d.nanos % 1000, 100, prefix, "µs");
+	return decimal(f, d.nanos as u64, 0, 1, prefix, "ns");
+}
+
+/**
+ * std's `fmt_decimal`: `whole`, then the digits of `fraction` from `divisor` down, rounded
+ * half to even to the precision or else up to the last nonzero one.
+ */
+function decimal(f: Formatter, whole: u64, fraction: number, divisor: number, prefix: string, unit: string): FmtResult {
+	const precision = f.spec.precision;
 	let digits = "";
-	while (fraction > 0) {
+	while (fraction > 0 && digits.length < (precision ?? 9)) {
 		digits += Math.floor(fraction / divisor);
 		fraction %= divisor;
 		divisor /= 10;
 	}
-	const text = typeof whole === "number" ? String(whole) : ((BigInt(whole.hi) << 32n) | BigInt(whole.lo)).toString();
-	return fmtPad(f, text + (digits === "" ? "" : `.${digits}`) + unit);
+	let carry = false;
+	if (fraction > 0 && fraction >= divisor * 5) {
+		const last = digits.length > 0 ? Number(digits[digits.length - 1]) : typeof whole === "number" ? whole : whole.lo;
+		if (fraction > divisor * 5 || last % 2 === 1) {
+			const nines = /9*$/.exec(digits)![0].length;
+			const at = digits.length - nines - 1;
+			carry = at < 0;
+			digits = (carry ? "" : digits.slice(0, at) + (Number(digits[at]) + 1)) + "0".repeat(nines);
+		}
+	}
+	const big = typeof whole === "number" ? BigInt(whole) : (BigInt(whole.hi) << 32n) | BigInt(whole.lo);
+	const int = carry ? String(big + 1n) : String(big);
+	const point = Math.min(precision ?? digits.length, 9) > 0 ? `.${digits.padEnd(precision ?? digits.length, "0")}` : "";
+	// A width pads the whole text, which the precision has already cut.
+	const uncut = precision === undefined ? f : { out: f.out, spec: { ...f.spec, precision: undefined } };
+	return fmtPad(uncut, `${prefix}${int}${point}${unit}`);
 }

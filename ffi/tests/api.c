@@ -43,6 +43,48 @@ static void log_free(void *data) {
 	printf("freed\n");
 }
 
+/* A lent closure: adds data's amount to the counter lent for the call. */
+static bool edit(void *data, api_counter *counter) {
+	api_counter_add(counter, *(const uint64_t *)data, NULL, NULL);
+	return api_counter_edited(counter) && api_counter_get(counter) == 6;
+}
+
+/* Lent closures borrowing their object shared: one `Sync`, one not. */
+static uint32_t seven(void *data) {
+	(void)data;
+	return 7;
+}
+
+static uint64_t visit(void *data, const api_cursor *cursor) {
+	(void)data;
+	return api_cursor_at(cursor) * 2;
+}
+
+static uint32_t peek_tally(void *data, const api_tally *tally) {
+	(void)data;
+	return api_tally_bump(tally);
+}
+
+/* A lent closure, which Rust calls on another thread: keeps levels above data's. */
+static bool keep_line(void *data, uint8_t level, api_buf line) {
+	printf("filter %u %.*s\n", level, (int)line.len, (const char *)line.ptr);
+	return level > *(const uint8_t *)data;
+}
+
+/* Breaks a lent handle's contract: frees it, or moves its value out. */
+static bool free_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_counter_free(counter);
+	return false;
+}
+
+static bool move_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_label label = api_counter_into_label(counter, (api_option_point){0});
+	api_label_free(&label);
+	return false;
+}
+
 /* A bound, as Rust's Debug prints it. */
 static void print_bound(api_bound_u64 bound) {
 	switch (bound.kind) {
@@ -101,6 +143,9 @@ static int script(void) {
 	api_counter_free(c);
 	print("label ", api_label_debug(&label), "\n");
 	api_label_free(&label);
+	/* Empty text is not none: only a null pointer is. */
+	api_note empty = {.text = {.ptr = (const uint8_t *)"", .len = 0}};
+	printf("note %s %s\n", api_has_text(empty) ? "true" : "false", api_has_text((api_note){0}) ? "true" : "false");
 
 	/* A tuple returns through one out pointer per element. */
 	api_counter *whole = api_counter_new(str("s"), 7);
@@ -149,6 +194,13 @@ static int script(void) {
 		   (unsigned long long)api_counter_get(last));
 	api_counter_free(lent);
 	api_counter_free(last);
+	uint64_t by = 5;
+	bool edited = api_registry_edit(registry, edit, &by);
+	first = api_registry_first(registry);
+	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
+	api_counter_free(first);
+	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
+	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -235,6 +287,8 @@ static int script(void) {
 	printf("write %s\n", api_logger_write(logger, str("hi")) ? "true" : "false");
 	api_logger_free(logger);
 	printf("dropped\n");
+	uint8_t threshold = 2;
+	printf("filtered %u\n", api_filter(lines, keep_line, &threshold));
 
 	api_channel *channel = api_channel_new();
 	api_waker waker = {.wake = wake, .drop = drop, .data = NULL};
@@ -278,6 +332,10 @@ static int script(void) {
 		printf("%zu\n", len);
 	}
 	api_channel_recv_sized_future_free(sized);
+	/* The waker moves into Rust, which drops it once it wakes. */
+	api_channel_notify(channel, waker);
+	api_channel_send(channel, str("rung"));
+	printf("woken %d\n", wakes);
 	api_channel_free(channel);
 
 	/* A value that holds itself is an object. */
@@ -291,6 +349,7 @@ static int script(void) {
 	uint32_t count = api_tally_bump(tally);
 	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
 	printf("both %u\n", api_bump_both(tally, tally));
+	printf("peek %u\n", api_peek(tally, peek_tally, NULL));
 	api_tally_free(tally);
 
 	/* Another export's types, which this export's function takes and returns. */
@@ -356,8 +415,17 @@ static int script(void) {
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());
 	api_token_free(token);
 	printf("dropped %u\n", api_dropped());
-	/* Each future dropped its waker once it finished. */
-	return drops == 4 ? 0 : 1;
+
+	/* A field and the method of its name, each its own function. */
+	api_retry *retry = api_retry_new((api_option_u32){.some = true, .value = 5});
+	api_option_u32 limit = api_retry_limit_setting(retry);
+	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
+	api_retry_free(retry);
+	api_slot_u8 *slot = api_slot_u8_new(200);
+	printf("slot %u\n", api_slot_u8_value(slot));
+	api_slot_u8_free(slot);
+	/* Each future dropped its waker once it finished, and Rust the one it was given. */
+	return drops == 5 ? 0 : 1;
 }
 
 /* Each breaks a contract, which must abort with a message naming the function. */
@@ -386,6 +454,12 @@ static int broken(const char *which) {
 		api_channel_recv_poll(recv, waker, &payload);
 	} else if (strcmp(which, "enum") == 0) {
 		api_greet(str("x"), (api_shape)2);
+	} else if (strcmp(which, "lent") == 0 || strcmp(which, "lent moved") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, strcmp(which, "lent") == 0 ? free_lent : move_lent, NULL);
+	} else if (strcmp(which, "null") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, NULL, NULL);
 	} else if (strcmp(which, "bound") == 0) {
 		api_count((api_bounds_u64){.start = {.kind = (api_bound)3}});
 	}
@@ -393,6 +467,10 @@ static int broken(const char *which) {
 }
 
 int main(int argc, char **argv) {
+	if (api_contract() != API_CONTRACT) {
+		fprintf(stderr, "api.h and the library are from different builds\n");
+		return 1;
+	}
 	if (argc > 1) {
 		return broken(argv[1]);
 	}

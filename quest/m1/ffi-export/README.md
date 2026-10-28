@@ -21,6 +21,8 @@ package's place.
 
 Every generator on the C ABI:
 
+- checks `<prefix>_contract()` against the header's contract when it loads, before any
+  other call, and fails loud on a mismatch;
 - is measured on the [binding benchmark](/bench/ffi/README.md);
 - keeps the C ABI's bulk and zero-copy payloads, with no per-byte loop on either side;
 - reports its generated size, raw and gzipped, against the fork's (Python 653 KiB, Kotlin
@@ -32,14 +34,24 @@ Every generator on the C ABI:
   window, and pick a semantic for concurrent pollers. A hot read still makes a future handle
   per read; measure it before adding a per-handle poll. Decided with the maintainer on
   2026-10-27: async lands with each generator, not as its own quest.
+- drives each of moq's `Driver`s from the language's own event loop. Decided with the
+  maintainer on 2026-10-27: the C ABI exports the poll, with no generated thread and no
+  moq-tokio helpers, which would tie bindings to tokio. A binding holds one `kio::Waiter`
+  per driver, made from its waker, since what a poll registers lives only as long as its
+  waiter; it polls on each wake and at the deadline the poll returns, and frees the driver
+  to cancel it. Decided with the maintainer on 2026-10-27, for Go: a cancel ends only that
+  read and leaves the stream usable, as in Rust, since a cancelled C ABI future loses
+  nothing; moq's `go/wrapper/doc.go`, which ends the stream, changes with the generator.
+  Each driver runs on a goroutine that lives as long as its object, and a call's `ctx`
+  bounds only that call.
 
 ## Required
 
-- [Paths without a lifetime](/quest/m1/ffi-export/paths.md) - moq's owned `Path` exports, and its excludes go
 - [Iterator and JSON arguments the exporter can't map yet](/quest/m1/ffi-export/instance-keys.md) - `IntoIterator` as a `Vec`, and `serde_json::Value`
-- [Closures lent for the call](/quest/m1/ffi-export/lent-closures.md) - a callback borrowed for one call, as `modify`'s `Guard` needs
-- [One library from several crates](/quest/m1/ffi-export/crates.md) - the C names the several-crate export still can't give
-- [Driving sessions and origins](/quest/m1/ffi-export/driving.md) - how a binding polls moq's `Driver`
-- [A contract symbol](/quest/m1/ffi-export/contract.md) - a header and a library from different builds refuse to mix
-- [C++ bindings](/quest/m1/ffi-export/cpp.md) - C++17, 20, and 23 over the C ABI, with native futures
+- [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
+- [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in a session's config, as Rust assigns it
+- [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
+- [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
+- [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
+- [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings](/quest/m1/ffi-export/kotlin.md) - JNI or Panama over the C ABI, with native futures

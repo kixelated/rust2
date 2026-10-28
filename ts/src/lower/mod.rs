@@ -12,6 +12,8 @@ mod collections;
 mod consts;
 mod copy;
 mod drop;
+mod dynamic;
+mod float;
 mod fmt;
 mod iter;
 mod library;
@@ -23,7 +25,7 @@ mod time;
 use std::collections::VecDeque;
 
 use rustc_hir::def::DefKind;
-use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::def_id::{CrateNum, DefId, LocalDefId};
 use rustc_middle::ty::{
 	self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv,
 };
@@ -36,15 +38,19 @@ use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 
 /// Translate what the config's roots reach, or `None` after reporting why not.
 pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
-	let mut t = Translator::new(tcx, config, None)?;
-	t.bind();
-	for root in &config.roots {
-		t.root(root);
+	let (mut t, ()) = Translator::settle(tcx, config, false, |t| {
+		for root in &config.roots {
+			t.root(root);
+		}
+		for path in &config.printable {
+			t.printable(path);
+		}
+		t.drain();
+	})?;
+	for (span, msg) in t.refusals.take().unwrap_or_default() {
+		tcx.dcx().span_err(span, format!("rust2-ts: {msg}"));
 	}
-	for path in &config.printable {
-		t.printable(path);
-	}
-	t.drain();
+	t.crate_dirs();
 	if t.failed {
 		return None;
 	}
@@ -57,9 +63,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 /// translation does, or where it names none, in what each item reaches as if each were a
 /// root.
 pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
-	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
-	t.bind();
-	let polymorphic = match config.roots.is_empty() {
+	let (mut t, polymorphic) = Translator::settle(tcx, config, true, |t| match config.roots.is_empty() {
 		true => t.every_item(),
 		false => {
 			for root in &config.roots {
@@ -71,16 +75,25 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 			t.drain();
 			0
 		}
-	};
+	})?;
 	let sm = tcx.sess.source_map();
 	let mut seen = rustc_data_structures::fx::FxHashSet::default();
 	let mut refusals = Vec::new();
 	for (span, message) in t.refusals.take().unwrap_or_default() {
 		let (file, line, col, ..) = sm.span_to_location_info(span.source_callsite());
 		let file = file.map_or_else(String::new, |file| {
-			file.name
+			let file = file
+				.name
 				.display(rustc_span::RemapPathScopeComponents::DIAGNOSTICS)
-				.to_string()
+				.to_string();
+			// A crate from a registry by its version, wherever cargo keeps it.
+			match file
+				.split_once("/registry/src/")
+				.and_then(|(_, rest)| rest.split_once('/'))
+			{
+				Some((_index, path)) => path.to_string(),
+				None => file,
+			}
 		});
 		let refusal = Refusal {
 			file,
@@ -158,6 +171,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 pub struct Translator<'a, 'tcx> {
 	pub tcx: TyCtxt<'tcx>,
 	config: &'a Config,
+	/// The crates whose bodies translate.
+	pub crates: Crates,
 	pub program: Program,
 	instances: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, SymId>,
 	queue: VecDeque<(Instance<'tcx>, SymId)>,
@@ -168,7 +183,10 @@ pub struct Translator<'a, 'tcx> {
 	/// Where trait bounds come from: none outside a census, which lowers some functions
 	/// over their own type parameters.
 	env: TypingEnv<'tcx>,
-	/// Refusals collected for a census, rather than reported as errors.
+	/// Whether this is a census, which lowers some functions over their type parameters and
+	/// writes nothing.
+	census: bool,
+	/// Refusals collected until translation settles, then reported or counted.
 	refusals: Option<Vec<(Span, String)>>,
 	/// Whether each type's drop does something JS can see, as [`Self::drops`] found.
 	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
@@ -183,6 +201,12 @@ pub struct Translator<'a, 'tcx> {
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
+	/// The bodies of other crates whose writes count: those the run before reached.
+	read: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// The trait of each trait object, by its principal trait.
+	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
+	/// The class wrapping each type as each trait object.
+	object_classes: rustc_data_structures::fx::FxHashMap<(Ty<'tcx>, SymId, dynamic::Held), SymId>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
@@ -196,7 +220,35 @@ pub struct Translator<'a, 'tcx> {
 	bindings: bind::Bindings<'tcx>,
 }
 
-/// A local struct or enum, and how it is represented.
+/// The crates that translate as one program: the package, and every crate it depends on
+/// but std's. What the roots reach of them translates; any function of std's is its
+/// mapping, a binding, or refused.
+pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
+
+impl Crates {
+	fn new(tcx: TyCtxt<'_>) -> Self {
+		Self(
+			tcx.crates(())
+				.iter()
+				.copied()
+				.filter(|&krate| !tcx.crate_dep_kind(krate).macros_only() && !of_std(tcx, krate))
+				.collect(),
+		)
+	}
+
+	/// Whether `def_id`'s crate translates.
+	pub fn translates(&self, def_id: DefId) -> bool {
+		def_id.is_local() || self.0.contains(&def_id.krate)
+	}
+}
+
+/// Whether `krate` is std or a crate std is built from: `-Zbuild-std` compiles those, and
+/// only those, with stability on every item.
+fn of_std(tcx: TyCtxt<'_>, krate: CrateNum) -> bool {
+	tcx.lookup_stability(krate.as_def_id()).is_some()
+}
+
+/// A translated struct or enum, and how it is represented.
 #[derive(Clone)]
 pub struct Adt {
 	pub sym: SymId,
@@ -224,15 +276,68 @@ pub enum ObjectKind {
 }
 
 /// The JS values a type's own can be that `Option` and `Poll` erase to: `None` is
-/// `undefined`, and `Pending` is `rt.Pending`.
+/// `undefined`, or `rt.None` where `Some` can already be `undefined`, and `Pending` is
+/// `rt.Pending`.
 #[derive(Clone, Copy, Default)]
 pub struct Erased {
 	pub undefined: bool,
+	pub none: bool,
 	pub pending: bool,
+	/// A type parameter's value, which each instance decides.
+	pub param: bool,
+}
+
+impl Erased {
+	/// What an `Option` of a type erased so erases to: its `None` is `undefined`, or
+	/// `rt.None` where `Some` can already be `undefined`.
+	fn option(self) -> Self {
+		match self.undefined {
+			true => Self { none: true, ..self },
+			false => Self {
+				undefined: true,
+				..self
+			},
+		}
+	}
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	fn new(tcx: TyCtxt<'tcx>, config: &'a Config, refusals: Option<Vec<(Span, String)>>) -> Option<Self> {
+	/// A translator that has run `reach`, with what it copies settled. Whether code writes
+	/// into a type in place decides that, and of another crate's code, only what
+	/// translation reaches runs, which it knows once it has reached it. So it runs again
+	/// while it reaches a body whose writes it didn't read.
+	fn settle<R>(
+		tcx: TyCtxt<'tcx>,
+		config: &'a Config,
+		census: bool,
+		mut reach: impl FnMut(&mut Self) -> R,
+	) -> Option<(Self, R)> {
+		let mut read = rustc_data_structures::fx::FxHashSet::default();
+		loop {
+			let mut t = Self::new(tcx, config, census, read)?;
+			t.bind();
+			let out = reach(&mut t);
+			let reached: Vec<DefId> = t
+				.instances
+				.keys()
+				.map(|instance| instance.def_id())
+				.filter(|&def_id| !def_id.is_local() && t.crates.translates(def_id) && !t.read.contains(&def_id))
+				.collect();
+			// The config's errors are reported as they are found, so only once.
+			if reached.is_empty() || tcx.dcx().has_errors().is_some() {
+				return Some((t, out));
+			}
+			read = std::mem::take(&mut t.read);
+			read.extend(reached);
+		}
+	}
+
+	fn new(
+		tcx: TyCtxt<'tcx>,
+		config: &'a Config,
+		census: bool,
+		read: rustc_data_structures::fx::FxHashSet<DefId>,
+	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
 				"rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number",
@@ -242,6 +347,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(Self {
 			tcx,
 			config,
+			crates: Crates::new(tcx),
 			program: Program::default(),
 			instances: Default::default(),
 			queue: VecDeque::new(),
@@ -249,16 +355,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			sources: Default::default(),
 			failed: false,
 			env: TypingEnv::fully_monomorphized(),
-			refusals,
+			census,
+			refusals: Some(Vec::new()),
 			drops: Default::default(),
 			drops_open: Default::default(),
 			drops_cycle: false,
 			glued: Default::default(),
 			coroutines: Default::default(),
+			objects: Default::default(),
+			object_classes: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
+			read,
 			held: false,
 			sites: Default::default(),
 			site: None,
@@ -295,8 +405,46 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// its bounds are that function's, not the caller's. Translation never reaches one.
 	fn drain(&mut self) {
 		while let Some((instance, sym)) = self.queue.pop_front() {
-			if self.refusals.is_none() || !instance.args.has_param() {
+			if !self.census || !instance.args.has_param() {
 				self.function(instance, sym);
+			}
+		}
+	}
+
+	/// Refuse a reached crate whose files another crate's would be: another crate's modules
+	/// go under its name, which a module at the package's root or another version of the
+	/// crate could share.
+	fn crate_dirs(&mut self) {
+		let tcx = self.tcx;
+		let reached: std::collections::BTreeSet<CrateNum> = self
+			.instances
+			.keys()
+			.map(|instance| instance.def_id().krate)
+			.chain(self.adts.keys().map(|def_id| def_id.krate))
+			.filter(|&krate| krate != rustc_hir::def_id::LOCAL_CRATE)
+			.collect();
+		let mut names = rustc_data_structures::fx::FxHashMap::default();
+		for &krate in &reached {
+			let name = tcx.crate_name(krate);
+			if names.insert(name, krate).is_some() {
+				self.err(
+					tcx.def_span(krate.as_def_id()),
+					format!("more than one version of `{name}` is reached, whose modules would share their files"),
+				);
+			}
+		}
+		for child in tcx.module_children_local(rustc_hir::def_id::CRATE_DEF_ID) {
+			if let rustc_hir::def::Res::Def(DefKind::Mod, def_id) = child.res
+				&& def_id.is_local()
+				&& names.contains_key(&child.ident.name)
+			{
+				self.err(
+					tcx.def_span(def_id),
+					format!(
+						"module `{}` would share its files with the crate of its name",
+						child.ident
+					),
+				);
 			}
 		}
 	}
@@ -521,7 +669,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return sym;
 		}
 		let base = camel(tcx.item_name(def_id).as_str());
-		// A function of a local type sits in the type's own module, escaped only where it is
+		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
 		let (module, base) = match self.owner(instance) {
 			Some(ty) => (self.program.syms[ty].module.clone(), base),
@@ -547,7 +695,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// The symbol of an instance a call at `span` reaches, noting where the crate first
 	/// reached one of std's.
 	pub fn callee(&mut self, instance: Instance<'tcx>, span: Span) -> SymId {
-		if !instance.def_id().is_local() {
+		if !self.crates.translates(instance.def_id()) {
 			let site = self.site.map_or(span, |(site, _)| site);
 			self.sites.entry(instance).or_insert(site);
 		}
@@ -563,13 +711,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx.trait_of_assoc(def_id).map(|_| instance.args.type_at(0))
 	}
 
-	/// The local type an associated function's impl or trait is for, if any.
+	/// The translated type an associated function's impl or trait is for, if any.
 	fn owner(&mut self, instance: Instance<'tcx>) -> Option<SymId> {
 		let self_ty = self.self_ty(instance)?.peel_refs();
 		let ty::Adt(adt, _) = self_ty.kind() else {
 			return None;
 		};
-		if !adt.did().is_local() {
+		if !self.crates.translates(adt.did()) {
 			return None;
 		}
 		let span = self.tcx.def_span(instance.def_id());
@@ -604,7 +752,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		// other self type, such as `u64`'s in a trait impl, is spelled out.
 		if let Some(self_ty) = self.self_ty(instance) {
 			match self_ty.peel_refs().kind() {
-				ty::Adt(adt, args) if adt.did().is_local() => parts.extend(args.types().map(|t| short_name(tcx, t))),
+				ty::Adt(adt, args) if self.crates.translates(adt.did()) => {
+					parts.extend(args.types().map(|t| short_name(tcx, t)))
+				}
 				_ => parts.push(short_name(tcx, self_ty)),
 			}
 		}
@@ -706,7 +856,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// crate's own or std's from its MIR, rather than a mapping.
 	pub fn translated(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => self.lowers(instance),
+			Ok(Some(instance)) => self.lowers(instance) || self.dispatches(instance),
 			_ => false,
 		}
 	}
@@ -716,7 +866,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	pub fn lowers(&self, instance: Instance<'tcx>) -> bool {
 		match instance.def {
 			InstanceKind::Item(did) => {
-				self.bound_module(instance).is_none() && (did.is_local() || library::from_mir(self, instance))
+				self.bound_module(instance).is_none()
+					&& (self.crates.translates(did) || library::from_mir(self, instance))
 			}
 			_ => false,
 		}
@@ -726,7 +877,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// parameter as what it points at, rather than a body that translates or a binding's export.
 	pub fn mapped(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> bool {
 		match Instance::try_resolve(self.tcx, self.typing_env(), def_id, args) {
-			Ok(Some(instance)) => !self.lowers(instance) && self.bound_module(instance).is_none(),
+			Ok(Some(instance)) => {
+				!self.lowers(instance) && !self.dispatches(instance) && self.bound_module(instance).is_none()
+			}
 			_ => true,
 		}
 	}
@@ -739,7 +892,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// A local struct or enum, translating its definition the first time.
+	/// A translated struct or enum, translating its definition the first time.
 	pub fn adt(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
 		if let Some(info) = self.adts.get(&adt.did()) {
 			return info.clone();
@@ -916,6 +1069,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				ty::Uint(ty::UintTy::U8) => Some(ObjectKind::Bytes),
 				_ => Some(ObjectKind::Array),
 			},
+			// A JS array, whose elements change in place as an array's do.
+			ty::Tuple(tys) if !tys.is_empty() => Some(ObjectKind::Array),
 			// A binding's value: an object, unless Rust copies it, which JS can't.
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
 				(!self.is_copy(ty)).then_some(ObjectKind::Class)
@@ -931,9 +1086,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Weak
 					| library::Std::Mutex
 					| library::Std::MutexGuard
+					| library::Std::Atomic
+					| library::Std::OnceCell
+					| library::Std::OnceLock
 					| library::Std::Waker
 					| library::Std::Context
 					| library::Std::Pin
+					| library::Std::PollFn
+					| library::Std::Pending
 					| library::Std::Range
 					| library::Std::RangeInclusive
 					| library::Std::Peekable
@@ -951,7 +1111,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
-			ty::Coroutine(..) => Some(ObjectKind::Class),
+			ty::Coroutine(..) | ty::Dynamic(..) => Some(ObjectKind::Class),
 			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
@@ -1002,6 +1162,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
 			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
+			_ if float::is(ty) => float::ty(),
 			ty::Char => Type::Rt("char", Vec::new()),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),
@@ -1041,7 +1202,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				self.fn_ty(&inputs, sig.output(), span)
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
+			ty::Pat(base, _) => self.ty(*base, span),
 			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
+			ty::Dynamic(..) if let Some(output) = self.dyn_future(ty) => {
+				Type::Rt("Future", vec![self.ty(output, span)])
+			}
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
 				if preds
@@ -1051,6 +1216,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			{
 				Type::Rt("Fmt", vec![])
 			}
+			ty::Dynamic(..) => match self.object(ty, span) {
+				Some(object) => Type::Sym(object.sym, Vec::new()),
+				None => Type::Builtin("unknown"),
+			},
 			_ if self.deferred(ty) => Type::Builtin("unknown"),
 			_ => {
 				self.unrepresented(span, format!("unsupported type `{ty}`"));
@@ -1101,8 +1270,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match library::Std::of(self.tcx, adt.did())? {
 			library::Std::Option => {
 				let inner = args.type_at(0);
-				self.erases_to(inner).undefined.then(|| {
-					format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `undefined`")
+				let erased = self.erases_to(inner);
+				(erased.undefined && erased.none).then(|| {
+					format!("`Option<{inner}>` is not supported: its `None` and `Some` would both be `rt.None`")
 				})
 			}
 			library::Std::Poll => {
@@ -1112,10 +1282,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					.then(|| format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"))
 			}
 			library::Std::ControlFlow if library::Flow::of(self.tcx, args) == library::Flow::Option => {
-				let inner = args.type_at(1);
-				self.erases_to(inner)
-					.undefined
-					.then(|| format!("`{ty}` is not supported: its break and its continue would both be `undefined`"))
+				let erased = self.erases_to(args.type_at(1));
+				(erased.undefined && erased.none)
+					.then(|| format!("`{ty}` is not supported: its break and its continue would both be `rt.None`"))
 			}
 			_ => None,
 		}
@@ -1147,11 +1316,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(std) = library::Std::of(tcx, adt.did()) {
 			return match std {
 				library::Std::Option => {
-					let inner = args.type_at(0);
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
 						self.err(span, msg);
 					}
-					Type::Union(vec![self.ty(inner, span), Type::Builtin("undefined")])
+					self.option_ty(args.type_at(0), span)
 				}
 				// A lock's result, which is never an error: its guard.
 				library::Std::Result if self.std_of(args.type_at(1)) == Some(library::Std::PoisonError) => {
@@ -1171,9 +1339,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box => self.ty(args.type_at(0), span),
+				library::Std::Box | library::Std::Reverse | library::Std::NonZero => self.ty(args.type_at(0), span),
+				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
+				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),
 				library::Std::Arguments => Type::Rt("Arguments", vec![]),
 				library::Std::FmtError => Type::Rt("FmtError", vec![]),
@@ -1189,6 +1360,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Mutex", vec![self.ty(inner, span)])
 				}
 				library::Std::PoisonError => Type::Builtin("never"),
+				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
+				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
+				// With the `Option`'s `None` where it is `rt.None`.
+				std @ (library::Std::OnceCell | library::Std::OnceLock) => {
+					let inner = args.type_at(0);
+					if let Some(msg) = self.erasure_conflict(Ty::new_option(tcx, inner)) {
+						self.err(span, msg);
+					}
+					let mut args = vec![self.ty(inner, span)];
+					args.extend(self.erases_to(inner).undefined.then(|| Type::Rt("None", vec![])));
+					let name = match std {
+						library::Std::OnceCell => "OnceCell",
+						_ => "OnceLock",
+					};
+					Type::Rt(name, args)
+				}
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {
@@ -1198,9 +1385,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Poll", vec![self.ty(args.type_at(0), span)])
 				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
+				library::Std::PollFn | library::Std::Pending => {
+					let output = self.future_output(Ty::new_adt(tcx, adt, args), span);
+					Type::Rt("Future", vec![self.ty(output, span)])
+				}
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeToInclusive => Type::Object(vec![
+					("end".into(), self.ty(args.type_at(0), span)),
+					("inclusive".into(), Type::Builtin("true")),
+				]),
 				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
@@ -1243,19 +1438,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							};
 							Type::Rt("Result", vec![self.ty(value, span), self.ty(residual.type_at(1), span)])
 						}
-						library::Flow::Option => Type::Union(vec![self.ty(value, span), Type::Builtin("undefined")]),
+						library::Flow::Option => self.option_ty(value, span),
 						library::Flow::Other => Type::Rt("Result", vec![self.ty(value, span), self.ty(residual, span)]),
 					}
 				}
 			};
 		}
+		if let Some(inner) = library::wrapped(tcx, Ty::new_adt(tcx, adt, args)) {
+			return self.ty(inner, span);
+		}
 		// Every other iterator std has is an `rt.Iter` of its items.
-		if !adt.did().is_local()
+		if !self.crates.translates(adt.did())
 			&& let Some(item) = self.iter_item(Ty::new_adt(tcx, adt, args))
 		{
 			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
-		if !adt.did().is_local() {
+		if !self.crates.translates(adt.did()) {
 			self.unrepresented(
 				span,
 				format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())),
@@ -1263,8 +1461,45 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return Type::Builtin("unknown");
 		}
 		let info = self.adt(adt, span);
+		if let Some(msg) = self.generic_none(adt, args) {
+			self.err(span, msg);
+		}
 		let args = args.types().map(|t| self.ty(t, span)).collect();
 		Type::Sym(info.sym, args)
+	}
+
+	/// Why an instance of the crate's generic `adt` with `args` can't hold its fields' values,
+	/// if it can't: an `Option` over a type parameter that its definition types `T |
+	/// undefined`, whose `None` this instance's `T` makes `rt.None`.
+	fn generic_none(&self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>) -> Option<String> {
+		let tcx = self.tcx;
+		if !args.types().any(|t| self.erases_to(t).undefined) {
+			return None;
+		}
+		adt.all_fields().find_map(|field| {
+			let generic = tcx.type_of(field.did).instantiate_identity().skip_norm_wip();
+			generic.walk().filter_map(|arg| arg.as_type()).find_map(|part| {
+				let ty::Adt(option, option_args) = part.kind() else {
+					return None;
+				};
+				if library::Std::of(tcx, option.did()) != Some(library::Std::Option) {
+					return None;
+				}
+				let inner = option_args.type_at(0);
+				let erased = self.erases_to(inner);
+				if !erased.param || erased.undefined {
+					return None;
+				}
+				let instance = ty::EarlyBinder::bind(tcx, inner).instantiate(tcx, args).skip_norm_wip();
+				self.erases_to(instance).undefined.then(|| {
+					let ty = Ty::new_adt(tcx, adt, args);
+					format!(
+						"`{ty}` is not supported: its field `{}` is `Option<{inner}>`, typed `{inner} | undefined`, whose `None` would be `rt.None` as `Option<{instance}>`",
+						field.name
+					)
+				})
+			})
+		})
 	}
 
 	/// The type of an iterator's items, which every iterator has.
@@ -1278,31 +1513,60 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// The TypeScript type of an `Option<inner>`: `T | undefined`, or `T | rt.None` where
+	/// `T` can already be `undefined`.
+	fn option_ty(&mut self, inner: Ty<'tcx>, span: Span) -> Type {
+		let none = match self.erases_to(inner).undefined {
+			true => Type::Rt("None", vec![]),
+			false => Type::Builtin("undefined"),
+		};
+		Type::Union(vec![self.ty(inner, span), none])
+	}
+
+	/// The JS value of `None` in an `Option<inner>`, and of `Break` in a `ControlFlow`
+	/// that `?` on one makes: `undefined`, or `rt.None` where `inner` can already be
+	/// `undefined`.
+	pub fn none(&self, inner: Ty<'tcx>) -> ts::Expr {
+		self.none_arg(inner).unwrap_or_else(ts::Expr::undefined)
+	}
+
+	/// `rt.None`, if it is an `Option<inner>`'s `None`, which a runtime function taking
+	/// one takes after its own arguments.
+	pub fn none_arg(&self, inner: Ty<'tcx>) -> Option<ts::Expr> {
+		self.erases_to(inner).undefined.then(|| ts::Expr::Rt("None".into()))
+	}
+
 	/// Which of the values `Option` and `Poll` erase to a `ty`'s JS value can already be,
 	/// seen through the wrappers that erase to their contents.
 	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
 			ty::Tuple(tys) if tys.is_empty() => Erased {
 				undefined: true,
-				pending: false,
+				..Erased::default()
 			},
+			ty::Param(_) => Erased {
+				param: true,
+				..Erased::default()
+			},
+			// An `rt.Place`, which is an object.
+			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Box | library::Std::Pin) => self.erases_to(args.type_at(0)),
-				Some(library::Std::Option) => Erased {
-					undefined: true,
-					..self.erases_to(args.type_at(0))
-				},
+				Some(library::Std::Box | library::Std::Pin | library::Std::Reverse | library::Std::NonZero) => {
+					self.erases_to(args.type_at(0))
+				}
+				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
 				Some(library::Std::Poll) => Erased {
 					pending: true,
 					..self.erases_to(args.type_at(0))
 				},
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
-					Erased {
-						undefined: true,
-						..self.erases_to(args.type_at(1))
-					}
+					self.erases_to(args.type_at(1)).option()
 				}
+				Some(library::Std::RangeFull) => Erased {
+					undefined: true,
+					..Erased::default()
+				},
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),
@@ -1322,12 +1586,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
 		}
-		let site = (!def_id.is_local()).then(|| (self.sites.get(&instance).copied().unwrap_or(span), def_id));
+		let std = !self.crates.translates(def_id);
+		let site = std.then(|| (self.sites.get(&instance).copied().unwrap_or(span), def_id));
 		let outer = std::mem::replace(&mut self.site, site);
 		let function = self.lower_function(instance, sym, span);
 		self.site = outer;
 		if let Some(function) = function {
-			if !def_id.is_local() {
+			if std {
 				self.program.std.insert(sym);
 			}
 			self.program.items.push(Item::Function(function));
@@ -1338,7 +1603,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
 		// Without unwinding, std's MIR has none of the cleanups a panic runs.
-		if !def_id.is_local()
+		if !self.crates.translates(def_id)
 			&& tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort)
 		{
 			self.err(
@@ -1362,10 +1627,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The doc comment on an item, as written.
 	fn doc(&self, def_id: DefId) -> Option<String> {
-		let local = def_id.as_local()?;
+		if !self.crates.translates(def_id) {
+			return None;
+		}
+		#[expect(deprecated, reason = "doc comments are no parsed attribute")]
 		let lines: Vec<String> = self
 			.tcx
-			.hir_attrs(self.tcx.local_def_id_to_hir_id(local))
+			.get_all_attrs(def_id)
 			.iter()
 			.filter_map(|attr| attr.doc_str())
 			.map(|doc| doc.to_string())
@@ -1417,6 +1685,17 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 		ty::Never => "never".into(),
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
+		// By its trait and the types it binds, as `dyn_Future_u64`.
+		ty::Dynamic(preds, ..) => {
+			let principal = preds.principal().map(|p| p.skip_binder());
+			let args = principal.iter().flat_map(|p| p.args.types());
+			let bound = preds.projection_bounds().filter_map(|p| p.skip_binder().term.as_type());
+			std::iter::once("dyn".to_string())
+				.chain(principal.map(|p| tcx.item_name(p.def_id).to_string()))
+				.chain(args.chain(bound).map(|t| short_name(tcx, t)))
+				.collect::<Vec<_>>()
+				.join("_")
+		}
 		// By where it is defined, not by its span, which code above it moves.
 		ty::Closure(def_id, _) | ty::Coroutine(def_id, _) | ty::CoroutineClosure(def_id, _) | ty::FnDef(def_id, _) => {
 			def_name(tcx, *def_id)
@@ -1527,7 +1806,12 @@ pub fn escape(name: &str) -> String {
 		"rt",
 		// Globals the output calls.
 		"Array",
+		"Infinity",
+		"Math",
+		"NaN",
+		"Number",
 		"Object",
+		"String",
 		"Uint8Array",
 	];
 	match RESERVED.contains(&name) {

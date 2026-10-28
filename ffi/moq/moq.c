@@ -1,7 +1,7 @@
 /* moq's exported C API against the real library: a broadcast's track, published and
  * subscribed to in one process, with every read polled as a future, and an origin.
  * moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export into the same library, and
- * each names the others' types.
+ * each names the others' types, and the catalog is lent to C for a call.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -35,6 +35,21 @@ static int is(moq_buf buf, const char *s) {
 	return same;
 }
 
+/* The catalog `mutate` lends for its call, which lists the binary track: counts it in
+ * data. */
+static void lists_state(void *data, moq_hang_catalog_extra *catalog) {
+	moq_buf json;
+	moq_hang_error *hang_err = NULL;
+	CHECK(moq_hang_catalog_extra_to_json(catalog, &json, &hang_err));
+	for (size_t i = 0; i + 5 <= json.len; i++) {
+		if (memcmp(json.ptr + i, "state", 5) == 0) {
+			(*(int *)data)++;
+			break;
+		}
+	}
+	moq_buf_free(json);
+}
+
 static int wakes = 0;
 
 static void wake(void *data) {
@@ -45,6 +60,7 @@ static void wake(void *data) {
 int main(void) {
 	moq_waker waker = {.wake = wake};
 	moq_error *err = NULL;
+	CHECK(moq_contract() == MOQ_CONTRACT);
 
 	moq_broadcast_info *info = moq_broadcast_info_new();
 	moq_broadcast_producer *broadcast = moq_broadcast_info_produce(info);
@@ -153,7 +169,8 @@ int main(void) {
 	root = moq_origin_producer_root(scoped);
 	CHECK(is(moq_path_as_str(root), "room"));
 	moq_path_free(root);
-	moq_path *absolute = moq_origin_producer_absolute(scoped, str("alice"));
+	moq_path *absolute = NULL;
+	CHECK(moq_origin_producer_absolute(scoped, str("alice"), &absolute, &err));
 	CHECK(is(moq_path_as_str(absolute), "room/alice"));
 	moq_path_free(absolute);
 	moq_patterns *allowed = moq_origin_producer_allowed(scoped);
@@ -161,7 +178,7 @@ int main(void) {
 	CHECK(!moq_patterns_matches(allowed, str("bob")));
 	moq_patterns_free(allowed);
 	moq_origin_consumer *reader = moq_origin_producer_consume(scoped);
-	absolute = moq_origin_consumer_absolute(reader, str("bob"));
+	CHECK(moq_origin_consumer_absolute(reader, str("bob"), &absolute, &err));
 	CHECK(is(moq_path_as_str(absolute), "room/bob"));
 	moq_path_free(absolute);
 	moq_origin_consumer_free(reader);
@@ -175,13 +192,41 @@ int main(void) {
 	moq_broadcast_info *stamped = moq_broadcast_producer_info(created);
 	moq_path *path = moq_broadcast_info_path(stamped);
 	CHECK(is(moq_path_as_str(path), "room/alice"));
-	moq_path *joined = moq_path_join(path, str("cam"));
+
+	/* Paths own their segments, so C builds them, and relative ones, from a string. */
+	moq_path *cam = NULL;
+	moq_path_too_long *too_long = NULL;
+	CHECK(moq_path_new(str("/cam/"), &cam, &too_long));
+	CHECK(is(moq_path_as_str(cam), "cam"));
+	moq_path *joined = NULL;
+	CHECK(moq_path_join(path, cam, &joined, &too_long));
 	CHECK(is(moq_path_as_str(joined), "room/alice/cam"));
+	moq_path *stripped = moq_path_strip_prefix(joined, path);
+	CHECK(stripped != NULL && moq_path_eq(stripped, cam));
+	moq_path_free(stripped);
+	CHECK(moq_path_strip_prefix(path, joined) == NULL);
+	moq_relative *up = NULL;
+	CHECK(moq_relative_new(str("../bob"), &up, &too_long));
+	moq_path *resolved = NULL;
+	CHECK(moq_path_resolve(joined, up, &resolved, &too_long));
+	CHECK(is(moq_path_as_str(resolved), "room/bob"));
+	moq_path_free(resolved);
+	moq_relative_free(up);
 	moq_path_free(joined);
+	moq_path_free(cam);
 	moq_path_free(path);
 	moq_broadcast_info_free(stamped);
 	moq_broadcast_producer_free(created);
-	moq_origin_driver_free(driver);
+
+	/* The driver, polled as a language's event loop would: at the time, and with a waiter
+	 * made from the waker and held across polls, since what a poll registers lives only
+	 * as long as its waiter. It runs until every owner of the origin is gone. */
+	moq_waiter *waiter = moq_waiter_new(waker);
+	now = moq_now();
+	moq_instant *deadline = NULL;
+	CHECK(moq_origin_driver_poll(driver, now, waiter, &deadline, &err));
+	moq_instant_free(deadline);
+	moq_instant_free(now);
 	/* A client publishes the origin through moq-net's generic `with_publisher`, at each
 	 * type that implements its bound, by reference, so C keeps its handle. */
 	moq_client *client = moq_client_new();
@@ -189,7 +234,20 @@ int main(void) {
 	CHECK(publishing != NULL);
 	moq_client_free(publishing);
 	moq_client_free(client);
+	int before = wakes;
 	moq_origin_producer_free(origin);
+	/* The last owner's drop wakes the driver, which then finishes, cleanly. */
+	CHECK(wakes > before);
+	now = moq_now();
+	deadline = NULL;
+	err = NULL;
+	CHECK(!moq_origin_driver_poll(driver, now, waiter, &deadline, &err));
+	CHECK(deadline == NULL && err != NULL && is(moq_error_to_string(err), "closed"));
+	moq_error_free(err);
+	err = NULL;
+	moq_instant_free(now);
+	moq_waiter_free(waiter);
+	moq_origin_driver_free(driver);
 
 	/* moq-mux reads an OpusHead into hang's catalog config: 44.1 kHz in, stereo, which
 	 * the catalog lists at the decoder's 48 kHz, keeping the head as its description. */
@@ -238,6 +296,9 @@ int main(void) {
 	moq_track_producer_free(state);
 	CHECK(is(moq_binary_snapshot_name(snapshot), "state"));
 	CHECK(moq_binary_snapshot_update(snapshot, str("latest"), &mux_err));
+	int listed_state = 0;
+	CHECK(moq_catalog_producer_extra_mutate(catalog, lists_state, &listed_state, &mux_err));
+	CHECK(listed_state == 1);
 	moq_binary_snapshot_free(snapshot);
 	moq_catalog_producer_extra_free(catalog);
 	moq_broadcast_producer_free(publisher);
@@ -246,6 +307,13 @@ int main(void) {
 	moq_connect_error unauthorized = MOQ_CONNECT_ERROR_UNAUTHORIZED;
 	CHECK(moq_connect_error_is_auth(&unauthorized));
 	CHECK(is(moq_connect_error_to_string(&unauthorized), "unauthorized"));
+
+	/* A backoff's fields are settings left unset, and the methods of their names resolve them. */
+	moq_backoff *backoff = moq_backoff_default();
+	CHECK(moq_backoff_initial_setting(backoff) == NULL);
+	moq_duration initial = moq_backoff_initial(backoff);
+	CHECK(initial.secs == 1 && initial.nanos == 0);
+	moq_backoff_free(backoff);
 
 	if (failures == 0) {
 		printf("ok\n");
