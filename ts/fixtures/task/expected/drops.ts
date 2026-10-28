@@ -14,7 +14,9 @@ import * as Held from "./drops.Held.ts";
 import * as Key from "./drops.Key.ts";
 import * as Named from "./drops.Named.ts";
 import * as Pair from "./drops.Pair.ts";
+import * as Ring from "./drops.Ring.ts";
 import * as Shell from "./drops.Shell.ts";
+import * as Slots from "./drops.Slots.ts";
 import type * as Text from "./drops.Text.ts";
 import * as Wrap from "./drops.Wrap.ts";
 import { recvFuture } from "./kio.ts";
@@ -2272,11 +2274,51 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	}
 }
 
+/** Each slot from `from` on, replaced through a reference to it. */
+export function refill$blown_closure3(slots: Array<Bomb.Bomb | undefined>, from: rt.usize, bomb: (a0: rt.u32) => Bomb.Bomb): void {
+	let _10!: rt.usize;
+	let _15!: Bomb.Bomb | undefined;
+	let unwind: number = 0;
+	try {
+		let i: rt.usize = from;
+		while (i < slots.length) {
+			_10 = i;
+			rt.idx(slots, _10);
+			lend(rt.place(() => slots[_10], (value) => slots[_10] = value));
+			const _16: Bomb.Bomb = bomb(i as rt.u32);
+			unwind = 8;
+			_15 = _16;
+			rt.drop(slots[_10]);
+			unwind = 0;
+			slots[_10] = _15;
+			i = rt.usizeAdd(i, 1);
+		}
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		slots[_10] = _15;
+		throw e;
+	}
+}
+
+/** Logs the value a reference to a slot reads. */
+export function lend(slot: rt.Place<Bomb.Bomb | undefined>): void {
+	if (slot.v !== undefined) {
+		const arg = slot.v.id;
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+		const _6: string = rt.fmtFormat(["b", args2[0], " lent"]);
+		Log.note(slot.v.log, _6);
+	}
+}
+
 /**
  * What drops after a value's `Drop` panics, scenario `at`'s alone: the rest of the
  * value, and the rest of what holds it, as std's glue and collections go on.
  */
 export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
+	let at2!: number;
+	let at3!: number;
 	let v!: Bomb.Bomb[];
 	let _29!: Log.Log;
 	let _30!: Bomb.Bomb;
@@ -2299,24 +2341,38 @@ export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let _137!: rt.u32;
 	let map3!: rt.HashMap<Key.Key, Guard.Guard>;
 	let _157!: Key.Key;
-	let _170!: boolean;
-	let _171!: boolean;
-	let _172!: boolean;
-	let _173!: boolean;
-	let _174!: boolean;
-	let _175!: boolean;
-	let _176!: boolean;
-	let _177!: boolean;
+	let v3!: Bomb.Bomb[];
+	let v4!: Bomb.Bomb[];
+	let _178!: Bomb.Bomb;
+	let _183!: Bomb.Bomb;
+	let slots!: Slots.Slots;
+	let v5!: Array<Bomb.Bomb | undefined>;
+	let ring!: Ring.Ring;
+	let _223!: Bomb.Bomb | undefined;
+	let slots2!: Array<Bomb.Bomb | undefined>;
+	let v6!: Array<Bomb.Bomb | undefined>;
+	let _261!: boolean;
+	let _262!: boolean;
+	let _263!: boolean;
+	let _264!: boolean;
+	let _265!: boolean;
+	let _266!: boolean;
+	let _267!: boolean;
+	let _268!: boolean;
+	let _269!: boolean;
+	let _270!: boolean;
 	let unwind: number = 0;
 	try {
-		_177 = false;
-		_176 = false;
-		_175 = false;
-		_174 = false;
-		_173 = false;
-		_172 = false;
-		_171 = false;
-		_170 = false;
+		_270 = false;
+		_269 = false;
+		_268 = false;
+		_267 = false;
+		_266 = false;
+		_265 = false;
+		_264 = false;
+		_263 = false;
+		_262 = false;
+		_261 = false;
 		const bomb: (a0: rt.u32, a1: boolean) => Bomb.Bomb = (n2: rt.u32, blows: boolean): Bomb.Bomb => {
 			return new Bomb.Bomb({ id: rt.u32Add(id, n2), log: Log.clone$Clone(log), blows });
 		};
@@ -2328,7 +2384,7 @@ export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		};
 		if (at === 0) {
 			v = [];
-			unwind = 94;
+			unwind = 143;
 			const _15: Bomb.Bomb = bomb(1, false);
 			v.push(_15);
 			const _20: Bomb.Bomb = bomb(2, true);
@@ -2339,110 +2395,110 @@ export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.dropAll(v);
 		} else if (at === 1) {
 			_29 = Log.clone$Clone(log);
-			unwind = 93;
+			unwind = 142;
 			_30 = bomb(1, false);
-			unwind = 92;
+			unwind = 141;
 			const _33: Guard.Guard = guard(2);
 			unwind = 0;
 			rt.drop(new Shell.Shell({ log: _29, blows: true, first: _30, second: _33 }));
 		} else if (at === 2) {
 			_37 = Log.clone$Clone(log);
-			unwind = 91;
+			unwind = 140;
 			_38 = bomb(1, true);
-			unwind = 90;
+			unwind = 139;
 			const _41: Guard.Guard = guard(2);
 			unwind = 0;
 			rt.drop(new Shell.Shell({ log: _37, blows: false, first: _38, second: _41 }));
 		} else if (at === 3) {
 			_45 = guard(1);
-			unwind = 89;
+			unwind = 138;
 			v2 = [];
-			unwind = 88;
+			unwind = 137;
 			_54 = bomb(2, true);
-			unwind = 87;
+			unwind = 136;
 			const _57: Guard.Guard = guard(3);
-			unwind = 88;
+			unwind = 137;
 			v2.push([_54, _57] as [Bomb.Bomb, Guard.Guard]);
 			_63 = bomb(4, false);
-			unwind = 86;
+			unwind = 135;
 			const _66: Guard.Guard = guard(5);
-			unwind = 88;
+			unwind = 137;
 			v2.push([_63, _66] as [Bomb.Bomb, Guard.Guard]);
-			unwind = 85;
+			unwind = 134;
 			_48 = new Entries.Entries(v2);
 			const _70: Guard.Guard = guard(6);
 			unwind = 0;
 			drop$Guard_Entries_Bomb_Guard_Held([_45, _48, { tag: "One", _0: _70 } as Held.Held] as [Guard.Guard, Entries.Entries<Bomb.Bomb, Guard.Guard>, Held.Held]);
 		} else if (at === 4) {
 			map = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, Bomb.Bomb>;
-			unwind = 84;
+			unwind = 133;
 			_76 = key(1, "Sound" as Fault.Fault);
-			unwind = 111;
-			_177 = true;
+			unwind = 164;
+			_270 = true;
 			const _80: Bomb.Bomb = bomb(1, false);
-			_177 = false;
+			_270 = false;
 			const _74: Bomb.Bomb | undefined = rt.btreeInsert(map, _76, _80, rt.drop, rt.drop);
-			unwind = 84;
-			_177 = false;
+			unwind = 133;
+			_270 = false;
 			rt.drop(_74);
 			_85 = key(2, "Sound" as Fault.Fault);
-			unwind = 109;
-			_176 = true;
+			unwind = 162;
+			_269 = true;
 			const _89: Bomb.Bomb = bomb(2, true);
-			_176 = false;
+			_269 = false;
 			const _83: Bomb.Bomb | undefined = rt.btreeInsert(map, _85, _89, rt.drop, rt.drop);
-			unwind = 84;
-			_176 = false;
+			unwind = 133;
+			_269 = false;
 			rt.drop(_83);
 			_94 = key(3, "Sound" as Fault.Fault);
-			unwind = 107;
-			_175 = true;
+			unwind = 160;
+			_268 = true;
 			const _98: Bomb.Bomb = bomb(3, false);
-			_175 = false;
+			_268 = false;
 			const _92: Bomb.Bomb | undefined = rt.btreeInsert(map, _94, _98, rt.drop, rt.drop);
-			unwind = 84;
-			_175 = false;
+			unwind = 133;
+			_268 = false;
 			rt.drop(_92);
 			rt.btreeClear(map, rt.drop, rt.drop);
 			unwind = 0;
 			rt.btreeDrop(map, rt.drop, rt.drop);
 		} else if (at === 5) {
-			_174 = true;
+			_267 = true;
 			map2 = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, Guard.Guard>;
-			unwind = 105;
+			unwind = 158;
 			_106 = key(1, "Sound" as Fault.Fault);
-			unwind = 103;
-			_173 = true;
+			unwind = 156;
+			_266 = true;
 			const _110: Guard.Guard = guard(1);
-			_173 = false;
+			_266 = false;
 			const _104: Guard.Guard | undefined = rt.btreeInsert(map2, _106, _110, rt.drop, rt.drop);
-			unwind = 105;
-			_173 = false;
+			unwind = 158;
+			_266 = false;
 			rt.drop(_104);
 			_115 = key(2, "Blows" as Fault.Fault);
-			unwind = 101;
-			_172 = true;
+			unwind = 154;
+			_265 = true;
 			const _119: Guard.Guard = guard(2);
-			_172 = false;
+			_265 = false;
 			const _113: Guard.Guard | undefined = rt.btreeInsert(map2, _115, _119, rt.drop, rt.drop);
-			unwind = 105;
-			_172 = false;
+			unwind = 158;
+			_265 = false;
 			rt.drop(_113);
 			_124 = key(3, "Sound" as Fault.Fault);
-			unwind = 99;
-			_171 = true;
+			unwind = 152;
+			_264 = true;
 			const _128: Guard.Guard = guard(3);
-			_171 = false;
+			_264 = false;
 			const _122: Guard.Guard | undefined = rt.btreeInsert(map2, _124, _128, rt.drop, rt.drop);
-			unwind = 105;
-			_171 = false;
+			unwind = 158;
+			_264 = false;
 			rt.drop(_122);
-			_174 = false;
+			_267 = false;
 			rt.btreeDrop(map2, rt.drop, rt.drop);
-			_174 = false;
+			_267 = false;
 		} else if (at === 6) {
 			queue = rt.dequeNew() as rt.VecDeque<Bomb.Bomb>;
-			unwind = 83;
+			unwind = 132;
 			let iterStart: rt.u32 = 1;
 			const iterEnd: rt.u32 = 5;
 			while ((_137 = iterStart++) < iterEnd) {
@@ -2455,21 +2511,94 @@ export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.dequeTruncate(queue, 1, rt.drop);
 			unwind = 0;
 			rt.dequeDrop(queue, rt.drop);
-		} else {
+		} else if (at === 7) {
 			map3 = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
-			unwind = 82;
+			unwind = 131;
 			_157 = key(1, "Blows" as Fault.Fault);
-			unwind = 97;
-			_170 = true;
+			unwind = 150;
+			_263 = true;
 			const _161: Guard.Guard = guard(1);
-			_170 = false;
+			_263 = false;
 			const _155: Guard.Guard | undefined = rt.hashInsert(map3, _157, _161, rt.drop, rt.drop);
-			unwind = 82;
-			_170 = false;
+			unwind = 131;
+			_263 = false;
 			rt.drop(_155);
 			rt.hashClear(map3, rt.drop, rt.drop);
 			unwind = 0;
 			rt.hashDrop(map3, rt.drop, rt.drop);
+		} else if (at === 8) {
+			v4 = [];
+			unwind = 130;
+			const _170: Bomb.Bomb = bomb(1, false);
+			v4.push(_170);
+			const _175: Bomb.Bomb = bomb(2, false);
+			v4.push(_175);
+			unwind = 129;
+			v3 = v4;
+			_178 = bomb(3, false);
+			unwind = 148;
+			_262 = true;
+			at2 = rt.idx(v3, 0);
+			unwind = 88;
+			rt.drop(v3[at2]);
+			unwind = 129;
+			_262 = false;
+			v3[at2] = _178;
+			_262 = false;
+			_183 = bomb(4, false);
+			unwind = 146;
+			_261 = true;
+			at3 = rt.idx(v3, 2);
+			unwind = 92;
+			rt.drop(v3[at3]);
+			unwind = 0;
+			_261 = false;
+			v3[at3] = _183;
+			_261 = false;
+			rt.dropAll(v3);
+		} else if (at === 9) {
+			v5 = [];
+			unwind = 128;
+			v5.push(undefined as Bomb.Bomb | undefined);
+			const _196: Bomb.Bomb | undefined = bomb(1, false);
+			v5.push(_196);
+			const _202: Bomb.Bomb | undefined = bomb(2, true);
+			v5.push(_202);
+			unwind = 127;
+			slots = new Slots.Slots(v5);
+			const _208: Bomb.Bomb = bomb(3, false);
+			Slots.put(slots, 0, _208);
+			const _213: Bomb.Bomb = bomb(4, false);
+			Slots.put(slots, 1, _213);
+			const _218: Bomb.Bomb = bomb(5, false);
+			Slots.put(slots, 2, _218);
+			unwind = 0;
+			rt.drop(slots);
+		} else {
+			unwind = 126;
+			_223 = undefined;
+			const _225: Bomb.Bomb = bomb(1, false);
+			unwind = 125;
+			ring = new Ring.Ring({ slots: [_223, _225] });
+			const _230: Bomb.Bomb = bomb(2, false);
+			Ring.lent(ring, 0, _230);
+			const _235: Bomb.Bomb = bomb(3, false);
+			Ring.lent(ring, 1, _235);
+			v6 = [];
+			unwind = 124;
+			const _242: Bomb.Bomb | undefined = bomb(4, false);
+			v6.push(_242);
+			const _248: Bomb.Bomb | undefined = bomb(5, true);
+			v6.push(_248);
+			unwind = 123;
+			slots2 = v6;
+			refill$blown_closure3(slots2, 0, (n5: rt.u32): Bomb.Bomb => {
+				return bomb(rt.u32Add(n5, 6), false);
+			});
+			unwind = 125;
+			rt.dropAll(slots2);
+			unwind = 0;
+			rt.drop(ring);
 		}
 		unwind = 0;
 		Log.note(log, rt.fmtFormat(["unreached"]));
@@ -2481,116 +2610,182 @@ export function blown(log: Log.Log, id: rt.u32, at: rt.u8): void {
 						b7: {
 							b8: {
 								b9: {
-									if (unwind === 0) {
-										throw e;
-									}
-									if (unwind === 82) {
-										break b4;
-									}
-									if (unwind === 83) {
-										rt.dequeDrop(queue, rt.drop);
-										break b3;
-									}
-									if (unwind === 84) {
-										break b5;
-									}
-									if (unwind === 85) {
-										rt.drop(_48);
-										break b6;
-									}
-									if (unwind === 86) {
-										rt.drop(_63);
-										break b7;
-									}
-									if (unwind === 87) {
-										rt.drop(_54);
-										break b7;
-									}
-									if (unwind === 88) {
-										break b7;
-									}
-									if (unwind === 89) {
-										break b6;
-									}
-									if (unwind === 90) {
-										rt.drop(_38);
-										break b8;
-									}
-									if (unwind === 91) {
-										break b8;
-									}
-									if (unwind === 92) {
-										rt.drop(_30);
-										break b9;
-									}
-									if (unwind === 93) {
-										break b9;
-									}
-									if (unwind === 94) {
-										rt.dropAll(v);
-										break b3;
-									}
-									if (unwind === 97) {
-										if (!_170) {
-											break b4;
-										}
-										rt.drop(_157);
-										break b4;
-									}
-									if (unwind === 99) {
-										if (_171) {
-											rt.drop(_124);
-										}
-									} else if (unwind === 101) {
-										if (_172) {
-											rt.drop(_115);
-										}
-									} else if (unwind === 103) {
-										if (_173) {
-											rt.drop(_106);
-										}
-									} else if (unwind !== 105) {
-										if (unwind === 107) {
-											if (!_175) {
-												break b5;
+									b10: {
+										b11: {
+											b12: {
+												b13: {
+													if (unwind === 0) {
+														throw e;
+													}
+													if (unwind === 88) {
+														_262 = false;
+														v3[at2] = _178;
+														break b5;
+													}
+													if (unwind === 92) {
+														_261 = false;
+														v3[at3] = _183;
+														break b6;
+													}
+													if (unwind === 123) {
+														rt.dropAll(slots2);
+														break b7;
+													}
+													if (unwind === 124) {
+														rt.dropAll(v6);
+														break b7;
+													}
+													if (unwind === 125) {
+														break b7;
+													}
+													if (unwind === 126) {
+														rt.drop(_223);
+														break b3;
+													}
+													if (unwind === 127) {
+														rt.drop(slots);
+														break b3;
+													}
+													if (unwind === 128) {
+														rt.dropAll(v5);
+														break b3;
+													}
+													if (unwind === 129) {
+														break b4;
+													}
+													if (unwind === 130) {
+														rt.dropAll(v4);
+														break b3;
+													}
+													if (unwind === 131) {
+														break b8;
+													}
+													if (unwind === 132) {
+														rt.dequeDrop(queue, rt.drop);
+														break b3;
+													}
+													if (unwind === 133) {
+														break b9;
+													}
+													if (unwind === 134) {
+														rt.drop(_48);
+														break b10;
+													}
+													if (unwind === 135) {
+														rt.drop(_63);
+														break b11;
+													}
+													if (unwind === 136) {
+														rt.drop(_54);
+														break b11;
+													}
+													if (unwind === 137) {
+														break b11;
+													}
+													if (unwind === 138) {
+														break b10;
+													}
+													if (unwind === 139) {
+														rt.drop(_38);
+														break b12;
+													}
+													if (unwind === 140) {
+														break b12;
+													}
+													if (unwind === 141) {
+														rt.drop(_30);
+														break b13;
+													}
+													if (unwind === 142) {
+														break b13;
+													}
+													if (unwind === 143) {
+														rt.dropAll(v);
+														break b3;
+													}
+													if (unwind === 146) {
+														break b6;
+													}
+													if (unwind === 148) {
+														break b5;
+													}
+													if (unwind === 150) {
+														if (!_263) {
+															break b8;
+														}
+														rt.drop(_157);
+														break b8;
+													}
+													if (unwind === 152) {
+														if (_264) {
+															rt.drop(_124);
+														}
+													} else if (unwind === 154) {
+														if (_265) {
+															rt.drop(_115);
+														}
+													} else if (unwind === 156) {
+														if (_266) {
+															rt.drop(_106);
+														}
+													} else if (unwind !== 158) {
+														if (unwind === 160) {
+															if (!_268) {
+																break b9;
+															}
+															rt.drop(_94);
+															break b9;
+														}
+														if (unwind === 162) {
+															if (!_269) {
+																break b9;
+															}
+															rt.drop(_85);
+															break b9;
+														}
+														if (!_270) {
+															break b9;
+														}
+														rt.drop(_76);
+														break b9;
+													}
+													if (!_267) {
+														break b3;
+													}
+													rt.btreeDrop(map2, rt.drop, rt.drop);
+													break b3;
+												}
+												rt.drop(_29);
+												break b3;
 											}
-											rt.drop(_94);
-											break b5;
+											rt.drop(_37);
+											break b3;
 										}
-										if (unwind === 109) {
-											if (!_176) {
-												break b5;
-											}
-											rt.drop(_85);
-											break b5;
-										}
-										if (!_177) {
-											break b5;
-										}
-										rt.drop(_76);
-										break b5;
+										rt.dropAll(v2, drop$Bomb_Guard);
 									}
-									if (!_174) {
-										break b3;
-									}
-									rt.btreeDrop(map2, rt.drop, rt.drop);
+									rt.drop(_45);
 									break b3;
 								}
-								rt.drop(_29);
+								rt.btreeDrop(map, rt.drop, rt.drop);
 								break b3;
 							}
-							rt.drop(_37);
+							rt.hashDrop(map3, rt.drop, rt.drop);
 							break b3;
 						}
-						rt.dropAll(v2, drop$Bomb_Guard);
+						rt.drop(ring);
+						break b3;
 					}
-					rt.drop(_45);
-					break b3;
+					if (!_261) {
+						break b4;
+					}
+					rt.drop(_183);
+					break b4;
 				}
-				rt.btreeDrop(map, rt.drop, rt.drop);
-				break b3;
+				if (_262) {
+					rt.drop(_178);
+				}
 			}
-			rt.hashDrop(map3, rt.drop, rt.drop);
+			rt.dropAll(v3);
 		}
 		throw e;
 	}

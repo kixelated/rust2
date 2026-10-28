@@ -759,24 +759,48 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 			}
 		}
-		self.stable_path(target, super::own(place), span, out)
+		if super::own(place) {
+			return self.stable_path(target, true, span, out);
+		}
+		// A field or element of what one reference points at: only the reference can change
+		// while the borrow lives.
+		let through_one = match place.projection.as_slice() {
+			[ProjectionElem::Deref, inner @ .., last] => {
+				!matches!(last, ProjectionElem::Deref)
+					&& inner
+						.iter()
+						.all(|e| matches!(e, ProjectionElem::Field(..) | ProjectionElem::Downcast(..)))
+			}
+			_ => false,
+		};
+		let reference = match &self.slots[place.local] {
+			Slot::Var(name) if through_one && starts_from(&target, name) => name.clone(),
+			_ => return self.stable_path(target, false, span, out),
+		};
+		let held = self.held_now(Expr::ident(&reference), out);
+		let ty = self.decl_ty(place.local);
+		self.spilled_as(&held, ty);
+		let target = from_held(target, &held);
+		self.stable_path(target, true, span, out)
 	}
 
 	/// `target`, a path, with the index it goes through held where it is now, and the
-	/// object too unless it is a local's `own` value, which can't change while borrowed.
-	pub(super) fn stable_path(&mut self, target: Expr, own: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	/// object too unless it is `fixed`, which can't change while borrowed.
+	pub(super) fn stable_path(&mut self, target: Expr, fixed: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		self.materialize(&target, out);
-		let mut base = |fx: &mut Self, e: Expr| match own {
+		let mut base = |fx: &mut Self, e: Expr| match fixed {
 			true => e,
 			false => fx.held_now(e, out),
 		};
 		match target {
-			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			Expr::Located(_, e) => self.stable_path(*e, fixed, span, out),
 			Expr::Ident(_) | Expr::This => target,
 			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
 			Expr::Index(object, i) => {
 				let object = base(self, *object);
-				Expr::Index(Box::new(object), Box::new(self.held_now(*i, out)))
+				let i = self.held_now(*i, out);
+				self.spilled_as(&i, crate::ts::Type::Builtin("number"));
+				Expr::Index(Box::new(object), Box::new(i))
 			}
 			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
 		}
@@ -1242,5 +1266,26 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		),
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,
+	}
+}
+
+/// Whether `path` reads through the variable `name` first.
+fn starts_from(path: &Expr, name: &str) -> bool {
+	match path {
+		Expr::Located(_, e) | Expr::Member(e, _) | Expr::Index(e, _) | Expr::As(e, _) => starts_from(e, name),
+		Expr::Ident(n) => n == name,
+		_ => false,
+	}
+}
+
+/// `path`, reading through `held` where it reads through the variable it starts from.
+fn from_held(path: Expr, held: &Expr) -> Expr {
+	let from = |e: Box<Expr>| Box::new(from_held(*e, held));
+	match path {
+		Expr::Located(loc, e) => Expr::Located(loc, from(e)),
+		Expr::Member(e, key) => Expr::Member(from(e), key),
+		Expr::Index(e, i) => Expr::Index(from(e), i),
+		Expr::As(e, ty) => Expr::As(from(e), ty),
+		_ => held.clone(),
 	}
 }
