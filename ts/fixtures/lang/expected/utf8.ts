@@ -39,6 +39,12 @@ export function decodes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 			put(out, rt.fmtFormat([args4[0], "|", rt.fmtSpec({ align: ">", width: 64 }, args4[0]), "|", args4[1], "|", rt.fmtSpec({ alternate: true }, args4[1])]));
 		}
 	}
+	const _61: rt.Result<string, rt.Utf8Error> = rt.strFromUtf8(rt.byteVecSlice(bytes));
+	if (_61.ok) {
+		rt.byteVecPush(out, rt.stringLen(_61.value) & 0xff);
+	} else {
+		rt.byteVecPush(out, _61.error.validUpTo & 0xff);
+	}
 }
 
 //# sourceMappingURL=utf8.ts.map

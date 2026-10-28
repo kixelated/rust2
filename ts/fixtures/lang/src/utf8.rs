@@ -31,4 +31,9 @@ pub fn decodes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 		}
 	}
+	// `str`'s own `from_utf8`, a call of its own.
+	match <str>::from_utf8(&bytes) {
+		Ok(s) => out.push(s.len() as u8),
+		Err(e) => out.push(e.valid_up_to() as u8),
+	}
 }
