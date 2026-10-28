@@ -4,12 +4,10 @@
 //! Each step is two bytes, an op and its argument. Channels and tasks are picked by the
 //! argument, modulo how many there are; a step with nothing to pick does nothing. Once
 //! the script ends, every task drops in order, then every channel.
-//!
-//! Where a panic unwinds, as on the host, a step that panics is logged and the script
-//! goes on, so what unwinding dropped shows in the log: `examples/unwind.rs`.
 
 use crate::drops;
 use crate::exec::Executor;
+use crate::futures;
 use crate::log::Log;
 use crate::model::{self, Channel, Guard};
 
@@ -18,22 +16,11 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	let log = Log::new();
 	let mut exec = Executor::new(log.clone());
 	let mut channels: Vec<Channel> = Vec::new();
+	let steps = steps();
 	for step in input.chunks(2) {
 		let (op, arg) = (step[0], step.get(1).copied().unwrap_or(0));
-		#[cfg(panic = "unwind")]
-		{
-			let run = std::panic::AssertUnwindSafe(|| run_step(&log, &mut exec, &mut channels, op, arg));
-			if let Err(panic) = std::panic::catch_unwind(run) {
-				let message = match (panic.downcast_ref::<String>(), panic.downcast_ref::<&str>()) {
-					(Some(s), _) => s.clone(),
-					(_, Some(s)) => s.to_string(),
-					_ => "Box<dyn Any>".to_string(),
-				};
-				log.note(format!("panic {message}"));
-			}
-		}
-		#[cfg(not(panic = "unwind"))]
-		run_step(&log, &mut exec, &mut channels, op, arg);
+		let (_, run_step) = steps[usize::from(op) % steps.len()];
+		run_step(&log, &mut exec, &mut channels, arg);
 	}
 	for t in 0..exec.len() {
 		exec.drop(t);
@@ -45,70 +32,113 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	log.text()
 }
 
-/// Run one step of a script.
-fn run_step(log: &Log, exec: &mut Executor, channels: &mut Vec<Channel>, op: u8, arg: u8) {
-	let pick = |len: usize| (len > 0).then(|| usize::from(arg) % len);
-	match op % 13 {
-		0 => {
+/// What a step does with its argument.
+type Step = fn(&Log, &mut Executor, &mut Vec<Channel>, u8);
+
+/// Each step and its name, which a script's op picks modulo their count: `tests/task.ts`'s
+/// `steps`, in the same order. A step added at the end moves no other.
+fn steps() -> Vec<(&'static str, Step)> {
+	vec![
+		("open", |log, _, channels, _| {
 			log.note(format!("c{} open", channels.len()));
 			channels.push(Channel::open());
-		}
-		1 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("sum", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
 				exec.spawn(model::sum(channels[c].consumer(), guard));
 			}
-		}
-		2 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("drain", |_, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				let depth = [1, 4, 16][usize::from(arg / 16) % 3];
 				exec.spawn(model::drain(channels[c].consumer(), depth));
 			}
-		}
-		3 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("send", |log, _, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				log.note(format!("c{c} send {arg}"));
 				if !channels[c].send(u64::from(arg)) {
 					log.note(format!("c{c} closed"));
 				}
 			}
-		}
-		4 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("close", |log, _, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				log.note(format!("c{c} close"));
 				channels[c].close();
 			}
-		}
-		5 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("clone", |log, _, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				log.note(format!("c{c} clone"));
 				channels[c].clone_producer();
 			}
-		}
-		6 => exec.run(),
-		7 => _ = exec.step(),
-		8 => {
-			if let Some(t) = pick(exec.len()) {
+		}),
+		("run", |_, exec, _, _| exec.run()),
+		("step", |_, exec, _, _| _ = exec.step()),
+		("poll", |_, exec, _, arg| {
+			if let Some(t) = pick(exec.len(), arg) {
 				exec.poll(t);
 			}
-		}
-		9 => {
-			if let Some(t) = pick(exec.len()) {
+		}),
+		("drop", |_, exec, _, arg| {
+			if let Some(t) = pick(exec.len(), arg) {
 				exec.drop(t);
 			}
-		}
-		10 => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("blocks", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
 				exec.spawn(model::blocks(channels[c].consumer(), guard, arg >= 128));
 			}
-		}
-		11 => drops::run(log, 1000 * exec.len() as u32, arg),
-		_ => {
-			if let Some(c) = pick(channels.len()) {
+		}),
+		("drops", |log, exec, _, arg| {
+			drops::run(log, 1000 * exec.len() as u32, arg)
+		}),
+		("held", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
 				exec.spawn(drops::held(channels[c].consumer(), guard));
 			}
-		}
-	}
+		}),
+		("edited", |log, exec, _, arg| {
+			drops::edited(log, 1000 * exec.len() as u32, arg)
+		}),
+		("helpers", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(futures::helpers(channels[c].consumer(), guard));
+			}
+		}),
+		("boxed", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(futures::boxed(channels[c].consumer(), guard));
+			}
+		}),
+		("dyns", |log, exec, _, arg| {
+			drops::dyns(log, 1000 * exec.len() as u32, arg)
+		}),
+		("cells", |log, exec, _, arg| {
+			drops::cells(log, 1000 * exec.len() as u32, arg)
+		}),
+		("folded", |log, exec, _, arg| {
+			drops::folded(log, 1000 * exec.len() as u32, arg)
+		}),
+		("rfolded", |log, exec, _, arg| {
+			drops::rfolded(log, 1000 * exec.len() as u32, arg)
+		}),
+		("watch", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(model::watch(channels[c].consumer(), guard));
+			}
+		}),
+	]
+}
+
+/// The one of `len` channels or tasks that `arg` picks, if there are any.
+fn pick(len: usize, arg: u8) -> Option<usize> {
+	(len > 0).then(|| usize::from(arg) % len)
 }

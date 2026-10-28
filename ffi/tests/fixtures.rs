@@ -1,5 +1,6 @@
 //! The api fixture is exported, built as a static library, and driven from C by
-//! `tests/api.c`, whose transcript must match the fixture's own script run natively.
+//! `tests/api.c`, from C++ by `tests/api.cpp`, and from Kotlin by `tests/api.kt`, whose
+//! transcripts must match the fixture's own script run natively.
 //! The reject fixture's export must fail at each item it cannot export.
 
 use std::path::{Path, PathBuf};
@@ -64,7 +65,8 @@ fn api() {
 		.arg("--manifest-path")
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
-		.arg(&target));
+		.arg(&target)
+		.args(["--features", "kotlin"]));
 
 	let exe = scratch().join("api").join("api-test");
 	let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
@@ -95,6 +97,75 @@ fn api() {
 		"the C transcript differs from the native one"
 	);
 
+	// The C++ header at each standard, with exceptions and RTTI on and off between them,
+	// runs the same script, then checks its futures' semantics.
+	let cxx = std::env::var_os("CXX").unwrap_or_else(|| "c++".into());
+	for (standard, flags) in [
+		("c++17", &["-fno-exceptions", "-fno-rtti"][..]),
+		("c++20", &[]),
+		("c++23", &["-fno-exceptions", "-fno-rtti"]),
+	] {
+		let exe = scratch().join("api").join(format!("api-{standard}"));
+		run(Command::new(&cxx)
+			.arg(format!("-std={standard}"))
+			.args(flags)
+			.args(["-pedantic", "-Wall", "-Wextra", "-Werror", "-I"])
+			.arg(out.join("include"))
+			.arg(manifest_dir().join("tests").join("api.cpp"))
+			.arg(target.join("debug").join("libapi.a"))
+			.args(["-lpthread", "-ldl", "-lm", "-o"])
+			.arg(&exe));
+		let cpp = run(&mut Command::new(&exe));
+		assert_eq!(
+			String::from_utf8_lossy(&cpp.stdout),
+			String::from_utf8_lossy(&native.stdout),
+			"the {standard} transcript differs from the native one"
+		);
+		run(Command::new(&exe).arg("futures"));
+		for (case, message) in [
+			("moved", "api_counter_get: a handle's value was moved out"),
+			("value", "value() of a result that holds an error"),
+			(
+				"finished",
+				"api_channel_recv_poll: a future is polled after it finished",
+			),
+			(
+				"lent moved",
+				"api_counter_into_label: a lent handle's value cannot move out",
+			),
+			("lent kept", "a lent object was moved out of"),
+			("null view", "a view of null bytes has a length"),
+		] {
+			let output = Command::new(&exe).arg(case).output().unwrap();
+			assert!(!output.status.success(), "{standard} {case} did not abort");
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			assert!(stderr.contains(message), "{standard} {case} printed {stderr}");
+		}
+	}
+
+	// A C++ program whose header names another contract than its library's aborts at load.
+	let mismatched = scratch().join("api").join("contract.cpp");
+	std::fs::write(
+		&mismatched,
+		"#include \"api.h\"\n#undef API_CONTRACT\n#define API_CONTRACT ((uint64_t)0)\n#include \"api.hpp\"\nint main() {}\n",
+	)
+	.unwrap();
+	let contract = scratch().join("api").join("contract");
+	run(Command::new(&cxx)
+		.args(["-std=c++17", "-I"])
+		.arg(out.join("include"))
+		.arg(&mismatched)
+		.arg(target.join("debug").join("libapi.a"))
+		.args(["-lpthread", "-ldl", "-lm", "-o"])
+		.arg(&contract));
+	let output = Command::new(&contract).output().unwrap();
+	assert!(!output.status.success(), "a mismatched contract did not abort");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("api.hpp and the library are from different builds"),
+		"a mismatched contract printed {stderr}"
+	);
+
 	// Each broken contract aborts, naming the function and what broke.
 	for (case, message) in [
 		("moved", "api_counter_get: a handle's value was moved out"),
@@ -106,12 +177,101 @@ fn api() {
 		),
 		("enum", "api_greet: an enum value is invalid"),
 		("bound", "api_count: a bound's kind is invalid"),
+		("lent", "api_registry_edit: a lent handle was freed"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
+		("null", "api_registry_edit: a function is null"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();
 		assert!(!output.status.success(), "{case} did not abort");
 		let stderr = String::from_utf8_lossy(&output.stderr);
 		assert!(stderr.contains(message), "{case} printed {stderr}");
 	}
+
+	kotlin(&out, &target.join("debug"), &String::from_utf8_lossy(&native.stdout));
+}
+
+/// The generated Kotlin, compiled with `tests/api.kt` against the library's JNI
+/// functions in `lib`, runs the script to the native transcript, then checks its futures
+/// and the contracts it fails loud on.
+fn kotlin(out: &Path, lib: &Path, native: &str) {
+	let coroutines = std::env::var_os("KOTLINX_COROUTINES")
+		.expect("KOTLINX_COROUTINES names kotlinx-coroutines' jar: run this in the dev shell");
+	let classes = scratch().join("api").join("kotlin");
+	let _ = std::fs::remove_dir_all(&classes);
+	run(Command::new("kotlinc")
+		.args(["-Werror", "-cp"])
+		.arg(&coroutines)
+		.arg(out.join("kotlin").join("api.kt"))
+		.arg(manifest_dir().join("tests").join("api.kt"))
+		.arg("-d")
+		.arg(&classes));
+	let mut classpath = classes.clone().into_os_string();
+	classpath.push(":");
+	classpath.push(&coroutines);
+	let java = |args: &[&str]| {
+		let mut cmd = Command::new("kotlin");
+		cmd.arg(format!("-Djava.library.path={}", lib.display()))
+			.arg("-cp")
+			.arg(&classpath)
+			.arg("ApiKt")
+			.args(args);
+		cmd
+	};
+	let kt = run(&mut java(&[]));
+	assert_eq!(
+		String::from_utf8_lossy(&kt.stdout),
+		native,
+		"the Kotlin transcript differs from the native one"
+	);
+	run(&mut java(&["futures"]));
+	for (case, message) in [
+		("moved", "Counter is closed"),
+		("boxed moved", "Node is closed"),
+		("lent kept", "Counter is closed"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
+		("callback threw", "api_fixture::Log::log: a call into Kotlin threw"),
+	] {
+		let output = java(&[case]).output().unwrap();
+		assert!(!output.status.success(), "Kotlin {case} did not fail");
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		assert!(stderr.contains(message), "Kotlin {case} printed {stderr}");
+	}
+
+	// The same classes, with another contract than the library's in place of theirs,
+	// refuse to load it.
+	let native_class = classes.join("api").join("Native.class");
+	let bytes = std::fs::read(&native_class).unwrap();
+	let contract = contract(&out.join("include").join("api.h")).to_be_bytes();
+	let at: Vec<usize> = (0..bytes.len() - 8).filter(|&i| bytes[i..i + 8] == contract).collect();
+	assert_eq!(at.len(), 1, "Native.class holds the contract once");
+	let mut mismatched = bytes.clone();
+	mismatched[at[0]] ^= 0xff;
+	std::fs::write(&native_class, &mismatched).unwrap();
+	let output = java(&[]).output().unwrap();
+	std::fs::write(&native_class, &bytes).unwrap();
+	assert!(!output.status.success(), "a mismatched contract did not fail");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("api.kt and the library are from different builds"),
+		"a mismatched contract printed {stderr}"
+	);
+}
+
+/// The contract a header defines.
+fn contract(header: &Path) -> u64 {
+	let header = std::fs::read_to_string(header).unwrap();
+	let line = header
+		.lines()
+		.find(|l| l.starts_with("#define API_CONTRACT"))
+		.expect("the header defines its contract");
+	let hex = line.split("0x").nth(1).expect("a hex contract");
+	u64::from_str_radix(hex.trim_end_matches(|c: char| !c.is_ascii_hexdigit()), 16).unwrap()
 }
 
 /// A relative `CARGO_TARGET_DIR` is the caller's, wherever cargo runs.
@@ -504,11 +664,21 @@ fn export_and_build(dir: &Path, args: &[&str]) {
 		String::from_utf8_lossy(&output.stderr)
 	);
 	std::fs::copy(dir.join("Cargo.lock"), out.join("Cargo.lock")).unwrap();
+	build_offline(&out, &dir.join("glue"));
+}
+
+/// Build the export in `out` offline from here, into `target`, once a fetch has brought
+/// the registry crates its manifest names, such as `bytes` and `jni-sys`, as any first
+/// build would: offline, the build shows it needs none of the config the check read.
+fn build_offline(out: &Path, target: &Path) {
+	run(cargo()
+		.args(["fetch", "--quiet", "--manifest-path"])
+		.arg(out.join("Cargo.toml")));
 	run(cargo()
 		.args(["build", "--quiet", "--offline", "--manifest-path"])
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
-		.arg(dir.join("glue")));
+		.arg(target));
 }
 
 /// Another export patched in for a registry dependency is bound by its resolved package,
@@ -756,9 +926,5 @@ fn config_patched() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 	// Built from here, where none of that config is read.
-	run(cargo()
-		.args(["build", "--quiet", "--offline", "--manifest-path"])
-		.arg(out.join("Cargo.toml"))
-		.arg("--target-dir")
-		.arg(root.join("glue")));
+	build_offline(&out, &root.join("glue"));
 }

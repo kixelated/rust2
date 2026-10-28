@@ -24,6 +24,9 @@ to what the library builds with on any platform, read off cargo's resolution, wh
 it was declared (the manifest, cargo's config, `--config`, or the environment), keyed by
 its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
+Beside the C header, `include/<prefix>.hpp` holds the same API in C++, and
+`kotlin/<prefix>.kt` holds it in Kotlin, over JNI functions the crate builds with
+`--features kotlin`.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -40,18 +43,9 @@ exclude = ["track::Producer::poll_closed"]
 "session::Stats" = "session_stats_snapshot"
 
 # Another package exported into the same library, which the package builds with: its
-# own `exclude`, `rename`, and `instances`, by paths from its crate root.
+# own `exclude` and `rename`, by paths from its crate root.
 [crates.moq-pattern]
 exclude = ["Patterns::iter"]
-
-# The instances a generic type exports at, by its path, and their C names without the
-# prefix. An argument is `()`, a primitive, `String`, or an exported type by its path
-# from its package's name in snake case, itself an instance if generic. Trailing
-# arguments left out take their defaults. A generic function or method's key names the
-# argument of each of its type parameters, an `impl Trait` one by its argument's name.
-[crates.moq-mux.instances]
-"catalog::Producer<moq_mux::catalog::hang::Extra>" = "catalog_producer"
-"catalog::Producer::binary_stream(config: moq_mux::binary::Config)" = "catalog_producer_binary_stream"
 ```
 
 ## Rules
@@ -67,10 +61,10 @@ export's, and adds nothing; another crate's type is refused.
 | an enum whose fields map, with no `Drop` of its own | a C enum without fields, or a struct of a tag and a union |
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
-| a generic type, at each instance `instances` names | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
-| a generic function or method, at each instance `instances` names | that instance in place of the rules below, at each instance of its type; one whose bounds fail, or that nothing exported reaches, is refused |
-| a `pub` field of an object | a getter returning a copy |
+| a generic type, at each instance it infers | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
+| a `pub` field of an object | a getter returning a copy, and a setter assigning in place, as `x.field = value` does |
 | a `pub` trait | a callback interface: a table of C functions and their data |
+| a type parameter or `impl` bounded by `Fn`, `FnMut`, or `FnOnce`, which no lifetime bound or return lets outlive the call | a C function and its `void *` data, which Rust calls only during the call; any other closure is refused |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
@@ -85,7 +79,18 @@ export's, and adds nothing; another crate's type is refused.
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>` | `X` |
-| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, a foreign implementation of its one exported trait, or, as an argument of a generic type, the one argument of a named instance that meets its bounds and makes each generic type the signature names a named instance |
+| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
+
+A generic type infers the instances it exports at, with no config: the one at its
+defaults, if each type parameter has one; the one each inherent impl is of, such as
+`impl Pair<u32>`; each choice, for each parameter, among its default and the types the
+exports implement a trait bounding it for, one of the exports', which are `()`, a
+primitive, `String`, or an exported type or an instance of one, such as
+`impl Seed<u64> for Wrap<u32>`; and each instance a signature, `pub` field, or constant
+names at any choice its bounds allow, whether or not the rest of it maps, which may name
+more. Inference finishes before any type is mapped, so mapping never adds an instance.
+An instance that holds an instance of a type inside it, such as `Cell<Cell<u8>>`, is
+refused, as it could name ever deeper ones.
 
 A record or enum holds only values and `Copy` handles: one with a field that does not map,
 or that holds itself, is an object instead, and the census lists it. A borrowed return is
@@ -105,7 +110,9 @@ refused, and the census counts why.
   value that is not `Sync` is shared on one thread at a time, and held exclusively by a
   future, which may be polled on any thread. A borrow Rust would
   refuse at compile time aborts, naming the function, as does a null or moved-out handle:
-  there is no Rust caller to return an error to.
+  there is no Rust caller to return an error to. A setter borrows as `&mut T` and takes
+  its value as `T`, so it writes the value the handle holds, or the one Rust lent it,
+  while a getter's copy is C's own: a nested field is got, set, and set back.
 - **Values** are copied in from the caller's memory, which Rust never frees, and lowered
   into memory the caller frees once with the type's `_free`.
 - **Futures** run no runtime: C polls with a `<prefix>_waker` and polls again when woken.
@@ -119,6 +126,15 @@ refused, and the census counts why.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **Closures** lent for a call are a function and its data, which Rust calls only during
+  the call, from any thread. One takes what a callback takes, and objects by reference,
+  each lent as a handle to the value where it is for that call: C borrows it no further
+  than Rust lent it, and moving out of it, freeing it, or keeping a borrow past the call
+  aborts.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is
@@ -127,11 +143,95 @@ refused, and the census counts why.
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
   `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
-  `Backoff::initial`; `field@Backoff::initial` names the field. An instance is named by `instances`, and a type instance's
-  methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
-  instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
-  out of that one; a `rename` of a method by the generic type's path names it at every
-  instance.
+  `Backoff::initial`; `field@Backoff::initial` names the field. A field's setter is
+  named as its getter, with `set_` after its type's name: `moq_connect_config_set_tls`,
+  and `moq_backoff_set_initial_setting` once renamed.
+
+  An instance is named by its generic item's name, then each argument but those at their
+  defaults after the last that is not, so the instance at its defaults is named as the
+  item. Each argument takes the last segment of its C name, such as `extra` for moq-mux's
+  `catalog::hang::Extra`, so `catalog::Producer<catalog::hang::Extra>` is
+  `moq_catalog_producer_extra`. Where two instances of one item would still share a name,
+  each argument that tells them apart takes one more segment at a time, until they
+  differ: the api fixture's `Counter::seeded` is `api_counter_seeded_point` at its
+  `Point`, and `api_counter_seeded_polar_point` at `polar::Point`. The names depend on
+  every instance the item exports at, so one an upstream change adds can lengthen another's
+  name. A type instance's methods are named through it, and a function instance appends
+  its arguments' names, a reference's by what it borrows. An `exclude` of a type or method
+  by the generic type's path leaves it out of every instance, and by the instance's path
+  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
+  `rename` by the generic item's path renames each of its instances.
+
+## C++
+
+`<prefix>.hpp` is header-only C++ over the C header, for C++17, 20, and 23, with
+exceptions and RTTI on or off: it throws nothing and reads no type information.
+
+- **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
+  is `moq::track_producer`, and its method `moq_track_producer_append_group` is
+  `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
+  as does a member named as its class or one of its fields.
+- **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
+  clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
+  the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
+  by a parameter taken by value.
+- **Records** are structs, and **enums** an `enum class`, or for one with data a
+  `std::variant` of a struct per variant, `<enum>_<variant>`. An enum's methods and
+  traits are free functions taking it first. `PartialEq` is `==`, `Display` `to_string()`,
+  `Debug` `debug()`, and `Default` `default_()`.
+- **Bytes** are passed as a `view`, which any contiguous bytes convert to, and returned as
+  a `buf`, which owns Rust's buffer without a copy. `Option<T>` is `std::optional<T>`, a
+  tuple `std::tuple`, and `Result<T, E>` a `result<T, E>`, whose `value()` aborts on an
+  error.
+- **Traits** are abstract classes, passed as a `std::unique_ptr` that Rust deletes.
+- **Closures** lent for a call are any callable, taken by a template parameter, which
+  Rust calls only during the call, from any thread. An object it lends is a reference to
+  its class for that call: moving out of it aborts.
+- **Futures** are move-only `future<...>`s, freed when destroyed, which cancels them and
+  loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
+  `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
+  a `task` that cancels when destroyed, after which the callback has finished or never
+  runs; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
+  executor. An executor is any callable taking a `void()` job to run once, later, on any
+  thread: never inline, since a wake may come from inside Rust. Each wake that lands while
+  the future polls polls it again, and a future has one poller at a time, since awaiting
+  it moves it.
+- A **waker** is a shared callable, which Rust may call from any thread.
+- **The contract** is checked when the program loads, before any other call: a header
+  and a library from different builds abort.
+
+## Kotlin
+
+`<prefix>.kt` is Kotlin for the JVM and Android over the crate's JNI functions, which
+`--features kotlin` builds into the same library, loaded by `System.loadLibrary`. It needs
+kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes as a
+`ByteArray`, and anything else encoded into one as its C struct holds it.
+
+- **Names** are in a package of the prefix: types in PascalCase without it, members in
+  camelCase without their type's name (`moq.TrackProducer.appendGroup`). A keyword is
+  quoted in backticks, and a member named as one Kotlin gives its type takes a trailing
+  `_`. A constructor such as `new` stays a companion function: `Counter.new(1)`.
+- **Objects** are classes owning their handle, `AutoCloseable`, which `close()` frees once
+  no call holds it; a call after it throws. A `self` method, or passing the object by
+  value, closes it once the call returns. `Clone` is `clone()`, and `PartialEq` is `equals`.
+  A field is a `val`, and its setter a function, `setFirst(value)`, since setting an object
+  moves it in and closes its handle, which an assignment would hide.
+- **Records** are data classes, compared by their fields, and **enums** an `enum class`,
+  or for one with data a sealed class of a data class per variant. `Display` is
+  `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
+- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
+  `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+  holding it, whose message is its `Display`.
+- **Traits** are interfaces; once Rust drops an implementation, it is closed if
+  `AutoCloseable`.
+- **Closures** lent for a call are function types, which Rust calls only during the call,
+  from any thread. An object it lends is closed once the call returns.
+- **Futures** are `suspend fun`s, which resume on the coroutine's dispatcher, as C++ resumes
+  on its executor, and never inside a wake: an `Unconfined` one resumes on `Default`. Cancelling the coroutine frees the future and
+  loses nothing. Each call is its own future, so it has one poller.
+- A **waker** is a `Waker`, which Rust may call from any thread.
+- **The contract** is checked when the library loads, before any other call: a Kotlin
+  file and a library from different builds throw.
 
 ## IR
 
@@ -140,33 +240,42 @@ records, enums, objects, callbacks, functions, and constants of every export, ea
 its Rust path, its span, and its docs. A type is in the exact form Rust takes or returns it
 (`&str` apart from `String`, `Box<dyn Trait>` apart from `impl Trait`), so a generator can
 borrow where Rust borrows. [`src/abi.rs`](src/abi.rs) decides the C ABI from it once,
-names and signatures, so [`src/c.rs`](src/c.rs) and [`src/glue.rs`](src/glue.rs) agree;
-the runtime the glue includes is [`runtime/rt.rs`](runtime/rt.rs).
+names and signatures, so [`src/c.rs`](src/c.rs), [`src/cpp.rs`](src/cpp.rs),
+[`src/kotlin.rs`](src/kotlin.rs), and [`src/glue.rs`](src/glue.rs) agree; the runtime the
+glue includes is [`runtime/rt.rs`](runtime/rt.rs), the one the C++ header includes
+[`runtime/rt.hpp`](runtime/rt.hpp), and the ones Kotlin and its JNI glue include
+[`runtime/rt.kt`](runtime/rt.kt) and [`runtime/jni.rs`](runtime/jni.rs).
 
 ## Census
 
 `--census dir` exports nothing. It writes `<package>.md` for each exported package,
 which counts what exports and ranks every refusal by construct and by the type it names,
 lists each refused item at its span, and ends with the `exclude` list that exports the
-rest, and the refused instances to drop from `instances`. It ignores the config's
-`exclude`, and reads its `instances`.
+rest. It ignores the config's `exclude`.
 
 ## Tests
 
 ```bash
-just ffi test     # export the fixtures, build them, and drive api from C
-just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c
+just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
+just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
 just ffi census   # census each into target/census
-nix develop .#bench --command just ffi bench  # frame writes, through the export and moq's rs/moq-c
+nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
 
 The `api` fixture covers each rule once, and names the `dep` fixture's types, which
 export into the same library. `tests/api.c` runs the same script as the
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
-then it breaks each runtime check, which must abort with its message. The `reject`
+then it breaks each runtime check, which must abort with its message. `tests/api.cpp`
+runs the script through the C++ header at C++17, 20, and 23, with exceptions and RTTI off
+at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
+wake and its poll that loses nothing, and a coroutine resumed or destroyed. `tests/api.kt`
+runs the script through the Kotlin on the JVM, checks its futures the same way, and breaks
+each runtime check, which must throw or abort with its message. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
-and publishes a binary track the catalog lists.
+publishes a binary track the catalog lists, and reads the catalog lent to C through
+`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
+C++17 without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.

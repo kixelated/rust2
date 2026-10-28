@@ -191,7 +191,7 @@ impl<'tcx> crate::lower::Translator<'_, 'tcx> {
 			return Vec::new();
 		};
 		// A census writes nothing, and the outside passes a root's arguments whole.
-		if self.refusals.is_some()
+		if self.census
 			|| self.roots.contains(&instance)
 			|| !self.lowers(instance)
 			|| tcx.is_closure_like(did)

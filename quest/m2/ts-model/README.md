@@ -28,15 +28,15 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
 
 - This is an epic; each group of refusals is a child below. moq must work, but nothing in
   the translator is specific to moq: dependencies follow general rules, and moq's own
-  changes (safe `cfg` twins of its `unsafe`, `dyn Expiry` as an enum, dropping or binding
-  `hashlink`, `slab`, and `smallvec`) are one research-tier quest in moq's tree.
+  changes (safe `cfg` twins of its `unsafe`, dropping or binding `hashlink`, `slab`, and
+  `smallvec`) are one research-tier quest in moq's tree.
 - Until `unsafe` and trait objects translate, internal `unsafe` in moq-net and kio gets
   safe `cfg` twins in moq, so differential tests cover it, and a dependency containing
   `unsafe` is bound by the consumer. These are stopgaps: decided with the maintainer on
   2026-10-27, a stock crate translates with no annotations or config, so
   [unsafe code the translator can model](/quest/m3/ts-unsafe.md) and
-  [trait objects](/quest/m3/ts-dyn.md) remove them. Only true platform boundaries (clocks,
-  `rand`, DEFLATE) stay bound.
+  [trait objects](/quest/m3/ts-dyn.md) remove them. Only true platform boundaries (clocks and
+  DEFLATE) stay bound.
 - Each child measures this target by the census of `ts/moq/model.toml`, rooted at those
   types with the boundaries bound, which nightly reports beside the whole crate.
 - The end-to-end work stays here: the model's roots, its differential harness, and the
@@ -46,12 +46,10 @@ Public API: the translator's output for moq-net's model.
 
 ## Required
 
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - kio closes a channel when its last producer drops
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
-- [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
-- [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
-- [Floats](/quest/m2/ts-model/floats.md) - `f64` translates, so `Bandwidth::scaled` and `Duration::mul_f64` do
-- [Std's mutable references to values JS copies](/quest/m2/ts-model/std-places.md) - `as_mut`, `get_or_insert`, `iter_mut`, and the rest give an `rt.Place`
-- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses
-- [Well-known crates without config](/quest/m2/ts-model/stock.md) - rust2-ts maps `bytes`, `rand`, and `tracing` itself, so `model.toml` stops binding and ignoring them
+- [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
+- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
+- [Writes through places the model still refuses](/quest/m2/ts-model/places.md) - `get_or_insert_default` through a `&mut`, and `mem::take` of a captured `&mut Vec`
+- [std gaps kio reaches](/quest/m2/ts-model/kio-std.md) - `array::from_fn`, `Default` of arrays and `()`, and maps of `Option`s
+- [bytes' BytesMut, Buf, and BufMut](/quest/m2/ts-model/bytes.md) - map without config, so the model's `BytesMut` binding goes
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

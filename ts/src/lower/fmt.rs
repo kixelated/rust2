@@ -113,12 +113,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		Trait::of(self.t.tcx, preds.principal_def_id()?)
 	}
 
-	/// Whether `ty` points to a trait object.
-	pub fn trait_object(&self, ty: Ty<'tcx>) -> bool {
-		ty.builtin_deref(true)
-			.is_some_and(|pointee| matches!(pointee.kind(), ty::Dynamic(..)))
-	}
-
 	/// `value`, a `ty`, written by `tr` to `f`, through the impl for `ty`.
 	pub fn fmt_call(&mut self, tr: Trait, ty: Ty<'tcx>, value: Expr, f: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
@@ -274,7 +268,8 @@ pub fn std_impl<'tcx>(
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
-			(Std::Box, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `NonZero` writes its integer, by each trait.
+			(Std::Box | Std::NonZero, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])
@@ -291,12 +286,19 @@ pub fn std_impl<'tcx>(
 			}
 			(Std::Arguments, Trait::Display | Trait::Debug) => rt("arguments", vec![value, f]),
 			(Std::FmtError, Trait::Debug) => rt("errorDebug", vec![value, f]),
+			(Std::PoisonError, Trait::Debug) => rt("poisonErrorDebug", vec![value, f]),
+			(Std::PoisonError, Trait::Display) => rt("poisonErrorDisplay", vec![value, f]),
 			(Std::FmtError, Trait::Display) => rt("errorDisplay", vec![value, f]),
 			(Std::TryFromIntError, Trait::Debug) => rt("tryFromIntErrorDebug", vec![value, f]),
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Debug) => rt("tryFromFloatSecsErrorDebug", vec![value, f]),
+			(Std::TryFromFloatSecsError, Trait::Display) => rt("tryFromFloatSecsErrorDisplay", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Debug) => rt("fromUtf8ErrorDebug", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Display) => rt("fromUtf8ErrorDisplay", vec![value, f]),
+			(Std::Utf8Error, Trait::Debug) => rt("utf8ErrorDebug", vec![value, f]),
+			(Std::Utf8Error, Trait::Display) => rt("utf8ErrorDisplay", vec![value, f]),
 			(Std::Duration, Trait::Debug) => Expr::rt("durationDebug", vec![value, f]),
+			(Std::Bytes, Trait::Debug) => Expr::rt("bytesDebug", vec![value, f]),
 			_ => return None,
 		},
 		_ => return None,

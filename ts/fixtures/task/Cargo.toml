@@ -14,5 +14,8 @@ crate-type = ["lib", "cdylib"]
 # The wasm32 build exports the benchmark's handoff in place of the harness.
 bench = []
 
+[dependencies]
+kio = { package = "task-kio", path = "kio" }
+
 [lints]
 workspace = true

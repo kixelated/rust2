@@ -11,12 +11,34 @@ macro_rules! take {
 	}};
 }
 
+/// `a.div_ceil(b)` of an unsigned type, which a signed one lacks.
+macro_rules! div_ceil {
+	(unsigned, $t:ty, $a:expr, $b:expr) => {
+		Some($a.div_ceil($b))
+	};
+	(signed, $t:ty, $a:expr, $b:expr) => {
+		None::<$t>
+	};
+}
+
+/// `a.is_multiple_of(b)` of an unsigned type, which a signed one lacks.
+macro_rules! is_multiple_of {
+	(unsigned, $a:expr, $b:expr) => {
+		Some($a.is_multiple_of($b))
+	};
+	(signed, $a:expr, $b:expr) => {
+		None::<bool>
+	};
+}
+
 macro_rules! ops {
-	($name:ident, $t:ty, $wide:ty) => {
+	($name:ident, $t:ty, $wide:ty, $sign:ident) => {
 		/// Apply operation `op` to operands taken from `data`.
 		pub fn $name(op: u8, data: &[u8], out: &mut Vec<u8>) {
 			let (a, data) = take!($t, data);
 			let (b, data) = take!($t, data);
+			// A third operand, from the bytes the shift is read from.
+			let (c, _) = take!($t, data);
 			let shift = data.first().copied().unwrap_or(0) as u32 % (2 * <$t>::BITS);
 			let put = |out: &mut Vec<u8>, v: $t| {
 				out.extend_from_slice(&(v as $wide).to_be_bytes());
@@ -30,7 +52,7 @@ macro_rules! ops {
 				}
 				None => out.push(0),
 			};
-			match op % 25 {
+			match op % 31 {
 				0 => put(out, a + b),
 				1 => put(out, a - b),
 				2 => put(out, a * b),
@@ -67,6 +89,21 @@ macro_rules! ops {
 					let _ = (x - b) * a;
 					out.push(1);
 				}
+				24 => put(out, a.saturating_mul(b)),
+				25 => put(out, a.wrapping_mul(b)),
+				// Panics unless `b <= c`.
+				26 => put(out, a.clamp(b, c)),
+				27 => {
+					if let Some(v) = div_ceil!($sign, $t, a, b) {
+						put(out, v);
+					}
+				}
+				28 => {
+					if let Some(m) = is_multiple_of!($sign, a, b) {
+						out.push(m as u8);
+					}
+				}
+				29 => out.extend_from_slice(&a.to_le_bytes()),
 				_ => {
 					// Compound assignment, with constants folded beside variables.
 					let mut x = a;
@@ -88,18 +125,18 @@ macro_rules! ops {
 	};
 }
 
-ops!(u8_op, u8, u128);
-ops!(u16_op, u16, u128);
-ops!(u32_op, u32, u128);
-ops!(u64_op, u64, u128);
-ops!(u128_op, u128, u128);
-ops!(usize_op, usize, u128);
-ops!(i8_op, i8, i128);
-ops!(i16_op, i16, i128);
-ops!(i32_op, i32, i128);
-ops!(i64_op, i64, i128);
-ops!(i128_op, i128, i128);
-ops!(isize_op, isize, i128);
+ops!(u8_op, u8, u128, unsigned);
+ops!(u16_op, u16, u128, unsigned);
+ops!(u32_op, u32, u128, unsigned);
+ops!(u64_op, u64, u128, unsigned);
+ops!(u128_op, u128, u128, unsigned);
+ops!(usize_op, usize, u128, unsigned);
+ops!(i8_op, i8, i128, signed);
+ops!(i16_op, i16, i128, signed);
+ops!(i32_op, i32, i128, signed);
+ops!(i64_op, i64, i128, signed);
+ops!(i128_op, i128, i128, signed);
+ops!(isize_op, isize, i128, signed);
 
 macro_rules! neg {
 	($name:ident, $t:ty) => {
@@ -183,6 +220,10 @@ pub fn convert(data: &[u8], out: &mut Vec<u8>) {
 		Ok(v) => out.extend_from_slice(&v.to_be_bytes()),
 		Err(_) => out.push(0xfd),
 	}
+	let tripled: Result<u64, _> = (wide as u128 * 3).try_into();
+	out.extend_from_slice(&tripled.unwrap_or(u64::MAX).to_be_bytes());
+	let narrowed: Result<u16, _> = signed.try_into();
+	out.extend_from_slice(&narrowed.unwrap_or(0xffff).to_be_bytes());
 	let widened: u64 = u64::from(wide as u16);
 	let into: i64 = signed.into();
 	out.extend_from_slice(&widened.to_be_bytes());

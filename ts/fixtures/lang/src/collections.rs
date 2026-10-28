@@ -7,6 +7,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use crate::generics::Wrap;
 use crate::iters::Bumped;
 
 /// A key whose `Eq`, `Hash`, and `Ord` see only its low nibble, so two keys can be equal
@@ -485,6 +486,11 @@ pub fn btree_maps(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			out.extend(map.keys().copied());
 			out.extend(map.values().copied());
+			// Ends, which a B-tree's own iterators read without comparing.
+			out.push(map.keys().max().map_or(0xff, |k| *k));
+			out.push(map.iter().min().map_or(0xff, |(k, v)| k ^ v));
+			out.push(map.range(4..).max().map_or(0xff, |(k, v)| k ^ v));
+			out.push(map.values().max().map_or(0xff, |v| *v));
 			map.remove(&3);
 			out.push(map.len() as u8);
 			out.push(map.contains_key(&3) as u8);
@@ -742,6 +748,22 @@ pub fn vecs(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&[pair.0, pair.1, listed[1].0, held.0]);
 	out.extend(repeated.iter().chain(&again).map(|t| t.1));
 	out.extend(bumps.iter().chain(&kept).map(|o| o.0));
+
+	// A `Vec`'s slice is bytes only when its own elements are bytes.
+	let mut grown = bytes.clone();
+	grown.as_mut_slice()[0] ^= 0xff;
+	out.extend_from_slice(grown.as_slice());
+	let nested = vec![bytes, vec![b; n]];
+	for v in nested.as_slice() {
+		out.push(v.len() as u8);
+		out.extend_from_slice(v);
+	}
+	let mut wrapped = vec![Wrap { value: a, count: b }; n];
+	if n > 0 {
+		wrapped.as_mut_slice()[n - 1].count ^= 0xff;
+	}
+	out.extend(wrapped.as_slice().iter().map(|w| w.value ^ w.count));
+	out.extend(names.as_slice().iter().map(|s| s.len() as u8));
 }
 
 /// A struct that is not `Copy` holding a `Copy` aggregate by value.

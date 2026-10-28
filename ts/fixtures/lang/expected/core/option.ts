@@ -6,6 +6,10 @@ import { opaque, len } from "../args.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import * as Made from "../defaults.Made.ts";
+import type * as Shape from "../dyns.Shape.ts";
+import * as Named from "../edits.Named.ts";
+import type * as Tilt from "../iters.Tilt.ts";
 import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
@@ -14,10 +18,10 @@ import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
-import type * as Shape from "../shapes.Shape.ts";
+import type * as shapes_Shape from "../shapes.Shape.ts";
 import type * as Short from "../splits.Short.ts";
 
-export function isSomeAnd$Option_u8_options_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
+export function isSomeAnd$Option_u8_bools_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return false;
 	}
@@ -38,7 +42,28 @@ export function unwrapOr$Option_Cow_str(self: string | undefined, default_: stri
 	return self;
 }
 
+export function unwrapOr$Option_Nameds(self: Named.Named[] | undefined, default_: Named.Named[]): Named.Named[] {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$Option_NonZero_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$Option_char(self: rt.char | undefined, default_: rt.char): rt.char {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$Option_f64(self: rt.f64 | undefined, default_: rt.f64): rt.f64 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -59,7 +84,7 @@ export function unwrapOr$Option_u16(self: rt.u16 | undefined, default_: rt.u16):
 	return self;
 }
 
-export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+export function unwrapOr$Option_u32(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -67,6 +92,13 @@ export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64):
 }
 
 export function unwrapOr$Option_u8(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$Option_u8_u8(self: [rt.u8, rt.u8] | undefined, default_: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	if (self === undefined) {
 		return default_;
 	}
@@ -94,6 +126,13 @@ export function unwrapOrElse$Option_u8_options_closure9(self: rt.u8 | undefined,
 	return self;
 }
 
+export function unwrapOrDefault$Option_Option_u64_Made(self: [rt.u64 | undefined, Made.Made] | undefined): [rt.u64 | undefined, Made.Made] {
+	if (self === undefined) {
+		return [undefined, Made.default$Default()];
+	}
+	return self;
+}
+
 export function unwrapOrDefault$Option_String(self: string | undefined): string {
 	if (self === undefined) {
 		return "";
@@ -115,7 +154,28 @@ export function unwrapOrDefault$Option_u8(self: rt.u8 | undefined): rt.u8 {
 	return self;
 }
 
-export function map$Option_Dir_Shape_rematched_closure1(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => Shape.Shape): Shape.Shape | undefined {
+export function map$Option_Arc_Made_u64_get_closure0(self: rt.Arc<Made.Made> | undefined, f: (a0: rt.Arc<Made.Made>) => rt.u64): rt.u64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_Arc_dyn_Shape_u32_shared_closure0(self: rt.Arc<Shape.Shape> | undefined, f: (a0: rt.Arc<Shape.Shape>) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_Box_Named_u16_edits_closure31(self: Named.Named | undefined, f: (a0: Named.Named) => rt.u16): rt.u16 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_Dir_Shape_rematched_closure1(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => shapes_Shape.Shape): shapes_Shape.Shape | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -141,6 +201,13 @@ export function map$Option_Hop_u64_u64_options_closure0(self: Hop.Hop | undefine
 		return undefined;
 	}
 	return f(self);
+}
+
+export function map$Option_Named_Nameds_from_ref(self: Named.Named | undefined, _: (a0: Named.Named) => Named.Named[]): Named.Named[] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return [self];
 }
 
 export function map$Option_Option_u8_Option_u8_made_closure0(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -199,7 +266,21 @@ export function map$Option_u8_u32s_owned_closure9(self: rt.u8 | undefined, f: (a
 	return f(self);
 }
 
-export function map$Option_u8_u8_made_closure0_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+export function map$Option_u8_u8_elements_closure8(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8_u8_u8_elements_closure9(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -262,7 +343,28 @@ export function mapOr$Option_Mutex_u8_u8_u8_shares_closure0(self: [rt.Mutex<rt.u
 	return f(self);
 }
 
+export function mapOr$Option_Named_u16_edits_closure33(self: Named.Named | undefined, default_: rt.u16, f: (a0: Named.Named) => rt.u16): rt.u16 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undefined, default_: rt.u8, f: (a0: Nibble.Nibble) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Option_u8_u8_refs_closure2_closure0(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
+	if (self === rt.None) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Ordering_u8_floats_closure0(self: rt.Ordering | undefined, default_: rt.u8, f: (a0: rt.Ordering) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -290,7 +392,14 @@ export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank,
 	return f(self);
 }
 
-export function mapOr$Option_Shape_u8_rematched_closure0(self: Shape.Shape | undefined, default_: rt.u8, f: (a0: Shape.Shape) => rt.u8): rt.u8 {
+export function mapOr$Option_Shape_u8_rematched_closure0(self: shapes_Shape.Shape | undefined, default_: rt.u8, f: (a0: shapes_Shape.Shape) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_String_u8_refs_closure1(self: string | undefined, default_: rt.u8, f: (a0: string) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -298,6 +407,13 @@ export function mapOr$Option_Shape_u8_rematched_closure0(self: Shape.Shape | und
 }
 
 export function mapOr$Option_Tally_u8_hash_maps_closure10(self: Tally.Tally | undefined, default_: rt.u8, f: (a0: Tally.Tally) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Tilt_u8_ranked_closure11_closure0(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -318,7 +434,21 @@ export function mapOr$Option_Vec_u8_u8_library_closure5(self: rt.ByteVec | undef
 	return f(self);
 }
 
+export function mapOr$Option_u16_u16_edits_closure21(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_u16_u8_hash_maps_closure0(self: rt.u16 | undefined, default_: rt.u8, f: (a0: rt.u16) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | undefined, default_: rt.u32, f: (a0: rt.Place<rt.u32>) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -332,7 +462,14 @@ export function mapOr$Option_u8_bool_take_largest_closure0(self: rt.u8 | undefin
 	return f(self);
 }
 
-export function mapOr$Option_u8_u8_iters_closure3(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+export function mapOr$Option_u8_u64_floats_closure1(self: rt.u8 | undefined, default_: rt.u64, f: (a0: rt.u8) => rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8_u8_btree_maps_closure5(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -500,11 +637,28 @@ export function andThen$Option_Option_u8_Option_u8_made_closure1(self: rt.u8 | u
 	return f(self);
 }
 
+export function andThen$Option_u32_u32_lent_closure3(self: rt.Place<rt.u32> | undefined, f: (a0: rt.Place<rt.u32>) => rt.Place<rt.u32> | undefined): rt.Place<rt.u32> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function andThen$Option_u8_u8_options_closure2(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
+}
+
+export function filter$Option_Box_Named_edits_closure30(self: Named.Named | undefined, predicate: (a0: Named.Named) => boolean): Named.Named | undefined {
+	if (self !== undefined) {
+		const x: Named.Named = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
 }
 
 export function filter$Option_Option_u8_made_closure2(self: rt.u8 | undefined | rt.None, predicate: (a0: rt.u8 | undefined) => boolean): rt.u8 | undefined | rt.None {
@@ -530,6 +684,16 @@ export function filter$Option_String_owned_closure1(self: string | undefined, pr
 export function filter$Option_u8_combinators_closure0(self: rt.u8 | undefined, predicate: (a0: rt.u8) => boolean): rt.u8 | undefined {
 	if (self !== undefined) {
 		const x: rt.u8 = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_u8_u8_lent_closure1(self: [rt.u8, rt.u8] | undefined, predicate: (a0: [rt.u8, rt.u8]) => boolean): [rt.u8, rt.u8] | undefined {
+	if (self !== undefined) {
+		const x: [rt.u8, rt.u8] = self;
 		if (predicate(x)) {
 			return x;
 		}
@@ -611,6 +775,13 @@ export function zip$Option_u8_u8(self: rt.u8 | undefined, other: rt.u8 | undefin
 		_0 = undefined;
 	}
 	return _0;
+}
+
+export function clone$Clone_Option_Box_Named(self: Named.Named | undefined): Named.Named | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return Named.clone$Clone(self);
 }
 
 export function clone$Clone_Option_String(self: string | undefined): string | undefined {

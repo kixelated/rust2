@@ -20,23 +20,27 @@ export class Waiter {
 }
 
 function new_(waker: rt.Waker): Waiter {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
-		return new Waiter({ waker, shared });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(waker);
-		throw e;
-	}
+	const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
+	return new Waiter({ waker, shared });
 }
 
 /** Register with `list`, a no-op while the list still holds this waiter. */
 export function register(self: Waiter, list: WaiterList.WaiterList): void {
 	WaiterList.register(list, self);
+}
+
+/** A [`Context`] that wakes this waiter's task. */
+export function context(self: Waiter): rt.Context {
+	return self.waker;
+}
+
+/** Poll a std [`Future`], sized or not, so it wakes this waiter's task. */
+export function pollFuture$dyn_Future_Option_u64(self: Waiter, future: rt.Future<rt.u64 | undefined>): rt.Poll<rt.u64 | undefined> {
+	const _3: rt.Poll<rt.u64 | undefined> = future.poll(context(self));
+	if (_3 !== rt.Pending) {
+		return _3;
+	}
+	return rt.Pending;
 }
 
 export { new_ as new };

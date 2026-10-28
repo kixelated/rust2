@@ -10,35 +10,45 @@ import { size, zigzag as varint_zigzag, unzigzag } from "./coding/varint.ts";
 import * as BoundsExceeded from "./coding/varint.BoundsExceeded.ts";
 import * as Form from "./coding/varint.Form.ts";
 import * as Versions from "./coding/version.Versions.ts";
+import { thenSome$bool_u64 } from "./core/bool.ts";
 import type * as SessionError from "./lib.SessionError.ts";
 import * as Group from "./lite/group.Group.ts";
 import * as Probe from "./lite/probe.Probe.ts";
 import type * as Version from "./lite/version.Version.ts";
 
+/**
+ * Each case, which the first byte picks modulo their count, so a case added at the end
+ * moves no other.
+ */
+export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
+	return [(a0: rt.ByteSlice, a1: rt.ByteVec): void => {
+		return decodeScript(a0.data, a0.start, a0.length, a1);
+	}, (a02: rt.ByteSlice, a12: rt.ByteVec): void => {
+		return encodeScript(a02.data, a02.start, a02.length, a12);
+	}, (a03: rt.ByteSlice, a13: rt.ByteVec): void => {
+		return zigzag(a03.data, a03.start, a03.length, a13);
+	}, (a04: rt.ByteSlice, a14: rt.ByteVec): void => {
+		return sizes(a04.data, a04.start, a04.length, a14);
+	}, (a05: rt.ByteSlice, a15: rt.ByteVec): void => {
+		return roundtrip$Versions(a05.data, a05.start, a05.length, a15);
+	}, (a06: rt.ByteSlice, a16: rt.ByteVec): void => {
+		return roundtripLite$Group(a06.data, a06.start, a06.length, a16);
+	}, (a07: rt.ByteSlice, a17: rt.ByteVec): void => {
+		return roundtripLite$Probe(a07.data, a07.start, a07.length, a17);
+	}, (a08: rt.ByteSlice, a18: rt.ByteVec): void => {
+		return encodeMessages(a08.data, a08.start, a08.length, a18);
+	}, (a09: rt.ByteSlice, a19: rt.ByteVec): void => {
+		return errors(a09.data, a09.start, a09.length, a19);
+	}];
+}
+
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
-		const _8: rt.u8 = rt.u8Rem(input.data[input.start], 9);
-		if (_8 === 0) {
-			decodeScript(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 1) {
-			encodeScript(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 2) {
-			zigzag(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 3) {
-			sizes(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 4) {
-			roundtrip$Versions(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 5) {
-			roundtripLite$Group(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 6) {
-			roundtripLite$Probe(input.data, input.start + 1, input.length - 1, out);
-		} else if (_8 === 7) {
-			encodeMessages(input.data, input.start + 1, input.length - 1, out);
-		} else {
-			errors(input.data, input.start + 1, input.length - 1, out);
-		}
+		const op: rt.u8 = input.data[input.start];
+		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
+		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;
@@ -507,7 +517,7 @@ export function encodeMessages(dataData: Uint8Array, dataStart: number, dataLen:
 		const bitrate: rt.u64 = _19[0];
 		const rtt: rt.u64 = takeU64(_19[1].data, _19[1].start, _19[1].length)[0];
 		encodeMessage$Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
-		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: rt.thenSome(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
+		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: thenSome$bool_u64(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
 		const versions: Versions.Versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
 		const buf: rt.ByteVec = new rt.ByteVec();
 		const _45: Form.Form = Form.from$From_Version(version);

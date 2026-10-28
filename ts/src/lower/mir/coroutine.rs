@@ -72,14 +72,12 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		init: FieldInit::Value(Expr::lit("0")),
 	});
 	let coroutine = args.as_coroutine();
-	let names: Vec<String> = match def_id.as_local() {
-		Some(local) => tcx
-			.closure_captures(local)
-			.iter()
-			.map(|c| crate::lower::camel(c.to_symbol().as_str()))
-			.collect(),
-		None => Vec::new(),
-	};
+	// Named as debuginfo names them, which marks a capture by reference.
+	let names: Vec<String> = tcx
+		.closure_saved_names_of_captured_variables(def_id)
+		.iter()
+		.map(|name| crate::lower::camel(name.as_str().trim_start_matches("_ref__")))
+		.collect();
 	let mut upvars = Vec::new();
 	for (i, ty) in coroutine.upvar_tys().iter().enumerate() {
 		let name = format!("#{}", names.get(i).cloned().unwrap_or_else(|| format!("u{i}")));

@@ -15,11 +15,11 @@ import type * as Control from "../stats.Control.ts";
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$From_Version(version));
-	const _6: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
-	if (_6.ok) {
-		return rt.Ok([_6.value, rt.usizeSub(bufLen, Decoder.remaining(r))]);
+	const _5: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
+	if (_5.ok) {
+		return rt.Ok([_5.value, rt.usizeSub(bufLen, Decoder.remaining(r))] as [Probe, rt.usize]);
 	}
-	return _6;
+	return _5;
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */

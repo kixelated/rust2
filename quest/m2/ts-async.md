@@ -18,28 +18,23 @@ A handoff through 1, 4, and 16 async functions measured 1.5-2.7x faster than #16
 generators in Node, 1.8-5.5x in Bun, and 1.4-3.5x in Chrome, and past depth 1 faster
 than moq's hand-written promises. `rt.spawn` stays.
 
-What moq-net still needs, by its census from MIR at the pinned revision:
+std's future helpers translate: `Poll`'s methods, `Poll<Poll<T>>`, `pin!`, `poll_fn`, `future::pending`,
+`Waker::from(Arc<W>)`, and `Waker::noop`, and so do `Box::pin` and `dyn Future`. What
+moq-net still needs, by its census from MIR at the pinned revision:
 
-- `Poll`'s helpers (about 340 calls: `is_ready`, `is_pending`, `map`, `map_ok`,
-  `map_err`), `pin!` (50 with `PinMacroHelper`), `poll_fn` (31), `future::pending`
-  (5), and `Box::pin` (29, a boxed future that binds to hand-written TS at the
-  boundary, per the [model](/quest/m2/ts-model/README.md)).
-- Async closures.
-- kio's own API, reached across crates (`Pending`, `Consumer::poll`,
-  `Waiter::poll_future`, `Tasks`), translates through
-  [safe dependencies](/quest/m2/ts-model/crates.md), and kio's `RawWaker` vtable and
-  `Box<dyn Future>` tasks are [bindings](/ts/README.md#bindings).
-
-The model itself (its census of 2026-10-27) needs only `Poll`'s helpers and
-`Waker::from(Arc<W>)`, 61 refusals; `pin!`, `poll_fn`, `Box::pin`, and async closures are
-in moq-net's session, lite, and ietf layers.
+- Async closures, which only moq-net's tests write today.
+- kio's `Tasks`, whose `RawWaker` vtable and `Box<dyn FnMut>` tasks are
+  [bindings](/ts/README.md#bindings). The rest of kio's API translates from source
+  across crates; what it still refuses is std's.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
+- `kio::Waiter::poll_future::<()>` does not normalize in moq-net's census, since `()` is
+  no `Future`. It is reached from `util.rs`'s `future_task` closure, itself refused as a
+  `Box<dyn FnMut>`, and the same call translates in the fixture
+  ([#141](https://github.com/kixelated/rust2/pull/141),
+  [#183](https://github.com/kixelated/rust2/pull/183)). Find where polymorphic lowering
+  makes the `()`.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a
 capture like any other in MIR.
 
 Public API: the translator's output for async code.
-
-## Required
-
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - async bodies hold the values that drop it still refuses

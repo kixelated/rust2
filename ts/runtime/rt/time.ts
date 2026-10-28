@@ -5,9 +5,10 @@
 // A `Duration` never changes once made, so values share it. Its arithmetic is std's: a
 // sum past `u64::MAX` seconds is `None`, saturates, or panics with std's message.
 
-import { type FmtResult, type Formatter, fmtPad, panic } from "../rt.ts";
+import { Err, type FmtResult, type Formatter, fmtDebugStructFields, fmtPad, Ok, panic, type Result } from "../rt.ts";
 import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
-import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
+import { f64ToBits } from "./float.ts";
+import { type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
 import { type Iter, iterFold } from "./iter.ts";
 
 /** `core::time::Duration`: whole seconds, and the nanoseconds past them, below 10^9. */
@@ -194,6 +195,87 @@ export function durationAbsDiff(a: Duration, b: Duration): Duration {
 	return durationCheckedSub(a, b) ?? (durationCheckedSub(b, a) as Duration);
 }
 
+/** `core::time::TryFromFloatSecsError`: why seconds made no `Duration`. */
+export type TryFromFloatSecsError = { readonly kind: "Negative" | "OverflowOrNan" };
+
+/** `Duration::as_secs_f64`. */
+export function durationAsSecsF64(d: Duration): f64 {
+	return u64ToF64(d.secs) + d.nanos / NANOS_PER_SEC;
+}
+
+/** `Duration::div_duration_f64`: their nanoseconds, each rounded to an `f64`, divided. */
+export function durationDivDurationF64(a: Duration, b: Duration): f64 {
+	return (u64ToF64(a.secs) * NANOS_PER_SEC + a.nanos) / (u64ToF64(b.secs) * NANOS_PER_SEC + b.nanos);
+}
+
+/** `n`, the nanoseconds past a second times 2^`shift`, rounded to the nearest, half to even. */
+function roundNanos(n: bigint, shift: bigint): number {
+	const nanos = Number(n >> shift);
+	const rem = n & ((1n << shift) - 1n);
+	const half = 1n << (shift - 1n);
+	return rem > half || (rem === half && (nanos & 1) === 1) ? nanos + 1 : nanos;
+}
+
+/**
+ * `Duration::try_from_secs_f64`: `secs` to the nearest nanosecond, half to even, by
+ * std's integer algorithm on its bits.
+ */
+export function durationTryFromSecsF64(secs: f64): Result<Duration, TryFromFloatSecsError> {
+	if (secs < 0) return Err({ kind: "Negative" });
+	const bits = f64Bits(secs);
+	const mantMask = (1n << 52n) - 1n;
+	const mant = (bits & mantMask) | (mantMask + 1n);
+	const exp = Number((bits >> 52n) & 0x7ffn) - 1023;
+	let whole: bigint;
+	let nanos: number;
+	if (exp < -31) {
+		// Less than a nanosecond, which can't round up to one.
+		[whole, nanos] = [0n, 0];
+	} else if (exp < 0) {
+		nanos = roundNanos(BigInt(NANOS_PER_SEC) * (mant << BigInt(44 + exp)), 96n);
+		[whole, nanos] = nanos === NANOS_PER_SEC ? [1n, 0] : [0n, nanos];
+	} else if (exp < 52) {
+		whole = mant >> BigInt(52 - exp);
+		nanos = roundNanos(BigInt(NANOS_PER_SEC) * ((mant << BigInt(exp)) & mantMask), 52n);
+		if (nanos === NANOS_PER_SEC) [whole, nanos] = [whole + 1n, 0];
+	} else if (exp < 64) {
+		[whole, nanos] = [mant << BigInt(exp - 52), 0];
+	} else {
+		return Err({ kind: "OverflowOrNan" });
+	}
+	return Ok({ secs: u64Of(whole), nanos });
+}
+
+/** A double's bits. */
+function f64Bits(x: number): bigint {
+	const v = f64ToBits(x);
+	return typeof v === "number" ? BigInt(v) : (BigInt(v.hi) << 32n) | BigInt(v.lo);
+}
+
+/** `Duration::from_secs_f64`, panicking where `try_from_secs_f64` errs. */
+export function durationFromSecsF64(secs: f64): Duration {
+	const r = durationTryFromSecsF64(secs);
+	return r.ok ? r.value : panic(tryFromFloatSecsErrorText(r.error));
+}
+
+/** `Duration::mul_f64`: through seconds as an `f64`, as std computes it. */
+export const durationMulF64 = (d: Duration, rhs: f64): Duration => durationFromSecsF64(rhs * durationAsSecsF64(d));
+
+/** `Duration::div_f64`: through seconds as an `f64`, as std computes it. */
+export const durationDivF64 = (d: Duration, rhs: f64): Duration => durationFromSecsF64(durationAsSecsF64(d) / rhs);
+
+function tryFromFloatSecsErrorText(e: TryFromFloatSecsError): string {
+	const why = e.kind === "Negative" ? "value is negative" : "value is either too big or NaN";
+	return `cannot convert float seconds to Duration: ${why}`;
+}
+
+/** `Display` of `TryFromFloatSecsError`. */
+export const fmtTryFromFloatSecsErrorDisplay = (e: TryFromFloatSecsError, f: Formatter): FmtResult => fmtPad(f, tryFromFloatSecsErrorText(e));
+
+/** `Debug` of `TryFromFloatSecsError`. */
+export const fmtTryFromFloatSecsErrorDebug = (e: TryFromFloatSecsError, f: Formatter): FmtResult =>
+	fmtDebugStructFields(f, "TryFromFloatSecsError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+
 /** `a + b`, panicking past `u64::MAX` seconds. */
 export function durationAdd(a: Duration, b: Duration): Duration {
 	return durationCheckedAdd(a, b) ?? panic("adding durations should not exceed u64::MAX");
@@ -224,7 +306,7 @@ export function durationDiv(d: Duration, n: u32): Duration {
  * into them only when it would overflow and at the end, each overflow past `u64::MAX`
  * seconds a panic.
  */
-export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) => void): Duration {
+export function durationSum(it: Iter<Duration>, drops = false): Duration {
 	const overflow = "sum over duration iterator should not overflow u64::MAX";
 	let secs = 0 as u64;
 	let nanos = 0 as u64;
@@ -241,7 +323,7 @@ export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) =>
 				nanos = (u64Rem(nanos, NANOS_PER_SEC) as number) + d.nanos;
 			}
 		},
-		dropIt,
+		drops,
 	);
 	secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
 	return { secs, nanos: u64Rem(nanos, NANOS_PER_SEC) as number };

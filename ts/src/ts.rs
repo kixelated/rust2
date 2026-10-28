@@ -138,8 +138,15 @@ impl Expr {
 	/// This without an outer `as`, where the context already gives the type.
 	pub fn typed(self) -> Self {
 		match self {
-			// Limbs keep theirs, which the brand of their type requires.
-			Self::As(e, ty) if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_)) && !wide(&ty) => *e,
+			// Limbs keep theirs, which the brand of their type requires, and an `rt.RangeBound` its
+			// own, without which a declaration narrows to the one variant it is made as.
+			Self::As(e, ty)
+				if matches!(*e, Self::Str(_) | Self::Array(_) | Self::Object(_))
+					&& !wide(&ty)
+					&& !matches!(ty, Type::Rt("RangeBound", _)) =>
+			{
+				*e
+			}
 			Self::Located(loc, e) => Self::Located(loc, Box::new(e.typed())),
 			// `rt.Ok(v)` and `rt.Err(e)` infer their type from the context too.
 			Self::Call(f, args) if matches!(&*f, Self::Rt(name) if name == "Ok" || name == "Err") => {
@@ -178,6 +185,14 @@ impl Expr {
 			}
 			Self::Located(_, e) => e.path_key(),
 			_ => None,
+		}
+	}
+
+	/// The expression under its source locations.
+	pub fn unlocated(&self) -> &Self {
+		match self {
+			Self::Located(_, e) => e.unlocated(),
+			e => e,
 		}
 	}
 
@@ -243,12 +258,6 @@ pub enum StmtKind {
 	},
 	Break(Option<String>),
 	Continue(Option<String>),
-	/// `try { body } catch (name) { handler }`.
-	Catch {
-		body: Vec<Stmt>,
-		name: String,
-		handler: Vec<Stmt>,
-	},
 	/// `switch (disc) { case a: ... default: ... }`, whose cases never fall through.
 	Switch {
 		label: Option<String>,
@@ -262,8 +271,6 @@ pub enum StmtKind {
 		name: String,
 		ty: Type,
 	},
-	/// `throw value;`
-	Throw(Expr),
 }
 
 impl StmtKind {
@@ -290,7 +297,7 @@ impl Stmt {
 	/// Whether control never reaches the statement after this one.
 	pub fn diverges(&self) -> bool {
 		match &self.kind {
-			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) | StmtKind::Throw(_) => true,
+			StmtKind::Return(_) | StmtKind::Break(_) | StmtKind::Continue(_) => true,
 			StmtKind::If { then, els, .. } => diverges(then) && diverges(els),
 			StmtKind::Block { label: None, body } => diverges(body),
 			StmtKind::While {
@@ -307,7 +314,7 @@ impl Stmt {
 pub fn syms_mut(stmts: &mut [Stmt], f: &mut impl FnMut(&mut SymId)) {
 	for stmt in stmts {
 		match &mut stmt.kind {
-			StmtKind::Expr(e) | StmtKind::Throw(e) | StmtKind::Return(Some(e)) => e.syms_mut(f),
+			StmtKind::Expr(e) | StmtKind::Return(Some(e)) => e.syms_mut(f),
 			StmtKind::Decl { init, .. } => init.iter_mut().for_each(|e| e.syms_mut(f)),
 			StmtKind::If { cond, then, els } => {
 				cond.syms_mut(f);
@@ -319,10 +326,6 @@ pub fn syms_mut(stmts: &mut [Stmt], f: &mut impl FnMut(&mut SymId)) {
 				syms_mut(body, f);
 			}
 			StmtKind::Block { body, .. } => syms_mut(body, f),
-			StmtKind::Catch { body, handler, .. } => {
-				syms_mut(body, f);
-				syms_mut(handler, f);
-			}
 			StmtKind::Switch {
 				disc, cases, default, ..
 			} => {
@@ -379,7 +382,6 @@ fn breaks_out(stmts: &[Stmt], label: Option<&str>, nested: bool) -> bool {
 		StmtKind::Break(Some(target)) => Some(target.as_str()) == label,
 		StmtKind::If { then, els, .. } => breaks_out(then, label, nested) || breaks_out(els, label, nested),
 		StmtKind::Block { body, .. } => breaks_out(body, label, nested),
-		StmtKind::Catch { body, handler, .. } => breaks_out(body, label, nested) || breaks_out(handler, label, nested),
 		// An unlabeled `break` in a case leaves the switch.
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| breaks_out(body, label, true)) || breaks_out(default, label, true)

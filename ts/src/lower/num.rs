@@ -12,6 +12,7 @@ use rustc_middle::ty::{self, Ty};
 use rustc_span::Span;
 
 use super::body::Body;
+use super::float;
 use crate::ts::{Expr, Key, Type};
 
 /// An integer type, by width and signedness. `usize` and `isize` are 32 bits.
@@ -217,6 +218,9 @@ pub fn binary<'tcx>(
 	span: Span,
 ) -> Expr {
 	let (lty, rty) = (lty.peel_refs(), rty.peel_refs());
+	if float::is(lty) {
+		return float::binary(b, op, l.expr, r.expr, span);
+	}
 	let compare = match op {
 		BinOp::Eq => Some("==="),
 		BinOp::Ne => Some("!=="),
@@ -340,6 +344,9 @@ pub fn binary<'tcx>(
 
 pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let ty = ty.peel_refs();
+	if float::is(ty) {
+		return float::unary(b, op, value, span);
+	}
 	match (op, ty.kind()) {
 		(UnOp::Not, ty::Bool) => value.not(),
 		(UnOp::Not, ty::Int(_) | ty::Uint(_)) => {
@@ -363,6 +370,9 @@ pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tc
 
 /// `value as to`.
 pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to: Ty<'tcx>, span: Span) -> Expr {
+	if from.is_floating_point() || to.is_floating_point() {
+		return float::cast(b, value, from, to, span);
+	}
 	// Only a `u8` casts to a `char`, whose scalar value it is.
 	if let (ty::Char, ty::Uint(ty::UintTy::U8)) = (to.kind(), from.kind()) {
 		return Expr::As(Box::new(value.expr), Type::Rt("char", Vec::new()));

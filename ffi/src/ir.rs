@@ -157,19 +157,21 @@ pub struct Function {
 	/// For a future, whether the call itself runs code, as a function that is not
 	/// `async` returning one does: the export calls it at once, and polls what it returns.
 	pub eager: bool,
-	/// What it reads: Rust's function, or a field or constant named as it is.
+	/// What it reads: Rust's function, a field it reads or writes, or a constant named as it is.
 	pub access: Access,
-	/// The instance the config names, if it is generic.
+	/// The instance it is, if a type parameter exports at several.
 	pub instance: Option<Instance>,
 }
 
-/// An instance of a generic function or method the config names.
+/// An instance of a generic function or method, at one of the types a type parameter
+/// exports at.
 pub struct Instance {
-	/// Its C name, without the prefix.
-	pub name: String,
 	/// The arguments of its declared type parameters, which the call names, as Rust
-	/// cannot infer one no argument names; its argument infers an `impl Trait` one.
-	pub args: Vec<Type>,
+	/// cannot infer one no argument names; its argument infers an `impl Trait` one, and
+	/// one left `None`, which takes a lent closure or a foreign implementation.
+	pub args: Vec<Option<Type>>,
+	/// The arguments that tell it from its other instances, which name it.
+	pub named: Vec<Type>,
 }
 
 /// What an exported function reads.
@@ -177,10 +179,10 @@ pub struct Instance {
 pub enum Access {
 	/// It calls the function.
 	Call,
-	/// It reads a `pub` field of its receiver. `shared` when a method or constant of its
-	/// type takes its name, which its path then names, so the config names the field
-	/// `field@<path>`, as rustdoc does.
-	Field { shared: bool },
+	/// It reads a `pub` field of its receiver, or with `set` assigns it. `shared` when a
+	/// method or constant of its type takes its name, which its path then names, so the
+	/// config names the field `field@<path>`, as rustdoc does.
+	Field { shared: bool, set: bool },
 	/// It reads a constant that is not a `bool` or integer.
 	Const,
 }
@@ -251,6 +253,9 @@ pub enum Type {
 	Object(usize),
 	/// A foreign implementation of a callback trait, in the form the parameter takes.
 	Callback(usize, Dyn),
+	/// A closure the callee calls only during the call, as a foreign function: what it
+	/// takes, then what it returns.
+	Closure(Vec<Type>, Box<Type>),
 	/// `std::ops::Range` of an integer.
 	Range(Int),
 	/// `std::ops::Bound` of an integer.

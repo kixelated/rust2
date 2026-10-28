@@ -369,11 +369,13 @@ export function written(dataData: Uint8Array, dataStart: number, dataLen: number
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => Padded.fmt$Display(arg, f)];
 	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ align: ">", width: 6 }, args6[0]), "|", rt.fmtSpec({ fill: "_", align: "^", width: 9 }, args6[0]), "|", rt.fmtSpec({ width: 30 }, args6[0]), "|"]));
 	const manual: Manual.Manual = { id: at(1), list: [1, at(2) as rt.u16].slice() };
-	const empty: Manual.Manual = { id: 0, list: [] };
+	const _71: rt.u16[] = [];
+	const empty: Manual.Manual = { id: 0, list: _71 };
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => Manual.fmt$Debug(manual, f), (f: rt.Formatter) => Manual.fmt$Debug(empty, f)];
 	put(out, rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[0]), " ", args8[1]]));
 	const seq: Seq.Seq = { _0: [{ _0: at(3), _1: 0 }, { _0: 1, _1: -1 }].slice() };
-	const none: Seq.Seq = { _0: [] };
+	const _97: Pair.Pair[] = [];
+	const none: Seq.Seq = { _0: _97 };
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => Seq.fmt$Debug(seq, f), (f: rt.Formatter) => Seq.fmt$Debug(none, f)];
 	put(out, rt.fmtFormat([args10[0], " ", rt.fmtSpec({ alternate: true }, args10[0]), " ", args10[1], " ", rt.fmtSpec({ alternate: true }, args10[1])]));
 	const _113: rt.u8 = at(4);
@@ -573,7 +575,7 @@ export function panics(kind: rt.u8, restData: Uint8Array, restStart: number, res
 		if (_221.ok) {
 			r4 = rt.Ok(rt.stringLen(_221.value) & 0xff);
 		} else {
-			r4 = rt.Err(_221.error);
+			r4 = _221 as rt.Result<rt.u8, rt.FromUtf8Error>;
 		}
 		const _234: rt.u8 = rt.resultUnwrap(r4, rt.fmtFromUtf8ErrorDebug);
 		put(out, rt.fmtToString((f: rt.Formatter) => rt.u8Display(_234, f)));

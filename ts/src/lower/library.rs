@@ -14,9 +14,10 @@ use super::Translator;
 use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
-use crate::ts::{Expr, Stmt};
+use crate::ts::{Expr, Stmt, StmtKind};
 
-/// A standard library type with its own representation.
+/// A type with a representation of its own: std's, or a well-known crate's that
+/// [`super::stock`] maps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Std {
 	/// `T | undefined`.
@@ -32,7 +33,9 @@ pub enum Std {
 	/// Its contents.
 	Box,
 	FromUtf8Error,
+	Utf8Error,
 	TryFromIntError,
+	TryFromFloatSecsError,
 	/// `rt.Formatter`.
 	Formatter,
 	/// `rt.Arguments`: what `format_args!` makes.
@@ -52,16 +55,29 @@ pub enum Std {
 	/// `rt.Mutex`, which is also its own guard.
 	Mutex,
 	MutexGuard,
-	/// What a `Mutex` can't be locked with on one thread: never.
+	/// What it holds, a lock's guard or value.
 	PoisonError,
+	/// `rt.TryLockError<T>`, tagged as `Bound` is.
+	TryLockError,
+	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
+	Atomic,
+	/// `rt.AtomicOrdering`: its discriminant.
+	AtomicOrdering,
+	/// `rt.OnceCell<T>` and `rt.OnceLock<T>`: the `Option<T>` each holds.
+	OnceCell,
+	OnceLock,
 	/// `rt.Waker`.
 	Waker,
 	/// `rt.Context`: its waker.
 	Context,
 	/// `rt.Poll<T>`: `T` itself, or `rt.Pending`.
 	Poll,
-	/// Its pointer.
+	/// Its pointer, or the value `pin!` pins in a `PinMacroHelper`.
 	Pin,
+	/// `rt.PollFn`: `poll_fn`'s future, which owns its function.
+	PollFn,
+	/// `future::Pending`: `rt.NEVER`, a future never ready.
+	Pending,
 	/// `rt.Range`, an iterator with `start` and `end` fields.
 	Range,
 	/// `rt.RangeInclusive`.
@@ -75,6 +91,14 @@ pub enum Std {
 	RangeTo,
 	RangeFrom,
 	RangeFull,
+	/// `..=end`: `{ end, inclusive: true }`.
+	RangeToInclusive,
+	/// `rt.RangeBound<T>`, tagged as the crate's own enums are: `{ tag: "Included", _0 }`.
+	Bound,
+	/// What it holds, which orders the other way.
+	Reverse,
+	/// Its integer, which is never 0.
+	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
 	/// Its pointee: what an async body passes its context in.
@@ -97,12 +121,16 @@ pub enum Std {
 	Hasher,
 	/// `rt.Duration`: its seconds and nanoseconds, never changed once made.
 	Duration,
+	/// `bytes::Bytes`: an `rt.ByteSlice`, as `&[u8]` is.
+	Bytes,
+	/// `rand::rngs::ThreadRng`: `rt.ThreadRng`, which holds no state.
+	ThreadRng,
 }
 
 impl Std {
 	pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Self> {
 		if !is_std(tcx, did) {
-			return None;
+			return super::stock::of(tcx, did);
 		}
 		use rustc_span::sym;
 		if tcx.is_diagnostic_item(sym::Option, did) {
@@ -128,7 +156,9 @@ impl Std {
 			(sym::ArcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
+			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
+			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
 			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
 			(rustc_span::Symbol::intern("HashSet"), Self::HashSet),
 			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
@@ -150,6 +180,7 @@ impl Std {
 			(rustc_attr_ir::LangItem::RangeTo, Self::RangeTo),
 			(rustc_attr_ir::LangItem::RangeFrom, Self::RangeFrom),
 			(rustc_attr_ir::LangItem::RangeFull, Self::RangeFull),
+			(rustc_attr_ir::LangItem::RangeToInclusive, Self::RangeToInclusive),
 		] {
 			if tcx.is_lang_item(did, item) {
 				return Some(std);
@@ -158,7 +189,9 @@ impl Std {
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"TryFromFloatSecsError" => return Some(Self::TryFromFloatSecsError),
 			"PoisonError" => return Some(Self::PoisonError),
+			"TryLockError" => return Some(Self::TryLockError),
 			_ => {}
 		}
 		match std_path(tcx, did)
@@ -167,6 +200,7 @@ impl Std {
 			.collect::<Vec<_>>()
 			.as_slice()
 		{
+			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
 			["fmt", "Formatter"] => Some(Self::Formatter),
 			["fmt", "Arguments"] => Some(Self::Arguments),
 			["fmt", "Error"] => Some(Self::FmtError),
@@ -178,8 +212,16 @@ impl Std {
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
+			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
+			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
+			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
+			["sync", "once_lock", "OnceLock"] => Some(Self::OnceLock),
+			["cmp", "Reverse"] => Some(Self::Reverse),
+			["ops", "range", "Bound"] => Some(Self::Bound),
+			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
@@ -244,6 +286,45 @@ pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 		},
 		_ => false,
 	}
+}
+
+/// What a value of `ty` is in JS if `ty` wraps one value it is represented as: `Reverse<T>`'s
+/// and `NonZero<T>`'s `T`, which differ only in their order and range, a pattern type's
+/// base, and the field of each of core's `niche_types` structs that hold one.
+pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Pat(base, _) => Some(*base),
+		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+			Some(Std::Reverse | Std::NonZero) => Some(args.type_at(0)),
+			Some(_) => None,
+			None => {
+				let path = std_path(tcx, adt.did());
+				if !(path.len() == 3 && path[0] == "num" && path[1] == "niche_types" && adt.is_struct()) {
+					return None;
+				}
+				let field = adt.non_enum_variant().fields.iter().next()?;
+				Some(field.ty(tcx, args).skip_norm_wip())
+			}
+		},
+		_ => None,
+	}
+}
+
+/// A `Bound` or a `TryLockError` of type `ty`, tagged as the crate's own enums are: its
+/// variant, by name, and the value it holds, if any.
+pub fn tagged(variant: &str, value: Option<Expr>, ty: crate::ts::Type) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("tag".into()), Expr::Str(variant.into()))];
+	props.extend(value.map(|v| (crate::ts::Key::Name("_0".into()), v)));
+	Expr::As(Box::new(Expr::Object(props)), ty)
+}
+
+/// `..end`, or `..=end` if `inclusive`: `{ end }`, or `{ end, inclusive: true }`.
+pub fn range_to(end: Expr, inclusive: bool) -> Expr {
+	let mut props = vec![(crate::ts::Key::Name("end".into()), end)];
+	if inclusive {
+		props.push((crate::ts::Key::Name("inclusive".into()), Expr::lit("true")));
+	}
+	Expr::Object(props)
 }
 
 /// The refusal of code that tells a `Cow<str>`'s variants apart.
@@ -367,7 +448,7 @@ pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool
 		ty::Array(elem, _) => clone_copies(t, *elem),
 		// A binding's `Clone` is its own.
 		ty::Adt(adt, _) if t.bound_drops(adt.did()).is_some() => false,
-		ty::Adt(adt, args) if !adt.did().is_local() => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) if !t.crates.translates(adt.did()) => args.types().all(|arg| clone_copies(t, arg)),
 		ty::Adt(adt, args) => {
 			let Some(clone) = tcx.lang_items().clone_fn() else {
 				return false;
@@ -396,10 +477,10 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 }
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
-/// than mapping here: a method of `Option` or `Result`, or their `Clone`. Not one taking a
-/// `&mut` or a raw pointer, whose writes the crate's analysis of what it writes into
-/// would miss, nor an `unsafe` one, nor one mapped below as one expression or as the
-/// runtime's panic.
+/// than mapping here: a method of `bool`, `Option`, `Result`, or `Poll`, or their `Clone`.
+/// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
+/// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
+/// as the runtime's panic.
 pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> bool {
 	let tcx = t.tcx;
 	let ty::InstanceKind::Item(did) = instance.def else {
@@ -411,11 +492,14 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let Some(imp) = tcx.impl_of_assoc(did) else {
 		return false;
 	};
-	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
-		return false;
-	};
-	let Some(std @ (Std::Option | Std::Result)) = Std::of(tcx, adt.did()) else {
-		return false;
+	// `None` for `bool`'s.
+	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
+			std @ Some(Std::Option | Std::Result | Std::Poll) => std,
+			_ => return false,
+		},
+		ty::Bool => None,
+		_ => return false,
 	};
 	let sig = tcx.fn_sig(did).instantiate_identity().skip_norm_wip().skip_binder();
 	let writes = |ty: Ty<'tcx>| {
@@ -434,13 +518,20 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			&& t.self_ty(instance)
 				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
 	}
+	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
+	let lock = std == Some(Std::Result)
+		&& name.as_str() == "unwrap_or_else"
+		&& matches!(instance.args.type_at(1).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::PoisonError));
 	!matches!(
 		(std, name.as_str()),
 		(
-			Std::Option,
+			Some(Std::Option),
 			"unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter"
-		) | (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
-	)
+		) | (
+			Some(Std::Result),
+			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
+		)
+	) && !lock
 }
 
 pub struct Call<'tcx> {
@@ -452,25 +543,27 @@ pub struct Call<'tcx> {
 }
 
 /// What the mapping of `owner::name` may discard of the operands it takes by value, rather
-/// than move into its result or a closure, as it returns or as a panic unwinds it: the
-/// types, by their index among the call's type arguments, whose droppers its runtime
-/// function takes after its own arguments, as `unwrap_or` drops its fallback. `None` for
-/// any other mapping, which is refused an operand that drops. Iterators refuse their own.
+/// than move into its result or a closure, as it returns: the types, by their index among
+/// the call's type arguments, whose droppers its runtime function takes after its own
+/// arguments, as `unwrap_or` drops its fallback. `None` for any other mapping, which is
+/// refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
-		| ("Box", "new")
+		| ("Box", "new" | "pin")
 		| ("mem", "replace" | "take" | "swap")
 		| ("hint", "must_use")
 		| ("From", "from")
-		| ("Into", "into") => &[],
-		// `unwrap` and `expect` drop the error they panic with, and `unwrap_err` the value.
-		("Result", "unwrap" | "expect") => &[1],
-		("Result", "unwrap_err") => &[0],
-		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
-		("bool", "then_some") => &[0],
-		("bool", "then") => &[1],
+		| ("Into", "into")
+		// What a panic would drop, which aborts.
+		| ("Result", "unwrap" | "expect" | "unwrap_err")
+		| ("Vec", "insert") => &[],
+		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
+		// `clear` cut.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
+		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
+		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		_ => return None,
 	})
 }
@@ -486,6 +579,10 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				"Option",
 				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
 			) | ("Iterator", "next")
+				| (
+					"OnceCell" | "OnceLock",
+					"get" | "set" | "get_or_init" | "take" | "into_inner"
+				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 		)
 }
@@ -495,7 +592,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
-		("Option", "unwrap" | "expect") | ("slice", "first" | "get") | ("bool", "then" | "then_some")
+		("Option", "unwrap" | "expect") | ("slice", "first" | "get")
 	)
 }
 
@@ -536,22 +633,36 @@ fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<
 		.find(|&inner| t.erases_to(inner).undefined)
 }
 
-/// The first closure `call` calls that owns a value that drops, of those its mapping does
-/// not drop where std would: not in `discarded`, the types it may drop by their index among
-/// the call's type arguments. A closure that `Fn` or `FnMut` call, given to one that calls
-/// it through `FnOnce`, becomes `rt.once` of it, which drops it after the call, as rustc's
-/// shim does.
+/// What a std function does with the closures it calls that own a value that drops.
+#[derive(Default)]
+struct Closures<'tcx> {
+	/// The first it would neither drop where std's does nor keep: refused.
+	leaked: Option<Ty<'tcx>>,
+	/// Those it drops as it returns, having kept nothing of them, in the order
+	/// their parameters are declared.
+	spent: Vec<Expr>,
+}
+
+/// The closures `call` calls that own a value that drops, by what its mapping does with
+/// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
+/// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
+/// drops is ordered against it; dropped where `discarded` says, by the type's index among
+/// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
+/// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
+/// call, as rustc's shim does.
 fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
 	discarded: Option<&[usize]>,
 	args: &mut [Expr],
-) -> Option<Ty<'tcx>> {
+) -> Closures<'tcx> {
 	let tcx = b.t.tcx;
+	let mut closures = Closures::default();
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
-	let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
-	let bounds = tcx.param_env(call.def_id).caller_bounds();
-	for (i, input) in inputs.into_iter().enumerate() {
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let inputs = sig.inputs().to_vec();
+	let output = sig.output();
+	for (i, &input) in inputs.iter().enumerate() {
 		let ty::Param(param) = *input.kind() else {
 			continue;
 		};
@@ -559,21 +670,29 @@ fn called_closures<'tcx>(
 		let ty::Closure(_, closure) = ty.kind() else {
 			continue;
 		};
-		// The trait it is called by: `Fn`, then `FnMut`, whichever it is bound by, or else `FnOnce`.
-		let Some(bound) = bounds
-			.clone()
-			.filter_map(|p| p.as_trait_clause())
-			.filter(|t| t.self_ty().skip_binder() == input)
-			.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
-			.min_by_key(|kind| match kind {
-				ty::ClosureKind::Fn => 0,
-				ty::ClosureKind::FnMut => 1,
-				ty::ClosureKind::FnOnce => 2,
-			})
-		else {
+		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
 		if !b.t.drops(ty) {
+			continue;
+		}
+		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
+		if mentions(output) {
+			// An `rt.Iter` or `rt.PollFn` drops the closure it holds.
+			let held = matches!(output.kind(), ty::Adt(adt, args)
+				if (super::iter::holds_closure(tcx, adt.did()) || Std::of(tcx, adt.did()) == Some(Std::PollFn))
+					&& args.types().any(|a| a == input));
+			if !held {
+				closures.leaked = closures.leaked.or(Some(ty));
+			}
+			continue;
+		}
+		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
+		if bound != ty::ClosureKind::FnOnce && !kept && i < args.len() {
+			match dropping_operand(b, call) {
+				None => closures.spent.push(args[i].clone()),
+				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
+			}
 			continue;
 		}
 		let index = call.args[..param.index as usize]
@@ -581,7 +700,8 @@ fn called_closures<'tcx>(
 			.filter(|a| a.as_type().is_some())
 			.count();
 		if !discarded.is_some_and(|d| d.contains(&index)) {
-			return Some(ty);
+			closures.leaked = closures.leaked.or(Some(ty));
+			continue;
 		}
 		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
 		{
@@ -589,12 +709,30 @@ fn called_closures<'tcx>(
 			args[i] = Expr::rt("once", vec![f]);
 		}
 	}
-	None
+	closures
 }
 
-/// The first type `call` takes by value that drops.
+/// The trait `def_id` calls its parameter of type `input` by: `Fn`, then `FnMut`,
+/// whichever it is bound by, or else `FnOnce`, or `None` if no function trait bounds it.
+fn called_by<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, input: Ty<'tcx>) -> Option<ty::ClosureKind> {
+	tcx.param_env(def_id)
+		.caller_bounds()
+		.filter_map(|p| p.as_trait_clause())
+		.filter(|t| t.self_ty().skip_binder() == input)
+		.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
+		.min_by_key(|kind| match kind {
+			ty::ClosureKind::Fn => 0,
+			ty::ClosureKind::FnMut => 1,
+			ty::ClosureKind::FnOnce => 2,
+		})
+}
+
+/// The first type `call` takes by value that drops, but for a closure a function trait
+/// bounds, which `called_closures` decides.
 fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = b.t.tcx;
+	let generic = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
+	let generic = tcx.instantiate_bound_regions_with_erased(generic).inputs().to_vec();
 	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
 	let env = b.t.typing_env_pub();
 	// A census's call over type parameters may leave a projection unnormalized.
@@ -607,7 +745,14 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
-	inputs.into_iter().find(|&ty| b.t.drops(ty))
+	let called = |i: usize, ty: Ty<'tcx>| {
+		matches!(ty.kind(), ty::Closure(..)) && called_by(tcx, call.def_id, generic[i]).is_some()
+	};
+	inputs
+		.into_iter()
+		.enumerate()
+		.find(|&(i, ty)| !called(i, ty) && b.t.drops(ty))
+		.map(|(_, ty)| ty)
 }
 
 /// `owner::name` for a standard library function.
@@ -625,7 +770,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Str => "str".into(),
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
-			ty::Int(_) | ty::Uint(_) => self_ty.to_string(),
+			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -639,14 +784,10 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 
 pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
-	// thiserror's `Display` derive reads each field through `AsDisplay`, which is the
-	// field itself for anything but a path.
-	if tcx.crate_name(call.def_id.krate).as_str() == "thiserror"
-		&& tcx.item_name(call.def_id).as_str() == "as_display"
-		&& matches!(targ(call.args, 0).kind(), ty::Ref(..))
-	{
-		return args.into_iter().next_back();
-	}
+	let args = match super::stock::call(b, call, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
 	if !is_std(tcx, call.def_id) {
 		return None;
 	}
@@ -661,15 +802,19 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	}
 	let discarded = discards(&owner, &name);
 	let mut args = args;
-	let leaked = called_closures(b, call, discarded, &mut args);
-	let e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
-	if let Some(ty) = leaked {
+	let closures = called_closures(b, call, discarded, &mut args);
+	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
+	if let Some(ty) = closures.leaked {
 		return Some(b.err(
 			call.span,
 			format!(
 				"passing `{ty}`, a closure that owns a value that drops, to `{owner}::{name}`, which is not supported yet"
 			),
 		));
+	}
+	// The last parameter drops first, as a function's do.
+	for f in closures.spent.into_iter().rev() {
+		e = Expr::rt("dropAfter", vec![f, Expr::Lambda(Vec::new(), Box::new(e))]);
 	}
 	Some(e)
 }
@@ -687,7 +832,7 @@ fn mapping<'tcx>(
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let gargs = call.args;
-	let args = match super::task::call(b, call, &owner, &name, args) {
+	let args = match super::task::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
@@ -708,7 +853,7 @@ fn mapping<'tcx>(
 	if let Some(int) = int_named(&owner) {
 		let method = match name.as_str() {
 			"from_be_bytes" => "fromBeBytes",
-			"to_be_bytes" => "toBeBytes",
+			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
 			"checked_add" => "checkedAdd",
@@ -716,11 +861,23 @@ fn mapping<'tcx>(
 			"checked_mul" => "checkedMul",
 			"saturating_add" => "saturatingAdd",
 			"saturating_sub" => "saturatingSub",
+			"saturating_mul" => "saturatingMul",
 			"wrapping_add" => "wrappingAdd",
 			"wrapping_sub" => "wrappingSub",
+			"wrapping_mul" => "wrappingMul",
+			"div_ceil" => "divCeil",
+			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
-		return Some(int.method(method, args));
+		let e = int.method(method, args);
+		// The big-endian bytes, the other way around.
+		return Some(match name.as_str() {
+			"to_le_bytes" => e.method("reverse", Vec::new()),
+			_ => e,
+		});
+	}
+	if owner == "f64" {
+		return super::float::method(b, &name, args, span);
 	}
 
 	let self_ty = || gargs.types().next();
@@ -739,16 +896,20 @@ fn mapping<'tcx>(
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
 		("From", "from") => {
-			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
+			// A `NonZero` converts as its integer.
+			let (to, from) = (targ(gargs, 0), unwrapped(tcx, targ(gargs, 1)));
 			let mut values = args;
 			let value = values.pop()?;
-			// One between strings, such as into a `Cow<str>` or out of one, keeps the text.
-			if to == from || (string(tcx, to) && string(tcx, from.peel_refs())) {
+			// One between strings, such as into a `Cow<str>` or out of one, keeps the text, and
+			// `Some` of a value is the value.
+			let some = matches!(to.kind(), ty::Adt(adt, args)
+				if Std::of(tcx, adt.did()) == Some(Std::Option) && args.type_at(0) == targ(gargs, 1));
+			if to == from || some || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
 			}
-			// Each `From` between integers and `char`, or from `bool`, keeps the value, as
-			// `as` then does.
-			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char();
+			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
+			// value, as `as` then does.
+			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char() || super::float::is(t);
 			if !scalar(to) || !(scalar(from) || from.is_bool()) {
 				return None;
 			}
@@ -766,8 +927,11 @@ fn mapping<'tcx>(
 		}
 		// A scalar value, but not a surrogate.
 		("char", "from_u32") => Expr::rt("charFromU32", args),
-		("TryFrom", "try_from") => {
-			let (to, from) = (targ(gargs, 0), targ(gargs, 1));
+		("TryFrom", "try_from") | ("TryInto", "try_into") => {
+			let (to, from) = match owner.as_str() {
+				"TryFrom" => (targ(gargs, 0), targ(gargs, 1)),
+				_ => (targ(gargs, 1), targ(gargs, 0)),
+			};
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
 				return None;
 			};
@@ -804,7 +968,7 @@ fn mapping<'tcx>(
 			)
 		}
 		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge")
-			if primitive(targ(gargs, 0).peel_refs()) =>
+			if primitive(unwrapped(tcx, targ(gargs, 0))) =>
 		{
 			let js = match name.as_str() {
 				"eq" => "===",
@@ -816,18 +980,22 @@ fn mapping<'tcx>(
 			};
 			let values = args;
 			let [l, r] = <[Expr; 2]>::try_from(values).ok()?;
-			match Int::of(targ(gargs, 0).peel_refs()) {
+			match Int::of(unwrapped(tcx, targ(gargs, 0))) {
 				Some(int) => int.compare(js, l, r),
 				None => l.binary(js, r),
 			}
 		}
-		("Ord", "max" | "min") if let Some(int) = Int::of(targ(gargs, 0)) => {
+		("Ord", "max" | "min") if let Some(int) = Int::of(unwrapped(tcx, targ(gargs, 0))) => {
 			let values = args;
 			match int.big() {
 				true => int.method(name.as_str(), values),
 				false => Expr::rt(if name == "max" { "max" } else { "min" }, values),
 			}
 		}
+		("Ord", "clamp") if let Some(int) = Int::of(targ(gargs, 0)) => match int.big() {
+			true => int.method("clamp", args),
+			false => Expr::rt("clamp", args),
+		},
 		("Clone", "clone") => {
 			let ty = targ(gargs, 0);
 			let values = args;
@@ -837,6 +1005,27 @@ fn mapping<'tcx>(
 					Expr::rt("byteVecFrom", vec![Expr::rt("byteVecView", vec![value])])
 				}
 				ty::Adt(..) if string(tcx, ty) => value,
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
+					return vec_clone(b, value, args.type_at(0), span);
+				}
+				ty::Tuple(tys) if !(b.t.is_copy(ty) && clone_copies(b.t, ty)) => {
+					let clones = tys.iter().map(|t| super::collections::clone_fn(b, t, span)).collect();
+					Expr::rt("tupleClone", vec![value, Expr::Array(clones)])
+				}
+				// A box is what it holds, cloned.
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => {
+					let inner = args.type_at(0);
+					if !inner.is_sized(tcx, b.t.typing_env_pub()) {
+						return None;
+					}
+					match super::collections::clone_fn(b, inner, span) {
+						Expr::Lit(l) if l == "undefined" => value,
+						clone => clone.call(vec![value]),
+					}
+				}
+				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::FromUtf8Error) => {
+					Expr::rt("fromUtf8ErrorClone", vec![value])
+				}
 				// Through the reference, a slice of the bytes.
 				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
 				ty::Adt(adt, _) if int_range(ty) => {
@@ -846,7 +1035,7 @@ fn mapping<'tcx>(
 				_ => return None,
 			}
 		}
-		("Default", "default") => default_value(b, targ(gargs, 0))?,
+		("Default", "default") => default_value(b, targ(gargs, 0), span, out)?,
 
 		// Options, whose other combinators lower from core's MIR.
 		("Option", "unwrap" | "expect") => rt2(args, "option", &name),
@@ -892,11 +1081,50 @@ fn mapping<'tcx>(
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
 
-		("bool", "then_some") => {
-			let values = args;
-			Expr::rt("thenSome", values)
+		// A `NonZero` is its integer.
+		("NonZero", "get") => args.pop()?,
+		("NonZero", "new") => Expr::rt("nonZero", args),
+		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
+		("Bound", "cloned") => {
+			let value = args.pop()?;
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let bound = tcx.instantiate_bound_regions_with_erased(sig).output();
+			match super::collections::clone_fn(b, targ(gargs, 0), span) {
+				Expr::Lit(l) if l == "undefined" => b.t.copied(value, bound, span),
+				clone => Expr::rt("boundMap", vec![value, clone]),
+			}
 		}
-		("bool", "then") => Expr::rt("boolThen", args),
+		("Bound", "as_ref") => args.pop()?,
+		("RangeBounds", "start_bound" | "end_bound") => {
+			let start = name == "start_bound";
+			let range = targ(gargs, 0).peel_refs();
+			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
+			let ts = b.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
+			let r = args.pop()?;
+			let (variant, field) = match (range.kind(), b.t.std_of(range)) {
+				// `(Bound<T>, Bound<T>)`, whose bounds are its own.
+				(ty::Tuple(_), _) => return Some(r.index(Expr::lit(if start { "0" } else { "1" }))),
+				(_, Some(Std::Range)) if start => ("Included", Some("start")),
+				(_, Some(Std::Range)) => ("Excluded", Some("end")),
+				(_, Some(Std::RangeFrom)) if start => ("Included", Some("start")),
+				(_, Some(Std::RangeTo)) if !start => ("Excluded", Some("end")),
+				(_, Some(Std::RangeToInclusive)) if !start => ("Included", Some("end")),
+				(_, Some(Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull)) => {
+					("Unbounded", None)
+				}
+				// Exhausted, it ends before its end.
+				(_, Some(Std::RangeInclusive)) => {
+					let f = if start {
+						"rangeInclusiveStartBound"
+					} else {
+						"rangeInclusiveEndBound"
+					};
+					return Some(Expr::As(Box::new(Expr::rt(f, vec![r])), ts));
+				}
+				_ => return None,
+			};
+			tagged(variant, field.map(|f| r.member(f)), ts)
+		}
 
 		// Slices, whose byte functions take an `rt.ByteSlice`.
 		("slice", "len") => super::mir::slice_member(args.pop()?, "length"),
@@ -910,6 +1138,17 @@ fn mapping<'tcx>(
 			};
 			rt2(args, of, &super::camel(&name))
 		}
+		// An element JS copies is lent as its place, and an object as itself.
+		("slice", "first_mut" | "last_mut" | "get_mut") if name != "get_mut" || Int::of(targ(gargs, 1)).is_some() => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
+			let name = match b.t.needs_place(elem) {
+				true => name.as_str(),
+				false => name.strip_suffix("_mut")?,
+			};
+			rt2(values, "slice", &super::camel(name))
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -919,23 +1158,66 @@ fn mapping<'tcx>(
 				false => Expr::rt("sliceSplitFirstChunk", values),
 			}
 		}
+		// A slice of the one value.
+		("raw", "from_ref") if std_path(tcx, call.def_id) == ["slice", "raw", "from_ref"] => {
+			let value = args.pop()?;
+			match is_u8(targ(gargs, 0)) {
+				true => Expr::rt(
+					"byteSliceFrom",
+					vec![Expr::ident("Uint8Array").member("of").call(vec![value])],
+				),
+				false => Expr::Array(vec![value]),
+			}
+		}
 		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "byteSlice", "copyFromSlice"),
 		("PartialEq", "eq") if byte_slice(targ(gargs, 0)) && byte_slice(targ(gargs, 1)) => {
 			Expr::rt("byteSliceEq", args)
 		}
 		("slice", "to_vec") => {
 			let elem = targ(gargs, 0);
-			let values = args;
+			let slice = args.pop()?;
 			match is_u8(elem) {
-				true => Expr::rt("byteSliceToByteVec", values),
-				false if b.t.is_copy(elem) => {
-					let slice = values.into_iter().next()?;
-					match b.t.copy_fn(elem, span) {
-						Some(copy) => slice.member("map").call(vec![copy]),
-						None => slice.member("slice").call(Vec::new()),
-					}
+				true => Expr::rt("byteSliceToByteVec", vec![slice]),
+				false => return vec_clone(b, slice, elem, span),
+			}
+		}
+		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
+		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
+		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
+		("slice", "contains") => {
+			let elem = targ(gargs, 0);
+			let [s, x] = <[Expr; 2]>::try_from(args).ok()?;
+			match is_u8(elem) {
+				true => Expr::rt("byteSliceView", vec![s]).method("includes", vec![x]),
+				false => {
+					let eq = super::collections::eq_fn(b, elem, span);
+					Expr::rt("sliceContains", vec![s, x, eq])
 				}
-				false => return None,
+			}
+		}
+		// Sorted by `PartialOrd::lt`, or by a comparator, or by `lt` of the keys a function makes.
+		(
+			"slice",
+			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
+		) if !is_u8(targ(gargs, 0)) => {
+			let mut values = args;
+			match name.as_str() {
+				"sort" | "sort_unstable" => {
+					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
+					Expr::rt("sliceSort", values)
+				}
+				"sort_by" | "sort_unstable_by" => Expr::rt("sliceSortBy", values),
+				_ => {
+					let key = targ(gargs, 1);
+					if b.t.drops(key) {
+						return Some(b.err(
+							span,
+							format!("`slice::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
+					}
+					values.push(super::collections::test_fn(b, key, "lt", span));
+					Expr::rt("sliceSortByKey", values)
+				}
 			}
 		}
 		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
@@ -1004,6 +1286,53 @@ fn mapping<'tcx>(
 		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", args),
 		("Vec", "clear") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecClear", args),
 		("Vec", "extend_from_slice") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecExtendFromSlice", args),
+		("Vec", "extend_from_slice") => {
+			let mut values = args;
+			let clone = super::collections::clone_fn(b, targ(gargs, 0), span);
+			if !matches!(&clone, Expr::Lit(l) if l == "undefined") {
+				values.push(clone);
+			}
+			Expr::rt("vecExtendFromSlice", values)
+		}
+		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
+		("Vec", "insert" | "remove" | "truncate") if !is_u8(targ(gargs, 0)) => {
+			Expr::rt_of("vec", &super::camel(&name)).call(args)
+		}
+		("Vec", "clear") => {
+			let mut values = args;
+			values.push(Expr::lit("0"));
+			Expr::rt("vecTruncate", values)
+		}
+		// What each takes by value is a closure, which it drops once done.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
+			if let Some(ty) = dropping_operand(b, call) {
+				return Some(b.err(
+					span,
+					format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+				));
+			}
+			let mut values = args;
+			match name.as_str() {
+				"retain" | "retain_mut" => Expr::rt("vecRetain", values),
+				"dedup" => {
+					values.push(super::collections::eq_fn(b, targ(gargs, 0), span));
+					Expr::rt("vecDedupBy", values)
+				}
+				"dedup_by" => Expr::rt("vecDedupBy", values),
+				_ => {
+					// `Vec<T, A>::dedup_by_key::<F, K>`.
+					let key = targ(gargs, 3);
+					if b.t.drops(key) {
+						return Some(b.err(
+							span,
+							format!("`Vec::{name}` by `{key}`, which drops, which is not supported yet"),
+						));
+					}
+					values.push(super::collections::eq_fn(b, key, span));
+					Expr::rt("vecDedupByKey", values)
+				}
+			}
+		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;
 			vec_view(v, targ(gargs, 0))
@@ -1012,8 +1341,8 @@ fn mapping<'tcx>(
 			let ty = targ(gargs, 0);
 			let v = args.pop()?;
 			match ty.kind() {
-				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-					Some(Std::Vec) => vec_view(v, ty),
+				ty::Adt(adt, vargs) => match Std::of(tcx, adt.did()) {
+					Some(Std::Vec) => vec_view(v, vargs.type_at(0)),
 					Some(Std::String | Std::Box) => v,
 					Some(Std::Cow) if string(tcx, ty) => v,
 					_ => return None,
@@ -1025,13 +1354,19 @@ fn mapping<'tcx>(
 		// Strings.
 		("String" | "str", "as_bytes") => Expr::rt("stringAsBytes", args),
 		("String", "from_utf8") => Expr::rt("stringFromUtf8", args),
+		// `str::from_utf8` is `core::str::converts::from_utf8`, or `str`'s own.
+		("converts" | "str", "from_utf8") => Expr::rt("strFromUtf8", args),
+		("Utf8Error", "valid_up_to") => args.pop()?.member("validUpTo"),
+		("Utf8Error", "error_len") => args.pop()?.member("errorLen"),
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
 		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("str", "chars") => Expr::rt("strChars", args),
+		("str", "bytes") => Expr::rt("strBytes", args),
+		("str", "is_char_boundary") => Expr::rt("strIsCharBoundary", args),
 		// Searches by a pattern.
-		("str", "split" | "match_indices" | "contains" | "starts_with" | "rfind")
+		("str", "split" | "match_indices" | "contains" | "starts_with" | "ends_with" | "rfind" | "split_once")
 		| ("str", "trim_start_matches" | "trim_end_matches") => {
 			let [s, p] = <[Expr; 2]>::try_from(args).ok()?;
 			Expr::rt_of("str", &super::camel(&name)).call(vec![s, pattern(b.t, targ(gargs, 0), p)?])
@@ -1087,6 +1422,12 @@ fn mapping<'tcx>(
 
 		// Formatting.
 		("hint", "must_use") => args.pop()?,
+		// The size wasm32 lays the type out in, which translation targets.
+		("mem", "size_of") => {
+			let env = b.t.typing_env_pub();
+			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
+			Expr::lit(layout.size.bytes().to_string())
+		}
 		("fmt", "format") => {
 			let parts = args.pop()?;
 			match literal(&parts) {
@@ -1234,13 +1575,29 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 	}
 }
 
-/// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text,
-/// or a string or a predicate as it is. `None` for any other pattern.
+/// A clone of `value`, a slice, array, or `Vec` of `elem` other than bytes, as a `Vec`: a
+/// copy of the array if each element's clone is itself, or else each element cloned.
+fn vec_clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, elem: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let clone = super::collections::clone_fn(b, elem, span);
+	if matches!(&clone, Expr::Lit(l) if l == "undefined") {
+		return Some(value.method("slice", Vec::new()));
+	}
+	Some(value.method("map", vec![clone]))
+}
+
+/// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text, a
+/// string or a predicate as it is, or a predicate for an array or slice of chars. `None`
+/// for any other pattern.
 fn pattern<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, p: Expr) -> Option<Expr> {
 	match ty.kind() {
 		ty::Char => Some(char_text(p)),
 		ty::Closure(..) | ty::FnDef(..) => Some(p),
 		ty::Ref(..) if is_text(t, ty) => Some(p),
+		// Any of the chars of an array or slice.
+		ty::Array(c, _) | ty::Slice(c) if c.is_char() => Some(Expr::rt("patternChars", vec![p])),
+		ty::Ref(_, inner, _) if matches!(inner.kind(), ty::Array(c, _) | ty::Slice(c) if c.is_char()) => {
+			Some(Expr::rt("patternChars", vec![p]))
+		}
 		_ => None,
 	}
 }
@@ -1294,16 +1651,21 @@ fn int_named(name: &str) -> Option<Int> {
 	Some(Int { bits, signed, pointer })
 }
 
-fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
+/// What a JS value of `ty` is through references and `NonZero`, which is its integer.
+fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let ty = ty.peel_refs();
+	match ty.kind() {
+		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::NonZero) => args.type_at(0),
+		_ => ty,
+	}
 }
 
-/// A `Vec`'s elements as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
-pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
-	let elem = match ty.peel_refs().kind() {
-		ty::Adt(_, args) => args.type_at(0),
-		_ => ty,
-	};
+fn primitive(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char) || super::float::is(ty)
+}
+
+/// A `Vec` of `elem`s as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
+pub fn vec_view(v: Expr, elem: Ty<'_>) -> Expr {
 	match elem.kind() {
 		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecSlice", vec![v]),
 		_ => v,
@@ -1339,12 +1701,37 @@ impl MethodCall for Expr {
 	}
 }
 
-/// `Default::default()` for a standard type.
-pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
+/// `Default::default()` for a standard type, of its parts' defaults where it has parts.
+pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	let part = |b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, out: &mut Vec<Stmt>| {
+		let f = super::collections::trait_fn(tcx, "Default", "default");
+		b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out)
+	};
 	Some(match ty.kind() {
+		ty::Tuple(parts) if parts.is_empty() => Expr::undefined(),
+		ty::Tuple(parts) => Expr::Array(parts.iter().map(|t| part(b, t, out)).collect()),
+		ty::Array(elem, n) => {
+			let n = n.try_to_target_usize(tcx)?;
+			match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => return Some(Expr::rt("bytes", vec![Expr::lit(n.to_string())])),
+				// Whatever its element, which needn't have a default.
+				_ if n == 0 => return Some(Expr::Array(Vec::new())),
+				_ => {}
+			}
+			// Each element its own, as an atomic must be.
+			let mut body = Vec::new();
+			let item = part(b, *elem, &mut body);
+			body.push(StmtKind::Return(Some(item.typed())).at(None));
+			let item_ty = b.t.ty(*elem, span);
+			Expr::ident("Array").member("from").call(vec![
+				Expr::Object(vec![(crate::ts::Key::Name("length".into()), Expr::lit(n.to_string()))]),
+				Expr::Arrow(Vec::new(), item_ty, body),
+			])
+		}
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
+		_ if super::float::is(ty) => super::float::lit(0.0),
 		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt(
@@ -1364,6 +1751,15 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			Std::String => Expr::Str(String::new()),
 			Std::Cow if string(tcx, ty) => Expr::Str(String::new()),
 			Std::Duration => super::time::zero(),
+			Std::Atomic => Expr::New(
+				Box::new(Expr::Rt("Atomic".into())),
+				vec![default_value(b, args.type_at(0), span, out)?],
+			),
+			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
+			Std::Box => part(b, args.type_at(0), out),
+			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
+			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
+			Std::Weak => Expr::New(Box::new(Expr::Rt("Weak".into())), Vec::new()),
 			_ => return None,
 		},
 		_ => return None,

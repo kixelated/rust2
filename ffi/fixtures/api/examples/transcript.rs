@@ -72,6 +72,14 @@ fn main() {
 	println!("debug {c:?}");
 	let label = c.into_label(Some(p));
 	println!("label {label:?}");
+	let empty = api_lib::Note {
+		text: Some(String::new()),
+	};
+	println!(
+		"note {} {}",
+		api_lib::has_text(empty),
+		api_lib::has_text(api_lib::Note::default())
+	);
 
 	let (below, above) = Counter::new("s", 7).split(5);
 	println!(
@@ -83,6 +91,8 @@ fn main() {
 	);
 	let (only,) = api_lib::only(Counter::new("o", 3));
 	println!("only {} {}", only.name(), only.get());
+	let (a, b, c, d) = api_lib::widths(98305);
+	println!("widths {a} {b} {c} {d}");
 	for b in [2, 0] {
 		match api_lib::divide(7, b) {
 			Ok((q, r)) => println!("divide {q} {r}"),
@@ -100,6 +110,17 @@ fn main() {
 	let mut last = registry.last().unwrap().clone();
 	let _ = last.add(10);
 	println!("last {} lent {}", registry.last().unwrap().get(), last.get());
+	// A closure lent for the call edits the first counter through a handle.
+	let edited = registry.edit(|counter| {
+		let _ = counter.add(5);
+		counter.edited() && counter.get() == 6
+	});
+	println!("edit {edited} {}", registry.first.get());
+	// A setter moves an object in, as assignment does.
+	registry.first = Counter::new("second", 3);
+	println!("set first {} {}", registry.first.get(), registry.first.name());
+	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
+	println!("offset {}", api_lib::offset(|| 7, 3));
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));
@@ -138,16 +159,30 @@ fn main() {
 	println!("secs {}", stamp.secs());
 	println!("later {}", Stamp::from_millis(3000).later(stamp));
 	println!("secs {}", stamp.secs());
-	let message = Message::new(Some(stamp), Bytes::from_static(b"body"));
+	let mut message = Message::new(Some(stamp), Bytes::from_static(b"body"));
 	println!("payload {}", String::from_utf8_lossy(&message.payload));
 	println!("stamp {:?}", message.stamp.unwrap());
 	println!("sent {}", message.sent());
+	// Setters assign in place: the bytes are copied in, and a `Copy` handle copied.
+	let reset = Stamp::from_millis(4000);
+	message.stamp = Some(reset);
+	message.payload = Bytes::from_static(b"edited");
+	println!("payload {}", String::from_utf8_lossy(&message.payload));
+	println!("stamp {:?}", message.stamp.unwrap());
+	println!("secs {}", reset.secs());
+	message.stamp = None;
+	println!("stamp {}", message.stamp.is_some());
 
 	println!("kept {}", api_lib::emit(Print, vec![1, 2, 3, 4]));
 	let logger = Logger::new(Box::new(Print));
 	println!("write {}", logger.write("hi"));
 	drop(logger);
 	println!("dropped");
+	let kept = api_lib::filter(vec![1, 2, 3, 4], |level, line| {
+		println!("filter {level} {line}");
+		level > 2
+	});
+	println!("filtered {kept}");
 
 	let channel = Channel::new();
 	let count = Arc::new(Count(AtomicUsize::new(0)));
@@ -196,6 +231,7 @@ fn main() {
 	tally.bump();
 	println!("tally {} {}", tally.bump(), tally == tally);
 	println!("both {}", api_lib::bump_both(&tally, &tally));
+	println!("peek {}", api_lib::peek(&tally, |tally| tally.bump()));
 
 	let area = api_lib::grow(&dep::Area::new(Size { width: 2, height: 3 }), 1);
 	let size = area.size();
@@ -211,10 +247,7 @@ fn main() {
 		pair == swapped
 	);
 	println!("even {} {}", pair.even(), Pair { left: 7u32, right: 7 }.even());
-	let sized = Pair {
-		left: Size { width: 1, height: 2 },
-		right: 3u8,
-	};
+	let sized = api_lib::tag(Size { width: 1, height: 2 }, 3);
 	let flipped = sized.swap();
 	println!("sized {} {} {flipped:?}", flipped.left, flipped.right.width);
 	let beside = Pair { left: 258u32, right: 9 }.beside(sized.left);
@@ -232,20 +265,47 @@ fn main() {
 	);
 	let from_point = Counter::seeded("p", Point { x: -3, y: 4 });
 	let from_size = Counter::seeded("s", Size { width: 5, height: 6 });
+	let from_counter = Counter::seeded("c", &from_point);
+	let from_polar = Counter::seeded("q", api_lib::polar::Point { turns: 1, distance: 2 });
 	println!(
-		"seeded {} {} past {} seeds {}",
+		"seeded {} {} {} {} past {} seeds {}",
 		from_point.get(),
 		from_size.get(),
-		stack.depth_past(Point { x: 1, y: 2 }),
-		api_lib::seeds::<Point>(Size { width: 2, height: 3 })
+		from_counter.get(),
+		from_polar.get(),
+		stack.depth_past(&Point { x: 1, y: 2 }),
+		api_lib::seeds::<Point>(&Size { width: 2, height: 3 })
 	);
+
+	println!("weigh {}", api_lib::weigh(Point { x: -1, y: 2 }));
+	let left = api_lib::Left {
+		value: api_lib::Right { value: 1u8 },
+	};
+	let right = api_lib::Right {
+		value: api_lib::Left { value: 2u8 },
+	};
+	println!(
+		"cross {} outer {}",
+		api_lib::cross(left, right),
+		api_lib::Outer::new(4).get()
+	);
+	println!(
+		"kept {} boxed {}",
+		api_lib::kept(Point { x: 1, y: -2 }),
+		api_lib::BOXED.value
+	);
+	let sides = Pair { left: 2u32, right: 5 };
+	println!("apply {}", api_lib::apply(sides, |side| side * 3));
+	println!("report {}", api_lib::report(sides, Print));
+	println!("wrapped {}", api_lib::kept(api_lib::Wrap { value: 4u32 }));
+	println!("keeps {}", api_lib::keeps(Print).value);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());
 	drop(token);
 	println!("dropped {}", api_lib::dropped());
 
-	let retry = api_lib::Retry::new(Some(5));
+	let mut retry = api_lib::Retry::new(Some(5));
 	let limit = retry.limit;
 	println!(
 		"retry {} {} {} {}",
@@ -254,5 +314,8 @@ fn main() {
 		retry.limit(),
 		retry.delay()
 	);
+	// The renamed field's setter, named as its getter.
+	retry.limit = None;
+	println!("retry {}", retry.limit());
 	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
 }
