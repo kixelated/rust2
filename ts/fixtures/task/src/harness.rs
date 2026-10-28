@@ -10,6 +10,7 @@
 
 use crate::drops;
 use crate::exec::Executor;
+use crate::futures;
 use crate::log::Log;
 use crate::model::{self, Channel, Guard};
 
@@ -119,6 +120,12 @@ fn steps() -> Vec<(&'static str, Step)> {
 		}),
 		("edited", |log, exec, _, arg| {
 			drops::edited(log, 1000 * exec.len() as u32, arg % 8)
+		}),
+		("helpers", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(futures::helpers(channels[c].consumer(), guard));
+			}
 		}),
 	]
 }

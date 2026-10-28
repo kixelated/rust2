@@ -51,6 +51,7 @@ export interface Fixture<V> {
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
 	};
+	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
 }
 
 /** What every waker of one task points at. */
@@ -267,6 +268,13 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 		},
 	],
 	["edited", (r, arg) => r.f.drops.edited(r.log, 1000 * r.exec.tasks.length, arg % 8)],
+	[
+		"helpers",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.futures.helpers(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
 ];
 
 /**
@@ -336,6 +344,11 @@ export const cases: Uint8Array[] = [
 	// Values std holds that drop, held across an await: returned, and cancelled.
 	script(["open", 0], ["held", 0], ["run", 0], ["send", 5], ["run", 0]),
 	script(["open", 0], ["held", 0], ["held", 1], ["run", 0], ["drop", 1], ["drop", 0]),
+	// std's helpers: a `poll_fn` over a pinned `recv` and `future::pending`, returning,
+	// cancelled with the guard it owns, and panicking inside it.
+	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 77], ["run", 0]),
+	script(["open", 0], ["helpers", 0], ["helpers", 1], ["run", 0], ["send", 4], ["step", 0], ["drop", 1], ["drop", 0]),
+	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 99], ["run", 0], ["poll", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
