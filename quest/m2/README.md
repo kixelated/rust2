@@ -21,11 +21,13 @@ runtime such as Node or Bun calls Rust through [rust2-ffi](/ffi/README.md), so N
 Bun matter only as proxies for V8 and JavaScriptCore, and a speed call that splits them
 from the browsers goes to the browsers.
 
-The fork's feature quests folded into the [exporter](/quest/m1/ffi-export.md);
+The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README.md);
 [m1](/quest/m1/README.md#plan) records why.
 
 ## Required
 
+- [A tuple's parts read after their variables change](/quest/m2/ts-swap-parts.md) - `(a, b) = (b, a)` swaps instead of copying one into both
+- [Fixture cases by name](/quest/m2/ts-harness-names.md) - adding a harness case never renumbers another
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
 - [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - every value that drops in moq-net and kio drops where Rust drops it
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures

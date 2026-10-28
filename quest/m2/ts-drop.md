@@ -42,6 +42,11 @@ entries that drop, sorted by the crate's own `Ord`; a `collect` in place of a `z
 whose second iterator drops; `successors` of items that drop, which holds the next one;
 and `DebugList::entries` of items that drop.
 
+Next, from [#115](https://github.com/kixelated/rust2/pull/115): `rt.iterFromFn` and
+`rt.iterSuccessors` take droppers for their closure and for `successors`' pending item,
+as std's fields drop them, which lifts both refusals and the reject fixture's second
+refusal of dropping the `Take` around them.
+
 Watch the cost: a function whose cleanup does something JS can see sets a variable
 before each call that can panic and wraps its body in a `try`; measure any change on
 the [TS benchmark](/ts/README.md#bench).
