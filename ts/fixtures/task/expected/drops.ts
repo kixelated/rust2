@@ -95,7 +95,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				rt.panicFmt(["d", args18[0], " at ", args18[1]]);
 			}
 		};
-		const _13: rt.u8 = rt.u8Rem(arg, 22);
+		const _13: rt.u8 = rt.u8Rem(arg, 23);
 		if (_13 === 19) {
 			scoped(log, id, at);
 		} else if (_13 === 20) {
@@ -3302,546 +3302,579 @@ export function grown(log: Log.Log, id: rt.u32, at: rt.u8, tree: boolean): void 
 export function edited(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	let v!: Key.Key[];
 	let v2!: Key.Key[];
+	let _72!: Key.Key;
+	let _75!: Key.Key;
 	let v3!: Key.Key[];
 	let v4!: Key.Key[];
 	let v5!: Key.Key[];
 	let v6!: Key.Key[];
-	let _176!: Key.Key;
-	let _179!: Key.Key;
+	let _188!: Key.Key;
+	let _191!: Key.Key;
 	let v7!: Key.Key[];
 	let v8!: Key.Key[];
 	let v9!: Key.Key[];
 	let v10!: Key.Key[];
 	let v11!: Key.Key[];
 	let v12!: Key.Key[];
-	let _271!: Key.Key[];
+	let _283!: Key.Key[];
 	let tripped_!: Key.Key[];
 	let v13!: Key.Key[];
 	let pair!: [Key.Key, Key.Key];
-	let _299!: Key.Key;
+	let _311!: Key.Key;
 	let tripped2!: [Key.Key, Key.Key];
-	let _309!: Key.Key;
-	let _327!: Key.Key;
-	let _328!: Key.Key;
-	let _347!: Key.Key;
-	let _348!: Key.Key;
-	let _367!: Key.Key;
-	let _368!: Key.Key;
-	let _371!: Key.Key;
-	let _390!: Key.Key;
-	let _391!: Key.Key;
-	let _394!: Key.Key;
-	let _407!: Key.Key;
-	let _429!: boolean;
-	let _430!: boolean;
-	let _431!: boolean;
-	let _432!: boolean;
-	let _433!: boolean;
-	let _434!: boolean;
-	let _435!: boolean;
-	let _436!: boolean;
-	let _437!: boolean;
+	let _321!: Key.Key;
+	let _339!: Key.Key;
+	let _340!: Key.Key;
+	let _359!: Key.Key;
+	let _360!: Key.Key;
+	let _379!: Key.Key;
+	let _380!: Key.Key;
+	let _383!: Key.Key;
+	let _402!: Key.Key;
+	let _403!: Key.Key;
+	let _406!: Key.Key;
+	let _419!: Key.Key;
+	let _441!: boolean;
+	let _442!: boolean;
+	let _443!: boolean;
+	let _444!: boolean;
+	let _445!: boolean;
+	let _446!: boolean;
+	let _447!: boolean;
+	let _448!: boolean;
+	let _449!: boolean;
+	let _450!: boolean;
+	let _451!: boolean;
 	let unwind: number = 0;
 	try {
-		b0: {
-			_437 = false;
-			_436 = false;
-			_435 = false;
-			_434 = false;
-			_433 = false;
-			_432 = false;
-			_431 = false;
-			_430 = false;
-			_429 = false;
-			const key: (a0: rt.u32) => Key.Key = (n: rt.u32): Key.Key => {
-				return Key.new(rt.u32Add(id, n), Log.clone$Clone(log));
-			};
-			const fault: (a0: rt.u32, a1: Fault.Fault) => Key.Key = (n2: rt.u32, fault2: Fault.Fault): Key.Key => {
-				return Key.faulty(rt.u32Add(id, n2), Log.clone$Clone(log), fault2);
-			};
-			const ids: (a0: Key.Key[]) => string = (v14: Key.Key[]): string => {
-				return rt.iterToArray(rt.iterMap(rt.iterSlice(v14), (k: Key.Key): string => {
-					const _46: rt.u32 = rt.u32Sub(k.id, id);
-					return rt.fmtToString((f: rt.Formatter) => rt.u32Display(_46, f));
-				})).join(",");
-			};
-			if (at === 0) {
-				v2 = [];
-				unwind = 232;
-				const _14: Key.Key = key(1);
-				v2.push(_14);
-				const _19: Key.Key = key(2);
-				v2.push(_19);
-				const _24: Key.Key = key(3);
-				v2.push(_24);
-				const _29: Key.Key = key(4);
-				v2.push(_29);
-				unwind = 231;
-				v = v2;
-				rt.vecRetain(v, (k4: Key.Key): boolean => {
-					return rt.u32Rem(rt.u32Sub(k4.id, id), 2) === 1;
-				}, rt.drop);
-				const _42: string = ids(v);
-				unwind = 230;
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _42)];
-				const _38: string = rt.fmtFormat(["retained ", args2[0]]);
-				unwind = 231;
-				Log.note(log, _38);
-				rt.vecRetain(v, (k5: Key.Key): boolean => {
-					return k5.id !== rt.u32Add(id, 3);
-				}, rt.drop);
-				const _61: string = ids(v);
-				unwind = 229;
-				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _61)];
-				const _57: string = rt.fmtFormat(["retained ", args4[0]]);
-				unwind = 231;
-				Log.note(log, _57);
-				unwind = 0;
-				rt.dropAll(v);
-				break b0;
-			}
-			if (at === 1) {
-				v4 = [];
-				unwind = 228;
-				const _74: Key.Key = key(1);
-				v4.push(_74);
-				const _79: Key.Key = key(2);
-				v4.push(_79);
-				const _84: Key.Key = key(3);
-				v4.push(_84);
-				const _89: Key.Key = key(4);
-				v4.push(_89);
-				unwind = 227;
-				v3 = v4;
-				rt.vecRetain(v3, (k3: Key.Key): boolean => {
-					if (!(k3.id === rt.u32Add(id, 3))) {
-						return k3.id !== rt.u32Add(id, 2);
-					}
-					const arg = k3.id;
-					const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
-					rt.panicFmt(["k", args24[0], " retained"]);
-				}, rt.drop);
-				unwind = 0;
-				rt.dropAll(v3);
-			} else if (at === 2) {
-				v6 = [];
-				unwind = 226;
-				const _100: Key.Key = key(1);
-				v6.push(_100);
-				const _105: Key.Key = key(1);
-				v6.push(_105);
-				const _110: Key.Key = key(2);
-				v6.push(_110);
-				const _115: Key.Key = key(2);
-				v6.push(_115);
-				const _120: Key.Key = key(3);
-				v6.push(_120);
-				unwind = 225;
-				v5 = v6;
-				rt.vecDedupBy(v5, Key.eq$PartialEq, rt.drop);
-				const _131: string = ids(v5);
-				unwind = 224;
-				const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _131)];
-				const _127: string = rt.fmtFormat(["deduped ", args6[0]]);
-				unwind = 225;
-				Log.note(log, _127);
-				rt.vecDedupByKey(v5, (k2: Key.Key): rt.u32 => {
-					return rt.u32Div(k2.id, 2);
-				}, rt.same, rt.drop);
-				const _148: string = ids(v5);
-				unwind = 223;
-				const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _148)];
-				const _144: string = rt.fmtFormat(["deduped ", args8[0]]);
-				unwind = 225;
-				Log.note(log, _144);
-				rt.vecDedupBy(v5, (a: Key.Key, b: Key.Key): boolean => {
-					return a.id > b.id;
-				}, rt.drop);
-				const _165: string = ids(v5);
-				unwind = 222;
-				const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _165)];
-				const _161: string = rt.fmtFormat(["deduped ", args10[0]]);
-				unwind = 225;
-				Log.note(log, _161);
-				_176 = key(2);
-				unwind = 251;
-				_437 = true;
-				_179 = key(3);
-				unwind = 249;
-				_436 = true;
-				const _182: Key.Key = key(1);
-				_437 = false;
-				_436 = false;
-				const _175: Key.Key = rt.ordClamp(_176, _179, _182, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 225;
-				_436 = false;
-				_437 = false;
-				rt.drop(_175);
-				unwind = 0;
-				rt.dropAll(v5);
-			} else if (at === 3) {
-				v8 = [];
-				unwind = 221;
-				const _189: Key.Key = key(1);
-				v8.push(_189);
-				const _194: Key.Key = fault(1, "Blows" as Fault.Fault);
-				v8.push(_194);
-				const _200: Key.Key = key(1);
-				v8.push(_200);
-				const _205: Key.Key = key(2);
-				v8.push(_205);
-				unwind = 220;
-				v7 = v8;
-				rt.vecDedupBy(v7, Key.eq$PartialEq, rt.drop);
-				unwind = 0;
-				rt.dropAll(v7);
-			} else if (at === 4) {
-				v10 = [];
-				unwind = 219;
-				const _214: Key.Key = key(1);
-				v10.push(_214);
-				const _219: Key.Key = key(2);
-				v10.push(_219);
-				const _224: Key.Key = key(3);
-				v10.push(_224);
-				unwind = 218;
-				v9 = v10;
-				rt.drop(rt.vecSwapRemove(v9, 0));
-				const _236: string = ids(v9);
-				unwind = 217;
-				const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _236)];
-				const _232: string = rt.fmtFormat(["swapped ", args12[0]]);
-				unwind = 218;
-				Log.note(log, _232);
-				rt.drop(rt.vecSwapRemove(v9, 3));
-				unwind = 0;
-				rt.dropAll(v9);
-			} else if (at === 5) {
-				v12 = [];
-				unwind = 216;
-				const _252: Key.Key = key(1);
-				v12.push(_252);
-				const _257: Key.Key = key(2);
-				v12.push(_257);
-				unwind = 215;
-				v11 = v12;
-				_271 = rt.vecClone(v11, Key.clone$Clone, rt.drop);
-				unwind = 214;
-				const _266: string = ids(_271);
-				unwind = 213;
-				const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _266)];
-				const _262: string = rt.fmtFormat(["cloned ", args14[0]]);
-				unwind = 215;
-				rt.dropAll(_271);
-				Log.note(log, _262);
-				v13 = [];
-				unwind = 212;
-				const _281: Key.Key = key(1);
-				v13.push(_281);
-				const _286: Key.Key = fault(2, "Trips" as Fault.Fault);
-				v13.push(_286);
-				const _292: Key.Key = key(3);
-				v13.push(_292);
-				unwind = 211;
-				tripped_ = v13;
-				rt.dropAll(rt.vecClone(tripped_, Key.clone$Clone, rt.drop));
-				unwind = 215;
-				rt.dropAll(tripped_);
-				unwind = 0;
-				rt.dropAll(v11);
-			} else if (at === 6) {
-				_299 = key(1);
-				unwind = 210;
-				const _302: Key.Key = key(2);
-				unwind = 209;
-				pair = [_299, _302] as [Key.Key, Key.Key];
-				drop$Key_Key(rt.tupleClone(pair, [Key.clone$Clone, Key.clone$Clone], [rt.drop, rt.drop]));
-				_309 = key(1);
-				unwind = 208;
-				const _312: Key.Key = fault(2, "Trips" as Fault.Fault);
-				unwind = 207;
-				tripped2 = [_309, _312] as [Key.Key, Key.Key];
-				drop$Key_Key(rt.tupleClone(tripped2, [Key.clone$Clone, Key.clone$Clone], [rt.drop, rt.drop]));
-				unwind = 209;
-				drop$Key_Key(tripped2);
-				unwind = 0;
-				drop$Key_Key(pair);
-			} else {
-				_435 = true;
-				_328 = key(1);
-				unwind = 247;
-				const _331: Key.Key = key(2);
-				_435 = false;
-				_327 = rt.ordMax(_328, _331, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 206;
-				_435 = false;
-				const part = rt.u32Sub(_327.id, id);
-				const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-				const _321: string = rt.fmtFormat(["max ", args16[0]]);
-				unwind = 0;
-				rt.drop(_327);
-				Log.note(log, _321);
-				_434 = true;
-				_348 = key(5);
-				unwind = 245;
-				const _351: Key.Key = key(4);
-				_434 = false;
-				_347 = rt.ordMin(_348, _351, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 205;
-				_434 = false;
-				const part2 = rt.u32Sub(_347.id, id);
-				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
-				const _341: string = rt.fmtFormat(["min ", args18[0]]);
-				unwind = 0;
-				rt.drop(_347);
-				Log.note(log, _341);
-				_433 = true;
-				_368 = key(2);
-				unwind = 243;
-				_371 = key(1);
-				unwind = 241;
-				_432 = true;
-				const _374: Key.Key = key(3);
-				_433 = false;
-				_432 = false;
-				_367 = rt.ordClamp(_368, _371, _374, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 204;
-				_432 = false;
-				_433 = false;
-				const part3 = rt.u32Sub(_367.id, id);
-				const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
-				const _361: string = rt.fmtFormat(["clamped ", args20[0]]);
-				unwind = 0;
-				rt.drop(_367);
-				Log.note(log, _361);
-				_431 = true;
-				_391 = key(0);
-				unwind = 239;
-				_394 = key(1);
-				unwind = 237;
-				_430 = true;
-				const _397: Key.Key = key(3);
-				_431 = false;
-				_430 = false;
-				_390 = rt.ordClamp(_391, _394, _397, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 203;
-				_430 = false;
-				_431 = false;
-				const part4 = rt.u32Sub(_390.id, id);
-				const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
-				const _384: string = rt.fmtFormat(["clamped ", args22[0]]);
-				unwind = 0;
-				rt.drop(_390);
-				Log.note(log, _384);
-				_429 = true;
-				_407 = key(1);
-				unwind = 235;
-				const _410: Key.Key = fault(2, "Trips" as Fault.Fault);
-				_429 = false;
-				const _406: Key.Key = rt.ordMax(_407, _410, Key.partialCmp$PartialOrd, rt.drop);
-				unwind = 0;
-				_429 = false;
-				rt.drop(_406);
-			}
-			Log.note(log, rt.fmtFormat(["unreached"]));
+		_451 = false;
+		_450 = false;
+		_449 = false;
+		_448 = false;
+		_447 = false;
+		_446 = false;
+		_445 = false;
+		_444 = false;
+		_443 = false;
+		_442 = false;
+		_441 = false;
+		const key: (a0: rt.u32) => Key.Key = (n: rt.u32): Key.Key => {
+			return Key.new(rt.u32Add(id, n), Log.clone$Clone(log));
+		};
+		const fault: (a0: rt.u32, a1: Fault.Fault) => Key.Key = (n2: rt.u32, fault2: Fault.Fault): Key.Key => {
+			return Key.faulty(rt.u32Add(id, n2), Log.clone$Clone(log), fault2);
+		};
+		const ids: (a0: Key.Key[]) => string = (v14: Key.Key[]): string => {
+			return rt.iterToArray(rt.iterMap(rt.iterSlice(v14), (k: Key.Key): string => {
+				const _46: rt.u32 = rt.u32Sub(k.id, id);
+				return rt.fmtToString((f: rt.Formatter) => rt.u32Display(_46, f));
+			})).join(",");
+		};
+		if (at === 0) {
+			v2 = [];
+			unwind = 237;
+			const _14: Key.Key = key(1);
+			v2.push(_14);
+			const _19: Key.Key = key(2);
+			v2.push(_19);
+			const _24: Key.Key = key(3);
+			v2.push(_24);
+			const _29: Key.Key = key(4);
+			v2.push(_29);
+			unwind = 236;
+			v = v2;
+			rt.vecRetain(v, (k4: Key.Key): boolean => {
+				return rt.u32Rem(rt.u32Sub(k4.id, id), 2) === 1;
+			}, rt.drop);
+			const _42: string = ids(v);
+			unwind = 235;
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _42)];
+			const _38: string = rt.fmtFormat(["retained ", args2[0]]);
+			unwind = 236;
+			Log.note(log, _38);
+			rt.vecRetain(v, (k5: Key.Key): boolean => {
+				return k5.id !== rt.u32Add(id, 3);
+			}, rt.drop);
+			const _61: string = ids(v);
+			unwind = 234;
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _61)];
+			const _57: string = rt.fmtFormat(["retained ", args4[0]]);
+			unwind = 236;
+			Log.note(log, _57);
+			_72 = key(2);
+			unwind = 260;
+			_451 = true;
+			_75 = key(1);
+			unwind = 258;
+			_450 = true;
+			const _78: Key.Key = fault(3, "Blows" as Fault.Fault);
+			_451 = false;
+			_450 = false;
+			const _71: Key.Key = rt.ordClamp(_72, _75, _78, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 236;
+			_450 = false;
+			_451 = false;
+			rt.drop(_71);
+			unwind = 0;
+			rt.dropAll(v);
+		} else if (at === 1) {
+			v4 = [];
+			unwind = 233;
+			const _86: Key.Key = key(1);
+			v4.push(_86);
+			const _91: Key.Key = key(2);
+			v4.push(_91);
+			const _96: Key.Key = key(3);
+			v4.push(_96);
+			const _101: Key.Key = key(4);
+			v4.push(_101);
+			unwind = 232;
+			v3 = v4;
+			rt.vecRetain(v3, (k3: Key.Key): boolean => {
+				if (!(k3.id === rt.u32Add(id, 3))) {
+					return k3.id !== rt.u32Add(id, 2);
+				}
+				const arg = k3.id;
+				const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+				rt.panicFmt(["k", args24[0], " retained"]);
+			}, rt.drop);
+			unwind = 0;
+			rt.dropAll(v3);
+		} else if (at === 2) {
+			v6 = [];
+			unwind = 231;
+			const _112: Key.Key = key(1);
+			v6.push(_112);
+			const _117: Key.Key = key(1);
+			v6.push(_117);
+			const _122: Key.Key = key(2);
+			v6.push(_122);
+			const _127: Key.Key = key(2);
+			v6.push(_127);
+			const _132: Key.Key = key(3);
+			v6.push(_132);
+			unwind = 230;
+			v5 = v6;
+			rt.vecDedupBy(v5, Key.eq$PartialEq, rt.drop);
+			const _143: string = ids(v5);
+			unwind = 229;
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _143)];
+			const _139: string = rt.fmtFormat(["deduped ", args6[0]]);
+			unwind = 230;
+			Log.note(log, _139);
+			rt.vecDedupByKey(v5, (k2: Key.Key): rt.u32 => {
+				return rt.u32Div(k2.id, 2);
+			}, rt.same, rt.drop);
+			const _160: string = ids(v5);
+			unwind = 228;
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _160)];
+			const _156: string = rt.fmtFormat(["deduped ", args8[0]]);
+			unwind = 230;
+			Log.note(log, _156);
+			rt.vecDedupBy(v5, (a: Key.Key, b: Key.Key): boolean => {
+				return a.id > b.id;
+			}, rt.drop);
+			const _177: string = ids(v5);
+			unwind = 227;
+			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _177)];
+			const _173: string = rt.fmtFormat(["deduped ", args10[0]]);
+			unwind = 230;
+			Log.note(log, _173);
+			_188 = key(2);
+			unwind = 256;
+			_449 = true;
+			_191 = key(3);
+			unwind = 254;
+			_448 = true;
+			const _194: Key.Key = key(1);
+			_449 = false;
+			_448 = false;
+			const _187: Key.Key = rt.ordClamp(_188, _191, _194, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 230;
+			_448 = false;
+			_449 = false;
+			rt.drop(_187);
+			unwind = 0;
+			rt.dropAll(v5);
+		} else if (at === 3) {
+			v8 = [];
+			unwind = 226;
+			const _201: Key.Key = key(1);
+			v8.push(_201);
+			const _206: Key.Key = fault(1, "Blows" as Fault.Fault);
+			v8.push(_206);
+			const _212: Key.Key = key(1);
+			v8.push(_212);
+			const _217: Key.Key = key(2);
+			v8.push(_217);
+			unwind = 225;
+			v7 = v8;
+			rt.vecDedupBy(v7, Key.eq$PartialEq, rt.drop);
+			unwind = 0;
+			rt.dropAll(v7);
+		} else if (at === 4) {
+			v10 = [];
+			unwind = 224;
+			const _226: Key.Key = key(1);
+			v10.push(_226);
+			const _231: Key.Key = key(2);
+			v10.push(_231);
+			const _236: Key.Key = key(3);
+			v10.push(_236);
+			unwind = 223;
+			v9 = v10;
+			rt.drop(rt.vecSwapRemove(v9, 0));
+			const _248: string = ids(v9);
+			unwind = 222;
+			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _248)];
+			const _244: string = rt.fmtFormat(["swapped ", args12[0]]);
+			unwind = 223;
+			Log.note(log, _244);
+			rt.drop(rt.vecSwapRemove(v9, 3));
+			unwind = 0;
+			rt.dropAll(v9);
+		} else if (at === 5) {
+			v12 = [];
+			unwind = 221;
+			const _264: Key.Key = key(1);
+			v12.push(_264);
+			const _269: Key.Key = key(2);
+			v12.push(_269);
+			unwind = 220;
+			v11 = v12;
+			_283 = rt.vecClone(v11, Key.clone$Clone, rt.drop);
+			unwind = 219;
+			const _278: string = ids(_283);
+			unwind = 218;
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _278)];
+			const _274: string = rt.fmtFormat(["cloned ", args14[0]]);
+			unwind = 220;
+			rt.dropAll(_283);
+			Log.note(log, _274);
+			v13 = [];
+			unwind = 217;
+			const _293: Key.Key = key(1);
+			v13.push(_293);
+			const _298: Key.Key = fault(2, "Trips" as Fault.Fault);
+			v13.push(_298);
+			const _304: Key.Key = key(3);
+			v13.push(_304);
+			unwind = 216;
+			tripped_ = v13;
+			rt.dropAll(rt.vecClone(tripped_, Key.clone$Clone, rt.drop));
+			unwind = 220;
+			rt.dropAll(tripped_);
+			unwind = 0;
+			rt.dropAll(v11);
+		} else if (at === 6) {
+			_311 = key(1);
+			unwind = 215;
+			const _314: Key.Key = key(2);
+			unwind = 214;
+			pair = [_311, _314] as [Key.Key, Key.Key];
+			drop$Key_Key(rt.tupleClone(pair, [Key.clone$Clone, Key.clone$Clone], [rt.drop, rt.drop]));
+			_321 = key(1);
+			unwind = 213;
+			const _324: Key.Key = fault(2, "Trips" as Fault.Fault);
+			unwind = 212;
+			tripped2 = [_321, _324] as [Key.Key, Key.Key];
+			drop$Key_Key(rt.tupleClone(tripped2, [Key.clone$Clone, Key.clone$Clone], [rt.drop, rt.drop]));
+			unwind = 214;
+			drop$Key_Key(tripped2);
+			unwind = 0;
+			drop$Key_Key(pair);
+		} else {
+			_447 = true;
+			_340 = key(1);
+			unwind = 252;
+			const _343: Key.Key = key(2);
+			_447 = false;
+			_339 = rt.ordMax(_340, _343, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 211;
+			_447 = false;
+			const part = rt.u32Sub(_339.id, id);
+			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+			const _333: string = rt.fmtFormat(["max ", args16[0]]);
+			unwind = 0;
+			rt.drop(_339);
+			Log.note(log, _333);
+			_446 = true;
+			_360 = key(5);
+			unwind = 250;
+			const _363: Key.Key = key(4);
+			_446 = false;
+			_359 = rt.ordMin(_360, _363, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 210;
+			_446 = false;
+			const part2 = rt.u32Sub(_359.id, id);
+			const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+			const _353: string = rt.fmtFormat(["min ", args18[0]]);
+			unwind = 0;
+			rt.drop(_359);
+			Log.note(log, _353);
+			_445 = true;
+			_380 = key(2);
+			unwind = 248;
+			_383 = key(1);
+			unwind = 246;
+			_444 = true;
+			const _386: Key.Key = key(3);
+			_445 = false;
+			_444 = false;
+			_379 = rt.ordClamp(_380, _383, _386, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 209;
+			_444 = false;
+			_445 = false;
+			const part3 = rt.u32Sub(_379.id, id);
+			const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+			const _373: string = rt.fmtFormat(["clamped ", args20[0]]);
+			unwind = 0;
+			rt.drop(_379);
+			Log.note(log, _373);
+			_443 = true;
+			_403 = key(0);
+			unwind = 244;
+			_406 = key(1);
+			unwind = 242;
+			_442 = true;
+			const _409: Key.Key = key(3);
+			_443 = false;
+			_442 = false;
+			_402 = rt.ordClamp(_403, _406, _409, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 208;
+			_442 = false;
+			_443 = false;
+			const part4 = rt.u32Sub(_402.id, id);
+			const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
+			const _396: string = rt.fmtFormat(["clamped ", args22[0]]);
+			unwind = 0;
+			rt.drop(_402);
+			Log.note(log, _396);
+			_441 = true;
+			_419 = key(1);
+			unwind = 240;
+			const _422: Key.Key = fault(2, "Trips" as Fault.Fault);
+			_441 = false;
+			const _418: Key.Key = rt.ordMax(_419, _422, Key.partialCmp$PartialOrd, rt.drop);
+			unwind = 0;
+			_441 = false;
+			rt.drop(_418);
 		}
+		Log.note(log, rt.fmtFormat(["unreached"]));
 	} catch (e) {
-		b2: {
-			b3: {
-				b4: {
-					b5: {
-						b6: {
-							b7: {
-								b8: {
-									b9: {
-										b10: {
-											if (unwind === 0) {
-												throw e;
-											}
-											if (unwind === 203) {
-												rt.drop(_390);
-												break b2;
-											}
-											if (unwind === 204) {
-												rt.drop(_367);
-												break b2;
-											}
-											if (unwind === 205) {
-												rt.drop(_347);
-												break b2;
-											}
-											if (unwind === 206) {
-												rt.drop(_327);
-												break b2;
-											}
-											if (unwind === 207) {
-												drop$Key_Key(tripped2);
-												break b3;
-											}
-											if (unwind === 208) {
-												rt.drop(_309);
-												break b3;
-											}
-											if (unwind === 209) {
-												break b3;
-											}
-											if (unwind === 210) {
-												rt.drop(_299);
-												break b2;
-											}
-											if (unwind === 211) {
-												rt.dropAll(tripped_);
-												break b4;
-											}
-											if (unwind === 212) {
-												rt.dropAll(v13);
-												break b4;
-											}
-											if (unwind === 213) {
-												break b5;
-											}
-											if (unwind === 214) {
-												break b5;
-											}
-											if (unwind === 215) {
-												break b4;
-											}
-											if (unwind === 216) {
-												rt.dropAll(v12);
-												break b2;
-											}
-											if (unwind === 217) {
-												break b6;
-											}
-											if (unwind === 218) {
-												break b6;
-											}
-											if (unwind === 219) {
-												rt.dropAll(v10);
-												break b2;
-											}
-											if (unwind === 220) {
-												rt.dropAll(v7);
-												break b2;
-											}
-											if (unwind === 221) {
-												rt.dropAll(v8);
-												break b2;
-											}
-											if (unwind === 222) {
-												break b7;
-											}
-											if (unwind === 223) {
-												break b7;
-											}
-											if (unwind === 224) {
-												break b7;
-											}
-											if (unwind === 225) {
-												break b7;
-											}
-											if (unwind === 226) {
-												rt.dropAll(v6);
-												break b2;
-											}
-											if (unwind === 227) {
-												rt.dropAll(v3);
-												break b2;
-											}
-											if (unwind === 228) {
-												rt.dropAll(v4);
-												break b2;
-											}
-											if (unwind === 229) {
-												break b8;
-											}
-											if (unwind === 230) {
-												break b8;
-											}
-											if (unwind === 231) {
-												break b8;
-											}
-											if (unwind === 232) {
-												rt.dropAll(v2);
-												break b2;
-											}
-											if (unwind === 235) {
-												if (!_429) {
+		b1: {
+			b2: {
+				b3: {
+					b4: {
+						b5: {
+							b6: {
+								b7: {
+									b8: {
+										b9: {
+											b10: {
+												if (unwind === 0) {
+													throw e;
+												}
+												if (unwind === 208) {
+													rt.drop(_402);
+													break b1;
+												}
+												if (unwind === 209) {
+													rt.drop(_379);
+													break b1;
+												}
+												if (unwind === 210) {
+													rt.drop(_359);
+													break b1;
+												}
+												if (unwind === 211) {
+													rt.drop(_339);
+													break b1;
+												}
+												if (unwind === 212) {
+													drop$Key_Key(tripped2);
 													break b2;
 												}
-												rt.drop(_407);
-												break b2;
-											}
-											if (unwind === 237) {
-												if (!_430) {
+												if (unwind === 213) {
+													rt.drop(_321);
+													break b2;
+												}
+												if (unwind === 214) {
+													break b2;
+												}
+												if (unwind === 215) {
+													rt.drop(_311);
+													break b1;
+												}
+												if (unwind === 216) {
+													rt.dropAll(tripped_);
+													break b3;
+												}
+												if (unwind === 217) {
+													rt.dropAll(v13);
+													break b3;
+												}
+												if (unwind === 218) {
+													break b4;
+												}
+												if (unwind === 219) {
+													break b4;
+												}
+												if (unwind === 220) {
+													break b3;
+												}
+												if (unwind === 221) {
+													rt.dropAll(v12);
+													break b1;
+												}
+												if (unwind === 222) {
+													break b5;
+												}
+												if (unwind === 223) {
+													break b5;
+												}
+												if (unwind === 224) {
+													rt.dropAll(v10);
+													break b1;
+												}
+												if (unwind === 225) {
+													rt.dropAll(v7);
+													break b1;
+												}
+												if (unwind === 226) {
+													rt.dropAll(v8);
+													break b1;
+												}
+												if (unwind === 227) {
+													break b6;
+												}
+												if (unwind === 228) {
+													break b6;
+												}
+												if (unwind === 229) {
+													break b6;
+												}
+												if (unwind === 230) {
+													break b6;
+												}
+												if (unwind === 231) {
+													rt.dropAll(v6);
+													break b1;
+												}
+												if (unwind === 232) {
+													rt.dropAll(v3);
+													break b1;
+												}
+												if (unwind === 233) {
+													rt.dropAll(v4);
+													break b1;
+												}
+												if (unwind === 234) {
+													break b7;
+												}
+												if (unwind === 235) {
+													break b7;
+												}
+												if (unwind === 236) {
+													break b7;
+												}
+												if (unwind === 237) {
+													rt.dropAll(v2);
+													break b1;
+												}
+												if (unwind === 240) {
+													if (!_441) {
+														break b1;
+													}
+													rt.drop(_419);
+													break b1;
+												}
+												if (unwind === 242) {
+													if (!_442) {
+														break b8;
+													}
+													rt.drop(_406);
+													break b8;
+												}
+												if (unwind === 244) {
+													break b8;
+												}
+												if (unwind === 246) {
+													if (!_444) {
+														break b9;
+													}
+													rt.drop(_383);
 													break b9;
 												}
-												rt.drop(_394);
-												break b9;
-											}
-											if (unwind === 239) {
-												break b9;
-											}
-											if (unwind === 241) {
-												if (!_432) {
+												if (unwind === 248) {
+													break b9;
+												}
+												if (unwind === 250) {
+													if (!_446) {
+														break b1;
+													}
+													rt.drop(_360);
+													break b1;
+												}
+												if (unwind === 252) {
+													if (!_447) {
+														break b1;
+													}
+													rt.drop(_340);
+													break b1;
+												}
+												if (unwind === 254) {
+													if (!_448) {
+														break b10;
+													}
+													rt.drop(_191);
 													break b10;
 												}
-												rt.drop(_371);
-												break b10;
-											}
-											if (unwind === 243) {
-												break b10;
-											}
-											if (unwind === 245) {
-												if (!_434) {
-													break b2;
+												if (unwind === 256) {
+													break b10;
 												}
-												rt.drop(_348);
-												break b2;
-											}
-											if (unwind === 247) {
-												if (!_435) {
-													break b2;
+												if (unwind === 258) {
+													if (_450) {
+														rt.drop(_75);
+													}
 												}
-												rt.drop(_328);
-												break b2;
-											}
-											if (unwind === 249) {
-												if (_436) {
-													rt.drop(_179);
+												if (!_451) {
+													break b7;
 												}
-											}
-											if (!_437) {
+												rt.drop(_72);
 												break b7;
 											}
-											rt.drop(_176);
-											break b7;
+											if (!_449) {
+												break b6;
+											}
+											rt.drop(_188);
+											break b6;
 										}
-										if (!_433) {
-											break b2;
+										if (!_445) {
+											break b1;
 										}
-										rt.drop(_368);
-										break b2;
+										rt.drop(_380);
+										break b1;
 									}
-									if (!_431) {
-										break b2;
+									if (!_443) {
+										break b1;
 									}
-									rt.drop(_391);
-									break b2;
+									rt.drop(_403);
+									break b1;
 								}
 								rt.dropAll(v);
-								break b2;
+								break b1;
 							}
 							rt.dropAll(v5);
-							break b2;
+							break b1;
 						}
 						rt.dropAll(v9);
-						break b2;
+						break b1;
 					}
-					rt.dropAll(_271);
+					rt.dropAll(_283);
 				}
 				rt.dropAll(v11);
-				break b2;
+				break b1;
 			}
 			drop$Key_Key(pair);
 		}

@@ -74,7 +74,7 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 			panic!("d{id} at {point}");
 		}
 	};
-	match arg % 22 {
+	match arg % 23 {
 		19 => closures::scoped(log, id, at),
 		20 => closures::discarded(log, id, at),
 		21 => closures::blasted(log, id, at),
@@ -813,7 +813,8 @@ fn edited(log: &Log, id: u32, at: u8) {
 			log.note(format!("retained {}", ids(&v)));
 			v.retain_mut(|k| k.id != id + 3);
 			log.note(format!("retained {}", ids(&v)));
-			return;
+			// `max` blows as `clamp` drops it, and `min` still drops.
+			drop(key(2).clamp(key(1), fault(3, Fault::Blows)));
 		}
 		1 => {
 			let mut v = list![key(1), key(2), key(3), key(4)];

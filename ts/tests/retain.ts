@@ -124,3 +124,35 @@ for (const n of [17, 40, 70]) {
 		if (sorted.slice().sort().join() !== want) throw new Error(`sort of ${n} panicking at ${p}: ${sorted}`);
 	}
 }
+
+// `split_off` whose key order panics at each of its calls leaves the map whole, as std's
+// compares before it moves an entry. Past one leaf, so it splits branches too.
+for (const n of [6, 70, 200]) {
+	for (const at of [0, n >> 1, n]) {
+		for (let p = 0, thrown = true; thrown; p++) {
+			let calls = -1;
+			const tree = rt.btreeNew<number, number>((a, b) => {
+				if (calls >= 0 && calls++ === p) throw new Thrown();
+				return rt.cmp(a, b);
+			});
+			for (let i = 0; i < n; i++) rt.btreeInsert(tree, i, i);
+			calls = 0;
+			thrown = false;
+			let above: rt.BTreeMap<number, number> | undefined;
+			try {
+				above = rt.btreeSplitOff(tree, at);
+			} catch (err) {
+				if (!(err instanceof Thrown)) throw err;
+				thrown = true;
+			}
+			calls = -1;
+			const kept = rt.iterToArray(rt.btreeKeys(tree)).join();
+			const moved = above === undefined ? "" : rt.iterToArray(rt.btreeKeys(above)).join();
+			const all = [...Array(n).keys()];
+			const want = thrown ? [all.join(), ""] : [all.slice(0, at).join(), all.slice(at).join()];
+			if (kept !== want[0] || moved !== want[1] || rt.btreeLen(tree) !== (thrown ? n : at)) {
+				throw new Error(`split_off of ${n} at ${at} panicking at ${p}: ${kept} | ${moved}`);
+			}
+		}
+	}
+}

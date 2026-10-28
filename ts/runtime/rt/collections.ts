@@ -16,7 +16,7 @@
 
 import { type Place, panic } from "../rt.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterSlice, iterToArray, type RangeInclusive } from "./iter.ts";
+import { DONE, type Done, Iter, iterSlice, type RangeInclusive } from "./iter.ts";
 import { type Arc, dropAll } from "./task.ts";
 
 // Ordering
@@ -120,11 +120,8 @@ export function ordClamp<T>(a: T, min: T, max: T, cmp: (a: T, b: T) => Ordering 
 		if (order === undefined || order > 0) panic("assertion failed: min <= max");
 		out = cmp(a, min) === -1 ? 1 : cmp(a, max) === 1 ? 2 : 0;
 	} finally {
-		if (drop !== undefined) {
-			if (out !== 2) drop(max);
-			if (out !== 1) drop(min);
-			if (out !== 0) drop(a);
-		}
+		// A panic in one drop still drops the rest, as unwinding does.
+		if (drop !== undefined) dropAll([max, min, a].filter((_, i) => 2 - i !== out), drop);
 	}
 	return out === 1 ? min : out === 2 ? max : a;
 }
@@ -1215,13 +1212,20 @@ export function btreeClear<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (v
 	m.r = false;
 }
 
-/** `split_off` of a map or set: the entries from `key` on, moved in order into a tree of their own. */
+/**
+ * `split_off` of a map or set: the entries from `key` on, moved in order into a tree of
+ * their own. It compares before it moves any, so a panic in `cmp` leaves `m` whole, as
+ * std's does. Like std's, the new tree has a root unless `m` was empty.
+ */
 export function btreeSplitOff<K, V>(m: BTreeMap<K, V>, key: K): BTreeMap<K, V> {
 	const out = btreeNew<K, V>(m.c);
-	for (const [k, v] of iterToArray(btreeRange(m, { start: key }))) {
-		btreeRemove(m, k);
-		btreeInsert(out, k, v);
-	}
+	if (m.n === 0) return out;
+	const [keys, values] = flatten(m);
+	const i = search(keys, key, m.c);
+	const at = i < 0 ? ~i : i;
+	build(out, keys.slice(at), values.slice(at));
+	build(m, keys.slice(0, at), values.slice(0, at));
+	out.r = true;
 	return out;
 }
 
