@@ -1,5 +1,5 @@
-//! Formatting: `format!` and `write!` with every option the subset has, derived and
-//! written `Debug` and `Display`, and panics that format their messages.
+//! Formatting: `format!` and `write!` with every option, derived and written `Debug` and
+//! `Display`, and panics that format their messages.
 
 #![allow(dead_code, reason = "fields only `Debug` reads")]
 
@@ -19,7 +19,8 @@ macro_rules! take {
 	}};
 }
 
-/// Every option on one integer: width, fill, alignment, zeros, and hex.
+/// Every option on one integer: width, fill, alignment, signs, zeros, precision, and
+/// each radix and exponent.
 macro_rules! specs {
 	($t:ty, $data:expr, $out:expr) => {{
 		let v = take!($t, $data);
@@ -28,6 +29,16 @@ macro_rules! specs {
 			&format!(
 				"{v} {v:?} {v:5}|{v:<5}|{v:^7}|{v:>4}|{v:*^9}|{v:é>6}|{v:05}|{v:<05}|{v:x} {v:X} {v:#x} {v:#X} {v:08x} {v:#010x} {v:>8x}|{v:<#6X}|{v:#?} {v:3?}"
 			),
+		);
+		put(
+			$out,
+			&format!(
+				"{v:+} {v:+06} {v:+#x} {v:-} {v:.3} {v:8.2}|{v:b} {v:#b} {v:#012b} {v:o} {v:#o} {v:+o}|{v:x?} {v:#X?} {v:06x?} {v:+?}"
+			),
+		);
+		put(
+			$out,
+			&format!("{v:e} {v:E} {v:.0e} {v:.1e} {v:.3e} {v:.45E} {v:+.2e} {v:012.1e} {v:<+9e}| {v:#e} {v:>12.4E}|"),
 		);
 		put($out, &v.to_string());
 	}};
@@ -82,17 +93,32 @@ pub fn strings(data: &[u8], out: &mut Vec<u8>) {
 			out,
 			&format!("{s}|{s:8}|{s:>8}|{s:^8}|{s:-<3}|{s:?}|{s:12?}|{s:#?}|{{{s}}}"),
 		);
+		// A precision cuts by chars, then the width pads; `Debug` of a string takes neither.
+		put(
+			out,
+			&format!("{s:.2}|{s:8.3}|{s:>6.1}|{s:_^7.2}|{s:.0}|{s:.20}|{s:.2?}|{s:10.2?}|{s:+}"),
+		);
 	}
+	let c = char::from_u32(u32::from(data.first().copied().unwrap_or(0)) * 0x101).unwrap_or('?');
+	put(out, &format!("{c}|{c:.0}|{c:3.1}|{c:.0?}|{c:>4?}"));
 	match String::from_utf8(data.to_vec()) {
-		Ok(s) => put(out, &format!("{s:?} {s:>4}")),
-		Err(e) => put(out, &format!("{e} {e:?} {e:#?} {e:>80}")),
+		Ok(s) => put(out, &format!("{s:?} {s:>4} {s:.1}")),
+		Err(e) => put(out, &format!("{e} {e:?} {e:#?} {e:>80} {e:.4} {e:x?} {e:#X?}")),
 	}
 	let flag = matches!(data.first(), Some(b) if b % 2 == 0);
-	put(out, &format!("{flag} {flag:?} {flag:>6} {:?} {:#?}", (), ()));
+	put(
+		out,
+		&format!(
+			"{flag} {flag:?} {flag:>6} {flag:.2} {flag:>4.1?} {:?} {:#?} {:.1?}",
+			(),
+			(),
+			()
+		),
+	);
 	put(out, &flag.to_string());
 	match u8::try_from(data.len() as i32 - 3) {
 		Ok(v) => put(out, &format!("{v}")),
-		Err(e) => put(out, &format!("{e} {e:?} {e:>40}|")),
+		Err(e) => put(out, &format!("{e} {e:?} {e:>40}| {e:.6}|{e:10.3}|")),
 	}
 }
 
@@ -197,6 +223,10 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 	let value = nested(data);
 	put(out, &format!("{value:?}"));
 	put(out, &format!("{value:#?}"));
+	// Each field takes the options: hex for integers, and the precision for strings.
+	put(out, &format!("{value:x?}"));
+	put(out, &format!("{value:#X?}"));
+	put(out, &format!("{value:+.1?}"));
 	let wide = Wide {
 		a: at(0),
 		b: 300,
@@ -240,6 +270,31 @@ pub fn derived(data: &[u8], out: &mut Vec<u8>) {
 
 /// `Display` written with `write!`, which ignores the outer options, unless `#`.
 pub struct Hex(pub u32);
+
+/// Through to the field, which takes the options.
+impl fmt::Binary for Hex {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		fmt::Binary::fmt(&self.0, f)
+	}
+}
+
+impl fmt::Octal for Hex {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{:o}", self.0)
+	}
+}
+
+impl fmt::LowerExp for Hex {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		fmt::LowerExp::fmt(&self.0, f)
+	}
+}
+
+impl fmt::UpperExp for Hex {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		fmt::UpperExp::fmt(&self.0, f)
+	}
+}
 
 impl fmt::Display for Hex {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -353,6 +408,11 @@ pub fn written(data: &[u8], out: &mut Vec<u8>) {
 	let at = |i: usize| data.get(i).copied().unwrap_or(0);
 	let hex = Hex(u32::from(at(0)) * 0x1001);
 	put(out, &format!("{hex}|{hex:>12}|{hex:#}|{hex:?}|{hex:>6?}|{hex:#?}"));
+	// `Debug` through `Display` is decimal under `{:x?}` too.
+	put(
+		out,
+		&format!("{hex:x?}|{hex:#b}|{hex:>8o}|{hex:.2e}|{hex:E}|{hex:+.1?}"),
+	);
 	put(out, &hex.to_string());
 	let padded = Padded("pad");
 	put(out, &format!("{padded}|{padded:>6}|{padded:_^9}|{padded:30}|"));
@@ -397,6 +457,39 @@ pub fn written(data: &[u8], out: &mut Vec<u8>) {
 	if at(12) > 250 {
 		panic!("{} {}", note(&mut log, at(12)), log.len());
 	}
+}
+
+/// Widths and precisions from arguments, by position and by name, and one past
+/// `u16::MAX`, which panics.
+pub fn counts(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let (w, p) = (usize::from(at(0) % 24), usize::from(at(1) % 12));
+	let v = take!(i64, &data[data.len().min(2)..]);
+	let s = STRINGS[usize::from(at(3)) % STRINGS.len()];
+	put(
+		out,
+		&format!(
+			"{v:w$}|{v:<w$e}|{v:+0w$.p$e}|{s:.p$}|{s:^w$.p$}|{:.*}|{2:>0$}|{1:2$.0$}|{s:>p$?}",
+			p, s, w
+		),
+	);
+	// Each argument is evaluated once, before any is written, even a count.
+	let mut log = Vec::new();
+	put(
+		out,
+		&format!("{:>1$}|{:.*}", note(&mut log, at(4)), usize::from(note(&mut log, 6)), s),
+	);
+	out.extend_from_slice(&log);
+	let big = usize::from(u16::MAX) + usize::from(at(5) % 2);
+	put(out, &format!("{s:.big$}|"));
+}
+
+/// `{:e}` at each rounding: below, above, and ties to even, which may carry a digit.
+pub fn rounding(out: &mut Vec<u8>) {
+	for v in [0u32, 5, 15, 25, 125, 135, 994, 995, 999, 1000, 1_250_000, 4_294_967_295] {
+		put(out, &format!("{v:.0e} {v:.1e} {v:.2e} {v:e}"));
+	}
+	put(out, &format!("{:.0e} {:e} {:.3E}", u128::MAX, i128::MIN, i64::MIN));
 }
 
 /// Panics, each with the message native Rust formats.

@@ -122,8 +122,9 @@ translate, as do `Display` and `Debug` impls, derived and thiserror's included. 
 runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
 becomes a function writing its value, and `fmt::Arguments` an array of literal pieces
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
-Debug` or `&dyn Display` is such a function too. Format specs take fill, alignment,
-width, `#`, `0`, `x`, `X`, and `?`. `Debug` of a string or `char` escapes by the JS
+Debug` or `&dyn Display` is such a function too. Format specs take every option but `{:p}`:
+fill, alignment, `+`, `#`, `0`, `x?` and `X?`, a width and a precision, each also from an
+argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by the JS
 engine's Unicode tables, so a character newer than its Unicode version is escaped where
 Rust prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
@@ -418,13 +419,12 @@ they need.
   and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
   them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
-## Never
-
-Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
-to hand-written TS ([bindings](#bindings)).
-
 ## Not yet
+
+`unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
+`&dyn Debug` and `&dyn Display` ([trait objects](/quest/m3/ts-dyn.md)), fail translation.
+Until they translate, an item that needs one, such as a boxed future, binds to
+hand-written TS ([bindings](#bindings)).
 
 These fail translation: floats, statics, async closures, a closure that owns a value
 that drops given to std's iterators or collections, and values that drop in some
@@ -438,8 +438,8 @@ another type it borrows as through the crate's own `Borrow`, a `&mut` to a value
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
-own `impl Iterator` with `next_back`, `len`, or another provided method of its own, other
-format specs (a precision, `+`, `{:b}`, `{:x?}`, and widths from arguments), writing to a
+own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
+a pointer's address (`{:p}`), writing to a
 `String` with `write!`, a `str` pattern other than a
 `char`, a `&str`, or a predicate, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,

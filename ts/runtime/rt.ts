@@ -5,7 +5,7 @@
 // left only where a call dispatches on its receiver: an iterator's `next`, a writer's
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
-import { type char, type TryFromIntError, type u32, u8Display, usizeDisplay } from "./rt/int.ts";
+import { type char, type TryFromIntError, type u32, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Pending } from "./rt/task.ts";
 
 export * from "./rt/collections.ts";
@@ -575,11 +575,36 @@ export type Arguments = readonly (string | Fmt)[];
 export interface Spec {
 	readonly fill?: string;
 	readonly align?: "<" | "^" | ">";
+	/** The `+` flag: a sign on a nonnegative number too. */
+	readonly plus?: boolean;
 	/** The `#` flag: `{:#?}` and `{:#x}`. */
 	readonly alternate?: boolean;
 	/** The `0` flag: zeros between the sign and the digits. */
 	readonly zero?: boolean;
+	/** `{:x?}` or `{:X?}`: an integer's `Debug` in hex. */
+	readonly debugHex?: "x" | "X";
 	readonly width?: number;
+	/** The `.N` of `{:.N}`: the most chars `pad` writes, or digits past a number's point. */
+	readonly precision?: number;
+}
+
+/** A width or precision from an argument, as in `{:1$}`: a `fmt::rt::Argument` only a spec reads. */
+export interface Count extends Fmt {
+	readonly count: number;
+}
+
+/** `Argument::from_usize`: `n` as a width or precision, panicking past what one holds. */
+export function fmtCount(n: number): Count {
+	if (n > 0xffff) panic("Formatting argument out of range");
+	const unreachable = (): never => {
+		throw new Error("rust2-ts: a width or precision written as a placeholder");
+	};
+	return Object.assign(unreachable, { count: n });
+}
+
+/** The width or precision `argument`, a `Count`, holds. */
+export function fmtCountOf(argument: Fmt): number {
+	return (argument as Count).count;
 }
 
 /** `dyn fmt::Write`: where a `Formatter` writes. */
@@ -662,17 +687,29 @@ export function fmtWidth(f: Formatter): number | undefined {
 	return f.spec.width;
 }
 
-/** Write `s`, padded to the width. */
+/** Write `s`, cut to the precision in chars, padded to the width. */
 export function fmtPad(f: Formatter, s: string): FmtResult {
-	const width = f.spec.width;
-	const count = width === undefined ? 0 : chars(s);
+	const { width, precision } = f.spec;
+	if (width === undefined && precision === undefined) return f.out.writeStr(s);
+	let count = 0;
+	if (precision === undefined) {
+		count = chars(s);
+	} else {
+		let end = 0;
+		for (const c of s) {
+			if (count === precision) break;
+			end += c.length;
+			count++;
+		}
+		s = s.slice(0, end);
+	}
 	if (width === undefined || count >= width) return f.out.writeStr(s);
 	return padded(f, width - count, f.spec.align ?? "<", f.spec.fill ?? " ", s);
 }
 
 /** Write an integer's sign, `prefix` if alternate, and `digits`, padded to the width. */
 export function fmtPadIntegral(f: Formatter, nonnegative: boolean, prefix: string, digits: string): FmtResult {
-	const head = (nonnegative ? "" : "-") + (fmtAlternate(f) ? prefix : "");
+	const head = (nonnegative ? (f.spec.plus ? "+" : "") : "-") + (fmtAlternate(f) ? prefix : "");
 	const length = head.length + digits.length;
 	const width = f.spec.width ?? 0;
 	if (length >= width) return f.out.writeStr(head + digits);
@@ -996,14 +1033,14 @@ export function fmtFromUtf8ErrorDebug(e: FromUtf8Error, f: Formatter): FmtResult
 	const error: Fmt = (f) =>
 		debugStructFinish(
 			debugStructField(
-				debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDisplay(e.validUpTo, f)),
+				debugStructField(fmtDebugStruct(f, "Utf8Error"), "valid_up_to", (f) => usizeDebug(e.validUpTo, f)),
 				"error_len",
-				(f) => fmtOption(e.errorLen, f, u8Display),
+				(f) => fmtOption(e.errorLen, f, u8Debug),
 			),
 		);
 	return debugStructFinish(
 		debugStructField(
-			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Display)),
+			debugStructField(fmtDebugStruct(f, "FromUtf8Error"), "bytes", (f) => fmtList(byteVecView(e.bytes), f, u8Debug)),
 			"error",
 			error,
 		),
