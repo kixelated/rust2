@@ -99,7 +99,10 @@ pub fn call<'tcx>(
 		// With what drops its function, unless that is borrowed.
 		("poll_fn", "poll_fn") => {
 			let dropper = b.t.drop_fn(call.args.type_at(1), call.span);
-			Expr::New(Box::new(Expr::Rt("PollFn".into())), args.into_iter().chain(dropper).collect())
+			Expr::New(
+				Box::new(Expr::Rt("PollFn".into())),
+				args.into_iter().chain(dropper).collect(),
+			)
 		}
 		("pending", "pending") => Expr::Rt("NEVER".into()),
 		// std's futures are the runtime's, which poll themselves.
