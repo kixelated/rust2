@@ -25,13 +25,11 @@ roots = ["coding::Decoder", "lite::Group"]
 # Types whose `Display` and `Debug` impls come along, whichever they have, so callers can
 # print them. Another crate's trait otherwise comes along only when something calls it.
 printable = ["coding::DecodeError"]
-# Macros whose invocations are left out, such as logging. Each must evaluate to `()`.
-ignore-macros = ["tracing::trace"]
 
 # Hand-written TypeScript that stands in for an item, by its path from the crate root or
 # else from a crate it depends on: a function, or a type and its functions.
 [bind]
-"bytes::Bytes" = "bind/bytes.ts"
+"model::flate::Encoder" = "bind/encoder.ts"
 "util::TaskSet" = { file = "bind/tasks.ts", drop = true }
 ```
 
@@ -91,6 +89,8 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
+| `bytes::Bytes` | `rt.ByteSlice`, as `&[u8]` is: its clones and slices share bytes that never change |
+| `rand::rngs::ThreadRng` | `rt.ThreadRng`, which holds no state |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
@@ -230,26 +230,49 @@ full type arguments.
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
 `rewriteRelativeImportExtensions`, or `allowImportingTsExtensions` with `noEmit`.
 
+## Well-known crates
+
+rust2-ts maps a few crates itself, as it maps std, so a consumer binds and configures none
+of them:
+
+- `bytes::Bytes` is an `rt.ByteSlice`. Its constructors, `len`, `is_empty`, `slice`,
+  `Clone`, `Deref`, `AsRef`, `PartialEq` with bytes, `Default`, `Debug`, and `From`
+  between it and `Vec<u8>`, `String`, `&'static [u8]`, and `&'static str` map to
+  `rt/bytes.ts`, panicking as `bytes` does. `Bytes::from_owner` reads its owner's bytes
+  once, as `bytes` does, and is refused for an owner that drops, which would drop with the
+  last clone of what it makes.
+- `rand::rng()` is an `rt.ThreadRng`, whose `random` of an integer or `bool` and
+  `random_range` of an integer range map to `rt/rand.ts`. Each value comes from
+  `crypto.getRandomValues`, uniform as `rand`'s are, though no seed reproduces them, as
+  none reproduces `rand::rng()`'s. An empty range panics as `rand`'s does. A seeded
+  generator, such as `StdRng`, is refused, since its values would have to be `rand`'s.
+- `tracing`'s events, `trace!` through `error!` and `event!`, are left out where they are
+  written. Translated code installs no subscriber, and without one an event evaluates none
+  of its fields and does nothing, so leaving it out is exact. Installing one, as
+  `tracing::subscriber::set_global_default` does, is refused as any unmapped call is.
+
 ## Bindings
 
 A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
 Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
-runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/bytes.ts`,
+runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/blob.ts`,
 and may import the translated modules and npm packages too. Callers import it whole, as a
-type's module, `import * as Bytes from "./bind/bytes.ts"`.
+type's module, `import * as Blob from "./bind/blob.ts"`.
 
-A bound type is the file's export of its name, `Bytes.Bytes`, with the Rust type's type
+A bound type is the file's export of its name, `Blob.Blob`, with the Rust type's type
 parameters. A call of a bound function, or of a function that an impl for a bound type in
 the type's own crate defines, calls the file's export. The export is named as the
 translated function would be, without the type's or the function's type arguments, so one
-export serves every instance and a generic one is a generic TS function. `Bytes::slice` is
-`Bytes.slice`, `<Bytes as PartialEq>::eq` is `Bytes.eq$PartialEq`, and
-`<Bytes as From<Vec<u8>>>::from` is `Bytes.from$From_Vec_u8`. A trait's provided function
+export serves every instance and a generic one is a generic TS function. `Blob::slice` is
+`Blob.slice`, `<Blob as PartialEq>::eq` is `Blob.eq$PartialEq`, and
+`<Blob as From<Vec<u8>>>::from` is `Blob.from$From_Vec_u8`. A trait's provided function
 that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
 stay the trait's, as for any other type. A generic export sees a type argument only in the
 values it takes, so a function with a bounded type parameter that no argument holds, such
 as `fn zero<T: Default>() -> T`, or with a const parameter, can't be bound. `tsc` checks a
 generic bound type's value at each of its instantiations translation reaches.
+
+A type with a representation of its own, std's or a well-known crate's, can't be bound.
 
 Translation can't see into a bound type, so a field, variant, or constructor of one is
 refused, as are iterating one, keying a collection by one, and assigning a whole one
@@ -487,7 +510,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
   unwinds, catching and logging each step's panic and going on, so what a panic drops
   must match too.
-- `bind` binds `bytes::Bytes`, and a function and a type of its own that read through raw
+- `stock` calls `bytes`, `rand`, and `tracing` with no config, against native Rust, whose
+  `rand::rng()` reads the fixture's own getrandom backend on wasm32. It checks `Bytes`'s
+  slices and panics, how each is made and printed, that no event evaluates a field, and
+  that each random value is in its range, every value of a small range drawn.
+- `bind` binds `blob::Blob`, a dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
   pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
   the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.

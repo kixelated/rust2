@@ -118,7 +118,13 @@ fn bytes<'tcx>(
 			}
 			let as_ref = trait_fn(tcx, rustc_span::sym::AsRef)?;
 			let slice = Ty::new_slice(tcx, tcx.types.u8);
-			b.call_def(as_ref, tcx.mk_args(&[owner.into(), slice.into()]), vec![args.next()?], call.span, out)
+			b.call_def(
+				as_ref,
+				tcx.mk_args(&[owner.into(), slice.into()]),
+				vec![args.next()?],
+				call.span,
+				out,
+			)
 		}
 		_ => return None,
 	})
@@ -174,7 +180,10 @@ fn rand<'tcx>(
 /// The one function of the trait `item` names, such as `AsRef::as_ref`.
 fn trait_fn(tcx: TyCtxt<'_>, item: rustc_span::Symbol) -> Option<DefId> {
 	let tr = tcx.get_diagnostic_item(item)?;
-	tcx.associated_items(tr).in_definition_order().find(|i| i.is_fn()).map(|i| i.def_id)
+	tcx.associated_items(tr)
+		.in_definition_order()
+		.find(|i| i.is_fn())
+		.map(|i| i.def_id)
 }
 
 fn targ_is_u8(ty: Ty<'_>) -> bool {

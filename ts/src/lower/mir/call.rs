@@ -492,9 +492,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(None)
 			}
 			// A `Bytes`'s slice by a range's bounds, read where the range is made.
-			("Bytes", "slice") if bytes && let Some((start, end)) = self.range_bounds(&args[1].node, targ(0)?, span, out) => {
+			("Bytes", "slice")
+				if bytes && let Some((start, end)) = self.range_bounds(&args[1].node, targ(0)?, span, out) =>
+			{
 				let b = self.operand(&args[0].node, span, out);
-				done(Expr::rt("bytesSlice", std::iter::once(b).chain([start]).chain(end).collect()), false)
+				done(
+					Expr::rt("bytesSlice", std::iter::once(b).chain([start]).chain(end).collect()),
+					false,
+				)
 			}
 			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
 			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {

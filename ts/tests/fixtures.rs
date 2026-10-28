@@ -400,7 +400,14 @@ fn share() {
 			String::from_utf8_lossy(&output.stderr)
 		);
 		typecheck(&out);
-		differential("share-fixture", &["--features", feature], &out, "harness.ts", 1_000, &[]);
+		differential(
+			"share-fixture",
+			&["--features", feature],
+			&out,
+			"harness.ts",
+			1_000,
+			&[],
+		);
 	}
 }
 
@@ -608,5 +615,12 @@ fn stock() {
 	);
 	snapshot("stock", &out);
 	typecheck(&out);
-	differential("stock-fixture", &["--config", GETRANDOM], &out, "harness.ts", 5_000, &[]);
+	differential(
+		"stock-fixture",
+		&["--config", GETRANDOM],
+		&out,
+		"harness.ts",
+		5_000,
+		&[],
+	);
 }

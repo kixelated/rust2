@@ -54,7 +54,10 @@ impl Blob {
 			Bound::Excluded(&n) => n,
 			Bound::Unbounded => self.len,
 		};
-		assert!(begin <= end, "range start must not be greater than end: {begin} <= {end}");
+		assert!(
+			begin <= end,
+			"range start must not be greater than end: {begin} <= {end}"
+		);
 		assert!(end <= self.len, "range end out of bounds: {end} <= {}", self.len);
 		Self {
 			data: self.data.clone(),
