@@ -49,6 +49,8 @@ Every generator on the C ABI:
 - [Instances the config can't name yet](/quest/m1/ffi-export/instance-keys.md) - `&T` keys, `IntoIterator` as a `Vec`, `serde_json::Value`, and `Catalog<()>`
 - [Closures lent for the call](/quest/m1/ffi-export/lent-closures.md) - a callback borrowed for one call, as `modify`'s `Guard` needs
 - [One library from several crates](/quest/m1/ffi-export/crates.md) - the C names the several-crate export still can't give
+- [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
+- [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
 - [A contract symbol](/quest/m1/ffi-export/contract.md) - a header and a library from different builds refuse to mix
 - [C++ bindings](/quest/m1/ffi-export/cpp.md) - C++17, 20, and 23 over the C ABI, with native futures
 - [Kotlin bindings](/quest/m1/ffi-export/kotlin.md) - JNI or Panama over the C ABI, with native futures
