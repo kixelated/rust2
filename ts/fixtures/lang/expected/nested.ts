@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import { unwrapOr$Option_u8, map$Option_Option_u8_Option_u8_made_closure0, map$Option_u8_Option_u8_made_closure1_closure0, map$Option_u8_u8_made_closure0_closure0, map$Option_unit_Option_u8_made_closure3, mapOr$Option_u8_u8_iters_closure3, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_unit_u8_made_closure4, andThen$Option_Option_u8_Option_u8_made_closure1, filter$Option_Option_u8_made_closure2, or$Option_Option_u8, xor$Option_Option_u8, flatten$Option_Option_u8 } from "./core/option.ts";
 import * as Halves from "./nested.Halves.ts";
 import type * as Slot from "./nested.Slot.ts";
+import * as Tagged from "./nested.Tagged.ts";
 
 /**
  * Run case `kind % 4` over `data`, whose bytes pick each `None`, `Some(None)`, or
@@ -107,6 +108,9 @@ export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 		slot.held = b as rt.u8 | undefined | rt.None;
 		rt.byteVecPush(out, code(old) ^ code(slot.held));
 		rt.byteVecPush(out, code(rt.None));
+		const _106: rt.Ordering = rt.cmp(b, 128);
+		const tagged: Tagged.Tagged<undefined | rt.None> = new Tagged.Tagged({ value: u, order: _106 });
+		rt.byteVecPush(out, (tagged.value !== rt.None ? 1 : 0) | ((order(tagged.order) << 1) & 0xff));
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(o, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Display), rt.None), (f: rt.Formatter) => rt.fmtOption(u, f, rt.fmtUnit, rt.None)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1]])));
 	}

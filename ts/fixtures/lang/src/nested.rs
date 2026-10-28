@@ -46,6 +46,12 @@ fn tried(a: Option<()>, b: Option<Option<u8>>) -> Option<Option<u8>> {
 	Some(inner.map(|x| x / 2))
 }
 
+/// A generic type over a `T` that can be `undefined`, beside a field of no type parameter.
+struct Tagged<T> {
+	value: T,
+	order: Ordering,
+}
+
 struct Slot {
 	held: Option<Option<u8>>,
 	flag: Option<()>,
@@ -76,6 +82,11 @@ fn made(data: &[u8], out: &mut Vec<u8>) {
 		out.push(code(replaced) ^ code(slot.held));
 		let default: Option<Option<u8>> = Default::default();
 		out.push(code(default));
+		let tagged = Tagged {
+			value: u,
+			order: b.cmp(&0x80),
+		};
+		out.push(tagged.value.is_some() as u8 | order(tagged.order) << 1);
 		out.extend_from_slice(format!("{o:?} {u:?}").as_bytes());
 	}
 }

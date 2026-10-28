@@ -1301,9 +1301,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				let ty::Adt(option, option_args) = part.kind() else {
 					return None;
 				};
+				if library::Std::of(tcx, option.did()) != Some(library::Std::Option) {
+					return None;
+				}
 				let inner = option_args.type_at(0);
 				let erased = self.erases_to(inner);
-				if library::Std::of(tcx, option.did()) != Some(library::Std::Option) || !erased.param || erased.undefined {
+				if !erased.param || erased.undefined {
 					return None;
 				}
 				let instance = ty::EarlyBinder::bind(tcx, inner).instantiate(tcx, args).skip_norm_wip();

@@ -719,12 +719,13 @@ fn collect<'tcx>(
 				return None;
 			};
 			let value = item_args.type_at(0);
-			// The runtime ends at the first `undefined`.
-			if std == Std::Option && b.t.erases_to(args.type_at(0)).undefined {
-				let msg = format!(
-					"collecting `Option<{}>`, whose `None` is `rt.None`, which is not supported yet",
-					args.type_at(0)
-				);
+			// The runtime ends at the first `undefined` item, and returns `undefined` for `None`.
+			if std == Std::Option
+				&& let Some(some) = [value, args.type_at(0)]
+					.into_iter()
+					.find(|&t| b.t.erases_to(t).undefined)
+			{
+				let msg = format!("collecting `Option<{some}>`, whose `None` is `rt.None`, which is not supported yet");
 				b.t.err(span, msg);
 			}
 			let value_ty = b.t.ty(value, span);
