@@ -6,7 +6,8 @@ import * as Window from "./durations.Window.ts";
 import { put } from "./fmt.ts";
 
 /** A `u64` and a `u32` from the front of `data`, big-endian and zero-padded. */
-export function take(data: rt.ByteSlice): [rt.u64, rt.u32, rt.ByteSlice] {
+export function take(dataData: Uint8Array, dataStart: number, dataLen: number): [rt.u64, rt.u32, rt.ByteSlice] {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(12);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -26,8 +27,8 @@ export function take(data: rt.ByteSlice): [rt.u64, rt.u32, rt.ByteSlice] {
 }
 
 /** A `Duration` from the front of `data`, whose nanoseconds never carry. */
-export function duration(data: rt.ByteSlice): [rt.Duration, rt.ByteSlice] {
-	const _5: [rt.u64, rt.u32, rt.ByteSlice] = take(data);
+export function duration(dataData: Uint8Array, dataStart: number, dataLen: number): [rt.Duration, rt.ByteSlice] {
+	const _5: [rt.u64, rt.u32, rt.ByteSlice] = take(dataData, dataStart, dataLen);
 	return [rt.durationNew(_5[0], rt.u32Rem(_5[1], 1000000000)), _5[2]] as [rt.Duration, rt.ByteSlice];
 }
 
@@ -46,10 +47,10 @@ export function putOpt(out: rt.ByteVec, d: rt.Duration | undefined): void {
 	}
 }
 
-export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _6: [rt.Duration, rt.ByteSlice] = duration(data);
+export function durations(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const _6: [rt.Duration, rt.ByteSlice] = duration(dataData, dataStart, dataLen);
 	const a: rt.Duration = _6[0];
-	const _9: [rt.Duration, rt.ByteSlice] = duration(_6[1]);
+	const _9: [rt.Duration, rt.ByteSlice] = duration(_6[1].data, _6[1].start, _6[1].length);
 	const b: rt.Duration = _9[0];
 	const word: Uint8Array = rt.bytes(4);
 	const k: rt.usize = rt.min(_9[1].length, rt.byteSliceFrom(word).length);
@@ -57,10 +58,10 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 	const n: rt.u32 = rt.u32FromBeBytes(word);
 	const _24: rt.u8 = rt.u8Rem(kind, 10);
 	if (_24 === 0) {
-		const _28: [rt.u64, rt.u32, rt.ByteSlice] = take(data);
+		const _28: [rt.u64, rt.u32, rt.ByteSlice] = take(dataData, dataStart, dataLen);
 		putDuration(out, rt.durationNew(_28[0], _28[1]));
 	} else if (_24 === 1) {
-		const units: rt.u64 = take(data)[0];
+		const units: rt.u64 = take(dataData, dataStart, dataLen)[0];
 		putDuration(out, rt.durationFromSecs(units));
 		putDuration(out, rt.durationFromMillis(units));
 		putDuration(out, rt.durationFromMicros(units));

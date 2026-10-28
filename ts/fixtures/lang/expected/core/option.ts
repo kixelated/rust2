@@ -338,9 +338,9 @@ export function mapOr$Option_u8s_u8s_u8_splits_closure0(self: [rt.ByteSlice, rt.
 	return f(self);
 }
 
-export function mapOr$Option_u8s_u8s_u8s_chunks_closure0(self: [rt.ByteSlice, rt.ByteSlice] | undefined, default_: rt.ByteSlice, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice {
+export function mapOr$Option_u8s_u8s_u8s_chunks_closure0(self: [rt.ByteSlice, rt.ByteSlice] | undefined, defaultData: Uint8Array, defaultStart: number, defaultLen: number, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice {
 	if (self === undefined) {
-		return default_;
+		return new rt.ByteSlice(defaultData, defaultStart, defaultLen);
 	}
 	return f(self);
 }

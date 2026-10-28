@@ -46,9 +46,9 @@ export function takeLargest(seen: rt.Place<rt.u8 | undefined>, next: rt.u8): rt.
 }
 
 /** A `&mut Option` passed on from inside a closure std calls. */
-export function largestOf(seen: rt.Place<rt.u8 | undefined>, items: rt.ByteSlice): rt.u8 {
+export function largestOf(seen: rt.Place<rt.u8 | undefined>, itemsData: Uint8Array, itemsStart: number, itemsLen: number): rt.u8 {
 	let taken: rt.u8 = 0;
-	rt.iterForEach(rt.iterSlice(rt.byteSliceView(items)), (_2: rt.u8): void => {
+	rt.iterForEach(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(itemsData, itemsStart, itemsLen))), (_2: rt.u8): void => {
 		if (takeLargest(seen, _2) !== undefined) {
 			taken = rt.u8WrappingAdd(taken, 1);
 		}
@@ -106,9 +106,9 @@ export function pushTo(s: rt.Place<string>, c: rt.char): void {
 	}
 }
 
-export function skip(remaining: rt.Place<rt.usize>, data: rt.ByteSlice): rt.usize {
+export function skip(remaining: rt.Place<rt.usize>, dataData: Uint8Array, dataStart: number, dataLen: number): rt.usize {
 	let skipped: rt.usize = 0;
-	const iterS: Uint8Array = rt.byteSliceView(data);
+	const iterS: Uint8Array = rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen));
 	let iterI: number = 0;
 	while (true) {
 		const _6: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
@@ -150,8 +150,9 @@ export function fill(seen: rt.Place<rt.u8 | undefined>, s: rt.Place<string>, nex
 	return rt.u8WrappingAdd(unwrapOr$Option_u8(seen.v, 238), rt.stringLen(s.v) & 0xff);
 }
 
-export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function refs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _133!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _238: (a0: rt.Place<rt.u32>, a1: rt.u8) => void = (x3: rt.Place<rt.u32>, b7: rt.u8): void => {
 		bump(x3, b7);
 	};
@@ -197,7 +198,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	shiftWide(rt.place(() => wide, (value4) => wide = value4), by);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(wide)));
 	let seen: rt.u8 | undefined = undefined;
-	rt.byteVecPush(out, largestOf(rt.place(() => seen, (value5) => seen = value5), data));
+	rt.byteVecPush(out, largestOf(rt.place(() => seen, (value5) => seen = value5), data.data, data.start, data.length));
 	rt.byteVecPush(out, unwrapOr$Option_u8(seen, 238));
 	let slot: rt.u8 | undefined = by;
 	if (slot !== undefined) {
@@ -247,7 +248,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, sum);
 	rt.byteVecPush(out, at & 0xff);
 	let remaining: rt.usize = rt.u8Rem(by, 5) as rt.usize;
-	rt.byteVecPush(out, skip(rt.place(() => remaining, (value16) => remaining = value16), data) & 0xff);
+	rt.byteVecPush(out, skip(rt.place(() => remaining, (value16) => remaining = value16), data.data, data.start, data.length) & 0xff);
 	rt.byteVecPush(out, remaining & 0xff);
 	const _177: [Pair.Pair, Pair.Pair] = [{ n: 1 }, { n: 2 }];
 	const a: Pair.Pair = _177[0];

@@ -30,7 +30,7 @@ use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
-pub use self::place::slice_member;
+pub use self::place::{made_slice, slice_member};
 use super::Translator;
 use super::body::Body;
 
@@ -47,10 +47,13 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		super::iter::check_impl(t, def_id);
 	}
 	let ret_ty = mir.return_ty();
+	let parted = t.parted(instance);
 	let mut b = Body::new(t, instance.args);
+	b.parted = parted;
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
-	let params = fx.params();
+	let mut params = fx.params();
 	let body = fx.lower();
+	fx.mark_unread_parts(&mut params, &body);
 	let ret_span = fx.local_span(mir::RETURN_PLACE);
 	let ret = match (next, ret_ty.kind()) {
 		(true, ty::Adt(_, args)) => {
@@ -298,6 +301,13 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	steady: FxHashSet<String>,
 	/// Those slices, with their types, which need declarations.
 	scalar_binds: Vec<(String, Type)>,
+	/// The parameters that are byte slices passed as their parts.
+	parted: FxHashSet<Local>,
+	/// Those not held as their parts, each made from its parts on entry: its name, then
+	/// its parts'.
+	rebuilt: Vec<(Local, String, [String; 3])>,
+	/// The names of the parameters that are parts.
+	part_params: Vec<String>,
 	/// The tests and payload reads TypeScript may have narrowed stale.
 	narrowing: decided::Narrowing<'tcx>,
 	/// The statement or terminator being lowered.
@@ -308,6 +318,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
+		let parted = match env {
+			Env::Plain => std::mem::take(&mut b.parted),
+			_ => Vec::new(),
+		};
+		let parted = mir.args_iter().zip(parted).filter(|&(_, p)| p).map(|(l, _)| l).collect();
 		let mut fx = Fx {
 			b,
 			mir,
@@ -362,6 +377,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			scalars: FxHashMap::default(),
 			steady: FxHashSet::default(),
 			scalar_binds: Vec::new(),
+			parted,
+			rebuilt: Vec::new(),
+			part_params: Vec::new(),
 			narrowing: decided::narrowing(tcx, mir),
 			at: mir::START_BLOCK.start_location(),
 		};
@@ -1350,6 +1368,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Slot::Var(name) => name.clone(),
 				_ => self.b.fresh("_"),
 			};
+			if self.parted.contains(&local) {
+				params.extend(self.part_params(local, name));
+				continue;
+			}
 			let ty = self.b.t.ty(ty, self.local_span(local));
 			params.push(Param { name, ty: Some(ty) });
 		}
@@ -1360,6 +1382,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn lower(&mut self) -> Vec<Stmt> {
 		// A parameter changed in place gets its own copy, since the caller's may be shared.
 		let mut entry = Vec::new();
+		// A slice passed as its parts that isn't held so, made from them.
+		for (local, name, parts) in std::mem::take(&mut self.rebuilt) {
+			let slice = Expr::New(Box::new(Expr::Rt("ByteSlice".into())), parts.map(Expr::ident).to_vec());
+			let ty = Type::Rt("ByteSlice", Vec::new());
+			entry.push(StmtKind::decl(self.defs[local] > 0, name, Some(ty), Some(slice)).at(None));
+		}
 		for local in self.mir.args_iter() {
 			let ty = self.mir.local_decls[local].ty;
 			if self.mutated[local]
@@ -3349,7 +3377,7 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 }
 
 /// How many times the statements name `name`, read or assigned.
-fn list_names(stmts: &[Stmt], name: &str) -> usize {
+pub(super) fn list_names(stmts: &[Stmt], name: &str) -> usize {
 	stmts.iter().map(|s| stmt_names(s, name)).sum()
 }
 

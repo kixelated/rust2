@@ -21,12 +21,12 @@ export function cow(s: string, owned: boolean): string {
 	return s;
 }
 
-export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function cows(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let shared!: rt.Arc<string>;
 	let r!: rt.Result<string, rt.u8>;
 	let unwind: number = 0;
 	try {
-		const s: string = text(data);
+		const s: string = text(dataData, dataStart, dataLen);
 		const owned: boolean = (kind & 128) !== 0;
 		const first: string = unwrapOr$Option_Cow_str(rt.iterToOption(rt.strSplit(s, "/").next()), "");
 		const _14: rt.u8 = rt.u8Rem(kind, 6);

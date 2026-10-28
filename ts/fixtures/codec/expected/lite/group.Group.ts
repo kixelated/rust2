@@ -11,11 +11,11 @@ import { decodeWith$Group_decode_closure0 } from "../lite/message.ts";
 import * as Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Version(buf: rt.ByteSlice, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
-	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
+export function decodeSlice$Decode_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
+	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$From_Version(version));
 	const _6: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
 	if (_6.ok) {
-		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
+		return rt.Ok([_6.value, rt.usizeSub(bufLen, Decoder.remaining(r))]);
 	}
 	return _6;
 }

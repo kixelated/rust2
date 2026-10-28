@@ -44,6 +44,8 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	for path in &config.printable {
 		t.printable(path);
 	}
+	// What the outside calls takes its arguments whole.
+	t.roots = t.instances.keys().copied().collect();
 	t.drain();
 	if t.failed {
 		return None;
@@ -194,6 +196,8 @@ pub struct Translator<'a, 'tcx> {
 	site: Option<(Span, DefId)>,
 	/// The hand-written TypeScript the config binds items to.
 	bindings: bind::Bindings<'tcx>,
+	/// The instances the config's roots name, which the outside calls.
+	roots: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
 }
 
 /// A local struct or enum, and how it is represented.
@@ -263,6 +267,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			sites: Default::default(),
 			site: None,
 			bindings: Default::default(),
+			roots: Default::default(),
 		})
 	}
 

@@ -14,7 +14,8 @@ import * as Tag from "./iters.Tag.ts";
 import * as Wrapper from "./iters.Wrapper.ts";
 
 /** Adaptor chains over the input bytes, each consumed one way. */
-export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function adaptors(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	b0: {
 		const _4: rt.u8 = rt.u8Rem(kind, 8);
 		if (_4 === 0) {
@@ -76,7 +77,7 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 				rt.byteVecPush(out, skipped.length & 0xff);
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(mapped));
 			} else if (_4 === 4) {
-				const words: rt.ByteVec[] = chunksByZero$ChunksByZero_u8s(data);
+				const words: rt.ByteVec[] = chunksByZero$ChunksByZero_u8s(data.data, data.start, data.length);
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFlatMap(rt.iterSlice(words), (w: rt.ByteVec): rt.Iter<rt.u8> => {
 					return rt.iterRev(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(w))));
 				}))));
@@ -154,10 +155,10 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 }
 
 /** The runs between zero bytes. */
-export function chunksByZero$ChunksByZero_u8s(self: rt.ByteSlice): rt.ByteVec[] {
+export function chunksByZero$ChunksByZero_u8s(selfData: Uint8Array, selfStart: number, selfLen: number): rt.ByteVec[] {
 	const words: rt.ByteVec[] = [];
 	let word: rt.ByteVec = new rt.ByteVec();
-	for (const b of rt.byteSliceView(self)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(selfData, selfStart, selfLen))) {
 		if (!(b === 0)) {
 			rt.byteVecPush(word, b);
 		} else {
@@ -171,7 +172,8 @@ export function chunksByZero$ChunksByZero_u8s(self: rt.ByteSlice): rt.ByteVec[] 
 }
 
 /** Consumers, and how far each reads: `log` records every item a closure sees. */
-export function consumers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function consumers(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.ByteVec = new rt.ByteVec();
 	const _5: rt.u8 = rt.u8Rem(kind, 6);
 	if (_5 === 0) {
@@ -314,7 +316,7 @@ export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {
  * `nth` and `nth_back` through each adaptor, of a source whose reads `by_ref` or
  * `inspect` shows: each reads on past a `take`'s limit, or stops at it, as std's does.
  */
-export function skips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	let item2!: rt.u8 | undefined;
 	let item3!: rt.u8 | undefined;
@@ -343,6 +345,7 @@ export function skips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let item26!: rt.u8 | undefined;
 	let item27!: [rt.u8, rt.u8] | undefined;
 	let item28!: Uint8Array | undefined;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const n: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
 		return rt.usizeRem(_2 as rt.usize, 4);
 	});
@@ -723,7 +726,8 @@ export function skips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Ranges as values and as iterators. */
-export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function ranges(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 0);
 	const range: rt.Range<rt.u8> = new rt.Range(a, b);
@@ -809,15 +813,16 @@ export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const _295 of rt.iterToArray(rt.iterRev(rt.iterStepBy(new rt.Range(0, 48), 8)))) {
 		rt.byteVecPush(out, _295 & 0xff);
 	}
-	updates(a, b, data, out);
+	updates(a, b, data.data, data.start, data.length, out);
 }
 
 /**
  * Struct update syntax on std's ranges: the fields written run before the base, and
  * the rest are read from it.
  */
-export function updates(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function updates(a: rt.u8, b: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _29!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const base: rt.Range<rt.u8> = new rt.Range(a, b);
 	rt.byteVecPush(out, 208);
 	const _7: rt.u8 = rt.u8Div(b, 2);
@@ -862,7 +867,8 @@ export function fullRange(out: rt.ByteVec): undefined {
 }
 
 /** Iterators of `Option`, which keep each `None` apart from their end. */
-export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function options(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _83: (a0: rt.u8, a1: rt.ByteVec) => rt.u8 | undefined = (b2: rt.u8, calls2: rt.ByteVec): rt.u8 | undefined => {
 		rt.byteVecPush(calls2, b2);
 		return map$Option_u8_u8_options_closure3_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
@@ -970,7 +976,8 @@ export function second$Map_Iter_u8_options_closure0(items: rt.Iter<rt.u8 | undef
 }
 
 /** The crate's own iterators, through `for`, adaptors, and `next`. */
-export function own(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function own(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const left: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 	const step: rt.u8 = rt.max(unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 1), 1);
 	const iter: Countdown.Countdown = { left, step };
@@ -1008,20 +1015,22 @@ export function own(data: rt.ByteSlice, out: rt.ByteVec): void {
  * The last two bytes of `data`, as a `slice::Iter` made from the second argument: a
  * `for` must iterate it, not the first.
  */
-export function tail(_head: rt.ByteSlice, data: rt.ByteSlice): rt.Iter<rt.u8> {
-	return rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, rt.usizeSaturatingSub(data.length, 2))));
+export function tail(_headData: Uint8Array, _headStart: number, _headLen: number, dataData: Uint8Array, dataStart: number, dataLen: number): rt.Iter<rt.u8> {
+	return rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(new rt.ByteSlice(dataData, dataStart, dataLen), rt.usizeSaturatingSub(dataLen, 2))));
 }
 
 /** The odd bytes, from a function returning `impl Iterator`. */
-export function odds(data: rt.ByteSlice): rt.Iter<rt.u8> {
-	return rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (b: rt.u8): boolean => {
+export function odds(dataData: Uint8Array, dataStart: number, dataLen: number): rt.Iter<rt.u8> {
+	return rt.iterFilter(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))), (b: rt.u8): boolean => {
 		return rt.u8Rem(b, 2) === 1;
 	});
 }
 
 /** Iterators as values: returned, stored, and printed. */
-export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const iter: rt.Iter<rt.u8> = tail(rt.byteSliceFrom(Uint8Array.of(1, 2, 3)), data);
+export function values(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
+	const _5: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(1, 2, 3));
+	const iter: rt.Iter<rt.u8> = tail(_5.data, _5.start, _5.length, data.data, data.start, data.length);
 	while (true) {
 		const _8: rt.u8 | rt.Done = iter.next();
 		if (_8 === rt.DONE) {
@@ -1031,7 +1040,7 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const held: Held.Held = { it: rt.iterSlice(rt.byteSliceView(data)) };
 	rt.byteVecPush(out, Held.skipOne(held));
-	const iter2: rt.Iter<rt.u8> = odds(data);
+	const iter2: rt.Iter<rt.u8> = odds(data.data, data.start, data.length);
 	while (true) {
 		const _21: rt.u8 | rt.Done = iter2.next();
 		if (_21 === rt.DONE) {

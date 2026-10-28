@@ -180,6 +180,51 @@ fn uninhabited(ty: Ty<'_>) -> bool {
 	ty.is_never() || matches!(ty.kind(), ty::Adt(adt, _) if adt.is_enum() && adt.variants().is_empty())
 }
 
+impl<'tcx> crate::lower::Translator<'_, 'tcx> {
+	/// Which of `instance`'s parameters it takes as a byte slice's parts, its `data`,
+	/// `start`, and `length`, rather than an `rt.ByteSlice`: each `&[u8]` or `&[u8; N]` of a
+	/// function only translated code calls directly, so not a root, a closure, or an
+	/// `async fn`. Empty if none.
+	pub(crate) fn parted(&self, instance: ty::Instance<'tcx>) -> Vec<bool> {
+		let tcx = self.tcx;
+		let ty::InstanceKind::Item(did) = instance.def else {
+			return Vec::new();
+		};
+		// A census writes nothing, and the outside passes a root's arguments whole.
+		if self.refusals.is_some()
+			|| self.roots.contains(&instance)
+			|| !self.lowers(instance)
+			|| tcx.is_closure_like(did)
+			|| tcx.asyncness(did).is_async()
+			|| crate::lower::iter::is_next(tcx, did)
+		{
+			return Vec::new();
+		}
+		let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
+		let parted: Vec<bool> = tcx
+			.instantiate_bound_regions_with_erased(sig)
+			.inputs()
+			.iter()
+			.map(|&ty| {
+				let ty = tcx
+					.try_normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(ty))
+					.unwrap_or(ty);
+				slice_ref(ty)
+			})
+			.collect();
+		match parted.contains(&true) {
+			true => parted,
+			false => Vec::new(),
+		}
+	}
+}
+
+/// Whether `ty` is a `&[u8]` or `&[u8; N]`, which is an `rt.ByteSlice`.
+fn slice_ref(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Ref(_, inner, rustc_ast::Mutability::Not)
+		if super::place::byte_slice(*inner) || crate::lower::byte_array(*inner))
+}
+
 /// A local held as its parts.
 #[derive(Debug)]
 pub(super) struct Scalar<'tcx> {
@@ -273,11 +318,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	fn shape(&self, ty: Ty<'tcx>) -> Option<Shape<'tcx>> {
 		let tcx = self.tcx;
 		match ty.kind() {
-			ty::Ref(_, inner, rustc_ast::Mutability::Not)
-				if super::place::byte_slice(*inner) || crate::lower::byte_array(*inner) =>
-			{
-				Some(Shape::Slice)
-			}
+			_ if slice_ref(ty) => Some(Shape::Slice),
 			ty::Tuple(tys) if tys.is_empty() => Some(Shape::Unit),
 			ty::Tuple(tys) => {
 				let fields = tys.iter().map(|t| self.shape(t)).collect::<Option<Vec<_>>>()?;
@@ -469,14 +510,60 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 	}
 
+	/// Which arguments a call of `func` takes as a byte slice's parts, as
+	/// [`Translator::parted`](crate::lower::Translator::parted) says.
+	pub(super) fn parted_call(&self, func: &Operand<'tcx>) -> Vec<bool> {
+		let ty::FnDef(def_id, args) = *func.ty(&self.mir.local_decls, self.tcx).kind() else {
+			return Vec::new();
+		};
+		match ty::Instance::try_resolve(self.tcx, self.b.t.typing_env_pub(), def_id, args.skip_binder()) {
+			Ok(Some(instance)) => self.b.t.parted(instance),
+			_ => Vec::new(),
+		}
+	}
+
+	/// The parameters a byte slice `local`, named `name`, is passed as: its parts' variables
+	/// if it is held as its parts, or else names for them, from which it is made on entry.
+	pub(super) fn part_params(&mut self, local: Local, name: String) -> Vec<crate::ts::Param> {
+		let names: [String; 3] = match self.scalars.get(&local) {
+			Some(scalar) => <[String; 3]>::try_from(scalar.vars.clone()).expect("a slice's three parts"),
+			None => {
+				let names = ["Data", "Start", "Len"].map(|key| self.b.fresh(&format!("{name}{key}")));
+				self.rebuilt.push((local, name, names.clone()));
+				names
+			}
+		};
+		self.part_params.extend(names.iter().cloned());
+		let tys = [Type::Builtin("Uint8Array"), Type::Builtin("number"), Type::Builtin("number")];
+		names
+			.into_iter()
+			.zip(tys)
+			.map(|(name, ty)| crate::ts::Param { name, ty: Some(ty) })
+			.collect()
+	}
+
+	/// Mark the parameters that are parts `body` never reads, as `noUnusedParameters`
+	/// wants: a slice of which only the length is read, say.
+	pub(super) fn mark_unread_parts(&mut self, params: &mut [crate::ts::Param], body: &[Stmt]) {
+		for param in params {
+			if self.part_params.contains(&param.name)
+				&& !param.name.starts_with('_')
+				&& super::list_names(body, &param.name) == 0
+			{
+				param.name = self.b.fresh(&format!("_{}", param.name));
+			}
+		}
+	}
+
 	/// Find the locals to hold as their parts.
 	pub(super) fn find_scalars(&mut self) {
 		let mir = self.mir;
 		let mut shapes: FxHashMap<Local, Shape<'tcx>> = FxHashMap::default();
 		for local in mir.local_decls.indices() {
-			if self.is_arg(local)
+			let parted = self.parted.contains(&local);
+			if self.is_arg(local) && !parted
 				|| local == mir::RETURN_PLACE
-				|| self.defs[local] == 0
+				|| self.defs[local] == 0 && !parted
 				|| self.borrowed[local]
 				|| self.stepped.contains(&local)
 				|| self.next_results.contains(&local)
@@ -529,6 +616,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let mut copies: Vec<PartCopy> = Vec::new();
 		// Statements and terminators that take their reads of these apart.
 		let mut taken: FxHashSet<Location> = FxHashSet::default();
+		// And the slices calls take as their parts.
+		let mut passed: FxHashSet<(Location, Place<'tcx>)> = FxHashSet::default();
 		// Those some def gives parts that are not one object's already.
 		let mut parted: FxHashSet<Local> = FxHashSet::default();
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
@@ -601,6 +690,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 						}
 					}
 				}
+				// A slice passed as its parts.
+				for (arg, parted) in args.iter().zip(self.parted_call(func)) {
+					if let (Operand::Copy(p) | Operand::Move(p), true) = (&arg.node, parted)
+						&& let Some(shape) = shapes.get(&p.local)
+						&& let (node, n) = walk(shape, p.projection)
+						&& n == p.projection.len()
+						&& matches!(node.shape, Shape::Slice)
+					{
+						passed.insert((at, *p));
+					}
+				}
 				// A slice's length, read by std.
 				if let ty::FnDef(def_id, _) = *func.ty(&mir.local_decls, tcx).kind()
 					&& library::is_std(tcx, def_id)
@@ -611,12 +711,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				}
 			}
 		}
-		// Held as the parts of the one object it is, a local saves nothing.
-		bad.extend(shapes.keys().filter(|l| !parted.contains(l)));
+		// Held as the parts of the one object it is, a local saves nothing; a parameter
+		// passed as its parts is made on entry.
+		bad.extend(shapes.keys().filter(|l| !parted.contains(l) && !self.parted.contains(l)));
+		for &local in shapes.keys().filter(|l| self.parted.contains(l)) {
+			copies.extend((0..3).map(|part| (local, part, None)));
+		}
 		// What reads them otherwise, and which reads make their objects.
 		struct Reads<'s, 'tcx> {
 			shapes: &'s FxHashMap<Local, Shape<'tcx>>,
 			taken: &'s FxHashSet<Location>,
+			passed: &'s FxHashSet<(Location, Place<'tcx>)>,
 			made: Vec<Made>,
 			bad: FxHashSet<Local>,
 		}
@@ -640,7 +745,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					}
 					PlaceContext::NonMutatingUse(_) => {}
 				}
-				if self.taken.contains(&at) {
+				if self.taken.contains(&at) || self.passed.contains(&(at, *place)) {
 					return;
 				}
 				let (node, n) = walk(shape, place.projection);
@@ -670,6 +775,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let mut reads = Reads {
 			shapes,
 			taken: &taken,
+			passed: &passed,
 			made: Vec::new(),
 			bad: FxHashSet::default(),
 		};
@@ -877,6 +983,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		)
 	}
 
+	/// Whether `local` is assigned once, and not a parameter, which its caller assigns first.
+	fn once(&self, local: Local) -> bool {
+		self.defs[local] == 1 && !self.is_arg(local)
+	}
+
 	/// Name the variables of `local`'s parts, from its own name `base`.
 	pub(super) fn name_scalar(&mut self, local: Local, base: &str) {
 		let Some(scalar) = self.scalars.get(&local) else {
@@ -884,10 +995,15 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		};
 		let mut parts = Vec::new();
 		scalar.shape.parts("", &mut parts);
-		let vars = parts
+		let vars: Vec<String> = parts
 			.iter()
 			.map(|(suffix, _)| self.b.fresh(&format!("{base}{suffix}")))
 			.collect();
+		// A parameter's parts are the parameters, which hold the same until assigned.
+		if self.parted.contains(&local) && self.defs[local] == 0 {
+			self.steady.extend(vars.iter().cloned());
+			self.scalars.get_mut(&local).expect("checked above").held = Some(vars.iter().map(Expr::ident).collect());
+		}
 		self.scalars.get_mut(&local).expect("checked above").vars = vars;
 	}
 
@@ -897,7 +1013,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let mut locals: Vec<Local> = self
 			.scalars
 			.iter()
-			.filter(|(_, s)| s.assigned)
+			.filter(|(l, s)| s.assigned && !self.is_arg(**l))
 			.map(|(l, _)| *l)
 			.collect();
 		locals.sort();
@@ -929,7 +1045,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let scalar = &self.scalars[&local];
 		match &scalar.held {
 			Some(held) => held[parts].iter().map(|e| (e.clone(), true)).collect(),
-			None if self.defs[local] == 1 => {
+			None if self.once(local) => {
 				let n = parts.len();
 				self.err(span, "a local held as its parts read before its assignment");
 				vec![(Expr::undefined(), true); n]
@@ -1350,7 +1466,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Set `local`'s parts to `parts`, leaving those of a variant it isn't as they are.
 	fn set_scalar(&mut self, local: Local, parts: Vec<Option<(Expr, bool)>>, out: &mut Vec<Stmt>) {
 		let vars = self.scalars[&local].vars.clone();
-		if self.defs[local] == 1 {
+		if self.once(local) {
 			let mut held = Vec::with_capacity(parts.len());
 			for (part, var) in parts.into_iter().zip(&vars) {
 				held.push(match part {

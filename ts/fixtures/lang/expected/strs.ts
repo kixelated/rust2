@@ -6,9 +6,9 @@ import { put } from "./fmt.ts";
 import * as Named from "./strs.Named.ts";
 
 /** A char of the alphabet for each byte, by its low bits. */
-export function text(data: rt.ByteSlice): string {
+export function text(dataData: Uint8Array, dataStart: number, dataLen: number): string {
 	let s: string = "";
-	const iterS: Uint8Array = rt.byteSliceView(data);
+	const iterS: Uint8Array = rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen));
 	let iterI: number = 0;
 	while (true) {
 		const _5: rt.u8 | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
@@ -24,8 +24,8 @@ export function text(data: rt.ByteSlice): string {
 }
 
 /** Whether the `i`th step reads from the back: by the byte's high bit. */
-export function fromBack(data: rt.ByteSlice, i: rt.usize): boolean {
-	const _3: rt.u8 | undefined = rt.byteSliceGet(data, i);
+export function fromBack(dataData: Uint8Array, dataStart: number, dataLen: number, i: rt.usize): boolean {
+	const _3: rt.u8 | undefined = rt.byteSliceGet(new rt.ByteSlice(dataData, dataStart, dataLen), i);
 	if (_3 !== undefined) {
 		if ((_3 & 128) !== 0) {
 			return true;
@@ -58,13 +58,13 @@ export function putSeen(out: rt.ByteVec, seen: rt.char[]): void {
 	rt.byteVecPush(out, 253);
 }
 
-export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function strs(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let c!: rt.char | undefined;
 	let part!: string | undefined;
 	let part3!: string | undefined;
 	let item!: [rt.usize, string] | undefined;
 	let _237!: rt.char;
-	const s: string = text(data);
+	const s: string = text(dataData, dataStart, dataLen);
 	const _7: rt.usize = rt.u8Rem(rt.u8Div(kind, 8), 16) as rt.usize;
 	if (!(_7 < 16)) {
 		rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _7);
@@ -76,7 +76,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const it: rt.Iter<rt.char> = rt.strChars(s);
 			let i: rt.usize = 0;
 			while (true) {
-				if (!fromBack(data, i)) {
+				if (!fromBack(dataData, dataStart, dataLen, i)) {
 					c = rt.iterToOption(it.next());
 				} else {
 					c = rt.iterToOption(it.nextBack());
@@ -104,7 +104,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const parts: rt.Iter<string> = rt.strSplit(s, String.fromCodePoint(sep));
 			let i2: rt.usize = 0;
 			while (true) {
-				if (!fromBack(data, i2)) {
+				if (!fromBack(dataData, dataStart, dataLen, i2)) {
 					part = rt.iterToOption(parts.next());
 				} else {
 					part = rt.iterToOption(parts.nextBack());
@@ -132,7 +132,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			});
 			let i3: rt.usize = 0;
 			while (true) {
-				if (!fromBack(data, i3)) {
+				if (!fromBack(dataData, dataStart, dataLen, i3)) {
 					part3 = rt.iterToOption(parts2.next());
 				} else {
 					part3 = rt.iterToOption(parts2.nextBack());
@@ -178,7 +178,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				const found2: rt.Iter<[rt.usize, string]> = rt.strMatchIndices(s, String.fromCodePoint(sep));
 				let i4: rt.usize = 0;
 				while (true) {
-					if (!fromBack(data, i4)) {
+					if (!fromBack(dataData, dataStart, dataLen, i4)) {
 						item = rt.iterToOption(found2.next());
 					} else {
 						item = rt.iterToOption(found2.nextBack());
@@ -273,10 +273,10 @@ export function pattern(kind: rt.u8, s: string): string {
  * `&s[a..b]` by byte offsets, and the `str` methods by a `&str` pattern, which an empty
  * one matches before each char and after the last.
  */
-export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function slices(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _209!: [rt.usize, rt.usize];
 	let sliced!: string;
-	const s: string = text(data);
+	const s: string = text(dataData, dataStart, dataLen);
 	const p: string = pattern(kind, s);
 	b0: {
 		const _8: rt.u8 = rt.u8Rem(kind, 8);
@@ -364,10 +364,10 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 						}
 						return rt.usizeSaturatingSub(rt.usizeAdd(rt.stringLen(s), 1), rt.usizeRem(b2 as rt.usize, 4));
 					};
-					if (!(data.length >= 2)) {
+					if (!(dataLen >= 2)) {
 						_209 = [0, 0] as [rt.usize, rt.usize];
 					} else {
-						_209 = [at2(data.data[data.start]), at2(data.data[data.start + 1])] as [rt.usize, rt.usize];
+						_209 = [at2(dataData[dataStart]), at2(dataData[dataStart + 1])] as [rt.usize, rt.usize];
 					}
 					const a: rt.usize = _209[0];
 					const b: rt.usize = _209[1];

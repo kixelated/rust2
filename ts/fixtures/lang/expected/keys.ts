@@ -170,8 +170,8 @@ export function find$String_str(keys_: string[], q: string): rt.u8 {
 }
 
 /** The index of the first of `keys` that borrows as `q`. */
-export function find$u8_u8(keys_: rt.ByteSlice, q: rt.u8): rt.u8 {
-	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(keys_)));
+export function find$u8_u8(keysData: Uint8Array, keysStart: number, keysLen: number, q: rt.u8): rt.u8 {
+	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(keysData, keysStart, keysLen))));
 	while (true) {
 		const _7: [rt.usize, rt.u8] | rt.Done = iter.next();
 		if (_7 === rt.DONE) {
@@ -186,18 +186,18 @@ export function find$u8_u8(keys_: rt.ByteSlice, q: rt.u8): rt.u8 {
 }
 
 /** Run one case. */
-export function keys(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function keys(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _4: rt.u8 = rt.u8Rem(kind, 5);
 	if (_4 === 0) {
-		options(data, out);
+		options(dataData, dataStart, dataLen, out);
 	} else if (_4 === 1) {
-		arcs(data, out);
+		arcs(dataData, dataStart, dataLen, out);
 	} else if (_4 === 2) {
-		borrows(data, out);
+		borrows(dataData, dataStart, dataLen, out);
 	} else if (_4 === 3) {
-		defaults(data, out);
+		defaults(dataData, dataStart, dataLen, out);
 	} else {
-		places(data, out);
+		places(dataData, dataStart, dataLen, out);
 	}
 }
 
@@ -268,11 +268,12 @@ export function compare$Skewed(l: Skewed.Skewed, r: Skewed.Skewed): rt.u8 {
  * The comparisons a type's `PartialEq` and `PartialOrd` inherit: `!=` as `!eq`, and
  * the orderings from `partial_cmp`, false when it is `None`, whatever `eq` says.
  */
-export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function defaults(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _7!: rt.usize;
 	let m!: Name.Name;
 	let n!: Name.Name;
 	let _177!: Name.Name;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	let unwind: number = 0;
 	try {
 		let iterStart: rt.usize = 1;
@@ -397,7 +398,7 @@ export function seen(k: rt.u8, hop_: Hop.Hop | undefined, horizon: Horizon.Horiz
  * Borrows compared, ordered, and hashed as what they point at, through one reference
  * or two, shared or mutable.
  */
-export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function borrows(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _7!: rt.usize;
 	let m!: Name.Name;
 	let n!: Name.Name;
@@ -405,14 +406,18 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let unwind: number = 0;
 	try {
 		let iterStart: rt.usize = 1;
-		const iterEnd: rt.usize = data.length;
+		const iterEnd: rt.usize = dataLen;
 		while ((_7 = iterStart++) < iterEnd) {
 			const i: rt.usize = _7;
 			const _15: rt.usize = rt.usizeSub(i, 1);
-			rt.idx(data, _15);
-			const _14: rt.u8 = data.data[data.start + _15];
-			rt.idx(data, i);
-			const _13: [rt.u8, rt.u8] = [_14, data.data[data.start + i]];
+			if (_15 >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + _15);
+			}
+			const _14: rt.u8 = dataData[dataStart + _15];
+			if (i >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + i);
+			}
+			const _13: [rt.u8, rt.u8] = [_14, dataData[dataStart + i]];
 			const c: rt.u8 = _14;
 			const d: rt.u8 = _13[1];
 			const _24: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
@@ -467,7 +472,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `Option`s compared, ordered, and hashed, alone and in keys. */
-export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function options(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _10!: rt.usize;
 	let m!: rt.Arc<Skew.Skew>;
 	let n!: rt.Arc<Skew.Skew>;
@@ -481,14 +486,18 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const sorted: rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, Horizon.cmp$Ord])) as rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8>;
 		const ways: rt.HashMap<[Way.Way | undefined, boolean], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashOption(Way.hash$Hash_DefaultHasher), rt.hashInt]), rt.eqTuple([rt.eqOption(Way.eq$PartialEq), rt.same]))) as rt.HashMap<[Way.Way | undefined, boolean], rt.u8>;
 		let iterStart: rt.usize = 1;
-		const iterEnd: rt.usize = data.length;
+		const iterEnd: rt.usize = dataLen;
 		while ((_10 = iterStart++) < iterEnd) {
 			const i: rt.usize = _10;
 			const _18: rt.usize = rt.usizeSub(i, 1);
-			rt.idx(data, _18);
-			const _17: rt.u8 = data.data[data.start + _18];
-			rt.idx(data, i);
-			const _16: [rt.u8, rt.u8] = [_17, data.data[data.start + i]];
+			if (_18 >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + _18);
+			}
+			const _17: rt.u8 = dataData[dataStart + _18];
+			if (i >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + i);
+			}
+			const _16: [rt.u8, rt.u8] = [_17, dataData[dataStart + i]];
 			const c: rt.u8 = _17;
 			const d: rt.u8 = _16[1];
 			const _27: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
@@ -613,7 +622,7 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `Arc`s compared, ordered, and hashed as what they hold, and borrowed as it. */
-export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function arcs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _7!: rt.usize;
 	let a!: Name.Name;
 	let b!: Name.Name;
@@ -631,15 +640,19 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_166 = false;
 		_165 = false;
 		let iterStart: rt.usize = 1;
-		const iterEnd: rt.usize = data.length;
+		const iterEnd: rt.usize = dataLen;
 		while ((_7 = iterStart++) < iterEnd) {
 			const i: rt.usize = _7;
 			const _16: rt.usize = rt.usizeSub(i, 1);
-			rt.idx(data, _16);
-			_14 = name(data.data[data.start + _16]);
+			if (_16 >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + _16);
+			}
+			_14 = name(dataData[dataStart + _16]);
 			unwind = 81;
-			rt.idx(data, i);
-			const _20: Name.Name = name(data.data[data.start + i]);
+			if (i >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + i);
+			}
+			const _20: Name.Name = name(dataData[dataStart + i]);
 			unwind = 84;
 			_166 = true;
 			a = _14;
@@ -653,8 +666,10 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, (rt.u64Eq(hashOf$Arc_str(a.text), hashOf$Arc_str(b.text)) ? 1 : 0) | (((rt.u64Eq(hashOf$Name(a), hashOf$Name(b)) ? 1 : 0) << 1) & 0xff));
 			const text: string = a.text.value;
 			rt.byteVecPush(out, text === b.text.value ? 1 : 0);
-			rt.idx(data, i);
-			const _106: rt.usize = rt.usizeRem(data.data[data.start + i] as rt.usize, ["", "a", "ab", "", "￿", "𐀀"].length);
+			if (i >= dataLen) {
+				rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + i);
+			}
+			const _106: rt.usize = rt.usizeRem(dataData[dataStart + i] as rt.usize, ["", "a", "ab", "", "￿", "𐀀"].length);
 			if (!(_106 < 6)) {
 				rt.panic("index out of bounds: the len is " + 6 + " but the index is " + _106);
 			}
@@ -675,9 +690,9 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_165 = false;
 			_166 = false;
 		}
-		const _130: rt.u8 | undefined = rt.byteSliceFirst(data);
+		const _130: rt.u8 | undefined = rt.byteSliceFirst(new rt.ByteSlice(dataData, dataStart, dataLen));
 		if (_130 !== undefined) {
-			rt.byteVecPush(out, find$u8_u8(data, _130));
+			rt.byteVecPush(out, find$u8_u8(dataData, dataStart, dataLen, _130));
 		}
 		liar = new rt.Arc({});
 		unwind = 76;
@@ -763,14 +778,14 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
  * give: numbers, a wide number, and a tuple, by keys JS compares and by keys found
  * through their hash.
  */
-export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function places(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _154!: rt.usize;
 	let _257!: rt.u8;
 	const counts: rt.BTreeMap<rt.u8, rt.usize> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.usize>;
 	const wide: rt.HashMap<rt.u8, rt.u64> = rt.hashNew() as rt.HashMap<rt.u8, rt.u64>;
 	const hops: rt.HashMap<Hop.Hop, rt.u16> = rt.hashNew(rt.hashing(Hop.hash$Hash_DefaultHasher, Hop.eq$PartialEq)) as rt.HashMap<Hop.Hop, rt.u16>;
 	const pairs: rt.BTreeMap<Hop.Hop, [rt.u8, rt.u8]> = rt.btreeNew(Hop.cmp$Ord) as rt.BTreeMap<Hop.Hop, [rt.u8, rt.u8]>;
-	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
+	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))));
 	while (true) {
 		const _11: [rt.usize, rt.u8] | rt.Done = iter.next();
 		if (_11 === rt.DONE) {
@@ -856,14 +871,16 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		p.v[1] = p.v[1] ^ p.v[0];
 	}
 	const tree: rt.BTreeMap<rt.u16, rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u16, rt.u16>;
-	const _150: rt.usize = rt.usizeMul(data.length, 4);
+	const _150: rt.usize = rt.usizeMul(dataLen, 4);
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = _150;
 	while ((_154 = iterStart++) < iterEnd) {
 		const j: rt.usize = _154;
-		const _159: rt.usize = rt.usizeRem(j, data.length);
-		rt.idx(data, _159);
-		const b2: rt.u8 = data.data[data.start + _159];
+		const _159: rt.usize = rt.usizeRem(j, dataLen);
+		if (_159 >= dataLen) {
+			rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + _159);
+		}
+		const b2: rt.u8 = dataData[dataStart + _159];
 		const v: rt.Place<rt.u16> = rt.entryOrInsertMut(rt.entry(tree, rt.u16Mul(j & 0xffff, 37) ^ b2 as rt.u16), j & 0xffff);
 		v.v = rt.u16WrappingAdd(v.v, b2 as rt.u16);
 	}
@@ -877,12 +894,12 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(_179[1])));
 	}
 	const touchy: rt.BTreeMap<Touchy.Touchy, rt.u8> = rt.btreeNew(Touchy.cmp$Ord) as rt.BTreeMap<Touchy.Touchy, rt.u8>;
-	const _195: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const _195: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(touchy, { _0: dataLen & 0xff }), (): rt.u8 => {
 		return 7;
 	});
 	_195.v = rt.u8Add(_195.v, 1);
 	const hashy: rt.HashMap<Touchy.Touchy, rt.u8> = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
-	const _203: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
+	const _203: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: dataLen & 0xff }), (): rt.u8 => {
 		return 0;
 	});
 	_203.v = rt.u8Add(_203.v, 2);
@@ -893,7 +910,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	((): void => {
 		c2.v = rt.usizeAdd(c2.v, 1);
 	})();
-	const spare: rt.usize[] = [data.length, 8];
+	const spare: rt.usize[] = [dataLen, 8];
 	const c3: rt.Place<rt.usize> = rt.entryOrInsertMut(rt.entry(counts, 1), 3);
 	const swapped = c3.v;
 	c3.v = spare[0];

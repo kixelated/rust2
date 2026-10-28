@@ -48,11 +48,12 @@ export function rankByte(r: Rank.Rank): rt.u8 {
 }
 
 /** A `HashMap` by each kind of key, through a script of inserts, lookups, and removals. */
-export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function hashMaps(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _174!: rt.usize;
 	let _299!: rt.usize;
 	let _377!: rt.u8;
 	let _429!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _443: (a0: Nibble.Nibble) => rt.u64 = (n: Nibble.Nibble): rt.u64 => {
 		const h2: rt.Hasher = rt.hasher();
 		Nibble.hash$Hash_DefaultHasher(n, h2);
@@ -451,7 +452,8 @@ export function claim(map: rt.HashMap<rt.u8, Tally.Tally>, k: rt.u8, n: rt.u16):
 }
 
 /** `HashSet` and `BTreeSet`, each with the same script. */
-export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function sets(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _4: rt.u8 = rt.u8Rem(kind, 3);
 	if (_4 === 0) {
 		const hashed: rt.HashSet<rt.u16> = rt.hashNew() as rt.HashSet<rt.u16>;
@@ -566,11 +568,12 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `BTreeMap`: ordered by the key's `Ord`, through inserts, removals, and ranges. */
-export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function btreeMaps(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let within!: rt.ByteVec;
 	let _164!: rt.usize;
 	let _344!: rt.usize;
 	let _401!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _4: rt.u8 = rt.u8Rem(kind, 4);
 	if (_4 === 0) {
 		const map: rt.BTreeMap<rt.u8, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>;
@@ -846,8 +849,9 @@ export function touch(q: rt.VecDeque<rt.u8>): rt.VecDeque<rt.u8> {
 }
 
 /** `VecDeque`: a ring buffer, pushed and popped at both ends past its capacity. */
-export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function deques(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let drained2!: rt.ByteVec;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const q: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
 	const pairs: rt.VecDeque<[rt.u8, rt.u8]> = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
 	for (const b of rt.byteSliceView(data)) {
@@ -947,8 +951,9 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `vec![a, b]` and `vec![x; n]`, of bytes, numbers, `Copy` tuples, and types that clone. */
-export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function vecs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let name!: string;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 0);
 	const n: rt.usize = rt.usizeRem(unwrapOr$Option_u8(rt.byteSliceGet(data, 2), 0) as rt.usize, 5);
@@ -1040,7 +1045,8 @@ export function hold(pair: [rt.u8, rt.u8]): Holder.Holder {
  * A `Copy` aggregate a std call stores by value is the container's own copy: changing
  * one stored element leaves the value it came from and the other elements as they were.
  */
-export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function stores(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = unwrapOr$Option_u8(rt.byteSliceGet(data, 1), 0);
 	const pair: [rt.u8, rt.u8] = same([a, b] as [rt.u8, rt.u8]);

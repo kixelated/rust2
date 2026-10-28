@@ -6,7 +6,8 @@ import { isSomeAnd$Option_u8_options_closure0, isNoneOr$Option_u8_options_closur
 import { isOkAnd$Result_u8_u16_results_closure5, isErrAnd$Result_u8_u16_results_closure6, ok$Result_u8_u16, err$Result_u8_u16, asRef$Result_u8_u16, map$Result_Vec_u8_String_Vec_u8_owned_closure6, map$Result_u8_u16_u8_options_closure13, mapOr$Result_u8_u16_u8_results_closure7, mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9, mapErr$Result_u32s_u8_u16_from, mapErr$Result_u8_u16_u16_results_closure14, inspect$Result_u8_u16_results_closure12, inspectErr$Result_u8_u16_results_closure13, unwrapOrDefault$Result_u8_u16, and$Result_u8_u16_u8, andThen$Result_u8_u16_u8_results_closure3, or$Result_u8_u16_u16, orElse$Result_u8_u16_u16_results_closure4, unwrapOr$Result_u8_u16, unwrapOrElse$Result_u8_u16_results_closure11, unwrapOrElse$Result_u8_u8_panics_closure1, copied$Result_u8_u16, clone$Clone_Result_Vec_u8_String } from "./core/result.ts";
 
 /** Run case `kind % 4` over `data`, whose bytes pick each `Some` or `None`, `Ok` or `Err`. */
-export function combinators(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function combinators(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 | undefined = filter$Option_u8_combinators_closure0(rt.byteSliceFirst(data), (x: rt.u8): boolean => {
 		return rt.u8Rem(x, 3) !== 0;
 	});

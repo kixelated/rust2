@@ -28,130 +28,130 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const kind: rt.u8 = _10[1];
 	const _14: rt.u8 = rt.u8Rem(op, 54);
 	if (_14 === 0) {
-		u8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		u8Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 1) {
-		u16Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		u16Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 2) {
-		u32Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		u32Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 3) {
-		u64Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		u64Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 4) {
-		u128Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		u128Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 5) {
-		usizeOp(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		usizeOp(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 6) {
-		i8Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		i8Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 7) {
-		i16Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		i16Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 8) {
-		i32Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		i32Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 9) {
-		i64Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		i64Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 10) {
-		i128Op(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		i128Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 11) {
-		isizeOp(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		isizeOp(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 12) {
 		const _28: rt.u8 = rt.u8Rem(kind, 6);
 		if (_28 === 0) {
-			i8Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			i8Neg(input.data, input.start + 2, input.length - 2, out);
 		} else if (_28 === 1) {
-			i16Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			i16Neg(input.data, input.start + 2, input.length - 2, out);
 		} else if (_28 === 2) {
-			i32Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			i32Neg(input.data, input.start + 2, input.length - 2, out);
 		} else if (_28 === 3) {
-			i64Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			i64Neg(input.data, input.start + 2, input.length - 2, out);
 		} else if (_28 === 4) {
-			i128Neg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			i128Neg(input.data, input.start + 2, input.length - 2, out);
 		} else {
-			isizeNeg(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			isizeNeg(input.data, input.start + 2, input.length - 2, out);
 		}
 	} else if (_14 === 13) {
 		if (input.length - 2 === 0) {
-			cast(kind, rt.u8Div(kind, 12), new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			cast(kind, rt.u8Div(kind, 12), input.data, input.start + 2, input.length - 2, out);
 		} else {
-			cast(kind, input.data[input.start + 2], new rt.ByteSlice(input.data, input.start + 3, input.length - 3), out);
+			cast(kind, input.data[input.start + 2], input.data, input.start + 3, input.length - 3, out);
 		}
 	} else if (_14 === 14) {
-		convert(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		convert(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 15) {
-		copies(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		copies(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 16) {
-		loops(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		loops(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 17) {
-		patterns(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		patterns(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 18) {
-		closures(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		closures(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 19) {
-		discriminants(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		discriminants(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 20) {
-		library(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		library(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 21) {
-		ints(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		ints(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 22) {
-		strings(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		strings(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 23) {
-		derived(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		derived(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 24) {
-		written(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		written(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 25) {
-		panics(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		panics(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 26) {
-		methods(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		methods(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 27) {
-		adaptors(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		adaptors(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 28) {
-		consumers(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		consumers(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 29) {
-		ranges(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		ranges(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 30) {
-		options(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		options(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 31) {
-		own(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		own(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 32) {
-		values(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		values(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 33) {
-		order(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		order(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 34) {
-		hashMaps(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		hashMaps(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 35) {
-		sets(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		sets(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 36) {
-		btreeMaps(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		btreeMaps(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 37) {
-		deques(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		deques(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 38) {
-		flows(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		flows(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 39) {
-		keys(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		keys(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 40) {
-		chars(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		chars(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 41) {
-		strs(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		strs(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 42) {
-		vecs(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		vecs(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 43) {
-		slices(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		slices(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 44) {
-		stores(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		stores(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 45) {
-		chunks(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		chunks(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 46) {
-		cows(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		cows(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 47) {
-		durations(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		durations(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 48) {
-		combinators(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		combinators(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 49) {
-		splits(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		splits(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 50) {
-		refs(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		refs(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 51) {
-		counts(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		counts(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 52) {
 		rounding(out);
 	} else {
-		skips(kind, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+		skips(kind, input.data, input.start + 2, input.length - 2, out);
 	}
 	return out;
 }

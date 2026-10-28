@@ -4,7 +4,8 @@ import * as rt from "./rt.ts";
 import { unwrapOr$Option_u8 } from "./core/option.ts";
 
 /** Apply operation `op` to operands taken from `data`. */
-export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u8Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, v: rt.u8): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v as rt.u128)));
 		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v)) === v ? 1 : 0);
@@ -110,7 +111,8 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u16Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.u16) => void = (out2: rt.ByteVec, v: rt.u16): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v as rt.u128)));
 		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v)) === v ? 1 : 0);
@@ -216,7 +218,8 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u32Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.u32) => void = (out2: rt.ByteVec, v: rt.u32): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v as rt.u128)));
 		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v)) === v ? 1 : 0);
@@ -322,7 +325,8 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u64Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, v: rt.u64): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v))));
 		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v)), v) ? 1 : 0);
@@ -428,7 +432,8 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u128Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.u128) => void = (out2: rt.ByteVec, v: rt.u128): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v)));
 		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v)), v) ? 1 : 0);
@@ -534,7 +539,8 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function usizeOp(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.usize) => void = (out2: rt.ByteVec, v: rt.usize): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v as rt.u128)));
 		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v)) === v ? 1 : 0);
@@ -640,7 +646,8 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i8Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.i8) => void = (out2: rt.ByteVec, v: rt.i8): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v as rt.i128)));
 		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v)) === v ? 1 : 0);
@@ -746,7 +753,8 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i16Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.i16) => void = (out2: rt.ByteVec, v: rt.i16): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v as rt.i128)));
 		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v)) === v ? 1 : 0);
@@ -852,7 +860,8 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i32Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.i32) => void = (out2: rt.ByteVec, v: rt.i32): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v as rt.i128)));
 		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v)) === v ? 1 : 0);
@@ -958,7 +967,8 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i64Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.i64) => void = (out2: rt.ByteVec, v: rt.i64): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v))));
 		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v)), v) ? 1 : 0);
@@ -1064,7 +1074,8 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i128Op(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.i128) => void = (out2: rt.ByteVec, v: rt.i128): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v)));
 		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v)), v) ? 1 : 0);
@@ -1170,7 +1181,8 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `op` to operands taken from `data`. */
-export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function isizeOp(op: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _50: (a0: rt.ByteVec, a1: rt.isize) => void = (out2: rt.ByteVec, v: rt.isize): void => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v as rt.i128)));
 		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v)) === v ? 1 : 0);
@@ -1276,7 +1288,8 @@ export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function i8Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i8Neg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = Uint8Array.of(0);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1284,7 +1297,8 @@ export function i8Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function i16Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i16Neg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(2);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1292,7 +1306,8 @@ export function i16Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function i32Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i32Neg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1300,7 +1315,8 @@ export function i32Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function i64Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i64Neg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1308,7 +1324,8 @@ export function i64Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function i128Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i128Neg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(16);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1316,7 +1333,8 @@ export function i128Neg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Negate, which overflows at the minimum. */
-export function isizeNeg(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function isizeNeg(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1324,7 +1342,8 @@ export function isizeNeg(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Cast a value of type `from` to type `to`, both indexes into the twelve types. */
-export function cast(from: rt.u8, to: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function cast(from: rt.u8, to: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _5: rt.u8 = rt.u8Rem(from, 12);
 	if (_5 === 0) {
 		const buf: Uint8Array = Uint8Array.of(0);
@@ -1990,7 +2009,8 @@ export function cast(from: rt.u8, to: rt.u8, data: rt.ByteSlice, out: rt.ByteVec
 }
 
 /** Conversions that check, and ones that cannot fail. */
-export function convert(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function convert(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));

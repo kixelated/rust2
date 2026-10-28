@@ -30,8 +30,8 @@ export interface Decoder {
 }
 
 /** Read `buf`, with varints in the given form. */
-function new_(buf: rt.ByteSlice, form: Form.Form): Decoder {
-	return { buf, form, len: buf.length, need: 0, control: undefined, uncounted: 0 };
+function new_(bufData: Uint8Array, bufStart: number, bufLen: number, form: Form.Form): Decoder {
+	return { buf: new rt.ByteSlice(bufData, bufStart, bufLen), form, len: bufLen, need: 0, control: undefined, uncounted: 0 };
 }
 
 /**
@@ -81,7 +81,7 @@ export function rest(self: Decoder): rt.ByteSlice {
 export function sub(self: Decoder, len: rt.usize): rt.Result<Decoder, DecodeError.DecodeError> {
 	const _4: rt.Result<rt.ByteSlice, DecodeError.DecodeError> = slice(self, len);
 	if (_4.ok) {
-		return rt.Ok(new_(_4.value, self.form));
+		return rt.Ok(new_(_4.value.data, _4.value.start, _4.value.length, self.form));
 	}
 	return _4;
 }
@@ -127,7 +127,8 @@ export function bool(self: Decoder): rt.Result<boolean, DecodeError.DecodeError>
 /** Read a varint. */
 export function varint(self: Decoder): rt.Result<rt.u64, DecodeError.DecodeError> {
 	let _0!: rt.Result<rt.u64, DecodeError.DecodeError>;
-	const _2: rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> = read(self.buf, self.form);
+	const _13: rt.ByteSlice = self.buf;
+	const _2: rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> = read(_13.data, _13.start, _13.length, self.form);
 	if (_2.ok) {
 		const value: rt.u64 = _2.value[0];
 		self.buf = _2.value[1];

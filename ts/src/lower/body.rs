@@ -15,6 +15,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	pub args: GenericArgsRef<'tcx>,
 	/// Every name in the function, so none shadows another.
 	names: FxHashSet<String>,
+	/// Which of the function's parameters are byte slices it takes as their parts, by
+	/// [`Translator::parted`], until its own body takes them.
+	pub parted: Vec<bool>,
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
@@ -23,6 +26,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			t,
 			args,
 			names: FxHashSet::default(),
+			parted: Vec::new(),
 		}
 	}
 
@@ -115,6 +119,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if let Some(class) = super::mir::coroutine::of_async_fn(self.t, instance, span) {
 				return Expr::New(Box::new(Expr::Sym(class)), values);
 			}
+			let parted = self.t.parted(instance);
+			let values = match parted.is_empty() {
+				true => values,
+				false => self.slice_args(values, &parted, out),
+			};
 			let sym = self.t.callee(instance, span);
 			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
@@ -218,6 +227,46 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// `values`, with each byte slice `parted` marks as its `data`, `start`, and `length`,
+	/// evaluated in the order `values` are: a slice made in place gives its parts, and a
+	/// path or a tuple's part is read three times, but anything else is held first, after
+	/// what comes before it.
+	fn slice_args(&mut self, values: Vec<Expr>, parted: &[bool], out: &mut Vec<Stmt>) -> Vec<Expr> {
+		let mut args: Vec<Expr> = Vec::with_capacity(values.len() + 2);
+		for (value, &parted) in values.into_iter().zip(parted) {
+			if !parted {
+				args.push(value);
+				continue;
+			}
+			let mut made = &value;
+			while let Expr::Located(_, e) | Expr::As(e, _) = made {
+				made = e;
+			}
+			if let Some(parts) = super::mir::made_slice(made) {
+				args.extend(parts.iter().cloned());
+				continue;
+			}
+			let slice = match &value {
+				Expr::Index(base, i) if base.is_path() && i.is_constant() => value,
+				_ if value.is_path() => value,
+				_ => {
+					for arg in &mut args {
+						if !arg.is_constant() {
+							let name = self.fresh("arg");
+							let value = std::mem::replace(arg, Expr::ident(&name));
+							out.push(StmtKind::decl(false, name, None, Some(value)).at(None));
+						}
+					}
+					let name = self.fresh("slice");
+					out.push(StmtKind::decl(false, name.clone(), None, Some(value)).at(None));
+					Expr::ident(name)
+				}
+			};
+			args.extend(["data", "start", "length"].map(|key| slice.clone().member(key)));
+		}
+		args
+	}
+
 	/// A function item as a value.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
@@ -232,7 +281,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if let Some(sym) = self.t.bound_fn(instance, span) {
 				return Expr::Sym(sym);
 			}
-			if self.t.lowers(instance) {
+			// One that takes byte slices as their parts is wrapped to take them whole.
+			if self.t.lowers(instance) && self.t.parted(instance).is_empty() {
 				return Expr::Sym(self.t.callee(instance, span));
 			}
 		}
