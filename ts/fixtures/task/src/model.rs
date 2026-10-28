@@ -79,7 +79,7 @@ impl Guard {
 	}
 
 	/// Log `event` as this guard's.
-	fn note(&self, event: &str) {
+	pub(crate) fn note(&self, event: &str) {
 		self.log.note(format!("g{} {event}", self.id));
 	}
 

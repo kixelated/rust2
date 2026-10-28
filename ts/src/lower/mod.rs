@@ -955,6 +955,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Waker
 					| library::Std::Context
 					| library::Std::Pin
+					| library::Std::PollFn
+					| library::Std::Pending
 					| library::Std::Range
 					| library::Std::RangeInclusive
 					| library::Std::Peekable
@@ -1223,6 +1225,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("Poll", vec![self.ty(args.type_at(0), span)])
 				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
+				library::Std::PollFn | library::Std::Pending => {
+					let output = self.future_output(Ty::new_adt(tcx, adt, args), span);
+					Type::Rt("Future", vec![self.ty(output, span)])
+				}
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeTo => Type::Object(vec![("end".into(), self.ty(args.type_at(0), span))]),

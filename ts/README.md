@@ -62,7 +62,7 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s and `Result`'s combinators, goes in a module under its crate's name, as
+`Option`'s, `Result`'s, and `Poll`'s methods, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
 
 | Rust | TypeScript |
@@ -93,6 +93,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
+| `pin!(x)`, `poll_fn(f)`, `future::pending()` | `x`; `rt.PollFn`, which drops `f` with itself; `rt.NEVER` |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
@@ -217,7 +218,7 @@ elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.
 runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
 panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
-function of its type's own (`drop$Held`). `Option`'s and `Result`'s combinators lower
+function of its type's own (`drop$Held`). `Option`'s, `Result`'s, and `Poll`'s methods lower
 from core's MIR, so they drop what core's do, where core's do. The runtime functions for
 std's collections, `Arc`, and the std functions that may discard an operand
 (`then_some`, a map's `insert`) take what drops each value they may drop, and drop it
@@ -234,7 +235,9 @@ own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields
 arguments and the locals held across an `.await`, and its `poll` resumes at the state it
 stopped in. A poll after the future returned panics, and dropping it cancels it,
 dropping what its state holds. `rt.spawn(future)` runs one as a promise, polling woken tasks in a batch from a
-microtask and yielding to a macrotask after 128 polls.
+microtask and yielding to a macrotask after 128 polls. `Waker::from(arc)`, of an `Arc` of
+the crate's `Wake` impl, is an `rt.ArcWaker`, which holds a count of the `Arc` and wakes
+through the impl, and `Waker::noop()` is `rt.NOOP_WAKER`.
 
 A file's items follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
@@ -512,7 +515,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   byte array overwritten whole through a type parameter, or, under its features, by std
   called directly or through a pointer a generic function calls.
 - `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+  functions and std's future helpers, with wakers of the crate's `Wake` impls, beside
+  values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
