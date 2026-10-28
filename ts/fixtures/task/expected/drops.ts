@@ -2153,7 +2153,9 @@ export function arcs(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 94;
 		_193 = true;
 		_194 = false;
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, max.value), (f: rt.Formatter) => rt.fmtPad(f, min.value)];
+		const _92: string = max.value;
+		const _96: string = min.value;
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _92), (f: rt.Formatter) => rt.fmtPad(f, _96)];
 		Log.note(log, rt.fmtFormat(["max ", args2[0], " min ", args2[1]]));
 		count("name", name);
 		count("other", other);

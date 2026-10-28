@@ -96,18 +96,21 @@ impl Callbacks for Export {
 			return Compilation::Stop;
 		};
 		let collected = collect::collect(tcx, &crates);
-		// Each rename, by the Rust path it names, which starts with its crate's name.
+		// Each rename, by the Rust path it names, which starts with its crate's name, after
+		// a field's `field@`.
 		let mut renames = BTreeMap::new();
 		for (report, package) in collected.reports.iter().zip(&self.crates) {
 			for (path, name) in self.items(&package.name).1 {
-				renames.insert(format!("{}::{path}", report.krate), name.clone());
+				let (field, path) = field(path);
+				renames.insert(format!("{field}{}::{path}", report.krate), name.clone());
 			}
 		}
 		let abi = Abi::new(&collected.api, &self.config.prefix(), &renames, &collected.instances);
 		for key in abi.unused_renames() {
+			let (field, key) = field(key);
 			let (krate, path) = key.split_once("::").expect("a rename starts with its crate");
 			tcx.dcx().err(format!(
-				"rust2-ffi: rename `{path}` in {} names nothing exported",
+				"rust2-ffi: rename `{field}{path}` in {} names nothing exported",
 				self.table(&collected, krate)
 			));
 		}
@@ -177,7 +180,10 @@ impl Callbacks for Export {
 							format!("rust2-ffi: {second} and {first} are both `{name}` in C"),
 						)
 						.with_span_note(*first_span, format!("{first} is here"))
-						.with_help("rename or exclude one in the config")
+						.with_help(match first.starts_with("field ") || second.starts_with("field ") {
+							true => "rename or exclude one in the config, a field by `field@` and its path",
+							false => "rename or exclude one in the config",
+						})
 						.emit();
 				}
 				if tcx.dcx().has_errors().is_some() {
@@ -311,4 +317,12 @@ pub fn write(path: &Path, text: &str) -> Result<(), String> {
 		std::fs::create_dir_all(dir).map_err(|err| format!("creating {}: {err}", dir.display()))?;
 	}
 	std::fs::write(path, text).map_err(|err| format!("writing {}: {err}", path.display()))
+}
+
+/// A config path's `field@`, if it names a field by it, and the path after it.
+fn field(path: &str) -> (&str, &str) {
+	match path.strip_prefix("field@") {
+		Some(path) => ("field@", path),
+		None => ("", path),
+	}
 }
