@@ -48,9 +48,9 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
-	/// `rt.Arc`, counted.
+	/// `rt.Arc`, counted: an `Arc` or an `Rc`, which one thread can't tell apart.
 	Arc,
-	/// `rt.Weak`.
+	/// `rt.Weak`, of either.
 	Weak,
 	/// `rt.Mutex`, which is also its own guard.
 	Mutex,
@@ -154,6 +154,8 @@ impl Std {
 		for (item, std) in [
 			(sym::Arc, Self::Arc),
 			(sym::ArcWeak, Self::Weak),
+			(sym::Rc, Self::Arc),
+			(sym::RcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
 			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
