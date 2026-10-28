@@ -144,9 +144,9 @@ int main() {
 	moq::waiter waiter = moq::waiter::new_(waker);
 	CHECK(driver.poll(moq::now(), waiter));
 	{
-		// A client publishes the origin through moq-net's generic `with_publisher`, which a
-		// consumer moves into.
-		moq::client publishing = moq::client::new_().with_publisher(origin.consume());
+		// A client publishes the origin through moq-net's generic `with_publisher`, at each
+		// type that implements its bound, by reference, so C++ keeps its handle.
+		moq::client publishing = moq::client::new_().with_publisher_producer(origin);
 		(void)publishing;
 	}
 	int before = wakes;
@@ -173,19 +173,21 @@ int main() {
 	CHECK(!truncated && !truncated.error().to_string().empty());
 
 	// A binary track the catalog lists, published through moq-mux's generic
-	// `binary_snapshot` at the config C++ builds.
+	// `binary_snapshot` at the config C++ builds, by a catalog at moq-mux's untyped
+	// extension, each instance named by the last segment of each argument.
 	{
 		moq::broadcast_producer publisher = moq::broadcast_info::new_().produce();
-		moq::catalog_config_extra extra = moq::catalog_config::default_().with_catalog(moq::hang_catalog::default_());
-		auto catalog = moq::catalog_producer::new_(publisher, std::move(extra));
+		moq::catalog_config_extra extra =
+		    moq::catalog_config::default_().with_catalog_extra(moq::hang_catalog_extra::default_());
+		auto catalog = moq::catalog_producer_extra::new_(publisher, std::move(extra));
 		CHECK(catalog);
 		auto state = publisher.create_track("state", std::nullopt);
 		CHECK(state);
-		auto snapshot = catalog->binary_snapshot(std::move(*state), moq::binary_config::default_());
+		auto snapshot = catalog->binary_snapshot_config(std::move(*state), moq::binary_config::default_());
 		CHECK(snapshot && is(snapshot->name(), "state"));
 		CHECK(snapshot->update("latest"));
 		int listed_state = 0;
-		CHECK(catalog->mutate([&](moq::hang_catalog &lent) {
+		CHECK(catalog->mutate([&](moq::hang_catalog_extra &lent) {
 			auto json = lent.to_json();
 			CHECK(json);
 			if (json && json.value().str().find("state") != std::string_view::npos) {

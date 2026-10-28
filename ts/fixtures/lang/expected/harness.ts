@@ -16,7 +16,7 @@ import { floats } from "./floats.ts";
 import { ints, strings, derived, written, counts, rounding, panics } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
-import { adaptors, consumers, skips, ranges, options, own, values } from "./iters.ts";
+import { adaptors, consumers, skips, ranked, ranges, options, own, values } from "./iters.ts";
 import { keys, overrides } from "./keys.ts";
 import { nested } from "./nested.ts";
 import { refs } from "./refs.ts";
@@ -81,7 +81,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		dyns(data23, out24);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["cells::cells", cells] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::shared", (_234: rt.u8, data24: rt.ByteSlice, out25: rt.ByteVec): void => {
 		shared(data24, out25);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["captures::captures", captures] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranked", ranked] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["captures::captures", captures] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 
 /** Run one case. */

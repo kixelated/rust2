@@ -233,10 +233,7 @@ fn main() {
 		pair == swapped
 	);
 	println!("even {} {}", pair.even(), Pair { left: 7u32, right: 7 }.even());
-	let sized = Pair {
-		left: Size { width: 1, height: 2 },
-		right: 3u8,
-	};
+	let sized = api_lib::tag(Size { width: 1, height: 2 }, 3);
 	let flipped = sized.swap();
 	println!("sized {} {} {flipped:?}", flipped.left, flipped.right.width);
 	let beside = Pair { left: 258u32, right: 9 }.beside(sized.left);
@@ -254,12 +251,34 @@ fn main() {
 	);
 	let from_point = Counter::seeded("p", Point { x: -3, y: 4 });
 	let from_size = Counter::seeded("s", Size { width: 5, height: 6 });
+	let from_counter = Counter::seeded("c", &from_point);
+	let from_polar = Counter::seeded("q", api_lib::polar::Point { turns: 1, distance: 2 });
 	println!(
-		"seeded {} {} past {} seeds {}",
+		"seeded {} {} {} {} past {} seeds {}",
 		from_point.get(),
 		from_size.get(),
-		stack.depth_past(Point { x: 1, y: 2 }),
-		api_lib::seeds::<Point>(Size { width: 2, height: 3 })
+		from_counter.get(),
+		from_polar.get(),
+		stack.depth_past(&Point { x: 1, y: 2 }),
+		api_lib::seeds::<Point>(&Size { width: 2, height: 3 })
+	);
+
+	println!("weigh {}", api_lib::weigh(Point { x: -1, y: 2 }));
+	let left = api_lib::Left {
+		value: api_lib::Right { value: 1u8 },
+	};
+	let right = api_lib::Right {
+		value: api_lib::Left { value: 2u8 },
+	};
+	println!(
+		"cross {} outer {}",
+		api_lib::cross(left, right),
+		api_lib::Outer::new(4).get()
+	);
+	println!(
+		"kept {} boxed {}",
+		api_lib::kept(Point { x: 1, y: -2 }),
+		api_lib::BOXED.value
 	);
 
 	let token = api_lib::Token::new(7);

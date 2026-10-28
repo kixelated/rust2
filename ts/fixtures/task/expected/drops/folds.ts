@@ -349,7 +349,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				rt.drop(captured118);
 			})), (g84: Guard.Guard): rt.u32 => {
 				return rt.u32Rem(Guard.id(g84), 3);
-			}, true, rt.drop);
+			}, rt.cmpLt(rt.cmp), true, rt.drop);
 			unwind = 624;
 			_1164 = true;
 			const _127: rt.Iter<Guard.Guard> = rt.iterSlice(guards(6, 8), rt.drop);
@@ -369,7 +369,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				}
 			}), (g86: Guard.Guard): rt.u32 => {
 				return rt.u32Add(Guard.id(g86), Guard.id(d));
-			}, true, rt.drop);
+			}, rt.cmpLt(rt.cmp), true, rt.drop);
 			unwind = 622;
 			_1163 = true;
 			_1164 = false;
@@ -435,7 +435,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 				}
 			}, (): void => {
 				rt.drop(captured113);
-			})), true);
+			})), rt.cmpLt(rt.cmp), true);
 			const _159: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 7), rt.drop);
 			_1146 = false;
 			const captured114 = trip;
