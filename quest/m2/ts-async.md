@@ -19,16 +19,14 @@ generators in Node, 1.8-5.5x in Bun, and 1.4-3.5x in Chrome, and past depth 1 fa
 than moq's hand-written promises. `rt.spawn` stays.
 
 std's future helpers translate: `Poll`'s methods, `pin!`, `poll_fn`, `future::pending`,
-`Waker::from(Arc<W>)`, and `Waker::noop`. What moq-net still needs, by its census from
-MIR at the pinned revision:
+`Waker::from(Arc<W>)`, and `Waker::noop`, and so do `Box::pin` and `dyn Future`. What
+moq-net still needs, by its census from MIR at the pinned revision:
 
-- `Box::pin` (29, a boxed future that binds to hand-written TS at the boundary, per the
-  [model](/quest/m2/ts-model/README.md)), and polling a `Pin<Box<dyn Future>>`.
-- Async closures.
+- Async closures, which only moq-net's tests write today.
 - kio's own API, reached across crates (`Pending`, `Consumer::poll`,
   `Waiter::poll_future`, `Tasks`), translates through
   [safe dependencies](/quest/m2/ts-model/crates.md), and kio's `RawWaker` vtable and
-  `Box<dyn Future>` tasks are [bindings](/ts/README.md#bindings).
+  `Box<dyn FnMut>` tasks are [bindings](/ts/README.md#bindings).
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a

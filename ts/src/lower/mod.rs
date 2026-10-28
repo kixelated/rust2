@@ -976,6 +976,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Its captures change through it, as a JS function's do.
 			ty::Closure(..) => Some(ObjectKind::Closure),
 			ty::Coroutine(..) => Some(ObjectKind::Class),
+			ty::Dynamic(..) if self.dyn_future(ty).is_some() => Some(ObjectKind::Class),
 			_ if self.deferred(ty) => Some(ObjectKind::Class),
 			_ => None,
 		}
@@ -1068,6 +1069,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
 			ty::Pat(base, _) => self.ty(*base, span),
 			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
+			ty::Dynamic(..) if let Some(output) = self.dyn_future(ty) => {
+				Type::Rt("Future", vec![self.ty(output, span)])
+			}
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
 				if preds
@@ -1524,6 +1528,17 @@ pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
 		ty::Never => "never".into(),
 		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
 		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
+		// By its trait and the types it binds, as `dyn_Future_u64`.
+		ty::Dynamic(preds, ..) => {
+			let principal = preds.principal().map(|p| p.skip_binder());
+			let args = principal.iter().flat_map(|p| p.args.types());
+			let bound = preds.projection_bounds().filter_map(|p| p.skip_binder().term.as_type());
+			std::iter::once("dyn".to_string())
+				.chain(principal.map(|p| tcx.item_name(p.def_id).to_string()))
+				.chain(args.chain(bound).map(|t| short_name(tcx, t)))
+				.collect::<Vec<_>>()
+				.join("_")
+		}
 		// By where it is defined, not by its span, which code above it moves.
 		ty::Closure(def_id, _) | ty::Coroutine(def_id, _) | ty::CoroutineClosure(def_id, _) | ty::FnDef(def_id, _) => {
 			def_name(tcx, *def_id)

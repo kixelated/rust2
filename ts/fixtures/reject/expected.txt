@@ -24,6 +24,7 @@ replacing the value behind a reference to `Meters` at fixtures/reject/src/lib.rs
 an assignment through a reference to `std::sync::Arc<u8>` at fixtures/reject/src/lib.rs:117:2
 `Poll<std::option::Option<std::task::Poll<u8>>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:121:20
 `Poll<std::task::Poll<u8>>` is not supported: it would be pending two ways with one value at fixtures/reject/src/lib.rs:126:54
+a coercion to `std::sync::Arc<dyn std::future::Future<Output = u8>>` at fixtures/reject/src/lib.rs:509:2
 an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:132:2
 an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:137:2
 unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:142:11

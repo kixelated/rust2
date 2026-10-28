@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A trait object in a function's suffix is named for its trait and the types it binds:
+  `show$dynstdfmtDebug` is `show$dyn_Debug`, and `poll$dyn_Future_u64` is a
+  `dyn Future<Output = u64>`'s.
 - `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
   `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
 - The runtime no longer exports `ownedNth`, `ownedNthBack`, `ownedSkip`, `ownedTake`, or

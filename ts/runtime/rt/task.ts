@@ -343,6 +343,35 @@ export class PollFn<T> implements Future<T> {
 	}
 }
 
+/**
+ * A `dyn Future` of a type whose `Future` impl is a function: each poll calls `poll` on
+ * `value`, which drops with it by `drop`, if it drops at all: a borrowed one does not.
+ */
+export class DynFuture<S, T> implements Future<T> {
+	readonly #value: S;
+	readonly #poll: (value: S, cx: Context) => Poll<T>;
+	readonly #drop: ((value: S) => void) | undefined;
+
+	constructor(value: S, poll: (value: S, cx: Context) => Poll<T>, drop?: (value: S) => void) {
+		this.#value = value;
+		this.#poll = poll;
+		this.#drop = drop;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#poll(this.#value, cx);
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop?.(this.#value);
+	}
+}
+
+/** `future.poll(cx)`: the `poll` of an `rt.DynFuture` over a future it borrows. */
+export function futurePoll<T>(future: Future<T>, cx: Context): Poll<T> {
+	return future.poll(cx);
+}
+
 /** `future::Pending`: never ready, and drops as nothing. */
 class Never implements Future<never> {
 	poll(): Poll<never> {
