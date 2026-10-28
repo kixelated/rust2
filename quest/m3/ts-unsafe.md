@@ -10,9 +10,10 @@ source instead of being bound by hand.
 ## Plan
 
 Decided with the maintainer on 2026-10-27: a dependency containing `unsafe` is bound by
-the consumer [at first](/ts/README.md#bindings); this follows once a consumer binds
-enough of them to justify it. The census of moq-net's model found `bytes`, `hashlink`,
-`slab`, and `smallvec` bound, and kio's lock-free `log`.
+the consumer [at first](/ts/README.md#bindings), and moq gives its own `unsafe` safe
+`cfg(rust2_ts)` twins. Both are stopgaps, since a stock crate should translate with no
+annotations or config; this quest is what retires them. The census of moq-net's model
+found `bytes`, `hashlink`, `slab`, and `smallvec` bound, and kio's lock-free `log`.
 
 - An `unsafe` operation outside the modeled set is refused with its span, as today.
 - Undefined behavior in Rust need not be reproduced, but a translated program never
