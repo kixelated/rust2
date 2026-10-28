@@ -229,6 +229,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 	run(&mut java(&["futures"]));
 	for (case, message) in [
 		("moved", "Counter is closed"),
+		("boxed moved", "Node is closed"),
 		("lent kept", "Counter is closed"),
 		(
 			"lent moved",
@@ -663,11 +664,21 @@ fn export_and_build(dir: &Path, args: &[&str]) {
 		String::from_utf8_lossy(&output.stderr)
 	);
 	std::fs::copy(dir.join("Cargo.lock"), out.join("Cargo.lock")).unwrap();
+	build_offline(&out, &dir.join("glue"));
+}
+
+/// Build the export in `out` offline from here, into `target`, once a fetch has brought
+/// the registry crates its manifest names, such as `bytes` and `jni-sys`, as any first
+/// build would: offline, the build shows it needs none of the config the check read.
+fn build_offline(out: &Path, target: &Path) {
+	run(cargo()
+		.args(["fetch", "--quiet", "--manifest-path"])
+		.arg(out.join("Cargo.toml")));
 	run(cargo()
 		.args(["build", "--quiet", "--offline", "--manifest-path"])
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
-		.arg(dir.join("glue")));
+		.arg(target));
 }
 
 /// Another export patched in for a registry dependency is bound by its resolved package,
@@ -915,9 +926,5 @@ fn config_patched() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 	// Built from here, where none of that config is read.
-	run(cargo()
-		.args(["build", "--quiet", "--offline", "--manifest-path"])
-		.arg(out.join("Cargo.toml"))
-		.arg("--target-dir")
-		.arg(root.join("glue")));
+	build_offline(&out, &root.join("glue"));
 }

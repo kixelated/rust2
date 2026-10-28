@@ -363,6 +363,11 @@ fun broken(which: String) {
 			c.intoLabel(null)
 			c.get()
 		}
+		"boxed moved" -> {
+			val tail = Node.new(1u, null)
+			Node.new(2u, tail)
+			tail.sum()
+		}
 		"lent moved" -> Registry.new(Counter.new("c", 0u)).edit { counter ->
 			counter.intoLabel(null)
 			false

@@ -435,12 +435,7 @@ impl<'a> Gen<'a> {
 					false => format!("{e}.handle.hold {{ {h} ->"),
 				});
 				// Taken by value, the value moves out, leaving the handle only to free.
-				let moved = match ty {
-					Type::Object(i) => !abi.api.objects[*i].copy,
-					Type::Option(inner) => matches!(**inner, Type::Object(i) if !abi.api.objects[i].copy),
-					_ => false,
-				};
-				if moved {
+				if moved(abi, ty) {
 					arg.after.push(match option {
 						true => format!("{e}?.close()"),
 						false => format!("{e}.close()"),
@@ -1551,6 +1546,16 @@ impl<'a> Gen<'a> {
 			lines.push(self.read_value(ok, r));
 		}
 		lines
+	}
+}
+
+/// Whether passing `ty` moves an object's value out: by value, boxed, or in an `Option`,
+/// unless `Copy`, and never through a reference.
+fn moved(abi: &Abi<'_>, ty: &Type) -> bool {
+	match ty {
+		Type::Object(i) => !abi.api.objects[*i].copy,
+		Type::Option(inner) | Type::Box(inner) => moved(abi, inner),
+		_ => false,
 	}
 }
 
