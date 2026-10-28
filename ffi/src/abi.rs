@@ -417,7 +417,11 @@ impl<'a> Abi<'a> {
 			.map(|r| r.span)
 			.or_else(|| api.objects.first().map(|o| o.span))
 			.unwrap_or(rustc_span::DUMMY_SP);
-		for runtime in ["contract", "buf", "buf_free", "duration", "waker", "poll"] {
+		// C's runtime, then what C++'s adds in the namespace its types share.
+		for runtime in [
+			"contract", "buf", "buf_free", "duration", "waker", "poll", "view", "result", "task", "future", "poll_t",
+			"detail",
+		] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}
 		for constant in ["CONTRACT", "POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
@@ -449,7 +453,8 @@ impl<'a> Abi<'a> {
 			let plain = e.plain();
 			if !plain {
 				self.claim(format!("{name}_tag"), what.clone(), e.span);
-				for variant in e.variants.iter().filter(|v| !v.fields.is_empty()) {
+				// Each variant's payload, which C++ names even when it has no fields.
+				for variant in &e.variants {
 					self.claim(format!("{name}_{}", snake(&variant.name)), what.clone(), e.span);
 				}
 			}
@@ -601,13 +606,108 @@ pub fn snake(name: &str) -> String {
 	out
 }
 
-/// A name that C would read as a keyword, with `_` appended.
+/// A name that C or C++, which includes the header, would read as a keyword, with `_`
+/// prepended.
 pub fn escape(name: &str) -> String {
 	const KEYWORDS: &[&str] = &[
-		"auto", "bool", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
-		"extern", "false", "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return",
-		"short", "signed", "sizeof", "static", "struct", "switch", "true", "typedef", "union", "unsigned", "void",
-		"volatile", "while", "out", "err", "future", "waker", "data",
+		"auto",
+		"bool",
+		"break",
+		"case",
+		"char",
+		"const",
+		"continue",
+		"default",
+		"do",
+		"double",
+		"else",
+		"enum",
+		"extern",
+		"false",
+		"float",
+		"for",
+		"goto",
+		"if",
+		"inline",
+		"int",
+		"long",
+		"register",
+		"restrict",
+		"return",
+		"short",
+		"signed",
+		"sizeof",
+		"static",
+		"struct",
+		"switch",
+		"true",
+		"typedef",
+		"union",
+		"unsigned",
+		"void",
+		"volatile",
+		"while",
+		"out",
+		"err",
+		"future",
+		"waker",
+		"data",
+		"alignas",
+		"alignof",
+		"and",
+		"and_eq",
+		"asm",
+		"bitand",
+		"bitor",
+		"catch",
+		"char8_t",
+		"char16_t",
+		"char32_t",
+		"class",
+		"compl",
+		"concept",
+		"consteval",
+		"constexpr",
+		"constinit",
+		"const_cast",
+		"co_await",
+		"co_return",
+		"co_yield",
+		"decltype",
+		"delete",
+		"dynamic_cast",
+		"explicit",
+		"export",
+		"friend",
+		"mutable",
+		"namespace",
+		"new",
+		"noexcept",
+		"not",
+		"not_eq",
+		"nullptr",
+		"operator",
+		"or",
+		"or_eq",
+		"private",
+		"protected",
+		"public",
+		"reinterpret_cast",
+		"requires",
+		"static_assert",
+		"static_cast",
+		"template",
+		"this",
+		"thread_local",
+		"throw",
+		"try",
+		"typeid",
+		"typename",
+		"using",
+		"virtual",
+		"wchar_t",
+		"xor",
+		"xor_eq",
 	];
 	// `out0`, `out1`, ... are a returned tuple's.
 	let out = name

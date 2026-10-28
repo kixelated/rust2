@@ -40,6 +40,17 @@ pub struct Label {
 	pub ttl: Option<Duration>,
 }
 
+/// A note whose text may be present but empty, which crosses as itself, not as none.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Note {
+	pub text: Option<String>,
+}
+
+/// Whether `note` has text, even empty.
+pub fn has_text(note: Note) -> bool {
+	note.text.is_some()
+}
+
 /// A plain enumeration.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Shape {
@@ -352,6 +363,21 @@ impl Channel {
 			payload => Ok(payload),
 		}
 	}
+}
+
+/// `value`, on its second poll: the first wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one.
+pub async fn yielded(value: u32) -> u32 {
+	let mut woken = false;
+	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
+		true => Poll::Ready(()),
+		false => {
+			cx.waker().wake_by_ref();
+			Poll::Pending
+		}
+	})
+	.await;
+	value
 }
 
 /// A time: an object, since its field is private, but `Copy`, so passing it by value
