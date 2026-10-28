@@ -28,11 +28,13 @@ Decided with the maintainer on 2026-10-28: moq-tokio starts a fallback runtime o
 use unless the caller supplies one. Each entry point and future that needs tokio runs in
 the caller's `Handle::try_current()`, else in that process-wide runtime. C gets no new
 names, a Rust caller inside tokio sees no change, and one outside gets a runtime instead
-of `NoRuntime`. That lands in moq, then a pin bump here.
+of `NoRuntime`. It landed in [moq-dev/moq#7123](https://github.com/moq-dev/moq/pull/7123);
+the pin bump brings it here.
 
 Public API: the C names moq's bindings get.
 
 ## Required
 
+- [Bump the moq pin past the fallback runtime](/quest/m1/moq-pin.md) - C reaches moq-tokio's fallback runtime
 - [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
 
