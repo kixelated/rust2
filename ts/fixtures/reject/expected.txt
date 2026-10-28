@@ -65,6 +65,7 @@ a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixt
 `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:475:4
 a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:491:26
 a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:501:30
+`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:507:12
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:139:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:159:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:193:2
