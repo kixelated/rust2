@@ -360,17 +360,12 @@ impl<'a> Gen<'a> {
 		}
 	}
 
-	/// The Kotlin expression passing `e` back to Rust, as a callback or closure returns it.
-	fn lower_ret(&mut self, ty: &Type, c: &Ty, e: &str) -> String {
+	/// The Kotlin expression passing `e` back to Rust, as a callback or closure returns it:
+	/// a scalar, as collect allows no other.
+	fn lower_ret(c: &Ty, e: &str) -> String {
 		match c {
-			Ty::Void | Ty::Bool | Ty::F32 | Ty::F64 | Ty::Char => e.to_string(),
 			Ty::Int(int) => to_signed(*int, e),
-			Ty::Enum(_) => format!("{e}.value"),
-			_ => {
-				let w = self.fresh("w");
-				let write = self.write_value(ty, &w, "it");
-				format!("{e}.let {{ val {w} = Native.Writer(); {write}; {w}.finish() }}")
-			}
+			_ => e.to_string(),
 		}
 	}
 
@@ -1100,9 +1095,7 @@ impl<'a> Gen<'a> {
 			Ty::Int(int) => format!("ret as {}", int.rust()),
 			Ty::F32 | Ty::F64 => "ret".to_string(),
 			Ty::Char => "ret as u32".to_string(),
-			Ty::Enum(_) => "ret".to_string(),
-			Ty::Handle { .. } => "ret as usize as _".to_string(),
-			_ => "rt::Reader::new(&rt::bytes(env, ret).unwrap_or_default()).get()".to_string(),
+			_ => unreachable!("a callback returns only scalars"),
 		};
 		let invoke = format!(
 			"let ret = unsafe {{ ((**env).v1_2.CallStatic{call_kind}MethodA)(env, rt::class(), id, args.as_ptr()) }};"
@@ -1118,7 +1111,7 @@ impl<'a> Gen<'a> {
 			None => "o".to_string(),
 		};
 		let result = format!("{call}({})", args.join(", "));
-		let lowered = self.lower_ret(ret, c_ret, &result);
+		let lowered = Self::lower_ret(c_ret, &result);
 		let ret_decl = match c_ret {
 			Ty::Void => String::new(),
 			_ => format!(": {ret_native}"),
