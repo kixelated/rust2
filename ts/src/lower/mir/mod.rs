@@ -1227,6 +1227,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
+	/// An `Option` this `Iterator::next` returns, as it returns it: the item, or
+	/// `rt.DONE` for `None`.
+	pub(super) fn done_of(&self, option: Expr) -> Expr {
+		let ty::Adt(_, args) = self.mir.return_ty().kind() else {
+			unreachable!("`next` returns an `Option`")
+		};
+		let none = self.b.t.none(args.type_at(0));
+		match option {
+			option if option == none => Expr::Rt("DONE".into()),
+			option => {
+				let none = self.b.t.none_arg(args.type_at(0));
+				Expr::rt("iterFromOption", [option].into_iter().chain(none).collect())
+			}
+		}
+	}
+
 	/// `value`, the `rvalue` assigned to `place`, as a value of its whole type where
 	/// something tests `place`'s variant or std takes it: TypeScript narrows a variable to
 	/// the type of what it was assigned, as a `Poll` made `Ready` to its payload's, and
@@ -2326,7 +2342,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				value
 			}
-			(true, _) => done_of(value),
+			(true, _) => self.done_of(value),
 		};
 		let effect = rvalue::effect(rvalue, self);
 		// A copy shared until it folds into its argument reads its source there.
@@ -3611,14 +3627,6 @@ fn redundant(msg: &mir::AssertMessage<'_>) -> bool {
 			| AssertKind::RemainderByZero(_)
 			| AssertKind::Overflow(BinOp::Div | BinOp::Rem | BinOp::Shl | BinOp::Shr, ..)
 	)
-}
-
-/// An `Option` as `Iterator::next` returns it: the item, or `rt.DONE` for `None`.
-pub fn done_of(option: Expr) -> Expr {
-	match option {
-		Expr::Lit(t) if t == "undefined" => Expr::Rt("DONE".into()),
-		option => Expr::rt("iterFromOption", vec![option]),
-	}
 }
 
 /// Whether `term` is an assert of a constant that fails.
