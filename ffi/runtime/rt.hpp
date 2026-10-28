@@ -118,7 +118,10 @@ public:
 // The bytes of a view, never null, so a view of none is told apart from a missing one.
 inline const ::std::uint8_t *bytes(const void *data, ::std::size_t len) noexcept {
 	static const ::std::uint8_t empty = 0;
-	return len == 0 || data == nullptr ? &empty : static_cast<const ::std::uint8_t *>(data);
+	if (data == nullptr && len != 0) {
+		fail("a view of null bytes has a length");
+	}
+	return len == 0 ? &empty : static_cast<const ::std::uint8_t *>(data);
 }
 
 } // namespace detail

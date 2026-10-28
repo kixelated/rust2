@@ -164,7 +164,8 @@ impl<'a> Header<'a> {
 			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("({e} ? {d}::access::raw(*{e}) : nullptr)"),
-				_ if Abi::is_buf(inner) => format!("({e} ? {d}::access::raw(*{e}) : {d}::none())"),
+				// Through a view, so an empty buffer C++ made crosses as `Some`, not as null.
+				_ if Abi::is_buf(inner) => format!("({e} ? {d}::access::raw(::{ns}::view(*{e})) : {d}::none())"),
 				_ => {
 					let c = abi.option(inner);
 					let value = self.lower(inner, &format!("(*{e})"));

@@ -123,6 +123,8 @@ int script() {
 	print("debug ", c.debug(), "\n");
 	api::label label = std::move(c).into_label(p);
 	print("label ", label.debug(), "\n");
+	// An empty buffer C++ made is not none.
+	std::printf("note %s %s\n", yes(api::has_text(api::note{api::buf()})), yes(api::has_text(api::note{})));
 
 	// A tuple returns through one out pointer per element.
 	auto [below, above] = api::counter::new_("s", 7).split(5);
@@ -489,6 +491,8 @@ int broken(const char *which) {
 		api::waker waker([]() {});
 		recv.poll(waker);
 		recv.poll(waker);
+	} else if (std::strcmp(which, "null view") == 0) {
+		api::len(api::view(nullptr, 1));
 	} else if (std::strcmp(which, "lent moved") == 0) {
 		api::registry registry = api::registry::new_(api::counter::new_("c", 0));
 		registry.edit([](api::counter &counter) {

@@ -133,6 +133,7 @@ fn api() {
 				"api_counter_into_label: a lent handle's value cannot move out",
 			),
 			("lent kept", "a lent object was moved out of"),
+			("null view", "a view of null bytes has a length"),
 		] {
 			let output = Command::new(&exe).arg(case).output().unwrap();
 			assert!(!output.status.success(), "{standard} {case} did not abort");

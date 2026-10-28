@@ -40,6 +40,17 @@ pub struct Label {
 	pub ttl: Option<Duration>,
 }
 
+/// A note whose text may be present but empty, which crosses as itself, not as none.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Note {
+	pub text: Option<String>,
+}
+
+/// Whether `note` has text, even empty.
+pub fn has_text(note: Note) -> bool {
+	note.text.is_some()
+}
+
 /// A plain enumeration.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Shape {
