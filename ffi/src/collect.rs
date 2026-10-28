@@ -2163,6 +2163,11 @@ impl<'tcx> Collector<'tcx> {
 					Type::Bytes
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
 					Type::Duration
+				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Waker"), did) {
+					match pos {
+						Pos::Param => Type::Waker,
+						_ => return Err(why("Waker outside a parameter taken by value", "")),
+					}
 				} else if tcx.lang_items().range_struct() == Some(did) {
 					Type::Range(int(args.type_at(0)).ok_or_else(|| why("Range", args.type_at(0).to_string()))?)
 				} else if Some(did) == self.bound {
