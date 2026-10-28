@@ -19,8 +19,8 @@ pub fn increment(v: &mut [u32]) {
 	}
 }
 
-/// `None` and `Some(None)` would both be `undefined`.
-pub fn nested(x: Option<Option<u8>>) -> bool {
+/// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
+pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
@@ -28,8 +28,24 @@ pub fn sorted(v: &mut [u8]) {
 	v.sort();
 }
 
+/// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
+/// of an `Option<()>`.
+pub struct Maybe<T> {
+	pub value: Option<T>,
+}
+
+pub fn generic_unit(value: Option<()>) -> bool {
+	Maybe { value }.value.is_some()
+}
+
+/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
+pub fn collected(v: &[u8]) -> Option<Vec<()>> {
+	v.iter().map(|&b| (b > 1).then_some(())).collect()
+}
+
+/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).next().is_some()
+	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -102,11 +118,6 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 /// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
 pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
-}
-
-/// `None` and `Some(Ready(()))` would both be `undefined`.
-pub fn ready_unit(p: Option<std::task::Poll<()>>) -> bool {
-	matches!(p, None)
 }
 
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
@@ -408,12 +419,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// `AddAssign` for a `Duration`, which has no mapping.
-pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
-	d += by;
-	d
-}
-
 /// std makes a `&mut` to a value JS copies, which its mapping has as the value.
 pub fn last_bumped(v: &mut Vec<u32>) {
 	if let Some(x) = v.last_mut() {
@@ -441,4 +446,23 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 /// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
 pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
+}
+
+pub struct Part(pub u64);
+
+impl std::iter::Sum<Part> for std::time::Duration {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		std::time::Duration::from_secs(parts.map(|p| p.0 * 2).sum())
+	}
+}
+
+impl std::iter::Sum<Part> for u64 {
+	fn sum<I: Iterator<Item = Part>>(parts: I) -> Self {
+		parts.map(|p| p.0 * 2).sum()
+	}
+}
+
+/// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
+pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
+	(a.into_iter().sum(), b.into_iter().sum())
 }

@@ -2,8 +2,9 @@
 //! width's arithmetic and casts, `char`s and the `str` methods over them, `Cow<str>`,
 //! `Duration`, control flow, patterns, byte slices split apart and passed as their
 //! parts, `Copy` aggregates, closures, traits, generic types, formatting, collections,
-//! `&mut` to values JS copies, the standard library calls it maps, and `Option`'s and
-//! `Result`'s combinators from core's MIR.
+//! `&mut` to values JS copies, the standard library calls it maps, `Option`'s and
+//! `Result`'s combinators from core's MIR, and `Option`s of values that can already be
+//! `undefined`.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -21,6 +22,7 @@ pub mod harness;
 mod ints;
 mod iters;
 mod keys;
+mod nested;
 mod refs;
 mod shapes;
 mod splits;

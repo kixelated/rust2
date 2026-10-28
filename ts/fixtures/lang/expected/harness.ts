@@ -13,6 +13,7 @@ import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast, convert } from "./ints.ts";
 import { adaptors, consumers, skips, ranges, options, own, values } from "./iters.ts";
 import { keys } from "./keys.ts";
+import { nested } from "./nested.ts";
 import { refs } from "./refs.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
@@ -27,7 +28,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _10: [rt.u8, rt.u8] = [input.data[input.start], input.data[input.start + 1]];
 	const op: rt.u8 = _10[0];
 	const kind: rt.u8 = _10[1];
-	const _14: rt.u8 = rt.u8Rem(op, 55);
+	const _14: rt.u8 = rt.u8Rem(op, 56);
 	if (_14 === 0) {
 		u8Op(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 1) {
@@ -146,12 +147,14 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	} else if (_14 === 49) {
 		splits(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 50) {
-		refs(input.data, input.start + 2, input.length - 2, out);
+		nested(kind, input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 51) {
-		counts(input.data, input.start + 2, input.length - 2, out);
+		refs(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 52) {
-		rounding(out);
+		counts(input.data, input.start + 2, input.length - 2, out);
 	} else if (_14 === 53) {
+		rounding(out);
+	} else if (_14 === 54) {
 		args(kind, input.data, input.start + 2, input.length - 2, out);
 	} else {
 		skips(kind, input.data, input.start + 2, input.length - 2, out);

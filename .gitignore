@@ -3,6 +3,7 @@
 *.local
 *.log*
 *.local.json
+rustc-ice-*.txt
 
 # Agent scratch space and worktrees.
 /.claude/cache/

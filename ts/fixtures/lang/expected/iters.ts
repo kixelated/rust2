@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$u8_u8 } from "./lib.ts";
-import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_options_closure3_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_options_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_shares_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_i64, unwrapOr$Option_u64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_made_closure0_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_iters_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -346,10 +346,10 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 	let item27!: [rt.u8, rt.u8] | undefined;
 	let item28!: Uint8Array | undefined;
 	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
-	const n: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
+	const n: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
 		return rt.usizeRem(_2 as rt.usize, 4);
 	});
-	const limit: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+	const limit: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 		return rt.usizeRem(_22 as rt.usize, 3);
 	});
 	const back: boolean = (kind & 1) === 1;
@@ -362,7 +362,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item = rt.iterNthBack(it, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item, 238, (_264: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item, 238, (_264: rt.u8): rt.u8 => {
 			return _264;
 		}));
 		rt.byteVecPush(out, rest.len() & 0xff);
@@ -375,7 +375,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item2 = rt.iterNthBack(it2, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item2, 238, (_268: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item2, 238, (_268: rt.u8): rt.u8 => {
 			return _268;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log));
@@ -389,7 +389,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item3 = rt.iterNthBack(it3, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item3, 238, (_261: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item3, 238, (_261: rt.u8): rt.u8 => {
 			return _261;
 		}));
 		rt.byteVecPush(out, rest2.len() & 0xff);
@@ -402,7 +402,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item4 = rt.iterNthBack(it4, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item4, 238, (_263: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item4, 238, (_263: rt.u8): rt.u8 => {
 			return _263;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log2));
@@ -414,7 +414,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item5 = rt.iterNthBack(it5, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item5, 238, (_255: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item5, 238, (_255: rt.u8): rt.u8 => {
 			return _255;
 		}));
 		rt.byteVecPush(out, rest3.len() & 0xff);
@@ -427,7 +427,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item6 = rt.iterNthBack(it6, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item6, 238, (_260: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item6, 238, (_260: rt.u8): rt.u8 => {
 			return _260;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log3));
@@ -440,7 +440,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item7 = rt.iterNthBack(it7, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item7, 238, (_252: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item7, 238, (_252: rt.u8): rt.u8 => {
 			return _252;
 		}));
 		rt.byteVecPush(out, rest4.len() & 0xff);
@@ -454,7 +454,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item8 = rt.iterNthBack(it8, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item8, 238, (_254: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item8, 238, (_254: rt.u8): rt.u8 => {
 			return _254;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log4));
@@ -468,7 +468,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item9 = rt.iterNthBack(it9, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item9, 238, (_245: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item9, 238, (_245: rt.u8): rt.u8 => {
 			return _245;
 		}));
 		rt.byteVecPush(out, rest5.len() & 0xff);
@@ -481,7 +481,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item10 = rt.iterNthBack(it10, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item10, 238, (_251: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item10, 238, (_251: rt.u8): rt.u8 => {
 			return _251;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log5));
@@ -493,7 +493,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item11 = rt.iterNthBack(it11, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item11, 238, (_240: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item11, 238, (_240: rt.u8): rt.u8 => {
 			return _240;
 		}));
 		rt.byteVecPush(out, rest6.len() & 0xff);
@@ -506,7 +506,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item12 = rt.iterNthBack(it12, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item12, 238, (_244: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item12, 238, (_244: rt.u8): rt.u8 => {
 			return _244;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log6));
@@ -522,7 +522,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item13 = rt.iterNthBack(it13, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item13, 238, (_233: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item13, 238, (_233: rt.u8): rt.u8 => {
 			return _233;
 		}));
 		rt.byteVecPush(out, rest7.len() & 0xff);
@@ -537,7 +537,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item14 = rt.iterNthBack(it15, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item14, 238, (_239: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item14, 238, (_239: rt.u8): rt.u8 => {
 			return _239;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log7));
@@ -549,7 +549,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item15 = rt.iterNthBack(it17, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item15, 238, (_230: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item15, 238, (_230: rt.u8): rt.u8 => {
 			return _230;
 		}));
 		rt.byteVecPush(out, rest8.len() & 0xff);
@@ -562,7 +562,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item16 = rt.iterNthBack(it18, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item16, 238, (_232: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item16, 238, (_232: rt.u8): rt.u8 => {
 			return _232;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log8));
@@ -574,7 +574,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item17 = rt.iterNthBack(it19, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item17, 238, (b18: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item17, 238, (b18: rt.u8): rt.u8 => {
 			return b18;
 		}));
 		rt.byteVecPush(out, rest9.len() & 0xff);
@@ -587,7 +587,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item18 = rt.iterNthBack(it20, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item18, 238, (b20: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item18, 238, (b20: rt.u8): rt.u8 => {
 			return b20;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log9));
@@ -599,7 +599,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item19 = rt.iterNthBack(it21, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item19, 238, (b15: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item19, 238, (b15: rt.u8): rt.u8 => {
 			return b15;
 		}));
 		rt.byteVecPush(out, rest10.len() & 0xff);
@@ -612,7 +612,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item20 = rt.iterNthBack(it22, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item20, 238, (b17: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item20, 238, (b17: rt.u8): rt.u8 => {
 			return b17;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log10));
@@ -649,7 +649,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item23 = rt.iterNthBack(it25, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item23, 238, (_217: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item23, 238, (_217: rt.u8): rt.u8 => {
 			return _217;
 		}));
 		rt.byteVecPush(out, rest12.len() & 0xff);
@@ -662,7 +662,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item24 = rt.iterNthBack(it26, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item24, 238, (_220: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item24, 238, (_220: rt.u8): rt.u8 => {
 			return _220;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log12));
@@ -675,7 +675,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item25 = rt.iterNthBack(it27, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item25, 238, (_212: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item25, 238, (_212: rt.u8): rt.u8 => {
 			return _212;
 		}));
 		rt.byteVecPush(out, rest13.len() & 0xff);
@@ -689,7 +689,7 @@ export function skips(kind: rt.u8, dataData: Uint8Array, dataStart: number, data
 		} else {
 			item26 = rt.iterNthBack(it28, n);
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(item26, 238, (_214: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(item26, 238, (_214: rt.u8): rt.u8 => {
 			return _214;
 		}));
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log13));
@@ -871,7 +871,7 @@ export function options(dataData: Uint8Array, dataStart: number, dataLen: number
 	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _83: (a0: rt.u8, a1: rt.ByteVec) => rt.u8 | undefined = (b2: rt.u8, calls2: rt.ByteVec): rt.u8 | undefined => {
 		rt.byteVecPush(calls2, b2);
-		return map$Option_u8_u8_options_closure3_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
+		return map$Option_u8_u8_made_closure0_closure0(rt.u8CheckedSub(b2, 1), (b3: rt.u8): rt.u8 => {
 			return rt.u8Div(b3, 2);
 		});
 	};
@@ -957,7 +957,7 @@ export function options(dataData: Uint8Array, dataStart: number, dataLen: number
 		if (_114 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_options_closure5(_114, 170, (b10: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_iters_closure3(_114, 170, (b10: rt.u8): rt.u8 => {
 			return b10;
 		}));
 	}

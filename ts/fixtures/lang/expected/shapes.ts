@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Option_Shape, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
-import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_shares_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
+import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_iters_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
 import { map$Result_u8_str_u8_library_closure1, mapErr$Result_u8_str_u8_library_closure2 } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
 import { advance, reset$Gauge } from "./generics.ts";
@@ -95,9 +95,9 @@ export function shape(dataData: Uint8Array, dataStart: number, dataLen: number):
 
 /** `Copy` aggregates: a copy changes apart from its original. */
 export function copies(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
-	let _211!: Uint8Array;
+	let _265!: Uint8Array;
 	let poll!: rt.Poll<Uint8Array>;
-	let _246!: rt.u8;
+	let _300!: rt.u8;
 	const p: Point.Point = Point.new(unwrapOr$Option_u8(rt.byteSliceFirst(new rt.ByteSlice(dataData, dataStart, dataLen)), 0) as rt.i32, 7);
 	const q: Point.Point = copy$Point(p);
 	q.x = rt.i32Add(q.x, 100);
@@ -143,6 +143,34 @@ export function copies(dataData: Uint8Array, dataStart: number, dataLen: number,
 	const both: [rt.u32, rt.u32] = [n, n];
 	n = 9;
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u32Add(rt.u32Add(both[0], both[1]), n))));
+	let s: string = "ab";
+	let t: string = "cde";
+	let x: Point.Point = p;
+	let y: Point.Point = q;
+	const _120: [rt.u8, rt.u8] = [dataLen & 0xff, 1];
+	let i: rt.u8 = _120[0];
+	let j: rt.u8 = 1;
+	const _125: rt.usize = rt.usizeRem(dataLen, 3);
+	let iterStart: rt.usize = 0;
+	const iterEnd: rt.usize = _125;
+	while (iterStart++ < iterEnd) {
+		const _135: string = t;
+		const _136: string = s;
+		s = _135;
+		t = _136;
+		const _140: Point.Point = y;
+		const _141: Point.Point = x;
+		x = _140;
+		y = _141;
+		const _144: [rt.u8, rt.u8] = [j, i];
+		const _142: rt.u8 = _144[0];
+		const _143: rt.u8 = _144[1];
+		i = _142;
+		j = _143;
+		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+		rt.byteVecPush(out, (x.x & 0xff) ^ i);
+	}
+	rt.byteVecPush(out, (rt.stringLen(t) & 0xff) ^ (y.y & 0xff) ^ j);
 	const word: Uint8Array = Uint8Array.of(0, 0, 0, dataLen & 0xff);
 	const converted: rt.u32 = rt.u32FromBeBytes(word);
 	word[0] = 9;
@@ -182,24 +210,24 @@ export function copies(dataData: Uint8Array, dataStart: number, dataLen: number,
 			shape_.width = 6;
 		}
 	}
-	const _202: Shape.Shape = copy$Shape(shape_);
-	const iter2: rt.Iter<Shape.Shape> = rt.iterSlice([copy$Shape(before), _202]);
+	const _256: Shape.Shape = copy$Shape(shape_);
+	const iter3: rt.Iter<Shape.Shape> = rt.iterSlice([copy$Shape(before), _256]);
 	while (true) {
-		const _204: Shape.Shape | rt.Done = iter2.next();
-		if (_204 === rt.DONE) {
+		const _258: Shape.Shape | rt.Done = iter3.next();
+		if (_258 === rt.DONE) {
 			break;
 		}
-		const shape2: Shape.Shape = _204;
+		const shape2: Shape.Shape = _258;
 		if (shape2.tag === "Dot") {
-			_211 = rt.bytes(3);
+			_265 = rt.bytes(3);
 		} else if (shape2.tag === "Line") {
 			const from: Point.Point = shape2._0;
-			_211 = Uint8Array.of(1, from.x & 0xff, from.y & 0xff);
+			_265 = Uint8Array.of(1, from.x & 0xff, from.y & 0xff);
 		} else {
 			const corner: Point.Point = shape2.corner;
-			_211 = Uint8Array.of(corner.x & 0xff, corner.y & 0xff, shape2.width & 0xff);
+			_265 = Uint8Array.of(corner.x & 0xff, corner.y & 0xff, shape2.width & 0xff);
 		}
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(_211));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(_265));
 	}
 	if (rt.usizeRem(dataLen, 2) === 0) {
 		poll = rt.Pending as rt.Poll<Uint8Array>;
@@ -211,20 +239,20 @@ export function copies(dataData: Uint8Array, dataStart: number, dataLen: number,
 		const bytes: rt.ByteSlice = rt.byteSliceFrom(poll);
 		bytes.data[bytes.start] = 9;
 	}
-	const _239: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
-	const iter3: rt.Iter<rt.Poll<Uint8Array>> = rt.iterSlice([copy$Poll_u8s(polled_), _239]);
+	const _293: rt.Poll<Uint8Array> = copy$Poll_u8s(poll);
+	const iter4: rt.Iter<rt.Poll<Uint8Array>> = rt.iterSlice([copy$Poll_u8s(polled_), _293]);
 	while (true) {
-		const _241: rt.Poll<Uint8Array> | rt.Done = iter3.next();
-		if (_241 === rt.DONE) {
+		const _295: rt.Poll<Uint8Array> | rt.Done = iter4.next();
+		if (_295 === rt.DONE) {
 			break;
 		}
-		const poll2: rt.Poll<Uint8Array> = _241;
+		const poll2: rt.Poll<Uint8Array> = _295;
 		if (poll2 !== rt.Pending) {
-			_246 = poll2[0];
+			_300 = poll2[0];
 		} else {
-			_246 = 255;
+			_300 = 255;
 		}
-		rt.byteVecPush(out, _246);
+		rt.byteVecPush(out, _300);
 	}
 	shares(dataData, dataStart, dataLen, out);
 	unwritten(dataData, dataStart, dataLen, out);
@@ -391,7 +419,7 @@ export function shares(dataData: Uint8Array, dataStart: number, dataLen: number,
 		const bytes: Uint8Array = Uint8Array.of(a, 1);
 		rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
 		rt.byteVecPush(out, bytes[0]);
-		const at: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+		const at: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 			return rt.usizeRem(_22 as rt.usize, 3);
 		});
 		rt.byteVecPush(out, writeAt(rt.byteSliceFrom(bytes), at, a));

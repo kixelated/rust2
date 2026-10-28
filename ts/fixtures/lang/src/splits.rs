@@ -95,6 +95,14 @@ pub fn splits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out.push(pair.1[0]);
 			}
 			out.extend_from_slice(pair.0);
+			// Two variables swapped through a tuple, which reads each before either changes.
+			let (mut a, mut b) = data.split_at(data.len() / 2);
+			for _ in 0..data.len() % 3 {
+				(a, b) = (b, a);
+				out.push(opaque(a));
+			}
+			out.push(a.len() as u8);
+			out.push(opaque(b));
 		}
 		5 => {
 			let mut rest = data;

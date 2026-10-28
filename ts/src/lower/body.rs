@@ -129,8 +129,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
-				self.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
-				return Expr::rt("iterToOption", vec![call]);
+				let option = tcx.instantiate_bound_regions_with_erased(sig).output();
+				self.t.ty(option, span);
+				let ty::Adt(_, option_args) = option.kind() else {
+					unreachable!("`next` returns an `Option`")
+				};
+				let none = self.t.none_arg(option_args.type_at(0));
+				return Expr::rt("iterToOption", [call].into_iter().chain(none).collect());
 			}
 			return call;
 		}
