@@ -616,3 +616,23 @@ pub fn grow(area: &dep::Area, by: u32) -> dep::Area {
 		height: size.height + by,
 	})
 }
+
+/// A slot whose method `value` only `Slot<u8>` has, so its path alone names `Slot<u32>`'s
+/// field and `Slot<u8>`'s method. Not exhaustive, so an object with getters.
+#[non_exhaustive]
+pub struct Slot<T> {
+	pub value: T,
+}
+
+impl<T> Slot<T> {
+	pub fn new(value: T) -> Self {
+		Self { value }
+	}
+}
+
+impl Slot<u8> {
+	/// The value widened and doubled, apart from the field.
+	pub fn value(&self) -> u16 {
+		u16::from(self.value) * 2
+	}
+}

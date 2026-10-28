@@ -353,6 +353,9 @@ static int script(void) {
 	api_option_u32 limit = api_retry_limit_setting(retry);
 	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
 	api_retry_free(retry);
+	api_byte_slot *slot = api_byte_slot_new(200);
+	printf("slot %u\n", api_byte_slot_value(slot));
+	api_byte_slot_free(slot);
 	/* Each future dropped its waker once it finished. */
 	return drops == 4 ? 0 : 1;
 }

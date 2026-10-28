@@ -251,4 +251,5 @@ fn main() {
 		retry.limit(),
 		retry.delay()
 	);
+	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
 }

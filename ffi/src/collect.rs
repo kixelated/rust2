@@ -1173,6 +1173,7 @@ impl<'tcx> Collector<'tcx> {
 	fn getters(&mut self, site: &Site<'tcx>) -> Vec<Function> {
 		let tcx = self.tcx;
 		let mut getters = Vec::new();
+		let self_ty = self.site_ty(site);
 		for field in &tcx.adt_def(site.key.def_id).non_enum_variant().fields {
 			if !field.vis.is_public() {
 				continue;
@@ -1180,12 +1181,16 @@ impl<'tcx> Collector<'tcx> {
 			let name = field.name.to_string();
 			let shown = [&site.shown[..], std::slice::from_ref(&name)].concat();
 			// As in rustdoc, `field@` and the path name the field, and the path alone does
-			// unless a method or constant takes the name, which it then names.
+			// unless a method or constant of this instance takes the name, which it then names.
 			let shared = (tcx.inherent_impls(site.key.def_id).iter())
-				.flat_map(|&imp| tcx.associated_items(imp).filter_by_name_unhygienic(field.name))
-				.any(|item| {
+				.filter_map(|&imp| Some((imp, self.impl_args(imp, self_ty)?)))
+				.flat_map(|(imp, parent)| {
+					(tcx.associated_items(imp).filter_by_name_unhygienic(field.name)).map(move |item| (item, parent))
+				})
+				.any(|(item, parent)| {
 					matches!(item.kind, ty::AssocKind::Fn { .. } | ty::AssocKind::Const { .. })
 						&& tcx.visibility(item.def_id).is_public()
+						&& self.applies(item.def_id, parent)
 				});
 			let mut key = shown.clone();
 			key[1].insert_str(0, "field@");
