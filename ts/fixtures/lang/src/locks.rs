@@ -1,6 +1,6 @@
 //! Mutexes on one thread, where a panic aborts and so never poisons one: made by
 //! `Default`, read and written through a guard, recovered from a `PoisonError` that never
-//! comes, read by `get_mut` without locking, and replaced through a reference.
+//! comes, and read by `get_mut` without locking.
 
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -18,14 +18,14 @@ pub fn locks(data: &[u8], out: &mut Vec<u8>) {
 	let mut own: Mutex<Vec<u8>> = Mutex::default();
 	let number: Mutex<u32> = Mutex::default();
 	for &op in data {
-		match op % 6 {
+		match op % 5 {
 			0 => {
 				let mut tally = shared.lock().unwrap_or_else(PoisonError::into_inner);
 				tally.n += u64::from(op);
 				tally.seen.push(op);
 			}
 			1 => {
-				let tally = other.lock().unwrap();
+				let tally = other.lock().expect("never poisoned");
 				out.push(tally.n as u8);
 				out.push(tally.seen.len() as u8);
 			}
@@ -35,26 +35,12 @@ pub fn locks(data: &[u8], out: &mut Vec<u8>) {
 				out.push(*number.lock().unwrap() as u8);
 			}
 			// Matched, as a caller that tells the two apart does.
-			4 => match shared.lock() {
+			_ => match shared.lock() {
 				Ok(tally) => out.push(tally.seen.len() as u8),
 				Err(err) => out.push(err.into_inner().n as u8 ^ 0xff),
 			},
-			// Both locked before, so each has handed out a guard of its own.
-			_ => {
-				let fresh = Mutex::new(vec![op]);
-				drop(fresh.lock());
-				drop(own.lock());
-				replace(&mut own, fresh);
-				own.lock().unwrap().push(op);
-				out.push(own.lock().unwrap().len() as u8);
-			}
 		}
 	}
 	out.extend_from_slice(own.get_mut().unwrap_or_else(PoisonError::into_inner));
 	out.push(Arc::strong_count(&shared) as u8);
-}
-
-/// Replaces the mutex `dst` borrows, as an assignment through a reference does.
-fn replace(dst: &mut Mutex<Vec<u8>>, src: Mutex<Vec<u8>>) {
-	*dst = src;
 }

@@ -160,8 +160,6 @@ export function weakClone<T>(weak: Weak<T>): Weak<T> {
  */
 export class Mutex<T> implements Disposable {
 	value: T;
-	/** `Ok` of its guard, which every lock returns rather than make one. */
-	ok: { readonly ok: true; readonly value: Mutex<T> } | undefined;
 
 	constructor(value: T) {
 		this.value = value;
@@ -170,19 +168,6 @@ export class Mutex<T> implements Disposable {
 	[Symbol.dispose](): void {
 		drop(this.value);
 	}
-}
-
-/** `Mutex::lock`: `Ok` of its guard, the mutex itself. */
-export function mutexLock<T>(m: Mutex<T>): Result<Mutex<T>, Mutex<T>> {
-	// Frozen, as nothing can change it: a guard can't be assigned through a reference. A
-	// mutex replaced in place by another, through `Object.assign`, has the other's.
-	if (m.ok?.value !== m) m.ok = Object.freeze({ ok: true, value: m });
-	return m.ok;
-}
-
-/** `Mutex::get_mut`: `Ok` of its value. */
-export function mutexGetMut<T>(m: Mutex<T>): Result<T, T> {
-	return Ok(m.value);
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would

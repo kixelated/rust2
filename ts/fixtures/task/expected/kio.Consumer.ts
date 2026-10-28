@@ -25,7 +25,7 @@ export class Consumer {
 
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	const state: rt.Mutex<State.State> = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug);
+	const state: rt.Mutex<State.State> = self.state.value;
 	if (!(self.next < state.value.queue.length)) {
 		if (!state.value.closed) {
 			Waiter.register(waiter, state.value.waiters);

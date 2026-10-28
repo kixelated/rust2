@@ -291,7 +291,7 @@ export function unwritten(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Adds one to what `slot` holds. */
 export function bump(slot: rt.Mutex<rt.u8>): void {
-	const held: rt.Mutex<rt.u8> = rt.resultUnwrap(rt.mutexLock(slot), rt.fmtPoisonErrorDebug);
+	const held: rt.Mutex<rt.u8> = slot;
 	const _4: rt.u8 = rt.u8WrappingAdd(held.value, 1);
 	held.value = _4;
 }
@@ -399,11 +399,11 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 			flow = rt.Err(arc);
 		}
 		rt.byteVecPush(out, sameArc(flow, arc));
-		const _143: rt.Mutex<rt.u8> = rt.resultUnwrap(rt.mutexLock(slot), rt.fmtPoisonErrorDebug);
+		const _143: rt.Mutex<rt.u8> = slot;
 		unwind = 116;
 		rt.byteVecPush(out, _143.value);
 		unwind = 117;
-		const _150: rt.Mutex<rt.u8> = rt.resultUnwrap(rt.mutexLock(other), rt.fmtPoisonErrorDebug);
+		const _150: rt.Mutex<rt.u8> = other;
 		unwind = 115;
 		rt.byteVecPush(out, _150.value);
 		unwind = 117;
@@ -2275,7 +2275,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
 	for (const x2 of rt.byteSliceView(data)) {
-		const held: rt.Mutex<rt.u8 | undefined> = rt.resultUnwrap(rt.mutexLock(slot), rt.fmtPoisonErrorDebug);
+		const held: rt.Mutex<rt.u8 | undefined> = slot;
 		const _133: rt.u8 | undefined = held.value;
 		b16: {
 			if (_133 !== undefined) {
@@ -2290,7 +2290,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			held.value = x2;
 		}
 	}
-	rt.byteVecPush(out, unwrapOr$Option_u8(rt.resultUnwrap(rt.mutexLock(slot), rt.fmtPoisonErrorDebug).value, 252));
+	rt.byteVecPush(out, unwrapOr$Option_u8(slot.value, 252));
 }
 
 //# sourceMappingURL=shapes.ts.map

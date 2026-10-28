@@ -166,6 +166,11 @@ export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debu
 	return r.value;
 }
 
+/** `Result::unwrap_or_else`: the value, or what `f` makes of the error. */
+export function resultUnwrapOrElse<T, E>(r: Result<T, E>, f: (error: E) => T): T {
+	return r.ok ? r.value : f(r.error);
+}
+
 /** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
 export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (value: T) => void): E {
 	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug, drop);

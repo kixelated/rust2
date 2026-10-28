@@ -353,7 +353,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_380 = false;
 			rt.arcDrop(arc2, drop$Mutex_Held);
 			check(2);
-			const _327: rt.Mutex<Held.Held> = rt.resultUnwrap(rt.mutexLock(other.value), rt.fmtPoisonErrorDebug);
+			const _327: rt.Mutex<Held.Held> = other.value;
 			unwind = 191;
 			const held2: boolean = Held.isSome(_327.value);
 			unwind = 192;

@@ -25,12 +25,12 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug).value.push(event);
+	self._0.value.value.push(event);
 }
 
 /** Every event so far, one per line. */
 export function text(self: Log): rt.ByteVec {
-	const events: rt.Mutex<string[]> = rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug);
+	const events: rt.Mutex<string[]> = self._0.value;
 	const out: rt.ByteVec = new rt.ByteVec();
 	const iter: rt.Iter<string> = rt.iterSlice(events.value);
 	while (true) {

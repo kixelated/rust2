@@ -507,13 +507,17 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			&& t.self_ty(instance)
 				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
 	}
+	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
+	let lock = std == Std::Result
+		&& name.as_str() == "unwrap_or_else"
+		&& matches!(instance.args.type_at(1).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::PoisonError));
 	!matches!(
 		(std, name.as_str()),
 		(
 			Std::Option,
 			"unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter"
 		) | (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
-	)
+	) && !lock
 }
 
 pub struct Call<'tcx> {
