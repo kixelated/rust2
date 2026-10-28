@@ -1,0 +1,366 @@
+// The api fixture's Kotlin test: the script fixtures/api/examples/transcript.rs runs
+// natively, through the generated Kotlin. tests/fixtures.rs compares the transcripts.
+//
+// With an argument, it instead checks the futures' semantics, or breaks a contract, which
+// must fail.
+
+import api.*
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executor
+import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+
+// The Log callback: keeps even levels.
+class PrintLog : Log, AutoCloseable {
+	override fun log(level: UByte, line: String): Boolean {
+		println("log $level $line")
+		return level.toInt() % 2 == 0
+	}
+
+	// Rust closes it once it drops the implementation.
+	override fun close() = println("freed")
+}
+
+fun bound(b: BoundU64): String = when (b.kind) {
+	Bound.INCLUDED -> "Included(${b.value})"
+	Bound.EXCLUDED -> "Excluded(${b.value})"
+	Bound.UNBOUNDED -> "Unbounded"
+}
+
+fun script() {
+	println("limit $LIMIT")
+
+	val p = Point(1, 2).offset(2, 3)
+	println("offset ${p.x} ${p.y}")
+	println("debug ${p.debug()}")
+	println("eq ${p == Point(3, 5)}")
+	val d = Point.default()
+	println("default ${d.x} ${d.y}")
+
+	val c = Counter.new("c", 5u)
+	println("get ${c.get()}")
+	println("name ${c.name()}")
+	println("add ok ${c.add(10u)}")
+	try {
+		c.add(2000u)
+	} catch (e: ErrorException) {
+		println("add err ${e.message} ${e.error.debug()}")
+	}
+	try {
+		c.sub(20u)
+	} catch (e: ErrorException) {
+		println("sub err ${e.message} ${e.error.debug()}")
+	}
+	c.rename("d")
+	println("name ${c.name()}")
+	println("is d ${c.`is`("d")}")
+	c.clone().use { copy ->
+		copy.add(1u)
+		println("clone ${copy.get()} original ${c.get()}")
+	}
+	println("debug ${c.debug()}")
+	val label = c.intoLabel(p)
+	println("label ${label.debug()}")
+	println("note ${hasText(Note(""))} ${hasText(Note(null))}")
+
+	val (below, above) = Counter.new("s", 7u).split(5u)
+	println("split ${below.name()} ${below.get()} ${above.name()} ${above.get()}")
+	val only = only(Counter.new("o", 3u))
+	println("only ${only.name()} ${only.get()}")
+	for (b in listOf(2uL, 0uL)) {
+		try {
+			val (q, r) = divide(7u, b)
+			println("divide $q $r")
+		} catch (e: ErrorException) {
+			println("divide err ${e.message}")
+		}
+	}
+
+	// Each lent counter is a new handle to a clone.
+	val registry = Registry.new(Counter.new("first", 1u))
+	println("last ${registry.last() != null}")
+	registry.push(Counter.new("last", 2u))
+	val first = registry.first
+	first.add(10u)
+	println("first ${registry.first.get()} lent ${first.get()}")
+	val last = registry.last()!!
+	last.add(10u)
+	println("last ${registry.last()!!.get()} lent ${last.get()}")
+	// A closure lent for the call edits the first counter through a handle.
+	val by = 5uL
+	val edited = registry.edit { counter ->
+		counter.add(by)
+		counter.edited() && counter.get() == 6uL
+	}
+	println("edit $edited ${registry.first.get()}")
+	println("walk ${walk(3u) { cursor -> cursor.at() * 2u }}")
+	println("offset ${offset({ 7u }, 3u)}")
+
+	val name = Name.owned("a")
+	val joined = name.join(Name.owned("b"))
+	println("joined ${joined.asStr()} ${joined.debug()} ${joined == name}")
+	joined.rename("c")
+	println("renamed ${joined.asStr()}")
+	val long = longer(joined, Name.owned("dd"))
+	println("longer ${long.asStr()}")
+	println("unnamed [${unnamed().asStr()}]")
+
+	println("total ${total(RangeU64(2u, 5u))}")
+	val wide = widen(RangeU64(2u, 5u), 1u)
+	println("widen ${wide.start} ${wide.end}")
+	val counts = listOf(
+		BoundsU64(BoundU64(Bound.INCLUDED, 2u), BoundU64(Bound.EXCLUDED, 5u)),
+		BoundsU64(BoundU64(Bound.INCLUDED, 2u), BoundU64(Bound.INCLUDED, 5u)),
+		BoundsU64(BoundU64(Bound.INCLUDED, 3u), BoundU64(Bound.UNBOUNDED, 0u)),
+		BoundsU64(BoundU64(Bound.UNBOUNDED, 0u), BoundU64(Bound.UNBOUNDED, 0u)),
+		BoundsU64(BoundU64(Bound.EXCLUDED, 2u), BoundU64(Bound.INCLUDED, 4u)),
+	).map { count(it) }
+	println("count ${counts.joinToString(" ")}")
+	println("end ${bound(end(3u))} ${bound(end(0u))}")
+	val window = Window(RangeU64(2u, 8u), end(5u))
+	println("window ${window.contains(4u)} ${window.contains(6u)} ${window.debug()}")
+
+	println(greet("x", Shape.SQUARE))
+	println("len ${len("abc".encodeToByteArray())}")
+	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
+		println(describe(event))
+	}
+
+	// A `Copy` handle passed by value is copied, so it stays usable.
+	val stamp = Stamp.fromMillis(2500u)
+	println("secs ${stamp.secs()}")
+	println("later ${Stamp.fromMillis(3000u).later(stamp)}")
+	println("secs ${stamp.secs()}")
+	val message = Message.new(stamp, "body".encodeToByteArray())
+	println("payload ${message.payload.decodeToString()}")
+	println("stamp ${message.stamp!!.debug()}")
+	println("sent ${message.sent()}")
+
+	println("kept ${emit(PrintLog(), byteArrayOf(1, 2, 3, 4))}")
+	Logger.new(PrintLog()).use { logger -> println("write ${logger.write("hi")}") }
+	println("dropped")
+	// Rust calls it on another thread, before the call returns.
+	val threshold = 2
+	val kept = filter(byteArrayOf(1, 2, 3, 4)) { level, line ->
+		println("filter $level $line")
+		level.toInt() > threshold
+	}
+	println("filtered $kept")
+
+	val channel = Channel.new()
+	var wakes = 0
+	val waker = Waker { wakes++ }
+	// On a dispatcher the script drains, so it sees the receive pend and its wake queue
+	// the resume.
+	val q = Queue()
+	var got: ByteArray? = null
+	CoroutineScope(q.asCoroutineDispatcher()).launch { got = channel.recv() }
+	q.drain()
+	println("recv pending ${got == null}")
+	channel.send("hi".encodeToByteArray())
+	wakes += q.size
+	println("woken $wakes")
+	q.drain()
+	println("recv ${got!!.decodeToString()}")
+	runBlocking {
+		channel.send(byteArrayOf())
+		try {
+			println("nonempty ${channel.recvNonempty().size}")
+		} catch (e: ErrorException) {
+			println("nonempty err ${e.message}")
+		}
+		// The send happens at the call: the future is dropped unawaited.
+		channel.sendLater("eager".encodeToByteArray())
+		println("recv ${channel.recv().decodeToString()}")
+		channel.send("sized".encodeToByteArray())
+		val (payload, size) = channel.recvSized()
+		println("sized ${payload.decodeToString()} $size")
+	}
+	// The waker moves into Rust, which keeps it until the send wakes it.
+	channel.notify(waker)
+	channel.send("rung".encodeToByteArray())
+	println("woken $wakes")
+
+	val list = Node.new(1u, null)
+	list.push(2u)
+	println("node ${list.sum()}")
+
+	val tally = Tally.new()
+	tally.bump()
+	println("tally ${tally.bump()} ${tally == tally}")
+	println("both ${bumpBoth(tally, tally)}")
+	println("peek ${peek(tally) { lent -> lent.bump() }}")
+
+	val area = grow(Area.new(Size(2u, 3u)), 1u)
+	val size = area.size()
+	println("area ${size.width} ${size.height} ${area.pixels()}")
+
+	val pair = Pair(2u, 5u)
+	val swapped = pair.swap()
+	println("pair ${swapped.left} ${swapped.right} sum ${pair.sum()} ${pair.debug()} ${pair == swapped}")
+	println("even ${pair.even()} ${Pair(7u, 7u).even()}")
+	val sized = SizePair(Size(1u, 2u), 3u)
+	val flipped = sized.swap()
+	println("sized ${flipped.left} ${flipped.right.width} ${flipped.debug()}")
+	val beside = Pair(258u, 9u).beside(sized.left)
+	println("beside ${beside.left} ${beside.debug()}")
+	val stack = Counters.new()
+	for ((i, n) in listOf("a", "b").withIndex()) {
+		stack.push(Counter.new(n, i.toULong() + 1u))
+	}
+	val top = stack.pop()!!.get()
+	println("stack ${stack.depth()} Some($top) ${stack.pop() != null} ${stack.pop() == null}")
+	val fromPoint = Counter.seededPoint("p", Point(-3, 4))
+	val fromSize = Counter.seededSize("s", Size(5u, 6u))
+	println(
+		"seeded ${fromPoint.get()} ${fromSize.get()} past ${stack.depthPastPoint(Point(1, 2))} seeds ${seeds(Size(2u, 3u))}",
+	)
+
+	// Its Drop runs when Kotlin closes the handle, not before.
+	val token = Token.new(7u)
+	println("token ${token.id} dropped ${dropped()}")
+	token.close()
+	println("dropped ${dropped()}")
+
+	// A field and the method of its name, each its own member.
+	val retry = Retry.new(5u)
+	val limit = retry.limitSetting
+	println("retry ${if (limit != null) 1 else 0} ${limit ?: 0u} ${retry.limit()} ${retry.delay()}")
+	println("slot ${ByteSlot.new(200u).value()}")
+}
+
+fun check(ok: Boolean, what: String) {
+	if (!ok) {
+		System.err.println("failed: $what")
+		kotlin.system.exitProcess(1)
+	}
+}
+
+// A queue of jobs that a test runs when it chooses: the dispatcher coroutines resume on.
+class Queue : Executor {
+	private val jobs = ConcurrentLinkedQueue<Runnable>()
+
+	override fun execute(job: Runnable) {
+		jobs.add(job)
+	}
+
+	val size: Int
+		get() = jobs.size
+
+	fun drain() {
+		while (true) {
+			(jobs.poll() ?: return).run()
+		}
+	}
+}
+
+// The futures' semantics beyond the transcript, each checked by an assertion.
+fun futures() {
+	val channel = Channel.new()
+
+	// The send lands from another thread while the receive waits.
+	runBlocking {
+		val sender = thread { channel.send("blocked".encodeToByteArray()) }
+		val payload = channel.recv()
+		sender.join()
+		check(payload.decodeToString() == "blocked", "recv returns the payload another thread sent")
+	}
+
+	val q = Queue()
+	val scope = CoroutineScope(q.asCoroutineDispatcher())
+
+	// Resumed on its dispatcher, never inside the wake.
+	run {
+		var got: String? = null
+		scope.launch { got = channel.recv().decodeToString() }
+		q.drain()
+		check(got == null, "recv waits for a send")
+		channel.send("then".encodeToByteArray())
+		check(got == null, "recv never polls inside the wake")
+		q.drain()
+		check(got == "then", "recv resumes with the payload")
+	}
+
+	// A wake that lands while the future polls, before it returns pending, is kept: the
+	// future polls again rather than waiting for a wake that already happened.
+	run {
+		var got = 0u
+		scope.launch { got = yielded(7u) }
+		q.drain()
+		check(got == 7u, "a wake during the poll polls again")
+	}
+
+	// Cancelled between its wake and its poll, a receive loses nothing: the payload stays
+	// for the next.
+	run {
+		var called = false
+		val job = scope.launch {
+			channel.recv()
+			called = true
+		}
+		q.drain()
+		channel.send("kept".encodeToByteArray())
+		job.cancel()
+		q.drain()
+		check(!called && job.isCancelled, "a cancelled receive never resumes")
+		val payload = runBlocking { withTimeout(5.seconds) { channel.recv() } }
+		check(payload.decodeToString() == "kept", "a cancelled receive loses nothing")
+	}
+
+	// A handle closed while a call awaits on it is freed once the call ends.
+	run {
+		val other = Channel.new()
+		var got: String? = null
+		scope.launch { got = other.recv().decodeToString() }
+		q.drain()
+		val sender = other.clone()
+		other.close()
+		sender.send("held".encodeToByteArray())
+		q.drain()
+		check(got == "held", "a closed handle stays held by the call awaiting on it")
+		sender.close()
+	}
+	println("futures ok")
+}
+
+// Each breaks a contract, which must fail with a message naming it.
+fun broken(which: String) {
+	when (which) {
+		"moved" -> {
+			val c = Counter.new("c", 0u)
+			c.intoLabel(null)
+			c.get()
+		}
+		"lent moved" -> Registry.new(Counter.new("c", 0u)).edit { counter ->
+			counter.intoLabel(null)
+			false
+		}
+		"lent kept" -> {
+			var kept: Counter? = null
+			Registry.new(Counter.new("c", 0u)).edit { counter ->
+				kept = counter
+				false
+			}
+			kept!!.get()
+		}
+		"callback threw" -> emit(
+			object : Log {
+				override fun log(level: UByte, line: String): Boolean = throw IllegalStateException("a log failed")
+			},
+			byteArrayOf(1),
+		)
+	}
+}
+
+fun main(args: Array<String>) {
+	when {
+		args.isEmpty() -> script()
+		args[0] == "futures" -> futures()
+		else -> broken(args[0])
+	}
+}
