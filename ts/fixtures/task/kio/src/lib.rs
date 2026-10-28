@@ -319,6 +319,15 @@ impl Consumer {
 		Poll::Pending
 	}
 
+	/// `f` of every value sent so far, once it is ready, or the error once the channel
+	/// closed and `f` is not, through a closure that owns `f`.
+	pub async fn wait<F, R>(&self, mut f: F) -> Result<R, Closed>
+	where
+		F: FnMut(&[u64]) -> Poll<R> + Unpin,
+	{
+		wait(move |waiter| self.poll(waiter, &mut f)).await
+	}
+
 	/// Wait for the channel to close, through a closure that only borrows `self`.
 	pub async fn closed(&self) {
 		wait(move |waiter| self.poll_closed(waiter)).await

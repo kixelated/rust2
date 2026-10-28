@@ -4,8 +4,8 @@ import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
 import { unwrapOr$Option_u64, map$Option_u64_Result_u64_u64_streamed_closure0_closure0 } from "./core/option.ts";
 import { map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0, map$Poll_u64_Option_u64_Some, isReady$Poll_unit, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
-import { wait$watch_closure0_closure0_Option_u64, closedFuture, recvFuture } from "./kio.ts";
-import type * as Closed from "./kio.Closed.ts";
+import { wait$watch_closure0_closure0_Option_u64, waitFuture$watch_closure0_closure1_usize, closedFuture, recvFuture } from "./kio.ts";
+import * as Closed from "./kio.Closed.ts";
 import * as Consumer from "./kio.Consumer.ts";
 import * as Pending from "./kio.Pending.ts";
 import * as Waiter from "./kio.Waiter.ts";
@@ -200,6 +200,7 @@ export class watchFuture {
 	#awaitee$2!: Pending.Pending<Watch.Watch>;
 	#watch!: Watch.Watch;
 	#awaitee$3!: rt.Future<undefined>;
+	#awaitee$4!: rt.Future<rt.Result<rt.usize, Closed.Closed>>;
 	#saved!: boolean;
 	#saved$2!: boolean;
 
@@ -212,76 +213,87 @@ export class watchFuture {
 		let unwind: number = 0;
 		try {
 			b0: {
-				if (this.#state === 0) {
-					unwind = 38;
-					rt.drop(this.#rx);
-					unwind = 0;
-					rt.drop(this.#guard);
-					return;
-				}
-				if (this.#state === 3) {
-					unwind = 24;
-					rt.drop(this.#awaitee);
-					unwind = 26;
-					rt.drop(this.#pinned);
-					break b0;
-				}
-				if (this.#state !== 4) {
+				b1: {
+					if (this.#state === 0) {
+						unwind = 45;
+						rt.drop(this.#rx);
+						unwind = 0;
+						rt.drop(this.#guard);
+						return;
+					}
+					if (this.#state === 3) {
+						unwind = 31;
+						rt.drop(this.#awaitee);
+						unwind = 33;
+						rt.drop(this.#pinned);
+						break b0;
+					}
+					if (this.#state === 4) {
+						break b1;
+					}
 					if (this.#state === 5) {
-						unwind = 20;
+						unwind = 26;
 						rt.drop(this.#awaitee$3);
-						unwind = 22;
-						rt.drop(this.#watch);
+					} else if (this.#state === 6) {
+						unwind = 24;
+						rt.drop(this.#awaitee$4);
 					} else {
 						return;
 					}
+					unwind = 29;
+					rt.drop(this.#watch);
 				}
 				if (this.#saved) {
-					unwind = 23;
+					unwind = 30;
 					rt.drop(this.#pending);
 				}
 				this.#saved = false;
 			}
-			unwind = 28;
+			unwind = 35;
 			rt.drop(this.#guard);
 			if (this.#saved$2) {
-				unwind = 29;
+				unwind = 36;
 				rt.drop(this.#rx);
 			}
 			this.#saved$2 = false;
 		} catch (e) {
-			b4: {
-				b5: {
-					b6: {
-						b7: {
-							b8: {
-								b9: {
-									if (unwind === 0) {
-										throw e;
-									}
-									if (unwind === 20) {
-										rt.drop(this.#watch);
-										break b9;
-									}
-									if (unwind === 22) {
-										break b9;
-									}
-									if (unwind === 23) {
-										break b8;
-									}
-									if (unwind === 24) {
-										rt.drop(this.#pinned);
-									} else if (unwind !== 26) {
-										if (unwind === 28) {
-											break b6;
+			b5: {
+				b6: {
+					b7: {
+						b8: {
+							b9: {
+								b10: {
+									b11: {
+										if (unwind === 0) {
+											throw e;
+										}
+										if (unwind === 24) {
+											break b11;
+										}
+										if (unwind === 26) {
+											break b11;
 										}
 										if (unwind === 29) {
+											break b10;
+										}
+										if (unwind === 30) {
+											break b9;
+										}
+										if (unwind === 31) {
+											rt.drop(this.#pinned);
+										} else if (unwind !== 33) {
+											if (unwind === 35) {
+												break b7;
+											}
+											if (unwind === 36) {
+												break b6;
+											}
+											rt.drop(this.#guard);
 											break b5;
 										}
-										rt.drop(this.#guard);
-										break b4;
+										break b8;
 									}
-									break b7;
+									rt.drop(this.#watch);
 								}
 							}
 							this.#saved = false;
@@ -299,6 +311,7 @@ export class watchFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let value!: rt.u64;
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
@@ -306,12 +319,12 @@ export class watchFuture {
 				switch (bb0) {
 					case 0:
 						if (this.#state === 0) {
-							unwind = 68;
+							unwind = 78;
 							this.#saved$2 = false;
 							this.#saved = false;
 							this.#saved$2 = true;
 							const _3: rt.Future<rt.u64 | undefined> = new recvFuture(this.#rx);
-							unwind = 67;
+							unwind = 77;
 							this.#pinned = _3;
 							this.#next = this.#pinned;
 							this.#next$2 = this.#next;
@@ -334,27 +347,31 @@ export class watchFuture {
 								bb0 = 24;
 								continue;
 							}
-							bb0 = 44;
+							if (this.#state === 5) {
+								bb0 = 44;
+								continue;
+							}
+							bb0 = 52;
 							continue;
 						}
 					case 6:
-						unwind = 66;
+						unwind = 76;
 						const _12: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_watch_closure0_closure0(this.#awaitee, _2);
 						if (_12 !== rt.Pending) {
-							unwind = 67;
+							unwind = 77;
 							this.#first = _12;
 							rt.drop(this.#awaitee);
-							unwind = 68;
+							unwind = 78;
 							rt.drop(this.#pinned);
 							const arg = this.#first;
 							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(arg, f, rt.u64Debug)];
 							const _24: string = rt.fmtFormat(["first ", args2[0]]);
-							unwind = 65;
+							unwind = 75;
 							Guard.note(this.#guard, _24);
-							unwind = 64;
+							unwind = 74;
 							this.#saved$2 = false;
 							this.#pending = Pending.new$Watch(new Watch.Watch({ rx: this.#rx, index: 1 }));
-							unwind = 71;
+							unwind = 81;
 							this.#saved = true;
 							this.#total = unwrapOr$Option_u64(this.#first, 0);
 							bb0 = 22;
@@ -363,22 +380,22 @@ export class watchFuture {
 						this.#state = 3;
 						return rt.Pending;
 					case 22:
-						unwind = 71;
+						unwind = 81;
 						this.#awaitee$2 = this.#pending;
 						bb0 = 24;
 						continue;
 					case 24:
-						unwind = 71;
+						unwind = 81;
 						const _38: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_Watch(this.#awaitee$2, _2);
 						if (_38 !== rt.Pending) {
 							const result2: rt.u64 | undefined = _38;
 							if (result2 !== undefined) {
-								const value: rt.u64 = result2;
+								value = result2;
 								const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
 								const _52: string = rt.fmtFormat(["watched ", args4[0]]);
-								unwind = 63;
+								unwind = 73;
 								Guard.note(this.#guard, _52);
-								unwind = 71;
+								unwind = 81;
 								this.#total = rt.u64Add(this.#total, value);
 								const _62: Watch.Watch = Pending.derefMut$DerefMut_Watch(this.#pending);
 								_62.index = rt.usizeAdd(_62.index, 1);
@@ -387,7 +404,7 @@ export class watchFuture {
 							}
 							this.#saved = false;
 							this.#watch = Pending.intoInner$Watch(this.#pending);
-							unwind = 62;
+							unwind = 72;
 							this.#awaitee$3 = new closedFuture(this.#watch.rx);
 							bb0 = 44;
 							continue;
@@ -395,26 +412,41 @@ export class watchFuture {
 						this.#state = 4;
 						return rt.Pending;
 					case 44:
-						unwind = 61;
+						unwind = 71;
 						if (this.#awaitee$3.poll(_2) !== rt.Pending) {
-							unwind = 62;
+							unwind = 72;
 							rt.drop(this.#awaitee$3);
+							this.#awaitee$4 = new waitFuture$watch_closure0_closure1_usize(this.#watch.rx, (queue: rt.u64[]): rt.Poll<rt.usize> => {
+								return queue.length;
+							});
+							bb0 = 52;
+							continue;
+						}
+						this.#state = 5;
+						return rt.Pending;
+					case 52:
+						unwind = 70;
+						const _82: rt.Poll<rt.Result<rt.usize, Closed.Closed>> = this.#awaitee$4.poll(_2);
+						if (_82 !== rt.Pending) {
+							unwind = 72;
+							const sent: rt.Result<rt.usize, Closed.Closed> = _82;
+							rt.drop(this.#awaitee$4);
 							const arg2 = this.#watch.index;
-							const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg2, f)];
-							const _81: string = rt.fmtFormat(["watched to ", args6[0]]);
-							unwind = 60;
-							Guard.note(this.#guard, _81);
-							unwind = 71;
-							const _93: rt.u64 = this.#total;
+							const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg2, f), (f: rt.Formatter) => rt.fmtResult(sent, f, rt.usizeDebug, (value: Closed.Closed, f: rt.Formatter) => Closed.fmt$Debug(value, f))];
+							const _94: string = rt.fmtFormat(["watched to ", args6[0], " of ", args6[1]]);
+							unwind = 69;
+							Guard.note(this.#guard, _94);
+							unwind = 81;
+							const _109: rt.u64 = this.#total;
 							rt.drop(this.#watch);
-							unwind = 73;
+							unwind = 83;
 							this.#saved = false;
 							rt.drop(this.#guard);
 							this.#saved$2 = false;
 							this.#state = 1;
-							return _93;
+							return _109;
 						}
-						this.#state = 5;
+						this.#state = 6;
 						return rt.Pending;
 				}
 			}
@@ -427,32 +459,36 @@ export class watchFuture {
 								if (unwind === 0) {
 									throw e;
 								}
-								if (unwind === 60) {
+								if (unwind === 69) {
 									break b5;
 								}
-								if (unwind === 61) {
+								if (unwind === 70) {
+									rt.drop(this.#awaitee$4);
+									break b5;
+								}
+								if (unwind === 71) {
 									rt.drop(this.#awaitee$3);
 									break b5;
 								}
-								if (unwind === 62) {
+								if (unwind === 72) {
 									break b5;
 								}
-								if (unwind === 63) {
+								if (unwind === 73) {
 									break b4;
 								}
-								if (unwind === 64) {
+								if (unwind === 74) {
 									break b3;
 								}
-								if (unwind === 65) {
+								if (unwind === 75) {
 									break b2;
 								}
-								if (unwind === 66) {
+								if (unwind === 76) {
 									rt.drop(this.#awaitee);
-								} else if (unwind !== 67) {
-									if (unwind === 68) {
+								} else if (unwind !== 77) {
+									if (unwind === 78) {
 										break b2;
 									}
-									if (unwind === 71) {
+									if (unwind === 81) {
 										break b4;
 									}
 									break b1;

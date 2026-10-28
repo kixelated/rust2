@@ -57,6 +57,23 @@ export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waite
 	return rt.Err({});
 }
 
+/**
+ * `f` of every value sent so far, once it is ready, or the error once the channel
+ * closed and `f` is not, registering `waiter` otherwise.
+ */
+export function poll$watch_closure0_closure1_usize(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.usize>): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
+	const state: rt.Mutex<State.State> = self.state.value;
+	const _8: rt.Poll<rt.usize> = f(state.value.queue);
+	if (_8 !== rt.Pending) {
+		return rt.Ok(_8);
+	}
+	if (!state.value.closed) {
+		Waiter.register(waiter, state.value.waiters);
+		return rt.Pending;
+	}
+	return rt.Err({});
+}
+
 /** Ready once the channel closed, registering `waiter` until then. */
 export function pollClosed(self: Consumer, waiter: Waiter.Waiter): rt.Poll<undefined> {
 	const state: rt.Mutex<State.State> = self.state.value;

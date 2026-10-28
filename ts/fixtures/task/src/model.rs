@@ -139,7 +139,8 @@ pub async fn watch(mut rx: Consumer, guard: Guard) -> u64 {
 	}
 	let watch = pending.into_inner();
 	watch.rx.closed().await;
-	guard.note(&format!("watched to {}", watch.index));
+	let sent = watch.rx.wait(|queue| Poll::Ready(queue.len())).await;
+	guard.note(&format!("watched to {} of {sent:?}", watch.index));
 	total
 }
 

@@ -1242,17 +1242,21 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 	)
 }
 
-/// Whether `ty` holds an `FnMut` closure by value that owns a capture: a copy of its arrow
-/// function shares the variables it captured, which in Rust each copy has its own of. One
-/// that only borrows them shared, which is `FnMut` where its bound asks for one, changes
-/// none of them.
+/// Whether `ty` holds an `FnMut` closure by value that owns a capture it could change: a
+/// copy of its arrow function shares the variables it captured, which in Rust each copy
+/// has its own of. One is `FnMut` where its bound asks for one, so a capture borrowed
+/// shared, or a closure capturing nothing, which has no state, changes nothing.
 fn changes_captures(ty: Ty<'_>) -> bool {
 	match ty.kind() {
 		ty::Closure(_, args) => {
 			let closure = args.as_closure();
 			closure.upvar_tys().iter().any(|t| {
-				let shared = matches!(t.kind(), ty::Ref(_, _, ty::Mutability::Not));
-				closure.kind() == ty::ClosureKind::FnMut && !shared || changes_captures(t)
+				let fixed = match t.kind() {
+					ty::Ref(_, _, ty::Mutability::Not) | ty::FnDef(..) => true,
+					ty::Closure(_, args) => args.as_closure().upvar_tys().is_empty(),
+					_ => false,
+				};
+				closure.kind() == ty::ClosureKind::FnMut && !fixed || changes_captures(t)
 			})
 		}
 		ty::Tuple(tys) => tys.iter().any(changes_captures),
