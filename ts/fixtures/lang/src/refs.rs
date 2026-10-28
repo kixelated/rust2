@@ -1,6 +1,7 @@
 //! `&mut` to values JS copies, a number, an `Option`, a `Box`, a tuple, an enum, or a
-//! `String`, passed on, returned, kept in a struct, and captured: each borrows a local, a
-//! field, an element, or a map's value, and what is written through it must land there.
+//! `String`, passed on, returned, kept in a struct, captured, and replaced by std: each
+//! borrows a local, a field, an element, or a map's value, and what is written through it
+//! must land there.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -30,6 +31,11 @@ fn take_largest(seen: &mut Option<u8>, next: u8) -> Option<u8> {
 		*s = s.wrapping_add(1);
 	}
 	if next == 0 { seen.take() } else { None }
+}
+
+/// A name replaced through a parameter, its old one returned.
+fn rename(name: &mut Option<String>, b: u8) -> Option<String> {
+	name.replace(char::from(b'a' + b % 26).to_string())
 }
 
 /// A `&mut Option` passed on from inside a closure std calls.
@@ -186,6 +192,18 @@ pub fn refs(data: &[u8], out: &mut Vec<u8>) {
 		bump_byte(s);
 	}
 	out.push(slot.unwrap_or(0xee));
+	// Replaced, in a local, through a parameter, and where `None` is `rt.None`.
+	let mut last = None;
+	let mut name = None;
+	for &b in data {
+		out.push(last.replace(b).unwrap_or(0xee));
+		out.push(rename(&mut name, b).map_or(0xee, |n| n.as_bytes()[0]));
+	}
+	let mut nested: Option<Option<u8>> = None;
+	let show = |o: Option<Option<u8>>| o.map_or(0xdd, |o| o.unwrap_or(0xee));
+	out.push(show(nested.replace(Some(by))));
+	out.push(show(nested.replace(None)));
+	out.push(show(nested));
 	// A box, a tuple, an enum, and a string.
 	let mut boxed = Box::new(Pair { n: by });
 	let mut pair = (by, by.wrapping_add(1));

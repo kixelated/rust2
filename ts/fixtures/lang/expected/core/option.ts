@@ -284,6 +284,13 @@ export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undef
 	return f(self);
 }
 
+export function mapOr$Option_Option_u8_u8_refs_closure2_closure0(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
+	if (self === rt.None) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Ordering_u8_order(self: rt.Ordering | undefined, default_: rt.u8, _: (a0: rt.Ordering) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -306,6 +313,13 @@ export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank,
 }
 
 export function mapOr$Option_Shape_u8_rematched_closure0(self: Shape.Shape | undefined, default_: rt.u8, f: (a0: Shape.Shape) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_String_u8_refs_closure1(self: string | undefined, default_: rt.u8, f: (a0: string) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
