@@ -32,7 +32,3 @@ is its own guard. Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet)
 - Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for shared and interior-mutable types.
-
-## Required
-
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - the last strong drop runs `Drop`

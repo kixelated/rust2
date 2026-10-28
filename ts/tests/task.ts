@@ -332,5 +332,5 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["held", 0], ["run", 0], ["send", 5], ["run", 0]),
 	script(["open", 0], ["held", 0], ["held", 1], ["run", 0], ["drop", 1], ["drop", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.
-	...Array.from({ length: 176 }, (_, arg) => script(["drops", arg])),
+	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 ];

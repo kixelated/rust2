@@ -39,7 +39,3 @@ An async block that captures part of a variable, which THIR refused 47 times, is
 capture like any other in MIR.
 
 Public API: the translator's output for async code.
-
-## Required
-
-- [Drop in the TypeScript translator](/quest/m2/ts-drop.md) - async bodies hold the values that drop it still refuses
