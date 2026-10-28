@@ -400,6 +400,11 @@ pub fn call<'tcx>(
 			let dropper = iter_dropper(b, self_ty, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
+		// `Duration`'s carries its nanoseconds and panics as std's does, not as `+` would.
+		"sum" if b.t.std_of(targ(1)?) == Some(Std::Duration) => {
+			let dropper = iter_dropper(b, self_ty, span);
+			Some(Expr::rt("durationSum", tail(vec![recv.clone()], vec![dropper])))
+		}
 		"sum" | "product" => {
 			let int = Int::of(targ(1)?)?;
 			let (op, unit) = match name {

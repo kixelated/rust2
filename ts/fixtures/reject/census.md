@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 86
-- Function instances: 73
+- Refusals: 85
+- Function instances: 72
 - Generic functions no instance reached, lowered over their type parameters: 2
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 10 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
+| 9 | unsupported call to `_` | fixtures/reject/src/lib.rs:28:4 |
 | 6 | `_` is not supported: its `None` and `Some` would both be `undefined` | fixtures/reject/src/lib.rs:23:15 |
 | 5 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:45:11 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:397:2 |
@@ -41,7 +41,7 @@
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:88:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:275:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:244:13 |
-| 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:446:12 |
+| 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:440:12 |
 | 1 | a precision, as in `{:.2}`, is not supported | fixtures/reject/src/lib.rs:67:3 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:100:1 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
@@ -91,7 +91,7 @@ The type or module each refused type or path belongs to.
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `from_fn` | fixtures/reject/src/lib.rs:390:13 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:51:13 |
-| 1 | `std::collections::hash_map::Entry` | fixtures/reject/src/lib.rs:436:15 |
+| 1 | `std::collections::hash_map::Entry` | fixtures/reject/src/lib.rs:430:15 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:185:51 |
 | 1 | `std::iter::Flatten` | fixtures/reject/src/lib.rs:234:26 |
 | 1 | `std::iter::IntoIterator` | fixtures/reject/src/lib.rs:17:2 |
@@ -103,7 +103,6 @@ The type or module each refused type or path belongs to.
 | 1 | `std::str` | fixtures/reject/src/lib.rs:370:4 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:82:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:134:2 |
-| 1 | `std::time::Duration` | fixtures/reject/src/lib.rs:423:2 |
 | 1 | `successors` | fixtures/reject/src/lib.rs:389:15 |
 | 1 | `u32` | fixtures/reject/src/lib.rs:244:13 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:104:2 |
@@ -127,9 +126,9 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:265:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:265:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:341:2 |
-| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::collections::hash_map::Entry::and_modify` | fixtures/reject/src/lib.rs:436:15 |
+| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::collections::hash_map::Entry::and_modify` | fixtures/reject/src/lib.rs:430:15 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::iter::IntoIterator::into_iter` | fixtures/reject/src/lib.rs:17:2 |
-| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::slice::last_mut` | fixtures/reject/src/lib.rs:429:21 |
+| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::slice::last_mut` | fixtures/reject/src/lib.rs:423:21 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:317:9 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | `std::iter::Flatten` | fixtures/reject/src/lib.rs:234:26 |
 | 1 | a `_` cast from `_` to `_` | `IntToFloat`, `u64`, `f64` | fixtures/reject/src/lib.rs:104:2 |
@@ -163,10 +162,9 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `successors::successors` | fixtures/reject/src/lib.rs:389:15 |
 | 1 | replacing the value behind a reference to `_` | `[u16; 1]` | fixtures/reject/src/lib.rs:258:22 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:409:2 |
-| 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:453:2 |
+| 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:447:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:139:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:82:10 |
-| 1 | unsupported call to `_` | `<std::time::Duration as std::ops::AddAssign>::add_assign` | fixtures/reject/src/lib.rs:423:2 |
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:44:29 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:193:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:359:4 |
@@ -176,7 +174,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (10)</summary>
+<details><summary>unsupported call to `_` (9)</summary>
 
 - fixtures/reject/src/lib.rs:28:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:44:29: unsupported call to `std::mem::size_of_val::<Noisy>`
@@ -186,8 +184,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:359:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
 - fixtures/reject/src/lib.rs:370:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 - fixtures/reject/src/lib.rs:409:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
-- fixtures/reject/src/lib.rs:423:2: unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign`
-- fixtures/reject/src/lib.rs:453:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
+- fixtures/reject/src/lib.rs:447:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 
 </details>
 
@@ -242,8 +239,8 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` with a mutable reference to a value JS copies, which its mapping would copy (3)</summary>
 
 - fixtures/reject/src/lib.rs:17:2: `std::iter::IntoIterator::into_iter` with a mutable reference to a value JS copies, which its mapping would copy
-- fixtures/reject/src/lib.rs:429:21: `core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy
-- fixtures/reject/src/lib.rs:436:15: `std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy
+- fixtures/reject/src/lib.rs:423:21: `core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy
+- fixtures/reject/src/lib.rs:430:15: `std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy
 
 </details>
 
@@ -415,7 +412,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a mutable reference into a `Result`'s payload, passed on or kept (1)</summary>
 
-- fixtures/reject/src/lib.rs:446:12: a mutable reference into a `Result`'s payload, passed on or kept
+- fixtures/reject/src/lib.rs:440:12: a mutable reference into a `Result`'s payload, passed on or kept
 
 </details>
 

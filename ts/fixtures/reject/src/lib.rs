@@ -418,12 +418,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// `AddAssign` for a `Duration`, which has no mapping.
-pub fn duration_assign(mut d: std::time::Duration, by: std::time::Duration) -> std::time::Duration {
-	d += by;
-	d
-}
-
 /// std makes a `&mut` to a value JS copies, which its mapping has as the value.
 pub fn last_bumped(v: &mut Vec<u32>) {
 	if let Some(x) = v.last_mut() {

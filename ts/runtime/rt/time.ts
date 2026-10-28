@@ -7,7 +7,8 @@
 
 import { type FmtResult, type Formatter, fmtPad, panic } from "../rt.ts";
 import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
-import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u128Add, u128Cast, u128Mul } from "./int.ts";
+import { type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Rem, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
+import { type Iter, iterFold } from "./iter.ts";
 
 /** `core::time::Duration`: whole seconds, and the nanoseconds past them, below 10^9. */
 export interface Duration {
@@ -49,6 +50,23 @@ export function durationFromMicros(micros: u64): Duration {
 /** `Duration::from_nanos`. */
 export function durationFromNanos(nanos: u64): Duration {
 	return { secs: u64Div(nanos, NANOS_PER_SEC), nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
+}
+
+/** `Duration::from_mins`, panicking past `u64::MAX` seconds. */
+export function durationFromMins(mins: u64): Duration {
+	return { secs: u64CheckedMul(mins, 60 as u64) ?? panic("overflow in Duration::from_mins"), nanos: 0 };
+}
+
+/** `Duration::from_hours`, panicking past `u64::MAX` seconds. */
+export function durationFromHours(hours: u64): Duration {
+	return { secs: u64CheckedMul(hours, 3600 as u64) ?? panic("overflow in Duration::from_hours"), nanos: 0 };
+}
+
+/** `Duration::from_nanos_u128`, panicking past `u64::MAX` seconds. */
+export function durationFromNanosU128(nanos: u128): Duration {
+	const secs = u64TryFrom(u128Div(nanos, NANOS_PER_SEC));
+	if (!secs.ok) panic("overflow in `Duration::from_nanos_u128`");
+	return { secs: secs.value, nanos: u128Rem(nanos, NANOS_PER_SEC) as number };
 }
 
 /** `Duration::is_zero`. */
@@ -199,6 +217,34 @@ export function durationTimes(n: u32, d: Duration): Duration {
 /** `d / n` by a `u32`, truncated, panicking if `n` is zero. */
 export function durationDiv(d: Duration, n: u32): Duration {
 	return durationCheckedDiv(d, n) ?? panic("divisor should not be zero");
+}
+
+/**
+ * `Sum`, as std sums: the seconds as it goes, and the nanoseconds in a `u64` that carries
+ * into them only when it would overflow and at the end, each overflow past `u64::MAX`
+ * seconds a panic.
+ */
+export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) => void): Duration {
+	const overflow = "sum over duration iterator should not overflow u64::MAX";
+	let secs = 0 as u64;
+	let nanos = 0 as u64;
+	iterFold<Duration, void>(
+		it,
+		undefined,
+		(_, d) => {
+			secs = u64CheckedAdd(secs, d.secs) ?? panic(overflow);
+			const sum = u64CheckedAdd(nanos, d.nanos as u64);
+			if (sum !== undefined) {
+				nanos = sum;
+			} else {
+				secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+				nanos = (u64Rem(nanos, NANOS_PER_SEC) as number) + d.nanos;
+			}
+		},
+		dropIt,
+	);
+	secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
+	return { secs, nanos: u64Rem(nanos, NANOS_PER_SEC) as number };
 }
 
 /** `PartialEq::eq`. */
