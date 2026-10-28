@@ -18,7 +18,6 @@ roots = [
     "model::broadcast::listing::Tracks",
     "model::time::Timestamp",
 ]
-ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]
 
 [bind]
 # `unsafe` inside.

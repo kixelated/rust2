@@ -392,8 +392,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				self.unreachable.insert(bb);
 			}
+			// A left-out macro's code reads nothing, so a parameter only it reads is unused.
 			for (i, stmt) in data.statements.iter().enumerate() {
-				if self.noops.contains(&(bb, i)) {
+				if self.noops.contains(&(bb, i)) || self.in_ignored(stmt.source_info.span) {
 					continue;
 				}
 				match &stmt.kind {
@@ -432,6 +433,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			let term = data.terminator();
+			if !data.is_cleanup && self.in_ignored(term.source_info.span) {
+				continue;
+			}
 			match &term.kind {
 				TerminatorKind::SwitchInt { discr, .. } => self.operand_use(discr),
 				TerminatorKind::Return => {
@@ -616,7 +620,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut pure = IndexVec::from_elem_n(true, mir.local_decls.len());
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			for (i, stmt) in data.statements.iter().enumerate() {
-				if self.noops.contains(&(bb, i)) {
+				if self.noops.contains(&(bb, i)) || self.in_ignored(stmt.source_info.span) {
 					continue;
 				}
 				if let StatementKind::Assign(assign) = &stmt.kind

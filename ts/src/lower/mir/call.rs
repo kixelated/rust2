@@ -386,7 +386,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Option<Option<(Expr, bool)>> {
 		let tcx = self.tcx;
-		if library::std_path(tcx, def_id).is_empty() {
+		let bytes = library::inherent_std(tcx, def_id) == Some(Std::Bytes);
+		if library::std_path(tcx, def_id).is_empty() && !bytes {
 			return None;
 		}
 		// A box's own `Drop` frees its memory, once drop elaboration dropped or moved out
@@ -489,6 +490,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.materialize(&place, out);
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
+			}
+			// A `Bytes`'s slice by a range's bounds, read where the range is made.
+			("Bytes", "slice") if bytes && let Some((start, end)) = self.range_bounds(&args[1].node, targ(0)?, span, out) => {
+				let b = self.operand(&args[0].node, span, out);
+				done(Expr::rt("bytesSlice", std::iter::once(b).chain([start]).chain(end).collect()), false)
 			}
 			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
 			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {

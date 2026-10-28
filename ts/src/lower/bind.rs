@@ -84,7 +84,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				DefKind::Struct | DefKind::Enum | DefKind::Union => {
 					if super::library::Std::of(tcx, def_id).is_some() {
-						fail(self, "std's type has a representation of its own".into());
+						fail(self, "the type has a representation of its own".into());
 						continue;
 					}
 					Kind::Type { drop: bind.drop }

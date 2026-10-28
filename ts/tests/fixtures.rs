@@ -149,9 +149,10 @@ fn typecheck(out: &Path) {
 }
 
 /// Run the harness natively, as wasm32, and translated, on the same inputs: the
-/// translated side through `entry`, a module in `out`. `features` are the package's, and
-/// `extra` are `differential.ts`'s arguments after the case count.
-fn differential(package: &str, features: &[&str], out: &Path, entry: &str, cases: u32, extra: &[&str]) {
+/// translated side through `entry`, a module in `out`. `build` are the native build's
+/// arguments, such as `--features`, and `extra` are `differential.ts`'s after the case
+/// count.
+fn differential(package: &str, build: &[&str], out: &Path, entry: &str, cases: u32, extra: &[&str]) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
 		.args([
@@ -164,7 +165,8 @@ fn differential(package: &str, features: &[&str], out: &Path, entry: &str, cases
 			"--target-dir",
 		])
 		.arg(&target_dir)
-		.args(features.iter().flat_map(|f| ["--features", f]))
+		.args(build)
+		.env("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true")
 		.arg("--manifest-path")
 		.arg(manifest_dir().join("Cargo.toml"))
 		.status()
@@ -398,7 +400,7 @@ fn share() {
 			String::from_utf8_lossy(&output.stderr)
 		);
 		typecheck(&out);
-		differential("share-fixture", &[feature], &out, "harness.ts", 1_000, &[]);
+		differential("share-fixture", &["--features", feature], &out, "harness.ts", 1_000, &[]);
 	}
 }
 
@@ -580,4 +582,31 @@ fn census() {
 		"the census differs; rerun with UPDATE_EXPECT=1\n{}",
 		diff(&want, &got)
 	);
+}
+
+/// Selects the fixture's own getrandom backend, which `rand::rng()` seeds from natively:
+/// wasm32 has no OS to read. Only getrandom's flags change, so nothing else rebuilds.
+const GETRANDOM: &str = r#"profile.dev.package.getrandom.rustflags=["--cfg", 'getrandom_backend="custom"']"#;
+
+/// `bytes`, `rand`, and `tracing`, which translation maps without a binding or config.
+#[test]
+fn stock() {
+	let out = scratch().join("stock").join("out");
+	let config = fixture("stock").join("ts.toml");
+	let args: [&std::ffi::OsStr; 5] = [
+		"--out".as_ref(),
+		out.as_ref(),
+		"--".as_ref(),
+		"--config".as_ref(),
+		GETRANDOM.as_ref(),
+	];
+	let output = driver("stock", &config, &args, "build");
+	assert!(
+		output.status.success(),
+		"translating stock failed:\n{}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	snapshot("stock", &out);
+	typecheck(&out);
+	differential("stock-fixture", &["--config", GETRANDOM], &out, "harness.ts", 5_000, &[]);
 }
