@@ -338,8 +338,8 @@ pub fn call<'tcx>(
 			"next" => next(b, self_ty, recv),
 			"next_back" => recv.member("nextBack").call(Vec::new()),
 			_ => {
-				let dropper = b.t.dropper(item, span);
-				return Some(Expr::rt("iterNthBack", tail([vec![recv], rest].concat(), vec![dropper])));
+				let args = tail([vec![recv], rest].concat(), vec![b.t.dropper(item, span)]);
+				return Some(Expr::rt("iterNthBack", args));
 			}
 		};
 		return Some(Expr::rt("iterToOption", vec![item]));
