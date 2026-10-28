@@ -397,6 +397,10 @@ static int broken(const char *which) {
 }
 
 int main(int argc, char **argv) {
+	if (api_contract() != API_CONTRACT) {
+		fprintf(stderr, "api.h and the library are from different builds\n");
+		return 1;
+	}
 	if (argc > 1) {
 		return broken(argv[1]);
 	}
