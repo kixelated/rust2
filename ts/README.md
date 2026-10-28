@@ -420,13 +420,12 @@ they need.
   and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
   them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
-## Never
-
-Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
-to hand-written TS ([bindings](#bindings)).
-
 ## Not yet
+
+`unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
+`&dyn Debug` and `&dyn Display` ([trait objects](/quest/m3/ts-dyn.md)), fail translation.
+Until they translate, an item that needs one, such as a boxed future, binds to
+hand-written TS ([bindings](#bindings)).
 
 These fail translation: floats, statics, async closures, a closure that owns a value
 that drops given to std's iterators or collections, and values that drop in some
