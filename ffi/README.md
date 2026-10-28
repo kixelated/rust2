@@ -211,15 +211,15 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
 - **Records** are data classes, compared by their fields, and **enums** an `enum class`,
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
-- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair` or
-  `Triple`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
+  `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - **Traits** are interfaces; once Rust drops an implementation, it is closed if
   `AutoCloseable`.
 - **Closures** lent for a call are function types, which Rust calls only during the call,
   from any thread. An object it lends is closed once the call returns.
 - **Futures** are `suspend fun`s, which resume on the coroutine's dispatcher, as C++ resumes
-  on its executor, and never inside a wake. Cancelling the coroutine frees the future and
+  on its executor, and never inside a wake: an `Unconfined` one resumes on `Default`. Cancelling the coroutine frees the future and
   loses nothing. Each call is its own future, so it has one poller.
 - A **waker** is a `Waker`, which Rust may call from any thread.
 - **The contract** is checked when the library loads, before any other call: a Kotlin

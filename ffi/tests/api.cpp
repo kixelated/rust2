@@ -135,6 +135,8 @@ int script() {
 	auto [only] = api::only(api::counter::new_("o", 3));
 	print("only ", only.name(), " ");
 	std::printf("%llu\n", ull(only.get()));
+	auto [w8, w16, w32, w64] = api::widths(98305);
+	std::printf("widths %u %d %u %llu\n", w8, w16, w32, ull(w64));
 	for (std::uint64_t divisor : {2, 0}) {
 		if (auto r = api::divide(7, divisor)) {
 			std::printf("divide %llu %llu\n", ull(std::get<0>(*r)), ull(std::get<1>(*r)));

@@ -10,6 +10,7 @@ import java.util.concurrent.Executor
 import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -72,6 +73,8 @@ fun script() {
 	println("split ${below.name()} ${below.get()} ${above.name()} ${above.get()}")
 	val only = only(Counter.new("o", 3u))
 	println("only ${only.name()} ${only.get()}")
+	val (w8, w16, w32, w64) = widths(98305u)
+	println("widths $w8 $w16 $w32 $w64")
 	for (b in listOf(2uL, 0uL)) {
 		try {
 			val (q, r) = divide(7u, b)
@@ -298,6 +301,16 @@ fun futures() {
 		check(got == null, "recv never polls inside the wake")
 		q.drain()
 		check(got == "then", "recv resumes with the payload")
+	}
+
+	// On a dispatcher that resumes in place, too: the send wakes while it holds the lock the
+	// receive's poll takes.
+	runBlocking {
+		var got: String? = null
+		val job = launch(Dispatchers.Unconfined) { got = channel.recv().decodeToString() }
+		channel.send("unconfined".encodeToByteArray())
+		job.join()
+		check(got == "unconfined", "an unconfined recv resumes outside the wake")
 	}
 
 	// A wake that lands while the future polls, before it returns pending, is kept: the

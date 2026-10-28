@@ -43,6 +43,7 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 		names: BTreeMap::new(),
 		errors: Vec::new(),
 		fresh: 0,
+		tuples: BTreeSet::new(),
 	};
 	g.write();
 	if !g.errors.is_empty() {
@@ -171,6 +172,8 @@ struct Gen<'a> {
 	errors: Vec<String>,
 	/// A counter for fresh Kotlin names.
 	fresh: usize,
+	/// The arities past `Triple` a tuple class is written for.
+	tuples: BTreeSet<usize>,
 }
 
 impl<'a> Gen<'a> {
@@ -204,6 +207,33 @@ impl<'a> Gen<'a> {
 		}
 	}
 
+	/// The class of a tuple of `n` past `Triple`, written once, its fields named as
+	/// `Triple`'s go on.
+	fn tuple(&mut self, n: usize) -> String {
+		let name = format!("Tuple{n}");
+		if self.tuples.insert(n) {
+			self.claim(&name, format!("a tuple of {n}"));
+			let ordinals = [
+				"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth",
+				"eleventh", "twelfth",
+			];
+			let field = |k: usize| {
+				ordinals
+					.get(k)
+					.map_or_else(|| format!("item{}", k + 1), |o| o.to_string())
+			};
+			let params: Vec<String> = (1..=n).map(|k| format!("T{k}")).collect();
+			let fields: Vec<String> = (0..n).map(|k| format!("\tval {}: T{},\n", field(k), k + 1)).collect();
+			let _ = write!(
+				self.types,
+				"/** A tuple of {n}, as `Pair` and `Triple` are of two and three. */\ndata class {name}<{}>(\n{})\n\n",
+				params.join(", "),
+				fields.concat()
+			);
+		}
+		name
+	}
+
 	/// The Kotlin type of `ty` as a value, owning what it holds.
 	fn kt(&mut self, ty: &Type) -> String {
 		let abi = self.abi;
@@ -235,12 +265,7 @@ impl<'a> Gen<'a> {
 					1 => elements[0].clone(),
 					2 => format!("kotlin.Pair<{}>", elements.join(", ")),
 					3 => format!("kotlin.Triple<{}>", elements.join(", ")),
-					n => {
-						self.errors.push(format!(
-							"a tuple of {n} has no Kotlin type: Kotlin's tuples end at Triple"
-						));
-						"Nothing".to_string()
-					}
+					n => format!("{}<{}>", self.tuple(n), elements.join(", ")),
 				}
 			}
 		}
@@ -320,7 +345,8 @@ impl<'a> Gen<'a> {
 				match read.len() {
 					1 => read[0].clone(),
 					2 => format!("kotlin.Pair({})", read.join(", ")),
-					_ => format!("kotlin.Triple({})", read.join(", ")),
+					3 => format!("kotlin.Triple({})", read.join(", ")),
+					n => format!("{}({})", self.tuple(n), read.join(", ")),
 				}
 			}
 			other => unreachable!("{other:?} is never decoded"),

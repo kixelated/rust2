@@ -166,6 +166,11 @@ pub fn only(counter: Counter) -> (Counter,) {
 	(counter,)
 }
 
+/// `n` narrowed to each width, a tuple longer than any a language may name.
+pub fn widths(n: u64) -> (u8, i16, u32, u64) {
+	(n as u8, n as i16, n as u32, n)
+}
+
 /// The quotient and remainder, failing on a zero divisor.
 pub fn divide(a: u64, b: u64) -> Result<(u64, u64), Error> {
 	match b {

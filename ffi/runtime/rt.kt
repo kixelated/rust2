@@ -187,9 +187,18 @@ class Signal : Waker {
 
 	override fun wake() {
 		val parked = state.getAndSet(WOKEN)
-		if (parked is kotlinx.coroutines.CancellableContinuation<*>) {
-			@Suppress("UNCHECKED_CAST")
-			(parked as kotlinx.coroutines.CancellableContinuation<Unit>).resume(Unit)
+		if (parked !is kotlinx.coroutines.CancellableContinuation<*>) return
+		@Suppress("UNCHECKED_CAST")
+		val c = parked as kotlinx.coroutines.CancellableContinuation<Unit>
+		// Never resumed in place, since the next poll would run inside Rust's wake, which may
+		// hold a lock that poll takes: a dispatcher that would resume here is made to defer,
+		// and one that cannot, as `Unconfined`, resumes on `Default`.
+		val dispatcher = c.context[kotlin.coroutines.ContinuationInterceptor] as? kotlinx.coroutines.CoroutineDispatcher
+		when {
+			dispatcher != null && dispatcher.isDispatchNeeded(c.context) -> c.resume(Unit)
+			dispatcher != null && dispatcher !== kotlinx.coroutines.Dispatchers.Unconfined ->
+				dispatcher.dispatch(c.context, java.lang.Runnable { c.resume(Unit) })
+			else -> kotlinx.coroutines.Dispatchers.Default.dispatch(c.context, java.lang.Runnable { c.resume(Unit) })
 		}
 	}
 

@@ -91,6 +91,8 @@ fn main() {
 	);
 	let (only,) = api_lib::only(Counter::new("o", 3));
 	println!("only {} {}", only.name(), only.get());
+	let (a, b, c, d) = api_lib::widths(98305);
+	println!("widths {a} {b} {c} {d}");
 	for b in [2, 0] {
 		match api_lib::divide(7, b) {
 			Ok((q, r)) => println!("divide {q} {r}"),
