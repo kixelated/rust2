@@ -85,6 +85,15 @@ class Writer {
 	fun release() {
 		held?.forEach { it.release() }
 	}
+
+	/** Run [block] with this writer, releasing its handles once it returns. */
+	inline fun <R> use(block: (Writer) -> R): R {
+		try {
+			return block(this)
+		} finally {
+			release()
+		}
+	}
 }
 
 /** Decodes what the library's JNI glue encodes. */
@@ -154,6 +163,22 @@ class Handle(internal val raw: Long, private val free: ((Long) -> Unit)?, privat
 	fun close() {
 		if (closed.compareAndSet(false, true)) release()
 	}
+
+	/** Run [block] with the raw handle, held until it returns. */
+	inline fun <R> hold(block: (Long) -> R): R {
+		val h = hold()
+		try {
+			return block(h)
+		} finally {
+			release()
+		}
+	}
+}
+
+/** Run [block] with the raw handle of [handle], or 0 for none, held until it returns. */
+inline fun <R> hold(handle: Handle?, block: (Long) -> R): R = when (handle) {
+	null -> block(0L)
+	else -> handle.hold(block)
 }
 
 /** A waker a future parks on, which latches a wake that lands before it parks. */
