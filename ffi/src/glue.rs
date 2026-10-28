@@ -101,7 +101,10 @@ impl Crate<'_> {
 		crate::driver::write(&out.join("include").join(format!("{}.hpp", self.abi.prefix)), &cpp)?;
 		crate::driver::write(&out.join("src/jni/mod.rs"), &kotlin.glue)?;
 		crate::driver::write(&out.join("src/jni/rt.rs"), crate::kotlin::GLUE_RUNTIME)?;
-		crate::driver::write(&out.join("kotlin").join(format!("{}.kt", self.abi.prefix)), &kotlin.kotlin)
+		crate::driver::write(
+			&out.join("kotlin").join(format!("{}.kt", self.abi.prefix)),
+			&kotlin.kotlin,
+		)
 	}
 }
 

@@ -80,7 +80,7 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 		use rt::*;\n\n\
 		#[unsafe(no_mangle)]\n\
 		pub unsafe extern \"system\" fn JNI_OnLoad(vm: *mut JavaVM, _: *mut c_void) -> jint {{\n\
-		\tunsafe {{ rt::load(vm, c\"{class}\") }}\n\
+		\tunsafe {{ rt::load(vm, c\"{p}/Native\") }}\n\
 		}}\n\n\
 		#[unsafe(no_mangle)]\n\
 		pub extern \"system\" fn Java_{pkg}_Native__1_1contract(_: *mut JNIEnv, _: jclass) -> jlong {{\n\
@@ -97,7 +97,6 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 		{}",
 		g.glue,
 		pkg = mangle(p),
-		class = format!("{p}/Native"),
 	);
 	Ok(Output { kotlin, glue })
 }
@@ -633,9 +632,7 @@ impl<'a> Gen<'a> {
 				("jbyteArray", "ByteArray?"),
 				&format!("rt::owned(env, crate::{c}_{suffix}({rust_self}))"),
 			);
-			format!(
-				"\t{sig} = {open}\n\t\tNative.{bare}_{suffix}({arg})!!.decodeToString()\n\t}}\n"
-			)
+			format!("\t{sig} = {open}\n\t\tNative.{bare}_{suffix}({arg})!!.decodeToString()\n\t}}\n")
 		};
 		if t.display {
 			// Final, so a data class variant of a sealed class keeps it rather than making
@@ -643,7 +640,11 @@ impl<'a> Gen<'a> {
 			body.push(unary(self, "to_string", "final override fun toString(): String"));
 		}
 		if t.debug {
-			body.push(unary(self, "debug", "/** Rust's `Debug` form. */\n\tfun debug(): String"));
+			body.push(unary(
+				self,
+				"debug",
+				"/** Rust's `Debug` form. */\n\tfun debug(): String",
+			));
 		}
 		if object && t.clone {
 			self.native(
@@ -760,7 +761,11 @@ impl<'a> Gen<'a> {
 					.zip(&record.fields)
 					.map(|((f, kt), field)| format!("{}\tval {f}: {kt},", docs_inline(&field.docs, "\t")))
 					.collect();
-				let _ = write!(self.types, "{docs}data class {name}(\n{}\n){body}\n\n", params.join("\n"));
+				let _ = write!(
+					self.types,
+					"{docs}data class {name}(\n{}\n){body}\n\n",
+					params.join("\n")
+				);
 			}
 		}
 		// The codec.
@@ -868,7 +873,9 @@ impl<'a> Gen<'a> {
 					variants.push(format!("\tdata object {vname} : {name}()\n"));
 					writes.push(format!("\t\t{name}.{vname} -> {}", write.join("\n\t\t")));
 					reads.push(format!("\t\t{n} -> {name}.{vname}"));
-					glue_reads.push(format!("\t\t\t{n} => Self {{ tag, u: unsafe {{ std::mem::zeroed() }} }},"));
+					glue_reads.push(format!(
+						"\t\t\t{n} => Self {{ tag, u: unsafe {{ std::mem::zeroed() }} }},"
+					));
 				}
 				false => {
 					variants.push(format!("\tdata class {vname}({}) : {name}()\n", fields.join(", ")));
@@ -1008,8 +1015,7 @@ impl<'a> Gen<'a> {
 				&format!("{rust}::{}", method.name()),
 				(&lent, &method.ok),
 				(&c_params, &c_ret),
-				&name,
-				Some(&member),
+				(&name, Some(&member)),
 			);
 			table.push(format!("{}: Some({trampoline})", method.name()));
 		}
@@ -1035,7 +1041,6 @@ impl<'a> Gen<'a> {
 	/// which calls the Kotlin dispatcher `dispatcher` with the Kotlin value Rust holds:
 	/// for a callback, an implementation of the interface `cast` whose method `method` it
 	/// calls, and for a closure, a value of the function type `cast`.
-	#[allow(clippy::too_many_arguments)]
 	fn trampoline(
 		&mut self,
 		trampoline: &str,
@@ -1043,8 +1048,7 @@ impl<'a> Gen<'a> {
 		what: &str,
 		(lent, ret): (&[Type], &Type),
 		(c_params, c_ret): (&[Ty], &Ty),
-		cast: &str,
-		method: Option<&str>,
+		(cast, method): (&str, Option<&str>),
 	) {
 		let mut rust_params = vec!["data: *mut c_void".to_string()];
 		let mut jvalues = vec!["jvalue { l: data.cast() }".to_string()];
@@ -1068,7 +1072,10 @@ impl<'a> Gen<'a> {
 				Ty::Enum(_) => ("i", format!("p{k}")),
 				Ty::Handle { .. } => ("j", format!("p{k} as usize as jlong")),
 				Ty::Buf => ("l", format!("unsafe {{ rt::lent(env, p{k}) }}")),
-				_ => ("l", format!("{{ let mut w = rt::Writer::default(); w.put(p{k}); w.array(env) }}")),
+				_ => (
+					"l",
+					format!("{{ let mut w = rt::Writer::default(); w.put(p{k}); w.array(env) }}"),
+				),
 			};
 			jvalues.push(format!("jvalue {{ {field}: {value} }}"));
 			match c {
@@ -1143,14 +1150,22 @@ impl<'a> Gen<'a> {
 	/// A native method `bare`, taking `params` and returning `ret` (JNI type, Kotlin
 	/// type), whose glue runs `body` with each parameter named `p0`, `p1`, ...
 	fn native(&mut self, bare: &str, params: &[(&str, &str)], ret: (&str, &str), body: &str) {
-		let kt: Vec<String> = params.iter().enumerate().map(|(n, (_, k))| format!("p{n}: {k}")).collect();
+		let kt: Vec<String> = params
+			.iter()
+			.enumerate()
+			.map(|(n, (_, k))| format!("p{n}: {k}"))
+			.collect();
 		let _ = write!(
 			self.natives,
 			"\t@JvmStatic external fun {bare}({}): {}\n\n",
 			kt.join(", "),
 			ret.1
 		);
-		let rust: Vec<String> = params.iter().enumerate().map(|(n, (j, _))| format!("p{n}: {j}")).collect();
+		let rust: Vec<String> = params
+			.iter()
+			.enumerate()
+			.map(|(n, (j, _))| format!("p{n}: {j}"))
+			.collect();
 		let mut all = vec!["env: *mut JNIEnv".to_string(), "_: jclass".to_string()];
 		all.extend(rust);
 		let _ = write!(
@@ -1178,7 +1193,13 @@ impl<'a> Gen<'a> {
 
 	/// `function`'s Kotlin form, a member of `owner` (whose IR type is `owner_ty`) if it
 	/// has one, with its native methods and glue.
-	fn function(&mut self, function: &Function, owner: Option<&Ty>, owner_ty: Option<&Type>, place: Place) -> Option<String> {
+	fn function(
+		&mut self,
+		function: &Function,
+		owner: Option<&Ty>,
+		owner_ty: Option<&Type>,
+		place: Place,
+	) -> Option<String> {
 		let abi = self.abi;
 		let export = abi.export(function, owner);
 		let c_name = export.call.name.clone();
@@ -1196,7 +1217,14 @@ impl<'a> Gen<'a> {
 			Some(Type::Record(_)) => &["copy", "equals", "hashCode", "toString"],
 			// A plain enum is a Kotlin enum, which has its own.
 			Some(Type::Enum(i)) if abi.api.enums[*i].plain() => &[
-				"equals", "hashCode", "toString", "of", "value", "name", "ordinal", "compareTo",
+				"equals",
+				"hashCode",
+				"toString",
+				"of",
+				"value",
+				"name",
+				"ordinal",
+				"compareTo",
 			],
 			Some(_) => &["equals", "hashCode", "toString"],
 			None => &[],
@@ -1261,8 +1289,7 @@ impl<'a> Gen<'a> {
 				&c_name,
 				(lent, ret),
 				(c_lent, c_ret),
-				&kt,
-				None,
+				(&kt, None),
 			);
 		}
 		let outs: Vec<(String, Ty)> = c_params.cloned().collect();
@@ -1333,7 +1360,10 @@ impl<'a> Gen<'a> {
 			let lines = self.lift_result(&ok, err.as_ref(), exception.as_deref(), "r");
 			let lambda = match lines.is_empty() {
 				true => "{}".to_string(),
-				false => format!("{{ r ->\n{}}}", lines.iter().map(|l| format!("\t{l}\n")).collect::<String>()),
+				false => format!(
+					"{{ r ->\n{}}}",
+					lines.iter().map(|l| format!("\t{l}\n")).collect::<String>()
+				),
 			};
 			value = format!("Native.await({call}, Native::{poll_bare}, Native::{free_bare}) {lambda}");
 		} else if !outs.is_empty() {
@@ -1407,7 +1437,9 @@ impl<'a> Gen<'a> {
 		for param in &function.params {
 			if let Type::Closure(lent, _) = &param.ty {
 				let name = kw(&camel(&param.name));
-				text.push_str(&format!("\n\nRust calls `{name}` only during the call, from any thread."));
+				text.push_str(&format!(
+					"\n\nRust calls `{name}` only during the call, from any thread."
+				));
 				if lent.iter().any(|p| matches!(p.base(), Type::Object(_))) {
 					text.push_str(&format!(
 						"\nAn object it lends lives only for that call of `{name}`: keep none past it."
@@ -1439,7 +1471,10 @@ impl<'a> Gen<'a> {
 		};
 		let top = owner.is_none();
 		if top {
-			self.claim(&member.replace("fun ", "").replace("val ", ""), format!("fn `{}`", function.path.join("::")));
+			self.claim(
+				&member.replace("fun ", "").replace("val ", ""),
+				format!("fn `{}`", function.path.join("::")),
+			);
 		}
 		let indent_level = match top {
 			true => 0,
@@ -1781,12 +1816,19 @@ fn member_name(code: &str) -> Option<String> {
 		let l = l.trim_start();
 		!l.starts_with("/**") && !l.starts_with('*') && !l.starts_with("@")
 	})?;
-	let line = line.trim_start().trim_start_matches("final ").trim_start_matches("override ").trim_start_matches("suspend ");
+	let line = line
+		.trim_start()
+		.trim_start_matches("final ")
+		.trim_start_matches("override ")
+		.trim_start_matches("suspend ");
 	let (kind, rest) = line.split_once(' ')?;
 	if !matches!(kind, "fun" | "val") {
 		return None;
 	}
-	let name: String = rest.chars().take_while(|c| *c != '(' && *c != ':' && *c != ' ').collect();
+	let name: String = rest
+		.chars()
+		.take_while(|c| *c != '(' && *c != ':' && *c != ' ')
+		.collect();
 	Some(format!("{kind} {name}"))
 }
 
