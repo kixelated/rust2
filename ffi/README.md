@@ -24,6 +24,7 @@ to what the library builds with on any platform, read off cargo's resolution, wh
 it was declared (the manifest, cargo's config, `--config`, or the environment), keyed by
 its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
+Beside the C header, `include/<prefix>.hpp` holds the same API in C++.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -143,6 +144,44 @@ refused, and the census counts why.
   out of that one; a `rename` of a method by the generic type's path names it at every
   instance.
 
+## C++
+
+`<prefix>.hpp` is header-only C++ over the C header, for C++17, 20, and 23, with
+exceptions and RTTI on or off: it throws nothing and reads no type information.
+
+- **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
+  is `moq::track_producer`, and its method `moq_track_producer_append_group` is
+  `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
+  as does a member named as its class or one of its fields.
+- **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
+  clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
+  the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
+  by a parameter taken by value.
+- **Records** are structs, and **enums** an `enum class`, or for one with data a
+  `std::variant` of a struct per variant, `<enum>_<variant>`. An enum's methods and
+  traits are free functions taking it first. `PartialEq` is `==`, `Display` `to_string()`,
+  `Debug` `debug()`, and `Default` `default_()`.
+- **Bytes** are passed as a `view`, which any contiguous bytes convert to, and returned as
+  a `buf`, which owns Rust's buffer without a copy. `Option<T>` is `std::optional<T>`, a
+  tuple `std::tuple`, and `Result<T, E>` a `result<T, E>`, whose `value()` aborts on an
+  error.
+- **Traits** are abstract classes, passed as a `std::unique_ptr` that Rust deletes.
+- **Closures** lent for a call are any callable, taken by a template parameter, which
+  Rust calls only during the call, from any thread. An object it lends is a reference to
+  its class for that call: moving out of it aborts.
+- **Futures** are move-only `future<...>`s, freed when destroyed, which cancels them and
+  loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
+  `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
+  a `task` that cancels when destroyed, after which the callback has finished or never
+  runs; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
+  executor. An executor is any callable taking a `void()` job to run once, later, on any
+  thread: never inline, since a wake may come from inside Rust. Each wake that lands while
+  the future polls polls it again, and a future has one poller at a time, since awaiting
+  it moves it.
+- A **waker** is a shared callable, which Rust may call from any thread.
+- **The contract** is checked when the program loads, before any other call: a header
+  and a library from different builds abort.
+
 ## IR
 
 [`src/ir.rs`](src/ir.rs) is the API as each generator reads it, with no language decided:
@@ -150,8 +189,10 @@ records, enums, objects, callbacks, functions, and constants of every export, ea
 its Rust path, its span, and its docs. A type is in the exact form Rust takes or returns it
 (`&str` apart from `String`, `Box<dyn Trait>` apart from `impl Trait`), so a generator can
 borrow where Rust borrows. [`src/abi.rs`](src/abi.rs) decides the C ABI from it once,
-names and signatures, so [`src/c.rs`](src/c.rs) and [`src/glue.rs`](src/glue.rs) agree;
-the runtime the glue includes is [`runtime/rt.rs`](runtime/rt.rs).
+names and signatures, so [`src/c.rs`](src/c.rs), [`src/cpp.rs`](src/cpp.rs), and
+[`src/glue.rs`](src/glue.rs) agree; the runtime the glue includes is
+[`runtime/rt.rs`](runtime/rt.rs), and the one the C++ header includes
+[`runtime/rt.hpp`](runtime/rt.hpp).
 
 ## Census
 
@@ -164,20 +205,24 @@ rest, and the refused instances to drop from `instances`. It ignores the config'
 ## Tests
 
 ```bash
-just ffi test     # export the fixtures, build them, and drive api from C
-just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c
+just ffi test     # export the fixtures, build them, and drive api from C and C++
+just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c and moq/moq.cpp
 just ffi census   # census each into target/census
-nix develop .#bench --command just ffi bench  # frame writes, through the export and moq's rs/moq-c
+nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C and C++, and moq's rs/moq-c
 ```
 
 The `api` fixture covers each rule once, and names the `dep` fixture's types, which
 export into the same library. `tests/api.c` runs the same script as the
 fixture's `examples/transcript.rs`, and the two transcripts must match line for line;
-then it breaks each runtime check, which must abort with its message. The `reject`
+then it breaks each runtime check, which must abort with its message. `tests/api.cpp`
+runs the script through the C++ header at C++17, 20, and 23, with exceptions and RTTI off
+at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
+wake and its poll that loses nothing, and a coroutine resumed or destroyed. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
 publishes a binary track the catalog lists, and reads the catalog lent to C through
-`catalog::Producer::mutate`.
+`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
+C++17 without exceptions or RTTI, as OBS builds it.

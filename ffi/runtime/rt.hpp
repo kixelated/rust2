@@ -1,0 +1,737 @@
+// The runtime every C++ binding shares: bytes, results, wakers, and futures over the C
+// ABI. rust2-ffi copies it into each header, inside the export's namespace, after
+// `detail` names the export's C types. It throws nothing and reads no type information,
+// so it builds with exceptions and RTTI off.
+
+namespace detail {
+
+[[noreturn]] inline void fail(const char *what) noexcept {
+	::std::fputs(what, stderr);
+	::std::fputc('\n', stderr);
+	::std::abort();
+}
+
+struct access;
+
+// A count of references, held by C++ and, once given a waker, by Rust: freed with the last.
+struct node {
+	::std::atomic<::std::size_t> refs{1};
+
+	node() = default;
+	node(const node &) = delete;
+	node &operator=(const node &) = delete;
+	virtual ~node() = default;
+	virtual void wake() noexcept = 0;
+
+	void ref() noexcept {
+		refs.fetch_add(1, ::std::memory_order_relaxed);
+	}
+
+	void unref() noexcept {
+		if (refs.fetch_sub(1, ::std::memory_order_acq_rel) == 1) {
+			delete this;
+		}
+	}
+};
+
+inline void wake_node(void *data) noexcept {
+	static_cast<node *>(data)->wake();
+}
+
+inline void drop_node(void *data) noexcept {
+	static_cast<node *>(data)->unref();
+}
+
+// `n` as a waker that borrows its reference, which Rust reuses when given it again.
+inline c_waker lend(node *n) noexcept {
+	return c_waker{&wake_node, &drop_node, n};
+}
+
+// `n` as a waker holding a new reference, which Rust drops.
+inline c_waker give(node *n) noexcept {
+	n->ref();
+	return lend(n);
+}
+
+// An owned reference to a node.
+template <class T>
+class ptr {
+	T *node_;
+
+public:
+	// Adopts a reference already counted.
+	explicit ptr(T *node) noexcept : node_(node) {}
+	ptr(const ptr &other) noexcept : node_(other.node_) {
+		node_->ref();
+	}
+	ptr(ptr &&other) noexcept : node_(::std::exchange(other.node_, nullptr)) {}
+	ptr &operator=(const ptr &) = delete;
+	ptr &operator=(ptr &&) = delete;
+	~ptr() {
+		if (node_ != nullptr) {
+			node_->unref();
+		}
+	}
+	T *operator->() const noexcept {
+		return node_;
+	}
+};
+
+// A finished poll's value: none, then the output.
+template <class T>
+class slot {
+	::std::optional<T> value_;
+
+public:
+	template <class... A>
+	void emplace(A &&...args) {
+		value_.emplace(::std::forward<A>(args)...);
+	}
+	explicit operator bool() const noexcept {
+		return value_.has_value();
+	}
+	T take() {
+		return ::std::move(*value_);
+	}
+	::std::optional<T> release() {
+		return ::std::move(value_);
+	}
+};
+
+template <>
+class slot<void> {
+	bool ready_ = false;
+
+public:
+	void emplace() noexcept {
+		ready_ = true;
+	}
+	explicit operator bool() const noexcept {
+		return ready_;
+	}
+	void take() noexcept {}
+	bool release() noexcept {
+		return ready_;
+	}
+};
+
+// The bytes of a view, never null, so a view of none is told apart from a missing one.
+inline const ::std::uint8_t *bytes(const void *data, ::std::size_t len) noexcept {
+	static const ::std::uint8_t empty = 0;
+	if (data == nullptr && len != 0) {
+		fail("a view of null bytes has a length");
+	}
+	return len == 0 ? &empty : static_cast<const ::std::uint8_t *>(data);
+}
+
+} // namespace detail
+
+class buf;
+
+// Bytes lent to a call: text or binary, read during the call and never kept.
+class view {
+	const ::std::uint8_t *data_;
+	::std::size_t size_;
+
+public:
+	view() noexcept : data_(detail::bytes(nullptr, 0)), size_(0) {}
+	view(const void *data, ::std::size_t size) noexcept : data_(detail::bytes(data, size)), size_(size) {}
+	view(const char *text) noexcept : view(text, ::std::strlen(text)) {}
+	// Any contiguous range of bytes, such as `std::string`, `std::string_view`, `std::vector<uint8_t>`, or `buf`.
+	template <class R, class = ::std::enable_if_t<sizeof(*::std::declval<const R &>().data()) == 1 &&
+	                                              !::std::is_pointer_v<::std::decay_t<R>>>,
+	          class = decltype(::std::declval<const R &>().size())>
+	view(const R &range) noexcept : view(range.data(), range.size()) {}
+
+	const ::std::uint8_t *data() const noexcept {
+		return data_;
+	}
+	::std::size_t size() const noexcept {
+		return size_;
+	}
+	bool empty() const noexcept {
+		return size_ == 0;
+	}
+	const ::std::uint8_t *begin() const noexcept {
+		return data_;
+	}
+	const ::std::uint8_t *end() const noexcept {
+		return data_ + size_;
+	}
+	::std::string_view str() const noexcept {
+		return ::std::string_view(reinterpret_cast<const char *>(data_), size_);
+	}
+
+	friend struct detail::access;
+};
+
+// Owned bytes: returned by Rust without a copy, or copied from C++.
+class buf {
+	// Rust's when `owner` is set, else C++'s, allocated with `new[]` unless empty.
+	detail::c_buf raw_;
+
+	explicit buf(detail::c_buf raw) noexcept : raw_(raw) {}
+
+	void reset() noexcept {
+		if (raw_.owner != nullptr) {
+			detail::c_buf_free(raw_);
+		} else if (raw_.len != 0) {
+			delete[] raw_.ptr;
+		}
+		raw_ = detail::c_buf{nullptr, 0, nullptr};
+	}
+
+public:
+	buf() noexcept : raw_{nullptr, 0, nullptr} {}
+	// A copy of `bytes`.
+	explicit buf(view bytes) : buf() {
+		if (!bytes.empty()) {
+			auto *copy = new ::std::uint8_t[bytes.size()];
+			::std::memcpy(copy, bytes.data(), bytes.size());
+			raw_ = detail::c_buf{copy, bytes.size(), nullptr};
+		}
+	}
+	buf(const buf &other) : buf(view(other)) {}
+	buf(buf &&other) noexcept : raw_(::std::exchange(other.raw_, detail::c_buf{nullptr, 0, nullptr})) {}
+	buf &operator=(const buf &other) {
+		if (this != &other) {
+			*this = buf(other);
+		}
+		return *this;
+	}
+	buf &operator=(buf &&other) noexcept {
+		::std::swap(raw_, other.raw_);
+		return *this;
+	}
+	~buf() {
+		reset();
+	}
+
+	const ::std::uint8_t *data() const noexcept {
+		return detail::bytes(raw_.ptr, raw_.len);
+	}
+	::std::size_t size() const noexcept {
+		return raw_.len;
+	}
+	bool empty() const noexcept {
+		return raw_.len == 0;
+	}
+	const ::std::uint8_t *begin() const noexcept {
+		return data();
+	}
+	const ::std::uint8_t *end() const noexcept {
+		return data() + size();
+	}
+	::std::string_view str() const noexcept {
+		return view(*this).str();
+	}
+
+	friend struct detail::access;
+};
+
+// What a fallible call returns: its value, or the error that stopped it.
+template <class T, class E>
+class result {
+	::std::variant<T, E> value_;
+
+	template <::std::size_t I, class A>
+	result(::std::in_place_index_t<I> index, A &&arg) : value_(index, ::std::forward<A>(arg)) {}
+
+	void check() const noexcept {
+		if (value_.index() != 0) {
+			detail::fail("value() of a result that holds an error");
+		}
+	}
+
+public:
+	static result ok(T value) {
+		return result(::std::in_place_index<0>, ::std::move(value));
+	}
+	static result err(E error) {
+		return result(::std::in_place_index<1>, ::std::move(error));
+	}
+
+	bool has_value() const noexcept {
+		return value_.index() == 0;
+	}
+	explicit operator bool() const noexcept {
+		return has_value();
+	}
+	// The value, aborting if it holds an error.
+	T &value() & {
+		check();
+		return *::std::get_if<0>(&value_);
+	}
+	const T &value() const & {
+		check();
+		return *::std::get_if<0>(&value_);
+	}
+	T &&value() && {
+		check();
+		return ::std::move(*::std::get_if<0>(&value_));
+	}
+	T &operator*() & {
+		return value();
+	}
+	const T &operator*() const & {
+		return value();
+	}
+	T &&operator*() && {
+		return ::std::move(*this).value();
+	}
+	T *operator->() {
+		return &value();
+	}
+	const T *operator->() const {
+		return &value();
+	}
+	// The error, aborting if it holds a value.
+	E &error() & {
+		if (value_.index() != 1) {
+			detail::fail("error() of a result that holds a value");
+		}
+		return *::std::get_if<1>(&value_);
+	}
+	const E &error() const & {
+		return const_cast<result *>(this)->error();
+	}
+	E &&error() && {
+		return ::std::move(error());
+	}
+};
+
+template <class E>
+class result<void, E> {
+	::std::optional<E> error_;
+
+public:
+	static result ok() {
+		return result();
+	}
+	static result err(E error) {
+		result r;
+		r.error_.emplace(::std::move(error));
+		return r;
+	}
+
+	bool has_value() const noexcept {
+		return !error_.has_value();
+	}
+	explicit operator bool() const noexcept {
+		return has_value();
+	}
+	// Aborts if it holds an error.
+	void value() const noexcept {
+		if (error_.has_value()) {
+			detail::fail("value() of a result that holds an error");
+		}
+	}
+	E &error() & {
+		if (!error_.has_value()) {
+			detail::fail("error() of a result that holds a value");
+		}
+		return *error_;
+	}
+	const E &error() const & {
+		return const_cast<result *>(this)->error();
+	}
+	E &&error() && {
+		return ::std::move(error());
+	}
+};
+
+// Wakes a future's poller: a shared callable, which Rust may call from any thread, any
+// number of times, until it lets go.
+class waker {
+	detail::node *node_;
+
+	template <class F>
+	struct callable final : detail::node {
+		F f;
+		explicit callable(F f) : f(::std::move(f)) {}
+		void wake() noexcept override {
+			f();
+		}
+	};
+
+public:
+	template <class F, class = ::std::enable_if_t<!::std::is_same_v<::std::decay_t<F>, waker>>>
+	explicit waker(F f) : node_(new callable<F>(::std::move(f))) {}
+	waker(const waker &other) noexcept : node_(other.node_) {
+		node_->ref();
+	}
+	waker &operator=(const waker &other) noexcept {
+		other.node_->ref();
+		node_->unref();
+		node_ = other.node_;
+		return *this;
+	}
+	~waker() {
+		node_->unref();
+	}
+
+	void wake() const noexcept {
+		node_->wake();
+	}
+
+	friend struct detail::access;
+};
+
+// What a future poll returns: the output when ready, or nothing yet.
+template <class T>
+using poll_t = ::std::conditional_t<::std::is_void_v<T>, bool, ::std::optional<T>>;
+
+class task;
+
+namespace detail {
+
+// A future driven on an executor, which a `task` cancels.
+struct task_node : node {
+	virtual void cancel() noexcept = 0;
+};
+
+template <class Op, class Exec, class F>
+class driver;
+
+template <class Op, class Exec, class F>
+void spawn(task &slot, typename Op::raw *raw, Exec exec, F f);
+
+} // namespace detail
+
+// A future running on an executor until it calls back with the output. Destroying it
+// cancels the future: once that returns, the callback has finished or never runs.
+class task {
+	detail::task_node *node_ = nullptr;
+
+	void reset() noexcept {
+		if (node_ != nullptr) {
+			::std::exchange(node_, nullptr)->cancel();
+		}
+	}
+
+public:
+	task() noexcept = default;
+	task(task &&other) noexcept : node_(::std::exchange(other.node_, nullptr)) {}
+	task &operator=(task &&other) noexcept {
+		if (this != &other) {
+			reset();
+			node_ = ::std::exchange(other.node_, nullptr);
+		}
+		return *this;
+	}
+	~task() {
+		reset();
+	}
+
+	template <class Op, class Exec, class F>
+	friend void detail::spawn(task &, typename Op::raw *, Exec, F);
+};
+
+// A Rust future, polled from C++: move-only, so one poller holds it at a time. Destroying
+// it before it finishes cancels it, which loses nothing, since a value leaves Rust only in
+// the poll that finishes it.
+template <class Op>
+class future {
+	typename Op::raw *raw_;
+	// The waker Rust holds from the last poll, which it reuses when given it again.
+	detail::node *last_ = nullptr;
+
+	explicit future(typename Op::raw *raw) noexcept : raw_(raw) {}
+
+	void poll_into(const waker &w, detail::slot<typename Op::output> &out);
+
+	friend struct detail::access;
+
+public:
+	using output = typename Op::output;
+
+	future(future &&other) noexcept
+	    : raw_(::std::exchange(other.raw_, nullptr)), last_(::std::exchange(other.last_, nullptr)) {}
+	future &operator=(future &&other) noexcept {
+		::std::swap(raw_, other.raw_);
+		::std::swap(last_, other.last_);
+		return *this;
+	}
+	~future() {
+		Op::free(raw_);
+	}
+
+	// Poll once: the output when ready, else nothing, and `w` is woken when it is worth
+	// polling again. Polling after it is ready aborts.
+	poll_t<output> poll(const waker &w);
+
+	// Block the calling thread until the output is ready.
+	output get() &&;
+
+	// Poll on `exec` until ready, then call `f` there with the output. `exec` is any
+	// callable that takes a `void()` callable and runs it once, later, on any thread: never
+	// within the call, which may come from inside Rust.
+	template <class Exec, class F>
+	task then(Exec exec, F f) &&;
+
+	// From C++20, `co_await` it, polled and resumed on `exec`, as `then` takes it.
+	// Destroying the suspended coroutine cancels the future. Declared at every standard,
+	// so the class is one definition across translation units built at different ones.
+	template <class Exec>
+	auto via(Exec exec) &&;
+};
+
+namespace detail {
+
+// What generated classes keep private, for the generated code.
+struct access {
+	static c_buf raw(const view &v) noexcept {
+		return c_buf{v.data_, v.size_, nullptr};
+	}
+	static buf adopt(c_buf raw) noexcept {
+		return buf(raw);
+	}
+	static ::std::optional<buf> adopt_option(c_buf raw) noexcept {
+		if (raw.ptr == nullptr) {
+			return ::std::nullopt;
+		}
+		return buf(raw);
+	}
+	static node *raw(const waker &w) noexcept {
+		return w.node_;
+	}
+	template <class T>
+	static auto raw(const T &object) noexcept {
+		return object.raw_;
+	}
+	template <class T, class R>
+	static T wrap(R *raw) noexcept {
+		return T(raw);
+	}
+	template <class T>
+	static void release(T &object) noexcept {
+		object.raw_ = nullptr;
+	}
+};
+
+inline c_buf none() noexcept {
+	return c_buf{nullptr, 0, nullptr};
+}
+
+// An object Rust lends a closure for one call, as its class over the lent handle, which
+// it gives back unfreed. Moving out of it would keep the borrow past the call.
+template <class T, class R>
+class lent {
+	T object_;
+	R *raw_;
+
+public:
+	explicit lent(R *raw) noexcept
+		: object_(access::wrap<T>(const_cast<::std::remove_const_t<R> *>(raw))), raw_(raw) {}
+	lent(const lent &) = delete;
+	lent &operator=(const lent &) = delete;
+	~lent() {
+		if (access::raw(object_) != raw_) {
+			fail("a lent object was moved out of");
+		}
+		access::release(object_);
+	}
+
+	T &get() noexcept {
+		return object_;
+	}
+};
+
+template <class Op, class Exec, class F>
+class driver final : public task_node {
+	enum : int { idle, queued, running, done };
+
+	::std::mutex mutex_;
+	// Null once the future finished or was cancelled.
+	typename Op::raw *raw_;
+	Exec exec_;
+	F f_;
+	::std::atomic<int> state_{idle};
+	// Whether a wake landed while it polled, so it polls again.
+	::std::atomic<bool> woken_{false};
+	// The thread running its poll and callback, if any.
+	::std::atomic<::std::thread::id> on_{};
+	// Whether Rust holds a reference from the first poll, which it reuses.
+	bool given_ = false;
+
+	void post() {
+		ref();
+		exec_([self = ptr<driver>(this)]() { self->run(); });
+	}
+
+	void run() {
+		::std::unique_lock<::std::mutex> lock(mutex_);
+		if (raw_ == nullptr) {
+			return;
+		}
+		on_.store(::std::this_thread::get_id(), ::std::memory_order_relaxed);
+		state_.store(running, ::std::memory_order_release);
+		woken_.store(false, ::std::memory_order_release);
+		slot<typename Op::output> out;
+		c_waker w = given_ ? lend(this) : give(this);
+		given_ = true;
+		Op::poll(raw_, w, out);
+		if (out) {
+			state_.store(done, ::std::memory_order_release);
+			Op::free(::std::exchange(raw_, nullptr));
+			if constexpr (::std::is_void_v<typename Op::output>) {
+				f_();
+			} else {
+				f_(out.take());
+			}
+		} else {
+			int expect = running;
+			// A wake during the poll lands in `woken_`: poll again, after what else is queued.
+			state_.compare_exchange_strong(expect, idle, ::std::memory_order_acq_rel);
+			if (woken_.exchange(false, ::std::memory_order_acq_rel)) {
+				wake();
+			}
+		}
+		on_.store(::std::thread::id(), ::std::memory_order_relaxed);
+	}
+
+public:
+	driver(typename Op::raw *raw, Exec exec, F f) : raw_(raw), exec_(::std::move(exec)), f_(::std::move(f)) {}
+
+	void wake() noexcept override {
+		int s = state_.load(::std::memory_order_acquire);
+		for (;;) {
+			switch (s) {
+			case idle:
+				if (state_.compare_exchange_weak(s, queued, ::std::memory_order_acq_rel)) {
+					post();
+					return;
+				}
+				break;
+			case running:
+				woken_.store(true, ::std::memory_order_release);
+				// It may have just gone idle, missing the flag.
+				if (state_.compare_exchange_strong(s, running, ::std::memory_order_acq_rel)) {
+					return;
+				}
+				break;
+			default:
+				return;
+			}
+		}
+	}
+
+	void cancel() noexcept override {
+		// From its own callback, the future is already gone.
+		if (on_.load(::std::memory_order_relaxed) != ::std::this_thread::get_id()) {
+			::std::lock_guard<::std::mutex> lock(mutex_);
+			state_.store(done, ::std::memory_order_release);
+			Op::free(::std::exchange(raw_, nullptr));
+		}
+		unref();
+	}
+};
+
+template <class Op, class Exec, class F>
+void spawn(task &slot, typename Op::raw *raw, Exec exec, F f) {
+	auto *d = new driver<Op, Exec, F>(raw, ::std::move(exec), ::std::move(f));
+	slot = task();
+	slot.node_ = d;
+	d->wake();
+}
+
+} // namespace detail
+
+template <class Op>
+void future<Op>::poll_into(const waker &w, detail::slot<output> &out) {
+	detail::node *n = detail::access::raw(w);
+	detail::c_waker raw = n == last_ ? detail::lend(n) : detail::give(n);
+	last_ = n;
+	Op::poll(raw_, raw, out);
+}
+
+template <class Op>
+poll_t<typename future<Op>::output> future<Op>::poll(const waker &w) {
+	detail::slot<output> out;
+	poll_into(w, out);
+	return out.release();
+}
+
+template <class Op>
+typename future<Op>::output future<Op>::get() && {
+	struct parker {
+		::std::mutex mutex;
+		::std::condition_variable cv;
+		bool woken = false;
+	};
+	auto p = ::std::make_shared<parker>();
+	waker w([p]() {
+		{
+			::std::lock_guard<::std::mutex> lock(p->mutex);
+			p->woken = true;
+		}
+		p->cv.notify_one();
+	});
+	for (;;) {
+		{
+			// Before the poll, so a wake that lands between its pending and the wait is kept.
+			::std::lock_guard<::std::mutex> lock(p->mutex);
+			p->woken = false;
+		}
+		detail::slot<output> out;
+		poll_into(w, out);
+		if (out) {
+			return out.take();
+		}
+		::std::unique_lock<::std::mutex> lock(p->mutex);
+		p->cv.wait(lock, [&]() { return p->woken; });
+	}
+}
+
+template <class Op>
+template <class Exec, class F>
+task future<Op>::then(Exec exec, F f) && {
+	task t;
+	detail::spawn<Op>(t, ::std::exchange(raw_, nullptr), ::std::move(exec), ::std::move(f));
+	return t;
+}
+
+#if defined(__cpp_impl_coroutine) && __cpp_impl_coroutine >= 201902L && __has_include(<coroutine>)
+namespace detail {
+
+template <class Op, class Exec>
+class awaiter {
+	typename Op::raw *raw_;
+	Exec exec_;
+	slot<typename Op::output> out_;
+	task task_;
+
+public:
+	awaiter(typename Op::raw *raw, Exec exec) : raw_(raw), exec_(::std::move(exec)) {}
+	awaiter(const awaiter &) = delete;
+	awaiter &operator=(const awaiter &) = delete;
+	~awaiter() {
+		Op::free(raw_);
+	}
+
+	bool await_ready() const noexcept {
+		return false;
+	}
+
+	void await_suspend(::std::coroutine_handle<> h) {
+		// The task is in place before the first poll, which may resume the coroutine and
+		// destroy this from the executor's thread.
+		spawn<Op>(task_, ::std::exchange(raw_, nullptr), ::std::move(exec_), [this, h](auto &&...value) {
+			out_.emplace(::std::forward<decltype(value)>(value)...);
+			h.resume();
+		});
+	}
+
+	typename Op::output await_resume() {
+		return out_.take();
+	}
+};
+
+} // namespace detail
+
+template <class Op>
+template <class Exec>
+auto future<Op>::via(Exec exec) && {
+	return detail::awaiter<Op, Exec>(::std::exchange(raw_, nullptr), ::std::move(exec));
+}
+#endif

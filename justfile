@@ -34,6 +34,7 @@ check:
 # Run the tests.
 test:
     bash .claude/hooks/direnv.test.sh
+    bun .github/land.test.ts
     just ts test
     just ffi test
     just driver test

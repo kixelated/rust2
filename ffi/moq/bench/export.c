@@ -1,5 +1,6 @@
 /* The frame write path through the exported C ABI: a timed track, groups of 100 frames of
- * 100 bytes, each frame stamped. bench/moq-c.c times the same through moq's rs/moq-c. */
+ * 100 bytes, each frame stamped. bench/moq-c.c times the same through moq's rs/moq-c, and
+ * bench/export.cpp through the C++ header. Then the read path, each read a future. */
 
 #define _POSIX_C_SOURCE 199309L
 
@@ -78,7 +79,6 @@ int main(void) {
 		moq_group_producer_free(group);
 	}
 	double reused = (now() - start) / (GROUPS * FRAMES);
-	moq_timestamp_free(at);
 
 	/* The floor: a borrow of a handle and a bool back. */
 	start = now();
@@ -88,8 +88,49 @@ int main(void) {
 	}
 	double call = (now() - start) / (GROUPS * FRAMES);
 
-	printf("export: %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call%s\n", stamped, reused,
-		   call, closed ? "!" : "");
+	/* Reads: each frame written, then read through a new future polled once, ready. */
+	moq_waker waker = {0};
+	moq_track_consumer *consumer = moq_track_producer_consume(track);
+	moq_track_consumer_subscribe_future *subscribing = moq_track_consumer_subscribe(consumer, NULL);
+	moq_track_subscriber *subscriber = NULL;
+	if (moq_track_consumer_subscribe_poll(subscribing, waker, &subscriber, &err) != MOQ_POLL_READY) {
+		return 4;
+	}
+	moq_track_consumer_subscribe_future_free(subscribing);
+	start = now();
+	for (int g = 0; g < GROUPS; g++) {
+		moq_group_producer *group = NULL;
+		moq_track_producer_append_group(track, &group, &err);
+		moq_track_subscriber_recv_group_future *receiving = moq_track_subscriber_recv_group(subscriber);
+		moq_group_consumer *reader = NULL;
+		if (moq_track_subscriber_recv_group_poll(receiving, waker, &reader, &err) != MOQ_POLL_READY || reader == NULL) {
+			return 5;
+		}
+		moq_track_subscriber_recv_group_future_free(receiving);
+		for (int f = 0; f < FRAMES; f++) {
+			if (!moq_group_producer_write_frame(group, at, frame, &err)) {
+				return 6;
+			}
+			moq_group_consumer_read_frame_future *reading = moq_group_consumer_read_frame(reader);
+			moq_frame_frame *read = NULL;
+			if (moq_group_consumer_read_frame_poll(reading, waker, &read, &err) != MOQ_POLL_READY || read == NULL) {
+				return 7;
+			}
+			moq_group_consumer_read_frame_future_free(reading);
+			moq_frame_frame_free(read);
+		}
+		moq_group_producer_finish(group, &err);
+		moq_group_producer_free(group);
+		moq_group_consumer_free(reader);
+	}
+	double read = (now() - start) / (GROUPS * FRAMES);
+	moq_timestamp_free(at);
+	moq_track_subscriber_free(subscriber);
+	moq_track_consumer_free(consumer);
+
+	printf("export: %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call, %.0f ns per frame "
+		   "written and read%s\n",
+		   stamped, reused, call, read, closed ? "!" : "");
 	moq_track_producer_free(track);
 	moq_timescale_free(micro);
 	moq_broadcast_producer_free(broadcast);
