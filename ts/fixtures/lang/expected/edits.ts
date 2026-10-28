@@ -2,13 +2,23 @@
 
 import * as rt from "./rt.ts";
 import { copy$chars } from "./lib.ts";
-import { unwrapOr$Option_u16, unwrapOr$Option_u8, mapOr$Option_u16_u16_edits_closure21 } from "./core/option.ts";
+import { unwrapOr$Option_Nameds, unwrapOr$Option_u16, unwrapOr$Option_u8, map$Option_Box_Named_u16_edits_closure31, map$Option_Named_Nameds_from_ref, mapOr$Option_Named_u16_edits_closure33, mapOr$Option_u16_u16_edits_closure21, filter$Option_Box_Named_edits_closure30, clone$Clone_Option_Box_Named } from "./core/option.ts";
 import * as Lean from "./edits.Lean.ts";
 import * as Named from "./edits.Named.ts";
 import * as Stamp from "./edits.Stamp.ts";
 import * as Tally from "./edits.Tally.ts";
 import { put } from "./fmt.ts";
 import { text } from "./strs.ts";
+
+/** Into an `Option`, as a parameter that takes either. */
+export function optional$Named(n: Named.Named): Named.Named | undefined {
+	return n;
+}
+
+/** Into an `Option`, as a parameter that takes either. */
+export function optional$Option_Named(n: Named.Named | undefined): Named.Named | undefined {
+	return n;
+}
 
 export function putU16s(out: rt.ByteVec, v: rt.u16[]): void {
 	for (const _5 of v) {
@@ -21,25 +31,33 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _75: (a0: rt.u16) => Named.Named = (w: rt.u16): Named.Named => {
 		return { id: w, name: text(rt.byteSliceFrom(Uint8Array.of(rt.u8Div(w & 0xff, 16)))) };
 	};
+	const _576: (a0: rt.u16) => Named.Named = (w2: rt.u16): Named.Named => {
+		return { id: w2, name: text(rt.byteSliceFrom(Uint8Array.of(w2 & 0xff))) };
+	};
+	const _577: (a0: Named.Named[]) => rt.u16[] = (v7: Named.Named[]): rt.u16[] => {
+		return rt.iterToArray(rt.iterMap(rt.iterSlice(v7), (n: Named.Named): rt.u16 => {
+			return n.id;
+		}));
+	};
 	const words: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
 		return rt.u16Mul(_2 as rt.u16, 3);
 	}));
 	const at: (a0: rt.usize) => rt.u8 = (i3: rt.usize): rt.u8 => {
 		return unwrapOr$Option_u8(rt.byteSliceGet(data, i3), 0);
 	};
-	const _8: rt.u8 = rt.u8Rem(kind, 7);
+	const _8: rt.u8 = rt.u8Rem(kind, 8);
 	if (_8 === 0) {
 		const v: rt.u16[] = words.slice();
 		const seen: rt.u16[] = [];
-		rt.vecRetain(v, (_225: rt.u16): boolean => {
-			const x3: rt.u16 = _225;
+		rt.vecRetain(v, (_230: rt.u16): boolean => {
+			const x3: rt.u16 = _230;
 			seen.push(x3);
 			return rt.u16Rem(x3, 4) !== 0;
 		});
 		putU16s(out, seen);
 		putU16s(out, v);
-		const pairs: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_228: rt.u16): [rt.u16, rt.u16] => {
-			return [_228, 0] as [rt.u16, rt.u16];
+		const pairs: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_232: rt.u16): [rt.u16, rt.u16] => {
+			return [_232, 0] as [rt.u16, rt.u16];
 		}));
 		rt.vecRetain(pairs, (p3: [rt.u16, rt.u16]): boolean => {
 			p3[1] = rt.u16Div(p3[0], 2);
@@ -48,55 +66,55 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _33 of pairs) {
 			putU16s(out, [_33[0], _33[1]]);
 		}
-		const names: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_230: rt.u8): string => {
-			return text(rt.byteSliceFrom(Uint8Array.of(_230)));
+		const names: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_233: rt.u8): string => {
+			return text(rt.byteSliceFrom(Uint8Array.of(_233)));
 		}));
 		rt.vecRetain(names, (s2: string): boolean => {
 			return rt.stringLen(s2) > 1;
 		});
 		rt.byteVecPush(out, names.length & 0xff);
-		const part2 = rt.usizeSaturatingSub(data.length, 1);
-		const stop: rt.u16 = rt.u16Mul(at(part2) as rt.u16, 3);
+		const part8 = rt.usizeSaturatingSub(data.length, 1);
+		const stop: rt.u16 = rt.u16Mul(at(part8) as rt.u16, 3);
 		if ((kind & 128) !== 0) {
-			rt.vecRetain(v, (_232: rt.u16): boolean => {
-				const x4: rt.u16 = _232;
+			rt.vecRetain(v, (_235: rt.u16): boolean => {
+				const x4: rt.u16 = _235;
 				if (!(x4 === stop)) {
 					return true;
 				}
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(x4, f)];
-				rt.panicFmt(["retain stopped at ", args2[0]]);
+				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(x4, f)];
+				rt.panicFmt(["retain stopped at ", args4[0]]);
 			});
 		}
 	} else if (_8 === 1) {
-		const v2: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_217: rt.u8): rt.u16 => {
-			return rt.u8Rem(_217, 4) as rt.u16;
+		const v2: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_219: rt.u8): rt.u16 => {
+			return rt.u8Rem(_219, 4) as rt.u16;
 		}));
 		rt.vecDedupBy(v2, rt.same);
 		putU16s(out, v2);
-		const keyed: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_218: rt.u16): Named.Named => {
-			return _75(_218);
+		const keyed: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_221: rt.u16): Named.Named => {
+			return _75(_221);
 		}));
-		rt.vecDedupByKey(keyed, (n: Named.Named): rt.u16 => {
-			return rt.u16Div(n.id, 24);
+		rt.vecDedupByKey(keyed, (n3: Named.Named): rt.u16 => {
+			return rt.u16Div(n3.id, 24);
 		}, rt.same);
 		for (const _88 of keyed) {
 			putU16s(out, [_88.id]);
 		}
-		const tested: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_219: rt.u16): Named.Named => {
-			return _75(_219);
+		const tested: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_225: rt.u16): Named.Named => {
+			return _75(_225);
 		}));
 		const seen2: rt.u16[] = [];
-		rt.vecDedupBy(tested, (a3: Named.Named, b8: Named.Named): boolean => {
+		rt.vecDedupBy(tested, (a3: Named.Named, b10: Named.Named): boolean => {
 			seen2.push(a3.id);
-			seen2.push(b8.id);
-			return a3.name === b8.name;
+			seen2.push(b10.id);
+			return a3.name === b10.name;
 		});
 		putU16s(out, seen2);
 		for (const _115 of tested) {
 			put(out, _115.name);
 		}
-		const names2: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_221: rt.u8): string => {
-			return text(rt.byteSliceFrom(Uint8Array.of(rt.u8Rem(_221, 3))));
+		const names2: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_228: rt.u8): string => {
+			return text(rt.byteSliceFrom(Uint8Array.of(rt.u8Rem(_228, 3))));
 		}));
 		rt.vecDedupBy(names2, rt.same);
 		rt.byteVecPush(out, names2.length & 0xff);
@@ -105,12 +123,12 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.sliceSort(v3, rt.cmpLt(rt.cmp));
 		putU16s(out, v3);
 		const v4: rt.u16[] = words.slice();
-		rt.sliceSortBy(v4, (a: rt.u16, b4: rt.u16): rt.Ordering => {
-			return rt.cmp(b4, a);
+		rt.sliceSortBy(v4, (a: rt.u16, b6: rt.u16): rt.Ordering => {
+			return rt.cmp(b6, a);
 		});
 		putU16s(out, v4);
-		const pairs2: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(words)), (_211: [rt.usize, rt.u16]): [rt.u16, rt.u16] => {
-			return [rt.u16Rem(_211[1], 5), _211[0] & 0xffff] as [rt.u16, rt.u16];
+		const pairs2: [rt.u16, rt.u16][] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(words)), (_214: [rt.usize, rt.u16]): [rt.u16, rt.u16] => {
+			return [rt.u16Rem(_214[1], 5), _214[0] & 0xffff] as [rt.u16, rt.u16];
 		}));
 		rt.sliceSortByKey(pairs2, (p2: [rt.u16, rt.u16]): rt.u16 => {
 			return p2[0];
@@ -118,10 +136,10 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _159 of pairs2) {
 			putU16s(out, [_159[0], _159[1]]);
 		}
-		rt.sliceSortByKey(pairs2, (_213: [rt.u16, rt.u16]): [rt.u16, rt.u16, rt.u16] => {
-			const a2: rt.u16 = _213[0];
-			const b5: rt.u16 = _213[1];
-			return [rt.u16Rem(b5, 3), a2, b5] as [rt.u16, rt.u16, rt.u16];
+		rt.sliceSortByKey(pairs2, (_216: [rt.u16, rt.u16]): [rt.u16, rt.u16, rt.u16] => {
+			const a2: rt.u16 = _216[0];
+			const b7: rt.u16 = _216[1];
+			return [rt.u16Rem(b7, 3), a2, b7] as [rt.u16, rt.u16, rt.u16];
 		}, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
 		for (const _176 of pairs2) {
 			putU16s(out, [_176[0], _176[1]]);
@@ -132,10 +150,10 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _193 of pairs2) {
 			putU16s(out, [_193[0], _193[1]]);
 		}
-		const options: Array<rt.u16 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_214: rt.u16): rt.u16 | undefined => {
-			const w6: rt.u16 = _214;
-			if (!(rt.u16Rem(w6, 2) === 0)) {
-				return w6;
+		const options: Array<rt.u16 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_217: rt.u16): rt.u16 | undefined => {
+			const w8: rt.u16 = _217;
+			if (!(rt.u16Rem(w8, 2) === 0)) {
+				return w8;
 			}
 			return undefined;
 		}));
@@ -145,9 +163,9 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return o;
 			})]);
 		}
-		const names3: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): string => {
-			const b6: rt.u8 = _216;
-			return text(rt.byteSliceFrom(Uint8Array.of(b6, rt.u8Div(b6, 16))));
+		const names3: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_218: rt.u8): string => {
+			const b8: rt.u8 = _218;
+			return text(rt.byteSliceFrom(Uint8Array.of(b8, rt.u8Div(b8, 16))));
 		}));
 		rt.sliceSort(names3, rt.cmpLt(rt.cmpStr));
 		for (const _234 of names3) {
@@ -156,8 +174,8 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_8 === 3) {
 		const v5: rt.u16[] = words.slice();
 		putU16s(out, [unwrapOr$Option_u16(rt.sliceLast(v5), 65535)]);
-		const runs: [rt.u16, rt.u16 | undefined][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_28: rt.u16): [rt.u16, rt.u16 | undefined] => {
-			return [_28, undefined] as [rt.u16, rt.u16 | undefined];
+		const runs: [rt.u16, rt.u16 | undefined][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_211: rt.u16): [rt.u16, rt.u16 | undefined] => {
+			return [_211, undefined] as [rt.u16, rt.u16 | undefined];
 		}));
 		const _256: [rt.u16, rt.u16 | undefined] | undefined = rt.sliceLast(runs);
 		if (_256 !== undefined) {
@@ -172,9 +190,9 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.sliceReverse(v5);
 		putU16s(out, v5);
-		const named: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_29: rt.u16): Named.Named => {
-			const w4: rt.u16 = _29;
-			return { id: w4, name: text(rt.byteSliceFrom(Uint8Array.of(w4 & 0xff))) };
+		const named: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_213: rt.u16): Named.Named => {
+			const w6: rt.u16 = _213;
+			return { id: w6, name: text(rt.byteSliceFrom(Uint8Array.of(w6 & 0xff))) };
 		}));
 		const probe: Named.Named = { id: rt.u16Mul(at(1) as rt.u16, 3), name: text(rt.byteSliceFrom(Uint8Array.of(rt.u8WrappingMul(at(1), 3)))) };
 		rt.byteVecPush(out, rt.sliceContains(named, probe, Named.eq$PartialEq) ? 1 : 0);
@@ -190,9 +208,9 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.sliceSwap(moved, i, j);
 		putU16s(out, moved);
 	} else if (_8 === 4) {
-		const named2: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_23: rt.u16): Named.Named => {
-			const w2: rt.u16 = _23;
-			return { id: w2, name: text(rt.byteSliceFrom(Uint8Array.of(w2 & 0xff))) };
+		const named2: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_28: rt.u16): Named.Named => {
+			const w4: rt.u16 = _28;
+			return { id: w4, name: text(rt.byteSliceFrom(Uint8Array.of(w4 & 0xff))) };
 		}));
 		const cloned: Named.Named[] = rt.vecClone(named2, Named.clone$Clone);
 		rt.byteVecPush(out, rt.eqSlice(Named.eq$PartialEq)(cloned, named2) ? 1 : 0);
@@ -207,14 +225,14 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _406: Named.Named[] = rt.sliceRange(named2, 0, rt.usizeDiv(named2.length, 2));
 		rt.vecExtendFromSlice(changed, _406, Named.clone$Clone);
 		rt.byteVecPush(out, changed.length & 0xff);
-		const nested: rt.u16[][] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_27: rt.u8): rt.u16[] => {
-			const b3: rt.u8 = _27;
-			return rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(b3, 3)), (i4: rt.u8): rt.u16 => {
-				return rt.u16Add(i4 as rt.u16, b3 as rt.u16);
+		const nested: rt.u16[][] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_29: rt.u8): rt.u16[] => {
+			const b5: rt.u8 = _29;
+			return rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(b5, 3)), (i4: rt.u8): rt.u16 => {
+				return rt.u16Add(i4 as rt.u16, b5 as rt.u16);
 			}));
 		}));
-		const _424: rt.u16[][] = rt.vecClone(nested, (a018: rt.u16[]): rt.u16[] => {
-			return a018.slice();
+		const _424: rt.u16[][] = rt.vecClone(nested, (a027: rt.u16[]): rt.u16[] => {
+			return a027.slice();
 		});
 		rt.byteVecPush(out, rt.eqSlice(rt.eqSlice(rt.same))(_424, nested) ? 1 : 0);
 		const pair: [string, rt.u8] = [text(data), at(0)];
@@ -265,6 +283,66 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.ordMax(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordMin(p, q, rt.cmpLt(Lean.partialCmp$PartialOrd))._0);
 		rt.byteVecPush(out, rt.ordClamp(p, q, r, rt.cmpLe(Lean.partialCmp$PartialOrd), rt.cmpLt(Lean.partialCmp$PartialOrd), rt.cmpGt(Lean.partialCmp$PartialOrd))._0);
+	} else if (_8 === 6) {
+		const v6: Named.Named[] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_23: rt.u16): Named.Named => {
+			return _576(_23);
+		}));
+		const _587: rt.usize = rt.usizeRem(at(0) as rt.usize, 8);
+		const _593: Named.Named = _576(511);
+		rt.vecInsert(v6, _587, _593);
+		putU16s(out, _577(v6));
+		const _606: rt.usize = rt.usizeRem(at(1) as rt.usize, 8);
+		const removed: Named.Named = rt.vecRemove(v6, _606);
+		putU16s(out, [removed.id]);
+		const kept: Named.Named[] = rt.vecClone(v6, Named.clone$Clone);
+		const _621: rt.usize = rt.usizeRem(at(2) as rt.usize, 4);
+		rt.vecTruncate(v6, _621);
+		putU16s(out, _577(v6));
+		rt.vecTruncate(v6, 0);
+		rt.byteVecPush(out, v6.length === 0 ? 1 : 0);
+		const boxed: Named.Named = removed;
+		const copy2: Named.Named = Named.clone$Clone(boxed);
+		copy2.name = copy2.name + "!";
+		put(out, boxed.name);
+		put(out, copy2.name);
+		const held: Named.Named | undefined = filter$Option_Box_Named_edits_closure30(boxed, (_27: Named.Named): boolean => {
+			return rt.u8Rem(at(3), 2) === 0;
+		});
+		rt.byteVecPush(out, map$Option_Box_Named_u16_edits_closure31(clone$Clone_Option_Box_Named(held), (b3: Named.Named): rt.u16 => {
+			return b3.id;
+		}) === map$Option_Box_Named_u16_edits_closure31(held, (b4: Named.Named): rt.u16 => {
+			return b4.id;
+		}) ? 1 : 0);
+		const some: Named.Named[] | undefined = rt.vecClone(kept, Named.clone$Clone);
+		const _676: Named.Named[] | undefined = rt.vecClone(kept, Named.clone$Clone);
+		rt.byteVecPush(out, rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _676) ? 1 : 0);
+		rt.byteVecPush(out, rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, undefined) ? 1 : 0);
+		const _689: Named.Named[] | undefined = [];
+		rt.byteVecPush(out, !rt.eqOption(rt.eqSlice(Named.eq$PartialEq))(some, _689) ? 1 : 0);
+		const _695: Named.Named | undefined = optional$Named(_576(5));
+		const _700: Named.Named | undefined = optional$Option_Named(undefined);
+		rt.byteVecPush(out, rt.eqOption(Named.eq$PartialEq)(_695, _700) ? 1 : 0);
+		const part3 = at(4) as rt.u16;
+		rt.byteVecPush(out, mapOr$Option_Named_u16_edits_closure33(optional$Named(_576(part3)), 65535, (n2: Named.Named): rt.u16 => {
+			return n2.id;
+		}) & 0xff);
+		const part4 = unwrapOr$Option_Nameds(map$Option_Named_Nameds_from_ref(rt.sliceFirst(kept), (a09: Named.Named): Named.Named[] => {
+			return [a09];
+		}), kept);
+		putU16s(out, _577(part4));
+		const part5 = [_576(7)];
+		putU16s(out, _577(part5));
+		const _739: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(at(5)));
+		rt.idx(_739, 0);
+		rt.byteVecPush(out, _739.data[_739.start]);
+		const part6 = rt.fromUtf8ErrorClone(rt.resultUnwrapErr(rt.stringFromUtf8(rt.byteVecFrom(Uint8Array.of(97, 255, at(6)))), rt.fmtStr));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtFromUtf8ErrorDebug(part6, f)];
+		put(out, rt.fmtFormat([args2[0]]));
+		rt.byteVecPush(out, 16 & 0xff);
+		rt.byteVecPush(out, 16 & 0xff);
+		rt.byteVecPush(out, 4 & 0xff);
+		rt.byteVecPush(out, 6 & 0xff);
+		rt.byteVecPush(out, rt.u8Mul(4 & 0xff, 1 & 0xff));
 	} else {
 		const s: string = text(data);
 		const sep: rt.char[] = [47, 97];
@@ -276,27 +354,27 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.strEndsWith(s, (c: rt.char): boolean => {
 			return rt.charIsAsciiDigit(c);
 		}) ? 1 : 0);
-		const _612: [string, string] | undefined = rt.strSplitOnce(s, "/");
-		if (_612 === undefined) {
+		const _824: [string, string] | undefined = rt.strSplitOnce(s, "/");
+		if (_824 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _612[0]);
-			put(out, _612[1]);
+			put(out, _824[0]);
+			put(out, _824[1]);
 		}
-		const _621: [string, string] | undefined = rt.strSplitOnce(s, "a0");
-		if (_621 === undefined) {
+		const _833: [string, string] | undefined = rt.strSplitOnce(s, "a0");
+		if (_833 === undefined) {
 			rt.byteVecPush(out, 253);
 		} else {
-			put(out, _621[0]);
-			put(out, _621[1]);
+			put(out, _833[0]);
+			put(out, _833[1]);
 		}
 		const iter10: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, rt.usizeAdd(rt.stringLen(s), 1), rt.usizeStep);
 		while (true) {
-			const _636: rt.usize | rt.Done = iter10.next();
-			if (_636 === rt.DONE) {
+			const _848: rt.usize | rt.Done = iter10.next();
+			if (_848 === rt.DONE) {
 				break;
 			}
-			rt.byteVecPush(out, rt.strIsCharBoundary(s, _636) ? 1 : 0);
+			rt.byteVecPush(out, rt.strIsCharBoundary(s, _848) ? 1 : 0);
 		}
 		rt.iterExtendBytes(out, rt.strBytes(s));
 		rt.iterExtendBytes(out, rt.iterTake(rt.iterRev(rt.strBytes(s)), 3));

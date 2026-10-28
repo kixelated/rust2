@@ -19,6 +19,9 @@
   `hashExtendKeys`, `btreeExtend`, and `btreeExtendKeys` take an `rt.Take`, `"next"` or
   `"fold"`, for how std's reads it; `iterToArray` takes `"place"` where its `inPlace` was
   `true`.
+- The runtime's `iterMax`, `iterMin`, `iterMaxByKey`, and `iterMinByKey` take a
+  `PartialOrd::lt` after the iterator and any key function, for items or keys of any type:
+  `rt.iterMax(it, rt.cmpLt(rt.cmp))`.
 - `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
   `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
 - `ts.toml` no longer takes `ignore-macros`: `tracing`'s events are left out without it,

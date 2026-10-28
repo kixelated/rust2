@@ -48,5 +48,5 @@ Public API: the translator's output for moq-net's model.
 
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
-- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses
+- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

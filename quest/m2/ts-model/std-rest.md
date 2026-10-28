@@ -2,20 +2,24 @@
 
 ## Goal
 
-rust2-ts translates the std calls the model's census still refuses after
-[std gaps](https://github.com/kixelated/rust2/pull/124) and [core's MIR](https://github.com/kixelated/rust2/pull/129),
-outside [Places](https://github.com/kixelated/rust2/pull/149), proven by differential tests against
-native Rust.
+rust2-ts translates the std calls the model's census still refuses outside other quests:
+`Vec`'s and `VecDeque`'s `capacity`, `reserve`, and `shrink_to`, and `RandomState` with
+`BuildHasher::hash_one`, proven by differential tests against native Rust.
 
 ## Plan
 
-Found by [#124](https://github.com/kixelated/rust2/pull/124) and #129 on 2026-10-27:
-iterator `min_by_key` and `max_by_key`, `slice::split_last`, integer `to_le_bytes`,
-`Box<T>::clone`, `retain` and `sort` of byte vectors, `Debug` of `Reverse` and `Bound`,
-slicing by `..=`, and `Option`'s and `Result`'s `PartialEq` and `From` impls and the std
-calls core's bodies reach (`Default::default`, a payload's `Clone`).
+Left by [#168](https://github.com/kixelated/rust2/pull/168) on 2026-10-28, which translated
+the rest of what the census refused in std. Decided with the maintainer on 2026-10-28:
 
-- Rerun the model's census first, since #115, #128, and #129 moved it, and take what it
-  refuses in std rather than only this list.
+- **Capacity: std's exact growth, everywhere.** moq-net reads `capacity` to decide when to
+  prune (`cache.rs`'s `hold_head`, `resume.rs`'s readers) and bills `VecDeque` growth by
+  it (`group.rs`), so a capacity other than std's changes what it does. Every `Vec` and
+  `VecDeque` carries std's capacity (`RawVec::grow_amortized`, its minimum non-zero
+  capacity by element size, `with_capacity` exact, `shrink_to`, and what `collect` and
+  `clone` allocate), through every runtime function that allocates. Measure push cost on
+  the TS benchmark before and after.
+- **`RandomState`: random per state, from `crypto.getRandomValues`**, as std seeds from
+  the OS. It keys a treap's priorities in `track/demand/ranges.rs`, so a differential test
+  compares only what the values decide, such as equal inputs hashing equally.
 
 Public API: the translator's output.
