@@ -26,30 +26,17 @@ export class Park {
  */
 export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
 	let reuse!: boolean;
-	let _10!: Waiter.Waiter | undefined;
-	let unwind: number = 0;
-	try {
-		if (self._0 === undefined) {
-			reuse = false;
-		} else {
-			reuse = cx.willWake(self._0.waker);
-		}
-		if (!reuse) {
-			const _11: Waiter.Waiter = Waiter.new(cx.clone());
-			unwind = 12;
-			_10 = _11;
-			rt.drop(self._0);
-			self._0 = _10;
-		}
-		unwind = 0;
-		return rt.optionUnwrap(self._0);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		self._0 = _10;
-		throw e;
+	if (self._0 === undefined) {
+		reuse = false;
+	} else {
+		reuse = cx.willWake(self._0.waker);
 	}
+	if (!reuse) {
+		const _10: Waiter.Waiter | undefined = Waiter.new(cx.clone());
+		rt.drop(self._0);
+		self._0 = _10;
+	}
+	return rt.optionUnwrap(self._0);
 }
 
 //# sourceMappingURL=kio.Park.ts.map

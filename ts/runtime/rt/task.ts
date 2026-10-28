@@ -4,7 +4,7 @@
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Err, type None, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
+import { Err, type None, OK, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -379,6 +379,41 @@ export const Pending: unique symbol = /* @__PURE__ */ Symbol("Pending");
 
 /** `Poll<T>`. */
 export type Poll<T> = T | typeof Pending;
+
+/** `Poll::Pending` of a `Poll` whose `Ready` can already be `Pending`, as `Poll<Poll<T>>`'s is. */
+export const OuterPending: unique symbol = /* @__PURE__ */ Symbol("OuterPending");
+
+/** The type of `OuterPending`. */
+export type OuterPending = typeof OuterPending;
+
+/** `Ok(Pending)` and `Ok(OuterPending)`, shared as `OK` is. */
+const OK_PENDING = /* @__PURE__ */ Object.freeze({ ok: true, value: Pending } as const);
+const OK_OUTER_PENDING = /* @__PURE__ */ Object.freeze({ ok: true, value: OuterPending } as const);
+
+/**
+ * `?` on a `Poll<Result<T, E>>`: the `Result` it is when ready, and `Ok(pending)` when
+ * `Pending`, where `pending` is the `Pending` of the `Poll<T>` it continues with.
+ */
+export function pollBranch<T, E, P extends typeof Pending | OuterPending>(
+	poll: Result<T, E> | typeof Pending,
+	pending: P,
+): Result<T | P, E> {
+	if (poll !== Pending) return poll;
+	return (pending === Pending ? OK_PENDING : OK_OUTER_PENDING) as Result<P, E>;
+}
+
+/**
+ * `?` on a `Poll<Option<Result<T, E>>>`, as `pollBranch`, whose `Ready(None)` continues as
+ * `Ok(none)`, where `none` is the `None` of the `Option<T>`.
+ */
+export function pollOptionBranch<T, E, P extends typeof Pending | OuterPending, N extends undefined | None>(
+	poll: Result<T, E> | undefined | typeof Pending,
+	pending: P,
+	none: N,
+): Result<T | P | N, E> {
+	if (poll === undefined) return none === undefined ? (OK as Result<N, E>) : Ok(none);
+	return pollBranch(poll, pending);
+}
 
 /** `Waker`: what an executor hands a future to wake its task. */
 export interface Waker extends Disposable {

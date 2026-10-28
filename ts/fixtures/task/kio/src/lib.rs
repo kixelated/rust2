@@ -1,5 +1,6 @@
 //! moq's kio, trimmed to what its futures hinge on, at the moq revision `just ts moq`
-//! pins (`rs/kio/src/waiter.rs`, `pending.rs`, `producer.rs`, and `consumer.rs`).
+//! pins (`rs/kio/src/waiter.rs`, `pending.rs`, `task.rs`, `producer.rs`, and
+//! `consumer.rs`): the task fixture reaches it across crates, as moq-net reaches kio.
 //!
 //! A `WaiterList` holds each waiter's waker weakly, so a waiter that drops, as its
 //! `Park` replaces it or its future is cancelled, frees its slots with no deregister.
@@ -7,6 +8,7 @@
 //! inline storage are left out: they change no event the test logs.
 
 use std::future::Future;
+use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, Weak};
 use std::task::{Context, Poll, Waker};
@@ -26,6 +28,19 @@ impl Waiter {
 	/// Register with `list`, a no-op while the list still holds this waiter.
 	pub fn register(&self, list: &mut WaiterList) {
 		list.register(self);
+	}
+
+	/// A [`Context`] that wakes this waiter's task.
+	pub fn context(&self) -> Context<'_> {
+		Context::from_waker(&self.waker)
+	}
+
+	/// Poll a std [`Future`], sized or not, so it wakes this waiter's task.
+	pub fn poll_future<F: Future + ?Sized>(&self, future: Pin<&mut F>) -> Poll<F::Output> {
+		match future.poll(&mut self.context()) {
+			Poll::Ready(value) => Poll::Ready(value),
+			Poll::Pending => Poll::Pending,
+		}
 	}
 }
 
@@ -114,34 +129,73 @@ impl Park {
 	}
 }
 
-/// A future from a poll function that receives a [`Waiter`].
-pub fn wait<F, R>(poll: F) -> Pending<F>
-where
-	F: FnMut(&Waiter) -> Poll<R> + Unpin,
-{
-	Pending {
-		poll,
-		park: Park::default(),
-	}
+/// A computation polled with a [`Waiter`].
+pub trait Task {
+	type Output;
+
+	fn poll(&mut self, waiter: &Waiter) -> Poll<Self::Output>;
 }
 
-/// What [`wait`] returns.
-pub struct Pending<F> {
-	poll: F,
-	park: Park,
-}
-
-impl<F, R> Future for Pending<F>
+impl<F, R> Task for F
 where
-	F: FnMut(&Waiter) -> Poll<R> + Unpin,
+	F: FnMut(&Waiter) -> Poll<R>,
 {
 	type Output = R;
 
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<R> {
+	fn poll(&mut self, waiter: &Waiter) -> Poll<R> {
+		self(waiter)
+	}
+}
+
+/// A [`Task`] as a [`Future`], parking its waiter between polls. Derefs to the task.
+pub struct Pending<P> {
+	inner: P,
+	park: Park,
+}
+
+impl<P> Pending<P> {
+	pub fn new(inner: P) -> Self {
+		Self {
+			inner,
+			park: Park::default(),
+		}
+	}
+
+	pub fn into_inner(self) -> P {
+		self.inner
+	}
+}
+
+impl<P> Deref for Pending<P> {
+	type Target = P;
+
+	fn deref(&self) -> &P {
+		&self.inner
+	}
+}
+
+impl<P> DerefMut for Pending<P> {
+	fn deref_mut(&mut self) -> &mut P {
+		&mut self.inner
+	}
+}
+
+impl<P: Task + Unpin> Future for Pending<P> {
+	type Output = P::Output;
+
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<P::Output> {
 		let this = &mut *self;
 		let waiter = this.park.hold(cx);
-		(this.poll)(waiter)
+		this.inner.poll(waiter)
 	}
+}
+
+/// A future from a poll function that receives a [`Waiter`].
+pub fn wait<F, R>(poll: F) -> impl Future<Output = R>
+where
+	F: FnMut(&Waiter) -> Poll<R> + Unpin,
+{
+	Pending::new(poll)
 }
 
 struct State {
@@ -211,6 +265,10 @@ impl Drop for Producer {
 	}
 }
 
+/// The error of a poll once the channel closed.
+#[derive(Debug)]
+pub struct Closed;
+
 /// The receiving side of a channel: every value sent, in order.
 #[derive(Clone)]
 pub struct Consumer {
@@ -232,6 +290,47 @@ impl Consumer {
 		}
 		waiter.register(&mut state.waiters);
 		Poll::Pending
+	}
+
+	/// `f` of every value sent so far, once it is ready, or the error once the channel
+	/// closed and `f` is not, registering `waiter` otherwise.
+	pub fn poll<F, R>(&self, waiter: &Waiter, f: F) -> Poll<Result<R, Closed>>
+	where
+		F: FnOnce(&[u64]) -> Poll<R>,
+	{
+		let mut state = self.state.lock().unwrap();
+		if let Poll::Ready(res) = f(&state.queue) {
+			return Poll::Ready(Ok(res));
+		}
+		if state.closed {
+			return Poll::Ready(Err(Closed));
+		}
+		waiter.register(&mut state.waiters);
+		Poll::Pending
+	}
+
+	/// Ready once the channel closed, registering `waiter` until then.
+	pub fn poll_closed(&self, waiter: &Waiter) -> Poll<()> {
+		let mut state = self.state.lock().unwrap();
+		if state.closed {
+			return Poll::Ready(());
+		}
+		waiter.register(&mut state.waiters);
+		Poll::Pending
+	}
+
+	/// `f` of every value sent so far, once it is ready, or the error once the channel
+	/// closed and `f` is not, through a closure that owns `f`.
+	pub async fn wait<F, R>(&self, mut f: F) -> Result<R, Closed>
+	where
+		F: FnMut(&[u64]) -> Poll<R> + Unpin,
+	{
+		wait(move |waiter| self.poll(waiter, &mut f)).await
+	}
+
+	/// Wait for the channel to close, through a closure that only borrows `self`.
+	pub async fn closed(&self) {
+		wait(move |waiter| self.poll_closed(waiter)).await
 	}
 
 	/// kio's one-line wrapper over a `poll_*` method.

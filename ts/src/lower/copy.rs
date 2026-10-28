@@ -124,7 +124,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}),
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
-				Some(Std::Poll) => ret(self.copy_unless(Expr::Rt("Pending".into()), args.type_at(0), span)),
+				Some(Std::Poll) => ret(self.copy_unless(self.pending(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
 				Some(Std::Reverse) => ret(self.copied(v(), args.type_at(0), span)),
 				Some(Std::Bound) => {
