@@ -9,6 +9,20 @@ export function map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_clo
 	return rt.Pending;
 }
 
+export function map$Poll_Option_u64_u64_boxed_closure0_closure2_closure0(self: rt.Poll<rt.u64 | undefined>, f: (a0: rt.u64 | undefined) => rt.u64): rt.Poll<rt.u64> {
+	if (self !== rt.Pending) {
+		return f(self);
+	}
+	return rt.Pending;
+}
+
+export function map$Poll_u64_u64_boxed_closure0_closure0_closure0(self: rt.Poll<rt.u64>, f: (a0: rt.u64) => rt.u64): rt.Poll<rt.u64> {
+	if (self !== rt.Pending) {
+		return f(self);
+	}
+	return rt.Pending;
+}
+
 export function isReady$Poll_Option_u64(self: rt.Poll<rt.u64 | undefined>): boolean {
 	if (self !== rt.Pending) {
 		return true;

@@ -1,12 +1,13 @@
 //! std's future helpers over a channel: `pin!`, `poll_fn`, `future::pending`, `Poll`'s
-//! methods, and wakers from `Arc<impl Wake>` and `Waker::noop`.
+//! methods, and wakers from `Arc<impl Wake>` and `Waker::noop`; and boxed futures,
+//! `Pin<Box<dyn Future>>` included.
 
 use std::future::{self, Future};
-use std::pin::pin;
+use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
-use crate::kio::Consumer;
+use crate::kio::{self, Consumer};
 use crate::log::Log;
 use crate::model::Guard;
 
@@ -128,5 +129,91 @@ impl Wake for Blast {
 impl Drop for Blast {
 	fn drop(&mut self) {
 		panic!("g{} blew", self.0.id());
+	}
+}
+
+/// A boxed future, as moq's `MaybeSendBox` is.
+type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
+
+/// Boxed futures over a channel: `Box::pin` of an async fn, awaited, then a queue of
+/// `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
+/// and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
+/// queue in turn through [`poll_unsized`], as moq's tasks do through kio's
+/// `Waiter::poll_future`, dropping each future as it is ready, and a pinned `&mut dyn
+/// Future` of the crate's struct last. A cancel drops the futures the queue still holds,
+/// in order, and the async block panics on 99.
+pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
+	let first = Box::pin(rx.recv()).await.unwrap_or(0);
+	guard.note(&format!("first {first}"));
+	let (id, log) = (guard.id(), guard.log().clone());
+	let (block, waiting, ready) = (
+		Guard::new(id + 500, log.clone()),
+		Guard::new(id + 600, log.clone()),
+		Guard::new(id + 700, log.clone()),
+	);
+	let mut next = rx.clone();
+	let mut queue: Vec<Boxed> = vec![
+		Box::pin(async move {
+			let value = rx.recv().await.unwrap_or(0);
+			if value == 99 {
+				panic!("g{} poisoned", block.id());
+			}
+			block.note(&format!("block {value}"));
+			value + 1
+		}),
+		Box::pin(kio::wait(move |waiter| {
+			next.poll_recv(waiter).map(|value| {
+				waiting.note("waited");
+				value.unwrap_or(0) + 2
+			})
+		})),
+		Box::pin(future::poll_fn(move |_| {
+			ready.note("ready");
+			Poll::Ready(3)
+		})),
+	];
+	let tail = Guard::new(id + 800, log.clone());
+	let mut last = pin!(kio::wait(move |_| Poll::Ready(u64::from(tail.id()))));
+	let mut total = 0;
+	let forward = Forward {
+		future: Box::pin(future::poll_fn(move |cx| {
+			let mut i = 0;
+			while i < queue.len() {
+				match poll_unsized(queue[i].as_mut(), cx) {
+					Poll::Ready(value) => {
+						total += value;
+						drop(queue.swap_remove(i));
+					}
+					Poll::Pending => i += 1,
+				}
+			}
+			if !queue.is_empty() {
+				return Poll::Pending;
+			}
+			let last: Pin<&mut dyn Future<Output = u64>> = last.as_mut();
+			poll_unsized(last, cx).map(|value| total + value)
+		})),
+	};
+	let total = forward.await;
+	guard.note(&format!("boxed {total}"));
+	total
+}
+
+/// Polls `future`, sized or not, as kio's `Waiter::poll_future` does.
+fn poll_unsized<F: Future + ?Sized>(future: Pin<&mut F>, cx: &mut Context<'_>) -> Poll<F::Output> {
+	future.poll(cx)
+}
+
+/// A future of the crate's that forwards its polls to a boxed one, as moq's session
+/// driver does.
+struct Forward<'a> {
+	future: Boxed<'a>,
+}
+
+impl Future for Forward<'_> {
+	type Output = u64;
+
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<u64> {
+		self.future.as_mut().poll(cx)
 	}
 }

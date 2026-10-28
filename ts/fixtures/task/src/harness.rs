@@ -49,7 +49,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 /// Run one step of a script.
 fn run_step(log: &Log, exec: &mut Executor, channels: &mut Vec<Channel>, op: u8, arg: u8) {
 	let pick = |len: usize| (len > 0).then(|| usize::from(arg) % len);
-	match op % 15 {
+	match op % 16 {
 		0 => {
 			log.note(format!("c{} open", channels.len()));
 			channels.push(Channel::open());
@@ -112,10 +112,16 @@ fn run_step(log: &Log, exec: &mut Executor, channels: &mut Vec<Channel>, op: u8,
 			}
 		}
 		13 => drops::edited(log, 1000 * exec.len() as u32, arg % 8),
-		_ => {
+		14 => {
 			if let Some(c) = pick(channels.len()) {
 				let guard = Guard::new(exec.len() as u32, log.clone());
 				exec.spawn(futures::helpers(channels[c].consumer(), guard));
+			}
+		}
+		_ => {
+			if let Some(c) = pick(channels.len()) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(futures::boxed(channels[c].consumer(), guard));
 			}
 		}
 	}

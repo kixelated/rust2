@@ -65,6 +65,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Array(elem, _) => self.drops(*elem),
 			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drops(t)),
 			ty::Coroutine(..) | ty::Param(_) => true,
+			ty::Dynamic(..) => self.dyn_future(ty).is_some(),
 			_ => false,
 		};
 		self.drops_open.remove(&ty);
@@ -136,8 +137,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				None => false,
 			},
-			// A closure's `[Symbol.dispose]` drops what it owns.
-			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) => true,
+			// A closure's `[Symbol.dispose]` drops what it owns, and a `dyn Future`'s what it is.
+			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
 			_ => false,
 		}
 	}

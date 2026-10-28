@@ -51,7 +51,10 @@ export interface Fixture<V> {
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
 	};
-	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
+	futures: {
+		helpers(rx: Consumer, guard: Guard): Future<V>;
+		boxed(rx: Consumer, guard: Guard): Future<V>;
+	};
 }
 
 /** What every waker of one task points at. */
@@ -202,7 +205,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 		function step(op: number, arg: number): void {
 			const pick = (len: number) => (len > 0 ? arg % len : undefined);
 			const c = pick(channels.length);
-			switch (op % 15) {
+			switch (op % 16) {
 				case 0:
 					note(`c${channels.length} open`);
 					channels.push(f.Channel.open());
@@ -261,8 +264,11 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 				case 13:
 					f.drops.edited(log, 1000 * exec.tasks.length, arg % 8);
 					break;
-				default:
+				case 14:
 					if (c !== undefined) exec.spawn(f.futures.helpers(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log))));
+					break;
+				default:
+					if (c !== undefined) exec.spawn(f.futures.boxed(f.Channel.consumer(channels[c]), f.Guard.new(exec.tasks.length, f.Log.clone$Clone(log))));
 			}
 		}
 	};
@@ -296,6 +302,12 @@ export const cases: Uint8Array[] = [
 	[0, 0, 14, 0, 6, 0, 3, 5, 6, 0, 3, 77, 6, 0],
 	[0, 0, 14, 0, 14, 1, 6, 0, 3, 4, 7, 0, 9, 1, 9, 0],
 	[0, 0, 14, 0, 6, 0, 3, 99, 6, 0, 8, 0],
+	// Boxed futures: a boxed `recv` awaited, then a queue of `dyn Future`s polled through a
+	// boxed `poll_fn`, returning, cancelled with the futures the queue still holds, and
+	// panicking inside one.
+	[0, 0, 15, 0, 6, 0, 3, 5, 6, 0, 3, 6, 7, 0, 3, 7, 6, 0],
+	[0, 0, 15, 0, 15, 1, 6, 0, 3, 4, 6, 0, 9, 1, 3, 5, 7, 0, 9, 0],
+	[0, 0, 15, 0, 6, 0, 3, 5, 6, 0, 3, 99, 6, 0, 8, 0, 9, 0],
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => [11, arg]),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.

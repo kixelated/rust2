@@ -93,6 +93,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
 | `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
 | `pin!(x)`, `poll_fn(f)`, `future::pending()` | `x`; `rt.PollFn`, which drops `f` with itself; `rt.NEVER` |
+| `Box::pin(x)`, `dyn Future<Output = T>` | `x`; `rt.Future<T>`: an `async` body or std's future as it is, and another future as an `rt.DynFuture` over its `poll`, which drops it with itself unless borrowed |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
 `Buffer` pool does, so the `buffer` behind a view holds other bytes too: read it through
@@ -431,8 +432,8 @@ they need.
 ## Not yet
 
 `unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
-`&dyn Debug` and `&dyn Display` ([trait objects](/quest/m3/ts-dyn.md)), fail translation.
-Until they translate, an item that needs one, such as a boxed future, binds to
+`&dyn Debug`, `&dyn Display`, and `dyn Future` ([trait objects](/quest/m3/ts-dyn.md)), fail
+translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: floats ([Floats](/quest/m2/ts-model/floats.md)), statics, async closures, a closure that owns a value

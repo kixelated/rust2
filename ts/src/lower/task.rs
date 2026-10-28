@@ -7,9 +7,21 @@ use rustc_span::{Span, Symbol};
 use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
-use crate::ts::{Expr, Param};
+use crate::ts::{Expr, Param, Stmt};
 
 impl<'tcx> Translator<'_, 'tcx> {
+	/// `Future::Output` of `ty`, if it is a `dyn Future`, whose JS value is an `rt.Future`.
+	pub fn dyn_future(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let ty::Dynamic(preds, ..) = ty.kind() else {
+			return None;
+		};
+		if preds.principal_def_id()? != self.tcx.lang_items().future_trait()? {
+			return None;
+		}
+		let output = preds.projection_bounds().next()?;
+		self.tcx.instantiate_bound_regions_with_erased(output).term.as_type()
+	}
+
 	/// `Future::Output` of `ty`, a future.
 	pub fn future_output(&mut self, ty: Ty<'tcx>, span: Span) -> Ty<'tcx> {
 		let tcx = self.tcx;
@@ -25,6 +37,42 @@ impl<'tcx> Translator<'_, 'tcx> {
 	}
 }
 
+impl<'tcx> Body<'_, '_, 'tcx> {
+	/// `value`, a `from` that is a future, as the `rt.Future` a `dyn Future` is: itself if
+	/// it is one already, and else an `rt.DynFuture` over its `Future` impl, which drops it
+	/// with itself unless `borrowed`.
+	pub fn dyn_future(&mut self, from: Ty<'tcx>, value: Expr, borrowed: bool, span: Span) -> Expr {
+		let tcx = self.t.tcx;
+		match from.kind() {
+			ty::Dynamic(..) | ty::Coroutine(..) => return value,
+			// What a reference or a box points at, which its JS value is.
+			ty::Ref(_, inner, _) => return self.dyn_future(*inner, value, true, span),
+			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+				Some(Std::PollFn | Std::Pending) => return value,
+				Some(Std::Box | Std::Pin) => return self.dyn_future(args.type_at(0), value, borrowed, span),
+				_ => {}
+			},
+			_ => {}
+		}
+		// What `Future::poll` takes would be an `rt.Place`, which the box doesn't have.
+		if self.t.needs_place(from) {
+			return self.err(span, format!("a `dyn Future` of `{from}`, which JS copies"));
+		}
+		let future = tcx.lang_items().future_trait().expect("a dyn Future names the trait");
+		let poll = tcx
+			.associated_items(future)
+			.filter_by_name_unhygienic(Symbol::intern("poll"))
+			.next()
+			.expect("Future::poll")
+			.def_id;
+		let mut args = vec![value, self.fn_value(poll, tcx.mk_args(&[from.into()]), span)];
+		if !borrowed {
+			args.extend(self.t.drop_fn(from, span));
+		}
+		Expr::New(Box::new(Expr::Rt("DynFuture".into())), args)
+	}
+}
+
 /// A call of a standard library function on these types, or its arguments back if it is
 /// none of theirs. `Ok(None)` refuses it.
 pub fn call<'tcx>(
@@ -33,6 +81,7 @@ pub fn call<'tcx>(
 	owner: &str,
 	name: &str,
 	args: Vec<Expr>,
+	out: &mut Vec<Stmt>,
 ) -> Result<Option<Expr>, Vec<Expr>> {
 	let tcx = b.t.tcx;
 	let std_of = |ty: Ty<'tcx>| match ty.peel_refs().kind() {
@@ -105,11 +154,31 @@ pub fn call<'tcx>(
 			)
 		}
 		("pending", "pending") => Expr::Rt("NEVER".into()),
-		// std's futures are the runtime's, which poll themselves.
-		("Future", "poll") if matches!(self_std, Some(Std::PollFn | Std::Pending)) => {
-			let [future, cx] = two(args);
-			future.member("poll").call(vec![cx])
-		}
+		// A box's JS value is what it holds.
+		("Box", "pin") => first(args),
+		("Future", "poll") => match self_ty.map(Ty::kind) {
+			// std's futures and a `dyn Future` are `rt.Future`s, which poll themselves.
+			_ if matches!(self_std, Some(Std::PollFn | Std::Pending))
+				|| self_ty.is_some_and(|ty| b.t.dyn_future(ty).is_some()) =>
+			{
+				let [future, cx] = two(args);
+				future.member("poll").call(vec![cx])
+			}
+			// A pinned pointer, a box, or a `&mut` polls what it points at, which its JS
+			// value is.
+			Some(ty::Adt(adt, adt_args)) if matches!(Std::of(tcx, adt.did()), Some(Std::Pin | Std::Box)) => {
+				let inner = match Std::of(tcx, adt.did()) {
+					Some(Std::Pin) => adt_args.type_at(0).builtin_deref(true),
+					_ => Some(adt_args.type_at(0)),
+				};
+				let Some(inner) = inner else { return Err(args) };
+				b.call_def(call.def_id, tcx.mk_args(&[inner.into()]), args, call.span, out)
+			}
+			Some(ty::Ref(_, inner, _)) => {
+				b.call_def(call.def_id, tcx.mk_args(&[(*inner).into()]), args, call.span, out)
+			}
+			_ => return Err(args),
+		},
 		("Context", "waker" | "from_waker")
 		| ("Pin", "new" | "new_unchecked" | "as_mut" | "get_mut" | "get_unchecked_mut")
 		| ("pin", "pin_new_unchecked_in_helper")
