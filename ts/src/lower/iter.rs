@@ -413,6 +413,18 @@ pub fn call<'tcx>(
 			let dropper = iter_dropper(b, self_ty, span);
 			Some(Expr::rt("durationSum", tail(vec![recv.clone()], vec![dropper])))
 		}
+		// std's float sum starts from -0.0, so a sum of none, or of -0.0s, is -0.0.
+		"sum" | "product" if super::float::is(targ(1)?) => {
+			let (op, unit) = match name {
+				"sum" => ("add", -0.0),
+				_ => ("mul", 1.0),
+			};
+			let dropper = iter_dropper(b, self_ty, span);
+			method(
+				name,
+				tail(vec![Expr::rt_of("f64", op), super::float::lit(unit)], vec![dropper]),
+			)
+		}
 		"sum" | "product" => {
 			let int = Int::of(targ(1)?)?;
 			let (op, unit) = match name {

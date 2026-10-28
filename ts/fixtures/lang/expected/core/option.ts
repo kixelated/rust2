@@ -51,6 +51,13 @@ export function unwrapOr$Option_char(self: rt.char | undefined, default_: rt.cha
 	return self;
 }
 
+export function unwrapOr$Option_f64(self: rt.f64 | undefined, default_: rt.f64): rt.f64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$Option_i64(self: rt.i64 | undefined, default_: rt.i64): rt.i64 {
 	if (self === undefined) {
 		return default_;
@@ -282,6 +289,13 @@ export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undef
 	return f(self);
 }
 
+export function mapOr$Option_Ordering_u8_floats_closure0(self: rt.Ordering | undefined, default_: rt.u8, f: (a0: rt.Ordering) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Ordering_u8_order(self: rt.Ordering | undefined, default_: rt.u8, _: (a0: rt.Ordering) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -353,6 +367,13 @@ export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | unde
 }
 
 export function mapOr$Option_u8_bool_take_largest_closure0(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8_u64_floats_closure1(self: rt.u8 | undefined, default_: rt.u64, f: (a0: rt.u8) => rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
 	}

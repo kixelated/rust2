@@ -1,10 +1,10 @@
 a root must not be generic at fixtures/reject/src/lib.rs:103:1
 no item `missing` in the crate
 a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:101:1
-unsupported type `f64` at fixtures/reject/src/lib.rs:7:14
-a scalar constant of type `f64` at fixtures/reject/src/lib.rs:8:2
-arithmetic on `f64` at fixtures/reject/src/lib.rs:8:2
-unsupported type `f64` at fixtures/reject/src/lib.rs:7:25
+unsupported type `f32` at fixtures/reject/src/lib.rs:7:14
+a scalar constant of type `f32` at fixtures/reject/src/lib.rs:8:2
+arithmetic on `f32` at fixtures/reject/src/lib.rs:8:2
+unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
 unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:11:16
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:17:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:16:15
@@ -62,6 +62,8 @@ unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<st
 unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:474:38
 a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:448:12
 unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:455:2
+`f64::mul_add`, which rounds once, where JS would round twice at fixtures/reject/src/lib.rs:479:4
+unsupported call to `<f64 as std::fmt::Display>::fmt` at fixtures/reject/src/lib.rs:484:11
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:148:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:168:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:202:2

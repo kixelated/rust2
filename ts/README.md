@@ -61,7 +61,7 @@ and each type a module of its own beside it, holding the type and its functions
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
-`rt/task.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
+`rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
 
@@ -71,6 +71,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
+| `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
 | `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
@@ -118,6 +119,18 @@ makes one past 2^53 with `rt.u64Of(18446744073709551615n)`. Its other operators 
 comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as u32`
 is `rt.u64Low(x)`. `((hi as u64) << 32) | lo as u64` of halves of at most 32 bits is
 one call, `rt.u64FromHalves(hi, lo)`.
+
+An `f64` is a JS number, so its operators are JS's, which round as Rust's do. Where
+JS differs from std, the runtime has std's: `round` halves away from zero, `max` and
+`min` ignore a NaN, and a cast to an integer truncates, saturates at the type's bounds,
+and sends NaN to 0. A 64- or 128-bit integer `as f64` rounds once, to the nearest. The
+functions std leaves to the platform's libm, such as `sin`, `exp`, `ln`, `powf`, and
+`hypot`, are `Math`'s, which the tests find within 2 ULPs of native Rust's in Node;
+`mul_add`, which rounds once, is refused. `Duration`'s `f64` methods run std's integer
+algorithm, to the nearest nanosecond with its errors and panics. JS doesn't say which
+NaN an operation makes, so a NaN's payload and sign are the engine's: Node and Chrome
+keep them through `from_bits` and `to_bits`, but V8 quiets a signaling NaN stored in an
+array, as a `Vec<f64>` holds it.
 
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
@@ -435,7 +448,7 @@ they need.
 Until they translate, an item that needs one, such as a boxed future, binds to
 hand-written TS ([bindings](#bindings)).
 
-These fail translation: floats ([Floats](/quest/m2/ts-model/floats.md)), statics, async closures, a closure that owns a value
+These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,

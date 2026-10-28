@@ -1006,7 +1006,8 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
 	};
 	match ty.kind() {
-		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => true,
+		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
 		_ if let Some(elem) = elements_of(b, ty) => held(elem),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
@@ -1050,6 +1051,8 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
+		// `None` for a NaN: only `PartialOrd`, since a float is no `Ord`.
+		ty::Float(_) if partial => Expr::Rt("f64PartialCmp".into()),
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
@@ -1092,7 +1095,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		{
 			int.func("eq")
 		}
-		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Str => Expr::Rt("same".into()),
+		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
 		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {

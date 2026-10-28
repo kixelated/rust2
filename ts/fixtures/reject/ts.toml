@@ -53,6 +53,8 @@ roots = [
     "parts_summed",
     "ok_passed",
     "places_equal",
+    "fma",
+    "float_printed",
     "missing",
 ]
 printable = ["Meters"]
