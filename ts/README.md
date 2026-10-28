@@ -100,7 +100,8 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
-| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard |
+| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard, which a lock gives as `Ok`: a panic aborts, as wasm32's does, so nothing poisons it |
+| `PoisonError<T>` | the `T` it holds |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |

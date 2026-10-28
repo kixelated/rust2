@@ -1341,10 +1341,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					}
 					self.option_ty(args.type_at(0), span)
 				}
-				// A lock's result, which is never an error: its guard.
-				library::Std::Result if self.std_of(args.type_at(1)) == Some(library::Std::PoisonError) => {
-					self.ty(args.type_at(0), span)
-				}
 				library::Std::Result => Type::Rt(
 					"Result",
 					vec![self.ty(args.type_at(0), span), self.ty(args.type_at(1), span)],
@@ -1359,7 +1355,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box | library::Std::Reverse | library::Std::NonZero => self.ty(args.type_at(0), span),
+				library::Std::Box | library::Std::Reverse | library::Std::NonZero | library::Std::PoisonError => {
+					self.ty(args.type_at(0), span)
+				}
 				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
@@ -1379,7 +1377,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let inner = args.types().next().expect("a guarded type");
 					Type::Rt("Mutex", vec![self.ty(inner, span)])
 				}
-				library::Std::PoisonError => Type::Builtin("never"),
 				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
 				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
 				// With the `Option`'s `None` where it is `rt.None`.
@@ -1620,9 +1617,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
-				Some(library::Std::Box | library::Std::Pin | library::Std::Reverse | library::Std::NonZero) => {
-					self.erases_to(args.type_at(0))
-				}
+				Some(
+					library::Std::Box
+					| library::Std::Pin
+					| library::Std::Reverse
+					| library::Std::NonZero
+					| library::Std::PoisonError,
+				) => self.erases_to(args.type_at(0)),
 				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
 				Some(library::Std::Poll) => self.erases_to(args.type_at(0)).poll(),
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {

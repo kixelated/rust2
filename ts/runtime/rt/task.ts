@@ -156,7 +156,7 @@ export function weakClone<T>(weak: Weak<T>): Weak<T> {
 
 /**
  * `Mutex<T>`, which a single thread never contends, and its guard: a lock is the mutex
- * itself, and an unlock is nothing.
+ * itself, and an unlock is nothing. A panic aborts, so nothing poisons it.
  */
 export class Mutex<T> implements Disposable {
 	value: T;

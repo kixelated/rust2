@@ -188,6 +188,14 @@ impl Expr {
 		}
 	}
 
+	/// The expression under its source locations.
+	pub fn unlocated(&self) -> &Self {
+		match self {
+			Self::Located(_, e) => e.unlocated(),
+			e => e,
+		}
+	}
+
 	/// Whether evaluating this twice is free and gives the same value both times, so a
 	/// pattern may read it more than once: a name, or a member path from one.
 	pub fn is_path(&self) -> bool {
