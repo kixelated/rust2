@@ -4,7 +4,7 @@
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Err, type None, Ok, Panic, panic, panicCaught, panicking, type Place, type Result } from "../rt.ts";
+import { Err, type None, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -156,51 +156,33 @@ export function weakClone<T>(weak: Weak<T>): Weak<T> {
 
 /**
  * `Mutex<T>`, which a single thread never contends, and its guard: a lock is the mutex
- * itself. A guard dropped as a panic unwinds poisons it, as std's does, unless that panic
- * had started when it locked.
+ * itself, and an unlock is nothing. A panic aborts, so nothing poisons it.
  */
 export class Mutex<T> implements Disposable {
 	value: T;
-	/** 0 unlocked, 1 locked, or 2 locked as a panic unwound. */
-	held: 0 | 1 | 2 = 0;
-	poisoned = false;
-	/** `Ok` of its guard, which every lock that isn't poisoned returns rather than make one. */
+	/** `Ok` of its guard, which every lock returns rather than make one. */
 	ok: { readonly ok: true; readonly value: Mutex<T> } | undefined;
 
 	constructor(value: T) {
 		this.value = value;
 	}
 
-	/** Unlock, as the guard, or else drop the value: a mutex can't drop while a guard borrows it. */
 	[Symbol.dispose](): void {
-		if (this.held === 0) drop(this.value);
-		else mutexUnlock(this);
+		drop(this.value);
 	}
 }
 
-/**
- * `Mutex::lock`: its guard, in a `PoisonError` if a panic poisoned it. Locking it again
- * before that guard drops panics, as wasm32's does.
- */
+/** `Mutex::lock`: `Ok` of its guard, the mutex itself. */
 export function mutexLock<T>(m: Mutex<T>): Result<Mutex<T>, Mutex<T>> {
-	if (m.held !== 0) panic("assertion `left == right` failed: cannot recursively acquire mutex\n  left: true\n right: false");
-	m.held = panicking() ? 2 : 1;
-	if (m.poisoned) return Err(m);
 	// Frozen, as nothing can change it: a guard can't be assigned through a reference. A
 	// mutex replaced in place by another, through `Object.assign`, has the other's.
 	if (m.ok?.value !== m) m.ok = Object.freeze({ ok: true, value: m });
 	return m.ok;
 }
 
-/** Drop a `MutexGuard`: unlock, poisoning the mutex if a panic that started since it locked is unwinding. */
-export function mutexUnlock<T>(m: Mutex<T>): void {
-	if (m.held === 1 && panicking()) m.poisoned = true;
-	m.held = 0;
-}
-
-/** `Mutex::get_mut`: its value, in a `PoisonError` if a panic poisoned it. */
+/** `Mutex::get_mut`: `Ok` of its value. */
 export function mutexGetMut<T>(m: Mutex<T>): Result<T, T> {
-	return m.poisoned ? Err(m.value) : Ok(m.value);
+	return Ok(m.value);
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would
@@ -631,8 +613,7 @@ class Task<T> implements Waker {
 		} catch (err) {
 			this.#future = undefined;
 			this.#reject(err);
-			// A panic stops here, as an executor's `catch_unwind` stops a task's.
-			if (!panicCaught(err)) throw err;
+			if (!(err instanceof Panic)) throw err;
 			return;
 		}
 		this.#resolve(output);

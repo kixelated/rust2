@@ -236,23 +236,15 @@ fn shake(out: &Path) {
 		// A bundler numbers a name another module also declares, `slice3`, so the digits
 		// it adds go.
 		let unnumbered = |name: &str| name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
-		// A declaration names the word after its keyword, and esbuild joins declarations into
-		// one, `var panics = 0, Panic = class ...`, which names each word a part starts with.
-		let name = |decl: &str| decl.split(['(', ' ', '{', '=', ';']).next().unwrap().to_string();
-		let declared = |part: &&str| {
-			let rest = part.trim_start_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$');
-			!part.starts_with(|c: char| c.is_ascii_digit())
-				&& rest.len() < part.len()
-				&& (rest.is_empty() || rest == ";" || rest.starts_with(" = "))
-		};
 		let mut kept: Vec<String> = bundle
 			.lines()
-			.flat_map(|line| match line.split_once(' ') {
-				Some(("function" | "class", decl)) => vec![name(decl)],
-				Some(("var" | "let" | "const", decl)) => decl.split(", ").filter(declared).map(name).collect(),
-				_ => Vec::new(),
+			.filter_map(|line| {
+				["function ", "class ", "var ", "let ", "const "]
+					.iter()
+					.find_map(|k| line.strip_prefix(k))
 			})
-			.map(|n| unnumbered(&n))
+			.map(|decl| decl.split(['(', ' ', '{', '=']).next().unwrap())
+			.map(unnumbered)
 			.collect();
 		kept.sort_unstable();
 		let want = [
@@ -266,8 +258,6 @@ fn shake(out: &Path) {
 			"idx",
 			"max",
 			"panic",
-			// What `Panic` counts.
-			"panics",
 			"saturate",
 			"u32SaturatingAdd",
 			"u32Sub",
@@ -432,7 +422,7 @@ import * as futures from "./futures.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases, steps }} from {harness:?};
-const fixture = {{ Pending: rt.Pending, panicCaught: rt.panicCaught, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops, futures }};
+const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops, futures }};
 const script = harness(fixture);
 export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
 export const unwind = harness(fixture, true);

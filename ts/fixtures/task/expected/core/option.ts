@@ -50,24 +50,6 @@ export function map$Option_Guard_u32_folded_closure100(self: Guard.Guard | undef
 	return f(self);
 }
 
-export function map$Option_bool_u32_run_closure1(self: boolean | undefined, f: (a0: boolean) => rt.u32): rt.u32 | undefined {
-	let _0!: rt.u32 | undefined;
-	let _8: boolean = false;
-	_8 = true;
-	if (self === undefined) {
-		_0 = undefined;
-	} else {
-		const x: boolean = self;
-		_8 = false;
-		_0 = f(x);
-	}
-	if (_8) {
-		rt.drop(f);
-		return _0;
-	}
-	return _0;
-}
-
 export function map$Option_u32_u32_blasted_closure3(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _8: boolean = false;
@@ -193,13 +175,6 @@ export function mapOr$Option_u32_u32_discarded_closure12(self: rt.u32 | undefine
 		return _0;
 	}
 	return _0;
-}
-
-export function mapOr$Option_u32_u32_run_closure3(self: rt.u32 | undefined, default_: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
 }
 
 export function okOr$Option_Guard_Guard(self: Guard.Guard | undefined, err: Guard.Guard): rt.Result<Guard.Guard, Guard.Guard> {

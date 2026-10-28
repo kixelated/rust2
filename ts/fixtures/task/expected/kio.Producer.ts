@@ -34,23 +34,9 @@ function new_(): Producer {
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
 export function send(self: Producer, value: rt.u64): void {
-	let state!: rt.Mutex<State.State>;
-	let unwind: number = 0;
-	try {
-		state = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
-		unwind = 13;
-		state.value.queue.push(value);
-		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
-		unwind = 0;
-		rt.mutexUnlock(state);
-		WaiterList.wake(waiters);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(state);
-		throw e;
-	}
+	const state: rt.Mutex<State.State> = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug);
+	state.value.queue.push(value);
+	WaiterList.wake(WaiterList.take(state.value.waiters));
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -58,50 +44,18 @@ export function consume(self: Producer): Consumer.Consumer {
 }
 
 export function clone$Clone(self: Producer): Producer {
-	let _4!: rt.Mutex<State.State>;
-	let unwind: number = 0;
-	try {
-		_4 = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
-		unwind = 9;
-		const _2: State.State = _4.value;
-		const _8: rt.usize = rt.usizeAdd(_2.producers, 1);
-		unwind = 0;
-		_2.producers = _8;
-		rt.mutexUnlock(_4);
-		return new Producer({ state: rt.arcClone(self.state) });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(_4);
-		throw e;
-	}
+	const _2: State.State = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug).value;
+	_2.producers = rt.usizeAdd(_2.producers, 1);
+	return new Producer({ state: rt.arcClone(self.state) });
 }
 
 export function drop$Drop(self: Producer): void {
-	let state!: rt.Mutex<State.State>;
-	let unwind: number = 0;
-	try {
-		state = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug, rt.drop);
-		unwind = 17;
-		const _7: State.State = state.value;
-		_7.producers = rt.usizeSub(_7.producers, 1);
-		if (!(state.value.producers > 0)) {
-			state.value.closed = true;
-			const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
-			unwind = 0;
-			rt.mutexUnlock(state);
-			WaiterList.wake(waiters);
-		} else {
-			unwind = 0;
-			rt.mutexUnlock(state);
-		}
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(state);
-		throw e;
+	const state: rt.Mutex<State.State> = rt.resultUnwrap(rt.mutexLock(self.state.value), rt.fmtPoisonErrorDebug);
+	const _7: State.State = state.value;
+	_7.producers = rt.usizeSub(_7.producers, 1);
+	if (!(state.value.producers > 0)) {
+		state.value.closed = true;
+		WaiterList.wake(WaiterList.take(state.value.waiters));
 	}
 }
 

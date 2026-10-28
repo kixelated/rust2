@@ -1,8 +1,8 @@
-//! Mutexes on one thread: made by `Default`, read and written through a guard, unlocked
-//! as it drops, read by `get_mut` without locking, replaced through a reference, and
-//! locked again while a guard is held, which panics as wasm32's does.
+//! Mutexes on one thread, where a panic aborts and so never poisons one: made by
+//! `Default`, read and written through a guard, recovered from a `PoisonError` that never
+//! comes, read by `get_mut` without locking, and replaced through a reference.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// A value a mutex holds, which `Default` makes.
 #[derive(Default)]
@@ -17,9 +17,8 @@ pub fn locks(data: &[u8], out: &mut Vec<u8>) {
 	let other = shared.clone();
 	let mut own: Mutex<Vec<u8>> = Mutex::default();
 	let number: Mutex<u32> = Mutex::default();
-	let mut held: Option<MutexGuard<'_, Tally>> = None;
 	for &op in data {
-		match op % 7 {
+		match op % 6 {
 			0 => {
 				let mut tally = shared.lock().unwrap_or_else(PoisonError::into_inner);
 				tally.n += u64::from(op);
@@ -35,9 +34,11 @@ pub fn locks(data: &[u8], out: &mut Vec<u8>) {
 				*number.lock().unwrap() += u32::from(op);
 				out.push(*number.lock().unwrap() as u8);
 			}
-			// Locking while a guard from before is held panics.
-			4 => held = Some(shared.lock().unwrap()),
-			5 => held = None,
+			// Matched, as a caller that tells the two apart does.
+			4 => match shared.lock() {
+				Ok(tally) => out.push(tally.seen.len() as u8),
+				Err(err) => out.push(err.into_inner().n as u8 ^ 0xff),
+			},
 			// Both locked before, so each has handed out a guard of its own.
 			_ => {
 				let fresh = Mutex::new(vec![op]);
@@ -49,8 +50,6 @@ pub fn locks(data: &[u8], out: &mut Vec<u8>) {
 			}
 		}
 	}
-	out.push(held.is_some() as u8);
-	drop(held);
 	out.extend_from_slice(own.get_mut().unwrap_or_else(PoisonError::into_inner));
 	out.push(Arc::strong_count(&shared) as u8);
 }

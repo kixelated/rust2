@@ -186,18 +186,4 @@ export function unwrapOr$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.G
 	}
 }
 
-export function unwrapOrElse$Result_Guard_PoisonError_Guard_into_inner(self: rt.Result<Guard.Guard, Guard.Guard>, _: (a0: Guard.Guard) => Guard.Guard): Guard.Guard {
-	if (self.ok) {
-		return self.value;
-	}
-	return self.error;
-}
-
-export function unwrapOrElse$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard_into_inner(self: rt.Result<rt.Mutex<Guard.Guard>, rt.Mutex<Guard.Guard>>, _: (a0: rt.Mutex<Guard.Guard>) => rt.Mutex<Guard.Guard>): rt.Mutex<Guard.Guard> {
-	if (self.ok) {
-		return self.value;
-	}
-	return self.error;
-}
-
 //# sourceMappingURL=result.ts.map

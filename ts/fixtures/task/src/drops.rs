@@ -24,7 +24,6 @@ macro_rules! list {
 mod closures;
 mod folds;
 mod iters;
-mod locks;
 mod objects;
 mod once;
 
@@ -81,11 +80,6 @@ pub fn dyns(log: &Log, id: u32, arg: u8) {
 /// Run one-time cells' scenario `at`.
 pub fn cells(log: &Log, id: u32, at: u8) {
 	once::run(log, id, at);
-}
-
-/// Run mutexes' scenario `at`.
-pub fn locks(log: &Log, id: u32, at: u8) {
-	locks::run(log, id, at);
 }
 
 /// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what

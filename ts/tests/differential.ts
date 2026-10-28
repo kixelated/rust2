@@ -33,8 +33,7 @@ function translated(input: Uint8Array): Outcome {
 		const out = harness.run(rt.byteSliceFrom(input));
 		return out.data.slice(0, out.length);
 	} catch (err) {
-		// The panic stops here, as a trap ends the native instance.
-		if (rt.panicCaught(err)) return { panic: (err as Error).message };
+		if (err instanceof Error && err.name === "Panic") return { panic: err.message };
 		throw err;
 	}
 }

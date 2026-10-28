@@ -7,7 +7,6 @@ import { ok$Result_Guard_Guard, err$Result_Guard_Guard, asRef$Result_Guard_u8, m
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
-import { run as locks_run } from "./drops/locks.ts";
 import { boxed, shared } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
@@ -43,11 +42,6 @@ export function dyns(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 /** Run one-time cells' scenario `at`. */
 export function cells(log: Log.Log, id: rt.u32, at: rt.u8): void {
 	once_run(log, id, at);
-}
-
-/** Run mutexes' scenario `at`. */
-export function locks(log: Log.Log, id: rt.u32, at: rt.u8): void {
-	locks_run(log, id, at);
 }
 
 /**
@@ -91,7 +85,6 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let arc2!: rt.Arc<rt.Mutex<Held.Held>>;
 	let _308!: Guard.Guard;
 	let other!: rt.Arc<rt.Mutex<Held.Held>>;
-	let _327!: rt.Mutex<Held.Held>;
 	let lent!: Guard.Guard;
 	let borrowed!: rt.Arc<Guard.Guard>;
 	let again!: rt.Arc<Guard.Guard>;
@@ -360,11 +353,10 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			_380 = false;
 			rt.arcDrop(arc2, drop$Mutex_Held);
 			check(2);
-			_327 = rt.resultUnwrap(rt.mutexLock(other.value), rt.fmtPoisonErrorDebug, rt.drop);
+			const _327: rt.Mutex<Held.Held> = rt.resultUnwrap(rt.mutexLock(other.value), rt.fmtPoisonErrorDebug);
 			unwind = 191;
 			const held2: boolean = Held.isSome(_327.value);
 			unwind = 192;
-			rt.mutexUnlock(_327);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(held2, f)];
 			Log.note(log, rt.fmtFormat(["locked ", args14[0]]));
 			lent = guard(83);
@@ -421,7 +413,6 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 																									break b4;
 																								}
 																								if (unwind === 191) {
-																									rt.mutexUnlock(_327);
 																									break b3;
 																								}
 																								if (unwind === 192) {

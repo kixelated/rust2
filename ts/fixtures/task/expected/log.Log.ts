@@ -25,51 +25,22 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	let _6!: rt.Mutex<string[]>;
-	let unwind: number = 0;
-	try {
-		_6 = rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug, rt.drop);
-		unwind = 8;
-		_6.value.push(event);
-		unwind = 0;
-		rt.mutexUnlock(_6);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(_6);
-		throw e;
-	}
+	rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug).value.push(event);
 }
 
 /** Every event so far, one per line. */
 export function text(self: Log): rt.ByteVec {
-	let events!: rt.Mutex<string[]>;
-	let unwind: number = 0;
-	try {
-		events = rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug, rt.drop);
-		unwind = 19;
-		const out: rt.ByteVec = new rt.ByteVec();
-		unwind = 18;
-		const iter: rt.Iter<string> = rt.iterSlice(events.value);
-		while (true) {
-			const _13: string | rt.Done = iter.next();
-			if (_13 === rt.DONE) {
-				break;
-			}
-			const _19: rt.ByteSlice = rt.stringAsBytes(_13);
-			rt.byteVecExtendFromSlice(out, _19);
-			rt.byteVecPush(out, 10);
+	const events: rt.Mutex<string[]> = rt.resultUnwrap(rt.mutexLock(self._0.value), rt.fmtPoisonErrorDebug);
+	const out: rt.ByteVec = new rt.ByteVec();
+	const iter: rt.Iter<string> = rt.iterSlice(events.value);
+	while (true) {
+		const _13: string | rt.Done = iter.next();
+		if (_13 === rt.DONE) {
+			return out;
 		}
-		unwind = 0;
-		rt.mutexUnlock(events);
-		return out;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.mutexUnlock(events);
-		throw e;
+		const _19: rt.ByteSlice = rt.stringAsBytes(_13);
+		rt.byteVecExtendFromSlice(out, _19);
+		rt.byteVecPush(out, 10);
 	}
 }
 

@@ -2,10 +2,8 @@
 
 ## Unreleased
 
-- A host that catches an `rt.Panic` and goes on calls `rt.panicCaught(err)`, which stops
-  it unwinding as `catch_unwind` does: until then, a mutex a guard locks no longer poisons.
-  `Mutex::lock`'s result is an `rt.Result` of the guard, `Err` once a panic poisoned it,
-  rather than the guard itself.
+- `Mutex::lock`'s result is an `rt.Result` of the guard, always `Ok`, rather than the
+  guard itself.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not
   `=> void`: type its export `: undefined`.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a

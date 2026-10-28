@@ -28,8 +28,6 @@ type Channel = Disposable;
  */
 export interface Fixture<V> {
 	Pending: symbol;
-	/** Whether a caught error is a panic, which then stops unwinding. */
-	panicCaught(err: unknown): boolean;
 	u64: { of(value: number): V };
 	Log: {
 		"new"(): Log;
@@ -56,7 +54,6 @@ export interface Fixture<V> {
 		cells(log: Log, id: number, at: number): void;
 		folded(log: Log, id: number, arg: number): void;
 		rfolded(log: Log, id: number, arg: number): void;
-		locks(log: Log, id: number, at: number): void;
 	};
 	futures: {
 		helpers(rx: Consumer, guard: Guard): Future<V>;
@@ -296,7 +293,6 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 	["cells", (r, arg) => r.f.drops.cells(r.log, 1000 * r.exec.tasks.length, arg)],
 	["folded", (r, arg) => r.f.drops.folded(r.log, 1000 * r.exec.tasks.length, arg)],
 	["rfolded", (r, arg) => r.f.drops.rfolded(r.log, 1000 * r.exec.tasks.length, arg)],
-	["locks", (r, arg) => r.f.drops.locks(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
 /**
@@ -319,8 +315,8 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 			try {
 				step(r, arg);
 			} catch (err) {
-				if (!f.panicCaught(err)) throw err;
-				note(`panic ${(err as Error).message}`);
+				if (!(err instanceof Error && err.name === "Panic")) throw err;
+				note(`panic ${err.message}`);
 			}
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
@@ -388,8 +384,4 @@ export const cases: Uint8Array[] = [
 	// Each scenario of adaptors' closures that drop, folded either way, panicking at each item or none.
 	...Array.from({ length: 256 }, (_, arg) => script(["folded", arg])),
 	...Array.from({ length: 72 }, (_, arg) => script(["rfolded", arg])),
-	// What a mutex's guard does as it drops, for every argument, which picks the scenario;
-	// then two panics in one script, the second of which must poison as the first did.
-	...Array.from({ length: 16 }, (_, at) => script(["locks", at])),
-	script(["locks", 8], ["locks", 8]),
 ];

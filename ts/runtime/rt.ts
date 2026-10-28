@@ -18,41 +18,10 @@ export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 export * from "./rt/time.ts";
 
-/**
- * How many panics have started and none has caught: `thread::panicking()` while above 0,
- * as std's panic count is. JS that catches a `Panic` stops it with `panicCaught`, as
- * `catch_unwind` does; one it doesn't stays counted, as one escaping wasm32's exports does.
- */
-let panics = 0;
-
-/** A Rust panic, which counts itself as started. */
+/** A Rust panic. */
 export class Panic extends Error {
 	override name = "Panic";
-
-	constructor(message: string) {
-		super(message);
-		panics++;
-	}
 }
-
-/** `thread::panicking()`: whether a panic is unwinding. */
-export function panicking(): boolean {
-	return panics > 0;
-}
-
-/** The panics `panicCaught` stopped, each of which counts down once however often it is caught. */
-const caught = new WeakSet<Panic>();
-
-/** Whether `e`, caught, is a `Panic`, which then stops unwinding, as `catch_unwind` stops it. */
-export function panicCaught(e: unknown): e is Panic {
-	if (!(e instanceof Panic)) return false;
-	if (!caught.has(e)) {
-		caught.add(e);
-		panics--;
-	}
-	return true;
-}
-
 
 /** Panic with `message`. */
 export function panic(message: string): never {
