@@ -1,11 +1,11 @@
-# [S] An inclusive range folded through an adaptor
+# [M] An inclusive range folded through an adaptor
 
 ## Goal
 
 A `RangeInclusive` borrowed by `by_ref` and drained by a fold through an adaptor (`map`,
 `filter`, `rev`, `chain`, `peekable`, `take`, `skip`, ...) ends in core's state, `exhausted`
 with `start == end`, where std's adaptor folds the range, proven by a differential test
-against native Rust.
+against native Rust. `for _ in r.by_ref()` over a `RangeInclusive`, then using `r`, type-checks.
 
 ## Plan
 
@@ -25,5 +25,10 @@ adaptor where a consumer reads it by `next`:
 - `skip` reads `nth(n - 1)` before it folds, where its `next` reads `nth(n)`.
 - `zip` and `step_by` read by `next`, as std's do.
 - `collect` and `extend` fold only a `TrustedLen` iterator and read others by `next`.
+
+`for _ in r.by_ref()` fails `tsc` today (`rt.iterBorrow(r)` is an `Iter<usize>`, not the
+`rt.RangeInclusive<usize>` it is assigned to), found by
+[#147](https://github.com/kixelated/rust2/pull/147): `IntoIterator` for `&mut I` is typed as
+a plain iterator. The fixtures drain with `while r.next().is_some()` around it.
 
 Public API: the translator's output.
