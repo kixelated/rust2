@@ -16,7 +16,7 @@ import type * as Point from "../shapes.Point.ts";
 import type * as Shape from "../shapes.Shape.ts";
 import type * as Short from "../splits.Short.ts";
 
-export function isSomeAnd$Option_u8_options_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
+export function isSomeAnd$Option_u8_bools_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return false;
 	}
