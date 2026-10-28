@@ -350,7 +350,9 @@ pub fn call<'tcx>(
 	// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as std's
 	// own does, where either drops: else `rt.iter<Name>`, so a bundle that never drops
 	// doesn't carry it.
-	let owned = |b: &mut Body<'_, '_, 'tcx>, name: &str, dropper: Expr| match drops_iter(b, self_ty, span) || !undefined(&dropper) {
+	let owned = |b: &mut Body<'_, '_, 'tcx>, name: &str, dropper: Expr| match drops_iter(b, self_ty, span)
+		|| !undefined(&dropper)
+	{
 		true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], vec![dropper]))),
 		false => method(name, Vec::new()),
 	};

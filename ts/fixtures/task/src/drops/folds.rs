@@ -523,7 +523,10 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 					g.id() != c.id() - 8
 				})
 				.rev()
-				.fold(None, |kept: Option<Guard>, g| if g.id() % 2 == 0 { Some(g) } else { kept });
+				.fold(
+					None,
+					|kept: Option<Guard>, g| if g.id() % 2 == 0 { Some(g) } else { kept },
+				);
 			let n: u32 = guards(5, 8)
 				.into_iter()
 				.filter_map(move |g| {
@@ -695,7 +698,12 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 				.enumerate()
 				.rev()
 				.last();
-			log.note(format!("enumerate {:?} {} {}", last.map(|(i, g)| (i, g.id())), d.id(), e.id()));
+			log.note(format!(
+				"enumerate {:?} {} {}",
+				last.map(|(i, g)| (i, g.id())),
+				d.id(),
+				e.id()
+			));
 		}
 		4 => {
 			let n = guards(1, 5)
@@ -728,7 +736,10 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 				})
 				.step_by(2)
 				.map(move |g| (g, d.id()))
-				.fold(Some(guard(20)), |kept, (g, _)| if g.id() % 2 == 1 { Some(g) } else { kept });
+				.fold(
+					Some(guard(20)),
+					|kept, (g, _)| if g.id() % 2 == 1 { Some(g) } else { kept },
+				);
 			log.note(format!("step {:?} {}", kept.map(|g| g.id()), e.id()));
 		}
 		6 => {
@@ -742,7 +753,10 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 				.step_by(2)
 				.rev()
 				.map(move |g| (g, d.id()))
-				.fold(Some(guard(20)), |kept, (g, _)| if g.id() % 2 == 1 { Some(g) } else { kept });
+				.fold(
+					Some(guard(20)),
+					|kept, (g, _)| if g.id() % 2 == 1 { Some(g) } else { kept },
+				);
 			log.note(format!("step {:?} {}", kept.map(|g| g.id()), e.id()));
 		}
 		7 => {
