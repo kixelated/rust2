@@ -191,6 +191,8 @@ pub fn call<'tcx>(
 			Expr::New(Box::new(Expr::Rt(once_class(b, cell).into())), args)
 		}
 		("atomic", "fence" | "compiler_fence") => Expr::rt("fence", args),
+		// `thread::panicking`, from std's `thread::functions`.
+		("functions", "panicking") => Expr::rt("panicking", args),
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),
 		("Waker", "wake") => first(args).member("wake").call(vec![]),
 		("Waker", "will_wake") => {

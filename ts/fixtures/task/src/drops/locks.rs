@@ -10,14 +10,16 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// As it drops, logs whether its mutex is poisoned, then locks it whatever the answer.
+/// As it drops, logs whether a panic is unwinding and whether its mutex is poisoned, then
+/// locks it whatever the answer.
 struct Probe<'a>(&'a Mutex<Guard>, Guard);
 
 impl Drop for Probe<'_> {
 	fn drop(&mut self) {
+		let panicking = std::thread::panicking();
 		let poisoned = self.0.lock().is_err();
 		let held = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-		self.1.note(&format!("poisoned {poisoned}, holds g{}", held.id()));
+		self.1.note(&format!("panicking {panicking}, poisoned {poisoned}, holds g{}", held.id()));
 	}
 }
 

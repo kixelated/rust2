@@ -30,8 +30,8 @@ Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet), `RwLock`, `Cell`
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow
   panics.
-- The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds:
-  `thread_local!` (`LocalKey::with`) and `thread::panicking`, which `rt.panicking` answers.
+- The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds
+  `thread_local!` (`LocalKey::with`).
 - A `static` atomic (`static NEXT: AtomicU64`, 2 in moq-net and 1 in kio) is still
   refused as a constant of type `&Atomic`: a `static` with interior mutability needs one
   module-level value that every use shares.

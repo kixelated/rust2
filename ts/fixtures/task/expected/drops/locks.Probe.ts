@@ -5,7 +5,10 @@ import { drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard } from "../li
 import { unwrapOrElse$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard_into_inner } from "../core/result.ts";
 import * as Guard from "../model.Guard.ts";
 
-/** As it drops, logs whether its mutex is poisoned, then locks it whatever the answer. */
+/**
+ * As it drops, logs whether a panic is unwinding and whether its mutex is poisoned, then
+ * locks it whatever the answer.
+ */
 export class Probe {
 	_0: rt.Mutex<Guard.Guard>;
 	_1: Guard.Guard;
@@ -31,24 +34,25 @@ export class Probe {
 }
 
 export function drop$Drop(self: Probe): void {
-	let _4!: rt.Result<rt.Mutex<Guard.Guard>, rt.Mutex<Guard.Guard>>;
+	let _5!: rt.Result<rt.Mutex<Guard.Guard>, rt.Mutex<Guard.Guard>>;
 	let held!: rt.Mutex<Guard.Guard>;
 	let unwind: number = 0;
 	try {
-		_4 = rt.mutexLock(self._0);
-		unwind = 20;
-		const poisoned: boolean = !_4.ok;
+		const panicking: boolean = rt.panicking();
+		_5 = rt.mutexLock(self._0);
+		unwind = 22;
+		const poisoned: boolean = !_5.ok;
 		unwind = 0;
-		drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_4);
+		drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_5);
 		held = unwrapOrElse$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard_into_inner(rt.mutexLock(self._0), (a0: rt.Mutex<Guard.Guard>): rt.Mutex<Guard.Guard> => {
 			return a0;
 		});
-		unwind = 19;
-		const _16: rt.u32 = Guard.id(held.value);
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(poisoned, f), (f: rt.Formatter) => rt.u32Display(_16, f)];
-		const _11: string = rt.fmtFormat(["poisoned ", args2[0], ", holds g", args2[1]]);
-		unwind = 18;
-		Guard.note(self._1, _11);
+		unwind = 21;
+		const _17: rt.u32 = Guard.id(held.value);
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(panicking, f), (f: rt.Formatter) => rt.fmtBool(poisoned, f), (f: rt.Formatter) => rt.u32Display(_17, f)];
+		const _12: string = rt.fmtFormat(["panicking ", args2[0], ", poisoned ", args2[1], ", holds g", args2[2]]);
+		unwind = 20;
+		Guard.note(self._1, _12);
 		unwind = 0;
 		rt.drop(held);
 	} catch (e) {
@@ -56,9 +60,9 @@ export function drop$Drop(self: Probe): void {
 			if (unwind === 0) {
 				throw e;
 			}
-			if (unwind !== 18) {
-				if (unwind !== 19) {
-					drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_4);
+			if (unwind !== 20) {
+				if (unwind !== 21) {
+					drop$Result_MutexGuard_Guard_PoisonError_MutexGuard_Guard(_5);
 					break b0;
 				}
 			}
