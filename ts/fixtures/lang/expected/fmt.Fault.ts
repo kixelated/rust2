@@ -10,15 +10,15 @@ export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt
 	}
 	if (self.tag === "Code") {
 		const _6: string = "Code";
-		const _7: rt.Fmt = (f: rt.Formatter) => rt.u16Display(self._0, f);
+		const _7: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _6), _7));
 	}
 	if (self.tag === "TooLarge") {
 		const _11: string = "TooLarge";
 		const _12: string = "size";
-		const _13: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
+		const _13: rt.Fmt = (f: rt.Formatter) => rt.usizeDebug(self.size, f);
 		const _14: string = "max";
-		const _15: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
+		const _15: rt.Fmt = (f: rt.Formatter) => rt.usizeDebug(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	}
 	const _18: string = "At";

@@ -9,9 +9,9 @@ import * as Shape from "./shapes.Shape.ts";
 export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Display);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Debug);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -20,7 +20,7 @@ export function fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter): rt.Resul
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => Pair.fmt$Debug(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -29,16 +29,16 @@ export function fmt$Debug_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Re
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Result_u8_Shape(self: Wrap<rt.Result<rt.u8, Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Display, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f));
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Debug, (value: Shape.Shape, f: rt.Formatter) => Shape.fmt$Debug(value, f));
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -47,16 +47,16 @@ export function fmt$Debug_Shape(self: Wrap<Shape.Shape>, f: rt.Formatter): rt.Re
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => Shape.fmt$Debug(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Display);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Debug);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
@@ -65,25 +65,25 @@ export function fmt$Debug_Wrap_Pair(self: Wrap<Wrap<Pair.Pair>>, f: rt.Formatter
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => fmt$Debug_Pair(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.i16Display(self.value, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.i16Debug(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
 export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.value, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.value, f);
 	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.count, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 

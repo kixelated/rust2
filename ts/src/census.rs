@@ -176,6 +176,7 @@ const VERBATIM: &[&str] = &[
 	"match",
 	"next",
 	"ref mut",
+	"rt.None",
 	"self",
 	"undefined",
 	"zip",

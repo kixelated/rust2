@@ -234,6 +234,7 @@ impl<'a> Abi<'a> {
 			Type::Char => Ty::Char,
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => Ty::Buf,
 			Type::Duration => Ty::Duration,
+			Type::Waker => Ty::Waker,
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => self.ty(inner),
 				base if Self::is_buf(base) => Ty::Buf,

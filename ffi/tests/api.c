@@ -278,6 +278,10 @@ static int script(void) {
 		printf("%zu\n", len);
 	}
 	api_channel_recv_sized_future_free(sized);
+	/* The waker moves into Rust, which drops it once it wakes. */
+	api_channel_notify(channel, waker);
+	api_channel_send(channel, str("rung"));
+	printf("woken %d\n", wakes);
 	api_channel_free(channel);
 
 	/* A value that holds itself is an object. */
@@ -347,8 +351,8 @@ static int script(void) {
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());
 	api_token_free(token);
 	printf("dropped %u\n", api_dropped());
-	/* Each future dropped its waker once it finished. */
-	return drops == 4 ? 0 : 1;
+	/* Each future dropped its waker once it finished, and Rust the one it was given. */
+	return drops == 5 ? 0 : 1;
 }
 
 /* Each breaks a contract, which must abort with a message naming the function. */
