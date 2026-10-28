@@ -1794,10 +1794,11 @@ impl<'tcx> Collector<'tcx> {
 			.filter_map(|clause| clause.as_trait_clause())
 			.filter(|pred| pred.self_ty().skip_binder() == param)
 			.collect();
+		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
+		let implied: Vec<_> = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
 		// A parameter that must outlive the call cannot borrow what C lends for it.
-		let outlives = identity.clauses.iter().any(|clause| {
+		let outlives = implied.iter().any(|clause| {
 			clause
-				.skip_norm_wip()
 				.as_type_outlives_clause()
 				.is_some_and(|pred| pred.skip_binder().0 == param)
 		});
@@ -1816,8 +1817,7 @@ impl<'tcx> Collector<'tcx> {
 			))
 		};
 		let mut candidates = Vec::new();
-		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
-		let implied = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip()))
+		let implied = (implied.iter())
 			.filter_map(|clause| clause.as_trait_clause())
 			.filter(|pred| pred.self_ty().skip_binder() == param);
 		for bound in implied {
@@ -1827,7 +1827,7 @@ impl<'tcx> Collector<'tcx> {
 				// An `Into` target that does not map takes what converts into it instead.
 				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
 					.then(|| self.sources(def_id, target()));
-				for target in std::iter::once(target()).chain(into.into_iter().flatten()) {
+				for (target, outlives) in std::iter::once((target(), outlives)).chain(into.into_iter().flatten()) {
 					let owned = match target.kind() {
 						ty::Str => string,
 						ty::Slice(elem) => vec(*elem),
@@ -1877,9 +1877,10 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// What `impl Into<target>` takes through the `From` implementations into `target`
-	/// whose source is a type parameter: each `Into<X>` or `AsRef<X>` its bounds imply, so
-	/// `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes.
-	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<Ty<'tcx>> {
+	/// whose source is a type parameter: each `Into<X>` or `AsRef<X>` its bounds imply, and
+	/// whether they make it outlive the call, so `impl<B: Into<Bytes>> From<B> for
+	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes.
+	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<(Ty<'tcx>, bool)> {
 		let tcx = self.tcx;
 		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
 			return Vec::new();
@@ -1911,7 +1912,13 @@ impl<'tcx> Collector<'tcx> {
 			}
 			let source = infcx.deeply_resolve_ignoring_regions(source);
 			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
-			for bound in elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
+			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
+			let outlives = implied.iter().any(|clause| {
+				clause
+					.as_type_outlives_clause()
+					.is_some_and(|pred| infcx.deeply_resolve_ignoring_regions(pred.skip_binder().0) == source)
+			});
+			for bound in (implied.iter())
 				.filter_map(|clause| clause.as_trait_clause())
 				.filter(|bound| {
 					tcx.is_diagnostic_item(sym::Into, bound.def_id())
@@ -1919,8 +1926,8 @@ impl<'tcx> Collector<'tcx> {
 				}) {
 				let bound = infcx.deeply_resolve_ignoring_regions(bound.skip_binder());
 				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
-				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&x) {
-					found.push(x);
+				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&(x, outlives)) {
+					found.push((x, outlives));
 				}
 			}
 		}

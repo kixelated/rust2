@@ -590,8 +590,8 @@ pub fn len(payload: &[u8]) -> usize {
 }
 
 /// Converts into owned bytes, as moq's `IntoBytes` does: text implements it too, but its
-/// supertrait makes a parameter it bounds bytes.
-pub trait Payload: AsRef<[u8]> {
+/// supertrait makes a parameter it bounds bytes, and owned ones, as it must be `'static`.
+pub trait Payload: AsRef<[u8]> + 'static {
 	fn into_bytes(self) -> Bytes;
 }
 
@@ -613,9 +613,15 @@ impl Payload for String {
 	}
 }
 
-impl Payload for &str {
+impl Payload for &'static str {
 	fn into_bytes(self) -> Bytes {
-		Bytes::copy_from_slice(self.as_bytes())
+		Bytes::from_static(self.as_bytes())
+	}
+}
+
+impl Payload for &'static [u8] {
+	fn into_bytes(self) -> Bytes {
+		Bytes::from_static(self)
 	}
 }
 
@@ -624,16 +630,16 @@ pub fn hex(payload: impl Payload) -> String {
 	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A value and when it was stamped, as moq's `Timed` is, which bytes convert into.
+/// A value and when it was stamped, as moq's `Timed` is, which a payload converts into.
 pub struct Timed<P> {
 	pub value: P,
 	pub at: Option<Stamp>,
 }
 
-impl<B: Into<Bytes>> From<B> for Timed<Bytes> {
+impl<B: Payload> From<B> for Timed<Bytes> {
 	fn from(value: B) -> Self {
 		Self {
-			value: value.into(),
+			value: value.into_bytes(),
 			at: None,
 		}
 	}
