@@ -23,6 +23,7 @@ macro_rules! list {
 
 mod closures;
 mod iters;
+mod once;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
@@ -63,6 +64,11 @@ pub struct Named<'a>(Text<'a>);
 /// Pairs of its type parameters, as a map's entries are: each pair drops its halves in
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
+
+/// Run one-time cells' scenario `at`.
+pub fn cells(log: &Log, id: u32, at: u8) {
+	once::run(log, id, at);
+}
 
 /// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.

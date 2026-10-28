@@ -1,10 +1,10 @@
 // Ownership and async, for rust2-ts output: what Rust's `Drop`, `Arc`, `Mutex`, atomics,
-// and futures do that plain JS does not. `rt.ts` re-exports all of it.
+// one-time cells, and futures do that plain JS does not. `rt.ts` re-exports all of it.
 //
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Err, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
+import { Err, type None, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -230,6 +230,102 @@ export function atomicUpdate<T>(atomic: Atomic<T>, set: AtomicOrdering, fetch: A
 /** `atomic::fence` and `compiler_fence`, which order nothing on one thread. */
 export function fence(order: AtomicOrdering): void {
 	if (order === 0) panic("there is no such thing as a relaxed fence");
+}
+
+// One-time cells
+
+/**
+ * `OnceCell<T>`: the `Option<T>` it holds, whose `None`, `N`, is `undefined`, or
+ * `rt.None` where `T` can already be `undefined`.
+ */
+export class OnceCell<T, N extends None | undefined = undefined> implements Disposable {
+	v: T | N;
+
+	// The cell's type is its place's: its first value, often its `None`, would narrow it.
+	constructor(v: NoInfer<T | N>) {
+		this.v = v;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.v);
+	}
+}
+
+/**
+ * `OnceLock<T>`, which one thread never races, but which knows it is being initialized:
+ * initializing it again from within panics, as wasm32's `Once` does.
+ */
+export class OnceLock<T, N extends None | undefined = undefined> extends OnceCell<T, N> {
+	running = false;
+}
+
+/** A `OnceLock` initialized from within its own initialization. */
+function recursive(cell: OnceCell<unknown, None | undefined>): void {
+	if (cell instanceof OnceLock && cell.running) panic("one-time initialization may not be performed recursively");
+}
+
+/** `OnceCell::set`: `Err(value)` back if it holds one already. */
+export function onceSet<T>(cell: OnceCell<T>, value: T): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None>, value: T, none: None): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, none?: None): Result<undefined, T> {
+	recursive(cell);
+	if (cell.v !== none) return Err(value);
+	cell.v = value;
+	return Ok(undefined);
+}
+
+/** `OnceCell::take`: what it holds, leaving it empty. */
+export function onceTake<T>(cell: OnceCell<T>): T | undefined;
+export function onceTake<T>(cell: OnceCell<T, None>, none: None): T | None;
+export function onceTake<T>(cell: OnceCell<T, None | undefined>, none?: None): T | None | undefined {
+	const v = cell.v;
+	cell.v = none;
+	return v;
+}
+
+/**
+ * `OnceCell::get_or_init`: what it holds, which `f` makes first if it holds nothing,
+ * dropping `f` by `dropF` if not. A panic in `f` leaves it empty. A `OnceCell` that `f`
+ * sets itself drops what `f` made by `dropValue` and panics, as std's does. `f` of a
+ * `()` returns `void`.
+ */
+export function onceGetOrInit<T>(cell: OnceCell<T>, f: () => T | void, dropValue?: (value: T) => void, dropF?: (f: () => T | void) => void): T;
+export function onceGetOrInit<T>(
+	cell: OnceCell<T, None>,
+	f: () => T | void,
+	dropValue: ((value: T) => void) | undefined,
+	dropF: ((f: () => T | void) => void) | undefined,
+	none: None,
+): T;
+export function onceGetOrInit<T>(
+	cell: OnceCell<T, None | undefined>,
+	f: () => T | void,
+	dropValue?: (value: T) => void,
+	dropF?: (f: () => T | void) => void,
+	none?: None,
+): T {
+	if (cell.v !== none) {
+		dropF?.(f);
+		return cell.v as T;
+	}
+	recursive(cell);
+	let value: T;
+	if (cell instanceof OnceLock) {
+		cell.running = true;
+		try {
+			value = f() as T;
+		} finally {
+			cell.running = false;
+		}
+	} else {
+		value = f() as T;
+		if (cell.v !== none) {
+			dropValue?.(value);
+			panic("reentrant init");
+		}
+	}
+	cell.v = value;
+	return value;
 }
 
 // Futures

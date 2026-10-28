@@ -6,6 +6,7 @@ import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapO
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
+import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
 import type * as Fault from "./drops.Fault.ts";
@@ -20,6 +21,11 @@ import { recvFuture } from "./kio.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
+
+/** Run one-time cells' scenario `at`. */
+export function cells(log: Log.Log, id: rt.u32, at: rt.u8): void {
+	once_run(log, id, at);
+}
 
 /**
  * Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what

@@ -953,6 +953,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Mutex
 					| library::Std::MutexGuard
 					| library::Std::Atomic
+					| library::Std::OnceCell
+					| library::Std::OnceLock
 					| library::Std::Waker
 					| library::Std::Context
 					| library::Std::Pin
@@ -1223,6 +1225,20 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::PoisonError => Type::Builtin("never"),
 				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
 				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
+				// With the `Option`'s `None` where it is `rt.None`.
+				std @ (library::Std::OnceCell | library::Std::OnceLock) => {
+					let inner = args.type_at(0);
+					if let Some(msg) = self.erasure_conflict(Ty::new_option(tcx, inner)) {
+						self.err(span, msg);
+					}
+					let mut args = vec![self.ty(inner, span)];
+					args.extend(self.erases_to(inner).undefined.then(|| Type::Rt("None", vec![])));
+					let name = match std {
+						library::Std::OnceCell => "OnceCell",
+						_ => "OnceLock",
+					};
+					Type::Rt(name, args)
+				}
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {

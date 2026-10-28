@@ -179,6 +179,11 @@ pub fn call<'tcx>(
 			first(args)
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
+		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
+		("From", "from") if matches!(self_std, Some(Std::OnceCell | Std::OnceLock)) => {
+			let cell = self_ty.expect("a `From` impl's type");
+			Expr::New(Box::new(Expr::Rt(once_class(b, cell).into())), args)
+		}
 		("atomic", "fence" | "compiler_fence") => Expr::rt("fence", args),
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),
 		("Waker", "wake") => first(args).member("wake").call(vec![]),
@@ -302,6 +307,67 @@ fn atomic<'tcx>(
 		_ => return Ok(None),
 	};
 	Ok(Some(e))
+}
+
+/// A `OnceCell<T>` or `OnceLock<T>` method: its `Option<T>`, `v`, read or written as std
+/// does, with that `Option`'s `None` where it is `rt.None`. `Ok(None)` refuses it.
+fn once<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	name: &str,
+	args: Vec<Expr>,
+) -> Result<Option<Expr>, Vec<Expr>> {
+	let tcx = b.t.tcx;
+	let imp = tcx.inherent_impl_of_assoc(call.def_id).expect("an inherent method");
+	let generics = tcx.generics_of(imp).count();
+	let cell = tcx
+		.type_of(imp)
+		.instantiate(tcx, &call.args[..generics])
+		.skip_norm_wip();
+	let inner = call.args.type_at(0);
+	let none = b.t.none_arg(inner);
+	let e = match name {
+		"new" => once_new(b, cell),
+		"get" | "into_inner" => first(args).member("v"),
+		"set" | "take" => Expr::rt(
+			match name {
+				"set" => "onceSet",
+				_ => "onceTake",
+			},
+			args.into_iter().chain(none).collect(),
+		),
+		// With what drops the value `f` made, and `f`, as `discards` says.
+		"get_or_init" => {
+			let Some(mut droppers) = b.t.droppers([inner, call.args.type_at(1)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			if none.is_some() {
+				droppers.resize(2, Expr::undefined());
+			}
+			Expr::rt("onceGetOrInit", args.into_iter().chain(droppers).chain(none).collect())
+		}
+		_ => return Ok(None),
+	};
+	Ok(Some(e))
+}
+
+/// `OnceCell::new()` or `OnceLock::new()` of `cell`: empty.
+pub fn once_new<'tcx>(b: &Body<'_, '_, 'tcx>, cell: Ty<'tcx>) -> Expr {
+	let ty::Adt(_, args) = cell.kind() else {
+		unreachable!("a one-time cell is a struct")
+	};
+	Expr::New(
+		Box::new(Expr::Rt(once_class(b, cell).into())),
+		vec![b.t.none(args.type_at(0))],
+	)
+}
+
+/// The runtime class of `cell`, a `OnceCell` or `OnceLock`.
+fn once_class<'tcx>(b: &Body<'_, '_, 'tcx>, cell: Ty<'tcx>) -> &'static str {
+	match b.t.std_of(cell) {
+		Some(Std::OnceLock) => "OnceLock",
+		_ => "OnceCell",
+	}
 }
 
 /// `(old, value) => old op value` over `ty`, negated if `not`.
