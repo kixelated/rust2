@@ -215,4 +215,12 @@ const utf8 = [
 	[0x80, 0xf8, 0xff],
 ].map((bytes) => Uint8Array.of(op("utf8::decodes"), 0, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats];
+/**
+ * `dyns::dyns` too short to run, with a `Tri` of each variant, at the ends of each side and
+ * count, and boxing each kind of shape.
+ */
+const dyns = [[], [1, 2], [3, 0, 7], [255, 1, 255, 0, 1, 2, 3, 4, 5], [0, 3, 2, 9, 255, 6, 128]].map((bytes) =>
+	Uint8Array.of(op("dyns::dyns"), 0, ...bytes),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns];
