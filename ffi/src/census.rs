@@ -8,7 +8,7 @@ use rustc_span::Span;
 
 use crate::abi::Clash;
 use crate::collect::{Refusal, Report};
-use crate::ir::Api;
+use crate::ir::{Access, Api, Function};
 
 /// The census of one export as Markdown, `[crates.<package>]` in the config unless it is
 /// the configured package; `at` locates a span.
@@ -21,9 +21,15 @@ pub fn render(api: &Api, collected: &Report, top: bool, clashes: &[Clash], at: &
 	let callbacks = api.callbacks.iter().filter(|c| ours(&c.path)).count();
 	let constants = api.constants.iter().filter(|c| ours(&c.path)).count();
 	let refused = |kinds: &[&str]| collected.refusals.iter().filter(|r| kinds.contains(&r.kind)).count();
-	let methods: usize = objects.iter().map(|o| o.methods.len()).sum::<usize>()
-		+ records.iter().map(|r| r.methods.len()).sum::<usize>()
-		+ enums.iter().map(|e| e.methods.len()).sum::<usize>();
+	// A field counts once, by its getter, though it exports a setter too.
+	let items = |methods: &[Function]| {
+		(methods.iter())
+			.filter(|f| !matches!(f.access, Access::Field { set: true, .. }))
+			.count()
+	};
+	let methods: usize = objects.iter().map(|o| items(&o.methods)).sum::<usize>()
+		+ records.iter().map(|r| items(&r.methods)).sum::<usize>()
+		+ enums.iter().map(|e| items(&e.methods)).sum::<usize>();
 	let types = records.len() + enums.len() + objects.len();
 
 	let mut out = String::new();

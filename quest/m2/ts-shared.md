@@ -18,20 +18,19 @@ The async spike ([#16](https://github.com/kixelated/rust2/pull/16)) landed what 
 kio-shaped fixture needs, in `rt/task.ts`: `rt.Arc` counts strong references and
 drops its value with the last, `rt.Weak` upgrades while one is left, and `rt.Mutex`
 is its own guard, which a lock gives as `Ok`: the translator aborts on panic, as wasm32
-does, so nothing poisons a mutex. `rt.Atomic` holds a `bool` or an integer, and its operations check
-their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold their `Option<T>`, and
+does, so nothing poisons a mutex. A guard's drop unlocks it, `try_lock` while held gives
+`WouldBlock`, and a re-entrant `lock` panics with wasm32's message. `rt.Atomic` holds
+a `bool` or an integer, and its operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold their `Option<T>`, and
 a `OnceLock` initialized from within its own initialization panics as wasm32's does;
 their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still refused.
-Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet), `RwLock`, `Cell`,
-`RefCell`, and `Mutex::try_lock` (kio's `Lock` debugs through it).
+Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet; kio's `WaiterList`
+reads it), `Arc::new_cyclic` (moq-net's `resume`), `RwLock`, `Cell`, and `RefCell`.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow
-  panics. A re-entrant `Mutex` lock on one thread is unspecified in Rust; pick
-  a loud failure (panic) and document it.
+  panics, as a re-entrant `Mutex` lock does.
 - The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds:
-  `thread_local!` (`LocalKey::with`) and `thread::panicking`, which is always false
-  where a panic aborts.
+  `thread_local!` (`LocalKey::with`).
 - A `static` atomic (`static NEXT: AtomicU64`, 2 in moq-net and 1 in kio) is still
   refused as a constant of type `&Atomic`: a `static` with interior mutability needs one
   module-level value that every use shares.

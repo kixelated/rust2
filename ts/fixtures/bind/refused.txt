@@ -1,5 +1,6 @@
-binding `blob::Source`: a binding is of a function or a type, not Trait
-binding `blob::empty`: ../blob.ts must be relative to ts.toml, inside its directory
+binding `blob::Blob`: no such item, or more than one, in the crate or a crate it depends on
+binding `buf::Source`: a binding is of a function or a type, not Trait
+binding `buf::empty`: ../blob.ts must be relative to ts.toml, inside its directory
 binding `nowhere::Thing`: no such item, or more than one, in the crate or a crate it depends on
 binding `raw`: a binding is of a function or a type, not Mod
 binding `raw::Held::new`: RT/held.ts would replace the runtime, rt.ts and rt/

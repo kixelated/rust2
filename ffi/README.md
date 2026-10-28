@@ -62,7 +62,7 @@ export's, and adds nothing; another crate's type is refused.
 | any other type, if `Send` | an object: an opaque handle to an `Arc`, freed with `_free` |
 | a type whose only generic parameters are lifetimes, such as `Path<'a>` | an object holding its `'static` form |
 | a generic type, at each instance it infers | that instance as any other type, with each method whose impl and own bounds it meets; any other instance is refused |
-| a `pub` field of an object | a getter returning a copy |
+| a `pub` field of an object | a getter returning a copy, and a setter assigning in place, as `x.field = value` does |
 | a `pub` trait | a callback interface: a table of C functions and their data |
 | a type parameter or `impl` bounded by `Fn`, `FnMut`, or `FnOnce`, which no lifetime bound or return lets outlive the call | a C function and its `void *` data, which Rust calls only during the call; any other closure is refused |
 | `fn` and inherent `pub` methods | functions named through their type |
@@ -111,7 +111,9 @@ refused, and the census counts why.
   value that is not `Sync` is shared on one thread at a time, and held exclusively by a
   future, which may be polled on any thread. A borrow Rust would
   refuse at compile time aborts, naming the function, as does a null or moved-out handle:
-  there is no Rust caller to return an error to.
+  there is no Rust caller to return an error to. A setter borrows as `&mut T` and takes
+  its value as `T`, so it writes the value the handle holds, or the one Rust lent it,
+  while a getter's copy is C's own: a nested field is got, set, and set back.
 - **Values** are copied in from the caller's memory, which Rust never frees, and lowered
   into memory the caller frees once with the type's `_free`.
 - **Futures** run no runtime: C polls with a `<prefix>_waker` and polls again when woken.
@@ -142,7 +144,9 @@ refused, and the census counts why.
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
   `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
-  `Backoff::initial`; `field@Backoff::initial` names the field.
+  `Backoff::initial`; `field@Backoff::initial` names the field. A field's setter is
+  named as its getter, with `set_` after its type's name: `moq_connect_config_set_tls`,
+  and `moq_backoff_set_initial_setting` once renamed.
 
   An instance is named by its generic item's name, then each argument but those at their
   defaults after the last that is not, so the instance at its defaults is named as the
@@ -211,6 +215,8 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
 - **Objects** are classes owning their handle, `AutoCloseable`, which `close()` frees once
   no call holds it; a call after it throws. A `self` method, or passing the object by
   value, closes it once the call returns. `Clone` is `clone()`, and `PartialEq` is `equals`.
+  A field is a `val`, and its setter a function, `setFirst(value)`, since setting an object
+  moves it in and closes its handle, which an assignment would hide.
 - **Records** are data classes, compared by their fields, and **enums** an `enum class`,
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.

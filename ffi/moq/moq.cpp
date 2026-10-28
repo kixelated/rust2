@@ -1,7 +1,7 @@
 // moq.c's script through the generated C++ header: a broadcast's track, published and
 // subscribed to in one process, with every read polled as a future, and an origin, with
 // moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library,
-// and the catalog lent to C++ for a call.
+// the catalog lent to C++ for a call, and a session's config filled in field by field.
 //
 // It needs no runtime: the waker counts wakes, and each poll that must wait is polled
 // again after the write that wakes it.
@@ -196,6 +196,20 @@ int main() {
 			}
 		}));
 		CHECK(listed_state == 1);
+	}
+
+	// A session's config, filled in as Rust assigns it, and a nested field by getting a copy,
+	// editing it, and setting it back.
+	{
+		moq::connect_config connect = moq::connect_config::default_();
+		moq::tls_connect tls = connect.tls();
+		tls.set_insecure(true);
+		tls.set_host_name("relay.example");
+		connect.set_tls(std::move(tls));
+		connect.set_implementation("moq.cpp");
+		CHECK(connect.tls().insecure() == std::optional<bool>(true));
+		CHECK(is(*connect.tls().host_name(), "relay.example"));
+		CHECK(is(*connect.implementation(), "moq.cpp"));
 	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.

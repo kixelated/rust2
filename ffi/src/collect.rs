@@ -1186,7 +1186,7 @@ impl<'tcx> Collector<'tcx> {
 					Some(Decl::Object(index)) => {
 						let (mut methods, traits) = self.methods(&site);
 						if kind == DefKind::Struct {
-							methods.splice(0..0, self.getters(&site));
+							methods.splice(0..0, self.accessors(&site));
 						}
 						let object = &mut self.api.objects[index];
 						object.args = args;
@@ -1199,10 +1199,11 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// A getter for each `pub` field of a struct exported as an object, returning a copy.
-	fn getters(&mut self, site: &Site<'tcx>) -> Vec<Function> {
+	/// A getter and a setter for each `pub` field of a struct exported as an object: the
+	/// getter returns a copy, and the setter assigns in place, as `x.field = value` does.
+	fn accessors(&mut self, site: &Site<'tcx>) -> Vec<Function> {
 		let tcx = self.tcx;
-		let mut getters = Vec::new();
+		let mut accessors = Vec::new();
 		let self_ty = self.site_ty(site);
 		for field in &tcx.adt_def(site.key.def_id).non_enum_variant().fields {
 			if !field.vis.is_public() {
@@ -1233,26 +1234,60 @@ impl<'tcx> Collector<'tcx> {
 			if ty.is_unit() {
 				continue;
 			}
-			// Read through `&self`, so returned as a copy, as a borrowed return is.
+			// Read through `&self`, so returned as a copy, as a borrowed return is, and
+			// written with a value C gives up, as an owned parameter is.
 			let read = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty);
-			match self.ty(read, Pos::Return) {
-				Ok(ty) => getters.push(Function {
-					path: [&site.path[..], &[name]].concat(),
-					span,
-					docs: docs(tcx, field.did),
-					receiver: Some(Receiver::Ref),
-					params: Vec::new(),
-					ok: ty,
-					err: None,
-					future: false,
-					eager: false,
-					access: Access::Field { shared },
-					instance: None,
-				}),
-				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, vec![why]),
+			let mapped = {
+				let get = self.ty(read, Pos::Return);
+				// A handle outlives every call, so a reference it holds is `'static`, which
+				// C's borrow for the call is not.
+				let set = match self.ty(ty, Pos::Param) {
+					Ok(set) if matches!(set, Type::Ref(..)) || lends_inside(&set) => {
+						Err(why("'static borrow", ty.to_string()))
+					}
+					set => set,
+				};
+				match (get, set) {
+					(Ok(get), Ok(set)) => Ok((get, set)),
+					(get, set) => {
+						let mut whys: Vec<Why> = get.err().into_iter().collect();
+						// A type neither way maps is one reason, not two.
+						let new = set.err().filter(|set| {
+							!whys
+								.iter()
+								.any(|get| get.construct == set.construct && get.detail == set.detail)
+						});
+						whys.extend(new);
+						Err(whys)
+					}
+				}
+			};
+			match mapped {
+				Ok((get, set)) => {
+					let accessor = |receiver, params, ok, set| Function {
+						path: [&site.path[..], std::slice::from_ref(&name)].concat(),
+						span,
+						docs: docs(tcx, field.did),
+						receiver: Some(receiver),
+						params,
+						ok,
+						err: None,
+						future: false,
+						eager: false,
+						access: Access::Field { shared, set },
+						instance: None,
+					};
+					accessors.push(accessor(Receiver::Ref, Vec::new(), get, false));
+					let value = Param {
+						name: "value".to_string(),
+						ty: set,
+					};
+					accessors.push(accessor(Receiver::Mut, vec![value], Type::Unit, true));
+				}
+				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, why),
 			}
 		}
-		getters
+		accessors
 	}
 
 	/// A type's inherent `pub` methods, from each impl that applies to it, and the std
