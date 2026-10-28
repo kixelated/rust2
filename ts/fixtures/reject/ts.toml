@@ -50,7 +50,7 @@ roots = [
     "split_chars",
     "called_closure",
     "owning_lazy",
-    "duration_assign",
+    "parts_summed",
     "ok_passed",
     "places_equal",
     "missing",

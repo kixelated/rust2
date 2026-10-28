@@ -475,6 +475,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
 			}
+			// A `Duration` never changes once made, so what the `&mut` borrows gets a new one.
+			// std's impls take a `Duration` or a `u32`: another is the crate's.
+			("AddAssign" | "SubAssign" | "MulAssign" | "DivAssign", _)
+				if targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::Duration))
+					&& targ(1).is_some_and(|t| match owner.as_str() {
+						"AddAssign" | "SubAssign" => self.b.t.std_of(t) == Some(Std::Duration),
+						_ => t == tcx.types.u32,
+					}) =>
+			{
+				let f = match owner.as_str() {
+					"AddAssign" => "durationAdd",
+					"SubAssign" => "durationSub",
+					"MulAssign" => "durationMul",
+					_ => "durationDiv",
+				};
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let by = self.operand(&args[1].node, span, out);
+				let value = Expr::rt(f, vec![place.0.clone(), by]);
+				self.set_borrowed(&place, value, span, out);
+				done(Expr::undefined(), false)
+			}
 			// A `Cow<str>` is the `String` it would hold, so the `&mut` borrows the same place.
 			("Cow", "to_mut") if targ(0).is_some_and(|t| t.is_str()) => {
 				let (place, borrowed) = self.borrowed_place(&args[0].node, span, out)?;

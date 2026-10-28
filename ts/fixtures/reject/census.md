@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 74
-- Function instances: 71
-- Generic functions no instance reached, lowered over their type parameters: 2
+- Refusals: 75
+- Function instances: 73
+- Generic functions no instance reached, lowered over their type parameters: 4
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 10 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
+| 11 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 5 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:54:11 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:391:2 |
 | 4 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:108:2 |
@@ -38,7 +38,7 @@
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:269:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:238:13 |
-| 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:428:12 |
+| 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:422:12 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:99:1 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:69:2 |
@@ -72,6 +72,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:187:8 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:123:2 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:21:4 |
+| 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:448:17 |
 | 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:285:52 |
 | 2 | `u8` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:166:1 |
@@ -91,12 +92,11 @@ The type or module each refused type or path belongs to.
 | 1 | `std::mem` | fixtures/reject/src/lib.rs:53:29 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:275:48 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:275:7 |
-| 1 | `std::option::Option` | fixtures/reject/src/lib.rs:435:2 |
+| 1 | `std::option::Option` | fixtures/reject/src/lib.rs:429:2 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:133:11 |
 | 1 | `std::str` | fixtures/reject/src/lib.rs:364:4 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:81:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:128:2 |
-| 1 | `std::time::Duration` | fixtures/reject/src/lib.rs:417:2 |
 | 1 | `successors` | fixtures/reject/src/lib.rs:383:15 |
 | 1 | `u32` | fixtures/reject/src/lib.rs:238:13 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:103:2 |
@@ -114,6 +114,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:123:2 |
 | 2 | dropping `_`, which is not supported yet | `std::iter::Take` | fixtures/reject/src/lib.rs:383:79 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:92:2 |
+| 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:448:17 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:402:18 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:303:6 |
@@ -157,10 +158,9 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `successors::successors` | fixtures/reject/src/lib.rs:383:15 |
 | 1 | replacing the value behind a reference to `_` | `[u16; 1]` | fixtures/reject/src/lib.rs:252:22 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:403:2 |
-| 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:435:2 |
+| 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:429:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:133:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:81:10 |
-| 1 | unsupported call to `_` | `<std::time::Duration as std::ops::AddAssign>::add_assign` | fixtures/reject/src/lib.rs:417:2 |
 | 1 | unsupported call to `_` | `std::mem::size_of_val` | fixtures/reject/src/lib.rs:53:29 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:187:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:353:4 |
@@ -170,7 +170,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (10)</summary>
+<details><summary>unsupported call to `_` (11)</summary>
 
 - fixtures/reject/src/lib.rs:21:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:53:29: unsupported call to `std::mem::size_of_val::<Noisy>`
@@ -180,8 +180,9 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:353:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
 - fixtures/reject/src/lib.rs:364:4: unsupported call to `core::str::<impl str>::split::<[char; 2]>`
 - fixtures/reject/src/lib.rs:403:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
-- fixtures/reject/src/lib.rs:417:2: unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign`
-- fixtures/reject/src/lib.rs:435:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
+- fixtures/reject/src/lib.rs:429:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
+- fixtures/reject/src/lib.rs:448:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
+- fixtures/reject/src/lib.rs:448:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
 
 </details>
 
@@ -386,7 +387,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a mutable reference into a `Result`'s payload, passed on or kept (1)</summary>
 
-- fixtures/reject/src/lib.rs:428:12: a mutable reference into a `Result`'s payload, passed on or kept
+- fixtures/reject/src/lib.rs:422:12: a mutable reference into a `Result`'s payload, passed on or kept
 
 </details>
 
