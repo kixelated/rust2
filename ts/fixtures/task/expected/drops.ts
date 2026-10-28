@@ -7,6 +7,7 @@ import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_G
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
 import { boxed, shared } from "./drops/objects.ts";
+import { run as once_run } from "./drops/once.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
 import type * as Fault from "./drops.Fault.ts";
@@ -33,6 +34,11 @@ export function dyns(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	} else {
 		shared(log, id, at);
 	}
+}
+
+/** Run one-time cells' scenario `at`. */
+export function cells(log: Log.Log, id: rt.u32, at: rt.u8): void {
+	once_run(log, id, at);
 }
 
 /**

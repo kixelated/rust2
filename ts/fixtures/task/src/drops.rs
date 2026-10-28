@@ -24,6 +24,7 @@ macro_rules! list {
 mod closures;
 mod iters;
 mod objects;
+mod once;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
 pub enum Held {
@@ -73,6 +74,11 @@ pub fn dyns(log: &Log, id: u32, arg: u8) {
 		0 => objects::boxed(log, id, at),
 		_ => objects::shared(log, id, at),
 	}
+}
+
+/// Run one-time cells' scenario `at`.
+pub fn cells(log: &Log, id: u32, at: u8) {
+	once::run(log, id, at);
 }
 
 /// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what

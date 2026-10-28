@@ -229,6 +229,24 @@ export function drop$Result_u8_Key(_1: rt.Result<rt.u8, Key.Key>): void {
 	}
 }
 
+export function drop$Result_unit_Guard(_1: rt.Result<undefined, Guard.Guard>): void {
+	if (!_1.ok) {
+		rt.drop(_1.error);
+	}
+}
+
+export function drop$Result_unit_Held(_1: rt.Result<undefined, Held.Held>): void {
+	if (!_1.ok) {
+		drop$Held(_1.error);
+	}
+}
+
+export function drop$Result_unit_Option_Guard(_1: rt.Result<undefined, Guard.Guard | undefined>): void {
+	if (!_1.ok) {
+		rt.drop(_1.error);
+	}
+}
+
 export function drop$Text(_1: Text.Text): void {
 	if (_1.tag !== "Borrowed") {
 		rt.drop(_1._0);

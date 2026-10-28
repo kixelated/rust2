@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { atomics } from "./atomics.ts";
+import { cells } from "./cells.ts";
 import { chars } from "./chars.ts";
 import { chunks } from "./chunks.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores } from "./collections.ts";
@@ -77,7 +78,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		rounding(out23);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", skips] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["wrappers::wrappers", wrappers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["edits::edits", edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["utf8::decodes", decodes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::floats", floats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["atomics::atomics", atomics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::overrides", overrides] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_233: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
 		dyns(data23, out24);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::shared", (_234: rt.u8, data24: rt.ByteSlice, out25: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["cells::cells", cells] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::shared", (_234: rt.u8, data24: rt.ByteSlice, out25: rt.ByteVec): void => {
 		shared(data24, out25);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }

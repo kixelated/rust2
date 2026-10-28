@@ -51,6 +51,7 @@ export interface Fixture<V> {
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
 		dyns(log: Log, id: number, arg: number): void;
+		cells(log: Log, id: number, at: number): void;
 	};
 	futures: {
 		helpers(rx: Consumer, guard: Guard): Future<V>;
@@ -287,6 +288,7 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 		},
 	],
 	["dyns", (r, arg) => r.f.drops.dyns(r.log, 1000 * r.exec.tasks.length, arg)],
+	["cells", (r, arg) => r.f.drops.cells(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
 /**
@@ -373,4 +375,6 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
 	// What boxed and shared trait objects drop, panicking at each point, in a `Drop`, or none.
 	...Array.from({ length: 12 }, (_, arg) => script(["dyns", arg])),
+	// What one-time cells drop, for every argument, which picks the scenario.
+	...Array.from({ length: 256 }, (_, at) => script(["cells", at])),
 ];
