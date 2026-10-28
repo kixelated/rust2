@@ -607,11 +607,5 @@ fn stock() {
 	);
 	snapshot("stock", &out);
 	typecheck(&out);
-	differential(
-		"stock-fixture",
-		&["--config", GETRANDOM],
-		&out,
-		"harness.ts",
-		5_000,
-	);
+	differential("stock-fixture", &["--config", GETRANDOM], &out, "harness.ts", 5_000);
 }
