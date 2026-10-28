@@ -86,6 +86,42 @@ export class Arc<T> implements Disposable {
 }
 
 /**
+ * `Arc<dyn Trait>` unsized from `arc`, which it shares one count with, as Rust's one
+ * allocation does: `value` is the trait object over `arc`'s value, which the last of
+ * either drops.
+ */
+export class ArcDyn<T, U> implements Disposable {
+	readonly arc: Arc<T>;
+	readonly value: U;
+
+	constructor(arc: Arc<T>, value: U) {
+		this.arc = arc;
+		this.value = value;
+	}
+
+	get strong(): number {
+		return this.arc.strong;
+	}
+
+	set strong(strong: number) {
+		this.arc.strong = strong;
+	}
+
+	[Symbol.dispose](): void {
+		if (--this.arc.strong === 0) drop(this.value);
+	}
+}
+
+/** `Arc::ptr_eq` of trait objects, which compares the `Arc`s they were made from. */
+export function arcPtrEq<T>(l: Arc<T>, r: Arc<T>): boolean {
+	return arcRoot(l) === arcRoot(r);
+}
+
+function arcRoot(arc: Arc<unknown>): Arc<unknown> {
+	return arc instanceof ArcDyn ? arc.arc : arc;
+}
+
+/**
  * Drop `arc`, whose value has no `[Symbol.dispose]` that drops it: the last one drops it
  * by `f`, or not at all without one, as a borrow.
  */

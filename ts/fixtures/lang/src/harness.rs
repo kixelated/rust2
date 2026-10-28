@@ -84,6 +84,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("atomics::atomics", atomics::atomics),
 		("keys::overrides", keys::overrides),
 		("dyns::dyns", |_, data, out| dyns::dyns(data, out)),
+		("dyns::shared", |_, data, out| dyns::shared(data, out)),
 	]
 }
 

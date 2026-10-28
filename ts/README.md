@@ -87,7 +87,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership, atomics, and asyn
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
-| `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()` |
+| `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -233,7 +233,7 @@ panics leaves the rest to drop as Rust's does: a class's glue and the runtime's 
 go on to the rest of the value and its container, but a hash table leaks its other
 entries, as std's does.
 
-A trait object of the crate's own trait, behind `&`, `&mut`, or `Box`, is an object with
+A trait object of the crate's own trait, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
 a method for each function a call can dispatch to, its supertraits' included, named for
 its trait as an impl's function is and taking what follows `self`: `shape.area$Shape()`.
 The trait's module exports its type, `Shape.Shape` from `dyns.Shape.ts`, which a TS
@@ -241,10 +241,13 @@ caller can implement. A coercion wraps the value in a class of its type's, `new
 Shape.Square(sq)`, whose methods call that type's impl; one from a `&mut` to a value JS
 copies holds its `rt.Place`, so `&mut self` writes where the value is. An upcast is the
 same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose]`, which
-a TS caller's object may leave out. A trait object of another crate's trait, but for
-`&dyn Debug`, `&dyn Display`, and `dyn Future`, of a generic trait or one with an
-associated type, of a byte array, or behind any other pointer, such as an `Arc` or a
-struct's last field, is refused.
+a TS caller's object may leave out. An `Arc<T>` unsized to an `Arc<dyn Trait>`, or to an
+`Arc<dyn Future>`, is an `rt.ArcDyn`: the object a box of its value would be, and the
+`Arc<T>` it was made from, whose one count both sides' clones and drops change, and the
+last of which drops the value. `Arc::ptr_eq` compares the `Arc<T>`s. A trait object of
+another crate's trait, but for `&dyn Debug`, `&dyn Display`, and `dyn Future`, of a
+generic trait or one with an associated type, of a byte array, or behind any other
+pointer, such as a `Weak` or a struct's last field, is refused.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -461,7 +464,7 @@ they need.
 
 `unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
 `&dyn Debug`, `&dyn Display`, `dyn Future`, and the crate's own traits' behind `&`, `&mut`,
-or `Box` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
+`Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a closure that owns a value

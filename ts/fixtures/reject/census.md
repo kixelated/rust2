@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 79
-- Function instances: 87
+- Refusals: 78
+- Function instances: 86
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -18,9 +18,8 @@
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:23:15 |
 | 2 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:48:42 |
 | 2 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:268:16 |
-| 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:522:23 |
-| 2 | a coercion to `_` | fixtures/reject/src/lib.rs:362:2 |
-| 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:513:39 |
+| 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:507:23 |
+| 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:498:40 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:175:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:161:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:155:2 |
@@ -39,13 +38,14 @@
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:242:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:188:51 |
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:112:2 |
+| 1 | a coercion to `_` | fixtures/reject/src/lib.rs:362:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:96:2 |
 | 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:278:14 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:247:13 |
 | 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:446:12 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:108:1 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
-| 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:539:26 |
+| 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:524:26 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:78:2 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:43:43 |
@@ -64,18 +64,18 @@ The type or module each refused type or path belongs to.
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:403:2 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:23:15 |
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
-| 5 | `std::sync::Arc` | fixtures/reject/src/lib.rs:117:2 |
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:48:42 |
 | 3 | `std::iter::Map` | fixtures/reject/src/lib.rs:63:23 |
 | 3 | `std::slice` | fixtures/reject/src/lib.rs:28:4 |
+| 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:117:2 |
 | 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:289:52 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:96:2 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:390:13 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:284:6 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:101:2 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:121:20 |
-| 2 | `Scaled` | fixtures/reject/src/lib.rs:522:23 |
-| 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:522:23 |
+| 2 | `Scaled` | fixtures/reject/src/lib.rs:507:23 |
+| 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:507:23 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:69:13 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:268:16 |
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:196:8 |
@@ -89,9 +89,9 @@ The type or module each refused type or path belongs to.
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:38:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:69:13 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:38:2 |
-| 1 | `Tail` | fixtures/reject/src/lib.rs:549:30 |
+| 1 | `Tail` | fixtures/reject/src/lib.rs:534:30 |
 | 1 | `[u16; 1]` | fixtures/reject/src/lib.rs:261:22 |
-| 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:539:26 |
+| 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:524:26 |
 | 1 | `count` | fixtures/reject/src/lib.rs:63:23 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `f64` | fixtures/reject/src/lib.rs:482:2 |
@@ -105,6 +105,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:142:11 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:90:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:137:2 |
+| 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:498:40 |
 | 1 | `str` | fixtures/reject/src/lib.rs:398:4 |
 | 1 | `u32` | fixtures/reject/src/lib.rs:247:13 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:112:2 |
@@ -119,8 +120,7 @@ The type or module each refused type or path belongs to.
 | 3 | unsupported type `_` | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: it would be pending two ways with one value | `Poll` | fixtures/reject/src/lib.rs:121:20 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:23:15 |
-| 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:522:23 |
-| 2 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:362:2 |
+| 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:507:23 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:132:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:101:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:472:17 |
@@ -143,12 +143,13 @@ The type or module each refused type or path belongs to.
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:242:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:188:51 |
 | 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:112:2 |
-| 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:549:30 |
-| 1 | a coercion to `_`, which is not supported yet | `std::sync::Arc` | fixtures/reject/src/lib.rs:513:39 |
+| 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:362:2 |
+| 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:534:30 |
+| 1 | a coercion to `_`, which is not supported yet | `std::sync::Weak` | fixtures/reject/src/lib.rs:498:40 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:96:2 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:247:13 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
-| 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:539:26 |
+| 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:524:26 |
 | 1 | a zero-sized constant of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:78:2 |
 | 1 | an assignment through a reference to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:117:2 |
 | 1 | an assignment through a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:137:2 |
@@ -268,22 +269,15 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_`, a trait object of the generic trait `_`, which is not supported yet (2)</summary>
 
-- fixtures/reject/src/lib.rs:522:23: `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet
-- fixtures/reject/src/lib.rs:523:4: `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet
-
-</details>
-
-<details><summary>a coercion to `_` (2)</summary>
-
-- fixtures/reject/src/lib.rs:362:2: a coercion to `std::sync::Arc<[u8]>`
-- fixtures/reject/src/lib.rs:488:2: a coercion to `std::sync::Arc<dyn std::future::Future<Output = u8>>`
+- fixtures/reject/src/lib.rs:507:23: `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet
+- fixtures/reject/src/lib.rs:508:4: `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet
 
 </details>
 
 <details><summary>a coercion to `_`, which is not supported yet (2)</summary>
 
-- fixtures/reject/src/lib.rs:513:39: a coercion to `std::sync::Arc<dyn Reading>`, which is not supported yet
-- fixtures/reject/src/lib.rs:549:30: a coercion to `&Tail<dyn Reading>`, which is not supported yet
+- fixtures/reject/src/lib.rs:498:40: a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet
+- fixtures/reject/src/lib.rs:534:30: a coercion to `&Tail<dyn Reading>`, which is not supported yet
 
 </details>
 
@@ -399,6 +393,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a coercion to `_` (1)</summary>
+
+- fixtures/reject/src/lib.rs:362:2: a coercion to `std::sync::Arc<[u8]>`
+
+</details>
+
 <details><summary>a constant of type `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:96:2: a constant of type `&u8`
@@ -437,7 +437,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a trait object of `_`, which is not supported yet (1)</summary>
 
-- fixtures/reject/src/lib.rs:539:26: a trait object of `[u8; 4]`, which is not supported yet
+- fixtures/reject/src/lib.rs:524:26: a trait object of `[u8; 4]`, which is not supported yet
 
 </details>
 
