@@ -2,8 +2,8 @@
 //! case and the rest is its input.
 
 use crate::{
-	atomics, cells, chars, chunks, collections, combinators, cows, durations, dyns, edits, floats, fmt, generics, ints,
-	iters, keys, nested, refs, shapes, splits, strs, utf8, wrappers,
+	atomics, captures, cells, chars, chunks, collections, combinators, cows, durations, dyns, edits, floats, fmt,
+	generics, ints, iters, keys, nested, refs, shapes, splits, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -87,6 +87,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("cells::cells", cells::cells),
 		("dyns::shared", |_, data, out| dyns::shared(data, out)),
 		("iters::ranked", iters::ranked),
+		("captures::captures", captures::captures),
 	]
 }
 
