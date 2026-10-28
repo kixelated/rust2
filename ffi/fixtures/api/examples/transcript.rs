@@ -182,6 +182,9 @@ fn main() {
 	if let Poll::Ready((payload, len)) = sized.as_mut().poll(&mut cx) {
 		println!("sized {} {len}", String::from_utf8_lossy(&payload));
 	}
+	channel.notify(waker.clone());
+	channel.send(Bytes::from_static(b"rung"));
+	println!("woken {}", count.0.load(Ordering::Relaxed));
 
 	let list = Node {
 		value: 1,

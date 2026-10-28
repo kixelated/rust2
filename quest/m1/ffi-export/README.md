@@ -32,6 +32,13 @@ Every generator on the C ABI:
   window, and pick a semantic for concurrent pollers. A hot read still makes a future handle
   per read; measure it before adding a per-handle poll. Decided with the maintainer on
   2026-10-27: async lands with each generator, not as its own quest.
+- drives each of moq's `Driver`s from the language's own event loop. Decided with the
+  maintainer on 2026-10-27: the C ABI exports the poll, with no generated thread and no
+  moq-tokio helpers, which would tie bindings to tokio. A binding holds one `kio::Waiter`
+  per driver, made from its waker, since what a poll registers lives only as long as its
+  waiter; it polls on each wake and at the deadline the poll returns, and frees the driver
+  to cancel it. Open: Go's cancel contract, which moq's `go/wrapper/doc.go` makes end the
+  stream on a cancelled read, though a cancelled C ABI future loses nothing.
 
 ## Required
 
@@ -39,7 +46,6 @@ Every generator on the C ABI:
 - [Instances the config can't name yet](/quest/m1/ffi-export/instance-keys.md) - `&T` keys, `IntoIterator` as a `Vec`, `serde_json::Value`, and `Catalog<()>`
 - [Closures lent for the call](/quest/m1/ffi-export/lent-closures.md) - a callback borrowed for one call, as `modify`'s `Guard` needs
 - [One library from several crates](/quest/m1/ffi-export/crates.md) - the C names the several-crate export still can't give
-- [Driving sessions and origins](/quest/m1/ffi-export/driving.md) - how a binding polls moq's `Driver`
 - [A contract symbol](/quest/m1/ffi-export/contract.md) - a header and a library from different builds refuse to mix
 - [C++ bindings](/quest/m1/ffi-export/cpp.md) - C++17, 20, and 23 over the C ABI, with native futures
 - [Kotlin bindings](/quest/m1/ffi-export/kotlin.md) - JNI or Panama over the C ABI, with native futures
