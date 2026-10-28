@@ -1611,7 +1611,12 @@ pub fn escape(name: &str) -> String {
 		"rt",
 		// Globals the output calls.
 		"Array",
+		"Infinity",
+		"Math",
+		"NaN",
+		"Number",
 		"Object",
+		"String",
 		"Uint8Array",
 	];
 	match RESERVED.contains(&name) {

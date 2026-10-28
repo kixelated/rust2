@@ -9,8 +9,9 @@
 import type { Ordering } from "./collections.ts";
 import { type f64, type u64, u64FromHalves } from "./int.ts";
 
-/** Eight bytes that hold a double while its bits are read or written. */
-const view = new DataView(new ArrayBuffer(8));
+/** Eight bytes that hold a double while its bits are read or written, made on first use so a bundler drops them unused. */
+let scratch: DataView | undefined;
+const bytes = (): DataView => (scratch ??= new DataView(new ArrayBuffer(8)));
 const TWO32 = 4294967296;
 const TWO52 = 4503599627370496;
 /** `f64::MIN_POSITIVE`, the least normal double. */
@@ -38,6 +39,7 @@ export const f64Fract = (x: f64): f64 => x - Math.trunc(x);
 /** `f64::is_sign_negative`: whether the sign bit is set, as it is for -0.0. */
 export function f64IsSignNegative(x: f64): boolean {
 	if (x === x) return x < 0 || 1 / x < 0;
+	const view = bytes();
 	view.setFloat64(0, x);
 	return view.getUint8(0) >= 0x80;
 }
@@ -52,6 +54,7 @@ export const f64Signum = (x: f64): f64 => (x !== x ? NaN : f64IsSignNegative(x) 
 export function f64Copysign(x: f64, y: f64): f64 {
 	const negative = f64IsSignNegative(y);
 	if (x === x) return negative ? -Math.abs(x) : Math.abs(x);
+	const view = bytes();
 	view.setFloat64(0, x);
 	const top = view.getUint8(0) & 0x7f;
 	view.setUint8(0, negative ? top | 0x80 : top);
@@ -76,6 +79,7 @@ export function f64IsSubnormal(x: f64): boolean {
 /** `x`'s bits moved by one toward +infinity if `up`, from a finite or infinite non-NaN. */
 function step(x: number, up: boolean): number {
 	if (x === 0) return up ? 5e-324 : -5e-324;
+	const view = bytes();
 	view.setFloat64(0, x);
 	let hi = view.getUint32(0);
 	let lo = view.getUint32(4);
@@ -112,12 +116,14 @@ export function f64Midpoint(a: f64, b: f64): f64 {
 
 /** `f64::to_bits`. */
 export function f64ToBits(x: f64): u64 {
+	const view = bytes();
 	view.setFloat64(0, x);
 	return u64FromHalves(view.getUint32(0), view.getUint32(4));
 }
 
 /** `f64::from_bits`. */
 export function f64FromBits(v: u64): f64 {
+	const view = bytes();
 	view.setUint32(0, typeof v === "number" ? Math.floor(v / TWO32) : v.hi);
 	view.setUint32(4, typeof v === "number" ? v >>> 0 : v.lo);
 	return view.getFloat64(0);
@@ -147,6 +153,7 @@ export const f64FromLeBytes = (bytes: Uint8Array): f64 => fromBytes(bytes, true)
 
 /** `f64::total_cmp`: IEEE 754's total order, by the bits, with a negative's flipped. */
 export function f64TotalCmp(a: f64, b: f64): Ordering {
+	const view = bytes();
 	view.setFloat64(0, a);
 	let ah = view.getInt32(0);
 	let al = view.getUint32(4);

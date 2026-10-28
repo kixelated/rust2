@@ -7,6 +7,7 @@
 
 import { Err, type FmtResult, type Formatter, fmtDebugStructFields, fmtPad, Ok, panic, type Result } from "../rt.ts";
 import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
+import { f64ToBits } from "./float.ts";
 import { type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
 import { type Iter, iterFold } from "./iter.ts";
 
@@ -245,13 +246,10 @@ export function durationTryFromSecsF64(secs: f64): Result<Duration, TryFromFloat
 	return Ok({ secs: u64Of(whole), nanos });
 }
 
-/** Eight bytes that hold a double while its bits are read. */
-const view = new DataView(new ArrayBuffer(8));
-
 /** A double's bits. */
 function f64Bits(x: number): bigint {
-	view.setFloat64(0, x);
-	return view.getBigUint64(0);
+	const v = f64ToBits(x);
+	return typeof v === "number" ? BigInt(v) : (BigInt(v.hi) << 32n) | BigInt(v.lo);
 }
 
 /** `Duration::from_secs_f64`, panicking where `try_from_secs_f64` errs. */

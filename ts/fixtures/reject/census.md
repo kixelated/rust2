@@ -31,7 +31,7 @@
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:67:13 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:342:2 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:318:9 |
-| 1 | `_`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:472:4 |
+| 1 | `f64::mul_add`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:472:4 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | fixtures/reject/src/lib.rs:235:26 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:240:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:186:51 |
@@ -69,7 +69,6 @@ The type or module each refused type or path belongs to.
 | 2 | `Meters` | fixtures/reject/src/lib.rs:99:2 |
 | 2 | `Noisy` | fixtures/reject/src/lib.rs:67:13 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:119:20 |
-| 2 | `f64` | fixtures/reject/src/lib.rs:472:4 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:67:13 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:266:16 |
 | 2 | `std::iter::Take` | fixtures/reject/src/lib.rs:390:79 |
@@ -86,6 +85,7 @@ The type or module each refused type or path belongs to.
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:38:2 |
 | 1 | `[u16; 1]` | fixtures/reject/src/lib.rs:259:22 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
+| 1 | `f64` | fixtures/reject/src/lib.rs:477:2 |
 | 1 | `from_fn` | fixtures/reject/src/lib.rs:391:13 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:67:13 |
 | 1 | `std::collections::hash_map::Entry` | fixtures/reject/src/lib.rs:431:15 |
@@ -132,7 +132,6 @@ The type or module each refused type or path belongs to.
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::iter::IntoIterator::into_iter` | fixtures/reject/src/lib.rs:17:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::slice::last_mut` | fixtures/reject/src/lib.rs:424:21 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:318:9 |
-| 1 | `_`, which rounds once, where JS would round twice | `f64::mul_add` | fixtures/reject/src/lib.rs:472:4 |
 | 1 | `fold` of `_`, which folds a `flatten` whose source and iterators both drop, which is not supported yet | `std::iter::Flatten` | fixtures/reject/src/lib.rs:235:26 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:240:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:186:51 |
@@ -355,7 +354,7 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_`, which rounds once, where JS would round twice (1)</summary>
+<details><summary>`f64::mul_add`, which rounds once, where JS would round twice (1)</summary>
 
 - fixtures/reject/src/lib.rs:472:4: `f64::mul_add`, which rounds once, where JS would round twice
 
