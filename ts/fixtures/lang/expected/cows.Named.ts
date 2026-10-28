@@ -11,7 +11,7 @@ export function fmt$Debug(self: Named, f: rt.Formatter): rt.Result<undefined, rt
 	const _4: string = "name";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtStr(self.name, f);
 	const _7: string = "id";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Display(self.id, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.id, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 

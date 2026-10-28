@@ -523,7 +523,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// and a template of literal pieces and placeholders.
 			("Argument", name) if name.starts_with("new_") || name == "from_usize" => {
 				let tr = match fmt::argument(name) {
-					Ok(tr) => tr,
+					Ok(Some(tr)) => tr,
+					// A width or precision, which the template's spec reads.
+					Ok(None) => {
+						let count = self.operand(&args[0].node, span, out);
+						return done(Expr::rt("fmtCount", vec![count]), true);
+					}
 					Err(construct) => {
 						self.err(span, format!("{construct} is not supported"));
 						return done(Expr::undefined(), false);
@@ -579,11 +584,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					match piece {
 						Piece::Lit(s) => parts.push(Expr::Str(s)),
 						Piece::Arg { index, spec } => {
-							let value = match made.as_ref().and_then(|p| p.get(index)) {
+							let arg = |index: usize| match made.as_ref().and_then(|p| p.get(index)) {
 								Some(part) => part.clone(),
 								None => values.clone().index(Expr::lit(index.to_string())),
 							};
-							parts.push(match spec.object() {
+							let value = arg(index);
+							parts.push(match spec.object(arg) {
 								Some(spec) => Expr::rt("fmtSpec", vec![spec, value]),
 								None => value,
 							});

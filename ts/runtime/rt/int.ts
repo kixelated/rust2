@@ -174,15 +174,56 @@ function narrowStep(n: number, by: number, min: number, max: number, wrap: (v: n
 	return v >= min && v <= max ? [v, false] : [wrap(v), true];
 }
 
-/** `Display` and `Debug` of an integer in a number, which write the same. */
+/** `Display` of an integer in a number. */
 function display(a: number, f: Formatter): FmtResult {
 	return fmtPadIntegral(f, a >= 0, "", String(a < 0 ? -a : a));
+}
+
+/** `Debug` of `a`, an integer in a number whose bits as unsigned are `bits`. */
+function debug(a: number, bits: number, f: Formatter): FmtResult {
+	const hexDigits = f.spec.debugHex;
+	return hexDigits === undefined ? display(a, f) : hex(bits, f, hexDigits === "X");
 }
 
 /** `LowerHex` or `UpperHex` of `bits`, a value's bits as unsigned. */
 function hex(bits: number | bigint, f: Formatter, upper: boolean): FmtResult {
 	const digits = bits.toString(16);
 	return fmtPadIntegral(f, true, "0x", upper ? digits.toUpperCase() : digits);
+}
+
+/** `Binary` or `Octal` of `bits`, a value's bits as unsigned. */
+function radix(bits: number | bigint, f: Formatter, base: 2 | 8, prefix: "0b" | "0o"): FmtResult {
+	return fmtPadIntegral(f, true, prefix, bits.toString(base));
+}
+
+/**
+ * `LowerExp` or `UpperExp` of an integer, from its sign and its magnitude's decimal
+ * `digits`: rounded half to even to the precision, else without trailing zeros.
+ */
+function exp(nonnegative: boolean, digits: string, f: Formatter, letter: "e" | "E"): FmtResult {
+	let exponent = digits.length - 1;
+	// The significant digits, the first before the point, and the zeros after them.
+	let coef = digits;
+	let zeros = 0;
+	const precision = f.spec.precision;
+	if (precision === undefined) {
+		coef = digits.replace(/(?<=.)0+$/, "");
+	} else if (precision >= exponent) {
+		zeros = precision - exponent;
+	} else {
+		coef = digits.slice(0, precision + 1);
+		const over = digits.slice(precision + 1);
+		const tie = over[0] === "5" && !/[1-9]/.test(over.slice(1));
+		const up = tie ? Number(coef[coef.length - 1]) % 2 === 1 : over[0]! >= "5";
+		if (up) coef = String(BigInt(coef) + 1n);
+		// Rounding 9s up carries into one more digit: a power of ten higher.
+		if (coef.length > precision + 1) {
+			coef = coef.slice(0, -1);
+			exponent++;
+		}
+	}
+	const point = coef.length > 1 || zeros > 0 ? `.${coef.slice(1)}${"0".repeat(zeros)}` : "";
+	return fmtPadIntegral(f, nonnegative, "", `${coef[0]}${point}${letter}${exponent}`);
 }
 
 const wrapU8 = (v: number) => v & 0xff;
@@ -234,6 +275,16 @@ export const u8TryFrom = (value: number | Limbs): Result<u8, TryFromIntError> =>
 export const u8LowerHex = (a: u8, f: Formatter): FmtResult => hex(a, f, false);
 /** `u8`'s `UpperHex`, `{:X}`. */
 export const u8UpperHex = (a: u8, f: Formatter): FmtResult => hex(a, f, true);
+/** `u8`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u8Debug = (a: u8, f: Formatter): FmtResult => debug(a, a, f);
+/** `u8`'s `Binary`, `{:b}`. */
+export const u8Binary = (a: u8, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u8`'s `Octal`, `{:o}`. */
+export const u8Octal = (a: u8, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u8`'s `LowerExp`, `{:e}`. */
+export const u8LowerExp = (a: u8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u8`'s `UpperExp`, `{:E}`. */
+export const u8UpperExp = (a: u8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u8`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u8Step: Step<u8> = (n, by) => narrowStep(n, by, 0, 0xff, wrapU8);
 
@@ -279,6 +330,16 @@ export const u16TryFrom = (value: number | Limbs): Result<u16, TryFromIntError> 
 export const u16LowerHex = (a: u16, f: Formatter): FmtResult => hex(a, f, false);
 /** `u16`'s `UpperHex`, `{:X}`. */
 export const u16UpperHex = (a: u16, f: Formatter): FmtResult => hex(a, f, true);
+/** `u16`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u16Debug = (a: u16, f: Formatter): FmtResult => debug(a, a, f);
+/** `u16`'s `Binary`, `{:b}`. */
+export const u16Binary = (a: u16, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u16`'s `Octal`, `{:o}`. */
+export const u16Octal = (a: u16, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u16`'s `LowerExp`, `{:e}`. */
+export const u16LowerExp = (a: u16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u16`'s `UpperExp`, `{:E}`. */
+export const u16UpperExp = (a: u16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u16`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u16Step: Step<u16> = (n, by) => narrowStep(n, by, 0, 0xffff, wrapU16);
 
@@ -324,6 +385,16 @@ export const u32TryFrom = (value: number | Limbs): Result<u32, TryFromIntError> 
 export const u32LowerHex = (a: u32, f: Formatter): FmtResult => hex(a, f, false);
 /** `u32`'s `UpperHex`, `{:X}`. */
 export const u32UpperHex = (a: u32, f: Formatter): FmtResult => hex(a, f, true);
+/** `u32`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u32Debug = (a: u32, f: Formatter): FmtResult => debug(a, a, f);
+/** `u32`'s `Binary`, `{:b}`. */
+export const u32Binary = (a: u32, f: Formatter): FmtResult => radix(a, f, 2, "0b");
+/** `u32`'s `Octal`, `{:o}`. */
+export const u32Octal = (a: u32, f: Formatter): FmtResult => radix(a, f, 8, "0o");
+/** `u32`'s `LowerExp`, `{:e}`. */
+export const u32LowerExp = (a: u32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `u32`'s `UpperExp`, `{:E}`. */
+export const u32UpperExp = (a: u32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `u32`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const u32Step: Step<u32> = (n, by) => narrowStep(n, by, 0, 0xffffffff, wrapU32);
 
@@ -371,6 +442,16 @@ export const i8TryFrom = (value: number | Limbs): Result<i8, TryFromIntError> =>
 export const i8LowerHex = (a: i8, f: Formatter): FmtResult => hex(a & 0xff, f, false);
 /** `i8`'s `UpperHex`, `{:X}`. */
 export const i8UpperHex = (a: i8, f: Formatter): FmtResult => hex(a & 0xff, f, true);
+/** `i8`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i8Debug = (a: i8, f: Formatter): FmtResult => debug(a, a & 0xff, f);
+/** `i8`'s `Binary`, `{:b}`. */
+export const i8Binary = (a: i8, f: Formatter): FmtResult => radix(a & 0xff, f, 2, "0b");
+/** `i8`'s `Octal`, `{:o}`. */
+export const i8Octal = (a: i8, f: Formatter): FmtResult => radix(a & 0xff, f, 8, "0o");
+/** `i8`'s `LowerExp`, `{:e}`. */
+export const i8LowerExp = (a: i8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i8`'s `UpperExp`, `{:E}`. */
+export const i8UpperExp = (a: i8, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i8`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i8Step: Step<i8> = (n, by) => narrowStep(n, by, -0x80, 0x7f, wrapI8);
 
@@ -418,6 +499,16 @@ export const i16TryFrom = (value: number | Limbs): Result<i16, TryFromIntError> 
 export const i16LowerHex = (a: i16, f: Formatter): FmtResult => hex(a & 0xffff, f, false);
 /** `i16`'s `UpperHex`, `{:X}`. */
 export const i16UpperHex = (a: i16, f: Formatter): FmtResult => hex(a & 0xffff, f, true);
+/** `i16`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i16Debug = (a: i16, f: Formatter): FmtResult => debug(a, a & 0xffff, f);
+/** `i16`'s `Binary`, `{:b}`. */
+export const i16Binary = (a: i16, f: Formatter): FmtResult => radix(a & 0xffff, f, 2, "0b");
+/** `i16`'s `Octal`, `{:o}`. */
+export const i16Octal = (a: i16, f: Formatter): FmtResult => radix(a & 0xffff, f, 8, "0o");
+/** `i16`'s `LowerExp`, `{:e}`. */
+export const i16LowerExp = (a: i16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i16`'s `UpperExp`, `{:E}`. */
+export const i16UpperExp = (a: i16, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i16`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i16Step: Step<i16> = (n, by) => narrowStep(n, by, -0x8000, 0x7fff, wrapI16);
 
@@ -465,6 +556,16 @@ export const i32TryFrom = (value: number | Limbs): Result<i32, TryFromIntError> 
 export const i32LowerHex = (a: i32, f: Formatter): FmtResult => hex(a >>> 0, f, false);
 /** `i32`'s `UpperHex`, `{:X}`. */
 export const i32UpperHex = (a: i32, f: Formatter): FmtResult => hex(a >>> 0, f, true);
+/** `i32`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i32Debug = (a: i32, f: Formatter): FmtResult => debug(a, a >>> 0, f);
+/** `i32`'s `Binary`, `{:b}`. */
+export const i32Binary = (a: i32, f: Formatter): FmtResult => radix(a >>> 0, f, 2, "0b");
+/** `i32`'s `Octal`, `{:o}`. */
+export const i32Octal = (a: i32, f: Formatter): FmtResult => radix(a >>> 0, f, 8, "0o");
+/** `i32`'s `LowerExp`, `{:e}`. */
+export const i32LowerExp = (a: i32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "e");
+/** `i32`'s `UpperExp`, `{:E}`. */
+export const i32UpperExp = (a: i32, f: Formatter): FmtResult => exp(a >= 0, String(Math.abs(a)), f, "E");
 /** `i32`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i32Step: Step<i32> = (n, by) => narrowStep(n, by, -0x80000000, 0x7fffffff, wrapI32);
 
@@ -521,6 +622,16 @@ export const usizeTryFrom: (value: number | Limbs) => Result<usize, TryFromIntEr
 export const usizeLowerHex: (a: usize, f: Formatter) => FmtResult = u32LowerHex as never;
 /** `usize`'s `UpperHex`, `{:X}`. */
 export const usizeUpperHex: (a: usize, f: Formatter) => FmtResult = u32UpperHex as never;
+/** `usize`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const usizeDebug: (a: usize, f: Formatter) => FmtResult = u32Debug as never;
+/** `usize`'s `Binary`, `{:b}`. */
+export const usizeBinary: (a: usize, f: Formatter) => FmtResult = u32Binary as never;
+/** `usize`'s `Octal`, `{:o}`. */
+export const usizeOctal: (a: usize, f: Formatter) => FmtResult = u32Octal as never;
+/** `usize`'s `LowerExp`, `{:e}`. */
+export const usizeLowerExp: (a: usize, f: Formatter) => FmtResult = u32LowerExp as never;
+/** `usize`'s `UpperExp`, `{:E}`. */
+export const usizeUpperExp: (a: usize, f: Formatter) => FmtResult = u32UpperExp as never;
 /** `usize`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const usizeStep: Step<usize> = u32Step as never;
 /** `isize`'s `a + b`, panicking on overflow. */
@@ -567,6 +678,16 @@ export const isizeTryFrom: (value: number | Limbs) => Result<isize, TryFromIntEr
 export const isizeLowerHex: (a: isize, f: Formatter) => FmtResult = i32LowerHex as never;
 /** `isize`'s `UpperHex`, `{:X}`. */
 export const isizeUpperHex: (a: isize, f: Formatter) => FmtResult = i32UpperHex as never;
+/** `isize`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const isizeDebug: (a: isize, f: Formatter) => FmtResult = i32Debug as never;
+/** `isize`'s `Binary`, `{:b}`. */
+export const isizeBinary: (a: isize, f: Formatter) => FmtResult = i32Binary as never;
+/** `isize`'s `Octal`, `{:o}`. */
+export const isizeOctal: (a: isize, f: Formatter) => FmtResult = i32Octal as never;
+/** `isize`'s `LowerExp`, `{:e}`. */
+export const isizeLowerExp: (a: isize, f: Formatter) => FmtResult = i32LowerExp as never;
+/** `isize`'s `UpperExp`, `{:E}`. */
+export const isizeUpperExp: (a: isize, f: Formatter) => FmtResult = i32UpperExp as never;
 /** `isize`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const isizeStep: Step<isize> = i32Step as never;
 
@@ -1044,8 +1165,23 @@ function wideDisplay(a: Wide, f: Formatter): FmtResult {
 	return fmtPadIntegral(f, v >= 0n, "", (v < 0n ? -v : v).toString());
 }
 
+function wideDebug(a: Wide, bits: number, signed: boolean, f: Formatter): FmtResult {
+	const hexDigits = f.spec.debugHex;
+	return hexDigits === undefined ? wideDisplay(a, f) : wideHex(a, bits, signed, f, hexDigits === "X");
+}
+
+/** A value's bits as unsigned. */
+function wideBits(a: Wide, bits: number, signed: boolean): bigint {
+	return BigInt.asUintN(bits, exact(limbs(a, bits, signed)));
+}
+
 function wideHex(a: Wide, bits: number, signed: boolean, f: Formatter, upper: boolean): FmtResult {
-	return hex(BigInt.asUintN(bits, exact(limbs(a, bits, signed))), f, upper);
+	return hex(wideBits(a, bits, signed), f, upper);
+}
+
+function wideExp(a: Wide, f: Formatter, letter: "e" | "E"): FmtResult {
+	const v = typeof a === "number" ? BigInt(a) : exact(a);
+	return exp(v >= 0n, (v < 0n ? -v : v).toString(), f, letter);
 }
 
 /** A value from a safe integer, or from a bigint of any size, wrapped into range. */
@@ -1142,6 +1278,16 @@ export const u64Display = (a: u64, f: Formatter): FmtResult => wideDisplay(a, f)
 export const u64LowerHex = (a: u64, f: Formatter): FmtResult => wideHex(a, 64, false, f, false);
 /** `u64`'s `UpperHex`, `{:X}`. */
 export const u64UpperHex = (a: u64, f: Formatter): FmtResult => wideHex(a, 64, false, f, true);
+/** `u64`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u64Debug = (a: u64, f: Formatter): FmtResult => wideDebug(a, 64, false, f);
+/** `u64`'s `Binary`, `{:b}`. */
+export const u64Binary = (a: u64, f: Formatter): FmtResult => radix(wideBits(a, 64, false), f, 2, "0b");
+/** `u64`'s `Octal`, `{:o}`. */
+export const u64Octal = (a: u64, f: Formatter): FmtResult => radix(wideBits(a, 64, false), f, 8, "0o");
+/** `u64`'s `LowerExp`, `{:e}`. */
+export const u64LowerExp = (a: u64, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `u64`'s `UpperExp`, `{:E}`. */
+export const u64UpperExp = (a: u64, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `u64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u64Of = (value: number | bigint): u64 => of(value, 64, false) as u64;
 /** `value as u64`. */
@@ -1232,6 +1378,16 @@ export const i64Display = (a: i64, f: Formatter): FmtResult => wideDisplay(a, f)
 export const i64LowerHex = (a: i64, f: Formatter): FmtResult => wideHex(a, 64, true, f, false);
 /** `i64`'s `UpperHex`, `{:X}`. */
 export const i64UpperHex = (a: i64, f: Formatter): FmtResult => wideHex(a, 64, true, f, true);
+/** `i64`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i64Debug = (a: i64, f: Formatter): FmtResult => wideDebug(a, 64, true, f);
+/** `i64`'s `Binary`, `{:b}`. */
+export const i64Binary = (a: i64, f: Formatter): FmtResult => radix(wideBits(a, 64, true), f, 2, "0b");
+/** `i64`'s `Octal`, `{:o}`. */
+export const i64Octal = (a: i64, f: Formatter): FmtResult => radix(wideBits(a, 64, true), f, 8, "0o");
+/** `i64`'s `LowerExp`, `{:e}`. */
+export const i64LowerExp = (a: i64, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `i64`'s `UpperExp`, `{:E}`. */
+export const i64UpperExp = (a: i64, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `i64` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i64Of = (value: number | bigint): i64 => of(value, 64, true) as i64;
 /** `value as i64`. */
@@ -1318,6 +1474,16 @@ export const u128Display = (a: u128, f: Formatter): FmtResult => wideDisplay(a, 
 export const u128LowerHex = (a: u128, f: Formatter): FmtResult => wideHex(a, 128, false, f, false);
 /** `u128`'s `UpperHex`, `{:X}`. */
 export const u128UpperHex = (a: u128, f: Formatter): FmtResult => wideHex(a, 128, false, f, true);
+/** `u128`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const u128Debug = (a: u128, f: Formatter): FmtResult => wideDebug(a, 128, false, f);
+/** `u128`'s `Binary`, `{:b}`. */
+export const u128Binary = (a: u128, f: Formatter): FmtResult => radix(wideBits(a, 128, false), f, 2, "0b");
+/** `u128`'s `Octal`, `{:o}`. */
+export const u128Octal = (a: u128, f: Formatter): FmtResult => radix(wideBits(a, 128, false), f, 8, "0o");
+/** `u128`'s `LowerExp`, `{:e}`. */
+export const u128LowerExp = (a: u128, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `u128`'s `UpperExp`, `{:E}`. */
+export const u128UpperExp = (a: u128, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `u128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const u128Of = (value: number | bigint): u128 => of(value, 128, false) as u128;
 /** `value as u128`. */
@@ -1406,6 +1572,16 @@ export const i128Display = (a: i128, f: Formatter): FmtResult => wideDisplay(a, 
 export const i128LowerHex = (a: i128, f: Formatter): FmtResult => wideHex(a, 128, true, f, false);
 /** `i128`'s `UpperHex`, `{:X}`. */
 export const i128UpperHex = (a: i128, f: Formatter): FmtResult => wideHex(a, 128, true, f, true);
+/** `i128`'s `Debug`, `Display` unless `{:x?}` or `{:X?}` makes it hex. */
+export const i128Debug = (a: i128, f: Formatter): FmtResult => wideDebug(a, 128, true, f);
+/** `i128`'s `Binary`, `{:b}`. */
+export const i128Binary = (a: i128, f: Formatter): FmtResult => radix(wideBits(a, 128, true), f, 2, "0b");
+/** `i128`'s `Octal`, `{:o}`. */
+export const i128Octal = (a: i128, f: Formatter): FmtResult => radix(wideBits(a, 128, true), f, 8, "0o");
+/** `i128`'s `LowerExp`, `{:e}`. */
+export const i128LowerExp = (a: i128, f: Formatter): FmtResult => wideExp(a, f, "e");
+/** `i128`'s `UpperExp`, `{:E}`. */
+export const i128UpperExp = (a: i128, f: Formatter): FmtResult => wideExp(a, f, "E");
 /** A `i128` from a safe integer, or from a bigint of any size, wrapped into range. */
 export const i128Of = (value: number | bigint): i128 => of(value, 128, true) as i128;
 /** `value as i128`. */

@@ -16,7 +16,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	}
 	if (self.tag === "InvalidMessage") {
 		const arg = self._0;
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Debug(arg, f)];
 		return rt.fmtWriteFmt(__formatter, ["invalid message: ", args2[0]]);
 	}
 	if (self.tag === "InvalidSubscribeLocation") {
@@ -83,7 +83,7 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	}
 	if (self.tag === "InvalidMessage") {
 		const _11: string = "InvalidMessage";
-		const _12: rt.Fmt = (f: rt.Formatter) => rt.u64Display(self._0, f);
+		const _12: rt.Fmt = (f: rt.Formatter) => rt.u64Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _11), _12));
 	}
 	if (self.tag === "InvalidSubscribeLocation") {
@@ -104,9 +104,9 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	if (self.tag === "MessageTooLarge") {
 		const _21: string = "MessageTooLarge";
 		const _22: string = "size";
-		const _23: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.size, f);
+		const _23: rt.Fmt = (f: rt.Formatter) => rt.usizeDebug(self.size, f);
 		const _24: string = "max";
-		const _25: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(self.max, f);
+		const _25: rt.Fmt = (f: rt.Formatter) => rt.usizeDebug(self.max, f);
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _21), _22, _23), _24, _25));
 	}
 	if (self.tag === "ExpectedData") {

@@ -479,7 +479,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured3);
 		}));
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(mapped, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(unmapped, f, rt.u32Display)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(mapped, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(unmapped, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["map ", args2[0], " ", args2[1]]));
 		const ok: rt.Result<rt.u32, rt.u32> = rt.Ok(id);
 		const err: rt.Result<rt.u32, rt.u32> = rt.Err(id);
@@ -581,7 +581,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured8);
 		}))];
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(values[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(values[1], f, rt.u32Display, rt.u32Display)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(errors[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(errors[1], f, rt.u32Display, rt.u32Display)], f)];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(values[0], f, rt.u32Debug, rt.u32Debug), (f: rt.Formatter) => rt.fmtResult(values[1], f, rt.u32Debug, rt.u32Debug)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(errors[0], f, rt.u32Debug, rt.u32Debug), (f: rt.Formatter) => rt.fmtResult(errors[1], f, rt.u32Debug, rt.u32Debug)], f)];
 		Log.note(log, rt.fmtFormat(["result ", args4[0], " ", args4[1]]));
 		_84 = guard(7);
 		unwind = 106;
@@ -685,7 +685,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured13);
 		}))];
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(chained[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(chained[1], f, rt.u32Display, rt.u32Display)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(inspected[0], f, rt.u32Display, rt.u32Display), (f: rt.Formatter) => rt.fmtResult(inspected[1], f, rt.u32Display, rt.u32Display)], f)];
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(chained[0], f, rt.u32Debug, rt.u32Debug), (f: rt.Formatter) => rt.fmtResult(chained[1], f, rt.u32Debug, rt.u32Debug)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtResult(inspected[0], f, rt.u32Debug, rt.u32Debug), (f: rt.Formatter) => rt.fmtResult(inspected[1], f, rt.u32Debug, rt.u32Debug)], f)];
 		Log.note(log, rt.fmtFormat(["chained ", args6[0], " ", args6[1]]));
 		_124 = guard(11);
 		unwind = 102;
@@ -738,7 +738,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured16);
 		}))] as [rt.u32, rt.u32];
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Display(part3[0], f), (f: rt.Formatter) => rt.u32Display(part3[1], f)], f)];
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Debug(part3[0], f), (f: rt.Formatter) => rt.u32Debug(part3[1], f)], f)];
 		Log.note(log, rt.fmtFormat(["map_or ", args8[0]]));
 		_150 = guard(13);
 		unwind = 100;
@@ -789,7 +789,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured18);
 		}), rt.drop)] as [rt.u32 | undefined, rt.u32 | undefined];
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part4[0], f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(part4[1], f, rt.u32Display)], f)];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part4[0], f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(part4[1], f, rt.u32Debug)], f)];
 		Log.note(log, rt.fmtFormat(["then ", args10[0]]));
 		_177 = guard(15);
 		unwind = 98;
@@ -819,7 +819,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _191: rt.u32 | undefined = map$Option_u32_u32_discarded_closure16(some, plus);
 		_265 = false;
 		const _194: rt.u32 | undefined = map$Option_u32_u32_discarded_closure16(none, other);
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_191, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(_194, f, rt.u32Display)];
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_191, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(_194, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["by ref ", args12[0], " ", args12[1]]));
 		_205 = guard(18);
 		unwind = 95;
@@ -846,7 +846,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		})), rt.drop);
 		_262 = false;
 		const _221: rt.u32 | undefined = rt.boolThen(!yes, rt.once(skipped), rt.drop);
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_219, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(_221, f, rt.u32Display)];
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_219, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(_221, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["then by ref ", args14[0], " ", args14[1]]));
 		const captured24 = guard(17);
 		const _240: rt.u32 | undefined = some;
@@ -875,7 +875,7 @@ export function discarded(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured26);
 		}));
-		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Display)];
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["nested ", args16[0]]));
 		check(7);
 		_262 = false;
@@ -1194,7 +1194,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_541 = true;
 		const _38: rt.u32 | undefined = rt.iterToOption(mapped.next());
 		const _41: rt.u32 | undefined = rt.iterToOption(mapped.next());
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_38, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(_41, f, rt.u32Display)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_38, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(_41, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["map ", args2[0], " ", args2[1]]));
 		_541 = false;
 		rt.drop(mapped);
@@ -1311,7 +1311,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e4;
 			}
 		});
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Display)];
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["chained ", args6[0]]));
 		const part3 = map$Option_Guard_u32_iterated_closure15(rt.iterToOption(chained.next()), (g9: Guard.Guard): rt.u32 => {
 			let unwind4: number = 0;
@@ -1329,7 +1329,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e5;
 			}
 		});
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part3, f, rt.u32Display)];
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part3, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["chained ", args8[0]]));
 		_536 = false;
 		rt.drop(chained);
@@ -1369,7 +1369,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		unwind = 286;
 		_533 = true;
 		const part4 = rt.iterToOption(flat.next());
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, rt.u32Display)];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["flat ", args10[0]]));
 		check(3);
 		_533 = false;
@@ -1387,7 +1387,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(captured12);
 		})), false, rt.drop);
 		unwind = 248;
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(whiles, f, rt.u32Display)];
+		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(whiles, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["map_while ", args12[0]]));
 		_227 = guard(19);
 		unwind = 247;
@@ -1450,7 +1450,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e6;
 			}
 		});
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(made, f), (f: rt.Formatter) => rt.u32Display(walked, f), (f: rt.Formatter) => rt.fmtOption(_256, f, rt.u32Display)];
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(made, f), (f: rt.Formatter) => rt.u32Display(walked, f), (f: rt.Formatter) => rt.fmtOption(_256, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["lazy ", args14[0], " ", args14[1], " ", args14[2]]));
 		const part5 = map$Option_Guard_u32_iterated_closure15(rt.iterToOption(chain.next()), (g12: Guard.Guard): rt.u32 => {
 			let unwind6: number = 0;
@@ -1468,7 +1468,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e7;
 			}
 		});
-		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Display)];
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["successor ", args16[0]]));
 		_528 = false;
 		rt.drop(chain);
@@ -1528,7 +1528,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(captured23);
 		});
 		const atPos: rt.usize | undefined = rt.dropAfter(_330, () => rt.iterPosition(_327, _330));
-		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(any, f), (f: rt.Formatter) => rt.fmtOption(found, f, rt.u32Display), (f: rt.Formatter) => rt.fmtOption(atPos, f, rt.usizeDisplay)];
+		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(any, f), (f: rt.Formatter) => rt.fmtOption(found, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(atPos, f, rt.usizeDebug)];
 		Log.note(log, rt.fmtFormat(["found ", args18[0], " ", args18[1], " ", args18[2]]));
 		n = guard(27);
 		unwind = 271;
@@ -1593,7 +1593,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		}, (): void => {
 			rt.drop(captured28);
 		})), 1), rt.drop);
-		const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(peeked, f), (f: rt.Formatter) => rt.usizeDisplay(skipped, f), (f: rt.Formatter) => rt.fmtOption(last, f, rt.u32Display)];
+		const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(peeked, f), (f: rt.Formatter) => rt.usizeDisplay(skipped, f), (f: rt.Formatter) => rt.fmtOption(last, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["counted ", args22[0], " ", args22[1], " ", args22[2]]));
 		r = guard(36);
 		unwind = 263;
@@ -1629,7 +1629,7 @@ export function iterated(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e8;
 			}
 		});
-		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part8, f, rt.u32Display)];
+		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part8, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["best ", args24[0]]));
 		map = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>;
 		unwind = 235;
