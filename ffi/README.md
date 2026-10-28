@@ -226,6 +226,10 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
 - **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
   `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
+- A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr` is a
+  `java.net.InetSocketAddress`, which must be resolved; one Rust returns with an IPv6 flow
+  label, which Java does not keep, throws. A `Vec<T>` is a `List`, and passing it by
+  value closes each object in it once the call returns.
 - **Traits** are interfaces; once Rust drops an implementation, it is closed if
   `AutoCloseable`.
 - **Closures** lent for a call are function types, which Rust calls only during the call,

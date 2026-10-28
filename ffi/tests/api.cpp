@@ -440,7 +440,7 @@ int script() {
 	std::printf("\n");
 
 	// A path's bytes as the OS holds them, which need not be UTF-8.
-	api::buf file = api::file(api::view("\xff" "dir"), "f");
+	api::buf file = api::file("dir", "f");
 	auto parents = api::parents({file, "/"});
 	print_escaped("file ", file, "\n");
 	std::printf("parents");
@@ -479,6 +479,8 @@ int script() {
 		std::printf("%llu", static_cast<unsigned long long>(counters[i].get()));
 	}
 	std::printf("\n");
+	auto worth = api::worth(std::move(counters));
+	std::printf("worth %llu %llu\n", ull(worth), ull(api::worth(std::nullopt)));
 
 	auto sums = api::sums({{1, 2}, {}, {3}});
 	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);

@@ -324,10 +324,7 @@ fn main() {
 	}
 	.next("c");
 	println!("peer {peer:?} {:?}", peer.aliases());
-	let dir = std::path::PathBuf::from(<std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(
-		b"\xffdir".to_vec(),
-	));
-	let file = api_lib::file(&dir, "f");
+	let file = api_lib::file(std::path::Path::new("dir"), "f");
 	println!("file {}", file.as_os_str().as_encoded_bytes().escape_ascii());
 	let parents = api_lib::parents(vec![file, std::path::PathBuf::from("/")]);
 	let parents: Vec<String> = (parents.iter())
@@ -347,8 +344,9 @@ fn main() {
 	println!("sentence {}|", api_lib::sentence(Some(Vec::new())));
 	println!("chunks {:?}", api_lib::chunks(b"abcde", 2));
 	let counters = api_lib::counters(vec!["x".to_string(), "y".to_string()]);
-	let counters: Vec<String> = counters.iter().map(|c| format!("{} {}", c.name(), c.get())).collect();
-	println!("counters {}", counters.join(", "));
+	let names: Vec<String> = counters.iter().map(|c| format!("{} {}", c.name(), c.get())).collect();
+	println!("counters {}", names.join(", "));
+	println!("worth {} {}", api_lib::worth(Some(counters)), api_lib::worth(None));
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);

@@ -924,6 +924,13 @@ pub fn file(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
 	dir.join(name)
 }
 
+/// A path whose bytes are not UTF-8, as a Unix path may be.
+pub fn stray() -> std::path::PathBuf {
+	std::path::PathBuf::from(<std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(vec![
+		0xff,
+	]))
+}
+
 /// Each path's parent, if it has one.
 pub fn parents(paths: Vec<std::path::PathBuf>) -> Vec<Option<std::path::PathBuf>> {
 	paths
@@ -950,6 +957,11 @@ pub fn chunks(bytes: &[u8], size: usize) -> Vec<Vec<u8>> {
 /// A counter for each name, at 1.
 pub fn counters(names: Vec<String>) -> Vec<Counter> {
 	names.iter().map(|name| Counter::new(name, 1)).collect()
+}
+
+/// The counters' values summed, or 0 for none: each moves in.
+pub fn worth(counters: Option<Vec<Counter>>) -> u64 {
+	counters.map_or(0, |counters| counters.iter().map(Counter::get).sum())
 }
 
 /// Each row's sum.

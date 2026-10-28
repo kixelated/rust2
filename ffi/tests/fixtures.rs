@@ -238,6 +238,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 			"api_counter_into_label: a lent handle's value cannot move out",
 		),
 		("callback threw", "api_fixture::Log::log: a call into Kotlin threw"),
+		("stray", "MalformedInputException"),
 	] {
 		let output = java(&[case]).output().unwrap();
 		assert!(!output.status.success(), "Kotlin {case} did not fail");

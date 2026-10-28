@@ -540,8 +540,14 @@ static int script(void) {
 	api_buf_free(debug);
 
 	/* A path's bytes as the OS holds them, which need not be UTF-8. */
-	api_buf dir = {.ptr = (const uint8_t *)"\xff" "dir", .len = 4};
-	api_buf file = api_file(dir, str("f"));
+	api_buf stray = api_stray();
+	api_buf in_stray = api_file(stray, str("f"));
+	if (in_stray.len != 3 || memcmp(in_stray.ptr, "\xff/f", 3) != 0) {
+		return 1;
+	}
+	api_buf_free(stray);
+	api_buf_free(in_stray);
+	api_buf file = api_file(str("dir"), str("f"));
 	api_buf paths[] = {file, str("/")};
 	api_vec_option_path parents = api_parents((api_vec_path){.ptr = paths, .len = 2});
 	print_escaped("file ", file, "\n");
@@ -591,6 +597,9 @@ static int script(void) {
 		printf("%llu", (unsigned long long)api_counter_get(counters.ptr[i]));
 	}
 	printf("\n");
+	/* Each counter moves in, leaving its handle only to free. */
+	uint64_t worth = api_worth(counters);
+	printf("worth %llu %llu\n", (unsigned long long)worth, (unsigned long long)api_worth((api_vec_counter){0}));
 	api_vec_counter_free(counters);
 
 	uint32_t row0[] = {1, 2};
