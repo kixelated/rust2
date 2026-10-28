@@ -410,6 +410,9 @@ static int script(void) {
 	api_counter_free(from_polar);
 	api_stack_free(stack);
 
+	/* A trait implemented for `Point` and `&Point` apart: one instance. */
+	printf("weigh %u\n", api_weigh_point((api_point){.x = -1, .y = 2}));
+
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);
 	printf("token %u dropped %u\n", api_token_id(token), api_dropped());

@@ -171,6 +171,14 @@ pub fn listed(cell: Cell<Vec<String>>) -> usize {
 	cell.0.len()
 }
 
+/// A const-generic type, whose const argument the IR cannot carry.
+pub struct Fixed<const N: usize>(pub u8);
+
+/// An instance of it, which a signature names.
+pub fn fixed() -> Fixed<2> {
+	Fixed(2)
+}
+
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
 

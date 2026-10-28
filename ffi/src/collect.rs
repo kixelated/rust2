@@ -526,6 +526,10 @@ impl<'tcx> Collector<'tcx> {
 				Err(why("instance holding an instance of a type inside it", spelled)),
 			));
 		}
+		// The IR keeps only an instance's type arguments, which would lose a const one.
+		if args.consts().next().is_some() {
+			return Some((key, Err(why("const generic", spelled))));
+		}
 		let (infcx, env) = tcx.infer_ctxt().build_with_typing_env(TypingEnv::fully_monomorphized());
 		for clause in tcx.clauses_of(def_id).instantiate(tcx, args).clauses {
 			let clause = clause.skip_norm_wip();
@@ -1370,6 +1374,9 @@ impl<'tcx> Collector<'tcx> {
 			if !instance.named.is_empty() {
 				let spelled: Vec<String> = instance.named.iter().map(|&ty| self.spell(ty.peel_refs())).collect();
 				*shown.last_mut().expect("a path has a segment") += &format!("<{}>", spelled.join(", "));
+				if self.exclude(&shown) {
+					continue;
+				}
 			}
 			let function = self.function(def_id, path.clone(), self_ty, instance);
 			functions.push((function, shown, !instance.named.is_empty()));
@@ -1726,13 +1733,16 @@ impl<'tcx> Collector<'tcx> {
 		let at = |candidate: Ty<'tcx>| self.at(def_id, param, base, candidate);
 		let mut found: Vec<Ty<'tcx>> = Vec::new();
 		for ty in self.implementors(def_id, param) {
-			let borrowed = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty);
-			let ty = match at(borrowed) {
-				Some(_) => borrowed,
+			// An implementation for `&X` is taken as it is: C passes no reference to one.
+			let borrowed = (!ty.is_ref()).then(|| Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty));
+			let ty = match borrowed.filter(|&borrowed| at(borrowed).is_some()) {
+				Some(borrowed) => borrowed,
 				None if at(ty).is_some() => ty,
 				None => continue,
 			};
-			if self.ty(ty, Pos::Param).is_ok() {
+			// `X` and an implementation for `&X` both choose `&X`.
+			let ty = tcx.erase_and_anonymize_regions(ty);
+			if !found.contains(&ty) && self.ty(ty, Pos::Param).is_ok() {
 				found.push(ty);
 			}
 		}

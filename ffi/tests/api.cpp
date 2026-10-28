@@ -345,6 +345,9 @@ int script() {
 		            ull(api::seeds_point_size({2, 3})));
 	}
 
+	// A trait implemented for `Point` and `&Point` apart: one instance.
+	std::printf("weigh %u\n", api::weigh_point({-1, 2}));
+
 	// Its Drop runs when C++ destroys the handle, not before.
 	{
 		api::token token = api::token::new_(7);

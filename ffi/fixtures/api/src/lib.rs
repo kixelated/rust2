@@ -676,6 +676,25 @@ pub trait Seed<T> {
 	fn seed(&self) -> T;
 }
 
+/// A weight, implemented for `Point` and for `&Point` apart, which both choose `&Point`:
+/// one instance of a parameter it bounds.
+impl Seed<u32> for Point {
+	fn seed(&self) -> u32 {
+		self.x.unsigned_abs() + self.y.unsigned_abs()
+	}
+}
+
+impl Seed<u32> for &Point {
+	fn seed(&self) -> u32 {
+		Seed::<u32>::seed(*self)
+	}
+}
+
+/// `from`'s weight.
+pub fn weigh(from: impl Seed<u32>) -> u32 {
+	from.seed()
+}
+
 impl<S: Seed<u64>> Seed<u64> for &S {
 	fn seed(&self) -> u64 {
 		(**self).seed()

@@ -263,6 +263,8 @@ fn main() {
 		api_lib::seeds::<Point>(&Size { width: 2, height: 3 })
 	);
 
+	println!("weigh {}", api_lib::weigh(Point { x: -1, y: 2 }));
+
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());
 	drop(token);
