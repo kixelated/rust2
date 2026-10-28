@@ -380,9 +380,13 @@ they need.
   ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
 - A function only translated code calls takes each `&[u8]` or `&[u8; N]` parameter as
   three, its `data`, `start`, and `length`, which its body holds as that local's parts:
-  not a root, which the outside calls, a closure, or an `async fn`. One whose object the
-  body would make more often than once, or that it borrows, is made on entry, and the
-  function as a value is an arrow that takes the slice whole. BENCH
+  not a root, which the outside calls, a closure, or an `async fn`. One the body borrows,
+  or would make whole twice on a path or in a loop, is made on entry, and the function as
+  a value is an arrow that takes the slice whole. `just ts bench` measured it
+  no faster than passing the slice whole, since V8 already removes what an inlined call
+  doesn't keep: Chrome's varint decode at 0.98-0.99 times the time and frame decode at
+  1.01-1.05 over two runs, with the A/A route within 0.05, Firefox and Bun within their
+  noise, and Node's varint decode at 1.11-1.15.
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a
