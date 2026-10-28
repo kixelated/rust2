@@ -242,4 +242,12 @@ const cellScripts = [
 ];
 const cells = Array.from({ length: 256 }, (_, kind) => cellScripts.map((script) => Uint8Array.of(cellsOp, kind, ...script))).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells];
+/**
+ * `dyns::shared` too short to run, and with `Arc`s of each type, the last count of each at
+ * zero and at the top of its range.
+ */
+const shared = [[], [1], [0, 0], [255, 255, 0, 1, 2, 3, 4, 5], [7, 0xff, 255, 254, 253]].map((bytes) =>
+	Uint8Array.of(op("dyns::shared"), 0, ...bytes),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells, ...shared];

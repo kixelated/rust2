@@ -66,9 +66,14 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// What boxed trait objects drop, panicking at the point `at` names, if any.
-pub fn dyns(log: &Log, id: u32, at: u8) {
-	objects::boxed(log, id, at)
+/// Run trait object scenario `arg % 12`, boxed or shared, panicking at the point
+/// `arg % 6` names, if any.
+pub fn dyns(log: &Log, id: u32, arg: u8) {
+	let at = arg % 6;
+	match arg / 6 % 2 {
+		0 => objects::boxed(log, id, at),
+		_ => objects::shared(log, id, at),
+	}
 }
 
 /// Run one-time cells' scenario `at`.
@@ -663,6 +668,46 @@ impl Drop for Shell {
 	}
 }
 
+/// Slots that may hold a value, replaced in place.
+struct Slots(Vec<Option<Bomb>>);
+
+impl Slots {
+	fn put(&mut self, index: usize, bomb: Bomb) {
+		self.0[index] = Some(bomb);
+	}
+}
+
+/// Slots in an array, replaced through a reference to one.
+struct Ring {
+	slots: [Option<Bomb>; 2],
+}
+
+impl Ring {
+	fn lent(&mut self, index: usize, bomb: Bomb) {
+		let slot = &mut self.slots[index];
+		lend(slot);
+		*slot = Some(bomb);
+	}
+}
+
+/// Each slot from `from` on, replaced through a reference to it.
+fn refill(slots: &mut [Option<Bomb>], from: usize, mut bomb: impl FnMut(u32) -> Bomb) {
+	let mut i = from;
+	while i < slots.len() {
+		let slot = &mut slots[i];
+		lend(slot);
+		*slot = Some(bomb(i as u32));
+		i += 1;
+	}
+}
+
+/// Logs the value a reference to a slot reads.
+fn lend(slot: &mut Option<Bomb>) {
+	if let Some(bomb) = slot {
+		bomb.log.note(format!("b{} lent", bomb.id));
+	}
+}
+
 /// What drops after a value's `Drop` panics, scenario `at`'s alone: the rest of the
 /// value, and the rest of what holds it, as std's glue and collections go on.
 fn blown(log: &Log, id: u32, at: u8) {
@@ -714,12 +759,38 @@ fn blown(log: &Log, id: u32, at: u8) {
 			queue.push_front(bomb(0, false));
 			queue.truncate(1);
 		}
-		_ => {
+		7 => {
 			// One entry, whose order std's hash table leaves no room to differ in, and
 			// which leaves the map empty as unwinding drops it.
 			let mut map = HashMap::new();
 			map.insert(key(1, Fault::Blows), guard(1));
 			map.clear();
+		}
+		8 => {
+			// The old element drops before the new one takes its place; past the end, the
+			// index panics with nothing dropped but the new value.
+			let mut v = list![bomb(1, false), bomb(2, false)];
+			v[0] = bomb(3, false);
+			v[2] = bomb(4, false);
+		}
+		9 => {
+			// As kio's slab replaces an occupant through `&mut self`: as the old one panics,
+			// the new one still takes its place.
+			let mut slots = Slots(list![None, Some(bomb(1, false)), Some(bomb(2, true))]);
+			slots.put(0, bomb(3, false));
+			slots.put(1, bomb(4, false));
+			slots.put(2, bomb(5, false));
+		}
+		_ => {
+			// The same through a reference to the slot, lent out first, and in a loop where
+			// the cleanup only stores the new value.
+			let mut ring = Ring {
+				slots: [None, Some(bomb(1, false))],
+			};
+			ring.lent(0, bomb(2, false));
+			ring.lent(1, bomb(3, false));
+			let mut slots = list![Some(bomb(4, false)), Some(bomb(5, true))];
+			refill(&mut slots, 0, |n| bomb(n + 6, false));
 		}
 	}
 	log.note(format!("unreached"));

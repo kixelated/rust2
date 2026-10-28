@@ -153,12 +153,18 @@ pub fn call<'tcx>(
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
 		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
 		("Arc", "strong_count") => first(args).member("strong"),
+		// Two `Arc`s of trait objects are views of the `Arc`s they were made from.
+		("Arc", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => Expr::rt("arcPtrEq", args),
 		("Arc", "ptr_eq") => {
 			let [l, r] = two(args);
 			l.binary("===", r)
 		}
 		("Weak", "upgrade") => Expr::rt("weakUpgrade", args),
 		("Weak", "strong_count") => first(args).member("arc").member("strong"),
+		("Weak", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => {
+			let [l, r] = two(args);
+			Expr::rt("arcPtrEq", vec![l.member("arc"), r.member("arc")])
+		}
 		("Weak", "ptr_eq") => {
 			let [l, r] = two(args);
 			l.member("arc").binary("===", r.member("arc"))
