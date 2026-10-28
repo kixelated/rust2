@@ -980,7 +980,7 @@ fn mapping<'tcx>(
 				// A box is what it holds, cloned.
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => {
 					let inner = args.type_at(0);
-					if !inner.is_sized(tcx, b.t.typing_env_pub()) && !inner.is_str() {
+					if !inner.is_sized(tcx, b.t.typing_env_pub()) {
 						return None;
 					}
 					match super::collections::clone_fn(b, inner, span) {
