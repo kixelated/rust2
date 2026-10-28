@@ -27,7 +27,7 @@ export function thenSome$bool_u32(self: boolean, t: rt.u32): rt.u32 | undefined 
 	return t;
 }
 
-export function then$bool_Guard_iterated_closure13_closure0(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
+export function then$bool_Guard_folded_closure55_closure0(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
 	if (!self) {
 		return undefined;
 	}
@@ -66,6 +66,13 @@ export function then$bool_u32_discarded_closure18(self: boolean, f: () => rt.u32
 		return _0;
 	}
 	return _0;
+}
+
+export function then$bool_u32_folded_closure48_closure0(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
 }
 
 //# sourceMappingURL=bool.ts.map

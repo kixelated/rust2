@@ -386,7 +386,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			objects = rt.iterToArray(rt.iterMap(new rt.Range(0, 3), (_2: rt.i32): rt.Arc<Shape.Shape> => {
 				const _34: rt.Arc<Hits.Hits> = rt.arcClone(hits);
 				return new rt.ArcDyn(_34, new Shape.Hits(_34.value));
-			}), false, undefined, rt.drop);
+			}), undefined, rt.drop);
 			unwind = 244;
 			_385 = true;
 			const sum: rt.u32 = rt.iterFold(rt.iterSlice(objects), 0, (sum2: rt.u32, s2: rt.Arc<Shape.Shape>): rt.u32 => {
@@ -439,12 +439,12 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 				}
 				const _113: rt.Arc<Square.Square> = new rt.Arc({ side: x as rt.u16 });
 				return new rt.ArcDyn(_113, new Named.Square(_113.value));
-			}), false, undefined, rt.drop);
+			}), undefined, rt.drop);
 			unwind = 242;
 			_384 = true;
 			kept = rt.iterToArray(rt.iterMap(rt.iterStepBy(rt.iterSlice(tris), 2), (a0: rt.Arc<Named.Named>): rt.Arc<Named.Named> => {
 				return rt.arcClone(a0);
-			}), false, undefined, rt.drop);
+			}), undefined, rt.drop);
 			unwind = 211;
 			for (const _298 of tris) {
 				const _310: string = _298.value.label$Named();
