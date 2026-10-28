@@ -19,7 +19,7 @@ generic std gap is planned here even when moq never calls it.
 - [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Trait` and `Box<dyn Future>` translate, so a consumer neither rewrites nor binds them
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
-- [An inclusive range drained by a fold](/quest/m3/ts-range-fold.md) - a folded `RangeInclusive` ends in core's state
+- [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state
 - [bool's combinators from core's MIR](/quest/m3/ts-bool-core.md) - `bool::then` lowers from core, retiring `rt.boolThen`
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
